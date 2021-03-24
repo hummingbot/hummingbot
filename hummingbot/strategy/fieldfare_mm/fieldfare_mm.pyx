@@ -74,9 +74,9 @@ cdef class FieldfareMMStrategy(StrategyBase):
                  max_spread: Decimal = Decimal("2"),
                  vol_to_spread_multiplier: Decimal = Decimal("1.3"),
                  inventory_risk_aversion: Decimal = Decimal("0.5"),
-                 kappa: Decimal = Decimal("0.1"),
-                 gamma: Decimal = Decimal("0.5"),
-                 eta: Decimal = Decimal("0.005"),
+                 order_book_depth_factor: Decimal = Decimal("0.1"),
+                 risk_factor: Decimal = Decimal("0.5"),
+                 order_amount_shape_factor: Decimal = Decimal("0.005"),
                  closing_time: Decimal = Decimal("1"),
                  debug_csv_path: str = '',
                  buffer_size: int = 30,
@@ -115,9 +115,9 @@ cdef class FieldfareMMStrategy(StrategyBase):
         self._avg_vol = AverageVolatilityIndicator(buffer_size, 1)
         self._buffer_sampling_period = buffer_sampling_period
         self._last_sampling_timestamp = 0
-        self._kappa = kappa
-        self._gamma = gamma
-        self._eta = eta
+        self._kappa = order_book_depth_factor
+        self._gamma = risk_factor
+        self._eta = order_amount_shape_factor
         self._time_left = closing_time
         self._closing_time = closing_time
         self._latest_parameter_calculation_vol = 0
@@ -352,7 +352,11 @@ cdef class FieldfareMMStrategy(StrategyBase):
             lines.extend(["", "  No active maker orders."])
 
         volatility_pct = self._avg_vol.current_value / float(self.get_price()) * 100.0
-        lines.extend(["", f"Avellaneda-Stoikov: Gamma= {self._gamma:.5E} | Kappa= {self._kappa:.5E} | Volatility= {volatility_pct:.3f}% | Time left fraction= {self._time_left/self._closing_time:.4f}"])
+        lines.extend(["", f"  fieldfare_mm parameters:",
+                      f"    risk_factor(\u03B3)= {self._gamma:.5E}",
+                      f"    order_book_depth_factor(\u03BA)= {self._kappa:.5E}",
+                      f"    volatility= {volatility_pct:.3f}%",
+                      f"    time left fraction= {self._time_left/self._closing_time:.4f}"])
 
         warning_lines.extend(self.balance_warning([self._market_info]))
 
