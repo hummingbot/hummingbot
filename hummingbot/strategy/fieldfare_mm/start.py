@@ -39,13 +39,14 @@ def start(self):
 
         strategy_logging_options = FieldfareMMStrategy.OPTION_LOG_ALL
         parameters_based_on_spread = c_map.get("parameters_based_on_spread").value
-        min_spread = c_map.get("min_spread").value / Decimal(100)
-        max_spread = c_map.get("max_spread").value / Decimal(100)
-        vol_to_spread_multiplier = c_map.get("vol_to_spread_multiplier").value
-        inventory_risk_aversion = c_map.get("inventory_risk_aversion").value
         if parameters_based_on_spread:
-            risk_factor = order_book_depth_factor = order_amount_shape_factor = -1
+            risk_factor = order_book_depth_factor = order_amount_shape_factor = None
+            min_spread = c_map.get("min_spread").value / Decimal(100)
+            max_spread = c_map.get("max_spread").value / Decimal(100)
+            vol_to_spread_multiplier = c_map.get("vol_to_spread_multiplier").value
+            inventory_risk_aversion = c_map.get("inventory_risk_aversion").value
         else:
+            min_spread = max_spread = vol_to_spread_multiplier = inventory_risk_aversion = None
             order_book_depth_factor = c_map.get("order_book_depth_factor").value
             risk_factor = c_map.get("risk_factor").value
             order_amount_shape_factor = c_map.get("order_amount_shape_factor").value

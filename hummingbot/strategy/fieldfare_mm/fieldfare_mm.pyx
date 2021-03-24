@@ -409,7 +409,7 @@ cdef class FieldfareMMStrategy(StrategyBase):
                 # If gamma or kappa are -1 then it's the first time they are calculated.
                 # Also, if volatility goes beyond the threshold specified, we consider volatility regime has changed
                 # so parameters need to be recalculated.
-                if (self._gamma == s_decimal_neg_one or self._kappa == s_decimal_neg_one) or \
+                if (self._gamma is None) or (self._kappa is None) or \
                         (self._parameters_based_on_spread and
                          self.c_volatility_diff_from_last_parameter_calculation(self._avg_vol.current_value) > (self._vol_to_spread_multiplier - 1)):
                     self.c_recalculate_parameters()
@@ -473,14 +473,21 @@ cdef class FieldfareMMStrategy(StrategyBase):
         q = market.get_balance(self.base_asset) - Decimal(str(self.c_calculate_target_inventory()))
         vol = Decimal(str(self._avg_vol.current_value))
         mid_price_variance = vol ** 2
+
         self._reserved_price = price - (q * self._gamma * mid_price_variance * time_left_fraction)
+        self._optimal_spread = self._gamma * mid_price_variance * time_left_fraction + 2 * Decimal(
+            1 + self._gamma / self._kappa).ln() / self._gamma
 
-        min_limit_bid = min(price * (1 - self._max_spread), price - self._vol_to_spread_multiplier * vol)
-        max_limit_bid = price * (1 - self._min_spread)
-        min_limit_ask = price * (1 + self._min_spread)
-        max_limit_ask = max(price * (1 + self._max_spread), price + self._vol_to_spread_multiplier * vol)
+        if self._parameters_based_on_spread:
+            min_limit_bid = min(price * (1 - self._max_spread), price - self._vol_to_spread_multiplier * vol)
+            max_limit_bid = price * (1 - self._min_spread)
+            min_limit_ask = price * (1 + self._min_spread)
+            max_limit_ask = max(price * (1 + self._max_spread), price + self._vol_to_spread_multiplier * vol)
+        else:
+            min_limit_bid = s_decimal_zero
+            max_limit_bid = min_limit_ask = price
+            max_limit_ask = Decimal("Inf")
 
-        self._optimal_spread = self._gamma * mid_price_variance * time_left_fraction + 2 * Decimal(1 + self._gamma / self._kappa).ln() / self._gamma
         self._optimal_ask = min(max(self._reserved_price + self._optimal_spread / 2,
                                     min_limit_ask),
                                 max_limit_ask)
@@ -491,9 +498,6 @@ cdef class FieldfareMMStrategy(StrategyBase):
         # Optimal bid and optimal ask prices will be used
         self.logger().info(f"bid={(price-(self._reserved_price - self._optimal_spread / 2)) / price * 100:.4f}% | "
                            f"ask={((self._reserved_price + self._optimal_spread / 2) - price) / price * 100:.4f}% | "
-                           f"vol_based_bid/ask={self._vol_to_spread_multiplier * vol / price * 100:.4f}% | "
-                           f"opt_bid={(price-self._optimal_bid) / price * 100:.4f}% | "
-                           f"opt_ask={(self._optimal_ask-price) / price * 100:.4f}% | "
                            f"q={q:.4f} | "
                            f"vol={vol:.4f}")
 
