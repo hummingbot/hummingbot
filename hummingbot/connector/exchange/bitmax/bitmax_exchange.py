@@ -496,7 +496,7 @@ class BitmaxExchange(ExchangeBase):
             [exchange_order_id, timestamp] = bitmax_utils.gen_exchange_order_id(self._account_uid, order_id)
 
             api_params = {
-                "id": order_id,
+                "id": exchange_order_id,
                 "time": timestamp,
                 "symbol": bitmax_utils.convert_to_exchange_trading_pair(trading_pair),
                 "orderPrice": f"{price:f}",
