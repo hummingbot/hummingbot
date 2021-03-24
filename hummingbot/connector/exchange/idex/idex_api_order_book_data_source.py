@@ -11,11 +11,11 @@ from typing import (
 )
 from decimal import Decimal
 import time
+
+import requests
 import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
-
-import cachetools.func
 
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
@@ -75,17 +75,14 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return float(last_trade["price"])
 
     @classmethod
-    @cachetools.func.ttl_cache(ttl=10)
-    async def get_mid_price(cls, trading_pair: str) -> Optional[Decimal]:
-        async with aiohttp.ClientSession() as client:
-            base_url: str = get_idex_rest_url()
-            ticker_url: str = f"{base_url}/v1/tickers?market={trading_pair}"
-            resp = await client.get(ticker_url)
-            market = await resp.json()
-            if market.get('bid') and market.get('ask'):
-                result = (Decimal(market['bid']) + Decimal(market['ask'])) / Decimal('2')
-                # Result will be in the form: Decimal("result") - confirm that is
-                return result
+    def get_mid_price(cls, trading_pair: str) -> Optional[Decimal]:
+        base_url: str = get_idex_rest_url()
+        ticker_url: str = f"{base_url}/v1/tickers?market={trading_pair}"
+        resp = requests.get(ticker_url)
+        market = resp.json()
+        if market.get('bid') and market.get('ask'):
+            result = (Decimal(market['bid']) + Decimal(market['ask'])) / Decimal('2')
+            return result
 
     @staticmethod
     async def fetch_trading_pairs() -> List[str]:
