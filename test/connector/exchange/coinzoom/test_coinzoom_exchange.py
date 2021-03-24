@@ -139,9 +139,9 @@ class CoinzoomExchangeUnitTest(unittest.TestCase):
 
     def test_estimate_fee(self):
         maker_fee = self.connector.estimate_fee_pct(True)
-        self.assertAlmostEqual(maker_fee, Decimal("0.001"))
+        self.assertAlmostEqual(maker_fee, Decimal("0.002"))
         taker_fee = self.connector.estimate_fee_pct(False)
-        self.assertAlmostEqual(taker_fee, Decimal("0.0025"))
+        self.assertAlmostEqual(taker_fee, Decimal("0.0026"))
 
     def test_buy_and_sell(self):
         price = self.connector.get_price(self.trading_pair, True) * Decimal("1.02")

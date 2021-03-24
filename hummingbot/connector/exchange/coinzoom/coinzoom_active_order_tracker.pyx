@@ -18,6 +18,8 @@ cdef class CoinzoomActiveOrderTracker:
         super().__init__()
         self._active_asks = active_asks or {}
         self._active_bids = active_bids or {}
+        self._active_asks_ids = {}
+        self._active_bids_ids = {}
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -44,7 +46,17 @@ cdef class CoinzoomActiveOrderTracker:
 
     def get_rates_and_quantities(self, entry) -> tuple:
         # price, quantity
-        return float(entry["price"]), float(entry["size"])
+        return float(entry[0]), float(entry[1])
+
+    def get_rates_and_amts_with_ids(self, entry, id_list) -> tuple:
+        if len(entry) > 1:
+            price = float(entry[1])
+            amount = float(entry[2])
+            id_list[str(entry[0])] = price
+        else:
+            price = id_list.get(str(entry[0]))
+            amount = 0.0
+        return price, amount
 
     cdef tuple c_convert_diff_message_to_np_arrays(self, object message):
         cdef:
@@ -60,37 +72,32 @@ cdef class CoinzoomActiveOrderTracker:
             double timestamp = message.timestamp
             double amount = 0
 
-        if "bid" in content_keys:
-            bid_entries = content["bid"]
-        if "ask" in content_keys:
-            ask_entries = content["ask"]
+        if "b" in content_keys:
+            bid_entries = content["b"]
+        if "s" in content_keys:
+            ask_entries = content["s"]
 
-        bids = s_empty_diff
-        asks = s_empty_diff
+        nps = {
+            'bids': s_empty_diff,
+            'asks': s_empty_diff,
+        }
 
-        if len(bid_entries) > 0:
-            bids = np.array(
-                [[timestamp,
-                  price,
-                  amount,
-                  message.update_id]
-                 for price, amount in [self.get_rates_and_quantities(entry) for entry in bid_entries]],
-                dtype="float64",
-                ndmin=2
-            )
+        for entries, diff_key, id_list in [
+            (content["b"], 'bids', self._active_bids_ids),
+            (content["s"], 'asks', self._active_asks_ids)
+        ]:
+            if len(entries) > 0:
+                nps[diff_key] = np.array(
+                    [[timestamp,
+                      price,
+                      amount,
+                      message.update_id]
+                     for price, amount in [self.get_rates_and_amts_with_ids(entry, id_list) for entry in entries] if price is not None],
+                    dtype="float64",
+                    ndmin=2
+                )
 
-        if len(ask_entries) > 0:
-            asks = np.array(
-                [[timestamp,
-                  price,
-                  amount,
-                  message.update_id]
-                 for price, amount in [self.get_rates_and_quantities(entry) for entry in ask_entries]],
-                dtype="float64",
-                ndmin=2
-            )
-
-        return bids, asks
+        return nps['bids'], nps['asks']
 
     cdef tuple c_convert_snapshot_message_to_np_arrays(self, object message):
         cdef:
@@ -104,11 +111,21 @@ cdef class CoinzoomActiveOrderTracker:
         self._active_asks.clear()
         timestamp = message.timestamp
         content = message.content
+        content_keys = list(content.keys())
 
-        for snapshot_orders, active_orders in [(content["bid"], self._active_bids), (content["ask"], self._active_asks)]:
-            for entry in snapshot_orders:
-                price, amount = self.get_rates_and_quantities(entry)
-                active_orders[price] = amount
+        if "bids" in content_keys:
+            for snapshot_orders, active_orders in [(content["bids"], self._active_bids), (content["asks"], self._active_asks)]:
+                for entry in snapshot_orders:
+                    price, amount = self.get_rates_and_quantities(entry)
+                    active_orders[price] = amount
+        else:
+            for snapshot_orders, active_orders, active_order_ids in [
+                (content["b"], self._active_bids, self._active_bids_ids),
+                (content["s"], self._active_asks, self._active_asks_ids)
+            ]:
+                for entry in snapshot_orders:
+                    price, amount = self.get_rates_and_amts_with_ids(entry, active_order_ids)
+                    active_orders[price] = amount
 
         # Return the sorted snapshot tables.
         cdef:
@@ -132,15 +149,16 @@ cdef class CoinzoomActiveOrderTracker:
 
         return bids, asks
 
+    # Is this method actually used?
     cdef np.ndarray[np.float64_t, ndim=1] c_convert_trade_message_to_np_array(self, object message):
         cdef:
-            double trade_type_value = 1.0 if message.content["side"] == "buy" else 2.0
+            double trade_type_value = 1.0 if message.content[4] == "BUY" else 2.0
 
         timestamp = message.timestamp
         content = message.content
 
         return np.array(
-            [timestamp, trade_type_value, float(content["price"]), float(content["quantity"])],
+            [timestamp, trade_type_value, float(content[1]), float(content[2])],
             dtype="float64"
         )
 

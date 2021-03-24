@@ -23,7 +23,7 @@ class CoinzoomInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
-                 initial_state: str = "new"):
+                 initial_state: str = "NEW"):
         super().__init__(
             client_order_id,
             exchange_order_id,
@@ -39,15 +39,15 @@ class CoinzoomInFlightOrder(InFlightOrderBase):
 
     @property
     def is_done(self) -> bool:
-        return self.last_state in {"filled", "canceled", "expired"}
+        return self.last_state in {"FILLED", "CANCELLED", "REJECTED"}
 
     @property
     def is_failure(self) -> bool:
-        return self.last_state in {"suspended"}
+        return self.last_state in {"REJECTED"}
 
     @property
     def is_cancelled(self) -> bool:
-        return self.last_state in {"canceled", "expired"}
+        return self.last_state in {"CANCELLED"}
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:

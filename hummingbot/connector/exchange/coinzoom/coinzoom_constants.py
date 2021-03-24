@@ -1,5 +1,10 @@
 # A single source of truth for constant variables related to the exchange
 class Constants:
+    """
+    API Documentation Links:
+    https://api-docs.coinzoom.com/
+    https://api-markets.coinzoom.com/
+    """
     EXCHANGE_NAME = "coinzoom"
     REST_URL = "https://api.stage.coinzoom.com/api/v1/public"
     WS_PRIVATE_URL = "wss://api.stage.coinzoom.com/api/v1/public/market/data/stream"
@@ -9,10 +14,9 @@ class Constants:
 
     ENDPOINT = {
         # Public Endpoints
-        "TICKER": "public/ticker",
-        "TICKER_SINGLE": "public/ticker/{trading_pair}",
-        "SYMBOL": "public/symbol",
-        "ORDER_BOOK": "public/orderbook",
+        "TICKER": "marketwatch/ticker",
+        "SYMBOL": "instruments",
+        "ORDER_BOOK": "marketwatch/orderbook/{trading_pair}/150/2",
         "ORDER_CREATE": "order",
         "ORDER_DELETE": "order/{id}",
         "ORDER_STATUS": "order/{id}",
@@ -22,19 +26,18 @@ class Constants:
 
     WS_SUB = {
         "TRADES": "TradeSummaryRequest",
-        "ORDERS": "Orderbook",
+        "ORDERS": "OrderBookRequest",
         "USER_ORDERS_TRADES": ["OrderUpdateRequest"],
 
     }
 
     WS_METHODS = {
-        "ORDERS_SNAPSHOT": "snapshotOrderbook",
-        "ORDERS_UPDATE": "updateOrderbook",
-        "TRADES_SNAPSHOT": "snapshotTrades",
-        "TRADES_UPDATE": "updateTrades",
+        "ORDERS_SNAPSHOT": "ob",
+        "ORDERS_UPDATE": "oi",
+        "TRADES_UPDATE": "ts",
         "USER_BALANCE": "getTradingBalance",
-        "USER_ORDERS": "activeOrders",
-        "USER_TRADES": "report",
+        "USER_ORDERS": "OrderResponse",
+        "USER_ORDERS_CANCEL": "OrderCancelResponse",
     }
 
     # Timeouts

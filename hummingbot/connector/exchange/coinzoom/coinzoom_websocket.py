@@ -66,12 +66,15 @@ class CoinzoomWebsocket():
                     raw_msg_str: str = await asyncio.wait_for(self._client.recv(), timeout=Constants.MESSAGE_TIMEOUT)
                     try:
                         msg = json.loads(raw_msg_str)
-                        # DEBUG PRINTOUT
-                        print(f"WS Msg: {msg}")
-                        # DEBUG PRINTOUT
+
                         # CoinZoom doesn't support ping or heartbeat messages.
                         # Can handle them here if that changes - use `safe_ensure_future`.
-                        result: List[str] = list([d['result'] for k, d in msg.items() if d.get('result') is not None])
+
+                        # Check response for a subscribed/unsubscribed message;
+                        result: List[str] = list([d['result']
+                                                 for k, d in msg.items()
+                                                 if (isinstance(d, dict) and d.get('result') is not None)])
+
                         if len(result):
                             if result[0] == 'subscribed':
                                 self._is_subscribed = True
@@ -100,15 +103,7 @@ class CoinzoomWebsocket():
                 **data
             }
         }
-        # payload = {**payload, **data}
-
-        ws_data = json.dumps(payload)
-        # DEBUG PRINTOUT
-        print(f"WS Req: {ws_data}")
-        # DEBUG PRINTOUT
-        await self._client.send(json.dumps(payload))
-
-        return id
+        return await self._client.send(json.dumps(payload))
 
     # request via websocket
     async def request(self, method: str, action: str, data: Optional[Dict[str, Any]] = {}) -> int:

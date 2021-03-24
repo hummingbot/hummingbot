@@ -14,7 +14,6 @@ from .coinzoom_active_order_tracker import CoinzoomActiveOrderTracker
 from .coinzoom_order_book import CoinzoomOrderBook
 from .coinzoom_websocket import CoinzoomWebsocket
 from .coinzoom_utils import (
-    str_date_to_ts,
     convert_to_exchange_trading_pair,
     convert_from_exchange_trading_pair,
     api_call_with_retries,
@@ -39,23 +38,18 @@ class CoinzoomAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @classmethod
     async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, Decimal]:
         results = {}
-        if len(trading_pairs) > 1:
-            tickers: List[Dict[Any]] = await api_call_with_retries("GET", Constants.ENDPOINT["TICKER"])
+        tickers: List[Dict[Any]] = await api_call_with_retries("GET", Constants.ENDPOINT["TICKER"])
         for trading_pair in trading_pairs:
-            ex_pair: str = convert_to_exchange_trading_pair(trading_pair)
-            if len(trading_pairs) > 1:
-                ticker: Dict[Any] = list([tic for tic in tickers if tic['symbol'] == ex_pair])[0]
-            else:
-                url_endpoint = Constants.ENDPOINT["TICKER_SINGLE"].format(trading_pair=ex_pair)
-                ticker: Dict[Any] = await api_call_with_retries("GET", url_endpoint)
-            results[trading_pair]: Decimal = Decimal(str(ticker["last"]))
+            ex_pair: str = convert_to_exchange_trading_pair(trading_pair, True)
+            ticker: Dict[Any] = list([tic for symbol, tic in tickers.items() if symbol == ex_pair])[0]
+            results[trading_pair]: Decimal = Decimal(str(ticker["last_price"]))
         return results
 
     @staticmethod
     async def fetch_trading_pairs() -> List[str]:
         try:
             symbols: List[Dict[str, Any]] = await api_call_with_retries("GET", Constants.ENDPOINT["SYMBOL"])
-            trading_pairs: List[str] = list([convert_from_exchange_trading_pair(sym["id"]) for sym in symbols])
+            trading_pairs: List[str] = list([convert_from_exchange_trading_pair(sym["symbol"]) for sym in symbols])
             # Filter out unmatched pairs so nothing breaks
             return [sym for sym in trading_pairs if sym is not None]
         except Exception:
@@ -69,10 +63,10 @@ class CoinzoomAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Get whole orderbook
         """
         try:
-            ex_pair = convert_to_exchange_trading_pair(trading_pair)
-            orderbook_response: Dict[Any] = await api_call_with_retries("GET", Constants.ENDPOINT["ORDER_BOOK"],
-                                                                        params={"limit": 150, "symbols": ex_pair})
-            return orderbook_response[ex_pair]
+            ex_pair = convert_to_exchange_trading_pair(trading_pair, True)
+            ob_endpoint = Constants.ENDPOINT["ORDER_BOOK"].format(trading_pair=ex_pair)
+            orderbook_response: Dict[Any] = await api_call_with_retries("GET", ob_endpoint)
+            return orderbook_response
         except CoinzoomAPIError as e:
             err = e.error_payload.get('error', e.error_payload)
             raise IOError(
@@ -81,7 +75,7 @@ class CoinzoomAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair)
-        snapshot_timestamp: float = time.time()
+        snapshot_timestamp: float = float(snapshot['timestamp'])
         snapshot_msg: OrderBookMessage = CoinzoomOrderBook.snapshot_message_from_exchange(
             snapshot,
             snapshot_timestamp,
@@ -102,30 +96,23 @@ class CoinzoomAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 await ws.connect()
 
                 for pair in self._trading_pairs:
-                    await ws.subscribe(Constants.WS_SUB["TRADES"], convert_to_exchange_trading_pair(pair))
+                    await ws.subscribe({Constants.WS_SUB["TRADES"]: {'symbol': convert_to_exchange_trading_pair(pair)}})
 
                 async for response in ws.on_message():
-                    method: str = response.get("method", None)
-                    trades_data: str = response.get("params", None)
+                    msg_keys = list(response.keys()) if response is not None else []
 
-                    if trades_data is None or method != Constants.WS_METHODS['TRADES_UPDATE']:
+                    if not Constants.WS_METHODS["TRADES_UPDATE"] in msg_keys:
                         continue
 
-                    pair: str = convert_from_exchange_trading_pair(response["params"]["symbol"])
-
-                    for trade in trades_data["data"]:
-                        trade: Dict[Any] = trade
-                        trade_timestamp: int = str_date_to_ts(trade["timestamp"])
-                        trade_msg: OrderBookMessage = CoinzoomOrderBook.trade_message_from_exchange(
-                            trade,
-                            trade_timestamp,
-                            metadata={"trading_pair": pair})
-                        output.put_nowait(trade_msg)
+                    trade: List[Any] = response[Constants.WS_METHODS["TRADES_UPDATE"]]
+                    trade_msg: OrderBookMessage = CoinzoomOrderBook.trade_message_from_exchange(trade)
+                    output.put_nowait(trade_msg)
 
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().error("Unexpected error.", exc_info=True)
+                raise
                 await asyncio.sleep(5.0)
             finally:
                 await ws.disconnect()
@@ -145,17 +132,29 @@ class CoinzoomAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 ]
 
                 for pair in self._trading_pairs:
-                    await ws.subscribe(Constants.WS_SUB["ORDERS"], convert_to_exchange_trading_pair(pair))
+                    ex_pair = convert_to_exchange_trading_pair(pair)
+                    ws_stream = {
+                        Constants.WS_SUB["ORDERS"]: {
+                            'requestId': ex_pair,
+                            'symbol': ex_pair,
+                            'aggregate': False,
+                            'depth': 0,
+                        }
+                    }
+                    await ws.subscribe(ws_stream)
 
                 async for response in ws.on_message():
-                    method: str = response.get("method", None)
-                    order_book_data: str = response.get("params", None)
+                    msg_keys = list(response.keys()) if response is not None else []
 
-                    if order_book_data is None or method not in order_book_methods:
+                    method_key = [key for key in msg_keys if key in order_book_methods]
+
+                    if len(method_key) != 1:
                         continue
 
-                    timestamp: int = str_date_to_ts(order_book_data["timestamp"])
-                    pair: str = convert_from_exchange_trading_pair(order_book_data["symbol"])
+                    method: str = method_key[0]
+                    order_book_data: dict = response
+                    timestamp: int = int(time.time() * 1e3)
+                    pair: str = convert_from_exchange_trading_pair(response[method])
 
                     order_book_msg_cls = (CoinzoomOrderBook.diff_message_from_exchange
                                           if method == Constants.WS_METHODS['ORDERS_UPDATE'] else
@@ -187,10 +186,9 @@ class CoinzoomAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 for trading_pair in self._trading_pairs:
                     try:
                         snapshot: Dict[str, any] = await self.get_order_book_data(trading_pair)
-                        snapshot_timestamp: int = str_date_to_ts(snapshot["timestamp"])
                         snapshot_msg: OrderBookMessage = CoinzoomOrderBook.snapshot_message_from_exchange(
                             snapshot,
-                            snapshot_timestamp,
+                            snapshot['timestamp'],
                             metadata={"trading_pair": trading_pair}
                         )
                         output.put_nowait(snapshot_msg)
