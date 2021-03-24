@@ -81,7 +81,8 @@ async def aiohttp_response_with_errors(request_coroutine):
             try:
                 parsed_response = await response.json()
             except Exception:
-                request_errors = True
+                if response.status not in [204]:
+                    request_errors = True
                 try:
                     parsed_response = str(await response.read())
                     if len(parsed_response) > 100:
@@ -89,7 +90,7 @@ async def aiohttp_response_with_errors(request_coroutine):
                 except Exception:
                     pass
             TempFailure = (parsed_response is None or
-                           (response.status not in [200, 201] and "error" not in parsed_response))
+                           (response.status not in [200, 201, 204] and "error" not in parsed_response))
             if TempFailure:
                 parsed_response = response.reason if parsed_response is None else parsed_response
                 request_errors = True
