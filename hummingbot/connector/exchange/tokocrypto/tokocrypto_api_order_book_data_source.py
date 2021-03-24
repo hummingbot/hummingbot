@@ -26,13 +26,17 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.tokocrypto.tokocrypto_order_book import TokocryptoOrderBook
-from hummingbot.connector.exchange.tokocrypto.tokocrypto_utils import convert_to_exchange_trading_pair
+from hummingbot.connector.exchange.tokocrypto.tokocrypto_utils import (
+    convert_to_tokocrypto_exchange_trading_pair,
+    convert_to_exchange_trading_pair)
 
 TRADING_PAIR_FILTER = re.compile(r"(BTC|ETH|USDT)$")
 
-SNAPSHOT_REST_URL = "https://api.binance.cc/api/v3/depth"
-DIFF_STREAM_URL = "wss://stream.binance.cc/ws"
-TICKER_PRICE_CHANGE_URL = "https://api.binance.cc/api/v1/ticker/24hr"
+SNAPSHOT_REST_URL = "https://www.tokocrypto.com/open/v1/market/depth"
+BINANCE_STREAM_URL = "wss://stream.binance.cc/ws"
+TOKOCRYPTO_STREAM_URL = "wss://www.tokocrypto.com/ws"
+BINANCE_TICKER_PRICE_CHANGE_URL = "https://api.binance.cc/api/v1/ticker/24hr"
+TICKER_PRICE_CHANGE_URL = "https://www.tokocrypto.com/v1/market/klines"
 EXCHANGE_INFO_URL = "https://www.tokocrypto.com/open/v1/common/symbols"
 
 
@@ -62,20 +66,32 @@ class TokocryptoAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @classmethod
     async def get_last_traded_price(cls, trading_pair: str, domain: str = "com") -> float:
-        async with aiohttp.ClientSession() as client:
-            url = TICKER_PRICE_CHANGE_URL.format(domain)
-            resp = await client.get(f"{url}?symbol={convert_to_exchange_trading_pair(trading_pair)}")
-            resp_json = await resp.json()
-            return float(resp_json["lastPrice"])
+        if "tko" in trading_pair:
+            async with aiohttp.ClientSession() as client:
+                url = TICKER_PRICE_CHANGE_URL
+                resp = await client.get(f"{url}?interval=1h&limit=24&symbol={convert_to_tokocrypto_exchange_trading_pair(trading_pair)}")
+                resp_json = await resp.json()
+                return float(resp_json["data"]["list"][0][4])
+        else:
+            async with aiohttp.ClientSession() as client:
+                url = BINANCE_TICKER_PRICE_CHANGE_URL.format(domain)
+                resp = await client.get(f"{url}?symbol={convert_to_exchange_trading_pair(trading_pair)}")
+                resp_json = await resp.json()
+                return float(resp_json["lastPrice"])
 
     @staticmethod
     @cachetools.func.ttl_cache(ttl=10)
     def get_mid_price(trading_pair: str, domain="com") -> Optional[Decimal]:
-        from hummingbot.connector.exchange.tokocrypto.tokocrypto_utils import convert_to_exchange_trading_pair
-        url = TICKER_PRICE_CHANGE_URL.format(domain)
-        resp = requests.get(url=f"{url}?symbol={convert_to_exchange_trading_pair(trading_pair)}")
-        record = resp.json()
-        result = (Decimal(record.get("bidPrice", "0")) + Decimal(record.get("askPrice", "0"))) / Decimal("2")
+        if "tko" in trading_pair:
+            url = SNAPSHOT_REST_URL
+            resp = requests.get(url=f"{url}?limit=5&symbol={convert_to_tokocrypto_exchange_trading_pair(trading_pair)}")
+            record = resp.json()
+            result = (Decimal(record["data"]["bids"][0][0]) + Decimal(record["data"]["asks"][0][0])) / Decimal("2")
+        else:
+            url = TICKER_PRICE_CHANGE_URL.format(domain)
+            resp = requests.get(url=f"{url}?symbol={convert_to_exchange_trading_pair(trading_pair)}")
+            record = resp.json()
+            result = (Decimal(record.get("bidPrice", "0")) + Decimal(record.get("askPrice", "0"))) / Decimal("2")
         return result if result else None
 
     @staticmethod
@@ -83,11 +99,11 @@ class TokocryptoAPIOrderBookDataSource(OrderBookTrackerDataSource):
         try:
             from hummingbot.connector.exchange.tokocrypto.tokocrypto_utils import convert_from_exchange_trading_pair
             async with aiohttp.ClientSession() as client:
-                # url = EXCHANGE_INFO_URL.format(domain)
-                async with client.get(EXCHANGE_INFO_URL, timeout=10) as response:
+                url = EXCHANGE_INFO_URL.format(domain)
+                async with client.get(url, timeout=10) as response:
                     if response.status == 200:
                         data = await response.json()
-                        raw_trading_pairs = [d["symbol"] for d in data["data"]["list"] if d["type"] == 1]
+                        raw_trading_pairs = [d["symbol"] for d in data["data"]["list"]]
                         trading_pair_list: List[str] = []
                         for raw_trading_pair in raw_trading_pairs:
                             converted_trading_pair: Optional[str] = \
@@ -105,8 +121,8 @@ class TokocryptoAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str, limit: int = 1000,
                            domain: str = "com") -> Dict[str, Any]:
-        params: Dict = {"limit": str(limit), "symbol": convert_to_exchange_trading_pair(trading_pair)} if limit != 0 \
-            else {"symbol": convert_to_exchange_trading_pair(trading_pair)}
+        params: Dict = {"limit": str(limit), "symbol": convert_to_tokocrypto_exchange_trading_pair(trading_pair)} if limit != 0 \
+            else {"symbol": convert_to_tokocrypto_exchange_trading_pair(trading_pair)}
         url = SNAPSHOT_REST_URL.format(domain)
         async with client.get(url, params=params) as response:
             response: aiohttp.ClientResponse = response
@@ -161,13 +177,18 @@ class TokocryptoAPIOrderBookDataSource(OrderBookTrackerDataSource):
             try:
                 ws_path: str = "/".join([f"{convert_to_exchange_trading_pair(trading_pair).lower()}@trade"
                                          for trading_pair in self._trading_pairs])
-                url = DIFF_STREAM_URL.format(self._domain)
+                url = BINANCE_STREAM_URL.format(self._domain)
+                if "tko" in self._trading_pairs:
+                    ws_path: str = "/".join([f"{convert_to_tokocrypto_exchange_trading_pair(trading_pair).lower()}@trade"
+                                            for trading_pair in self._trading_pairs])
+                    url = TOKOCRYPTO_STREAM_URL
                 stream_url: str = f"{url}/{ws_path}"
-
+                print('listen_for_trades', stream_url)
                 async with websockets.connect(stream_url) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     async for raw_msg in self._inner_messages(ws):
                         msg = ujson.loads(raw_msg)
+
                         trade_msg: OrderBookMessage = TokocryptoOrderBook.trade_message_from_exchange(msg)
                         output.put_nowait(trade_msg)
             except asyncio.CancelledError:
@@ -182,13 +203,18 @@ class TokocryptoAPIOrderBookDataSource(OrderBookTrackerDataSource):
             try:
                 ws_path: str = "/".join([f"{convert_to_exchange_trading_pair(trading_pair).lower()}@depth"
                                          for trading_pair in self._trading_pairs])
-                url = DIFF_STREAM_URL.format(self._domain)
+                url = BINANCE_STREAM_URL.format(self._domain)
+                if "tko" in self._trading_pairs:
+                    ws_path: str = "/".join([f"{convert_to_tokocrypto_exchange_trading_pair(trading_pair).lower()}@depth"
+                                            for trading_pair in self._trading_pairs])
+                    url = TOKOCRYPTO_STREAM_URL
                 stream_url: str = f"{url}/{ws_path}"
-
+                print('listen_for_order_book_diffs', stream_url)
                 async with websockets.connect(stream_url) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     async for raw_msg in self._inner_messages(ws):
                         msg = ujson.loads(raw_msg)
+
                         order_book_message: OrderBookMessage = TokocryptoOrderBook.diff_message_from_exchange(
                             msg, time.time())
                         output.put_nowait(order_book_message)

@@ -3,7 +3,7 @@
 from operator import itemgetter
 import time
 
-from .websockets import BinanceSocketManager
+from .websockets import TokocryptoSocketManager
 
 
 class DepthCache(object):
@@ -161,13 +161,13 @@ class DepthCacheManager(object):
         res = self._client.get_order_book(symbol=self._symbol, limit=self._limit)
 
         # process bid and asks from the order book
-        for bid in res['bids']:
+        for bid in res['data']['bids']:
             self._depth_cache.add_bid(bid)
-        for ask in res['asks']:
+        for ask in res['data']['asks']:
             self._depth_cache.add_ask(ask)
 
         # set first update id
-        self._last_update_id = res['lastUpdateId']
+        self._last_update_id = res['timestamp']
 
         # set a time to refresh the depth cache
         if self._refresh_interval:
@@ -186,7 +186,7 @@ class DepthCacheManager(object):
         :return:
         """
         if self._bm is None:
-            self._bm = BinanceSocketManager(self._client)
+            self._bm = TokocryptoSocketManager(self._client)
 
         self._conn_key = self._bm.start_depth_socket(self._symbol, self._depth_event)
         if not self._bm.is_alive():

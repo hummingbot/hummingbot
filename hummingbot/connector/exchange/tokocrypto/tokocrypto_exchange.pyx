@@ -7,10 +7,6 @@ from aiokafka import (
 )
 import asyncio
 from async_timeout import timeout
-
-# from binance.client import Client as TokocryptoClient
-# from binance import client as tokocrypto_client_module
-# from binance.exceptions import BinanceAPIException
 from hummingbot.connector.exchange.tokocrypto.tokocrypto.client import Client as TokocryptoClient
 from hummingbot.connector.exchange.tokocrypto.tokocrypto import client as tokocrypto_client_module
 from hummingbot.connector.exchange.tokocrypto.tokocrypto.exceptions import TokocryptoAPIException
@@ -66,12 +62,12 @@ from .tokocrypto_time import TokocryptoTime
 from .tokocrypto_in_flight_order import TokocryptoInFlightOrder
 from .tokocrypto_utils import (
     convert_from_exchange_trading_pair,
-    convert_to_exchange_trading_pair)
+    convert_to_tokocrypto_exchange_trading_pair)
 
 s_logger = None
 s_decimal_0 = Decimal(0)
 s_decimal_NaN = Decimal("nan")
-BROKER_ID = "x-XEKWYICX"
+BROKER_ID = "xTKOTC"
 
 
 cdef str get_client_order_id(str order_side, object trading_pair):
@@ -80,7 +76,7 @@ cdef str get_client_order_id(str order_side, object trading_pair):
         object symbols = trading_pair.split("-")
         str base = symbols[0].upper()
         str quote = symbols[1].upper()
-    return f"{BROKER_ID}-{order_side.upper()[0]}{base[0]}{base[-1]}{quote[0]}{quote[-1]}{nonce}"
+    return f"{BROKER_ID}{order_side.upper()[0]}{base[0]}{base[-1]}{quote[0]}{quote[-1]}{nonce}"
 
 
 cdef class TokocryptoExchangeTransactionTracker(TransactionTracker):
@@ -288,8 +284,8 @@ cdef class TokocryptoExchange(ExchangeBase):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().network("Error fetching Tokocrypto trade fees.", exc_info=True,
-                                      app_warning_msg=f"Could not fetch Tokocrypto trading fees. "
+                self.logger().network("Error fetching tokocrypto trade fees.", exc_info=True,
+                                      app_warning_msg=f"Could not fetch tokocrypto trading fees. "
                                                       f"Check network connection.")
                 raise
 
@@ -336,31 +332,6 @@ cdef class TokocryptoExchange(ExchangeBase):
             # self.logger().info(f"trading_rule = {self._trading_rules}", exc_info=True)
 
     def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
-        """
-        Example:
-        {
-            "symbol": "ETHBTC",
-            "baseAssetPrecision": 8,
-            "quotePrecision": 8,
-            "orderTypes": ["LIMIT", "MARKET"],
-            "filters": [
-                {
-                    "filterType": "PRICE_FILTER",
-                    "minPrice": "0.00000100",
-                    "maxPrice": "100000.00000000",
-                    "tickSize": "0.00000100"
-                }, {
-                    "filterType": "LOT_SIZE",
-                    "minQty": "0.00100000",
-                    "maxQty": "100000.00000000",
-                    "stepSize": "0.00100000"
-                }, {
-                    "filterType": "MIN_NOTIONAL",
-                    "minNotional": "0.00100000"
-                }
-            ]
-        }
-        """
         cdef:
             list trading_pair_rules = exchange_info_dict.get("list", [])
             list retval = []
@@ -404,11 +375,13 @@ cdef class TokocryptoExchange(ExchangeBase):
                 trading_pairs_to_order_map[o.trading_pair][o.exchange_order_id] = o
 
             trading_pairs = list(trading_pairs_to_order_map.keys())
-            tasks = [self.query_api(self._tokocrypto_client.get_my_trades, symbol=convert_to_exchange_trading_pair(trading_pair))
+            tasks = [self.query_api(self._tokocrypto_client.get_my_trades, symbol=convert_to_tokocrypto_exchange_trading_pair(trading_pair))
                      for trading_pair in trading_pairs]
             self.logger().debug("Polling for order fills of %d trading pairs.", len(tasks))
             results = await safe_gather(*tasks, return_exceptions=True)
-            for trades, trading_pair in zip(results, trading_pairs):
+            tradesList = []
+            tradesList.append(results[0]["data"]["list"])
+            for trades, trading_pair in zip(tradesList, trading_pairs):
                 order_map = trading_pairs_to_order_map[trading_pair]
                 if isinstance(trades, Exception):
                     self.logger().network(
@@ -416,6 +389,7 @@ cdef class TokocryptoExchange(ExchangeBase):
                         app_warning_msg=f"Failed to fetch trade update for {trading_pair}."
                     )
                     continue
+
                 for trade in trades:
                     order_id = str(trade["orderId"])
                     if order_id in order_map:
@@ -439,7 +413,7 @@ cdef class TokocryptoExchange(ExchangeBase):
                                                          tracked_order.trade_type,
                                                          Decimal(trade["price"]),
                                                          Decimal(trade["qty"])),
-                                                     exchange_trade_id=trade["id"]
+                                                     exchange_trade_id=trade["tradeId"]
                                                  ))
 
     async def _update_order_status(self):
@@ -453,15 +427,17 @@ cdef class TokocryptoExchange(ExchangeBase):
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
             tracked_orders = list(self._in_flight_orders.values())
             tasks = [self.query_api(self._tokocrypto_client.get_order,
-                                    symbol=convert_to_exchange_trading_pair(o.trading_pair), origClientOrderId=o.client_order_id)
+                                    symbol=convert_to_tokocrypto_exchange_trading_pair(o.trading_pair), orderId=o.client_order_id)
                      for o in tracked_orders]
             self.logger().debug("Polling for order status updates of %d orders.", len(tasks))
             results = await safe_gather(*tasks, return_exceptions=True)
-            for order_update, tracked_order in zip(results, tracked_orders):
+            orderResult = []
+            orderResult.append(results[0]["data"])
+            for order_update, tracked_order in zip(orderResult, tracked_orders):
                 client_order_id = tracked_order.client_order_id
 
                 # If the order has already been cancelled or has failed do nothing
-                if client_order_id not in self._in_flight_orders:
+                if client_order_id not in str(self._in_flight_orders):
                     continue
 
                 if isinstance(order_update, Exception):
@@ -485,10 +461,10 @@ cdef class TokocryptoExchange(ExchangeBase):
                     continue
 
                 # Update order execution status
-                tracked_order.last_state = order_update["status"]
-                order_type = TokocryptoExchange.to_hb_order_type(order_update["type"])
+                tracked_order.last_state = str(order_update["status"])
+                order_type = str(order_update["type"])
                 executed_amount_base = Decimal(order_update["executedQty"])
-                executed_amount_quote = Decimal(order_update["cummulativeQuoteQty"])
+                executed_amount_quote = Decimal(order_update["executedQuoteQty"])
 
                 if tracked_order.is_done:
                     if not tracked_order.is_failure:
@@ -680,14 +656,21 @@ cdef class TokocryptoExchange(ExchangeBase):
 
     @staticmethod
     def tokocrypto_order_type(order_type: OrderType) -> str:
-        return order_type.name.upper()
+        if order_type is OrderType.MARKET:
+            return TokocryptoClient.ORDER_TYPE_MARKET
+        else:
+            return TokocryptoClient.ORDER_TYPE_LIMIT
 
     @staticmethod
     def to_hb_order_type(tokocrypto_type: str) -> OrderType:
         return OrderType[tokocrypto_type]
 
+    @staticmethod
+    def to_hb_trade_type(tokocrypto_trade_type: str) -> TradeType:
+        return TradeType[tokocrypto_trade_type]
+
     def supported_order_types(self):
-        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
+        return [OrderType.LIMIT]
 
     async def create_order(self,
                            trade_type: TradeType,
@@ -708,30 +691,25 @@ cdef class TokocryptoExchange(ExchangeBase):
         price_str = f"{price:f}"
         type_str = TokocryptoExchange.tokocrypto_order_type(order_type)
         side_str = TokocryptoClient.SIDE_BUY if trade_type is TradeType.BUY else TokocryptoClient.SIDE_SELL
-        api_params = {"symbol": convert_to_exchange_trading_pair(trading_pair),
+        api_params = {"symbol": convert_to_tokocrypto_exchange_trading_pair(trading_pair),
                       "side": side_str,
                       "quantity": amount_str,
                       "type": type_str,
-                      "newClientOrderId": order_id,
+                      "clientId": order_id,
                       "price": price_str}
-        if order_type == OrderType.LIMIT:
-            api_params["timeInForce"] = TokocryptoClient.TIME_IN_FORCE_GTC
-        self.c_start_tracking_order(order_id,
-                                    "",
-                                    trading_pair,
-                                    trade_type,
-                                    price,
-                                    amount,
-                                    order_type
-                                    )
         try:
             order_result = await self.query_api(self._tokocrypto_client.create_order, **api_params)
-            exchange_order_id = str(order_result["orderId"])
-            tracked_order = self._in_flight_orders.get(order_id)
-            if tracked_order is not None:
-                self.logger().info(f"Created {type_str} {side_str} order {order_id} for "
-                                   f"{amount} {trading_pair}.")
-                tracked_order.exchange_order_id = exchange_order_id
+            exchange_order_id = str(order_result["data"]["orderId"])
+            self.c_start_tracking_order(exchange_order_id,
+                                        exchange_order_id,
+                                        trading_pair,
+                                        trade_type,
+                                        price,
+                                        amount,
+                                        order_type
+                                        )
+            self.logger().info(f"Created {type_str} {side_str} order {exchange_order_id} for "
+                               f"{amount} {trading_pair}.")
 
             event_tag = self.MARKET_BUY_ORDER_CREATED_EVENT_TAG if trade_type is TradeType.BUY \
                 else self.MARKET_SELL_ORDER_CREATED_EVENT_TAG
@@ -777,8 +755,8 @@ cdef class TokocryptoExchange(ExchangeBase):
     async def execute_cancel(self, trading_pair: str, order_id: str):
         try:
             cancel_result = await self.query_api(self._tokocrypto_client.cancel_order,
-                                                 symbol=convert_to_exchange_trading_pair(trading_pair),
-                                                 origClientOrderId=order_id)
+                                                 symbol=convert_to_tokocrypto_exchange_trading_pair(trading_pair),
+                                                 orderId=order_id)
         except TokocryptoAPIException as e:
             if "Unknown order sent" in e.message or e.code == 2011:
                 # The order was never there to begin with. So cancelling it is a no-op but semantically successful.
@@ -788,12 +766,12 @@ cdef class TokocryptoExchange(ExchangeBase):
                                      OrderCancelledEvent(self._current_timestamp, order_id))
                 return {
                     # Required by cancel_all() below.
-                    "origClientOrderId": order_id
+                    "orderId": order_id
                 }
             else:
                 raise e
 
-        if isinstance(cancel_result, dict) and cancel_result.get("status") == "CANCELED":
+        if isinstance(cancel_result, dict) and cancel_result["msg"] == "Success":
             self.logger().info(f"Successfully cancelled order {order_id}.")
             self.c_stop_tracking_order(order_id)
             self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
@@ -816,8 +794,8 @@ cdef class TokocryptoExchange(ExchangeBase):
                 for cr in cancellation_results:
                     if isinstance(cr, TokocryptoAPIException):
                         continue
-                    if isinstance(cr, dict) and "origClientOrderId" in cr:
-                        client_order_id = cr.get("origClientOrderId")
+                    if isinstance(cr, dict) and "orderId" in str(cr):
+                        client_order_id = str(cr["data"]["orderId"])
                         order_id_set.remove(client_order_id)
                         successful_cancellations.append(CancellationResult(client_order_id, True))
         except Exception:

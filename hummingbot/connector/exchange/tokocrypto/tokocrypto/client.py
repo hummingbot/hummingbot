@@ -1,5 +1,6 @@
 # coding=utf-8
 
+import asyncio
 import hashlib
 import hmac
 import requests
@@ -11,27 +12,30 @@ from .exceptions import TokocryptoAPIException, TokocryptoRequestException, Toko
 
 class Client(object):
 
-    # API_URL = 'https://api.binance.{}/api'
     API_URL = 'https://www.tokocrypto.com/open'
+    BINANCE_API_URL = 'https://api.binance.com/api'
     WITHDRAW_API_URL = 'https://www.tokocrypto.com/open'
     MARGIN_API_URL = 'https://www.tokocrypto.com/open'
-    WEBSITE_URL = 'https://www.tokocrypto.com/open'
+    WEBSITE_URL = 'https://www.tokocrypto.com/'
     FUTURES_URL = 'https://www.tokocrypto.com/open'
     PUBLIC_API_VERSION = 'v1'
+    BINANCE_PUBLIC_API_VERSION = 'v3'
     PRIVATE_API_VERSION = 'v1'
+    BINANCE_PRIVATE_API_VERSION = 'v3'
     WITHDRAW_API_VERSION = 'v1'
     MARGIN_API_VERSION = 'v1'
     FUTURES_API_VERSION = 'v1'
 
     SYMBOL_TYPE_SPOT = 'SPOT'
 
-    ORDER_STATUS_NEW = 'NEW'
-    ORDER_STATUS_PARTIALLY_FILLED = 'PARTIALLY_FILLED'
-    ORDER_STATUS_FILLED = 'FILLED'
-    ORDER_STATUS_CANCELED = 'CANCELED'
-    ORDER_STATUS_PENDING_CANCEL = 'PENDING_CANCEL'
-    ORDER_STATUS_REJECTED = 'REJECTED'
-    ORDER_STATUS_EXPIRED = 'EXPIRED'
+    ORDER_STATUS_SYSTEM_PROCESSING = '-2'
+    ORDER_STATUS_NEW = '0'
+    ORDER_STATUS_PARTIALLY_FILLED = '1'
+    ORDER_STATUS_FILLED = '2'
+    ORDER_STATUS_CANCELED = '3'
+    ORDER_STATUS_PENDING_CANCEL = '4'
+    ORDER_STATUS_REJECTED = '5'
+    ORDER_STATUS_EXPIRED = '6'
 
     KLINE_INTERVAL_1MINUTE = '1m'
     KLINE_INTERVAL_3MINUTE = '3m'
@@ -49,16 +53,16 @@ class Client(object):
     KLINE_INTERVAL_1WEEK = '1w'
     KLINE_INTERVAL_1MONTH = '1M'
 
-    SIDE_BUY = 'BUY'
-    SIDE_SELL = 'SELL'
+    SIDE_BUY = '0'
+    SIDE_SELL = '1'
 
-    ORDER_TYPE_LIMIT = 'LIMIT'
-    ORDER_TYPE_MARKET = 'MARKET'
-    ORDER_TYPE_STOP_LOSS = 'STOP_LOSS'
-    ORDER_TYPE_STOP_LOSS_LIMIT = 'STOP_LOSS_LIMIT'
-    ORDER_TYPE_TAKE_PROFIT = 'TAKE_PROFIT'
-    ORDER_TYPE_TAKE_PROFIT_LIMIT = 'TAKE_PROFIT_LIMIT'
-    ORDER_TYPE_LIMIT_MAKER = 'LIMIT_MAKER'
+    ORDER_TYPE_LIMIT = '1'
+    ORDER_TYPE_MARKET = '2'
+    ORDER_TYPE_STOP_LOSS = '3'
+    ORDER_TYPE_STOP_LOSS_LIMIT = '4'
+    ORDER_TYPE_TAKE_PROFIT = '5'
+    ORDER_TYPE_TAKE_PROFIT_LIMIT = '6'
+    ORDER_TYPE_LIMIT_MAKER = '7'
 
     TIME_IN_FORCE_GTC = 'GTC'  # Good till cancelled
     TIME_IN_FORCE_IOC = 'IOC'  # Immediate or cancel
@@ -91,6 +95,7 @@ class Client(object):
         """
 
         self.API_URL = self.API_URL.format(tld)
+        self.BINANCE_API_URL = self.BINANCE_API_URL.format(tld)
         self.WITHDRAW_API_URL = self.WITHDRAW_API_URL.format(tld)
         self.MARGIN_API_URL = self.MARGIN_API_URL.format(tld)
         self.WEBSITE_URL = self.WEBSITE_URL.format(tld)
@@ -116,6 +121,10 @@ class Client(object):
     def _create_api_uri(self, path, signed=True, version=PUBLIC_API_VERSION):
         v = self.PRIVATE_API_VERSION if signed else version
         return self.API_URL + '/' + v + '/' + path
+
+    def _create_binance_api_uri(self, path, signed=True, version=BINANCE_PUBLIC_API_VERSION):
+        v = self.BINANCE_PRIVATE_API_VERSION if signed else version
+        return self.BINANCE_API_URL + '/' + v + '/' + path
 
     def _create_withdraw_api_uri(self, path):
         return self.WITHDRAW_API_URL + '/' + self.WITHDRAW_API_VERSION + '/' + path
@@ -167,7 +176,7 @@ class Client(object):
         data = kwargs.get('data', None)
         if data and isinstance(data, dict):
             kwargs['data'] = data
-
+            # kwargs['data']['recvWindow'] = int(5000)
             # find any requests params passed and apply them
             if 'requests_params' in kwargs['data']:
                 # merge requests params into kwargs
@@ -195,6 +204,8 @@ class Client(object):
             kwargs['params'] = '&'.join('%s=%s' % (data[0], data[1]) for data in kwargs['data'])
             del(kwargs['data'])
 
+        # print('_request', kwargs)
+
         self.response = getattr(self.session, method)(uri, **kwargs)
         return self._handle_response()
 
@@ -202,7 +213,13 @@ class Client(object):
         uri = self._create_api_uri(path, signed, version)
         print('uri', uri)
         # test = self._request(method, uri, signed, **kwargs)
-        return self._request(method, uri, signed, **kwargs)
+        return self._request(method, uri, signed, True, **kwargs)
+
+    def _request_binance_api(self, method, path, signed=False, version=BINANCE_PUBLIC_API_VERSION, **kwargs):
+        uri = self._create_binance_api_uri(path, signed, version)
+        print('uri', uri)
+        # test = self._request(method, uri, signed, **kwargs)
+        return self._request(method, uri, signed, True, **kwargs)
 
     def _request_withdraw_api(self, method, path, signed=False, **kwargs):
         uri = self._create_withdraw_api_uri(path)
@@ -237,6 +254,8 @@ class Client(object):
         except ValueError:
             raise TokocryptoRequestException('Invalid Response: %s' % self.response.text)
 
+    # Tokocrypto Endpoints
+
     def _get(self, path, signed=False, version=PUBLIC_API_VERSION, **kwargs):
         return self._request_api('get', path, signed, version, **kwargs)
 
@@ -249,127 +268,21 @@ class Client(object):
     def _delete(self, path, signed=False, version=PUBLIC_API_VERSION, **kwargs):
         return self._request_api('delete', path, signed, version, **kwargs)
 
+    # Binance Endpoints
+
+    def _binance_get(self, path, signed=False, version=BINANCE_PUBLIC_API_VERSION, **kwargs):
+        return self._request_binance_api('get', path, signed, version, **kwargs)
+
     # Exchange Endpoints
 
     def get_products(self):
-        """Return list of products currently listed on Tokocrypto
-
-        Use get_exchange_info() call instead
-
-        :returns: list - List of product dictionaries
-
-        :raises: TokocryptoRequestException, TokocryptoAPIException
-
-        """
-
         products = self._request_website('get', 'exchange/public/product')
         return products
 
     def get_exchange_info(self):
-        """Return rate limits and list of symbols
-
-        :returns: list - List of product dictionaries
-
-        .. code-block:: python
-
-            {
-                "timezone": "UTC",
-                "serverTime": 1508631584636,
-                "rateLimits": [
-                    {
-                        "rateLimitType": "REQUESTS",
-                        "interval": "MINUTE",
-                        "limit": 1200
-                    },
-                    {
-                        "rateLimitType": "ORDERS",
-                        "interval": "SECOND",
-                        "limit": 10
-                    },
-                    {
-                        "rateLimitType": "ORDERS",
-                        "interval": "DAY",
-                        "limit": 100000
-                    }
-                ],
-                "exchangeFilters": [],
-                "symbols": [
-                    {
-                        "symbol": "ETHBTC",
-                        "status": "TRADING",
-                        "baseAsset": "ETH",
-                        "baseAssetPrecision": 8,
-                        "quoteAsset": "BTC",
-                        "quotePrecision": 8,
-                        "orderTypes": ["LIMIT", "MARKET"],
-                        "icebergAllowed": false,
-                        "filters": [
-                            {
-                                "filterType": "PRICE_FILTER",
-                                "minPrice": "0.00000100",
-                                "maxPrice": "100000.00000000",
-                                "tickSize": "0.00000100"
-                            }, {
-                                "filterType": "LOT_SIZE",
-                                "minQty": "0.00100000",
-                                "maxQty": "100000.00000000",
-                                "stepSize": "0.00100000"
-                            }, {
-                                "filterType": "MIN_NOTIONAL",
-                                "minNotional": "0.00100000"
-                            }
-                        ]
-                    }
-                ]
-            }
-
-        :raises: TokocryptoRequestException, TokocryptoAPIException
-
-        """
-
         return self._get('common/symbols').get("data", [])
 
     def get_symbol_info(self, symbol):
-        """Return information about a symbol
-
-        :param symbol: required e.g BNBBTC
-        :type symbol: str
-
-        :returns: Dict if found, None if not
-
-        .. code-block:: python
-
-            {
-                "symbol": "ETHBTC",
-                "status": "TRADING",
-                "baseAsset": "ETH",
-                "baseAssetPrecision": 8,
-                "quoteAsset": "BTC",
-                "quotePrecision": 8,
-                "orderTypes": ["LIMIT", "MARKET"],
-                "icebergAllowed": false,
-                "filters": [
-                    {
-                        "filterType": "PRICE_FILTER",
-                        "minPrice": "0.00000100",
-                        "maxPrice": "100000.00000000",
-                        "tickSize": "0.00000100"
-                    }, {
-                        "filterType": "LOT_SIZE",
-                        "minQty": "0.00100000",
-                        "maxQty": "100000.00000000",
-                        "stepSize": "0.00100000"
-                    }, {
-                        "filterType": "MIN_NOTIONAL",
-                        "minNotional": "0.00100000"
-                    }
-                ]
-            }
-
-        :raises: TokocryptoRequestException, TokocryptoAPIException
-
-        """
-
         res = self._get('common/symbols').get("data", [])
 
         for item in res['list']:
@@ -381,66 +294,12 @@ class Client(object):
     # General Endpoints
 
     def ping(self):
-        """Test connectivity to the Rest API.
-
-        https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#test-connectivity
-
-        :returns: Empty array
-
-        .. code-block:: python
-
-            {}
-
-        :raises: TokocryptoRequestException, TokocryptoAPIException
-
-        """
-        return {}
-        # return self._get('ping')
+        return self._binance_get('ping')
 
     def get_server_time(self):
-        """Test connectivity to the Rest API and get the current server time.
-
-        https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#check-server-time
-
-        :returns: Current server time
-
-        .. code-block:: python
-
-            {
-                "serverTime": 1499827319559
-            }
-
-        :raises: TokocryptoRequestException, TokocryptoAPIException
-
-        """
         return self._get('common/time')
 
     # Market Data Endpoints
-
-    def get_all_tickers(self):
-        """Latest price for all symbols.
-
-        https://www.binance.com/restapipub.html#symbols-price-ticker
-
-        :returns: List of market tickers
-
-        .. code-block:: python
-
-            [
-                {
-                    "symbol": "LTCBTC",
-                    "price": "4.00000200"
-                },
-                {
-                    "symbol": "ETHBTC",
-                    "price": "0.07946600"
-                }
-            ]
-
-        :raises: TokocryptoRequestException, TokocryptoAPIException
-
-        """
-        return self._get('ticker/allPrices')
 
     def get_orderbook_tickers(self):
         """Best price/qty on the order book for all symbols.
@@ -759,8 +618,7 @@ class Client(object):
         )
         return kline[0][0]
 
-    def get_historical_klines(self, symbol, interval, start_str, end_str=None,
-                              limit=500):
+    async def get_historical_klines(self, symbol, interval, start_str, end_str=None, limit=500):
         """Get Historical Klines from Tokocrypto
 
         See dateparser docs for valid start and end string formats http://dateparser.readthedocs.io/en/latest/
@@ -840,11 +698,11 @@ class Client(object):
 
             # sleep after every 3rd call to be kind to the API
             if idx % 3 == 0:
-                time.sleep(1)
+                await asyncio.sleep(1)
 
         return output_data
 
-    def get_historical_klines_generator(self, symbol, interval, start_str, end_str=None):
+    async def get_historical_klines_generator(self, symbol, interval, start_str, end_str=None):
         """Get Historical Klines from Tokocrypto
 
         See dateparser docs for valid start and end string formats http://dateparser.readthedocs.io/en/latest/
@@ -921,7 +779,7 @@ class Client(object):
 
             # sleep after every 3rd call to be kind to the API
             if idx % 3 == 0:
-                time.sleep(1)
+                await asyncio.sleep(1)
 
     def get_avg_price(self, **params):
         """Current average price for a symbol.
@@ -1110,8 +968,8 @@ class Client(object):
         :type quoteOrderQty: decimal
         :param price: required
         :type price: str
-        :param newClientOrderId: A unique id for the order. Automatically generated if not sent.
-        :type newClientOrderId: str
+        :param clientId: A unique id for the order. Automatically generated if not sent.
+        :type clientId: str
         :param icebergQty: Used with LIMIT, STOP_LOSS_LIMIT, and TAKE_PROFIT_LIMIT to create an iceberg order.
         :type icebergQty: decimal
         :param newOrderRespType: Set the response JSON. ACK, RESULT, or FULL; default: RESULT.
@@ -1128,7 +986,7 @@ class Client(object):
             {
                 "symbol":"LTCBTC",
                 "orderId": 1,
-                "clientOrderId": "myOrder1" # Will be newClientOrderId
+                "clientOrderId": "myOrder1" # Will be clientId
                 "transactTime": 1499827319559
             }
 
@@ -1220,8 +1078,8 @@ class Client(object):
         :type price: str
         :param timeInForce: default Good till cancelled
         :type timeInForce: str
-        :param newClientOrderId: A unique id for the order. Automatically generated if not sent.
-        :type newClientOrderId: str
+        :param clientId: A unique id for the order. Automatically generated if not sent.
+        :type clientId: str
         :param icebergQty: Used with LIMIT, STOP_LOSS_LIMIT, and TAKE_PROFIT_LIMIT to create an iceberg order.
         :type icebergQty: decimal
         :param newOrderRespType: Set the response JSON. ACK, RESULT, or FULL; default: RESULT.
@@ -1255,8 +1113,8 @@ class Client(object):
         :type price: str
         :param timeInForce: default Good till cancelled
         :type timeInForce: str
-        :param newClientOrderId: A unique id for the order. Automatically generated if not sent.
-        :type newClientOrderId: str
+        :param clientId: A unique id for the order. Automatically generated if not sent.
+        :type clientId: str
         :param stopPrice: Used with stop orders
         :type stopPrice: decimal
         :param icebergQty: Used with iceberg orders
@@ -1289,8 +1147,8 @@ class Client(object):
         :type price: str
         :param timeInForce: default Good till cancelled
         :type timeInForce: str
-        :param newClientOrderId: A unique id for the order. Automatically generated if not sent.
-        :type newClientOrderId: str
+        :param clientId: A unique id for the order. Automatically generated if not sent.
+        :type clientId: str
         :param stopPrice: Used with stop orders
         :type stopPrice: decimal
         :param icebergQty: Used with iceberg orders
@@ -1324,8 +1182,8 @@ class Client(object):
         :param quoteOrderQty: amount the user wants to spend (when buying) or receive (when selling)
             of the quote asset
         :type quoteOrderQty: decimal
-        :param newClientOrderId: A unique id for the order. Automatically generated if not sent.
-        :type newClientOrderId: str
+        :param clientId: A unique id for the order. Automatically generated if not sent.
+        :type clientId: str
         :param newOrderRespType: Set the response JSON. ACK, RESULT, or FULL; default: RESULT.
         :type newOrderRespType: str
         :param recvWindow: the number of milliseconds the request is valid for
@@ -1352,8 +1210,8 @@ class Client(object):
         :type quantity: decimal
         :param quoteOrderQty: the amount the user wants to spend of the quote asset
         :type quoteOrderQty: decimal
-        :param newClientOrderId: A unique id for the order. Automatically generated if not sent.
-        :type newClientOrderId: str
+        :param clientId: A unique id for the order. Automatically generated if not sent.
+        :type clientId: str
         :param newOrderRespType: Set the response JSON. ACK, RESULT, or FULL; default: RESULT.
         :type newOrderRespType: str
         :param recvWindow: the number of milliseconds the request is valid for
@@ -1380,8 +1238,8 @@ class Client(object):
         :type quantity: decimal
         :param quoteOrderQty: the amount the user wants to receive of the quote asset
         :type quoteOrderQty: decimal
-        :param newClientOrderId: A unique id for the order. Automatically generated if not sent.
-        :type newClientOrderId: str
+        :param clientId: A unique id for the order. Automatically generated if not sent.
+        :type clientId: str
         :param newOrderRespType: Set the response JSON. ACK, RESULT, or FULL; default: RESULT.
         :type newOrderRespType: str
         :param recvWindow: the number of milliseconds the request is valid for
@@ -1562,8 +1420,8 @@ class Client(object):
         :type quantity: decimal
         :param price: required
         :type price: str
-        :param newClientOrderId: A unique id for the order. Automatically generated if not sent.
-        :type newClientOrderId: str
+        :param clientId: A unique id for the order. Automatically generated if not sent.
+        :type clientId: str
         :param icebergQty: Used with iceberg orders
         :type icebergQty: decimal
         :param newOrderRespType: Set the response JSON. ACK, RESULT, or FULL; default: RESULT.
@@ -1584,7 +1442,7 @@ class Client(object):
         return self._post('order/test', True, data=params)
 
     def get_order(self, **params):
-        """Check an order's status. Either orderId or origClientOrderId must be sent.
+        """Check an order's status. Either orderId or orderId must be sent.
 
         https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#query-order-user_data
 
@@ -1592,8 +1450,8 @@ class Client(object):
         :type symbol: str
         :param orderId: The unique order id
         :type orderId: int
-        :param origClientOrderId: optional
-        :type origClientOrderId: str
+        :param orderId: optional
+        :type orderId: str
         :param recvWindow: the number of milliseconds the request is valid for
         :type recvWindow: int
 
@@ -1620,7 +1478,7 @@ class Client(object):
         :raises: TokocryptoRequestException, TokocryptoAPIException
 
         """
-        return self._get('order', True, data=params)
+        return self._get('orders/detail', True, data=params)
 
     def get_all_orders(self, **params):
         """Get all account orders; active, canceled, or filled.
@@ -1664,7 +1522,7 @@ class Client(object):
         return self._get('orders', True, data=params)
 
     def cancel_order(self, **params):
-        """Cancel an active order. Either orderId or origClientOrderId must be sent.
+        """Cancel an active order. orderId must be sent.
 
         https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#cancel-order-trade
 
@@ -1672,10 +1530,10 @@ class Client(object):
         :type symbol: str
         :param orderId: The unique order id
         :type orderId: int
-        :param origClientOrderId: optional
-        :type origClientOrderId: str
-        :param newClientOrderId: Used to uniquely identify this cancel. Automatically generated by default.
-        :type newClientOrderId: str
+        :param orderId: optional
+        :type orderId: str
+        :param clientId: Used to uniquely identify this cancel. Automatically generated by default.
+        :type clientId: str
         :param recvWindow: the number of milliseconds the request is valid for
         :type recvWindow: int
 
@@ -1684,16 +1542,31 @@ class Client(object):
         .. code-block:: python
 
             {
-                "symbol": "LTCBTC",
-                "origClientOrderId": "myOrder1",
-                "orderId": 1,
-                "clientOrderId": "cancelMyOrder1"
+                "code": 0,
+                "message": "success",
+                "data": {
+                    "orderId": 4,
+                    "orderListId": -1 // Unless part of an OCO, the value will always be -1.
+                    "clientId": "myOrder1",
+                    "symbol": "BTC_USDT",
+                    "side": 1,
+                    "type": 1,
+                    "price": 1,
+                    "status": 0,
+                    "origQty": 10.88,
+                    "origQuoteQty": 0,
+                    "executedQty": 0,
+                    "executedPrice": 0,
+                    "executedQuoteQty": 0,
+                    "createTime": 1550130502000
+                },
+                "timestamp": 1550130554182
             }
 
         :raises: TokocryptoRequestException, TokocryptoAPIException
 
         """
-        return self._delete('orders/cancel', True, data=params)
+        return self._post('orders/cancel', True, data=params)
 
     def get_open_orders(self, **params):
         """Get all open orders on a symbol.
@@ -1840,7 +1713,7 @@ class Client(object):
         :raises: TokocryptoRequestException, TokocryptoAPIException
 
         """
-        return self._get('myTrades', True, data=params)
+        return self._get('orders/trades', True, data=params)
 
     def get_system_status(self):
         """Get system status detail.
@@ -2433,7 +2306,7 @@ class Client(object):
 
             {
                 "assetFullName": "Tokocrypto Coin",
-                "assetName": "BNB",
+                "assetName": "TKO",
                 "isBorrowable": false,
                 "isMortgageable": true,
                 "userMinBorrow": "0.00000000",
@@ -2641,8 +2514,8 @@ class Client(object):
         :type stopPrice: str
         :param timeInForce: required if limit order GTC,IOC,FOK
         :type timeInForce: str
-        :param newClientOrderId: A unique id for the order. Automatically generated if not sent.
-        :type newClientOrderId: str
+        :param clientId: A unique id for the order. Automatically generated if not sent.
+        :type clientId: str
         :param icebergQty: Used with LIMIT, STOP_LOSS_LIMIT, and TAKE_PROFIT_LIMIT to create an iceberg order.
         :type icebergQty: str
         :param newOrderRespType: Set the response JSON. ACK, RESULT, or FULL; MARKET and LIMIT order types default to
@@ -2754,8 +2627,8 @@ class Client(object):
         :type orderId: str
         :param origClientOrderId:
         :type origClientOrderId: str
-        :param newClientOrderId: Used to uniquely identify this cancel. Automatically generated by default.
-        :type newClientOrderId: str
+        :param clientId: Used to uniquely identify this cancel. Automatically generated by default.
+        :type clientId: str
         :param recvWindow: the number of milliseconds the request is valid for
         :type recvWindow: int
 

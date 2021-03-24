@@ -36,6 +36,11 @@ def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
     return hb_trading_pair.replace("-", "")
 
 
+def convert_to_tokocrypto_exchange_trading_pair(hb_trading_pair: str) -> str:
+    # Tokocrypto uses underscore in split BASEQUOTE (BTC_USDT)
+    return hb_trading_pair.replace("-", "_")
+
+
 KEYS = {
     "tokocrypto_api_key":
         ConfigVar(key="tokocrypto_api_key",
@@ -48,24 +53,5 @@ KEYS = {
                   prompt="Enter your tokocrypto API secret >>> ",
                   required_if=using_exchange("tokocrypto"),
                   is_secure=True,
-                  is_connect_key=True),
+                  is_connect_key=True)
 }
-
-OTHER_DOMAINS = []
-OTHER_DOMAINS_PARAMETER = {"tokocrypto_us": "us"}
-OTHER_DOMAINS_EXAMPLE_PAIR = {"tokocrypto_us": "USDT-BIDR"}
-OTHER_DOMAINS_DEFAULT_FEES = {"tokocrypto_us": [0.1, 0.1]}
-OTHER_DOMAINS_KEYS = {"tokocrypto_us": {
-    "tokocrypto_us_api_key":
-        ConfigVar(key="tokocrypto_us_api_key",
-                  prompt="Enter your Tokocrypto US API key >>> ",
-                  required_if=using_exchange("tokocrypto_us"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "tokocrypto_us_api_secret":
-        ConfigVar(key="tokocrypto_us_api_secret",
-                  prompt="Enter your Tokocrypto US API secret >>> ",
-                  required_if=using_exchange("tokocrypto_us"),
-                  is_secure=True,
-                  is_connect_key=True),
-}}

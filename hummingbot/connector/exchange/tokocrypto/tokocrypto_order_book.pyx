@@ -38,9 +38,9 @@ cdef class TokocryptoOrderBook(OrderBook):
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
             "trading_pair": msg["trading_pair"],
-            "update_id": msg["lastUpdateId"],
-            "bids": msg["bids"],
-            "asks": msg["asks"]
+            "update_id": msg["timestamp"],
+            "bids": msg["data"]["bids"],
+            "asks": msg["data"]["asks"]
         }, timestamp=timestamp)
 
     @classmethod
@@ -64,9 +64,9 @@ cdef class TokocryptoOrderBook(OrderBook):
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
             "trading_pair": msg["trading_pair"],
-            "update_id": msg["lastUpdateId"],
-            "bids": msg["bids"],
-            "asks": msg["asks"]
+            "update_id": msg["timestamp"],
+            "bids": msg["data"]["bids"],
+            "asks": msg["data"]["asks"]
         }, timestamp=record["timestamp"] * 1e-3)
 
     @classmethod
@@ -88,9 +88,9 @@ cdef class TokocryptoOrderBook(OrderBook):
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
             "trading_pair": msg["trading_pair"],
-            "update_id": msg["lastUpdateId"],
-            "bids": msg["bids"],
-            "asks": msg["asks"]
+            "update_id": msg["timestamp"],
+            "bids": msg["data"]["bids"],
+            "asks": msg["data"]["asks"]
         }, timestamp=record.timestamp * 1e-3)
 
     @classmethod
