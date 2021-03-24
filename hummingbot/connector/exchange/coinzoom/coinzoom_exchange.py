@@ -227,9 +227,7 @@ class CoinzoomExchange(ExchangeBase):
         """
         try:
             # since there is no ping endpoint, the lowest rate call is to get BTC-USD symbol
-            await self._api_request("GET",
-                                    Constants.ENDPOINT['SYMBOL'],
-                                    params={'symbols': 'BTCUSD'})
+            await self._api_request("GET", Constants.ENDPOINT['SYMBOL'])
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -274,29 +272,31 @@ class CoinzoomExchange(ExchangeBase):
         Response Example:
         [
             {
-                id: "BTCUSD",
-                baseCurrency: "BTC",
-                quoteCurrency: "USD",
-                quantityIncrement: "0.00001",
-                tickSize: "0.01",
-                takeLiquidityRate: "0.0025",
-                provideLiquidityRate: "0.001",
-                feeCurrency: "USD",
-                marginTrading: true,
-                maxInitialLeverage: "12.00"
+                "symbol" : "BTC/USD",
+                "baseCurrencyCode" : "BTC",
+                "termCurrencyCode" : "USD",
+                "minTradeAmt" : 0.0001,
+                "maxTradeAmt" : 10,
+                "maxPricePrecision" : 2,
+                "maxQuantityPrecision" : 6,
+                "issueOnly" : false
             }
         ]
         """
         result = {}
         for rule in symbols_info:
             try:
-                trading_pair = convert_from_exchange_trading_pair(rule["id"])
-                price_step = Decimal(str(rule["tickSize"]))
-                size_step = Decimal(str(rule["quantityIncrement"]))
+                trading_pair = convert_from_exchange_trading_pair(rule["symbol"])
+                min_amount = Decimal(str(rule["minTradeAmt"]))
+                min_price = Decimal(f"1e-{rule['maxPricePrecision']}")
                 result[trading_pair] = TradingRule(trading_pair,
-                                                   min_order_size=size_step,
-                                                   min_base_amount_increment=size_step,
-                                                   min_price_increment=price_step)
+                                                   min_order_size=min_amount,
+                                                   max_order_size=Decimal(str(rule["maxTradeAmt"])),
+                                                   min_price_increment=min_price,
+                                                   min_base_amount_increment=min_amount,
+                                                   min_notional_size=min(min_price * min_amount, Decimal("0.00000001")),
+                                                   max_price_significant_digits=Decimal(str(rule["maxPricePrecision"])),
+                                                   )
             except Exception:
                 self.logger().error(f"Error parsing the trading pair rule {rule}. Skipping.", exc_info=True)
         return result
@@ -322,10 +322,9 @@ class CoinzoomExchange(ExchangeBase):
         qs_params: dict = params if method.upper() == "GET" else None
         req_form = aiohttp.FormData(params) if method.upper() == "POST" and params is not None else None
         # Generate auth headers if needed.
-        headers: dict = {"Content-Type": "application/x-www-form-urlencoded"}
+        headers: dict = {"Content-Type": "application/json"}
         if is_auth_required:
-            headers: dict = self._coinzoom_auth.get_headers(method, f"{Constants.REST_URL_AUTH}/{endpoint}",
-                                                            params)
+            headers: dict = self._coinzoom_auth.get_headers()
         # Build request coro
         response_coro = shared_client.request(method=method.upper(), url=url, headers=headers,
                                               params=qs_params, data=req_form,
@@ -623,23 +622,43 @@ class CoinzoomExchange(ExchangeBase):
         """
         Updates in-flight order and triggers cancellation or failure event if needed.
         :param order_msg: The order response from either REST or web socket API (they are of the same format)
-        Example Order:
-        {
-            "id": "4345613661",
-            "clientOrderId": "57d5525562c945448e3cbd559bd068c3",
-            "symbol": "BCCBTC",
-            "side": "sell",
-            "status": "new",
-            "type": "limit",
-            "timeInForce": "GTC",
-            "quantity": "0.013",
-            "price": "0.100000",
-            "cumQuantity": "0.000",
-            "postOnly": false,
-            "createdAt": "2017-10-20T12:17:12.245Z",
-            "updatedAt": "2017-10-20T12:17:12.245Z",
-            "reportType": "status"
-        }
+        Example Orders:
+            Create:
+            {
+                'orderId': '962a2a54-fbcf-4d89-8f37-a8854020a823',
+                'symbol': 'BTC/USD',
+                'orderType': 'LIMIT',
+                'orderSide': 'BUY',
+                'price': 5000,
+                'quantity': 0.001,
+                'executionType': 'NEW',
+                'orderStatus': 'NEW',
+                'lastQuantity': 0,
+                'leavesQuantity': 0.001,
+                'cumulativeQuantity': 0,
+                'transactTime': '2021-03-23T19:06:41.621527Z'
+            }
+            Cancel Pending
+            {
+                'orderId': '962a2a54-fbcf-4d89-8f37-a8854020a823',
+                'response': 'Cancel Pending',
+                'symbol': 'BTC/USD'
+            }
+            Cancelled
+            {
+                'id': '4eb3f26c-91bd-4bd2-bacb-15b2f432c452',
+                'orderId': '962a2a54-fbcf-4d89-8f37-a8854020a823',
+                'symbol': 'BTC/USD', 'orderType': 'LIMIT',
+                'orderSide': 'BUY',
+                'price': 5000,
+                'quantity': 0.001,
+                'executionType': 'CANCEL',
+                'orderStatus': 'CANCELLED',
+                'lastQuantity': 0,
+                'leavesQuantity': 0,
+                'cumulativeQuantity': 0,
+                'transactTime': '2021-03-23T19:06:51.155520Z'
+            }
         """
         client_order_id = order_msg["clientOrderId"]
         if client_order_id not in self._in_flight_orders:
@@ -831,22 +850,22 @@ class CoinzoomExchange(ExchangeBase):
             try:
                 event_methods = [
                     Constants.WS_METHODS["USER_ORDERS"],
-                    Constants.WS_METHODS["USER_TRADES"],
+                    Constants.WS_METHODS["USER_ORDERS_CANCEL"],
                 ]
-                method: str = event_message.get("method", None)
-                params: str = event_message.get("params", None)
-                account_balances: list = event_message.get("result", None)
 
-                if method not in event_methods and account_balances is None:
-                    self.logger().error(f"Unexpected message in user stream: {event_message}.", exc_info=True)
+                msg_keys = list(event_message.keys()) if event_message is not None else []
+
+                method_key = [key for key in msg_keys if key in event_methods]
+
+                if len(method_key) != 1:
                     continue
-                if method == Constants.WS_METHODS["USER_TRADES"]:
-                    await self._process_trade_message(params)
-                elif method == Constants.WS_METHODS["USER_ORDERS"]:
-                    for order_msg in params:
-                        self._process_order_message(order_msg)
-                elif isinstance(account_balances, list) and "currency" in account_balances[0]:
-                    self._process_balance_message(account_balances)
+
+                method: str = method_key[0]
+
+                if method == Constants.WS_METHODS["USER_ORDERS"]:
+                    self._process_order_message(event_message[method])
+                elif method == Constants.WS_METHODS["USER_ORDERS_CANCEL"]:
+                    self._process_order_message(event_message[method])
             except asyncio.CancelledError:
                 raise
             except Exception:

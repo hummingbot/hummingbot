@@ -2,18 +2,14 @@
 
 from typing import (
     Dict,
-    List,
     Optional,
 )
 
-from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage,
     OrderBookMessageType,
 )
-from .coinzoom_utils import (
-    convert_from_exchange_trading_pair,
-)
+from hummingbot.connector.exchange.coinzoom.coinzoom_constants import Constants
 
 
 class CoinzoomOrderBookMessage(OrderBookMessage):
@@ -37,38 +33,27 @@ class CoinzoomOrderBookMessage(OrderBookMessage):
     @property
     def update_id(self) -> int:
         if self.type in [OrderBookMessageType.DIFF, OrderBookMessageType.SNAPSHOT]:
-            return int(self.timestamp * 1e3)
+            return self.timestamp
         else:
             return -1
 
     @property
     def trade_id(self) -> int:
         if self.type is OrderBookMessageType.TRADE:
-            return int(self.timestamp * 1e3)
+            return self.timestamp
         return -1
 
     @property
     def trading_pair(self) -> str:
-        if "trading_pair" in self.content:
-            return self.content["trading_pair"]
-        elif "symbol" in self.content:
-            return convert_from_exchange_trading_pair(self.content["symbol"])
+        return self.content["trading_pair"]
 
     @property
-    def asks(self) -> List[OrderBookRow]:
-        asks = map(self.content["ask"], lambda ask: {"price": ask["price"], "size": ask["size"]})
-
-        return [
-            OrderBookRow(float(price), float(amount), self.update_id) for price, amount in asks
-        ]
+    def asks(self):
+        raise NotImplementedError(Constants.EXCHANGE_NAME + " order book uses active_order_tracker.")
 
     @property
-    def bids(self) -> List[OrderBookRow]:
-        bids = map(self.content["bid"], lambda bid: {"price": bid["price"], "size": bid["size"]})
-
-        return [
-            OrderBookRow(float(price), float(amount), self.update_id) for price, amount in bids
-        ]
+    def bids(self):
+        raise NotImplementedError(Constants.EXCHANGE_NAME + " order book uses active_order_tracker.")
 
     def __eq__(self, other) -> bool:
         return self.type == other.type and self.timestamp == other.timestamp

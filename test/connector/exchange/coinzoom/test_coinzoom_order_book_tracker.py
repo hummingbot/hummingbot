@@ -5,6 +5,7 @@ import time
 import asyncio
 import logging
 import unittest
+from async_timeout import timeout
 from os.path import join, realpath
 from typing import Dict, Optional, List
 from hummingbot.core.event.event_logger import EventLogger
@@ -38,11 +39,12 @@ class CoinzoomOrderBookTrackerUnitTest(unittest.TestCase):
 
     @classmethod
     async def wait_til_tracker_ready(cls):
-        while True:
-            if len(cls.order_book_tracker.order_books) > 0:
-                print("Initialized real-time order books.")
-                return
-            await asyncio.sleep(1)
+        async with timeout(20):
+            while True:
+                if len(cls.order_book_tracker.order_books) > 0:
+                    print("Initialized real-time order books.")
+                    return
+                await asyncio.sleep(1)
 
     async def run_parallel_async(self, *tasks, timeout=None):
         future: asyncio.Future = asyncio.ensure_future(asyncio.gather(*tasks))
@@ -57,7 +59,7 @@ class CoinzoomOrderBookTrackerUnitTest(unittest.TestCase):
         return future.result()
 
     def run_parallel(self, *tasks):
-        return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
+        return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks, timeout=60))
 
     def setUp(self):
         self.event_logger = EventLogger()
@@ -78,8 +80,8 @@ class CoinzoomOrderBookTrackerUnitTest(unittest.TestCase):
             self.assertTrue(type(ob_trade_event.amount) == float)
             self.assertTrue(type(ob_trade_event.price) == float)
             self.assertTrue(type(ob_trade_event.type) == TradeType)
-            # datetime is in seconds
-            self.assertTrue(math.ceil(math.log10(ob_trade_event.timestamp)) == 10)
+            # datetime is in milliseconds
+            self.assertTrue(math.ceil(math.log10(ob_trade_event.timestamp)) == 13)
             self.assertTrue(ob_trade_event.amount > 0)
             self.assertTrue(ob_trade_event.price > 0)
 

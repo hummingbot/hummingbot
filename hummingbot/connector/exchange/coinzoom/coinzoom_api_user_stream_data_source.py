@@ -52,20 +52,20 @@ class CoinzoomAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
             await self._ws.connect()
 
-            await self._ws.subscribe(Constants.WS_SUB["USER_ORDERS_TRADES"], None, {})
+            await self._ws.subscribe({stream_key: {} for stream_key in Constants.WS_SUB["USER_ORDERS_TRADES"]})
 
             event_methods = [
                 Constants.WS_METHODS["USER_ORDERS"],
-                Constants.WS_METHODS["USER_TRADES"],
+                Constants.WS_METHODS["USER_ORDERS_CANCEL"],
             ]
 
             async for msg in self._ws.on_message():
                 self._last_recv_time = time.time()
 
-                if msg.get("params", msg.get("result", None)) is None:
+                msg_keys = list(msg.keys()) if msg is not None else []
+
+                if not any(ws_method in msg_keys for ws_method in event_methods):
                     continue
-                elif msg.get("method", None) in event_methods:
-                    await self._ws_request_balances()
                 yield msg
         except Exception as e:
             raise e

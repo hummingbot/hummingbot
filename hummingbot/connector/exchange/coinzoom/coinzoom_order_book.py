@@ -14,6 +14,10 @@ from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage, OrderBookMessageType
 )
 from hummingbot.connector.exchange.coinzoom.coinzoom_order_book_message import CoinzoomOrderBookMessage
+from .coinzoom_utils import (
+    convert_from_exchange_trading_pair,
+    str_date_to_ts,
+)
 
 _logger = None
 
@@ -107,20 +111,18 @@ class CoinzoomOrderBook(OrderBook):
         :return: CoinzoomOrderBookMessage
         """
 
-        if metadata:
-            msg.update(metadata)
-
-        msg.update({
-            "exchange_order_id": msg.get("id"),
-            "trade_type": msg.get("side"),
-            "price": msg.get("price"),
-            "amount": msg.get("quantity"),
-        })
+        trade_msg = {
+            "trade_type": msg[4],
+            "price": msg[1],
+            "amount": msg[2],
+            "trading_pair": convert_from_exchange_trading_pair(msg[0])
+        }
+        trade_timestamp = str_date_to_ts(msg[3])
 
         return CoinzoomOrderBookMessage(
             message_type=OrderBookMessageType.TRADE,
-            content=msg,
-            timestamp=timestamp
+            content=trade_msg,
+            timestamp=trade_timestamp
         )
 
     @classmethod

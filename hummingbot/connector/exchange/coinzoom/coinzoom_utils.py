@@ -18,7 +18,7 @@ CENTRALIZED = True
 
 EXAMPLE_PAIR = "BTC-USD"
 
-DEFAULT_FEES = [0.1, 0.25]
+DEFAULT_FEES = [0.2, 0.26]
 
 
 class CoinzoomAPIError(IOError):
@@ -29,7 +29,7 @@ class CoinzoomAPIError(IOError):
 
 # convert date string to timestamp
 def str_date_to_ts(date: str) -> int:
-    return int(dateparse(date).timestamp())
+    return int(dateparse(date).timestamp() * 1e3)
 
 
 # Request ID class
@@ -49,9 +49,12 @@ def convert_from_exchange_trading_pair(ex_trading_pair: str) -> Optional[str]:
     return ex_trading_pair.replace("/", "-")
 
 
-def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
+def convert_to_exchange_trading_pair(hb_trading_pair: str, alternative: bool = False) -> str:
     # CoinZoom uses uppercase (BTCUSDT)
-    return hb_trading_pair.replace("-", "/").upper()
+    if alternative:
+        return hb_trading_pair.replace("-", "_").upper()
+    else:
+        return hb_trading_pair.replace("-", "/").upper()
 
 
 def get_new_client_order_id(is_buy: bool, trading_pair: str) -> str:
