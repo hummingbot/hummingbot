@@ -121,6 +121,9 @@ class CoinzoomInFlightOrder(InFlightOrderBase):
                 'transactTime': '2021-03-23T19:06:51.155520Z'
             }
         """
+        # Update order execution status
+        self.last_state = order_update["orderStatus"]
+
         if 'cumulativeQuantity' not in order_update and 'executions' not in order_update:
             return False
 
@@ -147,7 +150,7 @@ class CoinzoomInFlightOrder(InFlightOrderBase):
                 return False
             self.trade_id_set.add(trade_id)
             # Set executed amounts
-            executed_price = Decimal(str(order_update.get("price", "0")))
+            executed_price = Decimal(str(order_update.get("averagePrice", order_update.get("price", "0"))))
             self.executed_amount_base = Decimal(str(order_update["cumulativeQuantity"]))
             self.executed_amount_quote = executed_price * self.executed_amount_base
         if self.executed_amount_base <= s_decimal_0:

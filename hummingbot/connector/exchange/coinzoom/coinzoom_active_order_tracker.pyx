@@ -71,32 +71,24 @@ cdef class CoinzoomActiveOrderTracker:
             dict order_dict
             double timestamp = message.timestamp
             double amount = 0
+            dict nps = {'bids': s_empty_diff, 'asks': s_empty_diff}
 
         if "b" in content_keys:
             bid_entries = content["b"]
         if "s" in content_keys:
             ask_entries = content["s"]
 
-        nps = {
-            'bids': s_empty_diff,
-            'asks': s_empty_diff,
-        }
-
         for entries, diff_key, id_list in [
-            (content["b"], 'bids', self._active_bids_ids),
-            (content["s"], 'asks', self._active_asks_ids)
+            (bid_entries, 'bids', self._active_bids_ids),
+            (ask_entries, 'asks', self._active_asks_ids)
         ]:
             if len(entries) > 0:
                 nps[diff_key] = np.array(
-                    [[timestamp,
-                      price,
-                      amount,
-                      message.update_id]
-                     for price, amount in [self.get_rates_and_amts_with_ids(entry, id_list) for entry in entries] if price is not None],
-                    dtype="float64",
-                    ndmin=2
+                    [[timestamp, price, amount, message.update_id]
+                     for price, amount in [self.get_rates_and_amts_with_ids(entry, id_list) for entry in entries]
+                     if price is not None],
+                    dtype="float64", ndmin=2
                 )
-
         return nps['bids'], nps['asks']
 
     cdef tuple c_convert_snapshot_message_to_np_arrays(self, object message):
@@ -130,16 +122,10 @@ cdef class CoinzoomActiveOrderTracker:
         # Return the sorted snapshot tables.
         cdef:
             np.ndarray[np.float64_t, ndim=2] bids = np.array(
-                [[message.timestamp,
-                  float(price),
-                  float(self._active_bids[price]),
-                  message.update_id]
+                [[message.timestamp, float(price), float(self._active_bids[price]), message.update_id]
                  for price in sorted(self._active_bids.keys())], dtype='float64', ndmin=2)
             np.ndarray[np.float64_t, ndim=2] asks = np.array(
-                [[message.timestamp,
-                  float(price),
-                  float(self._active_asks[price]),
-                  message.update_id]
+                [[message.timestamp, float(price), float(self._active_asks[price]), message.update_id]
                  for price in sorted(self._active_asks.keys(), reverse=True)], dtype='float64', ndmin=2)
 
         if bids.shape[1] != 4:
@@ -153,14 +139,10 @@ cdef class CoinzoomActiveOrderTracker:
     cdef np.ndarray[np.float64_t, ndim=1] c_convert_trade_message_to_np_array(self, object message):
         cdef:
             double trade_type_value = 1.0 if message.content[4] == "BUY" else 2.0
+            list content = message.content
 
-        timestamp = message.timestamp
-        content = message.content
-
-        return np.array(
-            [timestamp, trade_type_value, float(content[1]), float(content[2])],
-            dtype="float64"
-        )
+        return np.array([message.timestamp, trade_type_value, float(content[1]), float(content[2])],
+                        dtype="float64")
 
     def convert_diff_message_to_order_book_row(self, message):
         np_bids, np_asks = self.c_convert_diff_message_to_np_arrays(message)

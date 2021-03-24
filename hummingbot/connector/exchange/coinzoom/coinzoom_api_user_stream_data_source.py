@@ -52,11 +52,12 @@ class CoinzoomAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
             await self._ws.connect()
 
-            await self._ws.subscribe({stream_key: {} for stream_key in Constants.WS_SUB["USER_ORDERS_TRADES"]})
+            await self._ws.subscribe({Constants.WS_SUB["USER_ORDERS_TRADES"]: {}})
 
             event_methods = [
                 Constants.WS_METHODS["USER_ORDERS"],
-                Constants.WS_METHODS["USER_ORDERS_CANCEL"],
+                # We don't need to know about pending cancels
+                # Constants.WS_METHODS["USER_ORDERS_CANCEL"],
             ]
 
             async for msg in self._ws.on_message():

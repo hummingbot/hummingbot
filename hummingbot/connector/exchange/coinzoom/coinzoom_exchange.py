@@ -436,6 +436,9 @@ class CoinzoomExchange(ExchangeBase):
                       "orderSide": trade_type.name.upper(),
                       "quantity": f"{amount:f}",
                       "price": f"{price:f}",
+                      # Waiting for changes to CoinZoom API for this one.
+                      # "originType": Constants.HBOT_BROKER_ID,
+                      # CoinZoom doesn't support client order id yet
                       # "clientOrderId": order_id,
                       "payFeesWithZoomToken": "true",
                       }
@@ -530,10 +533,11 @@ class CoinzoomExchange(ExchangeBase):
         except CoinzoomAPIError as e:
             err = e.error_payload.get('error', e.error_payload)
             print(f"order cancel error: {err}")
-            self._order_not_found_records[order_id] = self._order_not_found_records.get(order_id, 0) + 1
-            if err.get('code') == 20002 and \
-                    self._order_not_found_records[order_id] >= self.ORDER_NOT_EXIST_CANCEL_COUNT:
-                order_was_cancelled = True
+            # TODO: Still need to handle order cancel errors.
+            # self._order_not_found_records[order_id] = self._order_not_found_records.get(order_id, 0) + 1
+            # if err.get('code') == 20002 and \
+            #         self._order_not_found_records[order_id] >= self.ORDER_NOT_EXIST_CANCEL_COUNT:
+            #     order_was_cancelled = True
         if order_was_cancelled:
             self.logger().info(f"Successfully cancelled order {order_id} on {Constants.EXCHANGE_NAME}.")
             self.stop_tracking_order(order_id)
@@ -602,29 +606,25 @@ class CoinzoomExchange(ExchangeBase):
                                                   Constants.ENDPOINT["ORDER_STATUS"],
                                                   api_params,
                                                   is_auth_required=True)
-            for response, tracked_order in zip(open_orders, tracked_orders):
+
+            open_orders_dict = {o['id']: o for o in open_orders}
+            found_ex_order_ids = list(open_orders_dict.keys())
+
+            for tracked_order in tracked_orders:
                 client_order_id = tracked_order.client_order_id
-                if isinstance(response, CoinzoomAPIError):
-                    err = response.error_payload.get('error', response.error_payload)
-                    print(f"order update err {err}")
-                    if err.get('code') == 20002:
-                        self._order_not_found_records[client_order_id] = \
-                            self._order_not_found_records.get(client_order_id, 0) + 1
-                        if self._order_not_found_records[client_order_id] < self.ORDER_NOT_EXIST_CONFIRMATION_COUNT:
-                            # Wait until the order not found error have repeated a few times before actually treating
-                            # it as failed. See: https://github.com/CoinAlpha/hummingbot/issues/601
-                            continue
-                        self.trigger_event(MarketEvent.OrderFailure,
-                                           MarketOrderFailureEvent(
-                                               self.current_timestamp, client_order_id, tracked_order.order_type))
-                        self.stop_tracking_order(client_order_id)
-                    else:
+                ex_order_id = tracked_order.exchange_order_id
+                if ex_order_id not in found_ex_order_ids:
+                    self._order_not_found_records[client_order_id] = \
+                        self._order_not_found_records.get(client_order_id, 0) + 1
+                    if self._order_not_found_records[client_order_id] < self.ORDER_NOT_EXIST_CONFIRMATION_COUNT:
+                        # Wait until the order is not found a few times before actually treating it as failed.
                         continue
-                elif "id" not in response:
-                    self.logger().info(f"_update_order_status id not in resp: {response}")
-                    continue
+                    self.trigger_event(MarketEvent.OrderFailure,
+                                       MarketOrderFailureEvent(
+                                           self.current_timestamp, client_order_id, tracked_order.order_type))
+                    self.stop_tracking_order(client_order_id)
                 else:
-                    self._process_order_message(response)
+                    self._process_order_message(open_orders_dict[ex_order_id])
 
     def _process_order_message(self, order_msg: Dict[str, Any]):
         """
@@ -661,7 +661,6 @@ class CoinzoomExchange(ExchangeBase):
             }
             WS request
             {
-                'id': '4eb3f26c-91bd-4bd2-bacb-15b2f432c452',
                 'orderId': '962a2a54-fbcf-4d89-8f37-a8854020a823',
                 'symbol': 'BTC/USD', 'orderType': 'LIMIT',
                 'orderSide': 'BUY',
@@ -673,6 +672,13 @@ class CoinzoomExchange(ExchangeBase):
                 'leavesQuantity': 0,
                 'cumulativeQuantity': 0,
                 'transactTime': '2021-03-23T19:06:51.155520Z'
+
+                ... Optional fields
+
+                'id': '4eb3f26c-91bd-4bd2-bacb-15b2f432c452',
+                "orderType": "LIMIT",
+                "lastPrice": 56518.7,
+                "averagePrice": 56518.7,
             }
         """
         if order_msg.get('clientOrderId') is not None:
@@ -690,11 +696,6 @@ class CoinzoomExchange(ExchangeBase):
             if not track_order:
                 return
             tracked_order = track_order[0]
-        # Update order execution status
-        tracked_order.last_state = order_msg["orderStatus"]
-        # update order
-        tracked_order.executed_amount_base = Decimal(order_msg["cumulativeQuantity"])
-        tracked_order.executed_amount_quote = Decimal(order_msg["price"]) * Decimal(order_msg["cumulativeQuantity"])
 
         # Estimate fee
         order_msg["trade_fee"] = self.estimate_fee_pct(tracked_order.order_type is OrderType.LIMIT_MAKER)
@@ -703,17 +704,17 @@ class CoinzoomExchange(ExchangeBase):
         if updated:
             safe_ensure_future(self._trigger_order_fill(tracked_order, order_msg))
         elif tracked_order.is_cancelled:
-            self.logger().info(f"Successfully cancelled order {client_order_id}.")
-            self.stop_tracking_order(client_order_id)
+            self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
+            self.stop_tracking_order(tracked_order.client_order_id)
             self.trigger_event(MarketEvent.OrderCancelled,
-                               OrderCancelledEvent(self.current_timestamp, client_order_id))
+                               OrderCancelledEvent(self.current_timestamp, tracked_order.client_order_id))
             tracked_order.cancelled_event.set()
         elif tracked_order.is_failure:
-            self.logger().info(f"The market order {client_order_id} has failed according to order status API. ")
+            self.logger().info(f"The order {tracked_order.client_order_id} has failed according to order status API. ")
             self.trigger_event(MarketEvent.OrderFailure,
                                MarketOrderFailureEvent(
-                                   self.current_timestamp, client_order_id, tracked_order.order_type))
-            self.stop_tracking_order(client_order_id)
+                                   self.current_timestamp, tracked_order.client_order_id, tracked_order.order_type))
+            self.stop_tracking_order(tracked_order.client_order_id)
 
     async def _trigger_order_fill(self,
                                   tracked_order: CoinzoomInFlightOrder,
@@ -726,7 +727,7 @@ class CoinzoomExchange(ExchangeBase):
                 tracked_order.trading_pair,
                 tracked_order.trade_type,
                 tracked_order.order_type,
-                Decimal(str(update_msg.get("price", "0"))),
+                Decimal(str(update_msg.get("averagePrice", update_msg.get("price", "0")))),
                 tracked_order.executed_amount_base,
                 TradeFee(percent=update_msg["trade_fee"]),
             )
@@ -777,8 +778,8 @@ class CoinzoomExchange(ExchangeBase):
         :param timeout_seconds: The timeout at which the operation will be canceled.
         :returns List of CancellationResult which indicates whether each order is successfully cancelled.
         """
-        if self._trading_pairs is None:
-            raise Exception("cancel_all can only be used when trading_pairs are specified.")
+        # if self._trading_pairs is None:
+        #     raise Exception("cancel_all can only be used when trading_pairs are specified.")
         open_orders = [o for o in self._in_flight_orders.values() if not o.is_done]
         if len(open_orders) == 0:
             return []
@@ -872,25 +873,41 @@ class CoinzoomExchange(ExchangeBase):
 
     # This is currently unused, but looks like a future addition.
     async def get_open_orders(self) -> List[OpenOrder]:
-        result = await self._api_request("GET", Constants.ENDPOINT["USER_ORDERS"], is_auth_required=True)
+        tracked_orders = list(self._in_flight_orders.values())
+        api_params = {
+            'symbol': None,
+            'orderSide': None,
+            'orderStatuses': ["NEW", "PARTIALLY_FILLED"],
+            'size': 500,
+            'bookmarkOrderId': None
+        }
+        result = await self._api_request("POST", Constants.ENDPOINT["USER_ORDERS"], api_params, is_auth_required=True)
         ret_val = []
         for order in result:
-            if Constants.HBOT_BROKER_ID not in order["clientOrderId"]:
+            exchange_order_id = str(order["id"])
+            # CoinZoom doesn't support client order ids yet so we must find it from the tracked orders.
+            track_order = [o for o in tracked_orders if exchange_order_id == o.exchange_order_id]
+            if not track_order or len(track_order) < 1:
+                # Skip untracked orders
                 continue
-            if order["type"] != OrderType.LIMIT.name.lower():
+            client_order_id = track_order[0].client_order_id
+            # if Constants.HBOT_BROKER_ID not in order["clientOrderId"]:
+            #     continue
+            if order["orderType"] != OrderType.LIMIT.name.upper():
                 self.logger().info(f"Unsupported order type found: {order['type']}")
+                # Skip and report non-limit orders
                 continue
             ret_val.append(
                 OpenOrder(
-                    client_order_id=order["clientOrderId"],
+                    client_order_id=client_order_id,
                     trading_pair=convert_from_exchange_trading_pair(order["symbol"]),
                     price=Decimal(str(order["price"])),
                     amount=Decimal(str(order["quantity"])),
                     executed_amount=Decimal(str(order["cumQuantity"])),
-                    status=order["status"],
+                    status=order["orderStatus"],
                     order_type=OrderType.LIMIT,
-                    is_buy=True if order["side"].lower() == TradeType.BUY.name.lower() else False,
-                    time=str_date_to_ts(order["createdAt"]),
+                    is_buy=True if order["orderSide"].lower() == TradeType.BUY.name.lower() else False,
+                    time=str_date_to_ts(order["timestamp"]),
                     exchange_order_id=order["id"]
                 )
             )

@@ -64,7 +64,7 @@ def get_new_client_order_id(is_buy: bool, trading_pair: str) -> str:
     quote = symbols[1].upper()
     base_str = f"{base[0]}{base[-1]}"
     quote_str = f"{quote[0]}{quote[-1]}"
-    return f"{Constants.HBOT_BROKER_ID}-{side}-{base_str}{quote_str}-{get_tracking_nonce()}"
+    return f"{Constants.HBOT_BROKER_ID}{side}{base_str}{quote_str}{get_tracking_nonce()}"
 
 
 def retry_sleep_time(try_count: int) -> float:
