@@ -38,7 +38,7 @@ from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
+
 import hummingbot.connector.exchange.idex.idex_resolve
 from hummingbot.connector.exchange.idex.idex_exchange import IdexExchange
 from hummingbot.connector.markets_recorder import MarketsRecorder
@@ -55,14 +55,27 @@ from test.integration.assets.mock_data.fixture_idex import FixtureIdex
 from test.integration.humming_ws_server import HummingWsServerFactory
 from unittest import mock
 
-logging.basicConfig(level=METRICS_LOG_LEVEL)
 # API_SECRET length must be multiple of 4 otherwise base64.b64decode will fail
 API_MOCK_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
-IDEX_API_KEY = ""
-IDEX_SECRET_KEY = ""
-IDEX_PRIVATE_KEY = ""
+# IDEX_API_KEY = "889fe7dd-ea60-4bf4-86f8-4eec39146510"  # todo: we must stop committing credentials
+# IDEX_SECRET_KEY = "tkDey53dr1ZlyM2tzUAu82l+nhgzxCJl"  # todo: see below we get these values from env vars
+# IDEX_PRIVATE_KEY = "0227070369c04f55c66988ee3b272f8ae297cf7967ca7bad6d2f71f72072e18d"
 API_BASE_URL = "https://api-eth.idex.io/"
 WS_BASE_URL = "wss://websocket-eth.idex.io/v1/"
+
+
+# load config from Hummingbot's central debug conf
+# Values can be overridden by env variables (in uppercase). Example: export IDEX_WALLET_PRIVATE_KEY="1234567"
+IDEX_API_KEY = getattr(conf, 'idex_api_key') or ''
+IDEX_API_SECRET_KEY = getattr(conf, 'idex_api_secret_key') or ''
+IDEX_WALLET_PRIVATE_KEY = getattr(conf, 'idex_wallet_private_key') or ''
+IDEX_CONTRACT_BLOCKCHAIN = getattr(conf, 'idex_contract_blockchain') or 'ETH'
+IDEX_USE_SANDBOX = True if getattr(conf, 'idex_use_sandbox') is None else getattr(conf, 'idex_use_sandbox')
+
+# force resolution of api base url for conf values provided to this test
+hummingbot.connector.exchange.idex.idex_resolve._IS_IDEX_SANDBOX = IDEX_USE_SANDBOX
+hummingbot.connector.exchange.idex.idex_resolve._IDEX_BLOCKCHAIN = IDEX_CONTRACT_BLOCKCHAIN
+
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -96,9 +109,6 @@ class IdexExchangeUnitTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.ev_loop = asyncio.get_event_loop()
-        # force the use of the ETH sandbox
-        hummingbot.connector.exchange.idex.idex_resolve._IS_IDEX_SANDBOX = True
-        hummingbot.connector.exchange.idex.idex_resolve._IDEX_BLOCKCHAIN = 'ETH'
         if API_MOCK_ENABLED:
             cls.web_app = HummingWebApp.get_instance()
             cls.web_app.add_host_to_mock(API_BASE_URL, [])
@@ -122,8 +132,8 @@ class IdexExchangeUnitTest(unittest.TestCase):
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.market: IdexExchange = IdexExchange(
             idex_api_key=IDEX_API_KEY,
-            idex_api_secret_key=IDEX_SECRET_KEY,
-            idex_wallet_private_key=IDEX_PRIVATE_KEY,
+            idex_api_secret_key=IDEX_API_SECRET_KEY,
+            idex_wallet_private_key=IDEX_WALLET_PRIVATE_KEY,
             trading_pairs=[cls.trading_pair]
         )
         print("Initializing Idex market... this will take about a minute.")
