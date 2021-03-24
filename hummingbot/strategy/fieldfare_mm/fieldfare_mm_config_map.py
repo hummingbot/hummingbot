@@ -34,6 +34,20 @@ def validate_exchange_trading_pair(value: str) -> Optional[str]:
     return validate_market_trading_pair(exchange, value)
 
 
+def validate_max_spread(value: str) -> Optional[str]:
+    validate_decimal(value, 0, 100, inclusive=False)
+    if fieldfare_mm_config_map["min_spread"].value is not None:
+        min_spread = Decimal(fieldfare_mm_config_map["min_spread"].value)
+        max_spread = Decimal(value)
+        if min_spread > max_spread:
+            return f"Max spread cannot be lesser than min spread {max_spread}%<{min_spread}%"
+
+
+def onvalidated_min_spread(value: str):
+    # If entered valid min_spread, max_spread is invalidated so user sets it up again
+    fieldfare_mm_config_map["max_spread"].value = None
+
+
 async def order_amount_prompt() -> str:
     exchange = fieldfare_mm_config_map["exchange"].value
     trading_pair = fieldfare_mm_config_map["market"].value
@@ -67,6 +81,11 @@ def on_validated_parameters_based_on_spread(value: str):
         fieldfare_mm_config_map.get("risk_factor").value = None
         fieldfare_mm_config_map.get("order_book_depth_factor").value = None
         fieldfare_mm_config_map.get("order_amount_shape_factor").value = None
+    else:
+        fieldfare_mm_config_map.get("max_spread").value = None
+        fieldfare_mm_config_map.get("min_spread").value = None
+        fieldfare_mm_config_map.get("vol_to_spread_multiplier").value = None
+        fieldfare_mm_config_map.get("inventory_risk_aversion").value = None
 
 
 fieldfare_mm_config_map = {
@@ -112,14 +131,15 @@ fieldfare_mm_config_map = {
                   type_str="decimal",
                   required_if=lambda: fieldfare_mm_config_map.get("parameters_based_on_spread").value,
                   validator=lambda v: validate_decimal(v, 0, 100, inclusive=False),
-                  prompt_on_new=True),
+                  prompt_on_new=True,
+                  on_validated=onvalidated_min_spread),
     "max_spread":
         ConfigVar(key="max_spread",
                   prompt="Enter the maximum spread allowed from mid-price in percentage "
                          "(Enter 1 to indicate 1%) >>> ",
                   type_str="decimal",
                   required_if=lambda: fieldfare_mm_config_map.get("parameters_based_on_spread").value,
-                  validator=lambda v: validate_decimal(v, 0, 100, inclusive=False),
+                  validator=lambda v: validate_max_spread(v),
                   prompt_on_new=True),
     "vol_to_spread_multiplier":
         ConfigVar(key="vol_to_spread_multiplier",
