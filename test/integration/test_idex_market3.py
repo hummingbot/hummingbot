@@ -266,7 +266,7 @@ class IdexExchangeUnitTest(unittest.TestCase):
                              for event in self.market_logger.event_log]))
         # Reset the logs
         self.market_logger.clear()    
-
+    
     def test_limit_taker_sell(self):
         trading_pair = "DIL-ETH"
         price: Decimal = self.market.get_price(trading_pair, False)
@@ -293,7 +293,6 @@ class IdexExchangeUnitTest(unittest.TestCase):
         # Reset the logs
         self.market_logger.clear()
     
-
     def test_cancel_order(self):
         trading_pair = "DIL-ETH"
 
@@ -384,7 +383,7 @@ class IdexExchangeUnitTest(unittest.TestCase):
             bid_price: Decimal = current_bid_price * Decimal("0.8")
             quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price)
 
-            amount: Decimal = Decimal("0.02")
+            amount: Decimal = Decimal("5.0")
             quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
             order_id, exchange_order_id = self._place_order(True, trading_pair, quantized_amount, OrderType.LIMIT_MAKER,
@@ -431,11 +430,12 @@ class IdexExchangeUnitTest(unittest.TestCase):
             self.market.restore_tracking_states(saved_market_states.saved_state)
             self.assertEqual(1, len(self.market.limit_orders))
             self.assertEqual(1, len(self.market.tracking_states))
-
+            self.logger().info("About to start the cancel!")
             # Cancel the order and verify that the change is saved.
             self._cancel_order(trading_pair, order_id, exchange_order_id, FixtureIdex.WS_ORDER_CANCELLED)
             self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
             order_id = None
+
             self.assertEqual(0, len(self.market.limit_orders))
             self.assertEqual(0, len(self.market.tracking_states))
             saved_market_states = recorder.get_market_states(config_path, self.market)
@@ -455,6 +455,8 @@ class IdexExchangeUnitTest(unittest.TestCase):
                 self.ev_loop.run_until_complete(asyncio.sleep(1))
                 print(order_book.last_trade_price)
                 self.assertFalse(math.isnan(order_book.last_trade_price))
+
+
 
     def test_order_fill_record(self):
         config_path: str = "test_config"

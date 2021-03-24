@@ -60,14 +60,14 @@ class IdexInFlightOrder(InFlightOrderBase):
         :return: formatted InFlightOrder
         """
         result = IdexInFlightOrder(
-            data["orderId"],
-            data["exchangeOrderId"],
-            data["market"],
-            from_idex_order_type(data["type"]),
-            from_idex_trade_type(data["side"]),
+            data["client_order_id"],
+            data["exchange_order_id"],
+            data["trading_pair"],
+            getattr(OrderType, data["order_type"]),
+            getattr(TradeType, data["trade_type"]),
             Decimal(data["price"]),
-            Decimal(data["executedQuantity"]),
-            data["status"]
+            Decimal(data["amount"]),
+            data["last_state"]
         )
         result.executed_amount_base = Decimal(data["executed_amount_base"])
         result.executed_amount_quote = Decimal(data["executed_amount_quote"])

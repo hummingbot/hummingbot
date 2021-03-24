@@ -448,7 +448,6 @@ class IdexExchange(ExchangeBase):
             if response.status != 200:
                 raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. {response}")
             data = await response.json()
-            self.logger().info(f"balances received: {data}")
             return data
 
     async def get_exchange_info_from_api(self) -> Dict[str, Any]:
@@ -630,13 +629,13 @@ class IdexExchange(ExchangeBase):
         """
         last_tick = int(self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
         current_tick = int(self.current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
-
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
             tracked_orders = list(self._in_flight_orders.values())
             tasks = []
             for tracked_order in tracked_orders:
                 order_id = await tracked_order.get_exchange_order_id()
                 tasks.append(self.get_order(order_id))
+                self.logger().info(f"Looking for remaining order: {order_id}")
             self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
             update_results = await safe_gather(*tasks, return_exceptions=True)
             for update_result in update_results:
@@ -650,21 +649,21 @@ class IdexExchange(ExchangeBase):
         Updates in-flight order and triggers cancellation or failure event if needed.
         :param order_msg: The order response from either REST or web socket API (they are different formats)
         """
-        self.logger().info(f"Order Message: {order_msg}")
+        #self.logger().info(f"Order Message: {order_msg}")
         client_order_id = order_msg["c"] if "c" in order_msg else order_msg.get("clientOrderId")
         if client_order_id not in self._in_flight_orders:
             return
         tracked_order = self._in_flight_orders[client_order_id]
         # Update order execution status
         tracked_order.last_state = order_msg["X"] if "X" in order_msg else order_msg.get("status")
-        self.logger().info(f"Tracked Order Status: {tracked_order.last_state}")
+        #self.logger().info(f"Tracked Order Status: {tracked_order.last_state}")
         if tracked_order.is_cancelled:
-            self.logger().info(f"Successfully cancelled order {client_order_id}.")
             self.trigger_event(MarketEvent.OrderCancelled,
                                OrderCancelledEvent(
                                    self.current_timestamp,
                                    client_order_id))
             tracked_order.cancelled_event.set()
+            self.logger().info(f"The order {client_order_id} is no longer tracked!")
             self.stop_tracking_order(client_order_id)
         elif tracked_order.is_failure:
             self.logger().info(f"The market order {client_order_id} has been rejected according to order status API.")
@@ -686,7 +685,7 @@ class IdexExchange(ExchangeBase):
         tracked_order = self._in_flight_orders.get(client_order_id)
         if not tracked_order:
             return
-        self.logger().info(f'Update Message:{update_msg}')
+        #self.logger().info(f'Update Message:{update_msg}')
         if update_msg.get("F") or update_msg.get("fills") is not None:
             for fill_msg in update_msg["F"] if "F" in update_msg else update_msg.get("fills"):
                 self.logger().info(f'Fill Message:{fill_msg}')
@@ -746,7 +745,6 @@ class IdexExchange(ExchangeBase):
         try:
             async with timeout(timeout_seconds):
                 results = await safe_gather(*tasks, return_exceptions=True)
-                self.logger().info(f"Cancel Exchange Order Ids: {results}")
                 exchange_order_id_list = []
                 client_order_id_list = []
                 # This is disgusting, I know. But it was the only way I could figure out how match the
