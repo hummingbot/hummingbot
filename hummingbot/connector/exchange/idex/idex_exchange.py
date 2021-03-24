@@ -285,6 +285,7 @@ class IdexExchange(ExchangeBase):
             if tracked_order is None:
                 raise ValueError(f"Failed to cancel order - {client_order_id}. Order not found.")
             order_cancellation = await self.delete_order(trading_pair, client_order_id)
+            self.logger().info("We waited for the cancellation and got it!")
             return order_cancellation
         except asyncio.CancelledError:
             raise
@@ -401,23 +402,20 @@ class IdexExchange(ExchangeBase):
         Deletes an order or all orders associated with a wallet from the Idex API.
         Returns json data with order id confirming deletion
         """
+        self.logger().info(f"This is a test.")
 
         rest_url = get_idex_rest_url()
         url = f"{rest_url}/v1/orders"
-        nonce = self._idex_auth.generate_nonce()
-        self.logger().info(f"Nonce GEN: {nonce}")
-        self.logger().info(f"Nonce: {self._idex_auth.get_nonce_str()}")
-        self.logger().info(f"Wallet: {self._idex_auth.get_wallet_address()}")
-        self.logger().info(f"Client: {client_order_id}")
 
         params = {
-            "nonce": self._idex_auth.get_nonce_str(),
+            "nonce": self._idex_auth.generate_nonce(),
             "wallet": self._idex_auth.get_wallet_address(),
-            "orderId": f"client: {client_order_id}",
+            "orderId": f"client:{client_order_id}",
         }
+        self.logger().info(f"Cancel ClientOID: {client_order_id}")
         signature_parameters = self._idex_auth.build_signature_params_for_cancel_order(
             # potential value: client_order_id=f"client:{order_id}"
-            client_order_id=client_order_id,
+            client_order_id=f"client:{client_order_id}",
         )
         wallet_signature = self._idex_auth.wallet_sign(signature_parameters)
 
@@ -428,11 +426,14 @@ class IdexExchange(ExchangeBase):
 
         auth_dict = self._idex_auth.generate_auth_dict_for_delete(url=url, body=body, wallet_signature=wallet_signature)
         session: aiohttp.ClientSession = await self._http_client()
+        self.logger().info(f"Cancelling order {client_order_id} for {trading_pair}.")
         async with session.delete(auth_dict["url"], data=auth_dict["body"], headers=auth_dict["headers"]) as response:
+            self.logger().info(f"Cancelled order {client_order_id} for {trading_pair}. Awaiting response")
             if response.status != 200:
                 data = await response.json()
                 raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. {data}")
             data = await response.json()
+            self.logger().info(f"Cancelled Response: {data}")
             return data
 
     async def get_balances_from_api(self) -> List[Dict[str, Any]]:
@@ -649,7 +650,7 @@ class IdexExchange(ExchangeBase):
     def _process_order_message(self, order_msg: Dict[str, Any]):
         """
         Updates in-flight order and triggers cancellation or failure event if needed.
-        :param order_msg: The order response from either REST or web socket API (they are of the same format)
+        :param order_msg: The order response from either REST or web socket API (they are different formats)
         """
         self.logger().info(f"Order Message: {order_msg}")
         client_order_id = order_msg["c"] if "c" in order_msg else order_msg.get("clientOrderId")
@@ -658,6 +659,7 @@ class IdexExchange(ExchangeBase):
         tracked_order = self._in_flight_orders[client_order_id]
         # Update order execution status
         tracked_order.last_state = order_msg["X"] if "X" in order_msg else order_msg.get("status")
+        self.logger().info(f"Tracked Order Status: {tracked_order.last_state}")
         if tracked_order.is_cancelled:
             self.logger().info(f"Successfully cancelled order {client_order_id}.")
             self.trigger_event(MarketEvent.OrderCancelled,
@@ -683,7 +685,6 @@ class IdexExchange(ExchangeBase):
         """
 
         client_order_id = update_msg["c"] if "c" in update_msg else update_msg.get("clientOrderId")
-        # I think this should address that cumbersome dictionary iteration
         tracked_order = self._in_flight_orders.get(client_order_id)
         if not tracked_order:
             return
@@ -747,7 +748,18 @@ class IdexExchange(ExchangeBase):
         try:
             async with timeout(timeout_seconds):
                 results = await safe_gather(*tasks, return_exceptions=True)
-                for client_order_id in results:
+                self.logger().info(f"Cancel Exchange Order Ids: {results}")
+                exchange_order_id_list = []
+                client_order_id_list = []
+                # This is disgusting, I know. But it was the only way I could figure out how match the
+                # exchange_order_id dicts to in-flight order client IDs.
+                for result in results:
+                    exchange_order_id_list.append(result[0].get("orderId"))
+                for exchange_order_id in exchange_order_id_list:
+                    for order in incomplete_orders:
+                        if order.exchange_order_id == exchange_order_id:
+                            client_order_id_list.append(order.client_order_id)
+                for client_order_id in client_order_id_list:
                     if type(client_order_id) is str:
                         order_id_set.remove(client_order_id)
                         successful_cancellations.append(CancellationResult(client_order_id, True))
@@ -833,6 +845,7 @@ class IdexExchange(ExchangeBase):
                     continue
                 event_type, event_data = event_message['type'], event_message['data']
                 if event_type == 'orders':
+                    self.logger().info("Receiving WS event")
                     await self._process_fill_message(event_data)
                     self.logger().info('event data:', event_data)
                     self._process_order_message(event_data)

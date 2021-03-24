@@ -51,7 +51,7 @@ class IdexInFlightOrder(InFlightOrderBase):
 
     @property
     def is_cancelled(self) -> bool:
-        return self.last_state in {"canceled", }
+        return self.last_state in {"canceled", "cancelled"}
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
