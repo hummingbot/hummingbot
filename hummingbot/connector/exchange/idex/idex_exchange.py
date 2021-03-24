@@ -23,14 +23,13 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import estimate_fee
 
-from hummingbot.connector.exchange.idex.client.asyncio import AsyncIdexClient
 from hummingbot.connector.exchange.idex.idex_auth import IdexAuth, OrderTypeEnum, OrderSideEnum
 from hummingbot.connector.exchange.idex.idex_in_flight_order import IdexInFlightOrder
 from hummingbot.connector.exchange.idex.idex_order_book_tracker import IdexOrderBookTracker
 from hummingbot.connector.exchange.idex.idex_user_stream_tracker import IdexUserStreamTracker
-from hummingbot.connector.exchange.idex.idex_utils import (hb_order_type_to_idex_param, hb_trade_type_to_idex_param,
-                                                           EXCHANGE_NAME, get_new_client_order_id, DEBUG, ETH_GAS_LIMIT,
-                                                           BSC_GAS_LIMIT, HUMMINGBOT_GAS_LOOKUP
+from hummingbot.connector.exchange.idex.idex_utils import (
+    hb_order_type_to_idex_param, hb_trade_type_to_idex_param, EXCHANGE_NAME, get_new_client_order_id, DEBUG,
+    ETH_GAS_LIMIT, BSC_GAS_LIMIT, HUMMINGBOT_GAS_LOOKUP,
 )
 from hummingbot.connector.exchange.idex.idex_resolve import (
     get_idex_rest_url, get_idex_blockchain,
@@ -74,7 +73,6 @@ class IdexExchange(ExchangeBase):
         self._trading_pairs = trading_pairs
         self._idex_auth: IdexAuth = IdexAuth(idex_api_key, idex_api_secret_key, idex_wallet_private_key)
         self._account_available_balances = {}  # Dict[asset_name:str, Decimal]
-        self._client: AsyncIdexClient = AsyncIdexClient(auth=self._idex_auth)
         self._order_book_tracker = IdexOrderBookTracker(trading_pairs=trading_pairs)
         self._user_stream_tracker = IdexUserStreamTracker(self._idex_auth, trading_pairs)
         self._user_stream_tracker_task = None

@@ -1,7 +1,6 @@
 import asyncio
 import time
 import logging
-# import aiohttp
 from typing import (
     AsyncIterable,
     Dict,
@@ -18,7 +17,6 @@ from hummingbot.connector.exchange.idex.idex_order_book import IdexOrderBook
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
-# from .client.asyncio import AsyncIdexClient
 from .idex_auth import IdexAuth
 
 
@@ -56,20 +54,6 @@ class IdexAPIUserStreamDataSource(UserStreamTrackerDataSource):
     def last_recv_time(self) -> float:
         return self._last_recv_time
 
-    # ------------------ Deprecated function for a version in idex_auth -------------------
-    # @property
-    # async def get_ws_auth_token(self) -> str:
-    #     user_wallet_address = self._idex_auth.get_wallet_address()
-    #     auth_dict: Dict[str] = self._idex_auth.generate_auth_dict_for_ws("/wsToken", "", user_wallet_address)
-    #     IDEX_REST_URL = idex_utils.get_idex_rest_url()
-    #     # token required for balances and orders
-    #     async with aiohttp.ClientSession() as client:
-    #         resp = await client.get(f"{IDEX_REST_URL}/v1/wsToken?{auth_dict}")
-    #
-    #         resp_json = await resp.json()
-    #
-    #         return resp_json["token"]
-
     async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
         Path subscription notation: wss://websocket-{blockchain}.idex.io/v1/{market}@{subscription}_{option}
@@ -93,6 +77,7 @@ class IdexAPIUserStreamDataSource(UserStreamTrackerDataSource):
             try:
                 async with websockets.connect(IDEX_WS_FEED) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
+                    await asyncio.sleep(1.0)  # idex docs: avoid rate-limit (`TOO_MANY_REQUESTS`) errors
                     subscribe_request: Dict[str, any] = {
                         "method": "subscribe",
                         "markets": self._trading_pairs,
@@ -164,36 +149,3 @@ class IdexAPIUserStreamDataSource(UserStreamTrackerDataSource):
             return
         finally:
             await ws.close()
-
-
-# ========================= Deprecated Alternative, Delete Soon ======================================
-
-# # NOTE: I originally had this in idex_auth but moved the helper function to idex_u_s_d_source here.
-
-#     def auth_for_ws(
-#             self,
-#             url: str,
-#             params: Dict[str, any],
-#             body: Dict[str, any] = None,
-#             wallet_signature: str = None) -> Dict[str, any]:
-#         """Source: https://docs.idex.io/#get-authentication-token"""
-#
-#         # NOTE: wallet required for token retrieval
-#         wallet_address_target = self.get_wallet_address()
-#         params.update({"wallet": wallet_address_target})
-#
-#         # NOTE: nonce required for ws auth token retrieval
-#         if "nonce" not in params:
-#             params.update({
-#                 "nonce": self.generate_nonce()
-#             })
-#
-#         params = urlencode(params)
-#         url = f"{url}?{params}"
-#         return {
-#             "headers": {
-#                 "IDEX-API-Key": self.api_key,
-#                 "IDEX-HMAC-Signature": self.sign(params)
-#             },
-#             "url": url
-#         }

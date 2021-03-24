@@ -3,7 +3,7 @@ import asyncio
 from decimal import Decimal
 from typing import Any, Dict
 
-from hummingbot.connector.exchange.idex.utils import from_idex_order_type, from_idex_trade_type
+from hummingbot.connector.exchange.idex.idex_resolve import from_idex_order_type, from_idex_trade_type
 from hummingbot.core.event.events import OrderType, TradeType
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 

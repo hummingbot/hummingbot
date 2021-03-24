@@ -139,9 +139,9 @@ cdef class IdexActiveOrderTracker:
                 [[message.timestamp,
                   price,
                   sum([order_dict["amount"]
-                       for order_dict in self.active_asks[price].values()]),
+                       for order_dict in self._active_asks[price].values()]),
                   message.update_id]
-                 for price in sorted(self.active_asks.keys(), reverse=True)], dtype="float64", ndmin=2
+                 for price in sorted(self._active_asks.keys(), reverse=True)], dtype="float64", ndmin=2
             )
 
         if bids.shape[1] != 4:

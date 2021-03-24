@@ -3,6 +3,8 @@
 from hummingbot.client.config.global_config_map import global_config_map
 
 # API Feed adjusted to sandbox url
+from hummingbot.core.event.events import TradeType, OrderType
+
 IDEX_REST_URL_FMT = "https://api-sandbox-{blockchain}.idex.io/"
 # WS Feed adjusted to sandbox url
 IDEX_WS_FEED_FMT = "wss://websocket-sandbox-{blockchain}.idex.io/v1"
@@ -65,3 +67,35 @@ def get_idex_ws_feed():
         else:
             _IDEX_WS_FEED = _IDEX_WS_FEED_PROD_ETH if get_idex_blockchain() == 'ETH' else _IDEX_WS_FEED_PROD_BSC
     return _IDEX_WS_FEED
+
+
+HB_ORDER_TYPE_MAP = {
+    OrderType.MARKET: "market",
+    OrderType.LIMIT: "limit",
+    OrderType.LIMIT_MAKER: "limitMaker",
+}
+
+
+def to_idex_order_type(order_type: OrderType):
+    return HB_ORDER_TYPE_MAP[order_type]
+
+
+IDEX_ORDER_TYPE_MAP = {
+    "market": OrderType.MARKET,
+    "limit": OrderType.LIMIT,
+    "limitMaker": OrderType.LIMIT_MAKER,
+}
+
+
+def from_idex_order_type(order_type: str):
+    return IDEX_ORDER_TYPE_MAP[order_type]
+
+
+IDEX_TRADE_TYPE_MAP = {
+    "buy": TradeType.BUY,
+    "sell": TradeType.SELL,
+}
+
+
+def from_idex_trade_type(side: str):
+    return IDEX_TRADE_TYPE_MAP[side]

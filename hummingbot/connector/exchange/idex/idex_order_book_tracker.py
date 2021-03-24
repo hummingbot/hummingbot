@@ -26,7 +26,7 @@ from hummingbot.core.data_type.order_book_message import (
 )
 from hummingbot.connector.exchange.idex.idex_order_book import IdexOrderBook
 from hummingbot.connector.exchange.idex.idex_active_order_tracker import IdexActiveOrderTracker
-from hummingbot.connector.exchange.idex.utils import EXCHANGE_NAME
+from hummingbot.connector.exchange.idex.idex_utils import EXCHANGE_NAME
 
 
 class IdexOrderBookTracker(OrderBookTracker):

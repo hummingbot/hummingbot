@@ -242,6 +242,7 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 trading_pairs: List[str] = self._trading_pairs
                 async with websockets.connect(get_idex_ws_feed()) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
+                    await asyncio.sleep(1.0)  # idex docs: avoid rate-limit (`TOO_MANY_REQUESTS`) errors
                     subscription_request: Dict[str, Any] = {
                         "method": "subscribe",
                         "markets": trading_pairs,
@@ -303,6 +304,7 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 trading_pairs: List[str] = self._trading_pairs
                 async with websockets.connect(get_idex_ws_feed()) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
+                    await asyncio.sleep(1.0)  # idex docs: avoid rate-limit (`TOO_MANY_REQUESTS`) errors
                     subscription_request: Dict[str, Any] = {
                         "method": "subscribe",
                         "markets": trading_pairs,
