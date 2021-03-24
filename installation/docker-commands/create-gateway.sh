@@ -365,12 +365,20 @@ echo "BALANCER_MAX_SWAPS=$BALANCER_MAX_SWAPS" >> $ENV_FILE
 echo "" >> $ENV_FILE
 echo "# Uniswap Settings" >> $ENV_FILE
 echo "UNISWAP_ROUTER=$UNISWAP_ROUTER" >> $ENV_FILE
+echo "UNISWAP_ALLOWED_SLIPPAGE=1" >> $ENV_FILE
+echo "UNISWAP_NO_RESERVE_CHECK_INTERVAL=300000" >> $ENV_FILE
+echo "UNISWAP_PAIRS_CACHE_TIME=1000" >> $ENV_FILE
 
 # terra config
 echo "" >> $ENV_FILE
 echo "# Terra Settings" >> $ENV_FILE
 echo "TERRA_LCD_URL=$TERRA_LCD_URL" >> $ENV_FILE
 echo "TERRA_CHAIN=$TERRA_CHAIN" >> $ENV_FILE
+
+# perpeptual finance config
+echo "" >> $ENV_FILE
+echo "# Perpeptual Settings" >> $ENV_FILE
+echo "XDAI_PROVIDER=https://rpc.xdaichain.com" >> $ENV_FILE
 
 echo "" >> $ENV_FILE
 
