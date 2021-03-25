@@ -52,7 +52,7 @@ cdef class MandalaOrderBook(OrderBook):
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.DIFF, {
             "trading_pair": mandala_utils.convert_from_exchange_trading_pair(msg["s"]),
-            "update_id": msg["u"],
+            "update_id": msg["E"],
             "bids": msg["b"],
             "asks": msg["a"]
         }, timestamp=timestamp)
