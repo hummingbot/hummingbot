@@ -5,8 +5,6 @@ import math
 import time
 import asyncio
 import logging
-# import conf
-from hummingbot import logger
 import unittest
 from typing import Dict, Optional, List
 from hummingbot.core.event.event_logger import EventLogger
@@ -101,12 +99,3 @@ class DigifinexOrderBookTrackerUnitTest(unittest.TestCase):
             print(f"{key} last_trade_price: {value}")
         self.assertGreater(prices["BTC-USDT"], 1000)
         self.assertLess(prices["LTC-USDT"], 10000)
-
-
-def main():
-    logging.basicConfig(level=logger.NETWORK)
-    unittest.main()
-
-
-if __name__ == "__main__":
-    main()

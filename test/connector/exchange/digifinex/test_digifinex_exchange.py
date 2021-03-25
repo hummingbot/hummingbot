@@ -536,4 +536,4 @@ class DigifinexExchangeUnitTest(unittest.TestCase):
                 os.unlink(self.db_path)
 
 
-unittest.main()
+# unittest.main()
