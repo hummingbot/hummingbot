@@ -53,7 +53,7 @@ class Constants:
     # Only used when nothing is received from WS
     SHORT_POLL_INTERVAL = 5.0
     # CoinZoom poll interval can't be too long since we don't get balances via websockets
-    LONG_POLL_INTERVAL = 20.0
+    LONG_POLL_INTERVAL = 8.0
     # One minute should be fine for order status since we get these via WS
     UPDATE_ORDER_STATUS_INTERVAL = 60.0
     # 10 minute interval to update trading rules, these would likely never change whilst running.
