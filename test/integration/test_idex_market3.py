@@ -129,7 +129,8 @@ class IdexExchangeUnitTest(unittest.TestCase):
             idex_api_key=IDEX_API_KEY,
             idex_api_secret_key=IDEX_API_SECRET_KEY,
             idex_wallet_private_key=IDEX_WALLET_PRIVATE_KEY,
-            trading_pairs=[cls.trading_pair]
+            trading_pairs=[cls.trading_pair],
+            domain='sandbox_eth'
         )
         print("Initializing Idex market... this will take about a minute.")
         cls.clock.add_iterator(cls.market)
