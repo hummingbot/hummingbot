@@ -27,14 +27,13 @@ Example in bash (these are not real api key and address, substitute your own):
 export IDEX_API_KEY='d88c5070-42ea-435f-ba26-8cb82064a972'
 export IDEX_API_SECRET_KEY='pLrUpy53o8enXTAHkOqsH8pLpQVMQ47p'
 export IDEX_WALLET_PRIVATE_KEY='ad10037142dc378b3f004bbb4803e24984b8d92969ec9407efb56a0135661576'
-export IDEX_CONTRACT_BLOCKCHAIN='ETH'
 """
 
 
 IDEX_API_KEY = ''
 IDEX_API_SECRET_KEY = ''
 IDEX_WALLET_PRIVATE_KEY = ''
-IDEX_CONTRACT_BLOCKCHAIN = ''
+IDEX_CONTRACT_BLOCKCHAIN = 'ETH'
 
 BASE_URL = 'https://api-sandbox-eth.idex.io/'  # rest url for sandbox (rinkeby) ETH chain
 
@@ -53,7 +52,6 @@ if not api_keys_provided():
     IDEX_API_KEY = getattr(conf, 'idex_api_key')
     IDEX_API_SECRET_KEY = getattr(conf, 'idex_api_secret_key')
     IDEX_WALLET_PRIVATE_KEY = getattr(conf, 'idex_wallet_private_key')
-    IDEX_CONTRACT_BLOCKCHAIN = getattr(conf, 'idex_contract_blockchain', 'ETH')
 
 
 class IdexAuthUnitTest(unittest.TestCase):
@@ -214,7 +212,7 @@ class TestIdexAuthIntegration(unittest.TestCase):
         cls.api_key = IDEX_API_KEY                          # conf.idex_api_key
         cls.secret_key = IDEX_API_SECRET_KEY                # conf.idex_api_secret_key
         cls.wallet_private_key = IDEX_WALLET_PRIVATE_KEY    # conf.idex_wallet_private_key
-        cls.blockchain = IDEX_CONTRACT_BLOCKCHAIN           # conf.idex_contract_blockchain
+        cls.blockchain = IDEX_CONTRACT_BLOCKCHAIN
         cls.idex_auth = IdexAuth(
             api_key=cls.api_key, secret_key=cls.secret_key, wallet_private_key=cls.wallet_private_key,
         )

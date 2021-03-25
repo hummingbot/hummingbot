@@ -63,7 +63,7 @@ WS_BASE_URL = "wss://websocket-eth.idex.io/v1/"
 
 # load config from Hummingbot's central debug conf
 # Values can be overridden by env variables (in uppercase). Example: export IDEX_WALLET_PRIVATE_KEY="1234567"
-IDEX_API_KEY = getattr(conf, 'idex_api_key') or ''
+IDEX_API_KEY = getattr(conf, 'idex_api_key', '')
 IDEX_API_SECRET_KEY = getattr(conf, 'idex_api_secret_key', '')
 IDEX_WALLET_PRIVATE_KEY = getattr(conf, 'idex_wallet_private_key', '')
 

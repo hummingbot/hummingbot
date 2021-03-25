@@ -3,7 +3,6 @@ import asyncio
 from decimal import Decimal
 from typing import Any, Dict
 
-from hummingbot.connector.exchange.idex.idex_resolve import from_idex_order_type, from_idex_trade_type
 from hummingbot.core.event.events import OrderType, TradeType
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 
@@ -19,7 +18,7 @@ class IdexInFlightOrder(InFlightOrderBase):
                  amount: Decimal,
                  initial_state: str = "open"):
         """
-        :param order_id:
+        :param client_order_id:
         :param exchange_order_id:
         :param trading_pair:
         :param order_type:
@@ -89,10 +88,10 @@ class IdexInFlightOrder(InFlightOrderBase):
         self.executed_amount_base += Decimal(str(fill_update["q"] if "q" in fill_update else
                                                  fill_update.get("quantity")))
         self.fee_paid += Decimal(str(fill_update["f"] if "f" in fill_update else fill_update.get("fee")))
-        self.executed_amount_quote += (Decimal(str(fill_update["p"] if "p" in fill_update else
-                                                   fill_update.get("price"))) *
-                                       Decimal(str(fill_update["q"] if "q" in fill_update else
-                                                   fill_update.get("quantity"))))
+        self.executed_amount_quote += (
+            Decimal(str(fill_update["p"] if "p" in fill_update else fill_update.get("price"))) * Decimal(
+                str(fill_update["q"] if "q" in fill_update else fill_update.get("quantity")))
+        )
         if not self.fee_asset:
             self.fee_asset = fill_update["a"] if "a" in fill_update else fill_update.get("feeAsset")
         return True
