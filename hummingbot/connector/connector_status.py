@@ -17,7 +17,7 @@ connector_status = {
     'dydx': 'green',
     'eterbase': 'red',
     'ethereum': 'red',
-    'hitbtc': 'green',
+    'hitbtc': 'yellow',
     'huobi': 'green',
     'kraken': 'green',
     'kucoin': 'green',
