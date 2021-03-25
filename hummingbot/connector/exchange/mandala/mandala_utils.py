@@ -41,6 +41,10 @@ def convert_to_mandala_exchange_trading_pair(hb_trading_pair: str) -> str:
     return hb_trading_pair.replace("-", "_")
 
 
+def is_mdx_pair(trading_pair: str) -> bool:
+    return list(filter(lambda x: x.startswith("MDX"), trading_pair))
+
+
 KEYS = {
     "mandala_api_key":
         ConfigVar(key="mandala_api_key",

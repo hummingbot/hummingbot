@@ -28,7 +28,8 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.mandala.mandala_order_book import MandalaOrderBook
 from hummingbot.connector.exchange.mandala.mandala_utils import (
     convert_to_mandala_exchange_trading_pair,
-    convert_to_exchange_trading_pair)
+    convert_to_exchange_trading_pair,
+    is_mdx_pair)
 
 TRADING_PAIR_FILTER = re.compile(r"(BTC|ETH|USDT)$")
 
@@ -66,7 +67,7 @@ class MandalaAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @classmethod
     async def get_last_traded_price(cls, trading_pair: str, domain: str = "com") -> float:
-        if "mdx" in trading_pair:
+        if "MDX" in trading_pair:
             async with aiohttp.ClientSession() as client:
                 url = TICKER_PRICE_CHANGE_URL
                 resp = await client.get(f"{url}?interval=1h&limit=24&symbol={convert_to_mandala_exchange_trading_pair(trading_pair)}")
@@ -82,7 +83,7 @@ class MandalaAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @staticmethod
     @cachetools.func.ttl_cache(ttl=10)
     def get_mid_price(trading_pair: str, domain="com") -> Optional[Decimal]:
-        if "mdx" in trading_pair:
+        if "MDX" in trading_pair:
             url = SNAPSHOT_REST_URL
             resp = requests.get(url=f"{url}?limit=5&symbol={convert_to_mandala_exchange_trading_pair(trading_pair)}")
             record = resp.json()
@@ -178,17 +179,15 @@ class MandalaAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 ws_path: str = "/".join([f"{convert_to_exchange_trading_pair(trading_pair).lower()}@trade"
                                          for trading_pair in self._trading_pairs])
                 url = BINANCE_STREAM_URL.format(self._domain)
-                if "mdx" in self._trading_pairs:
+                if is_mdx_pair(self._trading_pairs):
                     ws_path: str = "/".join([f"{convert_to_mandala_exchange_trading_pair(trading_pair).lower()}@trade"
                                             for trading_pair in self._trading_pairs])
                     url = MANDALA_STREAM_URL
                 stream_url: str = f"{url}/{ws_path}"
-                print('listen_for_trades', stream_url)
                 async with websockets.connect(stream_url) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     async for raw_msg in self._inner_messages(ws):
                         msg = ujson.loads(raw_msg)
-
                         trade_msg: OrderBookMessage = MandalaOrderBook.trade_message_from_exchange(msg)
                         output.put_nowait(trade_msg)
             except asyncio.CancelledError:
@@ -204,12 +203,11 @@ class MandalaAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 ws_path: str = "/".join([f"{convert_to_exchange_trading_pair(trading_pair).lower()}@depth"
                                          for trading_pair in self._trading_pairs])
                 url = BINANCE_STREAM_URL.format(self._domain)
-                if "mdx" in self._trading_pairs:
+                if is_mdx_pair(self._trading_pairs):
                     ws_path: str = "/".join([f"{convert_to_mandala_exchange_trading_pair(trading_pair).lower()}@depth"
                                             for trading_pair in self._trading_pairs])
                     url = MANDALA_STREAM_URL
                 stream_url: str = f"{url}/{ws_path}"
-                print('listen_for_order_book_diffs', stream_url)
                 async with websockets.connect(stream_url) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     async for raw_msg in self._inner_messages(ws):
