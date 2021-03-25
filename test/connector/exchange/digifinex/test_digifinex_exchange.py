@@ -1,4 +1,5 @@
 # print('__file__={0:<35} | __name__={1:<20} | __package__={2:<20}'.format(__file__,__name__,str(__package__)))
+import os
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../../../")))
 import asyncio
@@ -139,8 +140,9 @@ class DigifinexExchangeUnitTest(unittest.TestCase):
     def setUp(self):
         self.db_path: str = realpath(join(__file__, "../connector_test.sqlite"))
         try:
-            pass
-            # os.unlink(self.db_path)
+            # on windows cannot unlink the sqlite db file before closing the db
+            if os.name != 'nt':
+                os.unlink(self.db_path)
         except FileNotFoundError:
             pass
 
@@ -276,7 +278,7 @@ class DigifinexExchangeUnitTest(unittest.TestCase):
     def test_limit_makers_unfilled(self):
         price = self.connector.get_price(self.trading_pair, True) * Decimal("0.8")
         price = self.connector.quantize_order_price(self.trading_pair, price)
-        amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("0.0001"))
+        amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("0.00005"))
         quote_bal = self.connector.get_available_balance(self.quote_token)
 
         # order_id = self.connector.buy(self.trading_pair, amount, OrderType.LIMIT_MAKER, price)
@@ -287,7 +289,7 @@ class DigifinexExchangeUnitTest(unittest.TestCase):
         expected_quote_bal = quote_bal - (price * amount)
         # self._mock_ws_bal_update(self.quote_token, expected_quote_bal)
         self.ev_loop.run_until_complete(asyncio.sleep(2))
-        self.assertAlmostEqual(expected_quote_bal, self.connector.get_available_balance(self.quote_token))
+        self.assertAlmostEqual(expected_quote_bal, self.connector.get_available_balance(self.quote_token), 1)
         self._cancel_order(cl_order_id)
         event = self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCancelledEvent))
         self.assertEqual(cl_order_id, event.order_id)
@@ -470,7 +472,9 @@ class DigifinexExchangeUnitTest(unittest.TestCase):
 
             recorder.stop()
             # sql._engine.dispose()
-            # os.unlink(self.db_path)
+            # on windows cannot unlink the sqlite db file before closing the db
+            if os.name != 'nt':
+                os.unlink(self.db_path)
 
     def test_update_last_prices(self):
         # This is basic test to see if order_book last_trade_price is initiated and updated.
@@ -527,7 +531,9 @@ class DigifinexExchangeUnitTest(unittest.TestCase):
 
             recorder.stop()
             # sql._engine.dispose()
-            # os.unlink(self.db_path)
+            # on windows cannot unlink the sqlite db file before closing the db
+            if os.name != 'nt':
+                os.unlink(self.db_path)
 
 
 unittest.main()
