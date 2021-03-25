@@ -120,6 +120,7 @@ cdef class FieldfareMMStrategy(StrategyBase):
         self._eta = order_amount_shape_factor
         self._time_left = closing_time
         self._closing_time = closing_time
+        self._q_ajustment_factor = Decimal("10")/self._order_amount
         self._latest_parameter_calculation_vol = 0
         self._reserved_price = s_decimal_zero
         self._optimal_spread = s_decimal_zero
@@ -470,7 +471,7 @@ cdef class FieldfareMMStrategy(StrategyBase):
         time_left_fraction = Decimal(str(self._time_left / self._closing_time))
 
         price = self.get_price()
-        q = market.get_balance(self.base_asset) - Decimal(str(self.c_calculate_target_inventory()))
+        q = (market.get_balance(self.base_asset) - Decimal(str(self.c_calculate_target_inventory()))) * self._q_ajustment_factor
         vol = Decimal(str(self._avg_vol.current_value))
         mid_price_variance = vol ** 2
 
@@ -498,7 +499,7 @@ cdef class FieldfareMMStrategy(StrategyBase):
         # Optimal bid and optimal ask prices will be used
         self.logger().info(f"bid={(price-(self._reserved_price - self._optimal_spread / 2)) / price * 100:.4f}% | "
                            f"ask={((self._reserved_price + self._optimal_spread / 2) - price) / price * 100:.4f}% | "
-                           f"q={q:.4f} | "
+                           f"q={q/self._q_ajustment_factor:.4f} | "
                            f"vol={vol:.4f}")
 
     cdef object c_calculate_target_inventory(self):
@@ -524,7 +525,7 @@ cdef class FieldfareMMStrategy(StrategyBase):
         cdef:
             ExchangeBase market = self._market_info.market
 
-        q = market.get_balance(self.base_asset) - self.c_calculate_target_inventory()
+        q = (market.get_balance(self.base_asset) - self.c_calculate_target_inventory()) * self._q_ajustment_factor
         vol = Decimal(str(self._avg_vol.current_value))
         price=self.get_price()
 
@@ -534,13 +535,17 @@ cdef class FieldfareMMStrategy(StrategyBase):
 
             # GAMMA
             # If q or vol are close to 0, gamma will -> Inf. Is this desirable?
-            self._gamma = self._inventory_risk_aversion * (max_spread - min_spread) / (2 * abs(q) * (vol ** 2))
+            max_possible_gamma = min(
+                                    (max_spread - min_spread) / (2 * abs(q) * (vol ** 2)),
+                                    (max_spread * (2-self._inventory_risk_aversion) /
+                                     self._inventory_risk_aversion + min_spread) / (vol ** 2))
+            self._gamma = self._inventory_risk_aversion * max_possible_gamma
 
             # KAPPA
             # Want the maximum possible spread but with restrictions to avoid negative kappa or division by 0
             max_spread_around_reserved_price = max_spread * (2-self._inventory_risk_aversion) + min_spread * self._inventory_risk_aversion
             if max_spread_around_reserved_price <= self._gamma * (vol ** 2):
-                self._kappa = Decimal('Inf')
+                self._kappa = Decimal('1e100')  # Cap to kappa -> Infinity
             else:
                 self._kappa = self._gamma / (Decimal.exp((max_spread_around_reserved_price * self._gamma - (vol * self._gamma) **2) / 2) - 1)
 

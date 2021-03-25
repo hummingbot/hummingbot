@@ -41,6 +41,7 @@ cdef class FieldfareMMStrategy(StrategyBase):
         object _eta
         object _closing_time
         object _time_left
+        object _q_ajustment_factor
         object _reserved_price
         object _optimal_spread
         object _optimal_bid
