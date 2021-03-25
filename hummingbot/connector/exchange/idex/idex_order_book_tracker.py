@@ -16,7 +16,6 @@ from typing import (
 )
 
 from hummingbot.core.data_type.order_book import OrderBook
-# from hummingbot.core.event.events import TradeType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.connector.exchange.idex.idex_api_order_book_data_source import IdexAPIOrderBookDataSource
@@ -26,7 +25,6 @@ from hummingbot.core.data_type.order_book_message import (
 )
 from hummingbot.connector.exchange.idex.idex_order_book import IdexOrderBook
 from hummingbot.connector.exchange.idex.idex_active_order_tracker import IdexActiveOrderTracker
-from hummingbot.connector.exchange.idex.idex_utils import EXCHANGE_NAME
 
 
 class IdexOrderBookTracker(OrderBookTracker):
@@ -39,7 +37,8 @@ class IdexOrderBookTracker(OrderBookTracker):
         return cls._iobt_logger
 
     def __init__(self,
-                 trading_pairs: Optional[List[str]] = None):
+                 trading_pairs: Optional[List[str]] = None,
+                 domain: str = "eth"):
         super().__init__(data_source=IdexAPIOrderBookDataSource(trading_pairs=trading_pairs),
                          trading_pairs=trading_pairs)
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
@@ -48,6 +47,7 @@ class IdexOrderBookTracker(OrderBookTracker):
         self._process_msg_deque_task: Optional[asyncio.Task] = None
         self._past_diffs_windows: Dict[str, Deque] = {}
         self._order_books: Dict[str, IdexOrderBook] = {}
+        self._domain = domain
         self._saved_message_queues: Dict[str, Deque[OrderBookMessage]] = defaultdict(lambda: deque(maxlen=1000))
         self._active_order_trackers: Dict[str, IdexActiveOrderTracker] = defaultdict(IdexActiveOrderTracker)
 
@@ -57,7 +57,10 @@ class IdexOrderBookTracker(OrderBookTracker):
         *required
         Name of the current exchange
         """
-        return EXCHANGE_NAME
+        if self._domain == "eth":  # prod with ETH blockchain
+            return "idex"
+        else:
+            return f"idex_{self._domain}"
 
     async def _order_book_diff_router(self):
         """

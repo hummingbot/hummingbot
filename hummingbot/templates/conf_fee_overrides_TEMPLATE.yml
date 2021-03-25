@@ -41,6 +41,15 @@ crypto_com_taker_fee:
 idex_maker_fee:
 idex_taker_fee:
 
+idex_bsc_maker_fee:
+idex_bsc_taker_fee:
+
+idex_sandbox_eth_maker_fee:
+idex_sandbox_eth_taker_fee:
+
+idex_sandbox_bsc_maker_fee:
+idex_sandbox_bsc_taker_fee:
+
 bitfinex_maker_fee:
 bitfinex_taker_fee:
 

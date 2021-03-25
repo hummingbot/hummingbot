@@ -32,7 +32,7 @@ from hummingbot.connector.exchange.idex.idex_utils import (
     ETH_GAS_LIMIT, BSC_GAS_LIMIT, HUMMINGBOT_GAS_LOOKUP,
 )
 from hummingbot.connector.exchange.idex.idex_resolve import (
-    get_idex_rest_url, get_idex_blockchain,
+    get_idex_rest_url, get_idex_blockchain, set_domain
 )
 from hummingbot.core.utils import eth_gas_station_lookup, async_ttl_cache
 from hummingbot.logger import HummingbotLogger
@@ -61,13 +61,16 @@ class IdexExchange(ExchangeBase):
                  idex_api_secret_key: str,
                  idex_wallet_private_key: str,
                  trading_pairs: Optional[List[str]] = None,
-                 trading_required: bool = True):
+                 trading_required: bool = True,
+                 domain="eth"):
         """
         :param idex_com_api_key: The API key to connect to private idex.io APIs.
         :param idex_com_secret_key: The API secret.
         :param trading_pairs: The market trading pairs which to track order book data.
         :param trading_required: Whether actual trading is needed.
         """
+        self._domain = domain
+        set_domain(domain)
         super().__init__()
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
@@ -97,7 +100,10 @@ class IdexExchange(ExchangeBase):
     @property
     def name(self) -> str:
         """Returns the exchange name"""
-        return EXCHANGE_NAME
+        if self._domain == "eth":  # prod with ETH blockchain
+            return "idex"
+        else:
+            return f"idex_{self._domain}"
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
@@ -350,7 +356,7 @@ class IdexExchange(ExchangeBase):
         async with session.get(auth_dict["url"], headers=auth_dict["headers"]) as response:
             if response.status != 200:
                 data = await response.json()
-                raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. {data}")
+                raise IOError(f"Error fetching data from {url}, {auth_dict['url']}. HTTP status is {response.status}. {data}")
             data = await response.json()
             return data
 

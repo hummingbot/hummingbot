@@ -29,15 +29,14 @@ BASE_URL = 'https://api-sandbox-eth.idex.io/'  # rest url for sandbox (rinkeby) 
 
 # load config from Hummingbot's central debug conf
 # Values can be overridden by env variables (in uppercase). Example: export IDEX_WALLET_PRIVATE_KEY="1234567"
-IDEX_API_KEY = getattr(conf, 'idex_api_key') or ''
-IDEX_API_SECRET_KEY = getattr(conf, 'idex_api_secret_key') or ''
-IDEX_WALLET_PRIVATE_KEY = getattr(conf, 'idex_wallet_private_key') or ''
-IDEX_CONTRACT_BLOCKCHAIN = getattr(conf, 'idex_contract_blockchain') or 'ETH'
-IDEX_USE_SANDBOX = True if getattr(conf, 'idex_use_sandbox') is None else getattr(conf, 'idex_use_sandbox')
+IDEX_API_KEY = getattr(conf, 'idex_api_key', '')
+IDEX_API_SECRET_KEY = getattr(conf, 'idex_api_secret_key', '')
+IDEX_WALLET_PRIVATE_KEY = getattr(conf, 'idex_wallet_private_key', '')
+
 
 # force resolution of api base url for conf values provided to this test
-hummingbot.connector.exchange.idex.idex_resolve._IS_IDEX_SANDBOX = IDEX_USE_SANDBOX
-hummingbot.connector.exchange.idex.idex_resolve._IDEX_BLOCKCHAIN = IDEX_CONTRACT_BLOCKCHAIN
+hummingbot.connector.exchange.idex.idex_resolve._IS_IDEX_SANDBOX = True
+hummingbot.connector.exchange.idex.idex_resolve._IDEX_BLOCKCHAIN = 'ETH'
 
 
 class IdexUserStreamTrackerUnitTest(unittest.TestCase):

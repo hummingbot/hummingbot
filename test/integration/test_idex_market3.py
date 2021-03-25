@@ -24,7 +24,7 @@ from hummingbot.core.clock import (
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
-    MarketOrderFailureEvent,
+    # MarketOrderFailureEvent,
     MarketEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
@@ -45,8 +45,8 @@ from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
 from hummingbot.model.sql_connection_manager import (
-     SQLConnectionManager,
-     SQLConnectionType
+    SQLConnectionManager,
+    SQLConnectionType
 )
 from hummingbot.model.trade_fill import TradeFill
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
@@ -57,9 +57,6 @@ from unittest import mock
 
 # API_SECRET length must be multiple of 4 otherwise base64.b64decode will fail
 API_MOCK_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
-# IDEX_API_KEY = "889fe7dd-ea60-4bf4-86f8-4eec39146510"  # todo: we must stop committing credentials
-# IDEX_SECRET_KEY = "tkDey53dr1ZlyM2tzUAu82l+nhgzxCJl"  # todo: see below we get these values from env vars
-# IDEX_PRIVATE_KEY = "0227070369c04f55c66988ee3b272f8ae297cf7967ca7bad6d2f71f72072e18d"
 API_BASE_URL = "https://api-eth.idex.io/"
 WS_BASE_URL = "wss://websocket-eth.idex.io/v1/"
 
@@ -67,14 +64,12 @@ WS_BASE_URL = "wss://websocket-eth.idex.io/v1/"
 # load config from Hummingbot's central debug conf
 # Values can be overridden by env variables (in uppercase). Example: export IDEX_WALLET_PRIVATE_KEY="1234567"
 IDEX_API_KEY = getattr(conf, 'idex_api_key') or ''
-IDEX_API_SECRET_KEY = getattr(conf, 'idex_api_secret_key') or ''
-IDEX_WALLET_PRIVATE_KEY = getattr(conf, 'idex_wallet_private_key') or ''
-IDEX_CONTRACT_BLOCKCHAIN = getattr(conf, 'idex_contract_blockchain') or 'ETH'
-IDEX_USE_SANDBOX = True if getattr(conf, 'idex_use_sandbox') is None else getattr(conf, 'idex_use_sandbox')
+IDEX_API_SECRET_KEY = getattr(conf, 'idex_api_secret_key', '')
+IDEX_WALLET_PRIVATE_KEY = getattr(conf, 'idex_wallet_private_key', '')
 
 # force resolution of api base url for conf values provided to this test
-hummingbot.connector.exchange.idex.idex_resolve._IS_IDEX_SANDBOX = IDEX_USE_SANDBOX
-hummingbot.connector.exchange.idex.idex_resolve._IDEX_BLOCKCHAIN = IDEX_CONTRACT_BLOCKCHAIN
+hummingbot.connector.exchange.idex.idex_resolve._IS_IDEX_SANDBOX = True
+hummingbot.connector.exchange.idex.idex_resolve._IDEX_BLOCKCHAIN = 'ETH'
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -325,7 +320,7 @@ class IdexExchangeUnitTest(unittest.TestCase):
         [order_cancelled_event] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
         order_cancelled_event: OrderCancelledEvent = order_cancelled_event
         self.assertEqual(order_cancelled_event.order_id, order_id)
-    
+
     def test_cancel_all(self):
         trading_pair = "DIL-ETH"
         bid_price: Decimal = self.market.get_price(trading_pair, True) * Decimal("0.5")
@@ -359,7 +354,7 @@ class IdexExchangeUnitTest(unittest.TestCase):
         for cr in cancellation_results:
             self.logger().info(f"Cancellation Result: {cr.success}")
             self.assertEqual(cr.success, True)
-    
+
     @unittest.skipUnless(any("test_list_orders" in arg for arg in sys.argv), "List order test requires manual action.")
     def test_list_orders(self):
         self.assertGreater(self.market.get_balance("DIL"), Decimal("0.1"))
@@ -426,8 +421,8 @@ class IdexExchangeUnitTest(unittest.TestCase):
                 self.market.remove_listener(event_tag, self.market_logger)
             self.market: IdexExchange = IdexExchange(
                 idex_api_key=IDEX_API_KEY,
-                idex_api_secret_key=IDEX_SECRET_KEY,
-                idex_wallet_private_key=IDEX_PRIVATE_KEY,
+                idex_api_secret_key=IDEX_API_SECRET_KEY,
+                idex_wallet_private_key=IDEX_WALLET_PRIVATE_KEY,
                 trading_pairs=[trading_pair]
             )
             for event_tag in self.events:
@@ -515,6 +510,7 @@ class IdexExchangeUnitTest(unittest.TestCase):
 
             recorder.stop()
             os.unlink(self.db_path)
+
 
 if __name__ == "__main__":
     logging.getLogger("hummingbot.core.event.event_reporter").setLevel(logging.WARNING)

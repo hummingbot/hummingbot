@@ -55,8 +55,18 @@ ftx_subaccount_name: null
 idex_api_key: null
 idex_api_secret_key: null
 idex_wallet_private_key: null
-idex_contract_blockchain: null
-idex_use_sandbox: null
+
+idex_bsc_api_key: null
+idex_bsc_api_secret_key: null
+idex_bsc_wallet_private_key: null
+
+idex_sandbox_eth_api_key: null
+idex_sandbox_eth_api_secret_key: null
+idex_sandbox_eth_wallet_private_key: null
+
+idex_sandbox_bsc_api_key: null
+idex_sandbox_bsc_api_secret_key: null
+idex_sandbox_bsc_wallet_private_key: null
 
 huobi_api_key: null
 huobi_secret_key: null

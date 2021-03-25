@@ -32,13 +32,14 @@ class IdexAPIUserStreamDataSource(UserStreamTrackerDataSource):
         cls._logger = cls._logger or logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, idex_auth: IdexAuth, trading_pairs: Optional[List[str]] = []):
+    def __init__(self, idex_auth: IdexAuth, trading_pairs: Optional[List[str]] = [], domain: str = "eth"):
         self._idex_auth = idex_auth
         self._trading_pairs = trading_pairs
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
         self._last_recv_time: float = 0
         self.sub_token: str = ""
+        self._domain = domain
         super(IdexAPIUserStreamDataSource, self).__init__()
 
     @property

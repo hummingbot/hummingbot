@@ -57,7 +57,7 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
     # Found last trading price in Idex API. Utilized safe_gather to complete all tasks and append last trade prices
     # for all trading pairs on results list.
     @classmethod
-    async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
+    async def get_last_traded_prices(cls, trading_pairs: List[str], domain='eth') -> Dict[str, float]:
         base_url: str = get_idex_rest_url()
         tasks = [cls.get_last_traded_price(t_pair, base_url) for t_pair in trading_pairs]
         results = await safe_gather(*tasks)
@@ -85,7 +85,7 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return result
 
     @staticmethod
-    async def fetch_trading_pairs() -> List[str]:
+    async def fetch_trading_pairs(domain="eth") -> List[str]:
         try:
             async with aiohttp.ClientSession() as client:
                 # ensure IDEX_REST_URL has appropriate blockchain imported (ETH or BSC)
