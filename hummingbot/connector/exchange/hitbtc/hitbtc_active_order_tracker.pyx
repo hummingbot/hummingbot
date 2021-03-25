@@ -132,17 +132,15 @@ cdef class HitbtcActiveOrderTracker:
 
         return bids, asks
 
-    cdef np.ndarray[np.float64_t, ndim=1] c_convert_trade_message_to_np_array(self, object message):
-        cdef:
-            double trade_type_value = 1.0 if message.content["side"] == "buy" else 2.0
-
-        timestamp = message.timestamp
-        content = message.content
-
-        return np.array(
-            [timestamp, trade_type_value, float(content["price"]), float(content["quantity"])],
-            dtype="float64"
-        )
+    # This method doesn't seem to be used anywhere at all
+    # cdef np.ndarray[np.float64_t, ndim=1] c_convert_trade_message_to_np_array(self, object message):
+    #     cdef:
+    #         double trade_type_value = 1.0 if message.content["side"] == "buy" else 2.0
+    #         list content = message.content
+    #     return np.array(
+    #         [message.timestamp, trade_type_value, float(content["price"]), float(content["quantity"])],
+    #         dtype="float64"
+    #     )
 
     def convert_diff_message_to_order_book_row(self, message):
         np_bids, np_asks = self.c_convert_diff_message_to_np_arrays(message)
