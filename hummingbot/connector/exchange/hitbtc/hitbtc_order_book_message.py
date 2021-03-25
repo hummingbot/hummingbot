@@ -11,6 +11,7 @@ from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage,
     OrderBookMessageType,
 )
+from .hitbtc_constants import Constants
 from .hitbtc_utils import (
     convert_from_exchange_trading_pair,
 )
@@ -54,21 +55,18 @@ class HitbtcOrderBookMessage(OrderBookMessage):
         elif "symbol" in self.content:
             return convert_from_exchange_trading_pair(self.content["symbol"])
 
+    # The `asks` and `bids` properties are only used in the methods below.
+    # They are all replaced or unused in this connector:
+    #     OrderBook.restore_from_snapshot_and_diffs
+    #     OrderBookTracker._track_single_book
+    #     MockAPIOrderBookDataSource.get_tracking_pairs
     @property
     def asks(self) -> List[OrderBookRow]:
-        asks = map(self.content["ask"], lambda ask: {"price": ask["price"], "size": ask["size"]})
-
-        return [
-            OrderBookRow(float(price), float(amount), self.update_id) for price, amount in asks
-        ]
+        raise NotImplementedError(Constants.EXCHANGE_NAME + " order book uses active_order_tracker.")
 
     @property
     def bids(self) -> List[OrderBookRow]:
-        bids = map(self.content["bid"], lambda bid: {"price": bid["price"], "size": bid["size"]})
-
-        return [
-            OrderBookRow(float(price), float(amount), self.update_id) for price, amount in bids
-        ]
+        raise NotImplementedError(Constants.EXCHANGE_NAME + " order book uses active_order_tracker.")
 
     def __eq__(self, other) -> bool:
         return self.type == other.type and self.timestamp == other.timestamp
