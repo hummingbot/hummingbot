@@ -30,7 +30,3 @@ class TestAuth(unittest.TestCase):
     def test_ws_auth(self):
         self.ev_loop.run_until_complete(self.ws_auth())
         # assert result["code"] == 0
-
-
-if __name__ == "__main__":
-    unittest.main()
