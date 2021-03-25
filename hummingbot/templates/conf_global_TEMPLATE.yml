@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 18
+template_version: 19
 
 # Exchange configs
 bamboo_relay_use_coordinator: false
@@ -186,3 +186,9 @@ heartbeat_enabled:
 heartbeat_interval_min:
 # a list of binance markets (for trades/pnl reporting) separated by ',' e.g. RLC-USDT,RLC-BTC
 binance_markets:
+
+rate_oracle_source:
+
+global_token:
+
+global_token_symbol:
