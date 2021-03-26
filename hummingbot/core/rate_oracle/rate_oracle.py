@@ -95,6 +95,7 @@ class RateOracle(NetworkBase):
     @classmethod
     async def global_rate(cls, token: str) -> Decimal:
         prices = await cls.get_prices()
+        token = "USDT" if token == "USD" else token
         pair = token + "-" + cls.global_token
         return find_rate(prices, pair)
 
