@@ -50,4 +50,3 @@ closing_time: null
 
 # Buffer size used to store historic samples and calculate volatility
 volatility_buffer_size: 60
-volatility_sampling_period: 1
