@@ -532,12 +532,11 @@ class CoinzoomExchange(ExchangeBase):
             raise
         except CoinzoomAPIError as e:
             err = e.error_payload.get('error', e.error_payload)
-            print(f"order cancel error: {err}")
+            self.logger().error(f"Order Cancel API Error: {err}")
             # TODO: Still need to handle order cancel errors.
-            # self._order_not_found_records[order_id] = self._order_not_found_records.get(order_id, 0) + 1
-            # if err.get('code') == 20002 and \
-            #         self._order_not_found_records[order_id] >= self.ORDER_NOT_EXIST_CANCEL_COUNT:
-            #     order_was_cancelled = True
+            self._order_not_found_records[order_id] = self._order_not_found_records.get(order_id, 0) + 1
+            if self._order_not_found_records[order_id] >= self.ORDER_NOT_EXIST_CANCEL_COUNT:
+                order_was_cancelled = True
         if order_was_cancelled:
             self.logger().info(f"Successfully cancelled order {order_id} on {Constants.EXCHANGE_NAME}.")
             self.stop_tracking_order(order_id)
