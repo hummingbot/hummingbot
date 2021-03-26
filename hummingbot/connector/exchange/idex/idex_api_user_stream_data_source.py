@@ -74,10 +74,13 @@ class IdexAPIUserStreamDataSource(UserStreamTrackerDataSource):
             ]
         }
         """
-        IDEX_WS_FEED = get_idex_ws_feed()
+
         while True:
+            idex_ws_feed = get_idex_ws_feed()
+            if DEBUG:
+                self.logger().info("Opening new connection to ws: %s", idex_ws_feed)
             try:
-                async with websockets.connect(IDEX_WS_FEED) as ws:
+                async with websockets.connect(idex_ws_feed) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     subscribe_request: Dict[str, any] = {
                         "method": "subscribe",
@@ -85,30 +88,24 @@ class IdexAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
                         "subscriptions": ["orders", "balances"],
                     }
-
                     self.sub_token = await self._idex_auth.fetch_ws_token()
-
                     subscribe_request.update({"token": self.sub_token})
-
                     # send sub request
                     await ws.send(json.dumps(subscribe_request))
-
                     async for raw_msg in self._inner_messages(ws):
                         msg = json.loads(raw_msg)
                         msg_type: str = msg.get("type", None)
+                        if DEBUG:
+                            self.logger().info('<<<<< ws msg: %s', msg)
                         if msg_type is None:
                             raise ValueError(f"idex Websocket message does not contain a type - {msg}")
                         elif msg_type == "error":
                             raise ValueError(f"idex Websocket received error message - {msg['data']}")
                         elif msg_type in ["balances", "orders"]:
-                            # FIXME: We should be digesting orders/fills and balances not orders
-                            # NOTE: borrowed from binance, makes some sense from coinbase too-- test.
                             output.put_nowait(msg)
-
                         elif msg_type in ["ping"]:
                             # server sends ping every 3 minutes, must receive a pong within a 10 minute period
                             safe_ensure_future(ws.pong())
-
                         elif msg_type in ["subscriptions"]:
                             self.logger().info("subscription msg received: %s ", msg)
                         else:
@@ -150,9 +147,5 @@ class IdexAPIUserStreamDataSource(UserStreamTrackerDataSource):
             if DEBUG:
                 self.logger().warning("WebSocket connection was closed. Going to reconnect...")
             return
-        except asyncio.CancelledError as e:
-            if DEBUG:
-                self.logger().exception("WebSocket loop received a CancelledError. Re-raising...")
-            raise e
         finally:
             await ws.close()

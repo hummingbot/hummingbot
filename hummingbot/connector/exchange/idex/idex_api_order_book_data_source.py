@@ -1,6 +1,8 @@
 import asyncio
 import aiohttp
 import logging
+
+import cachetools.func
 import pandas as pd
 from typing import (
     Any,
@@ -75,6 +77,7 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return float(last_trade["price"])
 
     @classmethod
+    @cachetools.func.ttl_cache(ttl=10)
     def get_mid_price(cls, trading_pair: str, domain=None) -> Optional[Decimal]:
         base_url: str = get_idex_rest_url(domain=domain)
         ticker_url: str = f"{base_url}/v1/tickers?market={trading_pair}"
@@ -235,9 +238,12 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
 
         while True:
+            idex_ws_feed = get_idex_ws_feed()
+            if DEBUG:
+                self.logger().info("IOB.listen_for_trades new connection to ws: %s", idex_ws_feed)
             try:
                 trading_pairs: List[str] = self._trading_pairs
-                async with websockets.connect(get_idex_ws_feed()) as ws:
+                async with websockets.connect(idex_ws_feed) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     subscription_request: Dict[str, Any] = {
                         "method": "subscribe",
@@ -249,7 +255,7 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         msg = ujson.loads(raw_msg)
                         msg_type: str = msg.get("type", None)
                         if DEBUG:
-                            self.logger().debug('<<<<< ws msg: %s', msg)
+                            self.logger().info('<<<<< ws msg: %s', msg)
                         if msg_type is None:
                             raise ValueError(f"Idex Websocket message does not contain a type - {msg}")
                         elif msg_type == "error":
@@ -296,9 +302,12 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
 
         while True:
+            idex_ws_feed = get_idex_ws_feed()
+            if DEBUG:
+                self.logger().info("IOB.listen_for_order_book_diffs new connection to ws: %s", idex_ws_feed)
             try:
                 trading_pairs: List[str] = self._trading_pairs
-                async with websockets.connect(get_idex_ws_feed()) as ws:
+                async with websockets.connect(idex_ws_feed) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     subscription_request: Dict[str, Any] = {
                         "method": "subscribe",
@@ -310,7 +319,7 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         msg = ujson.loads(raw_msg)
                         msg_type: str = msg.get("type", None)
                         if DEBUG:
-                            self.logger().debug('<<<<< ws msg: %s', msg)
+                            self.logger().info('<<<<< ws msg: %s', msg)
                         if msg_type is None:
                             raise ValueError(f"Idex WebSocket message does not contain a type - {msg}")
                         elif msg_type == "error":
@@ -345,7 +354,7 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         try:
                             snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair)
                             if DEBUG:
-                                self.logger().debug('<<<<< aiohttp snapshot response: %s', snapshot)
+                                self.logger().info('<<<<< aiohttp snapshot response: %s', snapshot)
                             snapshot_timestamp: float = time.time()
                             snapshot_msg: OrderBookMessage = IdexOrderBook.snapshot_message_from_exchange(
                                 snapshot,
@@ -353,7 +362,8 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                 metadata={"trading_pair": trading_pair}
                             )
                             output.put_nowait(snapshot_msg)
-                            self.logger().debug(f"Saved orderbook snapshot for {trading_pair}")
+                            if DEBUG:
+                                self.logger().info(f"Saved orderbook snapshot for {trading_pair}")
                             # Be careful not to go above API rate limits
                             await asyncio.sleep(5.0)
                         except asyncio.CancelledError:
