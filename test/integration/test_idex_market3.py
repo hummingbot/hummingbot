@@ -63,9 +63,9 @@ WS_BASE_URL = "wss://websocket-eth.idex.io/v1/"
 
 # load config from Hummingbot's central debug conf
 # Values can be overridden by env variables (in uppercase). Example: export IDEX_WALLET_PRIVATE_KEY="1234567"
-IDEX_API_KEY = getattr(conf, 'idex_api_key', '')
-IDEX_API_SECRET_KEY = getattr(conf, 'idex_api_secret_key', '')
-IDEX_WALLET_PRIVATE_KEY = getattr(conf, 'idex_wallet_private_key', '')
+IDEX_API_KEY = getattr(conf, 'idex_api_key')
+IDEX_API_SECRET_KEY = getattr(conf, 'idex_api_secret_key')
+IDEX_WALLET_PRIVATE_KEY = getattr(conf, 'idex_wallet_private_key')
 
 # force resolution of api base url for conf values provided to this test
 hummingbot.connector.exchange.idex.idex_resolve._IS_IDEX_SANDBOX = True
@@ -316,7 +316,6 @@ class IdexExchangeUnitTest(unittest.TestCase):
         order_id, exchange_order_id = self._place_order(True, trading_pair, quantized_amount, OrderType.LIMIT_MAKER,
                                                         quantize_bid_price, 10001, FixtureIdex.OPEN_BUY_LIMIT_ORDER,
                                                         FixtureIdex.WS_ORDER_OPEN)
-
         self._cancel_order(trading_pair, order_id, exchange_order_id, FixtureIdex.WS_ORDER_CANCELLED)
         [order_cancelled_event] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
         order_cancelled_event: OrderCancelledEvent = order_cancelled_event
@@ -424,7 +423,8 @@ class IdexExchangeUnitTest(unittest.TestCase):
                 idex_api_key=IDEX_API_KEY,
                 idex_api_secret_key=IDEX_API_SECRET_KEY,
                 idex_wallet_private_key=IDEX_WALLET_PRIVATE_KEY,
-                trading_pairs=[trading_pair]
+                trading_pairs=[trading_pair],
+                domain='sandbox_eth'
             )
             for event_tag in self.events:
                 self.market.add_listener(event_tag, self.market_logger)

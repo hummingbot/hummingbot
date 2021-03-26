@@ -288,11 +288,9 @@ class IdexExchange(ExchangeBase):
             tracked_order = self._in_flight_orders.get(client_order_id)
             if tracked_order is None:
                 raise ValueError(f"Failed to cancel order - {client_order_id}. Order not found.")
-            exchange_order_id = await self._in_flight_orders.get(client_order_id).get_exchange_order_id()
+            exchange_order_id = await tracked_order.get_exchange_order_id()
             cancelled_id = await self.delete_order(trading_pair, client_order_id)
             format_cancelled_id = cancelled_id[0].get("orderId")
-            self.logger().info(f"Cancelled ID:{format_cancelled_id}.")
-            self.logger().info(f"Exchange ID:{exchange_order_id}.")
             if exchange_order_id == format_cancelled_id:
                 self.logger().info(f"Successfully cancelled order {client_order_id}.")
                 self.stop_tracking_order(client_order_id)
@@ -301,6 +299,14 @@ class IdexExchange(ExchangeBase):
                                        self.current_timestamp,
                                        client_order_id))
                 tracked_order.cancelled_event.set()
+                return client_order_id
+        except IOError as e:
+            if "order not found" in str(e):
+                # The order was never there to begin with. So cancelling it is a no-op but semantically successful.
+                self.logger().info(f"The order {client_order_id} does not exist on Idex. No cancellation needed.")
+                self.stop_tracking_order(client_order_id)
+                self.trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                   OrderCancelledEvent(self._current_timestamp, client_order_id))
                 return client_order_id
         except asyncio.CancelledError:
             raise
