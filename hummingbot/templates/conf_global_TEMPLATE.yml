@@ -59,6 +59,9 @@ crypto_com_api_key: null
 crypto_com_secret_key: null
 
 
+hitbtc_api_key: null
+hitbtc_secret_key: null
+
 bitfinex_api_key: null
 bitfinex_secret_key: null
 
