@@ -147,7 +147,7 @@ fieldfare_market_making_config_map = {
                          "(If market volatility multiplied by this value is above the maximum spread, it will increase the maximum spread value) >>>",
                   type_str="decimal",
                   required_if=lambda: fieldfare_market_making_config_map.get("parameters_based_on_spread").value,
-                  validator=lambda v: validate_decimal(v, 0, 10, inclusive=False),
+                  validator=lambda v: validate_decimal(v, 1, 10, inclusive=False),
                   prompt_on_new=True),
     "inventory_risk_aversion":
         ConfigVar(key="inventory_risk_aversion",
