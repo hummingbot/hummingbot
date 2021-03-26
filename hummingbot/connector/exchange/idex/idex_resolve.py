@@ -24,6 +24,7 @@ _IS_IDEX_SANDBOX = None
 
 
 def set_domain(domain):
+    """Save user selected domain so we don't have to pass around domain to every method"""
     global _IDEX_BLOCKCHAIN, _IS_IDEX_SANDBOX
 
     if domain == "eth":  # prod eth
@@ -42,6 +43,32 @@ def set_domain(domain):
         raise Exception(f'Bad configuration of domain "{domain}"')
 
 
+def get_rest_url_for_domain(domain):
+    if domain == "eth":  # prod eth
+        return _IDEX_REST_URL_PROD_ETH
+    elif domain == "bsc":  # prod bsc
+        return _IDEX_REST_URL_PROD_BSC
+    elif domain == "sandbox_eth":
+        return _IDEX_REST_URL_SANDBOX_ETH
+    elif domain == "sandbox_bsc":
+        return _IDEX_REST_URL_SANDBOX_BSC
+    else:
+        raise Exception(f'Bad configuration of domain "{domain}"')
+
+
+def get_ws_url_for_domain(domain):
+    if domain == "eth":  # prod eth
+        return _IDEX_WS_FEED_PROD_ETH
+    elif domain == "bsc":  # prod bsc
+        return _IDEX_WS_FEED_PROD_BSC
+    elif domain == "sandbox_eth":
+        return _IDEX_WS_FEED_SANDBOX_ETH
+    elif domain == "sandbox_bsc":
+        return _IDEX_WS_FEED_SANDBOX_BSC
+    else:
+        raise Exception(f'Bad configuration of domain "{domain}"')
+
+
 def get_idex_blockchain():
     """Late loading of user selected blockchain from configuration"""
     if _IDEX_BLOCKCHAIN is None:
@@ -56,16 +83,22 @@ def is_idex_sandbox():
     return _IS_IDEX_SANDBOX
 
 
-def get_idex_rest_url():
+def get_idex_rest_url(domain=None):
     """Late resolution of idex rest url to give time for configuration to load"""
+    if domain is not None:
+        # we need to pass the domain only if the method is called before the market is instantiated
+        return get_rest_url_for_domain(domain)
     if is_idex_sandbox():
         return _IDEX_REST_URL_SANDBOX_ETH if get_idex_blockchain() == 'ETH' else _IDEX_REST_URL_SANDBOX_BSC
     else:
         return _IDEX_REST_URL_PROD_ETH if get_idex_blockchain() == 'ETH' else _IDEX_REST_URL_PROD_BSC
 
 
-def get_idex_ws_feed():
+def get_idex_ws_feed(domain=None):
     """Late resolution of idex WS url to give time for configuration to load"""
+    if domain is not None:
+        # we need to pass the domain only if the method is called before the market is instantiated
+        return get_ws_url_for_domain(domain)
     if is_idex_sandbox():
         return _IDEX_WS_FEED_SANDBOX_ETH if get_idex_blockchain() == 'ETH' else _IDEX_WS_FEED_SANDBOX_BSC
     else:

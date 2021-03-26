@@ -477,7 +477,7 @@ class IdexExchangeUnitTest(unittest.TestCase):
         try:
             # Try to buy 0.04 ETH from the exchange, and watch for completion event.
             price: Decimal = self.market.get_price(trading_pair, True)
-            amount: Decimal = Decimal("0.02")
+            amount: Decimal = Decimal("2.002")  # let's try to buy 2.002 DIL
             order_id, exchange_order_id = self._place_order(True, trading_pair, amount, OrderType.LIMIT, price, 10001,
                                                             FixtureIdex.BUY_MARKET_ORDER,
                                                             FixtureIdex.WS_AFTER_MARKET_BUY_2)
@@ -504,6 +504,8 @@ class IdexExchangeUnitTest(unittest.TestCase):
 
             order_id = None
 
+        except Exception as e:
+            self.logger().exception("test_order_fill_record got exception: %s. More details:", e)
         finally:
             if order_id is not None:
                 self._cancel_order(trading_pair, order_id, exchange_order_id, FixtureIdex.WS_ORDER_CANCELLED)
