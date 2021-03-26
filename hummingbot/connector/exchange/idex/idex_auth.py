@@ -68,9 +68,9 @@ class IdexAuth:
         return ia_logger
 
     def __init__(self, api_key: str, secret_key: str, wallet_private_key: str = None):
-        self._api_key = api_key
-        self._secret_key = secret_key
-        self._wallet_private_key = wallet_private_key
+        self._api_key = api_key or ''
+        self._secret_key = secret_key or ''
+        self._wallet_private_key = wallet_private_key or ''
 
         self._nonce: Union[uuid.UUID, None] = uuid.uuid1()
         self._wallet: Union[LocalAccount, None] = None

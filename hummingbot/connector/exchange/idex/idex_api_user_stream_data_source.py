@@ -18,6 +18,7 @@ from hummingbot.core.data_type.user_stream_tracker_data_source import UserStream
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
 from .idex_auth import IdexAuth
+from .idex_utils import DEBUG
 
 
 class IdexAPIUserStreamDataSource(UserStreamTrackerDataSource):
@@ -115,8 +116,10 @@ class IdexAPIUserStreamDataSource(UserStreamTrackerDataSource):
                         else:
                             raise ValueError(f"Unrecognized idex Websocket message received - {msg}")
                         await asyncio.sleep(0)
-            except asyncio.CancelledError:
-                raise
+            except asyncio.CancelledError as e:
+                if DEBUG:
+                    self.logger().exception("<<<< listen_for_user_stream received CancelledError...")
+                raise e
             except Exception:
                 self.logger().error("Unexpected error with Idex WebSocket connection. "
                                     "Retrying after 30 seconds...", exc_info=True)
@@ -146,6 +149,12 @@ class IdexAPIUserStreamDataSource(UserStreamTrackerDataSource):
             self.logger().warning("WebSocket ping timed out. Going to reconnect...")
             return
         except ConnectionClosed:
+            if DEBUG:
+                self.logger().warning("WebSocket connection was closed. Going to reconnect...")
             return
+        except asyncio.CancelledError as e:
+            if DEBUG:
+                self.logger().exception("WebSocket loop received a CancelledError. Re-raising...")
+            raise e
         finally:
             await ws.close()

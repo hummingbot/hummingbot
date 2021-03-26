@@ -72,7 +72,7 @@ hummingbot.connector.exchange.idex.idex_resolve._IS_IDEX_SANDBOX = True
 hummingbot.connector.exchange.idex.idex_resolve._IDEX_BLOCKCHAIN = 'ETH'
 
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 
 class IdexExchangeUnitTest(unittest.TestCase):
