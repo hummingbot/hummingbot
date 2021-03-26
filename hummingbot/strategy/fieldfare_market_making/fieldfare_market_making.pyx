@@ -81,7 +81,6 @@ cdef class FieldfareMarketMakingStrategy(StrategyBase):
                  closing_time: Decimal = Decimal("1"),
                  debug_csv_path: str = '',
                  volatility_buffer_size: int = 30,
-                 volatility_sampling_period: int = 60
                  ):
         super().__init__()
         self._sb_order_tracker = OrderTracker()
@@ -108,14 +107,13 @@ cdef class FieldfareMarketMakingStrategy(StrategyBase):
         self._last_own_trade_price = Decimal('nan')
 
         self.c_add_markets([market_info.market])
-        self._ticks_to_be_ready = volatility_buffer_size * volatility_sampling_period
+        self._ticks_to_be_ready = volatility_buffer_size
         self._parameters_based_on_spread = parameters_based_on_spread
         self._min_spread = min_spread
         self._max_spread = max_spread
         self._vol_to_spread_multiplier = vol_to_spread_multiplier
         self._inventory_risk_aversion = inventory_risk_aversion
         self._avg_vol = AverageVolatilityIndicator(volatility_buffer_size, 1)
-        self._volatility_sampling_period = volatility_sampling_period
         self._last_sampling_timestamp = 0
         self._kappa = order_book_depth_factor
         self._gamma = risk_factor
@@ -354,11 +352,12 @@ cdef class FieldfareMarketMakingStrategy(StrategyBase):
             lines.extend(["", "  No active maker orders."])
 
         volatility_pct = self._avg_vol.current_value / float(self.get_price()) * 100.0
-        lines.extend(["", f"  Strategy parameters:",
-                      f"    risk_factor(\u03B3)= {self._gamma:.5E}",
-                      f"    order_book_depth_factor(\u03BA)= {self._kappa:.5E}",
-                      f"    volatility= {volatility_pct:.3f}%",
-                      f"    time until end of trading cycle= {str(datetime.timedelta(seconds=float(self._time_left)//1e3))}"])
+        if all((self._gamma, self._kappa, volatility_pct)):
+            lines.extend(["", f"  Strategy parameters:",
+                          f"    risk_factor(\u03B3)= {self._gamma:.5E}",
+                          f"    order_book_depth_factor(\u03BA)= {self._kappa:.5E}",
+                          f"    volatility= {volatility_pct:.3f}%",
+                          f"    time until end of trading cycle= {str(datetime.timedelta(seconds=float(self._time_left)//1e3))}"])
 
         warning_lines.extend(self.balance_warning([self._market_info]))
 
@@ -444,9 +443,8 @@ cdef class FieldfareMarketMakingStrategy(StrategyBase):
             self._last_timestamp = timestamp
 
     cdef c_collect_market_variables(self, double timestamp):
-        if timestamp - self._last_sampling_timestamp >= self._volatility_sampling_period:
-            self._avg_vol.add_sample(self.get_price())
-            self._last_sampling_timestamp = timestamp
+        self._avg_vol.add_sample(self.get_price())
+        self._last_sampling_timestamp = timestamp
         self._time_left = max(self._time_left - Decimal(timestamp - self._last_timestamp) * 1000, 0)
         # Calculate adjustment factor to have 0.01% of inventory resolution
         self._q_adjustment_factor = Decimal(

@@ -240,11 +240,4 @@ fieldfare_market_making_config_map = {
                   type_str="int",
                   validator=lambda v: validate_decimal(v, 5, 600),
                   default=60),
-    "volatility_sampling_period":
-        ConfigVar(key="volatility_sampling_period",
-                  prompt="Enter how many seconds to wait between registering ticks for the volatility calculation. "
-                         "(If set to 5, every 5 seconds a new sample will be stored)>>> ",
-                  type_str="int",
-                  validator=lambda v: validate_decimal(v, 1, 300),
-                  default=1),
 }
