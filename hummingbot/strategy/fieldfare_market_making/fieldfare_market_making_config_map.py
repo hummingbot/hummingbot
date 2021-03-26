@@ -22,7 +22,7 @@ from typing import Optional
 
 
 def maker_trading_pair_prompt():
-    exchange = fieldfare_mm_config_map.get("exchange").value
+    exchange = fieldfare_market_making_config_map.get("exchange").value
     example = EXAMPLE_PAIRS.get(exchange)
     return "Enter the token trading pair you would like to trade on %s%s >>> " \
            % (exchange, f" (e.g. {example})" if example else "")
@@ -30,27 +30,27 @@ def maker_trading_pair_prompt():
 
 # strategy specific validators
 def validate_exchange_trading_pair(value: str) -> Optional[str]:
-    exchange = fieldfare_mm_config_map.get("exchange").value
+    exchange = fieldfare_market_making_config_map.get("exchange").value
     return validate_market_trading_pair(exchange, value)
 
 
 def validate_max_spread(value: str) -> Optional[str]:
     validate_decimal(value, 0, 100, inclusive=False)
-    if fieldfare_mm_config_map["min_spread"].value is not None:
-        min_spread = Decimal(fieldfare_mm_config_map["min_spread"].value)
+    if fieldfare_market_making_config_map["min_spread"].value is not None:
+        min_spread = Decimal(fieldfare_market_making_config_map["min_spread"].value)
         max_spread = Decimal(value)
-        if min_spread > max_spread:
-            return f"Max spread cannot be lesser than min spread {max_spread}%<{min_spread}%"
+        if min_spread >= max_spread:
+            return f"Max spread cannot be lesser or equal to min spread {max_spread}%<={min_spread}%"
 
 
 def onvalidated_min_spread(value: str):
     # If entered valid min_spread, max_spread is invalidated so user sets it up again
-    fieldfare_mm_config_map["max_spread"].value = None
+    fieldfare_market_making_config_map["max_spread"].value = None
 
 
 async def order_amount_prompt() -> str:
-    exchange = fieldfare_mm_config_map["exchange"].value
-    trading_pair = fieldfare_mm_config_map["market"].value
+    exchange = fieldfare_market_making_config_map["exchange"].value
+    trading_pair = fieldfare_market_making_config_map["market"].value
     base_asset, quote_asset = trading_pair.split("-")
     min_amount = await minimum_order_amount(exchange, trading_pair)
     return f"What is the amount of {base_asset} per order? (minimum {min_amount}) >>> "
@@ -58,8 +58,8 @@ async def order_amount_prompt() -> str:
 
 async def validate_order_amount(value: str) -> Optional[str]:
     try:
-        exchange = fieldfare_mm_config_map["exchange"].value
-        trading_pair = fieldfare_mm_config_map["market"].value
+        exchange = fieldfare_market_making_config_map["exchange"].value
+        trading_pair = fieldfare_market_making_config_map["market"].value
         min_amount = await minimum_order_amount(exchange, trading_pair)
         if Decimal(value) < min_amount:
             return f"Order amount must be at least {min_amount}."
@@ -69,7 +69,7 @@ async def validate_order_amount(value: str) -> Optional[str]:
 
 def on_validated_price_source_exchange(value: str):
     if value is None:
-        fieldfare_mm_config_map["price_source_market"].value = None
+        fieldfare_market_making_config_map["price_source_market"].value = None
 
 
 def exchange_on_validated(value: str):
@@ -78,21 +78,21 @@ def exchange_on_validated(value: str):
 
 def on_validated_parameters_based_on_spread(value: str):
     if value == 'True':
-        fieldfare_mm_config_map.get("risk_factor").value = None
-        fieldfare_mm_config_map.get("order_book_depth_factor").value = None
-        fieldfare_mm_config_map.get("order_amount_shape_factor").value = None
+        fieldfare_market_making_config_map.get("risk_factor").value = None
+        fieldfare_market_making_config_map.get("order_book_depth_factor").value = None
+        fieldfare_market_making_config_map.get("order_amount_shape_factor").value = None
     else:
-        fieldfare_mm_config_map.get("max_spread").value = None
-        fieldfare_mm_config_map.get("min_spread").value = None
-        fieldfare_mm_config_map.get("vol_to_spread_multiplier").value = None
-        fieldfare_mm_config_map.get("inventory_risk_aversion").value = None
+        fieldfare_market_making_config_map.get("max_spread").value = None
+        fieldfare_market_making_config_map.get("min_spread").value = None
+        fieldfare_market_making_config_map.get("vol_to_spread_multiplier").value = None
+        fieldfare_market_making_config_map.get("inventory_risk_aversion").value = None
 
 
-fieldfare_mm_config_map = {
+fieldfare_market_making_config_map = {
     "strategy":
         ConfigVar(key="strategy",
                   prompt=None,
-                  default="fieldfare_mm"),
+                  default="fieldfare_market_making"),
     "exchange":
         ConfigVar(key="exchange",
                   prompt="Enter your maker exchange name >>> ",
@@ -129,7 +129,7 @@ fieldfare_mm_config_map = {
                   prompt="Enter the minimum spread allowed from mid-price in percentage "
                          "(Enter 1 to indicate 1%) >>> ",
                   type_str="decimal",
-                  required_if=lambda: fieldfare_mm_config_map.get("parameters_based_on_spread").value,
+                  required_if=lambda: fieldfare_market_making_config_map.get("parameters_based_on_spread").value,
                   validator=lambda v: validate_decimal(v, 0, 100, inclusive=False),
                   prompt_on_new=True,
                   on_validated=onvalidated_min_spread),
@@ -138,23 +138,24 @@ fieldfare_mm_config_map = {
                   prompt="Enter the maximum spread allowed from mid-price in percentage "
                          "(Enter 1 to indicate 1%) >>> ",
                   type_str="decimal",
-                  required_if=lambda: fieldfare_mm_config_map.get("parameters_based_on_spread").value,
+                  required_if=lambda: fieldfare_market_making_config_map.get("parameters_based_on_spread").value,
                   validator=lambda v: validate_max_spread(v),
                   prompt_on_new=True),
     "vol_to_spread_multiplier":
         ConfigVar(key="vol_to_spread_multiplier",
-                  prompt="Enter the Volatility-to-Spread multiplier: "
-                         "Beyond this number of sigmas, spreads will turn into multiples of volatility >>>",
+                  prompt="Enter the Volatility threshold multiplier: "
+                         "(If market volatility multiplied by this value is above the maximum spread, it will increase the maximum spread value) >>>",
                   type_str="decimal",
-                  required_if=lambda: fieldfare_mm_config_map.get("parameters_based_on_spread").value,
+                  required_if=lambda: fieldfare_market_making_config_map.get("parameters_based_on_spread").value,
                   validator=lambda v: validate_decimal(v, 0, 10, inclusive=False),
                   prompt_on_new=True),
     "inventory_risk_aversion":
         ConfigVar(key="inventory_risk_aversion",
-                  prompt="Enter Inventory risk aversion: With 1.0 being extremely conservative about meeting inventory target, "
-                         "at the expense of profit, and 0.0 for a profit driven, at the expense of inventory risk >>>",
+                  prompt="Enter Inventory risk aversion between 0 and 1: (For values close to 0.999 spreads will be more "
+                         "skewed to meet the inventory target, while close to 0.001 spreads will be close to symmetrical, "
+                         "increasing profitability but also increasing inventory risk)>>>",
                   type_str="decimal",
-                  required_if=lambda: fieldfare_mm_config_map.get("parameters_based_on_spread").value,
+                  required_if=lambda: fieldfare_market_making_config_map.get("parameters_based_on_spread").value,
                   validator=lambda v: validate_decimal(v, 0, 1, inclusive=False),
                   prompt_on_new=True),
     "order_book_depth_factor":
@@ -162,7 +163,7 @@ fieldfare_mm_config_map = {
                   printable_key="order_book_depth_factor(\u03BA)",
                   prompt="Enter order book depth factor (\u03BA) >>> ",
                   type_str="decimal",
-                  required_if=lambda: not fieldfare_mm_config_map.get("parameters_based_on_spread").value,
+                  required_if=lambda: not fieldfare_market_making_config_map.get("parameters_based_on_spread").value,
                   validator=lambda v: validate_decimal(v, 0, 1e10, inclusive=False),
                   prompt_on_new=True),
     "risk_factor":
@@ -170,7 +171,7 @@ fieldfare_mm_config_map = {
                   printable_key="risk_factor(\u03B3)",
                   prompt="Enter risk factor (\u03B3) >>> ",
                   type_str="decimal",
-                  required_if=lambda: not fieldfare_mm_config_map.get("parameters_based_on_spread").value,
+                  required_if=lambda: not fieldfare_market_making_config_map.get("parameters_based_on_spread").value,
                   validator=lambda v: validate_decimal(v, 0, 1e10, inclusive=False),
                   prompt_on_new=True),
     "order_amount_shape_factor":
@@ -178,14 +179,13 @@ fieldfare_mm_config_map = {
                   printable_key="order_amount_shape_factor(\u03B7)",
                   prompt="Enter order amount shape factor (\u03B7) >>> ",
                   type_str="decimal",
-                  required_if=lambda: not fieldfare_mm_config_map.get("parameters_based_on_spread").value,
+                  required_if=lambda: not fieldfare_market_making_config_map.get("parameters_based_on_spread").value,
                   validator=lambda v: validate_decimal(v, 0, 1, inclusive=True),
                   prompt_on_new=True),
     "closing_time":
         ConfigVar(key="closing_time",
-                  prompt="Enter algorithm closing time in days. "
-                         "When this time is reached, spread equations will recycle t=0"
-                         " (fractional quantities are allowed i.e. 1.27 days) >>> ",
+                  prompt="Enter operational closing time (T). (How long will each trading cycle last "
+                         "in days or fractions of day) >>> ",
                   type_str="decimal",
                   validator=lambda v: validate_decimal(v, 0, 10, inclusive=False),
                   default=Decimal("0.041666667")),
@@ -223,7 +223,7 @@ fieldfare_mm_config_map = {
                   default=60),
     "inventory_target_base_pct":
         ConfigVar(key="inventory_target_base_pct",
-                  prompt="What is your target base asset percentage? Enter 50 for 50% >>> ",
+                  prompt="What is the inventory target for the base asset? Enter 50 for 50% >>> ",
                   type_str="decimal",
                   validator=lambda v: validate_decimal(v, 0, 100),
                   prompt_on_new=True,
@@ -234,15 +234,16 @@ fieldfare_mm_config_map = {
                   type_str="bool",
                   default=False,
                   validator=validate_bool),
-    "buffer_size":
-        ConfigVar(key="buffer_size",
-                  prompt="Enter amount of samples to use for volatility calculation>>> ",
+    "volatility_buffer_size":
+        ConfigVar(key="volatility_buffer_size",
+                  prompt="Enter amount of ticks that will be stored to calculate volatility>>> ",
                   type_str="int",
                   validator=lambda v: validate_decimal(v, 5, 600),
                   default=60),
-    "buffer_sampling_period":
-        ConfigVar(key="buffer_sampling_period",
-                  prompt="Enter period in seconds of sampling for volatility calculation>>> ",
+    "volatility_sampling_period":
+        ConfigVar(key="volatility_sampling_period",
+                  prompt="Enter how many seconds to wait between registering ticks for the volatility calculation. "
+                         "(If set to 5, every 5 seconds a new sample will be stored)>>> ",
                   type_str="int",
                   validator=lambda v: validate_decimal(v, 1, 300),
                   default=1),

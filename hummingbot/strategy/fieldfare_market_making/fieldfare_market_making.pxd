@@ -5,7 +5,7 @@ from hummingbot.strategy.strategy_base cimport StrategyBase
 from ..__utils__.trailing_indicators.average_volatility import AverageVolatilityIndicator
 
 
-cdef class FieldfareMMStrategy(StrategyBase):
+cdef class FieldfareMarketMakingStrategy(StrategyBase):
     cdef:
         object _market_info
         object _minimum_spread
@@ -29,9 +29,10 @@ cdef class FieldfareMMStrategy(StrategyBase):
         double _status_report_interval
         int64_t _logging_options
         object _last_own_trade_price
-        int _buffer_sampling_period
+        int _volatility_sampling_period
         double _last_sampling_timestamp
         bint _parameters_based_on_spread
+        int _ticks_to_be_ready
         object _min_spread
         object _max_spread
         object _vol_to_spread_multiplier
@@ -41,12 +42,12 @@ cdef class FieldfareMMStrategy(StrategyBase):
         object _eta
         object _closing_time
         object _time_left
-        object _q_ajustment_factor
+        object _q_adjustment_factor
         object _reserved_price
         object _optimal_spread
         object _optimal_bid
         object _optimal_ask
-        double _latest_parameter_calculation_vol
+        object _latest_parameter_calculation_vol
         str _debug_csv_path
         object _avg_vol
 
@@ -70,4 +71,3 @@ cdef class FieldfareMMStrategy(StrategyBase):
     cdef c_calculate_reserved_price_and_optimal_spread(self)
     cdef object c_calculate_target_inventory(self)
     cdef c_recalculate_parameters(self)
-    cdef c_volatility_diff_from_last_parameter_calculation(self, double current_vol)

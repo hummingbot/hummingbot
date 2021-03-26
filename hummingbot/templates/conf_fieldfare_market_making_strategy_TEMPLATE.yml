@@ -49,5 +49,5 @@ order_amount_shape_factor: null
 closing_time: null
 
 # Buffer size used to store historic samples and calculate volatility
-buffer_size: 60
-buffer_sampling_period: 1
+volatility_buffer_size: 60
+volatility_sampling_period: 1
