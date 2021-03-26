@@ -7,10 +7,10 @@ from hummingbot import data_path
 import os.path
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.strategy.fieldfare_mm import (
-    FieldfareMMStrategy,
+from hummingbot.strategy.fieldfare_market_making import (
+    FieldfareMarketMakingStrategy,
 )
-from hummingbot.strategy.fieldfare_mm.fieldfare_mm_config_map import fieldfare_mm_config_map as c_map
+from hummingbot.strategy.fieldfare_market_making.fieldfare_market_making_config_map import fieldfare_market_making_config_map as c_map
 from decimal import Decimal
 import pandas as pd
 
@@ -37,7 +37,7 @@ def start(self):
         maker_data = [self.markets[exchange], trading_pair] + list(maker_assets)
         self.market_trading_pair_tuples = [MarketTradingPairTuple(*maker_data)]
 
-        strategy_logging_options = FieldfareMMStrategy.OPTION_LOG_ALL
+        strategy_logging_options = FieldfareMarketMakingStrategy.OPTION_LOG_ALL
         parameters_based_on_spread = c_map.get("parameters_based_on_spread").value
         if parameters_based_on_spread:
             risk_factor = order_book_depth_factor = order_amount_shape_factor = None
@@ -51,13 +51,13 @@ def start(self):
             risk_factor = c_map.get("risk_factor").value
             order_amount_shape_factor = c_map.get("order_amount_shape_factor").value
         closing_time = c_map.get("closing_time").value * Decimal(3600 * 24 * 1e3)
-        buffer_size = c_map.get("buffer_size").value
-        buffer_sampling_period = c_map.get("buffer_sampling_period").value
+        volatility_buffer_size = c_map.get("volatility_buffer_size").value
+        volatility_sampling_period = c_map.get("volatility_sampling_period").value
         debug_csv_path = os.path.join(data_path(),
                                       HummingbotApplication.main_application().strategy_file_name.rsplit('.', 1)[0] +
                                       f"_{pd.Timestamp.now().strftime('%Y-%m-%d_%H-%M-%S')}.csv")
 
-        self.strategy = FieldfareMMStrategy(
+        self.strategy = FieldfareMarketMakingStrategy(
             market_info=MarketTradingPairTuple(*maker_data),
             order_amount=order_amount,
             order_optimization_enabled=order_optimization_enabled,
@@ -78,8 +78,8 @@ def start(self):
             order_amount_shape_factor=order_amount_shape_factor,
             closing_time=closing_time,
             debug_csv_path=debug_csv_path,
-            buffer_size=buffer_size,
-            buffer_sampling_period=buffer_sampling_period,
+            volatility_buffer_size=volatility_buffer_size,
+            volatility_sampling_period=volatility_sampling_period,
         )
     except Exception as e:
         self._notify(str(e))

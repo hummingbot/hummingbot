@@ -11,6 +11,7 @@ from math import (
     ceil
 )
 import time
+import datetime
 import os
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.event.events import TradeType
@@ -40,7 +41,7 @@ s_decimal_one = Decimal(1)
 pmm_logger = None
 
 
-cdef class FieldfareMMStrategy(StrategyBase):
+cdef class FieldfareMarketMakingStrategy(StrategyBase):
     OPTION_LOG_CREATE_ORDER = 1 << 3
     OPTION_LOG_MAKER_ORDER_FILLED = 1 << 4
     OPTION_LOG_STATUS_REPORT = 1 << 5
@@ -79,8 +80,8 @@ cdef class FieldfareMMStrategy(StrategyBase):
                  order_amount_shape_factor: Decimal = Decimal("0.005"),
                  closing_time: Decimal = Decimal("1"),
                  debug_csv_path: str = '',
-                 buffer_size: int = 30,
-                 buffer_sampling_period: int = 60
+                 volatility_buffer_size: int = 30,
+                 volatility_sampling_period: int = 60
                  ):
         super().__init__()
         self._sb_order_tracker = OrderTracker()
@@ -107,21 +108,21 @@ cdef class FieldfareMMStrategy(StrategyBase):
         self._last_own_trade_price = Decimal('nan')
 
         self.c_add_markets([market_info.market])
+        self._ticks_to_be_ready = volatility_buffer_size * volatility_sampling_period
         self._parameters_based_on_spread = parameters_based_on_spread
         self._min_spread = min_spread
         self._max_spread = max_spread
         self._vol_to_spread_multiplier = vol_to_spread_multiplier
         self._inventory_risk_aversion = inventory_risk_aversion
-        self._avg_vol = AverageVolatilityIndicator(buffer_size, 1)
-        self._buffer_sampling_period = buffer_sampling_period
+        self._avg_vol = AverageVolatilityIndicator(volatility_buffer_size, 1)
+        self._volatility_sampling_period = volatility_sampling_period
         self._last_sampling_timestamp = 0
         self._kappa = order_book_depth_factor
         self._gamma = risk_factor
         self._eta = order_amount_shape_factor
         self._time_left = closing_time
         self._closing_time = closing_time
-        self._q_ajustment_factor = Decimal("10")/self._order_amount
-        self._latest_parameter_calculation_vol = 0
+        self._latest_parameter_calculation_vol = s_decimal_zero
         self._reserved_price = s_decimal_zero
         self._optimal_spread = s_decimal_zero
         self._optimal_ask = s_decimal_zero
@@ -311,7 +312,7 @@ cdef class FieldfareMMStrategy(StrategyBase):
 
     def market_status_data_frame(self, market_trading_pair_tuples: List[MarketTradingPairTuple]) -> pd.DataFrame:
         markets_data = []
-        markets_columns = ["Exchange", "Market", "Best Bid", "Best Ask", f"Ref Price (MidPrice)"]
+        markets_columns = ["Exchange", "Market", "Best Bid", "Best Ask", f"MidPrice"]
         markets_columns.append('Reserved Price')
         market_books = [(self._market_info.market, self._market_info.trading_pair)]
         for market, trading_pair in market_books:
@@ -357,7 +358,7 @@ cdef class FieldfareMMStrategy(StrategyBase):
                       f"    risk_factor(\u03B3)= {self._gamma:.5E}",
                       f"    order_book_depth_factor(\u03BA)= {self._kappa:.5E}",
                       f"    volatility= {volatility_pct:.3f}%",
-                      f"    time left fraction= {self._time_left/self._closing_time:.4f}"])
+                      f"    time until end of trading cycle= {str(datetime.timedelta(seconds=float(self._time_left)//1e3))}"])
 
         warning_lines.extend(self.balance_warning([self._market_info]))
 
@@ -412,7 +413,7 @@ cdef class FieldfareMMStrategy(StrategyBase):
                 # so parameters need to be recalculated.
                 if (self._gamma is None) or (self._kappa is None) or \
                         (self._parameters_based_on_spread and
-                         self.c_volatility_diff_from_last_parameter_calculation(self._avg_vol.current_value) > (self._vol_to_spread_multiplier - 1)):
+                         self.volatility_diff_from_last_parameter_calculation(self.get_volatility()) > (self._vol_to_spread_multiplier - 1)):
                     self.c_recalculate_parameters()
                 self.c_calculate_reserved_price_and_optimal_spread()
 
@@ -436,15 +437,20 @@ cdef class FieldfareMMStrategy(StrategyBase):
                 if self.c_to_create_orders(proposal):
                     self.c_execute_orders_proposal(proposal)
             else:
-                self.logger().info(f"Algorithm not ready...")
+                self._ticks_to_be_ready-=1
+                if self._ticks_to_be_ready % 5 == 0:
+                    self.logger().info(f"Calculating volatility... {self._ticks_to_be_ready} seconds to start trading")
         finally:
             self._last_timestamp = timestamp
 
     cdef c_collect_market_variables(self, double timestamp):
-        if timestamp - self._last_sampling_timestamp >= self._buffer_sampling_period:
+        if timestamp - self._last_sampling_timestamp >= self._volatility_sampling_period:
             self._avg_vol.add_sample(self.get_price())
             self._last_sampling_timestamp = timestamp
         self._time_left = max(self._time_left - Decimal(timestamp - self._last_timestamp) * 1000, 0)
+        # Calculate adjustment factor to have 0.01% of inventory resolution
+        self._q_adjustment_factor = Decimal(
+            "1e5") / self.c_calculate_target_inventory() * self._inventory_target_base_pct
         if self._time_left == 0:
             # Re-cycle algorithm
             self._time_left = self._closing_time
@@ -452,10 +458,10 @@ cdef class FieldfareMMStrategy(StrategyBase):
                 self.c_recalculate_parameters()
             self.logger().info("Recycling algorithm time left and parameters if needed.")
 
-    cdef c_volatility_diff_from_last_parameter_calculation(self, double current_vol):
+    def volatility_diff_from_last_parameter_calculation(self, current_vol):
         if self._latest_parameter_calculation_vol == 0:
-            return 0
-        return abs(self._latest_parameter_calculation_vol - current_vol) / self._latest_parameter_calculation_vol
+            return s_decimal_zero
+        return abs(self._latest_parameter_calculation_vol - Decimal(str(current_vol))) / self._latest_parameter_calculation_vol
 
     cdef double c_get_spread(self):
         cdef:
@@ -464,6 +470,16 @@ cdef class FieldfareMMStrategy(StrategyBase):
 
         return market.c_get_price(trading_pair, True) - market.c_get_price(trading_pair, False)
 
+    def get_volatility(self):
+        vol = Decimal(str(self._avg_vol.current_value))
+        if vol == s_decimal_zero:
+            if self._latest_parameter_calculation_vol != s_decimal_zero:
+                vol = Decimal(str(self._latest_parameter_calculation_vol))
+            else:
+                # Default value at start time if price has no activity
+                vol = Decimal(str(self.c_get_spread()/2))
+        return vol
+
     cdef c_calculate_reserved_price_and_optimal_spread(self):
         cdef:
             ExchangeBase market = self._market_info.market
@@ -471,8 +487,8 @@ cdef class FieldfareMMStrategy(StrategyBase):
         time_left_fraction = Decimal(str(self._time_left / self._closing_time))
 
         price = self.get_price()
-        q = (market.get_balance(self.base_asset) - Decimal(str(self.c_calculate_target_inventory()))) * self._q_ajustment_factor
-        vol = Decimal(str(self._avg_vol.current_value))
+        q = (market.get_balance(self.base_asset) - Decimal(str(self.c_calculate_target_inventory()))) * self._q_adjustment_factor
+        vol = self.get_volatility()
         mid_price_variance = vol ** 2
 
         self._reserved_price = price - (q * self._gamma * mid_price_variance * time_left_fraction)
@@ -499,7 +515,7 @@ cdef class FieldfareMMStrategy(StrategyBase):
         # Optimal bid and optimal ask prices will be used
         self.logger().info(f"bid={(price-(self._reserved_price - self._optimal_spread / 2)) / price * 100:.4f}% | "
                            f"ask={((self._reserved_price + self._optimal_spread / 2) - price) / price * 100:.4f}% | "
-                           f"q={q/self._q_ajustment_factor:.4f} | "
+                           f"q={q/self._q_adjustment_factor:.4f} | "
                            f"vol={vol:.4f}")
 
     cdef object c_calculate_target_inventory(self):
@@ -525,11 +541,11 @@ cdef class FieldfareMMStrategy(StrategyBase):
         cdef:
             ExchangeBase market = self._market_info.market
 
-        q = (market.get_balance(self.base_asset) - self.c_calculate_target_inventory()) * self._q_ajustment_factor
-        vol = Decimal(str(self._avg_vol.current_value))
+        q = (market.get_balance(self.base_asset) - self.c_calculate_target_inventory()) * self._q_adjustment_factor
+        vol = self.get_volatility()
         price=self.get_price()
 
-        if vol > 0 and q != 0:
+        if q != 0:
             min_spread = self._min_spread * price
             max_spread = self._max_spread * price
 
@@ -988,7 +1004,7 @@ cdef class FieldfareMMStrategy(StrategyBase):
                             self._gamma,
                             self._kappa,
                             self._eta,
-                            self.c_volatility_diff_from_last_parameter_calculation(self._avg_vol.current_value),
+                            self.volatility_diff_from_last_parameter_calculation(self.get_volatility()),
                             self.inventory_target_base_pct,
                             self._min_spread,
                             self._max_spread,
