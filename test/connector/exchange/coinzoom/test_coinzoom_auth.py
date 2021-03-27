@@ -35,7 +35,7 @@ class TestAuth(unittest.TestCase):
     async def ws_auth(self) -> Dict[Any, Any]:
         ws = CoinzoomWebsocket(self.auth)
         await ws.connect()
-        user_ws_streams = {stream_key: {} for stream_key in Constants.WS_SUB["USER_ORDERS_TRADES"]}
+        user_ws_streams = {Constants.WS_SUB["USER_ORDERS_TRADES"]: {}}
         async with timeout(30):
             await ws.subscribe(user_ws_streams)
             async for response in ws.on_message():
