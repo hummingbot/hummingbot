@@ -436,8 +436,7 @@ class CoinzoomExchange(ExchangeBase):
                       "orderSide": trade_type.name.upper(),
                       "quantity": f"{amount:f}",
                       "price": f"{price:f}",
-                      # Waiting for changes to CoinZoom API for this one.
-                      # "originType": Constants.HBOT_BROKER_ID,
+                      "originType": Constants.HBOT_BROKER_ID,
                       # CoinZoom doesn't support client order id yet
                       # "clientOrderId": order_id,
                       "payFeesWithZoomToken": "true",
@@ -680,21 +679,22 @@ class CoinzoomExchange(ExchangeBase):
                 "averagePrice": 56518.7,
             }
         """
-        if order_msg.get('clientOrderId') is not None:
-            client_order_id = order_msg["clientOrderId"]
-            if client_order_id not in self._in_flight_orders:
-                return
-            tracked_order = self._in_flight_orders[client_order_id]
+        # Looks like CoinZoom might support clientOrderId eventually so leaving this here for now.
+        # if order_msg.get('clientOrderId') is not None:
+        #     client_order_id = order_msg["clientOrderId"]
+        #     if client_order_id not in self._in_flight_orders:
+        #         return
+        #     tracked_order = self._in_flight_orders[client_order_id]
+        # else:
+        if "orderId" not in order_msg:
+            exchange_order_id = str(order_msg["id"])
         else:
-            if "orderId" not in order_msg:
-                exchange_order_id = str(order_msg["id"])
-            else:
-                exchange_order_id = str(order_msg["orderId"])
-            tracked_orders = list(self._in_flight_orders.values())
-            track_order = [o for o in tracked_orders if exchange_order_id == o.exchange_order_id]
-            if not track_order:
-                return
-            tracked_order = track_order[0]
+            exchange_order_id = str(order_msg["orderId"])
+        tracked_orders = list(self._in_flight_orders.values())
+        track_order = [o for o in tracked_orders if exchange_order_id == o.exchange_order_id]
+        if not track_order:
+            return
+        tracked_order = track_order[0]
 
         # Estimate fee
         order_msg["trade_fee"] = self.estimate_fee_pct(tracked_order.order_type is OrderType.LIMIT_MAKER)
