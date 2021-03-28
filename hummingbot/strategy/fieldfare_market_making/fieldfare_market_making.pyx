@@ -564,8 +564,7 @@ cdef class FieldfareMarketMakingStrategy(StrategyBase):
                 self._kappa = self._gamma / (Decimal.exp((max_spread_around_reserved_price * self._gamma - (vol * self._gamma) **2) / 2) - 1)
 
             # ETA
-            total_inventory_in_base = self.c_calculate_target_inventory() / self._inventory_target_base_pct
-            q_where_to_decay_order_amount = total_inventory_in_base * (1 - self._inventory_risk_aversion)
+            q_where_to_decay_order_amount = self.c_calculate_target_inventory() * (1 - self._inventory_risk_aversion)
             self._eta = s_decimal_one / q_where_to_decay_order_amount
 
             self._latest_parameter_calculation_vol = vol
