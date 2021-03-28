@@ -18,6 +18,14 @@ DEFAULT_FEES = [0.1, 0.1]
 HBOT_BROKER_ID = "hbot-"
 
 
+def get_rest_url_private(account_id: int) -> str:
+    return f"https://ascendex.com/{account_id}/api/pro/v1"
+
+
+def get_ws_url_private(account_id: int) -> str:
+    return f"wss://ascendex.com/{account_id}/api/pro/v1"
+
+
 def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
     return exchange_trading_pair.replace("/", "-")
 
@@ -70,16 +78,16 @@ def gen_client_order_id(is_buy: bool, trading_pair: str) -> str:
 
 
 KEYS = {
-    "bitmax_api_key":
-        ConfigVar(key="bitmax_api_key",
-                  prompt="Enter your Bitmax API key >>> ",
-                  required_if=using_exchange("bitmax"),
+    "ascend_ex_api_key":
+        ConfigVar(key="ascend_ex_api_key",
+                  prompt="Enter your AscendEx API key >>> ",
+                  required_if=using_exchange("ascend_ex"),
                   is_secure=True,
                   is_connect_key=True),
-    "bitmax_secret_key":
-        ConfigVar(key="bitmax_secret_key",
-                  prompt="Enter your Bitmax secret key >>> ",
-                  required_if=using_exchange("bitmax"),
+    "ascend_ex_secret_key":
+        ConfigVar(key="ascend_ex_secret_key",
+                  prompt="Enter your AscendEx secret key >>> ",
+                  required_if=using_exchange("ascend_ex"),
                   is_secure=True,
                   is_connect_key=True),
 }
