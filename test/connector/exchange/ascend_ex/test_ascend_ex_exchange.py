@@ -1,15 +1,17 @@
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../../../")))
+
 import asyncio
-import logging
-from decimal import Decimal
-import unittest
-import contextlib
-import time
-import os
-from typing import List
 import conf
+import contextlib
+import logging
 import math
+import os
+import time
+import unittest
+
+from decimal import Decimal
+from typing import List
 
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
@@ -33,15 +35,15 @@ from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
 from hummingbot.model.trade_fill import TradeFill
 from hummingbot.connector.markets_recorder import MarketsRecorder
-from hummingbot.connector.exchange.bitmax.bitmax_exchange import BitmaxExchange
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_exchange import AscendExExchange
 
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
-API_KEY = conf.bitmax_api_key
-API_SECRET = conf.bitmax_secret_key
+API_KEY = conf.ascend_ex_api_key
+API_SECRET = conf.ascend_ex_secret_key
 
 
-class BitmaxExchangeUnitTest(unittest.TestCase):
+class AscendExExchangeUnitTest(unittest.TestCase):
     events: List[MarketEvent] = [
         MarketEvent.BuyOrderCompleted,
         MarketEvent.SellOrderCompleted,
@@ -52,7 +54,7 @@ class BitmaxExchangeUnitTest(unittest.TestCase):
         MarketEvent.OrderCancelled,
         MarketEvent.OrderFailure
     ]
-    connector: BitmaxExchange
+    connector: AscendExExchange
     event_logger: EventLogger
     trading_pair = "BTC-USDT"
     base_token, quote_token = trading_pair.split("-")
@@ -65,13 +67,13 @@ class BitmaxExchangeUnitTest(unittest.TestCase):
         cls.ev_loop = asyncio.get_event_loop()
 
         cls.clock: Clock = Clock(ClockMode.REALTIME)
-        cls.connector: BitmaxExchange = BitmaxExchange(
-            bitmax_api_key=API_KEY,
-            bitmax_secret_key=API_SECRET,
+        cls.connector: AscendExExchange = AscendExExchange(
+            ascend_ex_api_key=API_KEY,
+            ascend_ex_secret_key=API_SECRET,
             trading_pairs=[cls.trading_pair],
             trading_required=True
         )
-        print("Initializing Bitmax market... this will take about a minute.")
+        print("Initializing AscendEx exchange... this will take about a minute.")
         cls.clock.add_iterator(cls.connector)
         cls.stack: contextlib.ExitStack = contextlib.ExitStack()
         cls._clock = cls.stack.enter_context(cls.clock)
@@ -336,7 +338,7 @@ class BitmaxExchangeUnitTest(unittest.TestCase):
             self.clock.remove_iterator(self.connector)
             for event_tag in self.events:
                 self.connector.remove_listener(event_tag, self.event_logger)
-            new_connector = BitmaxExchange(API_KEY, API_SECRET, [self.trading_pair], True)
+            new_connector = AscendExExchange(API_KEY, API_SECRET, [self.trading_pair], True)
             for event_tag in self.events:
                 new_connector.add_listener(event_tag, self.event_logger)
             recorder.stop()

@@ -36,25 +36,25 @@ from hummingbot.core.event.events import (
     TradeFee
 )
 from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.connector.exchange.bitmax.bitmax_order_book_tracker import BitmaxOrderBookTracker
-from hummingbot.connector.exchange.bitmax.bitmax_user_stream_tracker import BitmaxUserStreamTracker
-from hummingbot.connector.exchange.bitmax.bitmax_auth import BitmaxAuth
-from hummingbot.connector.exchange.bitmax.bitmax_in_flight_order import BitmaxInFlightOrder
-from hummingbot.connector.exchange.bitmax import bitmax_utils
-from hummingbot.connector.exchange.bitmax.bitmax_constants import EXCHANGE_NAME, REST_URL, getRestUrlPriv
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_order_book_tracker import AscendExOrderBookTracker
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_user_stream_tracker import AscendExUserStreamTracker
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_in_flight_order import AscendExInFlightOrder
+from hummingbot.connector.exchange.ascend_ex import ascend_ex_utils
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_constants import EXCHANGE_NAME, REST_URL
 from hummingbot.core.data_type.common import OpenOrder
 ctce_logger = None
 s_decimal_NaN = Decimal("nan")
 
 
-BitmaxTradingRule = namedtuple("BitmaxTradingRule", "minNotional maxNotional")
-BitmaxOrder = namedtuple("BitmaxOrder", "symbol price orderQty orderType avgPx cumFee cumFilledQty errorCode feeAsset lastExecTime orderId seqNum side status stopPrice execInst")
-BitmaxBalance = namedtuple("BitmaxBalance", "asset availableBalance totalBalance")
+AscendExTradingRule = namedtuple("AscendExTradingRule", "minNotional maxNotional")
+AscendExOrder = namedtuple("AscendExOrder", "symbol price orderQty orderType avgPx cumFee cumFilledQty errorCode feeAsset lastExecTime orderId seqNum side status stopPrice execInst")
+AscendExBalance = namedtuple("AscendExBalance", "asset availableBalance totalBalance")
 
 
-class BitmaxExchange(ExchangeBase):
+class AscendExExchange(ExchangeBase):
     """
-    BitmaxExchange connects with Bitmax exchange and provides order book pricing, user account tracking and
+    AscendExExchange connects with AscendEx exchange and provides order book pricing, user account tracking and
     trading functionality.
     """
     API_CALL_TIMEOUT = 10.0
@@ -70,31 +70,31 @@ class BitmaxExchange(ExchangeBase):
         return ctce_logger
 
     def __init__(self,
-                 bitmax_api_key: str,
-                 bitmax_secret_key: str,
+                 ascend_ex_api_key: str,
+                 ascend_ex_secret_key: str,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True
                  ):
         """
-        :param bitmax_api_key: The API key to connect to private Bitmax APIs.
-        :param bitmax_secret_key: The API secret.
+        :param ascend_ex_api_key: The API key to connect to private AscendEx APIs.
+        :param ascend_ex_secret_key: The API secret.
         :param trading_pairs: The market trading pairs which to track order book data.
         :param trading_required: Whether actual trading is needed.
         """
         super().__init__()
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
-        self._bitmax_auth = BitmaxAuth(bitmax_api_key, bitmax_secret_key)
-        self._order_book_tracker = BitmaxOrderBookTracker(trading_pairs=trading_pairs)
-        self._user_stream_tracker = BitmaxUserStreamTracker(self._bitmax_auth, trading_pairs)
+        self._ascend_ex_auth = AscendExAuth(ascend_ex_api_key, ascend_ex_secret_key)
+        self._order_book_tracker = AscendExOrderBookTracker(trading_pairs=trading_pairs)
+        self._user_stream_tracker = AscendExUserStreamTracker(self._ascend_ex_auth, trading_pairs)
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client = None
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
-        self._in_flight_orders = {}  # Dict[client_order_id:str, BitmaxInFlightOrder]
+        self._in_flight_orders = {}  # Dict[client_order_id:str, AscendExInFlightOrder]
         self._order_not_found_records = {}  # Dict[client_order_id:str, count:int]
         self._trading_rules = {}  # Dict[trading_pair:str, TradingRule]
-        self._bitmax_trading_rules = {}  # Dict[trading_pair:str, BitmaxTradingRule]
+        self._ascend_ex_trading_rules = {}  # Dict[trading_pair:str, AscendExTradingRule]
         self._status_polling_task = None
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
@@ -115,7 +115,7 @@ class BitmaxExchange(ExchangeBase):
         return self._trading_rules
 
     @property
-    def in_flight_orders(self) -> Dict[str, BitmaxInFlightOrder]:
+    def in_flight_orders(self) -> Dict[str, AscendExInFlightOrder]:
         return self._in_flight_orders
 
     @property
@@ -126,7 +126,7 @@ class BitmaxExchange(ExchangeBase):
         return {
             "order_books_initialized": self._order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
-            "trading_rule_initialized": len(self._trading_rules) > 0 and len(self._bitmax_trading_rules) > 0,
+            "trading_rule_initialized": len(self._trading_rules) > 0 and len(self._ascend_ex_trading_rules) > 0,
             "user_stream_initialized":
                 self._user_stream_tracker.data_source.last_recv_time > 0 if self._trading_required else True,
             "account_data": self._account_group is not None and self._account_uid is not None
@@ -165,7 +165,7 @@ class BitmaxExchange(ExchangeBase):
         :param saved_states: The saved tracking_states.
         """
         self._in_flight_orders.update({
-            key: BitmaxInFlightOrder.from_json(value)
+            key: AscendExInFlightOrder.from_json(value)
             for key, value in saved_states.items()
         })
 
@@ -258,22 +258,22 @@ class BitmaxExchange(ExchangeBase):
             except Exception as e:
                 self.logger().network(f"Unexpected error while fetching trading rules. Error: {str(e)}",
                                       exc_info=True,
-                                      app_warning_msg="Could not fetch new trading rules from Bitmax. "
+                                      app_warning_msg="Could not fetch new trading rules from AscendEx. "
                                                       "Check network connection.")
                 await asyncio.sleep(0.5)
 
     async def _update_trading_rules(self):
         instruments_info = await self._api_request("get", path_url="products")
-        [trading_rules, bitmax_trading_rules] = self._format_trading_rules(instruments_info)
+        [trading_rules, ascend_ex_trading_rules] = self._format_trading_rules(instruments_info)
         self._trading_rules.clear()
         self._trading_rules = trading_rules
-        self._bitmax_trading_rules.clear()
-        self._bitmax_trading_rules = bitmax_trading_rules
+        self._ascend_ex_trading_rules.clear()
+        self._ascend_ex_trading_rules = ascend_ex_trading_rules
 
     def _format_trading_rules(
         self,
         instruments_info: Dict[str, Any]
-    ) -> [Dict[str, TradingRule], Dict[str, Dict[str, BitmaxTradingRule]]]:
+    ) -> [Dict[str, TradingRule], Dict[str, Dict[str, AscendExTradingRule]]]:
         """
         Converts json API response into a dictionary of trading rules.
         :param instruments_info: The json API response
@@ -299,27 +299,27 @@ class BitmaxExchange(ExchangeBase):
         }
         """
         trading_rules = {}
-        bitmax_trading_rules = {}
+        ascend_ex_trading_rules = {}
         for rule in instruments_info["data"]:
             try:
-                trading_pair = bitmax_utils.convert_from_exchange_trading_pair(rule["symbol"])
+                trading_pair = ascend_ex_utils.convert_from_exchange_trading_pair(rule["symbol"])
                 trading_rules[trading_pair] = TradingRule(
                     trading_pair,
                     min_price_increment=Decimal(rule["tickSize"]),
                     min_base_amount_increment=Decimal(rule["lotSize"])
                 )
-                bitmax_trading_rules[trading_pair] = BitmaxTradingRule(
+                ascend_ex_trading_rules[trading_pair] = AscendExTradingRule(
                     minNotional=Decimal(rule["minNotional"]),
                     maxNotional=Decimal(rule["maxNotional"])
                 )
             except Exception:
                 self.logger().error(f"Error parsing the trading pair rule {rule}. Skipping.", exc_info=True)
-        return [trading_rules, bitmax_trading_rules]
+        return [trading_rules, ascend_ex_trading_rules]
 
     async def _update_account_data(self):
         headers = {
-            **self._bitmax_auth.get_headers(),
-            **self._bitmax_auth.get_auth_headers("info"),
+            **self._ascend_ex_auth.get_headers(),
+            **self._ascend_ex_auth.get_auth_headers("info"),
         }
         url = f"{REST_URL}/info"
         response = await aiohttp.ClientSession().get(url, headers=headers)
@@ -359,16 +359,16 @@ class BitmaxExchange(ExchangeBase):
             if (self._account_group) is None:
                 await self._update_account_data()
 
-            url = f"{getRestUrlPriv(self._account_group)}/{path_url}"
+            url = f"{ascend_ex_utils.get_rest_url_private(self._account_group)}/{path_url}"
             headers = {
-                **self._bitmax_auth.get_headers(),
-                **self._bitmax_auth.get_auth_headers(
+                **self._ascend_ex_auth.get_headers(),
+                **self._ascend_ex_auth.get_auth_headers(
                     path_url if force_auth_path_url is None else force_auth_path_url
                 ),
             }
         else:
             url = f"{REST_URL}/{path_url}"
-            headers = self._bitmax_auth.get_headers()
+            headers = self._ascend_ex_auth.get_headers()
 
         client = await self._http_client()
         if method == "get":
@@ -433,7 +433,7 @@ class BitmaxExchange(ExchangeBase):
         :param price: The price (note: this is no longer optional)
         :returns A new internal order id
         """
-        client_order_id = bitmax_utils.gen_client_order_id(True, trading_pair)
+        client_order_id = ascend_ex_utils.gen_client_order_id(True, trading_pair)
         safe_ensure_future(self._create_order(TradeType.BUY, client_order_id, trading_pair, amount, order_type, price))
         return client_order_id
 
@@ -448,7 +448,7 @@ class BitmaxExchange(ExchangeBase):
         :param price: The price (note: this is no longer optional)
         :returns A new internal order id
         """
-        client_order_id = bitmax_utils.gen_client_order_id(False, trading_pair)
+        client_order_id = ascend_ex_utils.gen_client_order_id(False, trading_pair)
         safe_ensure_future(self._create_order(TradeType.SELL, client_order_id, trading_pair, amount, order_type, price))
         return client_order_id
 
@@ -480,25 +480,25 @@ class BitmaxExchange(ExchangeBase):
         """
         if not order_type.is_limit_type():
             raise Exception(f"Unsupported order type: {order_type}")
-        bitmax_trading_rule = self._bitmax_trading_rules[trading_pair]
+        ascend_ex_trading_rule = self._ascend_ex_trading_rules[trading_pair]
 
         amount = self.quantize_order_amount(trading_pair, amount)
         price = self.quantize_order_price(trading_pair, price)
 
         try:
-            # bitmax has a unique way of determening if the order has enough "worth" to be posted
-            # see https://bitmax-exchange.github.io/bitmax-pro-api/#place-order
+            # ascend_ex has a unique way of determening if the order has enough "worth" to be posted
+            # see https://ascendex.github.io/ascendex-pro-api/#place-order
             notional = Decimal(price * amount)
-            if notional < bitmax_trading_rule.minNotional or notional > bitmax_trading_rule.maxNotional:
-                raise ValueError(f"Notional amount {notional} is not withing the range of {bitmax_trading_rule.minNotional}-{bitmax_trading_rule.maxNotional}.")
+            if notional < ascend_ex_trading_rule.minNotional or notional > ascend_ex_trading_rule.maxNotional:
+                raise ValueError(f"Notional amount {notional} is not withing the range of {ascend_ex_trading_rule.minNotional}-{ascend_ex_trading_rule.maxNotional}.")
 
             # TODO: check balance
-            [exchange_order_id, timestamp] = bitmax_utils.gen_exchange_order_id(self._account_uid)
+            [exchange_order_id, timestamp] = ascend_ex_utils.gen_exchange_order_id(self._account_uid)
 
             api_params = {
                 "id": exchange_order_id,
                 "time": timestamp,
-                "symbol": bitmax_utils.convert_to_exchange_trading_pair(trading_pair),
+                "symbol": ascend_ex_utils.convert_to_exchange_trading_pair(trading_pair),
                 "orderPrice": f"{price:f}",
                 "orderQty": f"{amount:f}",
                 "orderType": "limit",
@@ -540,7 +540,7 @@ class BitmaxExchange(ExchangeBase):
         except Exception as e:
             self.stop_tracking_order(order_id)
             self.logger().network(
-                f"Error submitting {trade_type.name} {order_type.name} order to Bitmax for "
+                f"Error submitting {trade_type.name} {order_type.name} order to AscendEx for "
                 f"{amount} {trading_pair} "
                 f"{price}.",
                 exc_info=True,
@@ -560,7 +560,7 @@ class BitmaxExchange(ExchangeBase):
         """
         Starts tracking an order by simply adding it into _in_flight_orders dictionary.
         """
-        self._in_flight_orders[order_id] = BitmaxInFlightOrder(
+        self._in_flight_orders[order_id] = AscendExInFlightOrder(
             client_order_id=order_id,
             exchange_order_id=exchange_order_id,
             trading_pair=trading_pair,
@@ -596,9 +596,9 @@ class BitmaxExchange(ExchangeBase):
                 "delete",
                 "cash/order",
                 {
-                    "symbol": bitmax_utils.convert_to_exchange_trading_pair(trading_pair),
+                    "symbol": ascend_ex_utils.convert_to_exchange_trading_pair(trading_pair),
                     "orderId": ex_order_id,
-                    "time": bitmax_utils.get_ms_timestamp()
+                    "time": ascend_ex_utils.get_ms_timestamp()
                 },
                 True,
                 force_auth_path_url="order"
@@ -615,7 +615,7 @@ class BitmaxExchange(ExchangeBase):
             self.logger().network(
                 f"Failed to cancel order {order_id}: {str(e)}",
                 exc_info=True,
-                app_warning_msg=f"Failed to cancel the order {order_id} on Bitmax. "
+                app_warning_msg=f"Failed to cancel the order {order_id} on AscendEx. "
                                 f"Check API key and network connection."
             )
 
@@ -639,7 +639,7 @@ class BitmaxExchange(ExchangeBase):
                 self.logger().error(str(e), exc_info=True)
                 self.logger().network("Unexpected error while fetching account updates.",
                                       exc_info=True,
-                                      app_warning_msg="Could not fetch account updates from Bitmax. "
+                                      app_warning_msg="Could not fetch account updates from AscendEx. "
                                                       "Check API key and network connection.")
                 await asyncio.sleep(0.5)
 
@@ -649,7 +649,7 @@ class BitmaxExchange(ExchangeBase):
         """
         response = await self._api_request("get", "cash/balance", {}, True, force_auth_path_url="balance")
         balances = list(map(
-            lambda balance: BitmaxBalance(
+            lambda balance: AscendExBalance(
                 balance["asset"],
                 balance["availableBalance"],
                 balance["totalBalance"]
@@ -687,7 +687,7 @@ class BitmaxExchange(ExchangeBase):
                     continue
 
                 order_data = response.get("data")
-                self._process_order_message(BitmaxOrder(
+                self._process_order_message(AscendExOrder(
                     order_data["symbol"],
                     order_data["price"],
                     order_data["orderQty"],
@@ -738,7 +738,7 @@ class BitmaxExchange(ExchangeBase):
             self.logger().network(
                 "Failed to cancel all orders.",
                 exc_info=True,
-                app_warning_msg="Failed to cancel all orders on Bitmax. Check API key and network connection."
+                app_warning_msg="Failed to cancel all orders on AscendEx. Check API key and network connection."
             )
         return cancellation_results
 
@@ -783,14 +783,14 @@ class BitmaxExchange(ExchangeBase):
                 self.logger().network(
                     "Unknown error. Retrying after 1 seconds.",
                     exc_info=True,
-                    app_warning_msg="Could not fetch user events from Bitmax. Check API key and network connection."
+                    app_warning_msg="Could not fetch user events from AscendEx. Check API key and network connection."
                 )
                 await asyncio.sleep(1.0)
 
     async def _user_stream_event_listener(self):
         """
         Listens to message in _user_stream_tracker.user_stream queue. The messages are put in by
-        BitmaxAPIUserStreamDataSource.
+        AscendExAPIUserStreamDataSource.
         """
         async for event_message in self._iter_user_event_queue():
             try:
@@ -798,7 +798,7 @@ class BitmaxExchange(ExchangeBase):
                     order_data = event_message.get("data")
                     trading_pair = order_data["s"]
                     base_asset, quote_asset = tuple(asset for asset in trading_pair.split("/"))
-                    self._process_order_message(BitmaxOrder(
+                    self._process_order_message(AscendExOrder(
                         trading_pair,
                         order_data["p"],
                         order_data["q"],
@@ -817,12 +817,12 @@ class BitmaxExchange(ExchangeBase):
                         order_data["ei"]
                     ))
                     # Handles balance updates from orders.
-                    base_asset_balance = BitmaxBalance(
+                    base_asset_balance = AscendExBalance(
                         base_asset,
                         order_data["bab"],
                         order_data["btb"]
                     )
-                    quote_asset_balance = BitmaxBalance(
+                    quote_asset_balance = AscendExBalance(
                         quote_asset,
                         order_data["qab"],
                         order_data["qtb"]
@@ -831,7 +831,7 @@ class BitmaxExchange(ExchangeBase):
                 elif event_message.get("m") == "balance":
                     # Handles balance updates from Deposits/Withdrawals, Transfers between Cash and Margin Accounts
                     balance_data = event_message.get("data")
-                    balance = BitmaxBalance(
+                    balance = AscendExBalance(
                         balance_data["a"],
                         balance_data["ab"],
                         balance_data["tb"]
@@ -869,7 +869,7 @@ class BitmaxExchange(ExchangeBase):
             ret_val.append(
                 OpenOrder(
                     client_order_id=client_order_id,
-                    trading_pair=bitmax_utils.convert_from_exchange_trading_pair(order["symbol"]),
+                    trading_pair=ascend_ex_utils.convert_from_exchange_trading_pair(order["symbol"]),
                     price=Decimal(str(order["price"])),
                     amount=Decimal(str(order["orderQty"])),
                     executed_amount=Decimal(str(order["cumFilledQty"])),
@@ -882,7 +882,7 @@ class BitmaxExchange(ExchangeBase):
             )
         return ret_val
 
-    def _process_order_message(self, order_msg: BitmaxOrder):
+    def _process_order_message(self, order_msg: AscendExOrder):
         """
         Updates in-flight order and triggers cancellation or failure event if needed.
         :param order_msg: The order response from either REST or web socket API (they are of the same format)
@@ -917,7 +917,7 @@ class BitmaxExchange(ExchangeBase):
             self.stop_tracking_order(client_order_id)
         elif tracked_order.is_failure:
             self.logger().info(f"The market order {client_order_id} has failed according to order status API. "
-                               f"Reason: {bitmax_utils.get_api_reason(order_msg.errorCode)}")
+                               f"Reason: {ascend_ex_utils.get_api_reason(order_msg.errorCode)}")
             self.trigger_event(MarketEvent.OrderFailure,
                                MarketOrderFailureEvent(
                                    self.current_timestamp,
@@ -965,7 +965,7 @@ class BitmaxExchange(ExchangeBase):
             )
             self.stop_tracking_order(client_order_id)
 
-    def _process_balances(self, balances: List[BitmaxBalance]):
+    def _process_balances(self, balances: List[AscendExBalance]):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
 

@@ -1,24 +1,25 @@
 #!/usr/bin/env python
 
 import logging
-import hummingbot.connector.exchange.bitmax.bitmax_constants as constants
+import hummingbot.connector.exchange.ascende_ex.ascende_ex_constants as constants
 
 from sqlalchemy.engine import RowProxy
 from typing import (
     Optional,
     Dict,
     List, Any)
-from hummingbot.logger import HummingbotLogger
+
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage, OrderBookMessageType
 )
-from hummingbot.connector.exchange.bitmax.bitmax_order_book_message import BitmaxOrderBookMessage
+from hummingbot.connector.exchange.ascende_ex.ascende_ex_order_book_message import AscendExOrderBookMessage
+from hummingbot.logger import HummingbotLogger
 
 _logger = None
 
 
-class BitmaxOrderBook(OrderBook):
+class AscendExOrderBook(OrderBook):
     @classmethod
     def logger(cls) -> HummingbotLogger:
         global _logger
@@ -35,13 +36,13 @@ class BitmaxOrderBook(OrderBook):
         Convert json snapshot data into standard OrderBookMessage format
         :param msg: json snapshot data from live web socket stream
         :param timestamp: timestamp attached to incoming data
-        :return: BitmaxOrderBookMessage
+        :return: AscendExOrderBookMessage
         """
 
         if metadata:
             msg.update(metadata)
 
-        return BitmaxOrderBookMessage(
+        return AscendExOrderBookMessage(
             message_type=OrderBookMessageType.SNAPSHOT,
             content=msg,
             timestamp=timestamp
@@ -53,9 +54,9 @@ class BitmaxOrderBook(OrderBook):
         *used for backtesting
         Convert a row of snapshot data into standard OrderBookMessage format
         :param record: a row of snapshot data from the database
-        :return: BitmaxOrderBookMessage
+        :return: AscendExOrderBookMessage
         """
-        return BitmaxOrderBookMessage(
+        return AscendExOrderBookMessage(
             message_type=OrderBookMessageType.SNAPSHOT,
             content=record.json,
             timestamp=record.timestamp
@@ -70,13 +71,13 @@ class BitmaxOrderBook(OrderBook):
         Convert json diff data into standard OrderBookMessage format
         :param msg: json diff data from live web socket stream
         :param timestamp: timestamp attached to incoming data
-        :return: BitmaxOrderBookMessage
+        :return: AscendExOrderBookMessage
         """
 
         if metadata:
             msg.update(metadata)
 
-        return BitmaxOrderBookMessage(
+        return AscendExOrderBookMessage(
             message_type=OrderBookMessageType.DIFF,
             content=msg,
             timestamp=timestamp
@@ -88,9 +89,9 @@ class BitmaxOrderBook(OrderBook):
         *used for backtesting
         Convert a row of diff data into standard OrderBookMessage format
         :param record: a row of diff data from the database
-        :return: BitmaxOrderBookMessage
+        :return: AscendExOrderBookMessage
         """
-        return BitmaxOrderBookMessage(
+        return AscendExOrderBookMessage(
             message_type=OrderBookMessageType.DIFF,
             content=record.json,
             timestamp=record.timestamp
@@ -104,7 +105,7 @@ class BitmaxOrderBook(OrderBook):
         """
         Convert a trade data into standard OrderBookMessage format
         :param record: a trade data from the database
-        :return: BitmaxOrderBookMessage
+        :return: AscendExOrderBookMessage
         """
 
         if metadata:
@@ -117,7 +118,7 @@ class BitmaxOrderBook(OrderBook):
             "amount": msg.get("q"),
         })
 
-        return BitmaxOrderBookMessage(
+        return AscendExOrderBookMessage(
             message_type=OrderBookMessageType.TRADE,
             content=msg,
             timestamp=timestamp
@@ -129,9 +130,9 @@ class BitmaxOrderBook(OrderBook):
         *used for backtesting
         Convert a row of trade data into standard OrderBookMessage format
         :param record: a row of trade data from the database
-        :return: BitmaxOrderBookMessage
+        :return: AscendExOrderBookMessage
         """
-        return BitmaxOrderBookMessage(
+        return AscendExOrderBookMessage(
             message_type=OrderBookMessageType.TRADE,
             content=record.json,
             timestamp=record.timestamp
@@ -142,5 +143,5 @@ class BitmaxOrderBook(OrderBook):
         raise NotImplementedError(constants.EXCHANGE_NAME + " order book needs to retain individual order data.")
 
     @classmethod
-    def restore_from_snapshot_and_diffs(self, snapshot: OrderBookMessage, diffs: List[OrderBookMessage]):
+    def restore_from_snapshot_and_diffs(cls, snapshot: OrderBookMessage, diffs: List[OrderBookMessage]):
         raise NotImplementedError(constants.EXCHANGE_NAME + " order book needs to retain individual order data.")
