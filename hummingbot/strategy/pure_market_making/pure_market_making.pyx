@@ -31,11 +31,11 @@ from .data_types import (
 )
 from .pure_market_making_order_tracker import PureMarketMakingOrderTracker
 
-from .asset_price_delegate cimport AssetPriceDelegate
-from .asset_price_delegate import AssetPriceDelegate
+from hummingbot.strategy.asset_price_delegate cimport AssetPriceDelegate
+from hummingbot.strategy.asset_price_delegate import AssetPriceDelegate
 from .inventory_skew_calculator cimport c_calculate_bid_ask_ratios_from_base_asset_ratio
 from .inventory_skew_calculator import calculate_total_order_size
-from .order_book_asset_price_delegate cimport OrderBookAssetPriceDelegate
+from hummingbot.strategy.order_book_asset_price_delegate cimport OrderBookAssetPriceDelegate
 from .inventory_cost_price_delegate import InventoryCostPriceDelegate
 
 
