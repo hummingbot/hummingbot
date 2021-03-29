@@ -5,7 +5,8 @@ from hummingbot.client.config.config_validators import (
     validate_decimal,
     validate_bool
 )
-from hummingbot.client.settings import required_exchanges, EXAMPLE_PAIRS
+from hummingbot.client.config.config_helpers import parse_cvar_value
+import hummingbot.client.settings as settings
 from decimal import Decimal
 from hummingbot.client.config.config_helpers import (
     minimum_order_amount
@@ -15,7 +16,7 @@ from typing import Optional
 
 def maker_trading_pair_prompt():
     maker_market = cross_exchange_market_making_config_map.get("maker_market").value
-    example = EXAMPLE_PAIRS.get(maker_market)
+    example = settings.EXAMPLE_PAIRS.get(maker_market)
     return "Enter the token trading pair you would like to trade on maker market: %s%s >>> " % (
         maker_market,
         f" (e.g. {example})" if example else "",
@@ -24,7 +25,7 @@ def maker_trading_pair_prompt():
 
 def taker_trading_pair_prompt():
     taker_market = cross_exchange_market_making_config_map.get("taker_market").value
-    example = EXAMPLE_PAIRS.get(taker_market)
+    example = settings.EXAMPLE_PAIRS.get(taker_market)
     return "Enter the token trading pair you would like to trade on taker market: %s%s >>> " % (
         taker_market,
         f" (e.g. {example})" if example else "",
@@ -68,7 +69,23 @@ async def validate_order_amount(value: str) -> Optional[str]:
 
 
 def taker_market_on_validated(value: str):
-    required_exchanges.append(value)
+    settings.required_exchanges.append(value)
+
+
+def use_oracle_conversion_rate_on_validated(value: str):
+    use_oracle = parse_cvar_value(cross_exchange_market_making_config_map["use_oracle_conversion_rate"], value)
+    first_base, first_quote = cross_exchange_market_making_config_map["maker_market_trading_pair"].value.split("-")
+    second_base, second_quote = cross_exchange_market_making_config_map["taker_market_trading_pair"].value.split("-")
+    if use_oracle and (first_base != second_base or first_quote != second_quote):
+        settings.required_rate_oracle = True
+        settings.rate_oracle_pairs = []
+        if first_base != second_base:
+            settings.rate_oracle_pairs.append(f"{second_base}-{first_base}")
+        if first_quote != second_quote:
+            settings.rate_oracle_pairs.append(f"{second_quote}-{first_quote}")
+    else:
+        settings.required_rate_oracle = False
+        settings.rate_oracle_pairs = []
 
 
 cross_exchange_market_making_config_map = {
@@ -81,7 +98,7 @@ cross_exchange_market_making_config_map = {
         prompt="Enter your maker spot connector >>> ",
         prompt_on_new=True,
         validator=validate_exchange,
-        on_validated=lambda value: required_exchanges.append(value),
+        on_validated=lambda value: settings.required_exchanges.append(value),
     ),
     "taker_market": ConfigVar(
         key="taker_market",
@@ -193,6 +210,13 @@ cross_exchange_market_making_config_map = {
         required_if=lambda: False,
         validator=lambda v: validate_decimal(v, Decimal(0), Decimal(100), inclusive=False)
     ),
+    "use_oracle_conversion_rate": ConfigVar(
+        key="use_oracle_conversion_rate",
+        type_str="bool",
+        prompt="Do you want to use rate oracle on unmatched trading pairs? (Yes/No) >>> ",
+        prompt_on_new=True,
+        validator=lambda v: validate_bool(v),
+        on_validated=use_oracle_conversion_rate_on_validated),
     "taker_to_maker_base_conversion_rate": ConfigVar(
         key="taker_to_maker_base_conversion_rate",
         prompt="Enter conversion rate for taker base asset value to maker base asset value, e.g. "

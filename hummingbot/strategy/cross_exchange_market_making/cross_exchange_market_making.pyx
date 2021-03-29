@@ -28,6 +28,7 @@ from hummingbot.strategy.strategy_base cimport StrategyBase
 from hummingbot.strategy.strategy_base import StrategyBase
 from .cross_exchange_market_pair import CrossExchangeMarketPair
 from .order_id_market_pair_tracker import OrderIDMarketPairTracker
+from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -73,6 +74,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                  top_depth_tolerance: Decimal = Decimal(0),
                  logging_options: int = OPTION_LOG_ALL,
                  status_report_interval: float = 900,
+                 use_oracle_conversion_rate: bool = False,
                  taker_to_maker_base_conversion_rate: Decimal = Decimal("1"),
                  taker_to_maker_quote_conversion_rate: Decimal = Decimal("1"),
                  hb_app_notification: bool = False
@@ -132,6 +134,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         self._status_report_interval = status_report_interval
         self._market_pair_tracker = OrderIDMarketPairTracker()
         self._adjust_orders_enabled = adjust_order_enabled
+        self._use_oracle_conversion_rate = use_oracle_conversion_rate
         self._taker_to_maker_base_conversion_rate = taker_to_maker_base_conversion_rate
         self._taker_to_maker_quote_conversion_rate = taker_to_maker_quote_conversion_rate
         self._hb_app_notification = hb_app_notification
@@ -1096,7 +1099,15 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         """
         Return price conversion rate for a taker market (to convert it into maker base asset value)
         """
-        return self._taker_to_maker_quote_conversion_rate / self._taker_to_maker_base_conversion_rate
+        if not self._use_oracle_conversion_rate:
+            return self._taker_to_maker_quote_conversion_rate / self._taker_to_maker_base_conversion_rate
+        else:
+            market_pairs = list(self._market_pairs.values())[0]
+            quote_pair = f"{market_pairs.taker.quote_asset}-{market_pairs.maker.quote_asset}"
+            base_pair = f"{market_pairs.taker.base_asset}-{market_pairs.maker.base_asset}"
+            quote_rate = RateOracle.get_instance().rate(quote_pair)
+            base_rate = RateOracle.get_instance().rate(base_pair)
+            return quote_rate / base_rate
 
     cdef c_check_and_create_new_orders(self, object market_pair, bint has_active_bid, bint has_active_ask):
         """
