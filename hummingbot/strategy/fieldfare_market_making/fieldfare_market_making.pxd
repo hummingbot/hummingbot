@@ -2,7 +2,6 @@
 
 from libc.stdint cimport int64_t
 from hummingbot.strategy.strategy_base cimport StrategyBase
-from ..__utils__.trailing_indicators.average_volatility import AverageVolatilityIndicator
 
 
 cdef class FieldfareMarketMakingStrategy(StrategyBase):
@@ -18,6 +17,7 @@ cdef class FieldfareMarketMakingStrategy(StrategyBase):
         bint _order_optimization_enabled
         bint _add_transaction_costs_to_orders
         bint _hb_app_notification
+        bint _is_debug
 
         double _cancel_timestamp
         double _create_timestamp

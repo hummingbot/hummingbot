@@ -78,6 +78,7 @@ def start(self):
             closing_time=closing_time,
             debug_csv_path=debug_csv_path,
             volatility_buffer_size=volatility_buffer_size,
+            is_debug=True
         )
     except Exception as e:
         self._notify(str(e))
