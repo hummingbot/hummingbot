@@ -37,9 +37,9 @@ from .data_types import (
 )
 from .perpetual_market_making_order_tracker import PerpetualMarketMakingOrderTracker
 
-from .asset_price_delegate cimport AssetPriceDelegate
-from .asset_price_delegate import AssetPriceDelegate
-from .order_book_asset_price_delegate cimport OrderBookAssetPriceDelegate
+from hummingbot.strategy.asset_price_delegate cimport AssetPriceDelegate
+from hummingbot.strategy.asset_price_delegate import AssetPriceDelegate
+from hummingbot.strategy.order_book_asset_price_delegate cimport OrderBookAssetPriceDelegate
 
 
 NaN = float("nan")
