@@ -86,7 +86,7 @@ cdef class MandalaInFlightOrder(InFlightOrderBase):
         self.last_state = last_order_state
 
     def update_with_trade_update(self, trade_update: Dict[str, Any]):
-        trade_id = trade_update["id"]
+        trade_id = trade_update["tradeId"]
         # trade_update["orderId"] is type int
         if str(trade_update["orderId"]) != self.exchange_order_id or trade_id in self.trade_id_set:
             # trade already recorded
