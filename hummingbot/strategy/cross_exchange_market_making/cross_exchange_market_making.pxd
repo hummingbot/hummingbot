@@ -31,6 +31,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         dict _market_pairs
         int64_t _logging_options
         OrderIDMarketPairTracker _market_pair_tracker
+        bint _use_oracle_conversion_rate
         object _taker_to_maker_base_conversion_rate
         object _taker_to_maker_quote_conversion_rate
         bint _hb_app_notification

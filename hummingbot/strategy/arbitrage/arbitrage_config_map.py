@@ -40,7 +40,6 @@ def secondary_market_on_validated(value: str):
 
 
 def use_oracle_conversion_rate_on_validated(value: str):
-    # global required_rate_oracle, rate_oracle_pairs
     use_oracle = parse_cvar_value(arbitrage_config_map["use_oracle_conversion_rate"], value)
     first_base, first_quote = arbitrage_config_map["primary_market_trading_pair"].value.split("-")
     second_base, second_quote = arbitrage_config_map["secondary_market_trading_pair"].value.split("-")
