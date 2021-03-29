@@ -447,12 +447,17 @@ cdef class FieldfareMarketMakingStrategy(StrategyBase):
             self._last_timestamp = timestamp
 
     cdef c_collect_market_variables(self, double timestamp):
-        self._avg_vol.add_sample(self.get_price())
+        market, trading_pair, base_asset, quote_asset = self._market_info
         self._last_sampling_timestamp = timestamp
         self._time_left = max(self._time_left - Decimal(timestamp - self._last_timestamp) * 1000, 0)
+        price = self.get_price()
+        self._avg_vol.add_sample(price)
         # Calculate adjustment factor to have 0.01% of inventory resolution
+        base_balance = market.get_balance(base_asset)
+        quote_balance = market.get_balance(quote_asset)
+        inventory_in_base = quote_balance / price + base_balance
         self._q_adjustment_factor = Decimal(
-            "1e5") / self.c_calculate_target_inventory() * self._inventory_target_base_pct
+            "1e5") / inventory_in_base
         if self._time_left == 0:
             # Re-cycle algorithm
             self._time_left = self._closing_time
@@ -569,8 +574,11 @@ cdef class FieldfareMarketMakingStrategy(StrategyBase):
                 self._kappa = self._gamma / (Decimal.exp((max_spread_around_reserved_price * self._gamma - (vol * self._gamma) **2) / 2) - 1)
 
             # ETA
+
             q_where_to_decay_order_amount = self.c_calculate_target_inventory() * (1 - self._inventory_risk_aversion)
-            self._eta = s_decimal_one / q_where_to_decay_order_amount
+            self._eta = s_decimal_one
+            if q_where_to_decay_order_amount != s_decimal_zero:
+                self._eta = self._eta / q_where_to_decay_order_amount
 
             self._latest_parameter_calculation_vol = vol
 
