@@ -15,7 +15,7 @@ EXAMPLE_PAIR = "BTC-USDT"
 DEFAULT_FEES = [0.1, 0.1]
 
 
-HBOT_BROKER_ID = "hbot-"
+HBOT_BROKER_ID = "HMBot"
 
 
 def get_rest_url_private(account_id: int) -> str:
@@ -43,29 +43,29 @@ def uuid32():
     return ''.join(random.choice(string.ascii_uppercase + string.ascii_lowercase + string.digits) for _ in range(32))
 
 
-def derive_order_id(user_uid: str, cl_order_id: str, ts: int, order_src='a') -> str:
+def derive_order_id(user_uid: str, cl_order_id: str, ts: int) -> str:
     """
     Server order generator based on user info and input.
     :param user_uid: user uid
     :param cl_order_id: user random digital and number id
     :param ts: order timestamp in milliseconds
-    :param order_src: 'a' for rest api order, 's' for websocket order.
     :return: order id of length 32
     """
-    return (order_src + format(ts, 'x')[-11:] + user_uid[-11:] + cl_order_id[-9:])[:32]
+    return (HBOT_BROKER_ID + format(ts, 'x')[-11:] + user_uid[-11:] + cl_order_id[-5:])[:32]
 
 
-def gen_exchange_order_id(userUid: str) -> Tuple[str, int]:
+def gen_exchange_order_id(userUid: str, client_order_id: str) -> Tuple[str, int]:
     """
-    Generate an order id
-    :param user_uid: user uid
+    Generates the exchange order id based on user uid and client order id.
+    :param user_uid: user uid,
+    :param client_order_id: client order id used for local order tracking
     :return: order id of length 32
     """
     time = get_ms_timestamp()
     return [
         derive_order_id(
             userUid,
-            uuid32(),
+            client_order_id,
             time
         ),
         time
@@ -74,7 +74,7 @@ def gen_exchange_order_id(userUid: str) -> Tuple[str, int]:
 
 def gen_client_order_id(is_buy: bool, trading_pair: str) -> str:
     side = "B" if is_buy else "S"
-    return f"{HBOT_BROKER_ID}{side}-{trading_pair}-{get_tracking_nonce()}"
+    return f"{HBOT_BROKER_ID}-{side}-{trading_pair}-{get_tracking_nonce()}"
 
 
 KEYS = {
