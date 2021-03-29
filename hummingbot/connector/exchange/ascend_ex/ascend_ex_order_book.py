@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import logging
-import hummingbot.connector.exchange.ascende_ex.ascende_ex_constants as constants
+import hummingbot.connector.exchange.ascend_ex.ascend_ex_constants as constants
 
 from sqlalchemy.engine import RowProxy
 from typing import (
@@ -13,7 +13,7 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage, OrderBookMessageType
 )
-from hummingbot.connector.exchange.ascende_ex.ascende_ex_order_book_message import AscendExOrderBookMessage
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_order_book_message import AscendExOrderBookMessage
 from hummingbot.logger import HummingbotLogger
 
 _logger = None
