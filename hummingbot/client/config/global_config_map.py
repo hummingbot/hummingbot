@@ -10,6 +10,7 @@ from hummingbot.client.config.config_validators import (
     validate_int,
     validate_decimal
 )
+from hummingbot.core.rate_oracle.rate_oracle import RateOracleSource, RateOracle
 
 
 def generate_client_id() -> str:
@@ -43,6 +44,23 @@ def connector_keys():
     for connector_setting in settings.CONNECTOR_SETTINGS.values():
         all_keys.update(connector_setting.config_keys)
     return all_keys
+
+
+def validate_rate_oracle_source(value: str) -> Optional[str]:
+    if value not in (r.name for r in RateOracleSource):
+        return f"Invalid source, please choose value from {','.join(r.name for r in RateOracleSource)}"
+
+
+def rate_oracle_source_on_validated(value: str):
+    RateOracle.source = RateOracleSource[value]
+
+
+def global_token_on_validated(value: str):
+    RateOracle.global_token = value.upper()
+
+
+def global_token_symbol_on_validated(value: str):
+    RateOracle.global_token_symbol = value
 
 
 # Main global config store
@@ -332,6 +350,29 @@ main_config_map = {
                   required_if=lambda: False,
                   default="HARD-USDT,HARD-BTC,XEM-ETH,XEM-BTC,ALGO-USDT,ALGO-BTC,COTI-BNB,COTI-USDT,COTI-BTC,MFT-BNB,"
                           "MFT-ETH,MFT-USDT,RLC-ETH,RLC-BTC,RLC-USDT"),
+    "rate_oracle_source":
+        ConfigVar(key="rate_oracle_source",
+                  prompt=f"What source do you want rate oracle to pull data from? "
+                         f"({','.join(r.name for r in RateOracleSource)}) >>> ",
+                  type_str="str",
+                  required_if=lambda: False,
+                  validator=validate_rate_oracle_source,
+                  on_validated=rate_oracle_source_on_validated,
+                  default=RateOracleSource.binance.name),
+    "global_token":
+        ConfigVar(key="global_token",
+                  prompt="What is your default display token? (e.g. USDT,USD,EUR)  >>> ",
+                  type_str="str",
+                  required_if=lambda: False,
+                  on_validated=global_token_on_validated,
+                  default="USDT"),
+    "global_token_symbol":
+        ConfigVar(key="global_token_symbol",
+                  prompt="What is your default display token symbol? (e.g. $,€)  >>> ",
+                  type_str="str",
+                  required_if=lambda: False,
+                  on_validated=global_token_symbol_on_validated,
+                  default="$"),
 }
 
 global_config_map = {**key_config_map, **main_config_map}
