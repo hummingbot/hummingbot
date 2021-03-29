@@ -2,6 +2,7 @@
 
 # API Feed adjusted to sandbox url
 from hummingbot.core.event.events import TradeType, OrderType
+from hummingbot.core.utils.asyncio_throttle import Throttler
 
 IDEX_REST_URL_FMT = "https://api-sandbox-{blockchain}.idex.io/"
 # WS Feed adjusted to sandbox url
@@ -135,3 +136,13 @@ IDEX_TRADE_TYPE_MAP = {
 
 def from_idex_trade_type(side: str):
     return IDEX_TRADE_TYPE_MAP[side]
+
+
+_throttler = None
+
+
+def get_throttler() -> Throttler:
+    global _throttler
+    if _throttler is None:
+        _throttler = Throttler(rate_limit=(4, 1.0))  # rate_limit=(weight, t_period)
+    return _throttler

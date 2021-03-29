@@ -78,7 +78,7 @@ class IdexAPIUserStreamDataSource(UserStreamTrackerDataSource):
         while True:
             idex_ws_feed = get_idex_ws_feed()
             if DEBUG:
-                self.logger().info("Opening new connection to ws: %s", idex_ws_feed)
+                self.logger().info(f"Opening new connection to ws: {idex_ws_feed}")
             try:
                 async with websockets.connect(idex_ws_feed) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
@@ -96,7 +96,7 @@ class IdexAPIUserStreamDataSource(UserStreamTrackerDataSource):
                         msg = json.loads(raw_msg)
                         msg_type: str = msg.get("type", None)
                         if DEBUG:
-                            self.logger().info('<<<<< ws msg: %s', msg)
+                            self.logger().info(f'<<<<< ws msg: {msg}')
                         if msg_type is None:
                             raise ValueError(f"idex Websocket message does not contain a type - {msg}")
                         elif msg_type == "error":
@@ -107,7 +107,7 @@ class IdexAPIUserStreamDataSource(UserStreamTrackerDataSource):
                             # server sends ping every 3 minutes, must receive a pong within a 10 minute period
                             safe_ensure_future(ws.pong())
                         elif msg_type in ["subscriptions"]:
-                            self.logger().info("subscription msg received: %s ", msg)
+                            self.logger().info(f"subscription msg received: {msg}")
                         else:
                             raise ValueError(f"Unrecognized idex Websocket message received - {msg}")
                         await asyncio.sleep(0)

@@ -31,7 +31,7 @@ from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.connector.exchange.idex.idex_active_order_tracker import IdexActiveOrderTracker
 from hummingbot.connector.exchange.idex.idex_order_book_tracker_entry import IdexOrderBookTrackerEntry
 from hummingbot.connector.exchange.idex.idex_order_book import IdexOrderBook
-from hummingbot.connector.exchange.idex.idex_resolve import get_idex_rest_url, get_idex_ws_feed
+from hummingbot.connector.exchange.idex.idex_resolve import get_idex_rest_url, get_idex_ws_feed, get_throttler
 from hummingbot.connector.exchange.idex.idex_utils import DEBUG
 
 MAX_RETRIES = 20
@@ -65,16 +65,17 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         results = await safe_gather(*tasks)
         return {t_pair: result for t_pair, result in zip(trading_pairs, results)}
 
-    @staticmethod
-    async def get_last_traded_price(trading_pair: str, base_url: str = "https://api-eth.idex.io") -> float:
-        async with aiohttp.ClientSession() as client:
-            resp = await client.get(f"{base_url}/v1/trades/?market={trading_pair}")
-            resp_json = await resp.json()
-            # based on previous GET requests to the Idex trade URL, the most recent trade is located at the -1 index
-            # of the returned list of trades. This assumes pop() on the returned list is the optimal solution for
-            # retrieving the latest trade.
-            last_trade = resp_json[-1]
-            return float(last_trade["price"])
+    @classmethod
+    async def get_last_traded_price(cls, trading_pair: str, base_url: str = "https://api-eth.idex.io") -> float:
+        async with get_throttler().weighted_task(request_weight=1):
+            async with aiohttp.ClientSession() as client:
+                resp = await client.get(f"{base_url}/v1/trades/?market={trading_pair}")
+                resp_json = await resp.json()
+                # based on previous GET requests to the Idex trade URL, the most recent trade is located at the -1 index
+                # of the returned list of trades. This assumes pop() on the returned list is the optimal solution for
+                # retrieving the latest trade.
+                last_trade = resp_json[-1]
+                return float(last_trade["price"])
 
     @classmethod
     @cachetools.func.ttl_cache(ttl=10)
@@ -89,24 +90,25 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @staticmethod
     async def fetch_trading_pairs(domain=None) -> List[str]:
-        try:
-            async with aiohttp.ClientSession() as client:
-                # ensure IDEX_REST_URL has appropriate blockchain imported (ETH or BSC)
-                base_url: str = get_idex_rest_url(domain=domain)
-                async with client.get(f"{base_url}/v1/tickers", timeout=5) as response:
-                    if response.status == 200:
-                        markets = await response.json()
-                        raw_trading_pairs: List[str] = list(map(lambda details: details.get('market'), markets))
-                        trading_pair_list: List[str] = []
-                        for raw_trading_pair in raw_trading_pairs:
-                            trading_pair_list.append(raw_trading_pair)
-                        return trading_pair_list
+        async with get_throttler().weighted_task(request_weight=1):
+            try:
+                async with aiohttp.ClientSession() as client:
+                    # ensure IDEX_REST_URL has appropriate blockchain imported (ETH or BSC)
+                    base_url: str = get_idex_rest_url(domain=domain)
+                    async with client.get(f"{base_url}/v1/tickers", timeout=5) as response:
+                        if response.status == 200:
+                            markets = await response.json()
+                            raw_trading_pairs: List[str] = list(map(lambda details: details.get('market'), markets))
+                            trading_pair_list: List[str] = []
+                            for raw_trading_pair in raw_trading_pairs:
+                                trading_pair_list.append(raw_trading_pair)
+                            return trading_pair_list
 
-        except Exception:
-            # Do nothing if request fails. No autocomplete for trading pairs.
-            pass
+            except Exception:
+                # Do nothing if request fails. No autocomplete for trading pairs.
+                pass
 
-        return []
+            return []
 
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, Any]:
@@ -114,16 +116,17 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Fetches order book snapshot for a particular trading pair from the rest API
         :returns: Response from the rest API
         """
-        # idex level 2 order book is sufficient to provide required data
-        base_url: str = get_idex_rest_url()
-        product_order_book_url: str = f"{base_url}/v1/orderbook?market={trading_pair}&level=2"
-        async with client.get(product_order_book_url) as response:
-            response: aiohttp.ClientResponse = response
-            if response.status != 200:
-                raise IOError(f"Error fetching IDEX market snapshot for {trading_pair}."
-                              f"HTTP status is {response.status}.")
-            data: Dict[str, Any] = await response.json()
-            return data
+        async with get_throttler().weighted_task(request_weight=1):
+            # idex level 2 order book is sufficient to provide required data
+            base_url: str = get_idex_rest_url()
+            product_order_book_url: str = f"{base_url}/v1/orderbook?market={trading_pair}&level=2"
+            async with client.get(product_order_book_url) as response:
+                response: aiohttp.ClientResponse = response
+                if response.status != 200:
+                    raise IOError(f"Error fetching IDEX market snapshot for {trading_pair}."
+                                  f"HTTP status is {response.status}.")
+                data: Dict[str, Any] = await response.json()
+                return data
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         async with aiohttp.ClientSession() as client:
@@ -240,7 +243,7 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             idex_ws_feed = get_idex_ws_feed()
             if DEBUG:
-                self.logger().info("IOB.listen_for_trades new connection to ws: %s", idex_ws_feed)
+                self.logger().info(f"IOB.listen_for_trades new connection to ws: {idex_ws_feed}")
             try:
                 trading_pairs: List[str] = self._trading_pairs
                 async with websockets.connect(idex_ws_feed) as ws:
@@ -255,7 +258,7 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         msg = ujson.loads(raw_msg)
                         msg_type: str = msg.get("type", None)
                         if DEBUG:
-                            self.logger().info('<<<<< ws msg: %s', msg)
+                            self.logger().info(f'<<<<< ws msg: {msg}')
                         if msg_type is None:
                             raise ValueError(f"Idex Websocket message does not contain a type - {msg}")
                         elif msg_type == "error":
@@ -304,7 +307,7 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             idex_ws_feed = get_idex_ws_feed()
             if DEBUG:
-                self.logger().info("IOB.listen_for_order_book_diffs new connection to ws: %s", idex_ws_feed)
+                self.logger().info(f"IOB.listen_for_order_book_diffs new connection to ws: {idex_ws_feed}")
             try:
                 trading_pairs: List[str] = self._trading_pairs
                 async with websockets.connect(idex_ws_feed) as ws:
@@ -319,7 +322,7 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         msg = ujson.loads(raw_msg)
                         msg_type: str = msg.get("type", None)
                         if DEBUG:
-                            self.logger().info('<<<<< ws msg: %s', msg)
+                            self.logger().info(f'<<<<< ws msg: {msg}')
                         if msg_type is None:
                             raise ValueError(f"Idex WebSocket message does not contain a type - {msg}")
                         elif msg_type == "error":
@@ -354,7 +357,7 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         try:
                             snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair)
                             if DEBUG:
-                                self.logger().info('<<<<< aiohttp snapshot response: %s', snapshot)
+                                self.logger().info(f'<<<<< aiohttp snapshot response: {snapshot}')
                             snapshot_timestamp: float = time.time()
                             snapshot_msg: OrderBookMessage = IdexOrderBook.snapshot_message_from_exchange(
                                 snapshot,
@@ -365,7 +368,7 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             if DEBUG:
                                 self.logger().info(f"Saved orderbook snapshot for {trading_pair}")
                             # Be careful not to go above API rate limits
-                            await asyncio.sleep(5.0)
+                            await asyncio.sleep(0.2)
                         except asyncio.CancelledError:
                             raise
                         except Exception:
