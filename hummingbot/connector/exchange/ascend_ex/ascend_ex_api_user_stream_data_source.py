@@ -10,7 +10,8 @@ from typing import Optional, List, AsyncIterable, Any
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
-from hummingbot.connector.exchange.ascend_ex.ascend_ex_constants import REST_URL, getWsUrlPriv, PONG_PAYLOAD
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_constants import REST_URL, PONG_PAYLOAD
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_utils import get_ws_url_private
 
 
 class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
@@ -61,7 +62,7 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     "ch": "order:cash"
                 }
 
-                async with websockets.connect(f"{getWsUrlPriv(accountGroup)}/stream", extra_headers=headers) as ws:
+                async with websockets.connect(f"{get_ws_url_private(accountGroup)}/stream", extra_headers=headers) as ws:
                     try:
                         ws: websockets.WebSocketClientProtocol = ws
                         await ws.send(ujson.dumps(payload))
