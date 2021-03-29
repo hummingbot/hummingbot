@@ -81,6 +81,7 @@ cdef class FieldfareMarketMakingStrategy(StrategyBase):
                  closing_time: Decimal = Decimal("1"),
                  debug_csv_path: str = '',
                  volatility_buffer_size: int = 30,
+                 is_debug: bool = True,
                  ):
         super().__init__()
         self._sb_order_tracker = OrderTracker()
@@ -126,8 +127,10 @@ cdef class FieldfareMarketMakingStrategy(StrategyBase):
         self._optimal_ask = s_decimal_zero
         self._optimal_bid = s_decimal_zero
         self._debug_csv_path = debug_csv_path
+        self._is_debug = is_debug
         try:
-            os.unlink(self._debug_csv_path)
+            if self._is_debug:
+                os.unlink(self._debug_csv_path)
         except FileNotFoundError:
             pass
 
@@ -428,7 +431,8 @@ cdef class FieldfareMarketMakingStrategy(StrategyBase):
                     self.c_apply_budget_constraint(proposal)
 
                 self.c_cancel_active_orders(proposal)
-                self.dump_debug_variables()
+                if self._is_debug:
+                    self.dump_debug_variables()
                 refresh_proposal = self.c_aged_order_refresh()
                 # Firstly restore cancelled aged order
                 if refresh_proposal is not None:
@@ -511,10 +515,11 @@ cdef class FieldfareMarketMakingStrategy(StrategyBase):
                                 max_limit_bid)
         # This is not what the algorithm will use as proposed bid and ask. This is just the raw output.
         # Optimal bid and optimal ask prices will be used
-        self.logger().info(f"bid={(price-(self._reserved_price - self._optimal_spread / 2)) / price * 100:.4f}% | "
-                           f"ask={((self._reserved_price + self._optimal_spread / 2) - price) / price * 100:.4f}% | "
-                           f"q={q/self._q_adjustment_factor:.4f} | "
-                           f"vol={vol:.4f}")
+        if self._is_debug:
+            self.logger().info(f"bid={(price-(self._reserved_price - self._optimal_spread / 2)) / price * 100:.4f}% | "
+                               f"ask={((self._reserved_price + self._optimal_spread / 2) - price) / price * 100:.4f}% | "
+                               f"q={q/self._q_adjustment_factor:.4f} | "
+                               f"vol={vol:.4f}")
 
     cdef object c_calculate_target_inventory(self):
         cdef:
