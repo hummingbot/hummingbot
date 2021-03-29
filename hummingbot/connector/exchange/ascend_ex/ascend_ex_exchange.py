@@ -493,7 +493,7 @@ class AscendExExchange(ExchangeBase):
                 raise ValueError(f"Notional amount {notional} is not withing the range of {ascend_ex_trading_rule.minNotional}-{ascend_ex_trading_rule.maxNotional}.")
 
             # TODO: check balance
-            [exchange_order_id, timestamp] = ascend_ex_utils.gen_exchange_order_id(self._account_uid)
+            [exchange_order_id, timestamp] = ascend_ex_utils.gen_exchange_order_id(self._account_uid, order_id)
 
             api_params = {
                 "id": exchange_order_id,
@@ -517,7 +517,6 @@ class AscendExExchange(ExchangeBase):
 
             await self._api_request("post", "cash/order", api_params, True, force_auth_path_url="order")
             tracked_order = self._in_flight_orders.get(order_id)
-            # tracked_order.update_exchange_order_id(exchange_order_id)
 
             if tracked_order is not None:
                 self.logger().info(f"Created {order_type.name} {trade_type.name} order {order_id} for "
