@@ -691,6 +691,7 @@ cdef class MandalaExchange(ExchangeBase):
         price_str = f"{price:f}"
         type_str = MandalaExchange.mandala_order_type(order_type)
         side_str = MandalaClient.SIDE_BUY if trade_type is TradeType.BUY else MandalaClient.SIDE_SELL
+        side_log_str = "Buy" if trade_type is TradeType.BUY else "Sell"
         api_params = {"symbol": convert_to_mandala_exchange_trading_pair(trading_pair),
                       "side": side_str,
                       "quantity": amount_str,
@@ -708,7 +709,7 @@ cdef class MandalaExchange(ExchangeBase):
                                         amount,
                                         order_type
                                         )
-            self.logger().info(f"Created {type_str} {side_str} order {exchange_order_id} for "
+            self.logger().info(f"Created {type_str} {side_log_str} order {exchange_order_id} for "
                                f"{amount} {trading_pair}.")
 
             event_tag = self.MARKET_BUY_ORDER_CREATED_EVENT_TAG if trade_type is TradeType.BUY \
@@ -728,7 +729,7 @@ cdef class MandalaExchange(ExchangeBase):
         except Exception as e:
             self.c_stop_tracking_order(order_id)
             self.logger().network(
-                f"Error submitting {side_str} {type_str} order to Mandala for "
+                f"Error submitting {side_log_str} {type_str} order to Mandala for "
                 f"{amount} {trading_pair} "
                 f"{price}.",
                 exc_info=True,
