@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 18
+template_version: 19
 
 # Exchange configs
 bamboo_relay_use_coordinator: false
@@ -58,9 +58,9 @@ kraken_secret_key: null
 crypto_com_api_key: null
 crypto_com_secret_key: null
 
-eterbase_api_key: null
-eterbase_secret_key: null
-eterbase_account: null
+
+hitbtc_api_key: null
+hitbtc_secret_key: null
 
 bitfinex_api_key: null
 bitfinex_secret_key: null
@@ -77,6 +77,9 @@ celo_password: null
 
 terra_wallet_address: null
 terra_wallet_seeds: null
+
+digifinex_api_key: null
+digifinex_secret_key: null
 
 balancer_max_swaps: 4
 
@@ -189,3 +192,9 @@ heartbeat_enabled:
 heartbeat_interval_min:
 # a list of binance markets (for trades/pnl reporting) separated by ',' e.g. RLC-USDT,RLC-BTC
 binance_markets:
+
+rate_oracle_source:
+
+global_token:
+
+global_token_symbol:

@@ -493,7 +493,7 @@ class BitmaxExchange(ExchangeBase):
                 raise ValueError(f"Notional amount {notional} is not withing the range of {bitmax_trading_rule.minNotional}-{bitmax_trading_rule.maxNotional}.")
 
             # TODO: check balance
-            [exchange_order_id, timestamp] = bitmax_utils.gen_exchange_order_id(self._account_uid)
+            [exchange_order_id, timestamp] = bitmax_utils.gen_exchange_order_id(self._account_uid, order_id)
 
             api_params = {
                 "id": exchange_order_id,
