@@ -3,7 +3,6 @@ import asyncio
 from datetime import datetime
 import json
 import time
-import pandas as pd
 import logging
 from collections import defaultdict
 from decimal import Decimal
@@ -28,7 +27,6 @@ from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.core.event.event_listener import EventListener
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.connector.derivative_base import DerivativeBase
-from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_api_order_book_data_source import DydxPerpetualAPIOrderBookDataSource
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_auth import DydxPerpetualAuth
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_client_wrapper import DydxPerpetualClientWrapper
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_fill_report import DydxPerpetualFillReport
