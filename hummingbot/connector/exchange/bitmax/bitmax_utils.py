@@ -15,7 +15,7 @@ EXAMPLE_PAIR = "BTC-USDT"
 DEFAULT_FEES = [0.1, 0.1]
 
 
-HBOT_BROKER_ID = "HBOT"
+HBOT_BROKER_ID = "HMBot"
 
 
 def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
@@ -43,7 +43,7 @@ def derive_order_id(user_uid: str, cl_order_id: str, ts: int) -> str:
     :param ts: order timestamp in milliseconds
     :return: order id of length 32
     """
-    return ("HMBot" + format(ts, 'x')[-11:] + user_uid[-11:] + cl_order_id[-5:])[:32]
+    return (HBOT_BROKER_ID + format(ts, 'x')[-11:] + user_uid[-11:] + cl_order_id[-5:])[:32]
 
 
 def gen_exchange_order_id(userUid: str, client_order_id: str) -> Tuple[str, int]:
