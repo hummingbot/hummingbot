@@ -79,7 +79,7 @@ def on_validate_base_rate_conversion_source(value: str):
 
 def base_conversion_ext_market_market_prompt() -> str:
     external_market = arbitrage_config_map.get("base_conversion_ext_market_exchange").value
-    return f'Enter the base token trading pair on {external_market} >>> '
+    return f'Which trading pair on {external_market} to use for Base rate conversion? >>> '
 
 
 def on_validated_base_conversion_ext_market_exchange(value: str):
@@ -102,7 +102,7 @@ def on_validate_quote_rate_conversion_source(value: str):
 
 def quote_conversion_ext_market_market_prompt() -> str:
     external_market = arbitrage_config_map.get("quote_conversion_ext_market_exchange").value
-    return f'Enter the quote token trading pair on {external_market} >>> '
+    return f'Which trading pair on {external_market} to use for Quote rate conversion?  >>> '
 
 
 def on_validated_quote_conversion_ext_market_exchange(value: str):
@@ -165,24 +165,24 @@ arbitrage_config_map = {
         validator=lambda v: validate_bool(v),
         on_validated=update_oracle_settings,
     ),
-    "base_rate_conversion_source":
-        ConfigVar(key="base_rate_conversion_source",
-                  prompt="Which base price source to use? (static_config_rate/external_market) >>> ",
-                  prompt_on_new=True,
-                  required_if=lambda: not arbitrage_config_map.get("use_oracle_conversion_rate").value,
-                  type_str="str",
-                  default="static_config_rate",
-                  validator=validate_rate_conversion_source,
-                  on_validated=on_validate_base_rate_conversion_source),
-    "quote_rate_conversion_source":
-        ConfigVar(key="quote_rate_conversion_source",
-                  prompt="Which quote price source to use? (static_config_rate/external_market) >>> ",
-                  prompt_on_new=True,
-                  required_if=lambda: not arbitrage_config_map.get("use_oracle_conversion_rate").value,
-                  type_str="str",
-                  default="static_config_rate",
-                  validator=validate_rate_conversion_source,
-                  on_validated=on_validate_quote_rate_conversion_source),
+    "base_rate_conversion_source": ConfigVar(
+        key="base_rate_conversion_source",
+        prompt="Which Base rate conversion source to use? (static_config_rate/external_market) >>> ",
+        prompt_on_new=True,
+        required_if=lambda: not arbitrage_config_map.get("use_oracle_conversion_rate").value,
+        type_str="str",
+        default="static_config_rate",
+        validator=validate_rate_conversion_source,
+        on_validated=on_validate_base_rate_conversion_source),
+    "quote_rate_conversion_source": ConfigVar(
+        key="quote_rate_conversion_source",
+        prompt="Which Quote rate conversion source to use? (static_config_rate/external_market) >>> ",
+        prompt_on_new=True,
+        required_if=lambda: not arbitrage_config_map.get("use_oracle_conversion_rate").value,
+        type_str="str",
+        default="static_config_rate",
+        validator=validate_rate_conversion_source,
+        on_validated=on_validate_quote_rate_conversion_source),
     "secondary_to_primary_base_conversion_rate": ConfigVar(
         key="secondary_to_primary_base_conversion_rate",
         prompt="Enter conversion rate for secondary base asset value to primary base asset value, e.g. "
@@ -205,56 +205,54 @@ arbitrage_config_map = {
         validator=lambda v: validate_decimal(v, Decimal(0), inclusive=False),
         type_str="decimal",
     ),
-    "base_conversion_ext_market_exchange":
-        ConfigVar(key="base_conversion_ext_market_exchange",
-                  prompt="Enter external base price source exchange name >>> ",
-                  prompt_on_new=True,
-                  required_if=lambda: arbitrage_config_map.get("base_rate_conversion_source").value == "external_market",
-                  type_str="str",
-                  validator=validate_conversion_ext_market_exchange,
-                  on_validated=on_validated_base_conversion_ext_market_exchange),
-    "base_conversion_ext_market_market":
-        ConfigVar(key="base_conversion_ext_market_market",
-                  prompt=base_conversion_ext_market_market_prompt,
-                  prompt_on_new=True,
-                  required_if=lambda: arbitrage_config_map.get("base_rate_conversion_source").value == "external_market",
-                  type_str="str",
-                  validator=validate_base_conversion_ext_market_market),
-    "base_conversion_ext_market_price_type":
-        ConfigVar(key="base_conversion_ext_market_price_type",
-                  prompt="Which base price type to use? (mid_price/last_price/best_bid/best_ask) >>> ",
-                  type_str="str",
-                  required_if=lambda: arbitrage_config_map.get("base_rate_conversion_source").value != "custom_api",
-                  default="mid_price",
-                  validator=lambda s: None if s in {"mid_price",
-                                                    "last_price",
-                                                    "best_bid",
-                                                    "best_ask"} else
-                  "Invalid price type."),
-    "quote_conversion_ext_market_exchange":
-        ConfigVar(key="quote_conversion_ext_market_exchange",
-                  prompt="Enter quote external price source exchange name >>> ",
-                  prompt_on_new=True,
-                  required_if=lambda: arbitrage_config_map.get("quote_rate_conversion_source").value == "external_market",
-                  type_str="str",
-                  validator=validate_conversion_ext_market_exchange,
-                  on_validated=on_validated_quote_conversion_ext_market_exchange),
-    "quote_conversion_ext_market_market":
-        ConfigVar(key="quote_conversion_ext_market_market",
-                  prompt=quote_conversion_ext_market_market_prompt,
-                  prompt_on_new=True,
-                  required_if=lambda: arbitrage_config_map.get("quote_rate_conversion_source").value == "external_market",
-                  type_str="str",
-                  validator=validate_quote_conversion_ext_market_market),
-    "quote_conversion_ext_market_price_type":
-        ConfigVar(key="quote_conversion_ext_market_price_type",
-                  prompt="Which quote price type to use? (mid_price/last_price/best_bid/best_ask) >>> ",
-                  type_str="str",
-                  required_if=lambda: arbitrage_config_map.get("quote_rate_conversion_source").value != "custom_api",
-                  default="mid_price",
-                  validator=lambda s: None if s in {"mid_price",
-                                                    "last_price",
-                                                    "best_bid",
-                                                    "best_ask"} else
-                  "Invalid price type."),
+    "base_conversion_ext_market_exchange": ConfigVar(
+        key="base_conversion_ext_market_exchange",
+        prompt="Which connector to use for Base rate conversion? >>> ",
+        prompt_on_new=True,
+        required_if=lambda: arbitrage_config_map.get("base_rate_conversion_source").value == "external_market",
+        type_str="str",
+        validator=validate_conversion_ext_market_exchange,
+        on_validated=on_validated_base_conversion_ext_market_exchange),
+    "base_conversion_ext_market_market": ConfigVar(
+        key="base_conversion_ext_market_market",
+        prompt=base_conversion_ext_market_market_prompt,
+        prompt_on_new=True,
+        required_if=lambda: arbitrage_config_map.get("base_rate_conversion_source").value == "external_market",
+        type_str="str",
+        validator=validate_base_conversion_ext_market_market),
+    "base_conversion_ext_market_price_type": ConfigVar(
+        key="base_conversion_ext_market_price_type",
+        prompt="Which price type to use for Base rate conversion? (mid_price/last_price/best_bid/best_ask) >>> ",
+        type_str="str",
+        required_if=lambda: arbitrage_config_map.get("base_rate_conversion_source").value == "external_market",
+        default="mid_price",
+        validator=lambda s: None if s in {"mid_price",
+                                          "last_price",
+                                          "best_bid",
+                                          "best_ask"} else "Invalid price type."),
+    "quote_conversion_ext_market_exchange": ConfigVar(
+        key="quote_conversion_ext_market_exchange",
+        prompt="Which connector to use for Quote rate conversion? >>> ",
+        prompt_on_new=True,
+        required_if=lambda: arbitrage_config_map.get("quote_rate_conversion_source").value == "external_market",
+        type_str="str",
+        validator=validate_conversion_ext_market_exchange,
+        on_validated=on_validated_quote_conversion_ext_market_exchange),
+    "quote_conversion_ext_market_market": ConfigVar(
+        key="quote_conversion_ext_market_market",
+        prompt=quote_conversion_ext_market_market_prompt,
+        prompt_on_new=True,
+        required_if=lambda: arbitrage_config_map.get("quote_rate_conversion_source").value == "external_market",
+        type_str="str",
+        validator=validate_quote_conversion_ext_market_market),
+    "quote_conversion_ext_market_price_type": ConfigVar(
+        key="quote_conversion_ext_market_price_type",
+        prompt="Which price type to use for Quote rate conversion? (mid_price/last_price/best_bid/best_ask) >>> ",
+        type_str="str",
+        required_if=lambda: arbitrage_config_map.get("quote_rate_conversion_source").value == "external_market",
+        default="mid_price",
+        validator=lambda s: None if s in {"mid_price",
+                                          "last_price",
+                                          "best_bid",
+                                          "best_ask"} else "Invalid price type."),
 }
