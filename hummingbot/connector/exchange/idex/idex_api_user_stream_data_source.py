@@ -96,7 +96,7 @@ class IdexAPIUserStreamDataSource(UserStreamTrackerDataSource):
                         msg = json.loads(raw_msg)
                         msg_type: str = msg.get("type", None)
                         if DEBUG:
-                            self.logger().info(f'<<<<< ws msg: {msg}')
+                            self.logger().info(f'<<<<< IdexAPIUserStreamDataSource ws msg: {msg}')
                         if msg_type is None:
                             raise ValueError(f"idex Websocket message does not contain a type - {msg}")
                         elif msg_type == "error":

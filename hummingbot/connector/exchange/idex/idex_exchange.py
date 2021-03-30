@@ -94,6 +94,7 @@ class IdexExchange(ExchangeBase):
         # self._throttler_public_endpoint = Throttler(rate_limit=(2, 1.0))  # rate_limit=(weight, t_period)
         # self._throttler_user_endpoint = Throttler(rate_limit=(3, 1.0))  # rate_limit=(weight, t_period)
         # self._throttler_trades_endpoint = Throttler(rate_limit=(4, 1.0))  # rate_limit=(weight, t_period)
+        self._order_lock = asyncio.Lock()  # exclusive access for modifying orders
 
     @property
     def trading_rules(self) -> Dict[str, TradingRule]:
@@ -287,59 +288,60 @@ class IdexExchange(ExchangeBase):
         :param order_id: The internal order id
         order.last_state to change to CANCELED
         """
-        self.logger().warning(f'entering _execute_cancel({trading_pair}, {client_order_id})')
-        try:
-            tracked_order = self._in_flight_orders.get(client_order_id)
-            if tracked_order is None:
-                raise ValueError(f"Failed to cancel order - {client_order_id}. Order not found.")
-            exchange_order_id = tracked_order.exchange_order_id
-            cancelled_id = await self.delete_order(trading_pair, client_order_id)
-            if not cancelled_id:
-                if DEBUG:
-                    self.logger().error(f'self.delete_order({trading_pair}, {client_order_id}) returned empty')
-                raise IOError(f"call to delete_order {client_order_id} returned empty: order not found")
-            format_cancelled_id = (cancelled_id[0] or {}).get("orderId")
-            if exchange_order_id == format_cancelled_id:
-                self.logger().info(f"Successfully cancelled order:{client_order_id}. exchange id:{exchange_order_id}")
-                self.stop_tracking_order(client_order_id)
-                self.trigger_event(MarketEvent.OrderCancelled,
-                                   OrderCancelledEvent(
-                                       self.current_timestamp,
-                                       client_order_id))
-                tracked_order.cancelled_event.set()
-                self.logger().warning(f'successfully exiting _execute_cancel for {client_order_id}, '
-                                      f'exchange_order_id: {exchange_order_id}')
-                return client_order_id
-            else:
-                raise IOError(f"delete_order({client_order_id}) tracked with exchange id: {exchange_order_id} "
-                              f"returned a different order id {format_cancelled_id}: order not found")
-        except IOError as e:
-            self.logger().exception(f"_execute_cancel error: order {client_order_id} does not exist on Idex. "
-                                    f"No cancellation performed:")
-            self.logger().network(
-                f"Failed to cancel not found order {client_order_id}: {str(e)}",
-                exc_info=True,
-                app_warning_msg=f"Failed to cancel the order {client_order_id} on Idex. "
-                                f"Order not found.")
-            if "order not found" in str(e):
-                # The order was never there to begin with. So cancelling it is a no-op but semantically successful.
-                self.stop_tracking_order(client_order_id)
-                self.trigger_event(MarketEvent.OrderCancelled,
-                                   OrderCancelledEvent(self._current_timestamp, client_order_id))
-                return client_order_id
-            else:
-                self.logger().warning(f'About to re-raise exception in _execute_cancel: {str(e)}')
+        async with self._order_lock:
+            self.logger().warning(f'entering _execute_cancel({trading_pair}, {client_order_id})')
+            try:
+                tracked_order = self._in_flight_orders.get(client_order_id)
+                if tracked_order is None:
+                    raise ValueError(f"Failed to cancel order - {client_order_id}. Order not found.")
+                exchange_order_id = tracked_order.exchange_order_id
+                cancelled_id = await self.delete_order(trading_pair, client_order_id)
+                if not cancelled_id:
+                    if DEBUG:
+                        self.logger().error(f'self.delete_order({trading_pair}, {client_order_id}) returned empty')
+                    raise IOError(f"call to delete_order {client_order_id} returned empty: order not found")
+                format_cancelled_id = (cancelled_id[0] or {}).get("orderId")
+                if exchange_order_id == format_cancelled_id:
+                    self.logger().info(f"Successfully cancelled order:{client_order_id}. exchange id:{exchange_order_id}")
+                    self.stop_tracking_order(client_order_id)
+                    self.trigger_event(MarketEvent.OrderCancelled,
+                                       OrderCancelledEvent(
+                                           self.current_timestamp,
+                                           client_order_id))
+                    tracked_order.cancelled_event.set()
+                    self.logger().warning(f'successfully exiting _execute_cancel for {client_order_id}, '
+                                          f'exchange_order_id: {exchange_order_id}')
+                    return client_order_id
+                else:
+                    raise IOError(f"delete_order({client_order_id}) tracked with exchange id: {exchange_order_id} "
+                                  f"returned a different order id {format_cancelled_id}: order not found")
+            except IOError as e:
+                self.logger().exception(f"_execute_cancel error: order {client_order_id} does not exist on Idex. "
+                                        f"No cancellation performed:")
+                self.logger().network(
+                    f"Failed to cancel not found order {client_order_id}: {str(e)}",
+                    exc_info=True,
+                    app_warning_msg=f"Failed to cancel the order {client_order_id} on Idex. "
+                                    f"Order not found.")
+                if "order not found" in str(e):
+                    # The order was never there to begin with. So cancelling it is a no-op but semantically successful.
+                    self.stop_tracking_order(client_order_id)
+                    self.trigger_event(MarketEvent.OrderCancelled,
+                                       OrderCancelledEvent(self._current_timestamp, client_order_id))
+                    return client_order_id
+                else:
+                    self.logger().warning(f'About to re-raise exception in _execute_cancel: {str(e)}')
+                    raise e
+            except asyncio.CancelledError as e:
+                self.logger().warning(f'_execute_cancel: About to re-raise CancelledError: {str(e)}')
                 raise e
-        except asyncio.CancelledError as e:
-            self.logger().warning(f'_execute_cancel: About to re-raise CancelledError: {str(e)}')
-            raise e
-        except Exception as e:
-            self.logger().exception(f'_execute_cancel raised unexpected exception: {e}. Details:')
-            self.logger().network(
-                f"Failed to cancel order {client_order_id}: {str(e)}",
-                exc_info=True,
-                app_warning_msg=f"Failed to cancel the order {client_order_id} on Idex. "
-                                f"Check API key and network connection.")
+            except Exception as e:
+                self.logger().exception(f'_execute_cancel raised unexpected exception: {e}. Details:')
+                self.logger().network(
+                    f"Failed to cancel order {client_order_id}: {str(e)}",
+                    exc_info=True,
+                    app_warning_msg=f"Failed to cancel the order {client_order_id} on Idex. "
+                                    f"Check API key and network connection.")
 
     # API Calls
 
@@ -446,10 +448,10 @@ class IdexExchange(ExchangeBase):
             session: aiohttp.ClientSession = await self._http_client()
             async with session.post(auth_dict["url"], data=auth_dict["body"], headers=auth_dict["headers"]) as response:
                 if response.status != 200:
-                    if DEBUG:
-                        self.logger().warning(f'failed post_order response: {response}')
                     data = await response.json()
-                    raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}."
+                    if DEBUG:
+                        self.logger().warning(f'failed post_order. Response data: {data}')
+                    raise IOError(f"Error posting data to {url}. HTTP status is {response.status}."
                                   f"Data is: {data}")
                 data = await response.json()
                 if DEBUG:
@@ -536,81 +538,78 @@ class IdexExchange(ExchangeBase):
         :param order_type: The order type (MARKET, LIMIT, etc..)
         :param price: The order price
         """
+        async with self._order_lock:
 
-        if not order_type.is_limit_type():
-            raise Exception(f"Unsupported order type: {order_type}")
-        # trading_rule = self._trading_rules[trading_pair]  # No trading rules applied at this time
+            if not order_type.is_limit_type():
+                raise Exception(f"Unsupported order type: {order_type}")
+            # trading_rule = self._trading_rules[trading_pair]  # No trading rules applied at this time
 
-        idex_order_param = hb_order_type_to_idex_param(order_type)
-        idex_trade_param = hb_trade_type_to_idex_param(trade_type)
+            idex_order_param = hb_order_type_to_idex_param(order_type)
+            idex_trade_param = hb_trade_type_to_idex_param(trade_type)
 
-        amount = self.quantize_order_amount(trading_pair, amount)
-        price = self.quantize_order_price(trading_pair, price)
-        # if amount < trading_rule.min_order_size:       # No trading rules applied at this time
-        #    raise ValueError(f"Buy order amount {amount} is lower than the minimum order size "
-        #                     f"{trading_rule.min_order_size}.")
+            amount = self.quantize_order_amount(trading_pair, amount)
+            price = self.quantize_order_price(trading_pair, price)
 
-        api_params = {
-            "market": trading_pair,
-            "type": idex_order_param,
-            "side": idex_trade_param,
-            "quantity": f"{amount:f}",
-            "price": f"{price:f}",
-            "clientOrderId": order_id,
-            "timeInForce": "gtc",
-            "selfTradePrevention": "dc"
-        }
+            # todo alf: time to revise this
+            # if amount < trading_rule.min_order_size:       # No trading rules applied at this time
+            #    raise ValueError(f"Buy order amount {amount} is lower than the minimum order size "
+            #                     f"{trading_rule.min_order_size}.")
 
-        # self.start_tracking_order(order_id,
-        #                           "",
-        #                           trading_pair,
-        #                           trade_type,
-        #                           price,
-        #                           amount,
-        #                           order_type
-        #                           )
-        try:
-            order_result = await self.post_order(api_params)
-            self.start_tracking_order(order_id,
-                                      order_result["orderId"],
-                                      trading_pair,
-                                      trade_type,
-                                      price,
-                                      amount,
-                                      order_type
-                                      )
-            exchange_order_id = order_result["orderId"]
-            tracked_order = self._in_flight_orders.get(order_id)
-            if DEBUG:
-                self.logger().info(f"Created {order_type.name} {trade_type.name} order {order_id} for "
-                                   f"{amount} {trading_pair}.")
-            tracked_order.update_exchange_order_id(exchange_order_id)
-            event_tag = MarketEvent.BuyOrderCreated if trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
-            event_class = BuyOrderCreatedEvent if trade_type is TradeType.BUY else SellOrderCreatedEvent
-            self.trigger_event(event_tag,
-                               event_class(
-                                   self.current_timestamp,
-                                   order_type,
-                                   trading_pair,
-                                   amount,
-                                   price,
-                                   order_id
-                               ))
-        except asyncio.CancelledError as e:
-            if DEBUG:
-                self.logger().exception("_create_order received a CancelledError...")
-            raise e
-        except Exception as e:
-            self.stop_tracking_order(order_id)
-            self.logger().network(
-                f"Error submitting {trade_type.name} {order_type.name} order to Idex for "
-                f"{amount} {trading_pair} "
-                f"{price}.",
-                exc_info=True,
-                app_warning_msg=str(e)
-            )
-            self.trigger_event(MarketEvent.OrderFailure, MarketOrderFailureEvent(
-                self.current_timestamp, order_id, order_type))
+            api_params = {
+                "market": trading_pair,
+                "type": idex_order_param,
+                "side": idex_trade_param,
+                "quantity": f"{amount:f}",
+                "price": f"{price:f}",
+                "clientOrderId": order_id,
+                "timeInForce": "gtc",
+                "selfTradePrevention": "dc"
+            }
+
+            try:
+                order_result = await self.post_order(api_params)
+                self.start_tracking_order(order_id,
+                                          order_result["orderId"],
+                                          trading_pair,
+                                          trade_type,
+                                          price,
+                                          amount,
+                                          order_type
+                                          )
+                exchange_order_id = order_result["orderId"]
+                tracked_order = self._in_flight_orders.get(order_id)
+                if DEBUG:
+                    self.logger().info(f"Created {order_type.name} {trade_type.name} order {order_id} for "
+                                       f"{amount} {trading_pair}.")
+                tracked_order.update_exchange_order_id(exchange_order_id)
+                event_tag = MarketEvent.BuyOrderCreated if trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
+                event_class = BuyOrderCreatedEvent if trade_type is TradeType.BUY else SellOrderCreatedEvent
+                self.trigger_event(event_tag,
+                                   event_class(
+                                       self.current_timestamp,
+                                       order_type,
+                                       trading_pair,
+                                       amount,
+                                       price,
+                                       order_id
+                                   ))
+            except asyncio.CancelledError as e:
+                if DEBUG:
+                    self.logger().exception("_create_order received a CancelledError...")
+                raise e
+            except Exception as e:
+                if DEBUG:
+                    self.logger().exception(f"_create_order received an exception {e}. Details: ")
+                self.stop_tracking_order(order_id)
+                self.logger().network(
+                    f"Error submitting {trade_type.name} {order_type.name} order to Idex for "
+                    f"{amount} {trading_pair} "
+                    f"{price}.",
+                    exc_info=True,
+                    app_warning_msg=str(e)
+                )
+                self.trigger_event(MarketEvent.OrderFailure, MarketOrderFailureEvent(
+                    self.current_timestamp, order_id, order_type))
 
     def start_tracking_order(self,
                              order_id: str,
@@ -711,26 +710,27 @@ class IdexExchange(ExchangeBase):
         last_tick = int(self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
         current_tick = int(self.current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
-            if DEBUG:
-                self.logger().warning('entering _update_order_status execution')
-            tracked_orders = list(self._in_flight_orders.values())
-            if DEBUG:
-                exchange_order_ids = [tracked_order.exchange_order_id for tracked_order in tracked_orders]
-                self.logger().warning(f"Polling order status updates for orders: {exchange_order_ids}")
-            tasks = [self.get_order(tracked_order.exchange_order_id) for tracked_order in tracked_orders]
-            update_results = await safe_gather(*tasks, return_exceptions=True)
-            tracked_order_result = [(o, r) for o, r in zip(tracked_orders, update_results)]
-            for tracked_order, result in tracked_order_result:
-                if isinstance(result, Exception):
-                    self.logger().error(f"exception in _update_order_status get_order subtask: {result}")
-                    # remove failed order from tracked_orders
-                    self.stop_tracking_order(tracked_order.client_order_id)
-                    self.logger().error(f'Stopped tracking order: {tracked_order.client_order_id} wth failed get_order')
-                    self.trigger_event(MarketEvent.OrderFailure, MarketOrderFailureEvent(
-                        self.current_timestamp, tracked_order.client_order_id, tracked_order.order_type))
-                    continue
-                await self._process_fill_message(result)
-                self._process_order_message(result)
+            async with self._order_lock:
+                if DEBUG:
+                    self.logger().warning('entering _update_order_status execution')
+                tracked_orders = list(self._in_flight_orders.values())
+                if DEBUG:
+                    exchange_order_ids = [tracked_order.exchange_order_id for tracked_order in tracked_orders]
+                    self.logger().warning(f"Polling order status updates for orders: {exchange_order_ids}")
+                tasks = [self.get_order(tracked_order.exchange_order_id) for tracked_order in tracked_orders]
+                update_results = await safe_gather(*tasks, return_exceptions=True)
+                tracked_order_result = [(o, r) for o, r in zip(tracked_orders, update_results)]
+                for tracked_order, result in tracked_order_result:
+                    if isinstance(result, Exception):
+                        self.logger().error(f"exception in _update_order_status get_order subtask: {result}")
+                        # remove failed order from tracked_orders
+                        self.stop_tracking_order(tracked_order.client_order_id)
+                        self.logger().error(f'Stopped tracking order: {tracked_order.client_order_id} wth failed get_order')
+                        self.trigger_event(MarketEvent.OrderFailure, MarketOrderFailureEvent(
+                            self.current_timestamp, tracked_order.client_order_id, tracked_order.order_type))
+                        continue
+                    await self._process_fill_message(result)
+                    self._process_order_message(result)
 
     def _process_order_message(self, order_msg: Dict[str, Any]):
         """
@@ -824,39 +824,38 @@ class IdexExchange(ExchangeBase):
         :param timeout_seconds: The timeout at which the operation will be canceled.
         :returns List of CancellationResult which indicates whether each order is successfully cancelled.
         """
-
-        incomplete_orders = [o for o in self._in_flight_orders.values() if not o.is_done]
-        tasks = [self.delete_order(o.trading_pair, o.client_order_id) for o in incomplete_orders]
-        order_id_set = set([o.client_order_id for o in incomplete_orders])
-        successful_cancellations = []
-
-        try:
-            async with timeout(timeout_seconds):
-                results = await safe_gather(*tasks, return_exceptions=True)
-                incomplete_order_result = list(zip(incomplete_orders, results))
-                for incomplete_order, result in incomplete_order_result:
-                    if isinstance(result, Exception):
-                        self.logger().error(
-                            f"exception in cancel_all , subtask delete_order. "
-                            f"client_order_id: {incomplete_order.client_order_id}, error: {result}",
-                        )
-                        continue
-                    order_id_set.remove(incomplete_order.client_order_id)
-                    successful_cancellations.append(CancellationResult(incomplete_order.client_order_id, True))
-        except asyncio.CancelledError as e:
-            if DEBUG:
-                self.logger().exception(f"cancel_all got async Cancellation error {e}. Details: ")
-            raise e
-        except Exception as e:
-            self.logger().network(
-                f"Unexpected error cancelling orders. Error: {str(e)}",
-                exc_info=True,
-                app_warning_msg="Failed to cancel order on Idex. Check API key and network connection."
-            )
-        # todo alf: what is the point of keeping failed_cancellations and successful_cancellations lists ?
-        #  ... are we not supposed to send Hummingbot events for these ?
-        failed_cancellations = [CancellationResult(oid, False) for oid in order_id_set]
-        return successful_cancellations + failed_cancellations
+        async with self._order_lock:
+            incomplete_orders = [o for o in self._in_flight_orders.values() if not o.is_done]
+            tasks = [self.delete_order(o.trading_pair, o.client_order_id) for o in incomplete_orders]
+            order_id_set = set([o.client_order_id for o in incomplete_orders])
+            successful_cancellations = []
+            try:
+                async with timeout(timeout_seconds):
+                    results = await safe_gather(*tasks, return_exceptions=True)
+                    incomplete_order_result = list(zip(incomplete_orders, results))
+                    for incomplete_order, result in incomplete_order_result:
+                        if isinstance(result, Exception):
+                            self.logger().error(
+                                f"exception in cancel_all , subtask delete_order. "
+                                f"client_order_id: {incomplete_order.client_order_id}, error: {result}",
+                            )
+                            continue
+                        order_id_set.remove(incomplete_order.client_order_id)
+                        successful_cancellations.append(CancellationResult(incomplete_order.client_order_id, True))
+            except asyncio.CancelledError as e:
+                if DEBUG:
+                    self.logger().exception(f"cancel_all got async Cancellation error {e}. Details: ")
+                raise e
+            except Exception as e:
+                self.logger().network(
+                    f"Unexpected error cancelling orders. Error: {str(e)}",
+                    exc_info=True,
+                    app_warning_msg="Failed to cancel order on Idex. Check API key and network connection."
+                )
+            # todo alf: what is the point of keeping failed_cancellations and successful_cancellations lists ?
+            #  ... are we not supposed to send Hummingbot events for these ?
+            failed_cancellations = [CancellationResult(oid, False) for oid in order_id_set]
+            return successful_cancellations + failed_cancellations
 
     def tick(self, timestamp: float):
         """
