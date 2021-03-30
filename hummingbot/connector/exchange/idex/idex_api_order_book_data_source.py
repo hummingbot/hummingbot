@@ -69,13 +69,22 @@ class IdexAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def get_last_traded_price(cls, trading_pair: str, base_url: str = "https://api-eth.idex.io") -> float:
         async with get_throttler().weighted_task(request_weight=1):
             async with aiohttp.ClientSession() as client:
-                resp = await client.get(f"{base_url}/v1/trades/?market={trading_pair}")
-                resp_json = await resp.json()
+                url = f"{base_url}/v1/trades/?market={trading_pair}"
+                resp = await client.get(url)
+                if resp.status != 200:
+                    data = await resp.json()
+                    raise IOError(f"Error fetching data from {url}. HTTP status is {resp.status}."
+                                  f"Data is: {data}")
                 # based on previous GET requests to the Idex trade URL, the most recent trade is located at the -1 index
                 # of the returned list of trades. This assumes pop() on the returned list is the optimal solution for
                 # retrieving the latest trade.
-                last_trade = resp_json[-1]
-                return float(last_trade["price"])
+                try:
+                    resp_json = await resp.json()
+                    last_trade = resp_json[-1]
+                    return float(last_trade["price"])
+                except Exception as e:
+                    raise IOError(f"Error fetching data from {url}. resp_json: {resp_json}."
+                                  f"exception: {e}")
 
     @classmethod
     @cachetools.func.ttl_cache(ttl=10)
