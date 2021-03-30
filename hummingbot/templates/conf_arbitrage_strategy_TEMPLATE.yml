@@ -22,10 +22,10 @@ min_profitability: null
 # Set this to either True or False
 use_oracle_conversion_rate: null
 
-# Base Price Source
+# Which Base rate conversion source to use (static_config_rate/external_market)
 base_rate_conversion_source: null
 
-# Quote Price Source
+# Which Quote rate conversion source to use (static_config_rate/external_market)
 quote_rate_conversion_source: null
 
 # The conversion rate for secondary base asset value to primary base asset value.
@@ -38,22 +38,18 @@ secondary_to_primary_base_conversion_rate: null
 # the conversion rate is 0.8 (1 / 1.25)
 secondary_to_primary_quote_conversion_rate: null
 
-# Base Price Source Exchange
+# Which connector to use for Base rate conversion
 base_conversion_ext_market_exchange: null
-
-# Base Price Source Market
+# Which trading pair to use for Base rate conversion
 base_conversion_ext_market_market: null
-
-# Base Price Source Type
+# Which price type to use for Base rate conversion (mid_price/last_price/best_bid/best_ask)
 base_conversion_ext_market_price_type: null
 
-# Quote Price Source Exchange
+# Which connector to use for Quote rate conversion
 quote_conversion_ext_market_exchange: null
-
-# Quote Price Source Market
+# Which trading pair to use for Quote rate conversion
 quote_conversion_ext_market_market: null
-
-# Quote Price Source Type
+# Which price type to use for Quote rate conversion (mid_price/last_price/best_bid/best_ask)
 quote_conversion_ext_market_price_type: null
 
 # For more detailed information, see:
