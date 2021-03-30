@@ -139,4 +139,11 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
     ticker_parser.add_argument("--market", type=str, dest="market", help="The market (trading pair) of the order book")
     ticker_parser.set_defaults(func=hummingbot.ticker)
 
+    rate_parser = subparsers.add_parser('rate', help="Show rate of a given trading pair")
+    rate_parser.add_argument("-p", "--pair", default=None,
+                             dest="pair", help="The market trading pair you want to see rate.")
+    rate_parser.add_argument("-t", "--token", default=None,
+                             dest="token", help="The token you want to see its value.")
+    rate_parser.set_defaults(func=hummingbot.rate)
+
     return parser

@@ -103,11 +103,12 @@ class CreateCommand:
         if input_value is None:
             if assign_default:
                 self.app.set_text(parse_config_default_to_text(config))
-            input_value = await self.app.prompt(prompt=config.prompt, is_password=config.is_secure)
+            prompt = await config.get_prompt()
+            input_value = await self.app.prompt(prompt=prompt, is_password=config.is_secure)
 
         if self.app.to_stop_config:
             return
-        err_msg = config.validate(input_value)
+        err_msg = await config.validate(input_value)
         if err_msg is not None:
             self._notify(err_msg)
             await self.prompt_a_config(config)
