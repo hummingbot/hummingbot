@@ -36,14 +36,14 @@ KEYS = {
                   required_if=using_exchange("dydx_perpetual"),
                   is_secure=True,
                   is_connect_key=True),
-    "stark_private_key":
-        ConfigVar(key="stark_private_key",
+    "dydx_perpetual_stark_private_key":
+        ConfigVar(key="dydx_perpetual_stark_private_key",
                   prompt="Enter your stark private key >>> ",
                   required_if=using_exchange("dydx_perpetual"),
                   is_secure=True,
                   is_connect_key=True),
-    "ethereum_address":
-        ConfigVar(key="ethereum_address",
+    "dydx_perpetual_ethereum_address":
+        ConfigVar(key="dydx_perpetual_ethereum_address",
                   prompt="Enter your ethereum wallet address >>> ",
                   required_if=using_exchange("dydx_perpetual"),
                   is_secure=True,

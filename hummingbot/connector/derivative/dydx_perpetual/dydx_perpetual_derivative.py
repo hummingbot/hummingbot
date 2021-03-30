@@ -139,8 +139,8 @@ class DydxPerpetualDerivative(DerivativeBase):
                  dydx_perpetual_api_secret: str,
                  dydx_perpetual_passphrase: str,
                  dydx_perpetual_account_number: int,
-                 ethereum_address: str,
-                 stark_private_key: str,
+                 dydx_perpetual_ethereum_address: str,
+                 dydx_perpetual_stark_private_key: str,
                  poll_interval: float = 10.0,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True):
@@ -169,8 +169,8 @@ class DydxPerpetualDerivative(DerivativeBase):
                                                                                   api_secret=dydx_perpetual_api_secret,
                                                                                   passphrase=dydx_perpetual_passphrase,
                                                                                   account_number=dydx_perpetual_account_number,
-                                                                                  stark_private_key=stark_private_key,
-                                                                                  ethereum_address=ethereum_address)
+                                                                                  stark_private_key=dydx_perpetual_stark_private_key,
+                                                                                  ethereum_address=dydx_perpetual_ethereum_address)
         # State
         self._dydx_auth = DydxPerpetualAuth(self.dydx_client)
         self._user_stream_tracker = DydxPerpetualUserStreamTracker(
