@@ -14,6 +14,7 @@ from hummingbot.core.utils.market_price import usd_value
 import pandas as pd
 from decimal import Decimal
 from typing import TYPE_CHECKING, Dict, Optional, List
+import threading
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
@@ -29,6 +30,10 @@ class BalanceCommand:
                 option: str = None,
                 args: List[str] = None
                 ):
+        if threading.current_thread() != threading.main_thread():
+            self.ev_loop.call_soon_threadsafe(self.balance, option, args)
+            return
+
         self.app.clear_input()
         if option is None:
             safe_ensure_future(self.show_balances())
