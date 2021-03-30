@@ -202,7 +202,7 @@ main_config_map = {
                   type_str="str",
                   default=None,
                   validator=lambda s: None if s in {"start",
-                                                    "config"} else "Invalid price type.",
+                                                    "config"} else "Invalid auto-fill prompt.",
                   required_if=lambda: False),
     "telegram_enabled":
         ConfigVar(key="telegram_enabled",
