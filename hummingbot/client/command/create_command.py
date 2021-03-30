@@ -97,6 +97,9 @@ class CreateCommand:
                               config: ConfigVar,
                               input_value=None,
                               assign_default=True):
+        if config.key == "inventory_price":
+            await self.inventory_price_prompt(self.strategy_config_map, input_value)
+            return
         if input_value is None:
             if assign_default:
                 self.app.set_text(parse_config_default_to_text(config))
