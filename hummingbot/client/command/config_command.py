@@ -236,9 +236,12 @@ class ConfigCommand:
             exchange = config_map["exchange"].value
             market = config_map["market"].value
             base_asset, quote_asset = market.split("-")
-            balances = await UserBalances.instance().balances(
-                exchange, base_asset, quote_asset
-            )
+            if global_config_map["paper_trade_enabled"].value:
+                balances = global_config_map["paper_trade_account_balance"].value
+            else:
+                balances = await UserBalances.instance().balances(
+                    exchange, base_asset, quote_asset
+                )
             if balances.get(base_asset) is None:
                 return
 
