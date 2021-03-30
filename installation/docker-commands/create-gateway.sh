@@ -148,6 +148,7 @@ prompt_token_list_source () {
   read -p "      (default = \"https://wispy-bird-88a7.uniswap.workers.dev/?url=http://tokens.1inch.eth.link\") >>> " ETHEREUM_TOKEN_LIST_URL
   if [ "$ETHEREUM_TOKEN_LIST_URL" == "" ]
   then
+    echo
     echo "ℹ️  Retrieving config from Hummingbot config file ... "
     ETHEREUM_SETUP=true
     ETHEREUM_TOKEN_LIST_URL=https://wispy-bird-88a7.uniswap.workers.dev/?url=http://tokens.1inch.eth.link
@@ -206,13 +207,14 @@ prompt_eth_gasstation_setup () {
       prompt_eth_gasstation_setup
     fi
   fi
+  echo
 }
 prompt_eth_gasstation_setup
 
 prompt_balancer_setup () {
-  # Ask the user for the max balancer pool to use
-  echo
-  read -p "   Enter the maximum balancer swap pool (default = \"4\") >>> " BALANCER_MAX_SWAPS
+  # Ask the user for the Balancer specific settings
+  echo "ℹ️  Balancer setting "
+  read -p "   Enter the maximum Balancer swap pool (default = \"4\") >>> " BALANCER_MAX_SWAPS
   if [ "$BALANCER_MAX_SWAPS" == "" ]
   then
     BALANCER_MAX_SWAPS="4"
@@ -220,10 +222,21 @@ prompt_balancer_setup () {
   fi
 }
 
+prompt_uniswap_setup () {
+  # Ask the user for the Uniswap specific settings
+  echo "ℹ️  Uniswap setting "
+  read -p "   Enter the allowed slippage for swap transactions (default = \"1.5\") >>> " UNISWAP_SLIPPAGE
+  if [ "$UNISWAP_SLIPPAGE" == "" ]
+  then
+    UNISWAP_SLIPPAGE="1.5"
+    echo
+  fi
+}
 
 if [[ "$ETHEREUM_SETUP" == true ]]
 then
   prompt_balancer_setup
+  prompt_uniswap_setup
 fi
 
 # Ask the user for ethereum network
@@ -325,6 +338,7 @@ printf "%30s %5s\n" "Balancer Subgraph:" "$REACT_APP_SUBGRAPH_URL"
 printf "%30s %5s\n" "Balancer Exchange Proxy:" "$EXCHANGE_PROXY"
 printf "%30s %5s\n" "Balancer Max Swaps:" "$BALANCER_MAX_SWAPS"
 printf "%30s %5s\n" "Uniswap Router:" "$UNISWAP_ROUTER"
+printf "%30s %5s\n" "Uniswap Allowed Slippage:" "$UNISWAP_SLIPPAGE"
 printf "%30s %5s\n" "Terra Chain:" "$TERRA"
 printf "%30s %5s\n" "Gateway Log Path:" "$LOG_PATH"
 printf "%30s %5s\n" "Gateway Cert Path:" "$CERT_PATH"
@@ -365,7 +379,7 @@ echo "BALANCER_MAX_SWAPS=$BALANCER_MAX_SWAPS" >> $ENV_FILE
 echo "" >> $ENV_FILE
 echo "# Uniswap Settings" >> $ENV_FILE
 echo "UNISWAP_ROUTER=$UNISWAP_ROUTER" >> $ENV_FILE
-echo "UNISWAP_ALLOWED_SLIPPAGE=1" >> $ENV_FILE
+echo "UNISWAP_ALLOWED_SLIPPAGE=$UNISWAP_SLIPPAGE" >> $ENV_FILE
 echo "UNISWAP_NO_RESERVE_CHECK_INTERVAL=300000" >> $ENV_FILE
 echo "UNISWAP_PAIRS_CACHE_TIME=1000" >> $ENV_FILE
 
