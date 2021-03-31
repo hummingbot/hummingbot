@@ -69,8 +69,8 @@ okex_api_key: null
 okex_secret_key: null
 okex_passphrase: null
 
-bitmax_api_key: null
-bitmax_secret_key: null
+ascend_ex_api_key: null
+ascend_ex_secret_key: null
 
 celo_address: null
 celo_password: null
