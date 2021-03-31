@@ -2,9 +2,7 @@
 
 import asyncio
 import aiohttp
-import cachetools.func
 from collections import namedtuple
-from decimal import Decimal
 import logging
 import pandas as pd
 from typing import (
@@ -15,7 +13,6 @@ from typing import (
     Optional
 )
 import re
-import requests
 import time
 import ujson
 import websockets
@@ -67,20 +64,6 @@ class BlocktaneAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @property
     def trading_pairs(self) -> List[str]:
         return self._trading_pairs
-
-    @staticmethod
-    @cachetools.func.ttl_cache(ttl=10)
-    def get_mid_price(trading_pair: str) -> Optional[Decimal]:
-        exchange_trading_pair: str = convert_to_exchange_trading_pair(trading_pair)
-
-        try:
-            resp = requests.get(url=f"{SINGLE_MARKET_DEPTH_URL.format(exchange_trading_pair)}?limit=1").json()
-            best_bid: Decimal = Decimal(resp["bids"][0][0])
-            best_ask: Decimal = Decimal(resp["ask"][0][0])
-
-            return (best_ask + best_bid) / 2
-        except Exception:
-            return None
 
     @staticmethod
     async def fetch_trading_pairs() -> List[str]:
