@@ -36,6 +36,7 @@ if TYPE_CHECKING:
 no_restart_pmm_keys_in_percentage = ["bid_spread", "ask_spread", "order_level_spread", "inventory_target_base_pct"]
 no_restart_pmm_keys = ["order_amount", "order_levels", "filled_order_delay", "inventory_skew_enabled", "inventory_range_multiplier"]
 global_configs_to_display = ["0x_active_cancels",
+                             "autofill_import",
                              "kill_switch_enabled",
                              "kill_switch_rate",
                              "telegram_enabled",
@@ -48,7 +49,11 @@ global_configs_to_display = ["0x_active_cancels",
                              "gateway_enabled",
                              "gateway_cert_passphrase",
                              "gateway_api_host",
-                             "gateway_api_port"]
+                             "gateway_api_port",
+                             "balancer_max_swaps",
+                             "rate_oracle_source",
+                             "global_token",
+                             "global_token_symbol"]
 
 
 class ConfigCommand:
@@ -193,7 +198,7 @@ class ConfigCommand:
             balances = await UserBalances.instance().balances(exchange, base, quote)
             if balances is None:
                 return
-            base_ratio = UserBalances.base_amount_ratio(exchange, market, balances)
+            base_ratio = await UserBalances.base_amount_ratio(exchange, market, balances)
             if base_ratio is None:
                 return
             base_ratio = round(base_ratio, 3)
