@@ -91,6 +91,7 @@ class IdexExchange(ExchangeBase):
         self._trading_rules_polling_task = None
         self._last_poll_timestamp = 0
         self._exchange_info = None  # stores info about the exchange. Periodically polled from GET /v1/exchange
+        self._market_info = None    # stores info about the markets. Periodically polled from GET /v1/markets
         # self._throttler_public_endpoint = Throttler(rate_limit=(2, 1.0))  # rate_limit=(weight, t_period)
         # self._throttler_user_endpoint = Throttler(rate_limit=(3, 1.0))  # rate_limit=(weight, t_period)
         # self._throttler_trades_endpoint = Throttler(rate_limit=(4, 1.0))  # rate_limit=(weight, t_period)
@@ -122,7 +123,7 @@ class IdexExchange(ExchangeBase):
         return {
             "order_books_initialized": self._order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
-            # "trading_rule_initialized": len(self._trading_rules) > 0, no trading rules applied at this time
+            "trading_rule_initialized": len(self._trading_rules) > 0,
             "user_stream_initialized":
                 self._user_stream_tracker.data_source.last_recv_time > 0 if self._trading_required else True,
         }
@@ -197,19 +198,20 @@ class IdexExchange(ExchangeBase):
         """
         super().stop(clock)
 
-    @staticmethod
-    def get_order_price_quantum(trading_pair: str, price: Decimal) -> Decimal:
+    def get_order_price_quantum(self, trading_pair: str, price: Decimal) -> Decimal:
         """Provides the Idex standard minimum price increment across all trading pairs"""
-        return Decimal(str(0.00000001))
+        trading_rule = self._trading_rules[trading_pair]
+        return trading_rule.min_price_increment
 
-    @staticmethod
-    def get_order_size_quantum(trading_pair: str, order_size: Decimal) -> Decimal:
+    def get_order_size_quantum(self, trading_pair: str, order_size: Decimal) -> Decimal:
         """Provides the Idex standard minimum order increment across all trading pairs"""
-        return Decimal(str(0.00000001))
+        trading_rule = self._trading_rules[trading_pair]
+        return Decimal(trading_rule.min_base_amount_increment)
 
     async def start_network(self):
         await self.stop_network()
         self._order_book_tracker.start()
+        self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
@@ -220,11 +222,14 @@ class IdexExchange(ExchangeBase):
 
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
+        if self._trading_rules_polling_task is not None:
+            self._trading_rules_polling_task.cancel()
         if self._user_stream_tracker_task is not None:
             self._user_stream_tracker_task.cancel()
         if self._user_stream_event_listener_task is not None:
             self._user_stream_event_listener_task.cancel()
-        self._status_polling_task = self._user_stream_tracker_task = self._user_stream_event_listener_task = None
+        self._status_polling_task = self._trading_rules_polling_task = \
+            self._user_stream_tracker_task = self._user_stream_event_listener_task = None
 
     async def check_network(self) -> NetworkStatus:
         """
@@ -238,6 +243,78 @@ class IdexExchange(ExchangeBase):
         except Exception:
             return NetworkStatus.NOT_CONNECTED
         return NetworkStatus.CONNECTED
+
+    async def _trading_rules_polling_loop(self):
+        """
+        Periodically update trading rule.
+        """
+        while True:
+            try:
+                await self._update_trading_rules()
+                await asyncio.sleep(60)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                self.logger().network(f"Unexpected error while fetching trading rules. Error: {str(e)}",
+                                      exc_info=True,
+                                      app_warning_msg="Could not fetch new trading rules from Idex. "
+                                                      "Check network connection.")
+                await asyncio.sleep(0.5)
+
+    async def _update_trading_rules(self):
+        exchange_info = self._exchange_info if self._exchange_info else await self.get_exchange_info_from_api()
+        market_info = self._market_info if self._market_info else await self.get_market_info_from_api()
+        self._trading_rules.clear()
+        self._trading_rules = self._format_trading_rules(exchange_info, market_info)
+
+    def _format_trading_rules(self, exchange_info: Dict[str, Any], market_info: List[Dict]) -> Dict[str, TradingRule]:
+        """
+        Converts json API response into a dictionary of trading rules.
+        :param exchange_info: The json API responsen for exchange rules
+        :param market_info: The json API response for trading pairs
+        :return A dictionary of trading rules.
+        Exchange Response Example:
+        {
+            "timeZone": "UTC",
+            "serverTime": 1590408000000,
+            "ethereumDepositContractAddress": "0x...",
+            "ethUsdPrice": "206.46",
+            "gasPrice": 7,
+            "volume24hUsd": "10416227.98",
+            "makerFeeRate": "0.001",
+            "takerFeeRate": "0.002",
+            "makerTradeMinimum": "0.15000000",
+            "takerTradeMinimum": "0.05000000",
+            "withdrawalMinimum": "0.04000000"
+        }
+
+        Market Response Example:
+        [
+            {
+                "market": "ETH-USDC",
+                "status": "active",
+                "baseAsset": "ETH",
+                "baseAssetPrecision": 8,
+                "quoteAsset": "USDC",
+                "quoteAssetPrecision": 8
+            },
+            ...
+        ]
+        """
+        rules = {}
+        price_step = Decimal(str(0.00000001))
+        quantity_step = Decimal(str(0.00000001))
+        minimum_order_size = Decimal(str(exchange_info["makerTradeMinimum"]))
+        for t_pair in market_info:
+            trading_pair = t_pair["market"]
+            try:
+                rules[trading_pair] = TradingRule(trading_pair=trading_pair,
+                                                  min_order_size=minimum_order_size,
+                                                  min_price_increment=price_step,
+                                                  min_base_amount_increment=quantity_step)
+            except Exception:
+                self.logger().error(f"Error parsing the exchange rules for {t_pair}. Skipping.", exc_info=True)
+        return rules
 
     def buy(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
             price: Decimal = s_decimal_NaN, **kwargs) -> str:
@@ -274,9 +351,9 @@ class IdexExchange(ExchangeBase):
         Cancel an order. This function returns immediately.
         To get the cancellation result, you'll have to wait for OrderCancelledEvent.
         :param trading_pair: The market (e.g. BTC-USDT) of the order.
-        :param order_id: The internal order id (also called client_order_id)
+        :param client_order_id: The internal order id
         """
-
+        self.logger().info("Cancellation has been called for")
         order_cancellation = safe_ensure_future(self._execute_cancel(trading_pair, client_order_id))
         return order_cancellation
 
@@ -285,7 +362,7 @@ class IdexExchange(ExchangeBase):
         Executes order cancellation process by first calling cancel-order API. The API result doesn't confirm whether
         the cancellation is successful, it simply states it receives the request.
         :param trading_pair: The market trading pair
-        :param order_id: The internal order id
+        :param client_order_id: The internal order id
         order.last_state to change to CANCELED
         """
         async with self._order_lock:
@@ -327,7 +404,7 @@ class IdexExchange(ExchangeBase):
                     # The order was never there to begin with. So cancelling it is a no-op but semantically successful.
                     self.stop_tracking_order(client_order_id)
                     self.trigger_event(MarketEvent.OrderCancelled,
-                                       OrderCancelledEvent(self._current_timestamp, client_order_id))
+                                       OrderCancelledEvent(self.current_timestamp, client_order_id))
                     return client_order_id
                 else:
                     self.logger().warning(f'About to re-raise exception in _execute_cancel: {str(e)}')
@@ -374,7 +451,7 @@ class IdexExchange(ExchangeBase):
                 return data
 
     async def get_order(self, exchange_order_id: str) -> Dict[str, Any]:
-        """Requests order information through API with exchange orderId. Returns json data with order details"""
+        """Requests order information through API with exchange order Id. Returns json data with order details"""
         async with get_throttler().weighted_task(request_weight=1):
             if DEBUG:
                 self.logger().warning(f'<|<|<|<|< entering get_order({exchange_order_id})')
@@ -485,8 +562,8 @@ class IdexExchange(ExchangeBase):
 
             auth_dict = self._idex_auth.generate_auth_dict_for_delete(url=url, body=body, wallet_signature=wallet_signature)
             session: aiohttp.ClientSession = await self._http_client()
-            if DEBUG:
-                self.logger().info(f"Cancelling order {client_order_id} for {trading_pair}.")
+            # if DEBUG:
+            self.logger().info(f"Cancelling order {client_order_id} for {trading_pair}.")
             async with session.delete(auth_dict["url"], data=auth_dict["body"], headers=auth_dict["headers"]) as response:
                 if response.status != 200:
                     data = await response.json()
@@ -522,6 +599,17 @@ class IdexExchange(ExchangeBase):
                     raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}")
                 return await response.json()
 
+    async def get_market_info_from_api(self) -> List[Dict]:
+        """Requests all markets (trading pairs) available to Idex users."""
+        async with get_throttler().weighted_task(request_weight=1):
+            rest_url = get_idex_rest_url()
+            url = f"{rest_url}/v1/markets"
+            session: aiohttp.ClientSession = await self._http_client()
+            async with session.get(url) as response:
+                if response.status != 200:
+                    raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}")
+                return await response.json()
+
     async def _create_order(self,
                             trade_type: TradeType,
                             order_id: str,
@@ -542,7 +630,7 @@ class IdexExchange(ExchangeBase):
 
             if not order_type.is_limit_type():
                 raise Exception(f"Unsupported order type: {order_type}")
-            # trading_rule = self._trading_rules[trading_pair]  # No trading rules applied at this time
+            trading_rule = self._trading_rules[trading_pair]  # No trading rules applied at this time
 
             idex_order_param = hb_order_type_to_idex_param(order_type)
             idex_trade_param = hb_trade_type_to_idex_param(trade_type)
@@ -550,10 +638,9 @@ class IdexExchange(ExchangeBase):
             amount = self.quantize_order_amount(trading_pair, amount)
             price = self.quantize_order_price(trading_pair, price)
 
-            # todo alf: time to revise this
-            # if amount < trading_rule.min_order_size:       # No trading rules applied at this time
-            #    raise ValueError(f"Buy order amount {amount} is lower than the minimum order size "
-            #                     f"{trading_rule.min_order_size}.")
+            if amount < trading_rule.min_order_size:
+                raise ValueError(f"Buy order amount {amount} is lower than the minimum order size "
+                                 f"{trading_rule.min_order_size}.")
 
             api_params = {
                 "market": trading_pair,
@@ -660,7 +747,8 @@ class IdexExchange(ExchangeBase):
                 await safe_gather(
                     self._update_balances(),
                     self._update_order_status(),
-                    self._update_exchange_info()
+                    self._update_exchange_info(),
+                    self._update_market_info()
                 )
             except asyncio.CancelledError:
                 raise
@@ -894,6 +982,11 @@ class IdexExchange(ExchangeBase):
     async def _update_exchange_info(self):
         """Call REST API to update basic exchange info"""
         self._exchange_info = await self.get_exchange_info_from_api()
+
+    @async_ttl_cache(ttl=60 * 10, maxsize=1)
+    async def _update_market_info(self):
+        """Call REST API to update basic market info"""
+        self._market_info = await self.get_market_info_from_api()
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
         while True:
