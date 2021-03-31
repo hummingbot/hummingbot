@@ -9,12 +9,12 @@ from datetime import datetime
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.client.config.security import Security
 from hummingbot.user.user_balances import UserBalances
-from hummingbot.core.utils.market_price import usd_value
 from hummingbot.core.data_type.trade import Trade
 from hummingbot.core.data_type.common import OpenOrder
 from hummingbot.client.performance import calculate_performance_metrics
 from hummingbot.client.command.history_command import get_timestamp
 from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 
 s_float_0 = float(0)
 s_decimal_0 = Decimal("0")
@@ -73,16 +73,17 @@ class PnlCommand:
                 markets = set(global_config_map["binance_markets"].value.split(","))
         markets = sorted(markets)
         data = []
-        columns = ["Market", " Traded ($)", " Fee ($)", " PnL ($)", " Return %"]
+        g_sym = RateOracle.global_token_symbol
+        columns = ["Market", f" Traded ({g_sym})", f" Fee ({g_sym})", f" PnL ({g_sym})", " Return %"]
         for market in markets:
             base, quote = market.split("-")
             trades: List[Trade] = await connector.get_my_trades(market, days)
             if not trades:
                 continue
             perf = await calculate_performance_metrics(exchange, market, trades, cur_balances)
-            volume = await usd_value(quote, abs(perf.b_vol_quote) + abs(perf.s_vol_quote))
-            fee = await usd_value(quote, perf.fee_in_quote)
-            pnl = await usd_value(quote, perf.total_pnl)
+            volume = await RateOracle.global_value(quote, abs(perf.b_vol_quote) + abs(perf.s_vol_quote))
+            fee = await RateOracle.global_value(quote, perf.fee_in_quote)
+            pnl = await RateOracle.global_value(quote, perf.total_pnl)
             data.append([market, round(volume, 2), round(fee, 2), round(pnl, 2), f"{perf.return_pct:.2%}"])
         if not data:
             self._notify(f"No trades during the last {days} day(s).")
@@ -91,4 +92,5 @@ class PnlCommand:
         df: pd.DataFrame = pd.DataFrame(data=data, columns=columns)
         lines.extend(["    " + line for line in df.to_string(index=False).split("\n")])
         self._notify("\n" + "\n".join(lines))
-        self._notify(f"\n  Total PnL: $ {df[' PnL ($)'].sum():.2f}    Total fee: $ {df[' Fee ($)'].sum():.2f}")
+        self._notify(f"\n  Total PnL: {g_sym} {df[f' PnL ({g_sym})'].sum():.2f}    "
+                     f"Total fee: {g_sym} {df[f' Fee ({g_sym})'].sum():.2f}")
