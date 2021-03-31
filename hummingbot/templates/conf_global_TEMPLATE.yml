@@ -37,6 +37,10 @@ coinbase_pro_passphrase: null
 dydx_eth_private_key: null
 dydx_node_address: null
 
+ftx_api_key: null
+ftx_secret_key: null
+ftx_subaccount_name: null
+
 huobi_api_key: null
 huobi_secret_key: null
 
