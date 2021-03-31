@@ -196,6 +196,14 @@ main_config_map = {
                   default=-100,
                   validator=lambda v: validate_decimal(v, Decimal(-100), Decimal(100)),
                   required_if=lambda: global_config_map["kill_switch_enabled"].value),
+    "autofill_import":
+        ConfigVar(key="autofill_import",
+                  prompt="What to auto-fill in the prompt after each import command? (start/config) >>> ",
+                  type_str="str",
+                  default=None,
+                  validator=lambda s: None if s in {"start",
+                                                    "config"} else "Invalid auto-fill prompt.",
+                  required_if=lambda: False),
     "telegram_enabled":
         ConfigVar(key="telegram_enabled",
                   prompt="Would you like to enable telegram? >>> ",
