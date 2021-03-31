@@ -9,6 +9,7 @@ from math import (
     ceil
 )
 from numpy import isnan
+import pandas as pd
 from typing import (
     List,
     Tuple,
@@ -29,6 +30,7 @@ from hummingbot.strategy.strategy_base import StrategyBase
 from .cross_exchange_market_pair import CrossExchangeMarketPair
 from .order_id_market_pair_tracker import OrderIDMarketPairTracker
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
+from hummingbot.client.performance import smart_round
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -137,6 +139,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         self._use_oracle_conversion_rate = use_oracle_conversion_rate
         self._taker_to_maker_base_conversion_rate = taker_to_maker_base_conversion_rate
         self._taker_to_maker_quote_conversion_rate = taker_to_maker_quote_conversion_rate
+        self._last_conv_rates_logged = 0
         self._hb_app_notification = hb_app_notification
 
         self._maker_order_ids = []
@@ -170,6 +173,56 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     def logging_options(self, int64_t logging_options):
         self._logging_options = logging_options
 
+    def get_taker_to_maker_conversion_rate(self) -> Tuple[str, Decimal, str, Decimal]:
+        """
+        Find conversion rates from taker market to maker market
+        :return: A tuple of quote pair symbol, quote conversion rate source, quote conversion rate,
+        base pair symbol, base conversion rate source, base conversion rate
+        """
+        quote_rate = Decimal("1")
+        market_pairs = list(self._market_pairs.values())[0]
+        quote_pair = f"{market_pairs.taker.quote_asset}-{market_pairs.maker.quote_asset}"
+        quote_rate_source = "fixed"
+        if self._use_oracle_conversion_rate:
+            if market_pairs.taker.quote_asset != market_pairs.maker.quote_asset:
+                quote_rate_source = RateOracle.source.name
+                quote_rate = RateOracle.get_instance().rate(quote_pair)
+        else:
+            quote_rate = self._taker_to_maker_quote_conversion_rate
+        base_rate = Decimal("1")
+        base_pair = f"{market_pairs.taker.base_asset}-{market_pairs.maker.base_asset}"
+        base_rate_source = "fixed"
+        if self._use_oracle_conversion_rate:
+            if market_pairs.taker.base_asset != market_pairs.maker.base_asset:
+                base_rate_source = RateOracle.source.name
+                base_rate = RateOracle.get_instance().rate(base_pair)
+        else:
+            base_rate = self._taker_to_maker_base_conversion_rate
+        return quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate
+
+    def log_conversion_rates(self):
+        quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate = \
+            self.get_taker_to_maker_conversion_rate()
+        if quote_pair.split("-")[0] != quote_pair.split("-")[1]:
+            self.logger().info(f"{quote_pair} ({quote_rate_source}) conversion rate: {smart_round(quote_rate)}")
+        if base_pair.split("-")[0] != base_pair.split("-")[1]:
+            self.logger().info(f"{base_pair} ({base_rate_source}) conversion rate: {smart_round(base_rate)}")
+
+    def oracle_status_df(self):
+        columns = ["Source", "Pair", "Rate"]
+        data = []
+        quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate = \
+            self.get_taker_to_maker_conversion_rate()
+        if quote_pair.split("-")[0] != quote_pair.split("-")[1]:
+            data.extend([
+                [quote_rate_source, quote_pair, smart_round(quote_rate)],
+            ])
+        if base_pair.split("-")[0] != base_pair.split("-")[1]:
+            data.extend([
+                [base_rate_source, base_pair, smart_round(base_rate)],
+            ])
+        return pd.DataFrame(data=data, columns=columns)
+
     def format_status(self) -> str:
         cdef:
             list lines = []
@@ -192,6 +245,11 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             markets_df = self.market_status_data_frame([market_pair.maker, market_pair.taker])
             lines.extend(["", "  Markets:"] +
                          ["    " + line for line in str(markets_df).split("\n")])
+
+            oracle_df = self.oracle_status_df()
+            if not oracle_df.empty:
+                lines.extend(["", "  Rate conversion:"] +
+                             ["    " + line for line in str(oracle_df).split("\n")])
 
             assets_df = self.wallet_balance_data_frame([market_pair.maker, market_pair.taker])
             lines.extend(["", "  Assets:"] +
@@ -308,6 +366,10 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             # Process each market pair independently.
             for market_pair in self._market_pairs.values():
                 self.c_process_market_pair(market_pair, market_pair_to_active_orders[market_pair])
+            # log conversion rates every 5 minutes
+            if self._last_conv_rates_logged + (60. * 5) < self._current_timestamp:
+                self.log_conversion_rates()
+                self._last_conv_rates_logged = self._current_timestamp
         finally:
             self._last_timestamp = timestamp
 
@@ -1102,12 +1164,15 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         if not self._use_oracle_conversion_rate:
             return self._taker_to_maker_quote_conversion_rate / self._taker_to_maker_base_conversion_rate
         else:
-            market_pairs = list(self._market_pairs.values())[0]
-            quote_pair = f"{market_pairs.taker.quote_asset}-{market_pairs.maker.quote_asset}"
-            base_pair = f"{market_pairs.taker.base_asset}-{market_pairs.maker.base_asset}"
-            quote_rate = RateOracle.get_instance().rate(quote_pair)
-            base_rate = RateOracle.get_instance().rate(base_pair)
+            _, _, quote_rate, _, _, base_rate = self.get_taker_to_maker_conversion_rate()
             return quote_rate / base_rate
+        # else:
+        #     market_pairs = list(self._market_pairs.values())[0]
+        #     quote_pair = f"{market_pairs.taker.quote_asset}-{market_pairs.maker.quote_asset}"
+        #     base_pair = f"{market_pairs.taker.base_asset}-{market_pairs.maker.base_asset}"
+        #     quote_rate = RateOracle.get_instance().rate(quote_pair)
+        #     base_rate = RateOracle.get_instance().rate(base_pair)
+        #     return quote_rate / base_rate
 
     cdef c_check_and_create_new_orders(self, object market_pair, bint has_active_bid, bint has_active_ask):
         """
