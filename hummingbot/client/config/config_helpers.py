@@ -11,6 +11,7 @@ from os.path import (
 )
 from collections import OrderedDict
 import json
+import requests
 from typing import (
     Any,
     Callable,
@@ -31,6 +32,7 @@ from hummingbot.client.settings import (
     CONF_FILE_PATH,
     CONF_POSTFIX,
     CONF_PREFIX,
+    TOKEN_ADDRESSES_FILE_PATH,
     CONNECTOR_SETTINGS
 )
 from hummingbot.client.config.security import Security
