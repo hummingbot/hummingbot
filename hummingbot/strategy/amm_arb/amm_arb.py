@@ -255,9 +255,9 @@ class AmmArbStrategy(StrategyPyBase):
             sell_price = await market.get_quote_price(trading_pair, False, self._order_amount)
 
             # check for unavailable price data
-            buy_price = float(buy_price) if buy_price is not None else '-'
-            sell_price = float(sell_price) if sell_price is not None else '-'
-            mid_price = float((buy_price + sell_price) / 2) if '-' not in [buy_price, sell_price] else '-'
+            buy_price = Decimal(str(buy_price)) if buy_price is not None else '-'
+            sell_price = Decimal(str(sell_price)) if sell_price is not None else '-'
+            mid_price = ((buy_price + sell_price) / 2) if '-' not in [buy_price, sell_price] else '-'
 
             data.append([
                 market.display_name,
