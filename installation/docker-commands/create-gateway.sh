@@ -40,7 +40,7 @@ else
     else
       echo "‼️  hummingbot_conf & hummingbot_certs directory missing from path $FOLDER"
       prompt_hummingbot_data_path
-    fi 
+    fi
 
     if [[ -f "$FOLDER/hummingbot_certs/server_cert.pem" && -f "$FOLDER/hummingbot_certs/server_key.pem" && -f "$FOLDER/hummingbot_certs/ca_cert.pem" ]]; then
       echo
@@ -95,7 +95,7 @@ prompt_ethereum_setup () {
     # chain selection
     if [ "$ETHEREUM_CHAIN" == "" ]
     then
-      ETHEREUM_CHAIN="mainnet"      
+      ETHEREUM_CHAIN="mainnet"
     fi
     if [[ "$ETHEREUM_CHAIN" != "mainnet" && "$ETHEREUM_CHAIN" != "kovan" ]]
     then
@@ -238,6 +238,18 @@ then
   prompt_balancer_setup
   prompt_uniswap_setup
 fi
+
+prompt_xdai_setup () {
+  # Ask the user for the Uniswap specific settings
+  echo "ℹ️  XDAI setting "
+  read -p "   Enter preferred XDAI rpc provider (default = \"https://rpc.xdaichain.com\") >>> " XDAI_PROVIDER
+  if [ "$XDAI_PROVIDER" == "" ]
+  then
+    XDAI_PROVIDER="https://rpc.xdaichain.com"
+    echo
+  fi
+}
+prompt_xdai_setup
 
 # Ask the user for ethereum network
 prompt_terra_network () {
@@ -392,7 +404,7 @@ echo "TERRA_CHAIN=$TERRA_CHAIN" >> $ENV_FILE
 # perpeptual finance config
 echo "" >> $ENV_FILE
 echo "# Perpeptual Settings" >> $ENV_FILE
-echo "XDAI_PROVIDER=https://rpc.xdaichain.com" >> $ENV_FILE
+echo "XDAI_PROVIDER=$XDAI_PROVIDER" >> $ENV_FILE
 
 echo "" >> $ENV_FILE
 
