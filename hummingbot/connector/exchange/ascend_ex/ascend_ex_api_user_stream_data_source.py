@@ -9,11 +9,12 @@ import ujson
 from typing import Optional, List, AsyncIterable, Any
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.bitmax.bitmax_auth import BitmaxAuth
-from hummingbot.connector.exchange.bitmax.bitmax_constants import REST_URL, getWsUrlPriv, PONG_PAYLOAD
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_constants import REST_URL, PONG_PAYLOAD
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_utils import get_ws_url_private
 
 
-class BitmaxAPIUserStreamDataSource(UserStreamTrackerDataSource):
+class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
     MAX_RETRIES = 20
     MESSAGE_TIMEOUT = 10.0
     PING_TIMEOUT = 5.0
@@ -26,8 +27,8 @@ class BitmaxAPIUserStreamDataSource(UserStreamTrackerDataSource):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, bitmax_auth: BitmaxAuth, trading_pairs: Optional[List[str]] = []):
-        self._bitmax_auth: BitmaxAuth = bitmax_auth
+    def __init__(self, ascend_ex_auth: AscendExAuth, trading_pairs: Optional[List[str]] = []):
+        self._ascend_ex_auth: AscendExAuth = ascend_ex_auth
         self._trading_pairs = trading_pairs
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
@@ -50,18 +51,18 @@ class BitmaxAPIUserStreamDataSource(UserStreamTrackerDataSource):
         while True:
             try:
                 response = await aiohttp.ClientSession().get(f"{REST_URL}/info", headers={
-                    **self._bitmax_auth.get_headers(),
-                    **self._bitmax_auth.get_auth_headers("info"),
+                    **self._ascend_ex_auth.get_headers(),
+                    **self._ascend_ex_auth.get_auth_headers("info"),
                 })
                 info = await response.json()
                 accountGroup = info.get("data").get("accountGroup")
-                headers = self._bitmax_auth.get_auth_headers("stream")
+                headers = self._ascend_ex_auth.get_auth_headers("stream")
                 payload = {
                     "op": "sub",
                     "ch": "order:cash"
                 }
 
-                async with websockets.connect(f"{getWsUrlPriv(accountGroup)}/stream", extra_headers=headers) as ws:
+                async with websockets.connect(f"{get_ws_url_private(accountGroup)}/stream", extra_headers=headers) as ws:
                     try:
                         ws: websockets.WebSocketClientProtocol = ws
                         await ws.send(ujson.dumps(payload))
@@ -75,12 +76,12 @@ class BitmaxAPIUserStreamDataSource(UserStreamTrackerDataSource):
                                 output.put_nowait(msg)
                             except Exception:
                                 self.logger().error(
-                                    "Unexpected error when parsing Bitmax message. ", exc_info=True
+                                    "Unexpected error when parsing AscendEx message. ", exc_info=True
                                 )
                                 raise
                     except Exception:
                         self.logger().error(
-                            "Unexpected error while listening to Bitmax messages. ", exc_info=True
+                            "Unexpected error while listening to AscendEx messages. ", exc_info=True
                         )
                         raise
                     finally:
@@ -89,7 +90,7 @@ class BitmaxAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 raise
             except Exception:
                 self.logger().error(
-                    "Unexpected error with Bitmax WebSocket connection. " "Retrying after 30 seconds...", exc_info=True
+                    "Unexpected error with AscendEx WebSocket connection. " "Retrying after 30 seconds...", exc_info=True
                 )
                 await asyncio.sleep(30.0)
 
