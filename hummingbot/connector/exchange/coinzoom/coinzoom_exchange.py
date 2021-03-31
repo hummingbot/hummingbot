@@ -729,6 +729,7 @@ class CoinzoomExchange(ExchangeBase):
                 Decimal(str(update_msg.get("averagePrice", update_msg.get("price", "0")))),
                 tracked_order.executed_amount_base,
                 TradeFee(percent=update_msg["trade_fee"]),
+                update_msg.get("exchange_trade_id", update_msg.get("id", update_msg.get("orderId")))
             )
         )
         if math.isclose(tracked_order.executed_amount_base, tracked_order.amount) or \

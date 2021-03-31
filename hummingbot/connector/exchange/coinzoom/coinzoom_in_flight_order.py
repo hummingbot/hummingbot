@@ -134,6 +134,7 @@ class CoinzoomInFlightOrder(InFlightOrderBase):
                 trade_id = str(trade["timestamp"])
                 if trade_id not in self.trade_id_set:
                     self.trade_id_set.add(trade_id)
+                    order_update["exchange_trade_id"] = trade.get("id")
                     # Add executed amounts
                     executed_price = Decimal(str(trade.get("lastPrice", "0")))
                     self.executed_amount_base += Decimal(str(trade["lastQuantity"]))
