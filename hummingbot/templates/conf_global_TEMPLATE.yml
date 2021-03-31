@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 19
+template_version: 20
 
 # Exchange configs
 bamboo_relay_use_coordinator: false
@@ -78,6 +78,9 @@ celo_password: null
 terra_wallet_address: null
 terra_wallet_seeds: null
 
+digifinex_api_key: null
+digifinex_secret_key: null
+
 balancer_max_swaps: 4
 
 probit_api_key: null
@@ -97,6 +100,9 @@ ethereum_token_list_url: null
 kill_switch_enabled: null
 # The rate of performance at which you would want the bot to stop trading (-20 = 20%)
 kill_switch_rate: null
+
+# What to auto-fill in the prompt after each import command (start/config)
+autofill_import: null
 
 # DEX active order cancellation
 0x_active_cancels: false
