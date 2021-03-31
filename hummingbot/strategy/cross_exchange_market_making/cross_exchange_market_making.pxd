@@ -36,6 +36,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         object _taker_to_maker_quote_conversion_rate
         bint _hb_app_notification
         list _maker_order_ids
+        double _last_conv_rates_logged
 
     cdef c_process_market_pair(self,
                                object market_pair,
