@@ -6,12 +6,12 @@ class Constants:
     https://api-markets.coinzoom.com/
     """
     EXCHANGE_NAME = "coinzoom"
-    # REST_URL = "https://api.coinzoom.com/api/v1/public"
-    REST_URL = "https://api.stage.coinzoom.com/api/v1/public"
-    # WS_PRIVATE_URL = "wss://api.coinzoom.com/api/v1/public/market/data/stream"
-    WS_PRIVATE_URL = "wss://api.stage.coinzoom.com/api/v1/public/market/data/stream"
-    # WS_PUBLIC_URL = "wss://api.coinzoom.com/api/v1/public/market/data/stream"
-    WS_PUBLIC_URL = "wss://api.stage.coinzoom.com/api/v1/public/market/data/stream"
+    REST_URL = "https://api.coinzoom.com/api/v1/public"
+    # REST_URL = "https://api.stage.coinzoom.com/api/v1/public"
+    WS_PRIVATE_URL = "wss://api.coinzoom.com/api/v1/public/market/data/stream"
+    # WS_PRIVATE_URL = "wss://api.stage.coinzoom.com/api/v1/public/market/data/stream"
+    WS_PUBLIC_URL = "wss://api.coinzoom.com/api/v1/public/market/data/stream"
+    # WS_PUBLIC_URL = "wss://api.stage.coinzoom.com/api/v1/public/market/data/stream"
 
     HBOT_BROKER_ID = "CZ_API_HBOT"
 
