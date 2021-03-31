@@ -1,13 +1,13 @@
 import hmac
 import hashlib
 from typing import Dict, Any
-from hummingbot.connector.exchange.bitmax.bitmax_utils import get_ms_timestamp
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_utils import get_ms_timestamp
 
 
-class BitmaxAuth():
+class AscendExAuth():
     """
-    Auth class required by bitmax API
-    Learn more at https://bitmax-exchange.github.io/bitmax-pro-api/#authenticate-a-restful-request
+    Auth class required by AscendEx API
+    Learn more at https://ascendex.github.io/ascendex-pro-api/#authenticate-a-restful-request
     """
     def __init__(self, api_key: str, secret_key: str):
         self.api_key = api_key
@@ -39,7 +39,7 @@ class BitmaxAuth():
 
     def get_headers(self) -> Dict[str, Any]:
         """
-        Generates generic headers required by bitmax
+        Generates generic headers required by AscendEx
         :return: a dictionary of headers
         """
 

@@ -2,20 +2,23 @@
 import asyncio
 import bisect
 import logging
-import hummingbot.connector.exchange.bitmax.bitmax_constants as constants
 import time
+
+import hummingbot.connector.exchange.ascend_ex.ascend_ex_constants as constants
+
 from collections import defaultdict, deque
 from typing import Optional, Dict, List, Deque
+
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
-from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
-from hummingbot.connector.exchange.bitmax.bitmax_order_book_message import BitmaxOrderBookMessage
-from hummingbot.connector.exchange.bitmax.bitmax_active_order_tracker import BitmaxActiveOrderTracker
-from hummingbot.connector.exchange.bitmax.bitmax_api_order_book_data_source import BitmaxAPIOrderBookDataSource
-from hummingbot.connector.exchange.bitmax.bitmax_order_book import BitmaxOrderBook
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_order_book_message import AscendExOrderBookMessage
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_active_order_tracker import AscendExActiveOrderTracker
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source import AscendExAPIOrderBookDataSource
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_order_book import AscendExOrderBook
+from hummingbot.logger import HummingbotLogger
 
 
-class BitmaxOrderBookTracker(OrderBookTracker):
+class AscendExOrderBookTracker(OrderBookTracker):
     _logger: Optional[HummingbotLogger] = None
 
     @classmethod
@@ -25,7 +28,7 @@ class BitmaxOrderBookTracker(OrderBookTracker):
         return cls._logger
 
     def __init__(self, trading_pairs: Optional[List[str]] = None,):
-        super().__init__(BitmaxAPIOrderBookDataSource(trading_pairs), trading_pairs)
+        super().__init__(AscendExAPIOrderBookDataSource(trading_pairs), trading_pairs)
 
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
@@ -33,10 +36,10 @@ class BitmaxOrderBookTracker(OrderBookTracker):
         self._order_book_trade_stream: asyncio.Queue = asyncio.Queue()
         self._process_msg_deque_task: Optional[asyncio.Task] = None
         self._past_diffs_windows: Dict[str, Deque] = {}
-        self._order_books: Dict[str, BitmaxOrderBook] = {}
-        self._saved_message_queues: Dict[str, Deque[BitmaxOrderBookMessage]] = \
+        self._order_books: Dict[str, AscendExOrderBook] = {}
+        self._saved_message_queues: Dict[str, Deque[AscendExOrderBookMessage]] = \
             defaultdict(lambda: deque(maxlen=1000))
-        self._active_order_trackers: Dict[str, BitmaxActiveOrderTracker] = defaultdict(BitmaxActiveOrderTracker)
+        self._active_order_trackers: Dict[str, AscendExActiveOrderTracker] = defaultdict(AscendExActiveOrderTracker)
         self._order_book_stream_listener_task: Optional[asyncio.Task] = None
         self._order_book_trade_listener_task: Optional[asyncio.Task] = None
 
@@ -51,20 +54,20 @@ class BitmaxOrderBookTracker(OrderBookTracker):
         """
         Update an order book with changes from the latest batch of received messages
         """
-        past_diffs_window: Deque[BitmaxOrderBookMessage] = deque()
+        past_diffs_window: Deque[AscendExOrderBookMessage] = deque()
         self._past_diffs_windows[trading_pair] = past_diffs_window
 
         message_queue: asyncio.Queue = self._tracking_message_queues[trading_pair]
-        order_book: BitmaxOrderBook = self._order_books[trading_pair]
-        active_order_tracker: BitmaxActiveOrderTracker = self._active_order_trackers[trading_pair]
+        order_book: AscendExOrderBook = self._order_books[trading_pair]
+        active_order_tracker: AscendExActiveOrderTracker = self._active_order_trackers[trading_pair]
 
         last_message_timestamp: float = time.time()
         diff_messages_accepted: int = 0
 
         while True:
             try:
-                message: BitmaxOrderBookMessage = None
-                saved_messages: Deque[BitmaxOrderBookMessage] = self._saved_message_queues[trading_pair]
+                message: AscendExOrderBookMessage = None
+                saved_messages: Deque[AscendExOrderBookMessage] = self._saved_message_queues[trading_pair]
                 # Process saved messages first if there are any
                 if len(saved_messages) > 0:
                     message = saved_messages.popleft()
@@ -87,7 +90,7 @@ class BitmaxOrderBookTracker(OrderBookTracker):
                         diff_messages_accepted = 0
                     last_message_timestamp = now
                 elif message.type is OrderBookMessageType.SNAPSHOT:
-                    past_diffs: List[BitmaxOrderBookMessage] = list(past_diffs_window)
+                    past_diffs: List[AscendExOrderBookMessage] = list(past_diffs_window)
                     # only replay diffs later than snapshot, first update active order with snapshot then replay diffs
                     replay_position = bisect.bisect_right(past_diffs, message)
                     replay_diffs = past_diffs[replay_position:]
