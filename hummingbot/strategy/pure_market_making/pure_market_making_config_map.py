@@ -100,6 +100,11 @@ def validate_price_floor_ceiling(value: str) -> Optional[str]:
         return "Value must be more than 0 or -1 to disable this feature."
 
 
+def on_validated_price_type(value: str):
+    if value == 'inventory_cost':
+        pure_market_making_config_map["inventory_price"].value = None
+
+
 def exchange_on_validated(value: str):
     required_exchanges.append(value)
 
@@ -241,6 +246,7 @@ pure_market_making_config_map = {
                   prompt="What is the price of your base asset inventory? ",
                   type_str="decimal",
                   validator=lambda v: validate_decimal(v, min_value=Decimal("0"), inclusive=True),
+                  required_if=lambda: pure_market_making_config_map.get("price_type").value == "inventory_cost",
                   default=Decimal("1"),
                   ),
     "filled_order_delay":
@@ -308,6 +314,7 @@ pure_market_making_config_map = {
                   type_str="str",
                   required_if=lambda: pure_market_making_config_map.get("price_source").value != "custom_api",
                   default="mid_price",
+                  on_validated=on_validated_price_type,
                   validator=lambda s: None if s in {"mid_price",
                                                     "last_price",
                                                     "last_own_trade_price",
