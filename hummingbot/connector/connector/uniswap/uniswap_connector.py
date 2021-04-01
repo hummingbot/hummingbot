@@ -7,7 +7,6 @@ import json
 import time
 import ssl
 import copy
-import itertools as it
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.network_iterator import NetworkStatus
@@ -31,9 +30,9 @@ from hummingbot.core.event.events import (
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.connector.uniswap.uniswap_in_flight_order import UniswapInFlightOrder
 from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
-from hummingbot.core.utils.eth_gas_station_lookup import get_gas_price
 from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.client.config.config_helpers import get_erc20_token_addresses
+from hummingbot.core.utils.ethereum import check_transaction_exceptions, fetch_trading_pairs
+from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 
 s_logger = None
 s_decimal_0 = Decimal("0")
@@ -71,12 +70,9 @@ class UniswapConnector(ConnectorBase):
         """
         super().__init__()
         self._trading_pairs = trading_pairs
-        tokens = set()
+        self._tokens = set()
         for trading_pair in trading_pairs:
-            tokens.update(set(trading_pair.split("-")))
-        self._erc_20_token_list = self.token_list()
-        self._token_addresses = {t: l[0] for t, l in self._erc_20_token_list.items() if t in tokens}
-        self._token_decimals = {t: l[1] for t, l in self._erc_20_token_list.items() if t in tokens}
+            self._tokens.update(set(trading_pair.split("-")))
         self._wallet_private_key = wallet_private_key
         self._ethereum_rpc_url = ethereum_rpc_url
         self._trading_required = trading_required
@@ -84,10 +80,13 @@ class UniswapConnector(ConnectorBase):
         self._shared_client = None
         self._last_poll_timestamp = 0.0
         self._last_balance_poll_timestamp = time.time()
+        self._last_est_gas_cost_reported = 0
         self._in_flight_orders = {}
         self._allowances = {}
         self._status_polling_task = None
         self._auto_approve_task = None
+        self._initiate_pool_task = None
+        self._initiate_pool_status = None
         self._real_time_balance_update = False
         self._poll_notifier = None
 
@@ -96,16 +95,8 @@ class UniswapConnector(ConnectorBase):
         return "uniswap"
 
     @staticmethod
-    def token_list():
-        return get_erc20_token_addresses()
-
-    @staticmethod
     async def fetch_trading_pairs() -> List[str]:
-        token_list = UniswapConnector.token_list()
-        trading_pairs = []
-        for base, quote in it.permutations(token_list.keys(), 2):
-            trading_pairs.append(f"{base}-{quote}")
-        return trading_pairs
+        return await fetch_trading_pairs()
 
     @property
     def limit_orders(self) -> List[LimitOrder]:
@@ -113,6 +104,26 @@ class UniswapConnector(ConnectorBase):
             in_flight_order.to_limit_order()
             for in_flight_order in self._in_flight_orders.values()
         ]
+
+    async def initiate_pool(self) -> str:
+        """
+        Initiate connector and start caching paths for trading_pairs
+        """
+        try:
+            self.logger().info(f"Initializing Uniswap connector and paths for {self._trading_pairs} pairs.")
+            resp = await self._api_request("get", "eth/uniswap/start",
+                                           {"pairs": json.dumps(self._trading_pairs)})
+            status = bool(str(resp["success"]))
+            if bool(str(resp["success"])):
+                self._initiate_pool_status = status
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self.logger().network(
+                f"Error initializing {self._trading_pairs} ",
+                exc_info=True,
+                app_warning_msg=str(e)
+            )
 
     async def auto_approve(self):
         """
@@ -137,9 +148,7 @@ class UniswapConnector(ConnectorBase):
         """
         resp = await self._api_request("post",
                                        "eth/approve",
-                                       {"tokenAddress": self._token_addresses[token_symbol],
-                                        "gasPrice": str(get_gas_price()),
-                                        "decimals": self._token_decimals[token_symbol],  # if not supplied, gateway would treat it eth-like with 18 decimals
+                                       {"token": token_symbol,
                                         "connector": self.name})
         amount_approved = Decimal(str(resp["amount"]))
         if amount_approved > 0:
@@ -154,12 +163,11 @@ class UniswapConnector(ConnectorBase):
         :return: A dictionary of token and its allowance (how much Uniswap can spend).
         """
         ret_val = {}
-        resp = await self._api_request("post", "eth/allowances-2",
-                                       {"tokenAddressList": ("".join([tok + "," for tok in self._token_addresses.values()])).rstrip(","),
-                                        "tokenDecimalList": ("".join([str(dec) + "," for dec in self._token_decimals.values()])).rstrip(","),
+        resp = await self._api_request("post", "eth/allowances",
+                                       {"tokenList": "[" + (",".join(['"' + t + '"' for t in self._tokens])) + "]",
                                         "connector": self.name})
-        for address, amount in resp["approvals"].items():
-            ret_val[self.get_token(address)] = Decimal(str(amount))
+        for token, amount in resp["approvals"].items():
+            ret_val[token] = Decimal(str(amount))
         return ret_val
 
     @async_ttl_cache(ttl=5, maxsize=10)
@@ -176,12 +184,43 @@ class UniswapConnector(ConnectorBase):
             base, quote = trading_pair.split("-")
             side = "buy" if is_buy else "sell"
             resp = await self._api_request("post",
-                                           f"uniswap/{side}-price",
-                                           {"base": self._token_addresses[base],
-                                            "quote": self._token_addresses[quote],
+                                           "eth/uniswap/price",
+                                           {"base": base,
+                                            "quote": quote,
+                                            "side": side.upper(),
                                             "amount": amount})
-            if resp["price"] is not None:
-                return Decimal(str(resp["price"]))
+            required_items = ["price", "gasLimit", "gasPrice", "gasCost"]
+            if any(item not in resp.keys() for item in required_items):
+                if "info" in resp.keys():
+                    self.logger().info(f"Unable to get price. {resp['info']}")
+                else:
+                    self.logger().info(f"Missing data from price result. Incomplete return result for ({resp.keys()})")
+            else:
+                gas_limit = resp["gasLimit"]
+                gas_price = resp["gasPrice"]
+                gas_cost = resp["gasCost"]
+                price = resp["price"]
+                account_standing = {
+                    "allowances": self._allowances,
+                    "balances": self._account_balances,
+                    "base": base,
+                    "quote": quote,
+                    "amount": amount,
+                    "side": side,
+                    "gas_limit": gas_limit,
+                    "gas_price": gas_price,
+                    "gas_cost": gas_cost,
+                    "price": price
+                }
+                exceptions = check_transaction_exceptions(account_standing)
+                for index in range(len(exceptions)):
+                    self.logger().info(f"Warning! [{index+1}/{len(exceptions)}] {side} order - {exceptions[index]}")
+
+                if price is not None and len(exceptions) == 0:
+                    # TODO standardize quote price object to include price, fee, token, is fee part of quote.
+                    fee_overrides_config_map["uniswap_maker_fee_amount"].value = Decimal(str(gas_cost))
+                    fee_overrides_config_map["uniswap_taker_fee_amount"].value = Decimal(str(gas_cost))
+                    return Decimal(str(price))
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -251,21 +290,24 @@ class UniswapConnector(ConnectorBase):
         amount = self.quantize_order_amount(trading_pair, amount)
         price = self.quantize_order_price(trading_pair, price)
         base, quote = trading_pair.split("-")
-        gas_price = get_gas_price()
-        api_params = {"base": self._token_addresses[base],
-                      "quote": self._token_addresses[quote],
+        api_params = {"base": base,
+                      "quote": quote,
+                      "side": trade_type.name.upper(),
                       "amount": str(amount),
-                      "maxPrice": str(price),
-                      "gasPrice": str(gas_price),
+                      "limitPrice": str(price),
                       }
-        self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, gas_price)
         try:
-            order_result = await self._api_request("post", f"uniswap/{trade_type.name.lower()}", api_params)
+            order_result = await self._api_request("post", "eth/uniswap/trade", api_params)
             hash = order_result.get("txHash")
+            gas_price = order_result.get("gasPrice")
+            gas_limit = order_result.get("gasLimit")
+            gas_cost = order_result.get("gasCost")
+            self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, gas_price)
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
                 self.logger().info(f"Created {trade_type.name} order {order_id} txHash: {hash} "
-                                   f"for {amount} {trading_pair}.")
+                                   f"for {amount} {trading_pair}. Estimated Gas Cost: {gas_cost} ETH "
+                                   f" (gas limit: {gas_limit}, gas price: {gas_price})")
                 tracked_order.update_exchange_order_id(hash)
                 tracked_order.gas_price = gas_price
             if hash is not None:
@@ -333,7 +375,7 @@ class UniswapConnector(ConnectorBase):
             for tracked_order in tracked_orders:
                 order_id = await tracked_order.get_exchange_order_id()
                 tasks.append(self._api_request("post",
-                                               "eth/get-receipt",
+                                               "eth/poll",
                                                {"txHash": order_id}))
             update_results = await safe_gather(*tasks, return_exceptions=True)
             for update_result in update_results:
@@ -409,7 +451,7 @@ class UniswapConnector(ConnectorBase):
         """
         Checks if all tokens have allowance (an amount approved)
         """
-        return len(self._allowances.values()) == len(self._token_addresses.values()) and \
+        return len(self._allowances.values()) == len(self._tokens) and \
             all(amount > s_decimal_0 for amount in self._allowances.values())
 
     @property
@@ -422,6 +464,7 @@ class UniswapConnector(ConnectorBase):
     async def start_network(self):
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
+            self._initiate_pool_task = safe_ensure_future(self.initiate_pool())
             self._auto_approve_task = safe_ensure_future(self.auto_approve())
 
     async def stop_network(self):
@@ -431,6 +474,9 @@ class UniswapConnector(ConnectorBase):
         if self._auto_approve_task is not None:
             self._auto_approve_task.cancel()
             self._auto_approve_task = None
+        if self._initiate_pool_task is not None:
+            self._initiate_pool_task.cancel()
+            self._initiate_pool_task = None
 
     async def check_network(self) -> NetworkStatus:
         try:
@@ -458,7 +504,7 @@ class UniswapConnector(ConnectorBase):
                 self._poll_notifier = asyncio.Event()
                 await self._poll_notifier.wait()
                 await safe_gather(
-                    self._update_balances(),
+                    self._update_balances(on_interval=True),
                     self._update_order_status(),
                 )
                 self._last_poll_timestamp = self.current_timestamp
@@ -471,37 +517,32 @@ class UniswapConnector(ConnectorBase):
                                       app_warning_msg="Could not fetch balances from Gateway API.")
                 await asyncio.sleep(0.5)
 
-    def get_token(self, token_address: str) -> str:
-        return [k for k, v in self._token_addresses.items() if v == token_address][0]
-
-    async def _update_balances(self):
+    async def _update_balances(self, on_interval = False):
         """
         Calls Eth API to update total and available balances.
         """
         last_tick = self._last_balance_poll_timestamp
         current_tick = self.current_timestamp
-        if (current_tick - last_tick) > self.UPDATE_BALANCE_INTERVAL:
+        if not on_interval or (current_tick - last_tick) > self.UPDATE_BALANCE_INTERVAL:
             self._last_balance_poll_timestamp = current_tick
-        local_asset_names = set(self._account_balances.keys())
-        remote_asset_names = set()
-        resp_json = await self._api_request("post",
-                                            "eth/balances-2",
-                                            {"tokenAddressList": ("".join([tok + "," for tok in self._token_addresses.values()])).rstrip(","),
-                                             "tokenDecimalList": ("".join([str(dec) + "," for dec in self._token_decimals.values()])).rstrip(",")})
-        for token, bal in resp_json["balances"].items():
-            if len(token) > 4:
-                token = self.get_token(token)
-            self._account_available_balances[token] = Decimal(str(bal))
-            self._account_balances[token] = Decimal(str(bal))
-            remote_asset_names.add(token)
+            local_asset_names = set(self._account_balances.keys())
+            remote_asset_names = set()
+            resp_json = await self._api_request("post",
+                                                "eth/balances",
+                                                {"tokenList": "[" + (",".join(['"' + t + '"' for t in self._tokens])) + "]"})
 
-        asset_names_to_remove = local_asset_names.difference(remote_asset_names)
-        for asset_name in asset_names_to_remove:
-            del self._account_available_balances[asset_name]
-            del self._account_balances[asset_name]
+            for token, bal in resp_json["balances"].items():
+                self._account_available_balances[token] = Decimal(str(bal))
+                self._account_balances[token] = Decimal(str(bal))
+                remote_asset_names.add(token)
 
-        self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
-        self._in_flight_orders_snapshot_timestamp = self.current_timestamp
+            asset_names_to_remove = local_asset_names.difference(remote_asset_names)
+            for asset_name in asset_names_to_remove:
+                del self._account_available_balances[asset_name]
+                del self._account_balances[asset_name]
+
+            self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
+            self._in_flight_orders_snapshot_timestamp = self.current_timestamp
 
     async def _http_client(self) -> aiohttp.ClientSession:
         """
@@ -547,7 +588,7 @@ class UniswapConnector(ConnectorBase):
                 err_msg = f" Message: {parsed_response['error']}"
             raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.{err_msg}")
         if "error" in parsed_response:
-            raise Exception(f"Error: {parsed_response['error']}")
+            raise Exception(f"Error: {parsed_response['error']} {parsed_response['message']}")
 
         return parsed_response
 
