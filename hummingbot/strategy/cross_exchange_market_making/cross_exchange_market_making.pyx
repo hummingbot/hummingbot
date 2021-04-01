@@ -22,15 +22,22 @@ from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange_base cimport ExchangeBase
-from hummingbot.core.event.events import OrderType
+from hummingbot.core.event.events import (
+    OrderType,
+    PriceType,
+)
 
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.strategy.strategy_base cimport StrategyBase
 from hummingbot.strategy.strategy_base import StrategyBase
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from .cross_exchange_market_pair import CrossExchangeMarketPair
 from .order_id_market_pair_tracker import OrderIDMarketPairTracker
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.client.performance import PerformanceMetrics
+from hummingbot.strategy.asset_price_delegate cimport AssetPriceDelegate
+from hummingbot.strategy.asset_price_delegate import AssetPriceDelegate
+from hummingbot.strategy.order_book_asset_price_delegate cimport OrderBookAssetPriceDelegate
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -79,6 +86,12 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                  use_oracle_conversion_rate: bool = False,
                  taker_to_maker_base_conversion_rate: Decimal = Decimal("1"),
                  taker_to_maker_quote_conversion_rate: Decimal = Decimal("1"),
+                 base_rate_conversion_delegate: AssetPriceDelegate = None,
+                 quote_rate_conversion_delegate: AssetPriceDelegate = None,
+                 base_conversion_ext_market_price_type: str = "mid_price",
+                 quote_conversion_ext_market_price_type: str = "mid_price",
+                 base_conversion_ext_market_inversed: bool = False,
+                 quote_conversion_ext_market_inversed: bool = False,
                  hb_app_notification: bool = False
                  ):
         """
@@ -140,6 +153,12 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         self._taker_to_maker_base_conversion_rate = taker_to_maker_base_conversion_rate
         self._taker_to_maker_quote_conversion_rate = taker_to_maker_quote_conversion_rate
         self._last_conv_rates_logged = 0
+        self._base_rate_conversion_delegate = base_rate_conversion_delegate
+        self._quote_rate_conversion_delegate = quote_rate_conversion_delegate
+        self._base_conversion_ext_market_price_type = self.get_price_type(base_conversion_ext_market_price_type)
+        self._quote_conversion_ext_market_price_type = self.get_price_type(quote_conversion_ext_market_price_type)
+        self._base_conversion_ext_market_inversed = base_conversion_ext_market_inversed
+        self._quote_conversion_ext_market_inversed = quote_conversion_ext_market_inversed
         self._hb_app_notification = hb_app_notification
 
         self._maker_order_ids = []
@@ -187,6 +206,9 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             if market_pairs.taker.quote_asset != market_pairs.maker.quote_asset:
                 quote_rate_source = RateOracle.source.name
                 quote_rate = RateOracle.get_instance().rate(quote_pair)
+        elif self._quote_rate_conversion_delegate is not None:
+            quote_rate_source = self._quote_rate_conversion_delegate.market.display_name
+            quote_rate = self.get_conversion_delegate_rate()
         else:
             quote_rate = self._taker_to_maker_quote_conversion_rate
         base_rate = Decimal("1")
@@ -196,6 +218,9 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             if market_pairs.taker.base_asset != market_pairs.maker.base_asset:
                 base_rate_source = RateOracle.source.name
                 base_rate = RateOracle.get_instance().rate(base_pair)
+        elif self._base_rate_conversion_delegate is not None:
+            base_rate_source = self._base_rate_conversion_delegate.market.display_name
+            base_rate = self.get_conversion_delegate_rate(True)
         else:
             base_rate = self._taker_to_maker_base_conversion_rate
         return quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate
@@ -222,6 +247,17 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                 [base_rate_source, base_pair, PerformanceMetrics.smart_round(base_rate)],
             ])
         return pd.DataFrame(data=data, columns=columns)
+
+    def get_conversion_delegate_rate(self, base_rate: bool = False) -> float:
+        price_provider = self._base_rate_conversion_delegate if base_rate else self._quote_rate_conversion_delegate
+        price_type = self._base_conversion_ext_market_price_type if base_rate else self._quote_conversion_ext_market_price_type
+        price_inversed = self._base_conversion_ext_market_inversed if base_rate else self._quote_conversion_ext_market_inversed
+        price = price_provider.get_price_by_type(price_type)
+        if price.is_nan():
+            price = price_provider.get_price_by_type(PriceType.MidPrice)
+        if price_inversed is True and not price.is_nan():
+            return Decimal("1") / price
+        return price
 
     def format_status(self) -> str:
         cdef:
@@ -332,6 +368,10 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
             if not self._all_markets_ready:
                 self._all_markets_ready = all([market.ready for market in self._sb_markets])
+                if self._base_rate_conversion_delegate is not None and self._all_markets_ready:
+                    self._all_markets_ready = self._base_rate_conversion_delegate.ready
+                if self._quote_rate_conversion_delegate is not None and self._all_markets_ready:
+                    self._all_markets_ready = self._quote_rate_conversion_delegate.ready
                 if not self._all_markets_ready:
                     # Markets not ready yet. Don't do anything.
                     if should_report_warnings:
@@ -1301,6 +1341,18 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
     cdef c_cancel_order(self, object market_pair, str order_id):
         market_trading_pair_tuple = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
         StrategyBase.c_cancel_order(self, market_trading_pair_tuple, order_id)
+
+    def get_price_type(self, price_type_str: str) -> PriceType:
+        if price_type_str == "mid_price":
+            return PriceType.MidPrice
+        elif price_type_str == "best_bid":
+            return PriceType.BestBid
+        elif price_type_str == "best_ask":
+            return PriceType.BestAsk
+        elif price_type_str == "last_price":
+            return PriceType.LastTrade
+        else:
+            raise ValueError(f"Unrecognized price type string {price_type_str}.")
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>
 

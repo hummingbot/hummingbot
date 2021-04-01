@@ -34,6 +34,12 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         bint _use_oracle_conversion_rate
         object _taker_to_maker_base_conversion_rate
         object _taker_to_maker_quote_conversion_rate
+        object _base_rate_conversion_delegate
+        object _quote_rate_conversion_delegate
+        object _base_conversion_ext_market_price_type
+        object _quote_conversion_ext_market_price_type
+        bint _base_conversion_ext_market_inversed
+        bint _quote_conversion_ext_market_inversed
         bint _hb_app_notification
         list _maker_order_ids
         double _last_conv_rates_logged

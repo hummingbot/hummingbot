@@ -2,7 +2,7 @@
 ###   Cross exchange market making strategy config   ###
 ########################################################
 
-template_version: 5
+template_version: 6
 strategy: null
 
 # The following configuations are only required for the
@@ -64,6 +64,12 @@ order_size_portfolio_ratio_limit: null
 # Set this to either True or False
 use_oracle_conversion_rate: null
 
+# Which Base rate conversion source to use (static_config_rate/external_market)
+base_rate_conversion_source: null
+
+# Which Quote rate conversion source to use (static_config_rate/external_market)
+quote_rate_conversion_source: null
+
 # The conversion rate for taker base asset value to maker base asset value.
 # e.g. if maker base asset is USD, taker is DAI and 1 USD is worth 1.25 DAI, "
 # the conversion rate is 0.8 (1 / 1.25)
@@ -73,6 +79,25 @@ taker_to_maker_base_conversion_rate: null
 # e.g. if maker quote asset is USD, taker is DAI and 1 USD is worth 1.25 DAI, "
 # the conversion rate is 0.8 (1 / 1.25)
 taker_to_maker_quote_conversion_rate: null
+
+# Which connector to use for Base rate conversion
+base_conversion_ext_market_exchange: null
+# Which trading pair to use for Base rate conversion
+base_conversion_ext_market_market: null
+# Which price type to use for Base rate conversion (mid_price/last_price/best_bid/best_ask)
+base_conversion_ext_market_price_type: null
+# Whether to inverse the Base rate conversion
+base_conversion_ext_market_inversed: null
+
+# Which connector to use for Quote rate conversion
+quote_conversion_ext_market_exchange: null
+# Which trading pair to use for Quote rate conversion
+quote_conversion_ext_market_market: null
+# Which price type to use for Quote rate conversion (mid_price/last_price/best_bid/best_ask)
+quote_conversion_ext_market_price_type: null
+# Whether to inverse the Quote rate conversion
+quote_conversion_ext_market_inversed: null
+
 
 # For more detailed information, see:
 # https://docs.hummingbot.io/strategies/cross-exchange-market-making/#configuration-parameters

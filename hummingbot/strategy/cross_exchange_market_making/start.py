@@ -4,9 +4,13 @@ from typing import (
 )
 from decimal import Decimal
 from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.exchange.paper_trade import create_paper_trade_market
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_pair import CrossExchangeMarketPair
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making import CrossExchangeMarketMakingStrategy
+from hummingbot.strategy.order_book_asset_price_delegate import OrderBookAssetPriceDelegate
+from hummingbot.strategy.asset_price_delegate import AssetPriceDelegate
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making_config_map import \
     cross_exchange_market_making_config_map as xemm_map
 
@@ -29,8 +33,28 @@ def start(self):
     order_size_portfolio_ratio_limit = xemm_map.get("order_size_portfolio_ratio_limit").value / Decimal("100")
     anti_hysteresis_duration = xemm_map.get("anti_hysteresis_duration").value
     use_oracle_conversion_rate = xemm_map.get("use_oracle_conversion_rate").value
+    rate_conversion_sources = {
+        'base': xemm_map.get("base_rate_conversion_source").value,
+        'quote': xemm_map.get("quote_rate_conversion_source").value,
+    }
     taker_to_maker_base_conversion_rate = xemm_map.get("taker_to_maker_base_conversion_rate").value
     taker_to_maker_quote_conversion_rate = xemm_map.get("taker_to_maker_quote_conversion_rate").value
+    conversion_ext_market_price_types = {
+        'base': xemm_map.get("base_conversion_ext_market_price_type").value,
+        'quote': xemm_map.get("quote_conversion_ext_market_price_type").value,
+    }
+    conversion_ext_market_markets = {
+        'base': xemm_map.get("base_conversion_ext_market_market").value,
+        'quote': xemm_map.get("quote_conversion_ext_market_market").value,
+    }
+    conversion_ext_market_exchanges = {
+        'base': xemm_map.get("base_conversion_ext_market_exchange").value,
+        'quote': xemm_map.get("quote_conversion_ext_market_exchange").value,
+    }
+    conversion_ext_market_inversed = {
+        'base': xemm_map.get("base_conversion_ext_market_inversed").value,
+        'quote': xemm_map.get("quote_conversion_ext_market_inversed").value,
+    }
 
     # check if top depth tolerance is a list or if trade size override exists
     if isinstance(top_depth_tolerance, list) or "trade_size_override" in xemm_map:
@@ -51,6 +75,14 @@ def start(self):
         (taker_market, [taker_trading_pair]),
     ]
 
+    # Add Asset Price Delegate markets to main markets if already using the exchange.
+    for asset_type in ['base', 'quote']:
+        if rate_conversion_sources[asset_type] == "external_market":
+            ext_exchange: str = conversion_ext_market_exchanges[asset_type]
+            if ext_exchange in [maker_market, taker_market]:
+                asset_pair: str = conversion_ext_market_markets[asset_type]
+                market_names.append((ext_exchange, [asset_pair]))
+
     self._initialize_wallet(token_trading_pairs=list(set(maker_assets + taker_assets)))
     self._initialize_markets(market_names)
     self.assets = set(maker_assets + taker_assets)
@@ -60,6 +92,33 @@ def start(self):
     taker_market_trading_pair_tuple = MarketTradingPairTuple(*taker_data)
     self.market_trading_pair_tuples = [maker_market_trading_pair_tuple, taker_market_trading_pair_tuple]
     self.market_pair = CrossExchangeMarketPair(maker=maker_market_trading_pair_tuple, taker=taker_market_trading_pair_tuple)
+
+    # Asset Price Feed Delegates
+    rate_conversion_delegates = {'base': None, 'quote': None}
+    shared_ext_mkt = None
+    # Initialize price delegates as needed for defined price sources.
+    for asset_type in ['base', 'quote']:
+        price_source: str = rate_conversion_sources[asset_type]
+        if price_source == "external_market":
+            # For price feeds using other connectors
+            ext_exchange: str = conversion_ext_market_exchanges[asset_type]
+            asset_pair: str = conversion_ext_market_markets[asset_type]
+            if ext_exchange in list(self.markets.keys()):
+                # Use existing market if Exchange is already in markets
+                ext_market = self.markets[ext_exchange]
+            else:
+                # Create markets otherwise
+                UseSharedSource = (rate_conversion_sources['quote'] == rate_conversion_sources['base'] and
+                                   conversion_ext_market_exchanges['quote'] == conversion_ext_market_exchanges['base'])
+                # Use shared paper trade market if both price feeds are on the same exchange.
+                if UseSharedSource and shared_ext_mkt is None and asset_type == 'base':
+                    # Create Shared paper trade if not existing
+                    shared_ext_mkt = create_paper_trade_market(conversion_ext_market_exchanges['base'],
+                                                               [conversion_ext_market_markets['base'], conversion_ext_market_markets['quote']])
+                ext_market = shared_ext_mkt if UseSharedSource else create_paper_trade_market(ext_exchange, [asset_pair])
+                if ext_exchange not in list(self.markets.keys()):
+                    self.markets[ext_exchange]: ExchangeBase = ext_market
+            rate_conversion_delegates[asset_type]: AssetPriceDelegate = OrderBookAssetPriceDelegate(ext_market, asset_pair)
 
     strategy_logging_options = (
         CrossExchangeMarketMakingStrategy.OPTION_LOG_CREATE_ORDER
@@ -87,5 +146,11 @@ def start(self):
         use_oracle_conversion_rate=use_oracle_conversion_rate,
         taker_to_maker_base_conversion_rate=taker_to_maker_base_conversion_rate,
         taker_to_maker_quote_conversion_rate=taker_to_maker_quote_conversion_rate,
+        base_rate_conversion_delegate=rate_conversion_delegates['base'],
+        quote_rate_conversion_delegate=rate_conversion_delegates['quote'],
+        base_conversion_ext_market_price_type=conversion_ext_market_price_types['base'],
+        quote_conversion_ext_market_price_type=conversion_ext_market_price_types['quote'],
+        base_conversion_ext_market_inversed=conversion_ext_market_inversed['base'],
+        quote_conversion_ext_market_inversed=conversion_ext_market_inversed['quote'],
         hb_app_notification=True,
     )
