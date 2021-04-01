@@ -40,7 +40,7 @@ else
     else
       echo "‼️  hummingbot_conf & hummingbot_certs directory missing from path $FOLDER"
       prompt_hummingbot_data_path
-    fi 
+    fi
 
     if [[ -f "$FOLDER/hummingbot_certs/server_cert.pem" && -f "$FOLDER/hummingbot_certs/server_key.pem" && -f "$FOLDER/hummingbot_certs/ca_cert.pem" ]]; then
       echo
@@ -79,70 +79,208 @@ do
   then
     HUMMINGBOT_INSTANCE_ID="$(echo -e "${value}" | tr -d '[:space:]')"
   fi
-  # chain
-  if [ "$key" == "ethereum_chain_name" ]
-  then
-    ETHEREUM_CHAIN="$(echo -e "${value}" | tr -d '[:space:]')"
-    # subgraph url
-    if [[ "$ETHEREUM_CHAIN" == "MAIN_NET" || "$ETHEREUM_CHAIN" == "main_net"  || "$ETHEREUM_CHAIN" == "MAINNET"  || "$ETHEREUM_CHAIN" == "mainnet" ]]
-    then
-      ETHEREUM_CHAIN="mainnet"
-      REACT_APP_SUBGRAPH_URL="https://api.thegraph.com/subgraphs/name/balancer-labs/balancer"
-      EXCHANGE_PROXY="0x3E66B66Fd1d0b02fDa6C811Da9E0547970DB2f21"
-    else
-      ETHEREUM_CHAIN="kovan"
-      REACT_APP_SUBGRAPH_URL="https://api.thegraph.com/subgraphs/name/balancer-labs/balancer-kovan"
-      EXCHANGE_PROXY="0x4e67bf5bD28Dd4b570FBAFe11D0633eCbA2754Ec"
-    fi
-  fi
-  # ethereum rpc url
-  if [ "$key" == "ethereum_rpc_url" ]
-  then
-    ETHEREUM_RPC_URL="$(echo -e "${value}" | tr -d '[:space:]')"
-  fi
+  #
 done < "$GLOBAL_CONFIG"
 }
 read_global_config
 
 # prompt to setup balancer, uniswap
 prompt_ethereum_setup () {
-  read -p "   Do you want to setup Balancer/Uniswap/Perpetual Finance? [Y/N] >>> " PROCEED
-  if [[ "$PROCEED" == "Y" || "$PROCEED" == "y" ]]
+  read -p "   Do you want to setup Balancer or Uniswap? [Y/N] (default \"Y\") >>> " PROCEED
+  if [[ "$PROCEED" == "Y" || "$PROCEED" == "y"  || "$PROCEED" == ""  ]]
   then
-    echo "ℹ️  Retrieving config from Hummingbot config file ... "
     ETHEREUM_SETUP=true
     echo
+    read -p "   Enter Ethereum chain you want to use [mainnet/kovan] (default = \"mainnet\") >>> " ETHEREUM_CHAIN
+    # chain selection
+    if [ "$ETHEREUM_CHAIN" == "" ]
+    then
+      ETHEREUM_CHAIN="mainnet"
+    fi
+    if [[ "$ETHEREUM_CHAIN" != "mainnet" && "$ETHEREUM_CHAIN" != "kovan" ]]
+    then
+      echo "‼️  ERROR. Unsupported chains (mainnet/kovan). "
+      prompt_ethereum_setup
+    fi
+    # set subgraph url, exchange_proxy
+    if [[ "$ETHEREUM_CHAIN" == "mainnet" ]]
+    then
+      ETHEREUM_CHAIN="mainnet"
+      REACT_APP_SUBGRAPH_URL="https://api.thegraph.com/subgraphs/name/balancer-labs/balancer"
+      EXCHANGE_PROXY="0x3E66B66Fd1d0b02fDa6C811Da9E0547970DB2f21"
+    else
+      if [[ "$ETHEREUM_CHAIN" == "kovan" ]]
+      then
+        REACT_APP_SUBGRAPH_URL="https://api.thegraph.com/subgraphs/name/balancer-labs/balancer-kovan"
+        EXCHANGE_PROXY="0x4e67bf5bD28Dd4b570FBAFe11D0633eCbA2754Ec"
+      fi
+    fi
   fi
 }
 prompt_ethereum_setup
 
+# prompt to ethereum rpc
+prompt_ethereum_rpc_setup () {
+  if [ "$ETHEREUM_RPC_URL" == "" ]
+  then
+    read -p "   Enter the Ethereum RPC node URL to connect to  >>> " ETHEREUM_RPC_URL
+    if [ "$ETHEREUM_RPC_URL" == "" ]
+    then
+      prompt_ethereum_rpc_setup
+    fi
+  else
+    read -p "   Use the this Ethereum RPC node ($ETHEREUM_RPC_URL) setup in Hummingbot client?  [Y/N] (default = \"Y\") >>> " PROCEED
+    if [[ "$PROCEED" == "Y" || "$PROCEED" == "y" || "$PROCEED" == "" ]]
+    then
+      echo
+    else
+      ETHEREUM_RPC_URL=""
+      prompt_ethereum_rpc_setup
+    fi
+  fi
+}
+prompt_ethereum_rpc_setup
+
+# prompt to setup ethereum token list
+prompt_token_list_source () {
+  echo
+  echo "   Enter the token list url available at https://tokenlists.org/"
+  read -p "      (default = \"https://wispy-bird-88a7.uniswap.workers.dev/?url=http://tokens.1inch.eth.link\") >>> " ETHEREUM_TOKEN_LIST_URL
+  if [ "$ETHEREUM_TOKEN_LIST_URL" == "" ]
+  then
+    echo
+    echo "ℹ️  Retrieving config from Hummingbot config file ... "
+    ETHEREUM_SETUP=true
+    ETHEREUM_TOKEN_LIST_URL=https://wispy-bird-88a7.uniswap.workers.dev/?url=http://tokens.1inch.eth.link
+  fi
+}
+prompt_token_list_source
+
+# prompt to setup eth gas level
+prompt_eth_gasstation_gas_level () {
+  echo
+  read -p "   Enter gas level you want to use for Ethereum transactions (fast, fastest, safeLow, average) (default = \"fast\") >>> " ETH_GAS_STATION_GAS_LEVEL
+  if [ "$ETH_GAS_STATION_GAS_LEVEL" == "" ]
+  then
+    ETH_GAS_STATION_GAS_LEVEL=fast
+  else
+    if [[ "$ETH_GAS_STATION_GAS_LEVEL" != "fast" && "$ETH_GAS_STATION_GAS_LEVEL" != "fastest" && "$ETH_GAS_STATION_GAS_LEVEL" != "safeLow" && "$ETH_GAS_STATION_GAS_LEVEL" != "safelow" && "$ETH_GAS_STATION_GAS_LEVEL" != "average" ]]
+    then
+      prompt_eth_gasstation_gas_level
+    fi
+  fi
+}
+
+# prompt to setup eth gas station
+prompt_eth_gasstation_setup () {
+  echo
+  read -p "   Enable dynamic Ethereum gas price lookup? [Y/N] (default = \"Y\") >>> " PROCEED
+  if [[ "$PROCEED" == "Y" || "$PROCEED" == "y" || "$PROCEED" == "" ]]
+  then
+    ENABLE_ETH_GAS_STATION=true
+    read -p "   Enter API key for Eth Gas Station (https://ethgasstation.info/) >>> " ETH_GAS_STATION_API_KEY
+    if [ "$ETH_GAS_STATION_API_KEY" == "" ]
+    then
+      prompt_eth_gasstation_setup
+    else
+      # set gas level
+      prompt_eth_gasstation_gas_level
+
+      # set refresh interval
+      read -p "   Enter refresh time for Ethereum gas price lookup (in seconds) (default = \"120\") >>> " ETH_GAS_STATION_REFRESH_TIME
+      if [ "$ETH_GAS_STATION_REFRESH_TIME" == "" ]
+      then
+        ETH_GAS_STATION_REFRESH_TIME=120
+      fi
+    fi
+  else
+    if [[ "$PROCEED" == "N" || "$PROCEED" == "n" ]]
+    then
+      ENABLE_ETH_GAS_STATION=false
+      # set manual gas price
+      read -p "   Enter fixed gas price (in Gwei) you want to use for Ethereum transactions (default = \"100\") >>> " MANUAL_GAS_PRICE
+      if [ "$MANUAL_GAS_PRICE" == "" ]
+      then
+        MANUAL_GAS_PRICE=100
+      fi
+    else
+      prompt_eth_gasstation_setup
+    fi
+  fi
+  echo
+}
+prompt_eth_gasstation_setup
+
+prompt_balancer_setup () {
+  # Ask the user for the Balancer specific settings
+  echo "ℹ️  Balancer setting "
+  read -p "   Enter the maximum Balancer swap pool (default = \"4\") >>> " BALANCER_MAX_SWAPS
+  if [ "$BALANCER_MAX_SWAPS" == "" ]
+  then
+    BALANCER_MAX_SWAPS="4"
+    echo
+  fi
+}
+
+prompt_uniswap_setup () {
+  # Ask the user for the Uniswap specific settings
+  echo "ℹ️  Uniswap setting "
+  read -p "   Enter the allowed slippage for swap transactions (default = \"1.5\") >>> " UNISWAP_SLIPPAGE
+  if [ "$UNISWAP_SLIPPAGE" == "" ]
+  then
+    UNISWAP_SLIPPAGE="1.5"
+    echo
+  fi
+}
+
+if [[ "$ETHEREUM_SETUP" == true ]]
+then
+  prompt_balancer_setup
+  prompt_uniswap_setup
+fi
+
+prompt_xdai_setup () {
+  # Ask the user for the Uniswap specific settings
+  echo "ℹ️  XDAI setting "
+  read -p "   Enter preferred XDAI rpc provider (default = \"https://rpc.xdaichain.com\") >>> " XDAI_PROVIDER
+  if [ "$XDAI_PROVIDER" == "" ]
+  then
+    XDAI_PROVIDER="https://rpc.xdaichain.com"
+    echo
+  fi
+}
+prompt_xdai_setup
+
 # Ask the user for ethereum network
 prompt_terra_network () {
-read -p "   Enter Terra chain you want to use [mainnet/testnet] (default = \"mainnet\") >>> " TERRA
-# chain selection
-if [ "$TERRA" == "" ]
-then
-  TERRA="mainnet"
-fi
-if [[ "$TERRA" != "mainnet" && "$TERRA" != "testnet" ]]
-then
-  echo "‼️  ERROR. Unsupported chains (mainnet/testnet). "
-  prompt_terra_network
-fi
-# setup chain params
-if [[ "$TERRA" == "mainnet" ]]
-then
-  TERRA_LCD_URL="https://lcd.terra.dev"
-  TERRA_CHAIN="columbus-4"
-elif [ "$TERRA" == "testnet" ]
-then
-  TERRA_LCD_URL="https://tequila-lcd.terra.dev"
-  TERRA_CHAIN="tequila-0004"
-fi
+  echo
+  read -p "   Enter Terra chain you want to use [mainnet/testnet] (default = \"mainnet\") >>> " TERRA
+  # chain selection
+  if [ "$TERRA" == "" ]
+  then
+    TERRA="mainnet"
+  fi
+  if [[ "$TERRA" != "mainnet" && "$TERRA" != "testnet" ]]
+  then
+    echo "‼️  ERROR. Unsupported chains (mainnet/testnet). "
+    prompt_terra_network
+  fi
+  # setup chain params
+  if [[ "$TERRA" == "mainnet" ]]
+  then
+    TERRA_LCD_URL="https://lcd.terra.dev"
+    TERRA_CHAIN="columbus-4"
+  elif [ "$TERRA" == "testnet" ]
+  then
+    TERRA_LCD_URL="https://tequila-lcd.terra.dev"
+    TERRA_CHAIN="tequila-0004"
+  fi
 }
+
 prompt_terra_setup () {
-  read -p "   Do you want to setup Terra? [Y/N] >>> " PROCEED
-  if [[ "$PROCEED" == "Y" || "$PROCEED" == "y" ]]
+  echo
+  read -p "   Do you want to setup Terra? [Y/N] (default \"Y\") >>> " PROCEED
+  if [[ "$PROCEED" == "Y" || "$PROCEED" == "y" || "$PROCEED" == "" ]]
   then
     TERRA_SETUP=true
     prompt_terra_network
@@ -202,9 +340,17 @@ echo
 printf "%30s %5s\n" "Hummingbot Instance ID:" "$HUMMINGBOT_INSTANCE_ID"
 printf "%30s %5s\n" "Ethereum Chain:" "$ETHEREUM_CHAIN"
 printf "%30s %5s\n" "Ethereum RPC URL:" "$ETHEREUM_RPC_URL"
+printf "%30s %5s\n" "Ethereum Token List URL:" "$ETHEREUM_TOKEN_LIST_URL"
+printf "%30s %5s\n" "Manual Gas Price:" "$MANUAL_GAS_PRICE"
+printf "%30s %5s\n" "Enable Eth Gas Station:" "$ENABLE_ETH_GAS_STATION"
+printf "%30s %5s\n" "Eth Gas Station API:" "$ETH_GAS_STATION_API_KEY"
+printf "%30s %5s\n" "Eth Gas Station Level:" "$ETH_GAS_STATION_GAS_LEVEL"
+printf "%30s %5s\n" "Eth Gas Station Refresh Interval:" "$ETH_GAS_STATION_REFRESH_TIME"
 printf "%30s %5s\n" "Balancer Subgraph:" "$REACT_APP_SUBGRAPH_URL"
 printf "%30s %5s\n" "Balancer Exchange Proxy:" "$EXCHANGE_PROXY"
+printf "%30s %5s\n" "Balancer Max Swaps:" "$BALANCER_MAX_SWAPS"
 printf "%30s %5s\n" "Uniswap Router:" "$UNISWAP_ROUTER"
+printf "%30s %5s\n" "Uniswap Allowed Slippage:" "$UNISWAP_SLIPPAGE"
 printf "%30s %5s\n" "Terra Chain:" "$TERRA"
 printf "%30s %5s\n" "Gateway Log Path:" "$LOG_PATH"
 printf "%30s %5s\n" "Gateway Cert Path:" "$CERT_PATH"
@@ -220,13 +366,46 @@ echo "NODE_ENV=prod" >> $ENV_FILE
 echo "PORT=$PORT" >> $ENV_FILE
 echo "" >> $ENV_FILE
 echo "HUMMINGBOT_INSTANCE_ID=$HUMMINGBOT_INSTANCE_ID" >> $ENV_FILE
+
+# ethereum config
+echo "" >> $ENV_FILE
+echo "# Ethereum Settings" >> $ENV_FILE
 echo "ETHEREUM_CHAIN=$ETHEREUM_CHAIN" >> $ENV_FILE
 echo "ETHEREUM_RPC_URL=$ETHEREUM_RPC_URL" >> $ENV_FILE
+echo "ETHEREUM_TOKEN_LIST_URL=$ETHEREUM_TOKEN_LIST_URL" >> $ENV_FILE
+echo "" >> $ENV_FILE
+echo "ENABLE_ETH_GAS_STATION=$ENABLE_ETH_GAS_STATION" >> $ENV_FILE
+echo "ETH_GAS_STATION_API_KEY=$ETH_GAS_STATION_API_KEY" >> $ENV_FILE
+echo "ETH_GAS_STATION_GAS_LEVEL=$ETH_GAS_STATION_GAS_LEVEL" >> $ENV_FILE
+echo "ETH_GAS_STATION_REFRESH_TIME=$ETH_GAS_STATION_REFRESH_TIME" >> $ENV_FILE
+echo "MANUAL_GAS_PRICE=$MANUAL_GAS_PRICE" >> $ENV_FILE
+
+# balancer config
+echo "" >> $ENV_FILE
+echo "# Balancer Settings" >> $ENV_FILE
 echo "REACT_APP_SUBGRAPH_URL=$REACT_APP_SUBGRAPH_URL" >> $ENV_FILE # must used "REACT_APP_SUBGRAPH_URL" for balancer-sor
 echo "EXCHANGE_PROXY=$EXCHANGE_PROXY" >> $ENV_FILE
+echo "BALANCER_MAX_SWAPS=$BALANCER_MAX_SWAPS" >> $ENV_FILE
+
+# uniswap config
+echo "" >> $ENV_FILE
+echo "# Uniswap Settings" >> $ENV_FILE
 echo "UNISWAP_ROUTER=$UNISWAP_ROUTER" >> $ENV_FILE
+echo "UNISWAP_ALLOWED_SLIPPAGE=$UNISWAP_SLIPPAGE" >> $ENV_FILE
+echo "UNISWAP_NO_RESERVE_CHECK_INTERVAL=300000" >> $ENV_FILE
+echo "UNISWAP_PAIRS_CACHE_TIME=1000" >> $ENV_FILE
+
+# terra config
+echo "" >> $ENV_FILE
+echo "# Terra Settings" >> $ENV_FILE
 echo "TERRA_LCD_URL=$TERRA_LCD_URL" >> $ENV_FILE
 echo "TERRA_CHAIN=$TERRA_CHAIN" >> $ENV_FILE
+
+# perpeptual finance config
+echo "" >> $ENV_FILE
+echo "# Perpeptual Settings" >> $ENV_FILE
+echo "XDAI_PROVIDER=$XDAI_PROVIDER" >> $ENV_FILE
+
 echo "" >> $ENV_FILE
 
 prompt_proceed () {
@@ -234,7 +413,12 @@ prompt_proceed () {
  read -p "  Do you want to proceed with installation? [Y/N] >>> " PROCEED
  if [ "$PROCEED" == "" ]
  then
- PROCEED="Y"
+ prompt_proceed
+ else
+  if [[ "$PROCEED" != "Y" && "$PROCEED" != "y" ]]
+  then
+    PROCEED="N"
+  fi
  fi
 }
 
