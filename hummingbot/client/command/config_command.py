@@ -45,12 +45,7 @@ global_configs_to_display = ["0x_active_cancels",
                              "send_error_logs",
                              "script_enabled",
                              "script_file_path",
-                             "manual_gas_price",
                              "ethereum_chain_name",
-                             "ethgasstation_gas_enabled",
-                             "ethgasstation_api_key",
-                             "ethgasstation_gas_level",
-                             "ethgasstation_refresh_time",
                              "gateway_enabled",
                              "gateway_cert_passphrase",
                              "gateway_api_host",
@@ -240,9 +235,12 @@ class ConfigCommand:
             exchange = config_map["exchange"].value
             market = config_map["market"].value
             base_asset, quote_asset = market.split("-")
-            balances = await UserBalances.instance().balances(
-                exchange, base_asset, quote_asset
-            )
+            if global_config_map["paper_trade_enabled"].value:
+                balances = global_config_map["paper_trade_account_balance"].value
+            else:
+                balances = await UserBalances.instance().balances(
+                    exchange, base_asset, quote_asset
+                )
             if balances.get(base_asset) is None:
                 return
 
