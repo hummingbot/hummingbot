@@ -72,10 +72,15 @@ def taker_market_on_validated(value: str):
     settings.required_exchanges.append(value)
 
 
-def use_oracle_conversion_rate_on_validated(value: str):
-    use_oracle = parse_cvar_value(cross_exchange_market_making_config_map["use_oracle_conversion_rate"], value)
-    first_base, first_quote = cross_exchange_market_making_config_map["maker_market_trading_pair"].value.split("-")
-    second_base, second_quote = cross_exchange_market_making_config_map["taker_market_trading_pair"].value.split("-")
+def update_oracle_settings(value: str):
+    c_map = cross_exchange_market_making_config_map
+    if not (c_map["use_oracle_conversion_rate"].value is not None and
+            c_map["maker_market_trading_pair"].value is not None and
+            c_map["taker_market_trading_pair"].value is not None):
+        return
+    use_oracle = parse_cvar_value(c_map["use_oracle_conversion_rate"], c_map["use_oracle_conversion_rate"].value)
+    first_base, first_quote = c_map["maker_market_trading_pair"].value.split("-")
+    second_base, second_quote = c_map["taker_market_trading_pair"].value.split("-")
     if use_oracle and (first_base != second_base or first_quote != second_quote):
         settings.required_rate_oracle = True
         settings.rate_oracle_pairs = []
@@ -111,13 +116,15 @@ cross_exchange_market_making_config_map = {
         key="maker_market_trading_pair",
         prompt=maker_trading_pair_prompt,
         prompt_on_new=True,
-        validator=validate_maker_market_trading_pair
+        validator=validate_maker_market_trading_pair,
+        on_validated=update_oracle_settings
     ),
     "taker_market_trading_pair": ConfigVar(
         key="taker_market_trading_pair",
         prompt=taker_trading_pair_prompt,
         prompt_on_new=True,
-        validator=validate_taker_market_trading_pair
+        validator=validate_taker_market_trading_pair,
+        on_validated=update_oracle_settings
     ),
     "min_profitability": ConfigVar(
         key="min_profitability",
@@ -216,23 +223,23 @@ cross_exchange_market_making_config_map = {
         prompt="Do you want to use rate oracle on unmatched trading pairs? (Yes/No) >>> ",
         prompt_on_new=True,
         validator=lambda v: validate_bool(v),
-        on_validated=use_oracle_conversion_rate_on_validated),
+        on_validated=update_oracle_settings),
     "taker_to_maker_base_conversion_rate": ConfigVar(
         key="taker_to_maker_base_conversion_rate",
         prompt="Enter conversion rate for taker base asset value to maker base asset value, e.g. "
-               "if maker base asset is USD, taker is DAI and 1 USD is worth 1.25 DAI, "
-               "the conversion rate is 0.8 (1 / 1.25) >>> ",
+               "if maker base asset is USD and the taker is DAI, 1 DAI is valued at 1.25 USD, "
+               "the conversion rate is 1.25 >>> ",
         default=Decimal("1"),
-        validator=lambda v: validate_decimal(v, Decimal(0), Decimal("100"), inclusive=False),
+        validator=lambda v: validate_decimal(v, Decimal(0), inclusive=False),
         type_str="decimal"
     ),
     "taker_to_maker_quote_conversion_rate": ConfigVar(
         key="taker_to_maker_quote_conversion_rate",
         prompt="Enter conversion rate for taker quote asset value to maker quote asset value, e.g. "
-               "if taker quote asset is USD, maker is DAI and 1 USD is worth 1.25 DAI, "
-               "the conversion rate is 0.8 (1 / 1.25) >>> ",
+               "if maker quote asset is USD and the taker is DAI, 1 DAI is valued at 1.25 USD, "
+               "the conversion rate is 1.25 >>> ",
         default=Decimal("1"),
-        validator=lambda v: validate_decimal(v, Decimal(0), Decimal("100"), inclusive=False),
+        validator=lambda v: validate_decimal(v, Decimal(0), inclusive=False),
         type_str="decimal"
     ),
 }
