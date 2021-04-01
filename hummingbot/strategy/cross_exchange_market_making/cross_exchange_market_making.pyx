@@ -1164,11 +1164,8 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         """
         Return price conversion rate for a taker market (to convert it into maker base asset value)
         """
-        if not self._use_oracle_conversion_rate:
-            return self._taker_to_maker_quote_conversion_rate / self._taker_to_maker_base_conversion_rate
-        else:
-            _, _, quote_rate, _, _, base_rate = self.get_taker_to_maker_conversion_rate()
-            return quote_rate / base_rate
+        _, _, quote_rate, _, _, base_rate = self.get_taker_to_maker_conversion_rate()
+        return quote_rate / base_rate
         # else:
         #     market_pairs = list(self._market_pairs.values())[0]
         #     quote_pair = f"{market_pairs.taker.quote_asset}-{market_pairs.maker.quote_asset}"
