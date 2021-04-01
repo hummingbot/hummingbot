@@ -18,7 +18,7 @@ from hummingbot.client.config.config_helpers import (
 )
 from hummingbot.client.config.security import Security
 from hummingbot.user.user_balances import UserBalances
-from hummingbot.client.settings import required_exchanges, ethereum_wallet_required, ethereum_gas_station_required
+from hummingbot.client.settings import required_exchanges, ethereum_wallet_required
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
 from typing import TYPE_CHECKING
@@ -185,10 +185,6 @@ class StatusCommand:
                         self._notify("  - ETH wallet check: Minimum ETH requirement satisfied")
             else:
                 self._notify("  - ETH wallet check: ETH wallet is not connected.")
-
-        if ethereum_gas_station_required() and not global_config_map["ethgasstation_gas_enabled"].value:
-            self._notify(f'  - ETH gas station check: Manual gas price is fixed at '
-                         f'{global_config_map["manual_gas_price"].value}.')
 
         loading_markets: List[ConnectorBase] = []
         for market in self.markets.values():

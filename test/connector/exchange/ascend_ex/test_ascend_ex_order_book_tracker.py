@@ -9,8 +9,8 @@ from os.path import join, realpath
 from typing import Dict, Optional, List
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import OrderBookEvent, OrderBookTradeEvent, TradeType
-from hummingbot.connector.exchange.bitmax.bitmax_order_book_tracker import BitmaxOrderBookTracker
-from hummingbot.connector.exchange.bitmax.bitmax_api_order_book_data_source import BitmaxAPIOrderBookDataSource
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_order_book_tracker import AscendExOrderBookTracker
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source import AscendExAPIOrderBookDataSource
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 
@@ -19,8 +19,8 @@ sys.path.insert(0, realpath(join(__file__, "../../../../../")))
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 
-class BitmaxOrderBookTrackerUnitTest(unittest.TestCase):
-    order_book_tracker: Optional[BitmaxOrderBookTracker] = None
+class AscendExOrderBookTrackerUnitTest(unittest.TestCase):
+    order_book_tracker: Optional[AscendExOrderBookTracker] = None
     events: List[OrderBookEvent] = [
         OrderBookEvent.TradeEvent
     ]
@@ -32,7 +32,7 @@ class BitmaxOrderBookTrackerUnitTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        cls.order_book_tracker: BitmaxOrderBookTracker = BitmaxOrderBookTracker(cls.trading_pairs)
+        cls.order_book_tracker: AscendExOrderBookTracker = AscendExOrderBookTracker(cls.trading_pairs)
         cls.order_book_tracker.start()
         cls.ev_loop.run_until_complete(cls.wait_til_tracker_ready())
 
@@ -96,7 +96,7 @@ class BitmaxOrderBookTrackerUnitTest(unittest.TestCase):
 
     def test_api_get_last_traded_prices(self):
         prices = self.ev_loop.run_until_complete(
-            BitmaxAPIOrderBookDataSource.get_last_traded_prices(["BTC-USDT", "LTC-BTC"]))
+            AscendExAPIOrderBookDataSource.get_last_traded_prices(["BTC-USDT", "LTC-BTC"]))
         for key, value in prices.items():
             print(f"{key} last_trade_price: {value}")
         self.assertGreater(prices["BTC-USDT"], 1000)
