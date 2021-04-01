@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from setuptools import setup
+from setuptools.command.build_ext import build_ext
 from Cython.Build import cythonize
 import numpy as np
 import os
@@ -15,6 +16,16 @@ if is_posix:
         os.environ["CFLAGS"] = "-stdlib=libc++ -std=c++11"
     else:
         os.environ["CFLAGS"] = "-std=c++11"
+
+
+# Avoid a gcc warning below:
+# cc1plus: warning: command line option ‘-Wstrict-prototypes’ is valid
+# for C/ObjC but not for C++
+class BuildExt(build_ext):
+    def build_extensions(self):
+        if '-Wstrict-prototypes' in self.compiler.compiler_so:
+            self.compiler.compiler_so.remove('-Wstrict-prototypes')
+        super().build_extensions()
 
 
 def main():
@@ -165,6 +176,7 @@ def main():
               "bin/hummingbot.py",
               "bin/hummingbot_quickstart.py"
           ],
+          cmdclass={'build_ext': BuildExt},
           )
 
 
