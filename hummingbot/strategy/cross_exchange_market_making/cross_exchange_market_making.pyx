@@ -1135,12 +1135,15 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             object order_price = active_order.price
             ExchangeBase maker_market = market_pair.maker.market
             ExchangeBase taker_market = market_pair.taker.market
-
-            object quote_asset_amount = maker_market.c_get_balance(market_pair.maker.quote_asset) if is_buy else \
-                taker_market.c_get_balance(market_pair.taker.quote_asset)
-            object base_asset_amount = taker_market.c_get_balance(market_pair.taker.base_asset) if is_buy else \
-                maker_market.c_get_balance(market_pair.maker.base_asset)
             object order_size_limit
+
+        quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate = \
+            self.get_taker_to_maker_conversion_rate()
+
+        quote_asset_amount = maker_market.c_get_balance(market_pair.maker.quote_asset) if is_buy else \
+            taker_market.c_get_balance(market_pair.taker.quote_asset) * quote_rate
+        base_asset_amount = taker_market.c_get_balance(market_pair.taker.base_asset) * base_rate if is_buy else \
+            maker_market.c_get_balance(market_pair.maker.base_asset)
 
         order_size_limit = min(base_asset_amount, quote_asset_amount / order_price)
         quantized_size_limit = maker_market.c_quantize_order_amount(active_order.trading_pair, order_size_limit)
@@ -1202,15 +1205,15 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                         True,
                         bid_size
                     )
-                    effective_hedging_price_adjusted = effective_hedging_price * self.market_conversion_rate()
+                    effective_hedging_price_adjusted = effective_hedging_price / self.market_conversion_rate()
                     if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
                         self.log_with_clock(
                             logging.INFO,
                             f"({market_pair.maker.trading_pair}) Creating limit bid order for "
                             f"{bid_size} {market_pair.maker.base_asset} at "
                             f"{bid_price} {market_pair.maker.quote_asset}. "
-                            f"Current hedging price: {effective_hedging_price} {market_pair.taker.quote_asset} "
-                            f"(Rate adjusted: {effective_hedging_price_adjusted:.2f} {market_pair.taker.quote_asset})."
+                            f"Current hedging price: {effective_hedging_price:.8f} {market_pair.maker.quote_asset} "
+                            f"(Rate adjusted: {effective_hedging_price_adjusted:.8f} {market_pair.taker.quote_asset})."
                         )
                     order_id = self.c_place_order(market_pair, True, True, bid_size, bid_price)
                 else:
@@ -1241,15 +1244,15 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                         False,
                         ask_size
                     )
-                    effective_hedging_price_adjusted = effective_hedging_price
+                    effective_hedging_price_adjusted = effective_hedging_price / self.market_conversion_rate()
                     if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
                         self.log_with_clock(
                             logging.INFO,
                             f"({market_pair.maker.trading_pair}) Creating limit ask order for "
                             f"{ask_size} {market_pair.maker.base_asset} at "
                             f"{ask_price} {market_pair.maker.quote_asset}. "
-                            f"Current hedging price: {effective_hedging_price} {market_pair.maker.quote_asset} "
-                            f"(Rate adjusted: {effective_hedging_price_adjusted:.2f} {market_pair.maker.quote_asset})."
+                            f"Current hedging price: {effective_hedging_price:.8f} {market_pair.maker.quote_asset} "
+                            f"(Rate adjusted: {effective_hedging_price_adjusted:.8f} {market_pair.taker.quote_asset})."
                         )
                     order_id = self.c_place_order(market_pair, False, True, ask_size, ask_price)
                 else:
