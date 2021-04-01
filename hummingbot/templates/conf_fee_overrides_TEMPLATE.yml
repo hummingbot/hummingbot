@@ -75,9 +75,6 @@ balancer_taker_fee_amount:
 uniswap_maker_fee_amount:
 uniswap_taker_fee_amount:
 
-bitmax_maker_fee:
-bitmax_taker_fee:
-
 ascend_ex_maker_fee:
 ascend_ex_taker_fee:
 
