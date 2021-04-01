@@ -253,13 +253,18 @@ class AmmArbStrategy(StrategyPyBase):
             market, trading_pair, base_asset, quote_asset = market_info
             buy_price = await market.get_quote_price(trading_pair, True, self._order_amount)
             sell_price = await market.get_quote_price(trading_pair, False, self._order_amount)
-            mid_price = (buy_price + sell_price) / 2
+
+            # check for unavailable price data
+            buy_price = Decimal(str(buy_price)) if buy_price is not None else '-'
+            sell_price = Decimal(str(sell_price)) if sell_price is not None else '-'
+            mid_price = ((buy_price + sell_price) / 2) if '-' not in [buy_price, sell_price] else '-'
+
             data.append([
                 market.display_name,
                 trading_pair,
-                float(sell_price),
-                float(buy_price),
-                float(mid_price)
+                sell_price,
+                buy_price,
+                mid_price
             ])
         markets_df = pd.DataFrame(data=data, columns=columns)
         lines = []
@@ -335,7 +340,7 @@ class AmmArbStrategy(StrategyPyBase):
                     self._market_2_quote_eth_rate = await self.request_rate_in_eth(self._market_info_2.quote_asset)
                     self.logger().warning(f"Estimate conversion rate - "
                                           f"{self._market_info_2.quote_asset}:ETH = {self._market_2_quote_eth_rate} ")
-                await asyncio.sleep(60 * 5)
+                await asyncio.sleep(60 * 1)
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -348,4 +353,5 @@ class AmmArbStrategy(StrategyPyBase):
     async def request_rate_in_eth(self, quote: str) -> int:
         if self._uniswap is None:
             self._uniswap = UniswapConnector([f"{quote}-WETH"], "", None)
+            await self._uniswap.initiate_pool()  # initiate to cache swap pool
         return await self._uniswap.get_quote_price(f"{quote}-WETH", True, 1)

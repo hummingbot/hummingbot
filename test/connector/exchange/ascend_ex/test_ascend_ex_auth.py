@@ -9,21 +9,22 @@ import conf
 import logging
 from os.path import join, realpath
 from typing import Dict, Any
-from hummingbot.connector.exchange.bitmax.bitmax_auth import BitmaxAuth
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-from hummingbot.connector.exchange.bitmax.bitmax_constants import REST_URL, getWsUrlPriv
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_constants import REST_URL
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_util import get_rest_url_private
 
 sys.path.insert(0, realpath(join(__file__, "../../../../../")))
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 
-class TestAuth(unittest.TestCase):
+class TestAscendExAuth(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        api_key = conf.bitmax_api_key
-        secret_key = conf.bitmax_secret_key
-        cls.auth = BitmaxAuth(api_key, secret_key)
+        api_key = conf.ascend_ex_api_key
+        secret_key = conf.ascend_ex_secret_key
+        cls.auth = AscendExAuth(api_key, secret_key)
 
     async def rest_auth(self) -> Dict[Any, Any]:
         headers = {
@@ -37,7 +38,7 @@ class TestAuth(unittest.TestCase):
         info = await self.rest_auth()
         accountGroup = info.get("data").get("accountGroup")
         headers = self.auth.get_auth_headers("stream")
-        ws = await websockets.connect(f"{getWsUrlPriv(accountGroup)}/stream", extra_headers=headers)
+        ws = await websockets.connect(f"{get_rest_url_private(accountGroup)}/stream", extra_headers=headers)
 
         raw_msg = await asyncio.wait_for(ws.recv(), 5000)
         msg = ujson.loads(raw_msg)

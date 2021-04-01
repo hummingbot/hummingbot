@@ -3,7 +3,6 @@ import platform
 import threading
 from typing import TYPE_CHECKING
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.core.utils.eth_gas_station_lookup import EthGasStationLookup
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
@@ -44,9 +43,6 @@ class StopCommand:
 
         if self.strategy_task is not None and not self.strategy_task.cancelled():
             self.strategy_task.cancel()
-
-        if EthGasStationLookup.get_instance().started:
-            EthGasStationLookup.get_instance().stop()
 
         if self.markets_recorder is not None:
             self.markets_recorder.stop()
