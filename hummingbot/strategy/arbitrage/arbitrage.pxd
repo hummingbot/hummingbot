@@ -26,6 +26,10 @@ cdef class ArbitrageStrategy(StrategyBase):
         bint _use_oracle_conversion_rate
         object _secondary_to_primary_base_conversion_rate
         object _secondary_to_primary_quote_conversion_rate
+        object _base_rate_conversion_delegate
+        object _quote_rate_conversion_delegate
+        object _base_conversion_ext_market_price_type
+        object _quote_conversion_ext_market_price_type
         bint _hb_app_notification
         tuple _current_profitability
         double _last_conv_rates_logged

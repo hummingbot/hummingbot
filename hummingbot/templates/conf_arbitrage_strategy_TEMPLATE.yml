@@ -2,7 +2,7 @@
 ###   Arbitrage strategy config   ###
 #####################################
 
-template_version: 5
+template_version: 6
 strategy: null
 
 # The following configuations are only required for the
@@ -22,6 +22,12 @@ min_profitability: null
 # Set this to either True or False
 use_oracle_conversion_rate: null
 
+# Base Price Source
+base_rate_conversion_source: null
+
+# Quote Price Source
+quote_rate_conversion_source: null
+
 # The conversion rate for secondary base asset value to primary base asset value.
 # e.g. if primary base asset is USD, secondary is DAI and 1 USD is worth 1.25 DAI, "
 # the conversion rate is 0.8 (1 / 1.25)
@@ -31,6 +37,24 @@ secondary_to_primary_base_conversion_rate: null
 # e.g. if primary quote asset is USD, secondary is DAI and 1 USD is worth 1.25 DAI, "
 # the conversion rate is 0.8 (1 / 1.25)
 secondary_to_primary_quote_conversion_rate: null
+
+# Base Price Source Exchange
+base_conversion_ext_market_exchange: null
+
+# Base Price Source Market
+base_conversion_ext_market_market: null
+
+# Base Price Source Type
+base_conversion_ext_market_price_type: null
+
+# Quote Price Source Exchange
+quote_conversion_ext_market_exchange: null
+
+# Quote Price Source Market
+quote_conversion_ext_market_market: null
+
+# Quote Price Source Type
+quote_conversion_ext_market_price_type: null
 
 # For more detailed information, see:
 # https://docs.hummingbot.io/strategies/arbitrage/#configuration-parameters
