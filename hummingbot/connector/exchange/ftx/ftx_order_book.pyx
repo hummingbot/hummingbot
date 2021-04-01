@@ -31,9 +31,9 @@ cdef class FtxOrderBook(OrderBook):
 
     @classmethod
     def restful_snapshot_message_from_exchange(cls,
-                                       msg: Dict[str, any],
-                                       timestamp: float,
-                                       metadata: Optional[Dict] = None) -> OrderBookMessage:
+                                               msg: Dict[str, any],
+                                               timestamp: float,
+                                               metadata: Optional[Dict] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
@@ -84,4 +84,3 @@ cdef class FtxOrderBook(OrderBook):
             "price": msg["price"],
             "amount": msg["size"]
         }, timestamp=ts)
-

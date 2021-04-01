@@ -18,7 +18,7 @@ cdef class FtxInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
-                 created_at : float,
+                 created_at: float,
                  initial_state: str = "new"):
         super().__init__(
             client_order_id,
@@ -36,7 +36,7 @@ cdef class FtxInFlightOrder(InFlightOrderBase):
     def __repr__(self) -> str:
         return f"super().__repr__()" \
                f"created_at='{str(self.created_at)}'')"
-    
+
     def to_json(self) -> Dict[str, Any]:
         response = super().to_json()
         response["created_at"] = str(self.created_at)
@@ -90,20 +90,20 @@ cdef class FtxInFlightOrder(InFlightOrderBase):
         events: List[Any] = []
 
         new_status: FtxOrderStatus = FtxOrderStatus[data["status"]]
-        old_executed_base : Decimal = self.executed_amount_base
-        old_executed_quote : Decimal = self.executed_amount_quote
-        overall_executed_base : Decimal = data["filledSize"]
-        overall_remaining_size : Decimal = self.amount - overall_executed_base
+        old_executed_base: Decimal = self.executed_amount_base
+        old_executed_quote: Decimal = self.executed_amount_quote
+        overall_executed_base: Decimal = data["filledSize"]
+        overall_remaining_size: Decimal = self.amount - overall_executed_base
         if data["avgFillPrice"] is not None:
-            overall_executed_quote : Decimal = overall_executed_base * data["avgFillPrice"]
+            overall_executed_quote: Decimal = overall_executed_base * data["avgFillPrice"]
         else:
             overall_executed_quote: Decimal = Decimal("0")
 
-        diff_base : Decimal = overall_executed_base - old_executed_base
-        diff_quote : Decimal = overall_executed_quote - old_executed_quote
+        diff_base: Decimal = overall_executed_base - old_executed_base
+        diff_quote: Decimal = overall_executed_quote - old_executed_quote
 
         if diff_base > 0:
-            diff_price : Decimal = diff_quote / diff_base
+            diff_price: Decimal = diff_quote / diff_base
             events.append((MarketEvent.OrderFilled, diff_base, diff_price, None))
 
         if not self.is_done and new_status == FtxOrderStatus.closed:

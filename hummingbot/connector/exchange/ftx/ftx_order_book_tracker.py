@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 import asyncio
-import bisect
 import logging
 import time
 from collections import (
@@ -15,20 +14,18 @@ from typing import (
     Deque,
 )
 
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import (
     OrderBookMessageType,
     OrderBookMessage,
 )
-from hummingbot.core.event.events import TradeType
 from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.order_book_tracker import OrderBookTracker, OrderBookTrackerDataSourceType
-from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.connector.exchange.ftx.ftx_active_order_tracker import FtxActiveOrderTracker
 from hummingbot.connector.exchange.ftx.ftx_api_order_book_data_source import FtxAPIOrderBookDataSource
 from hummingbot.connector.exchange.ftx.ftx_order_book import FtxOrderBook
 from hummingbot.connector.exchange.ftx.ftx_order_book_message import FtxOrderBookMessage
 from hummingbot.connector.exchange.ftx.ftx_order_book_tracker_entry import FtxOrderBookTrackerEntry
-from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
 class FtxOrderBookTracker(OrderBookTracker):
@@ -45,7 +42,7 @@ class FtxOrderBookTracker(OrderBookTracker):
         trading_pairs: Optional[List[str]] = None,
     ):
         super().__init__(
-            data_source = FtxAPIOrderBookDataSource(trading_pairs=trading_pairs),
+            data_source=FtxAPIOrderBookDataSource(trading_pairs=trading_pairs),
             trading_pairs=trading_pairs
         )
 
