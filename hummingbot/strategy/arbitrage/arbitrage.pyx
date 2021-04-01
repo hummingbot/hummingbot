@@ -168,7 +168,7 @@ cdef class ArbitrageStrategy(StrategyBase):
                 quote_rate_source = RateOracle.source.name
                 quote_rate = RateOracle.get_instance().rate(quote_pair)
         elif self._quote_rate_conversion_delegate is not None:
-            quote_rate_source = "order_book"
+            quote_rate_source = self._quote_rate_conversion_delegate.market.display_name
             quote_rate = self.get_conversion_delegate_rate()
         else:
             quote_rate = self._secondary_to_primary_quote_conversion_rate
@@ -180,7 +180,7 @@ cdef class ArbitrageStrategy(StrategyBase):
                 base_rate_source = RateOracle.source.name
                 base_rate = RateOracle.get_instance().rate(base_pair)
         elif self._base_rate_conversion_delegate is not None:
-            base_rate_source = "order_book"
+            base_rate_source = self._base_rate_conversion_delegate.market.display_name
             base_rate = self.get_conversion_delegate_rate(True)
         else:
             base_rate = self._secondary_to_primary_base_conversion_rate
