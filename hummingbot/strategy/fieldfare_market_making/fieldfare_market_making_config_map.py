@@ -143,7 +143,7 @@ fieldfare_market_making_config_map = {
                   prompt_on_new=True),
     "vol_to_spread_multiplier":
         ConfigVar(key="vol_to_spread_multiplier",
-                  prompt="Enter the Volatility threshold multiplier: "
+                  prompt="Enter the Volatility threshold multiplier (Should be greater than 1.0): "
                          "(If market volatility multiplied by this value is above the maximum spread, it will increase the maximum spread value) >>>",
                   type_str="decimal",
                   required_if=lambda: fieldfare_market_making_config_map.get("parameters_based_on_spread").value,
