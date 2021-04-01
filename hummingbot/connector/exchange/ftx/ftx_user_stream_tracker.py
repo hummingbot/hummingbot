@@ -34,7 +34,7 @@ class FtxUserStreamTracker(UserStreamTracker):
     @property
     def data_source(self) -> UserStreamTrackerDataSource:
         if not self._data_source:
-           self._data_source = FtxAPIUserStreamDataSource(
+            self._data_source = FtxAPIUserStreamDataSource(
                 ftx_auth=self._ftx_auth
             )
         return self._data_source

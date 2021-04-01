@@ -3,33 +3,23 @@ import aiohttp
 import asyncio
 import cachetools.func
 import logging
-import pandas as pd
 import requests
-import signalr_aio
+
 import simplejson
 import time
 import ujson
 import websockets
 
-from async_timeout import timeout
-from base64 import b64decode
 from decimal import Decimal
 from signalr_aio import Connection
-from signalr_aio.hubs import Hub
 from typing import Optional, List, Dict, AsyncIterable, Any
 from websockets.exceptions import ConnectionClosed
-from zlib import decompress, MAX_WBITS
 
-from hummingbot.connector.exchange.ftx.ftx_active_order_tracker import FtxActiveOrderTracker
 from hummingbot.connector.exchange.ftx.ftx_order_book import FtxOrderBook
-from hummingbot.connector.exchange.ftx.ftx_order_book_tracker_entry import FtxOrderBookTrackerEntry
 from hummingbot.connector.exchange.ftx.ftx_utils import convert_from_exchange_trading_pair, convert_to_exchange_trading_pair
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
-from hummingbot.core.utils import async_ttl_cache
-from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
 
 EXCHANGE_NAME = "ftx"
