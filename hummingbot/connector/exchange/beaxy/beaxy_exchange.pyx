@@ -363,8 +363,8 @@ cdef class BeaxyExchange(ExchangeBase):
             tracked_order.last_state = order_update['order_status']
 
             if order_update['filled_size']:
-                execute_price = Decimal(order_update['limit_price'] if order_update['limit_price'] else order_update['average_price'])
-                execute_amount_diff = Decimal(order_update['filled_size']) - tracked_order.executed_amount_base
+                execute_price = Decimal(str(order_update['limit_price'] if order_update['limit_price'] else order_update['average_price']))
+                execute_amount_diff = Decimal(str(order_update['filled_size'])) - tracked_order.executed_amount_base
 
                 # Emit event if executed amount is greater than 0.
                 if execute_amount_diff > s_decimal_0:
@@ -398,9 +398,9 @@ cdef class BeaxyExchange(ExchangeBase):
             if tracked_order.is_done:
                 if not tracked_order.is_failure and not tracked_order.is_cancelled:
 
-                    new_confirmed_amount = Decimal(order_update['size'])
+                    new_confirmed_amount = Decimal(str(order_update['size']))
                     execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
-                    execute_price = Decimal(order_update['limit_price'] if order_update['limit_price'] else order_update['average_price'])
+                    execute_price = Decimal(str(order_update['limit_price'] if order_update['limit_price'] else order_update['average_price']))
 
                     # Emit event if executed amount is greater than 0.
                     if execute_amount_diff > s_decimal_0:
@@ -748,8 +748,8 @@ cdef class BeaxyExchange(ExchangeBase):
             res = await self._api_request('get', BeaxyConstants.TradingApi.TRADE_SETTINGS_ENDPOINT)
             for symbol_data in res['symbols']:
                 symbol = self.convert_from_exchange_trading_pair(symbol_data['name'])
-                self._maker_fee_percentage[symbol] = Decimal(symbol_data['maker_fee'])
-                self._taker_fee_percentage[symbol] = Decimal(symbol_data['taker_fee'])
+                self._maker_fee_percentage[symbol] = Decimal(str(symbol_data['maker_fee']))
+                self._taker_fee_percentage[symbol] = Decimal(str(symbol_data['taker_fee']))
 
             self._last_fee_percentage_update_timestamp = current_timestamp
         except asyncio.CancelledError:
@@ -774,8 +774,8 @@ cdef class BeaxyExchange(ExchangeBase):
 
         for balance_entry in account_balances:
             asset_name = balance_entry['currency']
-            available_balance = Decimal(balance_entry['available_balance'])
-            total_balance = Decimal(balance_entry['total_balance'])
+            available_balance = Decimal(str(balance_entry['available_balance']))
+            total_balance = Decimal(str(balance_entry['total_balance']))
             self._account_available_balances[asset_name] = available_balance
             self._account_balances[asset_name] = total_balance
             remote_asset_names.add(asset_name)
@@ -855,8 +855,8 @@ cdef class BeaxyExchange(ExchangeBase):
 
                     for msg in msgs:
                         asset_name = msg['currency']
-                        available_balance = Decimal(msg['available_balance'])
-                        total_balance = Decimal(msg['total_balance'])
+                        available_balance = Decimal(str(msg['available_balance']))
+                        total_balance = Decimal(str(msg['total_balance']))
                         self._account_available_balances[asset_name] = available_balance
                         self._account_balances[asset_name] = total_balance
 
@@ -882,8 +882,8 @@ cdef class BeaxyExchange(ExchangeBase):
                     execute_amount_diff = s_decimal_0
 
                     if order_status == 'partially_filled':
-                        order_filled_size = Decimal(order['trade_size'])
-                        execute_price = Decimal(order['trade_price'])
+                        order_filled_size = Decimal(str(order['trade_size']))
+                        execute_price = Decimal(str(order['trade_price']))
 
                         execute_amount_diff = order_filled_size - tracked_order.executed_amount_base
 
@@ -917,9 +917,9 @@ cdef class BeaxyExchange(ExchangeBase):
 
                     elif order_status == 'completely_filled':
 
-                        new_confirmed_amount = Decimal(order['size'])
+                        new_confirmed_amount = Decimal(str(order['size']))
                         execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
-                        execute_price = Decimal(order['limit_price'] if order['limit_price'] else order['average_price'])
+                        execute_price = Decimal(str(order['limit_price'] if order['limit_price'] else order['average_price']))
 
                         # Emit event if executed amount is greater than 0.
                         if execute_amount_diff > s_decimal_0:
