@@ -556,7 +556,7 @@ class BinancePerpetualDerivative(DerivativeBase):
                     update_data = event_message.get("a", {})
                     event_reason = update_data.get("m", {})
                     if event_reason == "FUNDING_FEE":
-                        await self.get_funding_payment(event_message.get("E", int(time.time())))
+                        await self.get_funding_payment()
                     else:
                         # update balances
                         for asset in update_data.get("B", []):
@@ -933,7 +933,7 @@ class BinancePerpetualDerivative(DerivativeBase):
         funding_payment_tasks = []
         for pair in self._trading_pairs:
             funding_payment_tasks.append(self.request(path="/fapi/v1/income",
-                                                      params={"symbol": convert_to_exchange_trading_pair(pair), "incomeType": "FUNDING_FEE", "limit": 1},
+                                                      params={"symbol": convert_to_exchange_trading_pair(pair), "incomeType": "FUNDING_FEE", "limit": len(self._account_positions)},
                                                       method=MethodType.POST,
                                                       add_timestamp=True,
                                                       is_signed=True))
