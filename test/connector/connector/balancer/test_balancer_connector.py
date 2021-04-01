@@ -28,8 +28,7 @@ from hummingbot.client.config.global_config_map import global_config_map
 
 global_config_map['gateway_api_host'].value = "localhost"
 global_config_map['gateway_api_port'].value = 5000
-global_config_map['ethgasstation_gas_enabled'].value = False
-global_config_map['manual_gas_price'].value = 50
+global_config_map['ethereum_token_list_url'].value = "https://defi.cmc.eth.link"
 global_config_map.get("ethereum_chain_name").value = "kovan"
 
 trading_pair = "WETH-DAI"
@@ -95,6 +94,14 @@ class BalancerConnectorUnitTest(unittest.TestCase):
         self.event_logger = EventLogger()
         for event_tag in self.events:
             self.connector.add_listener(event_tag, self.event_logger)
+
+    def test_fetch_trading_pairs(self):
+        asyncio.get_event_loop().run_until_complete(self._test_fetch_trading_pairs())
+
+    async def _test_fetch_trading_pairs(self):
+        pairs = await BalancerConnector.fetch_trading_pairs()
+        print(pairs)
+        self.assertGreater(len(pairs), 0)
 
     def test_update_balances(self):
         all_bals = self.connector.get_all_balances()

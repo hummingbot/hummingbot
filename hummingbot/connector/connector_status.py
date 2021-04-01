@@ -8,7 +8,7 @@ connector_status = {
     'binance_perpetual_testnet': 'green',
     'binance_us': 'yellow',
     'bitfinex': 'yellow',
-    'bitmax': 'green',
+    'ascend_ex': 'green',
     'bittrex': 'yellow',
     'blocktane': 'green',
     'celo': 'green',
