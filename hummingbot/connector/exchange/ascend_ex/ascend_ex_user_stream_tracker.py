@@ -2,12 +2,16 @@
 
 import asyncio
 import logging
+
 from typing import (
     Optional,
     List,
 )
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_api_user_stream_data_source import \
+    AscendExAPIUserStreamDataSource
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_constants import EXCHANGE_NAME
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.user_stream_tracker import (
     UserStreamTracker
 )
@@ -15,26 +19,24 @@ from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.connector.exchange.bitmax.bitmax_api_user_stream_data_source import \
-    BitmaxAPIUserStreamDataSource
-from hummingbot.connector.exchange.bitmax.bitmax_auth import BitmaxAuth
-from hummingbot.connector.exchange.bitmax.bitmax_constants import EXCHANGE_NAME
+
+from hummingbot.logger import HummingbotLogger
 
 
-class BitmaxUserStreamTracker(UserStreamTracker):
-    _cbpust_logger: Optional[HummingbotLogger] = None
+class AscendExUserStreamTracker(UserStreamTracker):
+    _logger: Optional[HummingbotLogger] = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        if cls._bust_logger is None:
-            cls._bust_logger = logging.getLogger(__name__)
-        return cls._bust_logger
+        if cls._logger is None:
+            cls._logger = logging.getLogger(__name__)
+        return cls._logger
 
     def __init__(self,
-                 bitmax_auth: Optional[BitmaxAuth] = None,
+                 ascend_ex_auth: Optional[AscendExAuth] = None,
                  trading_pairs: Optional[List[str]] = []):
         super().__init__()
-        self._bitmax_auth: BitmaxAuth = bitmax_auth
+        self._ascend_ex_auth: AscendExAuth = ascend_ex_auth
         self._trading_pairs: List[str] = trading_pairs
         self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
         self._data_source: Optional[UserStreamTrackerDataSource] = None
@@ -48,8 +50,8 @@ class BitmaxUserStreamTracker(UserStreamTracker):
         :return: OrderBookTrackerDataSource
         """
         if not self._data_source:
-            self._data_source = BitmaxAPIUserStreamDataSource(
-                bitmax_auth=self._bitmax_auth,
+            self._data_source = AscendExAPIUserStreamDataSource(
+                ascend_ex_auth=self._ascend_ex_auth,
                 trading_pairs=self._trading_pairs
             )
         return self._data_source
