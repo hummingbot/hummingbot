@@ -790,12 +790,12 @@ class IdexExchange(ExchangeBase):
         if HUMMINGBOT_GAS_LOOKUP:
             # resolve gas price from hummingbot's eth_gas_station_lookup
             # conf to be ON for hummingbot to resolve gas price: global_config_map["ethgasstation_gas_enabled"]
-            gas_amount = eth_gas_station_lookup.get_gas_price(in_gwei=False) * gas_limit
+            gas_amount: Decimal = eth_gas_station_lookup.get_gas_price(in_gwei=False) * Decimal(gas_limit)
             flat_fees = [(blockchain, gas_amount)]
         elif self._exchange_info and 'gasPrice' in self._exchange_info:
             # or resolve gas price from idex exchange endpoint
-            gas_price = self._exchange_info['gasPrice'] / Decimal("1e9")
-            gas_amount = gas_price * gas_limit
+            gas_price: Decimal = Decimal(self._exchange_info['gasPrice']) / Decimal("1e9")
+            gas_amount: Decimal = gas_price * Decimal(gas_limit)
             flat_fees = [(blockchain, gas_amount)]
         return TradeFee(percent=percent_fees, flat_fees=flat_fees)
 
