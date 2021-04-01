@@ -7,10 +7,10 @@ from hummingbot import data_path
 import os.path
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.strategy.fieldfare_market_making import (
-    FieldfareMarketMakingStrategy,
+from hummingbot.strategy.avellaneda_market_making import (
+    AvellanedaMarketMakingStrategy,
 )
-from hummingbot.strategy.fieldfare_market_making.fieldfare_market_making_config_map import fieldfare_market_making_config_map as c_map
+from hummingbot.strategy.avellaneda_market_making.avellaneda_market_making_config_map import avellaneda_market_making_config_map as c_map
 from decimal import Decimal
 import pandas as pd
 
@@ -37,7 +37,7 @@ def start(self):
         maker_data = [self.markets[exchange], trading_pair] + list(maker_assets)
         self.market_trading_pair_tuples = [MarketTradingPairTuple(*maker_data)]
 
-        strategy_logging_options = FieldfareMarketMakingStrategy.OPTION_LOG_ALL
+        strategy_logging_options = AvellanedaMarketMakingStrategy.OPTION_LOG_ALL
         parameters_based_on_spread = c_map.get("parameters_based_on_spread").value
         if parameters_based_on_spread:
             risk_factor = order_book_depth_factor = order_amount_shape_factor = None
@@ -56,7 +56,7 @@ def start(self):
                                       HummingbotApplication.main_application().strategy_file_name.rsplit('.', 1)[0] +
                                       f"_{pd.Timestamp.now().strftime('%Y-%m-%d_%H-%M-%S')}.csv")
 
-        self.strategy = FieldfareMarketMakingStrategy(
+        self.strategy = AvellanedaMarketMakingStrategy(
             market_info=MarketTradingPairTuple(*maker_data),
             order_amount=order_amount,
             order_optimization_enabled=order_optimization_enabled,
