@@ -13,13 +13,13 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.bitmax.bitmax_active_order_tracker import BitmaxActiveOrderTracker
-from hummingbot.connector.exchange.bitmax.bitmax_order_book import BitmaxOrderBook
-from hummingbot.connector.exchange.bitmax.bitmax_utils import convert_from_exchange_trading_pair, convert_to_exchange_trading_pair
-from hummingbot.connector.exchange.bitmax.bitmax_constants import EXCHANGE_NAME, REST_URL, WS_URL, PONG_PAYLOAD
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_active_order_tracker import AscendExActiveOrderTracker
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_order_book import AscendExOrderBook
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_utils import convert_from_exchange_trading_pair, convert_to_exchange_trading_pair
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_constants import EXCHANGE_NAME, REST_URL, WS_URL, PONG_PAYLOAD
 
 
-class BitmaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
+class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
     MAX_RETRIES = 20
     MESSAGE_TIMEOUT = 30.0
     SNAPSHOT_TIMEOUT = 10.0
@@ -105,13 +105,13 @@ class BitmaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair)
         snapshot_timestamp: float = snapshot.get("data").get("ts")
-        snapshot_msg: OrderBookMessage = BitmaxOrderBook.snapshot_message_from_exchange(
+        snapshot_msg: OrderBookMessage = AscendExOrderBook.snapshot_message_from_exchange(
             snapshot.get("data"),
             snapshot_timestamp,
             metadata={"trading_pair": trading_pair}
         )
         order_book = self.order_book_create_function()
-        active_order_tracker: BitmaxActiveOrderTracker = BitmaxActiveOrderTracker()
+        active_order_tracker: AscendExActiveOrderTracker = AscendExActiveOrderTracker()
         bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
         order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
         return order_book
@@ -141,7 +141,7 @@ class BitmaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
                             for trade in msg.get("data"):
                                 trade_timestamp: int = trade.get("ts")
-                                trade_msg: OrderBookMessage = BitmaxOrderBook.trade_message_from_exchange(
+                                trade_msg: OrderBookMessage = AscendExOrderBook.trade_message_from_exchange(
                                     trade,
                                     trade_timestamp,
                                     metadata={"trading_pair": trading_pair}
@@ -181,7 +181,7 @@ class BitmaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
                             msg_timestamp: int = msg.get("data").get("ts")
                             trading_pair: str = convert_from_exchange_trading_pair(msg.get("symbol"))
-                            order_book_message: OrderBookMessage = BitmaxOrderBook.diff_message_from_exchange(
+                            order_book_message: OrderBookMessage = AscendExOrderBook.diff_message_from_exchange(
                                 msg.get("data"),
                                 msg_timestamp,
                                 metadata={"trading_pair": trading_pair}
@@ -207,7 +207,7 @@ class BitmaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     try:
                         snapshot: Dict[str, any] = await self.get_order_book_data(trading_pair)
                         snapshot_timestamp: float = snapshot.get("data").get("ts")
-                        snapshot_msg: OrderBookMessage = BitmaxOrderBook.snapshot_message_from_exchange(
+                        snapshot_msg: OrderBookMessage = AscendExOrderBook.snapshot_message_from_exchange(
                             snapshot.get("data"),
                             snapshot_timestamp,
                             metadata={"trading_pair": trading_pair}
