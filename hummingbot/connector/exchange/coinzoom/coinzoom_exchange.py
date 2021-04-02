@@ -705,6 +705,7 @@ class CoinzoomExchange(ExchangeBase):
 
         if updated:
             safe_ensure_future(self._trigger_order_fill(tracked_order, order_msg))
+            safe_ensure_future(self._update_balances())
         elif tracked_order.is_cancelled:
             self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
             self.stop_tracking_order(tracked_order.client_order_id)
