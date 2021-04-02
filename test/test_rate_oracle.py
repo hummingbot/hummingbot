@@ -59,3 +59,20 @@ class RateOracleTest(unittest.TestCase):
         self.assertEqual(rate, Decimal("0.5"))
         rate = find_rate(prices, "HBOT-GBP")
         self.assertEqual(rate, Decimal("75"))
+
+    def test_get_binance_prices(self):
+        asyncio.get_event_loop().run_until_complete(self._test_get_binance_prices())
+
+    async def _test_get_binance_prices(self):
+        com_prices = await RateOracle.get_binance_prices_by_domain(RateOracle.binance_price_url)
+        print(com_prices)
+        self.assertGreater(len(com_prices), 1)
+        us_prices = await RateOracle.get_binance_prices_by_domain(RateOracle.binance_us_price_url, "USD")
+        print(us_prices)
+        self.assertGreater(len(us_prices), 1)
+        quotes = {p.split("-")[1] for p in us_prices}
+        self.assertEqual(len(quotes), 1)
+        self.assertEqual(list(quotes)[0], "USD")
+        combined_prices = await RateOracle.get_binance_prices()
+        self.assertGreater(len(combined_prices), 1)
+        self.assertGreater(len(combined_prices), len(com_prices))
