@@ -193,8 +193,11 @@ heartbeat_interval_min:
 # a list of binance markets (for trades/pnl reporting) separated by ',' e.g. RLC-USDT,RLC-BTC
 binance_markets:
 
+# A source for rate oracle, currently binance or coingecko
 rate_oracle_source:
 
+# A universal token which to display tokens values in, e.g. USD,EUR,BTC
 global_token:
 
+# A symbol for the global token, e.g. $, €
 global_token_symbol:
