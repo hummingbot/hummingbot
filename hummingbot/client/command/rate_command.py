@@ -5,6 +5,7 @@ from typing import (
 )
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
+from hummingbot.client.errors import OracleRateUnavailable
 
 s_float_0 = float(0)
 s_decimal_0 = Decimal("0")
@@ -29,14 +30,21 @@ class RateCommand:
     async def show_rate(self,  # type: HummingbotApplication
                         pair: str,
                         ):
+        try:
+            msg = await RateCommand.oracle_rate_msg(pair)
+        except OracleRateUnavailable:
+            msg = "Rate is not available."
+        self._notify(msg)
+
+    @staticmethod
+    async def oracle_rate_msg(pair: str,
+                              ):
         pair = pair.upper()
-        self._notify(f"Source: {RateOracle.source.name}")
         rate = await RateOracle.rate_async(pair)
         if rate is None:
-            self._notify("Rate is not available.")
-            return
+            raise OracleRateUnavailable
         base, quote = pair.split("-")
-        self._notify(f"1 {base} = {rate} {quote}")
+        return f"Source: {RateOracle.source.name}\n1 {base} = {rate} {quote}"
 
     async def show_token_value(self,  # type: HummingbotApplication
                                token: str
