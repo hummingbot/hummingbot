@@ -34,7 +34,7 @@ from hummingbot.connector.exchange.idex.idex_utils import (
 from hummingbot.connector.exchange.idex.idex_resolve import (
     get_idex_rest_url, get_idex_blockchain, set_domain, get_throttler
 )
-from hummingbot.core.utils import eth_gas_station_lookup, async_ttl_cache
+from hummingbot.core.utils import async_ttl_cache
 from hummingbot.logger import HummingbotLogger
 
 s_decimal_0 = Decimal("0.0")
@@ -787,8 +787,9 @@ class IdexExchange(ExchangeBase):
         if HUMMINGBOT_GAS_LOOKUP:
             # resolve gas price from hummingbot's eth_gas_station_lookup
             # conf to be ON for hummingbot to resolve gas price: global_config_map["ethgasstation_gas_enabled"]
-            gas_amount: Decimal = eth_gas_station_lookup.get_gas_price(in_gwei=False) * Decimal(gas_limit)
-            flat_fees = [(blockchain, gas_amount)]
+            raise ValueError('Setting HUMMINGBOT_GAS_LOOKUP = True is not currently supported')
+            # gas_amount: Decimal = eth_gas_station_lookup.get_gas_price(in_gwei=False) * Decimal(gas_limit)
+            # flat_fees = [(blockchain, gas_amount)]
         elif self._exchange_info and 'gasPrice' in self._exchange_info:
             # or resolve gas price from idex exchange endpoint
             gas_price: Decimal = Decimal(self._exchange_info['gasPrice']) / Decimal("1e9")
