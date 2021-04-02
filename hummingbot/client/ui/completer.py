@@ -68,11 +68,12 @@ class HummingbotCompleter(Completer):
     @property
     def _trading_pair_completer(self) -> Completer:
         trading_pair_fetcher = TradingPairFetcher.get_instance()
+        market = ""
         for exchange in sorted(list(CONNECTOR_SETTINGS.keys()), key=len, reverse=True):
             if exchange in self.prompt_text:
                 market = exchange
                 break
-        trading_pairs = trading_pair_fetcher.trading_pairs.get(market, []) if trading_pair_fetcher.ready else []
+        trading_pairs = trading_pair_fetcher.trading_pairs.get(market, []) if trading_pair_fetcher.ready and market else []
         return WordCompleter(trading_pairs, ignore_case=True, sentence=True)
 
     @property
