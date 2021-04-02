@@ -372,7 +372,7 @@ class IdexExchange(ExchangeBase):
             try:
                 tracked_order = self._in_flight_orders.get(client_order_id)
                 if tracked_order is None:
-                    raise ValueError(f"Failed to cancel order - {client_order_id}. Order not found.")
+                    raise IOError(f"Failed to cancel order - {client_order_id}: order not found.")
                 exchange_order_id = tracked_order.exchange_order_id
                 cancelled_id = await self.delete_order(trading_pair, client_order_id)
                 if not cancelled_id:
@@ -398,14 +398,9 @@ class IdexExchange(ExchangeBase):
                     raise IOError(f"delete_order({client_order_id}) tracked with exchange id: {exchange_order_id} "
                                   f"returned a different order id {format_cancelled_id}: order not found")
             except IOError as e:
-                self.logger().exception(f"_execute_cancel error: order {client_order_id} does not exist on Idex. "
-                                        f"No cancellation performed:")
-                self.logger().network(
-                    f"Failed to cancel not found order {client_order_id}: {str(e)}",
-                    exc_info=True,
-                    app_warning_msg=f"Failed to cancel the order {client_order_id} on Idex. "
-                                    f"Order not found.")
-                if "order not found" in str(e):
+                self.logger().error(f"_execute_cancel error: order {client_order_id} does not exist on Idex. "
+                                    f"No cancellation performed: {str(e)}")
+                if "order not found" in str(e).lower():
                     # The order was never there to begin with. So cancelling it is a no-op but semantically successful.
                     self.stop_tracking_order(client_order_id)
                     self.trigger_event(MarketEvent.OrderCancelled,
@@ -415,7 +410,10 @@ class IdexExchange(ExchangeBase):
                                            tracked_order.exchange_order_id))
                     return client_order_id
                 else:
-                    self.logger().warning(f'About to re-raise exception in _execute_cancel: {str(e)}')
+                    self.logger().network(
+                        f"Failed to cancel not found order {client_order_id}: {str(e)}",
+                        exc_info=True,
+                        app_warning_msg=f"Failed to cancel the order {client_order_id} on Idex.")
                     raise e
             except asyncio.CancelledError as e:
                 self.logger().warning(f'_execute_cancel: About to re-raise CancelledError: {str(e)}')
@@ -635,33 +633,32 @@ class IdexExchange(ExchangeBase):
         :param price: The order price
         """
         async with self._order_lock:
-
-            if not order_type.is_limit_type():
-                raise Exception(f"Unsupported order type: {order_type}")
-            trading_rule = self._trading_rules[trading_pair]  # No trading rules applied at this time
-
-            idex_order_param = hb_order_type_to_idex_param(order_type)
-            idex_trade_param = hb_trade_type_to_idex_param(trade_type)
-
-            amount = self.quantize_order_amount(trading_pair, amount)
-            price = self.quantize_order_price(trading_pair, price)
-
-            if amount < trading_rule.min_order_size:
-                raise ValueError(f"Buy order amount {amount} is lower than the minimum order size "
-                                 f"{trading_rule.min_order_size}.")
-
-            api_params = {
-                "market": trading_pair,
-                "type": idex_order_param,
-                "side": idex_trade_param,
-                "quantity": f'{amount:.8f}',
-                "price": f'{price:.8f}',
-                "clientOrderId": client_order_id,
-                "timeInForce": "gtc",
-                "selfTradePrevention": "dc"
-            }
-
             try:
+                if not order_type.is_limit_type():
+                    raise Exception(f"Unsupported order type: {order_type}")
+                trading_rule = self._trading_rules[trading_pair]  # No trading rules applied at this time
+
+                idex_order_param = hb_order_type_to_idex_param(order_type)
+                idex_trade_param = hb_trade_type_to_idex_param(trade_type)
+
+                amount = self.quantize_order_amount(trading_pair, amount)
+                price = self.quantize_order_price(trading_pair, price)
+
+                if amount < trading_rule.min_order_size:
+                    raise ValueError(f"Buy order amount {amount} is lower than the minimum order size "
+                                     f"{trading_rule.min_order_size}. client_order_id: {client_order_id}")
+
+                api_params = {
+                    "market": trading_pair,
+                    "type": idex_order_param,
+                    "side": idex_trade_param,
+                    "quantity": f'{amount:.8f}',
+                    "price": f'{price:.8f}',
+                    "clientOrderId": client_order_id,
+                    "timeInForce": "gtc",
+                    "selfTradePrevention": "dc"
+                }
+
                 order_result = await self.post_order(api_params)
                 exchange_order_id = order_result.get("orderId")
                 self.start_tracking_order(client_order_id,
@@ -695,7 +692,6 @@ class IdexExchange(ExchangeBase):
             except Exception as e:
                 if DEBUG:
                     self.logger().exception(f"_create_order received an exception {e}. Details: ")
-                self.stop_tracking_order(client_order_id)
                 self.logger().network(
                     f"Error submitting {trade_type.name} {order_type.name} order to Idex for "
                     f"{amount} {trading_pair} "
@@ -705,6 +701,7 @@ class IdexExchange(ExchangeBase):
                 )
                 self.trigger_event(MarketEvent.OrderFailure, MarketOrderFailureEvent(
                     self.current_timestamp, client_order_id, order_type))
+                self.stop_tracking_order(client_order_id)
 
     def start_tracking_order(self,
                              order_id: str,
