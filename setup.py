@@ -176,7 +176,7 @@ def main():
               "bin/hummingbot.py",
               "bin/hummingbot_quickstart.py"
           ],
-          cmdclass={'build_ext': BuildExt},
+          cmdclass={'build_ext': BuildExt} if os.name != "nt" else {},
           )
 
 
