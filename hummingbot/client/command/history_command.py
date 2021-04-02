@@ -83,10 +83,12 @@ class HistoryCommand:
 
     async def get_current_balances(self,  # type: HummingbotApplication
                                    market: str):
+        paper_trade_suffix = '_PaperTrade'
+
         if market in self.markets and self.markets[market].ready:
             return self.markets[market].get_all_balances()
-        elif "Paper" in market:
-            return self.markets[market[:-11]].get_all_balances()
+        elif paper_trade_suffix in market:
+            return self.markets[market[:-len(paper_trade_suffix)]].get_all_balances()
         elif "perpetual_finance" == market:
             return await UserBalances.xdai_balances()
         else:
