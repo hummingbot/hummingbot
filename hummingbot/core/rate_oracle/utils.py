@@ -16,6 +16,8 @@ def find_rate(prices: Dict[str, Decimal], pair: str) -> Decimal:
     if pair in prices:
         return prices[pair]
     base, quote = pair.split("-")
+    if base == quote:
+        return Decimal("1")
     reverse_pair = f"{quote}-{base}"
     if reverse_pair in prices:
         return Decimal("1") / prices[reverse_pair]
