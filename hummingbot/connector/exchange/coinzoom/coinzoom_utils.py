@@ -105,7 +105,7 @@ async def api_call_with_retries(method,
                                 shared_client=None,
                                 try_count: int = 0) -> Dict[str, Any]:
     url = f"{Constants.REST_URL}/{endpoint}"
-    headers = {"Content-Type": "application/json"}
+    headers = {"Content-Type": "application/json", "User-Agent": "hummingbot"}
     http_client = shared_client if shared_client is not None else aiohttp.ClientSession()
     # Build request coro
     response_coro = http_client.request(method=method.upper(), url=url, headers=headers,
