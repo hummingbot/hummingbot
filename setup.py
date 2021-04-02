@@ -23,7 +23,7 @@ if is_posix:
 # for C/ObjC but not for C++
 class BuildExt(build_ext):
     def build_extensions(self):
-        if '-Wstrict-prototypes' in self.compiler.compiler_so:
+        if os.name != "nt" and '-Wstrict-prototypes' in self.compiler.compiler_so:
             self.compiler.compiler_so.remove('-Wstrict-prototypes')
         super().build_extensions()
 
