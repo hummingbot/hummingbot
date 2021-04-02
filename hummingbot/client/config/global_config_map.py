@@ -343,11 +343,11 @@ main_config_map = {
                   default=RateOracleSource.binance.name),
     "global_token":
         ConfigVar(key="global_token",
-                  prompt="What is your default display token? (e.g. USDT,USD,EUR)  >>> ",
+                  prompt="What is your default display token? (e.g. USD,EUR,BTC)  >>> ",
                   type_str="str",
                   required_if=lambda: False,
                   on_validated=global_token_on_validated,
-                  default="USDT"),
+                  default="USD"),
     "global_token_symbol":
         ConfigVar(key="global_token_symbol",
                   prompt="What is your default display token symbol? (e.g. $,€)  >>> ",
