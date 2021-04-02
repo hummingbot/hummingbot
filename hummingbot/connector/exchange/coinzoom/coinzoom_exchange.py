@@ -326,7 +326,7 @@ class CoinzoomExchange(ExchangeBase):
             qs_params: dict = params if method.upper() == "GET" else None
             req_params = ujson.dumps(params) if method.upper() == "POST" and params is not None else None
             # Generate auth headers if needed.
-            headers: dict = {"Content-Type": "application/json"}
+            headers: dict = {"Content-Type": "application/json", "User-Agent": "hummingbot"}
             if is_auth_required:
                 headers: dict = self._coinzoom_auth.get_headers()
             # Build request coro
