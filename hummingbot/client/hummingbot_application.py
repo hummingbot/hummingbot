@@ -276,7 +276,6 @@ class HummingbotApplication(*commands):
                     else:
                         assert self.wallet is not None
                         init_params.update(wallet=self.wallet, ethereum_rpc_url=ethereum_rpc_url)
-                self.logger().info(f"Connector name: {connector_name}")
                 connector_class = get_connector_class(connector_name)
                 connector = connector_class(**init_params)
             self.markets[connector_name] = connector

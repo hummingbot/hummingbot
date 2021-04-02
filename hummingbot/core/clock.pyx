@@ -120,7 +120,7 @@ cdef class Clock:
                     except StopIteration:
                         self.logger().error("Stop iteration triggered in real time mode. This is not expected.")
                         return
-                    except Exception as err:
+                    except Exception:
                         self.logger().error("Unexpected error running clock tick.", exc_info=True)
         finally:
             for ci in self._current_context:

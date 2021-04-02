@@ -335,12 +335,7 @@ cdef class ConnectorBase(NetworkIterator):
         :param currency: The currency (token) name
         :returns: Balance available for trading for the specified currency
         """
-        """
         available_balance = self._account_available_balances.get(currency, s_decimal_0)
-        """
-
-        available_balance = self._account_available_balances.get(currency, s_decimal_0)
-
         if not self._real_time_balance_update:
             available_balance = self.apply_balance_update_since_snapshot(currency, available_balance)
         balance_limits = self.get_exchange_limit_config(self.name)

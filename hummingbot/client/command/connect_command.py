@@ -64,7 +64,7 @@ class ConnectCommand:
             if err_msg is None:
                 self._notify(f"\nYou are now connected to {exchange}.")
             else:
-                self._notify(f"\nConnect() Error: {err_msg}")
+                self._notify(f"\nError: {err_msg}")
         self.placeholder_mode = False
         self.app.hide_input = False
         self.app.change_prompt(prompt=">>> ")
@@ -150,7 +150,7 @@ class ConnectCommand:
             if err_msg is None:
                 self._notify(f"Wallet {public_address} connected to hummingbot.")
             else:
-                self._notify(f"\n connect_ethereum() Error: {err_msg}")
+                self._notify(f"\nError: {err_msg}")
         self.placeholder_mode = False
         self.app.hide_input = False
         self.app.change_prompt(prompt=">>> ")

@@ -89,7 +89,6 @@ class NetworkBase:
 
             try:
                 new_status = await asyncio.wait_for(self.check_network(), timeout=self._check_network_timeout)
-                self.logger().info(f"Check network loop finished {new_status}")
             except asyncio.CancelledError:
                 raise
             except asyncio.TimeoutError:
@@ -107,7 +106,6 @@ class NetworkBase:
                         self.logger().info(f"Network status has changed to {new_status}. Starting networking...")
                         await self.start_network()
                     else:
-                        self.logger().info(f"New network status: {new_status}")
                         self.logger().info(f"Network status has changed to {new_status}. Stopping networking...")
                         await self.stop_network()
 
