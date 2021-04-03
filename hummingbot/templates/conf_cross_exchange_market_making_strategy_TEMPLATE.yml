@@ -2,7 +2,7 @@
 ###   Cross exchange market making strategy config   ###
 ########################################################
 
-template_version: 4
+template_version: 5
 strategy: null
 
 # The following configuations are only required for the
@@ -59,6 +59,10 @@ order_size_taker_balance_factor: null
 # An amount expressed in decimals (i.e. input of `1` corresponds to 1%), which is the maximum size limit of new limit orders,
 # in terms of ratio of total portfolio value on both maker and taker markets
 order_size_portfolio_ratio_limit: null
+
+# Whether to use rate oracle on unmatched trading pairs
+# Set this to either True or False
+use_oracle_conversion_rate: null
 
 # The conversion rate for taker base asset value to maker base asset value.
 # e.g. if maker base asset is USD, taker is DAI and 1 USD is worth 1.25 DAI, "

@@ -7,3 +7,7 @@ class InvalidCommandError(Exception):
 
 class ArgumentParserError(Exception):
     pass
+
+
+class OracleRateUnavailable(Exception):
+    pass
