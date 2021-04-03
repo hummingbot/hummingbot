@@ -402,7 +402,7 @@ cdef class BinanceExchange(ExchangeBase):
                 trading_pairs = list(trading_pairs_to_order_map.keys())
                 tasks = [self.query_api(self._binance_client.get_my_trades, symbol=convert_to_exchange_trading_pair(trading_pair))
                          for trading_pair in trading_pairs]
-                self.logger().debug("Polling for order fills of %d trading pairs.", len(tasks))
+                self.logger().debug(f"Polling for order fills of {len(tasks)} trading pairs.")
                 results = await safe_gather(*tasks, return_exceptions=True)
                 for trades, trading_pair in zip(results, trading_pairs):
                     order_map = trading_pairs_to_order_map[trading_pair]
@@ -448,7 +448,7 @@ cdef class BinanceExchange(ExchangeBase):
             trading_pairs = self._order_book_tracker._trading_pairs
             tasks = [self.query_api(self._binance_client.get_my_trades, symbol=convert_to_exchange_trading_pair(trading_pair))
                      for trading_pair in trading_pairs]
-            self.logger().debug("Polling for order fills of %d trading pairs.", len(tasks))
+            self.logger().debug(f"Polling for order fills of {len(tasks)} trading pairs.")
             exchange_history = await safe_gather(*tasks, return_exceptions=True)
             for trades, trading_pair in zip(exchange_history, trading_pairs):
                 if isinstance(trades, Exception):
@@ -494,7 +494,7 @@ cdef class BinanceExchange(ExchangeBase):
             tasks = [self.query_api(self._binance_client.get_order,
                                     symbol=convert_to_exchange_trading_pair(o.trading_pair), origClientOrderId=o.client_order_id)
                      for o in tracked_orders]
-            self.logger().debug("Polling for order status updates of %d orders.", len(tasks))
+            self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
             results = await safe_gather(*tasks, return_exceptions=True)
             for order_update, tracked_order in zip(results, tracked_orders):
                 client_order_id = tracked_order.client_order_id
