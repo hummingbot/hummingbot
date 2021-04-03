@@ -661,7 +661,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
         for position in active_positions:
             if (ask_price > position.entry_price and position.amount > 0) or (bid_price < position.entry_price and position.amount < 0):
                 # check if there is an active order to take profit, and create if none exists
-                profit_spread = self._long_profit_taking_spread if position.amount < 0 else self._short_profit_taking_spread
+                profit_spread = self._long_profit_taking_spread if position.amount > 0 else self._short_profit_taking_spread
                 take_profit_price = position.entry_price * (Decimal("1") + profit_spread) if position.amount > 0 \
                     else position.entry_price * (Decimal("1") - profit_spread)
                 price = market.c_quantize_order_price(self.trading_pair, take_profit_price)
@@ -675,10 +675,10 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
                     size = market.c_quantize_order_amount(self.trading_pair, abs(position.amount))
                     if size > 0 and price > 0:
                         if position.amount < 0:
-                            self.logger().info(f"Creating profit taking buy order to lock profit on long position.")
+                            self.logger().info(f"Creating profit taking buy order to lock profit on short position.")
                             buys.append(PriceSize(price, size))
                         else:
-                            self.logger().info(f"Creating profit taking sell order to lock profit on short position.")
+                            self.logger().info(f"Creating profit taking sell order to lock profit on long position.")
                             sells.append(PriceSize(price, size))
         return Proposal(buys, sells)
 
