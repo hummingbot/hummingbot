@@ -96,5 +96,6 @@ def load_key_bindings(hb) -> KeyBindings:
     @bindings.add("escape")
     def stop_live_update(event):
         hb.app.live_updates = False
+        hb.app.set_live_text('')
 
     return bindings

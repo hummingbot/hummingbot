@@ -51,7 +51,7 @@ class OrderBookCommand:
             await self.stop_live_update()
             self.app.live_updates = True
             while self.app.live_updates:
-                await self.cls_display_delay(get_order_book(min(lines, 35)) + "\n\n Press escape key to stop update.", 0.5)
+                await self.app.set_live_text_async(get_order_book(min(lines, 35)))
             self._notify("Stopped live orderbook display update.")
         else:
             self._notify(get_order_book(lines))

@@ -13,6 +13,7 @@ from hummingbot.client.ui.layout import (
     create_input_field,
     create_log_field,
     create_output_field,
+    create_live_output_field,
     create_search_field,
     generate_layout,
     create_timer,
@@ -42,11 +43,13 @@ class HummingbotCLI:
         self.search_field = create_search_field()
         self.input_field = create_input_field(completer=completer)
         self.output_field = create_output_field()
+        self.live_output_field = create_live_output_field()
+        self.live_output_max_lines = 0
         self.log_field = create_log_field(self.search_field)
         self.timer = create_timer()
         self.process_usage = create_process_monitor()
         self.trade_monitor = create_trade_monitor()
-        self.layout = generate_layout(self.input_field, self.output_field, self.log_field, self.search_field, self.timer, self.process_usage, self.trade_monitor)
+        self.layout = generate_layout(self.input_field, self.output_field, self.live_output_field, self.log_field, self.search_field, self.timer, self.process_usage, self.trade_monitor)
         # add self.to_stop_config to know if cancel is triggered
         self.to_stop_config: bool = False
 
@@ -93,14 +96,28 @@ class HummingbotCLI:
     def clear_input(self):
         self.pending_input = None
 
-    def log(self, text: str, save_log: bool = True):
-        if save_log:
-            if self.live_updates:
-                self.output_field.log(text, silent=True)
-            else:
-                self.output_field.log(text)
+    async def set_live_text_async(self, text: str, escape_prompt=True, sleep=1):
+        self.set_live_text(text, escape_prompt)
+        await asyncio.sleep(sleep)
+
+    def set_live_text(self, text: str, escape_prompt=True):
+        if text is None or text == '':
+            self.live_output_max_lines = 0
+            self.live_output_field.log('', save_log=False)
         else:
-            self.output_field.log(text, save_log=False)
+            text = "\n" + text + "\n"
+            if escape_prompt is True:
+                text += "\nPress escape to stop live update\n"
+            size = text.count('\n')
+            if size > self.live_output_max_lines:
+                self.live_output_max_lines = size
+            else:
+                padding = self.live_output_max_lines - size
+                text += '\n' * padding
+            self.live_output_field.log(text, save_log=False)
+
+    def log(self, text: str, save_log: bool = True):
+        self.output_field.log(text, save_log)
 
     def change_prompt(self, prompt: str, is_password: bool = False):
         self.prompt_text = prompt

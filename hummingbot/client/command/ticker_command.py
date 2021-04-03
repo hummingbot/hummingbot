@@ -52,7 +52,7 @@ class TickerCommand:
             await self.stop_live_update()
             self.app.live_updates = True
             while self.app.live_updates:
-                await self.cls_display_delay(get_ticker() + "\n\n Press escape key to stop update.", 1)
+                await self.app.set_live_text_async(get_ticker())
             self._notify("Stopped live ticker display update.")
         else:
             self._notify(get_ticker())

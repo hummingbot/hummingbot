@@ -14,6 +14,7 @@ def load_style():
 
 default_ui_style = {
     "output-field":               "bg:#171E2B #1CD085",  # noqa: E241
+    "live-output-field":          "bg:#1C2536 #1CD085",  # noqa: E241
     "input-field":                "bg:#000000 #FFFFFF",  # noqa: E241
     "log-field":                  "bg:#171E2B #FFFFFF",  # noqa: E241
     "title":                      "bg:#000000 #AAAAAA",  # noqa: E241
@@ -29,6 +30,7 @@ default_ui_style = {
 # so we choose a combination that displays nicely.
 win32_code_style = {
     "output-field":               "#ansigreen",  # noqa: E241
+    "live-output-field":          "#ansigreen",  # noqa: E241
     "input-field":                "#ansiwhite",  # noqa: E241
     "log-field":                  "#ansiwhite",  # noqa: E241
     "search":                     "#ansigreen",  # noqa: E241

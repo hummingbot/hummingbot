@@ -17,6 +17,7 @@ from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import Completer
 from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.widgets import SearchToolbar
+from prompt_toolkit.layout import Dimension
 
 from hummingbot.client.ui.custom_widgets import CustomTextArea as TextArea
 from hummingbot.client.settings import (
@@ -106,6 +107,19 @@ def create_output_field():
         scrollbar=True,
         max_line_count=MAXIMUM_OUTPUT_PANE_LINE_COUNT,
         initial_text=HEADER,
+    )
+
+
+def create_live_output_field():
+    return TextArea(
+        style='class:live-output-field',
+        focus_on_click=False,
+        read_only=False,
+        scrollbar=False,
+        max_line_count=MAXIMUM_OUTPUT_PANE_LINE_COUNT,
+        initial_text='',
+        height=Dimension(weight=8)
+
     )
 
 
@@ -205,6 +219,7 @@ def get_strategy_file():
 
 def generate_layout(input_field: TextArea,
                     output_field: TextArea,
+                    live_output_field: TextArea,
                     log_field: TextArea,
                     search_field: SearchToolbar,
                     timer: TextArea,
@@ -222,7 +237,10 @@ def generate_layout(input_field: TextArea,
         VSplit([
             FloatContainer(
                 HSplit([
-                    output_field,
+                    HSplit([
+                        live_output_field,
+                        output_field,
+                    ], padding_char='▔', padding=1, padding_style='class:output-field'),
                     Window(height=1, char='-', style='class:primary'),
                     input_field,
                 ]),
