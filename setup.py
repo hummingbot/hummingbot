@@ -69,6 +69,7 @@ def main():
         "hummingbot.connector.exchange.eterbase",
         "hummingbot.connector.exchange.beaxy",
         "hummingbot.connector.exchange.hitbtc",
+        "hummingbot.connector.exchange.stex",
         "hummingbot.connector.derivative",
         "hummingbot.connector.derivative.binance_perpetual",
         "hummingbot.script",
