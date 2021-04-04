@@ -408,7 +408,7 @@ cdef class ArbitrageStrategy(StrategyBase):
             ExchangeBase buy_market = buy_market_trading_pair_tuple.market
             ExchangeBase sell_market = sell_market_trading_pair_tuple.market
 
-        best_amount, best_profitability, buy_price, sell_price = self.c_find_best_profitable_amount(
+        best_amount, best_profitability, sell_price, buy_price = self.c_find_best_profitable_amount(
             buy_market_trading_pair_tuple, sell_market_trading_pair_tuple
         )
         quantized_buy_amount = buy_market.c_quantize_order_amount(buy_market_trading_pair_tuple.trading_pair, Decimal(best_amount))
