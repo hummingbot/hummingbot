@@ -54,7 +54,7 @@ class HitbtcExchangeUnitTest(unittest.TestCase):
     ]
     connector: HitbtcExchange
     event_logger: EventLogger
-    trading_pair = "BTC-USD"
+    trading_pair = "BTC-USDT"
     base_token, quote_token = trading_pair.split("-")
     stack: contextlib.ExitStack
 
@@ -159,7 +159,7 @@ class HitbtcExchangeUnitTest(unittest.TestCase):
         self.assertEqual(order_id, order_completed_event.order_id)
         self.assertEqual(amount, order_completed_event.base_asset_amount)
         self.assertEqual("BTC", order_completed_event.base_asset)
-        self.assertEqual("USD", order_completed_event.quote_asset)
+        self.assertEqual("USDT", order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
         self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
         self.assertGreater(order_completed_event.fee_amount, Decimal(0))
@@ -189,7 +189,7 @@ class HitbtcExchangeUnitTest(unittest.TestCase):
         self.assertEqual(order_id, order_completed_event.order_id)
         self.assertEqual(amount, order_completed_event.base_asset_amount)
         self.assertEqual("BTC", order_completed_event.base_asset)
-        self.assertEqual("USD", order_completed_event.quote_asset)
+        self.assertEqual("USDT", order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
         self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
         self.assertGreater(order_completed_event.fee_amount, Decimal(0))
@@ -280,7 +280,7 @@ class HitbtcExchangeUnitTest(unittest.TestCase):
 
         # Make sure there's enough balance to make the limit orders.
         self.assertGreater(self.connector.get_balance("BTC"), Decimal("0.0005"))
-        self.assertGreater(self.connector.get_balance("USD"), Decimal("10"))
+        self.assertGreater(self.connector.get_balance("USDT"), Decimal("10"))
 
         # Intentionally set some prices with too many decimal places s.t. they
         # need to be quantized. Also, place them far away from the mid-price s.t. they won't

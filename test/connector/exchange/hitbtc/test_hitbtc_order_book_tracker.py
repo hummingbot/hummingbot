@@ -25,8 +25,8 @@ class HitbtcOrderBookTrackerUnitTest(unittest.TestCase):
         OrderBookEvent.TradeEvent
     ]
     trading_pairs: List[str] = [
-        "BTC-USD",
-        "ETH-USD",
+        "BTC-USDT",
+        "ETH-USDT",
     ]
 
     @classmethod
@@ -87,7 +87,7 @@ class HitbtcOrderBookTrackerUnitTest(unittest.TestCase):
         # Wait 5 seconds to process some diffs.
         self.ev_loop.run_until_complete(asyncio.sleep(5.0))
         order_books: Dict[str, OrderBook] = self.order_book_tracker.order_books
-        eth_usd: OrderBook = order_books["ETH-USD"]
+        eth_usd: OrderBook = order_books["ETH-USDT"]
         self.assertIsNot(eth_usd.last_diff_uid, 0)
         self.assertGreaterEqual(eth_usd.get_price_for_volume(True, 10).result_price,
                                 eth_usd.get_price(True))
@@ -96,8 +96,8 @@ class HitbtcOrderBookTrackerUnitTest(unittest.TestCase):
 
     def test_api_get_last_traded_prices(self):
         prices = self.ev_loop.run_until_complete(
-            HitbtcAPIOrderBookDataSource.get_last_traded_prices(["BTC-USD", "LTC-BTC"]))
+            HitbtcAPIOrderBookDataSource.get_last_traded_prices(["BTC-USDT", "LTC-BTC"]))
         for key, value in prices.items():
             print(f"{key} last_trade_price: {value}")
-        self.assertGreater(prices["BTC-USD"], 1000)
+        self.assertGreater(prices["BTC-USDT"], 1000)
         self.assertLess(prices["LTC-BTC"], 1)
