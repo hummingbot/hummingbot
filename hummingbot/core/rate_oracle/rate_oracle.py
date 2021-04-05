@@ -19,20 +19,31 @@ from hummingbot.core.utils import async_ttl_cache
 
 
 class RateOracleSource(Enum):
+    """
+    Supported sources for RateOracle
+    """
     binance = 0
     coingecko = 1
 
 
 class RateOracle(NetworkBase):
+    """
+    RateOracle provides conversion rates for any given pair token symbols in both async and sync fashions.
+    It achieves this by query URL on a given source for prices and store them, either in cache or as an object member.
+    The find_rate is then used on these prices to find a rate on a given pair.
+    """
+    # Set these below class members before query for rates
     source: RateOracleSource = RateOracleSource.binance
     global_token: str = "USDT"
     global_token_symbol: str = "$"
+
     _logger: Optional[HummingbotLogger] = None
     _shared_instance: "RateOracle" = None
     _shared_client: Optional[aiohttp.ClientSession] = None
     _cgecko_supported_vs_tokens: List[str] = []
 
     binance_price_url = "https://api.binance.com/api/v3/ticker/bookTicker"
+    binance_us_price_url = "https://api.binance.us/api/v3/ticker/bookTicker"
     coingecko_usd_price_url = "https://api.coingecko.com/api/v3/coins/markets?vs_currency={}&order=market_cap_desc" \
                               "&per_page=250&page={}&sparkline=false"
     coingecko_supported_vs_tokens_url = "https://api.coingecko.com/api/v3/simple/supported_vs_currencies"
@@ -64,6 +75,9 @@ class RateOracle(NetworkBase):
         return cls._shared_client
 
     async def get_ready(self):
+        """
+        The network is ready when it first successfully get prices for a given source.
+        """
         try:
             if not self._ready_event.is_set():
                 await self._ready_event.wait()
@@ -79,27 +93,50 @@ class RateOracle(NetworkBase):
 
     @property
     def prices(self) -> Dict[str, Decimal]:
+        """
+        Actual prices retrieved from URL
+        """
         return self._prices.copy()
 
-    def update_interval(self) -> float:
-        return 1.0
-
     def rate(self, pair: str) -> Decimal:
+        """
+        Finds a conversion rate for a given symbol, this can be direct or indirect prices as long as it can find a route
+        to achieve this.
+        :param pair: A trading pair, e.g. BTC-USDT
+        :return A conversion rate
+        """
         return find_rate(self._prices, pair)
 
     @classmethod
     async def rate_async(cls, pair: str) -> Decimal:
+        """
+        Finds a conversion rate in an async operation, it is a class method which can be used directly without having to
+        start the RateOracle network.
+        :param pair: A trading pair, e.g. BTC-USDT
+        :return A conversion rate
+        """
         prices = await cls.get_prices()
         return find_rate(prices, pair)
 
     @classmethod
     async def global_rate(cls, token: str) -> Decimal:
+        """
+        Finds a conversion rate of a given token to a global token
+        :param token: A token symbol, e.g. BTC
+        :return A conversion rate
+        """
         prices = await cls.get_prices()
         pair = token + "-" + cls.global_token
         return find_rate(prices, pair)
 
     @classmethod
     async def global_value(cls, token: str, amount: Decimal) -> Decimal:
+        """
+        Finds a value of a given token amount in a global token unit
+        :param token: A token symbol, e.g. BTC
+        :param amount: An amount of token to be converted to value
+        :return A value of the token in global token unit
+        """
         rate = await cls.global_rate(token)
         rate = Decimal("0") if rate is None else rate
         return amount * rate
@@ -115,10 +152,14 @@ class RateOracle(NetworkBase):
             except Exception:
                 self.logger().network(f"Error fetching new prices from {self.source.name}.", exc_info=True,
                                       app_warning_msg=f"Couldn't fetch newest prices from {self.source.name}.")
-            await asyncio.sleep(self.update_interval())
+            await asyncio.sleep(1)
 
     @classmethod
     async def get_prices(cls) -> Dict[str, Decimal]:
+        """
+        Fetches prices of a specified source
+        :return A dictionary of trading pairs and prices
+        """
         if cls.source == RateOracleSource.binance:
             return await cls.get_binance_prices()
         elif cls.source == RateOracleSource.coingecko:
@@ -129,24 +170,57 @@ class RateOracle(NetworkBase):
     @classmethod
     @async_ttl_cache(ttl=1, maxsize=1)
     async def get_binance_prices(cls) -> Dict[str, Decimal]:
+        """
+        Fetches Binance prices from binance.com and binance.us where only USD pairs from binance.us prices are added
+        to the prices dictionary.
+        :return A dictionary of trading pairs and prices
+        """
+        results = {}
+        tasks = [cls.get_binance_prices_by_domain(cls.binance_price_url),
+                 cls.get_binance_prices_by_domain(cls.binance_us_price_url, "USD")]
+        task_results = await safe_gather(*tasks, return_exceptions=True)
+        for task_result in task_results:
+            if isinstance(task_result, Exception):
+                cls.logger().error("Unexpected error while retrieving rates from Coingecko. "
+                                   "Check the log file for more info.")
+                break
+            else:
+                results.update(task_result)
+        return results
+
+    @classmethod
+    async def get_binance_prices_by_domain(cls, url: str, quote_symbol: str = None) -> Dict[str, Decimal]:
+        """
+        Fetches binance prices
+        :param url: A URL end point
+        :param quote_symbol: A quote symbol, if specified only pairs with the quote symbol are included for prices
+        :return A dictionary of trading pairs and prices
+        """
         results = {}
         client = await cls._http_client()
-        try:
-            async with client.request("GET", cls.binance_price_url) as resp:
-                records = await resp.json()
-                for record in records:
-                    trading_pair = binance_convert_from_exchange_pair(record["symbol"])
-                    if trading_pair and record["bidPrice"] is not None and record["askPrice"] is not None:
-                        results[trading_pair] = (Decimal(record["bidPrice"]) + Decimal(record["askPrice"])) / Decimal("2")
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            cls.logger().error("Unexpected error while retrieving rates from Binance.")
+        async with client.request("GET", url) as resp:
+            records = await resp.json()
+            for record in records:
+                trading_pair = binance_convert_from_exchange_pair(record["symbol"])
+                if quote_symbol is not None:
+                    base, quote = trading_pair.split("-")
+                    if quote != quote_symbol:
+                        continue
+                if trading_pair and record["bidPrice"] is not None and record["askPrice"] is not None:
+                    results[trading_pair] = (Decimal(record["bidPrice"]) + Decimal(record["askPrice"])) / Decimal(
+                        "2")
         return results
 
     @classmethod
     @async_ttl_cache(ttl=30, maxsize=1)
     async def get_coingecko_prices(cls, vs_currency: str) -> Dict[str, Decimal]:
+        """
+        Fetches CoinGecko prices for the top 1000 token (order by market cap), each API query returns 250 results,
+        hence it queries 4 times concurrently.
+        :param vs_currency: A currency (crypto or fiat) to get prices of tokens in, see
+        https://api.coingecko.com/api/v3/simple/supported_vs_currencies for the current supported list
+        :return A dictionary of trading pairs and prices
+        """
         results = {}
         if not cls._cgecko_supported_vs_tokens:
             client = await cls._http_client()
@@ -168,6 +242,13 @@ class RateOracle(NetworkBase):
 
     @classmethod
     async def get_coingecko_prices_by_page(cls, vs_currency: str, page_no: int) -> Dict[str, Decimal]:
+        """
+        Fetches CoinGecko prices by page number.
+        :param vs_currency: A currency (crypto or fiat) to get prices of tokens in, see
+        https://api.coingecko.com/api/v3/simple/supported_vs_currencies for the current supported list
+        :param page_no: The page number
+        :return A dictionary of trading pairs and prices (250 results max)
+        """
         results = {}
         client = await cls._http_client()
         async with client.request("GET", cls.coingecko_usd_price_url.format(vs_currency, page_no)) as resp:
