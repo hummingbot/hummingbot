@@ -80,10 +80,8 @@ class BinancePerpetualOrderBookTracker(OrderBookTracker):
 
                 now: float = time.time()
                 if int(now / 60.0) > int(last_message_timestamp / 60.0):
-                    self.logger().debug("Diff messages process: %d, rejected: %d, queued: %d",
-                                        messages_accepted,
-                                        messages_rejected,
-                                        messages_queued)
+                    self.logger().debug(f"Diff messages processed: {messages_accepted}, "
+                                        f"rejected: {messages_rejected}, queued: {messages_queued}")
                     messages_accepted = 0
                     messages_rejected = 0
                     messages_queued = 0
@@ -128,14 +126,13 @@ class BinancePerpetualOrderBookTracker(OrderBookTracker):
 
                     now: float = time.time()
                     if int(now / 60.0) > int(last_message_timestamp / 60.0):
-                        self.logger().debug("Processed %d order book diffs for %s.",
-                                            diff_messages_accepted, trading_pair)
+                        self.logger().debug(f"Processed {diff_messages_accepted} order book diffs for {trading_pair}.")
                         diff_messages_accepted = 0
                     last_message_timestamp = now
                 elif message.type is OrderBookMessageType.SNAPSHOT:
                     past_diffs: List[OrderBookMessage] = list(past_diffs_window)
                     order_book.restore_from_snapshot_and_diffs(message, past_diffs)
-                    self.logger().debug("Processed order book snapshot for %s.", trading_pair)
+                    self.logger().debug(f"Processed order book snapshot for {trading_pair}.")
             except asyncio.CancelledError:
                 raise
             except Exception:
