@@ -46,7 +46,7 @@ class CoinzoomWebsocket():
     async def connect(self):
         # if auth class was passed into websocket class
         # we need to emit authenticated requests
-        extra_headers = self._auth.get_headers() if self._isPrivate else None
+        extra_headers = self._auth.get_headers() if self._isPrivate else {"User-Agent": "hummingbot"}
         self._client = await websockets.connect(self._WS_URL, extra_headers=extra_headers)
 
         return self._client
