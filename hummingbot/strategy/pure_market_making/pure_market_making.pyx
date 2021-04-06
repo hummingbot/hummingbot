@@ -5,7 +5,9 @@ import numpy as np
 from typing import (
     List,
     Dict,
-    Optional
+    Optional,
+    Tuple,
+    Any,
 )
 from math import (
     floor,
@@ -150,10 +152,88 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._status_report_interval = status_report_interval
         self._last_own_trade_price = Decimal('nan')
 
+        self._argument_values = None
+
         self.c_add_markets([market_info.market])
 
     def all_markets_ready(self):
         return all([market.ready for market in self._sb_markets])
+
+    @classmethod
+    def argument_details(cls) -> Dict[str, Tuple[type, bool, Optional[Any]]]:
+        return {
+            "market_info": (MarketTradingPairTuple, True, None),
+            "bid_spread": (Decimal, True, None),
+            "ask_spread": (Decimal, True, None),
+            "order_amount": (Decimal, True, None),
+            "order_levels": (int, True, None),
+            "order_level_spread": (Decimal, True, None),
+            "order_level_amount": (Decimal, True, None),
+            "order_refresh_time": (float, True, None),
+            "max_order_age": (1800.0, True, None),
+            "order_refresh_tolerance_pct": (Decimal, True, None),
+            "filled_order_delay": (float, True, None),
+            "inventory_skew_enabled": (bool, True, None),
+            "inventory_target_base_pct": (Decimal, True, None),
+            "inventory_range_multiplier": (Decimal, True, None),
+            "hanging_orders_enabled": (bool, True, None),
+            "hanging_orders_cancel_pct": (Decimal, True, None),
+            "order_optimization_enabled": (bool, True, None),
+            "ask_order_optimization_depth": (Decimal, True, None),
+            "bid_order_optimization_depth": (Decimal, True, None),
+            "add_transaction_costs_to_orders": (bool, True, None),
+            "asset_price_delegate": (AssetPriceDelegate, True, None),
+            "inventory_cost_price_delegate": (InventoryCostPriceDelegate, True, None),
+            "price_type": (str, True, None),
+            "take_if_crossed": (bool, True, None),
+            "price_ceiling": (Decimal, True, None),
+            "price_floor": (Decimal, True, None),
+            "ping_pong_enabled": (bool, True, None),
+            "logging_options": (int, True, None),
+            "status_report_interval": (float, True, None),
+            "minimum_spread": (Decimal, True, None),
+            "hb_app_notification": (bool, True, None),
+            "order_override": (Dict[str, List[str]], True, None),
+        }
+
+    @property
+    def argument_values(self):
+        if self._argument_values is None:
+            self._argument_values = {
+                "market_info": self._market_info,
+                "bid_spread": self._bid_spread,
+                "ask_spread": self._ask_spread,
+                "order_amount": self._order_amount,
+                "order_levels": self._order_levels,
+                "order_level_spread": self._order_level_spread,
+                "order_level_amount": self._order_level_amount,
+                "order_refresh_time": self._order_refresh_time,
+                "max_order_age": self._max_order_age,
+                "order_refresh_tolerance_pct": self._order_refresh_tolerance_pct,
+                "filled_order_delay": self._filled_order_delay,
+                "inventory_skew_enabled": self._inventory_skew_enabled,
+                "inventory_target_base_pct": self._inventory_target_base_pct,
+                "inventory_range_multiplier": self._inventory_range_multiplier,
+                "hanging_orders_enabled": self._hanging_orders_enabled,
+                "hanging_orders_cancel_pct": self._hanging_orders_cancel_pct,
+                "order_optimization_enabled": self._order_optimization_enabled,
+                "ask_order_optimization_depth": self._ask_order_optimization_depth,
+                "bid_order_optimization_depth": self._bid_order_optimization_depth,
+                "add_transaction_costs_to_orders": self._add_transaction_costs_to_orders,
+                "asset_price_delegate": self._asset_price_delegate,
+                "inventory_cost_price_delegate": self._inventory_cost_price_delegate,
+                "price_type": self._price_type,
+                "take_if_crossed": self._take_if_crossed,
+                "price_ceiling": self._price_ceiling,
+                "price_floor": self._price_floor,
+                "ping_pong_enabled": self._ping_pong_enabled,
+                "logging_options": self._logging_options,
+                "status_report_interval": self._status_report_interval,
+                "minimum_spread": self._minimum_spread,
+                "hb_app_notification": self._hb_app_notification,
+                "order_override": self._order_override,
+            }
+        return self._argument_values
 
     @property
     def market_info(self) -> MarketTradingPairTuple:
