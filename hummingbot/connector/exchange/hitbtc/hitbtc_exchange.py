@@ -42,6 +42,7 @@ from hummingbot.connector.exchange.hitbtc.hitbtc_in_flight_order import HitbtcIn
 from hummingbot.connector.exchange.hitbtc.hitbtc_utils import (
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair,
+    translate_asset,
     get_new_client_order_id,
     aiohttp_response_with_errors,
     retry_sleep_time,
@@ -740,7 +741,7 @@ class HitbtcExchange(ExchangeBase):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
         for account in balance_update:
-            asset_name = account["currency"]
+            asset_name = translate_asset(account["currency"])
             self._account_available_balances[asset_name] = Decimal(str(account["available"]))
             self._account_balances[asset_name] = Decimal(str(account["reserved"])) + Decimal(str(account["available"]))
             remote_asset_names.add(asset_name)
