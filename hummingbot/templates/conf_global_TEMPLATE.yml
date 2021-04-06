@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 18
+template_version: 20
 
 # Exchange configs
 bamboo_relay_use_coordinator: false
@@ -34,6 +34,10 @@ coinbase_pro_api_key: null
 coinbase_pro_secret_key: null
 coinbase_pro_passphrase: null
 
+coinzoom_api_key: null
+coinzoom_secret_key: null
+coinzoom_username: null
+
 dydx_eth_private_key: null
 dydx_node_address: null
 
@@ -58,9 +62,9 @@ kraken_secret_key: null
 crypto_com_api_key: null
 crypto_com_secret_key: null
 
-eterbase_api_key: null
-eterbase_secret_key: null
-eterbase_account: null
+
+hitbtc_api_key: null
+hitbtc_secret_key: null
 
 bitfinex_api_key: null
 bitfinex_secret_key: null
@@ -69,14 +73,17 @@ okex_api_key: null
 okex_secret_key: null
 okex_passphrase: null
 
-bitmax_api_key: null
-bitmax_secret_key: null
+ascend_ex_api_key: null
+ascend_ex_secret_key: null
 
 celo_address: null
 celo_password: null
 
 terra_wallet_address: null
 terra_wallet_seeds: null
+
+digifinex_api_key: null
+digifinex_secret_key: null
 
 balancer_max_swaps: 4
 
@@ -91,12 +98,15 @@ ethereum_wallet: null
 ethereum_rpc_url: null
 ethereum_rpc_ws_url: null
 ethereum_chain_name: MAIN_NET
-ethereum_token_list_url: null
+ethereum_token_list_url: https://wispy-bird-88a7.uniswap.workers.dev/?url=http://tokens.1inch.eth.link
 
 # Kill switch
 kill_switch_enabled: null
 # The rate of performance at which you would want the bot to stop trading (-20 = 20%)
 kill_switch_rate: null
+
+# What to auto-fill in the prompt after each import command (start/config)
+autofill_import: null
 
 # DEX active order cancellation
 0x_active_cancels: false
@@ -169,14 +179,7 @@ balance_asset_limit:
 
 # Fixed gas price (in Gwei) for Ethereum transactions
 manual_gas_price:
-# To enable gas price lookup (true/false)
-ethgasstation_gas_enabled:
-# API key for defipulse.com gas station API
-ethgasstation_api_key:
-# Gas level you want to use for Ethereum transactions (fast, fastest, safeLow, average)
-ethgasstation_gas_level:
-# Refresh time for Ethereum gas price lookups (in seconds)
-ethgasstation_refresh_time:
+
 # Gateway API Configurations
 # default host to only use localhost
 # Port need to match the final installation port for Gateway
@@ -189,3 +192,12 @@ heartbeat_enabled:
 heartbeat_interval_min:
 # a list of binance markets (for trades/pnl reporting) separated by ',' e.g. RLC-USDT,RLC-BTC
 binance_markets:
+
+# A source for rate oracle, currently binance or coingecko
+rate_oracle_source:
+
+# A universal token which to display tokens values in, e.g. USD,EUR,BTC
+global_token:
+
+# A symbol for the global token, e.g. $, €
+global_token_symbol:
