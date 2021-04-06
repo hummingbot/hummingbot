@@ -24,7 +24,7 @@ class HitbtcUserStreamTrackerUnitTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        cls.trading_pairs = ["BTC-USD"]
+        cls.trading_pairs = ["BTC-USDT"]
         cls.user_stream_tracker: HitbtcUserStreamTracker = HitbtcUserStreamTracker(
             hitbtc_auth=HitbtcAuth(cls.api_key, cls.api_secret),
             trading_pairs=cls.trading_pairs)
