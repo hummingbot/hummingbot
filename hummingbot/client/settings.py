@@ -15,6 +15,9 @@ from hummingbot.core.event.events import TradeFeeType
 # Global variables
 required_exchanges: List[str] = []
 requried_connector_trading_pairs: Dict[str, List[str]] = {}
+# Set these two variables if a strategy uses oracle for rate conversion
+required_rate_oracle: bool = False
+rate_oracle_pairs: List[str] = []
 
 # Global static values
 KEYFILE_PREFIX = "key_file_"

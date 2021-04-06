@@ -21,7 +21,6 @@ from hummingbot.client.ui.completer import load_completer
 from hummingbot.client.errors import InvalidCommandError, ArgumentParserError
 from hummingbot.client.config.global_config_map import global_config_map, using_wallet
 from hummingbot.client.config.config_helpers import (
-    get_erc20_token_addresses,
     get_strategy_config_map,
     get_connector_class,
     get_eth_wallet_private_key,
@@ -194,10 +193,14 @@ class HummingbotApplication(*commands):
         return market_trading_pairs
 
     def _initialize_wallet(self, token_trading_pairs: List[str]):
+        # Todo: This function should be removed as it's currently not used by current working connectors
+
         if not using_wallet():
             return
-        if not self.token_list:
-            self.token_list = get_erc20_token_addresses()
+        # Commented this out for now since get_erc20_token_addresses uses blocking call
+
+        # if not self.token_list:
+        #     self.token_list = get_erc20_token_addresses()
 
         ethereum_wallet = global_config_map.get("ethereum_wallet").value
         private_key = Security._private_keys[ethereum_wallet]
