@@ -169,7 +169,7 @@ def get_erc20_token_addresses() -> Dict[str, List]:
     address_file_path = TOKEN_ADDRESSES_FILE_PATH
     token_list = {}
 
-    resp = requests.get(token_list_url, timeout=1)
+    resp = requests.get(token_list_url, timeout=3)
     decoded_resp = resp.json()
 
     for token in decoded_resp["tokens"]:
