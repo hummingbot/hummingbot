@@ -71,7 +71,7 @@ class IdexInFlightOrder(InFlightOrderBase):
         result.executed_amount_base = Decimal(data["executed_amount_base"])
         result.executed_amount_quote = Decimal(data["executed_amount_quote"])
         result.fee_asset = data["fee_asset"]
-        result.fee_paid = Decimal(data["fee_paid"])  # TODO: Account for gas
+        result.fee_paid = Decimal(data["fee_paid"])
         result.last_state = data["last_state"]
         return result
 

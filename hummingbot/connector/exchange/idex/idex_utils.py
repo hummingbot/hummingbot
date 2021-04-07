@@ -15,11 +15,11 @@ EXAMPLE_PAIR = "IDEX-ETH"
 DEFAULT_FEES = [0.1, 0.2]
 
 ETH_GAS_LIMIT = 170000  # estimation of upper limit of gas idex uses to move its smart contact for each fill
-BSC_GAS_LIMIT = 60000  # todo: estimate this from real taker orders
+BSC_GAS_LIMIT = 60000  # estimate from real taker orders
 
 USE_ETH_GAS_LOOKUP = False  # false even if idex do have gas fees, otherwise estimate_fee() would fail
 
-HUMMINGBOT_GAS_LOOKUP = False  # todo: to be removed if getting gas from idex is better
+HUMMINGBOT_GAS_LOOKUP = False  # set to False if getting gas from idex is better than from Hummingbot
 
 HBOT_BROKER_ID = "HBOT-"
 
@@ -175,4 +175,4 @@ OTHER_DOMAINS_KEYS = {
 }
 
 
-DEBUG = True
+DEBUG = False

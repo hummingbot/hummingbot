@@ -355,7 +355,6 @@ class IdexExchange(ExchangeBase):
         :param trading_pair: The market (e.g. BTC-USDT) of the order.
         :param client_order_id: The internal order id
         """
-        self.logger().info("Cancellation has been called for")
         order_cancellation = safe_ensure_future(self._execute_cancel(trading_pair, client_order_id))
         return order_cancellation
 
@@ -368,7 +367,6 @@ class IdexExchange(ExchangeBase):
         order.last_state to change to CANCELED
         """
         async with self._order_lock:
-            self.logger().warning(f'entering _execute_cancel({trading_pair}, {client_order_id})')
             try:
                 tracked_order = self._in_flight_orders.get(client_order_id)
                 if tracked_order is None:
@@ -390,9 +388,6 @@ class IdexExchange(ExchangeBase):
                                            client_order_id,
                                            tracked_order.exchange_order_id))
                     tracked_order.cancelled_event.set()
-                    if DEBUG:
-                        self.logger().warning(f'successfully exiting _execute_cancel for {client_order_id}, '
-                                              f'exchange_order_id: {exchange_order_id}')
                     return client_order_id
                 else:
                     raise IOError(f"delete_order({client_order_id}) tracked with exchange id: {exchange_order_id} "
@@ -415,9 +410,8 @@ class IdexExchange(ExchangeBase):
                         exc_info=True,
                         app_warning_msg=f"Failed to cancel the order {client_order_id} on Idex.")
                     raise e
-            except asyncio.CancelledError as e:
-                self.logger().warning(f'_execute_cancel: About to re-raise CancelledError: {str(e)}')
-                raise e
+            except asyncio.CancelledError:
+                raise
             except Exception as e:
                 self.logger().exception(f'_execute_cancel raised unexpected exception: {e}. Details:')
                 self.logger().network(
@@ -459,9 +453,6 @@ class IdexExchange(ExchangeBase):
     async def get_order(self, exchange_order_id: str) -> Dict[str, Any]:
         """Requests order information through API with exchange order Id. Returns json data with order details"""
         async with get_throttler().weighted_task(request_weight=1):
-            if DEBUG:
-                self.logger().warning(f'<|<|<|<|< entering get_order({exchange_order_id})')
-
             rest_url = get_idex_rest_url()
             url = f"{rest_url}/v1/orders"
             params = {
@@ -474,14 +465,8 @@ class IdexExchange(ExchangeBase):
             async with session.get(auth_dict["url"], headers=auth_dict["headers"]) as response:
                 if response.status != 200:
                     data = await response.json()
-                    if DEBUG:
-                        self.logger().error(
-                            f"get_order(exchange_order_id:{exchange_order_id}) error {response}. data: {data}"
-                        )
-                        orders_resp = await self.list_orders()  # todo alf: to be removed
-                        self.logger().warning(  # todo alf: to be removed
-                            f"<|<|<|<|<calling list_orders() inside get_order() for additional info: {orders_resp}")
-                    raise IOError(f"Error fetching data from {url}, {auth_dict['url']}. HTTP status is {response.status}. {data}")
+                    raise IOError(f"Error fetching data from {url}, {auth_dict['url']}. HTTP status is "
+                                  f"{response.status}. {data}")
                 data = await response.json()
                 return data
 
@@ -524,21 +509,15 @@ class IdexExchange(ExchangeBase):
                 "parameters": params,
                 "signature": wallet_signature
             }
-            if DEBUG:
-                self.logger().info(f"post_order body: {body}")
 
             auth_dict = self._idex_auth.generate_auth_dict_for_post(url=url, body=body)
             session: aiohttp.ClientSession = await self._http_client()
             async with session.post(auth_dict["url"], data=auth_dict["body"], headers=auth_dict["headers"]) as response:
                 if response.status != 200:
                     data = await response.json()
-                    if DEBUG:
-                        self.logger().warning(f'failed post_order. Response data: {data}')
                     raise IOError(f"Error posting data to {url}. HTTP status is {response.status}."
                                   f"Data is: {data}")
                 data = await response.json()
-                if DEBUG:
-                    self.logger().warning(f'<|<|<|<|< post_order returned: {data}')
                 return data
 
     async def delete_order(self, trading_pair: str, client_order_id: str):
@@ -568,8 +547,8 @@ class IdexExchange(ExchangeBase):
 
             auth_dict = self._idex_auth.generate_auth_dict_for_delete(url=url, body=body, wallet_signature=wallet_signature)
             session: aiohttp.ClientSession = await self._http_client()
-            # if DEBUG:
-            self.logger().info(f"Cancelling order {client_order_id} for {trading_pair}.")
+            if DEBUG:
+                self.logger().info(f"Cancelling order {client_order_id} for {trading_pair}.")
             async with session.delete(auth_dict["url"], data=auth_dict["body"], headers=auth_dict["headers"]) as response:
                 if response.status != 200:
                     data = await response.json()
@@ -685,13 +664,9 @@ class IdexExchange(ExchangeBase):
                                        price,
                                        client_order_id,
                                        exchange_order_id))
-            except asyncio.CancelledError as e:
-                if DEBUG:
-                    self.logger().exception("_create_order received a CancelledError...")
-                raise e
+            except asyncio.CancelledError:
+                raise
             except Exception as e:
-                if DEBUG:
-                    self.logger().exception(f"_create_order received an exception {e}. Details: ")
                 self.logger().network(
                     f"Error submitting {trade_type.name} {order_type.name} order to Idex for "
                     f"{amount} {trading_pair} "
@@ -805,12 +780,10 @@ class IdexExchange(ExchangeBase):
         current_tick = int(self.current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
             async with self._order_lock:
-                if DEBUG:
-                    self.logger().warning('entering _update_order_status execution')
                 tracked_orders = list(self._in_flight_orders.values())
                 if DEBUG:
                     exchange_order_ids = [tracked_order.exchange_order_id for tracked_order in tracked_orders]
-                    self.logger().warning(f"Polling order status updates for orders: {exchange_order_ids}")
+                    self.logger().info(f"Polling order status updates for orders: {exchange_order_ids}")
                 tasks = [self.get_order(tracked_order.exchange_order_id) for tracked_order in tracked_orders]
                 update_results = await safe_gather(*tasks, return_exceptions=True)
                 tracked_order_result = [(o, r) for o, r in zip(tracked_orders, update_results)]
@@ -823,10 +796,6 @@ class IdexExchange(ExchangeBase):
                         self.trigger_event(MarketEvent.OrderFailure, MarketOrderFailureEvent(
                             self.current_timestamp, tracked_order.client_order_id, tracked_order.order_type))
                         continue
-                    if DEBUG:
-                        self.logger().warning(
-                            '_update_order_status is about to call _process_fill_message and _process_order_message '
-                            f'for get_order() response: {result}')
                     await self._process_fill_message(result)
                     self._process_order_message(result)
 
@@ -835,14 +804,12 @@ class IdexExchange(ExchangeBase):
         Updates in-flight order and triggers cancellation or failure event if needed.
         :param order_msg: The order response from either REST or web socket API (they are different formats)
         """
-        # self.logger().info(f"Order Message: {order_msg}")
         client_order_id = order_msg["c"] if "c" in order_msg else order_msg.get("clientOrderId")
         if client_order_id not in self._in_flight_orders:
             return
         tracked_order = self._in_flight_orders[client_order_id]
         # Update order execution status
         tracked_order.last_state = order_msg["X"] if "X" in order_msg else order_msg.get("status")
-        # self.logger().info(f"Tracked Order Status: {tracked_order.last_state}")
         if tracked_order.is_cancelled:
             self.trigger_event(MarketEvent.OrderCancelled,
                                OrderCancelledEvent(
@@ -872,10 +839,10 @@ class IdexExchange(ExchangeBase):
         tracked_order = self._in_flight_orders.get(client_order_id)
         if not tracked_order:
             return
-        # self.logger().info(f'Update Message:{update_msg}')
         if update_msg.get("F") or update_msg.get("fills") is not None:
             for fill_msg in update_msg["F"] if "F" in update_msg else update_msg.get("fills"):
-                self.logger().info(f'Fill Message:{fill_msg}')
+                if DEBUG:
+                    self.logger().info(f'Fill Message:{fill_msg}')
                 updated = tracked_order.update_with_fill_update(fill_msg)
                 if not updated:
                     return
@@ -925,8 +892,6 @@ class IdexExchange(ExchangeBase):
         :returns List of CancellationResult which indicates whether each order is successfully cancelled.
         """
         async with self._order_lock:
-            if DEBUG:
-                self.logger().warning('<<<< entering cancel_all')
             incomplete_orders = [o for o in self._in_flight_orders.values() if not o.is_done]
             tasks = [self.delete_order(o.trading_pair, o.client_order_id) for o in incomplete_orders]
             order_id_set = set([o.client_order_id for o in incomplete_orders])
@@ -944,7 +909,6 @@ class IdexExchange(ExchangeBase):
                             continue
                         order_id_set.remove(incomplete_order.client_order_id)
                         successful_cancellations.append(CancellationResult(incomplete_order.client_order_id, True))
-                        # todo alf: should we emit event here ?
                         if not result:
                             self.logger().error(
                                 f'cancel_all: self.delete_order({incomplete_order.trading_pair}, '
@@ -968,13 +932,9 @@ class IdexExchange(ExchangeBase):
                         self.logger().info(
                             f"cancel_all: finished processing cancel of order:{incomplete_order.client_order_id}. "
                             f"exchange id:{incomplete_order.exchange_order_id}")
-            except asyncio.CancelledError as e:
-                if DEBUG:
-                    self.logger().exception(f"cancel_all got async Cancellation error {e}. Details: ")
-                raise e
+            except asyncio.CancelledError:
+                raise
             except Exception as e:
-                if DEBUG:
-                    self.logger().exception(f"cancel_all got unexpected Exception error {e}. Details: ")
                 self.logger().network(
                     f"Unexpected error cancelling orders. Error: {str(e)}",
                     exc_info=True,
@@ -1032,9 +992,7 @@ class IdexExchange(ExchangeBase):
                 yield await self._user_stream_tracker.user_stream.get()
             except asyncio.CancelledError:
                 raise
-            except Exception as e:
-                if DEBUG:
-                    self.logger().error(f"_iter_user_event_queue Error: {e}")
+            except Exception:
                 self.logger().network(
                     "Unknown error. Retrying after 1 seconds.",
                     exc_info=True,
@@ -1055,16 +1013,14 @@ class IdexExchange(ExchangeBase):
                     continue
                 event_type, event_data = event_message['type'], event_message['data']
                 if event_type == 'orders':
-                    self.logger().info("Receiving WS event")
                     await self._process_fill_message(event_data)
-                    self.logger().info(f'event data: {event_data}')
                     self._process_order_message(event_data)
                 elif event_type == 'balances':
                     asset_name = event_data['a']
                     # q	quantity	string	Total quantity of the asset held by the wallet on the exchange
                     # f	availableForTrade	string	Quantity of the asset available for trading; quantity - locked
                     # d	usdValue	string	Total value of the asset held by the wallet on the exchange in USD
-                    self._account_balances[asset_name] = Decimal(str(event_data['q']))  # todo: q or d ?
+                    self._account_balances[asset_name] = Decimal(str(event_data['q']))
                     self._account_available_balances[asset_name] = Decimal(str(event_data['f']))
                 elif event_type == 'error':
                     self.logger().error(f"Unexpected error message received from api."

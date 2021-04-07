@@ -89,7 +89,7 @@ class IdexAuth:
         """generate hmac signature"""
         return hmac.new(
             self._secret_key.encode("utf-8") if isinstance(self._secret_key, str) else self._secret_key,
-            data.encode("utf-8") if isinstance(data, str) else data,  # todo alf: check this is correct. Field Order ?
+            data.encode("utf-8") if isinstance(data, str) else data,  # idex does not sort fields for predictable Order
             hashlib.sha256
         ).hexdigest()
 
@@ -181,7 +181,7 @@ class IdexAuth:
                 "nonce": self.get_nonce_str()
             })
 
-        params = urlencode(params)  # todo alf: order of param fields for signature ?
+        params = urlencode(params)
         url = f"{url}?{params}"
         return {
             "headers": {
@@ -206,7 +206,7 @@ class IdexAuth:
         if wallet_signature:
             body["signature"] = wallet_signature
 
-        body = json.dumps(body, separators=(',', ':'))  # todo alf: 1. sort_keys=True ?   2. why explicit separators ?
+        body = json.dumps(body, separators=(',', ':'))
 
         return {
             "headers": {
@@ -319,111 +319,3 @@ class IdexAuth:
             ('string', market),
         )
         return signature_parameters
-
-    # ----------------------------- Deprecated methods -----------------------------
-
-    @classmethod
-    def wallet_signature(cls, *parameters: Tuple[str, Any], private_key: str = None):
-        raise PendingDeprecationWarning
-        # fields = [item[0] for item in parameters]
-        # values = [item[1] for item in parameters]
-        # signature_parameters_hash = Web3.solidityKeccak(fields, values)
-        # signed_message = cls.new_wallet_object(private_key=private_key).sign_message(
-        #     signable_message=encode_defunct(hexstr=signature_parameters_hash.hex())
-        # )
-        # return signed_message.signature.hex()
-
-    @staticmethod
-    def remove0x_prefix(value):
-        raise PendingDeprecationWarning
-        # if value[:2] == '0x':
-        #     return value[2:]
-        # return value
-
-    @staticmethod
-    def decimal_to_bytes(n, endian='big'):
-        """int.from_bytes and int.to_bytes don't work in python2"""
-        raise PendingDeprecationWarning
-        # if n > 0:
-        #     next_byte = IdexAuth.decimal_to_bytes(n // 0x100, endian)
-        #     remainder = bytes([n % 0x100])
-        #     return next_byte + remainder if endian == 'big' else remainder + next_byte
-        # else:
-        #     return b''
-
-    @staticmethod
-    def base16_to_binary(s):
-        raise PendingDeprecationWarning
-        # return base64.b16decode(s, True)
-
-    @staticmethod
-    def number_to_be(n, size):
-        raise PendingDeprecationWarning
-        # return IdexAuth.decimal_to_bytes(int(n), 'big').rjust(size, b'\x00')
-
-    @staticmethod
-    def binary_concat(*args):
-        raise PendingDeprecationWarning
-        # result = bytes()
-        # for arg in args:
-        #     result = result + arg
-        # return result
-
-    @staticmethod
-    def binary_to_base64(s):
-        raise PendingDeprecationWarning
-        # return IdexAuth.decode(base64.standard_b64encode(s))
-
-    @staticmethod
-    def binary_to_base16(s):
-        raise PendingDeprecationWarning
-        # return IdexAuth.decode(base64.b16encode(s)).lower()
-
-    @staticmethod
-    def hash(request, algorithm='md5', digest='hex'):
-        raise PendingDeprecationWarning
-        # if algorithm == 'keccak':
-        #     binary = bytes(Web3.sha3(request))
-        # else:
-        #     h = hashlib.new(algorithm, request)
-        #     binary = h.digest()
-        # if digest == 'base64':
-        #     return IdexAuth.binary_to_base64(binary)
-        # elif digest == 'hex':
-        #     return IdexAuth.binary_to_base16(binary)
-        # return binary
-
-    @staticmethod
-    def binary_concat_array(array):
-        raise PendingDeprecationWarning
-        # result = bytes()
-        # for element in array:
-        #     result = result + element
-        # return result
-
-    @staticmethod
-    def number_to_le(n, size):
-        raise PendingDeprecationWarning
-        # return IdexAuth.decimal_to_bytes(int(n), 'little').ljust(size, b'\x00')
-
-    def hash_message(self, message):
-        raise PendingDeprecationWarning
-        # message_bytes = base64.b16decode(IdexAuth.encode(IdexAuth.remove0x_prefix(message)), True)
-        # hash_bytes = Web3.sha3(
-        #     b"\x19Ethereum Signed Message:\n" + IdexAuth.encode(str(len(message_bytes))) + message_bytes
-        # )
-        # return '0x' + IdexAuth.decode(base64.b16encode(hash_bytes)).lower()
-
-    def sign_message_string(self, message, privateKey):
-        raise PendingDeprecationWarning
-        # signed_message = Account.sign_message(encode_defunct(hexstr=message), private_key=privateKey)
-        # return signed_message.signature.hex()
-
-    @classmethod
-    def hex_to_uint128(cls, value):
-        raise PendingDeprecationWarning
-        # # Deal with leading 0x
-        # value = value.split("x", 1)[-1]
-        # # Filter none hexl
-        # value = f"0x{''.join([c for c in value if c in cls.HEX_DIGITS_SET])}"
-        # return int(value, 16)
