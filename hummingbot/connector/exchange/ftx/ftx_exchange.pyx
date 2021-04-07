@@ -211,6 +211,7 @@ cdef class FtxExchange(ExchangeBase):
                                                       tracked_order.client_order_id))
             elif market_event == MarketEvent.OrderCancelled:
                 self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}")
+                self.c_stop_tracking_order(tracked_order.client_order_id)
                 self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                      OrderCancelledEvent(self._current_timestamp,
                                                          tracked_order.client_order_id))
@@ -461,6 +462,9 @@ cdef class FtxExchange(ExchangeBase):
         if trading_pair not in order_books:
             raise ValueError(f"No order book exists for '{trading_pair}'.")
         return order_books[trading_pair]
+
+    def get_order_book(self, trading_pair: str) -> OrderBook:
+        return self.c_get_order_book(trading_pair)
 
     cdef c_start_tracking_order(self,
                                 str order_id,
