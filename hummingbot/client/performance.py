@@ -98,7 +98,7 @@ def aggregate_position_order(buys: list, sells: list):
 
 
 def derivative_pnl(long: list, short: list):
-    # It is assumed that the amount and leverage for both open and close orders are thesame.
+    # It is assumed that the amount and leverage for both open and close orders are the same.
     """
     Calculates PnL for a close position
     :param long: a list containing pairs of open and closed long position orders
