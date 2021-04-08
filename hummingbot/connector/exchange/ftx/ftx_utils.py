@@ -12,7 +12,7 @@ CENTRALIZED = True
 EXAMPLE_PAIR = "BTC-USD"
 
 
-DEFAULT_FEES = [0.0, 0.07]
+DEFAULT_FEES = [0.07, 0.02]
 
 
 def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
