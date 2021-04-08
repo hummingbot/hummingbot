@@ -33,6 +33,7 @@ class DigifinexRestApi:
             headers = self._auth.get_private_headers(path_url, request_id, params)
         else:
             headers = {}
+        headers['User-Agent'] = 'hummingbot'
 
         if method == "get":
             url = f'{url}?{urllib.parse.urlencode(params)}'

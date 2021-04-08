@@ -17,19 +17,18 @@ from hummingbot import init_logging
 from hummingbot.client.config.config_helpers import (
     get_strategy_starter_file,
 )
-from hummingbot.client.settings import (
-    STRATEGIES,
-    SCRIPTS_PATH,
-    ethereum_gas_station_required,
-    required_exchanges,
-)
+import hummingbot.client.settings as settings
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.kill_switch import KillSwitch
 from typing import TYPE_CHECKING
 from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.core.utils.eth_gas_station_lookup import EthGasStationLookup
 from hummingbot.script.script_iterator import ScriptIterator
 from hummingbot.connector.connector_status import get_connector_status, warning_messages
+from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.client.command.rate_command import RateCommand
+from hummingbot.client.config.config_validators import validate_bool
+from hummingbot.client.errors import OracleRateUnavailable
+from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
@@ -59,15 +58,19 @@ class StartCommand:
     async def start_check(self,  # type: HummingbotApplication
                           log_level: Optional[str] = None,
                           restore: Optional[bool] = False):
-
         if self.strategy_task is not None and not self.strategy_task.done():
             self._notify('The bot is already running - please run "stop" first')
             return
 
+        if settings.required_rate_oracle:
+            if not (await self.confirm_oracle_conversion_rate()):
+                self._notify("The strategy failed to start.")
+                return
+            else:
+                RateOracle.get_instance().start()
         is_valid = await self.status_check_all(notify_success=False)
         if not is_valid:
             return
-
         if self._last_started_strategy_file != self.strategy_file_name:
             init_logging("hummingbot_logs.yml",
                          override_log_level=log_level.upper() if log_level else None,
@@ -85,7 +88,7 @@ class StartCommand:
         if global_config_map.get("paper_trade_enabled").value:
             self._notify("\nPaper Trading ON: All orders are simulated, and no real orders are placed.")
 
-        for exchange in required_exchanges:
+        for exchange in settings.required_exchanges:
             connector = str(exchange)
             status = get_connector_status(connector)
 
@@ -106,7 +109,7 @@ class StartCommand:
                                   strategy_name: str,
                                   restore: Optional[bool] = False):
         start_strategy: Callable = get_strategy_starter_file(strategy_name)
-        if strategy_name in STRATEGIES:
+        if strategy_name in settings.STRATEGIES:
             start_strategy(self)
         else:
             raise NotImplementedError
@@ -133,7 +136,7 @@ class StartCommand:
                 script_file = global_config_map["script_file_path"].value
                 folder = dirname(script_file)
                 if folder == "":
-                    script_file = join(SCRIPTS_PATH, script_file)
+                    script_file = join(settings.SCRIPTS_PATH, script_file)
                 if self.strategy_name != "pure_market_making":
                     self._notify("Error: script feature is only available for pure_market_making strategy (for now).")
                 else:
@@ -141,9 +144,6 @@ class StartCommand:
                                                            self.strategy, 0.1)
                     self.clock.add_iterator(self._script_iterator)
                     self._notify(f"Script ({script_file}) started.")
-
-            if global_config_map["ethgasstation_gas_enabled"].value and ethereum_gas_station_required():
-                EthGasStationLookup.get_instance().start()
 
             self.strategy_task: asyncio.Task = safe_ensure_future(self._run_clock(), loop=self.ev_loop)
             self._notify(f"\n'{strategy_name}' strategy started.\n"
@@ -155,3 +155,30 @@ class StartCommand:
                 await self.wait_till_ready(self.kill_switch.start)
         except Exception as e:
             self.logger().error(str(e), exc_info=True)
+
+    async def confirm_oracle_conversion_rate(self,  # type: HummingbotApplication
+                                             ) -> bool:
+        try:
+            result = False
+            self.app.clear_input()
+            self.placeholder_mode = True
+            self.app.hide_input = True
+            for pair in settings.rate_oracle_pairs:
+                msg = await RateCommand.oracle_rate_msg(pair)
+                self._notify("\nRate Oracle:\n" + msg)
+            config = ConfigVar(key="confirm_oracle_use",
+                               type_str="bool",
+                               prompt="Please confirm to proceed if the above oracle source and rates are correct for "
+                                      "this strategy (Yes/No)  >>> ",
+                               required_if=lambda: True,
+                               validator=lambda v: validate_bool(v))
+            await self.prompt_a_config(config)
+            if config.value:
+                result = True
+        except OracleRateUnavailable:
+            self._notify("Oracle rate is not available.")
+        finally:
+            self.placeholder_mode = False
+            self.app.hide_input = False
+            self.app.change_prompt(prompt=">>> ")
+        return result
