@@ -885,8 +885,8 @@ cdef class FtxExchange(ExchangeBase):
                           object order_side,
                           object amount,
                           object price):
-        is_maker = order_type is OrderType.LIMIT
-        return estimate_fee("ftx", not order_type.is_limit_type())
+        is_maker = order_type is OrderType.LIMIT_MAKER
+        return estimate_fee("ftx", is_maker)
 
     def get_fee(self,
                 base_currency: str,
