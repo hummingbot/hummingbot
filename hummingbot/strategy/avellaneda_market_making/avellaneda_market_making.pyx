@@ -355,7 +355,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             lines.extend(["", "  No active maker orders."])
 
         volatility_pct = self._avg_vol.current_value / float(self.get_price()) * 100.0
-        if all((self._gamma, self._kappa, volatility_pct)):
+        if all((self._gamma, self._kappa, volatility_pct is not NaN)):
             lines.extend(["", f"  Strategy parameters:",
                           f"    risk_factor(\u03B3)= {self._gamma:.5E}",
                           f"    order_book_depth_factor(\u03BA)= {self._kappa:.5E}",
