@@ -218,32 +218,32 @@ class FixtureIdex:
 
     # Group A
     BUY_MARKET_ORDER = {
-            "market": "DIL-ETH",
-            "orderId": "92782120-a775-11ea-aa55-4da1cc97a06d",
-            "clientOrderId": "10001",
-            "wallet": "0xA71C4aeeAabBBB8D2910F41C2ca3964b81F7310d",
-            "time": 1590394500000,
-            "status": "active",
-            "type": "market",
-            "side": "buy",
-            "originalQuantity": "0.02000000",
-            "executedQuantity": "0.00000000",
-            "selfTradePrevention": "dc"
-        }
+        "market": "DIL-ETH",
+        "orderId": "92782120-a775-11ea-aa55-4da1cc97a06d",
+        "clientOrderId": "10001",
+        "wallet": "0xA71C4aeeAabBBB8D2910F41C2ca3964b81F7310d",
+        "time": 1590394500000,
+        "status": "active",
+        "type": "market",
+        "side": "buy",
+        "originalQuantity": "0.02000000",
+        "executedQuantity": "0.00000000",
+        "selfTradePrevention": "dc"
+    }
 
     SELL_MARKET_ORDER = {
-            "market": "DIL-ETH",
-            "orderId": "92782120-a775-11ea-aa55-4da1cc97a06d",
-            "clientOrderId": "10001",
-            "wallet": "0xA71C4aeeAabBBB8D2910F41C2ca3964b81F7310d",
-            "time": 1590394500000,
-            "status": "active",
-            "type": "market",
-            "side": "sell",
-            "originalQuantity": "0.02000000",
-            "executedQuantity": "0.00000000",
-            "selfTradePrevention": "dc"
-        }
+        "market": "DIL-ETH",
+        "orderId": "92782120-a775-11ea-aa55-4da1cc97a06d",
+        "clientOrderId": "10001",
+        "wallet": "0xA71C4aeeAabBBB8D2910F41C2ca3964b81F7310d",
+        "time": 1590394500000,
+        "status": "active",
+        "type": "market",
+        "side": "sell",
+        "originalQuantity": "0.02000000",
+        "executedQuantity": "0.00000000",
+        "selfTradePrevention": "dc"
+    }
 
     # Group A
     WS_AFTER_MARKET_BUY_2 = {
@@ -279,7 +279,6 @@ class FixtureIdex:
                     "T": "0x01d28c33271cf1dd0eb04249617d3092f24bd9bad77ffb57a0316c3ce5425158",
                     "S": "mined"
                 },
-                ...
             ]
         }
     }
