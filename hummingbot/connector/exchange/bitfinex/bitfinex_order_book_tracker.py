@@ -118,10 +118,8 @@ class BitfinexOrderBookTracker(OrderBookTracker):
                 # Log some statistics.
                 now: float = time.time()
                 if int(now / CALC_STAT_MINUTE) > int(last_message_timestamp / CALC_STAT_MINUTE):
-                    self.logger().debug("Diff messages processed: %d, rejected: %d, queued: %d",
-                                        messages_accepted,
-                                        messages_rejected,
-                                        messages_queued)
+                    self.logger().debug(f"Diff messages processed: {messages_accepted}, "
+                                        f"rejected: {messages_rejected}, queued: {messages_queued}")
                     messages_accepted = 0
                     messages_rejected = 0
                     messages_queued = 0
@@ -171,8 +169,7 @@ class BitfinexOrderBookTracker(OrderBookTracker):
                     # Output some statistics periodically.
                     now: float = time.time()
                     if int(now / CALC_STAT_MINUTE) > int(last_message_timestamp / CALC_STAT_MINUTE):
-                        self.logger().debug(
-                            "Processed %d order book diffs for %s.", diff_messages_accepted, trading_pair)
+                        self.logger().debug(f"Processed {diff_messages_accepted} order book diffs for {trading_pair}.")
                         diff_messages_accepted = 0
 
                     last_message_timestamp = now
@@ -193,7 +190,7 @@ class BitfinexOrderBookTracker(OrderBookTracker):
                         )
                         order_book.apply_diffs(d_bids, d_asks, diff_message.update_id)
 
-                    self.logger().debug("Processed order book snapshot for %s.", trading_pair)
+                    self.logger().debug(f"Processed order book snapshot for {trading_pair}.")
             except asyncio.CancelledError:
                 raise
             except Exception as err:
