@@ -196,6 +196,14 @@ main_config_map = {
                   default=-100,
                   validator=lambda v: validate_decimal(v, Decimal(-100), Decimal(100)),
                   required_if=lambda: global_config_map["kill_switch_enabled"].value),
+    "autofill_import":
+        ConfigVar(key="autofill_import",
+                  prompt="What to auto-fill in the prompt after each import command? (start/config) >>> ",
+                  type_str="str",
+                  default=None,
+                  validator=lambda s: None if s in {"start",
+                                                    "config"} else "Invalid auto-fill prompt.",
+                  required_if=lambda: False),
     "telegram_enabled":
         ConfigVar(key="telegram_enabled",
                   prompt="Would you like to enable telegram? >>> ",
@@ -290,32 +298,6 @@ main_config_map = {
                   type_str="decimal",
                   validator=lambda v: validate_decimal(v, Decimal(0), inclusive=False),
                   default=50),
-    "ethgasstation_gas_enabled":
-        ConfigVar(key="ethgasstation_gas_enabled",
-                  prompt="Do you want to enable Ethereum gas station price lookup? >>> ",
-                  required_if=lambda: False,
-                  type_str="bool",
-                  validator=validate_bool,
-                  default=False),
-    "ethgasstation_api_key":
-        ConfigVar(key="ethgasstation_api_key",
-                  prompt="Enter API key for defipulse.com gas station API >>> ",
-                  required_if=lambda: global_config_map["ethgasstation_gas_enabled"].value,
-                  type_str="str"),
-    "ethgasstation_gas_level":
-        ConfigVar(key="ethgasstation_gas_level",
-                  prompt="Enter gas level you want to use for Ethereum transactions (fast, fastest, safeLow, average) "
-                         ">>> ",
-                  required_if=lambda: global_config_map["ethgasstation_gas_enabled"].value,
-                  type_str="str",
-                  validator=lambda s: None if s in {"fast", "fastest", "safeLow", "average"}
-                  else "Invalid gas level."),
-    "ethgasstation_refresh_time":
-        ConfigVar(key="ethgasstation_refresh_time",
-                  prompt="Enter refresh time for Ethereum gas price lookup (in seconds) >>> ",
-                  required_if=lambda: global_config_map["ethgasstation_gas_enabled"].value,
-                  type_str="int",
-                  default=120),
     "gateway_api_host":
         ConfigVar(key="gateway_api_host",
                   prompt=None,
@@ -361,11 +343,11 @@ main_config_map = {
                   default=RateOracleSource.binance.name),
     "global_token":
         ConfigVar(key="global_token",
-                  prompt="What is your default display token? (e.g. USDT,USD,EUR)  >>> ",
+                  prompt="What is your default display token? (e.g. USD,EUR,BTC)  >>> ",
                   type_str="str",
                   required_if=lambda: False,
                   on_validated=global_token_on_validated,
-                  default="USDT"),
+                  default="USD"),
     "global_token_symbol":
         ConfigVar(key="global_token_symbol",
                   prompt="What is your default display token symbol? (e.g. $,€)  >>> ",
