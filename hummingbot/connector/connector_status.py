@@ -17,6 +17,7 @@ connector_status = {
     'crypto_com': 'yellow',
     'digifinex': "yellow",
     'dydx': 'green',
+    'dydx_perpetual': 'yellow',
     'ethereum': 'red',
     'hitbtc': 'yellow',
     'huobi': 'green',
