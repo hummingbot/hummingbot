@@ -13,8 +13,6 @@ from typing import (
 )
 from decimal import Decimal
 import re
-import requests
-import cachetools.func
 import time
 import ujson
 import websockets
@@ -67,16 +65,6 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
             resp = await client.get(f"{url}?symbol={convert_to_exchange_trading_pair(trading_pair)}")
             resp_json = await resp.json()
             return float(resp_json["lastPrice"])
-
-    @staticmethod
-    @cachetools.func.ttl_cache(ttl=10, maxsize=1000)
-    def get_mid_price(trading_pair: str, domain="com") -> Optional[Decimal]:
-        from hummingbot.connector.exchange.binance.binance_utils import convert_to_exchange_trading_pair
-        url = TICKER_PRICE_CHANGE_URL.format(domain)
-        resp = requests.get(url=f"{url}?symbol={convert_to_exchange_trading_pair(trading_pair)}")
-        record = resp.json()
-        result = (Decimal(record.get("bidPrice", "0")) + Decimal(record.get("askPrice", "0"))) / Decimal("2")
-        return result if result else None
 
     @staticmethod
     @async_ttl_cache(ttl=2, maxsize=1)

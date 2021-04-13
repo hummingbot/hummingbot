@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from setuptools import setup
+from setuptools.command.build_ext import build_ext
 from Cython.Build import cythonize
 import numpy as np
 import os
@@ -17,9 +18,19 @@ if is_posix:
         os.environ["CFLAGS"] = "-std=c++11"
 
 
+# Avoid a gcc warning below:
+# cc1plus: warning: command line option ‘-Wstrict-prototypes’ is valid
+# for C/ObjC but not for C++
+class BuildExt(build_ext):
+    def build_extensions(self):
+        if os.name != "nt" and '-Wstrict-prototypes' in self.compiler.compiler_so:
+            self.compiler.compiler_so.remove('-Wstrict-prototypes')
+        super().build_extensions()
+
+
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20210309"
+    version = "20210406"
     packages = [
         "hummingbot",
         "hummingbot.client",
@@ -39,11 +50,13 @@ def main():
         "hummingbot.connector.connector.balancer",
         "hummingbot.connector.connector.terra",
         "hummingbot.connector.exchange",
+        "hummingbot.connector.exchange.ascend_ex",
         "hummingbot.connector.exchange.binance",
         "hummingbot.connector.exchange.bitfinex",
         "hummingbot.connector.exchange.bittrex",
         "hummingbot.connector.exchange.bamboo_relay",
         "hummingbot.connector.exchange.coinbase_pro",
+        "hummingbot.connector.exchange.coinzoom",
         "hummingbot.connector.exchange.dydx",
         "hummingbot.connector.exchange.huobi",
         "hummingbot.connector.exchange.radar_relay",
@@ -56,7 +69,7 @@ def main():
         "hummingbot.connector.exchange.dolomite",
         "hummingbot.connector.exchange.eterbase",
         "hummingbot.connector.exchange.beaxy",
-        "hummingbot.connector.exchange.bitmax",
+        "hummingbot.connector.exchange.hitbtc",
         "hummingbot.connector.derivative",
         "hummingbot.connector.derivative.binance_perpetual",
         "hummingbot.script",
@@ -164,6 +177,7 @@ def main():
               "bin/hummingbot.py",
               "bin/hummingbot_quickstart.py"
           ],
+          cmdclass={'build_ext': BuildExt},
           )
 
 

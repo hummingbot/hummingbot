@@ -4,14 +4,11 @@ from itertools import islice
 import aiohttp
 import asyncio
 from async_timeout import timeout
-import cachetools.func
 from collections import defaultdict
-from decimal import Decimal
 from enum import Enum
 import json
 import logging
 import pandas as pd
-import requests
 import time
 from typing import (
     Any,
@@ -305,18 +302,6 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 resp_record = [o for o in resp_json["data"]["ticker"] if o["symbolName"] == trading_pair][0]
                 results[trading_pair] = float(resp_record["last"])
         return results
-
-    @staticmethod
-    @cachetools.func.ttl_cache(ttl=10)
-    def get_mid_price(trading_pair: str) -> Optional[Decimal]:
-        resp = requests.get(url=TICKER_PRICE_CHANGE_URL)
-        records = resp.json()
-        result = None
-        for record in records["data"]["ticker"]:
-            if trading_pair == record["symbolName"] and record["buy"] is not None and record["sell"] is not None:
-                result = (Decimal(record["buy"]) + Decimal(record["sell"])) / Decimal("2")
-                break
-        return result
 
     @staticmethod
     async def fetch_trading_pairs() -> List[str]:
