@@ -36,6 +36,7 @@ if TYPE_CHECKING:
 no_restart_pmm_keys_in_percentage = ["bid_spread", "ask_spread", "order_level_spread", "inventory_target_base_pct"]
 no_restart_pmm_keys = ["order_amount", "order_levels", "filled_order_delay", "inventory_skew_enabled", "inventory_range_multiplier"]
 global_configs_to_display = ["0x_active_cancels",
+                             "autofill_import",
                              "kill_switch_enabled",
                              "kill_switch_rate",
                              "telegram_enabled",
@@ -44,17 +45,15 @@ global_configs_to_display = ["0x_active_cancels",
                              "send_error_logs",
                              "script_enabled",
                              "script_file_path",
-                             "manual_gas_price",
                              "ethereum_chain_name",
-                             "ethgasstation_gas_enabled",
-                             "ethgasstation_api_key",
-                             "ethgasstation_gas_level",
-                             "ethgasstation_refresh_time",
                              "gateway_enabled",
                              "gateway_cert_passphrase",
                              "gateway_api_host",
                              "gateway_api_port",
-                             "balancer_max_swaps"]
+                             "balancer_max_swaps",
+                             "rate_oracle_source",
+                             "global_token",
+                             "global_token_symbol"]
 
 
 class ConfigCommand:
@@ -82,7 +81,7 @@ class ConfigCommand:
         self._notify("\n".join(lines))
 
         if self.strategy_name is not None:
-            data = [[cv.key, cv.value] for cv in self.strategy_config_map.values() if not cv.is_secure]
+            data = [[cv.printable_key or cv.key, cv.value] for cv in self.strategy_config_map.values() if not cv.is_secure]
             df = pd.DataFrame(data=data, columns=columns)
             self._notify("\nStrategy Configurations:")
             lines = ["    " + line for line in df.to_string(index=False, max_colwidth=50).split("\n")]
@@ -199,7 +198,7 @@ class ConfigCommand:
             balances = await UserBalances.instance().balances(exchange, base, quote)
             if balances is None:
                 return
-            base_ratio = UserBalances.base_amount_ratio(exchange, market, balances)
+            base_ratio = await UserBalances.base_amount_ratio(exchange, market, balances)
             if base_ratio is None:
                 return
             base_ratio = round(base_ratio, 3)
@@ -236,9 +235,12 @@ class ConfigCommand:
             exchange = config_map["exchange"].value
             market = config_map["market"].value
             base_asset, quote_asset = market.split("-")
-            balances = await UserBalances.instance().balances(
-                exchange, base_asset, quote_asset
-            )
+            if global_config_map["paper_trade_enabled"].value:
+                balances = global_config_map["paper_trade_account_balance"].value
+            else:
+                balances = await UserBalances.instance().balances(
+                    exchange, base_asset, quote_asset
+                )
             if balances.get(base_asset) is None:
                 return
 

@@ -1,5 +1,6 @@
 import logging
 from decimal import Decimal
+from functools import lru_cache
 import ruamel.yaml
 from os import (
     unlink
@@ -35,7 +36,7 @@ from hummingbot.client.settings import (
     CONNECTOR_SETTINGS
 )
 from hummingbot.client.config.security import Security
-from hummingbot.core.utils.market_price import get_mid_price
+from hummingbot.core.utils.market_price import get_last_price
 from hummingbot import get_strategy_list
 from eth_account import Account
 
@@ -164,6 +165,7 @@ def get_eth_wallet_private_key() -> Optional[str]:
     return account.privateKey.hex()
 
 
+@lru_cache(None)
 def get_erc20_token_addresses() -> Dict[str, List]:
     token_list_url = global_config_map.get("ethereum_token_list_url").value
     address_file_path = TOKEN_ADDRESSES_FILE_PATH
@@ -261,15 +263,15 @@ def validate_strategy_file(file_path: str) -> Optional[str]:
     return None
 
 
-def update_strategy_config_map_from_file(yml_path: str) -> str:
+async def update_strategy_config_map_from_file(yml_path: str) -> str:
     strategy = strategy_name_from_file(yml_path)
     config_map = get_strategy_config_map(strategy)
     template_path = get_strategy_template_path(strategy)
-    load_yml_into_cm(yml_path, template_path, config_map)
+    await load_yml_into_cm(yml_path, template_path, config_map)
     return strategy
 
 
-def load_yml_into_cm(yml_path: str, template_file_path: str, cm: Dict[str, ConfigVar]):
+async def load_yml_into_cm(yml_path: str, template_file_path: str, cm: Dict[str, ConfigVar]):
     try:
         with open(yml_path) as stream:
             data = yaml_parser.load(stream) or {}
@@ -301,7 +303,7 @@ def load_yml_into_cm(yml_path: str, template_file_path: str, cm: Dict[str, Confi
             # Todo: the proper process should be first validate the value then assign it
             cvar.value = parse_cvar_value(cvar, val_in_file)
             if cvar.value is not None:
-                err_msg = cvar.validate(str(cvar.value))
+                err_msg = await cvar.validate(str(cvar.value))
                 if err_msg is not None:
                     # Instead of raising an exception, simply skip over this variable and wait till the user is prompted
                     logging.getLogger().error("Invalid value %s for config variable %s" % (val_in_file, cvar.key))
@@ -320,14 +322,14 @@ def load_yml_into_cm(yml_path: str, template_file_path: str, cm: Dict[str, Confi
                                   exc_info=True)
 
 
-def read_system_configs_from_yml():
+async def read_system_configs_from_yml():
     """
     Read global config and selected strategy yml files and save the values to corresponding config map
     If a yml file is outdated, it gets reformatted with the new template
     """
-    load_yml_into_cm(GLOBAL_CONFIG_PATH, join(TEMPLATE_PATH, "conf_global_TEMPLATE.yml"), global_config_map)
-    load_yml_into_cm(TRADE_FEES_CONFIG_PATH, join(TEMPLATE_PATH, "conf_fee_overrides_TEMPLATE.yml"),
-                     fee_overrides_config_map)
+    await load_yml_into_cm(GLOBAL_CONFIG_PATH, join(TEMPLATE_PATH, "conf_global_TEMPLATE.yml"), global_config_map)
+    await load_yml_into_cm(TRADE_FEES_CONFIG_PATH, join(TEMPLATE_PATH, "conf_fee_overrides_TEMPLATE.yml"),
+                           fee_overrides_config_map)
     # In case config maps get updated (due to default values)
     save_system_configs_to_yml()
 
@@ -403,12 +405,12 @@ def default_min_quote(quote_asset: str) -> (str, Decimal):
     return result_quote, result_amount
 
 
-def minimum_order_amount(exchange: str, trading_pair: str) -> Decimal:
+async def minimum_order_amount(exchange: str, trading_pair: str) -> Decimal:
     base_asset, quote_asset = trading_pair.split("-")
     default_quote_asset, default_amount = default_min_quote(quote_asset)
     quote_amount = Decimal("0")
     if default_quote_asset == quote_asset:
-        mid_price = get_mid_price(exchange, trading_pair)
+        mid_price = await get_last_price(exchange, trading_pair)
         if mid_price is not None:
             quote_amount = default_amount / mid_price
     return round(quote_amount, 4)
