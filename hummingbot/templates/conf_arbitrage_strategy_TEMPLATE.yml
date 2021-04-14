@@ -2,7 +2,7 @@
 ###   Arbitrage strategy config   ###
 #####################################
 
-template_version: 4
+template_version: 5
 strategy: null
 
 # The following configuations are only required for the
@@ -17,6 +17,10 @@ secondary_market_trading_pair: null
 # Minimum profitability target required to place an order
 # Expressed in percentage value, e.g. 1 = 1% target profit
 min_profitability: null
+
+# Whether to use rate oracle on unmatched trading pairs
+# Set this to either True or False
+use_oracle_conversion_rate: null
 
 # The conversion rate for secondary base asset value to primary base asset value.
 # e.g. if primary base asset is USD, secondary is DAI and 1 USD is worth 1.25 DAI, "

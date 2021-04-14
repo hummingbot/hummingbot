@@ -104,6 +104,15 @@ okex_passphrase = os.getenv("OKEX_PASSPHRASE")
 crypto_com_api_key = os.getenv("CRYPTO_COM_API_KEY")
 crypto_com_secret_key = os.getenv("CRYPTO_COM_SECRET_KEY")
 
+# HitBTC Tests
+hitbtc_api_key = os.getenv("HITBTC_API_KEY")
+hitbtc_secret_key = os.getenv("HITBTC_SECRET_KEY")
+
+# CoinZoom Test
+coinzoom_api_key = os.getenv("COINZOOM_API_KEY")
+coinzoom_secret_key = os.getenv("COINZOOM_SECRET_KEY")
+coinzoom_username = os.getenv("COINZOOM_USERNAME")
+
 # Wallet Tests
 test_erc20_token_address = os.getenv("TEST_ERC20_TOKEN_ADDRESS")
 web3_test_private_key_a = os.getenv("TEST_WALLET_PRIVATE_KEY_A")
