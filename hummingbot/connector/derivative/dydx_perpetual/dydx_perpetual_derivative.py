@@ -14,8 +14,6 @@ from typing import (
     AsyncIterable
 )
 
-from hummingbot.connector.derivative.position import Position
-
 from dydx3.errors import DydxApiError
 
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
@@ -32,6 +30,7 @@ from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_client_wrappe
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_fill_report import DydxPerpetualFillReport
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_in_flight_order import DydxPerpetualInFlightOrder
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_order_book_tracker import DydxPerpetualOrderBookTracker
+from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_position import DydxPerpetualPosition
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_user_stream_tracker import DydxPerpetualUserStreamTracker
 
 from hummingbot.core.utils.async_utils import (
@@ -262,6 +261,20 @@ class DydxPerpetualDerivative(DerivativeBase):
         if exchange_order_id in self._unclaimed_fills:
             for fill in self._unclaimed_fills[exchange_order_id]:
                 in_flight_order.register_fill(fill.id, fill.amount, fill.price, fill.fee)
+                if in_flight_order.trading_pair in self._account_positions:
+                    position = self._account_positions[in_flight_order.trading_pair]
+                    position.update_from_fill(in_flight_order,
+                                              fill.price,
+                                              fill.amount,
+                                              self.get_balance('USD'))
+                else:
+                    self._account_positions[in_flight_order.trading_pair] = DydxPerpetualPosition.from_dydx_fill(
+                        in_flight_order,
+                        fill.amount,
+                        fill.price,
+                        self.get_balance('USD')
+                    )
+
             del self._unclaimed_fills[exchange_order_id]
 
         self._orders_pending_ack.discard(in_flight_order.client_order_id)
@@ -712,7 +725,7 @@ class DydxPerpetualDerivative(DerivativeBase):
         try:
             async with self._lock:
                 quote = 'USD'
-                self._account_balances[quote] = Decimal(updates['quoteBalance'])
+                self._account_balances[quote] = Decimal(updates['equity'])
                 self._account_available_balances[quote] = Decimal(updates['freeCollateral'])
         except Exception as e:
             self.logger().error(f"Could not set balance {repr(e)}", exc_info=True)
@@ -746,20 +759,18 @@ class DydxPerpetualDerivative(DerivativeBase):
                         for market in open_positions:
                             position = open_positions[market]
                             position_str = f"{market}"
-                            if position_str in self._account_positions:
-                                tracked_position = self._account_positions[position_str]
-                                tracked_position.update_position(position_side=PositionSide[position["side"]],
-                                                                 unrealized_pnl = Decimal(position["unrealizedPnl"]),
-                                                                 entry_price = Decimal(position["entryPrice"]),
-                                                                 amount = Decimal(position["size"]))
-                            else:
-                                self._account_positions[position_str] = Position(
+                            if position_str not in self._account_positions:
+                                entry_price: Decimal = Decimal(position['entryPrice'])
+                                amount: Decimal = Decimal(position['size'])
+                                total_quote: Decimal = entry_price * amount
+                                leverage: Decimal = total_quote / self.get_balance('USD')
+                                self._account_positions[position_str] = DydxPerpetualPosition(
                                     trading_pair=market,
-                                    position_side=position['side'],
+                                    position_side=PositionSide[position['side']],
                                     unrealized_pnl=Decimal(position['unrealizedPnl']),
-                                    entry_price=Decimal(position['entryPrice']),
-                                    amount=Decimal(position['size']),
-                                    leverage=Decimal(data['account']['quoteBalance'])
+                                    entry_price=entry_price,
+                                    amount=amount,
+                                    leverage=leverage
                                 )
 
                 if 'orders' in data:
@@ -787,6 +798,19 @@ class DydxPerpetualDerivative(DerivativeBase):
                         tracked_order: DydxPerpetualInFlightOrder = self.get_order_by_exchange_id(exchange_order_id)
                         if tracked_order is not None:
                             tracked_order.register_fill(id, amount, price, fee_paid)
+                            if tracked_order.trading_pair in self._account_positions:
+                                position = self._account_positions[tracked_order.trading_pair]
+                                position.update_from_fill(tracked_order,
+                                                          price,
+                                                          amount,
+                                                          self.get_available_balance('USD'))
+                            else:
+                                self._account_positions[tracked_order.trading_pair] = DydxPerpetualPosition.from_dydx_fill(
+                                    tracked_order,
+                                    amount,
+                                    price,
+                                    self.get_available_balance('USD')
+                                )
                             self._issue_order_events(tracked_order)
                         else:
                             if len(self._orders_pending_ack) > 0:
@@ -797,9 +821,9 @@ class DydxPerpetualDerivative(DerivativeBase):
                     for position in positions:
                         pos_str = f"{position['market']}"
                         if pos_str in self._account_positions:
-                            if position['status'] == "CLOSED":
-                                self.logger().warning(f"Position {pos_str} closing with realized pnl {position['realizedPnl']}")
-                                del self._account_positions[pos_str]
+                            self._account_positions[pos_str].update_position(position)
+                        if not self._account_positions[pos_str].is_open:
+                            del self._account_positions[pos_str]
                 if 'fundingPayments' in data:
                     if event['type'] != "subscribed":
                         for funding_payment in data['fundingPayments']:
@@ -838,26 +862,15 @@ class DydxPerpetualDerivative(DerivativeBase):
                 self.logger().warning(e)
 
     async def _update_account_positions(self):
-        current_positions = await self.dydx_client.get_my_positions()
+        account_info = await self.dydx_client.get_account()
+        current_positions = account_info['account']
 
-        for position in current_positions['positions']:
+        for market, position in current_positions['openPositions'].items():
             position_str = f"{position['market']}"
             if position_str in self._account_positions:
                 tracked_position = self._account_positions[position_str]
-                tracked_position.update_position(position_side=PositionSide[position["side"]],
-                                                 unrealized_pnl = Decimal(position["unrealizedPnl"]),
-                                                 entry_price = Decimal(position["entryPrice"]),
-                                                 amount = Decimal(position["size"]))
-            else:
-                if not (position['status'] == 'CLOSED'):
-                    self._account_positions[position_str] = Position(
-                        trading_pair=position['market'],
-                        position_side=position['side'],
-                        unrealized_pnl=Decimal(position['unrealizedPnl']),
-                        entry_price=Decimal(position['entryPrice']),
-                        amount=Decimal(position['size']),
-                        leverage=self._leverage[position['market']]
-                    )
+                tracked_position.update_position(position)
+                tracked_position.update_from_balance(Decimal(current_positions['equity']))
 
     async def _update_balances(self):
         current_balances = await self.dydx_client.get_my_balances()
