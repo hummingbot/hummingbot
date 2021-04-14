@@ -107,7 +107,7 @@ class TerraConnector(ConnectorBase):
 
             base, quote = trading_pair.split("-")
             side = "buy" if is_buy else "sell"
-            resp = await self._api_request("post", "terra/price", {"base": base, "quote": quote, "trade_type": side,
+            resp = await self._api_request("post", "terra/price", {"base": base, "quote": quote, "side": side,
                                                                    "amount": str(amount)})
             txFee = resp["txFee"] / float(amount)
             price_with_txfee = resp["price"] + txFee if is_buy else resp["price"] - txFee
@@ -185,9 +185,9 @@ class TerraConnector(ConnectorBase):
         base, quote = trading_pair.split("-")
         api_params = {"base": base,
                       "quote": quote,
-                      "trade_type": "buy" if trade_type is TradeType.BUY else "sell",
+                      "side": "buy" if trade_type is TradeType.BUY else "sell",
                       "amount": str(amount),
-                      "secret": self._terra_wallet_seeds,
+                      "privateKey": self._terra_wallet_seeds,
                       # "maxPrice": str(price),
                       }
         self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount)

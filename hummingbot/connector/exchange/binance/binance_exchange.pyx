@@ -402,7 +402,7 @@ cdef class BinanceExchange(ExchangeBase):
                 trading_pairs = list(trading_pairs_to_order_map.keys())
                 tasks = [self.query_api(self._binance_client.get_my_trades, symbol=convert_to_exchange_trading_pair(trading_pair))
                          for trading_pair in trading_pairs]
-                self.logger().debug("Polling for order fills of %d trading pairs.", len(tasks))
+                self.logger().debug(f"Polling for order fills of {len(tasks)} trading pairs.")
                 results = await safe_gather(*tasks, return_exceptions=True)
                 for trades, trading_pair in zip(results, trading_pairs):
                     order_map = trading_pairs_to_order_map[trading_pair]
@@ -448,7 +448,7 @@ cdef class BinanceExchange(ExchangeBase):
             trading_pairs = self._order_book_tracker._trading_pairs
             tasks = [self.query_api(self._binance_client.get_my_trades, symbol=convert_to_exchange_trading_pair(trading_pair))
                      for trading_pair in trading_pairs]
-            self.logger().debug("Polling for order fills of %d trading pairs.", len(tasks))
+            self.logger().debug(f"Polling for order fills of {len(tasks)} trading pairs.")
             exchange_history = await safe_gather(*tasks, return_exceptions=True)
             for trades, trading_pair in zip(exchange_history, trading_pairs):
                 if isinstance(trades, Exception):
@@ -494,7 +494,7 @@ cdef class BinanceExchange(ExchangeBase):
             tasks = [self.query_api(self._binance_client.get_order,
                                     symbol=convert_to_exchange_trading_pair(o.trading_pair), origClientOrderId=o.client_order_id)
                      for o in tracked_orders]
-            self.logger().debug("Polling for order status updates of %d orders.", len(tasks))
+            self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
             results = await safe_gather(*tasks, return_exceptions=True)
             for order_update, tracked_order in zip(results, tracked_orders):
                 client_order_id = tracked_order.client_order_id
@@ -531,43 +531,34 @@ cdef class BinanceExchange(ExchangeBase):
 
                 if tracked_order.is_done:
                     if not tracked_order.is_failure:
-                        exchange_trade_id = next(iter(tracked_order.trade_id_set))
-                        exchange_order_id = tracked_order.exchange_order_id
-                        if self.is_confirmed_new_order_filled_event(str(exchange_trade_id),
-                                                                    str(exchange_order_id),
-                                                                    tracked_order.trading_pair):
-                            if tracked_order.trade_type is TradeType.BUY:
-                                self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
-                                                   f"according to order status API.")
-                                self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
-                                                     BuyOrderCompletedEvent(self._current_timestamp,
-                                                                            client_order_id,
-                                                                            tracked_order.base_asset,
-                                                                            tracked_order.quote_asset,
-                                                                            (tracked_order.fee_asset
-                                                                             or tracked_order.base_asset),
-                                                                            executed_amount_base,
-                                                                            executed_amount_quote,
-                                                                            tracked_order.fee_paid,
-                                                                            order_type))
-                            else:
-                                self.logger().info(f"The market sell order {client_order_id} has completed "
-                                                   f"according to order status API.")
-                                self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
-                                                     SellOrderCompletedEvent(self._current_timestamp,
-                                                                             client_order_id,
-                                                                             tracked_order.base_asset,
-                                                                             tracked_order.quote_asset,
-                                                                             (tracked_order.fee_asset
-                                                                              or tracked_order.quote_asset),
-                                                                             executed_amount_base,
-                                                                             executed_amount_quote,
-                                                                             tracked_order.fee_paid,
-                                                                             order_type))
+                        if tracked_order.trade_type is TradeType.BUY:
+                            self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
+                                               f"according to order status API.")
+                            self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
+                                                 BuyOrderCompletedEvent(self._current_timestamp,
+                                                                        client_order_id,
+                                                                        tracked_order.base_asset,
+                                                                        tracked_order.quote_asset,
+                                                                        (tracked_order.fee_asset
+                                                                         or tracked_order.base_asset),
+                                                                        executed_amount_base,
+                                                                        executed_amount_quote,
+                                                                        tracked_order.fee_paid,
+                                                                        order_type))
                         else:
-                            self.logger().info(
-                                f"The market order {tracked_order.client_order_id} was already filled, or order was not submitted by hummingbot."
-                                f"Ignoring trade filled event in update_order_status.")
+                            self.logger().info(f"The market sell order {client_order_id} has completed "
+                                               f"according to order status API.")
+                            self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
+                                                 SellOrderCompletedEvent(self._current_timestamp,
+                                                                         client_order_id,
+                                                                         tracked_order.base_asset,
+                                                                         tracked_order.quote_asset,
+                                                                         (tracked_order.fee_asset
+                                                                          or tracked_order.quote_asset),
+                                                                         executed_amount_base,
+                                                                         executed_amount_quote,
+                                                                         tracked_order.fee_paid,
+                                                                         order_type))
                     else:
                         # check if its a cancelled order
                         # if its a cancelled order, issue cancel and stop tracking order
@@ -646,20 +637,13 @@ cdef class BinanceExchange(ExchangeBase):
                         self.logger().debug(f"Event: {event_message}")
                         continue
 
-                    tracked_order.update_with_execution_report(event_message)
+                    unique_update = tracked_order.update_with_execution_report(event_message)
 
                     if execution_type == "TRADE":
                         order_filled_event = OrderFilledEvent.order_filled_event_from_binance_execution_report(event_message)
                         order_filled_event = order_filled_event._replace(trading_pair=convert_from_exchange_trading_pair(order_filled_event.trading_pair))
-                        exchange_trade_id = next(iter(tracked_order.trade_id_set))
-                        if self.is_confirmed_new_order_filled_event(str(exchange_trade_id), str(tracked_order.exchange_order_id), tracked_order.trading_pair):
+                        if unique_update:
                             self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
-                        else:
-                            self.logger().info(
-                                f"The market order {tracked_order.client_order_id} was already filled or order was not submitted by hummingbot."
-                                f"Ignoring trade filled event of exchange trade id {str(exchange_trade_id)} in user stream.")
-                            self.c_stop_tracking_order(tracked_order.client_order_id)
-                            continue
 
                     if tracked_order.is_done:
                         if not tracked_order.is_failure:
