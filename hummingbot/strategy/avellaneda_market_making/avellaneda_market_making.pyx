@@ -554,8 +554,8 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         price=self.get_price()
 
         if q != 0:
-            min_spread = self._min_spread * price
-            max_spread = self._max_spread * price
+            min_spread = max(self._min_spread * price, self._vol_to_spread_multiplier * vol)
+            max_spread = min_spread + (self._max_spread - self._min_spread) * price
 
             # GAMMA
             # If q or vol are close to 0, gamma will -> Inf. Is this desirable?
