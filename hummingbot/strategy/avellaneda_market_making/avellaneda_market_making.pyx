@@ -502,11 +502,13 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._optimal_spread = self._gamma * mid_price_variance * time_left_fraction + 2 * Decimal(
             1 + self._gamma / self._kappa).ln() / self._gamma
 
+        spread_inflation_due_to_volatility = max(self._vol_to_spread_multiplier * vol, price * self._min_spread)/(price * self._min_spread)
+
         if self._parameters_based_on_spread:
-            min_limit_bid = min(price * (1 - self._max_spread), price - self._vol_to_spread_multiplier * vol)
-            max_limit_bid = price * (1 - self._min_spread)
-            min_limit_ask = price * (1 + self._min_spread)
-            max_limit_ask = max(price * (1 + self._max_spread), price + self._vol_to_spread_multiplier * vol)
+            min_limit_bid = price * (1 - self._max_spread * spread_inflation_due_to_volatility)
+            max_limit_bid = price * (1 - self._min_spread * spread_inflation_due_to_volatility)
+            min_limit_ask = price * (1 + self._min_spread * spread_inflation_due_to_volatility)
+            max_limit_ask = price * (1 + self._max_spread * spread_inflation_due_to_volatility)
         else:
             min_limit_bid = s_decimal_zero
             max_limit_bid = min_limit_ask = price
