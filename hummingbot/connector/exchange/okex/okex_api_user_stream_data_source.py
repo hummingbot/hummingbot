@@ -8,15 +8,16 @@ import logging
 from typing import (
     Optional,
     AsyncIterable,
-    List
+    List,
+    Dict,
+    Any
 )
 
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.okex.okex_auth import OKExAuth
 
-from hummingbot.connector.exchange.okex.okex_utils import inflate
-from hummingbot.connector.exchange.okex.constants import OKEX_WS_URI
+from hummingbot.connector.exchange.okex.constants import OKEX_WS_URI_PRIVATE
 
 import time
 
@@ -50,18 +51,17 @@ class OkexAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
         Sends an Authentication request to OKEx's WebSocket API Server
         """
-
         await self._websocket_connection.send(json.dumps(self._auth.generate_ws_auth()))
 
         resp = await self._websocket_connection.recv()
-        msg = json.loads(inflate(resp))
+        msg = json.loads(resp)
 
-        if msg["success"] is not True:
+        if msg["event"] != 'login':
             self.logger().error(f"Error occurred authenticating to websocket API server. {msg}")
 
         self.logger().info("Successfully authenticated")
 
-    async def _subscribe_topic(self, topic: List[str]):
+    async def _subscribe_topic(self, topic: Dict[str, Any]):
         subscribe_request = {
             "op": "subscribe",
             "args": topic
@@ -69,14 +69,13 @@ class OkexAPIUserStreamDataSource(UserStreamTrackerDataSource):
         request = json.dumps(subscribe_request)
         await self._websocket_connection.send(request)
         resp = await self._websocket_connection.recv()
-        msg = json.loads(inflate(resp))
+        msg = json.loads(resp)
         if msg["event"] != "subscribe":
             self.logger().error(f"Error occurred subscribing to topic. {topic}. {msg}")
         self.logger().info(f"Successfully subscribed to {topic}")
 
     async def get_ws_connection(self):
-
-        stream_url: str = f"{OKEX_WS_URI}"
+        stream_url: str = f"{OKEX_WS_URI_PRIVATE}"
         return websockets.connect(stream_url)
 
     async def _socket_user_stream(self) -> AsyncIterable[str]:
@@ -87,7 +86,8 @@ class OkexAPIUserStreamDataSource(UserStreamTrackerDataSource):
             try:
                 raw_msg = await asyncio.wait_for(self._websocket_connection.recv(), timeout=20)
 
-                yield json.loads(inflate(raw_msg))
+                # yield json.loads(inflate(raw_msg))
+                yield json.loads(raw_msg)
             except asyncio.TimeoutError:
                 try:
                     await self._websocket_connection.send('ping')
@@ -118,7 +118,10 @@ class OkexAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     # Subscribe to Topic(s)
                     for trading_pair in self._trading_pairs:
                         # orders
-                        subscription_list.append(f"spot/order:{trading_pair}")
+                        subscription_list.append({
+                            "channel": "orders",
+                            "instType": "SPOT",
+                            "instId": trading_pair})
 
                         # balances
                         source, quote = trading_pair.split('-')
@@ -127,7 +130,9 @@ class OkexAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
                     # all assets
                     for asset in assets:
-                        subscription_list.append(f"spot/account:{asset}")
+                        subscription_list.append({
+                            "channel": "account",
+                            "ccy": asset})
 
                     # subscribe to all channels
                     await self._subscribe_topic(subscription_list)
