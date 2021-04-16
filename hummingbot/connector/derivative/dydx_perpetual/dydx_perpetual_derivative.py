@@ -545,7 +545,9 @@ class DydxPerpetualDerivative(DerivativeBase):
 
     def _stop_network(self):
         self._order_book_tracker.stop()
-        self._polling_update_task = None
+        if self._polling_update_task is not None:
+            self._polling_update_task.cancel()
+            self._polling_update_task = None
         if self._user_stream_tracker_task is not None:
             self._user_stream_tracker_task.cancel()
         if self._user_stream_event_listener_task is not None:
