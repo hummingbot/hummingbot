@@ -8,7 +8,8 @@ from typing import (
 )
 from math import (
     floor,
-    ceil
+    ceil,
+    isnan
 )
 import time
 import datetime
@@ -355,7 +356,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             lines.extend(["", "  No active maker orders."])
 
         volatility_pct = self._avg_vol.current_value / float(self.get_price()) * 100.0
-        if all((self._gamma, self._kappa, volatility_pct is not NaN)):
+        if all((self._gamma, self._kappa, not isnan(volatility_pct))):
             lines.extend(["", f"  Strategy parameters:",
                           f"    risk_factor(\u03B3)= {self._gamma:.5E}",
                           f"    order_book_depth_factor(\u03BA)= {self._kappa:.5E}",
