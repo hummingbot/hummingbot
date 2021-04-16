@@ -7,6 +7,7 @@ class EthereumChain(Enum):
     RINKEBY = 4
     UBIQ = 8
     KOVAN = 42
+    BSC = 56
     SOKOL = 77
     DOLOMITE_TEST = 1001
     ZEROEX_TEST = 1337

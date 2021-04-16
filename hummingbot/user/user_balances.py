@@ -104,21 +104,25 @@ class UserBalances:
             return results
 
     @staticmethod
-    def ethereum_balance() -> Decimal:
+    def evm_balance(prefix = "ethereum") -> Decimal:
         ethereum_wallet = global_config_map.get("ethereum_wallet").value
-        ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
-        web3 = Web3(Web3.HTTPProvider(ethereum_rpc_url))
+        rpc_url_key = f"{prefix}_rpc_url"
+        evm_rpc_url_pair = global_config_map.get(rpc_url_key)
+        if evm_rpc_url_pair is None:
+            return 0
+        evm_rpc_url = evm_rpc_url_pair.value
+        web3 = Web3(Web3.HTTPProvider(evm_rpc_url))
         balance = web3.eth.getBalance(ethereum_wallet)
         balance = web3.fromWei(balance, "ether")
         return balance
 
     @staticmethod
-    async def eth_n_erc20_balances() -> Dict[str, Decimal]:
-        ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
+    async def eth_n_erc20_balances(prefix = "ethereum") -> Dict[str, Decimal]:
+        evm_rpc_url = global_config_map.get(f"{prefix}_rpc_url").value
         # Todo: Use generic ERC20 balance update
         connector = BalancerConnector(ethereum_required_trading_pairs(),
                                       get_eth_wallet_private_key(),
-                                      ethereum_rpc_url,
+                                      evm_rpc_url,
                                       True)
         await connector._update_balances()
         return connector.get_all_balances()
@@ -133,17 +137,17 @@ class UserBalances:
         return connector.get_all_balances()
 
     @staticmethod
-    def validate_ethereum_wallet() -> Optional[str]:
+    def validate_evm_wallet(prefix = "ethereum") -> Optional[str]:
         if global_config_map.get("ethereum_wallet").value is None:
             return "Ethereum wallet is required."
-        if global_config_map.get("ethereum_rpc_url").value is None:
-            return "ethereum_rpc_url is required."
-        if global_config_map.get("ethereum_rpc_ws_url").value is None:
-            return "ethereum_rpc_ws_url is required."
+        if global_config_map.get(f"{prefix}_rpc_url").value is None:
+            return f"{prefix}_rpc_url is required."
+        if global_config_map.get(f"{prefix}_rpc_ws_url").value is None:
+            return f"{prefix}_rpc_ws_url is required."
         if global_config_map.get("ethereum_wallet").value not in Security.private_keys():
-            return "Ethereum private key file does not exist or corrupts."
+            return "Ethereum private key file does not exist or is corrupted."
         try:
-            UserBalances.ethereum_balance()
+            UserBalances.evm_balance(prefix)
         except Exception as e:
             return str(e)
         return None

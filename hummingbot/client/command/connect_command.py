@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
 OPTIONS = {cs.name for cs in settings.CONNECTOR_SETTINGS.values()
-           if not cs.use_ethereum_wallet}.union({"ethereum", "celo"})
+           if not cs.use_ethereum_wallet}.union({"ethereum", "evm", "celo"})
 
 
 class ConnectCommand:
@@ -21,7 +21,9 @@ class ConnectCommand:
         if option is None:
             safe_ensure_future(self.show_connections())
         elif option == "ethereum":
-            safe_ensure_future(self.connect_ethereum())
+            safe_ensure_future(self.connect_evm())
+        elif option == "evm":
+            safe_ensure_future(self.connect_evm("evm"))
         elif option == "celo":
             safe_ensure_future(self.connect_celo())
         else:
@@ -90,11 +92,11 @@ class ConnectCommand:
             keys_added = "No"
             keys_confirmed = 'No'
             status = get_connector_status(option)
-            if option == "ethereum":
+            if option == "ethereum" or option == "evm":
                 eth_address = global_config_map["ethereum_wallet"].value
                 if eth_address is not None and eth_address in Security.private_keys():
                     keys_added = "Yes"
-                    err_msg = UserBalances.validate_ethereum_wallet()
+                    err_msg = UserBalances.validate_evm_wallet(option)
                     if err_msg is not None:
                         failed_msgs[option] = err_msg
                     else:
@@ -120,8 +122,8 @@ class ConnectCommand:
             data.append([option, keys_added, keys_confirmed, status])
         return pd.DataFrame(data=data, columns=columns), failed_msgs
 
-    async def connect_ethereum(self,  # type: HummingbotApplication
-                               ):
+    async def connect_evm(self,  # type: HummingbotApplication
+                          prefix = "ethereum"):
         self.placeholder_mode = True
         self.app.hide_input = True
         ether_wallet = global_config_map["ethereum_wallet"].value
@@ -138,15 +140,16 @@ class ConnectCommand:
             private_key = await self.app.prompt(prompt="Enter your wallet private key >>> ", is_password=True)
             public_address = Security.add_private_key(private_key)
             global_config_map["ethereum_wallet"].value = public_address
-            if global_config_map["ethereum_rpc_url"].value is None:
-                await self.prompt_a_config(global_config_map["ethereum_rpc_url"])
-            if global_config_map["ethereum_rpc_ws_url"].value is None:
-                await self.prompt_a_config(global_config_map["ethereum_rpc_ws_url"])
+            self._notify(global_config_map[f"{prefix}_rpc_url"])
+            if global_config_map[f"{prefix}_rpc_url"].value is None:
+                await self.prompt_a_config(global_config_map[f"{prefix}_rpc_url"])
+            if global_config_map[f"{prefix}_rpc_ws_url"].value is None:
+                await self.prompt_a_config(global_config_map[f"{prefix}_rpc_ws_url"])
             if self.app.to_stop_config:
                 self.app.to_stop_config = False
                 return
             save_to_yml(settings.GLOBAL_CONFIG_PATH, global_config_map)
-            err_msg = UserBalances.validate_ethereum_wallet()
+            err_msg = UserBalances.validate_evm_wallet(prefix)
             if err_msg is None:
                 self._notify(f"Wallet {public_address} connected to hummingbot.")
             else:

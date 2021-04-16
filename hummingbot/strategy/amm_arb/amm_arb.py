@@ -14,6 +14,7 @@ from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.client.settings import ETH_WALLET_CONNECTORS
 from hummingbot.client.performance import smart_round
 from hummingbot.connector.connector.uniswap.uniswap_connector import UniswapConnector
+from hummingbot.connector.connector.uniswap.evm_uniswap_connector import EvmUniswapConnector
 
 from .utils import create_arb_proposals, ArbProposal
 
@@ -81,6 +82,7 @@ class AmmArbStrategy(StrategyPyBase):
         self._status_report_interval = status_report_interval
         self.add_markets([market_info_1.market, market_info_2.market])
         self._uniswap = None
+        self._evm_uniswap = None
         self._quote_eth_rate_fetch_loop_task = None
         self._market_1_quote_eth_rate = None
         self._market_2_quote_eth_rate = None
@@ -356,3 +358,9 @@ class AmmArbStrategy(StrategyPyBase):
             self._uniswap = UniswapConnector([f"{quote}-WETH"], "", None)
             await self._uniswap.initiate_pool()  # initiate to cache swap pool
         return await self._uniswap.get_quote_price(f"{quote}-WETH", True, 1)
+
+        if self._evm_uniswap is None:
+            self._evm_uniswap = EvmUniswapConnector([f"{quote}-WETH"], "", None)
+            await self._evm_uniswap.initiate_pool()  # initiate to cache swap pool
+
+        return await self._evm_uniswap.get_quote_price(f"{quote}-WETH", True, 1)

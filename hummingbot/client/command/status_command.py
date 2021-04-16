@@ -105,6 +105,7 @@ class StatusCommand:
                 err_msg = UserBalances.validate_ethereum_wallet()
                 if err_msg is not None:
                     invalid_conns["ethereum"] = err_msg
+                    invalid_conns["evm"] = err_msg
         return invalid_conns
 
     def missing_configurations(self) -> List[str]:

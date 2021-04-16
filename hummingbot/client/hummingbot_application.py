@@ -71,6 +71,7 @@ class HummingbotApplication(*commands):
 
         self.markets: Dict[str, ExchangeBase] = {}
         self.wallet: Optional[Web3Wallet] = None
+        # self.evm_wallet: Optional[Web3Wallet] = None
         # strategy file name and name get assigned value after import or create command
         self._strategy_file_name: str = None
         self.strategy_name: str = None
@@ -205,14 +206,18 @@ class HummingbotApplication(*commands):
         ethereum_wallet = global_config_map.get("ethereum_wallet").value
         private_key = Security._private_keys[ethereum_wallet]
         ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
+        evm_rpc_url = global_config_map.get("evm_rpc_url").value
         erc20_token_addresses = {t: l[0] for t, l in self.token_list.items() if t in token_trading_pairs}
 
         chain_name: str = global_config_map.get("ethereum_chain_name").value
+        chain = getattr(EthereumChain, chain_name)
+        self.logger().warning('chain', chain)
+
         self.wallet: Web3Wallet = Web3Wallet(
             private_key=private_key,
-            backend_urls=[ethereum_rpc_url],
+            backend_urls=[ethereum_rpc_url, evm_rpc_url],
             erc20_token_addresses=erc20_token_addresses,
-            chain=getattr(EthereumChain, chain_name),
+            chain=chain,
         )
 
     def _initialize_markets(self, market_names: List[Tuple[str, List[str]]]):

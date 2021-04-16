@@ -116,10 +116,18 @@ class BalanceCommand:
 
         eth_address = global_config_map["ethereum_wallet"].value
         if eth_address is not None:
-            eth_df = await self.ethereum_balances_df()
-            lines = ["    " + line for line in eth_df.to_string(index=False).split("\n")]
-            self._notify("\nethereum:")
-            self._notify("\n".join(lines))
+            if global_config_map["ethereum_rpc_url"].value is not None:
+                eth_df = await self.ethereum_balances_df()
+                lines = ["    " + line for line in eth_df.to_string(index=False).split("\n")]
+                self._notify("\nethereum:")
+                self._notify("\n".join(lines))
+
+            if "evm_chain" in global_config_map:
+                evm_chain = global_config_map.get("evm_chain")
+                evm_df = await self.evm_balances_df()
+                lines = ["    " + line for line in evm_df.to_string(index=False).split("\n")]
+                self._notify(f"\nevm ({evm_chain}):")
+                self._notify("\n".join(lines))
 
             # XDAI balances
             xdai_df = await self.xdai_balances_df()
@@ -169,8 +177,23 @@ class BalanceCommand:
             for token, bal in bals.items():
                 rows.append({"Asset": token, "Amount": round(bal, 4)})
         else:
-            eth_bal = UserBalances.ethereum_balance()
+            eth_bal = UserBalances.evm_balance()
             rows.append({"Asset": "ETH", "Amount": round(eth_bal, 4)})
+        df = pd.DataFrame(data=rows, columns=["Asset", "Amount"])
+        df.sort_values(by=["Asset"], inplace=True)
+        return df
+
+    async def evm_balances_df(self,  # type: HummingbotApplication
+                              ):
+        rows = []
+        if ethereum_required_trading_pairs():
+            bals = await UserBalances.eth_n_erc20_balances("evm")
+            for token, bal in bals.items():
+                rows.append({"Asset": token, "Amount": round(bal, 4)})
+        else:
+            evm_bal = UserBalances.evm_balance("evm")
+            # fee_asset = ("evm_fee_asset" in global_config_map is not None else global_config_map['evm_fee_asset']) or 'FEE_TOKEN'
+            rows.append({"Asset": "native gas token", "Amount": round(evm_bal, 4)})
         df = pd.DataFrame(data=rows, columns=["Asset", "Amount"])
         df.sort_values(by=["Asset"], inplace=True)
         return df
