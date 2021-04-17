@@ -29,7 +29,8 @@ from hummingbot.core.event.events import (
     OrderExpiredEvent,
     FundingPaymentCompletedEvent,
     MarketEvent,
-    TradeFee
+    TradeFee,
+    RangePositionCreatedEvent
 )
 from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
 from hummingbot.connector.connector_base import ConnectorBase
@@ -37,6 +38,7 @@ from hummingbot.connector.utils import TradeFillOrderDetails
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
 from hummingbot.model.order_status import OrderStatus
+from hummingbot.model.range_position import RangePosition
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 from hummingbot.model.trade_fill import TradeFill
 from hummingbot.model.funding_payment import FundingPayment
@@ -78,6 +80,7 @@ class MarketsRecorder:
         self._complete_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_complete_order)
         self._expire_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_expire_order)
         self._funding_payment_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_complete_funding_payment)
+        self._create_range_position_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_create_range_position)
 
         self._event_pairs: List[Tuple[MarketEvent, SourceInfoEventForwarder]] = [
             (MarketEvent.BuyOrderCreated, self._create_order_forwarder),
@@ -88,7 +91,8 @@ class MarketsRecorder:
             (MarketEvent.BuyOrderCompleted, self._complete_order_forwarder),
             (MarketEvent.SellOrderCompleted, self._complete_order_forwarder),
             (MarketEvent.OrderExpired, self._expire_order_forwarder),
-            (MarketEvent.FundingPaymentCompleted, self._funding_payment_forwarder)
+            (MarketEvent.FundingPaymentCompleted, self._funding_payment_forwarder),
+            (MarketEvent.RangePositionCreated, self._create_range_position_forwarder),
         ]
 
     @property
@@ -383,3 +387,35 @@ class MarketsRecorder:
                           market: ConnectorBase,
                           evt: OrderExpiredEvent):
         self._update_order_status(event_tag, market, evt)
+
+    def _did_create_range_position(self,
+                                   event_tag: int,
+                                   market: ConnectorBase,
+                                   evt: RangePositionCreatedEvent):
+        if threading.current_thread() != threading.main_thread():
+            self._ev_loop.call_soon_threadsafe(self._did_create_range_position, event_tag, market, evt)
+            return
+
+        session: Session = self.session
+        timestamp: int = self.db_timestamp
+        event_type: MarketEvent = self.market_event_tag_map[event_tag]
+        base, quote = evt.trading_pair.split("-")
+        r_pos: RangePosition = RangePosition(id=evt.hb_id,
+                                             config_file_path=self._config_file_path,
+                                             strategy=self._strategy_name,
+                                             token_id=evt.token_id,
+                                             market=market.display_name,
+                                             symbol=evt.trading_pair,
+                                             base_asset=base,
+                                             quote_asset=quote,
+                                             fee_pct=float(evt.fee_pct),
+                                             lower_price=float(evt.lower_price),
+                                             upper_price=float(evt.upper_price),
+                                             base_amount=float(evt.base_amount),
+                                             quote_amount=float(evt.quote_amount),
+                                             last_status=event_type.name,
+                                             creation_timestamp=timestamp,
+                                             last_update_timestamp=timestamp)
+        session.add(r_pos)
+        self.save_market_states(self._config_file_path, market, no_commit=True)
+        session.commit()
