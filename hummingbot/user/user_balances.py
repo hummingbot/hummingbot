@@ -20,7 +20,7 @@ class UserBalances:
     def connect_market(exchange, **api_details):
         connector = None
         conn_setting = CONNECTOR_SETTINGS[exchange]
-        if not conn_setting.use_ethereum_wallet:
+        if not conn_setting.use_evm:
             connector_class = get_connector_class(exchange)
             init_params = conn_setting.conn_init_parameters(api_details)
             connector = connector_class(**init_params)
@@ -78,7 +78,7 @@ class UserBalances:
         # Update user balances, except connectors that use Ethereum wallet.
         if len(exchanges) == 0:
             exchanges = [cs.name for cs in CONNECTOR_SETTINGS.values()]
-        exchanges = [cs.name for cs in CONNECTOR_SETTINGS.values() if not cs.use_ethereum_wallet
+        exchanges = [cs.name for cs in CONNECTOR_SETTINGS.values() if not cs.use_evm
                      and cs.name in exchanges]
         if reconnect:
             self._markets.clear()
@@ -137,7 +137,7 @@ class UserBalances:
         return connector.get_all_balances()
 
     @staticmethod
-    def validate_evm_wallet(prefix = "ethereum") -> Optional[str]:
+    def validate_evm(prefix = "ethereum") -> Optional[str]:
         if global_config_map.get("ethereum_wallet").value is None:
             return "Ethereum wallet is required."
         if global_config_map.get(f"{prefix}_rpc_url").value is None:

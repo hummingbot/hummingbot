@@ -28,7 +28,7 @@ def using_bamboo_coordinator_mode() -> bool:
 
 
 def using_wallet() -> bool:
-    return paper_trade_disabled() and settings.ethereum_wallet_required()
+    return paper_trade_disabled() and (settings.ethereum_required() or settings.evm_required())
 
 
 def validate_script_file_path(file_path: str) -> Optional[bool]:
@@ -156,7 +156,7 @@ main_config_map = {
     "ethereum_rpc_url":
         ConfigVar(key="ethereum_rpc_url",
                   prompt="Which Ethereum node would you like your client to connect to? >>> ",
-                  required_if=lambda: global_config_map["ethereum_wallet"].value is not None and global_config_map["evm_rpc_url"].value is not None),
+                  required_if=lambda: global_config_map["ethereum_wallet"].value is not None and global_config_map["evm_rpc_url"].value is None),
 
     "ethereum_rpc_ws_url":
         ConfigVar(key="ethereum_rpc_ws_url",

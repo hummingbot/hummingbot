@@ -53,7 +53,7 @@ class ConnectorSetting(NamedTuple):
     type: ConnectorType
     example_pair: str
     centralised: bool
-    use_ethereum_wallet: bool
+    use_evm: str
     fee_type: TradeFeeType
     fee_token: str
     default_fees: List[Decimal]
@@ -124,7 +124,7 @@ def _create_connector_settings() -> Dict[str, ConnectorSetting]:
                 type=ConnectorType[type_dir.name.capitalize()],
                 centralised=getattr(util_module, "CENTRALIZED", True),
                 example_pair=getattr(util_module, "EXAMPLE_PAIR", ""),
-                use_ethereum_wallet=getattr(util_module, "USE_ETHEREUM_WALLET", False),
+                use_evm=getattr(util_module, "USE_EVM", None),
                 fee_type=fee_type,
                 fee_token=getattr(util_module, "FEE_TOKEN", ""),
                 default_fees=getattr(util_module, "DEFAULT_FEES", []),
@@ -142,7 +142,7 @@ def _create_connector_settings() -> Dict[str, ConnectorSetting]:
                     type=parent.type,
                     centralised=parent.centralised,
                     example_pair=getattr(util_module, "OTHER_DOMAINS_EXAMPLE_PAIR")[domain],
-                    use_ethereum_wallet=parent.use_ethereum_wallet,
+                    use_evm=parent.use_evm,
                     fee_type=parent.fee_type,
                     fee_token=parent.fee_token,
                     default_fees=getattr(util_module, "OTHER_DOMAINS_DEFAULT_FEES")[domain],
@@ -155,8 +155,12 @@ def _create_connector_settings() -> Dict[str, ConnectorSetting]:
     return connector_settings
 
 
-def ethereum_wallet_required() -> bool:
-    return any(e in ETH_WALLET_CONNECTORS for e in required_exchanges)
+def ethereum_required() -> bool:
+    return any(e in ETH_CONNECTORS for e in required_exchanges)
+
+
+def evm_required() -> bool:
+    return any(e in EVM_CONNECTORS for e in required_exchanges)
 
 
 def ethereum_gas_station_required() -> bool:
@@ -167,7 +171,7 @@ def ethereum_gas_station_required() -> bool:
 def ethereum_required_trading_pairs() -> List[str]:
     ret_val = []
     for conn, t_pair in requried_connector_trading_pairs.items():
-        if CONNECTOR_SETTINGS[conn].use_ethereum_wallet:
+        if CONNECTOR_SETTINGS[conn].use_evm:
             ret_val += t_pair
     return ret_val
 
@@ -181,7 +185,8 @@ CONNECTOR_SETTINGS = _create_connector_settings()
 DERIVATIVES = {cs.name for cs in CONNECTOR_SETTINGS.values() if cs.type is ConnectorType.Derivative}
 EXCHANGES = {cs.name for cs in CONNECTOR_SETTINGS.values() if cs.type is ConnectorType.Exchange}
 OTHER_CONNECTORS = {cs.name for cs in CONNECTOR_SETTINGS.values() if cs.type is ConnectorType.Connector}
-ETH_WALLET_CONNECTORS = {cs.name for cs in CONNECTOR_SETTINGS.values() if cs.use_ethereum_wallet}
+ETH_CONNECTORS = {cs.name for cs in CONNECTOR_SETTINGS.values() if cs.use_evm == "ethereum"}
+EVM_CONNECTORS = {cs.name for cs in CONNECTOR_SETTINGS.values() if cs.use_evm == "evm"}
 ALL_CONNECTORS = {"exchange": EXCHANGES, "connector": OTHER_CONNECTORS, "derivative": DERIVATIVES}
 EXAMPLE_PAIRS = {name: cs.example_pair for name, cs in CONNECTOR_SETTINGS.items()}
 EXAMPLE_ASSETS = {name: cs.example_pair.split("-")[0] for name, cs in CONNECTOR_SETTINGS.items()}

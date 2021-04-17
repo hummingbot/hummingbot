@@ -2,7 +2,7 @@ CENTRALIZED = False
 EXAMPLE_PAIR = "WETH-DAI"
 DEFAULT_FEES = [0., 0.]
 
-USE_ETHEREUM_WALLET = True
+USE_EVM = 'ethereum'
 FEE_TYPE = "FlatFee"
 FEE_TOKEN = "ETH"
 

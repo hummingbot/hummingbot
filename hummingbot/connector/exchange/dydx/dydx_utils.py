@@ -4,8 +4,6 @@ from hummingbot.client.config.config_methods import using_exchange
 
 CENTRALIZED = True
 
-USE_ETHEREUM_WALLET = False
-
 EXAMPLE_PAIR = "WETH-DAI"
 
 DEFAULT_FEES = [0.0, 0.3]

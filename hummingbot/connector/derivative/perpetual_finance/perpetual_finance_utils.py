@@ -5,7 +5,7 @@ CENTRALIZED = False
 EXAMPLE_PAIR = "ETH-USDC"
 DEFAULT_FEES = [0.1, 0.1]
 
-USE_ETHEREUM_WALLET = True
+USE_EVM = 'ethereum'
 # FEE_TYPE = "FlatFee"
 # FEE_TOKEN = "XDAI"
 

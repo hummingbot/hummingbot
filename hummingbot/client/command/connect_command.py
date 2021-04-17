@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
 OPTIONS = {cs.name for cs in settings.CONNECTOR_SETTINGS.values()
-           if not cs.use_ethereum_wallet}.union({"ethereum", "evm", "celo"})
+           if not cs.use_evm}.union({"ethereum", "evm", "celo"})
 
 
 class ConnectCommand:
@@ -96,7 +96,7 @@ class ConnectCommand:
                 eth_address = global_config_map["ethereum_wallet"].value
                 if eth_address is not None and eth_address in Security.private_keys():
                     keys_added = "Yes"
-                    err_msg = UserBalances.validate_evm_wallet(option)
+                    err_msg = UserBalances.validate_evm(option)
                     if err_msg is not None:
                         failed_msgs[option] = err_msg
                     else:
@@ -168,7 +168,7 @@ class ConnectCommand:
                 self.app.to_stop_config = False
                 return
             save_to_yml(settings.GLOBAL_CONFIG_PATH, global_config_map)
-            err_msg = UserBalances.validate_evm_wallet(prefix)
+            err_msg = UserBalances.validate_evm(prefix)
             if err_msg is None:
                 self._notify(f"Wallet {public_address} connected to hummingbot.")
             else:

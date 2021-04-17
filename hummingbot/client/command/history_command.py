@@ -93,7 +93,7 @@ class HistoryCommand:
         elif "perpetual_finance" == market:
             return await UserBalances.xdai_balances()
         else:
-            gateway_eth_connectors = [cs.name for cs in CONNECTOR_SETTINGS.values() if cs.use_ethereum_wallet and
+            gateway_eth_connectors = [cs.name for cs in CONNECTOR_SETTINGS.values() if cs.use_evm and
                                       cs.type == ConnectorType.Connector]
             if market in gateway_eth_connectors:
                 return await UserBalances.instance().eth_n_erc20_balances()
