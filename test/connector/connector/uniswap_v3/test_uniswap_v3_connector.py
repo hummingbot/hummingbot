@@ -17,18 +17,27 @@ from hummingbot.core.clock import (
 )
 from hummingbot.core.event.events import (
     MarketEvent,
+    RangePositionCreatedEvent,
+    OrderType,
+    BuyOrderCreatedEvent
+)
+from hummingbot.model.sql_connection_manager import (
+    SQLConnectionManager,
+    SQLConnectionType
 )
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
+from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.connector.connector.uniswap_v3.uniswap_v3_connector import UniswapV3Connector
 from hummingbot.client.config.global_config_map import global_config_map
 from test.connector.connector.uniswap_v3.fixture import Fixture
 from test.integration.humming_web_app import HummingWebApp
 from unittest import mock
+from decimal import Decimal
 
 
 global_config_map['gateway_api_host'].value = "localhost"
@@ -50,11 +59,12 @@ class UniswapV3ConnectorUnitTest(unittest.TestCase):
         MarketEvent.BuyOrderCreated,
         MarketEvent.SellOrderCreated,
         MarketEvent.OrderCancelled,
-        MarketEvent.OrderFailure
+        MarketEvent.OrderFailure,
+        MarketEvent.RangePositionCreated
     ]
 
     connector: UniswapV3Connector
-    connector_logger: EventLogger
+    event_logger: EventLogger
     stack: contextlib.ExitStack
 
     @classmethod
@@ -83,7 +93,7 @@ class UniswapV3ConnectorUnitTest(unittest.TestCase):
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.connector = UniswapV3Connector(["ZRX-ETH"], WALLET_KEY, rpc_url, True)
         print("Initializing Uniswap v3 connector... this will take a few seconds.")
-        cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
+        # cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.clock.add_iterator(cls.connector)
         cls.stack: contextlib.ExitStack = contextlib.ExitStack()
         cls._clock = cls.stack.enter_context(cls.clock)
@@ -110,21 +120,19 @@ class UniswapV3ConnectorUnitTest(unittest.TestCase):
             await asyncio.sleep(1.0)
 
     def setUp(self):
-        self.db_path: str = realpath(join(__file__, "../binance_test.sqlite"))
+        self.db_path: str = realpath(join(__file__, "../connector_test.sqlite"))
         try:
             os.unlink(self.db_path)
         except FileNotFoundError:
             pass
-
-        self.connector_logger = EventLogger()
-        self.ev_loop.run_until_complete(self.wait_til_ready())
+        self.event_logger = EventLogger()
         for event_tag in self.events:
-            self.connector.add_listener(event_tag, self.connector_logger)
+            self.connector.add_listener(event_tag, self.event_logger)
 
     def tearDown(self):
         for event_tag in self.events:
-            self.connector.remove_listener(event_tag, self.connector_logger)
-        self.connector_logger = None
+            self.connector.remove_listener(event_tag, self.event_logger)
+        self.event_logger = None
 
     async def run_parallel_async(self, *tasks):
         future: asyncio.Future = safe_ensure_future(safe_gather(*tasks))
@@ -136,4 +144,34 @@ class UniswapV3ConnectorUnitTest(unittest.TestCase):
         return future.result()
 
     def test_add_position(self):
-        pass
+        sql = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_path=self.db_path)
+        config_path = "test_config"
+        strategy_name = "test_strategy"
+        recorder = MarketsRecorder(sql, [self.connector], config_path, strategy_name)
+        recorder.start()
+        try:
+            if API_MOCK_ENABLED:
+                self.web_app.update_response("post", base_api_url, "/uniswap/v3/add-position", Fixture.ADD_POSITION)
+            hb_id = self.connector.add_position("HBOT-ETH", Decimal("0.2"), Decimal("100"), Decimal("200"),
+                                                Decimal("50"), Decimal("60"))
+            pos_cre_evt = self.ev_loop.run_until_complete(self.event_logger.wait_for(RangePositionCreatedEvent))
+            print(pos_cre_evt)
+            self.assertEqual(pos_cre_evt.hb_id, hb_id)
+            self.assertIsNotNone(pos_cre_evt.token_id)
+        finally:
+            pass
+            # recorder.stop()
+            # os.unlink(self.db_path)
+
+    def test_buy(self):
+        if API_MOCK_ENABLED:
+            self.web_app.update_response("post", base_api_url, "/eth/uniswap/trade", Fixture.BUY_ORDER)
+        uniswap = self.connector
+        amount = Decimal("0.1")
+        price = Decimal("20")
+        order_id = uniswap.buy("HBOT-USDT", amount, OrderType.LIMIT, price)
+        event = self.ev_loop.run_until_complete(self.event_logger.wait_for(BuyOrderCreatedEvent))
+        self.assertTrue(event.order_id is not None)
+        self.assertEqual(order_id, event.order_id)
+        # self.assertEqual(event.base_asset_amount, amount)
+        print(event.order_id)
