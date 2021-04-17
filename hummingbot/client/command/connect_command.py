@@ -127,6 +127,11 @@ class ConnectCommand:
         self.placeholder_mode = True
         self.app.hide_input = True
         ether_wallet = global_config_map["ethereum_wallet"].value
+        rpc_url = f"{prefix}_rpc_url"
+        rpc_ws_url = f"{prefix}_rpc_ws_url"
+        chain = f"{prefix}_chain"
+        chain_name = f"{prefix}_chain_name"
+        token_list_url = f"{prefix}_token_list_url"
         to_connect = True
         if ether_wallet is not None:
             answer = await self.app.prompt(prompt=f"Would you like to replace your existing Ethereum wallet "
@@ -136,15 +141,29 @@ class ConnectCommand:
                 return
             if answer.lower() not in ("yes", "y"):
                 to_connect = False
+                reconfigure_answer = "yes"
+                if global_config_map.get(rpc_url).value is not None:
+                    reconfigure_answer = await self.app.prompt(prompt=f"Would you like to reconfigure your {prefix} connection? (yes/No)? >>> ")
         if to_connect:
             private_key = await self.app.prompt(prompt="Enter your wallet private key >>> ", is_password=True)
             public_address = Security.add_private_key(private_key)
             global_config_map["ethereum_wallet"].value = public_address
-            self._notify(global_config_map[f"{prefix}_rpc_url"])
-            if global_config_map[f"{prefix}_rpc_url"].value is None:
-                await self.prompt_a_config(global_config_map[f"{prefix}_rpc_url"])
-            if global_config_map[f"{prefix}_rpc_ws_url"].value is None:
-                await self.prompt_a_config(global_config_map[f"{prefix}_rpc_ws_url"])
+        else:
+            public_address = ether_wallet
+
+        if reconfigure_answer.lower() in ("yes", "y"):
+
+            if global_config_map.get(rpc_url).value is None:
+                await self.prompt_a_config(global_config_map[rpc_url])
+            if prefix != "ethereum" and global_config_map.get(rpc_ws_url).value is None:
+                await self.prompt_a_config(global_config_map[rpc_ws_url])
+            if prefix != "ethereum" and global_config_map.get(chain) is None or global_config_map.get(chain).value is None:
+                await self.prompt_a_config(global_config_map[chain])
+            if global_config_map.get(chain_name) is None or global_config_map.get(chain_name).value is None:
+                await self.prompt_a_config(global_config_map[chain_name])
+            if prefix != "ethereum" and global_config_map.get(token_list_url) is None or global_config_map.get(token_list_url).value is None:
+                await self.prompt_a_config(global_config_map[token_list_url])
+
             if self.app.to_stop_config:
                 self.app.to_stop_config = False
                 return

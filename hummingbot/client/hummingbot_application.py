@@ -254,6 +254,15 @@ class HummingbotApplication(*commands):
                     else:
                         assert self.wallet is not None
                         init_params.update(wallet=self.wallet, ethereum_rpc_url=ethereum_rpc_url)
+
+                    evm_rpc_url = global_config_map.get("evm_rpc_url").value
+                    # Todo: Hard coded this execption for now until we figure out how to handle all evm connectors.
+                    if connector_name in ["evm_uniswap"]:
+                        private_key = get_eth_wallet_private_key()
+                        init_params.update(wallet_private_key=private_key, evm_rpc_url=evm_rpc_url)
+                    else:
+                        assert self.wallet is not None
+                        init_params.update(wallet=self.wallet, ethereum_rpc_url=ethereum_rpc_url)
                 connector_class = get_connector_class(connector_name)
                 connector = connector_class(**init_params)
             self.markets[connector_name] = connector

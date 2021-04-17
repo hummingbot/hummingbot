@@ -100,6 +100,12 @@ ethereum_rpc_ws_url: null
 ethereum_chain_name: MAIN_NET
 ethereum_token_list_url: https://wispy-bird-88a7.uniswap.workers.dev/?url=http://tokens.1inch.eth.link
 
+evm_rpc_url: null
+evm_rpc_ws_url: null
+evm_chain_name: null
+evm_token_list_url: null
+evm_chain: null
+
 # Kill switch
 kill_switch_enabled: null
 # The rate of performance at which you would want the bot to stop trading (-20 = 20%)

@@ -156,7 +156,8 @@ main_config_map = {
     "ethereum_rpc_url":
         ConfigVar(key="ethereum_rpc_url",
                   prompt="Which Ethereum node would you like your client to connect to? >>> ",
-                  required_if=lambda: global_config_map["ethereum_wallet"].value is not None),
+                  required_if=lambda: global_config_map["ethereum_wallet"].value is not None and global_config_map["evm_rpc_url"].value is not None),
+
     "ethereum_rpc_ws_url":
         ConfigVar(key="ethereum_rpc_ws_url",
                   prompt="Enter the Websocket Address of your Ethereum Node >>> ",
@@ -178,7 +179,7 @@ main_config_map = {
     "evm_rpc_url":
         ConfigVar(key="evm_rpc_url",
                   prompt="Which EVM-compatible RPC node URL would you like your client to connect to? (default = None) >>> ",
-                  required_if=lambda: True),
+                  required_if=lambda: lambda: global_config_map["ethereum_wallet"].value is not None and global_config_map["ethereum_rpc_url"].value is not None),
     "evm_rpc_ws_url":
         ConfigVar(key="evm_rpc_ws_url",
                   prompt="Enter the Websocket Address of your EVM-compatible Node >>> ",
@@ -189,19 +190,19 @@ main_config_map = {
                   type_str="str",
                   required_if=lambda: False,
                   default="MAIN_NET"),
-    "evm_chain_id":
-        ConfigVar(key="evm_chain_name",
-                  prompt="What is your preferred EVM-compatible chain ID (e.g. 56 = BSC, 100 = xDai)? >>> ",
-                  type_str="str",
+    "evm_chain":
+        ConfigVar(key="evm_chain",
+                  prompt="What is your EVM-compatible chain ID (e.g. 56 = BSC, 100 = xDai)? >>> ",
                   required_if=lambda: global_config_map["evm_rpc_url"].value is not None,
+                  type_str="int",
+                  validator=lambda v: validate_int(v, min_value=0, inclusive=False),
                   default=None),
 
     "evm_token_list_url":
         ConfigVar(key="evm_token_list_url",
                   prompt="Specify EVM-compatible token list url of a list available on https://tokenlists.org/ >>> ",
                   type_str="str",
-                  required_if=lambda: global_config_map["evm_rpc_ws_url"].value is not None,
-                  default="https://defi.cmc.eth.link/"),
+                  required_if=lambda: global_config_map["evm_rpc_ws_url"].value is not None),
 
     # Whether or not to invoke cancel_all on exit if marketing making on a open order book DEX (e.g. Radar Relay)
     "on_chain_cancel_on_exit":

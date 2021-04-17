@@ -122,11 +122,11 @@ class BalanceCommand:
                 self._notify("\nethereum:")
                 self._notify("\n".join(lines))
 
-            if "evm_chain" in global_config_map:
+            if "evm_rpc_url" in global_config_map:
                 evm_chain = global_config_map.get("evm_chain")
                 evm_df = await self.evm_balances_df()
                 lines = ["    " + line for line in evm_df.to_string(index=False).split("\n")]
-                self._notify(f"\nevm ({evm_chain}):")
+                self._notify(f"\nevm ({evm_chain.value}):")
                 self._notify("\n".join(lines))
 
             # XDAI balances
