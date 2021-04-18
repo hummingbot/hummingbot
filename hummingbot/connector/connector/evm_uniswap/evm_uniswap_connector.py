@@ -59,14 +59,14 @@ class EvmUniswapConnector(ConnectorBase):
     def __init__(self,
                  trading_pairs: List[str],
                  wallet_private_key: str,
-                 ethereum_rpc_url: str,
+                 evm_rpc_url: str,
                  trading_required: bool = True,
                  prefix: str = "evm"
                  ):
         """
         :param trading_pairs: a list of trading pairs
         :param wallet_private_key: a private key for eth wallet
-        :param ethereum_rpc_url: this is usually infura RPC URL
+        :param evm_rpc_url: this is usually infura RPC URL
         :param trading_required: Whether actual trading is needed.
         """
         super().__init__()
@@ -75,7 +75,7 @@ class EvmUniswapConnector(ConnectorBase):
         for trading_pair in trading_pairs:
             self._tokens.update(set(trading_pair.split("-")))
         self._wallet_private_key = wallet_private_key
-        self._ethereum_rpc_url = ethereum_rpc_url
+        self._evm_rpc_url = evm_rpc_url
         self._trading_required = trading_required
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client = None
@@ -98,7 +98,7 @@ class EvmUniswapConnector(ConnectorBase):
 
     @staticmethod
     async def fetch_trading_pairs() -> List[str]:
-        return await fetch_trading_pairs()
+        return await fetch_trading_pairs("evm")
 
     @property
     def limit_orders(self) -> List[LimitOrder]:
@@ -112,7 +112,7 @@ class EvmUniswapConnector(ConnectorBase):
         Initiate connector and start caching paths for trading_pairs
         """
         try:
-            self.logger().info(f"Initializing Uniswap connector and paths for {self._trading_pairs} pairs.")
+            self.logger().info(f"Initializing EVM Uniswap connector and paths for {self._trading_pairs} pairs.")
             resp = await self._api_request("get", f"{self._prefix}/uniswap/start",
                                            {"pairs": json.dumps(self._trading_pairs)})
             status = bool(str(resp["success"]))

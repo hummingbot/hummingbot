@@ -14,7 +14,7 @@ from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.client.settings import ETH_CONNECTORS
 from hummingbot.client.performance import smart_round
 from hummingbot.connector.connector.uniswap.uniswap_connector import UniswapConnector
-from hummingbot.connector.connector.uniswap.evm_uniswap_connector import EvmUniswapConnector
+from hummingbot.connector.connector.evm_uniswap.evm_uniswap_connector import EvmUniswapConnector
 
 from .utils import create_arb_proposals, ArbProposal
 

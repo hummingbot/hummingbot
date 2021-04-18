@@ -18,6 +18,7 @@ connector_status = {
     'digifinex': "yellow",
     'dydx': 'green',
     'ethereum': 'red',
+    'evm': 'yellow',
     'hitbtc': 'yellow',
     'huobi': 'green',
     'kraken': 'green',
@@ -30,7 +31,7 @@ connector_status = {
     'probit_kr': 'yellow',
     'terra': 'green',
     'uniswap': 'green',
-    'evm-uniswap': 'green'
+    'evm_uniswap': 'yellow'
 }
 
 warning_messages = {
