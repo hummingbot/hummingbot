@@ -36,6 +36,8 @@ class MarketEvent(Enum):
     SellOrderCreated = 201
     FundingPaymentCompleted = 202
     RangePositionCreated = 300
+    RangePositionRemoved = 301
+    RangePositionLiquidityAdjusted = 302
 
 
 class NewBlocksWatcherEvent(Enum):
@@ -380,3 +382,17 @@ class RangePositionCreatedEvent:
     upper_price: Decimal
     base_amount: Decimal
     quote_amount: Decimal
+
+
+@dataclass
+class RangePositionRemovedEvent:
+    timestamp: float
+    hb_id: str
+    token_id: Optional[str] = None
+
+
+@dataclass
+class RangePositionLiquidityAdjustedEvent:
+    timestamp: float
+    hb_id: str
+    token_id: Optional[str] = None

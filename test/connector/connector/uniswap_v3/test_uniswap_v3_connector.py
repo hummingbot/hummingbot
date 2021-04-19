@@ -16,10 +16,12 @@ from hummingbot.core.clock import (
     ClockMode
 )
 from hummingbot.core.event.events import (
+    OrderType,
+    BuyOrderCreatedEvent,
     MarketEvent,
     RangePositionCreatedEvent,
-    OrderType,
-    BuyOrderCreatedEvent
+    RangePositionRemovedEvent,
+    RangePositionLiquidityAdjustedEvent,
 )
 from hummingbot.model.sql_connection_manager import (
     SQLConnectionManager,
@@ -50,19 +52,7 @@ rpc_url = global_config_map["ethereum_rpc_url"].value
 
 
 class UniswapV3ConnectorUnitTest(unittest.TestCase):
-    events: List[MarketEvent] = [
-        MarketEvent.ReceivedAsset,
-        MarketEvent.BuyOrderCompleted,
-        MarketEvent.SellOrderCompleted,
-        MarketEvent.OrderFilled,
-        MarketEvent.TransactionFailure,
-        MarketEvent.BuyOrderCreated,
-        MarketEvent.SellOrderCreated,
-        MarketEvent.OrderCancelled,
-        MarketEvent.OrderFailure,
-        MarketEvent.RangePositionCreated
-    ]
-
+    events: List[MarketEvent] = [e for e in MarketEvent]
     connector: UniswapV3Connector
     event_logger: EventLogger
     stack: contextlib.ExitStack
@@ -160,8 +150,15 @@ class UniswapV3ConnectorUnitTest(unittest.TestCase):
             self.assertIsNotNone(pos_cre_evt.token_id)
         finally:
             pass
-            # recorder.stop()
-            # os.unlink(self.db_path)
+            recorder.stop()
+            os.unlink(self.db_path)
+
+    def test_remove_position(self):
+        if API_MOCK_ENABLED:
+            self.web_app.update_response("post", base_api_url, "/uniswap/v3/remove-position", Fixture.REMOVE_POSITION)
+        self.connector.remove_position("dummy", "dummy_token_id")
+        evt = self.ev_loop.run_until_complete(self.event_logger.wait_for(RangePositionRemovedEvent))
+        print(evt)
 
     def test_buy(self):
         if API_MOCK_ENABLED:
@@ -175,3 +172,22 @@ class UniswapV3ConnectorUnitTest(unittest.TestCase):
         self.assertEqual(order_id, event.order_id)
         # self.assertEqual(event.base_asset_amount, amount)
         print(event.order_id)
+
+    def test_adjust_liquidty(self):
+        if API_MOCK_ENABLED:
+            self.web_app.update_response("post", base_api_url, "/uniswap/v3/adjust-liquidity", Fixture.ADJUST_LIQIDITY)
+        self.connector.adjust_liquidity("dummy", "dummy_token_id", 10, 20)
+        evt = self.ev_loop.run_until_complete(self.event_logger.wait_for(RangePositionLiquidityAdjustedEvent))
+        print(evt)
+
+    def test_get_position(self):
+        if API_MOCK_ENABLED:
+            self.web_app.update_response("post", base_api_url, "/uniswap/v3/position", Fixture.POSITION)
+        pos = self.ev_loop.run_until_complete(self.connector.get_position("dummy_token_id"))
+        print(pos)
+
+    def test_collect_fees(self):
+        if API_MOCK_ENABLED:
+            self.web_app.update_response("post", base_api_url, "/uniswap/v3/collect-fees", Fixture.COLLECT_FEES)
+        pos = self.ev_loop.run_until_complete(self.connector.collect_fees("dummy_token_id"))
+        print(pos)
