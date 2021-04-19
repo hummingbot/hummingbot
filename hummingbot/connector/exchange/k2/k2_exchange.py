@@ -571,23 +571,11 @@ class K2Exchange(ExchangeBase):
         """
         Calls REST API to update total and available balances.
         """
-        local_asset_names = set(self._account_balances.keys())
-        remote_asset_names = set()
-        balance = await self._api_request(method="POST",
-                                          path_url=constants.GET_DETAILED_BALANCES,
-                                          is_auth_required=True)
-        for asset_entry in balance["data"]:
-            asset_name = asset_entry["coin"]
-            available_balance: Decimal = Decimal(str(asset_entry["availablebalance"]))
-            total_balance: Decimal = Decimal(str(sum(list(asset_entry.values())[1:])))
-            self._account_available_balances[asset_name] = available_balance
-            self._account_balances[asset_name] = total_balance
-            remote_asset_names.add(asset_name)
+        balance_msg = await self._api_request(method="POST",
+                                              path_url=constants.GET_DETAILED_BALANCES,
+                                              is_auth_required=True)
 
-        asset_names_to_remove = local_asset_names.difference(remote_asset_names)
-        for asset_name in asset_names_to_remove:
-            del self._account_available_balances[asset_name]
-            del self._account_balances[asset_name]
+        await self._process_balance_message(balance_msg)
 
     async def _update_order_status(self):
         """
@@ -726,6 +714,21 @@ class K2Exchange(ExchangeBase):
                                            tracked_order.order_type))
             self.stop_tracking_order(tracked_order.client_order_id)
 
+    async def _process_balance_message(self, balance_msg: Dict[str, Any]):
+        local_asset_names = set(self._account_balances.keys())
+        remote_asset_names = set()
+
+        for asset_entry in balance_msg["data"]:
+            asset_name = asset_entry["coin"]
+            self._account_available_balances[asset_name] = Decimal(str(asset_entry["availablebalance"]))
+            self._account_balances[asset_name] = Decimal(str(asset_entry["balance"]))
+            remote_asset_names.add(asset_name)
+
+        asset_names_to_remove = local_asset_names.difference(remote_asset_names)
+        for asset_name in asset_names_to_remove:
+            del self._account_available_balances[asset_name]
+            del self._account_balances[asset_name]
+
     async def get_open_orders(self) -> List[OpenOrder]:
         result = await self._api_request(method="POST",
                                          path_url=constants.GET_OPEN_ORDERS,
@@ -859,8 +862,7 @@ class K2Exchange(ExchangeBase):
                     for balance_entry in balances:
                         asset_name = balance_entry["coin"]
                         self._account_balances[asset_name] += Decimal(str(balance_entry["quantity"]))
-                        # K2 has not available_balance entry
-                        # self._account_available_balances[asset_name]
+                        self._account_available_balances[asset_name] += Decimal(str(balance_entry["quantity"]))
 
             except asyncio.CancelledError:
                 raise
