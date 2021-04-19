@@ -535,13 +535,15 @@ cdef class OkexExchange(ExchangeBase):
                 # stream_message["data"] is a list
                 for data in stream_message["data"]:
                     if channel == OKEX_WS_CHANNEL_ACCOUNT:
-                        details = data["details"][0]
-                        asset_name = details["ccy"]
-                        balance = details["cashBal"]
-                        available_balance = details["availBal"]
+                        details = data["details"]
+                        if details:
+                            details=details[0]
+                            asset_name = details["ccy"]
+                            balance = details["cashBal"]
+                            available_balance = details["availBal"]
 
-                        self._account_balances.update({asset_name: Decimal(balance)})
-                        self._account_available_balances.update({asset_name: Decimal(available_balance)})
+                            self._account_balances.update({asset_name: Decimal(balance)})
+                            self._account_available_balances.update({asset_name: Decimal(available_balance)})
                         continue
 
                     elif channel == OKEX_WS_CHANNEL_ORDERS:
