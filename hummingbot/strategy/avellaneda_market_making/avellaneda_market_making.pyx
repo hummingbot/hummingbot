@@ -411,17 +411,18 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
             self.c_collect_market_variables(timestamp)
             if self.c_is_algorithm_ready():
-                # If gamma or kappa are -1 then it's the first time they are calculated.
-                # Also, if volatility goes beyond the threshold specified, we consider volatility regime has changed
-                # so parameters need to be recalculated.
-                if (self._gamma is None) or (self._kappa is None) or \
-                        (self._parameters_based_on_spread and
-                         self.volatility_diff_from_last_parameter_calculation(self.get_volatility()) > (self._vol_to_spread_multiplier - 1)):
-                    self.c_recalculate_parameters()
-                self.c_calculate_reserved_price_and_optimal_spread()
-
                 proposal = None
                 if self._create_timestamp <= self._current_timestamp:
+                    # If gamma or kappa are -1 then it's the first time they are calculated.
+                    # Also, if volatility goes beyond the threshold specified, we consider volatility regime has changed
+                    # so parameters need to be recalculated.
+                    if (self._gamma is None) or (self._kappa is None) or \
+                            (self._parameters_based_on_spread and
+                             self.volatility_diff_from_last_parameter_calculation(self.get_volatility()) >
+                             (self._vol_to_spread_multiplier - 1)):
+                        self.c_recalculate_parameters()
+                    self.c_calculate_reserved_price_and_optimal_spread()
+
                     # 1. Create base order proposals
                     proposal = self.c_create_base_proposal()
                     # 2. Apply functions that modify orders amount
@@ -569,7 +570,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             # KAPPA
             # Want the maximum possible spread but with restrictions to avoid negative kappa or division by 0
             max_spread_around_reserved_price = max_spread * (2-self._inventory_risk_aversion) + min_spread * self._inventory_risk_aversion
-            if max_spread_around_reserved_price <= self._gamma * (vol ** 2):
+            if (max_spread_around_reserved_price * self._gamma - (vol * self._gamma) **2) <= s_decimal_zero:
                 self._kappa = Decimal('1e100')  # Cap to kappa -> Infinity
             else:
                 self._kappa = self._gamma / (Decimal.exp((max_spread_around_reserved_price * self._gamma - (vol * self._gamma) **2) / 2) - 1)
