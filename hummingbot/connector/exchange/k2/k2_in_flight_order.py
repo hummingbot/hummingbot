@@ -8,6 +8,7 @@ from typing import (
     Optional,
 )
 
+from hummingbot.connector.exchange.k2.k2_utils import convert_from_exchange_trading_pair
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.core.event.events import (
     OrderType,
@@ -84,21 +85,25 @@ class K2InFlightOrder(InFlightOrderBase):
         Update the InFlightOrder with the trade update from Private/GetHistory API endpoint
         return: True if the order gets updated successfully otherwise False
         """
-        # Executed trades in K2 does not have a unique trade id.
+        trade_id: str = str(trade_update["id"])
         trade_order_id: str = str(trade_update["orderid"])
 
-        if trade_order_id != self.exchange_order_id:
+        if trade_order_id != self.exchange_order_id or trade_id in self.trade_id_set:
             return False
-        # self.trade_id_set.add(trade_id)  # K2 does not have a unique trade id
 
-        self.executed_amount_base = self.amount - Decimal(str(trade_update["leaveqty"]))
+        self.trade_id_set.add(trade_id)
 
-        # TODO: Determine if there is a method to retrieve these data
-        # self.fee_paid += Decimal(str(trade_update["fee"]))
-        # self.executed_amount_quote += (Decimal(str(trade_update["traded_price"])) *
-        #                                Decimal(str(trade_update["traded_quantity"])))
-        # if not self.fee_asset:
-        #     self.fee_asset = trade_update["fee_currency"]
+        trade_price: Decimal = Decimal(str(trade_update["price"]))
+        trade_amount: Decimal = Decimal(str(trade_update["amount"]))  # Quote Amount
 
-        self.executed_amount_base = self.amount - Decimal(str(trade_update))
+        self.executed_amount_quote += trade_amount
+
+        self.fee_paid += Decimal(str(trade_update["fee"]))
+
+        self.executed_amount_base += trade_amount / trade_price - self.fee_paid
+
+        if not self.fee_asset:
+            base, quote = convert_from_exchange_trading_pair(trade_update["symbol"]).split("-")
+            self.fee_asset = base if trade_update["type"] == "Buy" else quote
+
         return True
