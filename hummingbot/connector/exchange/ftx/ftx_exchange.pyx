@@ -594,22 +594,43 @@ cdef class FtxExchange(ExchangeBase):
                 decimal_amount
             )
             if order_type.is_limit_type():
-                order_result = await self.place_order(order_id,
-                                                      trading_pair,
-                                                      decimal_amount,
-                                                      True,
-                                                      order_type,
-                                                      decimal_price)
+                try:
+                    order_result = await self.place_order(order_id,
+                                                          trading_pair,
+                                                          decimal_amount,
+                                                          True,
+                                                          order_type,
+                                                          decimal_price)
+                except asyncio.TimeoutError:
+                    # We timed out while placing this order. We may have successfully submitted the order, or we may have had connection
+                    # issues that prevented the submission from taking place. We'll assume that the order is live and let our order status
+                    # updates mark this as cancelled if it doesn't actually exist.
+                    self.logger().warning(f"Order {order_id} has timed out and putatively failed. Order will be tracked until reconciled.")
+                    return True
             elif order_type is OrderType.MARKET:
-                order_result = await self.place_order(order_id,
-                                                      trading_pair,
-                                                      decimal_amount,
-                                                      True,
-                                                      order_type,
-                                                      None)
-
+                try:
+                    order_result = await self.place_order(order_id,
+                                                          trading_pair,
+                                                          decimal_amount,
+                                                          True,
+                                                          order_type,
+                                                          None)
+                except asyncio.TimeoutError:
+                    # We timed out while placing this order. We may have successfully submitted the order, or we may have had connection
+                    # issues that prevented the submission from taking place. We'll assume that the order is live and let our order status
+                    # updates mark this as cancelled if it doesn't actually exist.
+                    self.logger().warning(f"Order {order_id} has timed out and putatively failed. Order will be tracked until reconciled.")
+                    return True
             else:
                 raise ValueError(f"Invalid OrderType {order_type}. Aborting.")
+
+            # Verify the response from the exchange
+            if "success" not in order_result.keys():
+                raise Exception(order_result)
+
+            success = order_result["success"]
+            if not success:
+                raise Exception(order_result)
 
             exchange_order_id = str(order_result["result"]["id"])
 
@@ -656,7 +677,7 @@ cdef class FtxExchange(ExchangeBase):
                    dict kwargs={}):
         cdef:
             int64_t tracking_nonce = <int64_t> get_tracking_nonce()
-            str order_id = str(f"buy-{trading_pair}-{tracking_nonce}")
+            str order_id = str(f"FTX-buy-{trading_pair}-{tracking_nonce}")
         safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, price))
         return order_id
 
@@ -697,21 +718,43 @@ cdef class FtxExchange(ExchangeBase):
             )
 
             if order_type.is_limit_type():
-                order_result = await self.place_order(order_id,
-                                                      trading_pair,
-                                                      decimal_amount,
-                                                      False,
-                                                      order_type,
-                                                      decimal_price)
+                try:
+                    order_result = await self.place_order(order_id,
+                                                          trading_pair,
+                                                          decimal_amount,
+                                                          False,
+                                                          order_type,
+                                                          decimal_price)
+                except asyncio.TimeoutError:
+                    # We timed out while placing this order. We may have successfully submitted the order, or we may have had connection
+                    # issues that prevented the submission from taking place. We'll assume that the order is live and let our order status
+                    # updates mark this as cancelled if it doesn't actually exist.
+                    self.logger().warning(f"Order {order_id} has timed out and putatively failed. Order will be tracked until reconciled.")
+                    return True
             elif order_type is OrderType.MARKET:
-                order_result = await self.place_order(order_id,
-                                                      trading_pair,
-                                                      decimal_amount,
-                                                      False,
-                                                      order_type,
-                                                      None)
+                try:
+                    order_result = await self.place_order(order_id,
+                                                          trading_pair,
+                                                          decimal_amount,
+                                                          False,
+                                                          order_type,
+                                                          None)
+                except asyncio.TimeoutError:
+                    # We timed out while placing this order. We may have successfully submitted the order, or we may have had connection
+                    # issues that prevented the submission from taking place. We'll assume that the order is live and let our order status
+                    # updates mark this as cancelled if it doesn't actually exist.
+                    self.logger().warning(f"Order {order_id} has timed out and putatively failed. Order will be tracked until reconciled.")
+                    return True
             else:
                 raise ValueError(f"Invalid OrderType {order_type}. Aborting.")
+
+            # Verify the response from the exchange
+            if "success" not in order_result.keys():
+                raise Exception(order_result)
+
+            success = order_result["success"]
+            if not success:
+                raise Exception(order_result)
 
             exchange_order_id = str(order_result["result"]["id"])
 
@@ -753,7 +796,7 @@ cdef class FtxExchange(ExchangeBase):
                     dict kwargs={}):
         cdef:
             int64_t tracking_nonce = <int64_t> get_tracking_nonce()
-            str order_id = str(f"sell-{trading_pair}-{tracking_nonce}")
+            str order_id = str(f"FTX-sell-{trading_pair}-{tracking_nonce}")
 
         safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))
         return order_id
