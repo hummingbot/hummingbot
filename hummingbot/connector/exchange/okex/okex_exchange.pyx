@@ -48,11 +48,9 @@ from hummingbot.connector.exchange.okex.okex_order_book_tracker import OkexOrder
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.connector.exchange_base import (
     ExchangeBase,
-    NaN,
     s_decimal_NaN)
 from hummingbot.connector.exchange.okex.okex_user_stream_tracker import OkexUserStreamTracker
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.core.utils.estimate_fee import estimate_fee
 
 from hummingbot.connector.exchange.okex.constants import *
