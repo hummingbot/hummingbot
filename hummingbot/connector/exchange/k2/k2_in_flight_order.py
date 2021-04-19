@@ -100,7 +100,7 @@ class K2InFlightOrder(InFlightOrderBase):
 
         self.fee_paid += Decimal(str(trade_update["fee"]))
 
-        self.executed_amount_base += trade_amount / trade_price - self.fee_paid
+        self.executed_amount_base += trade_amount / trade_price
 
         if not self.fee_asset:
             base, quote = convert_from_exchange_trading_pair(trade_update["symbol"]).split("-")
