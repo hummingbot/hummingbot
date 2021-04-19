@@ -2,7 +2,12 @@ import asyncio
 from decimal import Decimal
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.connector.connector.uniswap.uniswap_connector import UniswapConnector
-from hummingbot.core.event.events import RangePositionCreatedEvent, MarketEvent
+from hummingbot.core.event.events import (
+    MarketEvent,
+    RangePositionCreatedEvent,
+    RangePositionRemovedEvent,
+    RangePositionLiquidityAdjustedEvent
+)
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 
@@ -11,8 +16,12 @@ class UniswapV3Connector(UniswapConnector):
     UniswapV3Connector extends UniswapConnector to provide v3 specific functionality, e.g. ranged positions
     """
 
+    # @property
+    # def version(self) -> int:
+    #     return 3
+
     @property
-    def name(self):
+    def name(self) -> str:
         return "uniswap_v3"
 
     def add_position(self,
@@ -108,3 +117,40 @@ class UniswapV3Connector(UniswapConnector):
             )
             # self.trigger_event(MarketEvent.OrderFailure,
             #                    MarketOrderFailureEvent(self.current_timestamp, order_id, OrderType.LIMIT))
+
+    def remove_position(self, hb_id: str, token_id: str):
+        safe_ensure_future(self._remove_position(hb_id, token_id))
+
+    async def _remove_position(self, hb_id: str, token_id: str):
+        result = await self._api_request("post", "uniswap/v3/remove-position", {"tokenId": token_id})
+        if result.get("success", False):
+            self.logger().info(f"Successfully removed position {token_id}.")
+            # self.c_stop_tracking_order(order_id)
+            self.trigger_event(MarketEvent.RangePositionRemoved,
+                               RangePositionRemovedEvent(self.current_timestamp, hb_id, token_id))
+        return result
+
+    def adjust_liquidity(self, hb_id: str, token_id: str, base_amount: Decimal, quote_amount: Decimal):
+        safe_ensure_future(self._adjust_liquidity(hb_id, token_id, base_amount, quote_amount))
+
+    async def _adjust_liquidity(self, hb_id: str, token_id: str, base_amount: Decimal, quote_amount: Decimal):
+        result = await self._api_request("post", "uniswap/v3/adjust-liquidity",
+                                         {
+                                             "tokenId": token_id,
+                                             "amount0": base_amount,
+                                             "amount1": quote_amount
+                                         })
+        if result.get("success", False):
+            self.logger().info(f"Successfully adjusted position liquidty {token_id}.")
+            # self.c_stop_tracking_order(order_id)
+            self.trigger_event(MarketEvent.RangePositionLiquidityAdjusted,
+                               RangePositionLiquidityAdjustedEvent(self.current_timestamp, hb_id, token_id))
+        return result
+
+    async def get_position(self, token_id: str):
+        result = await self._api_request("post", "uniswap/v3/position", {"tokenId": token_id})
+        return result
+
+    async def collect_fees(self, token_id: str):
+        result = await self._api_request("post", "uniswap/v3/collect-fees", {"tokenId": token_id})
+        return result
