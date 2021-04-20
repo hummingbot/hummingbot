@@ -18,7 +18,6 @@ from hummingbot.logger import (
 )
 from hummingbot.logger.log_server_client import LogServerClient
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.client.platform import client_system, installation_type
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 
 VERSIONFILE = realpath(join(__file__, "../../VERSION"))
@@ -178,9 +177,6 @@ class ReportingProxyHandler(logging.Handler):
                 },
                 "data": json.dumps({"instance_id": self.instance_id,
                                     "exchange": exchange,
-                                    "version": CLIENT_VERSION,
-                                    "system": client_system,
-                                    "installation": installation_type,
                                     f"{metric_name}": str(value)})
             }
         }
@@ -207,7 +203,6 @@ class ReportingProxyHandler(logging.Handler):
 
     def close(self):
         try:
-            self.flush(send_all=True)
             self.log_server_client.stop()
             if self._send_aggregated_metrics_loop_task is not None:
                 self._send_aggregated_metrics_loop_task.cancel()
@@ -218,16 +213,6 @@ class ReportingProxyHandler(logging.Handler):
     async def send_aggregated_metrics_loop(self, heartbeat_interval_min: float):
         while True:
             try:
-                order_created = [e for e in self._logged_order_events if e["event_name"]
-                                 in ("BuyOrderCreatedEvent", "SellOrderCreatedEvent")]
-                if order_created:
-                    exchanges = set(e["event_source"] for e in order_created)
-                    for exchange in exchanges:
-                        markets = set(e["trading_pair"] for e in order_created if e["event_source"] == exchange)
-                        for market in markets:
-                            created_orders = [e for e in order_created if e["event_source"] == exchange and
-                                              e["trading_pair"] == market]
-                            self.send_metric("order_count", exchange, market, len(created_orders))
                 order_filled = [e for e in self._logged_order_events if e["event_name"] == "OrderFilledEvent"]
                 if order_filled:
                     exchanges = set(e["event_source"] for e in order_filled)
@@ -238,10 +223,9 @@ class ReportingProxyHandler(logging.Handler):
                             filled_trades = [e for e in order_filled if e["event_source"] == exchange and
                                              e["trading_pair"] == market]
                             traded_quote_volume = sum(e["price"] * e["amount"] for e in filled_trades)
-                            traded_usd_value = RateOracle.global_value(quote, traded_quote_volume)
-                            self.send_metric("filled_usdt_volume", exchange, traded_usd_value)
-                            # self.send_metric("filled_quote_volume", exchange, market, traded_quote_volume)
-                            # self.send_metric("trade_count", exchange, market, len(filled_trades))
+                            traded_usdt_value = RateOracle.global_value(quote, traded_quote_volume)
+                            self.send_metric("filled_usdt_volume", exchange, traded_usdt_value)
+
                 self._logged_order_events.clear()
                 await asyncio.sleep(60 * heartbeat_interval_min)
 
