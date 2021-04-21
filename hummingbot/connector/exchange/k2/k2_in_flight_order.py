@@ -94,13 +94,16 @@ class K2InFlightOrder(InFlightOrderBase):
         self.trade_id_set.add(trade_id)
 
         trade_price: Decimal = Decimal(str(trade_update["price"]))
-        trade_amount: Decimal = Decimal(str(trade_update["amount"]))  # Quote Amount
+        trade_amount: Decimal = Decimal(str(trade_update["amount"]))
 
-        self.executed_amount_quote += trade_amount
+        if trade_update["type"] == "Buy":
+            self.executed_amount_base += trade_amount
+            self.executed_amount_quote += trade_price * trade_amount
+        else:
+            self.executed_amount_quote += trade_amount
+            self.executed_amount_base += trade_amount / trade_price
 
         self.fee_paid += Decimal(str(trade_update["fee"]))
-
-        self.executed_amount_base += trade_amount / trade_price
 
         if not self.fee_asset:
             base, quote = convert_from_exchange_trading_pair(trade_update["symbol"]).split("-")
