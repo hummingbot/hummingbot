@@ -715,19 +715,10 @@ class K2Exchange(ExchangeBase):
             self.stop_tracking_order(tracked_order.client_order_id)
 
     async def _process_balance_message(self, balance_msg: Dict[str, Any]):
-        local_asset_names = set(self._account_balances.keys())
-        remote_asset_names = set()
-
         for asset_entry in balance_msg["data"]:
             asset_name = asset_entry["coin"]
             self._account_available_balances[asset_name] = Decimal(str(asset_entry["availablebalance"]))
             self._account_balances[asset_name] = Decimal(str(asset_entry["balance"]))
-            remote_asset_names.add(asset_name)
-
-        asset_names_to_remove = local_asset_names.difference(remote_asset_names)
-        for asset_name in asset_names_to_remove:
-            del self._account_available_balances[asset_name]
-            del self._account_balances[asset_name]
 
     async def get_open_orders(self) -> List[OpenOrder]:
         result = await self._api_request(method="POST",
@@ -858,11 +849,7 @@ class K2Exchange(ExchangeBase):
                     for order_msg in event_message["data"]:
                         self._process_order_message(order_msg)
                 elif method == "mybalanceschanged":
-                    balances: List[Dict[str, Any]] = event_message["data"]
-                    for balance_entry in balances:
-                        asset_name = balance_entry["coin"]
-                        self._account_balances[asset_name] += Decimal(str(balance_entry["quantity"]))
-                        self._account_available_balances[asset_name] += Decimal(str(balance_entry["quantity"]))
+                    await self._process_balance_message(event_message)
 
             except asyncio.CancelledError:
                 raise
