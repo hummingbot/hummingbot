@@ -62,19 +62,9 @@ class K2APIUserStreamDataSource(UserStreamTrackerDataSource):
         """
         while True:
             try:
-                auth_dict: Dict[str, Any] = self._k2_auth.generate_auth_dict(path_url=constants.WSS_LOGIN)
 
-                params: Dict[str, Any] = {
-                    "name": constants.WSS_LOGIN,
-                    "data": {
-                        "apikey": auth_dict["APIKey"],
-                        "apisignature": auth_dict["APISignature"],
-                        "apiauthpayload": auth_dict["APIAuthPayload"]
-                    },
-                    "apinonce": auth_dict["APINonce"]
-                }
-
-                await ws.send(ujson.dumps(params))
+                auth_payload = self._k2_auth.get_ws_auth_payload()
+                await ws.send(ujson.dumps(auth_payload))
                 resp = await ws.recv()
 
                 msg: Dict[str, Any] = ujson.loads(resp)

@@ -2,6 +2,8 @@
 import rsa
 import time
 
+import hummingbot.connector.exchange.k2.k2_constants as CONSTANTS
+
 from typing import Dict, Any
 
 SECRET_BEGIN_SUBSTRING = '-----BEGIN RSA PRIVATE KEY-----\n'
@@ -12,6 +14,7 @@ class K2Auth():
     """
     Auth class required by K2 API
     """
+
     def __init__(self, api_key: str, secret_key: str):
         self.api_key = api_key
         # TODO: Determine if there is a way to include both PKCS1 and PKCS8 keys
@@ -37,6 +40,19 @@ class K2Auth():
         headers["APIAuthPayload"] = auth_payload
 
         return headers
+
+    async def get_ws_auth_payload(self) -> Dict[str, Any]:
+        auth_dict = await self.generate_auth_dict(path_url=CONSTANTS.WSS_LOGIN)
+        payload: Dict[str, Any] = {
+            "name": CONSTANTS.WSS_LOGIN,
+            "data": {
+                "apikey": auth_dict["APIKey"],
+                "apisignature": auth_dict["APISignature"],
+                "apiauthpayload": auth_dict["APIAuthPayload"]
+            },
+            "apinonce": auth_dict["APINonce"]
+        }
+        return payload
 
     def get_headers(self) -> Dict[str, Any]:
         """
