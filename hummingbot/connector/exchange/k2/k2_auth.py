@@ -42,7 +42,7 @@ class K2Auth():
         return headers
 
     async def get_ws_auth_payload(self) -> Dict[str, Any]:
-        auth_dict = await self.generate_auth_dict(path_url=CONSTANTS.WSS_LOGIN)
+        auth_dict = self.generate_auth_dict(path_url=CONSTANTS.WSS_LOGIN)
         payload: Dict[str, Any] = {
             "name": CONSTANTS.WSS_LOGIN,
             "data": {
