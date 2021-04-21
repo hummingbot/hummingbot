@@ -90,20 +90,20 @@ class K2OrderBookTrackerUnitTest(unittest.TestCase):
         # Wait 10 seconds to process some diffs.
         self.ev_loop.run_until_complete(asyncio.sleep(10.0))
         order_books: Dict[str, OrderBook] = self.order_book_tracker.order_books
-        eth_usdt: OrderBook = order_books["ETH-USDT"]
-        self.assertIsNot(eth_usdt.last_diff_uid, 0)
-        self.assertGreaterEqual(eth_usdt.get_price_for_volume(True, 10).result_price,
-                                eth_usdt.get_price(True))
-        self.assertLessEqual(eth_usdt.get_price_for_volume(False, 10).result_price,
-                             eth_usdt.get_price(False))
+        eth_usd: OrderBook = order_books["ETH-USD"]
+        self.assertIsNot(eth_usd.last_diff_uid, 0)
+        self.assertGreaterEqual(eth_usd.get_price_for_volume(True, 10).result_price,
+                                eth_usd.get_price(True))
+        self.assertLessEqual(eth_usd.get_price_for_volume(False, 10).result_price,
+                             eth_usd.get_price(False))
 
     def test_api_get_last_traded_prices(self):
         prices = self.ev_loop.run_until_complete(
-            K2APIOrderBookDataSource.get_last_traded_prices(["BTC-USDT", "ETH-USDT"]))
+            K2APIOrderBookDataSource.get_last_traded_prices(["BTC-USD", "ETH-USD"]))
         for key, value in prices.items():
             print(f"{key} last_trade_price: {value}")
-        self.assertGreater(prices["BTC-USDT"], 30000)
-        self.assertGreater(prices["ETH-USDT"], 1000)
+        self.assertGreater(prices["BTC-USD"], 30000)
+        self.assertGreater(prices["ETH-USD"], 1000)
 
 
 def main():
