@@ -63,7 +63,7 @@ class K2APIUserStreamDataSource(UserStreamTrackerDataSource):
         while True:
             try:
 
-                auth_payload = self._k2_auth.get_ws_auth_payload()
+                auth_payload = await self._k2_auth.get_ws_auth_payload()
                 await ws.send(ujson.dumps(auth_payload))
                 resp = await ws.recv()
 
