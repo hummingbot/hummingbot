@@ -41,7 +41,6 @@ from hummingbot.connector.exchange.k2.k2_exchange import K2Exchange
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 API_KEY = conf.k2_api_key
 API_SECRET = conf.k2_secret_key
-DOMAIN = "com"
 
 
 class K2ExchangeUnitTest(unittest.TestCase):
@@ -72,7 +71,6 @@ class K2ExchangeUnitTest(unittest.TestCase):
             k2_secret_key=API_SECRET,
             trading_pairs=[cls.trading_pair],
             trading_required=True,
-            domain=DOMAIN
         )
         print("Initializing K2 market... this will take about a minute.")
         cls.clock.add_iterator(cls.connector)
