@@ -27,13 +27,16 @@ class K2AuthUnitTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        api_key = conf.K2_api_key
-        secret_key = conf.K2_secret_key
+        api_key = conf.k2_api_key
+        secret_key = conf.k2_secret_key
         cls.auth: K2Auth = K2Auth(api_key, secret_key)
 
     async def rest_auth(self) -> Dict[str, Any]:
         http_client = aiohttp.ClientSession()
-        resp = await self.auth.get_auth_headers(http_client)
+        headers = self.auth.generate_auth_dict(path_url=CONSTANTS.GET_DETAILED_BALANCES)
+        resp = await http_client.post(url=CONSTANTS.REST_URL + CONSTANTS.GET_DETAILED_BALANCES,
+                                      headers=headers)
+
         await http_client.close()
         return resp
 
