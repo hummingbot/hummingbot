@@ -577,7 +577,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
             # ETA
             # Want order_amount to be 10% of the original number if q is in the opposite extreme from target inventory
-            q_where_to_decay_order_amount = Decimal.ln(Decimal("10")) * self.c_calculate_target_inventory() / self._inventory_risk_aversion
+            q_where_to_decay_order_amount = self.c_calculate_target_inventory() / (self._inventory_risk_aversion * Decimal.ln(Decimal("10")))
             self._eta = s_decimal_one
             if q_where_to_decay_order_amount != s_decimal_zero:
                 self._eta = self._eta / q_where_to_decay_order_amount
