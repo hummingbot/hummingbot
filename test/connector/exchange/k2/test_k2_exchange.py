@@ -133,6 +133,13 @@ class K2ExchangeUnitTest(unittest.TestCase):
     def _cancel_order(self, cl_order_id):
         self.connector.cancel(self.trading_pair, cl_order_id)
 
+    def _place_order(self, is_buy, amount, order_type, price, ex_order_id) -> str:
+        if is_buy:
+            cl_order_id = self.connector.buy(self.trading_pair, amount, order_type, price)
+        else:
+            cl_order_id = self.connector.sell(self.trading_pair, amount, order_type, price)
+        return cl_order_id
+
     def test_limit_buy_and_sell(self):
         price = self.connector.get_price(self.trading_pair, True) * Decimal("1.05")
         price = self.connector.quantize_order_price(self.trading_pair, price)
