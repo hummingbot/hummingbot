@@ -236,23 +236,6 @@ class K2ExchangeUnitTest(unittest.TestCase):
         event = self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCancelledEvent))
         self.assertEqual(cl_order_id, event.order_id)
 
-    def test_limit_maker_rejections(self):
-        price = self.connector.get_price(self.trading_pair, True) * Decimal("1.2")
-        price = self.connector.quantize_order_price(self.trading_pair, price)
-        amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("0.0001"))
-        cl_order_id = self.connector.buy(self.trading_pair, amount, OrderType.LIMIT_MAKER, price)
-
-        event = self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCancelledEvent))
-        self.assertEqual(cl_order_id, event.order_id)
-
-        price = self.connector.get_price(self.trading_pair, False) * Decimal("0.8")
-        price = self.connector.quantize_order_price(self.trading_pair, price)
-        amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("0.0001"))
-        cl_order_id = self.connector.sell(self.trading_pair, amount, OrderType.LIMIT_MAKER, price)
-
-        event = self.ev_loop.run_until_complete(self.event_logger.wait_for(OrderCancelledEvent))
-        self.assertEqual(cl_order_id, event.order_id)
-
     def test_cancel_all(self):
         bid_price = self.connector.get_price(self.trading_pair, True)
         ask_price = self.connector.get_price(self.trading_pair, False)
