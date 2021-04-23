@@ -218,7 +218,6 @@ class K2ExchangeUnitTest(unittest.TestCase):
         self.assertEqual(cl_order_id, order_created_event.order_id)
         # check available quote balance gets updated, we need to wait a bit for the balance message to arrive
         expected_quote_bal = quote_bal - (price * amount)
-        self._mock_ws_bal_update(self.quote_token, expected_quote_bal)
         self.ev_loop.run_until_complete(asyncio.sleep(2))
         self.assertAlmostEqual(expected_quote_bal, self.connector.get_available_balance(self.quote_token))
         self._cancel_order(cl_order_id)
