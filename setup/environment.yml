@@ -137,6 +137,7 @@ dependencies:
     - ruamel-yaml==0.16.10
     - ruamel-yaml-clib==0.2.0
     - service-identity==18.1.0
+    - simplejson==3.17.2
     - stringcase==1.2.0
     - toml==0.10.0
     - toolz==0.10.0
