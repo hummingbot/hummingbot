@@ -1,3 +1,4 @@
+from datetime import datetime
 from decimal import Decimal
 import logging
 import pandas as pd
@@ -1023,7 +1024,10 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
             f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
         )
+        buyTimestamp = self._current_timestamp
+        buyDateTime = datetime.fromtimestamp(buyTimestamp)
         self.notify_hb_app(
+            f"({buyDateTime}) "
             f"Maker BUY order {limit_order_record.quantity} {limit_order_record.base_currency} @ "
             f"{limit_order_record.price} {limit_order_record.quote_currency} is filled."
         )
@@ -1067,7 +1071,10 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
             f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
         )
+        sellTimestamp = self._current_timestamp
+        sellDateTime = datetime.fromtimestamp(sellTimestamp)
         self.notify_hb_app(
+            f"({sellDateTime}) "
             f"Maker SELL order {limit_order_record.quantity} {limit_order_record.base_currency} @ "
             f"{limit_order_record.price} {limit_order_record.quote_currency} is filled."
         )
