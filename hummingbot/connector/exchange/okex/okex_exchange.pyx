@@ -415,13 +415,6 @@ cdef class OkexExchange(ExchangeBase):
                 tracked_order.executed_amount_quote = new_confirmed_amount * execute_price
                 tracked_order.fee_paid = Decimal(order_update["fee"])
 
-                current_fee=await self.get_fee(tracked_order.base_asset,
-                                               tracked_order.quote_asset,
-                                               tracked_order.order_type,
-                                               tracked_order.trade_type,
-                                               execute_amount_diff,
-                                               execute_price)
-
                 order_filled_event = OrderFilledEvent(
                     self._current_timestamp,
                     tracked_order.client_order_id,
@@ -430,7 +423,14 @@ cdef class OkexExchange(ExchangeBase):
                     tracked_order.order_type,
                     execute_price,
                     execute_amount_diff,
-                    current_fee,
+                    self.c_get_fee(
+                        tracked_order.base_asset,
+                        tracked_order.quote_asset,
+                        tracked_order.order_type,
+                        tracked_order.trade_type,
+                        execute_amount_diff,
+                        execute_price,
+                    ),
                     exchange_trade_id=exchange_order_id
                 )
                 self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
@@ -569,12 +569,12 @@ cdef class OkexExchange(ExchangeBase):
                             tracked_order.executed_amount_base += execute_amount_diff
                             tracked_order.executed_amount_quote += Decimal(execute_amount_diff * execute_price)
 
-                            current_fee = await self.get_fee(tracked_order.base_asset,
-                                                             tracked_order.quote_asset,
-                                                             tracked_order.order_type,
-                                                             tracked_order.trade_type,
-                                                             execute_amount_diff,
-                                                             execute_price)
+                            current_fee = self.get_fee(tracked_order.base_asset,
+                                                       tracked_order.quote_asset,
+                                                       tracked_order.order_type,
+                                                       tracked_order.trade_type,
+                                                       execute_amount_diff,
+                                                       execute_price)
                             self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of "
                                                f"{order_type.upper()} order {client_order_id}")
                             self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
@@ -992,20 +992,13 @@ cdef class OkexExchange(ExchangeBase):
     def cancel(self, trading_pair: str, client_order_id: str):
         return self.c_cancel(trading_pair, client_order_id)
 
-    async def get_fee(self,
-                      base_currency: str,
-                      quote_currency: str,
-                      order_type: OrderType,
-                      order_side: TradeType,
-                      amount: Decimal,
-                      price: Decimal = s_decimal_NaN) -> TradeFee:
-        msg = await self._api_request("GET",
-                                      path_url=OKEX_FEE_URL.format(instType="SPOT",
-                                                                   trading_pair=f"{base_currency}-{quote_currency}"),
-                                      is_auth_required=True)
-        _order_type = "maker" if order_type is OrderType.LIMIT_MAKER else "taker"
-        if msg["code"]=="0":
-            return TradeFee(Decimal(-float(msg["data"][0][_order_type])))
+    def get_fee(self,
+                base_currency: str,
+                quote_currency: str,
+                order_type: OrderType,
+                order_side: TradeType,
+                amount: Decimal,
+                price: Decimal = s_decimal_NaN) -> TradeFee:
         return self.c_get_fee(base_currency, quote_currency, order_type, order_side, amount, price)
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
