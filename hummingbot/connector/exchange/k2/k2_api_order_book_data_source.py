@@ -3,7 +3,6 @@ import asyncio
 import logging
 import time
 import aiohttp
-import pandas as pd
 import ujson
 import websockets
 
@@ -23,6 +22,7 @@ class K2APIOrderBookDataSource(OrderBookTrackerDataSource):
     MESSAGE_TIMEOUT = 60.0
     SNAPSHOT_TIMEOUT = 10.0
     PING_TIMEOUT = 30.0
+    SNAPSHOT_INTERVAL = 300
 
     _logger: Optional[HummingbotLogger] = None
 
@@ -222,10 +222,7 @@ class K2APIOrderBookDataSource(OrderBookTrackerDataSource):
                             exc_info=True
                         )
                         await asyncio.sleep(5.0)
-                this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
-                next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)
-                delta: float = next_hour.timestamp() - time.time()
-                await asyncio.sleep(delta)
+                await asyncio.sleep(self.SNAPSHOT_INTERVAL)
             except asyncio.CancelledError:
                 raise
             except Exception:
