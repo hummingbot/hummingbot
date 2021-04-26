@@ -758,9 +758,15 @@ class K2Exchange(ExchangeBase):
         cancellation_results = []
 
         for trading_pair in self._trading_pairs:
+            order_ids = [await o.get_exchange_order_id()
+                         for _, o in self.in_flight_orders.items()
+                         if o.trading_pair == trading_pair]
+
             api_params = {
-                "symbol": k2_utils.convert_to_exchange_trading_pair(trading_pair)
+                "symbol": k2_utils.convert_to_exchange_trading_pair(trading_pair),
+                "orderids": ",".join(order_ids)
             }
+
             try:
                 await self._api_request(method="POST",
                                         path_url=constants.CANCEL_ALL_ORDERS,
