@@ -219,11 +219,17 @@ class ReportingProxyHandler(logging.Handler):
                     for exchange in exchanges:
                         markets = set(e["trading_pair"] for e in order_filled if e["event_source"] == exchange)
                         for market in markets:
-                            _, quote = market.split("-")
+                            base, quote = market.split("-")
                             filled_trades = [e for e in order_filled if e["event_source"] == exchange and
                                              e["trading_pair"] == market]
-                            traded_quote_volume = sum(e["price"] * e["amount"] for e in filled_trades)
-                            traded_usdt_value = RateOracle.global_value(quote, traded_quote_volume)
+
+                            if quote == "USDT":
+                                traded_usdt_value = sum(e["price"] * e["amount"] for e in filled_trades)
+                            else:
+                                traded_quote_volume = sum(e["price"] * e["amount"] for e in filled_trades)
+                                quote_usdt_price = await RateOracle.rate_async(f"{quote}-USDT", traded_quote_volume)
+                                traded_usdt_value = quote_usdt_price * traded_quote_volume
+
                             self.send_metric("filled_usdt_volume", exchange, traded_usdt_value)
 
                 self._logged_order_events.clear()
