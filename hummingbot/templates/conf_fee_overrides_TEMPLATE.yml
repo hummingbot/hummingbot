@@ -17,6 +17,9 @@ beaxy_taker_fee:
 coinbase_pro_maker_fee:
 coinbase_pro_taker_fee:
 
+coinzoom_maker_fee:
+coinzoom_taker_fee:
+
 dydx_maker_fee:
 dydx_taker_fee:
 
@@ -44,8 +47,9 @@ kraken_taker_fee:
 dolomite_maker_fee_amount:
 dolomite_taker_fee_amount:
 
-eterbase_maker_fee:
-eterbase_taker_fee:
+
+hitbtc_maker_fee:
+hitbtc_taker_fee:
 
 loopring_maker_fee:
 loopring_taker_fee:
@@ -71,8 +75,11 @@ okex_taker_fee:
 balancer_maker_fee_amount:
 balancer_taker_fee_amount:
 
-bitmax_maker_fee:
-bitmax_taker_fee:
+uniswap_maker_fee_amount:
+uniswap_taker_fee_amount:
+
+ascend_ex_maker_fee:
+ascend_ex_taker_fee:
 
 probit_maker_fee:
 probit_taker_fee:
