@@ -10,7 +10,8 @@ from hummingbot.client.config.config_helpers import (
 )
 from hummingbot.client.config.config_validators import validate_decimal, validate_exchange
 from hummingbot.market.celo.celo_cli import CeloCLI
-from hummingbot.core.utils.market_price import usd_value
+from hummingbot.client.performance import smart_round
+from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 import pandas as pd
 from decimal import Decimal
 from typing import TYPE_CHECKING, Dict, Optional, List
@@ -76,6 +77,7 @@ class BalanceCommand:
                 save_to_yml(file_path, config_map)
 
     async def show_balances(self):
+        total_col_name = f'Total ({RateOracle.global_token_symbol})'
         self._notify("Updating balances, please wait...")
         all_ex_bals = await UserBalances.instance().all_balances_all_exchanges()
         all_ex_avai_bals = UserBalances.instance().all_avai_balances_all_exchanges()
@@ -84,17 +86,21 @@ class BalanceCommand:
         if all_ex_limits is None:
             all_ex_limits = {}
 
+        exchanges_total = 0
+
         for exchange, bals in all_ex_bals.items():
             self._notify(f"\n{exchange}:")
-            # df = await self.exchange_balances_df(bals, all_ex_limits.get(exchange, {}))
-            df, allocated_total = await self.exchange_balances_usd_df(bals, all_ex_avai_bals.get(exchange, {}))
+            df, allocated_total = await self.exchange_balances_extra_df(bals, all_ex_avai_bals.get(exchange, {}))
             if df.empty:
                 self._notify("You have no balance on this exchange.")
             else:
                 lines = ["    " + line for line in df.to_string(index=False).split("\n")]
                 self._notify("\n".join(lines))
-                self._notify(f"\n  Total: $ {df['Total ($)'].sum():.0f}    "
-                             f"Allocated: {allocated_total / df['Total ($)'].sum():.2%}")
+                self._notify(f"\n  Total: {RateOracle.global_token_symbol} {smart_round(df[total_col_name].sum())}    "
+                             f"Allocated: {allocated_total / df[total_col_name].sum():.2%}")
+                exchanges_total += df[total_col_name].sum()
+
+        self._notify(f"\n\nExchanges Total: {RateOracle.global_token_symbol} {exchanges_total:.0f}    ")
 
         celo_address = global_config_map["celo_address"].value
         if celo_address is not None:
@@ -110,30 +116,21 @@ class BalanceCommand:
 
         eth_address = global_config_map["ethereum_wallet"].value
         if eth_address is not None:
-            df = await self.ethereum_balances_df()
-            lines = ["    " + line for line in df.to_string(index=False).split("\n")]
+            eth_df = await self.ethereum_balances_df()
+            lines = ["    " + line for line in eth_df.to_string(index=False).split("\n")]
             self._notify("\nethereum:")
             self._notify("\n".join(lines))
 
-    async def exchange_balances_df(self,  # type: HummingbotApplication
-                                   exchange_balances: Dict[str, Decimal],
-                                   exchange_limits: Dict[str, str]):
-        rows = []
-        for token, bal in exchange_balances.items():
-            limit = Decimal(exchange_limits.get(token.upper(), 0)) if exchange_limits is not None else Decimal(0)
-            if bal == Decimal(0) and limit == Decimal(0):
-                continue
-            token = token.upper()
-            rows.append({"Asset": token.upper(),
-                         "Amount": round(bal, 4),
-                         "Limit": round(limit, 4) if limit > Decimal(0) else "-"})
-        df = pd.DataFrame(data=rows, columns=["Asset", "Amount", "Limit"])
-        df.sort_values(by=["Asset"], inplace=True)
-        return df
+            # XDAI balances
+            xdai_df = await self.xdai_balances_df()
+            lines = ["    " + line for line in xdai_df.to_string(index=False).split("\n")]
+            self._notify("\nxdai:")
+            self._notify("\n".join(lines))
 
-    async def exchange_balances_usd_df(self,  # type: HummingbotApplication
-                                       ex_balances: Dict[str, Decimal],
-                                       ex_avai_balances: Dict[str, Decimal]):
+    async def exchange_balances_extra_df(self,  # type: HummingbotApplication
+                                         ex_balances: Dict[str, Decimal],
+                                         ex_avai_balances: Dict[str, Decimal]):
+        total_col_name = f"Total ({RateOracle.global_token_symbol})"
         allocated_total = Decimal("0")
         rows = []
         for token, bal in ex_balances.items():
@@ -141,15 +138,16 @@ class BalanceCommand:
                 continue
             avai = Decimal(ex_avai_balances.get(token.upper(), 0)) if ex_avai_balances is not None else Decimal(0)
             allocated = f"{(bal - avai) / bal:.0%}"
-            usd = await usd_value(token, bal)
-            usd = 0 if usd is None else usd
-            allocated_total += await usd_value(token, (bal - avai))
+            rate = await RateOracle.global_rate(token)
+            rate = Decimal("0") if rate is None else rate
+            global_value = rate * bal
+            allocated_total += rate * (bal - avai)
             rows.append({"Asset": token.upper(),
                          "Total": round(bal, 4),
-                         "Total ($)": round(usd),
+                         total_col_name: smart_round(global_value),
                          "Allocated": allocated,
                          })
-        df = pd.DataFrame(data=rows, columns=["Asset", "Total", "Total ($)", "Allocated"])
+        df = pd.DataFrame(data=rows, columns=["Asset", "Total", total_col_name, "Allocated"])
         df.sort_values(by=["Asset"], inplace=True)
         return df, allocated_total
 
@@ -173,6 +171,16 @@ class BalanceCommand:
         else:
             eth_bal = UserBalances.ethereum_balance()
             rows.append({"Asset": "ETH", "Amount": round(eth_bal, 4)})
+        df = pd.DataFrame(data=rows, columns=["Asset", "Amount"])
+        df.sort_values(by=["Asset"], inplace=True)
+        return df
+
+    async def xdai_balances_df(self,  # type: HummingbotApplication
+                               ):
+        rows = []
+        bals = await UserBalances.xdai_balances()
+        for token, bal in bals.items():
+            rows.append({"Asset": token, "Amount": round(bal, 4)})
         df = pd.DataFrame(data=rows, columns=["Asset", "Amount"])
         df.sort_values(by=["Asset"], inplace=True)
         return df
