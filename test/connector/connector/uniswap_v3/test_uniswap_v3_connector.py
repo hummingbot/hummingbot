@@ -1,5 +1,5 @@
 from os.path import join, realpath
-import sys; sys.path.insert(0, realpath(join(__file__, "../../bin")))
+import sys; sys.path.insert(0, realpath(join(__file__, "../../../../../")))
 import asyncio
 import conf
 import contextlib
