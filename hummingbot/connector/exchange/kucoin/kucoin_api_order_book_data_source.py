@@ -4,14 +4,11 @@ from itertools import islice
 import aiohttp
 import asyncio
 from async_timeout import timeout
-import cachetools.func
 from collections import defaultdict
-from decimal import Decimal
 from enum import Enum
 import json
 import logging
 import pandas as pd
-import requests
 import time
 from typing import (
     Any,
@@ -306,31 +303,6 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 results[trading_pair] = float(resp_record["last"])
         return results
 
-    async def get_trading_pairs(self) -> List[str]:
-        if not self._trading_pairs:
-            try:
-                self._trading_pairs = await self.fetch_trading_pairs()
-            except Exception:
-                self._trading_pairs = []
-                self.logger().network(
-                    "Error getting active exchange information.",
-                    exc_info=True,
-                    app_warning_msg="Error getting active exchange information. Check network connection."
-                )
-        return self._trading_pairs
-
-    @staticmethod
-    @cachetools.func.ttl_cache(ttl=10)
-    def get_mid_price(trading_pair: str) -> Optional[Decimal]:
-        resp = requests.get(url=TICKER_PRICE_CHANGE_URL)
-        records = resp.json()
-        result = None
-        for record in records["data"]["ticker"]:
-            if trading_pair == record["symbolName"] and record["buy"] is not None and record["sell"] is not None:
-                result = (Decimal(record["buy"]) + Decimal(record["sell"])) / Decimal("2")
-                break
-        return result
-
     @staticmethod
     async def fetch_trading_pairs() -> List[str]:
         async with aiohttp.ClientSession() as client:
@@ -373,7 +345,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def get_markets_per_ws_connection(self) -> List[str]:
         # Fetch the  markets and split per connection
-        all_symbols: List[str] = await self.get_trading_pairs()
+        all_symbols: List[str] = await self.fetch_trading_pairs()
         market_subsets: List[str] = []
 
         for i in range(0, len(all_symbols), self.SYMBOLS_PER_CONNECTION):
@@ -409,7 +381,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :param stream_type: whether diffs or trades
         :param output: the output queue
         """
-        all_symbols: List[str] = await self.get_trading_pairs()
+        all_symbols: List[str] = await self.fetch_trading_pairs()
         all_symbols_set: Set[str] = set(all_symbols)
         pending_trading_pair_updates: Dict[Tuple[StreamType, int], Set[str]] = {}
 
@@ -531,7 +503,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
-                trading_pairs: List[str] = await self.get_trading_pairs()
+                trading_pairs: List[str] = await self.fetch_trading_pairs()
                 async with aiohttp.ClientSession() as client:
                     for trading_pair in trading_pairs:
                         try:

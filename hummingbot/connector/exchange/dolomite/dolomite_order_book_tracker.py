@@ -107,7 +107,7 @@ class DolomiteOrderBookTracker(OrderBookTracker):
                 elif message.type is OrderBookMessageType.SNAPSHOT:
                     s_bids, s_asks = active_order_tracker.convert_snapshot_message_to_order_book_row(message)
                     order_book.apply_snapshot(s_bids, s_asks, message.update_id)
-                    self.logger().debug("Processed order book snapshot for %s.", trading_pair)
+                    self.logger().debug(f"Processed order book snapshot for {trading_pair}.")
 
             except asyncio.CancelledError:
                 raise
