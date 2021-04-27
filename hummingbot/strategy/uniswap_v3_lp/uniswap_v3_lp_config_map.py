@@ -29,16 +29,16 @@ def market_prompt() -> str:
 
 
 def range_order_quote_amount_prompt() -> str:
-    trading_pair = amm_arb_config_map["market"].value
+    trading_pair = uniswap_v3_lp_config_map["market"].value
     base_asset, quote_asset = trading_pair.split("-")
     return f"What is the amount of {quote_asset} you want to use for your range order? >>> "
 
 
-amm_arb_config_map = {
+uniswap_v3_lp_config_map = {
     "strategy": ConfigVar(
         key="strategy",
         prompt="",
-        default="uniswap_v3_market_making"),
+        default="uniswap_v3_lp"),
     "market": ConfigVar(
         key="market",
         prompt=market_prompt,
