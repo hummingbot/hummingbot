@@ -1,7 +1,7 @@
 from decimal import Decimal
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.strategy.uniswap_v3_market_making import uniswap_v3_market_making_config_map as c_map
-from hummingbot.strategy.uniswap_v3_market_making.uniswap_v3_market_making import UniswapV3MarketMakingStrategy
+from hummingbot.strategy.uniswap_v3_lp import uniswap_v3_lp_config_map as c_map
+from hummingbot.strategy.uniswap_v3_lp.uniswap_v3_lp import UniswapV3LpStrategy
 
 
 def start(self):
@@ -14,4 +14,4 @@ def start(self):
     self.assets = {base, quote}
 
     market_info = MarketTradingPairTuple(self.markets["uniswap_v3"], pair, base, quote)
-    self.strategy = UniswapV3MarketMakingStrategy(market_info, range_order_quote_amount, range_order_spread)
+    self.strategy = UniswapV3LpStrategy(market_info, range_order_quote_amount, range_order_spread)

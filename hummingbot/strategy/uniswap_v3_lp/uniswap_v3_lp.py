@@ -4,7 +4,7 @@ from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
 
 
-class UniswapV3MarketMakingStrategy(StrategyPyBase):
+class UniswapV3LpStrategy(StrategyPyBase):
 
     def __init__(self,
                  market_info: MarketTradingPairTuple,

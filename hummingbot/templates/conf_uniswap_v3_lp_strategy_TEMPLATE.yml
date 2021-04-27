@@ -1,0 +1,10 @@
+#########################################
+###   Uniswap v3 LP strategy config   ###
+#########################################
+
+template_version: 1
+strategy: null
+
+market: null
+range_order_quote_amount: null
+range_order_spread: null
