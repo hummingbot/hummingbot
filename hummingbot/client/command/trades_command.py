@@ -7,12 +7,12 @@ from typing import (
 )
 from datetime import datetime
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.core.utils.market_price import usd_value
 from hummingbot.core.data_type.trade import Trade, TradeType
 from hummingbot.core.data_type.common import OpenOrder
 from hummingbot.client.performance import smart_round
 from hummingbot.client.command.history_command import get_timestamp
 from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 
 s_float_0 = float(0)
 s_decimal_0 = Decimal("0")
@@ -58,11 +58,13 @@ class TradesCommand:
                                    days: float,
                                    market: str):
         trades: List[Trade] = await connector.get_my_trades(market, days)
+        g_sym = RateOracle.global_token_symbol
         if not trades:
             self._notify(f"There is no trade on {market}.")
             return
         data = []
-        columns = ["Time", " Side", " Price", "Amount", " Amount ($)"]
+        amount_g_col_name = f" Amount ({g_sym})"
+        columns = ["Time", " Side", " Price", "Amount", amount_g_col_name]
         trades = sorted(trades, key=lambda x: (x.trading_pair, x.timestamp))
         fees = {}  # a dict of token and total fee amount
         fee_usd = 0
@@ -70,14 +72,14 @@ class TradesCommand:
         for trade in trades:
             time = f"{datetime.fromtimestamp(trade.timestamp / 1e3).strftime('%Y-%m-%d %H:%M:%S')} "
             side = "buy" if trade.side is TradeType.BUY else "sell"
-            usd = await usd_value(trade.trading_pair.split("-")[0], trade.amount)
+            usd = await RateOracle.global_value(trade.trading_pair.split("-")[0], trade.amount)
             data.append([time, side, smart_round(trade.price), smart_round(trade.amount), round(usd)])
             for fee in trade.trade_fee.flat_fees:
                 if fee[0] not in fees:
                     fees[fee[0]] = fee[1]
                 else:
                     fees[fee[0]] += fee[1]
-                fee_usd += await usd_value(fee[0], fee[1])
+                fee_usd += await RateOracle.global_value(fee[0], fee[1])
 
         lines = []
         df: pd.DataFrame = pd.DataFrame(data=data, columns=columns)
@@ -85,4 +87,5 @@ class TradesCommand:
         lines.extend(["    " + line for line in df.to_string(index=False).split("\n")])
         self._notify("\n" + "\n".join(lines))
         fee_text = ",".join(k + ": " + f"{v:.4f}" for k, v in fees.items())
-        self._notify(f"\n  Total traded: $ {df[' Amount ($)'].sum():.0f}    Fees: {fee_text} ($ {fee_usd:.2f})")
+        self._notify(f"\n  Total traded: {g_sym} {df[amount_g_col_name].sum():.0f}    "
+                     f"Fees: {fee_text} ({g_sym} {fee_usd:.2f})")

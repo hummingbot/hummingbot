@@ -165,13 +165,13 @@ def get_eth_wallet_private_key() -> Optional[str]:
     return account.privateKey.hex()
 
 
-@lru_cache
+@lru_cache(None)
 def get_erc20_token_addresses() -> Dict[str, List]:
     token_list_url = global_config_map.get("ethereum_token_list_url").value
     address_file_path = TOKEN_ADDRESSES_FILE_PATH
     token_list = {}
 
-    resp = requests.get(token_list_url, timeout=3)
+    resp = requests.get(token_list_url, timeout=1)
     decoded_resp = resp.json()
 
     for token in decoded_resp["tokens"]:
