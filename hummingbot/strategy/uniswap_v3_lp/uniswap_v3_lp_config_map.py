@@ -24,14 +24,12 @@ def market_on_validated(value: str) -> None:
 def market_prompt() -> str:
     connector = "uniswap_v3"
     example = EXAMPLE_PAIRS.get(connector)
-    return "Enter the trading pair (pool) you would like to provide liquidity to {}>>> ".format(
+    return "Enter the pair (pool) you would like to provide liquidity to {}>>> ".format(
         f" (e.g. {example}) " if example else "")
 
 
-def range_order_quote_amount_prompt() -> str:
-    trading_pair = uniswap_v3_lp_config_map["market"].value
-    base_asset, quote_asset = trading_pair.split("-")
-    return f"What is the amount of {quote_asset} you want to use for your range order? >>> "
+def token_amount_prompt() -> str:
+    return f"How much liquidity you want to provide on {uniswap_v3_lp_config_map['token'].value}? >>> "
 
 
 uniswap_v3_lp_config_map = {
@@ -45,15 +43,33 @@ uniswap_v3_lp_config_map = {
         prompt_on_new=True,
         validator=market_validator,
         on_validated=market_on_validated),
-    "range_order_quote_amount": ConfigVar(
-        key="range_order_quote_amount",
-        prompt=range_order_quote_amount_prompt,
-        type_str="decimal",
+    "upper_price_bound": ConfigVar(
+        key="upper_price_bound",
+        prompt="What is the upper price limit of the liquidity position? >>> ",
+        type_str="str",
         validator=lambda v: validate_decimal(v, Decimal("0")),
         prompt_on_new=True),
-    "range_order_spread": ConfigVar(
-        key="range_order_spread",
-        prompt="What is the spread for your range order? (Enter 1 to indicate 1%) >>> ",
+    "lower_price_bound": ConfigVar(
+        key="lower_price_bound",
+        prompt="What is the lower price limit of the liquidity position? >>> ",
+        type_str="str",
+        validator=lambda v: validate_decimal(v, Decimal("0")),
+        prompt_on_new=True),
+    "boundaries_margin": ConfigVar(
+        key="boundaries_margin",
+        prompt="How much percent from the upper/lower price bound the price must move before moving the liquidity "
+               "position? (Enter 1 to indicate 1%) >>> ",
+        prompt_on_new=True,
+        validator=lambda v: validate_decimal(v, Decimal("0")),
+        type_str="decimal"),
+    "token": ConfigVar(
+        key="token",
+        prompt="What token do you want to use to calculate the liquidity? >>> ",
+        prompt_on_new=True,
+        type_str="str"),
+    "token_amount": ConfigVar(
+        key="token_amount",
+        prompt=token_amount_prompt,
         prompt_on_new=True,
         validator=lambda v: validate_decimal(v, Decimal("0")),
         type_str="decimal"),
