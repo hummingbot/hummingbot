@@ -345,7 +345,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def get_markets_per_ws_connection(self) -> List[str]:
         # Fetch the  markets and split per connection
-        all_symbols: List[str] = await self.fetch_trading_pairs()
+        all_symbols: List[str] = self._trading_pairs if self._trading_pairs else await self.fetch_trading_pairs()
         market_subsets: List[str] = []
 
         for i in range(0, len(all_symbols), self.SYMBOLS_PER_CONNECTION):
