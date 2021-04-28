@@ -134,6 +134,7 @@ dependencies:
     - regex==2020.2.20
     - requests==2.23.0
     - rlp==1.2.0
+    - rsa==4.7
     - ruamel-yaml==0.16.10
     - ruamel-yaml-clib==0.2.0
     - service-identity==18.1.0
