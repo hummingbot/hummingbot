@@ -56,14 +56,16 @@ class OKExAuth:
         return sorted_request
 
     def generate_ws_auth(self):
-        timestamp = str(time.time())
+        timestamp = str(int(time.time()))
 
         return {
             "op": "login",
             "args": [
-                self.api_key,
-                self.passphrase,
-                timestamp,
-                self.get_signature(timestamp, "GET", "/users/self/verify", {})
+                {
+                    "apiKey": self.api_key,
+                    "passphrase": self.passphrase,
+                    "timestamp": timestamp,
+                    "sign": self.get_signature(timestamp, "GET", "/users/self/verify", {})
+                }
             ]
         }
