@@ -237,6 +237,8 @@ class KucoinWSConnectionIterator:
                 async for raw_msg in self._inner_messages(ws):
                     msg: Dict[str, any] = json.loads(raw_msg)
                     yield msg
+        except asyncio.TimeoutError:
+            raise
         finally:
             # Clean up.
             if ping_task is not None:
@@ -381,7 +383,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :param stream_type: whether diffs or trades
         :param output: the output queue
         """
-        all_symbols: List[str] = await self.fetch_trading_pairs()
+        all_symbols: List[str] = self._trading_pairs if self._trading_pairs else await self.fetch_trading_pairs()
         all_symbols_set: Set[str] = set(all_symbols)
         pending_trading_pair_updates: Dict[Tuple[StreamType, int], Set[str]] = {}
 
@@ -468,7 +470,9 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                     exc_info=True)
                 await asyncio.sleep(5.0)
             finally:
-                self._tasks[stream_type][task_index].message_iterator = None
+                if stream_type in self._tasks:
+                    if task_index in self._tasks:
+                        self._tasks[stream_type][task_index].message_iterator = None
 
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
@@ -503,7 +507,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
-                trading_pairs: List[str] = await self.fetch_trading_pairs()
+                trading_pairs: List[str] = self._trading_pairs if self._trading_pairs else await self.fetch_trading_pairs()
                 async with aiohttp.ClientSession() as client:
                     for trading_pair in trading_pairs:
                         try:
