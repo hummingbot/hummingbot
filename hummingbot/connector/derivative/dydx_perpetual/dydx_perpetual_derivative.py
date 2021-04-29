@@ -955,6 +955,19 @@ class DydxPerpetualDerivative(DerivativeBase):
                     price = Decimal(fill['price'])
                     fee_paid = Decimal(fill['fee'])
                     tracked_order.register_fill(id, amount, price, fee_paid)
+                    if tracked_order.trading_pair in self._account_positions:
+                        position = self._account_positions[tracked_order.trading_pair]
+                        position.update_from_fill(tracked_order,
+                                                  price,
+                                                  amount,
+                                                  self.get_available_balance('USD'))
+                    else:
+                        self._account_positions[tracked_order.trading_pair] = DydxPerpetualPosition.from_dydx_fill(
+                            tracked_order,
+                            amount,
+                            price,
+                            self.get_available_balance('USD')
+                        )
 
         except DydxApiError as e:
             self.logger().warning(f"Unable to poll for fills for order {tracked_order.client_order_id}"
