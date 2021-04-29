@@ -35,7 +35,6 @@ handlers:
         class: hummingbot.logger.reporting_proxy_handler.ReportingProxyHandler
         level: DEBUG
         proxy_url: https://api.coinalpha.com/reporting-proxy-v2
-        enable_order_event_logging: false
         capacity: 1
     "null":
         class: logging.NullHandler
