@@ -59,7 +59,7 @@ from hummingbot.connector.exchange.okex.constants import (
     OKEX_PLACE_ORDER,
     OKEX_ORDER_DETAILS_URL,
     OKEX_ORDER_CANCEL,
-    OKEX_BATCH_ORDER_CANCELL,
+    OKEX_BATCH_ORDER_CANCEL,
     OKEX_BALANCE_URL
 )
 
@@ -422,7 +422,7 @@ class OkexExchangeUnitTest(unittest.TestCase):
         if MOCK_API_ENABLED:
             resp = FixtureOKEx.ORDERS_BATCH_CANCELLED.copy()
             resp["ETH-USDT"] = [exch_order_id1, exch_order_id2]
-            self.web_app.update_response("post", API_BASE_URL, '/' + OKEX_BATCH_ORDER_CANCELL, resp)
+            self.web_app.update_response("post", API_BASE_URL, '/' + OKEX_BATCH_ORDER_CANCEL, resp)
 
         [cancellation_results] = self.run_parallel(self.market_2.cancel_all(5))
         for cr in cancellation_results:
