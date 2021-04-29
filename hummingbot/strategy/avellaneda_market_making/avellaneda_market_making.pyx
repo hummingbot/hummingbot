@@ -546,7 +546,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         quote_asset_amount = market.get_balance(quote_asset)
         base_value = base_asset_amount * price
         inventory_value = base_value + quote_asset_amount
-        target_inventory_value = inventory_value * self._inventory_target_base_pct
+        target_inventory_value = inventory_value * (self._inventory_target_base_pct / Decimal("100"))
         return market.c_quantize_order_amount(trading_pair, Decimal(str(target_inventory_value / price)))
 
     cdef c_recalculate_parameters(self):

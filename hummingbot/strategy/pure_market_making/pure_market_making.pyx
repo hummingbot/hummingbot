@@ -451,7 +451,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                             if total_value > s_decimal_zero
                             else s_decimal_zero)
         quote_asset_ratio = Decimal("1") - base_asset_ratio if total_value > 0 else 0
-        target_base_ratio = self._inventory_target_base_pct
+        target_base_ratio = self._inventory_target_base_pct / Decimal("100")
         inventory_range_multiplier = self._inventory_range_multiplier
         target_base_amount = (total_value * target_base_ratio
                               if price > s_decimal_zero
@@ -814,11 +814,12 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         base_balance, quote_balance = self.c_get_adjusted_available_balance(self.active_orders)
 
         total_order_size = calculate_total_order_size(self._order_amount, self._order_level_amount, self._order_levels)
+        _inventory_target_base_pct = self._inventory_target_base_pct / Decimal("100")
         bid_ask_ratios = c_calculate_bid_ask_ratios_from_base_asset_ratio(
             float(base_balance),
             float(quote_balance),
             float(self.get_price()),
-            float(self._inventory_target_base_pct),
+            float(_inventory_target_base_pct),
             float(total_order_size * self._inventory_range_multiplier)
         )
         bid_adj_ratio = Decimal(bid_ask_ratios.bid_ratio)
