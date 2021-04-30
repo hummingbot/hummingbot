@@ -8,7 +8,8 @@ from typing import (
 )
 from math import (
     floor,
-    ceil
+    ceil,
+    isnan
 )
 import time
 import datetime
@@ -355,7 +356,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             lines.extend(["", "  No active maker orders."])
 
         volatility_pct = self._avg_vol.current_value / float(self.get_price()) * 100.0
-        if all((self._gamma, self._kappa, volatility_pct)):
+        if all((self._gamma, self._kappa, not isnan(volatility_pct))):
             lines.extend(["", f"  Strategy parameters:",
                           f"    risk_factor(\u03B3)= {self._gamma:.5E}",
                           f"    order_book_depth_factor(\u03BA)= {self._kappa:.5E}",
@@ -410,17 +411,18 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
             self.c_collect_market_variables(timestamp)
             if self.c_is_algorithm_ready():
-                # If gamma or kappa are -1 then it's the first time they are calculated.
-                # Also, if volatility goes beyond the threshold specified, we consider volatility regime has changed
-                # so parameters need to be recalculated.
-                if (self._gamma is None) or (self._kappa is None) or \
-                        (self._parameters_based_on_spread and
-                         self.volatility_diff_from_last_parameter_calculation(self.get_volatility()) > (self._vol_to_spread_multiplier - 1)):
-                    self.c_recalculate_parameters()
-                self.c_calculate_reserved_price_and_optimal_spread()
-
                 proposal = None
                 if self._create_timestamp <= self._current_timestamp:
+                    # If gamma or kappa are -1 then it's the first time they are calculated.
+                    # Also, if volatility goes beyond the threshold specified, we consider volatility regime has changed
+                    # so parameters need to be recalculated.
+                    if (self._gamma is None) or (self._kappa is None) or \
+                            (self._parameters_based_on_spread and
+                             self.volatility_diff_from_last_parameter_calculation(self.get_volatility()) >
+                             (self._vol_to_spread_multiplier - 1)):
+                        self.c_recalculate_parameters()
+                    self.c_calculate_reserved_price_and_optimal_spread()
+
                     # 1. Create base order proposals
                     proposal = self.c_create_base_proposal()
                     # 2. Apply functions that modify orders amount
@@ -502,11 +504,13 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._optimal_spread = self._gamma * mid_price_variance * time_left_fraction + 2 * Decimal(
             1 + self._gamma / self._kappa).ln() / self._gamma
 
+        spread_inflation_due_to_volatility = max(self._vol_to_spread_multiplier * vol, price * self._min_spread)/(price * self._min_spread)
+
         if self._parameters_based_on_spread:
-            min_limit_bid = min(price * (1 - self._max_spread), price - self._vol_to_spread_multiplier * vol)
-            max_limit_bid = price * (1 - self._min_spread)
-            min_limit_ask = price * (1 + self._min_spread)
-            max_limit_ask = max(price * (1 + self._max_spread), price + self._vol_to_spread_multiplier * vol)
+            min_limit_bid = price * (1 - self._max_spread * spread_inflation_due_to_volatility)
+            max_limit_bid = price * (1 - self._min_spread * spread_inflation_due_to_volatility)
+            min_limit_ask = price * (1 + self._min_spread * spread_inflation_due_to_volatility)
+            max_limit_ask = price * (1 + self._max_spread * spread_inflation_due_to_volatility)
         else:
             min_limit_bid = s_decimal_zero
             max_limit_bid = min_limit_ask = price
@@ -554,8 +558,10 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         price=self.get_price()
 
         if q != 0:
-            min_spread = self._min_spread * price
-            max_spread = self._max_spread * price
+            # min_spread will be the expected, unless volatility times the multiplier exceeds it
+            min_spread = max(self._min_spread * price, self._vol_to_spread_multiplier * vol)
+            # If min_spread got inflated due to the multiplier, we apply the same inflation to max_spread
+            max_spread = (self._max_spread * price) * (min_spread / (self._min_spread * price))
 
             # GAMMA
             # If q or vol are close to 0, gamma will -> Inf. Is this desirable?
@@ -568,7 +574,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             # KAPPA
             # Want the maximum possible spread but with restrictions to avoid negative kappa or division by 0
             max_spread_around_reserved_price = max_spread * (2-self._inventory_risk_aversion) + min_spread * self._inventory_risk_aversion
-            if max_spread_around_reserved_price <= self._gamma * (vol ** 2):
+            if (max_spread_around_reserved_price * self._gamma - (vol * self._gamma) **2) <= s_decimal_zero:
                 self._kappa = Decimal('1e100')  # Cap to kappa -> Infinity
             else:
                 self._kappa = self._gamma / (Decimal.exp((max_spread_around_reserved_price * self._gamma - (vol * self._gamma) **2) / 2) - 1)
