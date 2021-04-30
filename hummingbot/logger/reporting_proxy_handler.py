@@ -10,7 +10,7 @@ import logging
 import traceback
 from typing import Optional, List, Dict, Any
 import asyncio
-
+from decimal import Decimal
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.logger import (
     HummingbotLogger,
@@ -68,7 +68,7 @@ class ReportingProxyHandler(logging.Handler):
         if not log_type == "event":
             self.process_log(record)
         else:
-            pass
+            self.process_event(record)
         self.flush()
 
     def formatException(self, ei):
@@ -106,6 +106,10 @@ class ReportingProxyHandler(logging.Handler):
         if not message.get("msg"):
             return
         self._log_queue.append(message)
+
+    def process_event(self, log):
+        if "PaperTrade" not in log.dict_msg["event_source"]:
+            self._logged_order_events.append(log.dict_msg)
 
     def send_logs(self, logs):
         if not self._enable_order_event_logging:
@@ -174,19 +178,20 @@ class ReportingProxyHandler(logging.Handler):
                     exchanges = set(e["event_source"] for e in order_filled)
                     for exchange in exchanges:
                         markets = set(e["trading_pair"] for e in order_filled if e["event_source"] == exchange)
+                        sum_usdt_vol = Decimal("0")
                         for market in markets:
                             base, quote = market.split("-")
                             filled_trades = [e for e in order_filled if e["event_source"] == exchange and
                                              e["trading_pair"] == market]
-
                             if quote == "USDT":
-                                traded_usdt_value = sum(e["price"] * e["amount"] for e in filled_trades)
+                                sum_usdt_vol += sum(e["price"] * e["amount"] for e in filled_trades)
                             else:
                                 traded_quote_volume = sum(e["price"] * e["amount"] for e in filled_trades)
-                                quote_usdt_price = await RateOracle.rate_async(f"{quote}-USDT", traded_quote_volume)
-                                traded_usdt_value = quote_usdt_price * traded_quote_volume
-
-                            self.send_metric("filled_usdt_volume", exchange, traded_usdt_value)
+                                quote_usdt_price = await RateOracle.rate_async(f"{quote}-USDT")
+                                if quote_usdt_price:
+                                    sum_usdt_vol += (quote_usdt_price * traded_quote_volume)
+                        if sum_usdt_vol > Decimal("0"):
+                            self.send_metric("filled_usdt_volume", exchange, sum_usdt_vol)
 
                 self._logged_order_events.clear()
                 await asyncio.sleep(60 * heartbeat_interval_min)
