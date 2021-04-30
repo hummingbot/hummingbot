@@ -21,6 +21,7 @@ from hummingbot.client.ui.parser import ThrowingArgumentParser
 from hummingbot.core.utils.wallet_setup import list_wallets
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 from hummingbot.client.command.connect_command import OPTIONS as CONNECT_OPTIONS
+from hummingbot.core.rate_oracle.rate_oracle import RateOracleSource
 
 
 def file_name_list(path, file_extension):
@@ -39,9 +40,9 @@ class HummingbotCompleter(Completer):
         self.hummingbot_application = hummingbot_application
         self._path_completer = WordCompleter(file_name_list(CONF_FILE_PATH, "yml"))
         self._command_completer = WordCompleter(self.parser.commands, ignore_case=True)
-        self._exchange_completer = WordCompleter(CONNECTOR_SETTINGS.keys(), ignore_case=True)
-        self._spot_completer = WordCompleter(EXCHANGES.union(SPOT_PROTOCOL_CONNECTOR), ignore_case=True)
-        self._spot_exchange_completer = WordCompleter(EXCHANGES, ignore_case=True)
+        self._exchange_completer = WordCompleter(sorted(CONNECTOR_SETTINGS.keys()), ignore_case=True)
+        self._spot_completer = WordCompleter(sorted(EXCHANGES.union(SPOT_PROTOCOL_CONNECTOR)), ignore_case=True)
+        self._spot_exchange_completer = WordCompleter(sorted(EXCHANGES), ignore_case=True)
         self._derivative_completer = WordCompleter(DERIVATIVES, ignore_case=True)
         self._derivative_exchange_completer = WordCompleter(DERIVATIVES.difference(DERIVATIVE_PROTOCOL_CONNECTOR), ignore_case=True)
         self._connect_option_completer = WordCompleter(CONNECT_OPTIONS, ignore_case=True)
@@ -50,6 +51,7 @@ class HummingbotCompleter(Completer):
         self._history_completer = WordCompleter(["--days", "--verbose", "--precision"], ignore_case=True)
         self._strategy_completer = WordCompleter(STRATEGIES, ignore_case=True)
         self._py_file_completer = WordCompleter(file_name_list(SCRIPTS_PATH, "py"))
+        self._rate_oracle_completer = WordCompleter([r.name for r in RateOracleSource], ignore_case=True)
 
     @property
     def prompt_text(self) -> str:
@@ -66,11 +68,12 @@ class HummingbotCompleter(Completer):
     @property
     def _trading_pair_completer(self) -> Completer:
         trading_pair_fetcher = TradingPairFetcher.get_instance()
+        market = ""
         for exchange in sorted(list(CONNECTOR_SETTINGS.keys()), key=len, reverse=True):
             if exchange in self.prompt_text:
                 market = exchange
                 break
-        trading_pairs = trading_pair_fetcher.trading_pairs.get(market, []) if trading_pair_fetcher.ready else []
+        trading_pairs = trading_pair_fetcher.trading_pairs.get(market, []) if trading_pair_fetcher.ready and market else []
         return WordCompleter(trading_pairs, ignore_case=True, sentence=True)
 
     @property
@@ -156,6 +159,9 @@ class HummingbotCompleter(Completer):
         command_args = text_before_cursor.split(" ")
         return len(command_args) == 3 and command_args[0] == "balance" and command_args[1] == "limit"
 
+    def _complete_rate_oracle_source(self, document: Document):
+        return all(x in self.prompt_text for x in ("source", "rate oracle"))
+
     def get_completions(self, document: Document, complete_event: CompleteEvent):
         """
         Get completions for the current scope. This is the defining function for the completer
@@ -232,6 +238,10 @@ class HummingbotCompleter(Completer):
 
         elif self._complete_options(document):
             for c in self._option_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_rate_oracle_source(document):
+            for c in self._rate_oracle_completer.get_completions(document, complete_event):
                 yield c
 
         else:

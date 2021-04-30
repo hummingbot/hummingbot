@@ -1,4 +1,4 @@
-from hummingbot.core.utils.market_price import get_mid_price
+from hummingbot.core.utils.market_price import get_last_price
 from hummingbot.client.settings import CONNECTOR_SETTINGS
 from hummingbot.client.config.security import Security
 from hummingbot.client.config.config_helpers import get_connector_class, get_eth_wallet_private_key
@@ -149,12 +149,12 @@ class UserBalances:
         return None
 
     @staticmethod
-    def base_amount_ratio(exchange, trading_pair, balances) -> Optional[Decimal]:
+    async def base_amount_ratio(exchange, trading_pair, balances) -> Optional[Decimal]:
         try:
             base, quote = trading_pair.split("-")
             base_amount = balances.get(base, 0)
             quote_amount = balances.get(quote, 0)
-            price = get_mid_price(exchange, trading_pair)
+            price = await get_last_price(exchange, trading_pair)
             total_value = base_amount + (quote_amount / price)
             return None if total_value <= 0 else base_amount / total_value
         except Exception:

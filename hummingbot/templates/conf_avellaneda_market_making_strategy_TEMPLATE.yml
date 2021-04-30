@@ -1,0 +1,52 @@
+########################################################
+###       Avellaneda market making strategy config    ###
+########################################################
+
+template_version: 1
+strategy: null
+
+# Exchange and token parameters.
+exchange: null
+
+# Token trading pair for the exchange, e.g. BTC-USDT
+market: null
+
+# Time in seconds before cancelling and placing new orders.
+# If the value is 60, the bot cancels active orders and placing new ones after a minute.
+order_refresh_time: null
+
+# Whether to enable order optimization mode (true/false).
+order_optimization_enabled: true
+
+# Time in seconds before replacing existing order with new orders at thesame price.
+max_order_age: null
+
+# The spread (from mid price) to defer order refresh process to the next cycle.
+# (Enter 1 to indicate 1%), value below 0, e.g. -1, is to disable this feature - not recommended.
+order_refresh_tolerance_pct: null
+
+# Size of your bid and ask order.
+order_amount: null
+
+# How long to wait before placing the next order in case your order gets filled.
+filled_order_delay: null
+
+# Target base asset inventory percentage target to be maintained (for Inventory skew feature).
+inventory_target_base_pct: null
+
+# Whether to enable adding transaction costs to order price calculation (true/false).
+add_transaction_costs: null
+
+# Avellaneda - Stoikov algorithm parameters
+parameters_based_on_spread: null
+min_spread: null
+max_spread: null
+vol_to_spread_multiplier: null
+inventory_risk_aversion: null
+order_book_depth_factor: null
+risk_factor: null
+order_amount_shape_factor: null
+closing_time: null
+
+# Buffer size used to store historic samples and calculate volatility
+volatility_buffer_size: 60
