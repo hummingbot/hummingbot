@@ -46,7 +46,7 @@ class DydxPerpetualInFlightOrder(InFlightOrderBase):
         self.position = position
 
         (base, quote) = trading_pair.split('-')
-        self.fee_asset = base if trade_type is TradeType.BUY else quote
+        self.fee_asset = quote
         self.reserved_asset = quote if trade_type is TradeType.BUY else base
 
     @property

@@ -873,6 +873,14 @@ class DydxPerpetualDerivative(DerivativeBase):
                 tracked_position = self._account_positions[position_str]
                 tracked_position.update_position(position)
                 tracked_position.update_from_balance(Decimal(current_positions['equity']))
+                if not tracked_position.is_open:
+                    del self._account_positions[position_str]
+        positions_to_delete = []
+        for position_str in self._account_positions:
+            if position_str not in current_positions['openPositions']:
+                positions_to_delete.append(position_str)
+        for account_position in positions_to_delete:
+            del self._account_positions[account_position]
 
     async def _update_balances(self):
         current_balances = await self.dydx_client.get_my_balances()
