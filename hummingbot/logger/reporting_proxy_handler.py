@@ -36,6 +36,7 @@ class ReportingProxyHandler(logging.Handler):
     def __init__(self,
                  level: int = logging.ERROR,
                  proxy_url: str = "http://127.0.0.1:9000",
+                 enable_order_event_logging: bool = False,
                  capacity: int = 1):
         super().__init__()
         self.setLevel(level)
