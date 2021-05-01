@@ -2,7 +2,7 @@ from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
 
 
-CENTRALIZED = True
+CENTRALIZED = False
 
 
 EXAMPLE_PAIR = "BTC-USD"
