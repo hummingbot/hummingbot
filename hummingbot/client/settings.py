@@ -11,6 +11,7 @@ from hummingbot import get_strategy_list
 from pathlib import Path
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.core.event.events import TradeFeeType
+from typing import Optional
 
 # Global variables
 required_exchanges: List[str] = []
@@ -54,6 +55,7 @@ class ConnectorSetting(NamedTuple):
     example_pair: str
     centralised: bool
     use_evm: str
+    dex_id: Optional[str]
     fee_type: TradeFeeType
     fee_token: str
     default_fees: List[Decimal]
@@ -94,11 +96,11 @@ class ConnectorSetting(NamedTuple):
         if self.is_sub_domain:
             return self.parent_name
         else:
-            return self.name
-
+            return self.name        
 
 def _create_connector_settings() -> Dict[str, ConnectorSetting]:
     connector_exceptions = ["paper_trade", "eterbase"]
+    dex_same_evm_chain_connector = ["evm_uniswap"]
     connector_settings = {}
     package_dir = Path(__file__).resolve().parent.parent.parent
     type_dirs = [f for f in scandir(f'{str(package_dir)}/hummingbot/connector') if f.is_dir()]
@@ -119,21 +121,59 @@ def _create_connector_settings() -> Dict[str, ConnectorSetting]:
             fee_type_setting = getattr(util_module, "FEE_TYPE", None)
             if fee_type_setting is not None:
                 fee_type = TradeFeeType[fee_type_setting]
-            connector_settings[connector_dir.name] = ConnectorSetting(
-                name=connector_dir.name,
-                type=ConnectorType[type_dir.name.capitalize()],
-                centralised=getattr(util_module, "CENTRALIZED", True),
-                example_pair=getattr(util_module, "EXAMPLE_PAIR", ""),
-                use_evm=getattr(util_module, "USE_EVM", None),
-                fee_type=fee_type,
-                fee_token=getattr(util_module, "FEE_TOKEN", ""),
-                default_fees=getattr(util_module, "DEFAULT_FEES", []),
-                config_keys=getattr(util_module, "KEYS", {}),
-                is_sub_domain=False,
-                parent_name=None,
-                domain_parameter=None,
-                use_eth_gas_lookup=getattr(util_module, "USE_ETH_GAS_LOOKUP", False)
-            )
+
+            if connector_dir.name in dex_same_evm_chain_connector:
+                connector_0_name = f"{connector_dir.name}_0"
+                connector_1_name = f"{connector_dir.name}_1"
+                connector_settings[connector_0_name] = ConnectorSetting(
+                    name=connector_dir.name,
+                    type=ConnectorType[type_dir.name.capitalize()],
+                    centralised=getattr(util_module, "CENTRALIZED", True),
+                    example_pair=getattr(util_module, "EXAMPLE_PAIR", ""),
+                    use_evm=getattr(util_module, "USE_EVM", None),
+                    dex_id="0",
+                    fee_type=fee_type,
+                    fee_token=getattr(util_module, "FEE_TOKEN", ""),
+                    default_fees=getattr(util_module, "DEFAULT_FEES", []),
+                    config_keys=getattr(util_module, "KEYS", {}),
+                    is_sub_domain=False,
+                    parent_name=None,
+                    domain_parameter=None,
+                    use_eth_gas_lookup=getattr(util_module, "USE_ETH_GAS_LOOKUP", False)
+                )
+                connector_settings[connector_1_name] = ConnectorSetting(
+                    name=connector_dir.name,
+                    type=ConnectorType[type_dir.name.capitalize()],
+                    centralised=getattr(util_module, "CENTRALIZED", True),
+                    example_pair=getattr(util_module, "EXAMPLE_PAIR", ""),
+                    use_evm=getattr(util_module, "USE_EVM", None),
+                    dex_id="1",
+                    fee_type=fee_type,
+                    fee_token=getattr(util_module, "FEE_TOKEN", ""),
+                    default_fees=getattr(util_module, "DEFAULT_FEES", []),
+                    config_keys=getattr(util_module, "KEYS", {}),
+                    is_sub_domain=False,
+                    parent_name=None,
+                    domain_parameter=None,
+                    use_eth_gas_lookup=getattr(util_module, "USE_ETH_GAS_LOOKUP", False)
+                )
+            else:
+                connector_settings[connector_dir.name] = ConnectorSetting(
+                    name=connector_dir.name,
+                    type=ConnectorType[type_dir.name.capitalize()],
+                    centralised=getattr(util_module, "CENTRALIZED", True),
+                    example_pair=getattr(util_module, "EXAMPLE_PAIR", ""),
+                    use_evm=getattr(util_module, "USE_EVM", None),
+                    dex_id=None,
+                    fee_type=fee_type,
+                    fee_token=getattr(util_module, "FEE_TOKEN", ""),
+                    default_fees=getattr(util_module, "DEFAULT_FEES", []),
+                    config_keys=getattr(util_module, "KEYS", {}),
+                    is_sub_domain=False,
+                    parent_name=None,
+                    domain_parameter=None,
+                    use_eth_gas_lookup=getattr(util_module, "USE_ETH_GAS_LOOKUP", False)
+                )
             other_domains = getattr(util_module, "OTHER_DOMAINS", [])
             for domain in other_domains:
                 parent = connector_settings[connector_dir.name]
@@ -143,6 +183,7 @@ def _create_connector_settings() -> Dict[str, ConnectorSetting]:
                     centralised=parent.centralised,
                     example_pair=getattr(util_module, "OTHER_DOMAINS_EXAMPLE_PAIR")[domain],
                     use_evm=parent.use_evm,
+                    dex_id=parent.dex_id,
                     fee_type=parent.fee_type,
                     fee_token=parent.fee_token,
                     default_fees=getattr(util_module, "OTHER_DOMAINS_DEFAULT_FEES")[domain],

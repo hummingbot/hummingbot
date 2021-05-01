@@ -133,6 +133,7 @@ class ConnectCommand:
         chain_name = f"{prefix}_chain_name"
         token_list_url = f"{prefix}_token_list_url"
         to_connect = True
+        reconfigure_answer = "yes"
         if ether_wallet is not None:
             answer = await self.app.prompt(prompt=f"Would you like to replace your existing Ethereum wallet "
                                                   f"{ether_wallet} (Yes/No)? >>> ")
@@ -141,7 +142,6 @@ class ConnectCommand:
                 return
             if answer.lower() not in ("yes", "y"):
                 to_connect = False
-                reconfigure_answer = "yes"
                 if global_config_map.get(rpc_url).value is not None:
                     reconfigure_answer = await self.app.prompt(prompt=f"Would you like to reconfigure your {prefix} connection? (yes/No)? >>> ")
         if to_connect:
