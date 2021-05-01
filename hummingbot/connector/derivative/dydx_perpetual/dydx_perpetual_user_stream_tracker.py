@@ -45,7 +45,7 @@ class DydxPerpetualUserStreamTracker(UserStreamTracker):
 
     @property
     def exchange_name(self) -> str:
-        return "dydx"
+        return "dydx_perpetual"
 
     async def start(self):
         self._user_stream_tracking_task = safe_ensure_future(
