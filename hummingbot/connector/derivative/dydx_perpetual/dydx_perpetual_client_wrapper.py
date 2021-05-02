@@ -42,17 +42,20 @@ class DydxPerpetualClientWrapper:
         if side == 'SELL':
             dydx_client_id += 1
 
+        trigger_price = price if order_type == "MARKET" else None
+
         f = self._loop.run_in_executor(None, partial(self.client.private.create_order,
-                                                     position_id = account['account']['positionId'],
-                                                     market = market,
-                                                     side = side,
-                                                     size = amount,
-                                                     price = price,
-                                                     order_type = order_type,
-                                                     post_only = postOnly,
-                                                     client_id = str(dydx_client_id),
-                                                     limit_fee = limit_fee,
-                                                     expiration_epoch_seconds = expiration))
+                                                     position_id=account['account']['positionId'],
+                                                     market=market,
+                                                     side=side,
+                                                     size=amount,
+                                                     price=price,
+                                                     order_type=order_type,
+                                                     post_only=postOnly,
+                                                     client_id=str(dydx_client_id),
+                                                     limit_fee=limit_fee,
+                                                     expiration_epoch_seconds=expiration,
+                                                     trigger_price=trigger_price))
         return await f
 
     async def cancel_order(self, exchange_order_id):
