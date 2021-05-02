@@ -715,8 +715,18 @@ class DydxPerpetualDerivative(DerivativeBase):
         markets_info = (await self.dydx_client.get_markets())['markets']
         self._funding_rate[trading_pair] = Decimal(markets_info[trading_pair]['nextFundingRate'])
 
+    async def _update_funding_rates(self):
+        try:
+            for trading_pair in self._trading_pairs:
+                await self._get_funding_info(trading_pair)
+        except Exception:
+            self.logger().network(
+                "Unknown error. Retrying after 1 seconds.",
+                exc_info=True,
+                app_warning_msg=f"Could not fetch funding_rate for {trading_pair}. Check API key and network connection."
+            )
+
     def get_funding_info(self, trading_pair):
-        safe_ensure_future(self._get_funding_rate(trading_pair))
         return self._funding_rate[trading_pair]
 
     def set_hedge_mode(self, position_mode: PositionMode):
@@ -855,7 +865,8 @@ class DydxPerpetualDerivative(DerivativeBase):
                     self._update_balances(),
                     self._update_trading_rules(),
                     self._update_order_status(),
-                    self._update_account_positions()
+                    self._update_account_positions(),
+                    self._update_funding_rates(),
                 )
             except asyncio.CancelledError:
                 raise
@@ -914,7 +925,7 @@ class DydxPerpetualDerivative(DerivativeBase):
         for client_order_id, tracked_order in tracked_orders.items():
             dydx_order_id = tracked_order.exchange_order_id
             if dydx_order_id is None:
-                # This order is still pending acknowledgement from the exchange
+                # This order is still pending acknowledgement from the exchange
                 if tracked_order.created_at < (int(time.time()) - UNRECOGNIZED_ORDER_DEBOUCE):
                     # this order should have a dydx_order_id at this point. If it doesn't, we should cancel it
                     # as we won't be able to poll for updates
