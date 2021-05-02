@@ -123,7 +123,7 @@ class UserBalances:
         if prefix == "evm":
             connector = EvmUniswapConnector(ethereum_required_trading_pairs,
                                             get_eth_wallet_private_key(),
-                                            evm_rpc_url.value)
+                                            evm_rpc_url)
         else:
             # Todo: Use generic ERC20 balance update
             connector = BalancerConnector(ethereum_required_trading_pairs(),
