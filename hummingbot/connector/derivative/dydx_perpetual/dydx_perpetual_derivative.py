@@ -192,7 +192,7 @@ class DydxPerpetualDerivative(DerivativeBase):
         self._account_positions = {}
         self._position_mode = PositionMode.ONEWAY
         self._margin_fractions = {}
-        self._funding_rate = {}
+        self._funding_info = {}
         self._leverage = {}
 
     @property
@@ -209,6 +209,7 @@ class DydxPerpetualDerivative(DerivativeBase):
             "order_books_initialized": len(self._order_book_tracker.order_books) > 0,
             "account_balances": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0 if self._trading_required else True,
+            "funding_info_available": len(self._funding_info) > 0 if self._trading_required else True,
         }
 
     # ----------------------------------------
@@ -297,7 +298,7 @@ class DydxPerpetualDerivative(DerivativeBase):
         post_only = False
         if order_type is OrderType.LIMIT_MAKER:
             post_only = True
-        dydx_order_type = "LIMIT"  # if order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER] else "MARKET"
+        dydx_order_type = "LIMIT" if order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER] else "MARKET"
 
         return await self.dydx_client.place_order(
             market=trading_pair,
@@ -731,7 +732,7 @@ class DydxPerpetualDerivative(DerivativeBase):
             )
 
     def get_funding_info(self, trading_pair):
-        return self._funding_rate[trading_pair]
+        return self._funding_info[trading_pair]
 
     def set_hedge_mode(self, position_mode: PositionMode):
         # dydx only allows one-way futures
@@ -919,7 +920,6 @@ class DydxPerpetualDerivative(DerivativeBase):
                     "initial": Decimal(market['initialMarginFraction']),
                     "maintenance": Decimal(market['maintenanceMarginFraction'])
                 }
-                self._funding_rate[market_name] = Decimal(market['nextFundingRate'])
             except Exception as e:
                 self.logger().warning("Error updating trading rules")
                 self.logger().warning(str(e))
