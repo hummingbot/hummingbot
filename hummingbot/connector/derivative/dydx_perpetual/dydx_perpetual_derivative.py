@@ -13,6 +13,7 @@ from typing import (
     Optional,
     AsyncIterable
 )
+from dateutil.parser import parse as dataparse
 
 from dydx3.errors import DydxApiError
 
@@ -296,7 +297,7 @@ class DydxPerpetualDerivative(DerivativeBase):
         post_only = False
         if order_type is OrderType.LIMIT_MAKER:
             post_only = True
-        dydx_order_type = "LIMIT" if order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER] else "MARKET"
+        dydx_order_type = "LIMIT"  # if order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER] else "MARKET"
 
         return await self.dydx_client.place_order(
             market=trading_pair,
@@ -713,7 +714,10 @@ class DydxPerpetualDerivative(DerivativeBase):
 
     async def _get_funding_info(self, trading_pair):
         markets_info = (await self.dydx_client.get_markets())['markets']
-        self._funding_rate[trading_pair] = Decimal(markets_info[trading_pair]['nextFundingRate'])
+        self._funding_info[trading_pair] = {"indexPrice": markets_info[trading_pair]['indexPrice'],
+                                            "markPrice": markets_info[trading_pair]['oraclePrice'],
+                                            "nextFundingTime": dataparse(markets_info[trading_pair]['nextFundingAt']).timestamp(),
+                                            "rate": markets_info[trading_pair]['nextFundingRate']}
 
     async def _update_funding_rates(self):
         try:
