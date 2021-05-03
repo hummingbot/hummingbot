@@ -41,6 +41,8 @@ class DydxPerpetualClientWrapper:
         dydx_client_id = 10 * int("".join([n for n in clientId if n.isdigit()]))
         if side == 'SELL':
             dydx_client_id += 1
+        time_in_force = 'IOC' if order_type == 'MARKET' else 'GTT'
+        trailing_percent = 0 if order_type == 'MARKET' else None
 
         f = self._loop.run_in_executor(None, partial(self.client.private.create_order,
                                                      position_id=account['account']['positionId'],
@@ -52,7 +54,9 @@ class DydxPerpetualClientWrapper:
                                                      post_only=postOnly,
                                                      client_id=str(dydx_client_id),
                                                      limit_fee=limit_fee,
-                                                     expiration_epoch_seconds=expiration))
+                                                     expiration_epoch_seconds=expiration,
+                                                     time_in_force=time_in_force,
+                                                     trailing_percent=trailing_percent))
         return await f
 
     async def cancel_order(self, exchange_order_id):
