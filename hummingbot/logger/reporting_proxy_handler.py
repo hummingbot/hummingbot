@@ -189,11 +189,11 @@ class ReportingProxyHandler(logging.Handler):
                             else:
                                 traded_quote_volume = sum(e["price"] * e["amount"] for e in filled_trades)
                                 quote_usdt_price = await RateOracle.rate_async(f"{quote}-USDT")
-                                # Handle certain trading pairs with that has fiat currencies as its quote asset. i.e. ETH-DAI
-                                if quote_usdt_price == Decimal('0'):
-                                    usdt_quote_price = await RateOracle.rate_async(f"USDT-{quote}")
-                                    if usdt_quote_price:
-                                        sum_usdt_vol += (traded_quote_volume / usdt_quote_price)
+                                if quote_usdt_price is None or quote_usdt_price == Decimal('0'):
+                                    # If Quote-USDT price is not found, it will calculate USDT value based on base asset.
+                                    base_usdt_price = await RateOracle.rate_async(f"{base}-USDT")
+                                    if base_usdt_price:
+                                        sum_usdt_vol += (base_usdt_price * sum(e["amount"] for e in filled_trades))
                                 else:
                                     sum_usdt_vol += (quote_usdt_price * traded_quote_volume)
                         if sum_usdt_vol > Decimal("0"):
