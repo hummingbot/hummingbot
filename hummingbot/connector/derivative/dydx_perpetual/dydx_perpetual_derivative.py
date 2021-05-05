@@ -744,6 +744,8 @@ class DydxPerpetualDerivative(DerivativeBase):
                 quote = 'USD'
                 self._account_balances[quote] = Decimal(updates['equity'])
                 self._account_available_balances[quote] = Decimal(updates['freeCollateral'])
+            for position in self._account_positions.values():
+                position.update_from_balance(Decimal(updates['equity']))
         except Exception as e:
             self.logger().error(f"Could not set balance {repr(e)}", exc_info=True)
 
@@ -870,7 +872,6 @@ class DydxPerpetualDerivative(DerivativeBase):
                     self._update_balances(),
                     self._update_trading_rules(),
                     self._update_order_status(),
-                    self._update_account_positions(),
                     self._update_funding_rates(),
                 )
             except asyncio.CancelledError:
@@ -991,6 +992,9 @@ class DydxPerpetualDerivative(DerivativeBase):
                             price,
                             self.get_available_balance('USD')
                         )
+            if len(data['fills']) > 0:
+                await self._update_account_positions()
+
 
         except DydxApiError as e:
             self.logger().warning(f"Unable to poll for fills for order {tracked_order.client_order_id}"
