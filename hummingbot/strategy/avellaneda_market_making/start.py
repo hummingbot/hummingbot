@@ -44,7 +44,7 @@ def start(self):
             min_spread = c_map.get("min_spread").value / Decimal(100)
             max_spread = c_map.get("max_spread").value / Decimal(100)
             vol_to_spread_multiplier = c_map.get("vol_to_spread_multiplier").value
-            volatility_sensibility = c_map.get("volatility_sensibility").value
+            volatility_sensibility = c_map.get("volatility_sensibility").value / Decimal('100')
             inventory_risk_aversion = c_map.get("inventory_risk_aversion").value
         else:
             min_spread = max_spread = vol_to_spread_multiplier = inventory_risk_aversion = volatility_sensibility = None
