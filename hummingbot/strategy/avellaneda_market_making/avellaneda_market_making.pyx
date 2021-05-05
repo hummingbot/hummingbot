@@ -75,6 +75,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                  min_spread: Decimal = Decimal("0.15"),
                  max_spread: Decimal = Decimal("2"),
                  vol_to_spread_multiplier: Decimal = Decimal("1.3"),
+                 volatility_sensibility: Decimal = Decimal("20.0"),
                  inventory_risk_aversion: Decimal = Decimal("0.5"),
                  order_book_depth_factor: Decimal = Decimal("0.1"),
                  risk_factor: Decimal = Decimal("0.5"),
@@ -114,6 +115,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._min_spread = min_spread
         self._max_spread = max_spread
         self._vol_to_spread_multiplier = vol_to_spread_multiplier
+        self._volatility_sensibility = volatility_sensibility
         self._inventory_risk_aversion = inventory_risk_aversion
         self._avg_vol = AverageVolatilityIndicator(volatility_buffer_size, 1)
         self._last_sampling_timestamp = 0
