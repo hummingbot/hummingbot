@@ -24,12 +24,14 @@ def market_on_validated(value: str) -> None:
 def market_prompt() -> str:
     connector = "uniswap_v3"
     example = EXAMPLE_PAIRS.get(connector)
-    return "Enter the pair (pool) you would like to provide liquidity to {}>>> ".format(
+    return "Enter the pair you would like to provide liquidity to {}>>> ".format(
         f" (e.g. {example}) " if example else "")
 
 
 def token_amount_prompt() -> str:
-    return f"How much liquidity you want to provide on {uniswap_v3_lp_config_map['token'].value}? >>> "
+    trading_pair = uniswap_v3_lp_config_map["market"].value
+    base_asset, quote_asset = trading_pair.split("-")
+    return f"How much liquidity in {base_asset} do you want to provide for each position range? >>> "
 
 
 uniswap_v3_lp_config_map = {
@@ -43,30 +45,39 @@ uniswap_v3_lp_config_map = {
         prompt_on_new=True,
         validator=market_validator,
         on_validated=market_on_validated),
-    "upper_price_bound": ConfigVar(
-        key="upper_price_bound",
-        prompt="What is the upper price limit of the liquidity position? >>> ",
-        type_str="str",
+    "fee_tier": ConfigVar(
+        key="fee_tier",
+        prompt="On which fee tier do you want to provide liquidity on? (LOW/MEDIUM/HIGH) ",
+        validator=lambda s: None if s in {"LOW",
+                                          "MEDIUM",
+                                          "HIGH",
+                                          } else
+        "Invalid fee tier.",
+        prompt_on_new=True),
+    "buy_position_spread": ConfigVar(
+        key="buy_position_spread",
+        prompt="What spread from the current price do you want the buy position's lower price tick begin from? (Enter 1 to indicate 1%) >>> ",
+        type_str="decimal",
         validator=lambda v: validate_decimal(v, Decimal("0")),
         prompt_on_new=True),
-    "lower_price_bound": ConfigVar(
-        key="lower_price_bound",
-        prompt="What is the lower price limit of the liquidity position? >>> ",
-        type_str="str",
+    "sell_position_spread": ConfigVar(
+        key="sell_position_spread",
+        prompt="What spread from the current price do you want the sell position's upper price tick end at? (Enter 1 to indicate 1%) >>> ",
+        type_str="decimal",
         validator=lambda v: validate_decimal(v, Decimal("0")),
         prompt_on_new=True),
-    "boundaries_margin": ConfigVar(
-        key="boundaries_margin",
-        prompt="How much percent from the upper/lower price bound the price must move before moving the liquidity "
-               "position? (Enter 1 to indicate 1%) >>> ",
-        prompt_on_new=True,
+    "buy_position_price_spread": ConfigVar(
+        key="buy_position_spread",
+        prompt="How wide apart(in percentage) do you want the lower price to be from the upper price for buy position?(Enter 1 to indicate 1%)  >>> ",
+        type_str="decimal",
         validator=lambda v: validate_decimal(v, Decimal("0")),
-        type_str="decimal"),
-    "token": ConfigVar(
-        key="token",
-        prompt="What token do you want to use to calculate the liquidity? >>> ",
-        prompt_on_new=True,
-        type_str="str"),
+        prompt_on_new=True),
+    "sell_position_price_spread": ConfigVar(
+        key="sell_position_spread",
+        prompt="How wide apart(in percentage) do you want the lower price to be from the upper price for sell position? (Enter 1 to indicate 1%) >>> ",
+        type_str="decimal",
+        validator=lambda v: validate_decimal(v, Decimal("0")),
+        prompt_on_new=True),
     "token_amount": ConfigVar(
         key="token_amount",
         prompt=token_amount_prompt,

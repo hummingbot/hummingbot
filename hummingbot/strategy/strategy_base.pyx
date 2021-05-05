@@ -83,6 +83,10 @@ cdef class BuyOrderCreatedListener(BaseStrategyEventListener):
 cdef class SellOrderCreatedListener(BaseStrategyEventListener):
     cdef c_call(self, object arg):
         self._owner.c_did_create_sell_order(arg)
+
+cdef class RangePositionCreatedListener(BaseStrategyEventListener):
+    cdef c_call(self, object arg):
+        self._owner.c_did_create_range_position_order(arg)
 # </editor-fold>
 
 
@@ -96,6 +100,7 @@ cdef class StrategyBase(TimeIterator):
     ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
     BUY_ORDER_CREATED_EVENT_TAG = MarketEvent.BuyOrderCreated.value
     SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated.value
+    RANGE_POSITION_CREATED_EVENT_TAG = MarketEvent.RangePositionCreated.value
 
     @classmethod
     def logger(cls) -> logging.Logger:
@@ -113,6 +118,7 @@ cdef class StrategyBase(TimeIterator):
         self._sb_complete_buy_order_listener = BuyOrderCompletedListener(self)
         self._sb_complete_sell_order_listener = SellOrderCompletedListener(self)
         self._sb_complete_funding_payment_listener = FundingPaymentCompletedListener(self)
+        self._sb_create_range_position_order_listener = RangePositionCreatedListener(self)
 
         self._sb_delegate_lock = False
 
@@ -264,6 +270,7 @@ cdef class StrategyBase(TimeIterator):
             typed_market.c_add_listener(self.BUY_ORDER_COMPLETED_EVENT_TAG, self._sb_complete_buy_order_listener)
             typed_market.c_add_listener(self.SELL_ORDER_COMPLETED_EVENT_TAG, self._sb_complete_sell_order_listener)
             typed_market.c_add_listener(self.FUNDING_PAYMENT_COMPLETED_EVENT_TAG, self._sb_complete_funding_payment_listener)
+            typed_market.c_add_listener(self.RANGE_POSITION_CREATED_EVENT_TAG, self._sb_create_range_position_order_listener)
             self._sb_markets.add(typed_market)
 
     cdef c_remove_markets(self, list markets):
@@ -283,6 +290,7 @@ cdef class StrategyBase(TimeIterator):
             typed_market.c_remove_listener(self.BUY_ORDER_COMPLETED_EVENT_TAG, self._sb_complete_buy_order_listener)
             typed_market.c_remove_listener(self.SELL_ORDER_COMPLETED_EVENT_TAG, self._sb_complete_sell_order_listener)
             typed_market.c_remove_listener(self.FUNDING_PAYMENT_COMPLETED_EVENT_TAG, self._sb_complete_funding_payment_listener)
+            typed_market.c_remove_listener(self.RANGE_POSITION_CREATED_EVENT_TAG, self._sb_create_range_position_order_listener)
             self._sb_markets.remove(typed_market)
 
     cdef object c_sum_flat_fees(self, str quote_asset, list flat_fees):
@@ -329,6 +337,9 @@ cdef class StrategyBase(TimeIterator):
         pass
 
     cdef c_did_complete_funding_payment(self, object funding_payment_completed_event):
+        pass
+
+    cdef c_did_create_range_position_order(self, object funding_payment_completed_event):
         pass
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>

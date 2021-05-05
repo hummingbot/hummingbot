@@ -5,21 +5,23 @@
 template_version: 1
 strategy: null
 
-# The pair (pool) you provide liquidity to
+# The pair you provide liquidity to
 market: null
 
-# The upper price limit of the liquidity position
-upper_price_bound: null
+# The pool you provide liquidity to
+fee_tier: null
 
-# The lower price limit of the liquidity position
-lower_price_bound: null
+# The spread from the current price do you want the buy position's lower price tick begin from
+buy_position_spread: null
 
-# The margin from the upper/lower price bound in percentage value.
-# Once the price moves past this margin, a new liquidity position will be created.
-boundaries_margin: null
+# The spread from the current price do you want the buy position's upper price tick begin from
+buy_position_price_spread: null
 
-# The token to calculate the liquidity in
-token: null
+# The spread between lower price to the upper price for buy position
+sell_position_price_spread: null
+
+# The spread between lower price to the upper price for sell position
+sell_position_spread: null
 
 # The amount of token (liquidity) provided to the pool
 token_amount: null
