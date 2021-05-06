@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+
 from sqlalchemy import (
     Column,
     Text,
@@ -6,7 +7,6 @@ from sqlalchemy import (
     BigInteger,
     Float
 )
-
 from . import HummingbotBase
 
 
@@ -34,6 +34,7 @@ class RangePosition(HummingbotBase):
     last_status = Column(Text, nullable=False)
     creation_timestamp = Column(BigInteger, nullable=False)
     last_update_timestamp = Column(BigInteger, nullable=False)
+
 
     def __repr__(self) -> str:
         return f"RangePosition(id={self.id}, config_file_path='{self.config_file_path}', strategy='{self.strategy}', " \
