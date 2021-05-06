@@ -840,15 +840,32 @@ cdef class KucoinExchange(ExchangeBase):
         path_url = "/api/v1/orders"
         cancellation_results = []
         try:
-            cancel_all_results = await self._api_request(
-                "delete",
-                path_url=path_url,
-                is_auth_required=True
-            )
-            for oid in cancel_all_results["data"]["cancelledOrderIds"]:
+            tracked_orders = self._in_flight_orders.copy()
+
+            cancellation_tasks = []
+            for order in tracked_orders:
+                oid = order.exchange_order_id
+                api_params = {
+                    "orderId": oid
+                }
+                cancel_task = await self._api_request(
+                    method="delete",
+                    path_url=f"{path_url}/{oid}",
+                    params=api_params,
+                    is_auth_required=True,
+                )
+                cancellation_tasks.append(cancel_task)
+
+            responses = await safe_gather(*cancellation_tasks, return_exceptions=True)
+
+            for response in responses:
+                if isinstance(response, Exception):
+                    raise
+
+                oid = responses["data"]["orderId"]
                 tracked_order = self._in_flight_orders.get(oid)
                 cancellation_results.append(CancellationResult(oid, True))
-                if tracked_order is not None:
+                if tracked_order is None:
                     self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                          OrderCancelledEvent(self._current_timestamp,
                                                              tracked_order.client_order_id,
