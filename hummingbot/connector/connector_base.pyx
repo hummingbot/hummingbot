@@ -35,7 +35,10 @@ cdef class ConnectorBase(NetworkIterator):
         MarketEvent.OrderFilled,
         MarketEvent.BuyOrderCreated,
         MarketEvent.SellOrderCreated,
-        MarketEvent.OrderExpired
+        MarketEvent.OrderExpired,
+        MarketEvent.RangePositionCreated,
+        MarketEvent.RangePositionRemoved,
+        MarketEvent.RangePositionLiquidityAdjusted,
     ]
 
     def __init__(self):
