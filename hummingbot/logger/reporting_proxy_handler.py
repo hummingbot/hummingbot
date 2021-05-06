@@ -10,7 +10,7 @@ import logging
 import traceback
 from typing import Optional, List, Dict, Any
 import asyncio
-
+from decimal import Decimal
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.logger import (
     HummingbotLogger,
@@ -18,7 +18,7 @@ from hummingbot.logger import (
 )
 from hummingbot.logger.log_server_client import LogServerClient
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.client.platform import client_system, installation_type
+from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 
 VERSIONFILE = realpath(join(__file__, "../../VERSION"))
 CLIENT_VERSION = open(VERSIONFILE, "rt").read()
@@ -40,9 +40,7 @@ class ReportingProxyHandler(logging.Handler):
                  capacity: int = 1):
         super().__init__()
         self.setLevel(level)
-        self._enable_order_event_logging: bool = enable_order_event_logging
         self._log_queue: list = []
-        self._event_queue: list = []
         self._logged_order_events: List[Dict] = []
         self._capacity: int = capacity
         self._proxy_url: str = proxy_url
@@ -111,21 +109,6 @@ class ReportingProxyHandler(logging.Handler):
         self._log_queue.append(message)
 
     def process_event(self, log):
-        message = {
-            "name": log.name,
-            "funcName": log.funcName,
-            "msg": log.getMessage(),
-            "created": log.created,
-            "level": log.levelname
-        }
-        if log.exc_info:
-            message["exc_info"] = self.formatException(log.exc_info)
-            message["exception_type"] = str(log.exc_info[0])
-            message["exception_msg"] = str(log.exc_info[1])
-
-        if not message.get("msg"):
-            return
-        self._event_queue.append(message)
         if "PaperTrade" not in log.dict_msg["event_source"]:
             self._logged_order_events.append(log.dict_msg)
 
@@ -148,24 +131,7 @@ class ReportingProxyHandler(logging.Handler):
         }
         self.log_server_client.request(request_obj)
 
-    def send_events(self, logs):
-        request_obj = {
-            "url": f"{self._proxy_url}/order-event",
-            "method": "POST",
-            "request_obj": {
-                "headers": {
-                    'Content-Type': "application/json"
-                },
-                "data": json.dumps(logs, default=log_encoder),
-                "params": {"ddtags": f"instance_id:{self.instance_id},"
-                                     f"client_version:{CLIENT_VERSION},"
-                                     f"type:log",
-                           "ddsource": "hummingbot-client"}
-            }
-        }
-        self.log_server_client.request(request_obj)
-
-    def send_metric(self, metric_name: str, exchange: str, market: str, value: Any):
+    def send_metric(self, metric_name: str, exchange: str, value: Any):
         request_obj = {
             "url": f"{self._proxy_url}/{metric_name}",
             "method": "POST",
@@ -175,10 +141,6 @@ class ReportingProxyHandler(logging.Handler):
                 },
                 "data": json.dumps({"instance_id": self.instance_id,
                                     "exchange": exchange,
-                                    "market": market,
-                                    "version": CLIENT_VERSION,
-                                    "system": client_system,
-                                    "installation": installation_type,
                                     f"{metric_name}": str(value)})
             }
         }
@@ -195,9 +157,6 @@ class ReportingProxyHandler(logging.Handler):
                     self.send_logs(self._log_queue)
 
                     self._log_queue = []
-            if len(self._event_queue) > 0 and len(self._event_queue) >= min_send_capacity:
-                self.send_events(self._event_queue)
-                self._event_queue = []
         except Exception:
             self.logger().error("Error sending logs.", exc_info=True, extra={"do_not_send": True})
         finally:
@@ -205,7 +164,6 @@ class ReportingProxyHandler(logging.Handler):
 
     def close(self):
         try:
-            self.flush(send_all=True)
             self.log_server_client.stop()
             if self._send_aggregated_metrics_loop_task is not None:
                 self._send_aggregated_metrics_loop_task.cancel()
@@ -216,27 +174,31 @@ class ReportingProxyHandler(logging.Handler):
     async def send_aggregated_metrics_loop(self, heartbeat_interval_min: float):
         while True:
             try:
-                order_created = [e for e in self._logged_order_events if e["event_name"]
-                                 in ("BuyOrderCreatedEvent", "SellOrderCreatedEvent")]
-                if order_created:
-                    exchanges = set(e["event_source"] for e in order_created)
-                    for exchange in exchanges:
-                        markets = set(e["trading_pair"] for e in order_created if e["event_source"] == exchange)
-                        for market in markets:
-                            created_orders = [e for e in order_created if e["event_source"] == exchange and
-                                              e["trading_pair"] == market]
-                            self.send_metric("order_count", exchange, market, len(created_orders))
                 order_filled = [e for e in self._logged_order_events if e["event_name"] == "OrderFilledEvent"]
                 if order_filled:
                     exchanges = set(e["event_source"] for e in order_filled)
                     for exchange in exchanges:
                         markets = set(e["trading_pair"] for e in order_filled if e["event_source"] == exchange)
+                        sum_usdt_vol = Decimal("0")
                         for market in markets:
+                            base, quote = market.split("-")
                             filled_trades = [e for e in order_filled if e["event_source"] == exchange and
                                              e["trading_pair"] == market]
-                            traded_volume = sum(e["price"] * e["amount"] for e in filled_trades)
-                            self.send_metric("filled_quote_volume", exchange, market, traded_volume)
-                            self.send_metric("trade_count", exchange, market, len(filled_trades))
+                            if quote == "USDT":
+                                sum_usdt_vol += sum(e["price"] * e["amount"] for e in filled_trades)
+                            else:
+                                traded_quote_volume = sum(e["price"] * e["amount"] for e in filled_trades)
+                                quote_usdt_price = await RateOracle.rate_async(f"{quote}-USDT")
+                                if quote_usdt_price is None or quote_usdt_price == Decimal('0'):
+                                    # If Quote-USDT price is not found, it will calculate USDT value based on base asset.
+                                    base_usdt_price = await RateOracle.rate_async(f"{base}-USDT")
+                                    if base_usdt_price:
+                                        sum_usdt_vol += (base_usdt_price * sum(e["amount"] for e in filled_trades))
+                                else:
+                                    sum_usdt_vol += (quote_usdt_price * traded_quote_volume)
+                        if sum_usdt_vol > Decimal("0"):
+                            self.send_metric("filled_usdt_volume", exchange, sum_usdt_vol)
+
                 self._logged_order_events.clear()
                 await asyncio.sleep(60 * heartbeat_interval_min)
 
