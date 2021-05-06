@@ -860,7 +860,7 @@ cdef class KucoinExchange(ExchangeBase):
 
             for response in responses:
                 if isinstance(response, Exception):
-                    raise
+                    raise ValueError(f"Failed to cancel order - Reason: {response}")
 
                 oid = responses["data"]["orderId"]
                 tracked_order = self._in_flight_orders.get(oid)
