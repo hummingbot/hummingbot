@@ -89,6 +89,9 @@ terra_wallet_seeds: null
 digifinex_api_key: null
 digifinex_secret_key: null
 
+k2_api_key: null
+k2_secret_key: null
+
 balancer_max_swaps: 4
 
 probit_api_key: null
