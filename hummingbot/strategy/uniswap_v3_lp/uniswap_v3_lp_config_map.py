@@ -67,13 +67,13 @@ uniswap_v3_lp_config_map = {
         validator=lambda v: validate_decimal(v, Decimal("0")),
         prompt_on_new=True),
     "buy_position_price_spread": ConfigVar(
-        key="buy_position_spread",
+        key="buy_position_price_spread",
         prompt="How wide apart(in percentage) do you want the lower price to be from the upper price for buy position?(Enter 1 to indicate 1%)  >>> ",
         type_str="decimal",
         validator=lambda v: validate_decimal(v, Decimal("0")),
         prompt_on_new=True),
     "sell_position_price_spread": ConfigVar(
-        key="sell_position_spread",
+        key="sell_position_price_spread",
         prompt="How wide apart(in percentage) do you want the lower price to be from the upper price for sell position? (Enter 1 to indicate 1%) >>> ",
         type_str="decimal",
         validator=lambda v: validate_decimal(v, Decimal("0")),

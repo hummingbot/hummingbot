@@ -1,18 +1,12 @@
 #!/usr/bin/env python
-import numpy
-from typing import (
-    Dict,
-    Any
-)
 from sqlalchemy import (
     Column,
     Text,
     Index,
     BigInteger,
-    Integer,
     Float
 )
-from sqlalchemy.orm import relationship
+# from sqlalchemy.orm import relationship
 
 from . import HummingbotBase
 
@@ -33,7 +27,7 @@ class RangePosition(HummingbotBase):
     symbol = Column(Text, nullable=False)
     base_asset = Column(Text, nullable=False)
     quote_asset = Column(Text, nullable=False)
-    fee_pct = Column(Float, nullable=False)
+    fee_tier = Column(Text, nullable=False)
     lower_price = Column(Float, nullable=False)
     upper_price = Column(Float, nullable=False)
     base_amount = Column(Float, nullable=False)
@@ -47,7 +41,7 @@ class RangePosition(HummingbotBase):
         return f"RangePosition(id={self.id}, config_file_path='{self.config_file_path}', strategy='{self.strategy}', " \
                f"token_id={self.token_id}, market='{self.market}', symbol='{self.symbol}', "\
                f"base_asset='{self.base_asset}', quote_asset='{self.quote_asset}', " \
-               f"fee_pct = '{self.fee_pct}" \
+               f"fee_tier = '{self.fee_tier}" \
                f"lower_price={self.lower_price}, upper_price='{self.upper_price}', " \
                f"base_amount='{self.base_amount}', quote_amount={self.quote_amount}, " \
                f"last_status={self.last_status}, " \
