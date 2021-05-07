@@ -408,7 +408,7 @@ class MarketsRecorder:
                                              symbol=evt.trading_pair,
                                              base_asset=base,
                                              quote_asset=quote,
-                                             fee_pct=float(evt.fee_pct),
+                                             fee_tier=evt.fee_tier,
                                              lower_price=float(evt.lower_price),
                                              upper_price=float(evt.upper_price),
                                              base_amount=float(evt.base_amount),

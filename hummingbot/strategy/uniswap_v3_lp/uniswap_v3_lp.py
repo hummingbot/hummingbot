@@ -57,6 +57,7 @@ class UniswapV3LpStrategy(StrategyPyBase):
         self._pending_execution_completion = 0
         self._pending_swap_completion = False
         self._main_task = None
+        self._range_order_ids = []
 
     @property
     def base_asset(self):
@@ -82,11 +83,11 @@ class UniswapV3LpStrategy(StrategyPyBase):
 
     @property
     def active_buys(self) -> List[LimitOrder]:  # only one active buy position for the first iteration of this strategy
-        return [o for o in self.active_positions if o.is_buy]
+        return [o for o in self.active_positions if o.is_buy and o.client_order_id in self._range_order_ids]
 
     @property
     def active_sells(self) -> List[LimitOrder]:  # only one active sell position for the first iteration of this strategy
-        return [o for o in self.active_positions if not o.is_buy]
+        return [o for o in self.active_positions if not o.is_buy and o.client_order_id in self._range_order_ids]
 
     async def get_current_price(self) -> float:
         return await self._market_info.market.get_price_by_fee_tier(self.trading_pair, self._fee_tier)
@@ -94,22 +95,24 @@ class UniswapV3LpStrategy(StrategyPyBase):
     def active_positions_df(self) -> pd.DataFrame:
         columns = ["Symbol", "Type", "Fee Tier", "Amount", "Upper Price", "Lower Price"]
         data = []
-        data.append([
-            self.trading_pair,
-            "Buy",
-            self._fee_tier,
-            self.active_buys[0].amount,
-            self.active_buys[0].price * (Decimal("1") + self._buy_position_price_spread),
-            self.active_buys[0].price
-        ])
-        data.append([
-            self.trading_pair,
-            "Sell",
-            self._fee_tier,
-            self.active_sells[0].amount,
-            self.active_sells[0].price,
-            self.active_sells[0].price * (Decimal("1") - self._sell_position_price_spread)
-        ])
+        if len(self.active_buys) > 0:
+            data.append([
+                self.trading_pair,
+                "Buy",
+                self._fee_tier,
+                self.active_buys[0].quantity,
+                self.active_buys[0].price * (Decimal("1") + self._buy_position_price_spread),
+                self.active_buys[0].price
+            ])
+        if len(self.active_sells) > 0:
+            data.append([
+                self.trading_pair,
+                "Sell",
+                self._fee_tier,
+                self.active_sells[0].quantity,
+                self.active_sells[0].price,
+                self.active_sells[0].price * (Decimal("1") - self._sell_position_price_spread)
+            ])
 
         return pd.DataFrame(data=data, columns=columns)
 
@@ -124,11 +127,10 @@ class UniswapV3LpStrategy(StrategyPyBase):
         columns = ["Exchange", "Market", "Current Price"]
         data = []
         market, trading_pair, base_asset, quote_asset = self._market_info
-        current_price = await market.get_quote_price(trading_pair, True, self._token_amount)
         data.append([
             market.display_name,
             trading_pair,
-            float(current_price)
+            float(self._last_price)
         ])
         markets_df = pd.DataFrame(data=data, columns=columns)
         lines = []
@@ -144,12 +146,6 @@ class UniswapV3LpStrategy(StrategyPyBase):
         assets_df = self.wallet_balance_data_frame([self._market_info])
         lines.extend(["", "  Assets:"] +
                      ["    " + line for line in str(assets_df).split("\n")])
-
-        try:
-            lines.extend(["", "  Spread details:"] + ["    " + self.spread_msg()] +
-                         self.short_proposal_msg())
-        except Exception:
-            pass
 
         warning_lines = self.network_warning([self._market_info])
         warning_lines.extend(self.balance_warning([self._market_info]))
@@ -177,7 +173,7 @@ class UniswapV3LpStrategy(StrategyPyBase):
         if self._pending_execution_completion == 0:
             proposal = await self.propose_position_creation_and_removal()
             if len(proposal) > 0:
-                self.execute_proposal(proposal)
+                await self.execute_proposal(proposal)
 
     def generate_proposal(self, is_buy):
         if is_buy:
@@ -200,11 +196,11 @@ class UniswapV3LpStrategy(StrategyPyBase):
                 sell_prices.append(0)
             elif self.active_buys[0].price > current_price:
                 buy_prices = self.generate_proposal(True)
-                token_id = await self._market_info.market.get_token_id(self.active_sells[0].client_order_id)
+                token_id = self._market_info.market.get_token_id(self.active_sells[0].client_order_id)
                 buy_prices.append(token_id)
             elif self.active_sells[0].price < current_price:
                 sell_prices = self.generate_proposal(False)
-                token_id = await self._market_info.market.get_token_id(self.active_buys[0].client_order_id)
+                token_id = self._market_info.market.get_token_id(self.active_buys[0].client_order_id)
                 sell_prices.append(token_id)
         return [buy_prices, sell_prices]
 
@@ -216,82 +212,91 @@ class UniswapV3LpStrategy(StrategyPyBase):
                         self.logger().info(f"Cancelling position with ID - {proposal[0][-1]} and "
                                            f" creating new buy position over {proposal[0][0]}"
                                            f" to {proposal[0][1]}.")
-                        await self._market_info.market.remove_and_create_liquidity(proposal[0][-1],
+                        order_id = await self._market_info.market.replace_position(proposal[0][-1],
                                                                                    self.trading_pair,
                                                                                    self._fee_tier,
                                                                                    self._token_amount,
                                                                                    self._token_amount * self._last_price,
                                                                                    proposal[0][0],
                                                                                    proposal[0][1])
+                        self.start_tracking_limit_order(self._market_info, order_id, True, proposal[0][0], self._token_amount * self._last_price)
+                        self._range_order_ids.append(order_id)
                         self._pending_execution_completion += 1
                     else:
                         self.logger().info(f"Cancelling position with ID - {proposal[1][-1]}")
-                        self._market_info.market.remove_position(self.active_sells[0].client_order_id, proposal[0][-1])
+                        self._market_info.market.remove_position(self.active_sells[0].client_order_id, proposal[0][-1])  # no need to track position removal at strategy level.
                         self.log_with_clock(logging.INFO,
-                                            f"Executing sell order for {self._token_amount * self._last_price} {self.market_info.quote_asset} "
+                                            f"Executing sell order for {self._token_amount * self._last_price} {self._market_info.quote_asset} "
                                             f"at {self._last_price} price")
-                        self.sell_with_specific_market(self.market_info,
+                        self.sell_with_specific_market(self._market_info,
                                                        self._token_amount,
-                                                       self.market_info.market.get_taker_order_type(),
+                                                       self._market_info.market.get_taker_order_type(),
                                                        self._last_price,
                                                        )
                         self._pending_swap_completion = time.time() + 13  # wait for about 13 secs in order to give enough time for swap to complete
                 else:
                     self.logger().info(f"Creating new buy position over {proposal[0][0]}"
                                        f" to {proposal[0][1]}.")
-                    await self._market_info.market.add_position(self.trading_pair,
-                                                                self._fee_tier,
-                                                                self._token_amount,
-                                                                self._token_amount * self._last_price,
-                                                                proposal[0][0],
-                                                                proposal[0][1])
+                    order_id = self._market_info.market.add_position(self.trading_pair,
+                                                                     self._fee_tier,
+                                                                     self._token_amount,
+                                                                     self._token_amount * self._last_price,
+                                                                     proposal[0][0],
+                                                                     proposal[0][1])
+                    self.start_tracking_limit_order(self._market_info, order_id, True, proposal[0][0], self._token_amount * self._last_price)
+                    self._range_order_ids.append(order_id)
                     self._pending_execution_completion += 1
-            elif len(proposal[1]) > 0:
+            if len(proposal[1]) > 0:
                 if proposal[1][-1] != 0:
                     if self._market_info.market.get_available_balance(self.quote_asset) >= (self._token_amount * self._last_price):
                         self.logger().info(f"Cancelling position with ID - {proposal[1][-1]} and "
                                            f" creating new sell position over {proposal[1][0]}"
                                            f" to {proposal[1][1]}.")
-                        await self._market_info.market.remove_and_create_liquidity(proposal[1][-1],
-                                                                                   self.trading_pair,
-                                                                                   self._fee_tier,
-                                                                                   self._token_amount,
-                                                                                   self._token_amount * self._last_price,
-                                                                                   proposal[1][0],
-                                                                                   proposal[1][1])
+                        order_id = self._market_info.market.replace_position(proposal[1][-1],
+                                                                             self.trading_pair,
+                                                                             self._fee_tier,
+                                                                             self._token_amount,
+                                                                             self._token_amount * self._last_price,
+                                                                             proposal[1][0],
+                                                                             proposal[1][1])
+                        self.start_tracking_limit_order(self._market_info, order_id, False, proposal[1][1], self._token_amount)
+                        self._range_order_ids.append(order_id)
                         self._pending_execution_completion += 1
 
                     else:
                         self.logger().info(f"Cancelling position with ID - {proposal[1][-1]}")
-                        self._market_info.market.remove_position(self.active_buys[0].client_order_id, proposal[1][-1])
+                        self._market_info.market.remove_position(self.active_buys[0].client_order_id, proposal[1][-1])  # no need to track position removal at strategy level.
                         self.log_with_clock(logging.INFO,
-                                            f"Executing buy order for {self._token_amount} {self.market_info.base_asset} "
+                                            f"Executing buy order for {self._token_amount} {self._market_info.base_asset} "
                                             f"at {self._last_price} price")
-                        self.buy_with_specific_market(self.market_info,
+                        self.buy_with_specific_market(self._market_info,
                                                       self._token_amount,
-                                                      self.market_info.market.get_taker_order_type(),
+                                                      self._market_info.market.get_taker_order_type(),
                                                       self._last_price,
                                                       )
                         self._pending_swap_completion = time.time() + 13  # wait for about 13 secs in order to give enough time for swap to complete
                 else:
                     self.logger().info(f"Creating new sell position over {proposal[1][0]}"
                                        f" to {proposal[1][1]}.")
-                    await self._market_info.market.add_position(self.trading_pair,
-                                                                self._fee_tier,
-                                                                self._token_amount,
-                                                                self._token_amount * self._last_price,
-                                                                proposal[1][0],
-                                                                proposal[1][1])
+                    order_id = self._market_info.market.add_position(self.trading_pair,
+                                                                     self._fee_tier,
+                                                                     self._token_amount,
+                                                                     self._token_amount * self._last_price,
+                                                                     proposal[1][0],
+                                                                     proposal[1][1])
+                    self.start_tracking_limit_order(self._market_info, order_id, False, proposal[1][1], self._token_amount)
+                    self._range_order_ids.append(order_id)
                     self._pending_execution_completion += 1
 
-    def did_complete_buy_order(self, order_completed_event):
-        self._pending_swap_completion = 0
-
-    def did_complete_sell_order(self, order_completed_event):
-        self._pending_swap_completion = 0
-
-    def c_did_create_range_position_order(self, create_event):
+    def did_create_range_position_order(self, create_event):
         self._pending_execution_completion -= 1
+
+    def did_remove_range_position_order(self, close_event):
+        # we only stop tracking range orders at this point
+        self.stop_tracking_limit_order(self._market_info, close_event.hb_id)
+        if close_event.hb_id in self._range_order_ids:
+            self._range_order_ids.remove(close_event.hb_id)
+            self._pending_execution_completion -= 1
 
     @property
     def tracked_limit_orders(self) -> List[Tuple[ConnectorBase, LimitOrder]]:
@@ -302,10 +307,10 @@ class UniswapV3LpStrategy(StrategyPyBase):
         return self._sb_order_tracker.tracked_market_orders
 
     def start(self, clock: Clock, timestamp: float):
-        return
         # Restore all positions ever created by user and filter those related to current market
-        # restored_order_ids = safe_ensure_future(self.c_track_restored_orders(self.market_info))
-        # self.logger().info(f"Restored positions with the following client Ids {restored_order_ids}")
+        # restored_order_ids = self.track_restored_orders(self._market_info)
+        # self.logger().info(f"Restored positions with the following client Ids - {restored_order_ids}")
+        return
 
     def stop(self, clock: Clock):
         if self._main_task is not None:

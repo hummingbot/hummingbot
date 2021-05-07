@@ -64,6 +64,7 @@ class ZeroExEvent(Enum):
 class TradeType(Enum):
     BUY = 1
     SELL = 2
+    RANGE = 3
 
 
 class OrderType(Enum):
@@ -377,7 +378,7 @@ class RangePositionCreatedEvent:
     hb_id: str
     token_id: str
     trading_pair: str
-    fee_pct: Decimal
+    fee_tier: str
     lower_price: Decimal
     upper_price: Decimal
     base_amount: Decimal
