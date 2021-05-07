@@ -60,7 +60,10 @@ from hummingbot.connector.exchange.okex.constants import (
     OKEX_ORDER_DETAILS_URL,
     OKEX_ORDER_CANCEL,
     OKEX_BATCH_ORDER_CANCEL,
-    OKEX_BALANCE_URL
+    OKEX_BALANCE_URL,
+    OKEX_PRICE_URL,
+    OKEX_DEPTH_URL,
+    OKEX_TICKERS_URL,
 )
 
 MOCK_API_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
@@ -97,6 +100,11 @@ class OkexExchangeUnitTest(unittest.TestCase):
     stack: contextlib.ExitStack
 
     @classmethod
+    def strip_host_from_okex_url(cls, url):
+        HOST = "https://www.okex.com"
+        return url.split(HOST)[-1]
+
+    @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         if MOCK_API_ENABLED:
@@ -110,17 +118,15 @@ class OkexExchangeUnitTest(unittest.TestCase):
             # mock_account_id = FixtureOKEx.GET_ACCOUNTS["data"][0]["id"]
 
             # warning: second parameter starts with /
+            cls.web_app.update_response("get", API_BASE_URL, cls.strip_host_from_okex_url(OKEX_INSTRUMENTS_URL), FixtureOKEx.OKEX_INSTRUMENTS_URL)
+            cls.web_app.update_response("get", API_BASE_URL, cls.strip_host_from_okex_url(OKEX_PRICE_URL).format(trading_pair='ETH-USDT'), FixtureOKEx.INSTRUMENT_TICKER)
+            cls.web_app.update_response("get", API_BASE_URL, cls.strip_host_from_okex_url(OKEX_DEPTH_URL).format(trading_pair='ETH-USDT'), FixtureOKEx.OKEX_ORDER_BOOK)
+            cls.web_app.update_response("get", API_BASE_URL, cls.strip_host_from_okex_url(OKEX_TICKERS_URL),
+                                        FixtureOKEx.OKEX_TICKERS)
+            cls.web_app.update_response("get", API_BASE_URL, '/' + OKEX_BALANCE_URL, FixtureOKEx.OKEX_BALANCE_URL)
             cls.web_app.update_response("get", API_BASE_URL, '/' + OKEX_SERVER_TIME, FixtureOKEx.TIMESTAMP)
 
-            cls.web_app.update_response("get", API_BASE_URL, '/' + OKEX_INSTRUMENTS_URL, FixtureOKEx.OKEX_INSTRUMENTS_URL)
-            cls.web_app.update_response("get", API_BASE_URL, '/api/spot/v3/instruments/ticker', FixtureOKEx.INSTRUMENT_TICKER)
-
-            cls.web_app.update_response("get", API_BASE_URL, '/api/spot/v3/instruments/ETH-USDT/book', FixtureOKEx.OKEX_ORDER_BOOK)
-
-            cls.web_app.update_response("get", API_BASE_URL, '/' + OKEX_BALANCE_URL, FixtureOKEx.OKEX_BALANCE_URL)
-
             # cls.web_app.update_response("POST", API_BASE_URL, '/' + OKEX_PLACE_ORDER, FixtureOKEx.ORDER_PLACE)
-
             # cls.web_app.update_response("get", OKEX_BASE_URL, f"/v1/account/accounts/{mock_account_id}/balance",
             #                             FixtureOKEx.GET_BALANCES)
 
@@ -159,8 +165,6 @@ class OkexExchangeUnitTest(unittest.TestCase):
         while True:
             now = time.time()
             next_iteration = now // 1.0 + 1
-            # fail = str(cls.market.status_dict)
-            # raise ValueError(fail)
             if cls.market.ready and cls.market_2.ready:
                 break
             else:
@@ -232,7 +236,7 @@ class OkexExchangeUnitTest(unittest.TestCase):
             EXCHANGE_ORDER_ID += 1
             self._t_nonce_mock.return_value = nonce
             resp = FixtureOKEx.ORDER_PLACE.copy()
-            resp["order_id"] = exch_order_id
+            resp["data"][0]["ordId"] = exch_order_id
             # resp = exch_order_id
             side = 'buy' if is_buy else 'sell'
             order_id = f"{side}-{trading_pair}-{nonce}"
@@ -245,24 +249,24 @@ class OkexExchangeUnitTest(unittest.TestCase):
         if MOCK_API_ENABLED:
             resp = get_resp.copy()
             # resp is the response passed by parameter
-            resp["id"] = exch_order_id
-            resp["client_oid"] = order_id
-            self.web_app.update_response("get", API_BASE_URL, '/' + OKEX_ORDER_DETAILS_URL.format(exchange_order_id=exch_order_id), resp)
+            resp["data"][0]["ordId"] = exch_order_id
+            resp["data"][0]["clOrdId"] = order_id
+            self.web_app.update_response("get", API_BASE_URL, '/' + OKEX_ORDER_DETAILS_URL.format(ordId=exch_order_id, trading_pair="ETH-USDT"), resp)
         return order_id, exch_order_id
 
     def cancel_order(self, trading_pair, order_id, exchange_order_id, get_resp):
-        global EXCHANGE_ORDER_ID
         if MOCK_API_ENABLED:
             resp = FixtureOKEx.ORDER_CANCEL.copy()
-            resp["order_id"] = exchange_order_id
-            self.web_app.update_response("post", API_BASE_URL, '/' + OKEX_ORDER_CANCEL.format(exchange_order_id=order_id),
-                                         resp)
+            resp["data"][0]["ordId"] = exchange_order_id
+            resp["data"][0]["clOrdId"] = order_id
+            self.web_app.update_response("post", API_BASE_URL, '/' + OKEX_ORDER_CANCEL,
+                                         resp, params={"ordId": exchange_order_id})
         self.market.cancel(trading_pair, order_id)
         if MOCK_API_ENABLED:
             resp = get_resp.copy()
-            resp["order_id"] = exchange_order_id
-            resp["client_oid"] = order_id
-            self.web_app.update_response("get", API_BASE_URL, '/' + OKEX_ORDER_DETAILS_URL.format(exchange_order_id=exchange_order_id), resp)
+            resp["data"][0]["ordId"] = exchange_order_id
+            resp["data"][0]["clOrdId"] = order_id
+            self.web_app.update_response("get", API_BASE_URL, '/' + OKEX_ORDER_DETAILS_URL.format(ordId=exchange_order_id, trading_pair="ETH-USDT"), resp)
 
     def test_limit_maker_rejections(self):
         if MOCK_API_ENABLED:
@@ -421,12 +425,12 @@ class OkexExchangeUnitTest(unittest.TestCase):
         self.run_parallel(asyncio.sleep(1))
         if MOCK_API_ENABLED:
             resp = FixtureOKEx.ORDERS_BATCH_CANCELLED.copy()
-            resp["ETH-USDT"] = [exch_order_id1, exch_order_id2]
+            resp["data"][0]["ordId"] = exch_order_id1
             self.web_app.update_response("post", API_BASE_URL, '/' + OKEX_BATCH_ORDER_CANCEL, resp)
 
         [cancellation_results] = self.run_parallel(self.market_2.cancel_all(5))
         for cr in cancellation_results:
-            self.assertEqual(cr.success, True)
+            self.assertEqual(cr.success, '0')
 
     def test_orders_saving_and_restoration(self):
         config_path: str = "test_config"
