@@ -82,6 +82,7 @@ class UniswapConnector(ConnectorBase):
         self._last_balance_poll_timestamp = 0
         self._last_est_gas_cost_reported = 0
         self._in_flight_orders = {}
+        self._in_flight_positions = {}  # mapping of client order ids to token ids
         self._allowances = {}
         self._status_polling_task = None
         self._auto_approve_task = None
