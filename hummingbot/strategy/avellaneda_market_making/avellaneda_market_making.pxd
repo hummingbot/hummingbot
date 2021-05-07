@@ -36,6 +36,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         object _min_spread
         object _max_spread
         object _vol_to_spread_multiplier
+        object _volatility_sensibility
         object _inventory_risk_aversion
         object _kappa
         object _gamma
