@@ -15,7 +15,7 @@ DEFAULT_FEES = [0.02, 0.04]
 
 
 RE_4_LETTERS_QUOTE = re.compile(r"^(\w{3,})(USDT|USDC|USDS|TUSD|BUSD|IDRT|BKRW|BIDR)$")
-RE_3_LETTERS_QUOTE = re.compile(r"^(\w+)(\w{3,})$")
+RE_3_LETTERS_QUOTE = re.compile(r"^(\w+)(\w{3})$")
 
 
 # Helper Functions ---
