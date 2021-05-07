@@ -30,9 +30,11 @@ from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_auth import D
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_client_wrapper import DydxPerpetualClientWrapper
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_fill_report import DydxPerpetualFillReport
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_in_flight_order import DydxPerpetualInFlightOrder
-from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_order_book_tracker import DydxPerpetualOrderBookTracker
+from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_order_book_tracker import \
+    DydxPerpetualOrderBookTracker
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_position import DydxPerpetualPosition
-from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_user_stream_tracker import DydxPerpetualUserStreamTracker
+from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_user_stream_tracker import \
+    DydxPerpetualUserStreamTracker
 
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
@@ -312,7 +314,8 @@ class DydxPerpetualDerivative(DerivativeBase):
             expiration=expiration
         )
 
-    async def execute_order(self, order_side, client_order_id, trading_pair, amount, order_type, position_action, price):
+    async def execute_order(self, order_side, client_order_id, trading_pair, amount, order_type, position_action,
+                            price):
         """
         Completes the common tasks from execute_buy and execute_sell.  Quantizes the order's amount and price, and
         validates the order against the trading rules before placing this order.
@@ -335,19 +338,25 @@ class DydxPerpetualDerivative(DerivativeBase):
             raise ValueError("MARKET orders are not supported")
 
         if amount < trading_rule.min_order_size:
-            raise ValueError(f"Order amount({str(amount)}) is less than the minimum allowable amount({str(trading_rule.min_order_size)})")
+            raise ValueError(
+                f"Order amount({str(amount)}) is less than the minimum allowable amount({str(trading_rule.min_order_size)})")
         if amount > trading_rule.max_order_size:
-            raise ValueError(f"Order amount({str(amount)}) is greater than the maximum allowable amount({str(trading_rule.max_order_size)})")
+            raise ValueError(
+                f"Order amount({str(amount)}) is greater than the maximum allowable amount({str(trading_rule.max_order_size)})")
         if amount * price < trading_rule.min_notional_size:
-            raise ValueError(f"Order notional value({str(amount*price)}) is less than the minimum allowable notional value for an order ({str(trading_rule.min_notional_size)})")
+            raise ValueError(
+                f"Order notional value({str(amount * price)}) is less than the minimum allowable notional value for an order ({str(trading_rule.min_notional_size)})")
 
         try:
             created_at: int = int(time.time())
-            self.start_tracking_order(order_side, client_order_id, order_type, created_at, None, trading_pair, price, amount, self._leverage[trading_pair], position_action.name)
+            self.start_tracking_order(order_side, client_order_id, order_type, created_at, None, trading_pair, price,
+                                      amount, self._leverage[trading_pair], position_action.name)
             expiration = created_at + 600
             limit_fee = 0.015
             try:
-                creation_response = await self.place_order(client_order_id, trading_pair, amount, order_side is TradeType.BUY, order_type, price, limit_fee, expiration)
+                creation_response = await self.place_order(client_order_id, trading_pair, amount,
+                                                           order_side is TradeType.BUY, order_type, price, limit_fee,
+                                                           expiration)
             except asyncio.TimeoutError:
                 # We timed out while placing this order. We may have successfully submitted the order, or we may have had connection
                 # issues that prevented the submission from taking place.
@@ -408,7 +417,8 @@ class DydxPerpetualDerivative(DerivativeBase):
         try:
             await self.execute_order(TradeType.BUY, order_id, trading_pair, amount, order_type, position_action, price)
             self.trigger_event(BUY_ORDER_CREATED_EVENT,
-                               BuyOrderCreatedEvent(now(), order_type, trading_pair, Decimal(amount), Decimal(price), order_id))
+                               BuyOrderCreatedEvent(now(), order_type, trading_pair, Decimal(amount), Decimal(price),
+                                                    order_id))
 
             # Issue any other events (fills) for this order that arrived while waiting for the exchange id
             tracked_order = self.in_flight_orders.get(order_id)
@@ -429,7 +439,8 @@ class DydxPerpetualDerivative(DerivativeBase):
         try:
             await self.execute_order(TradeType.SELL, order_id, trading_pair, amount, order_type, position_action, price)
             self.trigger_event(SELL_ORDER_CREATED_EVENT,
-                               SellOrderCreatedEvent(now(), order_type, trading_pair, Decimal(amount), Decimal(price), order_id))
+                               SellOrderCreatedEvent(now(), order_type, trading_pair, Decimal(amount), Decimal(price),
+                                                     order_id))
 
             # Issue any other events (fills) for this order that arrived while waiting for the exchange id
             tracked_order = self.in_flight_orders.get(order_id)
@@ -475,7 +486,8 @@ class DydxPerpetualDerivative(DerivativeBase):
                     self.trigger_event(ORDER_CANCELLED_EVENT, cancellation_event)
                     return False
                 else:
-                    raise Exception(f"order {client_order_id} does not yet exist on the exchange and could not be cancelled.")
+                    raise Exception(
+                        f"order {client_order_id} does not yet exist on the exchange and could not be cancelled.")
             else:
                 self.logger().warning(f"Unable to cancel order {exchange_order_id}: {str(e)}")
                 return False
@@ -717,7 +729,8 @@ class DydxPerpetualDerivative(DerivativeBase):
         markets_info = (await self.dydx_client.get_markets())['markets']
         self._funding_info[trading_pair] = {"indexPrice": markets_info[trading_pair]['indexPrice'],
                                             "markPrice": markets_info[trading_pair]['oraclePrice'],
-                                            "nextFundingTime": dataparse(markets_info[trading_pair]['nextFundingAt']).timestamp(),
+                                            "nextFundingTime": dataparse(
+                                                markets_info[trading_pair]['nextFundingAt']).timestamp(),
                                             "rate": markets_info[trading_pair]['nextFundingRate']}
 
     async def _update_funding_rates(self):
@@ -824,7 +837,8 @@ class DydxPerpetualDerivative(DerivativeBase):
                                                           amount,
                                                           self.get_available_balance('USD'))
                             else:
-                                self._account_positions[tracked_order.trading_pair] = DydxPerpetualPosition.from_dydx_fill(
+                                self._account_positions[
+                                    tracked_order.trading_pair] = DydxPerpetualPosition.from_dydx_fill(
                                     tracked_order,
                                     amount,
                                     price,
@@ -833,7 +847,8 @@ class DydxPerpetualDerivative(DerivativeBase):
                             self._issue_order_events(tracked_order)
                         else:
                             if len(self._orders_pending_ack) > 0:
-                                self._unclaimed_fills[exchange_order_id].add(DydxPerpetualFillReport(id, amount, price, fee_paid))
+                                self._unclaimed_fills[exchange_order_id].add(
+                                    DydxPerpetualFillReport(id, amount, price, fee_paid))
                 if 'positions' in data:
                     # this is hit when a position is closed
                     positions = data['positions']
@@ -850,9 +865,11 @@ class DydxPerpetualDerivative(DerivativeBase):
                             self.trigger_event(MARKET_FUNDING_PAYMENT_COMPLETED_EVENT_TAG,
                                                FundingPaymentCompletedEvent(timestamp=ts,
                                                                             market=self.name,
-                                                                            funding_rate=Decimal(funding_payment['rate']),
+                                                                            funding_rate=Decimal(
+                                                                                funding_payment['rate']),
                                                                             trading_pair=funding_payment['market'],
-                                                                            amount=Decimal(funding_payment['positionSize'])))
+                                                                            amount=Decimal(
+                                                                                funding_payment['positionSize'])))
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -909,13 +926,13 @@ class DydxPerpetualDerivative(DerivativeBase):
             market = markets_info[market_name]
             try:
                 self._trading_rules[market_name] = TradingRule(
-                    trading_pair = market_name,
-                    min_order_size = Decimal(market['minOrderSize']),
-                    min_price_increment = Decimal(market['tickSize']),
-                    min_base_amount_increment = Decimal(market['stepSize']),
-                    min_notional_size = Decimal(market['minOrderSize']) * Decimal(market['tickSize']),
-                    supports_limit_orders = True,
-                    supports_market_orders = True
+                    trading_pair=market_name,
+                    min_order_size=Decimal(market['minOrderSize']),
+                    min_price_increment=Decimal(market['tickSize']),
+                    min_base_amount_increment=Decimal(market['stepSize']),
+                    min_notional_size=Decimal(market['minOrderSize']) * Decimal(market['tickSize']),
+                    supports_limit_orders=True,
+                    supports_market_orders=True
                 )
                 self._margin_fractions[market_name] = {
                     "initial": Decimal(market['initialMarginFraction']),
@@ -946,7 +963,7 @@ class DydxPerpetualDerivative(DerivativeBase):
                 data = dydx_order_request["order"]
             except Exception:
                 self.logger().warning(f"Failed to fetch tracked dydx order "
-                                      f"{client_order_id }({tracked_order.exchange_order_id}) from api "
+                                      f"{client_order_id}({tracked_order.exchange_order_id}) from api "
                                       f"(code: {dydx_order_request['resultInfo']['code'] if dydx_order_request is not None else 'None'})")
 
                 # check if this error is because the api cliams to be unaware of this order. If so, and this order
@@ -994,7 +1011,6 @@ class DydxPerpetualDerivative(DerivativeBase):
                         )
             if len(data['fills']) > 0:
                 await self._update_account_positions()
-
 
         except DydxApiError as e:
             self.logger().warning(f"Unable to poll for fills for order {tracked_order.client_order_id}"
@@ -1100,14 +1116,16 @@ class DydxPerpetualDerivative(DerivativeBase):
             price: Decimal = s_decimal_NaN, **kwargs) -> str:
         tracking_nonce = get_tracking_nonce()
         client_order_id: str = str(f"buy-{trading_pair}-{tracking_nonce}")
-        safe_ensure_future(self.execute_buy(client_order_id, trading_pair, amount, order_type, kwargs["position_action"], price))
+        safe_ensure_future(
+            self.execute_buy(client_order_id, trading_pair, amount, order_type, kwargs["position_action"], price))
         return client_order_id
 
     def sell(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
              price: Decimal = s_decimal_NaN, **kwargs) -> str:
         tracking_nonce = get_tracking_nonce()
         client_order_id: str = str(f"sell-{trading_pair}-{tracking_nonce}")
-        safe_ensure_future(self.execute_sell(client_order_id, trading_pair, amount, order_type, kwargs["position_action"], price))
+        safe_ensure_future(
+            self.execute_sell(client_order_id, trading_pair, amount, order_type, kwargs["position_action"], price))
         return client_order_id
 
     def cancel(self, trading_pair: str, client_order_id: str):
