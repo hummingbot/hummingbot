@@ -12,7 +12,7 @@ EXAMPLE_PAIR = "ZRX-ETH"
 DEFAULT_FEES = [0.1, 0.1]
 
 RE_4_LETTERS_QUOTE = re.compile(r"^(\w{3,})(USDT|USDC|USDS|TUSD|BUSD|IDRT|BKRW|BIDR|BVND)$")
-RE_3_LETTERS_QUOTE = re.compile(r"^(\w+)(\w{3,})$")
+RE_3_LETTERS_QUOTE = re.compile(r"^(\w+)(\w{3})$")
 
 
 def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
