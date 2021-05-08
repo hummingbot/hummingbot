@@ -61,7 +61,7 @@ class UniswapV3Connector(UniswapConnector):
                 amount1 = event["value"]
         return token_id, amount0, amount1
 
-    def update_swap_order(self, update_result: Dict[str, any], tracked_order: UniswapInFlightOrder):
+    async def update_swap_order(self, update_result: Dict[str, any], tracked_order: UniswapInFlightOrder):
         if update_result.get("confirmed", False):
             if update_result["receipt"].get("status", 0) == 1:
                 order_id = await tracked_order.get_exchange_order_id()
@@ -176,7 +176,7 @@ class UniswapV3Connector(UniswapConnector):
                     self.logger().info(f"Update_order_status txHash not in resp: {update_result}")
                     continue
                 if tracked_order.price != 0 or tracked_order.type == "swap":
-                    self.update_swap_order(update_result, tracked_order)
+                    await self.update_swap_order(update_result, tracked_order)
                 else:
                     await self.update_lp_order(update_result, tracked_order)
 
