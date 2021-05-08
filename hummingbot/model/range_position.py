@@ -6,8 +6,6 @@ from sqlalchemy import (
     BigInteger,
     Float
 )
-# from sqlalchemy.orm import relationship
-
 from . import HummingbotBase
 
 
@@ -35,7 +33,7 @@ class RangePosition(HummingbotBase):
     last_status = Column(Text, nullable=False)
     creation_timestamp = Column(BigInteger, nullable=False)
     last_update_timestamp = Column(BigInteger, nullable=False)
-    # trade_fills = relationship("TradeFill", back_populates="order")
+
 
     def __repr__(self) -> str:
         return f"RangePosition(id={self.id}, config_file_path='{self.config_file_path}', strategy='{self.strategy}', " \
