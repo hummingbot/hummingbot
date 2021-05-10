@@ -35,9 +35,11 @@ class MarketEvent(Enum):
     BuyOrderCreated = 200
     SellOrderCreated = 201
     FundingPaymentCompleted = 202
-    RangePositionCreated = 300
-    RangePositionRemoved = 301
-    RangePositionLiquidityAdjusted = 302
+    RangePositionInitiated = 300
+    RangePositionCreated = 301
+    RangePositionRemoved = 302
+    RangePositionUpdated = 303
+    RangePositionFailure = 304
 
 
 class NewBlocksWatcherEvent(Enum):
@@ -373,9 +375,25 @@ class SellOrderCreatedEvent:
 
 
 @dataclass
+class RangePositionInitiatedEvent:
+    timestamp: float
+    hb_id: str
+    tx_hash: str
+    trading_pair: str
+    fee_tier: str
+    lower_price: Decimal
+    upper_price: Decimal
+    base_amount: Decimal
+    quote_amount: Decimal
+    status: str
+    gas_price: Decimal
+
+
+@dataclass
 class RangePositionCreatedEvent:
     timestamp: float
     hb_id: str
+    tx_hash: str
     token_id: str
     trading_pair: str
     fee_tier: str
@@ -383,6 +401,19 @@ class RangePositionCreatedEvent:
     upper_price: Decimal
     base_amount: Decimal
     quote_amount: Decimal
+    status: str
+    gas_price: Decimal
+
+
+@dataclass
+class RangePositionUpdatedEvent:
+    timestamp: float
+    hb_id: str
+    tx_hash: str
+    token_id: str
+    base_amount: Decimal
+    quote_amount: Decimal
+    status: str
 
 
 @dataclass
@@ -393,7 +424,6 @@ class RangePositionRemovedEvent:
 
 
 @dataclass
-class RangePositionLiquidityAdjustedEvent:
+class RangePositionFailureEvent:
     timestamp: float
     hb_id: str
-    token_id: Optional[str] = None
