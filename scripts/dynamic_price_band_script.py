@@ -16,14 +16,14 @@ class DynamicPriceBandScript(ScriptBase):
     band_lower_bound_pct = Decimal("0.03")
     # Let's sample mid prices once every 10 seconds
     avg_interval = 10
-    # Let's average the last 10 samples
+    # Let's average the last 5 samples
     avg_length = 5
 
     def __init__(self):
         super().__init__()
 
     def on_tick(self):
-        avg_mid_price = self.avg_mid_price(self.avg_length, self.avg_interval)
+        avg_mid_price = self.avg_mid_price(self.avg_interval, self.avg_length)
         # The avg can be None when the bot just started as there are not enough mid prices to sample values from.
         if avg_mid_price is None:
             return
