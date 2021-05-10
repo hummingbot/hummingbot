@@ -155,6 +155,14 @@ class UniswapV3ConnectorUnitTest(unittest.TestCase):
             print(pos_cre_evt[0])
             self.assertEqual(pos_cre_evt[0].hb_id, hb_id)
             self.assertEqual(Fixture.ADD_POSITION["txHash"], pos_cre_evt[0].tx_hash)
+            # Testing tracking market state and restoration
+            tracking_state = self.connector.tracking_states
+            self.assertTrue("orders" in tracking_state)
+            self.assertTrue("positions" in tracking_state)
+            self.connector._in_flight_positions.clear()
+            self.connector.restore_tracking_states(tracking_state)
+            self.assertGreater(len(self.connector._in_flight_positions), 0)
+            self.assertEqual(list(self.connector._in_flight_positions.values())[0].hb_id, hb_id)
         finally:
             pass
             recorder.stop()
