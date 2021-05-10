@@ -1,10 +1,11 @@
 import asyncio
 import json
 from decimal import Decimal
-from typing import Dict
-from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from typing import Dict, List
+
 from hummingbot.connector.connector.uniswap.uniswap_connector import UniswapConnector
 from hummingbot.connector.connector.uniswap.uniswap_in_flight_order import UniswapInFlightOrder
+from hummingbot.connector.connector.uniswap_v3.uniswap_v3_in_flight_position import UniswapV3InFlightPosition, UniswapV3PositionStatus
 from hummingbot.core.event.events import (
     MarketEvent,
     BuyOrderCreatedEvent,
@@ -13,15 +14,17 @@ from hummingbot.core.event.events import (
     SellOrderCompletedEvent,
     MarketOrderFailureEvent,
     OrderFilledEvent,
+    RangePositionInitiatedEvent,
     RangePositionCreatedEvent,
     RangePositionRemovedEvent,
-    # RangePositionLiquidityAdjustedEvent,
+    RangePositionFailureEvent,
+    RangePositionUpdatedEvent,
     OrderType,
     TradeType,
     TradeFee
 )
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-
 
 s_logger = None
 s_decimal_0 = Decimal("0")
@@ -32,6 +35,21 @@ class UniswapV3Connector(UniswapConnector):
     """
     UniswapV3Connector extends UniswapConnector to provide v3 specific functionality, e.g. ranged positions
     """
+
+    def __init__(self,
+                 trading_pairs: List[str],
+                 wallet_private_key: str,
+                 ethereum_rpc_url: str,
+                 trading_required: bool = True
+                 ):
+        """
+        :param trading_pairs: a list of trading pairs
+        :param wallet_private_key: a private key for eth wallet
+        :param ethereum_rpc_url: this is usually infura RPC URL
+        :param trading_required: Whether actual trading is needed.
+        """
+        super().__init__(trading_pairs, wallet_private_key, ethereum_rpc_url, trading_required)
+        self._in_flight_positions: Dict[str, UniswapV3InFlightPosition] = {}
 
     @property
     def name(self) -> str:
@@ -44,11 +62,32 @@ class UniswapV3Connector(UniswapConnector):
         return Decimal("1e-6")
 
     def restore_tracking_states(self, saved_states: Dict[str, any]):
-        self.logger().info(f"Restoring existing {len(saved_states)} orders to inflight tracker.")
+        self.logger().info("Restoring existing orders and positions to inflight tracker.")
         self._in_flight_orders.update({
-            key: UniswapInFlightOrder.from_json(value)
-            for key, value in saved_states.items()
+            key: UniswapV3InFlightPosition.from_json(value)
+            for key, value in saved_states["orders"].items()
         })
+        self._in_flight_positions.update({
+            key: UniswapV3InFlightPosition.from_json(value)
+            for key, value in saved_states["positions"].items()
+        })
+
+    @property
+    def tracking_states(self) -> Dict[str, any]:
+        """
+        :return active in-flight orders and in-flight positions in json format, is used to save in sqlite db.
+        """
+        orders = {
+            key: value.to_json()
+            for key, value in self._in_flight_orders.items()
+            if not value.is_done
+        }
+        positions = {
+            key: value.to_json()
+            for key, value in self._in_flight_positions.items()
+            if not value.last_status.is_done()
+        }
+        return {"orders": orders, "positions": positions}
 
     def parse_liquidity_events(self, events):
         token_id = amount0 = amount1 = 0
@@ -112,73 +151,111 @@ class UniswapV3Connector(UniswapConnector):
                                    ))
                 self.stop_tracking_order(tracked_order.client_order_id)
 
-    async def update_lp_order(self, update_result: Dict[str, any], tracked_order: UniswapInFlightOrder):
+    async def update_lp_order(self, update_result: Dict[str, any], tracked_pos: UniswapV3InFlightPosition):
         """
         Unlike swap orders, lp orders only stop tracking when a remove position is detected.
         """
         if update_result.get("confirmed", False):
             if update_result["receipt"].get("status", 0) == 1:
-                transaction_results = await self._api_request("get",
+                transaction_results = await self._api_request("post",
                                                               "eth/uniswap/v3/result",
                                                               {"logs": json.dumps(update_result["receipt"]["logs"])})
                 for result in transaction_results["info"]:
-                    if result["name"] == "IncreaseLiquidity":
+                    if result["name"] == "IncreaseLiquidity" and tracked_pos.last_status == UniswapV3PositionStatus.PENDING_CREATE:
                         token_id, amount0, amount1 = self.parse_liquidity_events(result["events"])
-                        self._in_flight_positions[tracked_order.client_order_id] = token_id
-                        tracked_order.update_exchange_order_id(token_id)
+                        tracked_pos.token_id = token_id
+                        tracked_pos.base_amount = amount0
+                        tracked_pos.quote_amount = amount1
+                        tracked_pos.last_status = UniswapV3PositionStatus.OPEN
                         self.logger().info(f"Liquidity added for tokenID - {token_id}.")
+                        self.trigger_event(MarketEvent.RangePositionUpdated,
+                                           RangePositionUpdatedEvent(self.current_timestamp,
+                                                                     tracked_pos.hb_id,
+                                                                     tracked_pos.last_tx_hash,
+                                                                     tracked_pos.token_id,
+                                                                     tracked_pos.base_amount,
+                                                                     tracked_pos.quote_amount,
+                                                                     tracked_pos.last_status.name
+                                                                     ))
                         self.trigger_event(MarketEvent.RangePositionCreated,
                                            RangePositionCreatedEvent(self.current_timestamp,
-                                                                     tracked_order.client_order_id,
-                                                                     token_id,
-                                                                     tracked_order.base_asset + "-" + tracked_order.quote_asset,
-                                                                     tracked_order.fee_tier,
-                                                                     tracked_order.lower_price,
-                                                                     tracked_order.upper_price,
-                                                                     amount0,
-                                                                     amount1))
-                    elif result["name"] == "DecreaseLiquidity":
+                                                                     tracked_pos.hb_id,
+                                                                     tracked_pos.last_tx_hash,
+                                                                     tracked_pos.token_id,
+                                                                     tracked_pos.trading_pair,
+                                                                     tracked_pos.fee_tier,
+                                                                     tracked_pos.lower_price,
+                                                                     tracked_pos.upper_price,
+                                                                     tracked_pos.base_amount,
+                                                                     tracked_pos.quote_amount,
+                                                                     tracked_pos.last_status.name,
+                                                                     tracked_pos.gas_price
+                                                                     ))
+                    elif result["name"] == "DecreaseLiquidity" and tracked_pos.last_status == UniswapV3PositionStatus.PENDING_REMOVE:
                         token_id, amount0, amount1 = self.parse_liquidity_events(result["events"])
-                        tracked_order.update_exchange_order_id(token_id)
+                        tracked_pos.token_id = token_id
+                        tracked_pos.last_status = UniswapV3PositionStatus.REMOVED
                         self.logger().info(f"Liquidity decreased for tokenID - {token_id}.")
+                        self.trigger_event(MarketEvent.RangePositionUpdated,
+                                           RangePositionUpdatedEvent(self.current_timestamp,
+                                                                     tracked_pos.hb_id,
+                                                                     tracked_pos.last_tx_hash,
+                                                                     tracked_pos.token_id,
+                                                                     tracked_pos.base_amount,
+                                                                     tracked_pos.quote_amount,
+                                                                     tracked_pos.last_status.name
+                                                                     ))
                         self.trigger_event(MarketEvent.RangePositionRemoved,
-                                           RangePositionRemovedEvent(self.current_timestamp, tracked_order.client_order_id, token_id))
+                                           RangePositionRemovedEvent(self.current_timestamp, tracked_pos.hb_id,
+                                                                     tracked_pos.token_id))
+                        self.stop_tracking_position(tracked_pos.hb_id)
                     elif result["name"] == "Collect":
-                        token_id, amount0, amount1 = self.parse_liquidity_events(result["events"])
-                        tracked_order.update_exchange_order_id(token_id)
-                        self.logger().info(f"Liquidity removed for tokenID - {token_id}.")
+                        pass
+                        # not sure how to handle this at the moment
+                        # token_id, amount0, amount1 = self.parse_liquidity_events(result["events"])
+                        # tracked_order.update_exchange_order_id(token_id)
+                        # self.logger().info(f"Liquidity removed for tokenID - {token_id}.")
             else:
                 self.logger().info(
-                    f"The {tracked_order.type} order {tracked_order.client_order_id} has failed according to order status API. ")
-                self.trigger_event(MarketEvent.RangePositionRemoved,
-                                   RangePositionRemovedEvent(self.current_timestamp, tracked_order.client_order_id, 0))
-            self.stop_tracking_order(tracked_order.client_order_id)
+                    f"Error updating range position, token_id: {tracked_pos.token_id}, hb_id: {tracked_pos.hb_id}"
+                )
+                self.trigger_event(MarketEvent.RangePositionFailure,
+                                   RangePositionFailureEvent(self.current_timestamp, tracked_pos.hb_id))
+                self.stop_tracking_position(tracked_pos.hb_id)
 
     async def _update_order_status(self):
         """
         Calls REST API to get status update for each in-flight order.
         """
+        tasks, tracked_orders, tracked_positions = [], [], []
         if len(self._in_flight_orders) > 0:
             tracked_orders = list(self._in_flight_orders.values())
-
-            tasks = []
             for tracked_order in tracked_orders:
                 order_id = await tracked_order.get_exchange_order_id()
                 tasks.append(self._api_request("post",
                                                "eth/poll",
                                                {"txHash": order_id}))
-            update_results = await safe_gather(*tasks, return_exceptions=True)
-            for update_result, tracked_order in zip(update_results, tracked_orders):
-                self.logger().info(f"Polling for order status updates of {len(tasks)} orders.")
-                if isinstance(update_result, Exception):
-                    raise update_result
-                if "txHash" not in update_result:
-                    self.logger().info(f"Update_order_status txHash not in resp: {update_result}")
-                    continue
-                if tracked_order.price != 0 or tracked_order.type == "swap":
-                    await self.update_swap_order(update_result, tracked_order)
-                else:
-                    await self.update_lp_order(update_result, tracked_order)
+        if len(self._in_flight_positions) > 0:
+            tracked_positions = list(self._in_flight_positions.values())
+            for tracked_pos in tracked_positions:
+                last_hash = await tracked_pos.get_last_tx_hash()
+                tasks.append(self._api_request("post",
+                                               "eth/poll",
+                                               {"txHash": last_hash}))
+        if not tasks:
+            return
+        update_results = await safe_gather(*tasks, return_exceptions=True)
+        for update_result, tracked_item in zip(update_results, tracked_orders + tracked_positions):
+            self.logger().info(f"Polling for order status updates of {len(tasks)} orders.")
+            if isinstance(update_result, Exception):
+                raise update_result
+            if "txHash" not in update_result:
+                self.logger().info(f"Update_order_status txHash not in resp: {update_result}")
+                continue
+            if isinstance(tracked_item, UniswapInFlightOrder):
+                await self.update_swap_order(update_result, tracked_item)
+            else:
+                await self.update_lp_order(update_result, tracked_item)
 
     def add_position(self,
                      trading_pair: str,
@@ -191,6 +268,35 @@ class UniswapV3Connector(UniswapConnector):
         safe_ensure_future(self._add_position(hb_id, trading_pair, fee_tier, base_amount, quote_amount,
                                               lower_price, upper_price))
         return hb_id
+
+    def start_tracking_position(self,
+                                hb_id: str,
+                                trading_pair: str,
+                                fee_tier: Decimal,
+                                base_amount: Decimal,
+                                quote_amount: Decimal,
+                                lower_price: Decimal,
+                                upper_price: Decimal):
+        """
+        Starts tracking a range position by simply adding it into _in_flight_positions dictionary.
+        """
+        self._in_flight_positions[hb_id] = UniswapV3InFlightPosition(
+            hb_id=hb_id,
+            token_id=None,
+            trading_pair=trading_pair,
+            fee_tier=fee_tier,
+            base_amount=base_amount,
+            quote_amount=quote_amount,
+            lower_price=lower_price,
+            upper_price=upper_price,
+        )
+
+    def stop_tracking_position(self, hb_id: str):
+        """
+        Stops tracking a position by simply removing it from _in_flight_positions dictionary.
+        """
+        if hb_id in self._in_flight_positions:
+            del self._in_flight_positions[hb_id]
 
     async def _add_position(self,
                             hb_id: str,
@@ -222,71 +328,76 @@ class UniswapV3Connector(UniswapConnector):
                       "amount0": str(base_amount),
                       "amount1": str(quote_amount),
                       }
+        self.start_tracking_position(hb_id, trading_pair, fee_tier, base_amount, quote_amount,
+                                     lower_price, upper_price)
         try:
             order_result = await self._api_request("post", "eth/uniswap/v3/add-position", api_params)
-            hash = order_result.get("hash")
-            gas_price = order_result.get("gasPrice")
-            price = 0
-            trade_type = TradeType.RANGE
-            self.start_tracking_order(hb_id, None, trading_pair, trade_type, price, base_amount, gas_price)
-            tracked_order = self._in_flight_orders.get(hb_id)
-            if tracked_order is not None:
-                self.logger().info(f"Created range position for {trading_pair}, hb_id: {hb_id}, hash: {hash} "
-                                   f"amount: {base_amount} ({base}), "
-                                   f"range: {lower_price} - {upper_price}")
-                tracked_order.update_price_range(lower_price, upper_price)
-                tracked_order.fee_tier = fee_tier
-                tracked_order.type = "lp"
-                tracked_order.update_exchange_order_id(hash)
-                tracked_order.gas_price = gas_price
-            else:
-                self.stop_tracking_order(hb_id)
-                self.trigger_event(MarketEvent.OrderFailure,
-                                   MarketOrderFailureEvent(self.current_timestamp, hb_id, OrderType.LIMIT))
+            tracked_pos = self._in_flight_positions[hb_id]
+            tx_hash = order_result.get("txHash")
+            tracked_pos.update_last_tx_hash(tx_hash)
+            tracked_pos.gas_price = order_result.get("gasPrice")
+            tracked_pos.last_status = UniswapV3PositionStatus.PENDING_CREATE
+            self.logger().info(f"Created range position for {trading_pair}, hb_id: {hb_id}, tx_hash: {tx_hash} "
+                               f"amount: {base_amount} ({base}), "
+                               f"range: {lower_price} - {upper_price}")
+            self.trigger_event(
+                MarketEvent.RangePositionInitiated,
+                RangePositionInitiatedEvent(
+                    timestamp=self.current_timestamp,
+                    hb_id=hb_id,
+                    tx_hash=tx_hash,
+                    trading_pair=trading_pair,
+                    fee_tier=fee_tier,
+                    lower_price=lower_price,
+                    upper_price=upper_price,
+                    base_amount=base_amount,
+                    quote_amount=quote_amount,
+                    gas_price=tracked_pos.gas_price,
+                    status=UniswapV3PositionStatus.PENDING_CREATE.name,
+                )
+            )
         except Exception as e:
             self.stop_tracking_order(hb_id)
             self.logger().network(
-                f"Error submitting range position to Uniswap for {trading_pair} "
+                f"Error submitting range position to Uniswap V3 for {trading_pair} "
                 f"hb_id: {hb_id},"
                 f"amount: {base_amount} ({base}) {quote_amount}) ({quote}), "
                 f"range: {lower_price} - {upper_price}",
                 exc_info=True,
                 app_warning_msg=str(e)
             )
-            self.trigger_event(MarketEvent.OrderFailure,
-                               MarketOrderFailureEvent(self.current_timestamp, hb_id, OrderType.LIMIT))
+            self.trigger_event(MarketEvent.RangePositionFailure,
+                               RangePositionFailureEvent(self.current_timestamp, hb_id))
 
-    def remove_position(self, token_id: str):
-        hb_id = f"{get_tracking_nonce()}"
+    def remove_position(self, hb_id: str, token_id: str):
         safe_ensure_future(self._remove_position(hb_id, token_id))
         # get the inflight order that has this token_id
         return hb_id
 
     async def _remove_position(self, hb_id: str, token_id: str):
+        tracked_pos = self._in_flight_positions.get(hb_id)
+        await tracked_pos.get_last_tx_hash()
+        tracked_pos.last_status = UniswapV3PositionStatus.PENDING_REMOVE
+        tracked_pos.update_last_tx_hash(None)
         try:
             result = await self._api_request("post", "eth/uniswap/v3/remove-position", {"tokenId": token_id})
-            hash = result.get("hash")
-            trade_type = TradeType.RANGE
-            self.start_tracking_order(hb_id, None, "", trade_type, 0, 0, 0)  # we basically just want to know the status of the removal
-            tracked_order = self._in_flight_orders.get(hb_id)
-            if tracked_order is not None:
-                self.logger().info(f"Initiated removal of position with ID - {token_id}.")
-                tracked_order.type = "lp"
-                tracked_order.update_exchange_order_id(hash)
-            else:
-                self.c_stop_tracking_order(hb_id)
-                self.trigger_event(MarketEvent.OrderFailure,
-                                   MarketOrderFailureEvent(self.current_timestamp, hb_id, OrderType.LIMIT))
+            hash = result.get("txHash")
+            self.logger().info(f"Initiated removal of position with ID - {token_id}.")
+            tracked_pos.update_last_tx_hash(hash)
+            self.trigger_event(MarketEvent.RangePositionUpdated,
+                               RangePositionUpdatedEvent(self.current_timestamp, tracked_pos.hb_id,
+                                                         tracked_pos.last_tx_hash, tracked_pos.token_id,
+                                                         tracked_pos.base_amount, tracked_pos.quote_amount,
+                                                         tracked_pos.last_status.name))
         except Exception as e:
-            self.stop_tracking_order(hb_id)
+            self.stop_tracking_position(hb_id)
             self.logger().network(
-                f"Error removing range position to Uniswap with ID - {token_id} "
-                f"hb_id: {hb_id}",
+                f"Error removing range position, token_id: {token_id}, hb_id: {hb_id}",
                 exc_info=True,
                 app_warning_msg=str(e)
             )
-            self.trigger_event(MarketEvent.OrderFailure,
-                               MarketOrderFailureEvent(self.current_timestamp, hb_id, OrderType.LIMIT))
+            self.trigger_event(MarketEvent.RangePositionFailure,
+                               RangePositionFailureEvent(self.current_timestamp, hb_id))
 
     def replace_position(self,
                          token_id: str,
@@ -323,6 +434,14 @@ class UniswapV3Connector(UniswapConnector):
         lower_price = self.quantize_order_price(trading_pair, lower_price)
         upper_price = self.quantize_order_price(trading_pair, upper_price)
         base, quote = trading_pair.split("-")
+        tracked_pos = self._in_flight_positions.get(hb_id)
+        await tracked_pos.get_last_tx_hash()
+        tracked_pos.last_status = UniswapV3PositionStatus.PENDING_REMOVE
+        tracked_pos.update_last_tx_hash(None)
+
+        new_hb_id = f"{trading_pair}-{get_tracking_nonce()}"
+        self.start_tracking_position(new_hb_id, trading_pair, fee_tier, base_amount, quote_amount,
+                                     lower_price, upper_price)
         try:
             order_result = await self._api_request("post", "eth/uniswap/v3/replace-position",
                                                    {"tokenId": token_id,
@@ -334,23 +453,11 @@ class UniswapV3Connector(UniswapConnector):
                                                     "amount0": str(base_amount),
                                                     "amount1": str(quote_amount),
                                                     })
-            hash = order_result.get("txHash")
-            gas_price = order_result.get("gasPrice")
-            price = 0
-            trade_type = TradeType.RANGE
-            self.start_tracking_order(hb_id, None, trading_pair, trade_type, price, base_amount, gas_price)
-            tracked_order = self._in_flight_orders.get(hb_id)
-            if tracked_order is not None:
-                self.logger().info(f"Initiated replacement of position with ID - {token_id}.")
-                tracked_order.update_price_range(lower_price, upper_price)
-                tracked_order.fee_tier = fee_tier
-                tracked_order.type = "lp"
-                tracked_order.update_exchange_order_id(hash)
-                tracked_order.gas_price = gas_price
-            else:
-                self.c_stop_tracking_order(hb_id)
-                self.trigger_event(MarketEvent.OrderFailure,
-                                   MarketOrderFailureEvent(self.current_timestamp, hb_id, OrderType.LIMIT))
+            tracked_pos = self._in_flight_positions.get(new_hb_id)
+            tracked_pos.token_id = order_result.get("tokenId")
+            tracked_pos.gas_price = Decimal(str(order_result.get("gasPrice")))
+            tracked_pos.update_last_tx_hash(order_result.get("txHash"))
+            self.logger().info(f"Initiated replacement of position with ID - {token_id}.")
         except Exception as e:
             self.stop_tracking_order(hb_id)
             self.logger().network(
@@ -359,8 +466,8 @@ class UniswapV3Connector(UniswapConnector):
                 exc_info=True,
                 app_warning_msg=str(e)
             )
-            self.trigger_event(MarketEvent.OrderFailure,
-                               MarketOrderFailureEvent(self.current_timestamp, hb_id, OrderType.LIMIT))
+            self.trigger_event(MarketEvent.RangePositionFailure,
+                               RangePositionFailureEvent(self.current_timestamp, hb_id))
 
     async def get_position(self, token_id: str):
         result = await self._api_request("post", "eth/uniswap/v3/position", {"tokenId": token_id})
