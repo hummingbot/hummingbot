@@ -22,7 +22,7 @@ class UniswapV3PositionStatus(Enum):
         return self in (self.REMOVED, self.REJECTED, self.FAILED, self.EXPIRED)
 
     def is_pending(self):
-        return self in (self.PENDING_CREATE, self.NEW, self.PENDING_REMOVED)
+        return self in (self.PENDING_CREATE, self.PENDING_REMOVE)
 
     def is_active(self):
         return self == self.OPEN
