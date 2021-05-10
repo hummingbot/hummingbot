@@ -91,7 +91,9 @@ class HummingWebApp:
         :param request: web request
         :return: response in json format, or string, or response itself
         """
-        method, req_path = request.method, request.raw_path
+        # Add a little sleep to simulate real API requests and also to make sure events are triggers before wait_for
+        # await asyncio.sleep(0.01)
+        method, req_path = request.method, request.path
         req_path = req_path[1:]
         host = req_path[0:req_path.find("/")]
         path = req_path[req_path.find("/"):]
