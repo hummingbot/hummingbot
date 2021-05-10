@@ -839,32 +839,27 @@ cdef class KucoinExchange(ExchangeBase):
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         path_url = "/api/v1/orders"
         cancellation_results = []
+        tracked_orders = {order.exchange_order_id: order for order in self._in_flight_orders.copy().values()}
         try:
-            tracked_orders = self._in_flight_orders.copy()
-
             cancellation_tasks = []
-            for order in tracked_orders:
+            for order in tracked_orders.values():
                 oid = order.exchange_order_id
-                api_params = {
-                    "orderId": oid
-                }
-                cancel_task = await self._api_request(
+                cancellation_tasks.append(self._api_request(
                     method="delete",
                     path_url=f"{path_url}/{oid}",
-                    params=api_params,
                     is_auth_required=True,
-                )
-                cancellation_tasks.append(cancel_task)
-
-            responses = await safe_gather(*cancellation_tasks, return_exceptions=True)
+                ))
+            responses = await safe_gather(*cancellation_tasks)
 
             for response in responses:
-                if isinstance(response, Exception):
-                    raise ValueError(f"Failed to cancel order - Reason: {response}")
-
-                oid = responses["data"]["orderId"]
-                tracked_order = self._in_flight_orders.get(oid)
+                if isinstance(response, Exception) or "data" not in response:
+                    self.logger().error(f"Failed to cancel order. Response: {response}",
+                                        exc_info=True,
+                                        app_warning_msg=f"Failed to cancel all orders on Kucoin. Check API key and network connection.")
+                    continue
+                oid = response["data"]["cancelledOrderIds"][0]
                 cancellation_results.append(CancellationResult(oid, True))
+                tracked_order = tracked_orders.get(oid)
                 if tracked_order is None:
                     self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                          OrderCancelledEvent(self._current_timestamp,
