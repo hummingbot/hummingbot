@@ -63,14 +63,16 @@ class UniswapV3Connector(UniswapConnector):
 
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         self.logger().info("Restoring existing orders and positions to inflight tracker.")
-        self._in_flight_orders.update({
-            key: UniswapV3InFlightPosition.from_json(value)
-            for key, value in saved_states["orders"].items()
-        })
-        self._in_flight_positions.update({
-            key: UniswapV3InFlightPosition.from_json(value)
-            for key, value in saved_states["positions"].items()
-        })
+        if saved_states.get("orders", False):
+            self._in_flight_orders.update({
+                key: UniswapV3InFlightPosition.from_json(value)
+                for key, value in saved_states["orders"].items()
+            })
+        if saved_states.get("positions", False):
+            self._in_flight_positions.update({
+                key: UniswapV3InFlightPosition.from_json(value)
+                for key, value in saved_states["positions"].items()
+            })
 
     @property
     def tracking_states(self) -> Dict[str, any]:
@@ -222,6 +224,7 @@ class UniswapV3Connector(UniswapConnector):
                 self.trigger_event(MarketEvent.RangePositionFailure,
                                    RangePositionFailureEvent(self.current_timestamp, tracked_pos.hb_id))
                 self.stop_tracking_position(tracked_pos.hb_id)
+                tracked_pos.last_status = UniswapV3PositionStatus.FAILED
 
     async def _update_order_status(self):
         """
@@ -333,7 +336,7 @@ class UniswapV3Connector(UniswapConnector):
         try:
             order_result = await self._api_request("post", "eth/uniswap/v3/add-position", api_params)
             tracked_pos = self._in_flight_positions[hb_id]
-            tx_hash = order_result.get("txHash")
+            tx_hash = order_result.get("hash")
             tracked_pos.update_last_tx_hash(tx_hash)
             tracked_pos.gas_price = order_result.get("gasPrice")
             tracked_pos.last_status = UniswapV3PositionStatus.PENDING_CREATE
@@ -381,7 +384,7 @@ class UniswapV3Connector(UniswapConnector):
         tracked_pos.update_last_tx_hash(None)
         try:
             result = await self._api_request("post", "eth/uniswap/v3/remove-position", {"tokenId": token_id})
-            hash = result.get("txHash")
+            hash = result.get("hash")
             self.logger().info(f"Initiated removal of position with ID - {token_id}.")
             tracked_pos.update_last_tx_hash(hash)
             self.trigger_event(MarketEvent.RangePositionUpdated,
@@ -456,7 +459,7 @@ class UniswapV3Connector(UniswapConnector):
             tracked_pos = self._in_flight_positions.get(new_hb_id)
             tracked_pos.token_id = order_result.get("tokenId")
             tracked_pos.gas_price = Decimal(str(order_result.get("gasPrice")))
-            tracked_pos.update_last_tx_hash(order_result.get("txHash"))
+            tracked_pos.update_last_tx_hash(order_result.get("hash"))
             self.logger().info(f"Initiated replacement of position with ID - {token_id}.")
         except Exception as e:
             self.stop_tracking_order(hb_id)
@@ -572,7 +575,7 @@ class UniswapV3Connector(UniswapConnector):
                       }
         try:
             order_result = await self._api_request("post", "eth/uniswap/v3/trade", api_params)
-            hash = order_result.get("txHash")
+            hash = order_result.get("hash")
             gas_price = order_result.get("gasPrice")
             gas_limit = order_result.get("gasLimit")
             gas_cost = order_result.get("gasCost")
