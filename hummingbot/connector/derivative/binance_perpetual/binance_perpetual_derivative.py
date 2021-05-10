@@ -934,22 +934,23 @@ class BinancePerpetualDerivative(DerivativeBase):
         for pair in self._trading_pairs:
             funding_payment_tasks.append(self.request(path="/fapi/v1/income",
                                                       params={"symbol": convert_to_exchange_trading_pair(pair), "incomeType": "FUNDING_FEE", "limit": len(self._account_positions)},
-                                                      method=MethodType.POST,
+                                                      method=MethodType.GET,
                                                       add_timestamp=True,
                                                       is_signed=True))
-        funding_payments = await safe_gather(*funding_payment_tasks, return_exceptions=True)
-        for funding_payment in funding_payments:
-            payment = Decimal(funding_payment["income"])
-            action = "paid" if payment < 0 else "received"
-            trading_pair = convert_to_exchange_trading_pair(funding_payment["symbol"])
-            if payment != Decimal("0"):
-                self.logger().info(f"Funding payment of {payment} {action} on {trading_pair} market.")
-                self.trigger_event(self.MARKET_FUNDING_PAYMENT_COMPLETED_EVENT_TAG,
-                                   FundingPaymentCompletedEvent(timestamp=funding_payment["time"],
-                                                                market=self.name,
-                                                                funding_rate=self._funding_info[trading_pair]["rate"],
-                                                                trading_pair=trading_pair,
-                                                                amount=payment))
+        funding_payment_results = await safe_gather(*funding_payment_tasks, return_exceptions=True)
+        for funding_payments in funding_payment_results:
+            for funding_payment in funding_payments:
+                payment = Decimal(funding_payment["income"])
+                action = "paid" if payment < 0 else "received"
+                trading_pair = convert_from_exchange_trading_pair(funding_payment["symbol"])
+                if payment != Decimal("0"):
+                    self.logger().info(f"Funding payment of {payment} {action} on {trading_pair} market.")
+                    self.trigger_event(self.MARKET_FUNDING_PAYMENT_COMPLETED_EVENT_TAG,
+                                       FundingPaymentCompletedEvent(timestamp=funding_payment["time"],
+                                                                    market=self.name,
+                                                                    funding_rate=self._funding_info[trading_pair]["rate"],
+                                                                    trading_pair=trading_pair,
+                                                                    amount=payment))
 
     def get_funding_info(self, trading_pair):
         return self._funding_info[trading_pair]
