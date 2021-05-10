@@ -70,7 +70,7 @@ class SpreadsAdjustedOnVolatility(ScriptBase):
         self.median_long_volatility = self.median_price_volatility(self.interval, self.long_period)
 
         # If the bot just got started, we'll not have these numbers yet as there is not enough mid_price sample size.
-        # We'll start to have these numbers after interval * long_term_period (150 seconds in this example).
+        # We'll start to have these numbers after interval * long_term_period.
         if self.avg_short_volatility is None or self.median_long_volatility is None:
             return
 
