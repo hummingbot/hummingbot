@@ -21,7 +21,6 @@ from hummingbot.core.event.events import (
     MarketEvent,
     RangePositionCreatedEvent,
     RangePositionRemovedEvent,
-    RangePositionLiquidityAdjustedEvent,
 )
 from hummingbot.model.sql_connection_manager import (
     SQLConnectionManager,
@@ -41,11 +40,11 @@ from test.integration.humming_web_app import HummingWebApp
 from unittest import mock
 from decimal import Decimal
 
-
+logging.basicConfig(level=METRICS_LOG_LEVEL)
 global_config_map['gateway_api_host'].value = "localhost"
 global_config_map['gateway_api_port'].value = "5000"
 logging.basicConfig(level=METRICS_LOG_LEVEL)
-API_MOCK_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
+API_MOCK_ENABLED = True  # conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
 WALLET_KEY = "XXX" if API_MOCK_ENABLED else conf.wallet_private_key
 base_api_url = "localhost"
 rpc_url = global_config_map["ethereum_rpc_url"].value
@@ -113,7 +112,7 @@ class UniswapV3ConnectorUnitTest(unittest.TestCase):
         self.db_path: str = realpath(join(__file__, "../connector_test.sqlite"))
         try:
             os.unlink(self.db_path)
-        except FileNotFoundError:
+        except Exception:
             pass
         self.event_logger = EventLogger()
         for event_tag in self.events:
@@ -124,14 +123,18 @@ class UniswapV3ConnectorUnitTest(unittest.TestCase):
             self.connector.remove_listener(event_tag, self.event_logger)
         self.event_logger = None
 
-    async def run_parallel_async(self, *tasks):
+    @classmethod
+    async def run_parallel_async(cls, *tasks):
         future: asyncio.Future = safe_ensure_future(safe_gather(*tasks))
         while not future.done():
             now = time.time()
             next_iteration = now // 1.0 + 1
-            await self._clock.run_til(next_iteration)
+            await cls._clock.run_til(next_iteration)
             await asyncio.sleep(1.0)
         return future.result()
+
+    def run_parallel(self, task):
+        return self.ev_loop.run_until_complete(self.run_parallel_async(task))
 
     def test_add_position(self):
         sql = SQLConnectionManager(SQLConnectionType.TRADE_FILLS, db_path=self.db_path)
@@ -141,13 +144,17 @@ class UniswapV3ConnectorUnitTest(unittest.TestCase):
         recorder.start()
         try:
             if API_MOCK_ENABLED:
-                self.web_app.update_response("post", base_api_url, "/uniswap/v3/add-position", Fixture.ADD_POSITION)
-            hb_id = self.connector.add_position("HBOT-ETH", Decimal("0.2"), Decimal("100"), Decimal("200"),
+                self.web_app.update_response("post", base_api_url, "/eth/uniswap/v3/add-position", Fixture.ADD_POSITION)
+                self.web_app.update_response("post", base_api_url, "/eth/poll", Fixture.ETH_POLL_LP_ORDER)
+                self.web_app.update_response("post", base_api_url, "/eth/uniswap/v3/result",
+                                             Fixture.ETH_RESULT_LP_ORDER)
+            hb_id = self.connector.add_position("HBOT-ETH", Decimal("0.1"), Decimal("100"), Decimal("200"),
                                                 Decimal("50"), Decimal("60"))
-            pos_cre_evt = self.ev_loop.run_until_complete(self.event_logger.wait_for(RangePositionCreatedEvent))
-            print(pos_cre_evt)
-            self.assertEqual(pos_cre_evt.hb_id, hb_id)
-            self.assertIsNotNone(pos_cre_evt.token_id)
+            pos_cre_evt = self.run_parallel(self.event_logger.wait_for(RangePositionCreatedEvent))
+            self.run_parallel(asyncio.sleep(0.1))
+            print(pos_cre_evt[0])
+            self.assertEqual(pos_cre_evt[0].hb_id, hb_id)
+            self.assertEqual(Fixture.ADD_POSITION["txHash"], pos_cre_evt[0].tx_hash)
         finally:
             pass
             recorder.stop()
@@ -155,9 +162,20 @@ class UniswapV3ConnectorUnitTest(unittest.TestCase):
 
     def test_remove_position(self):
         if API_MOCK_ENABLED:
-            self.web_app.update_response("post", base_api_url, "/uniswap/v3/remove-position", Fixture.REMOVE_POSITION)
-        self.connector.remove_position("dummy", "dummy_token_id")
-        evt = self.ev_loop.run_until_complete(self.event_logger.wait_for(RangePositionRemovedEvent))
+            self.web_app.update_response("post", base_api_url, "/eth/uniswap/v3/add-position", Fixture.ADD_POSITION)
+            self.web_app.update_response("post", base_api_url, "/eth/poll", Fixture.ETH_POLL_LP_ORDER)
+            self.web_app.update_response("post", base_api_url, "/eth/uniswap/v3/result", Fixture.ETH_RESULT_LP_ORDER)
+        hb_id = self.connector.add_position("HBOT-ETH", Decimal("0.1"), Decimal("100"), Decimal("200"),
+                                            Decimal("50"), Decimal("60"))
+        pos_cre_evt = self.run_parallel(self.event_logger.wait_for(RangePositionCreatedEvent))
+        self.assertEqual(pos_cre_evt[0].hb_id, hb_id)
+        self.assertEqual(Fixture.ADD_POSITION["txHash"], pos_cre_evt[0].tx_hash)
+        if API_MOCK_ENABLED:
+            self.web_app.update_response("post", base_api_url, "/eth/uniswap/v3/remove-position", Fixture.REMOVE_POSITION)
+            self.web_app.update_response("post", base_api_url, "/eth/uniswap/v3/result",
+                                         Fixture.ETH_RESULT_LP_ORDER_REMOVE)
+        self.connector.remove_position(hb_id, "123")
+        evt = self.run_parallel(self.event_logger.wait_for(RangePositionRemovedEvent))
         print(evt)
 
     def test_buy(self):
@@ -172,13 +190,6 @@ class UniswapV3ConnectorUnitTest(unittest.TestCase):
         self.assertEqual(order_id, event.order_id)
         # self.assertEqual(event.base_asset_amount, amount)
         print(event.order_id)
-
-    def test_adjust_liquidty(self):
-        if API_MOCK_ENABLED:
-            self.web_app.update_response("post", base_api_url, "/uniswap/v3/adjust-liquidity", Fixture.ADJUST_LIQIDITY)
-        self.connector.adjust_liquidity("dummy", "dummy_token_id", 10, 20)
-        evt = self.ev_loop.run_until_complete(self.event_logger.wait_for(RangePositionLiquidityAdjustedEvent))
-        print(evt)
 
     def test_get_position(self):
         if API_MOCK_ENABLED:
