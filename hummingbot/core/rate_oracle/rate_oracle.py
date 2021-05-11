@@ -252,7 +252,7 @@ class RateOracle(NetworkBase):
         results = {}
         client = await cls._http_client()
         async with client.request("GET", cls.coingecko_usd_price_url.format(vs_currency, page_no)) as resp:
-            records = await resp.json()
+            records = await resp.json(content_type=None)
             for record in records:
                 pair = f'{record["symbol"].upper()}-{vs_currency.upper()}'
                 if record["current_price"]:
