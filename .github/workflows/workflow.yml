@@ -100,6 +100,8 @@ jobs:
           source /usr/share/miniconda/etc/profile.d/conda.sh
           conda activate hummingbot
           nosetests -d -v test/test*.py
+          test/**/test*.py
+          find . -iname "" | xargs nosetest -d -v
       
       # Notify results to discord
       - uses: actions/setup-ruby@v1
