@@ -43,7 +43,7 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-from hummingbot.connector.exchange.huobi.huobi_Exchange import HuobiExchange
+from hummingbot.connector.exchange.huobi.huobi_exchange import HuobiExchange
 from hummingbot.connector.exchange.huobi.huobi_order_book import HuobiOrderBook
 from hummingbot.core.event.events import OrderType
 from hummingbot.connector.markets_recorder import MarketsRecorder
