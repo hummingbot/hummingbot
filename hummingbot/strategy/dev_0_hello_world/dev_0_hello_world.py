@@ -16,7 +16,9 @@ hws_logger = None
 
 class HelloWorldStrategy(StrategyPyBase):
     """
-
+    Simple strategy. This strategy waits for connector to be ready. Displays the user balance of the specified asset when
+    the `status` command is executed.
+    Note: Strategy is intended to be a developer guide.
     """
 
     @classmethod
