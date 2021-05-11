@@ -728,16 +728,31 @@ class AscendExExchange(ExchangeBase):
         """
         cancellation_results = []
         try:
+            tracked_orders: Dict[str, AscendExInFlightOrder] = self._in_flight_orders.copy()
+
+            api_params = {
+                "orders": [
+                    {
+                        'id': order.exchange_order_id,
+                        "orderId": order.exchange_order_id,
+                        "symbol": order.trading_pair,
+                        "time": int(time.time() * 1e3)
+                    }
+                    for order in tracked_orders.values()
+                ]
+            }
+
             await self._api_request(
                 method="delete",
-                path_url="cash/order/all",
+                path_url="cash/order/batch",
+                params=api_params,
                 is_auth_required=True,
-                force_auth_path_url="order/all"
+                force_auth_path_url="order/batch"
             )
 
             open_orders = await self.get_open_orders()
 
-            for cl_order_id, tracked_order in self._in_flight_orders.copy().items():
+            for cl_order_id, tracked_order in tracked_orders.items():
                 open_order = [o for o in open_orders if o.client_order_id == cl_order_id]
                 if not open_order:
                     cancellation_results.append(CancellationResult(cl_order_id, True))
