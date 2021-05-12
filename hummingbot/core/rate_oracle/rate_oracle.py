@@ -11,6 +11,7 @@ from enum import Enum
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.network_base import NetworkBase, NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
+import hummingbot.client.settings # noqa
 from hummingbot.connector.exchange.binance.binance_utils import convert_from_exchange_trading_pair as \
     binance_convert_from_exchange_pair
 from hummingbot.core.rate_oracle.utils import find_rate
