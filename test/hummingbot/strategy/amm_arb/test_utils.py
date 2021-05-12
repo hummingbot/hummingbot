@@ -14,7 +14,7 @@ quote = trading_pair.split("-")[1]
 
 
 class MockConnector1(ConnectorBase):
-    def get_quote_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
+    async def get_quote_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
         if is_buy:
             return Decimal("105")
         else:
@@ -25,7 +25,7 @@ class MockConnector1(ConnectorBase):
 
 
 class MockConnector2(ConnectorBase):
-    def get_quote_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
+    async def get_quote_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
         if is_buy:
             return Decimal("103")
         else:
