@@ -161,11 +161,6 @@ def main():
     else:
         compiler_directives = {}
 
-    if os.environ.get('WITHOUT_CONNECTOR_COMPILATION'):
-        exclude = ["hummingbot/connector/**/*.pyx"]
-    else:
-        exclude = None
-
     if is_posix:
         cython_kwargs["nthreads"] = cpu_count
 
@@ -189,7 +184,7 @@ def main():
           packages=packages,
           package_data=package_data,
           install_requires=install_requires,
-          ext_modules=cythonize(["hummingbot/**/*.pyx"], exclude=exclude, compiler_directives=compiler_directives, **cython_kwargs),
+          ext_modules=cythonize(["hummingbot/**/*.pyx"], compiler_directives=compiler_directives, **cython_kwargs),
           include_dirs=[
               np.get_include()
           ],
