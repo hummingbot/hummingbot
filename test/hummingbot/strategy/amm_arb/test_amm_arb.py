@@ -15,7 +15,7 @@ from hummingbot.core.clock import (
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (MarketEvent, OrderType, BuyOrderCreatedEvent, BuyOrderCompletedEvent,
-                                          SellOrderCreatedEvent, SellOrderCompletedEvent)
+                                          SellOrderCreatedEvent, SellOrderCompletedEvent, TradeFee)
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.amm_arb.amm_arb import AmmArbStrategy
@@ -39,7 +39,7 @@ class MockAMM(ConnectorBase):
     def name(self):
         return self._name
 
-    def get_quote_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
+    async def get_quote_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
         if is_buy:
             return self._buy_prices[trading_pair]
         else:
@@ -100,10 +100,14 @@ class AmmArbUnitTest(unittest.TestCase):
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.stack: contextlib.ExitStack = contextlib.ExitStack()
         cls._clock = cls.stack.enter_context(cls.clock)
+        cls._patcher = unittest.mock.patch("hummingbot.strategy.amm_arb.data_types.estimate_fee")
+        cls._url_mock = cls._patcher.start()
+        cls._url_mock.return_value = TradeFee(percent=0, flat_fees=[])
 
     @classmethod
     def tearDownClass(cls) -> None:
         cls.stack.close()
+        cls._patcher.stop()
 
     def setUp(self):
         self.amm_1: MockAMM = MockAMM("onion")

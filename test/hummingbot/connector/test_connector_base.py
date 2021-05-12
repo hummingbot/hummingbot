@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 from os.path import join, realpath
-import sys; sys.path.insert(0, realpath(join(__file__, "../../../../")))
+import sys; sys.path.insert(0, realpath(join(__file__, "../../../../../")))
 import unittest
+import unittest.mock
 from decimal import Decimal
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
-from hummingbot.core.event.events import OrderType, TradeType
+from hummingbot.core.event.events import OrderType, TradeType, TradeFee
 from hummingbot.connector.connector_base import ConnectorBase
 
 
@@ -23,10 +24,18 @@ class InFightOrderTest(InFlightOrderBase):
 
 
 class ConnectorBaseUnitTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls._patcher = unittest.mock.patch("hummingbot.connector.connector_base.estimate_fee")
+        cls._url_mock = cls._patcher.start()
+        cls._url_mock.return_value = TradeFee(percent=Decimal("0"), flat_fees=[])
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls._patcher.stop()
 
     def test_in_flight_asset_balances(self):
         connector = ConnectorBase()
-        connector.estimate_fee_pct = Decimal("0")
         connector.real_time_balance_update = True
         print(connector._account_balances)
         orders = {
