@@ -15,7 +15,10 @@ if is_posix:
     if "Darwin" in os_name:
         os.environ["CFLAGS"] = "-stdlib=libc++ -std=c++11"
     else:
-        os.environ["CFLAGS"] = "-std=c++11 -O0"
+        os.environ["CFLAGS"] = "-std=c++11"
+
+if os.environ.get('WITHOUT_CYTHON_OPTIMIZATIONS'):
+    os.environ["CFLAGS"] += " -O0"
 
 
 # Avoid a gcc warning below:
@@ -148,12 +151,21 @@ def main():
     cython_kwargs = {
         "language": "c++",
         "language_level": 3,
+    }
 
-    }
-    compiler_directives = {
-        "optimize.use_switch": False,
-        "optimize.unpack_method_calls": False,
-    }
+    if os.environ.get('WITHOUT_CYTHON_OPTIMIZATIONS'):
+        compiler_directives = {
+            "optimize.use_switch": False,
+            "optimize.unpack_method_calls": False,
+        }
+    else:
+        compiler_directives = {}
+
+    if os.environ.get('WITHOUT_CONNECTOR_COMPILATION'):
+        exclude = ["hummingbot/connector/**/*.pyx"]
+    else:
+        exclude = None
+
     if is_posix:
         cython_kwargs["nthreads"] = cpu_count
 
@@ -177,7 +189,7 @@ def main():
           packages=packages,
           package_data=package_data,
           install_requires=install_requires,
-          ext_modules=cythonize(["hummingbot/**/*.pyx"], compiler_directives=compiler_directives, **cython_kwargs, annotate=False),
+          ext_modules=cythonize(["hummingbot/**/*.pyx"], exclude=exclude, compiler_directives=compiler_directives, **cython_kwargs),
           include_dirs=[
               np.get_include()
           ],
