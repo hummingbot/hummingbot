@@ -29,7 +29,7 @@ class MockWebSocketServerFactory:
     """
     _orig_ws_connect = websockets.connect
     _ws_servers = {}
-    host = "127.0.0.1"
+    host = "localhost"
     # url_host_only is used for creating one HummingWSServer to handle all websockets requests and responses for
     # a given url host.
     url_host_only = False
