@@ -24,7 +24,7 @@ class ConfigTemplatesUnitTest(unittest.TestCase):
 
     def test_global_config_template_complete(self):
         global_config_template_path: str = realpath(join(__file__,
-                                                         "../../hummingbot/templates/conf_global_TEMPLATE.yml"))
+                                                         "../../../../../hummingbot/templates/conf_global_TEMPLATE.yml"))
 
         with open(global_config_template_path, "r") as template_fd:
             template_data = yaml_parser.load(template_fd)
@@ -39,7 +39,7 @@ class ConfigTemplatesUnitTest(unittest.TestCase):
                 self.assertTrue(key in template_data, f"{key} not in {global_config_template_path}")
 
     def test_strategy_config_template_complete(self):
-        folder = realpath(join(__file__, "../../hummingbot/strategy"))
+        folder = realpath(join(__file__, "../../../../../hummingbot/strategy"))
         # Only include valid directories
         strategies = [d for d in listdir(folder) if isdir(join(folder, d)) and not d.startswith("__")]
         strategies.sort()

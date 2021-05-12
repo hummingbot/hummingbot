@@ -20,7 +20,7 @@ from hummingbot.core.event.events import (
     OrderBookTradeEvent,
     TradeType
 )
-from test.test_pmm import simulate_order_book_widening
+from test.hummingbot.strategy.pure_market_making.test_pmm import simulate_order_book_widening
 
 
 class ScriptIteratorUnitTest(unittest.TestCase):
@@ -109,7 +109,7 @@ class ScriptIteratorUnitTest(unittest.TestCase):
 
     async def _test_update_parameters(self):
         try:
-            script_file = realpath(join(__file__, "../../scripts/update_parameters_test_script.py"))
+            script_file = realpath(join(__file__, "../../../../scripts/update_parameters_test_script.py"))
 
             self._script_iterator = ScriptIterator(script_file, [self.market], self.multi_levels_strategy, 0.01, True)
             self.clock.add_iterator(self._script_iterator)
@@ -149,7 +149,7 @@ class ScriptIteratorUnitTest(unittest.TestCase):
 
     async def _test_price_band_price_ceiling_breach_async(self):
         try:
-            script_file = realpath(join(__file__, "../../scripts/price_band_script.py"))
+            script_file = realpath(join(__file__, "../../../../scripts/price_band_script.py"))
             self._script_iterator = ScriptIterator(script_file, [self.market], self.multi_levels_strategy, 0.01, True)
             self.clock.add_iterator(self._script_iterator)
             strategy = self.multi_levels_strategy
@@ -174,7 +174,7 @@ class ScriptIteratorUnitTest(unittest.TestCase):
 
     async def _test_price_band_price_floor_breach_async(self):
         try:
-            script_file = realpath(join(__file__, "../../scripts/price_band_script.py"))
+            script_file = realpath(join(__file__, "../../../../scripts/price_band_script.py"))
             self._script_iterator = ScriptIterator(script_file, [self.market], self.multi_levels_strategy, 0.01, True)
             self.clock.add_iterator(self._script_iterator)
 
@@ -199,7 +199,7 @@ class ScriptIteratorUnitTest(unittest.TestCase):
 
     async def _test_strategy_ping_pong_on_ask_fill(self):
         try:
-            script_file = realpath(join(__file__, "../../scripts/ping_pong_script.py"))
+            script_file = realpath(join(__file__, "../../../../scripts/ping_pong_script.py"))
             self._script_iterator = ScriptIterator(script_file, [self.market], self.one_level_strategy, 0.01, True)
             self.clock.add_iterator(self._script_iterator)
 
@@ -236,7 +236,7 @@ class ScriptIteratorUnitTest(unittest.TestCase):
 
     async def _test_strategy_ping_pong_on_bid_fill(self):
         try:
-            script_file = realpath(join(__file__, "../../scripts/ping_pong_script.py"))
+            script_file = realpath(join(__file__, "../../../../scripts/ping_pong_script.py"))
             self._script_iterator = ScriptIterator(script_file, [self.market], self.one_level_strategy, 0.01, True)
             self.clock.add_iterator(self._script_iterator)
 
@@ -273,7 +273,7 @@ class ScriptIteratorUnitTest(unittest.TestCase):
 
     async def _test_dynamic_price_band_price_async(self):
         try:
-            script_file = realpath(join(__file__, "../../scripts/dynamic_price_band_script.py"))
+            script_file = realpath(join(__file__, "../../../../scripts/dynamic_price_band_script.py"))
             self._script_iterator = ScriptIterator(script_file, [self.market], self.multi_levels_strategy, 0.01, True)
             self.clock.add_iterator(self._script_iterator)
 
@@ -330,7 +330,7 @@ class ScriptIteratorUnitTest(unittest.TestCase):
 
     async def _test_spreads_adjusted_on_volatility_async(self):
         try:
-            script_file = realpath(join(__file__, "../../scripts/spreads_adjusted_on_volatility_script.py"))
+            script_file = realpath(join(__file__, "../../../../scripts/spreads_adjusted_on_volatility_script.py"))
             self._script_iterator = ScriptIterator(script_file, [self.market], self.one_level_strategy, 0.01, True)
             self.clock.add_iterator(self._script_iterator)
 
