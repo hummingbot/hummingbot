@@ -6,7 +6,7 @@ import json
 from hummingbot.core.mock_api.mock_web_server import MockWebServer
 
 
-class HummingWebAppTest(unittest.TestCase):
+class MockWebServerTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()

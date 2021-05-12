@@ -5,11 +5,11 @@ from hummingbot.core.mock_api.mock_web_socker_server import MockWebSocketServerF
 import json
 
 
-class HummingWsServerFactoryTest(unittest.TestCase):
+class MockWebSocketServerFactoryTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-        cls.ws_server = MockWebSocketServerFactory.start_new_server("ws://www.google.com/ws/")
+        cls.ws_server = MockWebSocketServerFactory.start_new_server("wss://www.google.com/ws/")
         cls._patcher = unittest.mock.patch("websockets.connect", autospec=True)
         cls._mock = cls._patcher.start()
         cls._mock.side_effect = MockWebSocketServerFactory.reroute_ws_connect
@@ -19,7 +19,7 @@ class HummingWsServerFactoryTest(unittest.TestCase):
         cls._patcher.stop()
 
     async def _test_web_socket(self):
-        uri = "ws://www.google.com/ws/"
+        uri = "wss://www.google.com/ws/"
         async with websockets.connect(uri) as websocket:
             await MockWebSocketServerFactory.send_str(uri, "aaa")
             answer = await websocket.recv()
