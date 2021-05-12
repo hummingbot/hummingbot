@@ -12,7 +12,7 @@ from typing import Dict, Any
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_constants import REST_URL
-from hummingbot.connector.exchange.ascend_ex.ascend_ex_util import get_rest_url_private
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_utils import get_rest_url_private
 
 sys.path.insert(0, realpath(join(__file__, "../../../../../")))
 logging.basicConfig(level=METRICS_LOG_LEVEL)

@@ -43,7 +43,7 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 from hummingbot.logger import NETWORK
-from hummingbot.connector.exchange.bamboo_relay.bamboo_relay_market import BambooRelayExchange
+from hummingbot.connector.exchange.bamboo_relay.bamboo_relay_exchange import BambooRelayExchange
 from hummingbot.core.event.events import OrderType
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
