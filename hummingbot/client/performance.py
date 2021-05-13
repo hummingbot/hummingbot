@@ -4,7 +4,7 @@ from typing import (
     Dict,
     Optional,
     List,
-    Any
+    Any,
 )
 from hummingbot.model.trade_fill import TradeFill
 from hummingbot.core.utils.market_price import get_last_price
@@ -60,13 +60,18 @@ def position_order(open: list, close: list):
     :param close: a list of orders that may have an close position order
     :return: A tuple containing a pair of an open order with a close position order
     """
-    for o in open:
-        for c in close:
-            if o.position == "OPEN" and c.position == "CLOSE":
-                open.remove(o)
-                close.remove(c)
-                return (o, c)
-    return None
+    result = None
+
+    try:
+        firstWithOpenPosition = next((order for order in open if order.position == "OPEN"))
+        firstWithClosePosition = next((order for order in close if order.position == "CLOSE"))
+        open.remove(firstWithOpenPosition)
+        close.remove(firstWithClosePosition)
+        result = (firstWithOpenPosition, firstWithClosePosition)
+    except StopIteration:
+        pass
+
+    return result
 
 
 def aggregate_position_order(buys: list, sells: list):
@@ -113,6 +118,14 @@ def derivative_pnl(long: list, short: list):
     return pnls
 
 
+def is_trade_fill(trade):
+    return type(trade) == TradeFill
+
+
+def are_derivatives(trades: List[Any]) -> bool:
+    return trades and is_trade_fill(trades[0]) and "NILL" not in [t.position for t in trades]
+
+
 async def calculate_performance_metrics(exchange: str,
                                         trading_pair: str,
                                         trades: List[Any],
@@ -137,9 +150,7 @@ async def calculate_performance_metrics(exchange: str,
     perf = PerformanceMetrics()
     buys = [t for t in trades if t.trade_type.upper() == "BUY"]
     sells = [t for t in trades if t.trade_type.upper() == "SELL"]
-    derivative = False
-    if trades and type(trades[0]) == TradeFill and "NILL" not in [t.position for t in trades]:
-        derivative = True
+
     perf.num_buys = len(buys)
     perf.num_sells = len(sells)
     perf.num_trades = perf.num_buys + perf.num_sells
@@ -178,7 +189,7 @@ async def calculate_performance_metrics(exchange: str,
     perf.trade_pnl = perf.cur_value - perf.hold_value
 
     # Handle trade_pnl differently for derivatives
-    if derivative:
+    if are_derivatives(trades):
         buys_copy, sells_copy = aggregate_position_order(buys.copy(), sells.copy())
         long = []
         short = []
@@ -197,7 +208,7 @@ async def calculate_performance_metrics(exchange: str,
         perf.trade_pnl = Decimal(str(sum(derivative_pnl(long, short))))
 
     for trade in trades:
-        if type(trade) is TradeFill:
+        if is_trade_fill(trade):
             if trade.trade_fee.get("percent") is not None and trade.trade_fee["percent"] > 0:
                 if quote not in perf.fees:
                     perf.fees[quote] = s_decimal_0
