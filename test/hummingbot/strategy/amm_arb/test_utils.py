@@ -38,7 +38,7 @@ class MockConnector2(ConnectorBase):
 class AmmArbUtilsUnitTest(unittest.TestCase):
 
     def test_create_arb_proposals(self):
-        asyncio.run(self._test_create_arb_proposals())
+        asyncio.get_event_loop().run_until_complete(self._test_create_arb_proposals())
 
     async def _test_create_arb_proposals(self):
         market_info1 = MarketTradingPairTuple(MockConnector1(), trading_pair, base, quote)
