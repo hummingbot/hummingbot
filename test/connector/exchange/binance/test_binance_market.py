@@ -58,7 +58,7 @@ from test.connector.exchange.binance.fixture_binance import FixtureBinance
 from hummingbot.core.mock_api.mock_web_server import MockWebServer
 from unittest import mock
 import requests
-from hummingbot.core.mock_api.mock_web_socker_server import MockWebSocketServerFactory
+from hummingbot.core.mock_api.mock_web_socket_server import MockWebSocketServerFactory
 sys.path.insert(0, realpath(join(__file__, "../../../../bin")))
 
 MAINNET_RPC_URL = "http://mainnet-rpc.mainnet:8545"

@@ -46,7 +46,7 @@ from hummingbot.model.sql_connection_manager import (
 from hummingbot.model.trade_fill import TradeFill
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.core.mock_api.mock_web_server import MockWebServer
-from hummingbot.core.mock_api.mock_web_socker_server import MockWebSocketServerFactory
+from hummingbot.core.mock_api.mock_web_socket_server import MockWebSocketServerFactory
 from test.connector.exchange.bittrex.fixture_bittrex import FixtureBittrex
 from unittest import mock
 import json

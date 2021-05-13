@@ -21,7 +21,7 @@ from hummingbot.core.utils.async_utils import (
 )
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.core.mock_api.mock_web_server import MockWebServer
-from hummingbot.core.mock_api.mock_web_socker_server import MockWebSocketServerFactory
+from hummingbot.core.mock_api.mock_web_socket_server import MockWebSocketServerFactory
 from hummingbot.market.market_base import OrderType
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (

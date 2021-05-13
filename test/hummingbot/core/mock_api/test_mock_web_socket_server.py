@@ -1,7 +1,7 @@
 import asyncio
 import unittest.mock
 import websockets
-from hummingbot.core.mock_api.mock_web_socker_server import MockWebSocketServerFactory
+from hummingbot.core.mock_api.mock_web_socket_server import MockWebSocketServerFactory
 import json
 
 
