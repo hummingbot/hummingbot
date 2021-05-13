@@ -5,7 +5,9 @@ import logging
 from typing import (
     List,
     Tuple,
-    Dict
+    Dict,
+    Optional,
+    Any,
 )
 import pandas as pd
 import asyncio
@@ -119,10 +121,39 @@ cdef class CeloArbStrategy(StrategyBase):
         self._last_synced_checked = 0
         self._node_synced = False
 
+        self._argument_values = None
+
         self._last_timestamp = 0
         self._status_report_interval = status_report_interval
         self._hb_app_notification = hb_app_notification
         self.c_add_markets([market_info.market])
+
+    @classmethod
+    def argument_details(cls) -> Dict[str, Tuple[type, bool, Optional[Any]]]:
+        return {
+            "market_info": (MarketTradingPairTuple, True, None),
+            "min_profitability": (Decimal, True, None),
+            "order_amount": (Decimal, True, None),
+            "celo_slippage_buffer": (Decimal, False, Decimal("0.0001")),
+            "logging_options": (int, False, cls.OPTION_LOG_ALL),
+            "status_report_interval": (float, False, 900),
+            "hb_app_notification": (bool, False, True),
+            "mock_celo_cli_mode": (bool, False, False),
+        }
+
+    @property
+    def argument_values(self):
+        if self._argument_values is None:
+            self._argument_values = {
+                "market_info": self._market_info,
+                "min_profitability": self._min_profitability,
+                "order_amount": self._order_amount,
+                "logging_options": self._logging_options,
+                "status_report_interval": self._status_report_interval,
+                "hb_app_notification": self._hb_app_notification,
+                "mock_celo_cli_mode": self._mock_celo_cli_mode,
+            }
+        return self._argument_values
 
     @property
     def min_profitability(self) -> Decimal:

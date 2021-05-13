@@ -27,6 +27,8 @@ cdef class CeloArbStrategy(StrategyBase):
         object _trade_profits
         object _ev_loop
 
+        object _argument_values
+
     cdef c_main(self)
     cdef c_execute_buy_celo_sell_ctp(self, object trade_profit)
     cdef c_execute_sell_celo_buy_ctp(self, object trade_profit)
