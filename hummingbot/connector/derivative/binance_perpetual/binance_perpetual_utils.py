@@ -14,8 +14,8 @@ EXAMPLE_PAIR = "BTC-USDT"
 DEFAULT_FEES = [0.02, 0.04]
 
 
-RE_4_LETTERS_QUOTE = re.compile(r"^(\w+)(USDT|USDC|USDS|TUSD|BUSD|IDRT|BKRW|BIDR)$")
-RE_3_LETTERS_QUOTE = re.compile(r"^(\w+)(BTC|ETH|BNB|DAI|XRP|PAX|TRX|NGN|RUB|TRY|EUR|ZAR|UAH|GBP|USD|BRL)$")
+RE_4_LETTERS_QUOTE = re.compile(r"^(\w{3,})(USDT|USDC|USDS|TUSD|BUSD|IDRT|BKRW|BIDR)$")
+RE_3_LETTERS_QUOTE = re.compile(r"^(\w+)(\w{3})$")
 
 
 # Helper Functions ---
