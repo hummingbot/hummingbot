@@ -97,6 +97,7 @@ class BinancePerpetualDerivative(DerivativeBase):
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
     LONG_POLL_INTERVAL = 120.0
     ORDER_NOT_EXIST_CONFIRMATION_COUNT = 3
+    FUNDING_FEE_POLL_TIMEDELTA = 300.0
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -134,9 +135,9 @@ class BinancePerpetualDerivative(DerivativeBase):
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
         self._funding_info_polling_task = None
+        self._funding_fee_polling_task = None
         self._last_poll_timestamp = 0
         self._throttler = Throttler((10.0, 1.0))
-        self._funding_payment_span = [0, 15]
 
     @property
     def name(self) -> str:
@@ -181,6 +182,7 @@ class BinancePerpetualDerivative(DerivativeBase):
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
             self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
+            self._funding_fee_polling_task = safe_ensure_future(self._funding_fee_polling_loop())
 
     def _stop_network(self):
         self._order_book_tracker.stop()
@@ -194,8 +196,11 @@ class BinancePerpetualDerivative(DerivativeBase):
             self._trading_rules_polling_task.cancel()
         if self._funding_info_polling_task is not None:
             self._funding_info_polling_task.cancel()
+        if self._funding_fee_polling_task is not None:
+            self._funding_fee_polling_task.cancel()
         self._status_polling_task = self._user_stream_tracker_task = \
-            self._user_stream_event_listener_task = self._funding_info_polling_task = None
+            self._user_stream_event_listener_task = self._funding_info_polling_task = \
+            self._funding_fee_polling_task = None
 
     async def stop_network(self):
         self._stop_network()
@@ -554,26 +559,22 @@ class BinancePerpetualDerivative(DerivativeBase):
                         self.stop_tracking_order(tracked_order.client_order_id)
                 elif event_type == "ACCOUNT_UPDATE":
                     update_data = event_message.get("a", {})
-                    event_reason = update_data.get("m", {})
-                    if event_reason == "FUNDING_FEE":
-                        await self.get_funding_payment()
-                    else:
-                        # update balances
-                        for asset in update_data.get("B", []):
-                            asset_name = asset["a"]
-                            self._account_balances[asset_name] = Decimal(asset["wb"])
-                            self._account_available_balances[asset_name] = Decimal(asset["cw"])
+                    # update balances
+                    for asset in update_data.get("B", []):
+                        asset_name = asset["a"]
+                        self._account_balances[asset_name] = Decimal(asset["wb"])
+                        self._account_available_balances[asset_name] = Decimal(asset["cw"])
 
-                        # update position
-                        for asset in update_data.get("P", []):
-                            position = self._account_positions.get(f"{asset['s']}{asset['ps']}", None)
-                            if position is not None:
-                                position.update_position(position_side=PositionSide[asset["ps"]],
-                                                         unrealized_pnl = Decimal(asset["up"]),
-                                                         entry_price = Decimal(asset["ep"]),
-                                                         amount = Decimal(asset["pa"]))
-                            else:
-                                await self._update_positions()
+                    # update position
+                    for asset in update_data.get("P", []):
+                        position = self._account_positions.get(f"{asset['s']}{asset['ps']}", None)
+                        if position is not None:
+                            position.update_position(position_side=PositionSide[asset["ps"]],
+                                                     unrealized_pnl = Decimal(asset["up"]),
+                                                     entry_price = Decimal(asset["ep"]),
+                                                     amount = Decimal(asset["pa"]))
+                        else:
+                            await self._update_positions()
                 elif event_type == "MARGIN_CALL":
                     positions = event_message.get("p", [])
                     total_maint_margin_required = 0
@@ -708,6 +709,27 @@ class BinancePerpetualDerivative(DerivativeBase):
                 self.logger().error("Unexpected error updating funding info. Retrying after 10 seconds... ",
                                     exc_info=True)
                 await asyncio.sleep(10.0)
+
+    def get_next_funding_timestamp(self):
+        # On Binance Futures, Funding occurs every 8 hours at 00:00 UTC; 08:00 UTC and 16:00
+        int_ts = int(self.current_timestamp)
+        eight_hours = 8 * 60 * 60
+        mod = int_ts % eight_hours
+        return float(int_ts - mod + eight_hours)
+
+    async def _funding_fee_polling_loop(self):
+        self._next_funding_fee_timestamp = self.get_next_funding_timestamp()
+        while True:
+            try:
+                # wait for funding timestamp plus a small delta to allow account to update
+                if self.current_timestamp > self._next_funding_fee_timestamp + self.FUNDING_FEE_POLL_TIMEDELTA:
+                    # get a start time just before the funding event
+                    startTime = self._next_funding_fee_timestamp - self.FUNDING_FEE_POLL_TIMEDELTA
+                    await self.get_funding_payment(startTime)
+                    self._next_funding_fee_timestamp = self.get_next_funding_timestamp()
+            except Exception:
+                self.logger().error("Unexpected error whilst retrieving funding fees", exc_info=True)
+            await asyncio.sleep(60)
 
     async def _status_polling_loop(self):
         while True:
@@ -929,11 +951,11 @@ class BinancePerpetualDerivative(DerivativeBase):
     def set_leverage(self, trading_pair: str, leverage: int = 1):
         safe_ensure_future(self._set_leverage(trading_pair, leverage))
 
-    async def get_funding_payment(self):
+    async def get_funding_payment(self, startTime):
         funding_payment_tasks = []
         for pair in self._trading_pairs:
             funding_payment_tasks.append(self.request(path="/fapi/v1/income",
-                                                      params={"symbol": convert_to_exchange_trading_pair(pair), "incomeType": "FUNDING_FEE", "limit": len(self._account_positions)},
+                                                      params={"symbol": convert_to_exchange_trading_pair(pair), "incomeType": "FUNDING_FEE", "startTime": int(startTime * 1000)},
                                                       method=MethodType.GET,
                                                       add_timestamp=True,
                                                       is_signed=True))
