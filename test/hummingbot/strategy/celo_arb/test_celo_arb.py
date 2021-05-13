@@ -23,7 +23,7 @@ from hummingbot.core.event.events import (
     MarketEvent
 )
 from hummingbot.strategy.celo_arb.celo_arb import CeloArbStrategy, get_trade_profits
-from test.integration.assets.mock_data.fixture_celo import outputs as celo_outputs, TEST_ADDRESS, TEST_PASSWORD
+from test.connector.fixture_celo import outputs as celo_outputs, TEST_ADDRESS, TEST_PASSWORD
 from hummingbot.market.celo.celo_cli import CeloCLI
 
 
