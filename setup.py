@@ -30,7 +30,7 @@ class BuildExt(build_ext):
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20210406"
+    version = "20210430"
     packages = [
         "hummingbot",
         "hummingbot.client",
@@ -41,6 +41,7 @@ def main():
         "hummingbot.core.data_type",
         "hummingbot.core.event",
         "hummingbot.core.management",
+        "hummingbot.core.rate_oracle",
         "hummingbot.core.utils",
         "hummingbot.data_feed",
         "hummingbot.logger",
@@ -72,8 +73,11 @@ def main():
         "hummingbot.connector.exchange.hitbtc",
         "hummingbot.connector.derivative",
         "hummingbot.connector.derivative.binance_perpetual",
+        "hummingbot.model",
         "hummingbot.script",
         "hummingbot.strategy",
+        "hummingbot.strategy.__utils__",
+        "hummingbot.strategy.__utils__.trailing_indicators",
         "hummingbot.strategy.amm_arb",
         "hummingbot.strategy.arbitrage",
         "hummingbot.strategy.cross_exchange_market_making",
@@ -82,7 +86,7 @@ def main():
         "hummingbot.templates",
         "hummingbot.wallet",
         "hummingbot.wallet.ethereum",
-        "hummingbot.wallet.ethereum.uniswap",
+        # "hummingbot.wallet.ethereum.uniswap",
         "hummingbot.wallet.ethereum.watcher",
         "hummingbot.wallet.ethereum.zero_ex",
     ]
@@ -98,6 +102,11 @@ def main():
         ],
     }
     install_requires = [
+        "0x-contract-addresses",
+        "0x-contract-artifacts",
+        "0x-contract-wrappers",
+        "0x-json-schemas",
+        "0x-order-utils",
         "aioconsole",
         "aiokafka",
         "attrdict",
