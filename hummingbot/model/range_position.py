@@ -19,7 +19,7 @@ class RangePosition(HummingbotBase):
     hb_id = Column(Text, primary_key=True, nullable=False)
     config_file_path = Column(Text, nullable=False)
     strategy = Column(Text, nullable=False)
-    tx_hash = Column(Text, nullable=False)
+    tx_hash = Column(Text, nullable=True)
     connector = Column(Text, nullable=False)
     trading_pair = Column(Text, nullable=False)
     fee_tier = Column(Text, nullable=False)
