@@ -52,7 +52,7 @@ from hummingbot.client.config.fee_overrides_config_map import fee_overrides_conf
 from hummingbot.core.mock_api.mock_web_server import MockWebServer
 from test.connector.exchange.coinbase_pro.fixture_coinbase_pro import FixtureCoinbasePro
 from unittest import mock
-from hummingbot.core.mock_api.mock_web_socker_server import MockWebSocketServerFactory
+from hummingbot.core.mock_api.mock_web_socket_server import MockWebSocketServerFactory
 
 # API_SECRET length must be multiple of 4 otherwise base64.b64decode will fail
 API_MOCK_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']

@@ -31,7 +31,7 @@ from test.connector.exchange.dydx.fixture_dydx import FixtureDydx
 # from hummingbot.connector.exchange.dydx.dydx_auth import DydxAuth
 from hummingbot.core.mock_api.mock_web_server import MockWebServer
 from unittest import mock
-from hummingbot.core.mock_api.mock_web_socker_server import MockWebSocketServerFactory
+from hummingbot.core.mock_api.mock_web_socket_server import MockWebSocketServerFactory
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
