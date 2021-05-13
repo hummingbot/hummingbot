@@ -52,6 +52,8 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         str _debug_csv_path
         object _avg_vol
 
+        object _argument_values
+
     cdef object c_get_mid_price(self)
     cdef object c_create_base_proposal(self)
     cdef tuple c_get_adjusted_available_balance(self, list orders)

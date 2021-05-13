@@ -5,6 +5,9 @@ import numpy as np
 from typing import (
     List,
     Dict,
+    Tuple,
+    Optional,
+    Any,
 )
 from math import (
     floor,
@@ -136,9 +139,70 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 os.unlink(self._debug_csv_path)
         except FileNotFoundError:
             pass
+        self._argument_values = None
 
     def all_markets_ready(self):
         return all([market.ready for market in self._sb_markets])
+
+    @classmethod
+    def argument_details(cls) -> Dict[str, Tuple[type, bool, Optional[Any]]]:
+        return {
+            "market_info": (MarketTradingPairTuple, True, None),
+            "order_amount": (Decimal, True, None),
+            "order_refresh_time": (float, False, 30.0),
+            "max_order_age": (float, False, 1800.0),
+            "order_refresh_tolerance_pct": (Decimal, False, s_decimal_neg_one),
+            "order_optimization_enabled": (bool, False, True),
+            "filled_order_delay": (float, False, 60.0),
+            "inventory_target_base_pct": (Decimal, False, s_decimal_zero),
+            "add_transaction_costs_to_orders": (bool, False, True),
+            "logging_options": (int, False, cls.OPTION_LOG_ALL),
+            "status_report_interval": (float, False, 900),
+            "hb_app_notification": (bool, False, False),
+            "min_spread": (Decimal, False, Decimal("0.15")),
+            "max_spread": (Decimal, False, Decimal("2")),
+            "vol_to_spread_multiplier": (Decimal, False, Decimal("1.3")),
+            "volatility_sensibility": (Decimal, False, Decimal("0.2")),
+            "inventory_risk_aversion": (Decimal, False, Decimal("0.5")),
+            "order_book_depth_factor": (Decimal, False, Decimal("0.1")),
+            "risk_factor": (Decimal, False, Decimal("0.5")),
+            "order_amount_shape_factor": (Decimal, False, Decimal("0.005")),
+            "closing_time": (Decimal, False, Decimal("1")),
+            "debug_csv_path": (str, False, ""),
+            "volatility_buffer_size": (int, False, 30),
+            "is_debug": (bool, False, True),
+        }
+
+    @property
+    def argument_values(self):
+        if self._argument_values is None:
+            self._argument_values = {
+                "market_info": self._market_info,
+                "order_amount": self._order_amount,
+                "order_refresh_time": self._order_refresh_time,
+                "max_order_age": self._max_order_age,
+                "order_refresh_tolerance_pct": self._order_refresh_tolerance_pct,
+                "order_optimization_enabled": self._order_optimization_enabled,
+                "filled_order_delay": self._filled_order_delay,
+                "inventory_target_base_pct": self._inventory_target_base_pct,
+                "add_transaction_costs_to_orders": self._add_transaction_costs_to_orders,
+                "logging_options": self._logging_options,
+                "status_report_interval": self._status_report_interval,
+                "hb_app_notification": self._hb_app_notification,
+                "min_spread": self._min_spread,
+                "max_spread": self._max_spread,
+                "vol_to_spread_multiplier": self._vol_to_spread_multiplier,
+                "volatility_sensibility": self._volatility_sensibility,
+                "inventory_risk_aversion": self._inventory_risk_aversion,
+                "order_book_depth_factor": self._kappa,
+                "risk_factor": self._gamma,
+                "order_amount_shape_factor": self._eta,
+                "closing_time": self._closing_time,
+                "debug_csv_path": self._debug_csv_path,
+                "volatility_buffer_size": self._ticks_to_be_ready,
+                "is_debug": self._is_debug,
+            }
+        return self._argument_values
 
     @property
     def market_info(self) -> MarketTradingPairTuple:
