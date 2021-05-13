@@ -155,25 +155,25 @@ class PerformanceMetricsUnitTest(unittest.TestCase):
                                       fee=TradeFee(0.1, [("USD", 0)])))
 
         cur_bals = {base: 100, quote: 10000}
-        metrics = asyncio.run(calculate_performance_metrics("hbot_exchange", trading_pair, trades, cur_bals))
+        metrics = asyncio.get_event_loop().run_until_complete(calculate_performance_metrics("hbot_exchange", trading_pair, trades, cur_bals))
         self.assertEqual(metrics.num_buys, 2)
-        self.assertEquals(metrics.num_sells, 2)
-        self.assertEquals(metrics.num_trades, 4)
-        self.assertEquals(metrics.b_vol_base, Decimal("200"))
-        self.assertEquals(metrics.s_vol_base, Decimal("-200"))
-        self.assertEquals(metrics.tot_vol_base, Decimal("0"))
-        self.assertEquals(metrics.b_vol_quote, Decimal("-2500"))
-        self.assertEquals(metrics.s_vol_quote, Decimal("3500"))
-        self.assertEquals(metrics.tot_vol_quote, Decimal("1000"))
-        self.assertEquals(metrics.avg_b_price, Decimal("12.5"))
-        self.assertEquals(metrics.avg_s_price, Decimal("17.5"))
-        self.assertEquals(metrics.avg_tot_price, Decimal("15"))
-        self.assertEquals(metrics.start_base_bal, Decimal("100"))
-        self.assertEquals(metrics.start_quote_bal, Decimal("9000"))
-        self.assertEquals(metrics.cur_base_bal, 100)
-        self.assertEquals(metrics.cur_quote_bal, 10000),
-        self.assertEquals(metrics.start_price, Decimal("10")),
-        self.assertEquals(metrics.cur_price, Decimal("15"))
+        self.assertEqual(metrics.num_sells, 2)
+        self.assertEqual(metrics.num_trades, 4)
+        self.assertEqual(metrics.b_vol_base, Decimal("200"))
+        self.assertEqual(metrics.s_vol_base, Decimal("-200"))
+        self.assertEqual(metrics.tot_vol_base, Decimal("0"))
+        self.assertEqual(metrics.b_vol_quote, Decimal("-2500"))
+        self.assertEqual(metrics.s_vol_quote, Decimal("3500"))
+        self.assertEqual(metrics.tot_vol_quote, Decimal("1000"))
+        self.assertEqual(metrics.avg_b_price, Decimal("12.5"))
+        self.assertEqual(metrics.avg_s_price, Decimal("17.5"))
+        self.assertEqual(metrics.avg_tot_price, Decimal("15"))
+        self.assertEqual(metrics.start_base_bal, Decimal("100"))
+        self.assertEqual(metrics.start_quote_bal, Decimal("9000"))
+        self.assertEqual(metrics.cur_base_bal, 100)
+        self.assertEqual(metrics.cur_quote_bal, 10000),
+        self.assertEqual(metrics.start_price, Decimal("10")),
+        self.assertEqual(metrics.cur_price, Decimal("15"))
         self.assertEqual(metrics.trade_pnl, Decimal("1000"))
         self.assertEqual(metrics.total_pnl, Decimal("650"))
 
