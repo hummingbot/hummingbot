@@ -1,9 +1,24 @@
 import asyncio
 from threading import Thread
 import websockets
-from hummingbot.core.mock_api.mock_web_server import get_open_port
+import socket
+import errno
 import json
 from urllib.parse import urlparse
+
+
+def detect_available_port(starting_port: int) -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        current_port: int = starting_port
+        while current_port < 65535:
+            try:
+                s.bind(("127.0.0.1", current_port))
+                break
+            except OSError as e:
+                if e.errno == errno.EADDRINUSE:
+                    current_port += 1
+                    continue
+        return current_port
 
 
 class MockWebSocketServerFactory:
@@ -52,7 +67,7 @@ class MockWebSocketServerFactory:
         :param url: url
         :return: the web server
         """
-        port = get_open_port()
+        port = detect_available_port(8211)
         ws_server = MockWebSocketServer(MockWebSocketServerFactory.host, port)
         if MockWebSocketServerFactory.url_host_only:
             url = urlparse(url).netloc
