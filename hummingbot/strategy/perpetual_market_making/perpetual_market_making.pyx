@@ -1202,7 +1202,6 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
         if len(proposal.buys) > 0:
             if position_action == PositionAction.CLOSE:
                 if self._current_timestamp < self._next_buy_exit_order_timestamp:
-                    self.logger().info("Waiting for filled order delay to be over before attempting to close short position(s) again.")
                     return
                 else:
                     self._next_buy_exit_order_timestamp = self._current_timestamp + self.filled_order_delay
