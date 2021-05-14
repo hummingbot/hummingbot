@@ -36,9 +36,9 @@ cdef class OkexOrderBook(OrderBook):
                                        metadata: Optional[Dict] = None) -> OrderBookMessage:
         if metadata:
             msg.update(metadata)
-        msg_ts = int(timestamp * 1e-3)  # TODO is this required?
+        msg_ts = int(msg["ts"] * 1e-3)  # TODO is this required?
         content = {
-            "trading_pair": msg["trading_pair"],
+            "trading_pair": trading_pair,
             "update_id": msg_ts,
             "bids": msg["bids"],
             "asks": msg["asks"]
@@ -65,19 +65,19 @@ cdef class OkexOrderBook(OrderBook):
 
     @classmethod
     def diff_message_from_exchange(cls,
-                                   msg: Dict[str, Any],
+                                   data: Dict[str, Any],
                                    timestamp: float = None,
                                    metadata: Optional[Dict] = None) -> OrderBookMessage:
         if metadata:
-            msg.update(metadata)
+            data.update(metadata)
 
         msg_ts = int(timestamp * 1e-3)
 
         content = {
-            "trading_pair": msg["instrument_id"],
+            "trading_pair": data["instId"],
             "update_id": msg_ts,
-            "bids": msg["bids"],
-            "asks": msg["asks"]
+            "bids": data["bids"],
+            "asks": data["asks"]
         }
         return OrderBookMessage(OrderBookMessageType.DIFF, content, timestamp or msg_ts)
 
