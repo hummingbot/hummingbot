@@ -44,9 +44,10 @@ def start(self):
             min_spread = c_map.get("min_spread").value / Decimal(100)
             max_spread = c_map.get("max_spread").value / Decimal(100)
             vol_to_spread_multiplier = c_map.get("vol_to_spread_multiplier").value
+            volatility_sensibility = c_map.get("volatility_sensibility").value / Decimal('100')
             inventory_risk_aversion = c_map.get("inventory_risk_aversion").value
         else:
-            min_spread = max_spread = vol_to_spread_multiplier = inventory_risk_aversion = None
+            min_spread = max_spread = vol_to_spread_multiplier = inventory_risk_aversion = volatility_sensibility = None
             order_book_depth_factor = c_map.get("order_book_depth_factor").value
             risk_factor = c_map.get("risk_factor").value
             order_amount_shape_factor = c_map.get("order_amount_shape_factor").value
@@ -71,6 +72,7 @@ def start(self):
             min_spread=min_spread,
             max_spread=max_spread,
             vol_to_spread_multiplier=vol_to_spread_multiplier,
+            volatility_sensibility=volatility_sensibility,
             inventory_risk_aversion=inventory_risk_aversion,
             order_book_depth_factor=order_book_depth_factor,
             risk_factor=risk_factor,

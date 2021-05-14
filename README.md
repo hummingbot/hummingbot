@@ -36,12 +36,15 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 | <img src="assets/coinzoom_logo.svg" alt="CoinZoom" width="90" /> | coinzoom | [CoinZoom](https://trade.coinzoom.com/landing) | * | [API](https://api-docs.coinzoom.com/) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 | <img src="assets/cryptocom_logo.png" alt="Crypto.com" width="90" /> | crypto_com | [Crypto.com](https://crypto.com/exchange) | 2 | [API](https://exchange-docs.crypto.com/#introduction) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 | <img src="assets/digifinex_logo.svg" alt="Digifinex" width="90" /> | digifinex | [Digifinex](https://www.digifinex.com/en-ww) | 3 | [API](https://docs.digifinex.com/en-ww/v3/#introduction) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
-| <img src="assets/dydx_logo.png" alt="DyDx" width="90" /> | dydx | [dy/dx](https://dydx.exchange/) | 1 | [API](https://docs.dydx.exchange/) |![GREEN](https://via.placeholder.com/15/008000/?text=+) |
-| <img src="assets/hitbtc_logo.png" alt="HitBTC" width="90" /> | hitbtc | [HitBTC](https://hitbtc.com/) | 2 | [API](https://api.hitbtc.com/) | ![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
+| <img src="assets/dydx_logo.png" alt="dYdX" width="90" /> | dydx | [dYdX](https://dydx.exchange/) | 1 | [API](https://legacy-docs.dydx.exchange/#introduction) |![GREEN](https://via.placeholder.com/15/008000/?text=+) |
+| <img src="assets/dydx_logo.png" alt="dYdX Perpetual" width="90" /> | dydx_perpetual | [dYdX Perpetual](https://dydx.exchange/) | 3 | [API](https://docs.dydx.exchange/#general) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
+| <img src="assets/ftx_logo.png" alt="FTX" width="90" /> | ftx | [FTX](https://ftx.com/en) | 1 | [API](https://docs.ftx.com/#overview) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
+| <img src="assets/himalaya_logo.png" alt="Himalaya Exchange" width="90" /> | himalaya | [Himalaya Exchange](https://himalaya.exchange/) | * | [API]() |![RED](https://via.placeholder.com/15/f03c15/?text=+) |
+| <img src="assets/hitbtc_logo.png" alt="HitBTC" width="90" /> | hitbtc | [HitBTC](https://hitbtc.com/) | 2 | [API](https://api.hitbtc.com/) | ![GREEN](https://via.placeholder.com/15/008000/?text=+) |
 |<img src="assets/huobi_logo.png" alt="Huobi Global" width="90" />| huobi | [Huobi Global](https://www.hbg.com) | 1 | [API](https://huobiapi.github.io/docs/spot/v1/en/) |![GREEN](https://via.placeholder.com/15/008000/?text=+) |
 | <img src="assets/kucoin_logo.png" alt="KuCoin" width="90" /> | kucoin | [KuCoin](https://www.kucoin.com/) | 1 | [API](https://docs.kucoin.com/#general) |![GREEN](https://via.placeholder.com/15/008000/?text=+) |
 | <img src="assets/kraken_logo.png" alt="Kraken" width="90" /> | kraken | [Kraken](https://www.kraken.com/) | 1 | [API](https://www.kraken.com/features/api) |![GREEN](https://via.placeholder.com/15/008000/?text=+) |
-| <img src="assets/liquid_logo.png" alt="Liquid" width="90" /> | liquid | [Liquid](https://www.liquid.com/) | 2 | [API](https://developers.liquid.com/) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
+| <img src="assets/liquid_logo.png" alt="Liquid" width="90" /> | liquid | [Liquid](https://www.liquid.com/) | 2 | [API](https://developers.liquid.com/) |![GREEN](https://via.placeholder.com/15/008000/?text=+) |
 | <img src="assets/okex_logo.png" alt="OKEx" width="90" /> | okex | [OKEx](https://www.okex.com/) | 3 | [API](https://www.okex.com/docs/en/) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 | <img src="assets/probit_global_logo.png" alt="Probit Global" width="90" /> | probit | [Probit Global](https://www.probit.com/en-us/) | 1 | [API](https://docs-en.probit.com/docs) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 | <img src="assets/probit_korea_logo.png" alt="Probit Korea" width="90" /> | probit_kr | [Probit Korea](https://www.probit.kr/en-us/) | 1 | [API](https://docs-en.probit.com/docs) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
@@ -64,7 +67,7 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 | <img src="assets/balancer_logo.svg" alt="Balancer" width="90" height="30" /> | balancer | [Balancer](https://balancer.finance/) | * | [SDK](https://docs.balancer.finance/) | ![GREEN](https://via.placeholder.com/15/008000/?text=+) |
 | <img src="assets/perpetual_finance_logo.png" alt="Perpetual Protocol" width="90" /> | perpetual_finance | [Perpetual Protocol](https://perp.fi/) | * | [SDK](https://docs.perp.fi/) | ![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 | <img src="assets/terra_logo.png" alt="Terra" width="90" /> | terra | [Terra](https://terra.money/) | * | [SDK](https://docs.terra.money/) | ![GREEN](https://via.placeholder.com/15/008000/?text=+) |
-| <img src="assets/uniswap_logo.svg" alt="Uniswap" width="90" height="30" /> | uniswap | [Uniswap](https://uniswap.org/) | * | [SDK](https://uniswap.org/docs/v2/) | ![GREEN](https://via.placeholder.com/15/008000/?text=+) |
+| <img src="assets/uniswap_logo.svg" alt="Uniswap" width="90" height="30" /> | uniswap | [Uniswap](https://uniswap.org/) | 2 | [SDK](https://uniswap.org/docs/v2/) | ![GREEN](https://via.placeholder.com/15/008000/?text=+) |
 
 
 
