@@ -94,7 +94,14 @@ class EvmUniswapConnector(ConnectorBase):
 
     @property
     def name(self):
-        return "evm_uniswap"
+        if self is not None:
+            dex_id = getattr(self, '_dex_id', None)
+            if dex_id is not None:
+                return f"evm_uniswap_{dex_id}"
+            else:
+                return "evm_uniswap_0"
+        else:
+            return "evm_uniswap"
 
     @staticmethod
     async def fetch_trading_pairs() -> List[str]:
