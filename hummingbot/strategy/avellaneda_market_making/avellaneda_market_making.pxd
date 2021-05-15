@@ -13,6 +13,8 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         double _max_order_age
         object _order_refresh_tolerance_pct
         double _filled_order_delay
+        int _order_levels
+        object _order_override
         object _inventory_target_base_pct
         bint _order_optimization_enabled
         bint _add_transaction_costs_to_orders
