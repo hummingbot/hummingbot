@@ -53,8 +53,8 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
                  spot_market_slippage_buffer: Decimal = Decimal("0"),
                  derivative_market_slippage_buffer: Decimal = Decimal("0"),
                  maximize_funding_rate: bool = True,
-                 status_report_interval: float = 10,
-                 next_arbitrage_cycle_delay: float = 120):
+                 next_arbitrage_cycle_delay: float = 120,
+                 status_report_interval: float = 10):
         """
         :param spot_market_info: The first market
         :param derivative_market_info: The second market

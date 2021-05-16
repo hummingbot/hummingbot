@@ -668,10 +668,8 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
                     size = market.c_quantize_order_amount(self.trading_pair, abs(position.amount))
                     if size > 0 and price > 0:
                         if position.amount < 0:
-                            self.logger().info(f"Creating profit taking buy order to lock profit on short position.")
                             buys.append(PriceSize(price, size))
                         else:
-                            self.logger().info(f"Creating profit taking sell order to lock profit on long position.")
                             sells.append(PriceSize(price, size))
         return Proposal(buys, sells)
 
@@ -729,8 +727,6 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
                                 create_order = False
                         if create_order is True and price > position.entry_price:
                             sells.append(PriceSize(price, abs(position.amount)))
-                            self.logger().info(f"Trailing stop will Close long position immediately at {price}{self.quote_asset} due to {self._ts_callback_rate}%"
-                                               f" deviation from {self._ts_peak_ask_price} {self.quote_asset} trailing maximum price to secure profit.")
             else:
                 top_bid = market.get_price(self.trading_pair, True)
                 if min(top_bid, self._ts_peak_bid_price) <= (position.entry_price * (Decimal("1") - self._ts_activation_spread)):
@@ -754,8 +750,6 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
                                 create_order = False
                         if create_order is True and price < position.entry_price:
                             buys.append(PriceSize(price, abs(position.amount)))
-                            self.logger().info(f"Trailing stop will close short position immediately at {price}{self.quote_asset} due to {self._ts_callback_rate}%"
-                                               f" deviation from {self._ts_peak_bid_price}{self.quote_asset} trailing minimum price to secure profit.")
             return Proposal(buys, sells)
 
     cdef c_stop_loss_feature(self, object mode, list active_positions):
