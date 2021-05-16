@@ -24,20 +24,18 @@ class UniswapV3LpStrategy(StrategyPyBase):
     def __init__(self,
                  market_info: MarketTradingPairTuple,
                  fee_tier: str,
-                 buy_position_spread: Decimal,
-                 sell_position_spread: Decimal,
                  buy_position_price_spread: Decimal,
                  sell_position_price_spread: Decimal,
-                 token_amount: Decimal,
+                 base_token_amount: Decimal,
+                 quote_token_amount: Decimal,
                  status_report_interval: float = 900):
         super().__init__()
         self._market_info = market_info
         self._fee_tier = fee_tier
-        self._buy_position_spread = buy_position_spread
-        self._sell_position_spread = sell_position_spread
         self._buy_position_price_spread = buy_position_price_spread
         self._sell_position_price_spread = sell_position_price_spread
-        self._token_amount = token_amount
+        self._base_token_amount = base_token_amount
+        self._quote_token_amount = quote_token_amount
 
         self._ev_loop = asyncio.get_event_loop()
         self._last_timestamp = 0
@@ -83,12 +81,12 @@ class UniswapV3LpStrategy(StrategyPyBase):
         data = []
         if len(self.active_positions) > 0:
             for position in self.active_positions:
-                amount = self._token_amount if position in self.active_buys else (self._token_amount * self._last_price)
+                amount = self._base_token_amount if position in self.active_buys else self._quote_token_amount
                 data.append([
                     position.trading_pair,
                     "Buy" if position in self.active_buys else "Sell",
                     position.fee_tier,
-                    f"~{smart_round(Decimal(str(amount)), 8)}",
+                    f"{smart_round(Decimal(str(amount)), 8)}",
                     smart_round(Decimal(str(position.upper_price)), 8),
                     smart_round(Decimal(str(position.lower_price)), 8)
                 ])
@@ -156,11 +154,11 @@ class UniswapV3LpStrategy(StrategyPyBase):
 
     def generate_proposal(self, is_buy):
         if is_buy:
-            upper_price = (Decimal("1") - self._buy_position_spread) * self._last_price
-            lower_price = (Decimal("1") - self._buy_position_spread - self._buy_position_price_spread) * self._last_price
+            upper_price = self._last_price
+            lower_price = (Decimal("1") - self._buy_position_price_spread) * self._last_price
         else:
-            lower_price = (Decimal("1") + self._sell_position_spread) * self._last_price
-            upper_price = (Decimal("1") + self._sell_position_spread + self._sell_position_price_spread) * self._last_price
+            lower_price = self._last_price
+            upper_price = (Decimal("1") + self._sell_position_price_spread) * self._last_price
         return [lower_price, upper_price]
 
     async def propose_position_creation_and_removal(self):
@@ -195,40 +193,40 @@ class UniswapV3LpStrategy(StrategyPyBase):
             if proposal[0][-1] != 0:  # close sell position first
                 self.log_with_clock(logging.INFO, f"Removing position with ID - {proposal[0][-1].token_id}")
                 self._market_info.market.remove_position(proposal[0][-1].hb_id, proposal[0][-1].token_id)
-            if quote_balance < (self._token_amount * self._last_price):
+            if quote_balance < self._quote_token_amount:
                 self.log_with_clock(logging.INFO,
-                                    f"Executing sell order for {self._token_amount * self._last_price} {self._market_info.quote_asset} "
+                                    f"Executing sell order for {self._quote_token_amount} {self._market_info.quote_asset} "
                                     f"at {self._last_price} price so as to have enough balance to place buy position.")
                 self.sell_with_specific_market(self._market_info,
-                                               self._token_amount,
+                                               self._quote_token_amount,
                                                self._market_info.market.get_taker_order_type(),
                                                self._last_price,
                                                )
             self.log_with_clock(logging.INFO, f"Creating new buy position over {proposal[0][0]} to {proposal[0][1]} price range.")
             self._market_info.market.add_position(self.trading_pair,
                                                   self._fee_tier,
-                                                  self._token_amount,
-                                                  self._token_amount * self._last_price,
+                                                  self._base_token_amount,
+                                                  self._quote_token_amount,
                                                   proposal[0][0],
                                                   proposal[0][1])
         if len(proposal[1]) > 0:
             if proposal[1][-1] != 0:  # close buy position first
                 self.log_with_clock(logging.INFO, f"Removing position with ID - {proposal[1][-1].token_id}")
                 self._market_info.market.remove_position(proposal[1][-1].hb_id, proposal[1][-1].token_id)
-            if base_balance < (self._token_amount):
+            if base_balance < (self._base_token_amount):
                 self.log_with_clock(logging.INFO,
-                                    f"Executing buy order for {self._token_amount} {self._market_info.base_asset} "
+                                    f"Executing buy order for {self._base_token_amount} {self._market_info.base_asset} "
                                     f"at {self._last_price} price so as to have enough balance to place sell position.")
                 self.buy_with_specific_market(self._market_info,
-                                              self._token_amount,
+                                              self._base_token_amount,
                                               self._market_info.market.get_taker_order_type(),
                                               self._last_price,
                                               )
             self.log_with_clock(logging.INFO, f"Creating new sell position over {proposal[1][0]} to {proposal[1][1]} price range.")
             self._market_info.market.add_position(self.trading_pair,
                                                   self._fee_tier,
-                                                  self._token_amount,
-                                                  self._token_amount * self._last_price,
+                                                  self._base_token_amount,
+                                                  self._quote_token_amount,
                                                   proposal[1][0],
                                                   proposal[1][1])
 
