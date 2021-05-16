@@ -161,10 +161,96 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
         self._ts_peak_ask_price = Decimal('0')
         self._exit_orders = []
 
+        self._argument_values = None
+
         self.c_add_markets([market_info.market])
 
     def all_markets_ready(self):
         return all([market.ready for market in self._sb_markets])
+
+    @classmethod
+    def argument_details(cls) -> Dict[str, Tuple[type, bool, Optional[Any]]]:
+        return {
+            "market_info": (MarketTradingPairTuple, True, None),
+            "leverage": (int, True, None),
+            "position_mode": (str, True, None),
+            "bid_spread": (Decimal, True, None),
+            "ask_spread": (Decimal, True, None),
+            "order_amount": (Decimal, True, None),
+            "position_management": (str, True, None),
+            "long_profit_taking_spread": (Decimal, True, None),
+            "short_profit_taking_spread": (Decimal, True, None),
+            "ts_activation_spread": (Decimal, True, None),
+            "ts_callback_rate": (Decimal, True, None),
+            "stop_loss_spread": (Decimal, True, None),
+            "close_position_order_type": (str, True, None),
+            "order_levels": (int, False, 1),
+            "order_level_spread": (Decimal, False, s_decimal_zero),
+            "order_level_amount": (Decimal, False, s_decimal_zero),
+            "order_refresh_time": (float, False, 30.0),
+            "order_refresh_tolerance_pct": (Decimal, False, s_decimal_neg_one),
+            "filled_order_delay": (float, False, 60.0),
+            "hanging_orders_enabled": (bool, False, False),
+            "hanging_orders_cancel_pct": (Decimal, False, Decimal("0.1")),
+            "order_optimization_enabled": (bool, False, False),
+            "ask_order_optimization_depth": (Decimal, False, s_decimal_zero),
+            "bid_order_optimization_depth": (Decimal, False, s_decimal_zero),
+            "add_transaction_costs_to_orders": (bool, False, False),
+            "asset_price_delegate": (AssetPriceDelegate, False, None),
+            "price_type": (str, False, "mid_price"),
+            "take_if_crossed": (bool, False, False),
+            "price_ceiling": (Decimal, False, s_decimal_neg_one),
+            "price_floor": (Decimal, False, s_decimal_neg_one),
+            "ping_pong_enabled": (bool, False, False),
+            "logging_options": (int, False, cls.OPTION_LOG_ALL),
+            "status_report_interval": (float, False, 900),
+            "minimum_spread": (Decimal, False, Decimal(0)),
+            "hb_app_notification": (bool, False, False),
+            "order_override": (Dict[str, List[str]], False, {}),
+        }
+
+    @property
+    def argument_values(self):
+        if self._argument_values is None:
+            self._argument_values = {
+                "market_info": self._market_info,
+                "leverage": self._leverage,
+                "position_mode": self._position_mode,
+                "bid_spread": self._bid_spread,
+                "ask_spread": self._ask_spread,
+                "order_amount": self._order_amount,
+                "position_management": self._position_management,
+                "long_profit_taking_spread": self._long_profit_taking_spread,
+                "short_profit_taking_spread": self._short_profit_taking_spread,
+                "ts_activation_spread": self._ts_activation_spread,
+                "ts_callback_rate": self._ts_callback_rate,
+                "stop_loss_spread": self._stop_loss_spread,
+                "close_position_order_type": self._close_position_order_type,
+                "order_levels": self._order_levels,
+                "order_level_spread": self._order_level_spread,
+                "order_level_amount": self._order_level_amount,
+                "order_refresh_time": self._order_refresh_time,
+                "order_refresh_tolerance_pct": self._order_refresh_tolerance_pct,
+                "filled_order_delay": self._filled_order_delay,
+                "hanging_orders_enabled": self._hanging_orders_enabled,
+                "hanging_orders_cancel_pct": self._hanging_orders_cancel_pct,
+                "order_optimization_enabled": self._order_optimization_enabled,
+                "ask_order_optimization_depth": self._ask_order_optimization_depth,
+                "bid_order_optimization_depth": self._bid_order_optimization_depth,
+                "add_transaction_costs_to_orders": self._add_transaction_costs_to_orders,
+                "asset_price_delegate": self._asset_price_delegate,
+                "price_type": self._price_type,
+                "take_if_crossed": self._take_if_crossed,
+                "price_ceiling": self._price_ceiling,
+                "price_floor": self._price_floor,
+                "ping_pong_enabled": self._ping_pong_enabled,
+                "logging_options": self._logging_options,
+                "status_report_interval": self._status_report_interval,
+                "minimum_spread": self._minimum_spread,
+                "hb_app_notification": self._hb_app_notification,
+                "order_override": self._order_override,
+            }
+        return self._argument_values
 
     @property
     def order_refresh_tolerance_pct(self) -> Decimal:
