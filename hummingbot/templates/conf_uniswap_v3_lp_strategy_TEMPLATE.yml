@@ -12,10 +12,10 @@ market: null
 fee_tier: null
 
 # The spread between lower price to the upper price for buy position
-sell_position_price_spread: null
+buy_position_price_spread: null
 
 # The spread between lower price to the upper price for sell position
-sell_position_spread: null
+sell_position_price_spread: null
 
 # The base amount of token (liquidity) provided to the pool
 base_token_amount: null
