@@ -20,8 +20,8 @@ def start(self):
         num_individual_orders = dev_5_vwap_config_map.get("num_individual_orders").value
         percent_slippage = dev_5_vwap_config_map.get("percent_slippage").value
         order_percent_of_volume = dev_5_vwap_config_map.get("order_percent_of_volume").value
-        market = dev_5_vwap_config_map.get("market").value.lower()
-        raw_market_symbol = dev_5_vwap_config_map.get("market_trading_pair_tuple").value
+        exchange = dev_5_vwap_config_map.get("exchange").value.lower()
+        raw_market_symbol = dev_5_vwap_config_map.get("market").value
         order_price = None
         cancel_order_wait_time = None
 
@@ -30,18 +30,18 @@ def start(self):
             cancel_order_wait_time = dev_5_vwap_config_map.get("cancel_order_wait_time").value
 
         try:
-            assets: Tuple[str, str] = self._initialize_market_assets(market, [raw_market_symbol])[0]
+            assets: Tuple[str, str] = self._initialize_market_assets(exchange, [raw_market_symbol])[0]
         except ValueError as e:
             self._notify(str(e))
             return
 
-        market_names: List[Tuple[str, List[str]]] = [(market, [raw_market_symbol])]
+        market_names: List[Tuple[str, List[str]]] = [(exchange, [raw_market_symbol])]
 
-        self._initialize_wallet(token_symbols=list(set(assets)))
+        self._initialize_wallet(token_trading_pairs=list(set(assets)))
         self._initialize_markets(market_names)
         self.assets = set(assets)
 
-        maker_data = [self.markets[market], raw_market_symbol] + list(assets)
+        maker_data = [self.markets[exchange], raw_market_symbol] + list(assets)
         self.market_trading_pair_tuples = [MarketTradingPairTuple(*maker_data)]
 
         strategy_logging_options = Dev5TwapTradeStrategy.OPTION_LOG_ALL
