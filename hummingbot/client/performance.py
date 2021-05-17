@@ -55,13 +55,16 @@ class PerformanceMetrics:
         self.fees: Dict[str, Decimal] = {}
 
     @classmethod
-    async def create(cls, exchange: str, trading_pair: str, trades: List[Any], current_balances: Dict[str, Decimal]):
+    async def create(cls, exchange: str,
+                     trading_pair: str,
+                     trades: List[Any],
+                     current_balances: Dict[str, Decimal]) -> 'PerformanceMetrics':
         performance = PerformanceMetrics()
         await performance._initialize_metrics(exchange, trading_pair, trades, current_balances)
         return performance
 
     @staticmethod
-    def position_order(open: list, close: list):
+    def position_order(open: list, close: list) -> Tuple[Any, Any]:
         """
         Pair open position order with close position orders
         :param open: a list of orders that may have an open position order
@@ -104,7 +107,7 @@ class PerformanceMetrics:
         return aggregated_orders
 
     @staticmethod
-    def aggregate_position_order(buys: list, sells: list):
+    def aggregate_position_order(buys: list, sells: list) -> Tuple[list, list]:
         """
         Aggregate the amount field for orders with multiple fills
         :param buys: a list of buy orders
@@ -117,7 +120,7 @@ class PerformanceMetrics:
         return aggregated_buys, aggregated_sells
 
     @staticmethod
-    def derivative_pnl(long: list, short: list):
+    def derivative_pnl(long: list, short: list) -> List[Decimal]:
         # It is assumed that the amount and leverage for both open and close orders are the same.
         """
         Calculates PnL for a close position
@@ -253,7 +256,6 @@ class PerformanceMetrics:
         :param trading_pair: the trading market to get performance metrics
         :param trades: the list of TradeFill or Trade object
         :param current_balances: current user account balance
-        :return: A PerformanceMetrics object
         """
 
         base, quote = trading_pair.split("-")
