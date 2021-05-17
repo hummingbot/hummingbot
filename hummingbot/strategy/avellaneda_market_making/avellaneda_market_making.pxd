@@ -55,6 +55,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         object _avg_vol
 
     cdef object c_get_mid_price(self)
+    cdef _create_proposal_based_on_order_override(self)
+    cdef _create_proposal_based_on_order_levels(self)
+    cdef _create_basic_proposal(self)
     cdef object c_create_base_proposal(self)
     cdef tuple c_get_adjusted_available_balance(self, list orders)
     cdef c_apply_order_price_modifiers(self, object proposal)
