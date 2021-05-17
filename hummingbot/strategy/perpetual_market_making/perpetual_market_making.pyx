@@ -730,7 +730,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
             else:
                 top_bid = market.get_price(self.trading_pair, True)
                 if min(top_bid, self._ts_peak_bid_price) <= (position.entry_price * (Decimal("1") - self._ts_activation_spread)):
-                    if top_bid < self._ts_peak_bid_price or self._ts_peak_ask_price == Decimal("0"):
+                    if top_bid < self._ts_peak_bid_price or self._ts_peak_bid_price == Decimal("0"):
                         estimated_exit = (top_bid * (Decimal("1") + self._ts_callback_rate))
                         estimated_exit = "Nill" if estimated_exit >= position.entry_price else estimated_exit
                         self.logger().info(f"New {top_bid} {self.quote_asset} peak price on buy order book, estimated exit price"
@@ -772,7 +772,6 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
                 # cancel take profit orders if they exist
                 for old_order in take_profit_orders:
                     self.c_cancel_order(self._market_info, old_order.client_order_id)
-                    self.logger().info(f"Initiated cancellation of existing take profit order {old_order.client_order_id} in favour of new stop loss order.")
                 exit_order_exists = [o for o in active_orders if o.price == price and not o.is_buy]
                 if len(exit_order_exists) == 0:
                     size = market.c_quantize_order_amount(self.trading_pair, abs(position.amount))
@@ -785,7 +784,6 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
                 # cancel take profit orders if they exist
                 for old_order in take_profit_orders:
                     self.c_cancel_order(self._market_info, old_order.client_order_id)
-                    self.logger().info(f"Initiated cancellation existing take profit order {old_order.client_order_id} in favour of stop loss order.")
                 exit_order_exists = [o for o in active_orders if o.price == price and o.is_buy]
                 if len(exit_order_exists) == 0:
                     size = market.c_quantize_order_amount(self.trading_pair, abs(position.amount))
