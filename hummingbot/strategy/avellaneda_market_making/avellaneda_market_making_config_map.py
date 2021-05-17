@@ -143,12 +143,18 @@ avellaneda_market_making_config_map = {
                   prompt_on_new=True),
     "vol_to_spread_multiplier":
         ConfigVar(key="vol_to_spread_multiplier",
-                  prompt="Enter the Volatility threshold multiplier (Should be greater than 1.0): "
-                         "(If market volatility multiplied by this value is above the maximum spread, it will increase the maximum spread value) >>>",
+                  prompt="Enter the Volatility threshold multiplier: "
+                         "(If market volatility multiplied by this value is above the minimum spread, it will increase the minimum and maximum spread value) >>>",
                   type_str="decimal",
                   required_if=lambda: avellaneda_market_making_config_map.get("parameters_based_on_spread").value,
-                  validator=lambda v: validate_decimal(v, 1, 10, inclusive=False),
+                  validator=lambda v: validate_decimal(v, 0, 10, inclusive=True),
                   prompt_on_new=True),
+    "volatility_sensibility":
+        ConfigVar(key="volatility_sensibility",
+                  prompt="Enter volatility change threshold to trigger parameter recalculation>>> ",
+                  type_str="decimal",
+                  validator=lambda v: validate_decimal(v, 0, 100, inclusive=True),
+                  default=20),
     "inventory_risk_aversion":
         ConfigVar(key="inventory_risk_aversion",
                   prompt="Enter Inventory risk aversion between 0 and 1: (For values close to 0.999 spreads will be more "

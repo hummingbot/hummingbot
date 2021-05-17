@@ -2,7 +2,7 @@
 ###       Avellaneda market making strategy config    ###
 ########################################################
 
-template_version: 1
+template_version: 2
 strategy: null
 
 # Exchange and token parameters.
@@ -42,6 +42,7 @@ parameters_based_on_spread: null
 min_spread: null
 max_spread: null
 vol_to_spread_multiplier: null
+volatility_sensibility: null
 inventory_risk_aversion: null
 order_book_depth_factor: null
 risk_factor: null
