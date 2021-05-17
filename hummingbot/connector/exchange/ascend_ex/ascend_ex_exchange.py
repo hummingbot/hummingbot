@@ -733,9 +733,9 @@ class AscendExExchange(ExchangeBase):
             api_params = {
                 "orders": [
                     {
-                        'id': order.exchange_order_id,
+                        'id': ascend_ex_utils.uuid32(),
                         "orderId": order.exchange_order_id,
-                        "symbol": order.trading_pair,
+                        "symbol": ascend_ex_utils.convert_to_exchange_trading_pair(order.trading_pair),
                         "time": int(time.time() * 1e3)
                     }
                     for order in tracked_orders.values()
