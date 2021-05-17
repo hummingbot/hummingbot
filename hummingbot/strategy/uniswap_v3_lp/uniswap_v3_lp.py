@@ -77,7 +77,7 @@ class UniswapV3LpStrategy(StrategyPyBase):
         return await self._market_info.market.get_price_by_fee_tier(self.trading_pair, self._fee_tier)
 
     def active_positions_df(self) -> pd.DataFrame:
-        columns = ["Symbol", "Type", "Fee Tier", "Amount", "Upper Price", "Lower Price"]
+        columns = ["Symbol", "Type", "Fee Tier", "Amount", "Upper Price", "Lower Price", ""]
         data = []
         if len(self.active_positions) > 0:
             for position in self.active_positions:
@@ -88,7 +88,8 @@ class UniswapV3LpStrategy(StrategyPyBase):
                     position.fee_tier,
                     f"{smart_round(Decimal(str(amount)), 8)}",
                     smart_round(Decimal(str(position.upper_price)), 8),
-                    smart_round(Decimal(str(position.lower_price)), 8)
+                    smart_round(Decimal(str(position.lower_price)), 8),
+                    "[In range]" if self._last_price >= position.lower_price and self._last_price <= position.upper_price else "[Out of range]"
                 ])
         return pd.DataFrame(data=data, columns=columns)
 
