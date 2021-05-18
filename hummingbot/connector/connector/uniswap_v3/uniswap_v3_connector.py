@@ -239,7 +239,7 @@ class UniswapV3Connector(UniswapConnector):
                                                "eth/poll",
                                                {"txHash": order_id}))
         if len(self._in_flight_positions) > 0:
-            tracked_positions = list(self._in_flight_positions.values())
+            tracked_positions = [pos for pos in self._in_flight_positions.values() if pos.last_status.is_pending()]  # We only want to poll update for pending positions
             for tracked_pos in tracked_positions:
                 last_hash = await tracked_pos.get_last_tx_hash()
                 tasks.append(self._api_request("post",
