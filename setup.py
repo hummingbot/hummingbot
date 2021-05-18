@@ -30,7 +30,7 @@ class BuildExt(build_ext):
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20210406"
+    version = "20210518"
     packages = [
         "hummingbot",
         "hummingbot.client",
