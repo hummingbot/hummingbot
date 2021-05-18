@@ -1,3 +1,7 @@
+"""
+A collection of utility functions for querying and checking Ethereum data
+"""
+
 import aiohttp
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.utils import async_ttl_cache
