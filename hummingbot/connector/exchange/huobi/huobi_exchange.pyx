@@ -263,36 +263,39 @@ cdef class HuobiExchange(ExchangeBase):
         if is_auth_required:
             params = self._huobi_auth.add_auth_to_params(method, path_url, params)
 
-        if not data:
-            response = await client.request(
+        # aiohttp TestClient requires path instead of url
+        if isinstance(client, TestClient):
+            response_coro = client.request(
                 method=method.upper(),
-                url=url,
+                path=f"{path_url}",
                 headers=headers,
                 params=params,
-                timeout=self.API_CALL_TIMEOUT
+                data=ujson.dumps(data),
+                timeout=100
             )
         else:
-            response = await client.request(
+            response_coro = client.request(
                 method=method.upper(),
                 url=url,
                 headers=headers,
                 params=params,
                 data=ujson.dumps(data),
-                timeout=self.API_CALL_TIMEOUT
+                timeout=100
             )
 
-        if response.status != 200:
-            raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
-        try:
-            parsed_response = await response.json()
-        except Exception:
-            raise IOError(f"Error parsing data from {url}.")
+        async with response_coro as response:
+            if response.status != 200:
+                raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
+            try:
+                parsed_response = await response.json()
+            except Exception:
+                raise IOError(f"Error parsing data from {url}.")
 
-        data = parsed_response.get("data")
-        if data is None:
-            self.logger().error(f"Error received for {url}. Response is {parsed_response}.")
-            raise HuobiAPIError({"error": parsed_response})
-        return data
+            data = parsed_response.get("data")
+            if data is None:
+                self.logger().error(f"Error received from {url}. Response is {parsed_response}.")
+                raise HuobiAPIError({"error": parsed_response})
+            return data
 
     async def _update_account_id(self) -> str:
         accounts = await self._api_request("get", path_url="/account/accounts", is_auth_required=True)
@@ -410,10 +413,7 @@ cdef class HuobiExchange(ExchangeBase):
         }
         """
         path_url = f"/order/orders/{exchange_order_id}"
-        params = {
-            "order_id": exchange_order_id
-        }
-        return await self._api_request("get", path_url=path_url, params=params, is_auth_required=True)
+        return await self._api_request("get", path_url=path_url, is_auth_required=True)
 
     async def _update_order_status(self):
         cdef:
@@ -430,7 +430,8 @@ cdef class HuobiExchange(ExchangeBase):
                 except HuobiAPIError as e:
                     err_code = e.error_payload.get("error").get("err-code")
                     self.c_stop_tracking_order(tracked_order.client_order_id)
-                    self.logger().info(f"Fail to retrieve order update for {tracked_order.client_order_id} - {err_code}")
+                    self.logger().info(f"The limit order {tracked_order.client_order_id} "
+                                       f"has failed according to order status API. - {err_code}")
                     self.c_trigger_event(
                         self.MARKET_ORDER_FAILURE_EVENT_TAG,
                         MarketOrderFailureEvent(
