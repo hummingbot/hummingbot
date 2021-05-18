@@ -2,8 +2,12 @@
 Unit tests for hummingbot.core.utils.ethereum
 """
 
-from hummingbot.core.utils.ethereum import check_web3, check_transaction_exceptions
-from test.mock.mock_eth_node import MockEthNode
+import asyncio
+from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.core.utils.ethereum import check_web3, check_transaction_exceptions, fetch_trading_pairs
+from test.mock.mock_eth_node import MockEthNodeRequestHandler
+from test.mock.mock_token_list import MockTokenListRequestHandler
+from test.mock.mock_server import MockServer
 import unittest.mock
 
 
@@ -14,7 +18,7 @@ class EthereumTest(unittest.TestCase):
         """
 
         # create a MockEthNode but do not start it, check_web3 should fail to contact it
-        mock_eth_node = MockEthNode()
+        mock_eth_node = MockServer(MockEthNodeRequestHandler)
         self.assertEqual(check_web3(mock_eth_node.url), False)
 
         # start the node, the check should pass
@@ -56,5 +60,23 @@ class EthereumTest(unittest.TestCase):
         invalid_transaction_3["allowances"] = {"WBTC": 500}
         self.assertRegexpMatches(check_transaction_exceptions(invalid_transaction_3)[0], r"^Insufficient")
 
-    def fetch_trading_pairs(self):
-        self.assertEqual(1, 1)
+    def test_fetch_trading_pairs(self):
+        asyncio.get_event_loop().run_until_complete(self._test_fetch_trading_pairs())
+
+    async def _test_fetch_trading_pairs(self):
+        """
+        Unit tests for hummingbot.core.utils.ethereum.fetch_trading_pairs
+        """
+
+        # Set url to localhost to mock it
+        mock_server = MockServer(MockTokenListRequestHandler)
+        global_config_map['ethereum_token_list_url'].value = mock_server.url
+
+        # the server hasn't started to the function call should fail
+        self.assertRaises(Exception, fetch_trading_pairs())
+
+        # turn on the server to get data
+        mock_server.start()
+        trading_pairs = await fetch_trading_pairs()
+        # the order of the elements isn't guaranteed so compare both to sets to compare
+        self.assertEqual(set(trading_pairs), set(['DAI-BTC', 'DAI-ETH', 'BTC-DAI', 'BTC-ETH', 'ETH-DAI', 'ETH-BTC']))
