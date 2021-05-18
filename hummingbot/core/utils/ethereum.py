@@ -1,9 +1,6 @@
-import binascii
 import logging
-from hexbytes import HexBytes
 from web3 import Web3
-from web3.datastructures import AttributeDict
-from typing import Dict, List
+from typing import List
 import aiohttp
 from hummingbot.client.config.global_config_map import global_config_map
 import itertools as it
@@ -25,17 +22,6 @@ def check_web3(ethereum_rpc_url: str) -> bool:
         if ethereum_rpc_url.startswith("mainnet.infura.io"):
             logging.getLogger().warning("Please add \"https://\" to your Infura node url.")
     return ret
-
-
-def block_values_to_hex(block: AttributeDict) -> AttributeDict:
-    formatted_block: Dict = {}
-    for key in block.keys():
-        value = block[key]
-        try:
-            formatted_block[key] = HexBytes(value)
-        except binascii.Error:
-            formatted_block[key] = value
-    return AttributeDict(formatted_block)
 
 
 def check_transaction_exceptions(trade_data: dict) -> dict:
