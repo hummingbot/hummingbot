@@ -8,6 +8,9 @@ from hummingbot.core.utils import async_ttl_cache
 
 
 def check_web3(ethereum_rpc_url: str) -> bool:
+    """
+    Confirm that the provided url is a valid Ethereum RPC url.
+    """
     try:
         w3: Web3 = Web3(Web3.HTTPProvider(ethereum_rpc_url, request_kwargs={"timeout": 2.0}))
         ret = w3.isConnected()
@@ -24,12 +27,13 @@ def check_web3(ethereum_rpc_url: str) -> bool:
     return ret
 
 
-def check_transaction_exceptions(trade_data: dict) -> dict:
-
+def check_transaction_exceptions(trade_data: dict) -> list:
+    """
+    Check trade data for Ethereum decentralized exchanges
+    """
     exception_list = []
 
     gas_limit = trade_data["gas_limit"]
-    # gas_price = trade_data["gas_price"]
     gas_cost = trade_data["gas_cost"]
     amount = trade_data["amount"]
     side = trade_data["side"]
