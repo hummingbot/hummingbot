@@ -892,7 +892,8 @@ class AscendExExchange(ExchangeBase):
                     client_order_id = in_flight_order.client_order_id
 
             if client_order_id is None:
-                raise Exception(f"Client order id for {exchange_order_id} not found.")
+                self.logger().debug(f"Unrecognized Order {exchange_order_id}: {order}")
+                continue
 
             ret_val.append(
                 OpenOrder(
