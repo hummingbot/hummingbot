@@ -1,18 +1,11 @@
-from os.path import join, realpath
-import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 from decimal import Decimal
 from typing import List
 import unittest
 import asyncio
 from unittest.mock import MagicMock, patch
 
-from hummingbot.client.performance import (
-    calculate_performance_metrics,
-    position_order,
-    aggregate_position_order,
-    smart_round)
+from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.core.data_type.trade import Trade, TradeType, TradeFee
-
 
 trading_pair = "HBOT-USDT"
 base, quote = trading_pair.split("-")
@@ -33,40 +26,41 @@ class PerformanceMetricsUnitTest(unittest.TestCase):
         return trade
 
     def test_position_order_returns_nothing_when_no_open_and_no_close_orders(self):
-        tradesForOpen = [self.mock_trade(id=f"order{i}", amount=100, price=10, position="INVALID")
-                         for i in range(3)]
-        tradesForClose = [self.mock_trade(id=f"order{i}", amount=100, price=10, position="INVALID")
-                          for i in range(2)]
+        trade_for_open = [self.mock_trade(id=f"order{i}", amount=100, price=10, position="INVALID")
+                          for i in range(3)]
+        trades_for_close = [self.mock_trade(id=f"order{i}", amount=100, price=10, position="INVALID")
+                            for i in range(2)]
 
-        self.assertIsNone(position_order(tradesForOpen, tradesForClose))
+        self.assertIsNone(PerformanceMetrics.position_order(trade_for_open, trades_for_close))
 
-        tradesForOpen[1].position = "OPEN"
+        trade_for_open[1].position = "OPEN"
 
-        self.assertIsNone(position_order(tradesForOpen, tradesForClose))
+        self.assertIsNone(PerformanceMetrics.position_order(trade_for_open, trades_for_close))
 
-        tradesForOpen[1].position = "INVALID"
-        tradesForClose[-1].position = "CLOSE"
+        trade_for_open[1].position = "INVALID"
+        trades_for_close[-1].position = "CLOSE"
 
-        self.assertIsNone(position_order(tradesForOpen, tradesForClose))
+        self.assertIsNone(PerformanceMetrics.position_order(trade_for_open, trades_for_close))
 
     def test_position_order_returns_open_and_close_pair(self):
-        tradesForOpen = [self.mock_trade(id=f"order{i}", amount=100, price=10, position="INVALID")
-                         for i in range(3)]
-        tradesForClose = [self.mock_trade(id=f"order{i}", amount=100, price=10, position="INVALID")
-                          for i in range(2)]
+        trades_for_open = [self.mock_trade(id=f"order{i}", amount=100, price=10, position="INVALID")
+                           for i in range(3)]
+        trades_for_close = [self.mock_trade(id=f"order{i}", amount=100, price=10, position="INVALID")
+                            for i in range(2)]
 
-        tradesForOpen[1].position = "OPEN"
-        tradesForClose[-1].position = "CLOSE"
+        trades_for_open[1].position = "OPEN"
+        trades_for_close[-1].position = "CLOSE"
 
-        selectedOpen, selectedClose = position_order(tradesForOpen.copy(), tradesForClose.copy())
-        self.assertEqual(selectedOpen, tradesForOpen[1])
-        self.assertEqual(selectedClose, tradesForClose[-1])
+        selected_open, selected_close = PerformanceMetrics.position_order(trades_for_open.copy(),
+                                                                          trades_for_close.copy())
+        self.assertEqual(selected_open, trades_for_open[1])
+        self.assertEqual(selected_close, trades_for_close[-1])
 
     def test_aggregated_position_with_no_trades(self):
-        aggregatedBuys, aggregatedSells = aggregate_position_order([], [])
+        aggregated_buys, aggregated_sells = PerformanceMetrics.aggregate_position_order([], [])
 
-        self.assertEqual(len(aggregatedBuys), 0)
-        self.assertEqual(len(aggregatedSells), 0)
+        self.assertEqual(len(aggregated_buys), 0)
+        self.assertEqual(len(aggregated_sells), 0)
 
     def test_aggregated_position_for_unrelated_trades(self):
         trades = []
@@ -75,15 +69,15 @@ class PerformanceMetricsUnitTest(unittest.TestCase):
         trades.append(self.mock_trade(id="order2", amount=200, price=15))
         trades.append(self.mock_trade(id="order3", amount=300, price=20))
 
-        aggregatedBuys, aggregatedSells = aggregate_position_order(trades, [])
+        aggregated_buys, aggregated_sells = PerformanceMetrics.aggregate_position_order(trades, [])
 
-        self.assertEqual(aggregatedBuys, trades)
-        self.assertEqual(len(aggregatedSells), 0)
+        self.assertEqual(aggregated_buys, trades)
+        self.assertEqual(len(aggregated_sells), 0)
 
-        aggregatedBuys, aggregatedSells = aggregate_position_order([], trades)
+        aggregated_buys, aggregated_sells = PerformanceMetrics.aggregate_position_order([], trades)
 
-        self.assertEqual(len(aggregatedBuys), 0)
-        self.assertEqual(aggregatedSells, trades)
+        self.assertEqual(len(aggregated_buys), 0)
+        self.assertEqual(aggregated_sells, trades)
 
     def test_aggregated_position_with_two_related_trades_from_three(self):
         trades = []
@@ -92,13 +86,13 @@ class PerformanceMetricsUnitTest(unittest.TestCase):
         trades.append(self.mock_trade(id="order2", amount=200, price=15))
         trades.append(self.mock_trade(id="order1", amount=300, price=20))
 
-        aggregatedBuys, aggregatedSells = aggregate_position_order(trades, [])
+        aggregated_buys, aggregated_sells = PerformanceMetrics.aggregate_position_order(trades, [])
 
-        self.assertEqual(len(aggregatedBuys), 2)
-        trade = aggregatedBuys[0]
+        self.assertEqual(len(aggregated_buys), 2)
+        trade = aggregated_buys[0]
         self.assertTrue(trade.order_id == "order1" and trade.amount == 400 and trade.price == 15)
-        self.assertEqual(aggregatedBuys[1], trades[1])
-        self.assertEqual(len(aggregatedSells), 0)
+        self.assertEqual(aggregated_buys[1], trades[1])
+        self.assertEqual(len(aggregated_sells), 0)
 
         trades = []
 
@@ -106,27 +100,27 @@ class PerformanceMetricsUnitTest(unittest.TestCase):
         trades.append(self.mock_trade(id="order2", amount=200, price=15))
         trades.append(self.mock_trade(id="order1", amount=300, price=20))
 
-        aggregatedBuys, aggregatedSells = aggregate_position_order([], trades)
+        aggregated_buys, aggregated_sells = PerformanceMetrics.aggregate_position_order([], trades)
 
-        self.assertEqual(len(aggregatedBuys), 0)
-        self.assertEqual(len(aggregatedSells), 2)
-        trade = aggregatedSells[0]
+        self.assertEqual(len(aggregated_buys), 0)
+        self.assertEqual(len(aggregated_sells), 2)
+        trade = aggregated_sells[0]
         self.assertTrue(trade.order_id == "order1" and trade.amount == 400 and trade.price == 15)
-        self.assertEqual(aggregatedSells[1], trades[1])
+        self.assertEqual(aggregated_sells[1], trades[1])
 
-    def test_calculate_performance_metrics(self):
+    def test_performance_metrics(self):
         trades: List[Trade] = [
             Trade(trading_pair, TradeType.BUY, 100, 10, None, trading_pair, 1, TradeFee(0.0, [(quote, 0)])),
             Trade(trading_pair, TradeType.SELL, 120, 15, None, trading_pair, 1, TradeFee(0.0, [(quote, 0)]))
         ]
         cur_bals = {base: 100, quote: 10000}
         metrics = asyncio.get_event_loop().run_until_complete(
-            calculate_performance_metrics("hbot_exchange", trading_pair, trades, cur_bals))
+            PerformanceMetrics.create("hbot_exchange", trading_pair, trades, cur_bals))
         self.assertEqual(Decimal("200"), metrics.trade_pnl)
         print(metrics)
 
-    @patch('hummingbot.client.performance.is_trade_fill')
-    def test_calculate_performance_metrics_for_derivatives(self, is_trade_fill_mock):
+    @patch('hummingbot.client.performance.PerformanceMetrics._is_trade_fill')
+    def test_performance_metrics_for_derivatives(self, is_trade_fill_mock):
         is_trade_fill_mock.return_value = True
         trades = []
         trades.append(self.mock_trade(id="order1",
@@ -155,7 +149,8 @@ class PerformanceMetricsUnitTest(unittest.TestCase):
                                       fee=TradeFee(0.1, [("USD", 0)])))
 
         cur_bals = {base: 100, quote: 10000}
-        metrics = asyncio.get_event_loop().run_until_complete(calculate_performance_metrics("hbot_exchange", trading_pair, trades, cur_bals))
+        metrics = asyncio.get_event_loop().run_until_complete(
+            PerformanceMetrics.create("hbot_exchange", trading_pair, trades, cur_bals))
         self.assertEqual(metrics.num_buys, 2)
         self.assertEqual(metrics.num_sells, 2)
         self.assertEqual(metrics.num_trades, 4)
@@ -178,25 +173,25 @@ class PerformanceMetricsUnitTest(unittest.TestCase):
         self.assertEqual(metrics.total_pnl, Decimal("650"))
 
     def test_smart_round(self):
-        value = smart_round(None)
+        value = PerformanceMetrics.smart_round(None)
         self.assertIsNone(value)
-        value = smart_round(Decimal("NaN"))
+        value = PerformanceMetrics.smart_round(Decimal("NaN"))
         self.assertTrue(value.is_nan())
 
-        value = smart_round(Decimal("10000.123456789"))
+        value = PerformanceMetrics.smart_round(Decimal("10000.123456789"))
         self.assertEqual(value, Decimal("10000"))
-        value = smart_round(Decimal("100.123456789"))
+        value = PerformanceMetrics.smart_round(Decimal("100.123456789"))
         self.assertEqual(value, Decimal("100.1"))
-        value = smart_round(Decimal("1.123456789"))
+        value = PerformanceMetrics.smart_round(Decimal("1.123456789"))
         self.assertEqual(value, Decimal("1.12"))
-        value = smart_round(Decimal("0.123456789"))
+        value = PerformanceMetrics.smart_round(Decimal("0.123456789"))
         self.assertEqual(value, Decimal("0.1234"))
-        value = smart_round(Decimal("0.000456789"))
+        value = PerformanceMetrics.smart_round(Decimal("0.000456789"))
         self.assertEqual(value, Decimal("0.00045"))
-        value = smart_round(Decimal("0.000056789"))
+        value = PerformanceMetrics.smart_round(Decimal("0.000056789"))
         self.assertEqual(value, Decimal("0.00005678"))
-        value = smart_round(Decimal("0"))
+        value = PerformanceMetrics.smart_round(Decimal("0"))
         self.assertEqual(value, Decimal("0"))
 
-        value = smart_round(Decimal("0.123456"), 2)
+        value = PerformanceMetrics.smart_round(Decimal("0.123456"), 2)
         self.assertEqual(value, Decimal("0.12"))
