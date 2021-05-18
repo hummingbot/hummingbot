@@ -880,8 +880,10 @@ class AscendExExchange(ExchangeBase):
         )
         ret_val = []
         for order in result["data"]:
-            if order["type"] != "LIMIT":
-                raise Exception(f"Unsupported order type {order['type']}")
+            if order["orderType"].lower() != "limit":
+                self.logger().debug(f"Unsupported orderType: {order['orderType']}. Order: {order}",
+                                    exc_info=True)
+                continue
 
             exchange_order_id = order["orderId"]
             client_order_id = None
