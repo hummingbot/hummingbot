@@ -31,14 +31,20 @@ dev_1_get_order_book_config_map = {
     "strategy":
         ConfigVar(key="strategy",
                   prompt="",
-                  default="dev_1_get_order_book"),
-    "market":
-        ConfigVar(key="market",
+                  default="dev_1_get_order_book",
+                  ),
+    "exchange":
+        ConfigVar(key="exchange",
                   prompt="Enter the name of the exchange >>> ",
                   validator=validate_exchange,
-                  on_validated=lambda value: required_exchanges.append(value)),
-    "market_trading_pair":
-        ConfigVar(key="market_trading_pair",
+                  on_validated=lambda value: required_exchanges.append(value),
+                  prompt_on_new=True,
+                  ),
+    "trading_pair":
+        ConfigVar(key="trading_pair",
                   prompt=trading_pair_prompt,
-                  validator=validate_trading_pair),
+                  validator=validate_trading_pair,
+                  type_str="str",
+                  prompt_on_new=True,
+                  ),
 }
