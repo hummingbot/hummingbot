@@ -26,6 +26,8 @@ def start(self):
             c_map.get("inventory_target_base_pct").value / Decimal('100')
         filled_order_delay = c_map.get("filled_order_delay").value
         order_refresh_tolerance_pct = c_map.get("order_refresh_tolerance_pct").value / Decimal('100')
+        order_levels = c_map.get("order_levels").value
+        order_override = c_map.get("order_override").value
         add_transaction_costs_to_orders = c_map.get("add_transaction_costs").value
 
         trading_pair: str = raw_trading_pair
@@ -65,6 +67,8 @@ def start(self):
             order_refresh_time=order_refresh_time,
             order_refresh_tolerance_pct=order_refresh_tolerance_pct,
             filled_order_delay=filled_order_delay,
+            order_levels=order_levels,
+            order_override=order_override,
             add_transaction_costs_to_orders=add_transaction_costs_to_orders,
             logging_options=strategy_logging_options,
             hb_app_notification=True,
