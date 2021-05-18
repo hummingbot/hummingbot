@@ -39,21 +39,17 @@ class KucoinAuth:
         timestamp = int(time.time() * 1000)
         request = {
             "KC-API-KEY": self.api_key,
+            "KC-API-PASSPHRASE": self.passphrase,
             "KC-API-TIMESTAMP": str(timestamp),
-            "Content-Type": "application/json",
-            "KC-API-KEY-VERSION": "2"
+            "Content-Type": "application/json"
         }
         if args is not None:
             query_string = json.dumps(args)
             payload = str(timestamp) + method.upper() + path_url + query_string
         else:
             payload = str(timestamp) + method.upper() + path_url
-        signature = base64.b64encode(
-            hmac.new(self.secret_key.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).digest())
-        passphrase = base64.b64encode(
-            hmac.new(self.secret_key.encode('utf-8'), self.passphrase.encode('utf-8'), hashlib.sha256).digest())
+        signature = base64.b64encode(hmac.new(self.secret_key.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).digest())
         request["KC-API-SIGN"] = str(signature, "utf-8")
-        request["KC-API-PASSPHRASE"] = str(passphrase, "utf-8")
         if partner_header:
             headers = self.third_party_header(str(timestamp))
             request.update(headers)
