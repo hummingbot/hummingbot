@@ -30,7 +30,7 @@ class BuildExt(build_ext):
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20210406"
+    version = "20210518"
     packages = [
         "hummingbot",
         "hummingbot.client",
@@ -42,6 +42,7 @@ def main():
         "hummingbot.core.event",
         "hummingbot.core.management",
         "hummingbot.core.utils",
+        "hummingbot.core.rate_oracle",
         "hummingbot.data_feed",
         "hummingbot.logger",
         "hummingbot.market",
@@ -70,6 +71,7 @@ def main():
         "hummingbot.connector.exchange.eterbase",
         "hummingbot.connector.exchange.beaxy",
         "hummingbot.connector.exchange.hitbtc",
+        "hummingbot.connector.exchange.k2",
         "hummingbot.connector.derivative",
         "hummingbot.connector.derivative.binance_perpetual",
         "hummingbot.script",
@@ -79,10 +81,12 @@ def main():
         "hummingbot.strategy.cross_exchange_market_making",
         "hummingbot.strategy.pure_market_making",
         "hummingbot.strategy.perpetual_market_making",
+        "hummingbot.strategy.avellaneda_market_making",
+        "hummingbot.strategy.__utils__",
+        "hummingbot.strategy.__utils__.trailing_indicators",
         "hummingbot.templates",
         "hummingbot.wallet",
         "hummingbot.wallet.ethereum",
-        "hummingbot.wallet.ethereum.uniswap",
         "hummingbot.wallet.ethereum.watcher",
         "hummingbot.wallet.ethereum.zero_ex",
     ]

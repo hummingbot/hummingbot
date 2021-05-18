@@ -91,7 +91,7 @@ class HummingWebApp:
         :param request: web request
         :return: response in json format, or string, or response itself
         """
-        method, req_path = request.method, request.path
+        method, req_path = request.method, request.raw_path
         req_path = req_path[1:]
         host = req_path[0:req_path.find("/")]
         path = req_path[req_path.find("/"):]
