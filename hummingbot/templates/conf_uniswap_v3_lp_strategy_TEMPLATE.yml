@@ -11,17 +11,14 @@ market: null
 # The pool you provide liquidity to
 fee_tier: null
 
-# The spread from the current price do you want the buy position's lower price tick begin from
-buy_position_spread: null
-
-# The spread from the current price do you want the buy position's upper price tick begin from
+# The spread between lower price to the upper price for buy position
 buy_position_price_spread: null
 
-# The spread between lower price to the upper price for buy position
+# The spread between lower price to the upper price for sell position
 sell_position_price_spread: null
 
-# The spread between lower price to the upper price for sell position
-sell_position_spread: null
+# The base amount of token (liquidity) provided to the pool
+base_token_amount: null
 
-# The amount of token (liquidity) provided to the pool
-token_amount: null
+# The quote amount of token (liquidity) provided to the pool
+quote_token_amount: null
