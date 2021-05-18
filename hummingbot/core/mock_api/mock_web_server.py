@@ -69,7 +69,6 @@ class MockWebServer:
         return MockWebServer.__instance
 
     def __init__(self):
-        print("mock webserver made")
         """
         Constructs all the necessary attributes for the Humming Web object
         """
@@ -90,7 +89,6 @@ class MockWebServer:
         :param request: web request
         :return: response in json format, or string, or response itself
         """
-        print("_handler has been called")
         method, req_path = request.method, request.path
         req_path = req_path[1:]
         host = req_path[0:req_path.find("/")]
