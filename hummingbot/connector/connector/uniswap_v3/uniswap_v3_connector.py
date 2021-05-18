@@ -249,7 +249,7 @@ class UniswapV3Connector(UniswapConnector):
             return
         update_results = await safe_gather(*tasks, return_exceptions=True)
         for update_result, tracked_item in zip(update_results, tracked_orders + tracked_positions):
-            self.logger().info(f"Polling for order status updates of {len(tasks)} orders.")
+            self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
             if isinstance(update_result, Exception):
                 raise update_result
             if "txHash" not in update_result:
