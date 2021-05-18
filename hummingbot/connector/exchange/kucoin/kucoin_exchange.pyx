@@ -279,7 +279,7 @@ cdef class KucoinExchange(ExchangeBase):
                 if event_type == "message" and event_topic == "/spotMarket/tradeOrders":
                     execution_status = execution_data["status"]
                     execution_type = execution_data["type"]
-                    client_order_id = execution_data["clientOid"]
+                    client_order_id: Optional[str] = execution_data.get("clientOid")
 
                     tracked_order = self._in_flight_orders.get(client_order_id)
 
