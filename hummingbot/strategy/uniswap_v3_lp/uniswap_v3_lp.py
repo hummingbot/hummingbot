@@ -59,7 +59,7 @@ class UniswapV3LpStrategy(StrategyPyBase):
 
     @property
     def active_buys(self):
-        return [buy for buy in self.active_positions if buy.lower_price <= self._last_price]
+        return [buy for buy in self.active_positions if buy.upper_price <= self._last_price]
 
     @property
     def active_sells(self):
@@ -162,12 +162,21 @@ class UniswapV3LpStrategy(StrategyPyBase):
             upper_price = (Decimal("1") + self._sell_position_price_spread) * self._last_price
         return [lower_price, upper_price]
 
+    def no_in_range_sell(self):
+        """
+        We use this to know if there is any sell position that is in range.
+        """
+        for sell in self.active_sells:
+            if sell.upper_price > self._last_price and sell.lower_price < self._last_price:
+                return True
+        return False
+
     async def propose_position_creation_and_removal(self):
         buy_prices = sell_prices = []  # [lower_price, upper_price, token_id(to be removed)]
         current_price = await self.get_current_price()
         if self._last_price != current_price or len(self.active_buys) == 0 or len(self.active_sells) == 0:
             self._last_price = current_price
-            if len(self.active_buys) == 0:
+            if not self.no_in_range_sell():
                 buy_prices = self.generate_proposal(True)
                 if len(self.active_sells) <= 1:
                     buy_prices.append(0)
