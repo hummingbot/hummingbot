@@ -41,8 +41,6 @@ def start(self):
         maker_data = [self.markets[exchange], raw_market_trading_pair] + list(assets)
         self.market_trading_pair_tuples = [MarketTradingPairTuple(*maker_data)]
 
-        strategy_logging_options = Dev4TwapTradeStrategy.OPTION_LOG_ALL
-
         self.strategy = Dev4TwapTradeStrategy(market_infos=[MarketTradingPairTuple(*maker_data)],
                                               order_type=order_type,
                                               order_price=order_price,
@@ -50,8 +48,7 @@ def start(self):
                                               is_buy=is_buy,
                                               time_delay=time_delay,
                                               num_individual_orders = num_individual_orders,
-                                              order_amount=order_amount,
-                                              logging_options=strategy_logging_options)
+                                              order_amount=order_amount)
     except Exception as e:
         self._notify(str(e))
         self.logger().error("Unknown error during initialization.", exc_info=True)
