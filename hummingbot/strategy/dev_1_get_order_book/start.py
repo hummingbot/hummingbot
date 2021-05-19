@@ -21,6 +21,7 @@ def start(self):
 
         self.strategy = GetOrderBookStrategy(exchange=exchange,
                                              market_info=market_info,
+                                             trading_pair=trading_pair,
                                              )
     except Exception as e:
         self._notify(str(e))
