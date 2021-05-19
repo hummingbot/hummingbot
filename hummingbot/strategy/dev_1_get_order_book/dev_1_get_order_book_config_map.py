@@ -11,7 +11,7 @@ from typing import Optional
 
 
 def trading_pair_prompt():
-    market = dev_1_get_order_book_config_map.get("market").value
+    market = dev_1_get_order_book_config_map.get("exchange").value
     example = EXAMPLE_PAIRS.get(market)
     return "Enter the token trading pair to fetch its order book on %s%s >>> " \
            % (market, f" (e.g. {example})" if example else "")
@@ -23,7 +23,7 @@ def str2bool(value: str):
 
 # checks if the trading pair is valid
 def validate_trading_pair(value: str) -> Optional[str]:
-    market = dev_1_get_order_book_config_map.get("market").value
+    market = dev_1_get_order_book_config_map.get("exchange").value
     return validate_market_trading_pair(market, value)
 
 
