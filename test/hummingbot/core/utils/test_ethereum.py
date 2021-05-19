@@ -61,9 +61,6 @@ class EthereumTest(unittest.TestCase):
         self.assertRegexpMatches(check_transaction_exceptions(invalid_transaction_3)[0], r"^Insufficient")
 
     def test_fetch_trading_pairs(self):
-        asyncio.get_event_loop().run_until_complete(self._test_fetch_trading_pairs())
-
-    async def _test_fetch_trading_pairs(self):
         """
         Unit tests for hummingbot.core.utils.ethereum.fetch_trading_pairs
         """
@@ -77,6 +74,7 @@ class EthereumTest(unittest.TestCase):
 
         # turn on the server to get data
         mock_server.start()
-        trading_pairs = await fetch_trading_pairs()
+        trading_pairs = asyncio.get_event_loop().run_until_complete(fetch_trading_pairs())
+
         # the order of the elements isn't guaranteed so compare both to sets to compare
         self.assertEqual(set(trading_pairs), set(['DAI-BTC', 'DAI-ETH', 'BTC-DAI', 'BTC-ETH', 'ETH-DAI', 'ETH-BTC']))
