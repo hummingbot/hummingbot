@@ -31,6 +31,7 @@ class WalletSetupTest(unittest.TestCase):
         global_config_map["key_file_path"].value = temp_dir + "/"
 
         # this private key must be in the correct format or it will fail
+        # account isn't our code but it gets tested indirectly in test_import_and_save_wallet
         private_key = "0x8da4ef21b864d2cc526dbdb2a120bd2874c36c9d0a1fb7f8c63d7f7a8b41de8f"
         acct = Account.privateKeyToAccount(private_key)
 
