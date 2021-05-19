@@ -855,7 +855,7 @@ cdef class KucoinExchange(ExchangeBase):
                 if isinstance(response, Exception) or "data" not in response:
                     self.logger().error(f"Failed to cancel order. Response: {response}",
                                         exc_info=True,
-                                        app_warning_msg=f"Failed to cancel all orders on Kucoin. Check API key and network connection.")
+                                        )
                     continue
                 oid = response["data"]["cancelledOrderIds"][0]
                 cancellation_results.append(CancellationResult(oid, True))
