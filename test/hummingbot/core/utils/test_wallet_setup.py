@@ -5,7 +5,7 @@ Unit tests for hummingbot.core.utils.wallet_setup
 from eth_account import Account
 from hummingbot.client.settings import DEFAULT_KEY_FILE_PATH, KEYFILE_PREFIX, KEYFILE_POSTFIX
 from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.core.utils.wallet_setup import get_key_file_path, save_wallet
+from hummingbot.core.utils.wallet_setup import get_key_file_path, import_and_save_wallet, save_wallet
 import os
 import tempfile
 import unittest.mock
@@ -36,5 +36,29 @@ class WalletSetupTest(unittest.TestCase):
 
         # there is no check on the format of the password in save_wallet
         save_wallet(acct, "topsecret")
+        file_path = "%s%s%s%s" % (get_key_file_path(), KEYFILE_PREFIX, acct.address, KEYFILE_POSTFIX)
+        self.assertEqual(os.path.exists(file_path), True)
+
+    def test_import_and_save_wallet(self):
+        """
+        test import_and_save_wallet
+        this is almost the same as test_save_wallet, but good to have in case the functions diverge and we want to be
+        notified if the behavior changes unexpectedly
+        """
+
+        temp_dir = tempfile.gettempdir()
+        global_config_map["key_file_path"].value = temp_dir + "/"
+        password = "topsecret"
+
+        ill_formed_private_key1 = "not_hex"
+        self.assertRaisesRegex(ValueError, "^when sending a str, it must be a hex string", import_and_save_wallet, password, ill_formed_private_key1)
+
+        ill_formed_private_key2 = "0x123123123"  # not the expected length
+        self.assertRaisesRegex(ValueError, "^The private key must be exactly 32 bytes long", import_and_save_wallet, password, ill_formed_private_key2)
+
+        # this private key must be in the correct format or it will fail
+        private_key = "0x8da4ef21b864d2cc526dbdb2a120bd2874c36c9d0a1fb7f8c63d7f7a8b41de8f"
+        password = "topsecret"
+        acct = import_and_save_wallet(password, private_key)
         file_path = "%s%s%s%s" % (get_key_file_path(), KEYFILE_PREFIX, acct.address, KEYFILE_POSTFIX)
         self.assertEqual(os.path.exists(file_path), True)
