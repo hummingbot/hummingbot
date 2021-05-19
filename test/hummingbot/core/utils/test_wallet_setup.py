@@ -5,7 +5,7 @@ Unit tests for hummingbot.core.utils.wallet_setup
 from eth_account import Account
 from hummingbot.client.settings import DEFAULT_KEY_FILE_PATH, KEYFILE_PREFIX, KEYFILE_POSTFIX
 from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.core.utils.wallet_setup import get_key_file_path, import_and_save_wallet, save_wallet
+from hummingbot.core.utils.wallet_setup import get_key_file_path, list_wallets, import_and_save_wallet, save_wallet
 import os
 import tempfile
 import unittest.mock
@@ -63,3 +63,35 @@ class WalletSetupTest(unittest.TestCase):
         acct = import_and_save_wallet(password, private_key)
         file_path = "%s%s%s%s" % (get_key_file_path(), KEYFILE_PREFIX, acct.address, KEYFILE_POSTFIX)
         self.assertEqual(os.path.exists(file_path), True)
+
+    def test_list_wallets(self):
+        """
+        test list_wallets
+        """
+        # remove any wallets we might have created in other tests
+        temp_dir = tempfile.gettempdir()
+        for f in os.listdir(temp_dir):
+            if f.startswith(KEYFILE_PREFIX) and f.endswith(KEYFILE_POSTFIX):
+                os.remove(os.path.join(temp_dir, f))
+
+        # there should be no wallets
+        self.assertEqual(list_wallets(), [])
+
+        # make one wallet
+        private_key = "0x8da4ef21b864d2cc526dbdb2a120bd2874c36c9d0a1fb7f8c63d7f7a8b41de8f"
+        password = "topsecret"
+        import_and_save_wallet(password, private_key)
+
+        self.assertEqual(len(list_wallets()), 1)
+
+        # reimporting an existing wallet should not change the count
+        import_and_save_wallet(password, private_key)
+
+        self.assertEqual(len(list_wallets()), 1)
+
+        # make a second wallet
+        private_key2 = "0xaaaaaf21b864d2cc526dbdb2a120bd2874c36c9d0a1fb7f8c63d7f7a8b41eeee"
+        password2 = "topsecrettopsecret"
+        import_and_save_wallet(password2, private_key2)
+
+        self.assertEqual(len(list_wallets()), 2)
