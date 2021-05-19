@@ -842,8 +842,7 @@ cdef class KucoinExchange(ExchangeBase):
         tracked_orders = {order.exchange_order_id: order for order in self._in_flight_orders.copy().values()}
         try:
             cancellation_tasks = []
-            for order in tracked_orders.values():
-                oid = order.exchange_order_id
+            for oid, order in tracked_orders.items():
                 cancellation_tasks.append(self._api_request(
                     method="delete",
                     path_url=f"{path_url}/{oid}",
@@ -851,20 +850,22 @@ cdef class KucoinExchange(ExchangeBase):
                 ))
             responses = await safe_gather(*cancellation_tasks)
 
-            for response in responses:
+            for tracked_order, response in zip(tracked_orders.values(), responses):
+                # Handle failed cancelled orders
                 if isinstance(response, Exception) or "data" not in response:
-                    self.logger().error(f"Failed to cancel order. Response: {response}",
+                    self.logger().error(f"Failed to cancel order {tracked_order.client_order_id}. Response: {response}",
                                         exc_info=True,
                                         )
-                    continue
-                oid = response["data"]["cancelledOrderIds"][0]
-                cancellation_results.append(CancellationResult(oid, True))
-                tracked_order = tracked_orders.get(oid)
-                if tracked_order is None:
-                    self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                         OrderCancelledEvent(self._current_timestamp,
-                                                             tracked_order.client_order_id,
-                                                             exchange_order_id=tracked_order.exchange_order_id))
+                    cancellation_results.append(CancellationResult(tracked_order.client_order_id, False))
+                # Handles successfully cancelled orders
+                else:
+                    cancellation_results.append(CancellationResult(tracked_order.client_order_id, True))
+                    self.c_trigger_event(
+                        self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                        OrderCancelledEvent(self._current_timestamp,
+                                            tracked_order.client_order_id,
+                                            exchange_order_id=tracked_order.exchange_order_id))
+
         except Exception as e:
             self.logger().network(
                 f"Failed to cancel all orders.",
