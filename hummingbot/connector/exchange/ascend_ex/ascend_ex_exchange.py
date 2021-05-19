@@ -900,6 +900,9 @@ class AscendExExchange(ExchangeBase):
 
         if tracked_order.executed_amount_base != Decimal(order_msg.cumFilledQty):
             # Update the relevant order information when there is fill event
+            new_filled_amount = Decimal(order_msg.cumFilledQty) - tracked_order.executed_amount_base
+            new_fee_paid = Decimal(order_msg.cumFee) - tracked_order.fee_paid
+
             tracked_order.executed_amount_base = Decimal(order_msg.cumFilledQty)
             tracked_order.executed_amount_quote = Decimal(order_msg.avgPx) * tracked_order.executed_amount_base
             tracked_order.fee_paid = Decimal(order_msg.cumFee)
@@ -914,8 +917,8 @@ class AscendExExchange(ExchangeBase):
                     tracked_order.trade_type,
                     tracked_order.order_type,
                     Decimal(order_msg.avgPx),
-                    tracked_order.executed_amount_base,
-                    TradeFee(0.0, [(tracked_order.fee_asset, tracked_order.fee_paid)]),
+                    new_filled_amount,
+                    TradeFee(0.0, [(tracked_order.fee_asset, new_fee_paid)]),
                     exchange_order_id
                 )
             )
