@@ -674,18 +674,13 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             list buys = []
             list sells = []
 
-        # If order_override is set, it will override order_levels
         if self._order_override is not None and len(self._order_override) > 0:
-            self.logger().info(f"ATTENTION: Spreads and order levels will be overridden by order_override parameter. "
-                               "To change this parameter, manually edit the strategy config file.")
-            buys, sells = self._create_propasal_based_on_order_override()
+            # If order_override is set, it will override order_levels
+            buys, sells = self._create_proposal_based_on_order_override()
         elif self._order_levels > 0 and self._parameters_based_on_spread:
             # Simple order levels will only be available for automated parameters calculation setup
             buys, sells = self._create_proposal_based_on_order_levels()
         else:
-            if self._order_levels > 0:
-                self.logger().info("ATTENTION: Order levels are only valid if using parameters_based_on_spread mode. "
-                                   "Current order_levels configuration won't have effect")
             # No order levels nor order_overrides. Just 1 bid and 1 ask order
             buys, sells = self._create_basic_proposal()
 
