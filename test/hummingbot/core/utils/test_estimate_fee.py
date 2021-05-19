@@ -32,5 +32,5 @@ class EstimateFeeTest(unittest.TestCase):
         self.assertEqual(estimate_fee("bamboo_relay", False), TradeFee(percent=Decimal(0), flat_fees=[('ETH', Decimal('0.00001'))]))
 
         # test against exchanges that do not exist in hummingbot.client.settings.CONNECTOR_SETTINGS
-        self.assertRaises(Exception, estimate_fee, ("does_not_exist", True))
-        self.assertRaises(Exception, estimate_fee, ("does_not_exist", False))
+        self.assertRaisesRegex(Exception, "^Invalid connector", estimate_fee, "does_not_exist", True)
+        self.assertRaisesRegex(Exception, "Invalid connector", estimate_fee, "does_not_exist", False)
