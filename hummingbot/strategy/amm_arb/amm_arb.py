@@ -187,29 +187,28 @@ class AmmArbStrategy(StrategyPyBase):
         :param arb_proposals: the arbitrage proposal
         """
         for arb_proposal in arb_proposals:
-            if any(p.amount <= s_decimal_zero for p in (arb_proposal.first_side, arb_proposal.second_side)):
-                continue
-            self.logger().info(f"Found arbitrage opportunity!: {arb_proposal}")
-            for arb_side in (arb_proposal.first_side, arb_proposal.second_side):
-                if not self._concurrent_orders_submission and arb_side == arb_proposal.second_side:
-                    await self._first_order_done_event.wait()
-                    if not self._first_order_succeeded:
+            if sum([arb_proposal.first_side.amount, arb_proposal.second_side.amount]) > s_decimal_zero:
+                self.logger().info(f"Found arbitrage opportunity!: {arb_proposal}")
+                for arb_side in (arb_proposal.first_side, arb_proposal.second_side):
+                    if not self._concurrent_orders_submission and arb_side == arb_proposal.second_side:
+                        await self._first_order_done_event.wait()
+                        if not self._first_order_succeeded:
+                            self._first_order_succeeded = None
+                            continue
                         self._first_order_succeeded = None
-                        continue
-                    self._first_order_succeeded = None
-                side = "BUY" if arb_side.is_buy else "SELL"
-                self.log_with_clock(logging.INFO,
-                                    f"Placing {side} order for {arb_side.amount} {arb_side.market_info.base_asset} "
-                                    f"at {arb_side.market_info.market.display_name} at {arb_side.order_price} price")
-                place_order_fn = self.buy_with_specific_market if arb_side.is_buy else self.sell_with_specific_market
-                order_id = place_order_fn(arb_side.market_info,
-                                          arb_side.amount,
-                                          arb_side.market_info.market.get_taker_order_type(),
-                                          arb_side.order_price,
-                                          )
-                if not self._concurrent_orders_submission and arb_side == arb_proposal.first_side:
-                    self._first_order_id = order_id
-                    self._first_order_done_event = asyncio.Event()
+                    side = "BUY" if arb_side.is_buy else "SELL"
+                    self.log_with_clock(logging.INFO,
+                                        f"Placing {side} order for {arb_side.amount} {arb_side.market_info.base_asset} "
+                                        f"at {arb_side.market_info.market.display_name} at {arb_side.order_price} price")
+                    place_order_fn = self.buy_with_specific_market if arb_side.is_buy else self.sell_with_specific_market
+                    order_id = place_order_fn(arb_side.market_info,
+                                              arb_side.amount,
+                                              arb_side.market_info.market.get_taker_order_type(),
+                                              arb_side.order_price,
+                                              )
+                    if not self._concurrent_orders_submission and arb_side == arb_proposal.first_side:
+                        self._first_order_id = order_id
+                        self._first_order_done_event = asyncio.Event()
 
     def ready_for_new_arb_trades(self) -> bool:
         """
