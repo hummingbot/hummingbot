@@ -47,7 +47,7 @@ def start(self):
                                               cancel_order_wait_time=cancel_order_wait_time,
                                               is_buy=is_buy,
                                               time_delay=time_delay,
-                                              num_individual_orders = num_individual_orders,
+                                              num_individual_orders=num_individual_orders,
                                               order_amount=order_amount)
     except Exception as e:
         self._notify(str(e))

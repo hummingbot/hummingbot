@@ -8,7 +8,7 @@ from hummingbot.core.clock import (
 from hummingbot.strategy.dev_4_twap import Dev4TwapTradeStrategy
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
-from .dev_4_twap_test_support import MockExchange
+from test.hummingbot.strategy.dev_4_twap.dev_4_twap_test_support import MockExchange
 
 
 class Dev4TwapTradeStrategyTest(TestCase):
