@@ -171,6 +171,7 @@ cdef class KucoinExchange(ExchangeBase):
         return {
             key: value.to_json()
             for key, value in self._in_flight_orders.items()
+            if not value.is_done
         }
 
     def restore_tracking_states(self, saved_states: Dict[str, Any]):
@@ -859,12 +860,14 @@ cdef class KucoinExchange(ExchangeBase):
                     cancellation_results.append(CancellationResult(tracked_order.client_order_id, False))
                 # Handles successfully cancelled orders
                 else:
+                    tracked_order.last_state = "CANCEL"
+                    self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
+                    self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                         OrderCancelledEvent(self._current_timestamp,
+                                                             tracked_order.client_order_id,
+                                                             exchange_order_id=tracked_order.exchange_order_id))
+                    self.c_stop_tracking_order(tracked_order.client_order_id)
                     cancellation_results.append(CancellationResult(tracked_order.client_order_id, True))
-                    self.c_trigger_event(
-                        self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                        OrderCancelledEvent(self._current_timestamp,
-                                            tracked_order.client_order_id,
-                                            exchange_order_id=tracked_order.exchange_order_id))
 
         except Exception as e:
             self.logger().network(
