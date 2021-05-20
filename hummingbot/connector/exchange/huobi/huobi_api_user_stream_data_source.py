@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import aiohttp
 import asyncio
+import time
 
 import logging
 
@@ -18,7 +19,7 @@ from hummingbot.connector.exchange.huobi.huobi_auth import HuobiAuth
 HUOBI_API_ENDPOINT = "https://api.huobi.pro"
 HUOBI_WS_ENDPOINT = "wss://api.huobi.pro/ws/v2"
 
-HUOBI_ACCOUNT_UPDATE_TOPIC = "accounts.update#1"
+HUOBI_ACCOUNT_UPDATE_TOPIC = "accounts.update#2"
 HUOBI_ORDER_UPDATE_TOPIC = "orders#*"
 
 HUOBI_SUBSCRIBE_TOPICS = {
@@ -74,9 +75,8 @@ class HuobiAPIUserStreamDataSource(UserStreamTrackerDataSource):
         await self._websocket_connection.send_json(auth_request)
         resp: aiohttp.WSMessage = await self._websocket_connection.receive()
         msg = resp.json()
-        if msg["code"] != 200:
-            self.logger().error(f"Error occurred authenticating to websocket API server. {msg}")
-        self.logger().info("Successfully authenticated")
+        if msg.get("code", 0) == 200:
+            self.logger().info("Successfully authenticated")
 
     async def _subscribe_topic(self, topic: str):
         subscribe_request = {
@@ -84,11 +84,7 @@ class HuobiAPIUserStreamDataSource(UserStreamTrackerDataSource):
             "ch": topic
         }
         await self._websocket_connection.send_json(subscribe_request)
-        resp = await self._websocket_connection.receive()
-        msg = resp.json()
-        if msg["code"] != 200:
-            self.logger().error(f"Error occurred subscribing to topic. {topic}. {msg}")
-        self.logger().info(f"Successfully subscribed to {topic}")
+        self._last_recv_time = time.time()
 
     async def get_ws_connection(self) -> aiohttp.client._WSRequestContextManager:
         if self._client_session is None:
@@ -102,25 +98,29 @@ class HuobiAPIUserStreamDataSource(UserStreamTrackerDataSource):
         Main iterator that manages the websocket connection.
         """
         while True:
-            raw_msg = await self._websocket_connection.receive()
+            try:
+                raw_msg = await asyncio.wait_for(self._websocket_connection.receive(), timeout=30)
+                self._last_recv_time = time.time()
 
-            if raw_msg.type != aiohttp.WSMsgType.TEXT:
-                continue
+                if raw_msg.type != aiohttp.WSMsgType.TEXT:
+                    # since all ws messages from huobi are TEXT, any other type should cause ws to reconnect
+                    return
 
-            message = raw_msg.json()
+                message = raw_msg.json()
 
-            # Handle ping messages
-            if message["action"] == "ping":
-                pong_response = {
-                    "action": "pong",
-                    "data": message["data"]
-                }
-                await self._websocket_connection.send_json(pong_response)
-                continue
+                # Handle ping messages
+                if message["action"] == "ping":
+                    pong_response = {
+                        "action": "pong",
+                        "data": message["data"]
+                    }
+                    await self._websocket_connection.send_json(pong_response)
+                    continue
 
-            import sys
-            print(f"MSG: {message}", file=sys.stdout)
-            yield message
+                yield message
+            except asyncio.TimeoutError:
+                self.logger().error("Userstream websocket timeout, going to reconnect...")
+                return
 
     async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:

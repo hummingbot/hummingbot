@@ -4,6 +4,7 @@ import asyncio
 from decimal import Decimal
 from libc.stdint cimport int64_t
 import logging
+import time
 import pandas as pd
 from typing import (
     Any,
@@ -94,6 +95,8 @@ cdef class HuobiExchange(ExchangeBase):
     MARKET_SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated.value
     API_CALL_TIMEOUT = 10.0
     UPDATE_ORDERS_INTERVAL = 10.0
+    SHORT_POLL_INTERVAL = 5.0
+    LONG_POLL_INTERVAL = 120.0
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -105,7 +108,6 @@ cdef class HuobiExchange(ExchangeBase):
     def __init__(self,
                  huobi_api_key: str,
                  huobi_secret_key: str,
-                 poll_interval: float = 5.0,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True):
 
@@ -121,7 +123,6 @@ cdef class HuobiExchange(ExchangeBase):
             trading_pairs=trading_pairs
         )
         self._poll_notifier = asyncio.Event()
-        self._poll_interval = poll_interval
         self._shared_client = None
         self._status_polling_task = None
         self._trading_required = trading_required
@@ -199,6 +200,7 @@ cdef class HuobiExchange(ExchangeBase):
         self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
         if self._trading_required:
             await self._update_account_id()
+            self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
 
     def _stop_network(self):
@@ -212,6 +214,9 @@ cdef class HuobiExchange(ExchangeBase):
         if self._user_stream_event_listener_task is not None:
             self._user_stream_event_listener_task.cancel()
             self._user_stream_event_listener_task = None
+        if self._user_stream_tracker_task is not None:
+            self._user_stream_tracker_task.cancel()
+            self._user_stream_tracker_task = None
 
     async def stop_network(self):
         self._stop_network()
@@ -227,8 +232,12 @@ cdef class HuobiExchange(ExchangeBase):
 
     cdef c_tick(self, double timestamp):
         cdef:
-            int64_t last_tick = <int64_t>(self._last_timestamp / self._poll_interval)
-            int64_t current_tick = <int64_t>(timestamp / self._poll_interval)
+            double now = time.time()
+            double poll_interval = (self.SHORT_POLL_INTERVAL
+                                    if now - self._user_stream_tracker.last_recv_time > 60.0
+                                    else self.LONG_POLL_INTERVAL)
+            int64_t last_tick = <int64_t>(self._last_timestamp / poll_interval)
+            int64_t current_tick = <int64_t>(timestamp / poll_interval)
         ExchangeBase.c_tick(self, timestamp)
         self._tx_tracker.c_tick(timestamp)
         if current_tick > last_tick:
@@ -254,39 +263,36 @@ cdef class HuobiExchange(ExchangeBase):
         if is_auth_required:
             params = self._huobi_auth.add_auth_to_params(method, path_url, params)
 
-        # aiohttp TestClient requires path instead of url
-        if isinstance(client, TestClient):
-            response_coro = client.request(
+        if not data:
+            response = await client.request(
                 method=method.upper(),
-                path=f"{path_url}",
+                url=url,
                 headers=headers,
                 params=params,
-                data=ujson.dumps(data),
-                timeout=100
+                timeout=self.API_CALL_TIMEOUT
             )
         else:
-            response_coro = client.request(
+            response = await client.request(
                 method=method.upper(),
                 url=url,
                 headers=headers,
                 params=params,
                 data=ujson.dumps(data),
-                timeout=100
+                timeout=self.API_CALL_TIMEOUT
             )
 
-        async with response_coro as response:
-            if response.status != 200:
-                raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
-            try:
-                parsed_response = await response.json()
-            except Exception:
-                raise IOError(f"Error parsing data from {url}.")
+        if response.status != 200:
+            raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
+        try:
+            parsed_response = await response.json()
+        except Exception:
+            raise IOError(f"Error parsing data from {url}.")
 
-            data = parsed_response.get("data")
-            if data is None:
-                self.logger().error(f"Error received from {url}. Response is {parsed_response}.")
-                raise HuobiAPIError({"error": parsed_response})
-            return data
+        data = parsed_response.get("data")
+        if data is None:
+            self.logger().error(f"Error received for {url}. Response is {parsed_response}.")
+            raise HuobiAPIError({"error": parsed_response})
+        return data
 
     async def _update_account_id(self) -> str:
         accounts = await self._api_request("get", path_url="/account/accounts", is_auth_required=True)
@@ -404,7 +410,10 @@ cdef class HuobiExchange(ExchangeBase):
         }
         """
         path_url = f"/order/orders/{exchange_order_id}"
-        return await self._api_request("get", path_url=path_url, is_auth_required=True)
+        params = {
+            "order_id": exchange_order_id
+        }
+        return await self._api_request("get", path_url=path_url, params=params, is_auth_required=True)
 
     async def _update_order_status(self):
         cdef:
@@ -421,8 +430,7 @@ cdef class HuobiExchange(ExchangeBase):
                 except HuobiAPIError as e:
                     err_code = e.error_payload.get("error").get("err-code")
                     self.c_stop_tracking_order(tracked_order.client_order_id)
-                    self.logger().info(f"The limit order {tracked_order.client_order_id} "
-                                       f"has failed according to order status API. - {err_code}")
+                    self.logger().info(f"Fail to retrieve order update for {tracked_order.client_order_id} - {err_code}")
                     self.c_trigger_event(
                         self.MARKET_ORDER_FAILURE_EVENT_TAG,
                         MarketOrderFailureEvent(
@@ -575,6 +583,11 @@ cdef class HuobiExchange(ExchangeBase):
                     continue
 
                 data = stream_message["data"]
+                if len(data) == 0 and stream_message["code"] == 200:
+                    # This is a subcribtion confirmation.
+                    self.logger().info(f"Successfully subscribed to {channel}")
+                    continue
+
                 if channel == HUOBI_ACCOUNT_UPDATE_TOPIC:
                     asset_name = data["currency"].upper()
                     balance = data["balance"]
@@ -599,8 +612,10 @@ cdef class HuobiExchange(ExchangeBase):
                         continue
 
                     execute_amount_diff = s_decimal_0
-                    execute_price = Decimal(data["tradePrice"])
-                    remaining_amount = Decimal(data["remainAmt"])
+                    # tradePrice is documented by Huobi but not sent.
+                    # However, orderprice isn't applicable to all order_types, so we assume tradePrice will be sent for such orders
+                    execute_price = Decimal(data.get("orderPrice", data.get("tradePrice", "0")))
+                    remaining_amount = Decimal(data.get("remainAmt", data["orderSize"]))
                     order_type = data["type"]
 
                     new_confirmed_amount = Decimal(tracked_order.amount - remaining_amount)
@@ -669,6 +684,8 @@ cdef class HuobiExchange(ExchangeBase):
 
                     if order_status == "canceled":
                         tracked_order.last_state = order_status
+                        self.logger().info(f"The order {tracked_order.client_order_id} has been cancelled "
+                                           f"according to order delta websocket API.")
                         self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                              OrderCancelledEvent(self._current_timestamp,
                                                                  tracked_order.client_order_id))
@@ -680,7 +697,7 @@ cdef class HuobiExchange(ExchangeBase):
             except asyncio.CancelledError:
                 raise
             except Exception as e:
-                self.logger().error(f"Unexpected error in user stream listener lopp. {e}", exc_info=True)
+                self.logger().error(f"Unexpected error in user stream listener loop. {e}", exc_info=True)
                 await asyncio.sleep(5.0)
 
     @property

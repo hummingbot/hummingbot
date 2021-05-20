@@ -62,6 +62,7 @@ from hummingbot.connector.exchange.bitfinex.bitfinex_utils import (
     split_trading_pair,
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair,
+    convert_from_exchange_token,
 )
 
 s_logger = None
@@ -283,6 +284,7 @@ cdef class BitfinexExchange(ExchangeBase):
                 continue
 
             asset_name = balance_entry.currency
+            asset_name = convert_from_exchange_token(asset_name)
             # None or 0
             self._account_balances[asset_name] = Decimal(balance_entry.balance or 0)
             self._account_available_balances[asset_name] = Decimal(balance_entry.balance) - Decimal(balance_entry.unsettled_interest)
@@ -984,7 +986,7 @@ cdef class BitfinexExchange(ExchangeBase):
                         if (wallet_type != "exchange"):
                             continue
 
-                        asset_name = wallet[1]
+                        asset_name = convert_from_exchange_token(wallet[1])
                         balance = wallet[2]
                         balance_available = wallet[4]
 

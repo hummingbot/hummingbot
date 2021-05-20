@@ -14,6 +14,8 @@ class BinancePerpetualsInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
+                 leverage: int,
+                 position: str,
                  initial_state: str = "NEW"):
         super().__init__(
             client_order_id,
@@ -26,6 +28,8 @@ class BinancePerpetualsInFlightOrder(InFlightOrderBase):
             initial_state
         )
         self.trade_id_set = set()
+        self.leverage = leverage
+        self.position = position
 
     @property
     def is_done(self):

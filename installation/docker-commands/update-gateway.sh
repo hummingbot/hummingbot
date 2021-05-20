@@ -47,7 +47,7 @@ execute_docker () {
 
  echo
  read -p "   Proceed with update? [Y/N] >>> " PROCEED
- if [ ! "$PROCEED" == "Y" ]
+ if [[ ! "$PROCEED" == "Y" && ! "$PROCEED" == "y" ]]
  then
   echo "Abort"
   exit
@@ -57,7 +57,7 @@ execute_docker () {
  # 2) Delete old image
  echo
  read -p "   Delete current docker image coinalpha/gateway-api:$TAG? [Y/N] >>> " DELETE_IMAGE
- if [ "$DELETE_IMAGE" == "Y" ]
+ if [[ "$DELETE_IMAGE" == "Y" || "$DELETE_IMAGE" == "y" ]]
  then
   echo
   echo "Deleting old image: coinalpha/gateway-api:$TAG"
@@ -69,8 +69,8 @@ execute_docker () {
  #3 ) Pull docker image
  echo
  read -p "   Pulling docker image coinalpha/gateway-api:$TAG [Y/N] >>> " PULL_IMAGE
- if [ "$PULL_IMAGE" == "Y" ]
- then 
+ if [[ "$PULL_IMAGE" == "Y" || "$PULL_IMAGE" == "y" ]]
+ then
   docker pull coinalpha/gateway-api:$TAG
   echo
  fi

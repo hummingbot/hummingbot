@@ -1,10 +1,11 @@
 import asyncio
+import traceback
 from multiprocessing import Queue
 from typing import List, Optional, Dict, Any, Callable
 from decimal import Decimal
 from statistics import mean, median
 from operator import itemgetter
-from .script_interface import OnTick, OnStatus, PMMParameters, CallNotify, CallLog, PmmMarketInfo
+from .script_interface import OnTick, OnStatus, PMMParameters, CallNotify, CallLog, PmmMarketInfo, ScriptError
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent
@@ -21,6 +22,7 @@ class ScriptBase:
         self._child_queue: Queue = None
         self._queue_check_interval: float = 0.0
         self.mid_prices: List[Decimal] = []
+        self.max_mid_prices_length: int = 86400  # 60 * 60 * 24 = 1 day of prices
         self.pmm_parameters: PMMParameters = None
         self.pmm_market_info: PmmMarketInfo = None
         # all_total_balances stores balances in {exchange: {token: balance}} format
@@ -46,30 +48,40 @@ class ScriptBase:
 
     async def listen_to_parent(self):
         while True:
-            if self._parent_queue.empty():
-                await asyncio.sleep(self._queue_check_interval)
-                continue
-            item = self._parent_queue.get()
-            # print(f"child gets {str(item)}")
-            if item is None:
-                # print("child exiting..")
-                asyncio.get_event_loop().stop()
-                break
-            if isinstance(item, OnTick):
-                self.mid_prices.append(item.mid_price)
-                self.pmm_parameters = item.pmm_parameters
-                self.all_total_balances = item.all_total_balances
-                self.all_available_balances = item.all_available_balances
-                self.on_tick()
-            elif isinstance(item, BuyOrderCompletedEvent):
-                self.on_buy_order_completed(item)
-            elif isinstance(item, SellOrderCompletedEvent):
-                self.on_sell_order_completed(item)
-            elif isinstance(item, OnStatus):
-                status_msg = self.on_status()
-                self.notify(f"Script status: {status_msg}")
-            elif isinstance(item, PmmMarketInfo):
-                self.pmm_market_info = item
+            try:
+                if self._parent_queue.empty():
+                    await asyncio.sleep(self._queue_check_interval)
+                    continue
+                item = self._parent_queue.get()
+                # print(f"child gets {str(item)}")
+                if item is None:
+                    # print("child exiting..")
+                    asyncio.get_event_loop().stop()
+                    break
+                if isinstance(item, OnTick):
+                    self.mid_prices.append(item.mid_price)
+                    if len(self.mid_prices) > self.max_mid_prices_length:
+                        self.mid_prices = self.mid_prices[len(self.mid_prices) - self.max_mid_prices_length:]
+                    self.pmm_parameters = item.pmm_parameters
+                    self.all_total_balances = item.all_total_balances
+                    self.all_available_balances = item.all_available_balances
+                    self.on_tick()
+                elif isinstance(item, BuyOrderCompletedEvent):
+                    self.on_buy_order_completed(item)
+                elif isinstance(item, SellOrderCompletedEvent):
+                    self.on_sell_order_completed(item)
+                elif isinstance(item, OnStatus):
+                    status_msg = self.on_status()
+                    self.notify(f"Script status: {status_msg}")
+                elif isinstance(item, PmmMarketInfo):
+                    self.pmm_market_info = item
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                # Capturing traceback here and put it as part of ScriptError, which can then be reported in the parent
+                # process.
+                tb = "".join(traceback.TracebackException.from_exception(e).format())
+                self._child_queue.put(ScriptError(e, tb))
 
     def notify(self, msg: str):
         """
@@ -140,7 +152,7 @@ class ScriptBase:
             return None
         changes = []
         for index in range(1, len(samples)):
-            changes.append(abs(samples[index] - samples[index - 1]) / samples[index - 1])
+            changes.append(max(samples[index], samples[index - 1]) / min(samples[index], samples[index - 1]) - 1)
         return locate_function(changes)
 
     @staticmethod

@@ -6,6 +6,7 @@ from decimal import Decimal
 import logging
 import pandas as pd
 from collections import defaultdict
+import re
 from typing import (
     Any,
     Dict,
@@ -24,12 +25,12 @@ from hummingbot.core.utils.async_utils import (
 )
 from hummingbot.connector.exchange.kraken.kraken_api_order_book_data_source import KrakenAPIOrderBookDataSource
 from hummingbot.connector.exchange.kraken.kraken_auth import KrakenAuth
-import hummingbot.connector.exchange.kraken.kraken_constants as constants
 from hummingbot.connector.exchange.kraken.kraken_utils import (
     convert_from_exchange_symbol,
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair,
-    split_to_base_quote)
+    split_to_base_quote,
+    is_dark_pool)
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.event.events import (
     MarketEvent,
@@ -100,6 +101,14 @@ cdef class KrakenExchange(ExchangeBase):
 
     ORDER_NOT_EXIST_CONFIRMATION_COUNT = 3
 
+    API_MAX_COUNTER = 20
+    API_COUNTER_DECREASE_RATE_PER_SEC = 0.33
+    API_COUNTER_POINTS = {ADD_ORDER_URI: 0,
+                          CANCEL_ORDER_URI: 0,
+                          BALANCE_URI: 1,
+                          OPEN_ORDERS_URI: 1,
+                          QUERY_ORDERS_URI: 1}
+
     @classmethod
     def logger(cls) -> HummingbotLogger:
         global s_logger
@@ -134,7 +143,8 @@ cdef class KrakenExchange(ExchangeBase):
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
         self._async_scheduler = AsyncCallScheduler(call_interval=0.5)
-        self._throttler = Throttler(rate_limit = (10.0, 1.0))
+        self._throttler = Throttler(rate_limit=(self.API_MAX_COUNTER, self.API_MAX_COUNTER/self.API_COUNTER_DECREASE_RATE_PER_SEC),
+                                    retry_interval=1.0/self.API_COUNTER_DECREASE_RATE_PER_SEC)
         self._last_pull_timestamp = 0
         self._shared_client = None
         self._asset_pairs = {}
@@ -188,7 +198,8 @@ cdef class KrakenExchange(ExchangeBase):
             asset_pairs_response = await client.get(ASSET_PAIRS_URI)
             asset_pairs_data: Dict[str, Any] = await asset_pairs_response.json()
             asset_pairs: Dict[str, Any] = asset_pairs_data["result"]
-            self._asset_pairs = {pair: details for pair, details in asset_pairs.items() if "." not in pair}
+            self._asset_pairs = {f"{details['base']}-{details['quote']}": details
+                                 for _, details in asset_pairs.items() if not is_dark_pool(details)}
         return self._asset_pairs
 
     async def get_active_exchange_markets(self) -> pd.DataFrame:
@@ -206,13 +217,8 @@ cdef class KrakenExchange(ExchangeBase):
             set remote_asset_names = set()
             set asset_names_to_remove
 
-        balances = await self._api_request("POST",
-                                           BALANCE_URI,
-                                           is_auth_required=True)
-
-        open_orders = await self._api_request("POST",
-                                              OPEN_ORDERS_URI,
-                                              is_auth_required=True)
+        balances = await self._api_request_with_retry("POST", BALANCE_URI, is_auth_required=True)
+        open_orders = await self._api_request_with_retry("POST", OPEN_ORDERS_URI, is_auth_required=True)
 
         locked = defaultdict(Decimal)
 
@@ -220,13 +226,13 @@ cdef class KrakenExchange(ExchangeBase):
             if order.get("status") == "open":
                 details = order.get("descr")
                 if details.get("ordertype") == "limit":
-                    pair = convert_from_exchange_trading_pair(details.get("pair"))
+                    pair = convert_from_exchange_trading_pair(details.get("pair"), tuple((await self.asset_pairs()).keys()))
                     (base, quote) = self.split_trading_pair(pair)
                     vol_locked = Decimal(order.get("vol", 0)) - Decimal(order.get("vol_exec", 0))
                     if details.get("type") == "sell":
-                        locked[base] += vol_locked
+                        locked[convert_from_exchange_symbol(base)] += vol_locked
                     elif details.get("type") == "buy":
-                        locked[quote] += vol_locked * Decimal(details.get("price"))
+                        locked[convert_from_exchange_symbol(quote)] += vol_locked * Decimal(details.get("price"))
 
         for asset_name, balance in balances.items():
             cleaned_name = convert_from_exchange_symbol(asset_name).upper()
@@ -285,24 +291,45 @@ cdef class KrakenExchange(ExchangeBase):
         """
         Example:
         {
-            "ADAETH":{
-                "altname":"ADAETH",
-                "wsname":"ADA/ETH",
-                "aclass_base":"currency",
-                "base":"ADA",
-                "aclass_quote":"currency",
-                "quote":"XETH",
-                "lot":"unit",
-                "pair_decimals":7,
-                "lot_decimals":8,
-                "lot_multiplier":1,
-                "leverage_buy":[],
-                "leverage_sell":[],
-                "fees":[[0,0.26],[50000,0.24],[100000,0.22],[250000,0.2],[500000,0.18],[1000000,0.16],[2500000,0.14],[5000000,0.12],[10000000,0.1]],
-                "fees_maker":[[0,0.16],[50000,0.14],[100000,0.12],[250000,0.1],[500000,0.08],[1000000,0.06],[2500000,0.04],[5000000,0.02],[10000000,0]],
-                "fee_volume_currency":"ZUSD",
-                "margin_call":80,
-                "margin_stop":40
+            "XBTUSDT": {
+              "altname": "XBTUSDT",
+              "wsname": "XBT/USDT",
+              "aclass_base": "currency",
+              "base": "XXBT",
+              "aclass_quote": "currency",
+              "quote": "USDT",
+              "lot": "unit",
+              "pair_decimals": 1,
+              "lot_decimals": 8,
+              "lot_multiplier": 1,
+              "leverage_buy": [2, 3],
+              "leverage_sell": [2, 3],
+              "fees": [
+                [0, 0.26],
+                [50000, 0.24],
+                [100000, 0.22],
+                [250000, 0.2],
+                [500000, 0.18],
+                [1000000, 0.16],
+                [2500000, 0.14],
+                [5000000, 0.12],
+                [10000000, 0.1]
+              ],
+              "fees_maker": [
+                [0, 0.16],
+                [50000, 0.14],
+                [100000, 0.12],
+                [250000, 0.1],
+                [500000, 0.08],
+                [1000000, 0.06],
+                [2500000, 0.04],
+                [5000000, 0.02],
+                [10000000, 0]
+              ],
+              "fee_volume_currency": "ZUSD",
+              "margin_call": 80,
+              "margin_stop": 40,
+              "ordermin": "0.0002"
             }
         }
         """
@@ -312,7 +339,7 @@ cdef class KrakenExchange(ExchangeBase):
             try:
                 base, quote = split_to_base_quote(trading_pair)
                 base = convert_from_exchange_symbol(base)
-                min_order_size = Decimal(constants.BASE_ORDER_MIN.get(base, 0))
+                min_order_size = Decimal(rule.get('ordermin', 0))
                 min_price_increment = Decimal(f"1e-{rule.get('pair_decimals')}")
                 min_base_amount_increment = Decimal(f"1e-{rule.get('lot_decimals')}")
                 retval.append(
@@ -337,10 +364,10 @@ cdef class KrakenExchange(ExchangeBase):
 
         if len(self._in_flight_orders) > 0:
             tracked_orders = list(self._in_flight_orders.values())
-            tasks = [self._api_request("POST",
-                                       QUERY_ORDERS_URI,
-                                       data={"txid": o.exchange_order_id},
-                                       is_auth_required=True)
+            tasks = [self._api_request_with_retry("POST",
+                                                  QUERY_ORDERS_URI,
+                                                  data={"txid": o.exchange_order_id},
+                                                  is_auth_required=True)
                      for o in tracked_orders]
             results = await safe_gather(*tasks, return_exceptions=True)
 
@@ -452,7 +479,9 @@ cdef class KrakenExchange(ExchangeBase):
     async def _user_stream_event_listener(self):
         async for event_message in self._iter_user_event_queue():
             try:
-                event_type: str = event_message[-1]
+                # Event type is second from last, there is newly added sequence number (last item).
+                # https://docs.kraken.com/websockets/#sequence-numbers
+                event_type: str = event_message[-2]
                 updates: List[Any] = event_message[0]
                 if event_type == "ownTrades":
                     for update in updates:
@@ -661,6 +690,56 @@ cdef class KrakenExchange(ExchangeBase):
             self._shared_client = aiohttp.ClientSession()
         return self._shared_client
 
+    @staticmethod
+    def is_cloudflare_exception(exception: Exception):
+        """
+        Error status 5xx or 10xx are related to Cloudflare.
+        https://support.kraken.com/hc/en-us/articles/360001491786-API-error-messages#6
+        """
+        return bool(re.search(r"HTTP status is (5|10)\d\d\.", str(exception)))
+
+    async def get_open_orders_with_userref(self, userref: int):
+        data = {'userref': userref}
+        return await self._api_request_with_retry("POST",
+                                                  OPEN_ORDERS_URI,
+                                                  is_auth_required=True,
+                                                  data=data)
+
+    async def _api_request_with_retry(self,
+                                      method: str,
+                                      path_url: str,
+                                      params: Optional[Dict[str, Any]] = None,
+                                      data: Optional[Dict[str, Any]] = None,
+                                      is_auth_required: bool = False,
+                                      request_weight: int = 1,
+                                      retry_count = 5,
+                                      retry_interval = 2.0) -> Dict[str, Any]:
+        request_weight = self.API_COUNTER_POINTS.get(path_url, 0)
+        if retry_count == 0:
+            return await self._api_request(method, path_url, params, data, is_auth_required, request_weight)
+
+        result = None
+        for retry_attempt in range(retry_count):
+            try:
+                result= await self._api_request(method, path_url, params, data, is_auth_required, request_weight)
+                break
+            except IOError as e:
+                if self.is_cloudflare_exception(e):
+                    if path_url == ADD_ORDER_URI:
+                        self.logger().info(f"Retrying {path_url}")
+                        # Order placement could have been successful despite the IOError, so check for the open order.
+                        response = self.get_open_orders_with_userref(data.get('userref'))
+                        if any(response.get("open").values()):
+                            return response
+                    self.logger().warning(f"Cloudflare error. Attempt {retry_attempt+1}/{retry_count} API command {method}: {path_url}")
+                    await asyncio.sleep(retry_interval ** retry_attempt)
+                    continue
+                else:
+                    raise e
+        if result is None:
+            raise IOError(f"Error fetching data from {KRAKEN_ROOT_API + path_url}.")
+        return result
+
     async def _api_request(self,
                            method: str,
                            path_url: str,
@@ -670,9 +749,7 @@ cdef class KrakenExchange(ExchangeBase):
                            request_weight: int = 1) -> Dict[str, Any]:
         async with self._throttler.weighted_task(request_weight=request_weight):
             url = KRAKEN_ROOT_API + path_url
-
             client = await self._http_client()
-
             headers = {}
             data_dict = data if data is not None else {}
 
@@ -720,10 +797,10 @@ cdef class KrakenExchange(ExchangeBase):
 
     async def get_order(self, client_order_id: str) -> Dict[str, Any]:
         o = self._in_flight_orders.get(client_order_id)
-        result = await self._api_request("POST",
-                                         QUERY_ORDERS_URI,
-                                         data={"txid": o.exchange_order_id},
-                                         is_auth_required=True)
+        result = await self._api_request_with_retry("POST",
+                                                    QUERY_ORDERS_URI,
+                                                    data={"txid": o.exchange_order_id},
+                                                    is_auth_required=True)
         return result
 
     def supported_order_types(self):
@@ -748,10 +825,10 @@ cdef class KrakenExchange(ExchangeBase):
         }
         if order_type is OrderType.LIMIT_MAKER:
             data["oflags"] = "post"
-        return await self._api_request("post",
-                                       ADD_ORDER_URI,
-                                       data=data,
-                                       is_auth_required=True)
+        return await self._api_request_with_retry("post",
+                                                  ADD_ORDER_URI,
+                                                  data=data,
+                                                  is_auth_required=True)
 
     async def execute_buy(self,
                           order_id: str,
@@ -924,10 +1001,10 @@ cdef class KrakenExchange(ExchangeBase):
             if tracked_order is None:
                 raise ValueError(f"Failed to cancel order – {order_id}. Order not found.")
             data: Dict[str, str] = {"txid": tracked_order.exchange_order_id}
-            cancel_result = await self._api_request("POST",
-                                                    CANCEL_ORDER_URI,
-                                                    data=data,
-                                                    is_auth_required=True)
+            cancel_result = await self._api_request_with_retry("POST",
+                                                               CANCEL_ORDER_URI,
+                                                               data=data,
+                                                               is_auth_required=True)
 
             if isinstance(cancel_result, dict) and (cancel_result.get("count") == 1 or cancel_result.get("error") is not None):
                 self.logger().info(f"Successfully cancelled order {order_id}.")

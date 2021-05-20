@@ -1,3 +1,4 @@
+from traceback import format_exc
 from collections import defaultdict
 from libc.stdint cimport int64_t
 import aiohttp
@@ -26,6 +27,7 @@ from typing import (
 
 import conf
 from hummingbot.core.utils.asyncio_throttle import Throttler
+from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -64,7 +66,8 @@ from .binance_in_flight_order import BinanceInFlightOrder
 from .binance_utils import (
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair)
-
+from hummingbot.core.data_type.common import OpenOrder
+from hummingbot.core.data_type.trade import Trade
 s_logger = None
 s_decimal_0 = Decimal(0)
 s_decimal_NaN = Decimal("nan")
@@ -127,12 +130,11 @@ cdef class BinanceExchange(ExchangeBase):
                  trading_required: bool = True,
                  domain="com"
                  ):
-
+        self._domain = domain
         self.monkey_patch_binance_time()
         super().__init__()
         self._trading_required = trading_required
         self._order_book_tracker = BinanceOrderBookTracker(trading_pairs=trading_pairs, domain=domain)
-        self._domain = domain
         self._binance_client = BinanceClient(binance_api_key, binance_api_secret, tld=domain)
         self._user_stream_tracker = BinanceUserStreamTracker(binance_client=self._binance_client, domain=domain)
         self._ev_loop = asyncio.get_event_loop()
@@ -391,18 +393,64 @@ cdef class BinanceExchange(ExchangeBase):
             int64_t last_tick = <int64_t>(self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
             int64_t current_tick = <int64_t>(self._current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
 
-        if current_tick > last_tick and len(self._in_flight_orders) > 0:
-            trading_pairs_to_order_map = defaultdict(lambda: {})
-            for o in self._in_flight_orders.values():
-                trading_pairs_to_order_map[o.trading_pair][o.exchange_order_id] = o
+        if current_tick > last_tick:
+            if len(self._in_flight_orders) > 0:
+                trading_pairs_to_order_map = defaultdict(lambda: {})
+                for o in self._in_flight_orders.values():
+                    trading_pairs_to_order_map[o.trading_pair][o.exchange_order_id] = o
 
-            trading_pairs = list(trading_pairs_to_order_map.keys())
+                trading_pairs = list(trading_pairs_to_order_map.keys())
+                tasks = [self.query_api(self._binance_client.get_my_trades, symbol=convert_to_exchange_trading_pair(trading_pair))
+                         for trading_pair in trading_pairs]
+                self.logger().debug(f"Polling for order fills of {len(tasks)} trading pairs.")
+                results = await safe_gather(*tasks, return_exceptions=True)
+                for trades, trading_pair in zip(results, trading_pairs):
+                    order_map = trading_pairs_to_order_map[trading_pair]
+                    if isinstance(trades, Exception):
+                        self.logger().network(
+                            f"Error fetching trades update for the order {trading_pair}: {trades}.",
+                            app_warning_msg=f"Failed to fetch trade update for {trading_pair}."
+                        )
+                        continue
+                    for trade in trades:
+                        order_id = str(trade["orderId"])
+                        if order_id in order_map:
+                            tracked_order = order_map[order_id]
+                            order_type = tracked_order.order_type
+                            applied_trade = order_map[order_id].update_with_trade_update(trade)
+                            if applied_trade:
+                                self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
+                                                     OrderFilledEvent(
+                                                         self._current_timestamp,
+                                                         tracked_order.client_order_id,
+                                                         tracked_order.trading_pair,
+                                                         tracked_order.trade_type,
+                                                         order_type,
+                                                         Decimal(trade["price"]),
+                                                         Decimal(trade["qty"]),
+                                                         TradeFee(
+                                                             percent=Decimal(0.0),
+                                                             flat_fees=[(trade["commissionAsset"],
+                                                                         Decimal(trade["commission"]))]
+                                                         ),
+                                                         exchange_trade_id=trade["id"]
+                                                     ))
+
+    async def _history_reconciliation(self):
+        cdef:
+            # Method looks in the exchange history to check for any missing trade in local history.
+            # If found, it will trigger an order_filled event to record it in local DB.
+            # The minimum poll interval for order status is 120 seconds.
+            int64_t last_tick = <int64_t>(self._last_poll_timestamp / self.LONG_POLL_INTERVAL)
+            int64_t current_tick = <int64_t>(self._current_timestamp / self.LONG_POLL_INTERVAL)
+
+        if current_tick > last_tick:
+            trading_pairs = self._order_book_tracker._trading_pairs
             tasks = [self.query_api(self._binance_client.get_my_trades, symbol=convert_to_exchange_trading_pair(trading_pair))
                      for trading_pair in trading_pairs]
-            self.logger().debug("Polling for order fills of %d trading pairs.", len(tasks))
-            results = await safe_gather(*tasks, return_exceptions=True)
-            for trades, trading_pair in zip(results, trading_pairs):
-                order_map = trading_pairs_to_order_map[trading_pair]
+            self.logger().debug(f"Polling for order fills of {len(tasks)} trading pairs.")
+            exchange_history = await safe_gather(*tasks, return_exceptions=True)
+            for trades, trading_pair in zip(exchange_history, trading_pairs):
                 if isinstance(trades, Exception):
                     self.logger().network(
                         f"Error fetching trades update for the order {trading_pair}: {trades}.",
@@ -410,30 +458,28 @@ cdef class BinanceExchange(ExchangeBase):
                     )
                     continue
                 for trade in trades:
-                    order_id = str(trade["orderId"])
-                    if order_id in order_map:
-                        tracked_order = order_map[order_id]
-                        order_type = tracked_order.order_type
-                        applied_trade = order_map[order_id].update_with_trade_update(trade)
-                        if applied_trade:
+                    if self.is_confirmed_new_order_filled_event(str(trade["id"]), str(trade["orderId"]), trading_pair):
+                        # Should check if this is a partial filling of a in_flight order.
+                        # In that case, user_stream or _update_order_fills_from_trades will take care when fully filled.
+                        if not any(trade["id"] in in_flight_order.trade_id_set for in_flight_order in self._in_flight_orders.values()):
                             self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
                                                  OrderFilledEvent(
-                                                     self._current_timestamp,
-                                                     tracked_order.client_order_id,
-                                                     tracked_order.trading_pair,
-                                                     tracked_order.trade_type,
-                                                     order_type,
+                                                     trade["time"],
+                                                     self._exchange_order_ids.get(str(trade["orderId"]),
+                                                                                  get_client_order_id("buy" if trade["isBuyer"] else "sell", trading_pair)),
+                                                     trading_pair,
+                                                     TradeType.BUY if trade["isBuyer"] else TradeType.SELL,
+                                                     OrderType.LIMIT_MAKER,  # defaulting to this value since trade info lacks field
                                                      Decimal(trade["price"]),
                                                      Decimal(trade["qty"]),
-                                                     self.c_get_fee(
-                                                         tracked_order.base_asset,
-                                                         tracked_order.quote_asset,
-                                                         order_type,
-                                                         tracked_order.trade_type,
-                                                         Decimal(trade["price"]),
-                                                         Decimal(trade["qty"])),
+                                                     TradeFee(
+                                                         percent=Decimal(0.0),
+                                                         flat_fees=[(trade["commissionAsset"],
+                                                                     Decimal(trade["commission"]))]
+                                                     ),
                                                      exchange_trade_id=trade["id"]
                                                  ))
+                            self.logger().info(f"Recreating missing trade in TradeFill: {trade}")
 
     async def _update_order_status(self):
         cdef:
@@ -448,7 +494,7 @@ cdef class BinanceExchange(ExchangeBase):
             tasks = [self.query_api(self._binance_client.get_order,
                                     symbol=convert_to_exchange_trading_pair(o.trading_pair), origClientOrderId=o.client_order_id)
                      for o in tracked_orders]
-            self.logger().debug("Polling for order status updates of %d orders.", len(tasks))
+            self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
             results = await safe_gather(*tasks, return_exceptions=True)
             for order_update, tracked_order in zip(results, tracked_orders):
                 client_order_id = tracked_order.client_order_id
@@ -591,20 +637,13 @@ cdef class BinanceExchange(ExchangeBase):
                         self.logger().debug(f"Event: {event_message}")
                         continue
 
-                    tracked_order.update_with_execution_report(event_message)
+                    unique_update = tracked_order.update_with_execution_report(event_message)
 
                     if execution_type == "TRADE":
                         order_filled_event = OrderFilledEvent.order_filled_event_from_binance_execution_report(event_message)
                         order_filled_event = order_filled_event._replace(trading_pair=convert_from_exchange_trading_pair(order_filled_event.trading_pair))
-                        order_filled_event = order_filled_event._replace(trade_fee=self.c_get_fee(
-                            tracked_order.base_asset,
-                            tracked_order.quote_asset,
-                            BinanceExchange.to_hb_order_type(event_message["o"]),
-                            TradeType.BUY if event_message["S"] == "BUY" else TradeType.SELL,
-                            Decimal(event_message["l"]),
-                            Decimal(event_message["L"])
-                        ))
-                        self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
+                        if unique_update:
+                            self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
 
                     if tracked_order.is_done:
                         if not tracked_order.is_failure:
@@ -680,9 +719,10 @@ cdef class BinanceExchange(ExchangeBase):
                 await self._poll_notifier.wait()
                 await safe_gather(
                     self._update_balances(),
-                    self._update_order_fills_from_trades(),
-                    self._update_order_status(),
+                    self._update_order_fills_from_trades()
                 )
+                await self._history_reconciliation()
+                await self._update_order_status()
                 self._last_poll_timestamp = self._current_timestamp
             except asyncio.CancelledError:
                 raise
@@ -862,7 +902,8 @@ cdef class BinanceExchange(ExchangeBase):
                                      trading_pair,
                                      amount,
                                      price,
-                                     order_id
+                                     order_id,
+                                     exchange_order_id
                                  ))
         except asyncio.CancelledError:
             raise
@@ -1043,3 +1084,41 @@ cdef class BinanceExchange(ExchangeBase):
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         return self.c_get_order_book(trading_pair)
+
+    async def get_open_orders(self) -> List[OpenOrder]:
+        orders = await self.query_api(self._binance_client.get_open_orders)
+        ret_val = []
+        for order in orders:
+            if BROKER_ID not in order["clientOrderId"]:
+                continue
+            ret_val.append(
+                OpenOrder(
+                    client_order_id=order["clientOrderId"],
+                    trading_pair=convert_from_exchange_trading_pair(order["symbol"]),
+                    price=Decimal(str(order["price"])),
+                    amount=Decimal(str(order["origQty"])),
+                    executed_amount=Decimal(str(order["executedQty"])),
+                    status=order["status"],
+                    order_type=self.to_hb_order_type(order["type"]),
+                    is_buy=True if order["side"].lower() == "buy" else False,
+                    time=int(order["time"]),
+                    exchange_order_id=order["orderId"]
+                )
+            )
+        return ret_val
+
+    @async_ttl_cache(ttl=30, maxsize=1000)
+    async def get_all_my_trades(self, trading_pair: str) -> List[Trade]:
+        # Ths Binance API call rate is 5, so we cache to make sure we don't go over rate limit
+        trades = await self.query_api(self._binance_client.get_my_trades,
+                                      symbol=convert_to_exchange_trading_pair(trading_pair))
+        from hummingbot.connector.exchange.binance.binance_helper import format_trades
+        return format_trades(trades)
+
+    async def get_my_trades(self, trading_pair: str, days_ago: float) -> List[Trade]:
+        trades = await self.get_all_my_trades(trading_pair)
+        from hummingbot.connector.exchange.binance.binance_helper import get_utc_timestamp
+        if days_ago is not None:
+            time = get_utc_timestamp(days_ago) * 1e3
+            trades = [t for t in trades if t.timestamp > time]
+        return trades

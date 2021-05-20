@@ -23,10 +23,12 @@ cdef class ArbitrageStrategy(StrategyBase):
         object _exchange_rate_conversion
         int _failed_order_tolerance
         bint _cool_off_logged
+        bint _use_oracle_conversion_rate
         object _secondary_to_primary_base_conversion_rate
         object _secondary_to_primary_quote_conversion_rate
         bint _hb_app_notification
         tuple _current_profitability
+        double _last_conv_rates_logged
 
     cdef tuple c_calculate_arbitrage_top_order_profitability(self, object market_pair)
     cdef c_process_market_pair(self, object market_pair)
