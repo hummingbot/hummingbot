@@ -55,7 +55,7 @@ class Dev4TwapTradeStrategyTest(TestCase):
 
         start_timestamp = time.time()
         strategy.start(Clock(ClockMode.BACKTEST), start_timestamp)
-        strategy.tick(start_timestamp)
+        strategy.tick(start_timestamp + 1000)
 
         self.assertTrue(self._is_logged('WARNING', "Markets are not ready. No market making trades are permitted."))
 
@@ -69,7 +69,7 @@ class Dev4TwapTradeStrategyTest(TestCase):
 
         start_timestamp = time.time()
         strategy.start(Clock(ClockMode.BACKTEST), start_timestamp)
-        strategy.tick(start_timestamp)
+        strategy.tick(start_timestamp + 1000)
 
         self.assertTrue(self._is_logged('WARNING',
                                         ("WARNING: Some markets are not connected or are down at the moment. "

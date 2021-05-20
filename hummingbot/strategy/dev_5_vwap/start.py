@@ -4,9 +4,7 @@ from typing import (
 )
 
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.strategy.dev_5_vwap import (
-    Dev5TwapTradeStrategy
-)
+from hummingbot.strategy.dev_5_vwap import Dev5TwapTradeStrategy
 from hummingbot.strategy.dev_5_vwap.dev_5_vwap_config_map import dev_5_vwap_config_map
 
 
@@ -44,8 +42,6 @@ def start(self):
         maker_data = [self.markets[exchange], raw_market_symbol] + list(assets)
         self.market_trading_pair_tuples = [MarketTradingPairTuple(*maker_data)]
 
-        strategy_logging_options = Dev5TwapTradeStrategy.OPTION_LOG_ALL
-
         self.strategy = Dev5TwapTradeStrategy(market_infos=[MarketTradingPairTuple(*maker_data)],
                                               order_type=order_type,
                                               order_price=order_price,
@@ -56,8 +52,7 @@ def start(self):
                                               num_individual_orders=num_individual_orders,
                                               percent_slippage=percent_slippage,
                                               order_percent_of_volume=order_percent_of_volume,
-                                              order_amount=order_amount,
-                                              logging_options=strategy_logging_options)
+                                              order_amount=order_amount)
     except Exception as e:
         self._notify(str(e))
         self.logger().error("Unknown error during initialization.", exc_info=True)

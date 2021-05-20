@@ -69,9 +69,6 @@ class TWAPUnitTest(unittest.TestCase):
             )
         )
 
-        logging_options: int = (Dev5TwapTradeStrategy.OPTION_LOG_ALL &
-                                (~Dev5TwapTradeStrategy.OPTION_LOG_NULL_ORDER_SIZE))
-
         # Define strategies to test
         self.limit_buy_strategy: Dev5TwapTradeStrategy = Dev5TwapTradeStrategy(
             [self.market_info],
@@ -83,8 +80,7 @@ class TWAPUnitTest(unittest.TestCase):
             is_vwap=True,
             percent_slippage=50.0,
             order_percent_of_volume=0.5,
-            order_amount=Decimal("100.0"),
-            logging_options=logging_options
+            order_amount=Decimal("100.0")
         )
         self.limit_sell_strategy: Dev5TwapTradeStrategy = Dev5TwapTradeStrategy(
             [self.market_info],
@@ -96,8 +92,7 @@ class TWAPUnitTest(unittest.TestCase):
             is_vwap=True,
             percent_slippage=50.0,
             order_percent_of_volume=0.5,
-            order_amount=Decimal("100.0"),
-            logging_options=logging_options
+            order_amount=Decimal("100.0")
         )
         self.market_buy_strategy: Dev5TwapTradeStrategy = Dev5TwapTradeStrategy(
             [self.market_info],
@@ -109,8 +104,7 @@ class TWAPUnitTest(unittest.TestCase):
             is_vwap=True,
             percent_slippage=50.0,
             order_percent_of_volume=0.5,
-            order_amount=Decimal("100.0"),
-            logging_options=logging_options
+            order_amount=Decimal("100.0")
         )
         self.market_sell_strategy: Dev5TwapTradeStrategy = Dev5TwapTradeStrategy(
             [self.market_info],
@@ -122,10 +116,8 @@ class TWAPUnitTest(unittest.TestCase):
             is_vwap=True,
             percent_slippage=50.0,
             order_percent_of_volume=0.5,
-            order_amount=Decimal("100.0"),
-            logging_options=logging_options
+            order_amount=Decimal("100.0")
         )
-        self.logging_options = logging_options
         self.clock.add_iterator(self.market)
         self.maker_order_fill_logger: EventLogger = EventLogger()
         self.cancel_order_logger: EventLogger = EventLogger()
