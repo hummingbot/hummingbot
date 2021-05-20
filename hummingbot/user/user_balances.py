@@ -122,7 +122,7 @@ class UserBalances:
         evm_rpc_url = global_config_map.get(f"{prefix}_rpc_url").value
         print("using evm-compatible rpc url", evm_rpc_url)
         if prefix == "evm":
-            connector = EvmUniswapConnector(ethereum_required_trading_pairs,
+            connector = EvmUniswapConnector(ethereum_required_trading_pairs(),
                                             get_eth_wallet_private_key(),
                                             evm_rpc_url,
                                             True,
