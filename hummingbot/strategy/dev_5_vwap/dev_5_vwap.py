@@ -18,17 +18,17 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
 
-d4twap_logger = None
+d5vwap_logger = None
 
 
-class Dev4TwapTradeStrategy(StrategyPyBase):
+class Dev5TwapTradeStrategy(StrategyPyBase):
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        global d4twap_logger
-        if d4twap_logger is None:
-            d4twap_logger = logging.getLogger(__name__)
-        return d4twap_logger
+        global d5vwap_logger
+        if d5vwap_logger is None:
+            d5vwap_logger = logging.getLogger(__name__)
+        return d5vwap_logger
 
     def __init__(self,
                  market_infos: List[MarketTradingPairTuple],
@@ -37,7 +37,10 @@ class Dev4TwapTradeStrategy(StrategyPyBase):
                  cancel_order_wait_time: Optional[float] = 60.0,
                  is_buy: bool = True,
                  time_delay: float = 10.0,
+                 is_vwap=True,
                  num_individual_orders: int = 1,
+                 percent_slippage: float = 0,
+                 order_percent_of_volume: float = 100,
                  order_amount: Decimal = Decimal("1.0"),
                  status_report_interval: float = 900):
         """
@@ -71,16 +74,21 @@ class Dev4TwapTradeStrategy(StrategyPyBase):
         self._is_buy = is_buy
         self._order_amount = order_amount
         self._first_order = True
+        self._is_vwap = is_vwap
+        self._percent_slippage = Decimal(percent_slippage)
+        self._order_percent_of_volume = order_percent_of_volume
+        self._has_outstanding_order = False
         self._previous_timestamp = 0
         self._last_timestamp = 0
         self._order_price = Decimal("NaN")
 
         if order_price is not None:
-            self._order_price = order_price
+            self._order_price = Decimal(order_price)
         if cancel_order_wait_time is not None:
             self._cancel_order_wait_time = cancel_order_wait_time
 
         all_markets = set([market_info.market for market_info in market_infos])
+
         self.add_markets(list(all_markets))
 
     @property
@@ -103,13 +111,9 @@ class Dev4TwapTradeStrategy(StrategyPyBase):
     def market_info_to_active_orders(self) -> Dict[MarketTradingPairTuple, List[LimitOrder]]:
         return self.order_tracker.market_pair_to_active_orders
 
-    @property
-    def place_orders(self):
-        return self._place_orders
-
     def format_status(self) -> str:
-        lines: list = []
-        warning_lines: list = []
+        lines = []
+        warning_lines = []
 
         for market_info in self._market_infos.values():
             active_orders = self.market_info_to_active_orders.get(market_info, [])
@@ -123,7 +127,7 @@ class Dev4TwapTradeStrategy(StrategyPyBase):
             lines.extend(["", "  Assets:"] + ["    " + line for line in str(assets_df).split("\n")])
 
             # See if there're any open orders.
-            if len(active_orders) > 0:
+            if active_orders:
                 df = LimitOrder.to_pandas(active_orders)
                 df_lines = str(df).split("\n")
                 lines.extend(["", "  Active orders:"] +
@@ -141,29 +145,38 @@ class Dev4TwapTradeStrategy(StrategyPyBase):
     def did_fill_order(self, order_filled_event):
         """
         Output log for filled order.
+
         :param order_filled_event: Order filled event
         """
-        order_id: str = order_filled_event.order_id
-        market_info = self.order_tracker.get_shadow_market_pair_from_order_id(order_id)
 
-        if market_info is not None:
-            self.log_with_clock(logging.INFO,
-                                f"({market_info.trading_pair}) Limit {order_filled_event.trade_type.name.lower()} order of "
-                                f"{order_filled_event.amount} {market_info.base_asset} filled.")
+        filled_order_id: str = order_filled_event.order_id
+        market_trading_pair = self.order_tracker.get_shadow_market_pair_from_order_id(filled_order_id)
+
+        if market_trading_pair is not None:
+            self.log_with_clock(
+                logging.INFO,
+                f"({market_trading_pair.trading_pair}) Limit {order_filled_event.trade_type.name.lower()} order of "
+                f"{order_filled_event.amount} {market_trading_pair.base_asset} filled.")
 
     def did_complete_buy_order(self, order_completed_event):
         """
         Output log for completed buy order.
+
         :param order_completed_event: Order completed event
         """
+
         self.log_complete_order(order_completed_event)
+        self.check_last_order(order_completed_event)
 
     def did_complete_sell_order(self, order_completed_event):
         """
         Output log for completed sell order.
+
         :param order_completed_event: Order completed event
         """
+
         self.log_complete_order(order_completed_event)
+        self.check_last_order(order_completed_event)
 
     def log_complete_order(self, order_completed_event):
         """
@@ -193,44 +206,17 @@ class Dev4TwapTradeStrategy(StrategyPyBase):
                     f"({market_order_record.amount} {market_order_record.base_asset}) has been filled."
                 )
 
-    def process_market(self, market_info):
-        """
-        Checks if enough time has elapsed from previous order to place order and if so, calls place_orders_for_market() and
-        cancels orders if they are older than self._cancel_order_wait_time.
+    def did_fail_order(self, order_failed_event):
+        if self._is_vwap:
+            self.check_last_order(order_failed_event)
 
-        :param market_info: a market trading pair
-        """
-        cancel_order_ids = set()
+    def did_cancel_order(self, cancelled_event):
+        if self._is_vwap:
+            self.check_last_order(cancelled_event)
 
-        if self._quantity_remaining > 0:
-
-            # If current timestamp is greater than the start timestamp and its the first order
-            if (self.current_timestamp > self._previous_timestamp) and self._first_order:
-
-                self.logger().info("Trying to place orders now. ")
-                self._previous_timestamp = self.current_timestamp
-                self.place_orders_for_market(market_info)
-                self._first_order = False
-
-            # If current timestamp is greater than the start timestamp + time delay place orders
-            elif (self.current_timestamp > self._previous_timestamp + self._time_delay) and (self._first_order is False):
-                self.logger().info("Current time: "
-                                   f"{datetime.fromtimestamp(self.current_timestamp).strftime('%Y-%m-%d %H:%M:%S')} "
-                                   "is now greater than "
-                                   "Previous time: "
-                                   f"{datetime.fromtimestamp(self._previous_timestamp).strftime('%Y-%m-%d %H:%M:%S')} "
-                                   f" with time delay: {self._time_delay}. Trying to place orders now. ")
-                self._previous_timestamp = self.current_timestamp
-                self.place_orders_for_market(market_info)
-
-        active_orders = self.market_info_to_active_orders.get(market_info, [])
-
-        for active_order in active_orders:
-            if self.current_timestamp >= self._time_to_cancel[active_order.client_order_id]:
-                cancel_order_ids.add(active_order.client_order_id)
-
-        for order in cancel_order_ids:
-            self.cancel_order(market_info, order)
+    def did_expire_order(self, expired_event):
+        if self._is_vwap:
+            self.check_last_order(expired_event)
 
     def start(self, clock: Clock, timestamp: float):
         self.logger().info(f"Waiting for {self._time_delay} to place orders")
@@ -240,7 +226,8 @@ class Dev4TwapTradeStrategy(StrategyPyBase):
     def tick(self, timestamp: float):
         """
         Clock tick entry point.
-        For the TWAP strategy, this function simply checks for the readiness and connection status of markets, and
+
+        For this strategy, this function simply checks for the readiness and connection status of markets, and
         then delegates the processing of each market info to process_market().
 
         :param timestamp: current tick timestamp
@@ -258,7 +245,8 @@ class Dev4TwapTradeStrategy(StrategyPyBase):
                         self.logger().warning("Markets are not ready. No market making trades are permitted.")
                     return
 
-            if not all([market.network_status is NetworkStatus.CONNECTED for market in self.active_markets]):
+            if should_report_warnings and not all([market.network_status is NetworkStatus.CONNECTED
+                                                   for market in self._sb_markets]):
                 self.logger().warning("WARNING: Some markets are not connected or are down at the moment. Market "
                                       "making may be dangerous when markets or networks are unstable.")
 
@@ -267,18 +255,44 @@ class Dev4TwapTradeStrategy(StrategyPyBase):
         finally:
             self._last_timestamp = timestamp
 
-    def place_orders_for_market(self, market_info):
+    def check_last_order(self, order_event):
         """
-        Places an individual order specified by the user input if the user has enough balance and if the order quantity
+        Check to see if the event is called on an order made by this strategy. If it is made from this strategy,
+        set self._has_outstanding_order to False to unblock further VWAP processes.
+        """
+        market_info = self.order_tracker.get_market_pair_from_order_id(order_event.order_id)
+        if market_info is not None:
+            self._has_outstanding_order = False
+
+    def place_orders(self, market_info):
+        """
+        If TWAP, places an individual order specified by the user input if the user has enough balance and if the order quantity
         can be broken up to the number of desired orders
+        Else, places an individual order capped at order_percent_of_volume * open order volume up to percent_slippage
+
         :param market_info: a market trading pair
         """
+
         market: ExchangeBase = market_info.market
         curr_order_amount = min(self._order_amount / self._num_individual_orders, self._quantity_remaining)
         quantized_amount = market.quantize_order_amount(market_info.trading_pair, Decimal(curr_order_amount))
         quantized_price = market.quantize_order_price(market_info.trading_pair, Decimal(self._order_price))
+        order_book: OrderBook = market_info.order_book
 
-        self.logger().info("Checking to see if the incremental order size is possible")
+        if self._is_vwap:
+            order_price = order_book.get_price(self._is_buy) if self._order_type == "market" else self._order_price
+            order_price = Decimal(order_price)
+            slippage_amount = order_price * Decimal(self._percent_slippage) * Decimal("0.01")
+            if self._is_buy:
+                slippage_price = order_price + slippage_amount
+            else:
+                slippage_price = order_price - slippage_amount
+
+            total_order_volume = order_book.get_volume_for_price(self._is_buy, float(slippage_price))
+            order_cap = self._order_percent_of_volume * total_order_volume.result_volume * 0.01
+
+            quantized_amount = quantized_amount.min(Decimal.from_float(order_cap))
+
         self.logger().info("Checking to see if the user has enough balance to place orders")
 
         if quantized_amount != 0:
@@ -310,13 +324,14 @@ class Dev4TwapTradeStrategy(StrategyPyBase):
                     self._time_to_cancel[order_id] = self.current_timestamp + self._cancel_order_wait_time
 
                 self._quantity_remaining = Decimal(self._quantity_remaining) - quantized_amount
+                self._has_outstanding_order = True
 
             else:
                 self.logger().info("Not enough balance to run the strategy. Please check balances and try again.")
         else:
             self.logger().warning("Not possible to break the order into the desired number of segments.")
 
-    def has_enough_balance(self, market_info):
+    def has_enough_balance(self, market_info) -> bool:
         """
         Checks to make sure the user has the sufficient balance in order to place the specified order
 
@@ -326,8 +341,51 @@ class Dev4TwapTradeStrategy(StrategyPyBase):
         market: ExchangeBase = market_info.market
         base_asset_balance = market.get_balance(market_info.base_asset)
         quote_asset_balance = market.get_balance(market_info.quote_asset)
-        order_book: OrderBook = market_info.order_book
-        price = order_book.get_price_for_volume(True, float(self._quantity_remaining)).result_price
+        price = market_info.order_book.get_price_for_volume(True,
+                                                            float(self._quantity_remaining)).result_price
 
-        return quote_asset_balance >= float(self._quantity_remaining) * price if self._is_buy else base_asset_balance >= float(
-            self._quantity_remaining)
+        return (quote_asset_balance >= float(self._quantity_remaining) * price
+                if self._is_buy
+                else base_asset_balance >= float(self._quantity_remaining))
+
+    def process_market(self, market_info):
+        """
+        If the user selected TWAP, checks if enough time has elapsed from previous order to place order and if so, calls place_orders() and
+        cancels orders if they are older than self._cancel_order_wait_time.
+        Otherwise, if there is not an outstanding order, calls place_orders().
+
+        :param market_info: a market trading pair
+        """
+        cancel_order_ids = set()
+
+        if not self._is_vwap:  # TWAP
+            if self._quantity_remaining > 0:
+                # If current timestamp is greater than the start timestamp and its the first order
+                if self.current_timestamp > self._previous_timestamp and self._first_order:
+                    self.logger().info("Trying to place orders now. ")
+                    self._previous_timestamp = self.current_timestamp
+                    self.place_orders(market_info)
+                    self._first_order = False
+
+                # If current timestamp is greater than the start timestamp + time delay place orders
+                elif self.current_timestamp > self._previous_timestamp + self._time_delay and self._first_order is False:
+                    self.logger().info("Current time: "
+                                       f"{datetime.fromtimestamp(self.current_timestamp).strftime('%Y-%m-%d %H:%M:%S')} "
+                                       "is now greater than "
+                                       "Previous time: "
+                                       f"{datetime.fromtimestamp(self._previous_timestamp).strftime('%Y-%m-%d %H:%M:%S')} "
+                                       f" with time delay: {self._time_delay}. Trying to place orders now. ")
+                    self._previous_timestamp = self.current_timestamp
+                    self.place_orders(market_info)
+        else:  # VWAP
+            if not self._has_outstanding_order:
+                self.place_orders(market_info)
+
+        active_orders = self.market_info_to_active_orders.get(market_info, [])
+
+        for active_order in active_orders:
+            if self.current_timestamp >= self._time_to_cancel[active_order.client_order_id]:
+                cancel_order_ids.add(active_order.client_order_id)
+
+        for order in cancel_order_ids:
+            self.cancel_order(market_info, order)
