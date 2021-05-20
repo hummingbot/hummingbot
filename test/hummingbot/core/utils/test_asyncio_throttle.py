@@ -2,8 +2,8 @@ import unittest
 import asyncio
 import time
 from timeit import default_timer as timer
+from hummingbot.core.utils.asyncio_throttle import Throttler
 
-from hummingbot.core.utils.asyncio_throttle import Throttler, ThrottlerContextManager
 
 class AsyncioThrottleTest(unittest.TestCase):
     def setUp(self):
