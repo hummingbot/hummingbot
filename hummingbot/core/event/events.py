@@ -34,6 +34,7 @@ class MarketEvent(Enum):
     TransactionFailure = 199
     BuyOrderCreated = 200
     SellOrderCreated = 201
+    FundingPaymentCompleted = 202
 
 
 class NewBlocksWatcherEvent(Enum):
@@ -71,6 +72,11 @@ class OrderType(Enum):
         return self in (OrderType.LIMIT, OrderType.LIMIT_MAKER)
 
 
+class PositionAction(Enum):
+    OPEN = "OPEN"
+    CLOSE = "CLOSE"
+
+
 # For Derivatives Exchanges
 class PositionSide(Enum):
     LONG = "LONG"
@@ -90,6 +96,7 @@ class PriceType(Enum):
     BestAsk = 3
     LastTrade = 4
     LastOwnTrade = 5
+    InventoryCost = 6
 
 
 class MarketTransactionFailureEvent(NamedTuple):
@@ -197,6 +204,15 @@ class OrderExpiredEvent(NamedTuple):
     order_id: str
 
 
+@dataclass
+class FundingPaymentCompletedEvent:
+    timestamp: float
+    market: str
+    trading_pair: str
+    amount: Decimal
+    funding_rate: Decimal
+
+
 class MarketWithdrawAssetEvent(NamedTuple):
     timestamp: float
     tracking_id: str
@@ -265,7 +281,7 @@ class TradeFee(NamedTuple):
         base, quote = trading_pair.split("-")
         for flat_fee in self.flat_fees:
             if interchangeable(flat_fee[0], base):
-                fee_amount += (flat_fee[1] / price)
+                fee_amount += (flat_fee[1] * price)
             elif interchangeable(flat_fee[0], quote):
                 fee_amount += flat_fee[1]
         return fee_amount
@@ -289,6 +305,8 @@ class OrderFilledEvent(NamedTuple):
     amount: Decimal
     trade_fee: TradeFee
     exchange_trade_id: str = ""
+    leverage: Optional[int] = 1
+    position: Optional[str] = "NILL"
 
     @classmethod
     def order_filled_events_from_order_book_rows(cls,
@@ -333,6 +351,8 @@ class BuyOrderCreatedEvent:
     price: Decimal
     order_id: str
     exchange_order_id: Optional[str] = None
+    leverage: Optional[int] = 1
+    position: Optional[str] = "NILL"
 
 
 @dataclass
@@ -344,3 +364,5 @@ class SellOrderCreatedEvent:
     price: Decimal
     order_id: str
     exchange_order_id: Optional[str] = None
+    leverage: Optional[int] = 1
+    position: Optional[str] = "NILL"

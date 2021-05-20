@@ -1,5 +1,6 @@
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
+    validate_market_trading_pair,
     validate_connector,
     validate_decimal,
     validate_bool
@@ -16,8 +17,18 @@ def exchange_on_validated(value: str) -> None:
     required_exchanges.append(value)
 
 
+def market_1_validator(value: str) -> None:
+    exchange = amm_arb_config_map["connector_1"].value
+    return validate_market_trading_pair(exchange, value)
+
+
 def market_1_on_validated(value: str) -> None:
     requried_connector_trading_pairs[amm_arb_config_map["connector_1"].value] = [value]
+
+
+def market_2_validator(value: str) -> None:
+    exchange = amm_arb_config_map["connector_2"].value
+    return validate_market_trading_pair(exchange, value)
 
 
 def market_2_on_validated(value: str) -> None:
@@ -51,7 +62,7 @@ amm_arb_config_map = {
         default="amm_arb"),
     "connector_1": ConfigVar(
         key="connector_1",
-        prompt="Enter your first connector (exchange/AMM) >>> ",
+        prompt="Enter your first spot connector (Exchange/AMM) >>> ",
         prompt_on_new=True,
         validator=validate_connector,
         on_validated=exchange_on_validated),
@@ -59,10 +70,11 @@ amm_arb_config_map = {
         key="market_1",
         prompt=market_1_prompt,
         prompt_on_new=True,
+        validator=market_1_validator,
         on_validated=market_1_on_validated),
     "connector_2": ConfigVar(
         key="connector_2",
-        prompt="Enter your second connector (exchange/AMM) >>> ",
+        prompt="Enter your second spot connector (Exchange/AMM) >>> ",
         prompt_on_new=True,
         validator=validate_connector,
         on_validated=exchange_on_validated),
@@ -70,11 +82,13 @@ amm_arb_config_map = {
         key="market_2",
         prompt=market_2_prompt,
         prompt_on_new=True,
+        validator=market_2_validator,
         on_validated=market_2_on_validated),
     "order_amount": ConfigVar(
         key="order_amount",
         prompt=order_amount_prompt,
         type_str="decimal",
+        validator=lambda v: validate_decimal(v, Decimal("0")),
         prompt_on_new=True),
     "min_profitability": ConfigVar(
         key="min_profitability",
@@ -88,7 +102,7 @@ amm_arb_config_map = {
         prompt="How much buffer do you want to add to the price to account for slippage for orders on the first market "
                "(Enter 1 for 1%)? >>> ",
         prompt_on_new=True,
-        default=Decimal("0"),
+        default=Decimal("0.05"),
         validator=lambda v: validate_decimal(v),
         type_str="decimal"),
     "market_2_slippage_buffer": ConfigVar(

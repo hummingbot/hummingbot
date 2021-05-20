@@ -6,7 +6,9 @@ from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
 
 
-TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(usdt|husd|btc|eth|ht|trx)$")
+RE_4_LETTERS_QUOTE = re.compile(r"^(\w+)(usdt|husd)$")
+RE_3_LETTERS_QUOTE = re.compile(r"^(\w+)(btc|eth|trx)$")
+RE_2_LETTERS_QUOTE = re.compile(r"^(\w+)(ht)$")
 
 CENTRALIZED = True
 
@@ -17,7 +19,11 @@ DEFAULT_FEES = [0.2, 0.2]
 
 def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
     try:
-        m = TRADING_PAIR_SPLITTER.match(trading_pair)
+        m = RE_4_LETTERS_QUOTE.match(trading_pair)
+        if m is None:
+            m = RE_3_LETTERS_QUOTE.match(trading_pair)
+            if m is None:
+                m = RE_2_LETTERS_QUOTE.match(trading_pair)
         return m.group(1), m.group(2)
     # Exceptions are now logged as warnings in trading pair fetcher
     except Exception:

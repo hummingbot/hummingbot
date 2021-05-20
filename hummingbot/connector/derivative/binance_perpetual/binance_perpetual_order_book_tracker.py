@@ -22,10 +22,9 @@ class BinancePerpetualOrderBookTracker(OrderBookTracker):
         return cls._bpobt_logger
 
     def __init__(self,
-                 base_url: str, stream_url: str,
-                 trading_pairs: Optional[List[str]] = None):
-        super().__init__(data_source=BinancePerpetualAPIOrderBookDataSource(base_url=base_url, stream_url=stream_url, trading_pairs=trading_pairs),
-                         trading_pairs=trading_pairs)
+                 trading_pairs: Optional[List[str]] = None, domain: str = "binance_perpetual"):
+        super().__init__(data_source=BinancePerpetualAPIOrderBookDataSource(trading_pairs=trading_pairs, domain=domain),
+                         trading_pairs=trading_pairs, domain=domain)
 
         self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()
         self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
@@ -33,7 +32,7 @@ class BinancePerpetualOrderBookTracker(OrderBookTracker):
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         self._saved_messages_queues: Dict[str, Deque[OrderBookMessage]] = defaultdict(lambda: deque(maxlen=1000))
         self._trading_pairs: Optional[List[str]] = trading_pairs
-        self._domain = "binance_perpetual_testnet" if "testnet" in base_url else "binance_perpetual"
+        self._domain = domain
 
     """
     @property
@@ -81,10 +80,8 @@ class BinancePerpetualOrderBookTracker(OrderBookTracker):
 
                 now: float = time.time()
                 if int(now / 60.0) > int(last_message_timestamp / 60.0):
-                    self.logger().debug("Diff messages process: %d, rejected: %d, queued: %d",
-                                        messages_accepted,
-                                        messages_rejected,
-                                        messages_queued)
+                    self.logger().debug(f"Diff messages processed: {messages_accepted}, "
+                                        f"rejected: {messages_rejected}, queued: {messages_queued}")
                     messages_accepted = 0
                     messages_rejected = 0
                     messages_queued = 0
@@ -129,14 +126,13 @@ class BinancePerpetualOrderBookTracker(OrderBookTracker):
 
                     now: float = time.time()
                     if int(now / 60.0) > int(last_message_timestamp / 60.0):
-                        self.logger().debug("Processed %d order book diffs for %s.",
-                                            diff_messages_accepted, trading_pair)
+                        self.logger().debug(f"Processed {diff_messages_accepted} order book diffs for {trading_pair}.")
                         diff_messages_accepted = 0
                     last_message_timestamp = now
                 elif message.type is OrderBookMessageType.SNAPSHOT:
                     past_diffs: List[OrderBookMessage] = list(past_diffs_window)
                     order_book.restore_from_snapshot_and_diffs(message, past_diffs)
-                    self.logger().debug("Processed order book snapshot for %s.", trading_pair)
+                    self.logger().debug(f"Processed order book snapshot for {trading_pair}.")
             except asyncio.CancelledError:
                 raise
             except Exception:

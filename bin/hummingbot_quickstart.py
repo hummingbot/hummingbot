@@ -26,7 +26,6 @@ from hummingbot.client.config.config_helpers import (
 )
 from hummingbot.client.ui import login_prompt
 from hummingbot.client.ui.stdout_redirection import patch_stdout
-from hummingbot.client.settings import STRATEGIES
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.management.console import start_management_console
 from bin.hummingbot import (
@@ -39,11 +38,6 @@ from hummingbot.client.config.security import Security
 class CmdlineParser(argparse.ArgumentParser):
     def __init__(self):
         super().__init__()
-        self.add_argument("--strategy", "-s",
-                          type=str,
-                          choices=STRATEGIES,
-                          required=False,
-                          help="Choose the strategy you would like to run.")
         self.add_argument("--config-file-name", "-f",
                           type=str,
                           required=False,
@@ -70,7 +64,6 @@ def autofix_permissions(user_group_spec: str):
 
 
 async def quick_start(args):
-    strategy = args.strategy
     config_file_name = args.config_file_name
     wallet = args.wallet
     password = args.config_password
@@ -85,15 +78,14 @@ async def quick_start(args):
     await Security.wait_til_decryption_done()
     await create_yml_files()
     init_logging("hummingbot_logs.yml")
-    read_system_configs_from_yml()
+    await read_system_configs_from_yml()
 
     hb = HummingbotApplication.main_application()
     # Todo: validate strategy and config_file_name before assinging
 
-    if config_file_name is not None and strategy is not None:
-        hb.strategy_name = strategy
+    if config_file_name is not None:
         hb.strategy_file_name = config_file_name
-        update_strategy_config_map_from_file(os.path.join(CONF_FILE_PATH, config_file_name))
+        hb.strategy_name = await update_strategy_config_map_from_file(os.path.join(CONF_FILE_PATH, config_file_name))
 
     # To ensure quickstart runs with the default value of False for kill_switch_enabled if not present
     if not global_config_map.get("kill_switch_enabled"):
@@ -133,8 +125,6 @@ def main():
     # Parse environment variables from Dockerfile.
     # If an environment variable is not empty and it's not defined in the arguments, then we'll use the environment
     # variable.
-    if args.strategy is None and len(os.environ.get("STRATEGY", "")) > 0:
-        args.strategy = os.environ["STRATEGY"]
     if args.config_file_name is None and len(os.environ.get("CONFIG_FILE_NAME", "")) > 0:
         args.config_file_name = os.environ["CONFIG_FILE_NAME"]
     if args.wallet is None and len(os.environ.get("WALLET", "")) > 0:

@@ -7,8 +7,10 @@ import hummingbot.client.settings as settings
 from hummingbot.client.config.config_methods import paper_trade_disabled, using_exchange as using_exchange_pointer
 from hummingbot.client.config.config_validators import (
     validate_bool,
+    validate_int,
     validate_decimal
 )
+from hummingbot.core.rate_oracle.rate_oracle import RateOracleSource, RateOracle
 
 
 def generate_client_id() -> str:
@@ -44,13 +46,30 @@ def connector_keys():
     return all_keys
 
 
+def validate_rate_oracle_source(value: str) -> Optional[str]:
+    if value not in (r.name for r in RateOracleSource):
+        return f"Invalid source, please choose value from {','.join(r.name for r in RateOracleSource)}"
+
+
+def rate_oracle_source_on_validated(value: str):
+    RateOracle.source = RateOracleSource[value]
+
+
+def global_token_on_validated(value: str):
+    RateOracle.global_token = value.upper()
+
+
+def global_token_symbol_on_validated(value: str):
+    RateOracle.global_token_symbol = value
+
+
 # Main global config store
 key_config_map = connector_keys()
 
 main_config_map = {
     # The variables below are usually not prompted during setup process
-    "client_id":
-        ConfigVar(key="client_id",
+    "instance_id":
+        ConfigVar(key="instance_id",
                   prompt=None,
                   required_if=lambda: False,
                   default=generate_client_id()),
@@ -121,6 +140,13 @@ main_config_map = {
                   required_if=lambda: global_config_map["celo_address"].value is not None,
                   is_secure=True,
                   is_connect_key=True),
+    "balancer_max_swaps":
+        ConfigVar(key="balancer_max_swaps",
+                  prompt="Enter the maximum swap pool in Balancer >>> ",
+                  required_if=lambda: False,
+                  type_str="int",
+                  validator=lambda v: validate_int(v, min_value=1, inclusive=True),
+                  default=4),
     "ethereum_wallet":
         ConfigVar(key="ethereum_wallet",
                   prompt="Enter your wallet private key >>> ",
@@ -142,12 +168,12 @@ main_config_map = {
                   required_if=lambda: False,
                   validator=lambda s: None if s in {"MAIN_NET", "KOVAN"} else "Invalid chain name.",
                   default="MAIN_NET"),
-    "ethereum_token_overrides":
-        ConfigVar(key="ethereum_token_overrides",
-                  prompt="What is your preferred ethereum token overrides? >>> ",
-                  type_str="json",
-                  required_if=lambda: False,
-                  default={}),
+    "ethereum_token_list_url":
+        ConfigVar(key="ethereum_token_list_url",
+                  prompt="Specify token list url of a list available on https://tokenlists.org/ >>> ",
+                  type_str="str",
+                  required_if=lambda: global_config_map["ethereum_wallet"].value is not None,
+                  default="https://defi.cmc.eth.link/"),
     # Whether or not to invoke cancel_all on exit if marketing making on a open order book DEX (e.g. Radar Relay)
     "on_chain_cancel_on_exit":
         ConfigVar(key="on_chain_cancel_on_exit",
@@ -170,6 +196,14 @@ main_config_map = {
                   default=-100,
                   validator=lambda v: validate_decimal(v, Decimal(-100), Decimal(100)),
                   required_if=lambda: global_config_map["kill_switch_enabled"].value),
+    "autofill_import":
+        ConfigVar(key="autofill_import",
+                  prompt="What to auto-fill in the prompt after each import command? (start/config) >>> ",
+                  type_str="str",
+                  default=None,
+                  validator=lambda s: None if s in {"start",
+                                                    "config"} else "Invalid auto-fill prompt.",
+                  required_if=lambda: False),
     "telegram_enabled":
         ConfigVar(key="telegram_enabled",
                   prompt="Would you like to enable telegram? >>> ",
@@ -264,32 +298,6 @@ main_config_map = {
                   type_str="decimal",
                   validator=lambda v: validate_decimal(v, Decimal(0), inclusive=False),
                   default=50),
-    "ethgasstation_gas_enabled":
-        ConfigVar(key="ethgasstation_gas_enabled",
-                  prompt="Do you want to enable Ethereum gas station price lookup? >>> ",
-                  required_if=lambda: False,
-                  type_str="bool",
-                  validator=validate_bool,
-                  default=False),
-    "ethgasstation_api_key":
-        ConfigVar(key="ethgasstation_api_key",
-                  prompt="Enter API key for defipulse.com gas station API >>> ",
-                  required_if=lambda: global_config_map["ethgasstation_gas_enabled"].value,
-                  type_str="str"),
-    "ethgasstation_gas_level":
-        ConfigVar(key="ethgasstation_gas_level",
-                  prompt="Enter gas level you want to use for Ethereum transactions (fast, fastest, safeLow, average) "
-                         ">>> ",
-                  required_if=lambda: global_config_map["ethgasstation_gas_enabled"].value,
-                  type_str="str",
-                  validator=lambda s: None if s in {"fast", "fastest", "safeLow", "average"}
-                  else "Invalid gas level."),
-    "ethgasstation_refresh_time":
-        ConfigVar(key="ethgasstation_refresh_time",
-                  prompt="Enter refresh time for Ethereum gas price lookup (in seconds) >>> ",
-                  required_if=lambda: global_config_map["ethgasstation_gas_enabled"].value,
-                  type_str="int",
-                  default=120),
     "gateway_api_host":
         ConfigVar(key="gateway_api_host",
                   prompt=None,
@@ -301,6 +309,52 @@ main_config_map = {
                   type_str="str",
                   required_if=lambda: False,
                   default="5000"),
+    "heartbeat_enabled":
+        ConfigVar(key="heartbeat_enabled",
+                  prompt="Do you want to enable aggregated order and trade data collection? >>> ",
+                  required_if=lambda: False,
+                  type_str="bool",
+                  validator=validate_bool,
+                  default=True),
+    "heartbeat_interval_min":
+        ConfigVar(key="heartbeat_interval_min",
+                  prompt="How often do you want Hummingbot to send aggregated order and trade data (in minutes, "
+                         "e.g. enter 5 for once every 5 minutes)? >>> ",
+                  required_if=lambda: False,
+                  type_str="decimal",
+                  validator=lambda v: validate_decimal(v, Decimal(0), inclusive=False),
+                  default=Decimal("15")),
+    "binance_markets":
+        ConfigVar(key="binance_markets",
+                  prompt="Please enter binance markets (for trades/pnl reporting) separated by ',' "
+                         "e.g. RLC-USDT,RLC-BTC  >>> ",
+                  type_str="str",
+                  required_if=lambda: False,
+                  default="HARD-USDT,HARD-BTC,XEM-ETH,XEM-BTC,ALGO-USDT,ALGO-BTC,COTI-BNB,COTI-USDT,COTI-BTC,MFT-BNB,"
+                          "MFT-ETH,MFT-USDT,RLC-ETH,RLC-BTC,RLC-USDT"),
+    "rate_oracle_source":
+        ConfigVar(key="rate_oracle_source",
+                  prompt=f"What source do you want rate oracle to pull data from? "
+                         f"({','.join(r.name for r in RateOracleSource)}) >>> ",
+                  type_str="str",
+                  required_if=lambda: False,
+                  validator=validate_rate_oracle_source,
+                  on_validated=rate_oracle_source_on_validated,
+                  default=RateOracleSource.binance.name),
+    "global_token":
+        ConfigVar(key="global_token",
+                  prompt="What is your default display token? (e.g. USD,EUR,BTC)  >>> ",
+                  type_str="str",
+                  required_if=lambda: False,
+                  on_validated=global_token_on_validated,
+                  default="USD"),
+    "global_token_symbol":
+        ConfigVar(key="global_token_symbol",
+                  prompt="What is your default display token symbol? (e.g. $,€)  >>> ",
+                  type_str="str",
+                  required_if=lambda: False,
+                  on_validated=global_token_symbol_on_validated,
+                  default="$"),
 }
 
 global_config_map = {**key_config_map, **main_config_map}

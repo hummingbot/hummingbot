@@ -9,6 +9,7 @@ from sqlalchemy import (
     Text,
     Index,
     BigInteger,
+    Integer,
     Float
 )
 from sqlalchemy.orm import relationship
@@ -37,9 +38,12 @@ class Order(HummingbotBase):
     creation_timestamp = Column(BigInteger, nullable=False)
     order_type = Column(Text, nullable=False)
     amount = Column(Float, nullable=False)
+    leverage = Column(Integer, nullable=False, default=1)
     price = Column(Float, nullable=False)
     last_status = Column(Text, nullable=False)
     last_update_timestamp = Column(BigInteger, nullable=False)
+    exchange_order_id = Column(Text, nullable=True)
+    position = Column(Text, nullable=True)
     status = relationship("OrderStatus", back_populates="order")
     trade_fills = relationship("TradeFill", back_populates="order")
 
@@ -47,9 +51,10 @@ class Order(HummingbotBase):
         return f"Order(id={self.id}, config_file_path='{self.config_file_path}', strategy='{self.strategy}', " \
                f"market='{self.market}', symbol='{self.symbol}', base_asset='{self.base_asset}', " \
                f"quote_asset='{self.quote_asset}', creation_timestamp={self.creation_timestamp}, " \
-               f"order_type='{self.order_type}', amount={self.amount}, " \
+               f"order_type='{self.order_type}', amount={self.amount}, leverage={self.leverage}, " \
                f"price={self.price}, last_status='{self.last_status}', " \
-               f"last_update_timestamp={self.last_update_timestamp})"
+               f"last_update_timestamp={self.last_update_timestamp}), " \
+               f"exchange_order_id={self.exchange_order_id}, position={self.position}"
 
     @staticmethod
     def to_bounty_api_json(order: "Order") -> Dict[str, Any]:

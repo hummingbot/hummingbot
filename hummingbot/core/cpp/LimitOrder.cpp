@@ -62,7 +62,12 @@ LimitOrder &LimitOrder::operator=(const LimitOrder &other) {
 }
 
 bool operator<(LimitOrder const &a, LimitOrder const &b) {
-    return (bool)(PyObject_RichCompareBool(a.price, b.price, Py_LT));
+    if ((bool)(PyObject_RichCompareBool(a.price, b.price, Py_EQ))) {
+        // return (bool)(PyObject_RichCompareBool(a.quantity, b.quantity, Py_LT));
+        return (bool)(a.clientOrderID < b.clientOrderID);
+    } else {
+        return (bool)(PyObject_RichCompareBool(a.price, b.price, Py_LT));
+    }
 }
 
 std::string LimitOrder::getClientOrderID() const {

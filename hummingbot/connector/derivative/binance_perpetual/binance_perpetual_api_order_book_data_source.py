@@ -2,13 +2,10 @@ import asyncio
 import logging
 import time
 from typing import Dict, List, Optional, Any, AsyncIterable
-from decimal import Decimal
 
 import aiohttp
 import pandas as pd
 import ujson
-import requests
-import cachetools.func
 import websockets
 from websockets.exceptions import ConnectionClosed
 
@@ -22,7 +19,9 @@ from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils i
 
 from hummingbot.connector.derivative.binance_perpetual.constants import (
     PERPETUAL_BASE_URL,
-    TESTNET_BASE_URL
+    TESTNET_BASE_URL,
+    DIFF_STREAM_URL,
+    TESTNET_STREAM_URL
 )
 
 # API OrderBook Endpoints
@@ -34,12 +33,13 @@ RECENT_TRADES_URL = "{}/fapi/v1/trades"
 
 
 class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
-    def __init__(self, base_url: str, stream_url: str, trading_pairs: List[str] = None):
+    def __init__(self, trading_pairs: List[str] = None, domain: str = "binance_perpetual"):
         super().__init__(trading_pairs)
         self._order_book_create_function = lambda: OrderBook()
-        self._base_url = base_url
-        self._stream_url = stream_url + "/stream"
-        self._domain = "binance_perpetual" if base_url == PERPETUAL_BASE_URL else "binance_perpetual_testnet"
+        self._base_url = TESTNET_BASE_URL if domain == "binance_perpetual_testnet" else PERPETUAL_BASE_URL
+        self._stream_url = TESTNET_STREAM_URL if domain == "binance_perpetual_testnet" else DIFF_STREAM_URL
+        self._stream_url += "/stream"
+        self._domain = domain
 
     _bpobds_logger: Optional[HummingbotLogger] = None
 
@@ -81,17 +81,6 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
     """
 
     @staticmethod
-    @cachetools.func.ttl_cache(ttl=10)
-    def get_mid_price(trading_pair: str, domain=None) -> Optional[Decimal]:
-        from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils import convert_to_exchange_trading_pair
-
-        BASE_URL = TESTNET_BASE_URL if domain == "binance_perpetual_testnet" else PERPETUAL_BASE_URL
-        resp = requests.get(url=f"{TICKER_PRICE_URL.format(BASE_URL)}?symbol={convert_to_exchange_trading_pair(trading_pair)}")
-        record = resp.json()
-        result = (Decimal(record["bidPrice"]) + Decimal(record["askPrice"])) / Decimal("2")
-        return result
-
-    @staticmethod
     async def fetch_trading_pairs(domain=None) -> List[str]:
         try:
             from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils import convert_from_exchange_trading_pair
@@ -103,11 +92,14 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         raw_trading_pairs = [d["symbol"] for d in data["symbols"] if d["status"] == "TRADING"]
                         trading_pair_list: List[str] = []
                         for raw_trading_pair in raw_trading_pairs:
-                            trading_pair = convert_from_exchange_trading_pair(raw_trading_pair)
-                            if trading_pair is not None:
-                                trading_pair_list.append(trading_pair)
-                            else:
-                                continue
+                            try:
+                                trading_pair = convert_from_exchange_trading_pair(raw_trading_pair)
+                                if trading_pair is not None:
+                                    trading_pair_list.append(trading_pair)
+                                else:
+                                    continue
+                            except Exception:
+                                pass
                         return trading_pair_list
         except Exception:
             pass

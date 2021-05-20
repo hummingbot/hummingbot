@@ -14,7 +14,6 @@ cdef class HuobiExchange(ExchangeBase):
         double _last_poll_timestamp
         double _last_timestamp
         object _poll_notifier
-        double _poll_interval
         object _shared_client
         public object _status_polling_task
         dict _trading_rules

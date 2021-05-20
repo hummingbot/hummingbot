@@ -18,7 +18,6 @@ from hummingbot.client.config.global_config_map import (
 )
 from hummingbot.client.config.config_helpers import (
     minimum_order_amount,
-    parse_cvar_value
 )
 from typing import Optional
 
@@ -36,19 +35,19 @@ def validate_exchange_trading_pair(value: str) -> Optional[str]:
     return validate_market_trading_pair(exchange, value)
 
 
-def order_amount_prompt() -> str:
+async def order_amount_prompt() -> str:
     exchange = pure_market_making_config_map["exchange"].value
     trading_pair = pure_market_making_config_map["market"].value
     base_asset, quote_asset = trading_pair.split("-")
-    min_amount = minimum_order_amount(exchange, trading_pair)
+    min_amount = await minimum_order_amount(exchange, trading_pair)
     return f"What is the amount of {base_asset} per order? (minimum {min_amount}) >>> "
 
 
-def validate_order_amount(value: str) -> Optional[str]:
+async def validate_order_amount(value: str) -> Optional[str]:
     try:
         exchange = pure_market_making_config_map["exchange"].value
         trading_pair = pure_market_making_config_map["market"].value
-        min_amount = minimum_order_amount(exchange, trading_pair)
+        min_amount = await minimum_order_amount(exchange, trading_pair)
         if Decimal(value) < min_amount:
             return f"Order amount must be at least {min_amount}."
     except Exception:
@@ -101,14 +100,9 @@ def validate_price_floor_ceiling(value: str) -> Optional[str]:
         return "Value must be more than 0 or -1 to disable this feature."
 
 
-def validate_take_if_crossed(value: str) -> Optional[str]:
-    err_msg = validate_bool(value)
-    if err_msg is not None:
-        return err_msg
-    price_source_enabled = pure_market_making_config_map["price_source_enabled"].value
-    take_if_crossed = parse_cvar_value(pure_market_making_config_map["take_if_crossed"], value)
-    if take_if_crossed and not price_source_enabled:
-        return "You can enable this feature only when external pricing source for mid-market price is used."
+def on_validated_price_type(value: str):
+    if value == 'inventory_cost':
+        pure_market_making_config_map["inventory_price"].value = None
 
 
 def exchange_on_validated(value: str):
@@ -122,7 +116,7 @@ pure_market_making_config_map = {
                   default="pure_market_making"),
     "exchange":
         ConfigVar(key="exchange",
-                  prompt="Enter your maker exchange name >>> ",
+                  prompt="Enter your maker spot connector >>> ",
                   validator=validate_exchange,
                   on_validated=exchange_on_validated,
                   prompt_on_new=True),
@@ -161,6 +155,15 @@ pure_market_making_config_map = {
                   type_str="float",
                   validator=lambda v: validate_decimal(v, 0, inclusive=False),
                   prompt_on_new=True),
+    "max_order_age":
+        ConfigVar(key="max_order_age",
+                  prompt="How long do you want to cancel and replace bids and asks "
+                         "with the same price (in seconds)? >>> ",
+                  required_if=lambda: not (using_exchange("radar_relay")() or
+                                           (using_exchange("bamboo_relay")() and not using_bamboo_coordinator_mode())),
+                  type_str="float",
+                  default=Decimal("1800"),
+                  validator=lambda v: validate_decimal(v, 0, inclusive=False)),
     "order_refresh_tolerance_pct":
         ConfigVar(key="order_refresh_tolerance_pct",
                   prompt="Enter the percent change in price needed to refresh orders at each cycle "
@@ -199,7 +202,7 @@ pure_market_making_config_map = {
         ConfigVar(key="order_levels",
                   prompt="How many orders do you want to place on both sides? >>> ",
                   type_str="int",
-                  validator=lambda v: validate_int(v, min_value=0, inclusive=False),
+                  validator=lambda v: validate_int(v, min_value=-1, inclusive=False),
                   default=1),
     "order_level_amount":
         ConfigVar(key="order_level_amount",
@@ -238,6 +241,14 @@ pure_market_making_config_map = {
                   type_str="decimal",
                   validator=lambda v: validate_decimal(v, min_value=0, inclusive=False),
                   default=Decimal("1")),
+    "inventory_price":
+        ConfigVar(key="inventory_price",
+                  prompt="What is the price of your base asset inventory? ",
+                  type_str="decimal",
+                  validator=lambda v: validate_decimal(v, min_value=Decimal("0"), inclusive=True),
+                  required_if=lambda: pure_market_making_config_map.get("price_type").value == "inventory_cost",
+                  default=Decimal("1"),
+                  ),
     "filled_order_delay":
         ConfigVar(key="filled_order_delay",
                   prompt="How long do you want to wait before placing the next order "
@@ -298,15 +309,19 @@ pure_market_making_config_map = {
                   on_validated=on_validate_price_source),
     "price_type":
         ConfigVar(key="price_type",
-                  prompt="Which price type to use? (mid_price/last_price/last_own_trade_price/best_bid/best_ask) >>> ",
+                  prompt="Which price type to use? ("
+                         "mid_price/last_price/last_own_trade_price/best_bid/best_ask/inventory_cost) >>> ",
                   type_str="str",
                   required_if=lambda: pure_market_making_config_map.get("price_source").value != "custom_api",
                   default="mid_price",
+                  on_validated=on_validated_price_type,
                   validator=lambda s: None if s in {"mid_price",
                                                     "last_price",
                                                     "last_own_trade_price",
                                                     "best_bid",
-                                                    "best_ask"} else
+                                                    "best_ask",
+                                                    "inventory_cost",
+                                                    } else
                   "Invalid price type."),
     "price_source_exchange":
         ConfigVar(key="price_source_exchange",

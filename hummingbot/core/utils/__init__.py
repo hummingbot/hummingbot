@@ -10,10 +10,10 @@ def async_ttl_cache(ttl: int = 3600, maxsize: int = 1):
         async def memoize(*args, **kwargs):
             key = str((args, kwargs))
             try:
-                cache[key] = cache.pop(key)
+                return cache[key]
             except KeyError:
                 cache[key] = await fn(*args, **kwargs)
-            return cache[key]
+                return cache[key]
         return memoize
 
     return decorator

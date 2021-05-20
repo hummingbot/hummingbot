@@ -18,6 +18,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         object _order_level_spread
         object _order_level_amount
         double _order_refresh_time
+        double _max_order_age
         object _order_refresh_tolerance_pct
         double _filled_order_delay
         bint _inventory_skew_enabled
@@ -30,6 +31,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         object _bid_order_optimization_depth
         bint _add_transaction_costs_to_orders
         object _asset_price_delegate
+        object _inventory_cost_price_delegate
         object _price_type
         bint _take_if_crossed
         object _price_ceiling
@@ -50,6 +52,8 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         double _status_report_interval
         int64_t _logging_options
         object _last_own_trade_price
+        list _hanging_aged_order_prices
+
     cdef object c_get_mid_price(self)
     cdef object c_create_base_proposal(self)
     cdef tuple c_get_adjusted_available_balance(self, list orders)
@@ -60,6 +64,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     cdef c_apply_order_size_modifiers(self, object proposal)
     cdef c_apply_inventory_skew(self, object proposal)
     cdef c_apply_budget_constraint(self, object proposal)
+
     cdef c_filter_out_takers(self, object proposal)
     cdef c_apply_order_optimization(self, object proposal)
     cdef c_apply_add_transaction_costs(self, object proposal)
@@ -67,6 +72,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     cdef c_cancel_active_orders(self, object proposal)
     cdef c_cancel_hanging_orders(self)
     cdef c_cancel_orders_below_min_spread(self)
+    cdef c_aged_order_refresh(self)
     cdef bint c_to_create_orders(self, object proposal)
     cdef c_execute_orders_proposal(self, object proposal)
     cdef set_timers(self)

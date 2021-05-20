@@ -58,7 +58,7 @@ class CreateCommand:
             else:
                 config.value = None
         for config in config_map.values():
-            if config.prompt_on_new:
+            if config.prompt_on_new and config.required:
                 if not self.app.to_stop_config:
                     await self.prompt_a_config(config)
                 else:
@@ -92,22 +92,27 @@ class CreateCommand:
         self.app.hide_input = False
         if await self.status_check_all():
             self._notify("\nEnter \"start\" to start market making.")
-            self.app.set_text("start")
 
     async def prompt_a_config(self,  # type: HummingbotApplication
                               config: ConfigVar,
                               input_value=None,
                               assign_default=True):
+        if config.key == "inventory_price":
+            await self.inventory_price_prompt(self.strategy_config_map, input_value)
+            return
         if input_value is None:
             if assign_default:
                 self.app.set_text(parse_config_default_to_text(config))
-            input_value = await self.app.prompt(prompt=config.prompt, is_password=config.is_secure)
+            prompt = await config.get_prompt()
+            input_value = await self.app.prompt(prompt=prompt, is_password=config.is_secure)
 
         if self.app.to_stop_config:
             return
-        err_msg = config.validate(input_value)
+        config.value = parse_cvar_value(config, input_value)
+        err_msg = await config.validate(input_value)
         if err_msg is not None:
             self._notify(err_msg)
+            config.value = None
             await self.prompt_a_config(config)
         else:
             config.value = parse_cvar_value(config, input_value)
