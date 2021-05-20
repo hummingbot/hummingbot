@@ -826,7 +826,7 @@ class AscendExExchange(ExchangeBase):
                         order_data["qab"],
                         order_data["qtb"]
                     )
-                    self._process_balances([base_asset_balance, quote_asset_balance])
+                    self._process_balances([base_asset_balance, quote_asset_balance], False)
                 elif event_message.get("m") == "balance":
                     # Handles balance updates from Deposits/Withdrawals, Transfers between Cash and Margin Accounts
                     balance_data = event_message.get("data")
@@ -835,7 +835,7 @@ class AscendExExchange(ExchangeBase):
                         balance_data["ab"],
                         balance_data["tb"]
                     )
-                    self._process_balances(list(balance))
+                    self._process_balances(list(balance), False)
 
             except asyncio.CancelledError:
                 raise
@@ -964,7 +964,7 @@ class AscendExExchange(ExchangeBase):
             )
             self.stop_tracking_order(client_order_id)
 
-    def _process_balances(self, balances: List[AscendExBalance]):
+    def _process_balances(self, balances: List[AscendExBalance], is_complete_list: bool = True):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
 
@@ -973,7 +973,8 @@ class AscendExExchange(ExchangeBase):
             self._account_available_balances[asset_name] = Decimal(balance.availableBalance)
             self._account_balances[asset_name] = Decimal(balance.totalBalance)
             remote_asset_names.add(asset_name)
-
+        if not is_complete_list:
+            return
         asset_names_to_remove = local_asset_names.difference(remote_asset_names)
         for asset_name in asset_names_to_remove:
             del self._account_available_balances[asset_name]

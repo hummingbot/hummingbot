@@ -135,4 +135,10 @@ spot_perpetual_arbitrage_config_map = {
         default=Decimal("0.05"),
         validator=lambda v: validate_decimal(v),
         type_str="decimal"),
+    "next_arbitrage_cycle_delay": ConfigVar(
+        key="next_arbitrage_cycle_delay",
+        prompt="How long do you want the strategy to wait to cool off from an arbitrage cycle (in seconds)?",
+        type_str="float",
+        validator=lambda v: validate_decimal(v, min_value=0, inclusive=False),
+        default=120),
 }
