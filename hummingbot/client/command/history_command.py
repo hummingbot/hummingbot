@@ -96,7 +96,7 @@ class HistoryCommand:
             gateway_eth_connectors = [cs.name for cs in CONNECTOR_SETTINGS.values() if cs.use_evm and
                                       cs.type == ConnectorType.Connector]
             if market in gateway_eth_connectors:
-                return await UserBalances.instance().eth_n_erc20_balances()
+                return await UserBalances.instance().eth_n_erc20_balances(market.prefix)
             else:
                 await UserBalances.instance().update_exchange_balance(market)
                 return UserBalances.instance().all_balances(market)

@@ -120,10 +120,14 @@ class UserBalances:
     @staticmethod
     async def eth_n_erc20_balances(prefix = "ethereum") -> Dict[str, Decimal]:
         evm_rpc_url = global_config_map.get(f"{prefix}_rpc_url").value
+        print("using evm-compatible rpc url", evm_rpc_url)
         if prefix == "evm":
             connector = EvmUniswapConnector(ethereum_required_trading_pairs,
                                             get_eth_wallet_private_key(),
-                                            evm_rpc_url)
+                                            evm_rpc_url,
+                                            True,
+                                            prefix,
+                                            "0")
         else:
             # Todo: Use generic ERC20 balance update
             connector = BalancerConnector(ethereum_required_trading_pairs(),

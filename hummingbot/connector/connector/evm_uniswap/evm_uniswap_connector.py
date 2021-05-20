@@ -61,7 +61,8 @@ class EvmUniswapConnector(ConnectorBase):
                  wallet_private_key: str,
                  evm_rpc_url: str,
                  trading_required: bool = True,
-                 prefix: str = "evm"
+                 prefix: str = "evm",
+                 dex_id: str = "0"
                  ):
         """
         :param trading_pairs: a list of trading pairs
@@ -70,6 +71,8 @@ class EvmUniswapConnector(ConnectorBase):
         :param trading_required: Whether actual trading is needed.
         """
         super().__init__()
+        print("dex_id", dex_id)
+        self._dex_id = dex_id
         self._trading_pairs = trading_pairs
         self._tokens = set()
         for trading_pair in trading_pairs:
@@ -120,7 +123,7 @@ class EvmUniswapConnector(ConnectorBase):
         """
         try:
             self.logger().info(f"Initializing EVM Uniswap connector and paths for {self._trading_pairs} pairs.")
-            resp = await self._api_request("get", f"{self._prefix}/uniswap/start",
+            resp = await self._api_request("get", f"{self._prefix}/uniswap/{self._dex_id}/start",
                                            {"pairs": json.dumps(self._trading_pairs)})
             status = bool(str(resp["success"]))
             if bool(str(resp["success"])):
@@ -175,7 +178,9 @@ class EvmUniswapConnector(ConnectorBase):
         resp = await self._api_request("post", f"{self._prefix}/allowances",
                                        {"tokenList": "[" + (",".join(['"' + t + '"' for t in self._tokens])) + "]",
                                         "connector": self.name})
+        print(resp)
         for token, amount in resp["approvals"].items():
+            print(f"allowance amount: {amount}")
             ret_val[token] = Decimal(str(amount))
         return ret_val
 
@@ -193,7 +198,7 @@ class EvmUniswapConnector(ConnectorBase):
             base, quote = trading_pair.split("-")
             side = "buy" if is_buy else "sell"
             resp = await self._api_request("post",
-                                           f"{self._prefix}/uniswap/price",
+                                           f"{self._prefix}/uniswap/{self._dex_id}/price",
                                            {"base": base,
                                             "quote": quote,
                                             "side": side.upper(),
@@ -306,7 +311,7 @@ class EvmUniswapConnector(ConnectorBase):
                       "limitPrice": str(price),
                       }
         try:
-            order_result = await self._api_request("post", f"{self._prefix}/uniswap/trade", api_params)
+            order_result = await self._api_request("post", f"{self._prefix}/uniswap/{self._dex_id}/trade", api_params)
             hash = order_result.get("txHash")
             gas_price = order_result.get("gasPrice")
             gas_limit = order_result.get("gasLimit")
@@ -384,7 +389,7 @@ class EvmUniswapConnector(ConnectorBase):
             for tracked_order in tracked_orders:
                 order_id = await tracked_order.get_exchange_order_id()
                 tasks.append(self._api_request("post",
-                                               f"{self._prefix}/poll",
+                                               f"{self._prefix}/{self._dex_id}/poll",
                                                {"txHash": order_id}))
             update_results = await safe_gather(*tasks, return_exceptions=True)
             for update_result in update_results:

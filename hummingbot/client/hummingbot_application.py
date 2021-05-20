@@ -247,13 +247,14 @@ class HummingbotApplication(*commands):
                 init_params.update(trading_pairs=trading_pairs, trading_required=self._trading_required)
                 if conn_setting.use_evm:
                     evm_rpc_url = global_config_map.get(f"{conn_setting.use_evm}_rpc_url").value
+                    print("conn_setting.dex_id", conn_setting.dex_id)
                     # Todo: Hard coded this execption for now until we figure out how to handle all ethereum connectors.
                     if connector_name in ["balancer", "uniswap", "perpetual_finance"]:
                         private_key = get_eth_wallet_private_key()
                         init_params.update(wallet_private_key=private_key, ethereum_rpc_url=evm_rpc_url)
-                    elif connector_name in ["evm_uniswap"]:
+                    elif connector_name in ["evm_uniswap", f"evm_uniswap_{conn_setting.dex_id}"]:
                         private_key = get_eth_wallet_private_key()
-                        init_params.update(wallet_private_key=private_key, evm_rpc_url=evm_rpc_url)
+                        init_params.update(wallet_private_key=private_key, evm_rpc_url=evm_rpc_url, dex_id=conn_setting.dex_id)
                     else:
                         assert self.wallet is not None
                         init_params.update(wallet=self.wallet, evm_rpc_url=evm_rpc_url)

@@ -11,7 +11,7 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.client.settings import ETH_CONNECTORS
+from hummingbot.client.settings import EVM_CONNECTORS
 from hummingbot.client.performance import smart_round
 from hummingbot.connector.connector.uniswap.uniswap_connector import UniswapConnector
 from hummingbot.connector.connector.evm_uniswap.evm_uniswap_connector import EvmUniswapConnector
@@ -82,7 +82,8 @@ class AmmArbStrategy(StrategyPyBase):
         self._status_report_interval = status_report_interval
         self.add_markets([market_info_1.market, market_info_2.market])
         self._uniswap = None
-        self._evm_uniswap = None
+        self._evm_uniswa_0 = None
+        self._evm_uniswap_1 = None
         self._quote_eth_rate_fetch_loop_task = None
         self._market_1_quote_eth_rate = None
         self._market_2_quote_eth_rate = None
@@ -317,8 +318,8 @@ class AmmArbStrategy(StrategyPyBase):
         return self._sb_order_tracker.tracked_market_orders
 
     def start(self, clock: Clock, timestamp: float):
-        if self._market_info_1.market.name in ETH_CONNECTORS or \
-                self._market_info_2.market.name in ETH_CONNECTORS:
+        if self._market_info_1.market.name in EVM_CONNECTORS or \
+                self._market_info_2.market.name in EVM_CONNECTORS:
             self._quote_eth_rate_fetch_loop_task = safe_ensure_future(self.quote_in_eth_rate_fetch_loop())
 
     def stop(self, clock: Clock):
@@ -332,13 +333,15 @@ class AmmArbStrategy(StrategyPyBase):
     async def quote_in_eth_rate_fetch_loop(self):
         while True:
             try:
-                if self._market_info_1.market.name in ETH_CONNECTORS and \
+                if self._market_info_1.market.name in EVM_CONNECTORS or \
+                        self._market_info_1.market.name in EVM_CONNECTORS and \
                         "WETH" not in self._market_info_1.trading_pair.split("-"):
                     self._market_1_quote_eth_rate = await self.request_rate_in_eth(self._market_info_1.quote_asset)
                     self.logger().warning(f"Estimate conversion rate - "
                                           f"{self._market_info_1.quote_asset}:ETH = {self._market_1_quote_eth_rate} ")
 
-                if self._market_info_2.market.name in ETH_CONNECTORS and \
+                if self._market_info_2.market.name in EVM_CONNECTORS or \
+                        self._market_info_2.market.name in EVM_CONNECTORS and \
                         "WETH" not in self._market_info_2.trading_pair.split("-"):
                     self._market_2_quote_eth_rate = await self.request_rate_in_eth(self._market_info_2.quote_asset)
                     self.logger().warning(f"Estimate conversion rate - "
@@ -357,10 +360,8 @@ class AmmArbStrategy(StrategyPyBase):
         if self._uniswap is None:
             self._uniswap = UniswapConnector([f"{quote}-WETH"], "", None)
             await self._uniswap.initiate_pool()  # initiate to cache swap pool
-        return await self._uniswap.get_quote_price(f"{quote}-WETH", True, 1)
-
+            return await self._uniswap.get_quote_price(f"{quote}-WETH", True, 1)
         if self._evm_uniswap is None:
-            self._evm_uniswap = EvmUniswapConnector([f"{quote}-WETH"], "", None)
+            self._evm_uniswap = EvmUniswapConnector([f"{quote}-WETH"], "", None, True, "evm", "0")
             await self._evm_uniswap.initiate_pool()  # initiate to cache swap pool
-
-        return await self._evm_uniswap.get_quote_price(f"{quote}-WETH", True, 1)
+            return await self._evm_uniswap.get_quote_price(f"{quote}-WETH", True, 1)
