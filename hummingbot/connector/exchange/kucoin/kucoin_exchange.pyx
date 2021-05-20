@@ -327,6 +327,7 @@ cdef class KucoinExchange(ExchangeBase):
                                                  tracked_order.exchange_order_id
                                              ))
                 if (execution_status == "done" or execution_status == "match") and (execution_type == "match" or execution_type == "filled"):
+                    tracked_order.last_state = "DONE"
                     tracked_order.executed_amount_base = Decimal(execution_data["filledSize"])
                     tracked_order.executed_amount_quote = Decimal(execution_data["filledSize"]) * Decimal(
                         execution_data["price"])
@@ -362,6 +363,7 @@ cdef class KucoinExchange(ExchangeBase):
                                                                      exchange_order_id=tracked_order.exchange_order_id))
                     self.c_stop_tracking_order(tracked_order.client_order_id)
                 elif execution_status == "done" and execution_type == "canceled":
+                    tracked_order.last_state = "CANCEL"
                     self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
                     self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                          OrderCancelledEvent(self._current_timestamp,
@@ -859,15 +861,18 @@ cdef class KucoinExchange(ExchangeBase):
                                         )
                     cancellation_results.append(CancellationResult(tracked_order.client_order_id, False))
                 # Handles successfully cancelled orders
-                else:
-                    tracked_order.last_state = "CANCEL"
-                    self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
-                    self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                         OrderCancelledEvent(self._current_timestamp,
-                                                             tracked_order.client_order_id,
-                                                             exchange_order_id=tracked_order.exchange_order_id))
-                    self.c_stop_tracking_order(tracked_order.client_order_id)
+                elif tracked_order.exchange_order_id == response['data']['cancelledOrderIds'][0]:
+                    if tracked_order.client_order_id in self._in_flight_orders:
+                        tracked_order.last_state = "CANCEL"
+                        self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
+                        self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                             OrderCancelledEvent(self._current_timestamp,
+                                                                 tracked_order.client_order_id,
+                                                                 exchange_order_id=tracked_order.exchange_order_id))
+                        self.c_stop_tracking_order(tracked_order.client_order_id)
                     cancellation_results.append(CancellationResult(tracked_order.client_order_id, True))
+                else:
+                    continue
 
         except Exception as e:
             self.logger().network(
