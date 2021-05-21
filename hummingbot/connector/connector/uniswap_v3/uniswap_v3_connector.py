@@ -336,7 +336,7 @@ class UniswapV3Connector(UniswapConnector):
         try:
             order_result = await self._api_request("post", "eth/uniswap/v3/add-position", api_params)
             tracked_pos = self._in_flight_positions[hb_id]
-            tx_hash = order_result.get("hash")
+            tx_hash = order_result["hash"]
             tracked_pos.update_last_tx_hash(tx_hash)
             tracked_pos.gas_price = order_result.get("gasPrice")
             tracked_pos.last_status = UniswapV3PositionStatus.PENDING_CREATE
@@ -393,7 +393,7 @@ class UniswapV3Connector(UniswapConnector):
                                                          tracked_pos.base_amount, tracked_pos.quote_amount,
                                                          tracked_pos.last_status.name))
         except Exception as e:
-            self.stop_tracking_position(hb_id)
+            # self.stop_tracking_position(hb_id)
             self.logger().network(
                 f"Error removing range position, token_id: {token_id}, hb_id: {hb_id}",
                 exc_info=True,

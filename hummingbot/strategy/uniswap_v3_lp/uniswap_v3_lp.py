@@ -175,8 +175,9 @@ class UniswapV3LpStrategy(StrategyPyBase):
         buy_prices = sell_prices = []  # [lower_price, upper_price, token_id(to be removed)]
         current_price = await self.get_current_price()
         if self._last_price != current_price or len(self.active_buys) == 0 or len(self.active_sells) == 0:
-            self._last_price = current_price
-            if not self.no_in_range_sell():
+            if current_price != Decimal("0"):
+                self._last_price = current_price
+            if not self.no_in_range_sell() and len(self.active_buys) == 0:
                 buy_prices = self.generate_proposal(True)
                 if len(self.active_sells) <= 1:
                     buy_prices.append(0)
