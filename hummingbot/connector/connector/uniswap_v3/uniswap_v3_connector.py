@@ -230,7 +230,7 @@ class UniswapV3Connector(UniswapConnector):
         """
         Calls REST API to get status update for each in-flight order.
         """
-        tasks, tracked_orders, tracked_positions = [], [], []
+        tasks, tracked_orders, tracked_positions, open_positions = [], [], [], []
         if len(self._in_flight_orders) > 0:
             tracked_orders = list(self._in_flight_orders.values())
             for tracked_order in tracked_orders:
@@ -240,25 +240,38 @@ class UniswapV3Connector(UniswapConnector):
                                                {"txHash": order_id}))
         if len(self._in_flight_positions) > 0:
             tracked_positions = [pos for pos in self._in_flight_positions.values() if pos.last_status.is_pending()]  # We only want to poll update for pending positions
+            open_positions = [pos for pos in self._in_flight_positions.values() if pos.last_status.is_active()]
             for tracked_pos in tracked_positions:
                 last_hash = await tracked_pos.get_last_tx_hash()
                 tasks.append(self._api_request("post",
                                                "eth/poll",
                                                {"txHash": last_hash}))
-        if not tasks:
-            return
-        update_results = await safe_gather(*tasks, return_exceptions=True)
-        for update_result, tracked_item in zip(update_results, tracked_orders + tracked_positions):
-            self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
-            if isinstance(update_result, Exception):
-                raise update_result
-            if "txHash" not in update_result:
-                self.logger().info(f"Update_order_status txHash not in resp: {update_result}")
-                continue
-            if isinstance(tracked_item, UniswapInFlightOrder):
-                await self.update_swap_order(update_result, tracked_item)
-            else:
-                await self.update_lp_order(update_result, tracked_item)
+        if tasks:
+            update_results = await safe_gather(*tasks, return_exceptions=True)
+            for update_result, tracked_item in zip(update_results, tracked_orders + tracked_positions):
+                self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
+                if isinstance(update_result, Exception):
+                    raise update_result
+                if "txHash" not in update_result:
+                    self.logger().info(f"Update_order_status txHash not in resp: {update_result}")
+                    continue
+                if isinstance(tracked_item, UniswapInFlightOrder):
+                    await self.update_swap_order(update_result, tracked_item)
+                else:
+                    await self.update_lp_order(update_result, tracked_item)
+
+        # update info for each positions as well
+        tasks = []
+        if len(open_positions) > 0:
+            for tracked_pos in open_positions:
+                tasks.append(self.get_position(tracked_pos.token_id))
+        if tasks:
+            position_results = await safe_gather(*tasks, return_exceptions=True)
+            for update_result, tracked_item in zip(position_results, open_positions):
+                if not isinstance(update_result, Exception) and len(update_result.get("position", {})) > 0:
+                    tracked_item.lower_price = update_result["position"].get("lowerPrice", Decimal("0"))
+                    tracked_item.upper_price = update_result["position"].get("upperPrice", Decimal("0"))
+                    # To-do in subsequent itearations, other fields from the position response would be updated
 
     def add_position(self,
                      trading_pair: str,
@@ -336,7 +349,7 @@ class UniswapV3Connector(UniswapConnector):
         try:
             order_result = await self._api_request("post", "eth/uniswap/v3/add-position", api_params)
             tracked_pos = self._in_flight_positions[hb_id]
-            tx_hash = order_result.get("hash")
+            tx_hash = order_result["hash"]
             tracked_pos.update_last_tx_hash(tx_hash)
             tracked_pos.gas_price = order_result.get("gasPrice")
             tracked_pos.last_status = UniswapV3PositionStatus.PENDING_CREATE
@@ -393,7 +406,7 @@ class UniswapV3Connector(UniswapConnector):
                                                          tracked_pos.base_amount, tracked_pos.quote_amount,
                                                          tracked_pos.last_status.name))
         except Exception as e:
-            self.stop_tracking_position(hb_id)
+            # self.stop_tracking_position(hb_id)
             self.logger().network(
                 f"Error removing range position, token_id: {token_id}, hb_id: {hb_id}",
                 exc_info=True,
