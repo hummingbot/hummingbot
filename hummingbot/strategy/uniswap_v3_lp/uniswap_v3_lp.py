@@ -162,7 +162,7 @@ class UniswapV3LpStrategy(StrategyPyBase):
             upper_price = (Decimal("1") + self._sell_position_price_spread) * self._last_price
         return [lower_price, upper_price]
 
-    def no_in_range_sell(self):
+    def in_range_sell(self):
         """
         We use this to know if there is any sell position that is in range.
         """
@@ -177,7 +177,8 @@ class UniswapV3LpStrategy(StrategyPyBase):
         if self._last_price != current_price or len(self.active_buys) == 0 or len(self.active_sells) == 0:
             if current_price != Decimal("0"):
                 self._last_price = current_price
-            if not self.no_in_range_sell() and len(self.active_buys) == 0:
+            if (not self.in_range_sell() and len(self.active_buys) == 0) or \
+               (self.in_range_sell() and len(self.active_sells) == 1 and len(self.active_buys) == 0):
                 buy_prices = self.generate_proposal(True)
                 if len(self.active_sells) <= 1:
                     buy_prices.append(0)
