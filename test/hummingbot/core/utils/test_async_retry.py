@@ -22,6 +22,11 @@ class BarException(Exception):
 
 
 class AsyncRetryTest(unittest.TestCase):
+    def setUp(self):
+        super(AsyncRetryTest, self).setUp()
+        self.foo_counter = 0
+        self.bar_counter = 0
+
     @async_retry(3, exception_types=[FooException], raise_exp=True, retry_interval=0)
     async def foo_three_times(self, target):
         """
