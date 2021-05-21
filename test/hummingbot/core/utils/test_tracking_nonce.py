@@ -5,8 +5,6 @@ import hummingbot.core.utils.tracking_nonce as tracking_nonce
 
 class TrackingNonceTest(TestCase):
 
-    global _last_tracking_nonce
-
     def test_get_tracking_nonce(self):
         nonce = tracking_nonce.get_tracking_nonce()
         self.assertIsNotNone(nonce)
