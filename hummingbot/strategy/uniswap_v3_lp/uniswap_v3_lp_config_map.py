@@ -62,13 +62,13 @@ uniswap_v3_lp_config_map = {
         prompt_on_new=True),
     "base_token_amount": ConfigVar(
         key="base_token_amount",
-        prompt="How much of your base asset do you want to use? >>>",
+        prompt="How much of your base token do you want to use? >>>",
         prompt_on_new=True,
         validator=lambda v: validate_decimal(v, Decimal("0")),
         type_str="decimal"),
     "quote_token_amount": ConfigVar(
         key="quote_token_amount",
-        prompt="How much of your quote asset do you want to use? >>>",
+        prompt="How much of your quote token do you want to use? >>>",
         prompt_on_new=True,
         validator=lambda v: validate_decimal(v, Decimal("0")),
         type_str="decimal"),
