@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import logging
+import math
 import pandas as pd
 import time
 
@@ -12,7 +13,10 @@ from typing import (
 from hummingbot.connector.connector_base import OrderType
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.event.events import OrderFilledEvent
+from hummingbot.core.event.events import (
+    OrderFilledEvent,
+    PriceType,
+)
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
@@ -37,13 +41,13 @@ class PerformTradeStrategy(StrategyPyBase):
                  is_buy: bool,
                  spread: Decimal,
                  order_amount: Decimal,
-                 price_type: str
+                 price_type: PriceType
                  ):
 
         super().__init__()
         self._exchange = exchange
         self._trading_pair = trading_pair
-        self._is_buy = is_buy,
+        self._is_buy = is_buy
         self._spread = spread / Decimal("100")
         self._order_amount = order_amount
 
@@ -63,6 +67,10 @@ class PerformTradeStrategy(StrategyPyBase):
     def active_orders(self) -> List[LimitOrder]:
         limit_orders: List[LimitOrder] = self.order_tracker.active_limit_orders
         return [o[1] for o in limit_orders]
+
+    def notify_hb_app(self, msg: str):
+        from hummingbot.client.hummingbot_application import HummingbotApplication
+        HummingbotApplication.main_application()._notify(msg)
 
     def did_fill_order(self, event: OrderFilledEvent):
         """
@@ -112,11 +120,14 @@ class PerformTradeStrategy(StrategyPyBase):
         """
 
         new_price = None
-        if self._price_type == "mid_price":
+        if self._price_type == PriceType.MidPrice:
             new_price = self._exchange.get_mid_price(self._trading_pair)
-        elif self._price_type == "last_price":
-            new_price = self._exchange.get_order_book(self._trading_pair).last_trade_price
-        elif self._price_type == "last_own_trade_price":
+        elif self._price_type == PriceType.LastTrade:
+            new_price = Decimal(self._exchange.get_order_book(self._trading_pair).last_trade_price)
+            if math.isnan(new_price):
+                self.logger().info("Unable to get last traded price. Using MidPrice instead.")
+                new_price = self._exchange.get_mid_price(self._trading_pair)
+        elif self._price_type == PriceType.LastOwnTrade:
             if self._last_own_trade_price == s_decimal_zero:
                 self.logger().info("No Filled Orders. Using MidPrice instead.")
                 new_price = self._exchange.get_mid_price(self._trading_pair)
