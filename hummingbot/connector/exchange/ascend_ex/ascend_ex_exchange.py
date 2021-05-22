@@ -928,12 +928,33 @@ class AscendExExchange(ExchangeBase):
 
         tracked_order = self._in_flight_orders[client_order_id]
 
-        # update order
+        if tracked_order.executed_amount_base != Decimal(order_msg.cumFilledQty):
+            # Update the relevant order information when there is fill event
+            new_filled_amount = Decimal(order_msg.cumFilledQty) - tracked_order.executed_amount_base
+            new_fee_paid = Decimal(order_msg.cumFee) - tracked_order.fee_paid
+
+            tracked_order.executed_amount_base = Decimal(order_msg.cumFilledQty)
+            tracked_order.executed_amount_quote = Decimal(order_msg.avgPx) * tracked_order.executed_amount_base
+            tracked_order.fee_paid = Decimal(order_msg.cumFee)
+            tracked_order.fee_asset = order_msg.feeAsset
+
+            self.trigger_event(
+                MarketEvent.OrderFilled,
+                OrderFilledEvent(
+                    self.current_timestamp,
+                    client_order_id,
+                    tracked_order.trading_pair,
+                    tracked_order.trade_type,
+                    tracked_order.order_type,
+                    Decimal(order_msg.avgPx),
+                    new_filled_amount,
+                    TradeFee(0.0, [(tracked_order.fee_asset, new_fee_paid)]),
+                    exchange_order_id
+                )
+            )
+
+        # update order status
         tracked_order.last_state = order_msg.status
-        tracked_order.fee_paid = Decimal(order_msg.cumFee)
-        tracked_order.fee_asset = order_msg.feeAsset
-        tracked_order.executed_amount_base = Decimal(order_msg.cumFilledQty)
-        tracked_order.executed_amount_quote = Decimal(order_msg.price) * Decimal(order_msg.cumFilledQty)
 
         if tracked_order.is_cancelled:
             self.logger().info(f"Successfully cancelled order {client_order_id}.")
@@ -955,26 +976,6 @@ class AscendExExchange(ExchangeBase):
                                ))
             self.stop_tracking_order(client_order_id)
         elif tracked_order.is_done:
-            price = Decimal(order_msg.price)
-            tracked_order.executed_amount_base = Decimal(order_msg.cumFilledQty)
-            tracked_order.executed_amount_quote = price * tracked_order.executed_amount_base
-            tracked_order.fee_paid = Decimal(order_msg.cumFee)
-            tracked_order.fee_asset = order_msg.feeAsset
-
-            self.trigger_event(
-                MarketEvent.OrderFilled,
-                OrderFilledEvent(
-                    self.current_timestamp,
-                    client_order_id,
-                    tracked_order.trading_pair,
-                    tracked_order.trade_type,
-                    tracked_order.order_type,
-                    price,
-                    tracked_order.executed_amount_base,
-                    TradeFee(0.0, [(tracked_order.fee_asset, tracked_order.fee_paid)]),
-                    exchange_order_id
-                )
-            )
             event_tag = MarketEvent.BuyOrderCompleted if tracked_order.trade_type is TradeType.BUY else MarketEvent.SellOrderCompleted
             event_class = BuyOrderCompletedEvent if tracked_order.trade_type is TradeType.BUY else SellOrderCompletedEvent
             self.trigger_event(
