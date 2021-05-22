@@ -1,5 +1,6 @@
 from unittest import TestCase
 from mock import patch, MagicMock
+import sys
 import asyncio
 
 
@@ -30,11 +31,20 @@ class TestTradingPairFetcher(TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
+        # Don't want the already imported module with global already defined
+        if 'TradingPairFetcher' in sys.modules:
+            del sys.modules["TradingPairFetcher"]
         with patch('hummingbot.client.settings.CONNECTOR_SETTINGS', {"mock_exchange_1": cls.MockConnectorSetting()}) as _,\
                 patch('hummingbot.core.utils.trading_pair_fetcher.importlib.import_module', return_value=cls.MockConnectorDataSourceModule()) as _:
             from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
             cls.trading_pair_fetcher = TradingPairFetcher.get_instance()
             asyncio.get_event_loop().run_until_complete(cls.wait_until_trading_pair_fetcher_ready(cls.trading_pair_fetcher))
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        # Need to reset TradingPairFetcher module so next time it gets imported it works as expected
+        if 'TradingPairFetcher' in sys.modules:
+            del sys.modules["TradingPairFetcher"]
 
     def test_trading_pair_fetcher_returns_same_instance_when_get_new_instance_once_initialized(self):
         from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
