@@ -1,6 +1,5 @@
 from unittest import TestCase
 from mock import patch, MagicMock
-import sys
 import asyncio
 
 
