@@ -464,8 +464,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         base_balance = market.get_balance(base_asset)
         quote_balance = market.get_balance(quote_asset)
         inventory_in_base = quote_balance / price + base_balance
-        self._q_adjustment_factor = Decimal(
-            "1e5") / inventory_in_base
+        self._q_adjustment_factor = (Decimal("1e5") / inventory_in_base) if inventory_in_base else Decimal("1e5")
         if self._time_left == 0:
             # Re-cycle algorithm
             self._time_left = self._closing_time
@@ -808,21 +807,23 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             ExchangeBase market = self._market_info.market
             str trading_pair = self._market_info.trading_pair
 
-        # eta parameter is described in the paper as the shape parameter for having exponentially decreasing order amount
-        # for orders that go against inventory target (i.e. Want to buy when excess inventory or sell when deficit inventory)
-        q = market.get_balance(self.base_asset) - self.c_calculate_target_inventory()
-        if len(proposal.buys) > 0:
-            if q > 0:
-                for i, proposed in enumerate(proposal.buys):
+        # Order amounts should be changed only if order_override is not active
+        if (self._order_override is None) or (len(self._order_override) > 0):
+            # eta parameter is described in the paper as the shape parameter for having exponentially decreasing order amount
+            # for orders that go against inventory target (i.e. Want to buy when excess inventory or sell when deficit inventory)
+            q = market.get_balance(self.base_asset) - self.c_calculate_target_inventory()
+            if len(proposal.buys) > 0:
+                if q > 0:
+                    for i, proposed in enumerate(proposal.buys):
 
-                    proposal.buys[i].size = market.c_quantize_order_amount(trading_pair, proposal.buys[i].size * Decimal.exp(-self._eta * q))
-                proposal.buys = [o for o in proposal.buys if o.size > 0]
+                        proposal.buys[i].size = market.c_quantize_order_amount(trading_pair, proposal.buys[i].size * Decimal.exp(-self._eta * q))
+                    proposal.buys = [o for o in proposal.buys if o.size > 0]
 
-        if len(proposal.sells) > 0:
-            if q < 0:
-                for i, proposed in enumerate(proposal.sells):
-                    proposal.sells[i].size = market.c_quantize_order_amount(trading_pair, proposal.sells[i].size * Decimal.exp(self._eta * q))
-                proposal.sells = [o for o in proposal.sells if o.size > 0]
+            if len(proposal.sells) > 0:
+                if q < 0:
+                    for i, proposed in enumerate(proposal.sells):
+                        proposal.sells[i].size = market.c_quantize_order_amount(trading_pair, proposal.sells[i].size * Decimal.exp(self._eta * q))
+                    proposal.sells = [o for o in proposal.sells if o.size > 0]
 
     cdef object c_apply_add_transaction_costs(self, object proposal):
         cdef:
