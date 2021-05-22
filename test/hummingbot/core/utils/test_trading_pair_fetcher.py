@@ -27,7 +27,6 @@ class TestTradingPairFetcher(TestCase):
         def MockconnectorAPIOrderBookDataSource(self):
             return TestTradingPairFetcher.MockConnectorDataSource()
 
-
     @classmethod
     def tearDownClass(cls) -> None:
         # Need to reset TradingPairFetcher module so next time it gets imported it works as expected
@@ -41,11 +40,10 @@ class TestTradingPairFetcher(TestCase):
 
     def test_fetched_connector_trading_pairs(self):
         with patch('hummingbot.core.utils.trading_pair_fetcher.CONNECTOR_SETTINGS',
-                   {"mock_exchange_1": self.MockConnectorSetting()}) as _,\
-            patch('hummingbot.core.utils.trading_pair_fetcher.importlib.import_module',
-                  return_value=self.MockConnectorDataSourceModule()) as _,\
-            patch('hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher._sf_shared_instance',
-              None):
+                   {"mock_exchange_1": self.MockConnectorSetting()}) as _, \
+                patch('hummingbot.core.utils.trading_pair_fetcher.importlib.import_module',
+                      return_value=self.MockConnectorDataSourceModule()) as _, \
+                patch('hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher._sf_shared_instance', None):
             from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
             trading_pair_fetcher = TradingPairFetcher()
             asyncio.get_event_loop().run_until_complete(self.wait_until_trading_pair_fetcher_ready(trading_pair_fetcher))
