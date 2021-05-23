@@ -505,35 +505,36 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         vol = self.get_volatility()
         mid_price_variance = vol ** 2
 
-        self._reserved_price = price - (q * self._gamma * mid_price_variance * time_left_fraction)
-        self._optimal_spread = self._gamma * mid_price_variance * time_left_fraction + 2 * Decimal(
-            1 + self._gamma / self._kappa).ln() / self._gamma
+        if all((q, self._gamma, self._kappa)):
+            self._reserved_price = price - (q * self._gamma * mid_price_variance * time_left_fraction)
+            self._optimal_spread = self._gamma * mid_price_variance * time_left_fraction + 2 * Decimal(
+                1 + self._gamma / self._kappa).ln() / self._gamma
 
-        if self._parameters_based_on_spread:
-            spread_inflation_due_to_volatility = max(self._vol_to_spread_multiplier * vol,
-                                                     price * self._min_spread) / (price * self._min_spread)
-            min_limit_bid = price * (1 - self._max_spread * spread_inflation_due_to_volatility)
-            max_limit_bid = price * (1 - self._min_spread * spread_inflation_due_to_volatility)
-            min_limit_ask = price * (1 + self._min_spread * spread_inflation_due_to_volatility)
-            max_limit_ask = price * (1 + self._max_spread * spread_inflation_due_to_volatility)
-        else:
-            min_limit_bid = s_decimal_zero
-            max_limit_bid = min_limit_ask = price
-            max_limit_ask = Decimal("Inf")
+            if self._parameters_based_on_spread:
+                spread_inflation_due_to_volatility = max(self._vol_to_spread_multiplier * vol,
+                                                         price * self._min_spread) / (price * self._min_spread)
+                min_limit_bid = price * (1 - self._max_spread * spread_inflation_due_to_volatility)
+                max_limit_bid = price * (1 - self._min_spread * spread_inflation_due_to_volatility)
+                min_limit_ask = price * (1 + self._min_spread * spread_inflation_due_to_volatility)
+                max_limit_ask = price * (1 + self._max_spread * spread_inflation_due_to_volatility)
+            else:
+                min_limit_bid = s_decimal_zero
+                max_limit_bid = min_limit_ask = price
+                max_limit_ask = Decimal("Inf")
 
-        self._optimal_ask = min(max(self._reserved_price + self._optimal_spread / 2,
-                                    min_limit_ask),
-                                max_limit_ask)
-        self._optimal_bid = min(max(self._reserved_price - self._optimal_spread / 2,
-                                    min_limit_bid),
-                                max_limit_bid)
-        # This is not what the algorithm will use as proposed bid and ask. This is just the raw output.
-        # Optimal bid and optimal ask prices will be used
-        if self._is_debug:
-            self.logger().info(f"bid={(price-(self._reserved_price - self._optimal_spread / 2)) / price * 100:.4f}% | "
-                               f"ask={((self._reserved_price + self._optimal_spread / 2) - price) / price * 100:.4f}% | "
-                               f"q={q/self._q_adjustment_factor:.4f} | "
-                               f"vol={vol:.4f}")
+            self._optimal_ask = min(max(self._reserved_price + self._optimal_spread / 2,
+                                        min_limit_ask),
+                                    max_limit_ask)
+            self._optimal_bid = min(max(self._reserved_price - self._optimal_spread / 2,
+                                        min_limit_bid),
+                                    max_limit_bid)
+            # This is not what the algorithm will use as proposed bid and ask. This is just the raw output.
+            # Optimal bid and optimal ask prices will be used
+            if self._is_debug:
+                self.logger().info(f"bid={(price-(self._reserved_price - self._optimal_spread / 2)) / price * 100:.4f}% | "
+                                   f"ask={((self._reserved_price + self._optimal_spread / 2) - price) / price * 100:.4f}% | "
+                                   f"q={q/self._q_adjustment_factor:.4f} | "
+                                   f"vol={vol:.4f}")
 
     cdef object c_calculate_target_inventory(self):
         cdef:
