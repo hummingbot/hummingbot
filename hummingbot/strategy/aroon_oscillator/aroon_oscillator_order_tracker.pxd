@@ -4,5 +4,5 @@ from hummingbot.strategy.order_tracker import OrderTracker
 from hummingbot.strategy.order_tracker cimport OrderTracker
 
 
-cdef class WilliamsPctROrderTracker(OrderTracker):
+cdef class AroonOscillatorOrderTracker(OrderTracker):
     pass

@@ -2,15 +2,17 @@
 
 from libc.stdint cimport int64_t
 from hummingbot.strategy.strategy_base cimport StrategyBase
+from .aroon_oscillator_indicator cimport AroonOscillatorIndicator
 
 
-cdef class WilliamsPctRStrategy(StrategyBase):
+cdef class AroonOscillatorStrategy(StrategyBase):
     cdef:
         object _market_info
 
         object _bid_spread
         object _ask_spread
         object _minimum_spread
+        object _maximum_spread
         object _order_amount
         int _order_levels
         int _buy_levels
@@ -30,16 +32,14 @@ cdef class WilliamsPctRStrategy(StrategyBase):
         object _ask_order_optimization_depth
         object _bid_order_optimization_depth
         bint _add_transaction_costs_to_orders
-        object _asset_price_delegate
-        object _inventory_cost_price_delegate
         object _price_type
         bint _take_if_crossed
         object _price_ceiling
         object _price_floor
-        bint _ping_pong_enabled
-        list _ping_pong_warning_lines
         bint _hb_app_notification
         object _order_override
+        int _period_length
+        int _period_duration
 
         double _cancel_timestamp
         double _create_timestamp
@@ -54,12 +54,14 @@ cdef class WilliamsPctRStrategy(StrategyBase):
         object _last_own_trade_price
         list _hanging_aged_order_prices
 
+        AroonOscillatorIndicator _aroon_osc
+
     cdef object c_get_mid_price(self)
     cdef object c_create_base_proposal(self)
     cdef tuple c_get_adjusted_available_balance(self, list orders)
+    cdef c_adjust_spreads(self)
     cdef c_apply_order_levels_modifiers(self, object proposal)
     cdef c_apply_price_band(self, object proposal)
-    cdef c_apply_ping_pong(self, object proposal)
     cdef c_apply_order_price_modifiers(self, object proposal)
     cdef c_apply_order_size_modifiers(self, object proposal)
     cdef c_apply_inventory_skew(self, object proposal)

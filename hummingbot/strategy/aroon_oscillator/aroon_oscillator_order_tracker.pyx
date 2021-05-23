@@ -13,7 +13,7 @@ from hummingbot.strategy.order_tracker cimport OrderTracker
 NaN = float("nan")
 
 
-cdef class WilliamsPctROrderTracker(OrderTracker):
+cdef class AroonOscillatorOrderTracker(OrderTracker):
     # ETH confirmation requirement of Binance has shortened to 12 blocks as of 7/15/2019.
     # 12 * 15 / 60 = 3 minutes
     SHADOW_MAKER_ORDER_KEEP_ALIVE_DURATION = 60.0 * 3
