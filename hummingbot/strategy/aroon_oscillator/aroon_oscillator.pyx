@@ -1,6 +1,8 @@
 # distutils: language=c++
 from decimal import Decimal
 import logging
+
+import os.path
 import pandas as pd
 import numpy as np
 from typing import (
@@ -34,14 +36,38 @@ from .aroon_oscillator_order_tracker import AroonOscillatorOrderTracker
 
 from hummingbot.strategy.pure_market_making.inventory_skew_calculator cimport c_calculate_bid_ask_ratios_from_base_asset_ratio
 from hummingbot.strategy.pure_market_making.inventory_skew_calculator import calculate_total_order_size
-from .aroon_oscillator_indicator cimport AroonOscillatorIndicator
+from .aroon_oscillator_indicator cimport AroonOscillatorIndicator, OscillatorPeriod
+from .aroon_oscillator_indicator import AroonOscillatorIndicator, OscillatorPeriod
 
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
 s_decimal_neg_one = Decimal(-1)
+s_decimal_one_oh = Decimal("1.0")
+s_decimal_one_hundo = Decimal("100")
 pmm_logger = None
 
+# AroonOscillatorStrategy is a market making strategy that uses Aroon Indicators to detect trends
+# A user will set up the number of periods in the Indicator and how long each period is in seconds.
+# The user also sets a minimum and maximum spread that they desire. Then the indicator will use the
+# collected period data to automatically adjust the spreads to try and position orders at the best
+# spot for profitable trades.
+# Traditionally the number of periods is 25, but any amount can be used. Lower numbers will produce
+# more oscillations, which in turn will adjust the spreads more drastically. Higher numbers will produce
+# less oscillations, this will adjust the spreads more smoothly.
+# The time duration of the period can be chosen to best suit your trade strategy. For example if you use
+# 5 minute candles when analysing market data, set the duration to 300 seconds.
+# minimum_periods can be set to have the indicator engage adjusting the spreads before the Indicator
+# periods fill up. Set this to -1 to have only adjust spreads when the indicator is full.
+# The strategy will adjust the bid_spread closer to minimum_spread the closer Aroon Down indicator gets
+# closer to 100, and it will adjust the ask_spread closer to the minimum_spread the closer Aroon Up gets
+# closer to 100. The spread is further adjusted by the Aroon Oscillator indicator. If the indicator strongly
+# suggests a trend, it will push the spread out further from minimum_spread in order to wait for a more optimal
+# point to trade. The affect of the oscillator indicator can be adjusted by the aroon_osc_strength_factor parameter
+# a setting lower than 1.0 will decrease its effect on the spread during a strong trend.
+# The rest of the strategy is pretty much copied from PureMarketMakingStrategy. A few options have been removed
+# such at the pricing delegates. There are more features that could possibly be removed, since they don't work
+# well with the Indicator.
 
 cdef class AroonOscillatorStrategy(StrategyBase):
     OPTION_LOG_CREATE_ORDER = 1 << 3
@@ -67,11 +93,14 @@ cdef class AroonOscillatorStrategy(StrategyBase):
                  period_duration: int,
                  order_amount: Decimal,
                  order_levels: int = 1,
+                 minimum_periods: int = -1,
+                 aroon_osc_strength_factor: Decimal = Decimal("0.5"),
                  order_level_spread: Decimal = s_decimal_zero,
                  order_level_amount: Decimal = s_decimal_zero,
                  order_refresh_time: float = 30.0,
                  max_order_age = 1800.0,
                  order_refresh_tolerance_pct: Decimal = s_decimal_neg_one,
+                 cancel_order_spread_threshold: Decimal = s_decimal_zero,
                  filled_order_delay: float = 60.0,
                  inventory_skew_enabled: bool = False,
                  inventory_target_base_pct: Decimal = s_decimal_zero,
@@ -90,6 +119,8 @@ cdef class AroonOscillatorStrategy(StrategyBase):
                  status_report_interval: float = 900,
                  hb_app_notification: bool = False,
                  order_override: Dict[str, List[str]] = {},
+                 debug_csv_path: str = '',
+                 is_debug: bool = True,
                  ):
 
         if price_ceiling != s_decimal_neg_one and price_ceiling < price_floor:
@@ -98,10 +129,12 @@ cdef class AroonOscillatorStrategy(StrategyBase):
         super().__init__()
         self._sb_order_tracker = AroonOscillatorOrderTracker()
         self._market_info = market_info
-        self._bid_spread = Decimal("0")
-        self._ask_spread = Decimal("0")
+        self._bid_spread = s_decimal_zero
+        self._ask_spread = s_decimal_zero
         self._minimum_spread = minimum_spread
         self._maximum_spread = maximum_spread
+        self._minimum_periods = minimum_periods
+        self._aroon_osc_strength_factor = aroon_osc_strength_factor
         self._order_amount = order_amount
         self._order_levels = order_levels
         self._buy_levels = order_levels
@@ -129,6 +162,7 @@ cdef class AroonOscillatorStrategy(StrategyBase):
         self._order_override = order_override
         self._period_length = period_length
         self._period_duration = period_duration
+        self._cancel_order_spread_threshold = cancel_order_spread_threshold
 
         self._cancel_timestamp = 0
         self._create_timestamp = 0
@@ -145,6 +179,12 @@ cdef class AroonOscillatorStrategy(StrategyBase):
         self._status_report_interval = status_report_interval
         self._last_own_trade_price = Decimal('nan')
         self._aroon_osc = AroonOscillatorIndicator(self._period_length, self._period_duration)
+        self._trend_factor = s_decimal_zero
+        self._min_max_spread_diff = s_decimal_zero
+        self._ask_increase = s_decimal_zero
+        self._bid_increase = s_decimal_zero
+        self._debug_csv_path = debug_csv_path
+        self._is_debug = is_debug
 
         self.c_add_markets([market_info.market])
 
@@ -383,8 +423,39 @@ cdef class AroonOscillatorStrategy(StrategyBase):
     def aroon_full(self) -> bool:
         return bool(self._aroon_osc.c_full())
 
-    def get_last_price(self) -> float:
-        return self._market_info.get_last_price()
+    @property
+    def aroon_period_count(self) -> int:
+        return self._aroon_osc.c_aroon_period_count()
+
+    @property
+    def aroon_periods(self) -> List[OscillatorPeriod]:
+        return self._aroon_osc.c_aroon_periods()
+
+    @property
+    def aroon_last_period(self) -> OscillatorPeriod:
+        return self._aroon_osc.c_last_period()
+
+    @property
+    def min_max_spread_diff(self) -> Decimal:
+        return self._min_max_spread_diff
+
+    @property
+    def trend_factor(self) -> Decimal:
+        return self._trend_factor
+
+    @property
+    def ask_increase(self) -> Decimal:
+        return self._ask_increase
+
+    @property
+    def bid_increase(self) -> Decimal:
+        return self._bid_increase
+
+    def get_last_price(self) -> Decimal:
+        last_price = self._market_info.get_price_by_type(PriceType.LastTrade)
+        if not last_price:
+            return self.get_mid_price()
+        return last_price
 
     def get_mid_price(self) -> float:
         return self.c_get_mid_price()
@@ -595,13 +666,24 @@ cdef class AroonOscillatorStrategy(StrategyBase):
         else:
             lines.extend(["", "  No active maker orders."])
 
-        lines.extend(["", f"  Aroon Indicators:",
-                      f"    Aroon Up = {self.aroon_up:.5g}",
-                      f"    Aroon Down = {self.aroon_down:.5g}",
-                      f"    Aroon Osc = {self.aroon_osc:.3g}",
-                      f"    Aroon Indicator Full = {self.aroon_full}",
-                      f"    Adjusted Ask Spread = {self.ask_spread}",
-                      f"    Adjusted Bid Spread = {self.bid_spread}"])
+        last_aroon_period = self.aroon_last_period
+        lines.extend([
+            "",
+            f"  Aroon Indicators:",
+            f"    Aroon Up = {self.aroon_up:.5g}",
+            f"    Aroon Down = {self.aroon_down:.5g}",
+            f"    Aroon Osc = {self.aroon_osc:.3g}",
+            f"    Aroon Indicator Full = {self.aroon_full}, Total periods {self.aroon_period_count}",
+            f"    Current Period (start: {last_aroon_period.start:.0f}, end: {last_aroon_period.end:.0f}, high: {last_aroon_period.high:.5g}, low: {last_aroon_period.low:.5g})",
+            f"    Adjusted Ask Spread = {self.ask_spread:.2%}",
+            f"    Adjusted Bid Spread = {self.bid_spread:.2%}",
+        ])
+        if self.aroon_full or (0 < self._minimum_periods <= self.aroon_period_count()):
+            lines.extend([
+                f"    Calculation params = (spread_diff: {self.min_max_spread_diff:.4%}, ask_increase: {self.ask_increase:.4%}, bid_increase: {self.bid_increase:.4%}, trend_factor: {self.trend_factor:.4%}, osc_strength_factor: {self._aroon_osc_strength_factor:.2g})",
+                f"    Ask Spread formula = ({self._minimum_spread:.5g} + ({self.min_max_spread_diff:.6g} * (1 - ({self.aroon_up} / 100)))) * ( 1 + ({self.aroon_osc} / 100 * {self._aroon_osc_strength_factor:.2g}))",
+                f"    Bid Spread formula = ({self._minimum_spread:.5g} + ({self.min_max_spread_diff:.6g} * (1 - ({self.aroon_down} / 100)))) * ( 1 - ({self.aroon_osc} / 100 * {self._aroon_osc_strength_factor:.2g}))",
+            ])
 
         warning_lines.extend(self.balance_warning([self._market_info]))
 
@@ -653,7 +735,9 @@ cdef class AroonOscillatorStrategy(StrategyBase):
 
             proposal = None
             asset_mid_price = Decimal("0")
+            # update the Aroon Oscillator Indicator with the last trade price data
             self._aroon_osc.c_add_tick(self._current_timestamp, self.get_last_price())
+            # use the Aroon Oscillator Indicator to calculate the desired spreads
             self.c_adjust_spreads()
             # asset_mid_price = self.c_set_mid_price(market_info)
             if self._create_timestamp <= self._current_timestamp:
@@ -673,6 +757,8 @@ cdef class AroonOscillatorStrategy(StrategyBase):
             self.c_cancel_active_orders(proposal)
             self.c_cancel_hanging_orders()
             self.c_cancel_orders_below_min_spread()
+            if self._is_debug:
+                self.dump_debug_variables()
             refresh_proposal = self.c_aged_order_refresh()
             # Firstly restore cancelled aged order
             if refresh_proposal is not None:
@@ -683,14 +769,26 @@ cdef class AroonOscillatorStrategy(StrategyBase):
             self._last_timestamp = timestamp
 
     cdef c_adjust_spreads(self):
-        cdef:
-            min_max_spread_diff = self._maximum_spread - self._minimum_spread
+        self._min_max_spread_diff = self._maximum_spread - self._minimum_spread
 
-        if self._aroon_osc.c_full():
-            self._ask_spread = self._minimum_spread + (min_max_spread_diff * (self._aroon_osc.c_aroon_up() / 100))
-            self._bid_spread = self._minimum_spread + (min_max_spread_diff * (self._aroon_osc.c_aroon_down() / 100))
+        if self._aroon_osc.c_full() or (0 < self._minimum_periods <= self._aroon_osc.c_aroon_period_count()):
+            # make aroon_up a percent and invert it for the ask spread, when aroon up is high, we want to sell
+            self._ask_increase = (self._min_max_spread_diff * (s_decimal_one_oh - Decimal(self._aroon_osc.c_aroon_up()) / s_decimal_one_hundo))
+            # make aroon_down a percent and invert it for the bid spread, when aroon down is high, we want to buy
+            self._bid_increase = (self._min_max_spread_diff * (s_decimal_one_oh - Decimal(self._aroon_osc.c_aroon_down()) / s_decimal_one_hundo))
+            # trend factor is another percentage to adjust the spread by. If there is an ongoing strong trend, we don't want to execute our orders too early
+            self._trend_factor = Decimal(self._aroon_osc.c_aroon_osc()) / s_decimal_one_hundo * self._aroon_osc_strength_factor
+            # aroon_osc 100% strong uptrend, likely to continue. Adjust the spread_increase to inhibit trading
+            self._ask_spread = (self._minimum_spread + self._ask_increase) * (s_decimal_one_oh + self._trend_factor)
+            # aroon_osc -100% strong downtrend and likely to continue. Adjust the spread_increase to inhibit trading
+            self._bid_spread = (self._minimum_spread + self._bid_increase) * (s_decimal_one_oh - self._trend_factor)
+
+            # adjust spreads to not exceed min/max spreads
+            self._ask_spread = min(max(self._ask_spread, self._minimum_spread), self._maximum_spread)
+            self._bid_spread = min(max(self._bid_spread, self._minimum_spread), self._maximum_spread)
         else:
-            self._bid_spread = self._ask_spread = self._minimum_spread + (min_max_spread_diff * 0.5)
+            # when aroon isn't ready, just set the spreads to middle of min/max
+            self._bid_spread = self._ask_spread = self._minimum_spread + (self._min_max_spread_diff * Decimal("0.5"))
 
         return None
 
@@ -954,9 +1052,6 @@ cdef class AroonOscillatorStrategy(StrategyBase):
                         f"{order_filled_event.amount} {market_info.base_asset} filled."
                     )
 
-            if self._inventory_cost_price_delegate is not None:
-                self._inventory_cost_price_delegate.process_order_fill_event(order_filled_event)
-
     cdef c_did_complete_buy_order(self, object order_completed_event):
         cdef:
             str order_id = order_completed_event.order_id
@@ -1120,8 +1215,8 @@ cdef class AroonOscillatorStrategy(StrategyBase):
                          if order.client_order_id not in self._hanging_order_ids]
         for order in active_orders:
             negation = -1 if order.is_buy else 1
-            if (negation * (order.price - price) / price) < self._minimum_spread:
-                self.logger().info(f"Order is below minimum spread ({self._minimum_spread})."
+            if (negation * (order.price - price) / price) < self._cancel_order_spread_threshold:
+                self.logger().info(f"Order is below minimum spread ({self._cancel_order_spread_threshold})."
                                    f" Cancelling Order: ({'Buy' if order.is_buy else 'Sell'}) "
                                    f"ID - {order.client_order_id}")
                 self.c_cancel_order(self._market_info, order.client_order_id)
@@ -1243,3 +1338,36 @@ cdef class AroonOscillatorStrategy(StrategyBase):
             return PriceType.InventoryCost
         else:
             raise ValueError(f"Unrecognized price type string {price_type_str}.")
+
+    def dump_debug_variables(self):
+        market = self._market_info.market
+        mid_price = self.get_price()
+        last_price = self.get_last_price()
+
+        if not os.path.exists(self._debug_csv_path):
+            df_header = pd.DataFrame([('mid_price',
+                                       'last_price',
+                                       'min_spread',
+                                       'max_spread',
+                                       'bid_spread',
+                                       'ask_spread',
+                                       'aroon_up',
+                                       'aroon_down',
+                                       'aroon_osc',
+                                       'ask_increase',
+                                       'bid_increase',
+                                       'trend_factor')])
+            df_header.to_csv(self._debug_csv_path, mode='a', header=False, index=False)
+        df = pd.DataFrame([(mid_price,
+                            last_price,
+                            self._minimum_spread,
+                            self._maximum_spread,
+                            self._bid_spread,
+                            self._ask_spread,
+                            self.aroon_up,
+                            self.aroon_down,
+                            self.aroon_osc,
+                            self.ask_increase,
+                            self.bid_increase,
+                            self.trend_factor)])
+        df.to_csv(self._debug_csv_path, mode='a', header=False, index=False)
