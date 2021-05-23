@@ -809,7 +809,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             str trading_pair = self._market_info.trading_pair
 
         # Order amounts should be changed only if order_override is not active
-        if (self._order_override is None) or (len(self._order_override) > 0):
+        if (self._order_override is None) or (len(self._order_override) == 0):
             # eta parameter is described in the paper as the shape parameter for having exponentially decreasing order amount
             # for orders that go against inventory target (i.e. Want to buy when excess inventory or sell when deficit inventory)
             q = market.get_balance(self.base_asset) - self.c_calculate_target_inventory()
