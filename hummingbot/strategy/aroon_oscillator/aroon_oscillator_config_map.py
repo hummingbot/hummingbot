@@ -54,22 +54,6 @@ async def validate_order_amount(value: str) -> Optional[str]:
         return "Invalid order amount."
 
 
-def validate_price_source(value: str) -> Optional[str]:
-    if value not in {"current_market", "external_market", "custom_api"}:
-        return "Invalid price source type."
-
-
-def on_validate_price_source(value: str):
-    if value != "external_market":
-        aroon_oscillator_config_map["price_source_exchange"].value = None
-        aroon_oscillator_config_map["price_source_market"].value = None
-        aroon_oscillator_config_map["take_if_crossed"].value = None
-    if value != "custom_api":
-        aroon_oscillator_config_map["price_source_custom_api"].value = None
-    else:
-        aroon_oscillator_config_map["price_type"].value = None
-
-
 def validate_price_floor_ceiling(value: str) -> Optional[str]:
     try:
         decimal_value = Decimal(value)
@@ -77,6 +61,18 @@ def validate_price_floor_ceiling(value: str) -> Optional[str]:
         return f"{value} is not in decimal format."
     if not (decimal_value == Decimal("-1") or decimal_value > Decimal("0")):
         return "Value must be more than 0 or -1 to disable this feature."
+
+
+def validate_minimum_periods(value: str) -> Optional[str]:
+    try:
+        decimal_value = Decimal(value)
+        period_length = aroon_oscillator_config_map["period_length"].value
+    except Exception:
+        return f"{value} is not in decimal format."
+    if not (decimal_value == Decimal("-1") or decimal_value > Decimal("0")):
+        return "Value must be more than 0 or -1 to disable this feature."
+    if decimal_value > period_length:
+        return "Value must not be larger than period_length"
 
 
 def on_validated_price_type(value: str):
@@ -107,7 +103,6 @@ aroon_oscillator_config_map = {
     "minimum_spread":
         ConfigVar(key="minimum_spread",
                   prompt="What is the closest to the mid price should the bot automatically create orders for? (Enter 1 for 1%) >>> ",
-                  required_if=lambda: False,
                   type_str="decimal",
                   validator=lambda v: validate_decimal(v, 0, 100, True),
                   prompt_on_new=True),
@@ -134,7 +129,23 @@ aroon_oscillator_config_map = {
                   prompt="How long in seconds are the Periods in the Aroon Oscillator? >>> ",
                   type_str="int",
                   validator=lambda v: validate_int(v, min_value=1, inclusive=True),
-                  default=60),
+                  default=60,
+                  prompt_on_new=True),
+    "minimum_periods":
+        ConfigVar(key="minimum_periods",
+                  prompt="How many periods should be calculated before adjusting spread? >>> ",
+                  type_str="int",
+                  validator=validate_minimum_periods,
+                  default=-1, ),
+    "aroon_osc_strength_factor":
+        ConfigVar(key="aroon_osc_strength_factor",
+                  prompt="How strong will the Aroon Osc value affect the spread adjustement? "
+                         "A strong trend indicator (when Aroon Osc is close to -100 or 100) "
+                         "will increase the trend side spread, and decrease the opposite side spread. "
+                         "Values below 1 will decrease its affect, increasing trade likelihood, but decrease risk. ",
+                  type_str="decimal",
+                  validator=lambda v: validate_decimal(v, min_value=0, max_value=1, inclusive=True),
+                  default=Decimal("0.5")),
     "order_refresh_time":
         ConfigVar(key="order_refresh_time",
                   prompt="How often do you want to cancel and replace bids and asks "
@@ -160,6 +171,13 @@ aroon_oscillator_config_map = {
                   type_str="decimal",
                   default=Decimal("0"),
                   validator=lambda v: validate_decimal(v, -10, 10, inclusive=True)),
+    "cancel_order_spread_threshold":
+        ConfigVar(key="cancel_order_spread_threshold",
+                  prompt="At what minimum spread should the bot automatically cancel orders? (Enter 1 for 1%) >>> ",
+                  required_if=lambda: False,
+                  type_str="decimal",
+                  default=Decimal(-100),
+                  validator=lambda v: validate_decimal(v, -100, 100, True)),
     "order_amount":
         ConfigVar(key="order_amount",
                   prompt=order_amount_prompt,
@@ -287,7 +305,6 @@ aroon_oscillator_config_map = {
                   prompt="Which price type to use? ("
                          "mid_price/last_price/last_own_trade_price/best_bid/best_ask/inventory_cost) >>> ",
                   type_str="str",
-                  required_if=lambda: aroon_oscillator_config_map.get("price_source").value != "custom_api",
                   default="mid_price",
                   on_validated=on_validated_price_type,
                   validator=lambda s: None if s in {"mid_price",
@@ -301,15 +318,9 @@ aroon_oscillator_config_map = {
     "take_if_crossed":
         ConfigVar(key="take_if_crossed",
                   prompt="Do you want to take the best order if orders cross the orderbook? ((Yes/No) >>> ",
-                  required_if=lambda: aroon_oscillator_config_map.get(
-                      "price_source").value == "external_market",
                   type_str="bool",
-                  validator=validate_bool),
-    "price_source_custom_api":
-        ConfigVar(key="price_source_custom_api",
-                  prompt="Enter pricing API URL >>> ",
-                  required_if=lambda: aroon_oscillator_config_map.get("price_source").value == "custom_api",
-                  type_str="str"),
+                  validator=validate_bool,
+                  default=False),
     "order_override":
         ConfigVar(key="order_override",
                   prompt=None,
