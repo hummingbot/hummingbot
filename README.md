@@ -40,6 +40,7 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 | <img src="assets/himalaya_logo.png" alt="Himalaya Exchange" width="90" /> | himalaya | [Himalaya Exchange](https://himalaya.exchange/) | * | [API]() |![RED](https://via.placeholder.com/15/f03c15/?text=+) |
 | <img src="assets/hitbtc_logo.png" alt="HitBTC" width="90" /> | hitbtc | [HitBTC](https://hitbtc.com/) | 2 | [API](https://api.hitbtc.com/) | ![GREEN](https://via.placeholder.com/15/008000/?text=+) |
 |<img src="assets/huobi_logo.png" alt="Huobi Global" width="90" />| huobi | [Huobi Global](https://www.hbg.com) | 1 | [API](https://huobiapi.github.io/docs/spot/v1/en/) |![GREEN](https://via.placeholder.com/15/008000/?text=+) |
+| <img src="assets/gate_io_logo.svg" alt="Gate.io" width="90" /> | gate_io | [Gate.io](https://www.gate.io/) | 2 | [API](https://www.gate.io/api2) | ![GREEN](https://via.placeholder.com/15/008000/?text=+) |
 | <img src="assets/kucoin_logo.png" alt="KuCoin" width="90" /> | kucoin | [KuCoin](https://www.kucoin.com/) | 1 | [API](https://docs.kucoin.com/#general) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 | <img src="assets/kraken_logo.png" alt="Kraken" width="90" /> | kraken | [Kraken](https://www.kraken.com/) | 1 | [API](https://www.kraken.com/features/api) |![GREEN](https://via.placeholder.com/15/008000/?text=+) |
 | <img src="assets/liquid_logo.png" alt="Liquid" width="90" /> | liquid | [Liquid](https://www.liquid.com/) | 2 | [API](https://developers.liquid.com/) |![GREEN](https://via.placeholder.com/15/008000/?text=+) |
