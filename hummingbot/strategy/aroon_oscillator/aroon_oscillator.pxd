@@ -40,6 +40,9 @@ cdef class AroonOscillatorStrategy(StrategyBase):
         object _order_override
         int _period_length
         int _period_duration
+        int _minimum_periods
+        object _cancel_order_spread_threshold
+        object _aroon_osc_strength_factor
 
         double _cancel_timestamp
         double _create_timestamp
@@ -53,6 +56,12 @@ cdef class AroonOscillatorStrategy(StrategyBase):
         int64_t _logging_options
         object _last_own_trade_price
         list _hanging_aged_order_prices
+        object _min_max_spread_diff
+        object _ask_increase
+        object _bid_increase
+        object _trend_factor
+        str _debug_csv_path
+        bint _is_debug
 
         AroonOscillatorIndicator _aroon_osc
 

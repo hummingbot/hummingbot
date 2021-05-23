@@ -3,12 +3,16 @@ from typing import (
     Tuple,
 )
 
+from hummingbot import data_path
+import os.path
+from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.aroon_oscillator import (
     AroonOscillatorStrategy,
 )
 from hummingbot.strategy.aroon_oscillator.aroon_oscillator_config_map import aroon_oscillator_config_map as c_map
 from decimal import Decimal
+import pandas as pd
 
 
 def start(self):
@@ -19,7 +23,9 @@ def start(self):
         minimum_spread = c_map.get("minimum_spread").value / Decimal('100')
         maximum_spread = c_map.get("maximum_spread").value / Decimal('100')
         period_length = c_map.get("period_length").value
-        period_duration = c_map.get("period_length").value
+        period_duration = c_map.get("period_duration").value
+        minimum_periods = c_map.get("minimum_periods").value
+        aroon_osc_strength_factor = c_map.get("aroon_osc_strength_factor").value
         price_ceiling = c_map.get("price_ceiling").value
         price_floor = c_map.get("price_floor").value
         order_levels = c_map.get("order_levels").value
@@ -41,6 +47,7 @@ def start(self):
         price_type = c_map.get("price_type").value
         order_refresh_tolerance_pct = c_map.get("order_refresh_tolerance_pct").value / Decimal('100')
         order_override = c_map.get("order_override").value
+        cancel_order_spread_threshold = c_map.get("cancel_order_spread_threshold").value / Decimal('100')
 
         trading_pair: str = raw_trading_pair
         maker_assets: Tuple[str, str] = self._initialize_market_assets(exchange, [trading_pair])[0]
@@ -52,6 +59,10 @@ def start(self):
         self.market_trading_pair_tuples = [MarketTradingPairTuple(*maker_data)]
         take_if_crossed = c_map.get("take_if_crossed").value
 
+        debug_csv_path = os.path.join(data_path(),
+                                      HummingbotApplication.main_application().strategy_file_name.rsplit('.', 1)[0] +
+                                      f"_{pd.Timestamp.now().strftime('%Y-%m-%d_%H-%M-%S')}.csv")
+
         strategy_logging_options = AroonOscillatorStrategy.OPTION_LOG_ALL
 
         self.strategy = AroonOscillatorStrategy(
@@ -60,6 +71,8 @@ def start(self):
             maximum_spread=maximum_spread,
             period_length=period_length,
             period_duration=period_duration,
+            minimum_periods=minimum_periods,
+            aroon_osc_strength_factor=aroon_osc_strength_factor,
             order_levels=order_levels,
             order_amount=order_amount,
             order_level_spread=order_level_spread,
@@ -82,8 +95,11 @@ def start(self):
             price_floor=price_floor,
             hanging_orders_cancel_pct=hanging_orders_cancel_pct,
             order_refresh_tolerance_pct=order_refresh_tolerance_pct,
+            cancel_order_spread_threshold=cancel_order_spread_threshold,
             hb_app_notification=True,
             order_override={} if order_override is None else order_override,
+            debug_csv_path=debug_csv_path,
+            is_debug=True
         )
     except Exception as e:
         self._notify(str(e))
