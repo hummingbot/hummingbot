@@ -1,0 +1,20 @@
+########################################################
+###              BBO strategy config                 ###
+########################################################
+
+template_version: 1
+strategy: null
+
+# Exchange and token parameters.
+exchange: null
+
+# Token trading pair for the exchange, e.g. BTC-USDT
+market: null
+
+# Size of your bid and ask order.
+order_amount: null
+
+# BBO Parameters
+volatility_days: null
+entry_band: null
+exit_band: null

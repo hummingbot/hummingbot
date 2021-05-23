@@ -1,12 +1,13 @@
 from decimal import Decimal
 from typing import (
-    NamedTuple, Iterator
+    NamedTuple, Iterator, List
 )
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_query_result import ClientOrderBookQueryResult
 from hummingbot.core.data_type.order_book_row import ClientOrderBookRow
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.event.events import PriceType
+from hummingbot.core.data_type.common import Candle
 
 
 class MarketTradingPairTuple(NamedTuple):
@@ -50,3 +51,6 @@ class MarketTradingPairTuple(NamedTuple):
 
     def order_book_ask_entries(self) -> Iterator[ClientOrderBookRow]:
         return self.market.order_book_ask_entries(self.trading_pair)
+
+    def get_historical(self, trading_pair: str, days: int) -> List[Candle]:
+        return self.market.get_historical(self.trading_pair, days)

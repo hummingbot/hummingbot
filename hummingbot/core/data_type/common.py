@@ -2,6 +2,14 @@ from typing import NamedTuple
 from decimal import Decimal
 from hummingbot.core.event.events import OrderType
 
+class Candle(NamedTuple):
+    time: int
+    open: Decimal
+    high: Decimal
+    low: Decimal
+    close: Decimal
+    volume: Decimal
+
 
 class OpenOrder(NamedTuple):
     client_order_id: str

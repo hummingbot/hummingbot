@@ -24,6 +24,7 @@ from hummingbot.core.event.events import (
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.core.data_type.common import Candle
 
 NaN = float("nan")
 s_decimal_NaN = Decimal("nan")
@@ -290,3 +291,6 @@ cdef class ExchangeBase(ConnectorBase):
         required volume.
         """
         return Decimal(str(self.get_price_for_volume(trading_pair, is_buy, amount).result_price))
+
+    def get_historical(self, trading_pair: str, days: int) -> List[Candle]:
+        raise NotImplementedError

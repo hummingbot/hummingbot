@@ -66,7 +66,9 @@ from .binance_in_flight_order import BinanceInFlightOrder
 from .binance_utils import (
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair)
-from hummingbot.core.data_type.common import OpenOrder
+from hummingbot.core.data_type.common import (
+    OpenOrder,
+    Candle)
 from hummingbot.core.data_type.trade import Trade
 s_logger = None
 s_decimal_0 = Decimal(0)
@@ -152,6 +154,7 @@ cdef class BinanceExchange(ExchangeBase):
         self._async_scheduler = AsyncCallScheduler(call_interval=0.5)
         self._last_poll_timestamp = 0
         self._throttler = Throttler((10.0, 1.0))
+        self._candles = {} # For holding historical candle data
 
     @property
     def name(self) -> str:
@@ -1122,3 +1125,20 @@ cdef class BinanceExchange(ExchangeBase):
             time = get_utc_timestamp(days_ago) * 1e3
             trades = [t for t in trades if t.timestamp > time]
         return trades
+
+    async def fetch_historical_candles(self, trading_pair: str, days: int):
+        candles = await self.query_api(self._binance_client.get_klines,
+                                        symbol=convert_to_exchange_trading_pair(trading_pair),
+                                        interval=BinanceClient.KLINE_INTERVAL_1DAY,
+                                        limit=days)
+        self._candles[trading_pair] = list(map(lambda x: Candle(time = int(x[0]),
+                                                            open = Decimal(x[1]),
+                                                            high = Decimal(x[2]),
+                                                            low = Decimal(x[3]),
+                                                            close = Decimal(x[4]),
+                                                            volume = Decimal(x[5])),
+                                                            candles))
+
+    def get_historical(self, trading_pair: str, days: int) -> List[Candle]:
+        safe_ensure_future(self.fetch_historical_candles(trading_pair, days))
+        return self._candles[trading_pair] if trading_pair in self._candles else []
