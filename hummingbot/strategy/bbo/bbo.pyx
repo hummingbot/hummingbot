@@ -343,7 +343,7 @@ cdef class BBOStrategy(StrategyBase):
             # If the price is lower than or equal to the exit price, we should liquidate all of the base asset
             price = self.get_price()
             quantized_amount = market.quantize_order_amount(trading_pair, Decimal(str(base_asset_amount)))
-            if quantized_amount > 0 and price <= self._exit_price:
+            if quantized_amount > 0 and price <= self._exit_price and len(self.active_sells) == 0:
                 # create a sell order
                 self.logger().info(f"All of the base asset is being liquidated via market order")
                 self.c_sell_with_specific_market(
@@ -359,7 +359,7 @@ cdef class BBOStrategy(StrategyBase):
             quote_asset_amount = market.get_balance(quote_asset)
             quote_asset_amount_in_base = quote_asset_amount / price
             quantized_amount = market.quantize_order_amount(trading_pair, Decimal(str(min(needed,quote_asset_amount_in_base))))
-            if quantized_amount > 0 and price >= self._entry_price:
+            if quantized_amount > 0 and price >= self._entry_price and len(self.active_buys) == 0:
                 # create a buy order
                 self.logger().info(f"Buying {needed} of the base asset with a market order")
                 self.c_buy_with_specific_market(
