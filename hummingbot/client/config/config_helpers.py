@@ -323,6 +323,8 @@ def save_to_yml(yml_path: str, cm: Dict[str, ConfigVar]):
                         data.pop(key)
                 elif type(cvar.value) == Decimal:
                     data[key] = float(cvar.value)
+                elif type(cvar.value) == list:
+                    data[key] = [tuple([float(v) if type(v) == Decimal else v for v in t]) for t in cvar.value]
                 else:
                     data[key] = cvar.value
             with open(yml_path, "w+") as outfile:

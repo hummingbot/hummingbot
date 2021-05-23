@@ -12,10 +12,23 @@ from hummingbot.client.config.config_helpers import (
     format_config_file_name,
     parse_config_default_to_text
 )
-from hummingbot.client.settings import CONF_FILE_PATH, required_exchanges
+from hummingbot.client.settings import (
+    CONF_FILE_PATH,
+    required_exchanges,
+    requried_connector_trading_pairs,
+    EXAMPLE_PAIRS,
+)
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.security import Security
-from hummingbot.client.config.config_validators import validate_strategy
+from hummingbot.client.config.config_validators import (
+    validate_decimal,
+    validate_int,
+    validate_market_trading_pair,
+    validate_connector,
+    validate_strategy
+)
+from decimal import Decimal
+
 from hummingbot.client.ui.completer import load_completer
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -100,6 +113,9 @@ class CreateCommand:
         if config.key == "inventory_price":
             await self.inventory_price_prompt(self.strategy_config_map, input_value)
             return
+        if config.key == "market_list":
+            await self.get_market_list(config)
+            return
         if input_value is None:
             if assign_default:
                 self.app.set_text(parse_config_default_to_text(config))
@@ -139,3 +155,49 @@ class CreateCommand:
         Security.update_config_map(global_config_map)
         if self.strategy_config_map is not None:
             Security.update_config_map(self.strategy_config_map)
+
+    async def get_market_list(self,  # type: HummingbotApplication
+                              mainConfig
+                              ):
+        market_nb_config = ConfigVar(
+            key="market_nb",
+            prompt="How many markets would you like to use ? >>> ",
+            prompt_on_new=True,
+            default=2,
+            validator=lambda v: validate_int(v),
+            type_str="int")
+        await self.prompt_a_config(market_nb_config)
+        market_nb = market_nb_config.value
+        mainConfig.value = []
+        for k in range(market_nb):
+            connector_config = ConfigVar(
+                key=f"connector_{k}",
+                prompt=f"Enter spot connector {k} (Exchange/AMM) >>> ",
+                prompt_on_new=True,
+                validator=validate_connector,
+                on_validated=lambda value: required_exchanges.append(value))
+            await self.prompt_a_config(connector_config)
+            connector = connector_config.value
+            connector_example = EXAMPLE_PAIRS.get(connector)
+            market_config = ConfigVar(
+                key=f"market_{k}",
+                prompt="Enter the token trading pair you would like to trade on %s%s >>> "
+                       % (connector, f" (e.g. {connector_example})" if connector_example else ""),
+                prompt_on_new=True,
+                validator=lambda value: validate_market_trading_pair(connector, value),
+                on_validated=lambda value: market_on_validated(value, connector))
+            await self.prompt_a_config(market_config)
+            slippage_buffer_config = ConfigVar(
+                key="market_1_slippage_buffer",
+                prompt="How much buffer do you want to add to the price to account for slippage for orders on this market "
+                    "(Enter 1 for 1%)? >>> ",
+                prompt_on_new=True,
+                default=Decimal("0.05"),
+                validator=lambda v: validate_decimal(v),
+                type_str="decimal")
+            await self.prompt_a_config(slippage_buffer_config)
+            mainConfig.value.append((connector, market_config.value, slippage_buffer_config.value))
+
+
+def market_on_validated(value: str, connector) -> None:
+    requried_connector_trading_pairs[connector] = [value]

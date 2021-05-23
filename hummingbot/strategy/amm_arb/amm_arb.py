@@ -38,34 +38,29 @@ class AmmArbStrategy(StrategyPyBase):
         return amm_logger
 
     def __init__(self,
-                 market_info_1: MarketTradingPairTuple,
-                 market_info_2: MarketTradingPairTuple,
+                 markets_info: List[MarketTradingPairTuple],
                  min_profitability: Decimal,
                  order_amount: Decimal,
-                 market_1_slippage_buffer: Decimal = Decimal("0"),
-                 market_2_slippage_buffer: Decimal = Decimal("0"),
+                 markets_slippage_buffer: List[Decimal],
                  concurrent_orders_submission: bool = True,
                  status_report_interval: float = 900):
         """
-        :param market_info_1: The first market
-        :param market_info_2: The second market
+        :param markets_info: The markets informations
         :param min_profitability: The minimum profitability for execute trades (e.g. 0.0003 for 0.3%)
         :param order_amount: The order amount
-        :param market_1_slippage_buffer: The buffer for which to adjust order price for higher chance of
+        :param markets_slippage_buffer: The buffers for which to adjust order price for higher chance of
         the order getting filled. This is quite important for AMM which transaction takes a long time where a slippage
         is acceptable rather having the transaction get rejected. The submitted order price will be adjust higher
-        for buy order and lower for sell order.
-        :param market_1_slippage_buffer: The slipper buffer for market_2
+        for buy order and lower for sell order. Same order as the associated markets.
         :param concurrent_orders_submission: whether to submit both arbitrage taker orders (buy and sell) simultaneously
         If false, the bot will wait for first exchange order filled before submitting the other order.
         """
         super().__init__()
-        self._market_info_1 = market_info_1
-        self._market_info_2 = market_info_2
+        self._markets_info = markets_info
+        self._markets = [m.market for m in markets_info]
         self._min_profitability = min_profitability
         self._order_amount = order_amount
-        self._market_1_slippage_buffer = market_1_slippage_buffer
-        self._market_2_slippage_buffer = market_2_slippage_buffer
+        self._market_slippage_buffers_dict = {market: buffer for (market, buffer) in zip(self._markets, markets_slippage_buffer)}
         self._concurrent_orders_submission = concurrent_orders_submission
         self._last_no_arb_reported = 0
         self._arb_proposals = None
@@ -79,11 +74,10 @@ class AmmArbStrategy(StrategyPyBase):
 
         self._last_timestamp = 0
         self._status_report_interval = status_report_interval
-        self.add_markets([market_info_1.market, market_info_2.market])
+        self.add_markets(self._markets)
         self._uniswap = None
         self._quote_eth_rate_fetch_loop_task = None
-        self._market_1_quote_eth_rate = None
-        self._market_2_quote_eth_rate = None
+        self._quote_eth_rates = {}
 
     @property
     def min_profitability(self) -> Decimal:
@@ -123,13 +117,13 @@ class AmmArbStrategy(StrategyPyBase):
         min profitability required, applies the slippage buffer, applies budget constraint, then finally execute the
         arbitrage.
         """
-        self._arb_proposals = await create_arb_proposals(self._market_info_1, self._market_info_2, self._order_amount)
+        self._arb_proposals = await create_arb_proposals(self._markets_info, self._order_amount)
         arb_proposals = [
             t.copy() for t in self._arb_proposals
             if t.profit_pct(
                 account_for_fee=True,
-                first_side_quote_eth_rate=self._market_1_quote_eth_rate,
-                second_side_quote_eth_rate=self._market_2_quote_eth_rate
+                first_side_quote_eth_rate=self._quote_eth_rates[t.first_side.market_info.market],
+                second_side_quote_eth_rate=self._quote_eth_rates[t.second_side.market_info.market]
             ) >= self._min_profitability
         ]
         if len(arb_proposals) == 0:
@@ -138,6 +132,8 @@ class AmmArbStrategy(StrategyPyBase):
                                    "\n".join(self.short_proposal_msg(self._arb_proposals, False)))
                 self._last_no_arb_reported = self.current_timestamp
             return
+        for prop in arb_proposals:
+            self.logger().info(prop.first_side.market_info, prop.second_side.market_info)
         self.apply_slippage_buffers(arb_proposals)
         self.apply_budget_constraint(arb_proposals)
         await self.execute_arb_proposals(arb_proposals)
@@ -153,8 +149,7 @@ class AmmArbStrategy(StrategyPyBase):
             for arb_side in (arb_proposal.first_side, arb_proposal.second_side):
                 market = arb_side.market_info.market
                 arb_side.amount = market.quantize_order_amount(arb_side.market_info.trading_pair, arb_side.amount)
-                s_buffer = self._market_1_slippage_buffer if market == self._market_info_1.market \
-                    else self._market_2_slippage_buffer
+                s_buffer = self._market_slippage_buffers_dict[market]
                 if not arb_side.is_buy:
                     s_buffer *= Decimal("-1")
                 arb_side.order_price *= Decimal("1") + s_buffer
@@ -216,7 +211,7 @@ class AmmArbStrategy(StrategyPyBase):
         Returns True if there is no outstanding unfilled order.
         """
         # outstanding_orders = self.market_info_to_active_orders.get(self._market_info, [])
-        for market_info in [self._market_info_1, self._market_info_2]:
+        for market_info in self._markets_info:
             if len(self.market_info_to_active_orders.get(market_info, [])) > 0:
                 return False
         return True
@@ -232,8 +227,8 @@ class AmmArbStrategy(StrategyPyBase):
         for proposal in arb_proposal:
             side1 = "buy" if proposal.first_side.is_buy else "sell"
             side2 = "buy" if proposal.second_side.is_buy else "sell"
-            profit_pct = proposal.profit_pct(True, first_side_quote_eth_rate=self._market_1_quote_eth_rate,
-                                             second_side_quote_eth_rate = self._market_2_quote_eth_rate)
+            profit_pct = proposal.profit_pct(True, first_side_quote_eth_rate=self._quote_eth_rates[proposal.first_side.market_info.market],
+                                             second_side_quote_eth_rate = self._quote_eth_rates[proposal.second_side.market_info.market])
             lines.append(f"{'    ' if indented else ''}{side1} at {proposal.first_side.market_info.market.display_name}"
                          f", {side2} at {proposal.second_side.market_info.market.display_name}: "
                          f"{profit_pct:.2%}")
@@ -250,7 +245,7 @@ class AmmArbStrategy(StrategyPyBase):
         # active_orders = self.market_info_to_active_orders.get(self._market_info, [])
         columns = ["Exchange", "Market", "Sell Price", "Buy Price", "Mid Price"]
         data = []
-        for market_info in [self._market_info_1, self._market_info_2]:
+        for market_info in self._markets_info:
             market, trading_pair, base_asset, quote_asset = market_info
             buy_price = await market.get_quote_price(trading_pair, True, self._order_amount)
             sell_price = await market.get_quote_price(trading_pair, False, self._order_amount)
@@ -271,16 +266,18 @@ class AmmArbStrategy(StrategyPyBase):
         lines = []
         lines.extend(["", "  Markets:"] + ["    " + line for line in markets_df.to_string(index=False).split("\n")])
 
-        assets_df = self.wallet_balance_data_frame([self._market_info_1, self._market_info_2])
+        assets_df = self.wallet_balance_data_frame(self._markets_info)
         lines.extend(["", "  Assets:"] +
                      ["    " + line for line in str(assets_df).split("\n")])
 
         lines.extend(["", "  Profitability:"] + self.short_proposal_msg(self._arb_proposals))
 
-        warning_lines = self.network_warning([self._market_info_1])
-        warning_lines.extend(self.network_warning([self._market_info_2]))
-        warning_lines.extend(self.balance_warning([self._market_info_1]))
-        warning_lines.extend(self.balance_warning([self._market_info_2]))
+        warning_lines = self.network_warning([self._markets_info[0]])
+        for market_info in self._markets_info[1:]:
+            warning_lines.extend(self.network_warning([market_info]))
+        for market_info in self._markets_info:
+            warning_lines.extend(self.balance_warning([market_info]))
+
         if len(warning_lines) > 0:
             lines.extend(["", "*** WARNINGS ***"] + warning_lines)
 
@@ -315,8 +312,8 @@ class AmmArbStrategy(StrategyPyBase):
         return self._sb_order_tracker.tracked_market_orders
 
     def start(self, clock: Clock, timestamp: float):
-        if self._market_info_1.market.name in ETH_WALLET_CONNECTORS or \
-                self._market_info_2.market.name in ETH_WALLET_CONNECTORS:
+        if any(market.market.name in ETH_WALLET_CONNECTORS for market in
+               self._markets_info):
             self._quote_eth_rate_fetch_loop_task = safe_ensure_future(self.quote_in_eth_rate_fetch_loop())
 
     def stop(self, clock: Clock):
@@ -330,17 +327,12 @@ class AmmArbStrategy(StrategyPyBase):
     async def quote_in_eth_rate_fetch_loop(self):
         while True:
             try:
-                if self._market_info_1.market.name in ETH_WALLET_CONNECTORS and \
-                        "WETH" not in self._market_info_1.trading_pair.split("-"):
-                    self._market_1_quote_eth_rate = await self.request_rate_in_eth(self._market_info_1.quote_asset)
-                    self.logger().warning(f"Estimate conversion rate - "
-                                          f"{self._market_info_1.quote_asset}:ETH = {self._market_1_quote_eth_rate} ")
-
-                if self._market_info_2.market.name in ETH_WALLET_CONNECTORS and \
-                        "WETH" not in self._market_info_2.trading_pair.split("-"):
-                    self._market_2_quote_eth_rate = await self.request_rate_in_eth(self._market_info_2.quote_asset)
-                    self.logger().warning(f"Estimate conversion rate - "
-                                          f"{self._market_info_2.quote_asset}:ETH = {self._market_2_quote_eth_rate} ")
+                for market in self._markets_info:
+                    if market.market.name in ETH_WALLET_CONNECTORS and \
+                            "WETH" not in market.trading_pair.split("-"):
+                        self._quote_eth_rates[market] = await self.request_rate_in_eth(market.quote_asset)
+                        self.logger().warning(f"Estimate conversion rate - "
+                                              f"{market.quote_asset}:ETH = {self._quote_eth_rates} ")
                 await asyncio.sleep(60 * 1)
             except asyncio.CancelledError:
                 raise
