@@ -361,7 +361,9 @@ class AmmArbStrategy(StrategyPyBase):
             self._uniswap = UniswapConnector([f"{quote}-WETH"], "", None)
             await self._uniswap.initiate_pool()  # initiate to cache swap pool
             return await self._uniswap.get_quote_price(f"{quote}-WETH", True, 1)
-        if self._evm_uniswap is None:
-            self._evm_uniswap = EvmUniswapConnector([f"{quote}-WETH"], "", None, True, "evm", "0")
-            await self._evm_uniswap.initiate_pool()  # initiate to cache swap pool
-            return await self._evm_uniswap.get_quote_price(f"{quote}-WETH", True, 1)
+        if self._evm_uniswap_0 is None:
+            self._evm_uniswap_0 = EvmUniswapConnector([f"{quote}-WETH"], "", None, True, "evm", "0")
+            self._evm_uniswap_1 = EvmUniswapConnector([f"{quote}-WETH"], "", None, True, "evm", "1")
+            await self._evm_uniswap_0.initiate_pool()  # initiate to cache swap pool
+            await self._evm_uniswap_1.initiate_pool()  # initiate to cache swap pool
+            return await self._evm_uniswap_0.get_quote_price(f"{quote}-WETH", True, 1)

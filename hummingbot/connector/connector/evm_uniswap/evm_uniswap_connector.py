@@ -123,7 +123,8 @@ class EvmUniswapConnector(ConnectorBase):
         """
         try:
             self.logger().info(f"Initializing EVM Uniswap connector and paths for {self._trading_pairs} pairs.")
-            resp = await self._api_request("get", f"{self._prefix}/uniswap/{self._dex_id}/start",
+            url = f"{self._prefix}/uniswap/{self._dex_id}/start"
+            resp = await self._api_request("get", url,
                                            {"pairs": json.dumps(self._trading_pairs)})
             status = bool(str(resp["success"]))
             if bool(str(resp["success"])):
@@ -175,7 +176,8 @@ class EvmUniswapConnector(ConnectorBase):
         :return: A dictionary of token and its allowance (how much Uniswap can spend).
         """
         ret_val = {}
-        resp = await self._api_request("post", f"{self._prefix}/allowances",
+        url = f"{self._prefix}/allowances"
+        resp = await self._api_request("post", url,
                                        {"tokenList": "[" + (",".join(['"' + t + '"' for t in self._tokens])) + "]",
                                         "connector": self.name})
         print(resp)
@@ -197,8 +199,9 @@ class EvmUniswapConnector(ConnectorBase):
         try:
             base, quote = trading_pair.split("-")
             side = "buy" if is_buy else "sell"
+            url = f"{self._prefix}/uniswap/{self._dex_id}/price"
             resp = await self._api_request("post",
-                                           f"{self._prefix}/uniswap/{self._dex_id}/price",
+                                           url,
                                            {"base": base,
                                             "quote": quote,
                                             "side": side.upper(),
@@ -541,8 +544,9 @@ class EvmUniswapConnector(ConnectorBase):
             self._last_balance_poll_timestamp = current_tick
             local_asset_names = set(self._account_balances.keys())
             remote_asset_names = set()
+            url = f"{self._prefix}/balances"
             resp_json = await self._api_request("post",
-                                                f"{self._prefix}/balances",
+                                                url,
                                                 {"tokenList": "[" + (",".join(['"' + t + '"' for t in self._tokens])) + "]"})
 
             for token, bal in resp_json["balances"].items():
