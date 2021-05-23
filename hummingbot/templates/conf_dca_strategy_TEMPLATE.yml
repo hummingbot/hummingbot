@@ -1,0 +1,22 @@
+########################################################
+###       DCA strategy config               ###
+########################################################
+
+template_version: 2
+strategy: null
+# The following configuations are only required for the
+# twap strategy
+
+# Exchange and token parameters
+market: null
+market_trading_pair_tuple: null
+
+# Overall base size of the DCA strategy
+order_amount: null
+
+# How many orders to place for the DCA strategy
+# Each order size will be (order_amount / num_individual_orders)
+num_individual_orders: null
+
+# How long to between placing DCA orders
+days_period: null
