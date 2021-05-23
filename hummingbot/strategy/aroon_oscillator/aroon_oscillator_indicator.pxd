@@ -7,7 +7,7 @@ cdef class OscillatorPeriod:
         double _start
         double _end
 
-    cdef c_add_tick(self, double tick_stamp, object price)
+    cdef c_add_tick(self, object price)
 
 
 cdef class AroonOscillatorIndicator:
@@ -24,3 +24,6 @@ cdef class AroonOscillatorIndicator:
     cdef object c_aroon_osc(self)
     cdef object c_aroon_up(self)
     cdef object c_aroon_down(self)
+    cdef list c_aroon_periods(self)
+    cdef int c_aroon_period_count(self)
+    cdef OscillatorPeriod c_last_period(self)

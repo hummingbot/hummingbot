@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from .pure_market_making import WilliamsPctRStrategy
+from .aroon_oscillator import AroonOscillatorStrategy
 __all__ = [
-    WilliamsPctRStrategy,
+    AroonOscillatorStrategy,
 ]
