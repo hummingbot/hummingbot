@@ -4,10 +4,10 @@ from typing import (
 )
 
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.strategy.williams_pct_r import (
-    WilliamsPctRStrategy,
+from hummingbot.strategy.aroon_oscillator import (
+    AroonOscillatorStrategy,
 )
-from hummingbot.strategy.pure_market_making.williams_pct_r_config_map import williams_pct_r_config_map as c_map
+from hummingbot.strategy.aroon_oscillator.aroon_oscillator_config_map import aroon_oscillator_config_map as c_map
 from decimal import Decimal
 
 
@@ -16,12 +16,12 @@ def start(self):
         order_amount = c_map.get("order_amount").value
         order_refresh_time = c_map.get("order_refresh_time").value
         max_order_age = c_map.get("max_order_age").value
-        bid_spread = c_map.get("bid_spread").value / Decimal('100')
-        ask_spread = c_map.get("ask_spread").value / Decimal('100')
         minimum_spread = c_map.get("minimum_spread").value / Decimal('100')
+        maximum_spread = c_map.get("maximum_spread").value / Decimal('100')
+        period_length = c_map.get("period_length").value
+        period_duration = c_map.get("period_length").value
         price_ceiling = c_map.get("price_ceiling").value
         price_floor = c_map.get("price_floor").value
-        ping_pong_enabled = c_map.get("ping_pong_enabled").value
         order_levels = c_map.get("order_levels").value
         order_level_amount = c_map.get("order_level_amount").value
         order_level_spread = c_map.get("order_level_spread").value / Decimal('100')
@@ -52,12 +52,14 @@ def start(self):
         self.market_trading_pair_tuples = [MarketTradingPairTuple(*maker_data)]
         take_if_crossed = c_map.get("take_if_crossed").value
 
-        strategy_logging_options = WilliamsPctRStrategy.OPTION_LOG_ALL
+        strategy_logging_options = AroonOscillatorStrategy.OPTION_LOG_ALL
 
-        self.strategy = WilliamsPctRStrategy(
+        self.strategy = AroonOscillatorStrategy(
             market_info=MarketTradingPairTuple(*maker_data),
-            bid_spread=bid_spread,
-            ask_spread=ask_spread,
+            minimum_spread=minimum_spread,
+            maximum_spread=maximum_spread,
+            period_length=period_length,
+            period_duration=period_duration,
             order_levels=order_levels,
             order_amount=order_amount,
             order_level_spread=order_level_spread,
@@ -78,10 +80,8 @@ def start(self):
             take_if_crossed=take_if_crossed,
             price_ceiling=price_ceiling,
             price_floor=price_floor,
-            ping_pong_enabled=ping_pong_enabled,
             hanging_orders_cancel_pct=hanging_orders_cancel_pct,
             order_refresh_tolerance_pct=order_refresh_tolerance_pct,
-            minimum_spread=minimum_spread,
             hb_app_notification=True,
             order_override={} if order_override is None else order_override,
         )

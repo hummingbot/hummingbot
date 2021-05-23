@@ -1,3 +1,4 @@
+# distutils: language=c++
 from decimal import Decimal
 import logging
 import pandas as pd
@@ -29,14 +30,11 @@ from .data_types import (
     Proposal,
     PriceSize
 )
-from .pure_market_making_order_tracker import PureMarketMakingOrderTracker
+from .aroon_oscillator_order_tracker import AroonOscillatorOrderTracker
 
-from .asset_price_delegate cimport AssetPriceDelegate
-from .asset_price_delegate import AssetPriceDelegate
-from .inventory_skew_calculator cimport c_calculate_bid_ask_ratios_from_base_asset_ratio
-from .inventory_skew_calculator import calculate_total_order_size
-from .order_book_asset_price_delegate cimport OrderBookAssetPriceDelegate
-from .inventory_cost_price_delegate import InventoryCostPriceDelegate
+from hummingbot.strategy.pure_market_making.inventory_skew_calculator cimport c_calculate_bid_ask_ratios_from_base_asset_ratio
+from hummingbot.strategy.pure_market_making.inventory_skew_calculator import calculate_total_order_size
+from .aroon_oscillator_indicator cimport AroonOscillatorIndicator
 
 
 NaN = float("nan")
@@ -45,7 +43,7 @@ s_decimal_neg_one = Decimal(-1)
 pmm_logger = None
 
 
-cdef class WillaimsPctRStrategy(StrategyBase):
+cdef class AroonOscillatorStrategy(StrategyBase):
     OPTION_LOG_CREATE_ORDER = 1 << 3
     OPTION_LOG_MAKER_ORDER_FILLED = 1 << 4
     OPTION_LOG_STATUS_REPORT = 1 << 5
@@ -63,8 +61,10 @@ cdef class WillaimsPctRStrategy(StrategyBase):
 
     def __init__(self,
                  market_info: MarketTradingPairTuple,
-                 bid_spread: Decimal,
-                 ask_spread: Decimal,
+                 minimum_spread: Decimal,
+                 maximum_spread: Decimal,
+                 period_length: int,
+                 period_duration: int,
                  order_amount: Decimal,
                  order_levels: int = 1,
                  order_level_spread: Decimal = s_decimal_zero,
@@ -82,16 +82,12 @@ cdef class WillaimsPctRStrategy(StrategyBase):
                  ask_order_optimization_depth: Decimal = s_decimal_zero,
                  bid_order_optimization_depth: Decimal = s_decimal_zero,
                  add_transaction_costs_to_orders: bool = False,
-                 asset_price_delegate: AssetPriceDelegate = None,
-                 inventory_cost_price_delegate: InventoryCostPriceDelegate = None,
                  price_type: str = "mid_price",
                  take_if_crossed: bool = False,
                  price_ceiling: Decimal = s_decimal_neg_one,
                  price_floor: Decimal = s_decimal_neg_one,
-                 ping_pong_enabled: bool = False,
                  logging_options: int = OPTION_LOG_ALL,
                  status_report_interval: float = 900,
-                 minimum_spread: Decimal = Decimal(0),
                  hb_app_notification: bool = False,
                  order_override: Dict[str, List[str]] = {},
                  ):
@@ -100,11 +96,12 @@ cdef class WillaimsPctRStrategy(StrategyBase):
             raise ValueError("Parameter price_ceiling cannot be lower than price_floor.")
 
         super().__init__()
-        self._sb_order_tracker = WillaimsPctROrderTracker()
+        self._sb_order_tracker = AroonOscillatorOrderTracker()
         self._market_info = market_info
-        self._bid_spread = bid_spread
-        self._ask_spread = ask_spread
+        self._bid_spread = Decimal("0")
+        self._ask_spread = Decimal("0")
         self._minimum_spread = minimum_spread
+        self._maximum_spread = maximum_spread
         self._order_amount = order_amount
         self._order_levels = order_levels
         self._buy_levels = order_levels
@@ -124,16 +121,14 @@ cdef class WillaimsPctRStrategy(StrategyBase):
         self._ask_order_optimization_depth = ask_order_optimization_depth
         self._bid_order_optimization_depth = bid_order_optimization_depth
         self._add_transaction_costs_to_orders = add_transaction_costs_to_orders
-        self._asset_price_delegate = asset_price_delegate
-        self._inventory_cost_price_delegate = inventory_cost_price_delegate
         self._price_type = self.get_price_type(price_type)
         self._take_if_crossed = take_if_crossed
         self._price_ceiling = price_ceiling
         self._price_floor = price_floor
-        self._ping_pong_enabled = ping_pong_enabled
-        self._ping_pong_warning_lines = []
         self._hb_app_notification = hb_app_notification
         self._order_override = order_override
+        self._period_length = period_length
+        self._period_duration = period_duration
 
         self._cancel_timestamp = 0
         self._create_timestamp = 0
@@ -149,6 +144,7 @@ cdef class WillaimsPctRStrategy(StrategyBase):
         self._last_timestamp = 0
         self._status_report_interval = status_report_interval
         self._last_own_trade_price = Decimal('nan')
+        self._aroon_osc = AroonOscillatorIndicator(self._period_length, self._period_duration)
 
         self.c_add_markets([market_info.market])
 
@@ -261,17 +257,25 @@ cdef class WillaimsPctRStrategy(StrategyBase):
     def bid_spread(self) -> Decimal:
         return self._bid_spread
 
-    @bid_spread.setter
-    def bid_spread(self, value: Decimal):
-        self._bid_spread = value
-
     @property
     def ask_spread(self) -> Decimal:
         return self._ask_spread
 
-    @ask_spread.setter
-    def ask_spread(self, value: Decimal):
-        self._ask_spread = value
+    @property
+    def minimum_spread(self) -> Decimal:
+        return self._minimum_spread
+
+    @minimum_spread.setter
+    def minimum_spread(self, value: Decimal):
+        self._minimum_spread = value
+
+    @property
+    def maximum_spread(self) -> Decimal:
+        return self._maximum_spread
+
+    @maximum_spread.setter
+    def maximum_spread(self, value: Decimal):
+        self._maximum_spread = value
 
     @property
     def order_optimization_enabled(self) -> bool:
@@ -350,7 +354,7 @@ cdef class WillaimsPctRStrategy(StrategyBase):
         self._order_override = value
 
     def get_price(self) -> float:
-        price_provider = self._asset_price_delegate or self._market_info
+        price_provider = self._market_info
         if self._price_type is PriceType.LastOwnTrade:
             price = self._last_own_trade_price
         elif self._price_type is PriceType.InventoryCost:
@@ -363,6 +367,22 @@ cdef class WillaimsPctRStrategy(StrategyBase):
 
         return price
 
+    @property
+    def aroon_up(self) -> float:
+        return self._aroon_osc.c_aroon_up()
+
+    @property
+    def aroon_down(self) -> float:
+        return self._aroon_osc.c_aroon_down()
+
+    @property
+    def aroon_osc(self) -> float:
+        return self._aroon_osc.c_aroon_osc()
+
+    @property
+    def aroon_full(self) -> bool:
+        return bool(self._aroon_osc.c_full())
+
     def get_last_price(self) -> float:
         return self._market_info.get_last_price()
 
@@ -370,14 +390,7 @@ cdef class WillaimsPctRStrategy(StrategyBase):
         return self.c_get_mid_price()
 
     cdef object c_get_mid_price(self):
-        cdef:
-            AssetPriceDelegate delegate = self._asset_price_delegate
-            object mid_price
-        if self._asset_price_delegate is not None:
-            mid_price = delegate.c_get_mid_price()
-        else:
-            mid_price = self._market_info.get_mid_price()
-        return mid_price
+        return self._market_info.get_mid_price()
 
     @property
     def hanging_order_ids(self) -> List[str]:
@@ -413,22 +426,6 @@ cdef class WillaimsPctRStrategy(StrategyBase):
     @logging_options.setter
     def logging_options(self, int64_t logging_options):
         self._logging_options = logging_options
-
-    @property
-    def asset_price_delegate(self) -> AssetPriceDelegate:
-        return self._asset_price_delegate
-
-    @asset_price_delegate.setter
-    def asset_price_delegate(self, value):
-        self._asset_price_delegate = value
-
-    @property
-    def inventory_cost_price_delegate(self) -> AssetPriceDelegate:
-        return self._inventory_cost_price_delegate
-
-    @inventory_cost_price_delegate.setter
-    def inventory_cost_price_delegate(self, value):
-        self._inventory_cost_price_delegate = value
 
     @property
     def order_tracker(self):
@@ -556,25 +553,10 @@ cdef class WillaimsPctRStrategy(StrategyBase):
         if self._price_type is PriceType.LastOwnTrade and self._last_own_trade_price.is_nan():
             markets_columns[-1] = "Ref Price (MidPrice)"
         market_books = [(self._market_info.market, self._market_info.trading_pair)]
-        if type(self._asset_price_delegate) is OrderBookAssetPriceDelegate:
-            market_books.append((self._asset_price_delegate.market, self._asset_price_delegate.trading_pair))
         for market, trading_pair in market_books:
             bid_price = market.get_price(trading_pair, False)
             ask_price = market.get_price(trading_pair, True)
             ref_price = float("nan")
-            if market == self._market_info.market and self._inventory_cost_price_delegate is not None:
-                # We're using inventory_cost, show it's price
-                ref_price = self._inventory_cost_price_delegate.get_price()
-                if ref_price is None:
-                    ref_price = self.get_price()
-            elif market == self._market_info.market and self._asset_price_delegate is None:
-                ref_price = self.get_price()
-            elif (
-                self._asset_price_delegate is not None
-                and market == self._asset_price_delegate.market
-                and self._price_type is not PriceType.LastOwnTrade
-            ):
-                ref_price = self._asset_price_delegate.get_price_by_type(self._price_type)
             markets_data.append([
                 market.display_name,
                 trading_pair,
@@ -590,7 +572,6 @@ cdef class WillaimsPctRStrategy(StrategyBase):
         cdef:
             list lines = []
             list warning_lines = []
-        warning_lines.extend(self._ping_pong_warning_lines)
         warning_lines.extend(self.network_warning([self._market_info]))
 
         markets_df = self.market_status_data_frame([self._market_info])
@@ -613,6 +594,14 @@ cdef class WillaimsPctRStrategy(StrategyBase):
             lines.extend(["", "  Orders:"] + ["    " + line for line in df.to_string(index=False).split("\n")])
         else:
             lines.extend(["", "  No active maker orders."])
+
+        lines.extend(["", f"  Aroon Indicators:",
+                      f"    Aroon Up = {self.aroon_up:.5g}",
+                      f"    Aroon Down = {self.aroon_down:.5g}",
+                      f"    Aroon Osc = {self.aroon_osc:.3g}",
+                      f"    Aroon Indicator Full = {self.aroon_full}",
+                      f"    Adjusted Ask Spread = {self.ask_spread}",
+                      f"    Adjusted Bid Spread = {self.bid_spread}"])
 
         warning_lines.extend(self.balance_warning([self._market_info]))
 
@@ -651,8 +640,6 @@ cdef class WillaimsPctRStrategy(StrategyBase):
         try:
             if not self._all_markets_ready:
                 self._all_markets_ready = all([market.ready for market in self._sb_markets])
-                if self._asset_price_delegate is not None and self._all_markets_ready:
-                    self._all_markets_ready = self._asset_price_delegate.ready
                 if not self._all_markets_ready:
                     # Markets not ready yet. Don't do anything.
                     if should_report_warnings:
@@ -666,6 +653,8 @@ cdef class WillaimsPctRStrategy(StrategyBase):
 
             proposal = None
             asset_mid_price = Decimal("0")
+            self._aroon_osc.c_add_tick(self._current_timestamp, self.get_last_price())
+            self.c_adjust_spreads()
             # asset_mid_price = self.c_set_mid_price(market_info)
             if self._create_timestamp <= self._current_timestamp:
                 # 1. Create base order proposals
@@ -693,6 +682,18 @@ cdef class WillaimsPctRStrategy(StrategyBase):
         finally:
             self._last_timestamp = timestamp
 
+    cdef c_adjust_spreads(self):
+        cdef:
+            min_max_spread_diff = self._maximum_spread - self._minimum_spread
+
+        if self._aroon_osc.c_full():
+            self._ask_spread = self._minimum_spread + (min_max_spread_diff * (self._aroon_osc.c_aroon_up() / 100))
+            self._bid_spread = self._minimum_spread + (min_max_spread_diff * (self._aroon_osc.c_aroon_down() / 100))
+        else:
+            self._bid_spread = self._ask_spread = self._minimum_spread + (min_max_spread_diff * 0.5)
+
+        return None
+
     cdef object c_create_base_proposal(self):
         cdef:
             ExchangeBase market = self._market_info.market
@@ -700,16 +701,6 @@ cdef class WillaimsPctRStrategy(StrategyBase):
             list sells = []
 
         buy_reference_price = sell_reference_price = self.get_price()
-
-        if self._inventory_cost_price_delegate is not None:
-            inventory_cost_price = self._inventory_cost_price_delegate.get_price()
-            if inventory_cost_price is not None:
-                # Only limit sell price. Buy are always allowed.
-                sell_reference_price = max(inventory_cost_price, sell_reference_price)
-            else:
-                base_balance = float(market.get_balance(self._market_info.base_asset))
-                if base_balance > 0:
-                    raise RuntimeError("Initial inventory price is not set while inventory_cost feature is active.")
 
         # First to check if a customized order override is configured, otherwise the proposal will be created according
         # to order spread, amount, and levels setting.
@@ -769,29 +760,12 @@ cdef class WillaimsPctRStrategy(StrategyBase):
 
     cdef c_apply_order_levels_modifiers(self, proposal):
         self.c_apply_price_band(proposal)
-        if self._ping_pong_enabled:
-            self.c_apply_ping_pong(proposal)
 
     cdef c_apply_price_band(self, proposal):
         if self._price_ceiling > 0 and self.get_price() >= self._price_ceiling:
             proposal.buys = []
         if self._price_floor > 0 and self.get_price() <= self._price_floor:
             proposal.sells = []
-
-    cdef c_apply_ping_pong(self, object proposal):
-        self._ping_pong_warning_lines = []
-        if self._filled_buys_balance == self._filled_sells_balance:
-            self._filled_buys_balance = self._filled_sells_balance = 0
-        if self._filled_buys_balance > 0:
-            proposal.buys = proposal.buys[self._filled_buys_balance:]
-            self._ping_pong_warning_lines.extend(
-                [f"  Ping-pong removed {self._filled_buys_balance} buy orders."]
-            )
-        if self._filled_sells_balance > 0:
-            proposal.sells = proposal.sells[self._filled_sells_balance:]
-            self._ping_pong_warning_lines.extend(
-                [f"  Ping-pong removed {self._filled_sells_balance} sell orders."]
-            )
 
     cdef c_apply_order_price_modifiers(self, object proposal):
         if self._order_optimization_enabled:
