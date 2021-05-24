@@ -2,12 +2,12 @@
 Mock server implementation for an API that returns a list of tokens
 """
 
-from http.server import BaseHTTPRequestHandler
+from test.mock.mock_server import PingableHttpRequestHandler
 import json
 import requests
 
 
-class MockTokenListRequestHandler(BaseHTTPRequestHandler):
+class MockTokenListRequestHandler(PingableHttpRequestHandler):
     """
     A mock token listing API
     """
