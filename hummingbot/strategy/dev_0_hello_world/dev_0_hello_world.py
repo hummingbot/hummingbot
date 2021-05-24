@@ -2,13 +2,9 @@
 
 import logging
 
-from typing import (
-    Dict,
-)
 
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.logger import HummingbotLogger
-from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
 
 hws_logger = None
@@ -30,13 +26,11 @@ class HelloWorldStrategy(StrategyPyBase):
 
     def __init__(self,
                  exchange: ExchangeBase,
-                 market_infos: Dict[str, MarketTradingPairTuple],
                  trading_pair: str,
                  asset: str):
 
         super().__init__()
         self._exchange = exchange
-        self._market_infos = market_infos
         self._asset = asset
         self._ready = False
 
@@ -58,9 +52,8 @@ class HelloWorldStrategy(StrategyPyBase):
             return "Exchange connector(s) are not ready."
         lines = []
 
-        for market_info in self._market_infos.values():
-            lines.extend(["", "  Assets:"] + ["    " + str(self._asset) + "    " +
-                                              str(market_info.market.get_balance(self._asset))])
+        lines.extend(["", "  Assets:"] + ["    " + str(self._asset) + "    " +
+                                          str(self._exchange.get_balance(self._asset))])
 
         return "\n".join(lines)
 
