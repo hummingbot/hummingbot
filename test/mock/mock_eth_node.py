@@ -2,12 +2,12 @@
 Mock server implementation for an Ethereum Node
 """
 
-from http.server import BaseHTTPRequestHandler
+from test.mock.mock_server import PingableHttpRequestHandler
 import json
 import requests
 
 
-class MockEthNodeRequestHandler(BaseHTTPRequestHandler):
+class MockEthNodeRequestHandler(PingableHttpRequestHandler):
     """
     A mock Eth Node that satisfies the simple expectations for testing purposes
     """
