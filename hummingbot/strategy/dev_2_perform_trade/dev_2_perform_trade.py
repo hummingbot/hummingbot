@@ -8,6 +8,7 @@ import time
 from decimal import Decimal
 from typing import (
     List,
+    Set
 )
 
 from hummingbot.connector.connector_base import OrderType
@@ -41,7 +42,8 @@ class PerformTradeStrategy(StrategyPyBase):
                  is_buy: bool,
                  spread: Decimal,
                  order_amount: Decimal,
-                 price_type: PriceType
+                 price_type: PriceType,
+                 hb_app_notification: bool = False,
                  ):
 
         super().__init__()
@@ -50,8 +52,8 @@ class PerformTradeStrategy(StrategyPyBase):
         self._is_buy = is_buy
         self._spread = spread / Decimal("100")
         self._order_amount = order_amount
-
         self._price_type = price_type
+        self._hb_app_notification = hb_app_notification
 
         self.add_markets([self._exchange])
 
@@ -62,6 +64,7 @@ class PerformTradeStrategy(StrategyPyBase):
         self._current_price = s_decimal_zero
         self._last_own_trade_price = s_decimal_zero
         self._order_refresh_time: float = -1
+        self._tracked_order_ids: Set = set()
 
     @property
     def active_orders(self) -> List[LimitOrder]:
@@ -69,18 +72,20 @@ class PerformTradeStrategy(StrategyPyBase):
         return [o[1] for o in limit_orders]
 
     def notify_hb_app(self, msg: str):
-        from hummingbot.client.hummingbot_application import HummingbotApplication
-        HummingbotApplication.main_application()._notify(msg)
+        if self._hb_app_notification:
+            from hummingbot.client.hummingbot_application import HummingbotApplication
+            HummingbotApplication.main_application()._notify(msg)
 
     def did_fill_order(self, event: OrderFilledEvent):
         """
         Method that is called when an OrderFilledEvent is triggered.
         Updates the _last_own_trade_price when a OrderFilledEvent is triggered.
         """
-        msg = f"({self._trading_pair}) {'BUY' if self._is_buy else 'SELL'} order ({event.amount}@{event.price}) " \
+        msg = f"({self._trading_pair}) {'BUY' if self._is_buy else 'SELL'} order ({event.amount} @ {event.price}) " \
               f"{self._market_info.base_asset} is filled."
         self.notify_hb_app(msg)
-        self._last_own_trade_price = event.price
+        if event.order_id in self._tracked_order_ids:
+            self._last_own_trade_price = event.price
 
     def format_status(self) -> str:
         if not self._ready:
@@ -159,20 +164,21 @@ class PerformTradeStrategy(StrategyPyBase):
                            f"Order: {self._order_amount}{self._market_info[2]} @ {price}{self._market_info[3]}")
 
         if self._is_buy:
-            self.buy_with_specific_market(
+            order_id = self.buy_with_specific_market(
                 market_trading_pair_tuple=self._market_info,
                 amount=self._order_amount,
                 order_type=OrderType.LIMIT_MAKER,
                 price=price,
             )
         else:
-            self.sell_with_specific_market(
+            order_id = self.sell_with_specific_market(
                 market_trading_pair_tuple=self._market_info,
                 amount=self._order_amount,
                 order_type=OrderType.LIMIT_MAKER,
                 price=price,
             )
 
+        self._tracked_order_ids.add(order_id)
         self._order_refresh_time = self.current_timestamp + 60
 
     def tick(self, timestamp: float):

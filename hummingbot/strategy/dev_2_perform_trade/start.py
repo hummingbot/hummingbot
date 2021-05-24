@@ -33,6 +33,7 @@ def start(self):
             spread=spread,
             order_amount=order_amount,
             price_type=price_type,
+            hb_app_notification=True,
         )
     except Exception as e:
         self._notify(str(e))
