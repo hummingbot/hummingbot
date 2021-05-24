@@ -251,14 +251,34 @@ class Dev2PerformTradeUnitTest(unittest.TestCase):
         self.assertEqual(1, bid_order.quantity)
 
     def test_sell_last_price_place_order(self):
-        pass
+        self.clock.add_iterator(self.sell_last_price_strategy)
+
+        filled_order: LimitOrder = LimitOrder(client_order_id="test",
+                                              trading_pair=self.trading_pair,
+                                              is_buy=True,
+                                              base_currency=self.base_asset,
+                                              quote_currency=self.quote_asset,
+                                              price=Decimal("101.0"),
+                                              quantity=Decimal("10"))
+        self.simulate_limit_order_fill(self.market, filled_order, self.start_timestamp)
+
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size + self.time_delay)
+
+        last_trade_price = filled_order.price
+        expected_order_price: Decimal = last_trade_price * (Decimal('1') + (self.spread / Decimal("100")))
+
+        ask_orders: List[LimitOrder] = [o for o in self.sell_last_price_strategy.active_orders if not o.is_buy]
+        self.assertEqual(1, len(ask_orders))
+        ask_order: LimitOrder = ask_orders[0]
+        self.assertEqual(expected_order_price, ask_order.price)
+        self.assertEqual(1, ask_order.quantity)
 
     def test_order_filled(self):
         self.clock.add_iterator(self.buy_mid_price_strategy)
         self.clock.backtest_til(self.start_timestamp + self.clock_tick_size + self.time_delay)
 
         bid_order = [o for o in self.buy_mid_price_strategy.active_orders if o.is_buy][0]
-        self.simulate_limit_order_fill(self.market, bid_order)
+        self.simulate_limit_order_fill(self.market, bid_order, self.start_timestamp + 10)
 
         fill_events = self.maker_order_fill_logger.event_log
         self.assertEqual(1, len(fill_events))
