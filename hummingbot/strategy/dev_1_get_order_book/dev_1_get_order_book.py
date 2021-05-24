@@ -3,15 +3,10 @@
 import logging
 import pandas as pd
 
-from typing import (
-    Dict,
-)
-
 from hummingbot.core.clock import Clock
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.logger import HummingbotLogger
-from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
 
 gob_logger = None
@@ -34,13 +29,12 @@ class GetOrderBookStrategy(StrategyPyBase):
 
     def __init__(self,
                  exchange: ExchangeBase,
-                 market_info: Dict[str, MarketTradingPairTuple],
                  trading_pair: str,
+                 hb_app_notification: bool = False
                  ):
 
         super().__init__()
         self._exchange = exchange
-        self._market_info = market_info
         self._trading_pair = trading_pair
         self._lines = 5
 
