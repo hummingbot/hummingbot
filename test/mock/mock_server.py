@@ -56,18 +56,18 @@ class MockServer:
         self._server_thread = None
         self._server_class = server_class
 
+    def __del__(self):
+        """
+        stop server on object deconstruction
+        """
+        self.stop()
+
     def __enter__(self):
         """
         with MockServer() as mock_server
         """
         self.start()
         return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """
-        stop server when using with
-        """
-        self.stop()
 
     def ping(self):
         """
@@ -97,7 +97,7 @@ class MockServer:
         Manually stop the server by terminating the server thread. Safe to call if start was never called.
         """
         if self._server:
-            self._server.stop()
+            self._server.stop_server()
 
     @property
     def host(self) -> str:
