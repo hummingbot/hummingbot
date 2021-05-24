@@ -2,6 +2,7 @@
 Unit tests for hummingbot.core.utils.ethereum
 """
 
+from aiohttp import ClientConnectorError
 import asyncio
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.utils.ethereum import check_web3, check_transaction_exceptions, fetch_trading_pairs
@@ -69,8 +70,9 @@ class EthereumTest(unittest.TestCase):
         mock_server = MockServer(MockTokenListRequestHandler)
         global_config_map['ethereum_token_list_url'].value = mock_server.url
 
-        # the server hasn't started to the function call should fail
-        self.assertRaises(Exception, fetch_trading_pairs())
+        # the server hasn't started, the function call should fail
+        with self.assertRaises(ClientConnectorError):
+            asyncio.get_event_loop().run_until_complete(fetch_trading_pairs())
 
         # turn on the server to get data
         mock_server.start()
