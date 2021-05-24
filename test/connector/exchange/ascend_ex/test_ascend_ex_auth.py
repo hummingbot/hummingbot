@@ -12,7 +12,7 @@ from typing import Dict, Any
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_constants import REST_URL
-from hummingbot.connector.exchange.ascend_ex.ascend_ex_utils import get_rest_url_private
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_utils import get_ws_url_private
 
 sys.path.insert(0, realpath(join(__file__, "../../../../../")))
 logging.basicConfig(level=METRICS_LOG_LEVEL)
@@ -38,7 +38,7 @@ class TestAscendExAuth(unittest.TestCase):
         info = await self.rest_auth()
         accountGroup = info.get("data").get("accountGroup")
         headers = self.auth.get_auth_headers("stream")
-        ws = await websockets.connect(f"{get_rest_url_private(accountGroup)}/stream", extra_headers=headers)
+        ws = await websockets.connect(f"{get_ws_url_private(accountGroup)}/stream", extra_headers=headers)
 
         raw_msg = await asyncio.wait_for(ws.recv(), 5000)
         msg = ujson.loads(raw_msg)
