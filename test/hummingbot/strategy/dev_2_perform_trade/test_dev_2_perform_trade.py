@@ -273,6 +273,56 @@ class Dev2PerformTradeUnitTest(unittest.TestCase):
         self.assertEqual(expected_order_price, ask_order.price)
         self.assertEqual(1, ask_order.quantity)
 
+    def test_buy_last_own_trade_price_place_order(self):
+        self.clock.add_iterator(self.buy_last_own_trade_price_strategy)
+
+        # Simulate a order being filled in the orderbook
+        own_filled_order: LimitOrder = LimitOrder(client_order_id="myTrade",
+                                                  trading_pair=self.trading_pair,
+                                                  is_buy=True,
+                                                  base_currency=self.base_asset,
+                                                  quote_currency=self.quote_asset,
+                                                  price=Decimal("102.0"),
+                                                  quantity=Decimal("10"))
+        self.buy_last_own_trade_price_strategy._tracked_order_ids.add("myTrade")
+        self.simulate_limit_order_fill(self.market, own_filled_order, self.start_timestamp + 60)
+
+        self.clock.backtest_til(self.start_timestamp + 120)
+
+        last_own_traded_price = own_filled_order.price
+        expected_order_price: Decimal = last_own_traded_price * (Decimal('1') - (self.spread / Decimal("100")))
+
+        bid_orders: List[LimitOrder] = [o for o in self.buy_last_own_trade_price_strategy.active_orders if o.is_buy]
+        self.assertEqual(1, len(bid_orders))
+        bid_order: LimitOrder = bid_orders[0]
+        self.assertEqual(expected_order_price, bid_order.price)
+        self.assertEqual(1, bid_order.quantity)
+
+    def test_sell_last_own_trade_price_place_order(self):
+        self.clock.add_iterator(self.sell_last_own_trade_price_strategy)
+
+        # Simulate a order being filled in the orderbook
+        own_filled_order: LimitOrder = LimitOrder(client_order_id="myTrade",
+                                                  trading_pair=self.trading_pair,
+                                                  is_buy=True,
+                                                  base_currency=self.base_asset,
+                                                  quote_currency=self.quote_asset,
+                                                  price=Decimal("102.0"),
+                                                  quantity=Decimal("10"))
+        self.sell_last_own_trade_price_strategy._tracked_order_ids.add("myTrade")
+        self.simulate_limit_order_fill(self.market, own_filled_order, self.start_timestamp + 60)
+
+        self.clock.backtest_til(self.start_timestamp + 120)
+
+        last_own_traded_price = own_filled_order.price
+        expected_order_price: Decimal = last_own_traded_price * (Decimal('1') + (self.spread / Decimal("100")))
+
+        ask_orders: List[LimitOrder] = [o for o in self.sell_last_own_trade_price_strategy.active_orders if not o.is_buy]
+        self.assertEqual(1, len(ask_orders))
+        ask_order: LimitOrder = ask_orders[0]
+        self.assertEqual(expected_order_price, ask_order.price)
+        self.assertEqual(1, ask_order.quantity)
+
     def test_order_filled(self):
         self.clock.add_iterator(self.buy_mid_price_strategy)
         self.clock.backtest_til(self.start_timestamp + self.clock_tick_size + self.time_delay)
@@ -287,36 +337,62 @@ class Dev2PerformTradeUnitTest(unittest.TestCase):
         self.assertEqual(bid_order.client_order_id, order_filled.order_id)
 
     def test_mid_price_order_update(self):
-        pass
+        self.clock.add_iterator(self.buy_mid_price_strategy)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size + self.time_delay)
+
+        # Simulate mid price update
+        expected_mid_price: Decimal = Decimal("105")
+        expected_new_price: Decimal = expected_mid_price * (Decimal('1') - (self.spread / Decimal("100")))
+        self.maker_data.set_balanced_order_book(mid_price=expected_mid_price, min_price=1,
+                                                max_price=200, price_step_size=1, volume_step_size=10)
+        self.market.add_data(self.maker_data)
+
+        new_price: Decimal = self.buy_mid_price_strategy._recalculate_price_parameter()
+        self.assertEqual(new_price, expected_new_price)
 
     def test_last_price_order_update(self):
-        pass
+        self.clock.add_iterator(self.buy_last_price_strategy)
+
+        # Simulate last traded price update
+        expected_last_price: Decimal = Decimal("101.0")
+        filled_order: LimitOrder = LimitOrder(client_order_id="test",
+                                              trading_pair=self.trading_pair,
+                                              is_buy=True,
+                                              base_currency=self.base_asset,
+                                              quote_currency=self.quote_asset,
+                                              price=expected_last_price,
+                                              quantity=Decimal("10"))
+        self.simulate_limit_order_fill(self.market, filled_order, self.start_timestamp)
+        expected_new_price: Decimal = expected_last_price * (Decimal('1') - (self.spread / Decimal("100")))
+
+        new_price: Decimal = self.buy_last_price_strategy._recalculate_price_parameter()
+        self.assertEqual(new_price, expected_new_price)
 
     def test_last_own_trade_price_order_update(self):
-        pass
+        self.clock.add_iterator(self.buy_last_own_trade_price_strategy)
 
-    # def test_with_insufficient_balance(self):
-    #     # Set base balance to zero and check if sell strategies don't place orders
-    #     self.clock.add_iterator(self.limit_buy_strategy)
-    #     self.clock.add_iterator(self.market_buy_strategy)
-    #     self.market.set_balance("WETH", 0)
-    #     end_ts = self.start_timestamp + self.clock_tick_size + self.time_delay
-    #     self.clock.backtest_til(end_ts)
-    #     self.assertEqual(0, len(self.limit_buy_strategy.active_bids))
-    #     market_buy_events: List[BuyOrderCompletedEvent] = [t for t in self.buy_order_completed_logger.event_log
-    #                                                        if isinstance(t, BuyOrderCompletedEvent)]
-    #     self.assertEqual(0, len(market_buy_events))
-    #     self.assertEqual(False, self.limit_buy_strategy.place_orders)
-    #     self.assertEqual(False, self.market_buy_strategy.place_orders)
+        # Simulate own order filled
+        last_own_traded_price: Decimal = Decimal("102.0")
+        filled_order: LimitOrder = LimitOrder(client_order_id="myTrade",
+                                              trading_pair=self.trading_pair,
+                                              is_buy=True,
+                                              base_currency=self.base_asset,
+                                              quote_currency=self.quote_asset,
+                                              price=last_own_traded_price,
+                                              quantity=Decimal("10"))
+        self.buy_last_own_trade_price_strategy._tracked_order_ids.add("myTrade")
+        self.simulate_limit_order_fill(self.market, filled_order, self.start_timestamp)
 
-    #     self.clock.add_iterator(self.limit_sell_strategy)
-    #     self.clock.add_iterator(self.market_sell_strategy)
-    #     self.market.set_balance("COINALPHA", 0)
-    #     end_ts += self.clock_tick_size + self.time_delay
-    #     self.clock.backtest_til(end_ts)
-    #     self.assertEqual(0, len(self.limit_sell_strategy.active_asks))
-    #     market_sell_events: List[SellOrderCompletedEvent] = [t for t in self.sell_order_completed_logger.event_log
-    #                                                          if isinstance(t, SellOrderCompletedEvent)]
-    #     self.assertEqual(0, len(market_sell_events))
-    #     self.assertEqual(False, self.limit_sell_strategy.place_orders)
-    #     self.assertEqual(False, self.market_sell_strategy.place_orders)
+        market_filled_order: LimitOrder = LimitOrder(client_order_id="notMyTrade",
+                                                     trading_pair=self.trading_pair,
+                                                     is_buy=True,
+                                                     base_currency=self.base_asset,
+                                                     quote_currency=self.quote_asset,
+                                                     price=Decimal("100"),
+                                                     quantity=Decimal("10"))
+        self.simulate_limit_order_fill(self.market, market_filled_order, self.start_timestamp)
+
+        expected_new_price: Decimal = last_own_traded_price * (Decimal('1') - (self.spread / Decimal("100")))
+
+        new_price: Decimal = self.buy_last_own_trade_price_strategy._recalculate_price_parameter()
+        self.assertEqual(new_price, expected_new_price)
