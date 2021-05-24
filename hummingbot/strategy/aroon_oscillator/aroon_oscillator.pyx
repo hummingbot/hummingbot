@@ -678,7 +678,7 @@ cdef class AroonOscillatorStrategy(StrategyBase):
             f"    Adjusted Ask Spread = {self.ask_spread:.2%}",
             f"    Adjusted Bid Spread = {self.bid_spread:.2%}",
         ])
-        if self.aroon_full or (0 < self._minimum_periods <= self.aroon_period_count()):
+        if self.aroon_full or (0 < self._minimum_periods <= self.aroon_period_count):
             lines.extend([
                 f"    Calculation params = (spread_diff: {self.min_max_spread_diff:.4%}, ask_increase: {self.ask_increase:.4%}, bid_increase: {self.bid_increase:.4%}, trend_factor: {self.trend_factor:.4%}, osc_strength_factor: {self._aroon_osc_strength_factor:.2g})",
                 f"    Ask Spread formula = ({self._minimum_spread:.5g} + ({self.min_max_spread_diff:.6g} * (1 - ({self.aroon_up} / 100)))) * ( 1 + ({self.aroon_osc} / 100 * {self._aroon_osc_strength_factor:.2g}))",
