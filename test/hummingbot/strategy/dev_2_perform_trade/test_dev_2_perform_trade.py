@@ -78,6 +78,7 @@ class Dev2PerformTradeUnitTest(unittest.TestCase):
             order_amount=Decimal("1.0"),
             price_type=PriceType.MidPrice
         )
+
         self.sell_mid_price_strategy: PerformTradeStrategy = PerformTradeStrategy(
             exchange=self.market,
             trading_pair=self.trading_pair,
