@@ -4,6 +4,7 @@ from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
     validate_exchange,
     validate_market_trading_pair,
+    validate_int,
     validate_bool,
     validate_decimal,
 )
@@ -246,4 +247,16 @@ avellaneda_market_making_config_map = {
                   type_str="int",
                   validator=lambda v: validate_decimal(v, 5, 600),
                   default=60),
+    "order_levels":
+        ConfigVar(key="order_levels",
+                  prompt="How many orders do you want to place on both sides? >>> ",
+                  type_str="int",
+                  validator=lambda v: validate_int(v, min_value=-1, inclusive=False),
+                  default=1),
+    "order_override":
+        ConfigVar(key="order_override",
+                  prompt=None,
+                  required_if=lambda: False,
+                  default=None,
+                  type_str="json")
 }
