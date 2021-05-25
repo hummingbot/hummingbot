@@ -74,11 +74,11 @@ class PerformanceMetrics:
         result = None
 
         try:
-            firstWithOpenPosition = next((order for order in open if order.position == "OPEN"))
-            firstWithClosePosition = next((order for order in close if order.position == "CLOSE"))
-            open.remove(firstWithOpenPosition)
-            close.remove(firstWithClosePosition)
-            result = (firstWithOpenPosition, firstWithClosePosition)
+            first_with_open_position = next((order for order in open if order.position == "OPEN"))
+            first_with_close_position = next((order for order in close if order.position == "CLOSE"))
+            open.remove(first_with_open_position)
+            close.remove(first_with_close_position)
+            result = (first_with_open_position, first_with_close_position)
         except StopIteration:
             pass
 
