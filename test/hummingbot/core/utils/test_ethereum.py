@@ -2,29 +2,25 @@
 Unit tests for hummingbot.core.utils.ethereum
 """
 
-from aiohttp import ClientConnectorError
 import asyncio
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.utils.ethereum import check_web3, check_transaction_exceptions, fetch_trading_pairs
-from test.mock.mock_eth_node import MockEthNodeRequestHandler
-from test.mock.mock_token_list import MockTokenListRequestHandler
-from test.mock.mock_server import MockServer
 import unittest.mock
 
 
 class EthereumTest(unittest.TestCase):
-    def test_check_web3(self):
+    @unittest.mock.patch('hummingbot.core.utils.ethereum.is_connected_to_web3')
+    def test_check_web3(self, is_connected_to_web3_mock):
         """
         Unit tests for hummingbot.core.utils.ethereum.check_web3
         """
 
-        # create a MockEthNode but do not start it, check_web3 should fail to contact it
-        mock_eth_node = MockServer(MockEthNodeRequestHandler)
-        self.assertEqual(check_web3(mock_eth_node.url), False)
+        # unable to connect to web3
+        is_connected_to_web3_mock.return_value = False
+        self.assertEqual(check_web3('doesnt-exist'), False)
 
-        # start the node, the check should pass
-        mock_eth_node.start()
-        self.assertEqual(check_web3(mock_eth_node.url), True)
+        # connect to web3
+        is_connected_to_web3_mock.return_value = True
+        self.assertEqual(check_web3('ethereum.node'), True)
 
     def test_check_transaction_exceptions(self):
         """
@@ -61,21 +57,14 @@ class EthereumTest(unittest.TestCase):
         invalid_transaction_3["allowances"] = {"WBTC": 500}
         self.assertRegexpMatches(check_transaction_exceptions(invalid_transaction_3)[0], r"^Insufficient")
 
-    def test_fetch_trading_pairs(self):
+    @unittest.mock.patch('hummingbot.core.utils.ethereum.get_token_list')
+    def test_fetch_trading_pairs(self, get_token_list_mock):
         """
         Unit tests for hummingbot.core.utils.ethereum.fetch_trading_pairs
         """
+        # patch get_token_list to avoid a server call
+        get_token_list_mock.return_value = {'tokens': [{"symbol": "ETH"}, {"symbol": "DAI"}, {"symbol": "BTC"}]}
 
-        # Set url to localhost to mock it
-        mock_server = MockServer(MockTokenListRequestHandler)
-        global_config_map['ethereum_token_list_url'].value = mock_server.url
-
-        # the server hasn't started, the function call should fail
-        with self.assertRaises(ClientConnectorError):
-            asyncio.get_event_loop().run_until_complete(fetch_trading_pairs())
-
-        # turn on the server to get data
-        mock_server.start()
         trading_pairs = asyncio.get_event_loop().run_until_complete(fetch_trading_pairs())
 
         # the order of the elements isn't guaranteed so compare both to sets to compare
