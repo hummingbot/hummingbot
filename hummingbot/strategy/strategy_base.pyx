@@ -118,6 +118,14 @@ cdef class StrategyBase(TimeIterator):
 
         self._sb_order_tracker = OrderTracker()
 
+    def init_params(self, *args, **kwargs):
+        """
+        Assigns strategy parameters, this function must be called directly after init.
+        The reason for this is to make the parameters discoverable through introspect (this is not possible on init of
+        a Cython class).
+        """
+        raise NotImplementedError
+
     @property
     def active_markets(self) -> List[ConnectorBase]:
         return list(self._sb_markets)

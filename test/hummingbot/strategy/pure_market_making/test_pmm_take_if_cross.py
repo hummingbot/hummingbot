@@ -95,7 +95,7 @@ class PureMMTakeIfCrossUnitTest(unittest.TestCase):
         self.order_book_asset_del = OrderBookAssetPriceDelegate(self.ext_market, self.trading_pair)
 
         self.one_level_strategy = PureMarketMakingStrategy()
-        self.one_level_strategy.assign_params(
+        self.one_level_strategy.init_params(
             self.market_info,
             bid_spread=Decimal("0.01"),
             ask_spread=Decimal("0.01"),
