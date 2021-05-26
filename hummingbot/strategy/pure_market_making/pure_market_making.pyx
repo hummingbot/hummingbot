@@ -12,6 +12,7 @@ from math import (
     ceil
 )
 import time
+import cython
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.event.events import TradeType, PriceType
 from hummingbot.core.data_type.limit_order cimport LimitOrder
@@ -61,45 +62,45 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             pmm_logger = logging.getLogger(__name__)
         return pmm_logger
 
-    def __init__(self,
-                 market_info: MarketTradingPairTuple,
-                 bid_spread: Decimal,
-                 ask_spread: Decimal,
-                 order_amount: Decimal,
-                 order_levels: int = 1,
-                 order_level_spread: Decimal = s_decimal_zero,
-                 order_level_amount: Decimal = s_decimal_zero,
-                 order_refresh_time: float = 30.0,
-                 max_order_age = 1800.0,
-                 order_refresh_tolerance_pct: Decimal = s_decimal_neg_one,
-                 filled_order_delay: float = 60.0,
-                 inventory_skew_enabled: bool = False,
-                 inventory_target_base_pct: Decimal = s_decimal_zero,
-                 inventory_range_multiplier: Decimal = s_decimal_zero,
-                 hanging_orders_enabled: bool = False,
-                 hanging_orders_cancel_pct: Decimal = Decimal("0.1"),
-                 order_optimization_enabled: bool = False,
-                 ask_order_optimization_depth: Decimal = s_decimal_zero,
-                 bid_order_optimization_depth: Decimal = s_decimal_zero,
-                 add_transaction_costs_to_orders: bool = False,
-                 asset_price_delegate: AssetPriceDelegate = None,
-                 inventory_cost_price_delegate: InventoryCostPriceDelegate = None,
-                 price_type: str = "mid_price",
-                 take_if_crossed: bool = False,
-                 price_ceiling: Decimal = s_decimal_neg_one,
-                 price_floor: Decimal = s_decimal_neg_one,
-                 ping_pong_enabled: bool = False,
-                 logging_options: int = OPTION_LOG_ALL,
-                 status_report_interval: float = 900,
-                 minimum_spread: Decimal = Decimal(0),
-                 hb_app_notification: bool = False,
-                 order_override: Dict[str, List[str]] = {},
-                 ):
+    def __init__(self):
+        super().__init__()
 
+    def assign_params(self,
+                      market_info: MarketTradingPairTuple,
+                      bid_spread: Decimal,
+                      ask_spread: Decimal,
+                      order_amount: Decimal,
+                      order_levels: int = 1,
+                      order_level_spread: Decimal = s_decimal_zero,
+                      order_level_amount: Decimal = s_decimal_zero,
+                      order_refresh_time: float = 30.0,
+                      max_order_age = 1800.0,
+                      order_refresh_tolerance_pct: Decimal = s_decimal_neg_one,
+                      filled_order_delay: float = 60.0,
+                      inventory_skew_enabled: bool = False,
+                      inventory_target_base_pct: Decimal = s_decimal_zero,
+                      inventory_range_multiplier: Decimal = s_decimal_zero,
+                      hanging_orders_enabled: bool = False,
+                      hanging_orders_cancel_pct: Decimal = Decimal("0.1"),
+                      order_optimization_enabled: bool = False,
+                      ask_order_optimization_depth: Decimal = s_decimal_zero,
+                      bid_order_optimization_depth: Decimal = s_decimal_zero,
+                      add_transaction_costs_to_orders: bool = False,
+                      asset_price_delegate: AssetPriceDelegate = None,
+                      inventory_cost_price_delegate: InventoryCostPriceDelegate = None,
+                      price_type: str = "mid_price",
+                      take_if_crossed: bool = False,
+                      price_ceiling: Decimal = s_decimal_neg_one,
+                      price_floor: Decimal = s_decimal_neg_one,
+                      ping_pong_enabled: bool = False,
+                      logging_options: int = OPTION_LOG_ALL,
+                      status_report_interval: float = 900,
+                      minimum_spread: Decimal = Decimal(0),
+                      hb_app_notification: bool = False,
+                      order_override: Dict[str, List[str]] = {},
+                      ):
         if price_ceiling != s_decimal_neg_one and price_ceiling < price_floor:
             raise ValueError("Parameter price_ceiling cannot be lower than price_floor.")
-
-        super().__init__()
         self._sb_order_tracker = PureMarketMakingOrderTracker()
         self._market_info = market_info
         self._bid_spread = bid_spread

@@ -91,7 +91,8 @@ class PMMUnitTest(unittest.TestCase):
         self.market.add_listener(MarketEvent.OrderFilled, self.order_fill_logger)
         self.market.add_listener(MarketEvent.OrderCancelled, self.cancel_order_logger)
 
-        self.one_level_strategy = PureMarketMakingStrategy(
+        self.one_level_strategy = PureMarketMakingStrategy()
+        self.one_level_strategy.assign_params(
             self.market_info,
             bid_spread=Decimal("0.01"),
             ask_spread=Decimal("0.01"),
@@ -102,7 +103,8 @@ class PMMUnitTest(unittest.TestCase):
             minimum_spread=-1,
         )
 
-        self.multi_levels_strategy = PureMarketMakingStrategy(
+        self.multi_levels_strategy = PureMarketMakingStrategy()
+        self.multi_levels_strategy.assign_params(
             self.market_info,
             bid_spread=Decimal("0.01"),
             ask_spread=Decimal("0.01"),
@@ -116,7 +118,8 @@ class PMMUnitTest(unittest.TestCase):
             minimum_spread=-1,
         )
 
-        self.order_override_strategy = PureMarketMakingStrategy(
+        self.order_override_strategy = PureMarketMakingStrategy()
+        self.order_override_strategy.assign_params(
             self.market_info,
             bid_spread=Decimal("0.01"),
             ask_spread=Decimal("0.01"),
@@ -193,7 +196,8 @@ class PMMUnitTest(unittest.TestCase):
         self.assertEqual(1, len(strategy.active_sells))
 
     def test_basic_one_level_price_type_own_last_trade(self):
-        strategy = PureMarketMakingStrategy(
+        strategy = PureMarketMakingStrategy()
+        strategy.assign_params(
             self.market_info,
             bid_spread=Decimal("0.01"),
             ask_spread=Decimal("0.01"),
@@ -234,7 +238,8 @@ class PMMUnitTest(unittest.TestCase):
         strategies = []
 
         for price_type in ["last_price", "best_bid", "best_ask"]:
-            strategy = PureMarketMakingStrategy(
+            strategy = PureMarketMakingStrategy()
+            strategy.assign_params(
                 self.market_info,
                 bid_spread=Decimal("0.01"),
                 ask_spread=Decimal("0.01"),
@@ -362,7 +367,8 @@ class PMMUnitTest(unittest.TestCase):
         When balance is below the specified order amount, checks if orders created
         use the remaining available balance for the order size.
         """
-        strategy = PureMarketMakingStrategy(
+        strategy = PureMarketMakingStrategy()
+        strategy.assign_params(
             self.market_info,
             bid_spread=Decimal("0.01"),
             ask_spread=Decimal("0.01"),
@@ -705,7 +711,8 @@ class PMMUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("1.34865"), first_ask_order.quantity)
 
     def test_inventory_skew_multiple_orders(self):
-        strategy = PureMarketMakingStrategy(
+        strategy = PureMarketMakingStrategy()
+        strategy.assign_params(
             self.market_info,
             bid_spread=Decimal("0.01"),
             ask_spread=Decimal("0.01"),
@@ -774,7 +781,8 @@ class PMMUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("4.04595"), last_ask_order.quantity)
 
     def test_inventory_skew_multiple_orders_status(self):
-        strategy = PureMarketMakingStrategy(
+        strategy = PureMarketMakingStrategy()
+        strategy.assign_params(
             self.market_info,
             bid_spread=Decimal("0.01"),
             ask_spread=Decimal("0.01"),
@@ -1010,7 +1018,8 @@ class PureMarketMakingMinimumSpreadUnitTest(unittest.TestCase):
             self.maker_trading_pairs[1], self.maker_trading_pairs[2]
         )
 
-        self.strategy: PureMarketMakingStrategy = PureMarketMakingStrategy(
+        self.strategy: PureMarketMakingStrategy = PureMarketMakingStrategy()
+        self.strategy.assign_params(
             self.market_info,
             bid_spread=Decimal(.05),
             ask_spread=Decimal(.05),
