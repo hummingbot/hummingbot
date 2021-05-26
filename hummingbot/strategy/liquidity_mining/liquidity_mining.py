@@ -87,6 +87,9 @@ class LiquidityMiningStrategy(StrategyPyBase):
 
     @property
     def active_orders(self):
+        """
+        List active orders (they have been sent to the market and have not been cancelled yet)
+        """
         limit_orders = self.order_tracker.active_limit_orders
         return [o[1] for o in limit_orders]
 
@@ -119,11 +122,17 @@ class LiquidityMiningStrategy(StrategyPyBase):
 
     @staticmethod
     def order_age(order: LimitOrder) -> float:
+        """
+        Get the age of a limit order
+        """
         if "//" not in order.client_order_id:
             return int(time.time()) - int(order.client_order_id[-16:]) / 1e6
         return -1.
 
     async def active_orders_df(self) -> pd.DataFrame:
+        """
+        Return the active orders in a DataFram.
+        """
         size_q_col = f"Amt({self._token})" if self.is_token_a_quote_token() else "Amt(Quote)"
         columns = ["Market", "Side", "Price", "Spread", "Amount", size_q_col, "Age"]
         data = []
@@ -148,6 +157,9 @@ class LiquidityMiningStrategy(StrategyPyBase):
         return df
 
     def budget_status_df(self) -> pd.DataFrame:
+        """
+        Return the trader's budget in a DataFrame
+        """
         data = []
         columns = ["Market", f"Budget({self._token})", "Base bal", "Quote bal", "Base/Quote"]
         for market, market_info in self._market_infos.items():
@@ -172,6 +184,9 @@ class LiquidityMiningStrategy(StrategyPyBase):
         return df
 
     def market_status_df(self) -> pd.DataFrame:
+        """
+        Return the market status (prices, volatility) in a DataFrame
+        """
         data = []
         columns = ["Market", "Mid price", "Best bid", "Best ask", "Volatility"]
         for market, market_info in self._market_infos.items():
@@ -192,6 +207,9 @@ class LiquidityMiningStrategy(StrategyPyBase):
         return df
 
     async def miner_status_df(self) -> pd.DataFrame:
+        """
+        Return the miner status (payouts, rewards, liquidity, etc.) in a DataFrame
+        """
         data = []
         g_sym = RateOracle.global_token_symbol
         columns = ["Market", "Payout", "Reward/wk", "Liquidity", "Yield/yr", "Max spread"]
@@ -211,6 +229,9 @@ class LiquidityMiningStrategy(StrategyPyBase):
         return df
 
     async def format_status(self) -> str:
+        """
+        Return the budget, market, miner and order statuses.
+        """
         if not self._ready_to_trade:
             return "Market connectors are not ready."
         lines = []
@@ -227,7 +248,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
         if not miner_df.empty:
             lines.extend(["", "  Miner:"] + ["    " + line for line in miner_df.to_string(index=False).split("\n")])
 
-        # See if there're any open orders.
+        # See if there are any open orders.
         if len(self.active_orders) > 0:
             df = await self.active_orders_df()
             lines.extend(["", "  Orders:"] + ["    " + line for line in df.to_string(index=False).split("\n")])
@@ -240,14 +261,23 @@ class LiquidityMiningStrategy(StrategyPyBase):
         return "\n".join(lines)
 
     def start(self, clock: Clock, timestamp: float):
+        """
+
+        """
         restored_orders = self._exchange.limit_orders
         for order in restored_orders:
             self._exchange.cancel(order.trading_pair, order.client_order_id)
 
     def stop(self, clock: Clock):
+        """
+
+        """
         pass
 
     def create_base_proposals(self):
+        """
+        What does this do, what is a proposal, get proposals for all markets the user has defined?
+        """
         proposals = []
         for market, market_info in self._market_infos.items():
             spread = self._spread
@@ -267,6 +297,9 @@ class LiquidityMiningStrategy(StrategyPyBase):
         return proposals
 
     def total_port_value_in_token(self) -> Decimal:
+        """
+        What is port value?
+        """
         all_bals = self.adjusted_available_balances()
         port_value = all_bals.get(self._token, s_decimal_zero)
         for market, market_info in self._market_infos.items():
@@ -278,7 +311,9 @@ class LiquidityMiningStrategy(StrategyPyBase):
         return port_value
 
     def create_budget_allocation(self):
-        # Create buy and sell budgets for every market
+        """
+        Create buy and sell budgets for every market
+        """
         self._sell_budgets = {m: s_decimal_zero for m in self._market_infos}
         self._buy_budgets = {m: s_decimal_zero for m in self._market_infos}
         port_value = self.total_port_value_in_token()
@@ -298,6 +333,9 @@ class LiquidityMiningStrategy(StrategyPyBase):
                     self._sell_budgets[market] = sell_budget
 
     def base_order_size(self, trading_pair: str, price: Decimal = s_decimal_zero):
+        """
+
+        """
         base, quote = trading_pair.split("-")
         if self._token == base:
             return self._order_amount
@@ -306,6 +344,9 @@ class LiquidityMiningStrategy(StrategyPyBase):
         return self._order_amount / price
 
     def apply_budget_constraint(self, proposals: List[Proposal]):
+        """
+
+        """
         balances = self._token_balances.copy()
         for proposal in proposals:
             if balances[proposal.base()] < proposal.sell.size:
@@ -321,6 +362,9 @@ class LiquidityMiningStrategy(StrategyPyBase):
             balances[proposal.quote()] -= quote_size
 
     def is_within_tolerance(self, cur_orders: List[LimitOrder], proposal: Proposal):
+        """
+        False there are no buys or sells or if ???
+        """
         cur_buy = [o for o in cur_orders if o.is_buy]
         cur_sell = [o for o in cur_orders if not o.is_buy]
         if (cur_buy and proposal.buy.size <= 0) or (cur_sell and proposal.sell.size <= 0):
@@ -334,6 +378,9 @@ class LiquidityMiningStrategy(StrategyPyBase):
         return True
 
     def cancel_active_orders(self, proposals: List[Proposal]):
+        """
+        Cancel any orders that have an order age greater than self._max_order_age or if orders are not within tolerance
+        """
         for proposal in proposals:
             to_cancel = False
             cur_orders = [o for o in self.active_orders if o.trading_pair == proposal.market]
@@ -349,6 +396,10 @@ class LiquidityMiningStrategy(StrategyPyBase):
                     self._refresh_times[order.trading_pair] = self.current_timestamp + 0.1
 
     def execute_orders_proposal(self, proposals: List[Proposal]):
+        """
+        Execute a list of proposals if the current timestamp is less than its refresh timestamp.
+        Update the refresh timestamp.
+        """
         for proposal in proposals:
             cur_orders = [o for o in self.active_orders if o.trading_pair == proposal.market]
             if cur_orders or self._refresh_times[proposal.market] > self.current_timestamp:
@@ -387,24 +438,36 @@ class LiquidityMiningStrategy(StrategyPyBase):
                 self._refresh_times[proposal.market] = self.current_timestamp + self._order_refresh_time
 
     def is_token_a_quote_token(self):
+        """
+        Check if self._token is a quote token
+        """
         quotes = self.all_quote_tokens()
         if len(quotes) == 1 and self._token in quotes:
             return True
         return False
 
     def all_base_tokens(self) -> Set[str]:
+        """
+        Get the base token (left-hand side) from all markets in this strategy
+        """
         tokens = set()
         for market in self._market_infos:
             tokens.add(market.split("-")[0])
         return tokens
 
     def all_quote_tokens(self) -> Set[str]:
+        """
+        Get the quote token (right-hand side) from all markets in this strategy
+        """
         tokens = set()
         for market in self._market_infos:
             tokens.add(market.split("-")[1])
         return tokens
 
     def all_tokens(self) -> Set[str]:
+        """
+        Return a list of all tokens involved in this strategy (base and quote)
+        """
         tokens = set()
         for market in self._market_infos:
             tokens.update(market.split("-"))
@@ -430,6 +493,9 @@ class LiquidityMiningStrategy(StrategyPyBase):
         return adjusted_bals
 
     def apply_inventory_skew(self, proposals: List[Proposal]):
+        """
+
+        """
         for proposal in proposals:
             buy_budget = self._buy_budgets[proposal.market]
             sell_budget = self._sell_budgets[proposal.market]
@@ -446,6 +512,9 @@ class LiquidityMiningStrategy(StrategyPyBase):
             proposal.sell.size *= Decimal(bid_ask_ratios.ask_ratio)
 
     def did_fill_order(self, event):
+        """
+        Check if order has been completed, log it, notify the hummingbot application, and update budgets.
+        """
         order_id = event.order_id
         market_info = self.order_tracker.get_shadow_market_pair_from_order_id(order_id)
         if market_info is not None:
@@ -465,6 +534,9 @@ class LiquidityMiningStrategy(StrategyPyBase):
                 self._buy_budgets[market_info.trading_pair] += (event.amount * event.price)
 
     def update_mid_prices(self):
+        """
+        ...
+        """
         for market in self._market_infos:
             mid_price = self._market_infos[market].get_mid_price()
             self._mid_prices[market].append(mid_price)
@@ -473,6 +545,9 @@ class LiquidityMiningStrategy(StrategyPyBase):
             self._mid_prices[market] = self._mid_prices[market][-1 * max_len:]
 
     def update_volatility(self):
+        """
+        ...
+        """
         self._volatility = {market: s_decimal_nan for market in self._market_infos}
         for market, mid_prices in self._mid_prices.items():
             last_index = len(mid_prices) - 1
@@ -493,6 +568,9 @@ class LiquidityMiningStrategy(StrategyPyBase):
             self._last_vol_reported = self.current_timestamp
 
     def notify_hb_app(self, msg: str):
+        """
+        Send a message to the hummingbot application (tmux?)
+        """
         if self._hb_app_notification:
             from hummingbot.client.hummingbot_application import HummingbotApplication
             HummingbotApplication.main_application()._notify(msg)
