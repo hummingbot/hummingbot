@@ -69,7 +69,8 @@ def start(self):
         | CrossExchangeMarketMakingStrategy.OPTION_LOG_STATUS_REPORT
         | CrossExchangeMarketMakingStrategy.OPTION_LOG_MAKER_ORDER_HEDGED
     )
-    self.strategy = CrossExchangeMarketMakingStrategy(
+    self.strategy = CrossExchangeMarketMakingStrategy()
+    self.strategy.init_params(
         market_pairs=[self.market_pair],
         min_profitability=min_profitability,
         status_report_interval=strategy_report_interval,

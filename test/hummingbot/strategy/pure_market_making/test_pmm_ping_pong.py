@@ -78,7 +78,7 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
 
     def test_strategy_ping_pong_on_ask_fill(self):
         self.strategy = PureMarketMakingStrategy()
-        self.strategy.assign_params(
+        self.strategy.init_params(
             self.market_info,
             bid_spread=Decimal("0.01"),
             ask_spread=Decimal("0.01"),
@@ -121,7 +121,7 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
 
     def test_strategy_ping_pong_on_bid_fill(self):
         self.strategy = PureMarketMakingStrategy()
-        self.strategy.assign_params(
+        self.strategy.init_params(
             self.market_info,
             bid_spread=Decimal("0.01"),
             ask_spread=Decimal("0.01"),
@@ -165,7 +165,7 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
 
     def test_multiple_orders_ping_pong(self):
         self.strategy = PureMarketMakingStrategy()
-        self.strategy.assign_params(
+        self.strategy.init_params(
             self.market_info,
             bid_spread=Decimal("0.01"),
             ask_spread=Decimal("0.01"),

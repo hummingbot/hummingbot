@@ -91,16 +91,15 @@ cdef class CeloArbStrategy(StrategyBase):
             ds_logger = logging.getLogger(__name__)
         return ds_logger
 
-    def __init__(self,
-                 market_info: MarketTradingPairTuple,
-                 min_profitability: Decimal,
-                 order_amount: Decimal,
-                 celo_slippage_buffer: Decimal = Decimal("0.0001"),
-                 logging_options: int = OPTION_LOG_ALL,
-                 status_report_interval: float = 900,
-                 hb_app_notification: bool = True,
-                 mock_celo_cli_mode: bool = False):
-        super().__init__()
+    def init_params(self,
+                    market_info: MarketTradingPairTuple,
+                    min_profitability: Decimal,
+                    order_amount: Decimal,
+                    celo_slippage_buffer: Decimal = Decimal("0.0001"),
+                    logging_options: int = OPTION_LOG_ALL,
+                    status_report_interval: float = 900,
+                    hb_app_notification: bool = True,
+                    mock_celo_cli_mode: bool = False):
         self._market_info = market_info
         self._exchange = market_info.market.name
         self._min_profitability = min_profitability
