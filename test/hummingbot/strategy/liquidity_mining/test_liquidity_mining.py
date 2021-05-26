@@ -1,5 +1,6 @@
 from decimal import Decimal
 import pandas as pd
+from typing import Optional
 import unittest
 
 from hummingbot.connector.exchange.binance.binance_order_book_tracker import BinanceOrderBookTracker
@@ -8,7 +9,7 @@ from hummingbot.connector.exchange.paper_trade.market_config import MarketConfig
 from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import MarketEvent
+from hummingbot.core.event.events import MarketEvent, OrderBookTradeEvent, TradeType
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.liquidity_mining.liquidity_mining import LiquidityMiningStrategy
 
@@ -22,7 +23,7 @@ class LiquidityMiningTest(unittest.TestCase):
     end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
     start_timestamp: float = start.timestamp()
     end_timestamp: float = end.timestamp()
-    trading_pair = "HBOT-ETH"
+    trading_pair = "USDT-ETH"
     base_asset = trading_pair.split("-")[0]
     quote_asset = trading_pair.split("-")[1]
 
@@ -42,7 +43,9 @@ class LiquidityMiningTest(unittest.TestCase):
                                                volume_step_size=10)
         self.market.add_data(self.book_data)
         self.market.set_balance("USDT", 500)
-        self.market.set_balance("ETH", 5000)
+        self.market.set_balance("ETH", 5000000000000000000)
+        self.market.set_balance("BTC", 100000000)
+
         self.market.set_quantization_param(
             QuantizationParams(
                 self.trading_pair, 6, 6, 6, 6
@@ -57,14 +60,14 @@ class LiquidityMiningTest(unittest.TestCase):
         self.market.add_listener(MarketEvent.OrderCancelled, self.cancel_order_logger)
 
         paper_trade_exchange: PaperTradeExchange = PaperTradeExchange(
-            order_book_tracker=BinanceOrderBookTracker(trading_pairs=["ETH-USDT", "BTC-USDT"]),
+            order_book_tracker=BinanceOrderBookTracker(trading_pairs=["USDT-ETH", "USDT-BTC"]),
             config=MarketConfig.default_config(),
             target_market=BinanceExchange
         )
 
         self.default_strategy = LiquidityMiningStrategy(
             exchange=paper_trade_exchange,
-            market_infos=[self.market_info],
+            market_infos={"USDT-ETH": self.market_info},
             token="USDT",
             order_amount=Decimal(10),
             spread=Decimal(0.5),
@@ -84,6 +87,32 @@ class LiquidityMiningTest(unittest.TestCase):
 
     def tearDown(self) -> None:
         pass
+
+    def simulate_maker_market_trade(
+            self, is_buy: bool, quantity: Decimal, price: Decimal, market: Optional[BacktestMarket] = None,
+    ):
+        if market is None:
+            market = self.market
+        order_book = market.get_order_book(self.trading_pair)
+        trade_event = OrderBookTradeEvent(
+            self.trading_pair,
+            self.clock.current_timestamp,
+            TradeType.BUY if is_buy else TradeType.SELL,
+            price,
+            quantity
+        )
+        order_book.apply_trade(trade_event)
+
+    def test_trade(self):
+        self.clock.backtest_til(self.start_timestamp)
+        # self.default_strategy.create_base_proposals()
+        # self.default_strategy.create_budget_allocation()
+
+        self.assertEqual(0, len(self.default_strategy.active_orders))
+        self.default_strategy.tick(self.start_timestamp + self.clock_tick_size + 1)
+        # why are proposals not created?
+        self.assertEqual(2, len(self.default_strategy.active_orders))
+        # self.default_strategy.
 
     def test_do_nothing(self):
         self.assertEqual(1, 1)

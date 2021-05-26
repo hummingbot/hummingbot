@@ -1,8 +1,16 @@
 #!/usr/bin/env python
+
+"""
+Liquidity mining data types...
+"""
+
 from decimal import Decimal
 
 
 class PriceSize:
+    """
+    What is this? price of asset and amount of asset to sell?
+    """
     def __init__(self, price: Decimal, size: Decimal):
         self.price: Decimal = price
         self.size: Decimal = size
@@ -12,6 +20,9 @@ class PriceSize:
 
 
 class Proposal:
+    """
+    What is this? name of the market, PriceSize for sale, PriceSize for buy
+    """
     def __init__(self, market: str, buy: PriceSize, sell: PriceSize):
         self.market: str = market
         self.buy: PriceSize = buy
