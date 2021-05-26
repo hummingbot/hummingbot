@@ -69,7 +69,8 @@ class ScriptIteratorUnitTest(unittest.TestCase):
         self.market_info = MarketTradingPairTuple(self.market, self.trading_pair,
                                                   self.base_asset, self.quote_asset)
         self.clock.add_iterator(self.market)
-        self.one_level_strategy = PureMarketMakingStrategy(
+        self.one_level_strategy = PureMarketMakingStrategy()
+        self.one_level_strategy.init_params(
             self.market_info,
             bid_spread=Decimal("0.01"),
             ask_spread=Decimal("0.01"),
@@ -79,7 +80,8 @@ class ScriptIteratorUnitTest(unittest.TestCase):
             order_refresh_tolerance_pct=-1,
             minimum_spread=-1,
         )
-        self.multi_levels_strategy = PureMarketMakingStrategy(
+        self.multi_levels_strategy = PureMarketMakingStrategy()
+        self.multi_levels_strategy.init_params(
             self.market_info,
             bid_spread=Decimal("0.01"),
             ask_spread=Decimal("0.01"),
