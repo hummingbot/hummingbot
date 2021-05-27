@@ -29,7 +29,6 @@ class OrderTrackerUnitTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.ev_loop = asyncio.get_event_loop()
-        cls.clock: Clock = Clock(ClockMode.BACKTEST, cls.clock_tick_size, cls.start_timestamp, cls.end_timestamp)
         cls.trading_pair = "COINALPHA-HBOT"
 
         cls.limit_orders: List[LimitOrder] = [
@@ -62,6 +61,7 @@ class OrderTrackerUnitTests(unittest.TestCase):
 
     def setUp(self):
         self.order_tracker: OrderTracker = OrderTracker()
+        self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
         self.clock.add_iterator(self.order_tracker)
         self.clock.backtest_til(self.start_timestamp)
 
@@ -308,10 +308,67 @@ class OrderTrackerUnitTests(unittest.TestCase):
         self.assertTrue(len(self.order_tracker.get_market_orders()[self.market_info].keys()) == len(self.market_orders))
 
     def test_get_shadow_limit_orders(self):
-        pass
+        # Check initial output
+        self.assertTrue(self.market_info not in self.order_tracker.get_shadow_limit_orders())
+
+        # Simulates order being placed and tracked
+        order: LimitOrder = self.limit_orders[0]
+        self.simulate_place_order(self.order_tracker, order, self.market_info)
+
+        # Compare order details and output
+        self.assertIsNotNone(self.order_tracker.get_shadow_limit_orders()[self.market_info])
+        self.assertEqual(str(self.order_tracker.get_shadow_limit_orders()[self.market_info][order.client_order_id]),
+                         str(order))
+
+        # Simulate order being cancelled
+        self.simulate_cancel_order(self.order_tracker, order)
+        self.simulate_stop_tracking_order(self.order_tracker, order, self.market_info)
+
+        # Check that order is not yet removed from shadow_limit_orders
+        self.assertEqual(str(self.order_tracker.get_shadow_limit_orders()[self.market_info][order.client_order_id]),
+                         str(order))
+
+        # Simulates current_timestamp > SHADOW_MAKER_ORDER_KEEP_ALIVE_DURATION
+        self.clock.backtest_til(self.start_timestamp + OrderTracker.SHADOW_MAKER_ORDER_KEEP_ALIVE_DURATION + 1)
+        self.order_tracker.check_and_cleanup_shadow_records()
+
+        # Check that check_and_cleanup_shadow_records clears shadow_limit_orders
+        self.assertTrue(self.market_info not in self.order_tracker.get_shadow_limit_orders())
 
     def test_has_in_flight_cancel(self):
-        pass
+        # Check initial output
+        self.assertFalse(self.order_tracker.has_in_flight_cancel("ORDER_ID_DO_NOT_EXIST"))
+
+        # Simulates order being placed and tracked
+        order: LimitOrder = self.limit_orders[0]
+        self.simulate_place_order(self.order_tracker, order, self.market_info)
+        self.simulate_order_created(self.order_tracker, order)
+
+        # Order not yet cancelled.
+        self.assertFalse(self.order_tracker.has_in_flight_cancel(order.client_order_id))
+
+        # Simulate order being cancelled
+        self.simulate_cancel_order(self.order_tracker, order)
+
+        # Order inflight cancel timestamp has not yet expired
+        self.assertTrue(self.order_tracker.has_in_flight_cancel(order.client_order_id))
+
+        # Simulate in-flight cancel has expired
+        self.clock.backtest_til(self.start_timestamp + OrderTracker.CANCEL_EXPIRY_DURATION + 1)
+
+        self.assertFalse(self.order_tracker.has_in_flight_cancel(order.client_order_id))
+
+        # Simulates order being placed and tracked
+        order: LimitOrder = self.limit_orders[0]
+        self.simulate_place_order(self.order_tracker, order, self.market_info)
+        self.simulate_order_created(self.order_tracker, order)
+
+        # Simulate order being cancelled and no longer tracked
+        self.simulate_cancel_order(self.order_tracker, order)
+        self.simulate_stop_tracking_order(self.order_tracker, order, self.market_info)
+
+        # Check that once the order is no longer tracker, it will no longer have a pending cancel
+        self.assertFalse(self.order_tracker.has_in_flight_cancel(order.client_order_id))
 
     def test_get_market_pair_from_order_id(self):
         # Initial validation
@@ -409,8 +466,8 @@ class OrderTrackerUnitTests(unittest.TestCase):
         # Check for shadow_tracked_limit_order
         self.assertTrue(len(self.order_tracker.shadow_limit_orders) == 1)
 
+        # Simulates current_timestamp > SHADOW_MAKER_ORDER_KEEP_ALIVE_DURATION
         self.clock.backtest_til(self.start_timestamp + OrderTracker.SHADOW_MAKER_ORDER_KEEP_ALIVE_DURATION + 1)
-
         self.order_tracker.check_and_cleanup_shadow_records()
 
         # Check that check_and_cleanup_shadow_records clears shadow_limit_orders
