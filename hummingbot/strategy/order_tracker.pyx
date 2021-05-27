@@ -138,8 +138,14 @@ cdef class OrderTracker(TimeIterator):
     cdef dict c_get_shadow_limit_orders(self):
         return self._shadow_tracked_limit_orders
 
+    def get_shadow_limit_orders(self) -> Dict[MarketTradingPairTuple, Dict[str, LimitOrder]]:
+        return self.c_get_shadow_limit_orders()
+
     cdef bint c_has_in_flight_cancel(self, str order_id):
         return self._in_flight_cancels.get(order_id, NaN) + self.CANCEL_EXPIRY_DURATION > self._current_timestamp
+
+    def has_in_flight_cancel(self, order_id: str):
+        return self.c_has_in_flight_cancel(order_id)
 
     cdef bint c_check_and_track_cancel(self, str order_id):
         """
@@ -165,6 +171,9 @@ cdef class OrderTracker(TimeIterator):
         # Track the cancel.
         self._in_flight_cancels[order_id] = self._current_timestamp
         return True
+
+    def check_and_track_cancel(self, order_id: str) -> bool:
+        return self.c_check_and_track_cancel(order_id)
 
     cdef object c_get_market_pair_from_order_id(self, str order_id):
         return self._order_id_to_market_pair.get(order_id)
