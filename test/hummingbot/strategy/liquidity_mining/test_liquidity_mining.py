@@ -5,6 +5,7 @@ import unittest.mock
 
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import MarketEvent, OrderBookTradeEvent, TradeType
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
@@ -34,7 +35,7 @@ class LiquidityMiningTest(unittest.TestCase):
         self.mid_price = 100
         self.bid_spread = 0.01
         self.ask_spread = 0.01
-        self.order_refresh_time = 30
+        self.order_refresh_time = 5
 
         # liquidity_mining supports multiple pairs with a single base asset
         for trading_pair in self.trading_pairs:
@@ -69,8 +70,9 @@ class LiquidityMiningTest(unittest.TestCase):
             spread=Decimal(0.5),
             inventory_skew_enabled=False,
             target_base_pct=Decimal(0.2),
-            order_refresh_time=60,
-            order_refresh_tolerance_pct=Decimal(0.1)
+            order_refresh_time=5,
+            order_refresh_tolerance_pct=Decimal(0.1),
+            # max_order_age= 5.,
             # inventory_range_multiplier: Decimal = Decimal("1"),
             # volatility_interval: int = 60 * 5,
             # avg_volatility_period: int = 10,
@@ -92,7 +94,7 @@ class LiquidityMiningTest(unittest.TestCase):
         """
         if market is None:
             market = self.market
-        order_book = market.get_order_book(trading_pair)
+        order_book: OrderBook = market.get_order_book(trading_pair)
         trade_event = OrderBookTradeEvent(
             trading_pair,
             self.clock.current_timestamp,
@@ -125,16 +127,18 @@ class LiquidityMiningTest(unittest.TestCase):
         self.assertEqual(4, len(self.default_strategy.active_orders))
 
         # Simulate buy order fill
-        self.simulate_maker_market_trade(False, 55, 1, "ETH-USDT")
-        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size * 2)
+        self.clock.backtest_til(self.start_timestamp + 8)
+        self.simulate_maker_market_trade(False, 50, 1, "ETH-USDT")
         self.assertEqual(3, len(self.default_strategy.active_orders))
-        # self.clock.backtest_til(self.start_timestamp + self.clock_tick_size * 3 + 1)
-        # self.assertEqual(4, len(self.default_strategy.active_orders))
 
-        # Siomulate sell
-        self.simulate_maker_market_trade(True, 250, 10, "ETH-USDT")
-        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size * 2)
-        self.assertEqual(3, len(self.default_strategy.active_orders))
+        # The order should refresh
+        self.clock.backtest_til(self.start_timestamp + 18)
+        self.assertEqual(4, len(self.default_strategy.active_orders))
+
+        # Simulate sale
+        # self.simulate_maker_market_trade(True, 250, 10, "ETH-USDT")
+        # self.clock.backtest_til(self.start_timestamp + self.clock_tick_size * 2)
+        # self.assertEqual(3, len(self.default_strategy.active_orders))
 
         # self.assertFalse(self.has_limit_order_type(self.default_strategy.active_orders, "ETH-USDT", False))
         # self.assertEqual(3, len(self.default_strategy.active_orders))
