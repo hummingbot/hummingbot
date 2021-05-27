@@ -298,7 +298,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
 
     def total_port_value_in_token(self) -> Decimal:
         """
-        What is port value?
+        What is port value? portfolio
         """
         all_bals = self.adjusted_available_balances()
         port_value = all_bals.get(self._token, s_decimal_zero)
@@ -363,7 +363,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
 
     def is_within_tolerance(self, cur_orders: List[LimitOrder], proposal: Proposal):
         """
-        False there are no buys or sells or if ???
+        False there are no buys or sells or if ??? compare proposed price and the price in the current order
         """
         cur_buy = [o for o in cur_orders if o.is_buy]
         cur_sell = [o for o in cur_orders if not o.is_buy]
