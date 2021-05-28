@@ -16,7 +16,7 @@ from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.connector.connector.uniswap.uniswap_connector import UniswapConnector
 
 from .utils import create_arb_proposals, ArbProposal
-
+from ...core.rate_oracle.rate_oracle import RateOracle
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -45,7 +45,8 @@ class AmmArbStrategy(StrategyPyBase):
                  market_1_slippage_buffer: Decimal = Decimal("0"),
                  market_2_slippage_buffer: Decimal = Decimal("0"),
                  concurrent_orders_submission: bool = True,
-                 status_report_interval: float = 900):
+                 status_report_interval: float = 900,
+                 use_oracle_conversion_rate: bool = False):
         """
         :param market_info_1: The first market
         :param market_info_2: The second market
@@ -55,9 +56,13 @@ class AmmArbStrategy(StrategyPyBase):
         the order getting filled. This is quite important for AMM which transaction takes a long time where a slippage
         is acceptable rather having the transaction get rejected. The submitted order price will be adjust higher
         for buy order and lower for sell order.
-        :param market_1_slippage_buffer: The slipper buffer for market_2
+        :param market_2_slippage_buffer: The slipper buffer for market_2
         :param concurrent_orders_submission: whether to submit both arbitrage taker orders (buy and sell) simultaneously
         If false, the bot will wait for first exchange order filled before submitting the other order.
+        :param status_report_interval: Amount of seconds to wait to refresh the status report
+        :param use_oracle_conversion_rate: Enables the use of the Oracle to get the price in ETH of each quote token to
+        compare the trading pairs in between markets.
+        If true the Oracle will be used. If false the reates will be fetched from uniswap. The default is false.
         """
         super().__init__()
         self._market_info_1 = market_info_1
@@ -80,6 +85,7 @@ class AmmArbStrategy(StrategyPyBase):
         self._last_timestamp = 0
         self._status_report_interval = status_report_interval
         self.add_markets([market_info_1.market, market_info_2.market])
+        self._use_oracle_conversion_rate = use_oracle_conversion_rate
         self._uniswap = None
         self._quote_eth_rate_fetch_loop_task = None
         self._market_1_quote_eth_rate = None
@@ -239,6 +245,16 @@ class AmmArbStrategy(StrategyPyBase):
                          f"{profit_pct:.2%}")
         return lines
 
+    def quotes_rate_df(self):
+        columns = ["Market", "Quote", "ETH Rate"]
+        data = []
+        for market_info, quote_rate in zip([self._market_info_1, self._market_info_2],
+                                           [self._market_1_quote_eth_rate, self._market_2_quote_eth_rate]):
+            _, trading_pair, _, quote = market_info
+            data.extend([[trading_pair, quote, smart_round(quote_rate)]])
+
+        return pd.DataFrame(data=data, columns=columns)
+
     async def format_status(self) -> str:
         """
         Returns a status string formatted to display nicely on terminal. The strings composes of 4 parts: markets,
@@ -276,6 +292,10 @@ class AmmArbStrategy(StrategyPyBase):
                      ["    " + line for line in str(assets_df).split("\n")])
 
         lines.extend(["", "  Profitability:"] + self.short_proposal_msg(self._arb_proposals))
+
+        quotes_rates_df = self.quotes_rate_df()
+        lines.extend(["", f"  Quotes Rates ({'' if self._use_oracle_conversion_rate else 'not '}using Oracle)"] +
+                     ["    " + line for line in str(quotes_rates_df).split("\n")])
 
         warning_lines = self.network_warning([self._market_info_1])
         warning_lines.extend(self.network_warning([self._market_info_2]))
@@ -315,9 +335,9 @@ class AmmArbStrategy(StrategyPyBase):
         return self._sb_order_tracker.tracked_market_orders
 
     def start(self, clock: Clock, timestamp: float):
-        if self._market_info_1.market.name in ETH_WALLET_CONNECTORS or \
-                self._market_info_2.market.name in ETH_WALLET_CONNECTORS:
-            self._quote_eth_rate_fetch_loop_task = safe_ensure_future(self.quote_in_eth_rate_fetch_loop())
+        self._quote_eth_rate_fetch_loop_task = safe_ensure_future(self.quote_in_eth_rate_fetch_loop())
+        if self._use_oracle_conversion_rate:
+            RateOracle.get_instance().start()
 
     def stop(self, clock: Clock):
         if self._quote_eth_rate_fetch_loop_task is not None:
@@ -326,33 +346,53 @@ class AmmArbStrategy(StrategyPyBase):
         if self._main_task is not None:
             self._main_task.cancel()
             self._main_task = None
+        if self._use_oracle_conversion_rate and RateOracle.get_instance().started:
+            RateOracle.get_instance().stop()
 
-    async def quote_in_eth_rate_fetch_loop(self):
-        while True:
-            try:
-                if self._market_info_1.market.name in ETH_WALLET_CONNECTORS and \
-                        "WETH" not in self._market_info_1.trading_pair.split("-"):
-                    self._market_1_quote_eth_rate = await self.request_rate_in_eth(self._market_info_1.quote_asset)
-                    self.logger().warning(f"Estimate conversion rate - "
-                                          f"{self._market_info_1.quote_asset}:ETH = {self._market_1_quote_eth_rate} ")
+    async def fetch_blockchain_eth_rate(self):
+        try:
+            if (self._market_info_1.market.name in ETH_WALLET_CONNECTORS
+                    and "WETH" not in self._market_info_1.trading_pair.split("-")):
+                self._market_1_quote_eth_rate = await self.request_rate_in_eth(self._market_info_1.quote_asset)
+                self.logger().warning("Estimate conversion rate - "
+                                      f"{self._market_info_1.quote_asset}:ETH = {self._market_1_quote_eth_rate} ")
 
-                if self._market_info_2.market.name in ETH_WALLET_CONNECTORS and \
-                        "WETH" not in self._market_info_2.trading_pair.split("-"):
-                    self._market_2_quote_eth_rate = await self.request_rate_in_eth(self._market_info_2.quote_asset)
-                    self.logger().warning(f"Estimate conversion rate - "
-                                          f"{self._market_info_2.quote_asset}:ETH = {self._market_2_quote_eth_rate} ")
-                await asyncio.sleep(60 * 1)
-            except asyncio.CancelledError:
-                raise
-            except Exception as e:
-                self.logger().error(str(e), exc_info=True)
-                self.logger().network("Unexpected error while fetching ETH conversion rate.",
-                                      exc_info=True,
-                                      app_warning_msg="Could not fetch ETH conversion rate from Gateway API.")
-                await asyncio.sleep(0.5)
+            if (self._market_info_2.market.name in ETH_WALLET_CONNECTORS
+                    and "WETH" not in self._market_info_2.trading_pair.split("-")):
+                self._market_2_quote_eth_rate = await self.request_rate_in_eth(self._market_info_2.quote_asset)
+                self.logger().warning("Estimate conversion rate - "
+                                      f"{self._market_info_2.quote_asset}:ETH = {self._market_2_quote_eth_rate} ")
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().network("Unexpected error while fetching ETH conversion rate.",
+                                  exc_info=True,
+                                  app_warning_msg="Could not fetch ETH conversion rate from Gateway API.")
+            raise
 
     async def request_rate_in_eth(self, quote: str) -> int:
         if self._uniswap is None:
             self._uniswap = UniswapConnector([f"{quote}-WETH"], "", None)
             await self._uniswap.initiate_pool()  # initiate to cache swap pool
         return await self._uniswap.get_quote_price(f"{quote}-WETH", True, 1)
+
+    def fetch_oracle_eth_rate(self):
+        if self._use_oracle_conversion_rate:
+            self._market_1_quote_eth_rate = RateOracle.get_instance().rate_for_tokens(self._market_info_1.quote_asset, "ETH")
+            self._market_2_quote_eth_rate = RateOracle.get_instance().rate_for_tokens(self._market_info_2.quote_asset, "ETH")
+
+    async def quote_in_eth_rate_fetch_loop(self):
+        while True:
+            try:
+                if self._use_oracle_conversion_rate:
+                    self.fetch_oracle_eth_rate()
+                else:
+                    if (self._market_info_1.market.name in ETH_WALLET_CONNECTORS
+                            or self._market_info_2.market.name in ETH_WALLET_CONNECTORS):
+                        await self.fetch_blockchain_eth_rate()
+                await asyncio.sleep(60 * 1)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                self.logger().error(str(e), exc_info=True)
+                await asyncio.sleep(0.5)

@@ -7,19 +7,21 @@ import logging
 import asyncio
 import contextlib
 
-from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
+from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.clock import (
     Clock,
     ClockMode
 )
-from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (MarketEvent, OrderType, BuyOrderCreatedEvent, BuyOrderCompletedEvent,
                                           SellOrderCreatedEvent, SellOrderCompletedEvent, TradeFee)
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.amm_arb.amm_arb import AmmArbStrategy
-from hummingbot.connector.connector_base import ConnectorBase
+
 
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
@@ -94,8 +96,12 @@ class MockAMM(ConnectorBase):
 
 class AmmArbUnitTest(unittest.TestCase):
 
+    level = 0
+    log_records = []
+
     @classmethod
     def setUpClass(cls):
+        super().setUpClass()
         cls.ev_loop = asyncio.get_event_loop()
         cls.clock: Clock = Clock(ClockMode.REALTIME)
         cls.stack: contextlib.ExitStack = contextlib.ExitStack()
@@ -108,8 +114,12 @@ class AmmArbUnitTest(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls.stack.close()
         cls._patcher.stop()
+        super().tearDownClass()
 
     def setUp(self):
+        super().setUp()
+        self.log_records = []
+
         self.amm_1: MockAMM = MockAMM("onion")
 
         self.amm_1.set_balance(base_asset, 500)
@@ -134,6 +144,13 @@ class AmmArbUnitTest(unittest.TestCase):
         self.market_order_fill_logger: EventLogger = EventLogger()
         self.amm_1.add_listener(MarketEvent.OrderFilled, self.market_order_fill_logger)
         self.amm_2.add_listener(MarketEvent.OrderFilled, self.market_order_fill_logger)
+
+    def handle(self, record):
+        self.log_records.append(record)
+
+    def _is_logged(self, log_level: str, message: str) -> bool:
+        return any(record.levelname == log_level and record.getMessage() == message
+                   for record in self.log_records)
 
     def test_arbitrage_not_profitable(self):
         self.amm_1.set_prices(trading_pair, True, 101)
@@ -273,3 +290,108 @@ class AmmArbUnitTest(unittest.TestCase):
         new_amm_1_order = [order for market, order in placed_orders if market == self.amm_1][0]
         # Check if new order is submitted when arb opportunity still presents
         self.assertNotEqual(amm_1_order.client_order_id, new_amm_1_order.client_order_id)
+
+    @unittest.mock.patch('hummingbot.strategy.amm_arb.amm_arb.AmmArbStrategy.request_rate_in_eth')
+    def test_eth_rate_fetch_from_blockchain(self, request_rate_mock):
+        request_rate_mock.return_value = 15
+
+        market1: MockAMM = MockAMM("uniswap")
+        market_info1 = MarketTradingPairTuple(market1, trading_pair, base_asset, quote_asset)
+
+        market2: MockAMM = MockAMM("balancer")
+        market_info2 = MarketTradingPairTuple(market2, trading_pair, base_asset, quote_asset)
+        test_strategy = AmmArbStrategy(
+            market_info1,
+            market_info2,
+            min_profitability=Decimal("0.01"),
+            order_amount=Decimal("1"),
+            market_1_slippage_buffer=Decimal("0.001"),
+            market_2_slippage_buffer=Decimal("0.002"),
+        )
+
+        test_strategy.logger().setLevel(1)
+        test_strategy.logger().addHandler(self)
+
+        self.ev_loop.run_until_complete(test_strategy.fetch_blockchain_eth_rate())
+
+        self.assertTrue(self._is_logged('WARNING',
+                                        ("Estimate conversion rate - "
+                                         f"{market_info1.quote_asset}:ETH = {15} ")))
+        self.assertTrue(self._is_logged('WARNING',
+                                        ("Estimate conversion rate - "
+                                         f"{market_info2.quote_asset}:ETH = {15} ")))
+
+    @unittest.mock.patch('hummingbot.strategy.amm_arb.amm_arb.AmmArbStrategy.request_rate_in_eth')
+    def test_eth_rate_fetch_from_blockchain_raises_cancelled_error(self, request_rate_mock):
+        request_rate_mock.side_effect = asyncio.CancelledError("Test error")
+
+        market1: MockAMM = MockAMM("uniswap")
+        market_info1 = MarketTradingPairTuple(market1, trading_pair, base_asset, quote_asset)
+
+        market2: MockAMM = MockAMM("balancer")
+        market_info2 = MarketTradingPairTuple(market2, trading_pair, base_asset, quote_asset)
+        test_strategy = AmmArbStrategy(
+            market_info1,
+            market_info2,
+            min_profitability=Decimal("0.01"),
+            order_amount=Decimal("1"),
+            market_1_slippage_buffer=Decimal("0.001"),
+            market_2_slippage_buffer=Decimal("0.002"),
+        )
+
+        test_strategy.logger().setLevel(1)
+        test_strategy.logger().addHandler(self)
+
+        self.assertRaises(asyncio.CancelledError, self.ev_loop.run_until_complete, test_strategy.fetch_blockchain_eth_rate())
+
+    @unittest.mock.patch('hummingbot.strategy.amm_arb.amm_arb.AmmArbStrategy.request_rate_in_eth')
+    def test_eth_rate_fetch_from_blockchain_raises_exception(self, request_rate_mock):
+        request_rate_mock.side_effect = Exception("Test error")
+
+        market1: MockAMM = MockAMM("uniswap")
+        market_info1 = MarketTradingPairTuple(market1, trading_pair, base_asset, quote_asset)
+
+        market2: MockAMM = MockAMM("balancer")
+        market_info2 = MarketTradingPairTuple(market2, trading_pair, base_asset, quote_asset)
+        test_strategy = AmmArbStrategy(
+            market_info1,
+            market_info2,
+            min_profitability=Decimal("0.01"),
+            order_amount=Decimal("1"),
+            market_1_slippage_buffer=Decimal("0.001"),
+            market_2_slippage_buffer=Decimal("0.002"),
+        )
+
+        test_strategy.logger().setLevel(1)
+        test_strategy.logger().addHandler(self)
+
+        self.assertRaises(Exception, self.ev_loop.run_until_complete,
+                          test_strategy.fetch_blockchain_eth_rate())
+
+        self.assertTrue(self._is_logged('NETWORK', "Unexpected error while fetching ETH conversion rate."))
+
+    def test_oracle_eth_rate(self):
+        market1: MockAMM = MockAMM("uniswap")
+        market_info1 = MarketTradingPairTuple(market1, trading_pair, base_asset, quote_asset)
+
+        market2: MockAMM = MockAMM("balancer")
+        market_info2 = MarketTradingPairTuple(market2, trading_pair, base_asset, quote_asset)
+        test_strategy = AmmArbStrategy(
+            market_info1,
+            market_info2,
+            min_profitability=Decimal("0.01"),
+            order_amount=Decimal("1"),
+            market_1_slippage_buffer=Decimal("0.001"),
+            market_2_slippage_buffer=Decimal("0.002"),
+            use_oracle_conversion_rate=True
+        )
+
+        test_strategy.logger().setLevel(1)
+        test_strategy.logger().addHandler(self)
+
+        RateOracle.get_instance()._prices = {"HBOT-ETH": Decimal("15"), "ETH-USDT": Decimal("2000")}
+
+        test_strategy.fetch_oracle_eth_rate()
+
+        self.assertEqual(test_strategy._market_1_quote_eth_rate, Decimal(1) / Decimal(2000))
+        self.assertEqual(test_strategy._market_2_quote_eth_rate, Decimal(1) / Decimal(2000))

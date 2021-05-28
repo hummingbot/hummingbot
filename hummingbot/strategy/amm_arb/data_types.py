@@ -61,12 +61,12 @@ class ArbProposal:
         sell_trade_fee = estimate_fee(sell.market_info.market.name, False)
         buy_quote_eth_rate = first_side_quote_eth_rate if self.first_side.is_buy else second_side_quote_eth_rate
         sell_quote_eth_rate = first_side_quote_eth_rate if not self.first_side.is_buy else second_side_quote_eth_rate
-        if buy_quote_eth_rate is not None and buy_trade_fee.flat_fees[0][0].upper() == "ETH":
+        if buy_quote_eth_rate and buy_trade_fee.flat_fees and buy_trade_fee.flat_fees[0][0].upper() == "ETH":
             buy_fee_amount = buy_trade_fee.flat_fees[0][1] / buy_quote_eth_rate
         else:
             buy_fee_amount = buy_trade_fee.fee_amount_in_quote(buy.market_info.trading_pair,
                                                                buy.quote_price, buy.amount)
-        if sell_quote_eth_rate is not None and sell_trade_fee.flat_fees[0][0].upper() == "ETH":
+        if sell_quote_eth_rate and sell_trade_fee.flat_fees and sell_trade_fee.flat_fees[0][0].upper() == "ETH":
             sell_fee_amount = sell_trade_fee.flat_fees[0][1] / sell_quote_eth_rate
         else:
             sell_fee_amount = sell_trade_fee.fee_amount_in_quote(sell.market_info.trading_pair, sell.quote_price,

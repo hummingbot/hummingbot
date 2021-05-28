@@ -33,3 +33,7 @@ market_2_slippage_buffer: null
 # If false, the bot will wait for first exchange order filled before submitting the other order
 concurrent_orders_submission: null
 
+# Whether to use rate oracle on unmatched trading pairs
+# Set this to either True or False
+use_oracle_conversion_rate: null
+
