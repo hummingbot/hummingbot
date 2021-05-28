@@ -235,10 +235,63 @@ class LiquidityMiningTest(unittest.TestCase):
         """
         pass
 
-    def test_inventory_skew(self):
+    @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.estimate_fee')
+    def test_inventory_skew(self, estimate_fee_mock):
         """
         inventory skew is same as pmm
         """
+        estimate_fee_mock.return_value = TradeFee(percent=0, flat_fees=[('ETH', Decimal(0.00005))])
+
+        # initiate with similar balances so the skew is obvious
+        usdt_balance = 1000
+        busd_balance = 1000
+        eth_balance = 1000
+        btc_balance = 1000
+
+        trading_pairs = list(map(lambda quote_asset: "ETH-" + quote_asset, ["USDT", "BUSD", "BTC"]))
+        market, market_infos = self.create_market(trading_pairs, 100, {"USDT": usdt_balance, "BUSD": busd_balance, "ETH": eth_balance, "BTC": btc_balance})
+
+        skewed_base_strategy = LiquidityMiningStrategy(
+            exchange=market,
+            market_infos=market_infos,
+            token="ETH",
+            order_amount=Decimal(2),
+            spread=Decimal(0.0005),
+            inventory_skew_enabled=True,
+            target_base_pct=Decimal(0.1),  # less base, more quote
+            order_refresh_time=5,
+            order_refresh_tolerance_pct=Decimal(0.1),  # tolerance of 10 % change
+        )
+
+        unskewed_strategy = LiquidityMiningStrategy(
+            exchange=market,
+            market_infos=market_infos,
+            token="ETH",
+            order_amount=Decimal(2),
+            spread=Decimal(0.0005),
+            inventory_skew_enabled=False,
+            order_refresh_time=5,
+            target_base_pct=Decimal(0.1),  # this does nothing when inventory_skew_enabled is False
+            order_refresh_tolerance_pct=Decimal(0.1),  # tolerance of 10 % change
+        )
+
+        self.clock.add_iterator(skewed_base_strategy)
+        self.clock.backtest_til(self.start_timestamp + 10)
+        self.clock.add_iterator(unskewed_strategy)
+        self.clock.backtest_til(self.start_timestamp + 20)
+
+        # iterate through pairs in skewed and unskewed strategy
+        for unskewed_order in unskewed_strategy.active_orders:
+            for skewed_base_order in skewed_base_strategy.active_orders:
+                # if the trading_pair and trade type are the same, compare them
+                if skewed_base_order.trading_pair == unskewed_order.trading_pair and \
+                        skewed_base_order.is_buy == unskewed_order.is_buy:
+                    if skewed_base_order.is_buy:
+                        # trying to buy more quote in skewed than unskewed
+                        self.assertGreater(skewed_base_order.price, unskewed_order.price)
+                    else:
+                        # trying to keep less base
+                        self.assertLessEqual(skewed_base_order.price, unskewed_order.price)
 
     def test_volatility(self):
         """
