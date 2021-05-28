@@ -498,7 +498,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
 
     def apply_inventory_skew(self, proposals: List[Proposal]):
         """
-
+        Apply an inventory split between the quote and base asset
         """
         for proposal in proposals:
             buy_budget = self._buy_budgets[proposal.market]
