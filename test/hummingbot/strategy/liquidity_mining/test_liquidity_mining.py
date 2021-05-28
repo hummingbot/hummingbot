@@ -23,39 +23,48 @@ class LiquidityMiningTest(unittest.TestCase):
     end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
     start_timestamp: float = start.timestamp()
     end_timestamp: float = end.timestamp()
-    base_asset = "ETH"
-    quote_assets = ["USDT", "BTC"]
-    trading_pairs = list(map(lambda quote_asset: "ETH-" + quote_asset, quote_assets))
     market_infos: Dict[str, MarketTradingPairTuple] = {}
 
-    def setUp(self) -> None:
-        self.clock_tick_size = 1
-        self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
-        self.market: BacktestMarket = BacktestMarket()
+    @staticmethod
+    def create_market(trading_pairs: List[str], mid_price, balances: Dict[str, int]) -> (BacktestMarket, Dict[str, MarketTradingPairTuple]):
+        """
+        Create a BacktestMarket and marketinfo dictionary to be used by the liquidity mining strategy
+        """
+        market: BacktestMarket = BacktestMarket()
+        market_infos: Dict[str, MarketTradingPairTuple] = {}
 
-        self.mid_price = 100
-        self.bid_spread = 0.01
-        self.ask_spread = 0.01
-        self.order_refresh_time = 5
-
-        # liquidity_mining supports multiple pairs with a single base asset
-        for trading_pair in self.trading_pairs:
+        for trading_pair in trading_pairs:
             base_asset = trading_pair.split("-")[0]
             quote_asset = trading_pair.split("-")[1]
 
             book_data: MockOrderBookLoader = MockOrderBookLoader(trading_pair, base_asset, quote_asset)
-            book_data.set_balanced_order_book(mid_price=self.mid_price,
+            book_data.set_balanced_order_book(mid_price=mid_price,
                                               min_price=1,
                                               max_price=200,
                                               price_step_size=1,
                                               volume_step_size=10)
-            self.market.add_data(book_data)
-            self.market.set_quantization_param(QuantizationParams(trading_pair, 6, 6, 6, 6))
-            self.market_infos[trading_pair] = MarketTradingPairTuple(self.market, trading_pair, base_asset, quote_asset)
+            market.add_data(book_data)
+            market.set_quantization_param(QuantizationParams(trading_pair, 6, 6, 6, 6))
+            market_infos[trading_pair] = MarketTradingPairTuple(market, trading_pair, base_asset, quote_asset)
 
-        self.market.set_balance("USDT", 50000)
-        self.market.set_balance("ETH", 500)
-        self.market.set_balance("BTC", 100)
+        for asset, value in balances.items():
+            market.set_balance(asset, value)
+
+        return market, market_infos
+
+    def setUp(self) -> None:
+        self.clock_tick_size = 1
+        self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
+
+        self.mid_price = 100
+        self.bid_spread = 0.01
+        self.ask_spread = 0.01
+        self.order_refresh_time = 1
+
+        trading_pairs = list(map(lambda quote_asset: "ETH-" + quote_asset, ["USDT", "BTC"]))
+        market, market_infos = self.create_market(trading_pairs, self.mid_price, {"USDT": 5000, "ETH": 500, "BTC": 100})
+        self.market = market
+        self.market_infos = market_infos
 
         self.clock.add_iterator(self.market)
         self.order_fill_logger: EventLogger = EventLogger()
@@ -73,15 +82,7 @@ class LiquidityMiningTest(unittest.TestCase):
             target_base_pct=Decimal(0.5),
             order_refresh_time=5,
             order_refresh_tolerance_pct=Decimal(0.1),  # tolerance of 10 % change
-            # max_order_age= 5.,
-            # inventory_range_multiplier: Decimal = Decimal("1"),
-            # volatility_interval: int = 60 * 5,
-            # avg_volatility_period: int = 10,
-            # volatility_to_spread_multiplier: Decimal = Decimal("1"),
-            # max_spread: Decimal = Decimal("-1"),
-            # max_order_age: float = 60. * 60.,
-            # status_report_interval: float = 900,
-            # hb_app_notification: bool = False
+            max_order_age=3,
         )
 
     def tearDown(self) -> None:
@@ -132,25 +133,6 @@ class LiquidityMiningTest(unittest.TestCase):
         self.simulate_maker_market_trade(False, 50, 1, "ETH-USDT")
         self.assertEqual(3, len(self.default_strategy.active_orders))
 
-        # The order should refresh
-        self.clock.backtest_til(self.start_timestamp + 18)
-        # print(self.default_strategy.active_orders)
-        # self.assertEqual(4, len(self.default_strategy.active_orders))
-
-        # Simulate sale
-        # self.simulate_maker_market_trade(True, 100, 1, "ETH-USDT")
-        # self.clock.backtest_til(self.start_timestamp + self.clock_tick_size * 2)
-        # self.assertEqual(2, len(self.default_strategy.active_orders))
-
-        # self.assertFalse(self.has_limit_order_type(self.default_strategy.active_orders, "ETH-USDT", False))
-        # self.assertEqual(3, len(self.default_strategy.active_orders))
-        # self.assertEqual(has_limit_order_type(), len(self.default_strategy.active_orders))
-        # self.simulate_maker_market_trade(True, 1, 1, "ETH-USDT")
-        # self.default_strategy.tick(self.start_timestamp + self.clock_tick_size + 1)
-        # print(self.default_strategy.active_orders)
-        # self.assertEqual(2, len(self.default_strategy.active_orders))
-        # print(self.default_strategy.active_orders)
-
     @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.estimate_fee')
     def test_multiple_markets(self, estimate_fee_mock):
         """
@@ -197,20 +179,55 @@ class LiquidityMiningTest(unittest.TestCase):
         proposal = Proposal("ETH-USDT", PriceSize(109, 1), PriceSize(91, 1))
         self.assertTrue(self.default_strategy.is_within_tolerance(self.default_strategy.active_orders, proposal))
 
-        # push the orders beyond the tolerance
+        # push the orders beyond the tolerance, this proposal should return False
         proposal = Proposal("ETH-USDT", PriceSize(150, 1), PriceSize(50, 1))
         self.assertFalse(self.default_strategy.is_within_tolerance(self.default_strategy.active_orders, proposal))
 
-    def test_budget_allocation(self):
+    @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.estimate_fee')
+    def test_budget_allocation(self, estimate_fee_mock):
         """
-        budget allocation is different from pmm, depends on the token base and it gives a budget between multiple pairs
-        (backtestmarket may not support this yet), this comes from hummingsim
+        Liquidity mining strategy budget allocation is different from pmm, it depends on the token base and it splits
+        its budget between the quote tokens.
         """
-        # check budget allocation of default plan
+        estimate_fee_mock.return_value = TradeFee(percent=0, flat_fees=[('ETH', Decimal(0.00005))])
 
-        # check budget allocation after adding a new pair
+        # initiate
+        usdt_balance = 1000
+        busd_balance = 900
+        eth_balance = 100
+        btc_balance = 10
 
-        pass
+        trading_pairs = list(map(lambda quote_asset: "ETH-" + quote_asset, ["USDT", "BUSD", "BTC"]))
+        market, market_infos = self.create_market(trading_pairs, 100, {"USDT": usdt_balance, "BUSD": busd_balance, "ETH": eth_balance, "BTC": btc_balance})
+
+        strategy = LiquidityMiningStrategy(
+            exchange=market,
+            market_infos=market_infos,
+            token="ETH",
+            order_amount=Decimal(2),
+            spread=Decimal(0.0005),
+            inventory_skew_enabled=False,
+            target_base_pct=Decimal(0.5),
+            order_refresh_time=5,
+            order_refresh_tolerance_pct=Decimal(0.1),  # tolerance of 10 % change
+        )
+
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + 10)
+
+        # there should be a buy and sell budget for each pair
+        self.assertEqual(len(strategy.sell_budgets), 3)
+        self.assertEqual(len(strategy.buy_budgets), 3)
+
+        # the buy budgets use all of the available balance for the quote tokens
+        self.assertEqual(strategy.buy_budgets["ETH-USDT"], usdt_balance)
+        self.assertEqual(strategy.buy_budgets["ETH-BTC"], btc_balance)
+        self.assertEqual(strategy.buy_budgets["ETH-BUSD"], busd_balance)
+
+        # the sell budget tries to evenly split the base token between the quote tokens
+        self.assertLess(strategy.sell_budgets["ETH-USDT"], eth_balance * 0.4)
+        self.assertLess(strategy.sell_budgets["ETH-BTC"], eth_balance * 0.4)
+        self.assertLess(strategy.sell_budgets["ETH-BUSD"], eth_balance * 0.4)
 
     def test_simulate_maker_market_trade(self):
         """
