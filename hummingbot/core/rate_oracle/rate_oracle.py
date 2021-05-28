@@ -99,6 +99,16 @@ class RateOracle(NetworkBase):
         """
         return self._prices.copy()
 
+    def rate_for_tokens(self, base_token: str, quote_token: str) -> Decimal:
+        """
+        Finds a conversion rate for a base token and a quote token.
+        It can return a direct or an indirect price (the direct price has more priority)
+        :param base_token: Base component of a trading pair
+        :param quote_token: Quote component of a trading pair
+        :return A conversion rate
+        """
+        return self.rate(f"{base_token}-{quote_token}")
+
     def rate(self, pair: str) -> Decimal:
         """
         Finds a conversion rate for a given symbol, this can be direct or indirect prices as long as it can find a route

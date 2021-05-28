@@ -121,4 +121,11 @@ amm_arb_config_map = {
         default=False,
         validator=validate_bool,
         type_str="bool"),
+    "use_oracle_conversion_rate": ConfigVar(
+        key="use_oracle_conversion_rate",
+        type_str="bool",
+        prompt="Do you want to use rate oracle on unmatched trading pairs? (Yes/No) >>> ",
+        default=False,
+        validator=lambda v: validate_bool(v),
+        prompt_on_new=True)
 }
