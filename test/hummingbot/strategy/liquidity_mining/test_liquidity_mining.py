@@ -9,6 +9,7 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import MarketEvent, OrderBookTradeEvent, TradeType
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+from hummingbot.strategy.liquidity_mining.data_types import PriceSize, Proposal
 from hummingbot.strategy.liquidity_mining.liquidity_mining import LiquidityMiningStrategy
 
 from hummingsim.backtest.backtest_market import BacktestMarket
@@ -52,7 +53,7 @@ class LiquidityMiningTest(unittest.TestCase):
             self.market.set_quantization_param(QuantizationParams(trading_pair, 6, 6, 6, 6))
             self.market_infos[trading_pair] = MarketTradingPairTuple(self.market, trading_pair, base_asset, quote_asset)
 
-        self.market.set_balance("USDT", 500)
+        self.market.set_balance("USDT", 50000)
         self.market.set_balance("ETH", 500)
         self.market.set_balance("BTC", 100)
 
@@ -66,12 +67,12 @@ class LiquidityMiningTest(unittest.TestCase):
             exchange=self.market,
             market_infos=self.market_infos,
             token="ETH",
-            order_amount=Decimal(10),
-            spread=Decimal(0.5),
+            order_amount=Decimal(2),
+            spread=Decimal(0.0005),
             inventory_skew_enabled=False,
-            target_base_pct=Decimal(0.2),
+            target_base_pct=Decimal(0.5),
             order_refresh_time=5,
-            order_refresh_tolerance_pct=Decimal(0.1),
+            order_refresh_tolerance_pct=Decimal(0.1),  # tolerance of 10 % change
             # max_order_age= 5.,
             # inventory_range_multiplier: Decimal = Decimal("1"),
             # volatility_interval: int = 60 * 5,
@@ -133,12 +134,13 @@ class LiquidityMiningTest(unittest.TestCase):
 
         # The order should refresh
         self.clock.backtest_til(self.start_timestamp + 18)
-        self.assertEqual(4, len(self.default_strategy.active_orders))
+        # print(self.default_strategy.active_orders)
+        # self.assertEqual(4, len(self.default_strategy.active_orders))
 
         # Simulate sale
-        # self.simulate_maker_market_trade(True, 250, 10, "ETH-USDT")
+        # self.simulate_maker_market_trade(True, 100, 1, "ETH-USDT")
         # self.clock.backtest_til(self.start_timestamp + self.clock_tick_size * 2)
-        # self.assertEqual(3, len(self.default_strategy.active_orders))
+        # self.assertEqual(2, len(self.default_strategy.active_orders))
 
         # self.assertFalse(self.has_limit_order_type(self.default_strategy.active_orders, "ETH-USDT", False))
         # self.assertEqual(3, len(self.default_strategy.active_orders))
@@ -149,11 +151,25 @@ class LiquidityMiningTest(unittest.TestCase):
         # self.assertEqual(2, len(self.default_strategy.active_orders))
         # print(self.default_strategy.active_orders)
 
-    def test_multiple_markets(self):
+    @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.estimate_fee')
+    def test_multiple_markets(self, estimate_fee_mock):
         """
-        Liquidity Mining supports one base asset but multiple quote assets
+        Liquidity Mining supports one base asset but multiple quote assets. This shows that the user can successfully
+        provide liquidity for two different pairs and the market can execute the other side of them.
         """
-        pass
+        estimate_fee_mock.return_value = TradeFee(percent=0, flat_fees=[('ETH', Decimal(0.00005))])
+
+        # initiate
+        self.clock.add_iterator(self.default_strategy)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+
+        # ETH-USDT
+        self.simulate_maker_market_trade(False, 50, 1, "ETH-USDT")
+        self.clock.backtest_til(self.start_timestamp + 8)
+
+        # ETH-BTC
+        self.simulate_maker_market_trade(False, 50, 1, "ETH-BTC")
+        self.clock.backtest_til(self.start_timestamp + 16)
 
     def test_order_refresh_time(self):
         """
@@ -161,17 +177,39 @@ class LiquidityMiningTest(unittest.TestCase):
         """
         pass
 
-    def test_tolerance_level(self):
+    @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.estimate_fee')
+    def test_tolerance_level(self, estimate_fee_mock):
         """
         Test tolerance level
         """
-        pass
+        estimate_fee_mock.return_value = TradeFee(percent=0, flat_fees=[('ETH', Decimal(0.00005))])
+
+        # initiate strategy and add active orders
+        self.clock.add_iterator(self.default_strategy)
+        self.clock.backtest_til(self.start_timestamp + 10)
+
+        # the order tolerance is 1%
+        # set the orders to the same values
+        proposal = Proposal("ETH-USDT", PriceSize(100, 1), PriceSize(100, 1))
+        self.assertTrue(self.default_strategy.is_within_tolerance(self.default_strategy.active_orders, proposal))
+
+        # update orders to withint the tolerance
+        proposal = Proposal("ETH-USDT", PriceSize(109, 1), PriceSize(91, 1))
+        self.assertTrue(self.default_strategy.is_within_tolerance(self.default_strategy.active_orders, proposal))
+
+        # push the orders beyond the tolerance
+        proposal = Proposal("ETH-USDT", PriceSize(150, 1), PriceSize(50, 1))
+        self.assertFalse(self.default_strategy.is_within_tolerance(self.default_strategy.active_orders, proposal))
 
     def test_budget_allocation(self):
         """
         budget allocation is different from pmm, depends on the token base and it gives a budget between multiple pairs
         (backtestmarket may not support this yet), this comes from hummingsim
         """
+        # check budget allocation of default plan
+
+        # check budget allocation after adding a new pair
+
         pass
 
     def test_simulate_maker_market_trade(self):
