@@ -251,7 +251,7 @@ class AmmArbStrategy(StrategyPyBase):
         for market_info, quote_rate in zip([self._market_info_1, self._market_info_2],
                                            [self._market_1_quote_eth_rate, self._market_2_quote_eth_rate]):
             _, trading_pair, _, quote = market_info
-            data.extend([[trading_pair, quote, smart_round(quote_rate)]])
+            data.extend([[trading_pair, quote, PerformanceMetrics.smart_round(quote_rate)]])
 
         return pd.DataFrame(data=data, columns=columns)
 
