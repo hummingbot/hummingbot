@@ -30,7 +30,7 @@ from hummingbot.strategy.strategy_base import StrategyBase
 from .cross_exchange_market_pair import CrossExchangeMarketPair
 from .order_id_market_pair_tracker import OrderIDMarketPairTracker
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
-from hummingbot.client.performance import smart_round
+from hummingbot.client.performance import PerformanceMetrics
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -203,9 +203,9 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate = \
             self.get_taker_to_maker_conversion_rate()
         if quote_pair.split("-")[0] != quote_pair.split("-")[1]:
-            self.logger().info(f"{quote_pair} ({quote_rate_source}) conversion rate: {smart_round(quote_rate)}")
+            self.logger().info(f"{quote_pair} ({quote_rate_source}) conversion rate: {PerformanceMetrics.smart_round(quote_rate)}")
         if base_pair.split("-")[0] != base_pair.split("-")[1]:
-            self.logger().info(f"{base_pair} ({base_rate_source}) conversion rate: {smart_round(base_rate)}")
+            self.logger().info(f"{base_pair} ({base_rate_source}) conversion rate: {PerformanceMetrics.smart_round(base_rate)}")
 
     def oracle_status_df(self):
         columns = ["Source", "Pair", "Rate"]
@@ -214,11 +214,11 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             self.get_taker_to_maker_conversion_rate()
         if quote_pair.split("-")[0] != quote_pair.split("-")[1]:
             data.extend([
-                [quote_rate_source, quote_pair, smart_round(quote_rate)],
+                [quote_rate_source, quote_pair, PerformanceMetrics.smart_round(quote_rate)],
             ])
         if base_pair.split("-")[0] != base_pair.split("-")[1]:
             data.extend([
-                [base_rate_source, base_pair, smart_round(base_rate)],
+                [base_rate_source, base_pair, PerformanceMetrics.smart_round(base_rate)],
             ])
         return pd.DataFrame(data=data, columns=columns)
 
