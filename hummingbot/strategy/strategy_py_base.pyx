@@ -11,13 +11,6 @@ cdef class StrategyPyBase(StrategyBase):
     def __init__(self):
         super().__init__()
 
-    @property
-    def order_tracker(self) -> OrderTracker:
-        return self._sb_order_tracker
-
-    def add_markets(self, markets: List[ConnectorBase]):
-        self.c_add_markets(markets)
-
     cdef c_start(self, Clock clock, double timestamp):
         StrategyBase.c_start(self, clock, timestamp)
         self.start(clock, timestamp)
@@ -38,9 +31,6 @@ cdef class StrategyPyBase(StrategyBase):
 
     def tick(self, timestamp: float):
         raise NotImplementedError
-
-    def cancel_order(self, market_trading_pair_tuple: MarketTradingPairTuple, order_id: str):
-        self.c_cancel_order(market_trading_pair_tuple, order_id)
 
     cdef c_did_create_buy_order(self, object order_created_event):
         self.did_create_buy_order(order_created_event)
