@@ -93,6 +93,14 @@ class LiquidityMiningStrategy(StrategyPyBase):
         limit_orders = self.order_tracker.active_limit_orders
         return [o[1] for o in limit_orders]
 
+    @property
+    def sell_budgets(self):
+        return self._sell_budgets
+
+    @property
+    def buy_budgets(self):
+        return self._buy_budgets
+
     def tick(self, timestamp: float):
         """
         Clock tick entry point, is run every second (on normal tick setting).
@@ -261,22 +269,17 @@ class LiquidityMiningStrategy(StrategyPyBase):
         return "\n".join(lines)
 
     def start(self, clock: Clock, timestamp: float):
-        """
-
-        """
         restored_orders = self._exchange.limit_orders
         for order in restored_orders:
             self._exchange.cancel(order.trading_pair, order.client_order_id)
 
     def stop(self, clock: Clock):
-        """
-
-        """
         pass
 
     def create_base_proposals(self):
         """
-        What does this do, what is a proposal, get proposals for all markets the user has defined?
+        Each tick this strategy creates a set of proposals based on the market_info and the parameters from the
+        constructor.
         """
         proposals = []
         for market, market_info in self._market_infos.items():
@@ -316,8 +319,8 @@ class LiquidityMiningStrategy(StrategyPyBase):
         """
         self._sell_budgets = {m: s_decimal_zero for m in self._market_infos}
         self._buy_budgets = {m: s_decimal_zero for m in self._market_infos}
-        port_value = self.total_port_value_in_token()
-        market_portion = port_value / len(self._market_infos)
+        portfolio_value = self.total_port_value_in_token()
+        market_portion = portfolio_value / len(self._market_infos)
         balances = self.adjusted_available_balances()
         for market, market_info in self._market_infos.items():
             base, quote = market.split("-")
@@ -570,7 +573,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
 
     def notify_hb_app(self, msg: str):
         """
-        Send a message to the hummingbot application (tmux?)
+        Send a message to the hummingbot application
         """
         if self._hb_app_notification:
             from hummingbot.client.hummingbot_application import HummingbotApplication
