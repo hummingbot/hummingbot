@@ -520,7 +520,7 @@ cdef class StrategyBase(TimeIterator):
     cdef c_stop_tracking_market_order(self, object market_pair, str order_id):
         self._sb_order_tracker.c_stop_tracking_market_order(market_pair, order_id)
 
-    def stop_tracking_market_order(market_pair: MarketTradingPairTuple, order_id: str):
+    def stop_tracking_market_order(self, market_pair: MarketTradingPairTuple, order_id: str):
         self.c_stop_tracking_market_order(market_pair, order_id)
 
     cdef c_track_restored_orders(self, object market_pair):
