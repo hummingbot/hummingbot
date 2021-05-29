@@ -22,5 +22,8 @@ class MyTestCase(unittest.TestCase):
         for sample in samples:
             volatility_indicator.add_sample(sample)
 
+        # The nice thing about harcoding the random seed is that you can harcode the assertions and it should work.
+        # At the minimum change in any calculation this assertion will fail, and that looks good to me as a reminder to developer contributing with new code,
+        # to assess if result of this test changing is reasonable or not (if in the future some calculations are changed on purpose and result changes, then test is rebased).
         self.assertEqual(volatility_indicator.current_value, 0.5018627218927454)
 
