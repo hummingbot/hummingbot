@@ -336,9 +336,6 @@ class LiquidityMiningStrategy(StrategyPyBase):
                     self._sell_budgets[market] = sell_budget
 
     def base_order_size(self, trading_pair: str, price: Decimal = s_decimal_zero):
-        """
-
-        """
         base, quote = trading_pair.split("-")
         if self._token == base:
             return self._order_amount
@@ -347,9 +344,6 @@ class LiquidityMiningStrategy(StrategyPyBase):
         return self._order_amount / price
 
     def apply_budget_constraint(self, proposals: List[Proposal]):
-        """
-
-        """
         balances = self._token_balances.copy()
         for proposal in proposals:
             if balances[proposal.base()] < proposal.sell.size:

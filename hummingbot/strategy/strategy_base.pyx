@@ -393,9 +393,6 @@ cdef class StrategyBase(TimeIterator):
                                         object price=s_decimal_nan,
                                         double expiration_seconds=NaN,
                                         position_action=PositionAction.OPEN):
-        """
-        Create a buy order and track it as a limit or market order.
-        """
         if self._sb_delegate_lock:
             raise RuntimeError("Delegates are not allowed to execute orders directly.")
 
@@ -441,9 +438,6 @@ cdef class StrategyBase(TimeIterator):
                                          object price=s_decimal_nan,
                                          double expiration_seconds=NaN,
                                          position_action=PositionAction.OPEN):
-        """
-        Create a sell order and track it as a limit or market order.
-        """
         if self._sb_delegate_lock:
             raise RuntimeError("Delegates are not allowed to execute orders directly.")
 
