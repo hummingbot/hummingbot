@@ -539,7 +539,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
 
     def update_mid_prices(self):
         """
-        ...
+        Query asset markets for mid price
         """
         for market in self._market_infos:
             mid_price = self._market_infos[market].get_mid_price()
@@ -550,7 +550,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
 
     def update_volatility(self):
         """
-        ...
+        Update volatility data from the market
         """
         self._volatility = {market: s_decimal_nan for market in self._market_infos}
         for market, mid_prices in self._mid_prices.items():
