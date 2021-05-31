@@ -2,7 +2,7 @@
 ###       Avellaneda market making strategy config    ###
 ########################################################
 
-template_version: 3
+template_version: 4
 strategy: null
 
 # Exchange and token parameters.
@@ -39,6 +39,13 @@ order_levels: null
 
 # Whether to enable adding transaction costs to order price calculation (true/false).
 add_transaction_costs: null
+
+# Whether to stop cancellations of orders on the other side (of the order book),
+# when one side is filled (hanging orders feature) (true/false).
+hanging_orders_enabled: null
+
+# Select way of aggregation hanging orders. Weather if leaving them as they are or calculating a resulting hanging order
+hanging_orders_aggregation_type: null
 
 # Use user provided orders to directly override the orders placed by order_amount and order_level_parameter
 # This is an advanced feature and user is expected to directly edit this field in config file
