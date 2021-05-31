@@ -4,6 +4,7 @@ from libc.stdint cimport int64_t
 from libcpp.unordered_map cimport unordered_map
 from libcpp.unordered_set cimport unordered_set
 from libcpp.utility cimport pair
+from hummingbot.core.PyRef cimport PyRef
 from hummingbot.core.event.event_listener cimport EventListener
 
 ctypedef unordered_set[PyRef] EventListenersCollection
