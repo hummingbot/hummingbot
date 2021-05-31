@@ -124,7 +124,7 @@ class StatusCommand:
             if live:
                 await self.stop_live_update()
                 self.app.live_updates = True
-                while self.app.live_updates:
+                while self.app.live_updates and self.strategy:
                     script_status = '\n Status from script would not appear here. ' \
                                     'Simply run the status command without "--live" to see script status.'
                     await self.cls_display_delay(
