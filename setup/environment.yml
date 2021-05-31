@@ -147,7 +147,6 @@ dependencies:
     - pysha3==1.0.2
     - pytest==4.6.11
     - python-binance==0.7.5
-    - python-graphviz==0.16
     - python-telegram-bot==12.4.2
     - pyyaml==5.3
     - regex==2020.2.20
