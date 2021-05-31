@@ -9,7 +9,6 @@ dependencies:
   - bzip2=1.0.8=h1de35cc_0
   - ca-certificates=2021.5.30=h033912b_0
   - certifi=2021.5.30=py38h50d1736_0
-  - cython=0.29.15=py38h0a44026_0
   - hdf5=1.10.4=hfa1e0ec_0
   - intel-openmp=2019.4=233
   - libblas=3.8.0=17_openblas
@@ -80,6 +79,7 @@ dependencies:
     - coincurve==13.0.0
     - constantly==15.1.0
     - cryptography==2.8
+    - cython==3.0a7
     - cytoolz==0.10.1
     - dateparser==0.7.4
     - decorator==4.4.2
