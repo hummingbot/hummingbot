@@ -25,9 +25,10 @@ from hummingbot.core.event.events import OrderType
 
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base import StrategyBase
+from hummingbot.strategy.hanging_orders_tracker import HangingOrdersTracker, HangingOrdersAggregationType, CreatedPairOfOrders
 from hummingbot.client.config.global_config_map import global_config_map
 
-from .data_types import (
+from hummingbot.strategy.data_types import (
     Proposal,
     PriceSize
 )
@@ -68,6 +69,8 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                  filled_order_delay: float = 60.0,
                  order_levels: int = 0,
                  order_override: Dict[str, List[str]] = {},
+                 hanging_orders_enabled: bool = False,
+                 hanging_orders_aggregation_type: HangingOrdersAggregationType = HangingOrdersAggregationType.NO_AGGREGATION,
                  inventory_target_base_pct: Decimal = s_decimal_zero,
                  add_transaction_costs_to_orders: bool = True,
                  logging_options: int = OPTION_LOG_ALL,
@@ -101,6 +104,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._inventory_target_base_pct = inventory_target_base_pct
         self._add_transaction_costs_to_orders = add_transaction_costs_to_orders
         self._hb_app_notification = hb_app_notification
+        self._hanging_orders_enabled = hanging_orders_enabled
+        self._hanging_orders = dict()
+        self._hanging_orders_tracker = HangingOrdersTracker(self, hanging_orders_aggregation_type)
 
         self._cancel_timestamp = 0
         self._create_timestamp = 0
@@ -223,6 +229,14 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     @property
     def trading_pair(self):
         return self._market_info.trading_pair
+
+    @property
+    def hanging_orders(self):
+        return self._hanging_orders
+
+    @hanging_orders.setter
+    def hanging_orders(self, value: Dict):
+        self._hanging_orders = value
 
     def get_price(self) -> float:
         return self.get_mid_price()
@@ -873,12 +887,29 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             return
         active_sell_ids = [x.client_order_id for x in self.active_orders if not x.is_buy]
 
+        if self._hanging_orders_enabled:
+            # If the filled order is a hanging order, do nothing
+            if self._hanging_orders_tracker.is_order_id_in_hanging_orders(order_id, self.trading_pair):
+                self.log_with_clock(
+                    logging.INFO,
+                    f"({self.trading_pair}) Hanging maker buy order {order_id} "
+                    f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
+                    f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
+                )
+                self.notify_hb_app(
+                    f"Hanging maker BUY order {limit_order_record.quantity} {limit_order_record.base_currency} @ "
+                    f"{limit_order_record.price} {limit_order_record.quote_currency} is filled."
+                )
+                return
+
         # delay order creation by filled_order_delay (in seconds)
         self._create_timestamp = self._current_timestamp + self._filled_order_delay
         self._cancel_timestamp = min(self._cancel_timestamp, self._create_timestamp)
 
         self._filled_buys_balance += 1
         self._last_own_trade_price = limit_order_record.price
+
+        self._hanging_orders_tracker.did_fill_order(self.trading_pair, (limit_order_record.price, "buy"))
 
         self.log_with_clock(
             logging.INFO,
@@ -899,12 +930,29 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             return
         active_buy_ids = [x.client_order_id for x in self.active_orders if x.is_buy]
 
+        if self._hanging_orders_enabled:
+            # If the filled order is a hanging order, do nothing
+            if self._hanging_orders_tracker.is_order_id_in_hanging_orders(order_id, self.trading_pair):
+                self.log_with_clock(
+                    logging.INFO,
+                    f"({self.trading_pair}) Hanging maker sell order {order_id} "
+                    f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
+                    f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
+                )
+                self.notify_hb_app(
+                    f"Hanging maker BUY order {limit_order_record.quantity} {limit_order_record.base_currency} @ "
+                    f"{limit_order_record.price} {limit_order_record.quote_currency} is filled."
+                )
+                return
+
         # delay order creation by filled_order_delay (in seconds)
         self._create_timestamp = self._current_timestamp + self._filled_order_delay
         self._cancel_timestamp = min(self._cancel_timestamp, self._create_timestamp)
 
         self._filled_sells_balance += 1
         self._last_own_trade_price = limit_order_record.price
+
+        self._hanging_orders_tracker.did_fill_order(self.trading_pair, (limit_order_record.price, "sell"))
 
         self.log_with_clock(
             logging.INFO,
@@ -957,6 +1005,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         if not to_defer_canceling:
             for order in active_orders:
                 self.c_cancel_order(self._market_info, order.client_order_id)
+            self._hanging_orders_tracker.add_hanging_orders_based_on_partially_executed_pairs()
         else:
             self.set_timers()
 
@@ -1001,6 +1050,13 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                                          else NaN)
             str bid_order_id, ask_order_id
             bint orders_created = False
+
+        for pair in zip(proposal.buys, proposal.sells):
+            self._hanging_orders_tracker.add_current_pairs_of_proposal_orders_executed_by_strategy(self.trading_pair,
+                                                                                                   CreatedPairOfOrders(
+                                                                                                       pair[0].price,
+                                                                                                       pair[1].price)
+                                                                                                   )
 
         if len(proposal.buys) > 0:
             if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
