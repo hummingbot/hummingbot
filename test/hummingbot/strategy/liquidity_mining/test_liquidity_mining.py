@@ -153,12 +153,6 @@ class LiquidityMiningTest(unittest.TestCase):
         self.simulate_maker_market_trade(False, 50, 1, "ETH-BTC")
         self.clock.backtest_til(self.start_timestamp + 16)
 
-    def test_order_refresh_time(self):
-        """
-        Assert that orders are refreshed within the expected time
-        """
-        pass
-
     @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.estimate_fee')
     def test_tolerance_level(self, estimate_fee_mock):
         """
