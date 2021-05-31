@@ -62,6 +62,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             pmm_logger = logging.getLogger(__name__)
         return pmm_logger
 
+    @cython.binding(True)
     def init_params(self,
                     market_info: MarketTradingPairTuple,
                     bid_spread: Decimal,
