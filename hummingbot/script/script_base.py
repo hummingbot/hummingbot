@@ -22,6 +22,7 @@ class ScriptBase:
         self._child_queue: Queue = None
         self._queue_check_interval: float = 0.0
         self.mid_prices: List[Decimal] = []
+        self.max_mid_prices_length: int = 86400  # 60 * 60 * 24 = 1 day of prices
         self.pmm_parameters: PMMParameters = None
         self.pmm_market_info: PmmMarketInfo = None
         # all_total_balances stores balances in {exchange: {token: balance}} format
@@ -59,6 +60,8 @@ class ScriptBase:
                     break
                 if isinstance(item, OnTick):
                     self.mid_prices.append(item.mid_price)
+                    if len(self.mid_prices) > self.max_mid_prices_length:
+                        self.mid_prices = self.mid_prices[len(self.mid_prices) - self.max_mid_prices_length:]
                     self.pmm_parameters = item.pmm_parameters
                     self.all_total_balances = item.all_total_balances
                     self.all_available_balances = item.all_available_balances
@@ -149,7 +152,7 @@ class ScriptBase:
             return None
         changes = []
         for index in range(1, len(samples)):
-            changes.append(abs(samples[index] - samples[index - 1]) / samples[index - 1])
+            changes.append(max(samples[index], samples[index - 1]) / min(samples[index], samples[index - 1]) - 1)
         return locate_function(changes)
 
     @staticmethod

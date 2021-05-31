@@ -2,13 +2,10 @@ import asyncio
 import logging
 import time
 from typing import Dict, List, Optional, Any, AsyncIterable
-from decimal import Decimal
 
 import aiohttp
 import pandas as pd
 import ujson
-import requests
-import cachetools.func
 import websockets
 from websockets.exceptions import ConnectionClosed
 
@@ -84,17 +81,6 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
     """
 
     @staticmethod
-    @cachetools.func.ttl_cache(ttl=10)
-    def get_mid_price(trading_pair: str, domain=None) -> Optional[Decimal]:
-        from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils import convert_to_exchange_trading_pair
-
-        BASE_URL = TESTNET_BASE_URL if domain == "binance_perpetual_testnet" else PERPETUAL_BASE_URL
-        resp = requests.get(url=f"{TICKER_PRICE_URL.format(BASE_URL)}?symbol={convert_to_exchange_trading_pair(trading_pair)}")
-        record = resp.json()
-        result = (Decimal(record["bidPrice"]) + Decimal(record["askPrice"])) / Decimal("2")
-        return result
-
-    @staticmethod
     async def fetch_trading_pairs(domain=None) -> List[str]:
         try:
             from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils import convert_from_exchange_trading_pair
@@ -106,11 +92,14 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         raw_trading_pairs = [d["symbol"] for d in data["symbols"] if d["status"] == "TRADING"]
                         trading_pair_list: List[str] = []
                         for raw_trading_pair in raw_trading_pairs:
-                            trading_pair = convert_from_exchange_trading_pair(raw_trading_pair)
-                            if trading_pair is not None:
-                                trading_pair_list.append(trading_pair)
-                            else:
-                                continue
+                            try:
+                                trading_pair = convert_from_exchange_trading_pair(raw_trading_pair)
+                                if trading_pair is not None:
+                                    trading_pair_list.append(trading_pair)
+                                else:
+                                    continue
+                            except Exception:
+                                pass
                         return trading_pair_list
         except Exception:
             pass

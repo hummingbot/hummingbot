@@ -13,13 +13,11 @@ from typing import (
 )
 from decimal import Decimal
 import re
-import requests
-import cachetools.func
 import time
 import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
-
+from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
@@ -69,14 +67,18 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return float(resp_json["lastPrice"])
 
     @staticmethod
-    @cachetools.func.ttl_cache(ttl=10)
-    def get_mid_price(trading_pair: str, domain="com") -> Optional[Decimal]:
-        from hummingbot.connector.exchange.binance.binance_utils import convert_to_exchange_trading_pair
-        url = TICKER_PRICE_CHANGE_URL.format(domain)
-        resp = requests.get(url=f"{url}?symbol={convert_to_exchange_trading_pair(trading_pair)}")
-        record = resp.json()
-        result = (Decimal(record.get("bidPrice", "0")) + Decimal(record.get("askPrice", "0"))) / Decimal("2")
-        return result if result else None
+    @async_ttl_cache(ttl=2, maxsize=1)
+    async def get_all_mid_prices(domain="com") -> Optional[Decimal]:
+        from hummingbot.connector.exchange.binance.binance_utils import convert_from_exchange_trading_pair
+        async with aiohttp.ClientSession() as client:
+            url = "https://api.binance.{}/api/v3/ticker/bookTicker".format(domain)
+            resp = await client.get(url)
+            resp_json = await resp.json()
+            ret_val = {}
+            for record in resp_json:
+                pair = convert_from_exchange_trading_pair(record["symbol"])
+                ret_val[pair] = (Decimal(record.get("bidPrice", "0")) + Decimal(record.get("askPrice", "0"))) / Decimal("2")
+            return ret_val
 
     @staticmethod
     async def fetch_trading_pairs(domain="com") -> List[str]:

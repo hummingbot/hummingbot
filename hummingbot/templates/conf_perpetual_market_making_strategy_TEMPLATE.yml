@@ -2,7 +2,7 @@
 ###       Perpetual market making strategy config         ###
 ########################################################
 
-template_version: 2
+template_version: 4
 strategy: null
 
 # derivative and token parameters.
@@ -14,7 +14,7 @@ market: null
 # What leverage to used
 leverage: null
 
-# Position mode to use, one-way or hedge position mode
+# Position mode to use, hedge mode or one-way position mode.
 position_mode: null
 
 # How far away from mid price to place the bid order.
@@ -43,6 +43,27 @@ order_refresh_tolerance_pct: null
 
 # Size of your bid and ask order.
 order_amount: null
+
+# Which position management feature to use. Trailing stop and take profit features are currently supported
+position_management: null
+
+# long position take profit spread
+long_profit_taking_spread: null
+
+# short position take profit spread
+short_profit_taking_spread: null
+
+# Activation spread for trailing stop
+ts_activation_spread: null
+
+# Callback rate for trailing stop
+ts_callback_rate: null
+
+# Spread from position entry price to place a stop-loss order to close position
+stop_loss_spread: null
+
+# OrderType to use for closing positions when using Trailing stop feature
+close_position_order_type: null
 
 # Price band ceiling.
 price_ceiling: null

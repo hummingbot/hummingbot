@@ -4,7 +4,6 @@ import aiohttp
 import ssl
 import json
 import pandas as pd
-import os.path
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
 from hummingbot.client.config.global_config_map import global_config_map
@@ -18,8 +17,6 @@ class GatewayCommand:
             safe_ensure_future(self.show_gateway_connections())
         elif option == "update":
             safe_ensure_future(self.update_gateway())
-        elif option == "config":
-            safe_ensure_future(self.show_local_gateway_config())
 
     async def update_gateway(self):
         safe_ensure_future(self._update_gateway(), loop=self.ev_loop)
@@ -27,9 +24,6 @@ class GatewayCommand:
     async def show_gateway_connections(self):
         self._notify("\nTesting Gateway connections, please wait...")
         safe_ensure_future(self._show_gateway_connections(), loop=self.ev_loop)
-
-    async def show_local_gateway_config(self):
-        safe_ensure_future(self._show_local_gateway_config(), loop=self.ev_loop)
 
     async def _api_request(self,
                            method: str,
@@ -103,7 +97,7 @@ class GatewayCommand:
                     "terra_chain_name": global_config_map['terra_chain_name'].value,
                     "client_id": global_config_map['client_id'].value
                 }
-                resp = await self._api_request("post", "api/update-config", settings)
+                resp = await self._api_request("post", "api/update", settings)
                 if 'config' in resp.keys():
                     self._notify("\nGateway's protocol configuratios updated.")
                 else:
@@ -164,44 +158,6 @@ class GatewayCommand:
                 )
                 remote_host = ':'.join([host, port])
                 self._notify(f"\nError: Connection to Gateway {remote_host} failed")
-
-        self.placeholder_mode = False
-        self.app.hide_input = False
-        self.app.change_prompt(prompt=">>> ")
-
-    async def _show_local_gateway_config(self):
-        self.placeholder_mode = True
-        self.app.hide_input = True
-        self._shared_client = None
-        to_configure = True
-
-        if to_configure:
-            if self.app.to_stop_config:
-                self.app.to_stop_config = False
-                return
-            try:
-                config = {
-                    "ethereum_rpc_url": global_config_map['ethereum_rpc_url'].value,
-                    "ethereum_chain_name": global_config_map['ethereum_chain_name'].value,
-                    "terra_chain_name": global_config_map['terra_chain_name'].value,
-                    "gateway_api_host": global_config_map['gateway_api_host'].value,
-                    "gateway_api_port": global_config_map['gateway_api_port'].value,
-                    "cert_path": os.path.dirname(GATEAWAY_CA_CERT_PATH) + os.sep,
-                    "client_id": global_config_map['client_id'].value
-                }
-                columns = ["Key", "  Value"]
-                data = [[key, config[key]] for key in config]
-                df = pd.DataFrame(data=data, columns=columns)
-                self._notify("\nHummingbot local config for Gateway:")
-                lines = ["    " + line for line in df.to_string(index=False).split("\n")]
-                self._notify("\n".join(lines))
-            except Exception as e:
-                self.logger().network(
-                    "\nError getting Hummingbot global variable settings",
-                    exc_info=True,
-                    app_warning_msg=str(e)
-                )
-                self._notify("\nError: Unable to get Hummingbot settings")
 
         self.placeholder_mode = False
         self.app.hide_input = False

@@ -52,6 +52,7 @@ cdef class BinanceOrderBook(OrderBook):
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.DIFF, {
             "trading_pair": binance_utils.convert_from_exchange_trading_pair(msg["s"]),
+            "first_update_id": msg["U"],
             "update_id": msg["u"],
             "bids": msg["b"],
             "asks": msg["a"]
@@ -76,6 +77,7 @@ cdef class BinanceOrderBook(OrderBook):
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.DIFF, {
             "trading_pair": binance_utils.convert_from_exchange_trading_pair(msg["s"]),
+            "first_update_id": msg["U"],
             "update_id": msg["u"],
             "bids": msg["b"],
             "asks": msg["a"]

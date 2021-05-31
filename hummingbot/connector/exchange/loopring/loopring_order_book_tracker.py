@@ -36,8 +36,8 @@ class LoopringOrderBookTracker(OrderBookTracker):
     def __init__(
         self,
         trading_pairs: Optional[List[str]] = None,
-        rest_api_url: str = "https://api.loopring.io",
-        websocket_url: str = "wss://ws.loopring.io/v2/ws",
+        rest_api_url: str = "https://api3.loopring.io",
+        websocket_url: str = "wss://ws.api3.loopring.io/v2/ws",
         token_configuration: LoopringAPITokenConfigurationDataSource = None,
         loopring_auth: str = ""
     ):
@@ -83,7 +83,6 @@ class LoopringOrderBookTracker(OrderBookTracker):
                     message = saved_messages.popleft()
                 else:
                     message = await message_queue.get()
-
                 if message.type is OrderBookMessageType.DIFF:
                     bids, asks = active_order_tracker.convert_diff_message_to_order_book_row(message)
                     order_book.apply_diffs(bids, asks, message.content["startVersion"])
@@ -91,7 +90,7 @@ class LoopringOrderBookTracker(OrderBookTracker):
                 elif message.type is OrderBookMessageType.SNAPSHOT:
                     s_bids, s_asks = active_order_tracker.convert_snapshot_message_to_order_book_row(message)
                     order_book.apply_snapshot(s_bids, s_asks, message.timestamp)
-                    self.logger().debug("Processed order book snapshot for %s.", trading_pair)
+                    self.logger().debug(f"Processed order book snapshot for {trading_pair}.")
 
             except asyncio.CancelledError:
                 raise

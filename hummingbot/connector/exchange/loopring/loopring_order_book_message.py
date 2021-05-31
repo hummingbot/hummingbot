@@ -27,7 +27,7 @@ class LoopringOrderBookMessage(OrderBookMessage):
     @property
     def update_id(self) -> int:
         if self.type == OrderBookMessageType.SNAPSHOT:
-            return self.content["data"]["version"]
+            return self.content["version"]
         elif self.type == OrderBookMessageType.DIFF:
             return self.content["endVersion"]
 

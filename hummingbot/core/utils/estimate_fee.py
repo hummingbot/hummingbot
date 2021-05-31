@@ -1,17 +1,23 @@
+# -*- coding: utf-8 -*-
+
+"""
+Estimate the fee of a transaction on any blockchain.
+"""
+
 from decimal import Decimal
 from hummingbot.core.event.events import TradeFee, TradeFeeType
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.client.settings import CONNECTOR_SETTINGS
-from hummingbot.core.utils.eth_gas_station_lookup import get_gas_price
 
 
 def estimate_fee(exchange: str, is_maker: bool) -> TradeFee:
+    """
+    Estimate the fee of a transaction on any blockchain.
+    exchange is the name of the exchange to query.
+    is_maker if true look at fee from maker side, otherwise from taker side.
+    """
     if exchange not in CONNECTOR_SETTINGS:
         raise Exception(f"Invalid connector. {exchange} does not exist in CONNECTOR_SETTINGS")
-    use_gas = CONNECTOR_SETTINGS[exchange].use_eth_gas_lookup
-    if use_gas:
-        gas_amount = get_gas_price(in_gwei=False) * CONNECTOR_SETTINGS[exchange].gas_limit
-        return TradeFee(percent=0, flat_fees=[("ETH", gas_amount)])
     fee_type = CONNECTOR_SETTINGS[exchange].fee_type
     fee_token = CONNECTOR_SETTINGS[exchange].fee_token
     default_fees = CONNECTOR_SETTINGS[exchange].default_fees
