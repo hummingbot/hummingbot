@@ -85,9 +85,6 @@ class LiquidityMiningTest(unittest.TestCase):
             max_order_age=3,
         )
 
-    def tearDown(self) -> None:
-        pass
-
     def simulate_maker_market_trade(
             self, is_buy: bool, quantity: Decimal, price: Decimal, trading_pair: str, market: Optional[BacktestMarket] = None,
     ):
@@ -114,7 +111,10 @@ class LiquidityMiningTest(unittest.TestCase):
         return False
 
     @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.estimate_fee')
-    def test_trade(self, estimate_fee_mock):
+    def test_simulate_maker_market_trade(self, estimate_fee_mock):
+        """
+        Test that we can set up a liquidity mining strategy, and a trade
+        """
         estimate_fee_mock.return_value = TradeFee(percent=0, flat_fees=[('ETH', Decimal(0.00005))])
 
         # initiate
@@ -229,16 +229,10 @@ class LiquidityMiningTest(unittest.TestCase):
         self.assertLess(strategy.sell_budgets["ETH-BTC"], eth_balance * 0.4)
         self.assertLess(strategy.sell_budgets["ETH-BUSD"], eth_balance * 0.4)
 
-    def test_simulate_maker_market_trade(self):
-        """
-        simulate a purchase/asset, simulate_maker_market_trade
-        """
-        pass
-
     @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.estimate_fee')
     def test_inventory_skew(self, estimate_fee_mock):
         """
-        inventory skew is same as pmm
+        When inventory_skew_enabled is true, the strategy will try to balance the amounts of base to match it
         """
         estimate_fee_mock.return_value = TradeFee(percent=0, flat_fees=[('ETH', Decimal(0.00005))])
 
@@ -287,15 +281,51 @@ class LiquidityMiningTest(unittest.TestCase):
                 if skewed_base_order.trading_pair == unskewed_order.trading_pair and \
                         skewed_base_order.is_buy == unskewed_order.is_buy:
                     if skewed_base_order.is_buy:
-                        # trying to buy more quote in skewed than unskewed
+                        # the skewed strategy tries to buy more quote thant the unskewed one
                         self.assertGreater(skewed_base_order.price, unskewed_order.price)
                     else:
                         # trying to keep less base
                         self.assertLessEqual(skewed_base_order.price, unskewed_order.price)
 
-    def test_volatility(self):
+    @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.MarketTradingPairTuple.get_mid_price')
+    @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.estimate_fee')
+    def test_volatility(self, estimate_fee_mock, get_mid_price_mock):
         """
-        volatility calculation, how it adjusts the bid/ask spread, collects the mid price data, calculates volatility (how far it moved from lowest to highest)
-        it adjusts the spread (volatility_to_spread_multiplier)
+        Assert that volatility information is updated after the expected number of intervals
         """
-        pass
+        estimate_fee_mock.return_value = TradeFee(percent=0, flat_fees=[('ETH', Decimal(0.00005))])
+
+        # initiate with similar balances so the skew is obvious
+        usdt_balance = 1000
+        eth_balance = 1000
+
+        trading_pairs = list(map(lambda quote_asset: "ETH-" + quote_asset, ["USDT"]))
+        market, market_infos = self.create_market(trading_pairs, 100, {"USDT": usdt_balance, "ETH": eth_balance})
+
+        strategy = LiquidityMiningStrategy(
+            exchange=market,
+            market_infos=market_infos,
+            token="ETH",
+            order_amount=Decimal(2),
+            spread=Decimal(0.0005),
+            inventory_skew_enabled=False,
+            target_base_pct=Decimal(0.5),  # less base, more quote
+            order_refresh_time=1,
+            order_refresh_tolerance_pct=Decimal(0.1),  # tolerance of 10 % change
+            volatility_interval=2,
+            avg_volatility_period=2,
+            volatility_to_spread_multiplier=2,
+        )
+
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + 1)
+
+        # update prices to create volatility after 2 intervals
+        get_mid_price_mock.return_value = Decimal(105.0)
+        self.clock.backtest_til(self.start_timestamp + 2)
+
+        get_mid_price_mock.return_value = Decimal(110.0)
+        self.clock.backtest_til(self.start_timestamp + 3)
+
+        # assert that volatility is none zero
+        self.assertGreater(float(strategy.market_status_df().loc[0, 'Volatility'].strip('%')), 0.00)
