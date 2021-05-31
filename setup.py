@@ -33,7 +33,7 @@ class BuildExt(build_ext):
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20210518"
+    version = "20210531"
     packages = [
         "hummingbot",
         "hummingbot.client",
@@ -105,6 +105,10 @@ def main():
         ],
     }
     install_requires = [
+        "0x-contract-artifacts",
+        "0x-contract-wrappers",
+        "0x-json-schemas",
+        "0x-order-utils",
         "aioconsole",
         "aiokafka",
         "attrdict",
