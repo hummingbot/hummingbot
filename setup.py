@@ -22,7 +22,7 @@ if os.environ.get('WITHOUT_CYTHON_OPTIMIZATIONS'):
 
 
 # Avoid a gcc warning below:
-# cc1plus: warning: command line option ‘-Wstrict-prototypes’ is valid
+# cc1plus: warning: command line option ???-Wstrict-prototypes??? is valid
 # for C/ObjC but not for C++
 class BuildExt(build_ext):
     def build_extensions(self):
@@ -33,7 +33,7 @@ class BuildExt(build_ext):
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20210531.1"
+    version = "20210601"
     packages = [
         "hummingbot",
         "hummingbot.client",
@@ -139,7 +139,7 @@ def main():
         "attrs",
         "certifi",
         "chardet",
-        "cython==0.29.23",
+        "cython==3.0a7",
         "idna",
         "idna_ssl",
         "multidict",
