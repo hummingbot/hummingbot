@@ -11,6 +11,7 @@ import asyncio
 import aiohttp
 import math
 import time
+import ujson
 from async_timeout import timeout
 
 from hummingbot.core.network_iterator import NetworkStatus
@@ -319,15 +320,15 @@ class GateIoExchange(ExchangeBase):
         shared_client = await self._http_client()
         # Turn `params` into either GET params or POST body data
         qs_params: dict = params if method.upper() == "GET" else None
-        req_form = aiohttp.FormData(params) if method.upper() == "POST" and params is not None else None
+        req_params = ujson.dumps(params) if method.upper() == "POST" and params is not None else None
         # Generate auth headers if needed.
-        headers: dict = {"Content-Type": "application/x-www-form-urlencoded"}
+        headers: dict = {"Content-Type": "application/json"}
         if is_auth_required:
             headers: dict = self._gate_io_auth.get_headers(method, f"{Constants.REST_URL_AUTH}/{endpoint}",
-                                                           params)
+                                                           params, req_params)
         # Build request coro
         response_coro = shared_client.request(method=method.upper(), url=url, headers=headers,
-                                              params=qs_params, data=req_form,
+                                              params=qs_params, data=req_params,
                                               timeout=Constants.API_CALL_TIMEOUT)
         http_status, parsed_response, request_errors = await aiohttp_response_with_errors(response_coro)
         if request_errors or parsed_response is None:

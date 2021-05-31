@@ -5,9 +5,11 @@ import unittest
 import aiohttp
 import conf
 import logging
+import ujson
 from os.path import join, realpath
 from typing import Dict, Any
 from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
+from hummingbot.connector.exchange.gate_io.gate_io_utils import aiohttp_response_with_errors
 from hummingbot.connector.exchange.gate_io.gate_io_websocket import GateIoWebsocket
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.connector.exchange.gate_io.gate_io_constants import Constants
@@ -32,6 +34,23 @@ class TestAuth(unittest.TestCase):
         await http_client.close()
         return await response.json()
 
+    async def rest_auth_post(self) -> Dict[Any, Any]:
+        endpoint = Constants.ENDPOINT['ORDER_CREATE']
+        http_client = aiohttp.ClientSession()
+        order_params = ujson.dumps({
+            'currency_pair': 'ETH_BTC',
+            'type': 'limit',
+            'side': 'buy',
+            'amount': '1.0',
+            'price': '0.0000001',
+        })
+        headers = self.auth.get_headers("POST", f"{Constants.REST_URL_AUTH}/{endpoint}", None, post_params=order_params)
+        http_status, response, request_errors = await aiohttp_response_with_errors(http_client.request(method='POST',
+                                                                                                       url=f"{Constants.REST_URL}/{endpoint}",
+                                                                                                       headers=headers, data=order_params))
+        await http_client.close()
+        return response
+
     async def ws_auth(self) -> Dict[Any, Any]:
         ws = GateIoWebsocket(self.auth)
         await ws.connect()
@@ -44,6 +63,13 @@ class TestAuth(unittest.TestCase):
         if len(result) == 0 or "currency" not in result[0].keys():
             print(f"Unexpected response for API call: {result}")
         assert "currency" in result[0].keys()
+
+    # def test_rest_auth_post(self):
+    #     result = self.ev_loop.run_until_complete(self.rest_auth_post())
+    #     if "message" not in result.keys():
+    #         print(f"Unexpected response for API call: {result}")
+    #     assert "message" in result.keys()
+    #     assert "Your order size 1.0 is too small" in result['message']
 
     def test_ws_auth(self):
         response = self.ev_loop.run_until_complete(self.ws_auth())
