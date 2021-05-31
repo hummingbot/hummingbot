@@ -14,10 +14,12 @@ from hummingbot.connector.connector_base cimport ConnectorBase
 from hummingbot.core.data_type.trade import Trade
 from hummingbot.core.event.events import (
     OrderFilledEvent,
-    OrderType
+    OrderType,
+    PositionAction
 )
 
 from .order_tracker import OrderTracker
+from hummingbot.connector.derivative_base import DerivativeBase
 
 NaN = float("nan")
 s_decimal_nan = Decimal("NaN")
@@ -43,6 +45,11 @@ cdef class SellOrderCompletedListener(BaseStrategyEventListener):
     cdef c_call(self, object arg):
         self._owner.c_did_complete_sell_order(arg)
         self._owner.c_did_complete_sell_order_tracker(arg)
+
+
+cdef class FundingPaymentCompletedListener(BaseStrategyEventListener):
+    cdef c_call(self, object arg):
+        self._owner.c_did_complete_funding_payment(arg)
 
 
 cdef class OrderFilledListener(BaseStrategyEventListener):
@@ -82,6 +89,7 @@ cdef class SellOrderCreatedListener(BaseStrategyEventListener):
 cdef class StrategyBase(TimeIterator):
     BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
+    FUNDING_PAYMENT_COMPLETED_EVENT_TAG = MarketEvent.FundingPaymentCompleted.value
     ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
     ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
     ORDER_EXPIRED_EVENT_TAG = MarketEvent.OrderExpired.value
@@ -104,6 +112,7 @@ cdef class StrategyBase(TimeIterator):
         self._sb_expire_order_listener = OrderExpiredListener(self)
         self._sb_complete_buy_order_listener = BuyOrderCompletedListener(self)
         self._sb_complete_sell_order_listener = SellOrderCompletedListener(self)
+        self._sb_complete_funding_payment_listener = FundingPaymentCompletedListener(self)
 
         self._sb_delegate_lock = False
 
@@ -205,7 +214,7 @@ cdef class StrategyBase(TimeIterator):
         for market_trading_pair_tuple in market_trading_pair_tuples:
             base_balance = market_trading_pair_tuple.market.get_balance(market_trading_pair_tuple.base_asset)
             quote_balance = market_trading_pair_tuple.market.get_balance(market_trading_pair_tuple.quote_asset)
-            if base_balance <= Decimal("0.0001"):
+            if base_balance <= Decimal("0.0001") and not isinstance(market_trading_pair_tuple.market, DerivativeBase):
                 warning_lines.append(f"  {market_trading_pair_tuple.market.name} market "
                                      f"{market_trading_pair_tuple.base_asset} balance is too low. Cannot place order.")
             if quote_balance <= Decimal("0.0001"):
@@ -254,6 +263,7 @@ cdef class StrategyBase(TimeIterator):
             typed_market.c_add_listener(self.ORDER_EXPIRED_EVENT_TAG, self._sb_expire_order_listener)
             typed_market.c_add_listener(self.BUY_ORDER_COMPLETED_EVENT_TAG, self._sb_complete_buy_order_listener)
             typed_market.c_add_listener(self.SELL_ORDER_COMPLETED_EVENT_TAG, self._sb_complete_sell_order_listener)
+            typed_market.c_add_listener(self.FUNDING_PAYMENT_COMPLETED_EVENT_TAG, self._sb_complete_funding_payment_listener)
             self._sb_markets.add(typed_market)
 
     cdef c_remove_markets(self, list markets):
@@ -272,6 +282,7 @@ cdef class StrategyBase(TimeIterator):
             typed_market.c_remove_listener(self.ORDER_EXPIRED_EVENT_TAG, self._sb_expire_order_listener)
             typed_market.c_remove_listener(self.BUY_ORDER_COMPLETED_EVENT_TAG, self._sb_complete_buy_order_listener)
             typed_market.c_remove_listener(self.SELL_ORDER_COMPLETED_EVENT_TAG, self._sb_complete_sell_order_listener)
+            typed_market.c_remove_listener(self.FUNDING_PAYMENT_COMPLETED_EVENT_TAG, self._sb_complete_funding_payment_listener)
             self._sb_markets.remove(typed_market)
 
     cdef object c_sum_flat_fees(self, str quote_asset, list flat_fees):
@@ -315,6 +326,9 @@ cdef class StrategyBase(TimeIterator):
         pass
 
     cdef c_did_complete_sell_order(self, object order_completed_event):
+        pass
+
+    cdef c_did_complete_funding_payment(self, object funding_payment_completed_event):
         pass
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>
@@ -366,16 +380,19 @@ cdef class StrategyBase(TimeIterator):
     def buy_with_specific_market(self, market_trading_pair_tuple, amount,
                                  order_type=OrderType.MARKET,
                                  price=s_decimal_nan,
-                                 expiration_seconds=NaN):
+                                 expiration_seconds=NaN,
+                                 position_action=PositionAction.OPEN):
         return self.c_buy_with_specific_market(market_trading_pair_tuple, amount,
                                                order_type,
                                                price,
-                                               expiration_seconds)
+                                               expiration_seconds,
+                                               position_action)
 
     cdef str c_buy_with_specific_market(self, object market_trading_pair_tuple, object amount,
                                         object order_type=OrderType.MARKET,
                                         object price=s_decimal_nan,
-                                        double expiration_seconds=NaN):
+                                        double expiration_seconds=NaN,
+                                        position_action=PositionAction.OPEN):
         if self._sb_delegate_lock:
             raise RuntimeError("Delegates are not allowed to execute orders directly.")
 
@@ -383,9 +400,8 @@ cdef class StrategyBase(TimeIterator):
             raise TypeError("price and amount must be Decimal objects.")
 
         cdef:
-            dict kwargs = {
-                "expiration_ts": self._current_timestamp + expiration_seconds
-            }
+            kwargs = {"expiration_ts": self._current_timestamp + expiration_seconds,
+                      "position_action": position_action}
             ConnectorBase market = market_trading_pair_tuple.market
 
         if market not in self._sb_markets:
@@ -409,16 +425,19 @@ cdef class StrategyBase(TimeIterator):
     def sell_with_specific_market(self, market_trading_pair_tuple, amount,
                                   order_type=OrderType.MARKET,
                                   price=s_decimal_nan,
-                                  expiration_seconds=NaN):
+                                  expiration_seconds=NaN,
+                                  position_action=PositionAction.OPEN):
         return self.c_sell_with_specific_market(market_trading_pair_tuple, amount,
                                                 order_type,
                                                 price,
-                                                expiration_seconds)
+                                                expiration_seconds,
+                                                position_action)
 
     cdef str c_sell_with_specific_market(self, object market_trading_pair_tuple, object amount,
                                          object order_type=OrderType.MARKET,
                                          object price=s_decimal_nan,
-                                         double expiration_seconds=NaN):
+                                         double expiration_seconds=NaN,
+                                         position_action=PositionAction.OPEN):
         if self._sb_delegate_lock:
             raise RuntimeError("Delegates are not allowed to execute orders directly.")
 
@@ -426,10 +445,8 @@ cdef class StrategyBase(TimeIterator):
             raise TypeError("price and amount must be Decimal objects.")
 
         cdef:
-            dict kwargs = {
-                "expiration_ts": self._current_timestamp + expiration_seconds
-            }
-
+            kwargs = {"expiration_ts": self._current_timestamp + expiration_seconds,
+                      "position_action": position_action}
             ConnectorBase market = market_trading_pair_tuple.market
 
         if market not in self._sb_markets:
@@ -476,5 +493,20 @@ cdef class StrategyBase(TimeIterator):
 
     cdef c_stop_tracking_market_order(self, object market_pair, str order_id):
         self._sb_order_tracker.c_stop_tracking_market_order(market_pair, order_id)
+
+    cdef c_track_restored_orders(self, object market_pair):
+        cdef:
+            list limit_orders = market_pair.market.limit_orders
+            list restored_order_ids = []
+
+        for order in limit_orders:
+            restored_order_ids.append(order.client_order_id)
+            self.c_start_tracking_limit_order(market_pair,
+                                              order.client_order_id,
+                                              order.is_buy,
+                                              order.price,
+                                              order.quantity)
+        return restored_order_ids
+
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>

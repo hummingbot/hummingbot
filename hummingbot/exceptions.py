@@ -1,0 +1,2 @@
+class HummingbotBaseException(Exception):
+    pass

@@ -13,6 +13,16 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
         object _ask_spread
         object _minimum_spread
         object _order_amount
+        str _position_management
+        object _long_profit_taking_spread
+        object _short_profit_taking_spread
+        object _ts_activation_spread
+        object _ts_callback_rate
+        object _stop_loss_spread
+        object _close_position_order_type
+        object _close_order_type
+        double _next_buy_exit_order_timestamp
+        double _next_sell_exit_order_timestamp
         int _order_levels
         int _buy_levels
         int _sell_levels
@@ -44,13 +54,17 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
         int _filled_buys_balance
         int _filled_sells_balance
         list _hanging_order_ids
-        list _exit_order_ids
         double _last_timestamp
         double _status_report_interval
         int64_t _logging_options
         object _last_own_trade_price
-    cdef c_manage_positions(self)
-    cdef create_ts_order(self, bint side, object price, object size, object order_type)
+        object _ts_peak_bid_price
+        object _ts_peak_ask_price
+        list _exit_orders
+    cdef c_manage_positions(self, list session_positions)
+    cdef c_profit_taking_feature(self, object mode, list active_positions)
+    cdef c_trailing_stop_feature(self, object mode, list active_positions)
+    cdef c_stop_loss_feature(self, object mode, list active_positions)
     cdef c_apply_initial_settings(self, str trading_pair, object position, int64_t leverage)
     cdef object c_get_mid_price(self)
     cdef object c_create_base_proposal(self)
@@ -68,5 +82,5 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
     cdef c_cancel_hanging_orders(self)
     cdef c_cancel_orders_below_min_spread(self)
     cdef bint c_to_create_orders(self, object proposal)
-    cdef c_execute_orders_proposal(self, object proposal)
+    cdef c_execute_orders_proposal(self, object proposal, object position_action)
     cdef set_timers(self)

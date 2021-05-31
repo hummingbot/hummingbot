@@ -20,6 +20,8 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.arbitrage.arbitrage_market_pair import ArbitrageMarketPair
+from hummingbot.core.rate_oracle.rate_oracle import RateOracle
+from hummingbot.client.performance import PerformanceMetrics
 
 NaN = float("nan")
 s_decimal_0 = Decimal(0)
@@ -49,6 +51,7 @@ cdef class ArbitrageStrategy(StrategyBase):
                  status_report_interval: float = 60.0,
                  next_trade_delay_interval: float = 15.0,
                  failed_order_tolerance: int = 1,
+                 use_oracle_conversion_rate: bool = False,
                  secondary_to_primary_base_conversion_rate: Decimal = Decimal("1"),
                  secondary_to_primary_quote_conversion_rate: Decimal = Decimal("1"),
                  hb_app_notification: bool = False):
@@ -75,9 +78,10 @@ cdef class ArbitrageStrategy(StrategyBase):
         self._failed_order_tolerance = failed_order_tolerance
         self._cool_off_logged = False
         self._current_profitability = ()
-
+        self._use_oracle_conversion_rate = use_oracle_conversion_rate
         self._secondary_to_primary_base_conversion_rate = secondary_to_primary_base_conversion_rate
         self._secondary_to_primary_quote_conversion_rate = secondary_to_primary_quote_conversion_rate
+        self._last_conv_rates_logged = 0
 
         self._hb_app_notification = hb_app_notification
 
@@ -106,6 +110,55 @@ cdef class ArbitrageStrategy(StrategyBase):
     def tracked_market_orders_data_frame(self) -> List[pd.DataFrame]:
         return self._sb_order_tracker.tracked_market_orders_data_frame
 
+    def get_second_to_first_conversion_rate(self) -> Tuple[str, Decimal, str, Decimal]:
+        """
+        Find conversion rates from secondary market to primary market
+        :return: A tuple of quote pair symbol, quote conversion rate source, quote conversion rate,
+        base pair symbol, base conversion rate source, base conversion rate
+        """
+        quote_rate = Decimal("1")
+        quote_pair = f"{self._market_pairs[0].second.quote_asset}-{self._market_pairs[0].first.quote_asset}"
+        quote_rate_source = "fixed"
+        if self._use_oracle_conversion_rate:
+            if self._market_pairs[0].second.quote_asset != self._market_pairs[0].first.quote_asset:
+                quote_rate_source = RateOracle.source.name
+                quote_rate = RateOracle.get_instance().rate(quote_pair)
+        else:
+            quote_rate = self._secondary_to_primary_quote_conversion_rate
+        base_rate = Decimal("1")
+        base_pair = f"{self._market_pairs[0].second.base_asset}-{self._market_pairs[0].first.base_asset}"
+        base_rate_source = "fixed"
+        if self._use_oracle_conversion_rate:
+            if self._market_pairs[0].second.base_asset != self._market_pairs[0].first.base_asset:
+                base_rate_source = RateOracle.source.name
+                base_rate = RateOracle.get_instance().rate(base_pair)
+        else:
+            base_rate = self._secondary_to_primary_base_conversion_rate
+        return quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate
+
+    def log_conversion_rates(self):
+        quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate = \
+            self.get_second_to_first_conversion_rate()
+        if quote_pair.split("-")[0] != quote_pair.split("-")[1]:
+            self.logger().info(f"{quote_pair} ({quote_rate_source}) conversion rate: {PerformanceMetrics.smart_round(quote_rate)}")
+        if base_pair.split("-")[0] != base_pair.split("-")[1]:
+            self.logger().info(f"{base_pair} ({base_rate_source}) conversion rate: {PerformanceMetrics.smart_round(base_rate)}")
+
+    def oracle_status_df(self):
+        columns = ["Source", "Pair", "Rate"]
+        data = []
+        quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate = \
+            self.get_second_to_first_conversion_rate()
+        if quote_pair.split("-")[0] != quote_pair.split("-")[1]:
+            data.extend([
+                [quote_rate_source, quote_pair, PerformanceMetrics.smart_round(quote_rate)],
+            ])
+        if base_pair.split("-")[0] != base_pair.split("-")[1]:
+            data.extend([
+                [base_rate_source, base_pair, PerformanceMetrics.smart_round(base_rate)],
+            ])
+        return pd.DataFrame(data=data, columns=columns)
+
     def format_status(self) -> str:
         cdef:
             list lines = []
@@ -116,6 +169,11 @@ cdef class ArbitrageStrategy(StrategyBase):
             markets_df = self.market_status_data_frame([market_pair.first, market_pair.second])
             lines.extend(["", "  Markets:"] +
                          ["    " + line for line in str(markets_df).split("\n")])
+
+            oracle_df = self.oracle_status_df()
+            if not oracle_df.empty:
+                lines.extend(["", "  Rate conversion:"] +
+                             ["    " + line for line in str(oracle_df).split("\n")])
 
             assets_df = self.wallet_balance_data_frame([market_pair.first, market_pair.second])
             lines.extend(["", "  Assets:"] +
@@ -129,12 +187,18 @@ cdef class ArbitrageStrategy(StrategyBase):
                  f"take bid on {market_pair.second.market.name}: {round(self._current_profitability[1] * 100, 4)} %"])
 
             # See if there're any pending limit orders.
-            tracked_limit_orders_df = self.tracked_limit_orders_data_frame
-            tracked_market_orders_df = self.tracked_market_orders_data_frame
+            tracked_limit_orders = self.tracked_limit_orders
+            tracked_market_orders = self.tracked_market_orders
 
-            if len(tracked_limit_orders_df) > 0 or len(tracked_market_orders_df) > 0:
-                df_limit_lines = str(tracked_limit_orders_df).split("\n")
-                df_market_lines = str(tracked_market_orders_df).split("\n")
+            if len(tracked_limit_orders) > 0 or len(tracked_market_orders) > 0:
+                tracked_limit_orders_df = self.tracked_limit_orders_data_frame
+                tracked_market_orders_df = self.tracked_market_orders_data_frame
+                df_limit_lines = (str(tracked_limit_orders_df).split("\n")
+                                  if len(tracked_limit_orders) > 0
+                                  else list())
+                df_market_lines = (str(tracked_market_orders_df).split("\n")
+                                   if len(tracked_market_orders) > 0
+                                   else list())
                 lines.extend(["", "  Pending limit orders:"] +
                              ["    " + line for line in df_limit_lines] +
                              ["    " + line for line in df_market_lines])
@@ -188,6 +252,10 @@ cdef class ArbitrageStrategy(StrategyBase):
 
             for market_pair in self._market_pairs:
                 self.c_process_market_pair(market_pair)
+            # log conversion rates every 5 minutes
+            if self._last_conv_rates_logged + (60. * 5) < self._current_timestamp:
+                self.log_conversion_rates()
+                self._last_conv_rates_logged = self._current_timestamp
         finally:
             self._last_timestamp = timestamp
 
@@ -384,7 +452,20 @@ cdef class ArbitrageStrategy(StrategyBase):
         if market_info == self._market_pairs[0].first:
             return Decimal("1")
         elif market_info == self._market_pairs[0].second:
-            return self._secondary_to_primary_quote_conversion_rate / self._secondary_to_primary_base_conversion_rate
+            _, _, quote_rate, _, _, base_rate = self.get_second_to_first_conversion_rate()
+            return quote_rate / base_rate
+            # if not self._use_oracle_conversion_rate:
+            #     return self._secondary_to_primary_quote_conversion_rate / self._secondary_to_primary_base_conversion_rate
+            # else:
+            #     quote_rate = Decimal("1")
+            #     if self._market_pairs[0].second.quote_asset != self._market_pairs[0].first.quote_asset:
+            #         quote_pair = f"{self._market_pairs[0].second.quote_asset}-{self._market_pairs[0].first.quote_asset}"
+            #         quote_rate = RateOracle.get_instance().rate(quote_pair)
+            #     base_rate = Decimal("1")
+            #     if self._market_pairs[0].second.base_asset != self._market_pairs[0].first.base_asset:
+            #         base_pair = f"{self._market_pairs[0].second.base_asset}-{self._market_pairs[0].first.base_asset}"
+            #         base_rate = RateOracle.get_instance().rate(base_pair)
+            #     return quote_rate / base_rate
 
     cdef tuple c_find_best_profitable_amount(self, object buy_market_trading_pair_tuple, object sell_market_trading_pair_tuple):
         """
@@ -403,6 +484,8 @@ cdef class ArbitrageStrategy(StrategyBase):
             object total_bid_value_adjusted = s_decimal_0  # total revenue adjusted with exchange rate conversion
             object total_ask_value_adjusted = s_decimal_0  # total cost adjusted with exchange rate conversion
             object total_previous_step_base_amount = s_decimal_0
+            object bid_price = s_decimal_0  # bid price
+            object ask_price = s_decimal_0  # ask price
             object profitability
             object best_profitable_order_amount = s_decimal_0
             object best_profitable_order_profitability = s_decimal_0

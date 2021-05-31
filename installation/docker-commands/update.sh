@@ -107,6 +107,7 @@ execute_docker () {
    --mount "type=bind,source=$(pwd)/${FOLDERS[$j]}/hummingbot_logs,destination=/logs/" \
    --mount "type=bind,source=$(pwd)/${FOLDERS[$j]}/hummingbot_data,destination=/data/" \
    --mount "type=bind,source=$(pwd)/${FOLDERS[$j]}/hummingbot_scripts,destination=/scripts/" \
+   --mount "type=bind,source=$(pwd)/${FOLDERS[$j]}/hummingbot_certs,destination=/certs/" \
    coinalpha/hummingbot:$TAG
    j=$[$j+1]
  done

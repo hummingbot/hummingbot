@@ -12,7 +12,6 @@ import json
 import aiohttp
 import math
 import time
-from async_timeout import timeout
 
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger import HummingbotLogger
@@ -42,6 +41,7 @@ from hummingbot.connector.exchange.crypto_com.crypto_com_auth import CryptoComAu
 from hummingbot.connector.exchange.crypto_com.crypto_com_in_flight_order import CryptoComInFlightOrder
 from hummingbot.connector.exchange.crypto_com import crypto_com_utils
 from hummingbot.connector.exchange.crypto_com import crypto_com_constants as Constants
+from hummingbot.core.data_type.common import OpenOrder
 ctce_logger = None
 s_decimal_NaN = Decimal("nan")
 
@@ -77,6 +77,7 @@ class CryptoComExchange(ExchangeBase):
         """
         super().__init__()
         self._trading_required = trading_required
+        self._trading_pairs = trading_pairs
         self._crypto_com_auth = CryptoComAuth(crypto_com_api_key, crypto_com_secret_key)
         self._order_book_tracker = CryptoComOrderBookTracker(trading_pairs=trading_pairs)
         self._user_stream_tracker = CryptoComUserStreamTracker(self._crypto_com_auth, trading_pairs)
@@ -340,6 +341,8 @@ class CryptoComExchange(ExchangeBase):
         if response.status != 200:
             raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. "
                           f"Message: {parsed_response}")
+        if parsed_response["code"] != 0:
+            raise IOError(f"{url} API call failed, response: {parsed_response}")
         # print(f"REQUEST: {method} {path_url} {params}")
         # print(f"RESPONSE: {parsed_response}")
         return parsed_response
@@ -452,7 +455,7 @@ class CryptoComExchange(ExchangeBase):
             if tracked_order is not None:
                 self.logger().info(f"Created {order_type.name} {trade_type.name} order {order_id} for "
                                    f"{amount} {trading_pair}.")
-                tracked_order.exchange_order_id = exchange_order_id
+                tracked_order.update_exchange_order_id(exchange_order_id)
 
             event_tag = MarketEvent.BuyOrderCreated if trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
             event_class = BuyOrderCreatedEvent if trade_type is TradeType.BUY else SellOrderCreatedEvent
@@ -507,13 +510,12 @@ class CryptoComExchange(ExchangeBase):
         if order_id in self._in_flight_orders:
             del self._in_flight_orders[order_id]
 
-    async def _execute_cancel(self, trading_pair: str, order_id: str, wait_for_status: bool = False) -> str:
+    async def _execute_cancel(self, trading_pair: str, order_id: str) -> str:
         """
         Executes order cancellation process by first calling cancel-order API. The API result doesn't confirm whether
         the cancellation is successful, it simply states it receives the request.
         :param trading_pair: The market trading pair
         :param order_id: The internal order id
-        :param wait_for_status: Whether to wait for the cancellation result, this is done by waiting for
         order.last_state to change to CANCELED
         """
         try:
@@ -523,18 +525,14 @@ class CryptoComExchange(ExchangeBase):
             if tracked_order.exchange_order_id is None:
                 await tracked_order.get_exchange_order_id()
             ex_order_id = tracked_order.exchange_order_id
-            result = await self._api_request(
+            await self._api_request(
                 "post",
                 "private/cancel-order",
                 {"instrument_name": crypto_com_utils.convert_to_exchange_trading_pair(trading_pair),
                  "order_id": ex_order_id},
                 True
             )
-            if result["code"] == 0:
-                if wait_for_status:
-                    from hummingbot.core.utils.async_utils import wait_til
-                    await wait_til(lambda: tracked_order.is_cancelled)
-                return order_id
+            return order_id
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -591,8 +589,8 @@ class CryptoComExchange(ExchangeBase):
         """
         Calls REST API to get status update for each in-flight order.
         """
-        last_tick = self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
-        current_tick = self.current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
+        last_tick = int(self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
+        current_tick = int(self.current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
 
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
             tracked_orders = list(self._in_flight_orders.values())
@@ -604,16 +602,18 @@ class CryptoComExchange(ExchangeBase):
                                                {"order_id": order_id},
                                                True))
             self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
-            update_results = await safe_gather(*tasks, return_exceptions=True)
-            for update_result in update_results:
-                if isinstance(update_result, Exception):
-                    raise update_result
-                if "result" not in update_result:
-                    self.logger().info(f"_update_order_status result not in resp: {update_result}")
+            responses = await safe_gather(*tasks, return_exceptions=True)
+            for response in responses:
+                if isinstance(response, Exception):
+                    raise response
+                if "result" not in response:
+                    self.logger().info(f"_update_order_status result not in resp: {response}")
                     continue
-                for trade_msg in update_result["result"]["trade_list"]:
-                    await self._process_trade_message(trade_msg)
-                self._process_order_message(update_result["result"]["order_info"])
+                result = response["result"]
+                if "trade_list" in result:
+                    for trade_msg in result["trade_list"]:
+                        await self._process_trade_message(trade_msg)
+                self._process_order_message(result["order_info"])
 
     def _process_order_message(self, order_msg: Dict[str, Any]):
         """
@@ -702,27 +702,42 @@ class CryptoComExchange(ExchangeBase):
         :param timeout_seconds: The timeout at which the operation will be canceled.
         :returns List of CancellationResult which indicates whether each order is successfully cancelled.
         """
-        incomplete_orders = [o for o in self._in_flight_orders.values() if not o.is_done]
-        tasks = [self._execute_cancel(o.trading_pair, o.client_order_id, True) for o in incomplete_orders]
-        order_id_set = set([o.client_order_id for o in incomplete_orders])
-        successful_cancellations = []
+        if self._trading_pairs is None:
+            raise Exception("cancel_all can only be used when trading_pairs are specified.")
+        tracked_orders: Dict[str, CryptoComInFlightOrder] = self._in_flight_orders.copy().items()
+        cancellation_results = []
         try:
-            async with timeout(timeout_seconds):
-                results = await safe_gather(*tasks, return_exceptions=True)
-                for result in results:
-                    if result is not None and not isinstance(result, Exception):
-                        order_id_set.remove(result)
-                        successful_cancellations.append(CancellationResult(result, True))
-        except Exception:
-            self.logger().error("Cancel all failed.", exc_info=True)
-            self.logger().network(
-                "Unexpected error cancelling orders.",
-                exc_info=True,
-                app_warning_msg="Failed to cancel order on Crypto.com. Check API key and network connection."
-            )
+            tasks = []
 
-        failed_cancellations = [CancellationResult(oid, False) for oid in order_id_set]
-        return successful_cancellations + failed_cancellations
+            for _, order in tracked_orders:
+                api_params = {
+                    "instrument_name": crypto_com_utils.convert_to_exchange_trading_pair(order.trading_pair),
+                    "order_id": order.exchange_order_id,
+                }
+                tasks.append(self._api_request(method="post",
+                                               path_url="private/cancel-order",
+                                               params=api_params,
+                                               is_auth_required=True))
+
+            await safe_gather(*tasks)
+
+            open_orders = await self.get_open_orders()
+            for cl_order_id, tracked_order in tracked_orders:
+                open_order = [o for o in open_orders if o.client_order_id == cl_order_id]
+                if not open_order:
+                    cancellation_results.append(CancellationResult(cl_order_id, True))
+                    self.trigger_event(MarketEvent.OrderCancelled,
+                                       OrderCancelledEvent(self.current_timestamp, cl_order_id))
+                    self.stop_tracking_order(cl_order_id)
+                else:
+                    cancellation_results.append(CancellationResult(cl_order_id, False))
+        except Exception:
+            self.logger().network(
+                "Failed to cancel all orders.",
+                exc_info=True,
+                app_warning_msg="Failed to cancel all orders on Crypto.com. Check API key and network connection."
+            )
+        return cancellation_results
 
     def tick(self, timestamp: float):
         """
@@ -733,8 +748,8 @@ class CryptoComExchange(ExchangeBase):
         poll_interval = (self.SHORT_POLL_INTERVAL
                          if now - self._user_stream_tracker.last_recv_time > 60.0
                          else self.LONG_POLL_INTERVAL)
-        last_tick = self._last_timestamp / poll_interval
-        current_tick = timestamp / poll_interval
+        last_tick = int(self._last_timestamp / poll_interval)
+        current_tick = int(timestamp / poll_interval)
         if current_tick > last_tick:
             if not self._poll_notifier.is_set():
                 self._poll_notifier.set()
@@ -796,3 +811,32 @@ class CryptoComExchange(ExchangeBase):
             except Exception:
                 self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
                 await asyncio.sleep(5.0)
+
+    async def get_open_orders(self) -> List[OpenOrder]:
+        result = await self._api_request(
+            "post",
+            "private/get-open-orders",
+            {},
+            True
+        )
+        ret_val = []
+        for order in result["result"]["order_list"]:
+            if crypto_com_utils.HBOT_BROKER_ID not in order["client_oid"]:
+                continue
+            if order["type"] != "LIMIT":
+                raise Exception(f"Unsupported order type {order['type']}")
+            ret_val.append(
+                OpenOrder(
+                    client_order_id=order["client_oid"],
+                    trading_pair=crypto_com_utils.convert_from_exchange_trading_pair(order["instrument_name"]),
+                    price=Decimal(str(order["price"])),
+                    amount=Decimal(str(order["quantity"])),
+                    executed_amount=Decimal(str(order["cumulative_quantity"])),
+                    status=order["status"],
+                    order_type=OrderType.LIMIT,
+                    is_buy=True if order["side"].lower() == "buy" else False,
+                    time=int(order["create_time"]),
+                    exchange_order_id=order["order_id"]
+                )
+            )
+        return ret_val

@@ -4,12 +4,16 @@ import asyncio
 import pandas as pd
 from typing import List, Dict, Tuple, Optional
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.market_order import MarketOrder
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
 from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.client.settings import ETH_WALLET_CONNECTORS
+from hummingbot.client.performance import PerformanceMetrics
+from hummingbot.connector.connector.uniswap.uniswap_connector import UniswapConnector
 
 from .utils import create_arb_proposals, ArbProposal
 
@@ -76,6 +80,10 @@ class AmmArbStrategy(StrategyPyBase):
         self._last_timestamp = 0
         self._status_report_interval = status_report_interval
         self.add_markets([market_info_1.market, market_info_2.market])
+        self._uniswap = None
+        self._quote_eth_rate_fetch_loop_task = None
+        self._market_1_quote_eth_rate = None
+        self._market_2_quote_eth_rate = None
 
     @property
     def min_profitability(self) -> Decimal:
@@ -116,8 +124,14 @@ class AmmArbStrategy(StrategyPyBase):
         arbitrage.
         """
         self._arb_proposals = await create_arb_proposals(self._market_info_1, self._market_info_2, self._order_amount)
-        arb_proposals = [t.copy() for t in self._arb_proposals
-                         if t.profit_pct(account_for_fee=True) >= self._min_profitability]
+        arb_proposals = [
+            t.copy() for t in self._arb_proposals
+            if t.profit_pct(
+                account_for_fee=True,
+                first_side_quote_eth_rate=self._market_1_quote_eth_rate,
+                second_side_quote_eth_rate=self._market_2_quote_eth_rate
+            ) >= self._min_profitability
+        ]
         if len(arb_proposals) == 0:
             if self._last_no_arb_reported < self.current_timestamp - 20.:
                 self.logger().info("No arbitrage opportunity.\n" +
@@ -218,9 +232,11 @@ class AmmArbStrategy(StrategyPyBase):
         for proposal in arb_proposal:
             side1 = "buy" if proposal.first_side.is_buy else "sell"
             side2 = "buy" if proposal.second_side.is_buy else "sell"
+            profit_pct = proposal.profit_pct(True, first_side_quote_eth_rate=self._market_1_quote_eth_rate,
+                                             second_side_quote_eth_rate = self._market_2_quote_eth_rate)
             lines.append(f"{'    ' if indented else ''}{side1} at {proposal.first_side.market_info.market.display_name}"
                          f", {side2} at {proposal.second_side.market_info.market.display_name}: "
-                         f"{proposal.profit_pct(True):.2%}")
+                         f"{profit_pct:.2%}")
         return lines
 
     async def format_status(self) -> str:
@@ -238,13 +254,18 @@ class AmmArbStrategy(StrategyPyBase):
             market, trading_pair, base_asset, quote_asset = market_info
             buy_price = await market.get_quote_price(trading_pair, True, self._order_amount)
             sell_price = await market.get_quote_price(trading_pair, False, self._order_amount)
-            mid_price = (buy_price + sell_price) / 2
+
+            # check for unavailable price data
+            buy_price = PerformanceMetrics.smart_round(Decimal(str(buy_price)), 8) if buy_price is not None else '-'
+            sell_price = PerformanceMetrics.smart_round(Decimal(str(sell_price)), 8) if sell_price is not None else '-'
+            mid_price = PerformanceMetrics.smart_round(((buy_price + sell_price) / 2), 8) if '-' not in [buy_price, sell_price] else '-'
+
             data.append([
                 market.display_name,
                 trading_pair,
-                float(sell_price),
-                float(buy_price),
-                float(mid_price)
+                sell_price,
+                buy_price,
+                mid_price
             ])
         markets_df = pd.DataFrame(data=data, columns=columns)
         lines = []
@@ -292,3 +313,46 @@ class AmmArbStrategy(StrategyPyBase):
     @property
     def tracked_market_orders(self) -> List[Tuple[ConnectorBase, MarketOrder]]:
         return self._sb_order_tracker.tracked_market_orders
+
+    def start(self, clock: Clock, timestamp: float):
+        if self._market_info_1.market.name in ETH_WALLET_CONNECTORS or \
+                self._market_info_2.market.name in ETH_WALLET_CONNECTORS:
+            self._quote_eth_rate_fetch_loop_task = safe_ensure_future(self.quote_in_eth_rate_fetch_loop())
+
+    def stop(self, clock: Clock):
+        if self._quote_eth_rate_fetch_loop_task is not None:
+            self._quote_eth_rate_fetch_loop_task.cancel()
+            self._quote_eth_rate_fetch_loop_task = None
+        if self._main_task is not None:
+            self._main_task.cancel()
+            self._main_task = None
+
+    async def quote_in_eth_rate_fetch_loop(self):
+        while True:
+            try:
+                if self._market_info_1.market.name in ETH_WALLET_CONNECTORS and \
+                        "WETH" not in self._market_info_1.trading_pair.split("-"):
+                    self._market_1_quote_eth_rate = await self.request_rate_in_eth(self._market_info_1.quote_asset)
+                    self.logger().warning(f"Estimate conversion rate - "
+                                          f"{self._market_info_1.quote_asset}:ETH = {self._market_1_quote_eth_rate} ")
+
+                if self._market_info_2.market.name in ETH_WALLET_CONNECTORS and \
+                        "WETH" not in self._market_info_2.trading_pair.split("-"):
+                    self._market_2_quote_eth_rate = await self.request_rate_in_eth(self._market_info_2.quote_asset)
+                    self.logger().warning(f"Estimate conversion rate - "
+                                          f"{self._market_info_2.quote_asset}:ETH = {self._market_2_quote_eth_rate} ")
+                await asyncio.sleep(60 * 1)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                self.logger().error(str(e), exc_info=True)
+                self.logger().network("Unexpected error while fetching ETH conversion rate.",
+                                      exc_info=True,
+                                      app_warning_msg="Could not fetch ETH conversion rate from Gateway API.")
+                await asyncio.sleep(0.5)
+
+    async def request_rate_in_eth(self, quote: str) -> int:
+        if self._uniswap is None:
+            self._uniswap = UniswapConnector([f"{quote}-WETH"], "", None)
+            await self._uniswap.initiate_pool()  # initiate to cache swap pool
+        return await self._uniswap.get_quote_price(f"{quote}-WETH", True, 1)

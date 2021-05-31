@@ -22,9 +22,13 @@ mypy-extensions==0.4.3
 python-telegram-bot==12.8
 python-binance==0.7.5
 pandas==1.1.0
-aiohttp==3.6.2
+aiohttp==3.7.4
 bitstring==3.1.7
 pyblake2==1.1.2
 pysha3==1.0.2
 psutil==5.7.2
 ethsnarks-loopring==0.1.5
+dydx-python==0.11.2
+dydx-v3-python==1.0.0
+rsa==4.7.2
+simplejson==3.16.0

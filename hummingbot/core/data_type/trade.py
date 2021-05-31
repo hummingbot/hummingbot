@@ -54,3 +54,7 @@ class Trade(namedtuple("_Trade", "trading_pair, side, price, amount, order_type,
             ])
 
         return pd.DataFrame(data=data, columns=columns)
+
+    @property
+    def trade_type(self):
+        return self.side.name
