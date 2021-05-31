@@ -1,24 +1,23 @@
 # A single source of truth for constant variables related to the exchange
 class Constants:
     EXCHANGE_NAME = "gate_io"
-    REST_URL = "https://api.gate_io.com/api/2"
-    REST_URL_AUTH = "/api/2"
-    WS_PRIVATE_URL = "wss://api.gate_io.com/api/2/ws/trading"
-    WS_PUBLIC_URL = "wss://api.gate_io.com/api/2/ws/public"
+    REST_URL = "https://api.gateio.ws/api/v4"
+    REST_URL_AUTH = "/api/v4"
+    WS_PRIVATE_URL = "wss://api.gateio.ws/ws/v4/"
+    WS_PUBLIC_URL = "wss://api.gateio.ws/ws/v4/"
 
-    HBOT_BROKER_ID = "refzzz48"
+    HBOT_BROKER_ID = "HBOT"
 
     ENDPOINT = {
         # Public Endpoints
-        "TICKER": "public/ticker",
-        "TICKER_SINGLE": "public/ticker/{trading_pair}",
+        "TICKER": "spot/tickers",
         "SYMBOL": "public/symbol",
         "ORDER_BOOK": "public/orderbook",
-        "ORDER_CREATE": "order",
+        "ORDER_CREATE": "spot/orders",
         "ORDER_DELETE": "order/{id}",
         "ORDER_STATUS": "order/{id}",
         "USER_ORDERS": "order",
-        "USER_BALANCES": "trading/balance",
+        "USER_BALANCES": "spot/accounts",
     }
 
     WS_SUB = {
