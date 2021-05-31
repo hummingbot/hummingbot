@@ -294,7 +294,7 @@ class AmmArbStrategy(StrategyPyBase):
         lines.extend(["", "  Profitability:"] + self.short_proposal_msg(self._arb_proposals))
 
         quotes_rates_df = self.quotes_rate_df()
-        lines.extend(["", f"  Quotes Rates ({'' if self._use_oracle_conversion_rate else 'not '}using Oracle)"] +
+        lines.extend(["", f"  Quotes Rates ({'' if self._use_oracle_conversion_rate else 'not '}using oracle)"] +
                      ["    " + line for line in str(quotes_rates_df).split("\n")])
 
         warning_lines = self.network_warning([self._market_info_1])
