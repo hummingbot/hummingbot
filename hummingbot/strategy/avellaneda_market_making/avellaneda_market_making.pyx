@@ -741,7 +741,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         if self._add_transaction_costs_to_orders:
             self.c_apply_add_transaction_costs(proposal)
 
-    def apply_ordeR_price_modifiers(self, proposal: Proposal):
+    def apply_order_price_modifiers(self, proposal: Proposal):
         self.c_apply_order_price_modifiers(proposal)
 
     cdef c_apply_budget_constraint(self, object proposal):
@@ -1005,6 +1005,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         else:
             self.set_timers()
 
+    def cancel_active_orders(self, proposal: Proposal):
+        return self.c_cancel_active_orders(proposal)
+
     # Refresh all active order that are older that the _max_order_age
     cdef c_aged_order_refresh(self):
         cdef:
@@ -1033,9 +1036,15 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 self.c_cancel_order(self._market_info, order.client_order_id)
         return Proposal(buys, sells)
 
+    def aged_order_refresh(self):
+        self.c_aged_order_refresh()
+
     cdef bint c_to_create_orders(self, object proposal):
         return self._create_timestamp < self._current_timestamp and \
             proposal is not None
+
+    def to_create_orders(self, proposal: Proposal) -> bool:
+        return self.c_to_create_orders(proposal)
 
     cdef c_execute_orders_proposal(self, object proposal):
         cdef:
@@ -1085,6 +1094,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 orders_created = True
         if orders_created:
             self.set_timers()
+
+    def execute_orders_proposal(self, proposal: Proposal):
+        self.c_execute_orders_proposal(proposal)
 
     cdef set_timers(self):
         cdef double next_cycle = self._current_timestamp + self._order_refresh_time
