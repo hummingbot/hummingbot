@@ -2,14 +2,14 @@
 ###       Execution5 strategy config               ###
 ########################################################
 
-template_version: 5
+template_version: 6
 strategy: null
 # The following configuations are only required for the
 # twap strategy
 
 # Exchange and token parameters
+exchange: null
 market: null
-market_trading_pair_tuple: null
 
 # Type of Order (Limit/Market)
 order_type: null

@@ -99,22 +99,3 @@ class ThrottlerContextManager:
 
     async def __aexit__(self, exc_type, exc, tb):
         pass
-
-
-# Dev only
-if __name__ == "__main__":
-
-    throttler = Throttler(rate_limit=(20, 1.0))
-
-    async def task(task_id, weight):
-        async with throttler.weighted_task(weight):
-            print(int(time.time()), f"Cat {task_id}: Meow {weight}")
-
-    async def test_main():
-        tasks = [
-            task(1, 5), task(2, 15), task(3, 1), task(4, 10), task(5, 5), task(6, 5)
-        ]
-        await asyncio.gather(*tasks)
-
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(test_main())

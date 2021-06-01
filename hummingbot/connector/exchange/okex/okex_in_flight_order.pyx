@@ -22,7 +22,7 @@ cdef class OkexInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
-                 initial_state: str = "submitted"):
+                 initial_state: str = "live"):
 
         super().__init__(
             client_order_id,
@@ -37,19 +37,19 @@ cdef class OkexInFlightOrder(InFlightOrderBase):
 
     @property
     def is_done(self) -> bool:
-        return self.last_state in {"2", "-1"}
+        return self.last_state in {"filled", "canceled"}
 
     @property
     def is_cancelled(self) -> bool:
-        return self.last_state in {"-1"}
+        return self.last_state in {"canceled"}
 
     @property
     def is_failure(self) -> bool:
-        return self.last_state in {"-1"}
+        return self.last_state in {"canceled"}
 
     @property
     def is_open(self) -> bool:
-        return self.last_state in {"0", "1"}
+        return self.last_state in {"live", "partially_filled"}
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:

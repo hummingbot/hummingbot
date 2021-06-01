@@ -1,13 +1,17 @@
-from os import listdir
-from os.path import join
-from datetime import datetime, timedelta
+"""
+Functions for generating keys and certificates
+"""
+
 from cryptography import x509
-from cryptography.x509.oid import NameOID
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.x509.oid import NameOID
+from datetime import datetime, timedelta
 from hummingbot import cert_path
+from os import listdir
+from os.path import join
 
 CERT_SUBJECT = [
     x509.NameAttribute(NameOID.ORGANIZATION_NAME, 'localhost'),
@@ -58,7 +62,7 @@ def generate_public_key(private_key, filepath):
     # Use subject as issuer on self-sign certificate
     cert_issuer = subject
 
-    # Set certifacation validity duration
+    # Set certification validity duration
     current_datetime = datetime.utcnow()
     expiration_datetime = current_datetime + timedelta(days=VALIDITY_DURATION)
 
@@ -163,6 +167,9 @@ client_csr_filename = 'client_csr.pem'
 
 
 def certs_files_exist() -> bool:
+    """
+    Check if the necessary key and certificate files exist
+    """
     required_certs = [ca_key_filename, ca_cert_filename,
                       server_key_filename, server_cert_filename,
                       client_key_filename, client_cert_filename]

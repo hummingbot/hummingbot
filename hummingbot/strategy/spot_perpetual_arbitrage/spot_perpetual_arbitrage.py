@@ -53,6 +53,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
                  spot_market_slippage_buffer: Decimal = Decimal("0"),
                  derivative_market_slippage_buffer: Decimal = Decimal("0"),
                  maximize_funding_rate: bool = True,
+                 next_arbitrage_cycle_delay: float = 120,
                  status_report_interval: float = 10):
         """
         :param spot_market_info: The first market
@@ -78,6 +79,8 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         self._spot_market_slippage_buffer = spot_market_slippage_buffer
         self._derivative_market_slippage_buffer = derivative_market_slippage_buffer
         self._maximize_funding_rate = maximize_funding_rate
+        self._next_arbitrage_cycle_delay = next_arbitrage_cycle_delay
+        self._next_arbitrage_cycle_time = 0
         self._all_markets_ready = False
 
         self._ev_loop = asyncio.get_event_loop()
@@ -185,6 +188,8 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         else:
             if funding_msg:
                 self.timed_logger(timestamp, funding_msg)
+            elif self._next_arbitrage_cycle_time > time.time():
+                self.timed_logger(timestamp, "Cooling off...")
             else:
                 self.timed_logger(timestamp, self.spread_msg())
 
@@ -206,9 +211,9 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         :return: True if ready, else, False
         """
         spread = self.current_proposal.spread()
-        if first and spread >= self.min_divergence:
+        if first and spread >= self.min_divergence and self._next_arbitrage_cycle_time < time.time():  # we do not want to start new cycle untill cooloff is over
             return True
-        elif not first and spread <= self.min_convergence:
+        elif not first and spread <= self.min_convergence and self._next_arbitrage_cycle_time < time.time():  # we also don't want second arbitrage to ever be retried within this period
             return True
         return False
 
@@ -297,6 +302,8 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
             first_arbitage = not bool(len(self.deriv_position))
             opportunity_msg = "Spread wide enough to execute first arbitrage" if first_arbitage else \
                               "Spread low enough to execute second arbitrage"
+            if not first_arbitage:
+                self._next_arbitrage_cycle_time = time.time() + self._next_arbitrage_cycle_delay
         self.logger().info(f"{opportunity_msg}!: \n"
                            f"{proposal[0]} \n"
                            f"{proposal[1]} \n")
