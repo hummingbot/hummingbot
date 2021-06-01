@@ -95,13 +95,32 @@ jobs:
           conda activate hummingbot
           conda env export
           ./compile
-      - name: Run stable tests
+
+      # Install tools for coverage calculation
+      - name: Install Hummingbot
+        if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
+        shell: bash -l {0}
+        run: |
+          source /usr/share/miniconda/etc/profile.d/conda.sh
+          conda activate hummingbot
+          conda install coverage
+          pip install diff-cover
+
+      - name: Run stable tests and global coverage
         if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
         shell: bash
         run: |
           source /usr/share/miniconda/etc/profile.d/conda.sh
           conda activate hummingbot
-          find test/hummingbot/ -iname "test_*.py" | xargs nosetests -d -v
+          find test/hummingbot/ -iname "test_*.py" | xargs nosetests -d -v --with-coverage --cover-inclusive --cover-package=hummingbot --cover-xml --cover-min-percentage=45
+
+      - name: Validate changes coverage
+          if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
+          shell: bash
+          run: |
+            source /usr/share/miniconda/etc/profile.d/conda.sh
+            conda activate hummingbot
+            diff-cover --compare-branch=$GITHUB_REF --fail-under=20 coverage.xml
 
       # Notify results to discord
       - uses: actions/setup-ruby@v1
