@@ -494,7 +494,7 @@ class AscendExExchange(ExchangeBase):
             # see https://ascendex.github.io/ascendex-pro-api/#place-order
             notional = Decimal(price * amount)
             if notional < ascend_ex_trading_rule.minNotional or notional > ascend_ex_trading_rule.maxNotional:
-                raise ValueError(f"Notional amount {notional} is not withing the range of {ascend_ex_trading_rule.minNotional}-{ascend_ex_trading_rule.maxNotional}.")
+                raise ValueError(f"Notional amount {notional} is not within the range of {ascend_ex_trading_rule.minNotional}-{ascend_ex_trading_rule.maxNotional}.")
 
             # TODO: check balance
             [exchange_order_id, timestamp] = ascend_ex_utils.gen_exchange_order_id(self._account_uid, order_id)
