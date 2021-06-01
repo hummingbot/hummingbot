@@ -5,21 +5,51 @@ import ssl
 import json
 import pandas as pd
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.utils.ssl_cert import certs_files_exist, create_self_sign_certs
+from hummingbot import cert_path
 from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
 from hummingbot.client.config.global_config_map import global_config_map
-from typing import Dict, Any
+from typing import Dict, Any, TYPE_CHECKING
+if TYPE_CHECKING:
+    from hummingbot.client.hummingbot_application import HummingbotApplication
 
 
 class GatewayCommand:
 
-    def gateway(self, option: str):
-        if option is None:
+    def gateway(self,
+                option: str = None,
+                key: str = None,
+                value: str = None):
+        if option == "list-configs":
             safe_ensure_future(self.show_gateway_connections())
         elif option == "update":
-            safe_ensure_future(self.update_gateway())
+            safe_ensure_future(self.update_gateway(key, value))
+        elif option == "generate_certs":
+            safe_ensure_future(self._generate_certs(key, value), loop=self.ev_loop)
 
-    async def update_gateway(self):
-        safe_ensure_future(self._update_gateway(), loop=self.ev_loop)
+    async def _generate_certs(self,  # type: HummingbotApplication
+                              ):
+        if certs_files_exist():
+            self._notify(f"Gateway SSL certification files exist in {cert_path()}.")
+            self._notify("To create new certification files, please first manually delete those files.")
+            return
+        self.app.clear_input()
+        self.placeholder_mode = True
+        self.app.hide_input = True
+        while True:
+            pass_phase = await self.app.prompt(prompt='Enter pass phase to generate Gateway SSL certifications  >>> ',
+                                               is_password=True)
+            if pass_phase is not None and len(pass_phase) > 0:
+                break
+            self._notify("Error: Invalid pass phase")
+        create_self_sign_certs(pass_phase)
+        self._notify(f"Gateway SSL certification files are created in {cert_path()}.")
+        self.placeholder_mode = False
+        self.app.hide_input = False
+        self.app.change_prompt(prompt=">>> ")
+
+    async def update_gateway(self, key, value):
+        safe_ensure_future(self._update_gateway(key, value), loop=self.ev_loop)
 
     async def show_gateway_connections(self):
         self._notify("\nTesting Gateway connections, please wait...")
@@ -49,14 +79,6 @@ class GatewayCommand:
             response = await client.post(url, data=params)
 
         parsed_response = json.loads(await response.text())
-        if response.status != 200:
-            err_msg = ""
-            if "error" in parsed_response:
-                err_msg = f" Message: {parsed_response['error']}"
-            raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.{err_msg}")
-        if "error" in parsed_response:
-            raise Exception(f"Error: {parsed_response['error']}")
-
         return parsed_response
 
     async def _http_client(self) -> aiohttp.ClientSession:
@@ -70,33 +92,29 @@ class GatewayCommand:
             self._shared_client = aiohttp.ClientSession(connector=conn)
         return self._shared_client
 
-    async def _update_gateway(self):
-        self.placeholder_mode = True
-        self.app.hide_input = True
-        self._shared_client = None
-        to_configure = True
-        resp = None
-        host = global_config_map['gateway_api_host'].value
-        port = global_config_map['gateway_api_port'].value
+    async def _update_gateway(self, key, value):
+        if key is None:
+            self._notify("Specify a parameter to update.")
+        elif value is None:
+            self.app.clear_input()
+            self.placeholder_mode = True
+            self.app.hide_input = True
+            while True:
+                value = await self.app.prompt(prompt=f'What do you want to set {key} to?  >>> ')
+                if value is not None and len(value) > 0:
+                    break
+                self._notify("Error: Invalid value")
+            self.placeholder_mode = False
+            self.app.hide_input = False
+            self.app.change_prompt(prompt=">>> ")
+        if key and value:
+            settings = {key: value}
+            await self._api_request("post", "api/update", settings)
+            self._notify(f"\nGateway api has restarted to update {key} to {value}.")
 
-        answer = await self.app.prompt(prompt="Would you like to update the Gateway's protocol settings (Yes/No)? >>> ")
-        if self.app.to_stop_config:
-            self.app.to_stop_config = False
-            return
-        if answer.lower() not in ("yes", "y"):
-            to_configure = False
-
-        if to_configure:
-            if self.app.to_stop_config:
-                self.app.to_stop_config = False
-                return
-            try:
-                settings = {
-                    "ethereum_rpc_url": global_config_map['ethereum_rpc_url'].value,
-                    "ethereum_chain_name": global_config_map['ethereum_chain_name'].value,
-                    "terra_chain_name": global_config_map['terra_chain_name'].value,
-                    "client_id": global_config_map['client_id'].value
-                }
+            # the following will commented out untill gateway api is refactored to support multichain
+            """try:
+                settings = { key, value }
                 resp = await self._api_request("post", "api/update", settings)
                 if 'config' in resp.keys():
                     self._notify("\nGateway's protocol configuratios updated.")
@@ -116,11 +134,7 @@ class GatewayCommand:
                     exc_info=True,
                     app_warning_msg=str(e)
                 )
-                self._notify("\nError: Configrations update failed")
-
-        self.app.hide_input = False
-        self.placeholder_mode = False
-        self.app.change_prompt(prompt=">>> ")
+                self._notify("\nError: Configrations update failed")"""
 
     async def _show_gateway_connections(self):
         self.placeholder_mode = True
@@ -140,11 +154,17 @@ class GatewayCommand:
                 status = resp["status"]
                 if status:
                     config = resp["config"]
-                    columns = ["Key", "  Value"]
-                    data = [[key, config[key]] for key in sorted(config) if key not in ['UPDATED']]
-                    df = pd.DataFrame(data=data, columns=columns)
                     self._notify(f"\nGateway Configurations ({host}:{port}):")
-                    lines = ["    " + line for line in df.to_string(index=False).split("\n")]
+                    self._notify("\nCore parameters:")
+                    columns = ["Parameter", "  Value"]
+                    core_data = data = [[key, config['CORE'][key]] for key in sorted(config['CORE'])]
+                    core_df = pd.DataFrame(data=core_data, columns=columns)
+                    lines = ["    " + line for line in core_df.to_string(index=False, max_colwidth=50).split("\n")]
+                    self._notify("\n".join(lines))
+                    self._notify("\nOther parameters:")
+                    data = [[key, config[key]] for key in sorted(config) if key not in ['CORE']]
+                    df = pd.DataFrame(data=data, columns=columns)
+                    lines = ["    " + line for line in df.to_string(index=False, max_colwidth=50).split("\n")]
                     self._notify("\n".join(lines))
                 else:
                     self._notify("\nError: Invalid return result")
