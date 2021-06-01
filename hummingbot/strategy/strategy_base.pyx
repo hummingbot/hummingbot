@@ -83,6 +83,14 @@ cdef class BuyOrderCreatedListener(BaseStrategyEventListener):
 cdef class SellOrderCreatedListener(BaseStrategyEventListener):
     cdef c_call(self, object arg):
         self._owner.c_did_create_sell_order(arg)
+
+cdef class RangePositionCreatedListener(BaseStrategyEventListener):
+    cdef c_call(self, object arg):
+        self._owner.c_did_create_range_position_order(arg)
+
+cdef class RangePositionRemovedListener(BaseStrategyEventListener):
+    cdef c_call(self, object arg):
+        self._owner.c_did_remove_range_position_order(arg)
 # </editor-fold>
 
 
@@ -96,6 +104,8 @@ cdef class StrategyBase(TimeIterator):
     ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
     BUY_ORDER_CREATED_EVENT_TAG = MarketEvent.BuyOrderCreated.value
     SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated.value
+    RANGE_POSITION_CREATED_EVENT_TAG = MarketEvent.RangePositionCreated.value
+    RANGE_POSITION_REMOVED_EVENT_TAG = MarketEvent.RangePositionRemoved.value
 
     @classmethod
     def logger(cls) -> logging.Logger:
@@ -113,6 +123,8 @@ cdef class StrategyBase(TimeIterator):
         self._sb_complete_buy_order_listener = BuyOrderCompletedListener(self)
         self._sb_complete_sell_order_listener = SellOrderCompletedListener(self)
         self._sb_complete_funding_payment_listener = FundingPaymentCompletedListener(self)
+        self._sb_create_range_position_order_listener = RangePositionCreatedListener(self)
+        self._sb_remove_range_position_order_listener = RangePositionRemovedListener(self)
 
         self._sb_delegate_lock = False
 
@@ -268,6 +280,8 @@ cdef class StrategyBase(TimeIterator):
             typed_market.c_add_listener(self.BUY_ORDER_COMPLETED_EVENT_TAG, self._sb_complete_buy_order_listener)
             typed_market.c_add_listener(self.SELL_ORDER_COMPLETED_EVENT_TAG, self._sb_complete_sell_order_listener)
             typed_market.c_add_listener(self.FUNDING_PAYMENT_COMPLETED_EVENT_TAG, self._sb_complete_funding_payment_listener)
+            typed_market.c_add_listener(self.RANGE_POSITION_CREATED_EVENT_TAG, self._sb_create_range_position_order_listener)
+            typed_market.c_add_listener(self.RANGE_POSITION_REMOVED_EVENT_TAG, self._sb_remove_range_position_order_listener)
             self._sb_markets.add(typed_market)
 
     def add_markets(self, markets: List[ConnectorBase]):
@@ -290,6 +304,8 @@ cdef class StrategyBase(TimeIterator):
             typed_market.c_remove_listener(self.BUY_ORDER_COMPLETED_EVENT_TAG, self._sb_complete_buy_order_listener)
             typed_market.c_remove_listener(self.SELL_ORDER_COMPLETED_EVENT_TAG, self._sb_complete_sell_order_listener)
             typed_market.c_remove_listener(self.FUNDING_PAYMENT_COMPLETED_EVENT_TAG, self._sb_complete_funding_payment_listener)
+            typed_market.c_remove_listener(self.RANGE_POSITION_CREATED_EVENT_TAG, self._sb_create_range_position_order_listener)
+            typed_market.c_remove_listener(self.RANGE_POSITION_REMOVED_EVENT_TAG, self._sb_remove_range_position_order_listener)
             self._sb_markets.remove(typed_market)
 
     def remove_markets(self, markets: List[ConnectorBase]):
@@ -342,6 +358,12 @@ cdef class StrategyBase(TimeIterator):
         pass
 
     cdef c_did_complete_funding_payment(self, object funding_payment_completed_event):
+        pass
+
+    cdef c_did_create_range_position_order(self, object order_created_event):
+        pass
+
+    cdef c_did_remove_range_position_order(self, object order_completed_event):
         pass
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>
@@ -503,6 +525,7 @@ cdef class StrategyBase(TimeIterator):
 
     def start_tracking_limit_order(self, market_pair: MarketTradingPairTuple, order_id: str, is_buy: bool, price: Decimal,
                                    quantity: Decimal):
+
         self.c_start_tracking_limit_order(market_pair, order_id, is_buy, price, quantity)
 
     cdef c_stop_tracking_limit_order(self, object market_pair, str order_id):
@@ -539,5 +562,6 @@ cdef class StrategyBase(TimeIterator):
 
     def track_restored_orders(self, market_pair: MarketTradingPairTuple):
         return self.c_track_restored_orders(market_pair)
+
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>
