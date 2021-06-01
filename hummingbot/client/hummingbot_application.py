@@ -99,6 +99,9 @@ class HummingbotApplication(*commands):
         self._script_iterator = None
         self._binance_connector = None
 
+        # gateway variables
+        self._shared_client = None
+
     @property
     def strategy_file_name(self) -> str:
         return self._strategy_file_name
