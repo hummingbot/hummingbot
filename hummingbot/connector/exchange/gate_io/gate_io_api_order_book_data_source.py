@@ -69,8 +69,8 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
         try:
             ex_pair = convert_to_exchange_trading_pair(trading_pair)
             orderbook_response: Dict[Any] = await api_call_with_retries("GET", Constants.ENDPOINT["ORDER_BOOK"],
-                                                                        params={"limit": 150, "symbols": ex_pair})
-            return orderbook_response[ex_pair]
+                                                                        params={"limit": 150, "currency_pair": ex_pair, "with_id": 1})
+            return orderbook_response
         except GateIoAPIError as e:
             err = e.error_payload.get('error', e.error_payload)
             raise IOError(
@@ -137,26 +137,27 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 ws = GateIoWebsocket()
                 await ws.connect()
 
-                order_book_methods = [
-                    Constants.WS_METHODS['ORDERS_SNAPSHOT'],
-                    Constants.WS_METHODS['ORDERS_UPDATE'],
+                order_book_channels = [
+                    Constants.WS_SUB['ORDERS_SNAPSHOT'],
+                    Constants.WS_SUB['ORDERS_UPDATE'],
                 ]
 
-                for pair in self._trading_pairs:
-                    await ws.subscribe(Constants.WS_SUB["ORDERS"], convert_to_exchange_trading_pair(pair))
+                for channel in order_book_channels:
+                    await ws.subscribe(channel,
+                                       [convert_to_exchange_trading_pair(pair) for pair in self._trading_pairs])
 
                 async for response in ws.on_message():
-                    method: str = response.get("method", None)
-                    order_book_data: str = response.get("params", None)
+                    channel: str = response.get("channel", None)
+                    order_book_data: str = response.get("result", None)
 
-                    if order_book_data is None or method not in order_book_methods:
+                    if order_book_data is None or channel not in order_book_channels:
                         continue
 
-                    timestamp: int = str_date_to_ts(order_book_data["timestamp"])
-                    pair: str = convert_from_exchange_trading_pair(order_book_data["symbol"])
+                    timestamp: int = str_date_to_ts(order_book_data["t"])
+                    pair: str = convert_from_exchange_trading_pair(order_book_data["s"])
 
                     order_book_msg_cls = (GateIoOrderBook.diff_message_from_exchange
-                                          if method == Constants.WS_METHODS['ORDERS_UPDATE'] else
+                                          if channel == Constants.WS_SUB['ORDERS_UPDATE'] else
                                           GateIoOrderBook.snapshot_message_from_exchange)
 
                     orderbook_msg: OrderBookMessage = order_book_msg_cls(
@@ -185,7 +186,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 for trading_pair in self._trading_pairs:
                     try:
                         snapshot: Dict[str, any] = await self.get_order_book_data(trading_pair)
-                        snapshot_timestamp: int = str_date_to_ts(snapshot["timestamp"])
+                        snapshot_timestamp: int = str_date_to_ts(snapshot["t"])
                         snapshot_msg: OrderBookMessage = GateIoOrderBook.snapshot_message_from_exchange(
                             snapshot,
                             snapshot_timestamp,

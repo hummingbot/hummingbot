@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 import asyncio
-import copy
 import logging
 import websockets
 import json
+import time
 from hummingbot.connector.exchange.gate_io.gate_io_constants import Constants
 
 
@@ -11,13 +11,13 @@ from typing import (
     Any,
     AsyncIterable,
     Dict,
+    List,
     Optional,
 )
 from websockets.exceptions import ConnectionClosed
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
 from hummingbot.connector.exchange.gate_io.gate_io_utils import (
-    RequestId,
     GateIoAPIError,
 )
 
@@ -25,7 +25,7 @@ from hummingbot.connector.exchange.gate_io.gate_io_utils import (
 # ToDo: We should eventually remove this class, and instantiate web socket connection normally (see Binance for example)
 
 
-class GateIoWebsocket(RequestId):
+class GateIoWebsocket():
     _logger: Optional[HummingbotLogger] = None
 
     @classmethod
@@ -38,23 +38,12 @@ class GateIoWebsocket(RequestId):
                  auth: Optional[GateIoAuth] = None):
         self._auth: Optional[GateIoAuth] = auth
         self._isPrivate = True if self._auth is not None else False
-        self._WS_URL = Constants.WS_PRIVATE_URL if self._isPrivate else Constants.WS_PUBLIC_URL
+        self._WS_URL = Constants.WS_URL
         self._client: Optional[websockets.WebSocketClientProtocol] = None
 
     # connect to exchange
     async def connect(self):
         self._client = await websockets.connect(self._WS_URL)
-
-        # if auth class was passed into websocket class
-        # we need to emit authenticated requests
-        if self._isPrivate:
-            auth_params = self._auth.generate_auth_dict_ws(self.generate_request_id())
-            await self._emit("login", auth_params, no_id=True)
-            raw_msg_str: str = await asyncio.wait_for(self._client.recv(), timeout=Constants.MESSAGE_TIMEOUT)
-            json_msg = json.loads(raw_msg_str)
-            if json_msg.get("result") is not True:
-                err_msg = json_msg.get('error', {}).get('message')
-                raise GateIoAPIError({"error": f"Failed to authenticate to websocket - {err_msg}."})
 
         return self._client
 
@@ -75,6 +64,11 @@ class GateIoWebsocket(RequestId):
                         msg = json.loads(raw_msg_str)
                         # Gate.io doesn't support ping or heartbeat messages.
                         # Can handle them here if that changes - use `safe_ensure_future`.
+
+                        # Raise API error for login failures.
+                        if msg.get('error', {}).get('message', None) is not None:
+                            err_msg = msg['error']['message']
+                            raise GateIoAPIError({"error": f"Failed to authenticate to websocket - {err_msg}."})
                         yield msg
                     except ValueError:
                         continue
@@ -89,42 +83,50 @@ class GateIoWebsocket(RequestId):
             await self.disconnect()
 
     # emit messages
-    async def _emit(self, method: str, data: Optional[Dict[str, Any]] = {}, no_id: bool = False) -> int:
-        id = self.generate_request_id()
+    async def _emit(self, channel: str, data: Optional[Dict[str, Any]] = {}, no_id: bool = False) -> int:
+        id = int(time.time())
 
         payload = {
-            "id": id,
-            "method": method,
-            "params": copy.deepcopy(data),
+            "time": id,
+            "channel": channel,
+            **data,
         }
+
+        # if auth class was passed into websocket class
+        # we need to emit authenticated requests
+        if self._isPrivate:
+            payload['auth'] = self._auth.generate_auth_dict_ws(payload)
 
         await self._client.send(json.dumps(payload))
 
         return id
 
     # request via websocket
-    async def request(self, method: str, data: Optional[Dict[str, Any]] = {}) -> int:
-        return await self._emit(method, data)
+    async def request(self, channel: str, data: Optional[Dict[str, Any]] = {}) -> int:
+        return await self._emit(channel, data)
 
-    # subscribe to a method
+    # subscribe to a channel
     async def subscribe(self,
                         channel: str,
-                        trading_pair: Optional[str] = None,
-                        params: Optional[Dict[str, Any]] = {}) -> int:
-        if trading_pair is not None:
-            params['symbol'] = trading_pair
-        return await self.request(f"subscribe{channel}", params)
+                        trading_pairs: Optional[List[str]] = None) -> int:
+        ws_params = {
+            'event': 'subscribe',
+        }
+        if trading_pairs is not None:
+            ws_params['payload'] = trading_pairs
+        return await self.request(channel, ws_params)
 
-    # unsubscribe to a method
+    # unsubscribe to a channel
     async def unsubscribe(self,
                           channel: str,
-                          trading_pair: Optional[str] = None,
-                          params: Optional[Dict[str, Any]] = {}) -> int:
-        if trading_pair is not None:
-            params['symbol'] = trading_pair
-        return await self.request(f"unsubscribe{channel}", params)
+                          trading_pairs: Optional[List[str]] = None) -> int:
+        ws_params = {
+            'event': 'unsubscribe',
+            'payload': trading_pairs
+        }
+        return await self.request(channel, ws_params)
 
-    # listen to messages by method
+    # listen to messages by channel
     async def on_message(self) -> AsyncIterable[Any]:
         async for msg in self._messages():
             yield msg

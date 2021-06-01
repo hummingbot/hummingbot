@@ -43,7 +43,6 @@ from hummingbot.connector.exchange.gate_io.gate_io_in_flight_order import GateIo
 from hummingbot.connector.exchange.gate_io.gate_io_utils import (
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair,
-    translate_asset,
     get_new_client_order_id,
     aiohttp_response_with_errors,
     retry_sleep_time,
@@ -228,8 +227,7 @@ class GateIoExchange(ExchangeBase):
         try:
             # since there is no ping endpoint, the lowest rate call is to get BTC-USD symbol
             await self._api_request("GET",
-                                    Constants.ENDPOINT['SYMBOL'],
-                                    params={'symbols': 'BTCUSD'})
+                                    Constants.ENDPOINT['CURRENCY'].format(currency='BTC'))
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -325,7 +323,7 @@ class GateIoExchange(ExchangeBase):
         headers: dict = {"Content-Type": "application/json"}
         if is_auth_required:
             headers: dict = self._gate_io_auth.get_headers(method, f"{Constants.REST_URL_AUTH}/{endpoint}",
-                                                           params, req_params)
+                                                           req_params if req_params is not None else params)
         # Build request coro
         response_coro = shared_client.request(method=method.upper(), url=url, headers=headers,
                                               params=qs_params, data=req_params,
@@ -742,7 +740,7 @@ class GateIoExchange(ExchangeBase):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
         for account in balance_update:
-            asset_name = translate_asset(account["currency"])
+            asset_name = account["currency"]
             self._account_available_balances[asset_name] = Decimal(str(account["available"]))
             self._account_balances[asset_name] = Decimal(str(account["reserved"])) + Decimal(str(account["available"]))
             remote_asset_names.add(asset_name)

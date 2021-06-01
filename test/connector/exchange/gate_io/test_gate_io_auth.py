@@ -41,10 +41,10 @@ class TestAuth(unittest.TestCase):
             'currency_pair': 'ETH_BTC',
             'type': 'limit',
             'side': 'buy',
-            'amount': '1.0',
+            'amount': '0.00000001',
             'price': '0.0000001',
         })
-        headers = self.auth.get_headers("POST", f"{Constants.REST_URL_AUTH}/{endpoint}", None, post_params=order_params)
+        headers = self.auth.get_headers("POST", f"{Constants.REST_URL_AUTH}/{endpoint}", order_params)
         http_status, response, request_errors = await aiohttp_response_with_errors(http_client.request(method='POST',
                                                                                                        url=f"{Constants.REST_URL}/{endpoint}",
                                                                                                        headers=headers, data=order_params))
@@ -54,7 +54,7 @@ class TestAuth(unittest.TestCase):
     async def ws_auth(self) -> Dict[Any, Any]:
         ws = GateIoWebsocket(self.auth)
         await ws.connect()
-        await ws.subscribe(Constants.WS_SUB["USER_ORDERS_TRADES"], None, {})
+        await ws.subscribe(Constants.WS_SUB["USER_BALANCE"])
         async for response in ws.on_message():
             return response
 
@@ -64,15 +64,17 @@ class TestAuth(unittest.TestCase):
             print(f"Unexpected response for API call: {result}")
         assert "currency" in result[0].keys()
 
-    # def test_rest_auth_post(self):
-    #     result = self.ev_loop.run_until_complete(self.rest_auth_post())
-    #     if "message" not in result.keys():
-    #         print(f"Unexpected response for API call: {result}")
-    #     assert "message" in result.keys()
-    #     assert "Your order size 1.0 is too small" in result['message']
+    def test_rest_auth_post(self):
+        result = self.ev_loop.run_until_complete(self.rest_auth_post())
+        if "message" not in result.keys():
+            print(f"Unexpected response for API call: {result}")
+        assert "message" in result.keys()
+        assert "Your order size 0.00000001 is too small" in result['message']
 
     def test_ws_auth(self):
         response = self.ev_loop.run_until_complete(self.ws_auth())
         if 'result' not in response:
             print(f"Unexpected response for API call: {response}")
-        assert response['result'] is True
+        assert "result" in response.keys()
+        assert "status" in response['result'].keys()
+        assert response['result']['status'] == 'success'
