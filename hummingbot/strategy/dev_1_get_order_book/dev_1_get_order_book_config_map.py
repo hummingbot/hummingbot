@@ -11,7 +11,7 @@ from typing import Optional
 
 
 def trading_pair_prompt():
-    market = dev_1_get_order_book_config_map.get("market").value
+    market = dev_1_get_order_book_config_map.get("exchange").value
     example = EXAMPLE_PAIRS.get(market)
     return "Enter the token trading pair to fetch its order book on %s%s >>> " \
            % (market, f" (e.g. {example})" if example else "")
@@ -23,7 +23,7 @@ def str2bool(value: str):
 
 # checks if the trading pair is valid
 def validate_trading_pair(value: str) -> Optional[str]:
-    market = dev_1_get_order_book_config_map.get("market").value
+    market = dev_1_get_order_book_config_map.get("exchange").value
     return validate_market_trading_pair(market, value)
 
 
@@ -31,14 +31,20 @@ dev_1_get_order_book_config_map = {
     "strategy":
         ConfigVar(key="strategy",
                   prompt="",
-                  default="dev_1_get_order_book"),
-    "market":
-        ConfigVar(key="market",
+                  default="dev_1_get_order_book",
+                  ),
+    "exchange":
+        ConfigVar(key="exchange",
                   prompt="Enter the name of the exchange >>> ",
                   validator=validate_exchange,
-                  on_validated=lambda value: required_exchanges.append(value)),
-    "market_trading_pair":
-        ConfigVar(key="market_trading_pair",
+                  on_validated=lambda value: required_exchanges.append(value),
+                  prompt_on_new=True,
+                  ),
+    "trading_pair":
+        ConfigVar(key="trading_pair",
                   prompt=trading_pair_prompt,
-                  validator=validate_trading_pair),
+                  validator=validate_trading_pair,
+                  type_str="str",
+                  prompt_on_new=True,
+                  ),
 }
