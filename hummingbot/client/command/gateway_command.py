@@ -25,7 +25,7 @@ class GatewayCommand:
         elif option == "update":
             safe_ensure_future(self.update_gateway(key, value))
         elif option == "generate_certs":
-            safe_ensure_future(self._generate_certs(key, value), loop=self.ev_loop)
+            safe_ensure_future(self._generate_certs())
 
     async def _generate_certs(self,  # type: HummingbotApplication
                               ):
@@ -47,6 +47,9 @@ class GatewayCommand:
         self.placeholder_mode = False
         self.app.hide_input = False
         self.app.change_prompt(prompt=">>> ")
+
+    async def generate_certs(self):
+        safe_ensure_future(self._generate_certs(), loop=self.ev_loop)
 
     async def update_gateway(self, key, value):
         safe_ensure_future(self._update_gateway(key, value), loop=self.ev_loop)
@@ -93,8 +96,22 @@ class GatewayCommand:
         return self._shared_client
 
     async def _update_gateway(self, key, value):
-        if key is None:
-            self._notify("Specify a parameter to update.")
+        if key is not None:
+            key = key.upper()
+            all_keys = []
+
+        try:
+            config = await self.get_gateway_connections()
+            core_keys = [key for key in sorted(config["config"]['CORE'])]
+            other_keys = [key for key in sorted(config["config"]) if key not in ["CORE"]]
+            all_keys = core_keys + other_keys
+        except Exception:
+            self._notify("Gateway-api is not accessible. "
+                         "Ensure gateway is up and running on the address and port specified in the global config.")
+            return
+
+        if key is None or key not in all_keys:
+            self._notify(f"Specify one of {all_keys} config to update.")
         elif value is None:
             self.app.clear_input()
             self.placeholder_mode = True
@@ -109,7 +126,11 @@ class GatewayCommand:
             self.app.change_prompt(prompt=">>> ")
         if key and value:
             settings = {key: value}
-            await self._api_request("post", "api/update", settings)
+            try:
+                await self._api_request("post", "api/update", settings)
+            except Exception:
+                # silently ignore exception due to gateway restarting
+                pass
             self._notify(f"\nGateway api has restarted to update {key} to {value}.")
 
             # the following will commented out untill gateway api is refactored to support multichain
@@ -136,49 +157,38 @@ class GatewayCommand:
                 )
                 self._notify("\nError: Configrations update failed")"""
 
+    async def get_gateway_connections(self):
+        return await self._api_request("get", "api", {})
+
     async def _show_gateway_connections(self):
-        self.placeholder_mode = True
-        self.app.hide_input = True
-        self._shared_client = None
-        to_configure = True
-        resp = None
         host = global_config_map['gateway_api_host'].value
         port = global_config_map['gateway_api_port'].value
-
-        if to_configure:
-            if self.app.to_stop_config:
-                self.app.to_stop_config = False
-                return
-            try:
-                resp = await self._api_request("get", "api", {})
-                status = resp["status"]
-                if status:
-                    config = resp["config"]
-                    self._notify(f"\nGateway Configurations ({host}:{port}):")
-                    self._notify("\nCore parameters:")
-                    columns = ["Parameter", "  Value"]
-                    core_data = data = [[key, config['CORE'][key]] for key in sorted(config['CORE'])]
-                    core_df = pd.DataFrame(data=core_data, columns=columns)
-                    lines = ["    " + line for line in core_df.to_string(index=False, max_colwidth=50).split("\n")]
-                    self._notify("\n".join(lines))
-                    self._notify("\nOther parameters:")
-                    data = [[key, config[key]] for key in sorted(config) if key not in ['CORE']]
-                    df = pd.DataFrame(data=data, columns=columns)
-                    lines = ["    " + line for line in df.to_string(index=False, max_colwidth=50).split("\n")]
-                    self._notify("\n".join(lines))
-                else:
-                    self._notify("\nError: Invalid return result")
-            except asyncio.CancelledError:
-                raise
-            except Exception as e:
-                self.logger().network(
-                    "\nError getting Gateway's protocol settings",
-                    exc_info=True,
-                    app_warning_msg=str(e)
-                )
-                remote_host = ':'.join([host, port])
-                self._notify(f"\nError: Connection to Gateway {remote_host} failed")
-
-        self.placeholder_mode = False
-        self.app.hide_input = False
-        self.app.change_prompt(prompt=">>> ")
+        try:
+            resp = await self.get_gateway_connections()
+            status = resp["status"]
+            if status:
+                config = resp["config"]
+                self._notify(f"\nGateway Configurations ({host}:{port}):")
+                self._notify("\nCore parameters:")
+                columns = ["Parameter", "  Value"]
+                core_data = data = [[key, config['CORE'][key]] for key in sorted(config['CORE'])]
+                core_df = pd.DataFrame(data=core_data, columns=columns)
+                lines = ["    " + line for line in core_df.to_string(index=False, max_colwidth=50).split("\n")]
+                self._notify("\n".join(lines))
+                self._notify("\nOther parameters:")
+                data = [[key, config[key]] for key in sorted(config) if key not in ['CORE']]
+                df = pd.DataFrame(data=data, columns=columns)
+                lines = ["    " + line for line in df.to_string(index=False, max_colwidth=50).split("\n")]
+                self._notify("\n".join(lines))
+            else:
+                self._notify("\nError: Invalid return result")
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self.logger().network(
+                "\nError getting Gateway's protocol settings",
+                exc_info=True,
+                app_warning_msg=str(e)
+            )
+            remote_host = ':'.join([host, port])
+            self._notify(f"\nError: Connection to Gateway {remote_host} failed")
