@@ -1,3 +1,7 @@
+"""
+Unit tests for hummingbot.strategy.liquidity_mining.liquidity_mining
+"""
+
 from decimal import Decimal
 import pandas as pd
 from typing import Dict, List, Optional
@@ -328,11 +332,12 @@ class LiquidityMiningTest(unittest.TestCase):
             target_base_pct=Decimal(0.5),  # less base, more quote
             order_refresh_time=1,
             order_refresh_tolerance_pct=Decimal(0.1),  # tolerance of 10 % change
-            volatility_interval=2,
-            avg_volatility_period=2,
-            volatility_to_spread_multiplier=2,
+            # volatility_interval=2,
+            # avg_volatility_period=2,
+            # volatility_to_spread_multiplier=2,
         )
 
+        get_mid_price_mock.return_value = Decimal(100.0)
         self.clock.add_iterator(strategy)
         self.clock.backtest_til(self.start_timestamp + 1)
 
@@ -340,7 +345,7 @@ class LiquidityMiningTest(unittest.TestCase):
         get_mid_price_mock.return_value = Decimal(105.0)
         self.clock.backtest_til(self.start_timestamp + 2)
 
-        get_mid_price_mock.return_value = Decimal(115.5)
+        get_mid_price_mock.return_value = Decimal(110)
         self.clock.backtest_til(self.start_timestamp + 3)
 
         # assert that volatility is none zero
