@@ -120,6 +120,7 @@ jobs:
         run: |
           source /usr/share/miniconda/etc/profile.d/conda.sh
           conda activate hummingbot
+          git show-ref HEAD
           echo $GITHUB_BASE_REF
           echo $GITHUB_HEAD_REF
           diff-cover --compare-branch=origin/$GITHUB_BASE_REF --fail-under=20 coverage.xml
