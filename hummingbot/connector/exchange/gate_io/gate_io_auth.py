@@ -19,52 +19,53 @@ class GateIoAuth():
         method: str,
         url: str,
         params: Dict[str, Any] = None,
-        post_params: str = None,
+        for_ws: bool = False,
     ):
         """
         Generates authentication payload and returns it.
         :return: A base64 encoded payload for the authentication header.
         """
-        # Nonce is standard EPOCH timestamp only accurate to 1s
-        self.nonce = str(int(time.time()))
-        body = ""
-        query_string = ""
-        # Need to build the full URL with query string for HS256 sig
-        if params is not None and len(params) > 0 and method == "GET":
-            query_string = "&".join([f"{k}={v}" for k, v in params.items()])
-        elif post_params is not None:
-            body = post_params
-        body_encoded = hashlib.sha512(body.encode()).hexdigest()
-        # Concat payload
-        payload = f"{method}\n{url}\n{query_string}\n{body_encoded}\n{self.nonce}"
+        # Build message payload
+        if for_ws:
+            payload = f"channel={method}&event={url}&time={params}"
+        else:
+            # Nonce is standard EPOCH timestamp only accurate to 1s
+            self.nonce = str(int(time.time()))
+            body, query_string = "", ""
+            # Need to build the full URL with query string for HS256 sig
+            if params is not None:
+                if method == "POST":
+                    body = str(params)
+                else:
+                    query_string = "&".join([f"{k}={v}" for k, v in params.items()]) if isinstance(params, dict) else str(params)
+            body_encoded = hashlib.sha512(body.encode()).hexdigest()
+            payload = f"{method}\n{url}\n{query_string}\n{body_encoded}\n{self.nonce}"
         # Create HS256 sig
         return hmac.new(self.secret_key.encode(), payload.encode(), hashlib.sha512).hexdigest()
 
     def generate_auth_dict_ws(self,
-                              nonce: int):
+                              payload: Dict[str, Any] = None) -> Dict[str, Any]:
         """
-        Generates an authentication params for Gate.io websockets login
+        Generates an authentication dict for Gate.io websockets login
         :return: a dictionary of auth params
         """
-        return {
-            "algo": "HS256",
-            "pKey": str(self.api_key),
-            "nonce": str(nonce),
-            "signature": hmac.new(self.secret_key.encode('utf-8'),
-                                  str(nonce).encode('utf-8'),
-                                  hashlib.sha512).hexdigest()
+        sig = self.generate_payload(payload['channel'], payload['event'], payload['time'], True)
+        headers = {
+            "method": "api_key",
+            "KEY": f"{self.api_key}",
+            "SIGN": f"{sig}",
         }
+        return headers
 
     def get_headers(self,
                     method,
                     url,
-                    params,
-                    post_params = None) -> Dict[str, Any]:
+                    params = None) -> Dict[str, Any]:
         """
         Generates authentication headers required by Gate.io
         :return: a dictionary of auth headers
         """
-        payload = self.generate_payload(method, url, params, post_params)
+        payload = self.generate_payload(method, url, params)
         headers = {
             "X-Gate-Channel-Id": "hummingbot",
             "KEY": f"{self.api_key}",

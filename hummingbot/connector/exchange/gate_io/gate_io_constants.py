@@ -3,16 +3,16 @@ class Constants:
     EXCHANGE_NAME = "gate_io"
     REST_URL = "https://api.gateio.ws/api/v4"
     REST_URL_AUTH = "/api/v4"
-    WS_PRIVATE_URL = "wss://api.gateio.ws/ws/v4/"
-    WS_PUBLIC_URL = "wss://api.gateio.ws/ws/v4/"
+    WS_URL = "wss://api.gateio.ws/ws/v4/"
 
     HBOT_BROKER_ID = "HBOT"
 
     ENDPOINT = {
         # Public Endpoints
         "TICKER": "spot/tickers",
-        "SYMBOL": "public/symbol",
-        "ORDER_BOOK": "public/orderbook",
+        "SYMBOL": "spot/currency_pairs",
+        "CURRENCY": "spot/currencies/{currency}",
+        "ORDER_BOOK": "spot/order_book",
         "ORDER_CREATE": "spot/orders",
         "ORDER_DELETE": "order/{id}",
         "ORDER_STATUS": "order/{id}",
@@ -21,15 +21,16 @@ class Constants:
     }
 
     WS_SUB = {
-        "TRADES": "Trades",
-        "ORDERS": "Orderbook",
-        "USER_ORDERS_TRADES": "Reports",
+        "TRADES": "spot.trades",
+        "ORDERS_SNAPSHOT": "spot.order_book",
+        "ORDERS_UPDATE": "spot.order_book_update",
+        "USER_TRADES": "spot.usertrades",
+        "USER_ORDERS": "spot.orders",
+        "USER_BALANCE": "spot.balances",
 
     }
 
     WS_METHODS = {
-        "ORDERS_SNAPSHOT": "snapshotOrderbook",
-        "ORDERS_UPDATE": "updateOrderbook",
         "TRADES_SNAPSHOT": "snapshotTrades",
         "TRADES_UPDATE": "updateTrades",
         "USER_BALANCE": "getTradingBalance",
@@ -51,6 +52,3 @@ class Constants:
     UPDATE_ORDER_STATUS_INTERVAL = 60.0
     # 10 minute interval to update trading rules, these would likely never change whilst running.
     INTERVAL_TRADING_RULES = 600
-
-    # Trading pair splitter regex
-    TRADING_PAIR_SPLITTER = r"^(\w+)(BTC|BCH|DAI|DDRST|EOSDT|EOS|ETH|EURS|IDRT|PAX|BUSD|GUSD|TUSD|USDC|USDT|USD)$"
