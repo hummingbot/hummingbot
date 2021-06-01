@@ -318,8 +318,8 @@ class LiquidityMiningTest(unittest.TestCase):
         get_mid_price_mock.return_value = Decimal(105.0)
         self.clock.backtest_til(self.start_timestamp + 2)
 
-        get_mid_price_mock.return_value = Decimal(110.0)
+        get_mid_price_mock.return_value = Decimal(115.5)
         self.clock.backtest_til(self.start_timestamp + 3)
 
         # assert that volatility is none zero
-        self.assertGreater(float(strategy.market_status_df().loc[0, 'Volatility'].strip('%')), 0.00)
+        self.assertAlmostEqual(float(strategy.market_status_df().loc[0, 'Volatility'].strip('%')), 10.00, delta=0.1)
