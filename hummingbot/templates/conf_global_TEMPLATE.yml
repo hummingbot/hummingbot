@@ -92,7 +92,6 @@ celo_password: null
 
 terra_wallet_address: null
 terra_wallet_seeds: null
-terra_chain_name: MAIN_NET
 
 digifinex_api_key: null
 digifinex_secret_key: null
