@@ -123,8 +123,8 @@ jobs:
           # git show-ref HEAD | cat
           # echo $GITHUB_BASE_REF
           echo $GITHUB_HEAD_REF
-          git symbolic-ref HEAD $GITHUB_HEAD_REF
           cat .git/HEAD
+          git symbolic-ref HEAD
           diff-cover --fail-under=20 coverage.xml
 
       # Notify results to discord
