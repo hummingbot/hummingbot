@@ -139,7 +139,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
 
     async def active_orders_df(self) -> pd.DataFrame:
         """
-        Return the active orders in a DataFram.
+        Return the active orders in a DataFrame.
         """
         size_q_col = f"Amt({self._token})" if self.is_token_a_quote_token() else "Amt(Quote)"
         columns = ["Market", "Side", "Price", "Spread", "Amount", size_q_col, "Age"]
@@ -301,7 +301,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
 
     def total_port_value_in_token(self) -> Decimal:
         """
-        Portfolio value in token
+        Total portfolio value in self._token amount
         """
         all_bals = self.adjusted_available_balances()
         port_value = all_bals.get(self._token, s_decimal_zero)

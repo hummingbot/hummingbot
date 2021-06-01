@@ -9,7 +9,7 @@ from decimal import Decimal
 
 class PriceSize:
     """
-    What is this? price of asset and amount of asset to sell?
+    Order price and order size.
     """
     def __init__(self, price: Decimal, size: Decimal):
         self.price: Decimal = price
@@ -21,7 +21,10 @@ class PriceSize:
 
 class Proposal:
     """
-    What is this? name of the market, PriceSize for sale, PriceSize for buy
+    An order proposal for liquidity mining.
+    market is the base quote pair like "ETH-USDT".
+    buy is a buy order proposal.
+    sell is a sell order proposal.
     """
     def __init__(self, market: str, buy: PriceSize, sell: PriceSize):
         self.market: str = market
