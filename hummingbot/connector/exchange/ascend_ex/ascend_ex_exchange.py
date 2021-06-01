@@ -197,8 +197,6 @@ class AscendExExchange(ExchangeBase):
         self._order_book_tracker.start()
         await self._update_account_data()
 
-        safe_ensure_future(self._update_balances())
-
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
@@ -209,6 +207,10 @@ class AscendExExchange(ExchangeBase):
         """
         This function is required by NetworkIterator base class and is called automatically.
         """
+        # Resets timestamps for status_polling_task
+        self._last_poll_timestamp = 0
+        self._last_timestamp = 0
+
         self._order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
@@ -216,9 +218,6 @@ class AscendExExchange(ExchangeBase):
         if self._trading_rules_polling_task is not None:
             self._trading_rules_polling_task.cancel()
             self._trading_rules_polling_task = None
-        if self._status_polling_task is not None:
-            self._status_polling_task.cancel()
-            self._status_polling_task = None
         if self._user_stream_tracker_task is not None:
             self._user_stream_tracker_task.cancel()
             self._user_stream_tracker_task = None
@@ -639,13 +638,13 @@ class AscendExExchange(ExchangeBase):
         """
         while True:
             try:
-                self._poll_notifier = asyncio.Event()
                 await self._poll_notifier.wait()
                 await safe_gather(
                     self._update_balances(),
                     self._update_order_status(),
                 )
                 self._last_poll_timestamp = self.current_timestamp
+                self._poll_notifier = asyncio.Event()
             except asyncio.CancelledError:
                 raise
             except Exception as e:
