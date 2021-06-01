@@ -472,7 +472,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 self.c_recalculate_parameters()
             self.logger().info("Recycling algorithm time left and parameters if needed.")
 
-    def volatility_diff_from_last_parameter_calculation(self, current_vol):
+    def volatility_diff_from_last_parameter_calculation(self, current_vol) -> Decimal:
         if self._latest_parameter_calculation_vol == 0:
             return s_decimal_zero
         return abs(self._latest_parameter_calculation_vol - Decimal(str(current_vol))) / self._latest_parameter_calculation_vol
@@ -483,6 +483,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             str trading_pair = self._market_info.trading_pair
 
         return market.c_get_price(trading_pair, True) - market.c_get_price(trading_pair, False)
+
+    def get_spread(self):
+        return self.c_get_spread()
 
     def get_volatility(self):
         vol = Decimal(str(self._avg_vol.current_value))
@@ -536,6 +539,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                                    f"q={q/self._q_adjustment_factor:.4f} | "
                                    f"vol={vol:.4f}")
 
+    def calculate_reserved_price_and_optimal_spread(self):
+        return self.c_calculate_reserved_price_and_optimal_spread()
+
     cdef object c_calculate_target_inventory(self):
         cdef:
             ExchangeBase market = self._market_info.market
@@ -554,6 +560,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         inventory_value = base_value + quote_asset_amount
         target_inventory_value = inventory_value * self._inventory_target_base_pct
         return market.c_quantize_order_amount(trading_pair, Decimal(str(target_inventory_value / price)))
+
+    def calculate_target_inventory(self) -> Decimal:
+        return self.c_calculate_target_inventory()
 
     def _get_min_and_max_spread(self):
         vol = self.get_volatility()
@@ -599,8 +608,14 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
             self._latest_parameter_calculation_vol = vol
 
+    def recalculate_parameters(self):
+        return self.c_recalculate_parameters()
+
     cdef bint c_is_algorithm_ready(self):
         return self._avg_vol.is_sampling_buffer_full
+
+    def is_algorithm_ready(self) -> bool:
+        return self.c_is_algorithm_ready()
 
     def _get_logspaced_level_spreads(self, ):
         reference_price = self.get_price()
@@ -634,6 +649,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     list_to_be_appended.append(PriceSize(price, size))
         return buys, sells
 
+    def create_proposal_based_on_order_override(self) -> Tuple[List[Proposal], List[Proposal]]:
+        return self._create_proposal_based_on_order_override()
+
     cdef _create_proposal_based_on_order_levels(self):
         cdef:
             ExchangeBase market = self._market_info.market
@@ -652,6 +670,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 sells.append(PriceSize(ask_price, size))
         return buys, sells
 
+    def create_proposal_based_on_order_levels(self):
+        return self._create_proposal_based_on_order_levels()
+
     cdef _create_basic_proposal(self):
         cdef:
             ExchangeBase market = self._market_info.market
@@ -667,6 +688,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         if size > 0:
             sells.append(PriceSize(price, size))
         return buys, sells
+
+    def create_basic_proposal(self):
+        return self._create_basic_proposal()
 
     cdef object c_create_base_proposal(self):
         cdef:
@@ -686,6 +710,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
         return Proposal(buys, sells)
 
+    def create_base_proposal(self):
+        return self.c_create_base_proposal()
+
     cdef tuple c_get_adjusted_available_balance(self, list orders):
         """
         Calculates the available balance, plus the amount attributed to orders.
@@ -704,12 +731,18 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
         return base_balance, quote_balance
 
+    def get_adjusted_available_balance(self, orders: List[LimitOrder]):
+        return self.c_get_adjusted_available_balance(orders)
+
     cdef c_apply_order_price_modifiers(self, object proposal):
         if self._order_optimization_enabled:
             self.c_apply_order_optimization(proposal)
 
         if self._add_transaction_costs_to_orders:
             self.c_apply_add_transaction_costs(proposal)
+
+    def apply_ordeR_price_modifiers(self, proposal: Proposal):
+        self.c_apply_order_price_modifiers(proposal)
 
     cdef c_apply_budget_constraint(self, object proposal):
         cdef:
@@ -752,6 +785,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 base_balance -= base_size
 
         proposal.sells = [o for o in proposal.sells if o.size > 0]
+
+    def apply_budget_constraint(self, proposal: Proposal):
+        return self.c_apply_budget_constraint(proposal)
 
     # Compare the market price with the top bid and top ask price
     cdef c_apply_order_optimization(self, object proposal):
@@ -803,6 +839,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 if proposal.sells[i].price < price_below_ask:
                     proposal.sells[i].price = market.c_quantize_order_price(self.trading_pair, price_below_ask)
 
+    def apply_order_optimization(self, proposal: Proposal):
+        return self.c_apply_order_optimization(proposal)
+
     cdef c_apply_order_amount_eta_transformation(self, object proposal):
         cdef:
             ExchangeBase market = self._market_info.market
@@ -826,7 +865,10 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                         proposal.sells[i].size = market.c_quantize_order_amount(trading_pair, proposal.sells[i].size * Decimal.exp(self._eta * q))
                     proposal.sells = [o for o in proposal.sells if o.size > 0]
 
-    cdef object c_apply_add_transaction_costs(self, object proposal):
+    def apply_order_amount_eta_transformation(self, proposal: Proposal):
+        self.c_apply_order_amount_eta_transformation(proposal)
+
+    cdef c_apply_add_transaction_costs(self, object proposal):
         cdef:
             ExchangeBase market = self._market_info.market
         for buy in proposal.buys:
@@ -839,6 +881,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                                    self._limit_order_type, TradeType.SELL, sell.size, sell.price)
             price = sell.price * (Decimal(1) + fee.percent)
             sell.price = market.c_quantize_order_price(self.trading_pair, price)
+
+    def apply_add_transaction_costs(self, proposal: Proposal):
+        self.c_apply_add_transaction_costs(proposal)
 
     cdef c_did_fill_order(self, object order_filled_event):
         cdef:
