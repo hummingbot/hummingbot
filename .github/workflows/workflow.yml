@@ -122,7 +122,7 @@ jobs:
           conda activate hummingbot
           echo $GITHUB_BASE_REF
           echo $GITHUB_HEAD_REF
-          diff-cover --compare-branch=$GITHUB_BASE_REF --fail-under=20 coverage.xml
+          diff-cover --compare-branch=origin/$GITHUB_BASE_REF --fail-under=20 coverage.xml
 
       # Notify results to discord
       - uses: actions/setup-ruby@v1
