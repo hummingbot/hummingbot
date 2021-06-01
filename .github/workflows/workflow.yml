@@ -122,7 +122,10 @@ jobs:
           conda activate hummingbot
           # git show-ref HEAD | cat
           # echo $GITHUB_BASE_REF
+          git fetch --all
           echo $GITHUB_HEAD_REF
+          cat .git/HEAD
+          git symbolic-ref HEAD refs/remotes/origin/$GITHUB_HEAD_REF
           cat .git/HEAD
           git symbolic-ref HEAD
           diff-cover --fail-under=20 coverage.xml
