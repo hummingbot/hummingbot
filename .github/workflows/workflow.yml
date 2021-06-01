@@ -112,6 +112,7 @@ jobs:
         run: |
           source /usr/share/miniconda/etc/profile.d/conda.sh
           conda activate hummingbot
+          git fetch --all -q
           git symbolic-ref HEAD refs/remotes/origin/$GITHUB_HEAD_REF
           find test/hummingbot/ -iname "test_*.py" | xargs nosetests -v --with-coverage --cover-inclusive --cover-package=hummingbot --cover-xml --cover-min-percentage=45
 
@@ -123,7 +124,7 @@ jobs:
           conda activate hummingbot
           git fetch --all -q
           git symbolic-ref HEAD refs/remotes/origin/$GITHUB_HEAD_REF
-          diff-cover --fail-under=50 coverage.xml
+          diff-cover --compare-branch=$GITHUB_BASE_REF --fail-under=50 coverage.xml
 
       # Notify results to discord
       - uses: actions/setup-ruby@v1
