@@ -97,7 +97,7 @@ jobs:
           ./compile
 
       # Install tools for coverage calculation
-      - name: Install Hummingbot
+      - name: Install Coverage Tools
         if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
         shell: bash -l {0}
         run: |
