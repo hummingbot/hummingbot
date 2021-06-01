@@ -32,7 +32,6 @@ class Constants:
 
     WS_METHODS = {
         "TRADES_SNAPSHOT": "snapshotTrades",
-        "TRADES_UPDATE": "updateTrades",
         "USER_BALANCE": "getTradingBalance",
         "USER_ORDERS": "activeOrders",
         "USER_TRADES": "report",

@@ -111,10 +111,10 @@ class GateIoOrderBook(OrderBook):
             msg.update(metadata)
 
         msg.update({
-            "exchange_order_id": msg.get("id"),
+            "trade_id": msg.get("id"),
             "trade_type": msg.get("side"),
             "price": msg.get("price"),
-            "amount": msg.get("quantity"),
+            "amount": msg.get("amount"),
         })
 
         return GateIoOrderBookMessage(

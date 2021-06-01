@@ -40,6 +40,11 @@ class GateIoWebsocket():
         self._isPrivate = True if self._auth is not None else False
         self._WS_URL = Constants.WS_URL
         self._client: Optional[websockets.WebSocketClientProtocol] = None
+        self._is_subscribed = False
+
+    @property
+    def is_subscribed(self):
+        return self._is_subscribed
 
     # connect to exchange
     async def connect(self):
@@ -62,14 +67,24 @@ class GateIoWebsocket():
                     raw_msg_str: str = await asyncio.wait_for(self._client.recv(), timeout=Constants.MESSAGE_TIMEOUT)
                     try:
                         msg = json.loads(raw_msg_str)
-                        # Gate.io doesn't support ping or heartbeat messages.
-                        # Can handle them here if that changes - use `safe_ensure_future`.
 
                         # Raise API error for login failures.
-                        if msg.get('error', {}).get('message', None) is not None:
-                            err_msg = msg['error']['message']
-                            raise GateIoAPIError({"error": f"Failed to authenticate to websocket - {err_msg}."})
-                        yield msg
+                        if msg.get('error', None) is not None:
+                            err_msg = msg.get('error', {}).get('message', msg['error'])
+                            raise GateIoAPIError({"error": f"Error received via websocket - {err_msg}."})
+
+                        # Filter subscribed/unsubscribed messages
+                        msg_event = msg.get('event')
+                        if msg_event in ['subscribe', 'unsubscribe']:
+                            msg_status = msg.get('result', {}).get('status')
+                            if msg_event == 'subscribe' and msg_status == 'success':
+                                self._is_subscribed = True
+                            elif msg_event == 'unsubscribe' and msg_status == 'success':
+                                self._is_subscribed = False
+                            yield None
+                        else:
+                            yield msg
+
                     except ValueError:
                         continue
                 except asyncio.TimeoutError:
@@ -84,10 +99,8 @@ class GateIoWebsocket():
 
     # emit messages
     async def _emit(self, channel: str, data: Optional[Dict[str, Any]] = {}, no_id: bool = False) -> int:
-        id = int(time.time())
-
         payload = {
-            "time": id,
+            "time": int(time.time()),
             "channel": channel,
             **data,
         }
@@ -99,7 +112,7 @@ class GateIoWebsocket():
 
         await self._client.send(json.dumps(payload))
 
-        return id
+        return payload['time']
 
     # request via websocket
     async def request(self, channel: str, data: Optional[Dict[str, Any]] = {}) -> int:

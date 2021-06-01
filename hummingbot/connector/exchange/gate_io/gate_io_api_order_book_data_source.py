@@ -14,7 +14,6 @@ from .gate_io_active_order_tracker import GateIoActiveOrderTracker
 from .gate_io_order_book import GateIoOrderBook
 from .gate_io_websocket import GateIoWebsocket
 from .gate_io_utils import (
-    str_date_to_ts,
     convert_to_exchange_trading_pair,
     convert_from_exchange_trading_pair,
     api_call_with_retries,
@@ -99,26 +98,31 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 ws = GateIoWebsocket()
                 await ws.connect()
 
-                for pair in self._trading_pairs:
-                    await ws.subscribe(Constants.WS_SUB["TRADES"], convert_to_exchange_trading_pair(pair))
+                await ws.subscribe(Constants.WS_SUB["TRADES"],
+                                   [convert_to_exchange_trading_pair(pair) for pair in self._trading_pairs])
 
                 async for response in ws.on_message():
-                    method: str = response.get("method", None)
-                    trades_data: str = response.get("params", None)
-
-                    if trades_data is None or method != Constants.WS_METHODS['TRADES_UPDATE']:
+                    if response is None:
+                        # Skip empty subscribed/unsubscribed messages
                         continue
 
-                    pair: str = convert_from_exchange_trading_pair(response["params"]["symbol"])
+                    method: str = response.get("channel", None)
+                    trade_data: Dict[Any] = response.get("result", None)
 
-                    for trade in trades_data["data"]:
-                        trade: Dict[Any] = trade
-                        trade_timestamp: int = str_date_to_ts(trade["timestamp"])
-                        trade_msg: OrderBookMessage = GateIoOrderBook.trade_message_from_exchange(
-                            trade,
-                            trade_timestamp,
-                            metadata={"trading_pair": pair})
-                        output.put_nowait(trade_msg)
+                    if trade_data is None or method != Constants.WS_SUB["TRADES"]:
+                        continue
+
+                    pair: str = convert_from_exchange_trading_pair(trade_data.get("currency_pair", None))
+
+                    if pair is None:
+                        continue
+
+                    trade_timestamp: int = trade_data['create_time']
+                    trade_msg: OrderBookMessage = GateIoOrderBook.trade_message_from_exchange(
+                        trade_data,
+                        trade_timestamp,
+                        metadata={"trading_pair": pair})
+                    output.put_nowait(trade_msg)
 
             except asyncio.CancelledError:
                 raise
@@ -142,18 +146,24 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     Constants.WS_SUB['ORDERS_UPDATE'],
                 ]
 
-                for channel in order_book_channels:
-                    await ws.subscribe(channel,
-                                       [convert_to_exchange_trading_pair(pair) for pair in self._trading_pairs])
+                for pair in self._trading_pairs:
+                    await ws.subscribe(Constants.WS_SUB['ORDERS_SNAPSHOT'],
+                                       [convert_to_exchange_trading_pair(pair), '5', '1000ms'])
+                    await ws.subscribe(Constants.WS_SUB['ORDERS_UPDATE'],
+                                       [convert_to_exchange_trading_pair(pair), '100ms'])
 
                 async for response in ws.on_message():
+                    if response is None:
+                        # Skip empty subscribed/unsubscribed messages
+                        continue
+
                     channel: str = response.get("channel", None)
                     order_book_data: str = response.get("result", None)
 
                     if order_book_data is None or channel not in order_book_channels:
                         continue
 
-                    timestamp: int = str_date_to_ts(order_book_data["t"])
+                    timestamp: int = order_book_data["t"]
                     pair: str = convert_from_exchange_trading_pair(order_book_data["s"])
 
                     order_book_msg_cls = (GateIoOrderBook.diff_message_from_exchange
@@ -186,7 +196,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 for trading_pair in self._trading_pairs:
                     try:
                         snapshot: Dict[str, any] = await self.get_order_book_data(trading_pair)
-                        snapshot_timestamp: int = str_date_to_ts(snapshot["t"])
+                        snapshot_timestamp: int = int(time.time())
                         snapshot_msg: OrderBookMessage = GateIoOrderBook.snapshot_message_from_exchange(
                             snapshot,
                             snapshot_timestamp,
