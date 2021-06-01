@@ -113,7 +113,7 @@ jobs:
           source /usr/share/miniconda/etc/profile.d/conda.sh
           conda activate hummingbot
           git fetch --all
-          find test/hummingbot/ -iname "test_*.py" | xargs nosetests -d -v --with-coverage --cover-inclusive --cover-package=hummingbot --cover-xml --cover-min-percentage=45
+          find test/hummingbot/ -iname "test_*.py" | xargs nosetests --with-coverage --cover-inclusive --cover-package=hummingbot --cover-xml --cover-min-percentage=45
 
       - name: Validate changes coverage
         if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
