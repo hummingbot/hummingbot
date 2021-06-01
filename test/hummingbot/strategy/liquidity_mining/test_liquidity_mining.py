@@ -110,6 +110,22 @@ class LiquidityMiningTest(unittest.TestCase):
                 return True
         return False
 
+    @staticmethod
+    def has_limit_order(limit_orders, trading_pair, is_buy, price, quantity):
+        """
+        An internal method to simplify asserting if a limit order exists
+        """
+        for limit_order in limit_orders:
+            if limit_order.trading_pair == trading_pair and \
+                    abs(float(limit_order.price - price)) <= 0.01 and \
+                    abs(float(limit_order.quantity - quantity)) <= 0.01:
+                tag = limit_order.client_order_id.split('://')[0]
+                if tag == 'buy' and is_buy:
+                    return True
+                if tag == 'sell' and not is_buy:
+                    return True
+        return False
+
     @unittest.mock.patch('hummingbot.strategy.liquidity_mining.liquidity_mining.estimate_fee')
     def test_simulate_maker_market_trade(self, estimate_fee_mock):
         """
@@ -127,6 +143,12 @@ class LiquidityMiningTest(unittest.TestCase):
         # advance by one tick, the strategy will initiate two orders per pair
         self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
         self.assertEqual(4, len(self.default_strategy.active_orders))
+
+        # assert that a buy and sell order is made for each pair
+        self.assertTrue(self.has_limit_order(self.default_strategy.active_orders, 'ETH-USDT', True, Decimal(99.95), Decimal(2.0)))
+        self.assertTrue(self.has_limit_order(self.default_strategy.active_orders, 'ETH-USDT', False, Decimal(100.05), Decimal(2.0)))
+        self.assertTrue(self.has_limit_order(self.default_strategy.active_orders, 'ETH-BTC', True, Decimal(99.95), Decimal(1.0005)))
+        self.assertTrue(self.has_limit_order(self.default_strategy.active_orders, 'ETH-BTC', False, Decimal(100.05), Decimal(2)))
 
         # Simulate buy order fill
         self.clock.backtest_til(self.start_timestamp + 8)
