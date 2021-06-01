@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-
+#!/usr/bin/env python\
 import unittest
 
 
@@ -7,6 +6,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+
         return super().setUpClass()
 
     def setUp(self):
@@ -87,9 +87,6 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
     def test_format_status(self):
         pass
 
-    def test_execute_orders_proposal(self):
-        pass
-
     def test_cancel_order(self):
         pass
 
@@ -112,4 +109,47 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         pass
 
     def test_is_algorithm_ready(self):
+        pass
+
+    def test_create_proposal_based_on_order_override(self):
+        pass
+
+    def test_create_proposal_based_on_order_levels(self):
+        pass
+
+    def test_create_base_proposal(self):
+        pass
+
+    def test_get_adjusted_available_balance(self):
+        pass
+
+    def test_apply_order_price_modifiers(self):
+        pass
+
+    def test_apply_budget_constraint(self):
+        pass
+
+    def test_apply_order_optimization(self):
+        pass
+
+    def test_apply_order_amount_eta_transformation(self):
+        pass
+
+    def test_apply_add_transaction_costs(self):
+        pass
+
+    def test_cancel_active_orders(self):
+        pass
+
+    def test_aged_order_refresh(self):
+        pass
+
+    def test_to_create_orders(self):
+        pass
+
+    def test_execute_orders_proposal(self):
+        pass
+
+    def test_integrated_avellaneda_strategy(self):
+        # TODO: Implement an integrated test that essentially runs the entire bot.
         pass
