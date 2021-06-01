@@ -122,7 +122,7 @@ jobs:
           source /usr/share/miniconda/etc/profile.d/conda.sh
           conda activate hummingbot
           git symbolic-ref HEAD refs/remotes/origin/$GITHUB_HEAD_REF
-          diff-cover --compare-branch=origin/$GITHUB_BASE_REF --fail-under=50 coverage.xml
+          diff-cover --fail-under=50 coverage.xml
 
       # Notify results to discord
       - uses: actions/setup-ruby@v1
