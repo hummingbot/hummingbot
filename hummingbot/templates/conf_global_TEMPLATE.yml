@@ -41,6 +41,13 @@ coinzoom_username: null
 dydx_eth_private_key: null
 dydx_node_address: null
 
+dydx_perpetual_api_key: null
+dydx_perpetual_api_secret: null
+dydx_perpetual_passphrase: null
+dydx_perpetual_account_number: null
+dydx_perpetual_stark_private_key: null
+dydx_perpetual_ethereum_address: null
+
 ftx_api_key: null
 ftx_secret_key: null
 ftx_subaccount_name: null

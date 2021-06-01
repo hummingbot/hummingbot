@@ -375,7 +375,7 @@ cdef class OkexExchange(ExchangeBase):
         for tracked_order in tracked_orders:
             exchange_order_id = await tracked_order.get_exchange_order_id()
             try:
-                msg = await self.get_order_status(exchange_order_id, tracked_order.trading_pair)
+                order_update = await self.get_order_status(exchange_order_id, tracked_order.trading_pair)
             except OKExAPIError as e:
                 err_code = e.error_payload.get("error").get("err-code")
                 self.c_stop_tracking_order(tracked_order.client_order_id)
@@ -391,20 +391,16 @@ cdef class OkexExchange(ExchangeBase):
                 )
                 continue
 
-            if msg is None:
+            if order_update is None:
                 self.logger().network(
                     f"Error fetching status update for the order {tracked_order.client_order_id}: "
-                    f"{msg}.",
+                    f"{exchange_order_id}.",
                     app_warning_msg=f"Could not fetch updates for the order {tracked_order.client_order_id}. "
                                     f"The order has either been filled or canceled."
                 )
                 continue
 
             # Calculate the newly executed amount for this update.
-            order_update = msg.get("data", None)
-            if order_update is None:
-                continue
-            order_update=order_update[0]
             tracked_order.last_state = order_update["state"]
             new_confirmed_amount = Decimal(order_update["fillSz"])
             execute_amount_diff = new_confirmed_amount

@@ -62,7 +62,6 @@ class AscendExExchangeUnitTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        global MAINNET_RPC_URL
 
         cls.ev_loop = asyncio.get_event_loop()
 
