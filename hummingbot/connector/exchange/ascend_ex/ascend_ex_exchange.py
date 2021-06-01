@@ -47,8 +47,6 @@ ctce_logger = None
 s_decimal_NaN = Decimal("nan")
 s_decimal_0 = Decimal("0")
 
-
-# AscendExTradingRule = namedtuple("AscendExTradingRule", "minNotional maxNotional")
 AscendExOrder = namedtuple("AscendExOrder", "symbol price orderQty orderType avgPx cumFee cumFilledQty errorCode feeAsset lastExecTime orderId seqNum side status stopPrice execInst")
 AscendExBalance = namedtuple("AscendExBalance", "asset availableBalance totalBalance")
 
