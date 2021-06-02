@@ -95,3 +95,15 @@ cdef class StrategyPyBase(StrategyBase):
 
     def did_complete_funding_payment(self, funding_payment_completed_event):
         pass
+
+    cdef c_did_create_range_position_order(self, object order_created_event):
+        self.did_create_range_position_order(order_created_event)
+
+    def did_create_range_position_order(self, order_created_event):
+        pass
+
+    cdef c_did_remove_range_position_order(self, object order_completed_event):
+        self.did_remove_range_position_order(order_completed_event)
+
+    def did_remove_range_position_order(self, order_completed_event):
+        pass

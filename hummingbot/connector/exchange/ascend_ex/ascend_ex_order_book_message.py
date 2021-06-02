@@ -49,19 +49,19 @@ class AscendExOrderBookMessage(OrderBookMessage):
 
     @property
     def asks(self) -> List[OrderBookRow]:
-        asks = map(self.content["asks"], lambda ask: {"price": ask[0], "amount": ask[1]})
-
-        return [
-            OrderBookRow(float(price), float(amount), self.update_id) for price, amount in asks
+        results = [
+            OrderBookRow(float(ask[0]), float(ask[1]), self.update_id) for ask in self.content["asks"]
         ]
+        sorted(results, key=lambda a: a.price)
+        return results
 
     @property
     def bids(self) -> List[OrderBookRow]:
-        bids = map(self.content["bids"], lambda bid: {"price": bid[0], "amount": bid[1]})
-
-        return [
-            OrderBookRow(float(price), float(amount), self.update_id) for price, amount in bids
+        results = [
+            OrderBookRow(float(bid[0]), float(bid[1]), self.update_id) for bid in self.content["bids"]
         ]
+        sorted(results, key=lambda a: a.price)
+        return results
 
     def __eq__(self, other) -> bool:
         return self.type == other.type and self.timestamp == other.timestamp
