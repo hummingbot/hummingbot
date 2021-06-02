@@ -5,7 +5,7 @@ class Constants:
     REST_URL_AUTH = "/api/v4"
     WS_URL = "wss://api.gateio.ws/ws/v4/"
 
-    HBOT_BROKER_ID = "HBOT"
+    HBOT_BROKER_ID = "hummingbot"
 
     ENDPOINT = {
         # Public Endpoints
@@ -14,9 +14,9 @@ class Constants:
         "CURRENCY": "spot/currencies/{currency}",
         "ORDER_BOOK": "spot/order_book",
         "ORDER_CREATE": "spot/orders",
-        "ORDER_DELETE": "order/{id}",
-        "ORDER_STATUS": "order/{id}",
-        "USER_ORDERS": "order",
+        "ORDER_DELETE": "spot/orders/{id}",
+        "ORDER_STATUS": "spot/orders/{id}",
+        "USER_ORDERS": "spot/orders",
         "USER_BALANCES": "spot/accounts",
     }
 

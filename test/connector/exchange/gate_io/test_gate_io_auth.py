@@ -56,7 +56,9 @@ class TestAuth(unittest.TestCase):
         await ws.connect()
         await ws.subscribe(Constants.WS_SUB["USER_BALANCE"])
         async for response in ws.on_message():
-            return response
+            if ws.is_subscribed:
+                return True
+            return False
 
     def test_rest_auth(self):
         result = self.ev_loop.run_until_complete(self.rest_auth())
@@ -73,8 +75,4 @@ class TestAuth(unittest.TestCase):
 
     def test_ws_auth(self):
         response = self.ev_loop.run_until_complete(self.ws_auth())
-        if 'result' not in response:
-            print(f"Unexpected response for API call: {response}")
-        assert "result" in response.keys()
-        assert "status" in response['result'].keys()
-        assert response['result']['status'] == 'success'
+        assert response is True
