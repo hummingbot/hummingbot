@@ -95,7 +95,7 @@ class GateIoInFlightOrder(InFlightOrderBase):
         }
         """
         # Using time as ID here to avoid conflicts with order updates - order updates will take priority.
-        trade_id_ms = str(int(trade_update["create_time_ms"]))
+        trade_id_ms = str(str(trade_update["create_time_ms"]).split('.')[0])
         trade_id = str(trade_update["id"])
         if trade_id in self.trade_update_id_set or trade_id_ms in self.order_update_id_set:
             # trade already recorded
@@ -158,21 +158,23 @@ class GateIoInFlightOrder(InFlightOrderBase):
         if 'filled_total' not in order_update:
             return False
 
-        trade_id_ms = str(int(order_update["update_time_ms"]))
+        trade_id_ms = str(str(order_update["update_time_ms"]).split('.')[0])
         if trade_id_ms in self.order_update_id_set:
             # trade already recorded
             return False
 
+        # Set executed amounts
+        executed_amount_quote = Decimal(str(order_update["filled_total"]))
+        executed_price = Decimal(str(order_update.get("fill_price", "0")))
+        if executed_amount_quote <= s_decimal_0 or executed_price <= s_decimal_0:
+            # Skip these.
+            return False
+
         self.order_update_id_set.add(trade_id_ms)
 
-        # Set executed amounts
-        executed_price = Decimal(str(order_update.get("fill_price", order_update.get("price", "0"))))
-        self.executed_amount_base = Decimal(str(order_update["filled_total"]))
-        self.executed_amount_quote = executed_price * self.executed_amount_base
-        if self.executed_amount_base <= s_decimal_0:
-            # No trades executed yet.
-            return False
-        self.fee_paid = order_update.get("fee")
+        self.executed_amount_quote = executed_amount_quote
+        self.executed_amount_base = self.executed_amount_quote / executed_price
+        self.fee_paid = Decimal(str(order_update.get("fee")))
         if not self.fee_asset:
             self.fee_asset = order_update.get("fee_currency", self.quote_asset)
         return True

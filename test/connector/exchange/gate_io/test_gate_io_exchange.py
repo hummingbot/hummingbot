@@ -56,6 +56,8 @@ class GateIoExchangeUnitTest(unittest.TestCase):
     event_logger: EventLogger
     trading_pair = "BTC-USDT"
     base_token, quote_token = trading_pair.split("-")
+    order_amount = Decimal("0.0001")
+    order_amount_quant = Decimal("0.000123456")
     stack: contextlib.ExitStack
 
     @classmethod
@@ -71,7 +73,7 @@ class GateIoExchangeUnitTest(unittest.TestCase):
             trading_pairs=[cls.trading_pair],
             trading_required=True
         )
-        print("Initializing GateIo market... this will take about a minute.")
+        print("Initializing Gate.Io market... this will take about a minute.")
         cls.clock.add_iterator(cls.connector)
         cls.stack: contextlib.ExitStack = contextlib.ExitStack()
         cls._clock = cls.stack.enter_context(cls.clock)
@@ -144,7 +146,7 @@ class GateIoExchangeUnitTest(unittest.TestCase):
     def test_buy_and_sell(self):
         price = self.connector.get_price(self.trading_pair, True) * Decimal("1.02")
         price = self.connector.quantize_order_price(self.trading_pair, price)
-        amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("0.0002"))
+        amount = self.connector.quantize_order_amount(self.trading_pair, self.order_amount)
         quote_bal = self.connector.get_available_balance(self.quote_token)
         base_bal = self.connector.get_available_balance(self.base_token)
 
@@ -178,7 +180,7 @@ class GateIoExchangeUnitTest(unittest.TestCase):
         # Try to sell back the same amount to the exchange, and watch for completion event.
         price = self.connector.get_price(self.trading_pair, True) * Decimal("0.98")
         price = self.connector.quantize_order_price(self.trading_pair, price)
-        amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("0.0002"))
+        amount = self.connector.quantize_order_amount(self.trading_pair, self.order_amount)
         order_id = self._place_order(False, amount, OrderType.LIMIT, price, 2)
         order_completed_event = self.ev_loop.run_until_complete(self.event_logger.wait_for(SellOrderCompletedEvent))
         trade_events = [t for t in self.event_logger.event_log if isinstance(t, OrderFilledEvent)]
@@ -206,7 +208,7 @@ class GateIoExchangeUnitTest(unittest.TestCase):
     def test_limit_makers_unfilled(self):
         price = self.connector.get_price(self.trading_pair, True) * Decimal("0.8")
         price = self.connector.quantize_order_price(self.trading_pair, price)
-        amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("0.0002"))
+        amount = self.connector.quantize_order_amount(self.trading_pair, self.order_amount)
         self.ev_loop.run_until_complete(asyncio.sleep(1))
         self.ev_loop.run_until_complete(self.connector._update_balances())
         self.ev_loop.run_until_complete(asyncio.sleep(2))
@@ -216,9 +218,7 @@ class GateIoExchangeUnitTest(unittest.TestCase):
         order_created_event = self.ev_loop.run_until_complete(self.event_logger.wait_for(BuyOrderCreatedEvent))
         self.assertEqual(cl_order_id, order_created_event.order_id)
         # check available quote balance gets updated, we need to wait a bit for the balance message to arrive
-        taker_fee = self.connector.estimate_fee_pct(False)
-        quote_amount = ((price * amount))
-        quote_amount = ((price * amount) * (Decimal("1") + taker_fee))
+        quote_amount = (price * amount)
         expected_quote_bal = quote_bal - quote_amount
         self.ev_loop.run_until_complete(asyncio.sleep(1))
         self.ev_loop.run_until_complete(self.connector._update_balances())
@@ -231,7 +231,7 @@ class GateIoExchangeUnitTest(unittest.TestCase):
 
         price = self.connector.get_price(self.trading_pair, True) * Decimal("1.2")
         price = self.connector.quantize_order_price(self.trading_pair, price)
-        amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("0.0002"))
+        amount = self.connector.quantize_order_amount(self.trading_pair, self.order_amount)
 
         cl_order_id = self._place_order(False, amount, OrderType.LIMIT_MAKER, price, 2)
         order_created_event = self.ev_loop.run_until_complete(self.event_logger.wait_for(SellOrderCreatedEvent))
@@ -261,7 +261,7 @@ class GateIoExchangeUnitTest(unittest.TestCase):
         ask_price = self.connector.get_price(self.trading_pair, False)
         bid_price = self.connector.quantize_order_price(self.trading_pair, bid_price * Decimal("0.9"))
         ask_price = self.connector.quantize_order_price(self.trading_pair, ask_price * Decimal("1.1"))
-        amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("0.0002"))
+        amount = self.connector.quantize_order_amount(self.trading_pair, self.order_amount)
 
         buy_id = self._place_order(True, amount, OrderType.LIMIT, bid_price, 1)
         sell_id = self._place_order(False, amount, OrderType.LIMIT, ask_price, 2)
@@ -287,7 +287,7 @@ class GateIoExchangeUnitTest(unittest.TestCase):
         # get filled during the test.
         bid_price = self.connector.quantize_order_price(self.trading_pair, mid_price * Decimal("0.9333192292111341"))
         ask_price = self.connector.quantize_order_price(self.trading_pair, mid_price * Decimal("1.1492431474884933"))
-        amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("0.000223456"))
+        amount = self.connector.quantize_order_amount(self.trading_pair, self.order_amount_quant)
 
         # Test bid order
         cl_order_id_1 = self._place_order(True, amount, OrderType.LIMIT, bid_price, 1)
@@ -321,7 +321,7 @@ class GateIoExchangeUnitTest(unittest.TestCase):
             price: Decimal = current_bid_price * Decimal("0.8")
             price = self.connector.quantize_order_price(self.trading_pair, price)
 
-            amount: Decimal = Decimal("0.0002")
+            amount: Decimal = self.order_amount
             amount = self.connector.quantize_order_amount(self.trading_pair, amount)
 
             cl_order_id = self._place_order(True, amount, OrderType.LIMIT_MAKER, price, 1)
@@ -402,7 +402,7 @@ class GateIoExchangeUnitTest(unittest.TestCase):
             # Try to buy some token from the exchange, and watch for completion event.
             price = self.connector.get_price(self.trading_pair, True) * Decimal("1.05")
             price = self.connector.quantize_order_price(self.trading_pair, price)
-            amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("0.0002"))
+            amount = self.connector.quantize_order_amount(self.trading_pair, self.order_amount)
 
             order_id = self._place_order(True, amount, OrderType.LIMIT, price, 1)
             self.ev_loop.run_until_complete(self.event_logger.wait_for(BuyOrderCompletedEvent))
@@ -414,7 +414,7 @@ class GateIoExchangeUnitTest(unittest.TestCase):
             # Try to sell back the same amount to the exchange, and watch for completion event.
             price = self.connector.get_price(self.trading_pair, True) * Decimal("0.95")
             price = self.connector.quantize_order_price(self.trading_pair, price)
-            amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("0.0002"))
+            amount = self.connector.quantize_order_amount(self.trading_pair, self.order_amount)
             order_id = self._place_order(False, amount, OrderType.LIMIT, price, 2)
             self.ev_loop.run_until_complete(self.event_logger.wait_for(SellOrderCompletedEvent))
             self.ev_loop.run_until_complete(asyncio.sleep(1))
