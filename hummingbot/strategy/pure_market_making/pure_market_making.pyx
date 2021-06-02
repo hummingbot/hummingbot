@@ -12,7 +12,6 @@ from math import (
     ceil
 )
 import time
-import cython
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.event.events import TradeType, PriceType
 from hummingbot.core.data_type.limit_order cimport LimitOrder
@@ -21,6 +20,7 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.core.event.events import OrderType
+from hummingbot.core.utils import map_df_to_str
 
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base import StrategyBase
@@ -591,13 +591,13 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         warning_lines.extend(self._ping_pong_warning_lines)
         warning_lines.extend(self.network_warning([self._market_info]))
 
-        markets_df = self.market_status_data_frame([self._market_info]).astype(str)
+        markets_df = map_df_to_str(self.market_status_data_frame([self._market_info]))
         lines.extend(["", "  Markets:"] + ["    " + line for line in markets_df.to_string(index=False).split("\n")])
 
-        assets_df = self.pure_mm_assets_df(not self._inventory_skew_enabled).astype(str)
+        assets_df = map_df_to_str(self.pure_mm_assets_df(not self._inventory_skew_enabled))
         # append inventory skew stats.
         if self._inventory_skew_enabled:
-            inventory_skew_df = self.inventory_skew_stats_data_frame().astype(str)
+            inventory_skew_df = map_df_to_str(self.inventory_skew_stats_data_frame())
             assets_df = assets_df.append(inventory_skew_df)
 
         first_col_length = max(*assets_df[0].apply(len))
@@ -607,7 +607,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
         # See if there're any open orders.
         if len(self.active_orders) > 0:
-            df = self.active_orders_df().astype(str)
+            df = map_df_to_str(self.active_orders_df())
             lines.extend(["", "  Orders:"] + ["    " + line for line in df.to_string(index=False).split("\n")])
         else:
             lines.extend(["", "  No active maker orders."])
