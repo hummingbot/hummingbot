@@ -24,12 +24,11 @@ from hummingbot.core.utils import async_ttl_cache
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.okex.okex_order_book import OkexOrderBook
 from hummingbot.connector.exchange.okex.constants import (
-    OKEX_SYMBOLS_URL,
+    OKEX_INSTRUMENTS_URL,
     OKEX_DEPTH_URL,
-    OKEX_WS_URI,
+    OKEX_TICKERS_URL,
+    OKEX_WS_URI_PUBLIC,
 )
-
-from hummingbot.connector.exchange.okex.okex_utils import inflate
 
 from dateutil.parser import parse as dataparse
 
@@ -65,16 +64,17 @@ class OkexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Returned data frame should have trading pair as index and include usd volume, baseAsset and quoteAsset
         """
         async with aiohttp.ClientSession() as client:
-            async with client.get(OKEX_SYMBOLS_URL) as products_response:
+            async with client.get(OKEX_TICKERS_URL) as products_response:
 
                 products_response: aiohttp.ClientResponse = products_response
                 if products_response.status != 200:
                     raise IOError(f"Error fetching active OKEx markets. HTTP status is {products_response.status}.")
 
                 data = await products_response.json()
+                data = data['data']
                 all_markets: pd.DataFrame = pd.DataFrame.from_records(data=data)
 
-                all_markets.rename({"quote_volume_24h": "volume", "last": "price"},
+                all_markets.rename({"volCcy24h": "volume", "last": "price"},
                                    axis="columns", inplace=True)
                 return all_markets
 
@@ -82,18 +82,20 @@ class OkexAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def fetch_trading_pairs() -> List[str]:
         # Returns a List of str, representing each active trading pair on the exchange.
         async with aiohttp.ClientSession() as client:
-            async with client.get(OKEX_SYMBOLS_URL) as products_response:
+            async with client.get(OKEX_INSTRUMENTS_URL) as products_response:
 
                 products_response: aiohttp.ClientResponse = products_response
                 if products_response.status != 200:
                     raise IOError(f"Error fetching active OKEx markets. HTTP status is {products_response.status}.")
 
                 data = await products_response.json()
+                data = data['data']
 
                 trading_pairs = []
                 for item in data:
                     # I couldn't find where to check if it's online in OKEx API doc
-                    trading_pairs.append(item['instrument_id'])
+                    if item['state'] == 'live':
+                        trading_pairs.append(item['instId'])
 
         return trading_pairs
 
@@ -104,7 +106,7 @@ class OkexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             snapshot_msg: OrderBookMessage = OkexOrderBook.snapshot_message_from_exchange(
                 snapshot,
                 trading_pair,
-                timestamp=snapshot['timestamp'],
+                timestamp=snapshot['ts'],
                 metadata={"trading_pair": trading_pair})
             order_book: OrderBook = self.order_book_create_function()
             order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
@@ -114,15 +116,16 @@ class OkexAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @classmethod
     async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
         async with aiohttp.ClientSession() as client:
-            async with client.get(OKEX_SYMBOLS_URL) as products_response:
+            async with client.get(OKEX_TICKERS_URL) as products_response:
 
                 products_response: aiohttp.ClientResponse = products_response
                 if products_response.status != 200:
                     raise IOError(f"Error fetching active OKEx markets. HTTP status is {products_response.status}.")
 
                 data = await products_response.json()
+                data = data['data']
                 all_markets: pd.DataFrame = pd.DataFrame.from_records(data=data)
-                all_markets.set_index('product_id', inplace=True)
+                all_markets.set_index('instId', inplace=True)
 
                 out: Dict[str, float] = {}
 
@@ -135,7 +138,7 @@ class OkexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         if not self._trading_pairs:
             try:
                 active_markets: pd.DataFrame = await self.get_active_exchange_markets()
-                self._trading_pairs = active_markets['product_id'].tolist()
+                self._trading_pairs = active_markets['instId'].tolist()
             except Exception:
                 self._trading_pairs = []
                 self.logger().network(
@@ -148,15 +151,15 @@ class OkexAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, Any]:
         """Fetches order book snapshot for a particular trading pair from the exchange REST API."""
-        params = {}  # default {'size':?, 'depth':?}
+        params = {}
         async with client.get(OKEX_DEPTH_URL.format(trading_pair=trading_pair), params=params) as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
                 raise IOError(f"Error fetching OKEX market snapshot for {trading_pair}. "
                               f"HTTP status is {response.status}.")
             api_data = await response.read()
-            data: Dict[str, Any] = json.loads(api_data)
-            data['timestamp'] = __class__.iso_to_timestamp(data['timestamp'])
+            data: Dict[str, Any] = json.loads(api_data)['data'][0]
+            data['ts'] = int(data['ts'])
 
             return data
 
@@ -170,31 +173,36 @@ class OkexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 trading_pairs: List[str] = self._trading_pairs
-                async with websockets.connect(OKEX_WS_URI) as ws:
+                async with websockets.connect(OKEX_WS_URI_PUBLIC) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
 
                     for trading_pair in trading_pairs:
                         subscribe_request: Dict[str, Any] = {
                             "op": "subscribe",
-                            "args": [f"spot/trade:{trading_pair}"]
+                            "args": [
+                                {
+                                    "channel": "trades",
+                                    "instType": "SPOT",
+                                    "instId": trading_pair,
+                                }
+                            ]
                         }
                         await ws.send(json.dumps(subscribe_request))
 
                     async for raw_msg in self._inner_messages(ws):
-                        # OKEx compresses their ws data
-                        decoded_msg: str = inflate(raw_msg)
+                        decoded_msg: str = raw_msg
 
                         self.logger().debug("decode menssage:" + decoded_msg)
 
                         if '"event":"subscribe"' in decoded_msg:
                             self.logger().debug(f"Subscribed to channel, full message: {decoded_msg}")
-                        elif '"table":"spot/trade"' in decoded_msg:
+                        elif '"channel": "orders"' in decoded_msg:
                             self.logger().debug(f"Received new trade: {decoded_msg}")
 
                             for data in json.loads(decoded_msg)['data']:
-                                trading_pair = data['instrument_id']
+                                trading_pair = data['instId']
                                 trade_message: OrderBookMessage = OkexOrderBook.trade_message_from_exchange(
-                                    data, __class__.iso_to_timestamp(data['timestamp']), metadata={"trading_pair": trading_pair}
+                                    data, data['uTime'], metadata={"trading_pair": trading_pair}
                                 )
                                 self.logger().debug(f"Putting msg in queue: {str(trade_message)}")
                                 output.put_nowait(trade_message)
@@ -231,26 +239,30 @@ class OkexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 trading_pairs: List[str] = await self.get_trading_pairs()
-                async with websockets.connect(OKEX_WS_URI) as ws:
+                async with websockets.connect(OKEX_WS_URI_PUBLIC) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
 
                     for trading_pair in trading_pairs:
                         subscribe_request: Dict[str, Any] = {
                             "op": "subscribe",
-                            "args": [f"spot/depth:{trading_pair}"]
+                            "args": [
+                                {
+                                    "channel": "books",
+                                    "instId": trading_pair
+                                }
+                            ]
                         }
                         await ws.send(json.dumps(subscribe_request))
 
                     async for raw_msg in self._inner_messages(ws):
-                        # OKEx compresses their ws data
-                        decoded_msg: str = inflate(raw_msg)
+                        decoded_msg: str = raw_msg
 
                         if '"event":"subscribe"' in decoded_msg:
                             self.logger().debug(f"Subscribed to channel, full message: {decoded_msg}")
                         elif '"action":"update"' in decoded_msg:
-                            for data in json.loads(decoded_msg)['data']:
-
-                                order_book_message: OrderBookMessage = OkexOrderBook.diff_message_from_exchange(data, __class__.iso_to_timestamp(data['timestamp']))
+                            msg = json.loads(decoded_msg)
+                            for data in msg['data']:
+                                order_book_message: OrderBookMessage = OkexOrderBook.diff_message_from_exchange(data, int(data['ts']), msg['arg'])
                                 output.put_nowait(order_book_message)
                         else:
                             self.logger().debug(f"Unrecognized message received from OKEx websocket: {decoded_msg}")
@@ -273,7 +285,7 @@ class OkexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             snapshot_msg: OrderBookMessage = OkexOrderBook.snapshot_message_from_exchange(
                                 snapshot,
                                 trading_pair,
-                                timestamp=snapshot['timestamp'],
+                                timestamp=snapshot['ts'],
                                 metadata={"trading_pair": trading_pair}
                             )
                             output.put_nowait(snapshot_msg)
