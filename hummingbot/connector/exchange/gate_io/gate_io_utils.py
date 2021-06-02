@@ -1,7 +1,6 @@
 import aiohttp
 import asyncio
 import random
-from dateutil.parser import parse as dateparse
 from typing import (
     Any,
     Dict,
@@ -26,11 +25,6 @@ class GateIoAPIError(IOError):
     def __init__(self, error_payload: Dict[str, Any]):
         super().__init__(str(error_payload))
         self.error_payload = error_payload
-
-
-# convert date string to timestamp
-def str_date_to_ts(date: str) -> int:
-    return int(dateparse(date).timestamp())
 
 
 # Request ID class
@@ -75,7 +69,8 @@ def get_new_client_order_id(is_buy: bool, trading_pair: str) -> str:
     quote = symbols[1].upper()
     base_str = f"{base[0]}{base[-1]}"
     quote_str = f"{quote[0]}{quote[-1]}"
-    return f"HBOT-{side}-{base_str}{quote_str}-{get_tracking_nonce()}"
+    # Max length 30 chars including `t-`
+    return f"{Constants.HBOT_ORDER_ID}-{side}-{base_str}{quote_str}{get_tracking_nonce()}"
 
 
 def retry_sleep_time(try_count: int) -> float:
@@ -100,7 +95,7 @@ async def aiohttp_response_with_errors(request_coroutine):
                 except Exception:
                     pass
             TempFailure = (parsed_response is None or
-                           (response.status not in [200, 201, 204] and "error" not in parsed_response))
+                           (response.status not in [200, 201, 204] and "message" not in parsed_response))
             if TempFailure:
                 parsed_response = response.reason if parsed_response is None else parsed_response
                 request_errors = True

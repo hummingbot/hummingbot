@@ -34,7 +34,8 @@ class GateIoInFlightOrder(InFlightOrderBase):
             amount,
             initial_state,
         )
-        self.trade_id_set = set()
+        self.trade_update_id_set = set()
+        self.order_update_id_set = set()
         self.cancelled_event = asyncio.Event()
 
     @property
@@ -78,41 +79,39 @@ class GateIoInFlightOrder(InFlightOrderBase):
         return: True if the order gets updated otherwise False
         Example Trade:
         {
-            "id": "4345697765",
-            "clientOrderId": "53b7cf917963464a811a4af426102c19",
-            "symbol": "ETHBTC",
+            "id": 5736713,
+            "user_id": 1000001,
+            "order_id": "30784428",
+            "currency_pair": "BTC_USDT",
+            "create_time": 1605176741,
+            "create_time_ms": "1605176741123.456",
             "side": "sell",
-            "status": "filled",
-            "type": "limit",
-            "timeInForce": "GTC",
-            "quantity": "0.001",
-            "price": "0.053868",
-            "cumQuantity": "0.001",
-            "postOnly": false,
-            "createdAt": "2017-10-20T12:20:05.952Z",
-            "updatedAt": "2017-10-20T12:20:38.708Z",
-            "reportType": "trade",
-        }
-        ... Trade variables are only included after fills.
-        {
-            "tradeQuantity": "0.001",
-            "tradePrice": "0.053868",
-            "tradeId": 55051694,
-            "tradeFee": "-0.000000005"
+            "amount": "1.00000000",
+            "role": "taker",
+            "price": "10000.00000000",
+            "fee": "0.00200000000000",
+            "point_fee": "0",
+            "gt_fee": "0"
         }
         """
-        self.executed_amount_base = Decimal(str(trade_update["cumQuantity"]))
+        # Using time as ID here to avoid conflicts with order updates - order updates will take priority.
+        trade_id_ms = str(int(trade_update["create_time_ms"]))
+        trade_id = str(trade_update["id"])
+        if trade_id in self.trade_update_id_set or trade_id_ms in self.order_update_id_set:
+            # trade already recorded
+            return False
+
+        self.trade_update_id_set.add(trade_id)
+
+        # Set executed amounts
+        trade_executed_base = Decimal(str(trade_update.get("amount", "0")))
+        self.executed_amount_base += trade_executed_base
         if self.executed_amount_base <= s_decimal_0:
             # No trades executed yet.
             return False
-        trade_id = trade_update["updatedAt"]
-        if trade_id in self.trade_id_set:
-            # trade already recorded
-            return False
-        self.trade_id_set.add(trade_id)
-        self.fee_paid += Decimal(str(trade_update.get("tradeFee", "0")))
-        self.executed_amount_quote += (Decimal(str(trade_update.get("tradePrice", "0"))) *
-                                       Decimal(str(trade_update.get("tradeQuantity", "0"))))
+        self.fee_paid += Decimal(str(trade_update.get("fee", "0")))
+        self.executed_amount_quote += (Decimal(str(trade_update.get("price", "0"))) *
+                                       trade_executed_base)
         if not self.fee_asset:
             self.fee_asset = self.quote_asset
         return True
@@ -159,11 +158,13 @@ class GateIoInFlightOrder(InFlightOrderBase):
         if 'filled_total' not in order_update:
             return False
 
-        trade_id = str(order_update["update_time_ms"])
-        if trade_id in self.trade_id_set:
+        trade_id_ms = str(int(order_update["update_time_ms"]))
+        if trade_id_ms in self.order_update_id_set:
             # trade already recorded
             return False
-        self.trade_id_set.add(trade_id)
+
+        self.order_update_id_set.add(trade_id_ms)
+
         # Set executed amounts
         executed_price = Decimal(str(order_update.get("fill_price", order_update.get("price", "0"))))
         self.executed_amount_base = Decimal(str(order_update["filled_total"]))
@@ -171,7 +172,7 @@ class GateIoInFlightOrder(InFlightOrderBase):
         if self.executed_amount_base <= s_decimal_0:
             # No trades executed yet.
             return False
-        self.fee_paid += order_update.get("fee")
+        self.fee_paid = order_update.get("fee")
         if not self.fee_asset:
             self.fee_asset = order_update.get("fee_currency", self.quote_asset)
         return True
