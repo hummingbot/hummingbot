@@ -15,6 +15,9 @@ from hummingbot.core.event.events import TradeFeeType
 # Global variables
 required_exchanges: List[str] = []
 requried_connector_trading_pairs: Dict[str, List[str]] = {}
+# Set these two variables if a strategy uses oracle for rate conversion
+required_rate_oracle: bool = False
+rate_oracle_pairs: List[str] = []
 
 # Global static values
 KEYFILE_PREFIX = "key_file_"
@@ -23,7 +26,6 @@ ENCYPTED_CONF_PREFIX = "encrypted_"
 ENCYPTED_CONF_POSTFIX = ".json"
 GLOBAL_CONFIG_PATH = "conf/conf_global.yml"
 TRADE_FEES_CONFIG_PATH = "conf/conf_fee_overrides.yml"
-TOKEN_ADDRESSES_FILE_PATH = "conf/erc20_tokens_override.json"
 DEFAULT_KEY_FILE_PATH = "conf/"
 DEFAULT_LOG_FILE_PATH = "logs/"
 DEFAULT_ETHEREUM_RPC_URL = "https://mainnet.coinalpha.com/hummingbot-test-node"
@@ -95,7 +97,7 @@ class ConnectorSetting(NamedTuple):
 
 
 def _create_connector_settings() -> Dict[str, ConnectorSetting]:
-    connector_exceptions = ["paper_trade"]
+    connector_exceptions = ["paper_trade", "eterbase"]
     connector_settings = {}
     package_dir = Path(__file__).resolve().parent.parent.parent
     type_dirs = [f for f in scandir(f'{str(package_dir)}/hummingbot/connector') if f.is_dir()]
