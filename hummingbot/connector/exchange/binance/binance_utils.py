@@ -11,10 +11,8 @@ CENTRALIZED = True
 EXAMPLE_PAIR = "ZRX-ETH"
 DEFAULT_FEES = [0.1, 0.1]
 
-RE_4_LETTERS_QUOTE = re.compile(r"^(\w+)(USDT|USDC|USDS|TUSD|BUSD|IDRT|BKRW|BIDR)$")
-RE_3_LETTERS_QUOTE = re.compile(r"^(\w+)(BTC|ETH|BNB|DAI|XRP|PAX|TRX|NGN|RUB|TRY|EUR|ZAR|UAH|GBP|USD|BRL|AUD|VAI)$")
-
-USD_QUOTES = ["DAI", "USDT", "USDC", "USDS", "TUSD", "PAX", "BUSD", "USD"]
+RE_4_LETTERS_QUOTE = re.compile(r"^(\w{3,})(USDT|USDC|USDS|TUSD|BUSD|IDRT|BKRW|BIDR|BVND)$")
+RE_3_LETTERS_QUOTE = re.compile(r"^(\w+)(\w{3})$")
 
 
 def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
@@ -29,11 +27,13 @@ def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
 
 
 def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
-    if split_trading_pair(exchange_trading_pair) is None:
-        return None
-    # Binance does not split BASEQUOTE (BTCUSDT)
-    base_asset, quote_asset = split_trading_pair(exchange_trading_pair)
-    return f"{base_asset}-{quote_asset}"
+    result = None
+    splitted_pair = split_trading_pair(exchange_trading_pair)
+    if splitted_pair is not None:
+        # Binance does not split BASEQUOTE (BTCUSDT)
+        base_asset, quote_asset = splitted_pair
+        result = f"{base_asset}-{quote_asset}"
+    return result
 
 
 def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
