@@ -12,7 +12,10 @@ from hummingbot.core.data_type.user_stream_tracker_data_source import UserStream
 from hummingbot.logger import HummingbotLogger
 from .gate_io_constants import Constants
 from .gate_io_auth import GateIoAuth
-from .gate_io_utils import GateIoAPIError
+from .gate_io_utils import (
+    convert_to_exchange_trading_pair,
+    GateIoAPIError,
+)
 from .gate_io_websocket import GateIoWebsocket
 
 
@@ -52,12 +55,17 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
             await self._ws.connect()
 
-            await self._ws.subscribe(Constants.WS_SUB["USER_ORDERS_TRADES"], None, {})
-
-            event_methods = [
-                Constants.WS_METHODS["USER_ORDERS"],
-                Constants.WS_METHODS["USER_TRADES"],
+            user_channels = [
+                Constants.WS_SUB['USER_TRADES'],
+                Constants.WS_SUB['USER_ORDERS'],
+                Constants.WS_SUB['USER_BALANCE'],
             ]
+
+            await self._ws.subscribe(Constants.WS_SUB['USER_TRADES'],
+                                     [convert_to_exchange_trading_pair(pair) for pair in self._trading_pairs])
+            await self._ws.subscribe(Constants.WS_SUB['USER_ORDERS'],
+                                     [convert_to_exchange_trading_pair(pair) for pair in self._trading_pairs])
+            await self._ws.subscribe(Constants.WS_SUB['USER_BALANCE'])
 
             async for msg in self._ws.on_message():
                 if msg is None:
@@ -67,7 +75,7 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
                 if msg.get("params", msg.get("result", None)) is None:
                     continue
-                elif msg.get("method", None) in event_methods:
+                elif msg.get("method", None) in user_channels:
                     await self._ws_request_balances()
                 yield msg
         except Exception as e:
