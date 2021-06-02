@@ -52,8 +52,8 @@ class GateIoOrderBookMessage(OrderBookMessage):
     def trading_pair(self) -> str:
         if "trading_pair" in self.content:
             return self.content["trading_pair"]
-        elif "symbol" in self.content:
-            return convert_from_exchange_trading_pair(self.content["symbol"])
+        elif "currency_pair" in self.content:
+            return convert_from_exchange_trading_pair(self.content["currency_pair"])
 
     # The `asks` and `bids` properties are only used in the methods below.
     # They are all replaced or unused in this connector:

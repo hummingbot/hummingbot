@@ -135,8 +135,9 @@ class GateIoWebsocket():
                           trading_pairs: Optional[List[str]] = None) -> int:
         ws_params = {
             'event': 'unsubscribe',
-            'payload': trading_pairs
         }
+        if trading_pairs is not None:
+            ws_params['payload'] = trading_pairs
         return await self.request(channel, ws_params)
 
     # listen to messages by channel

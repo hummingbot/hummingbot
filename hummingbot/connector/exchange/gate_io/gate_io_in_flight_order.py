@@ -154,7 +154,7 @@ class GateIoInFlightOrder(InFlightOrderBase):
         }
         """
         # Update order execution status
-        self.last_state = order_update["orderStatus"]
+        self.last_state = order_update.get("status", order_update.get("event"))
 
         if 'filled_total' not in order_update:
             return False
