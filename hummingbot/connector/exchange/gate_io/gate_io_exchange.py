@@ -429,17 +429,12 @@ class GateIoExchange(ExchangeBase):
             raise ValueError(f"Buy order amount {amount} is lower than the minimum order size "
                              f"{trading_rule.min_order_size}.")
         order_type_str = order_type.name.lower().split("_")[0]
-        api_params = {"symbol": convert_to_exchange_trading_pair(trading_pair),
+        api_params = {"currency_pair": convert_to_exchange_trading_pair(trading_pair),
                       "side": trade_type.name.lower(),
                       "type": order_type_str,
                       "price": f"{price:f}",
-                      "quantity": f"{amount:f}",
-                      "clientOrderId": order_id,
-                      # Without strict validate, Gate.io might adjust order prices/sizes.
-                      "strictValidate": "true",
+                      "amount": f"{amount:f}",
                       }
-        if order_type is OrderType.LIMIT_MAKER:
-            api_params["postOnly"] = "true"
         self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, order_type)
         try:
             order_result = await self._api_request("POST", Constants.ENDPOINT["ORDER_CREATE"], api_params, True)
@@ -516,9 +511,10 @@ class GateIoExchange(ExchangeBase):
                 raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
             if tracked_order.exchange_order_id is None:
                 await tracked_order.get_exchange_order_id()
-            # ex_order_id = tracked_order.exchange_order_id
+            ex_order_id = tracked_order.exchange_order_id
             await self._api_request("DELETE",
-                                    Constants.ENDPOINT["ORDER_DELETE"].format(id=order_id),
+                                    Constants.ENDPOINT["ORDER_DELETE"].format(id=ex_order_id),
+                                    params={'currency_pair': convert_to_exchange_trading_pair(trading_pair)},
                                     is_auth_required=True)
             order_was_cancelled = True
         except asyncio.CancelledError:
@@ -762,7 +758,7 @@ class GateIoExchange(ExchangeBase):
         for account in balance_update:
             asset_name = account["currency"]
             self._account_available_balances[asset_name] = Decimal(str(account["available"]))
-            self._account_balances[asset_name] = Decimal(str(account["reserved"])) + Decimal(str(account["available"]))
+            self._account_balances[asset_name] = Decimal(str(account["locked"])) + Decimal(str(account["available"]))
             remote_asset_names.add(asset_name)
 
         asset_names_to_remove = local_asset_names.difference(remote_asset_names)
@@ -859,12 +855,12 @@ class GateIoExchange(ExchangeBase):
                 if channel not in user_channels and account_balances is None:
                     self.logger().error(f"Unexpected message in user stream: {event_message}.", exc_info=True)
                     continue
-                if channel == Constants.WS_METHODS["USER_TRADES"]:
+                if channel == Constants.WS_SUB["USER_TRADES"]:
                     await self._process_trade_message(params)
-                elif channel == Constants.WS_METHODS["USER_ORDERS"]:
+                elif channel == Constants.WS_SUB["USER_ORDERS"]:
                     for order_msg in params:
                         self._process_order_message(order_msg)
-                elif channel == Constants.WS_METHODS["USER_BALANCE"]:
+                elif channel == Constants.WS_SUB["USER_BALANCE"]:
                     self._process_balance_message(params)
             except asyncio.CancelledError:
                 raise

@@ -30,13 +30,6 @@ class Constants:
 
     }
 
-    WS_METHODS = {
-        "TRADES_SNAPSHOT": "snapshotTrades",
-        "USER_BALANCE": "getTradingBalance",
-        "USER_ORDERS": "activeOrders",
-        "USER_TRADES": "report",
-    }
-
     # Timeouts
     MESSAGE_TIMEOUT = 30.0
     PING_TIMEOUT = 10.0

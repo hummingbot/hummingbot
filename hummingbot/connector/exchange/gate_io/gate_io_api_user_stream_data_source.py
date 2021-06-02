@@ -42,9 +42,6 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
     def last_recv_time(self) -> float:
         return self._last_recv_time
 
-    async def _ws_request_balances(self):
-        return await self._ws.request(Constants.WS_METHODS["USER_BALANCE"])
-
     async def _listen_to_orders_trades_balances(self) -> AsyncIterable[Any]:
         """
         Subscribe to active orders via web socket
@@ -76,8 +73,7 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 if msg.get("params", msg.get("result", None)) is None:
                     continue
                 elif msg.get("method", None) in user_channels:
-                    await self._ws_request_balances()
-                yield msg
+                    yield msg
         except Exception as e:
             raise e
         finally:
