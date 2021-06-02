@@ -29,7 +29,9 @@ from hummingbot.core.event.events import (
     OrderExpiredEvent,
     FundingPaymentCompletedEvent,
     MarketEvent,
-    TradeFee
+    TradeFee,
+    RangePositionInitiatedEvent,
+    RangePositionUpdatedEvent,
 )
 from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
 from hummingbot.connector.connector_base import ConnectorBase
@@ -37,6 +39,8 @@ from hummingbot.connector.utils import TradeFillOrderDetails
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
 from hummingbot.model.order_status import OrderStatus
+from hummingbot.model.range_position import RangePosition
+from hummingbot.model.range_position_update import RangePositionUpdate
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 from hummingbot.model.trade_fill import TradeFill
 from hummingbot.model.funding_payment import FundingPayment
@@ -77,7 +81,12 @@ class MarketsRecorder:
         self._fail_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_fail_order)
         self._complete_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_complete_order)
         self._expire_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_expire_order)
-        self._funding_payment_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_complete_funding_payment)
+        self._funding_payment_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(
+            self._did_complete_funding_payment)
+        self._intiate_range_position_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(
+            self._did_initiate_range_position)
+        self._update_range_position_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(
+            self._did_update_range_position)
 
         self._event_pairs: List[Tuple[MarketEvent, SourceInfoEventForwarder]] = [
             (MarketEvent.BuyOrderCreated, self._create_order_forwarder),
@@ -88,7 +97,9 @@ class MarketsRecorder:
             (MarketEvent.BuyOrderCompleted, self._complete_order_forwarder),
             (MarketEvent.SellOrderCompleted, self._complete_order_forwarder),
             (MarketEvent.OrderExpired, self._expire_order_forwarder),
-            (MarketEvent.FundingPaymentCompleted, self._funding_payment_forwarder)
+            (MarketEvent.FundingPaymentCompleted, self._funding_payment_forwarder),
+            (MarketEvent.RangePositionInitiated, self._intiate_range_position_forwarder),
+            (MarketEvent.RangePositionUpdated, self._update_range_position_forwarder),
         ]
 
     @property
@@ -259,12 +270,14 @@ class MarketsRecorder:
                                                  leverage=evt.leverage if evt.leverage else 1,
                                                  trade_fee=TradeFee.to_json(evt.trade_fee),
                                                  exchange_trade_id=evt.exchange_trade_id,
-                                                 position=evt.position if evt.position else "NILL",)
+                                                 position=evt.position if evt.position else "NILL", )
         session.add(order_status)
         session.add(trade_fill_record)
         self.save_market_states(self._config_file_path, market, no_commit=True)
         session.commit()
-        market.add_trade_fills_from_market_recorder({TradeFillOrderDetails(trade_fill_record.market, trade_fill_record.exchange_trade_id, trade_fill_record.symbol)})
+        market.add_trade_fills_from_market_recorder({TradeFillOrderDetails(trade_fill_record.market,
+                                                                           trade_fill_record.exchange_trade_id,
+                                                                           trade_fill_record.symbol)})
         self.append_to_csv(trade_fill_record)
 
     def _did_complete_funding_payment(self,
@@ -279,7 +292,8 @@ class MarketsRecorder:
         timestamp: float = evt.timestamp
 
         # Try to find the funding payment has been recorded already.
-        payment_record: Optional[FundingPayment] = session.query(FundingPayment).filter(FundingPayment.timestamp == timestamp).one_or_none()
+        payment_record: Optional[FundingPayment] = session.query(FundingPayment).filter(
+            FundingPayment.timestamp == timestamp).one_or_none()
         if payment_record is None:
             funding_payment_record: FundingPayment = FundingPayment(timestamp=timestamp,
                                                                     config_file_path=self.config_file_path,
@@ -308,7 +322,7 @@ class MarketsRecorder:
         csv_filename = "trades_" + trade.config_file_path[:-4] + ".csv"
         csv_path = os.path.join(data_path(), csv_filename)
 
-        field_names = ("id",)   # id field should be first
+        field_names = ("id",)  # id field should be first
         field_names += tuple(attr for attr in dir(trade) if (not self._is_protected_method(attr) and
                                                              self._is_primitive_type(getattr(trade, attr)) and
                                                              (attr not in field_names)))
@@ -321,7 +335,7 @@ class MarketsRecorder:
         field_names += ("age",)
         field_data += (age,)
 
-        if(os.path.exists(csv_path) and (not self._csv_matches_header(csv_path, field_names))):
+        if (os.path.exists(csv_path) and (not self._csv_matches_header(csv_path, field_names))):
             move(csv_path, csv_path[:-4] + '_old_' + pd.Timestamp.utcnow().strftime("%Y%m%d-%H%M%S") + ".csv")
 
         if not os.path.exists(csv_path):
@@ -383,3 +397,57 @@ class MarketsRecorder:
                           market: ConnectorBase,
                           evt: OrderExpiredEvent):
         self._update_order_status(event_tag, market, evt)
+
+    def _did_initiate_range_position(self,
+                                     event_tag: int,
+                                     connector: ConnectorBase,
+                                     evt: RangePositionInitiatedEvent):
+        if threading.current_thread() != threading.main_thread():
+            self._ev_loop.call_soon_threadsafe(self._did_initiate_range_position, event_tag, connector, evt)
+            return
+
+        session: Session = self.session
+        timestamp: int = self.db_timestamp
+        r_pos: RangePosition = RangePosition(hb_id=evt.hb_id,
+                                             config_file_path=self._config_file_path,
+                                             strategy=self._strategy_name,
+                                             tx_hash=evt.tx_hash,
+                                             connector=connector.display_name,
+                                             trading_pair=evt.trading_pair,
+                                             fee_tier=str(evt.fee_tier),
+                                             lower_price=float(evt.lower_price),
+                                             upper_price=float(evt.upper_price),
+                                             base_amount=float(evt.base_amount),
+                                             quote_amount=float(evt.quote_amount),
+                                             status=evt.status,
+                                             creation_timestamp=timestamp,
+                                             last_update_timestamp=timestamp)
+        session.add(r_pos)
+        self.save_market_states(self._config_file_path, connector, no_commit=True)
+        session.commit()
+
+    def _did_update_range_position(self,
+                                   event_tag: int,
+                                   connector: ConnectorBase,
+                                   evt: RangePositionUpdatedEvent):
+        if threading.current_thread() != threading.main_thread():
+            self._ev_loop.call_soon_threadsafe(self._did_update_range_position, event_tag, connector, evt)
+            return
+
+        session: Session = self.session
+        timestamp: int = self.db_timestamp
+
+        rp_record: Optional[RangePosition] = session.query(RangePosition).filter(
+            RangePosition.hb_id == evt.hb_id).one_or_none()
+        if rp_record is not None:
+            rp_update: RangePositionUpdate = RangePositionUpdate(hb_id=evt.hb_id,
+                                                                 timestamp=timestamp,
+                                                                 tx_hash=evt.tx_hash,
+                                                                 token_id=evt.token_id,
+                                                                 base_amount=float(evt.base_amount),
+                                                                 quote_amount=float(evt.quote_amount),
+                                                                 status=evt.status,
+                                                                 )
+            session.add(rp_update)
+            self.save_market_states(self._config_file_path, connector, no_commit=True)
+            session.commit()
