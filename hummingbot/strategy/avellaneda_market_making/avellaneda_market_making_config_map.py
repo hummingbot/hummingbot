@@ -214,7 +214,7 @@ avellaneda_market_making_config_map = {
                   required_if=lambda: not (using_exchange("radar_relay")() or
                                            (using_exchange("bamboo_relay")() and not using_bamboo_coordinator_mode())),
                   type_str="float",
-                  default=Decimal("1800"),
+                  default=1800,
                   validator=lambda v: validate_decimal(v, 0, inclusive=False)),
     "order_refresh_tolerance_pct":
         ConfigVar(key="order_refresh_tolerance_pct",
@@ -274,4 +274,12 @@ avellaneda_market_making_config_map = {
                   default="no_aggregation",
                   validator=lambda v: "Invalid option" if v.upper() not in [s.name for s in HangingOrdersAggregationType] else None,
                   required_if=lambda: avellaneda_market_making_config_map.get("hanging_orders_enabled").value),
+    "hanging_orders_cancel_pct":
+        ConfigVar(key="hanging_orders_cancel_pct",
+                  prompt="At what spread percentage (from mid price) will hanging orders be canceled? "
+                         "(Enter 1 to indicate 1%) >>> ",
+                  required_if=lambda: avellaneda_market_making_config_map.get("hanging_orders_enabled").value,
+                  type_str="decimal",
+                  default=Decimal("10"),
+                  validator=lambda v: validate_decimal(v, 0, 100, inclusive=False)),
 }
