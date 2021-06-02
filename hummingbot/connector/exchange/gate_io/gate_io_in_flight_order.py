@@ -40,11 +40,11 @@ class GateIoInFlightOrder(InFlightOrderBase):
 
     @property
     def is_done(self) -> bool:
-        return self.last_state in {"filled", "cancelled", "expired"}
+        return self.last_state in {"closed", "filled", "finish", "failed", "cancelled", "expired"}
 
     @property
     def is_failure(self) -> bool:
-        return self.last_state in {"suspended"}
+        return self.last_state in {"failed"}
 
     @property
     def is_cancelled(self) -> bool:
