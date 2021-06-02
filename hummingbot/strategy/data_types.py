@@ -85,8 +85,5 @@ class HangingOrder:
     def distance_to_price(self, price: Decimal):
         return abs(self.price - price)
 
-    def __eq__(self, other):
-        return hash(self) == hash(other)
-
     def __hash__(self):
         return hash((self.trading_pair, self.price, self.amount, self.is_buy))
