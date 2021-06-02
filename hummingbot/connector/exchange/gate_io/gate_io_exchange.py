@@ -271,16 +271,17 @@ class GateIoExchange(ExchangeBase):
         Response Example:
         [
             {
-                id: "BTCUSD",
-                baseCurrency: "BTC",
-                quoteCurrency: "USD",
-                quantityIncrement: "0.00001",
-                tickSize: "0.01",
-                takeLiquidityRate: "0.0025",
-                provideLiquidityRate: "0.001",
-                feeCurrency: "USD",
-                marginTrading: true,
-                maxInitialLeverage: "12.00"
+                "id": "ETH_USDT",
+                "base": "ETH",
+                "quote": "USDT",
+                "fee": "0.2",
+                "min_base_amount": "0.001",
+                "min_quote_amount": "1.0",
+                "amount_precision": 3,
+                "precision": 6,
+                "trade_status": "tradable",
+                "sell_start": 1516378650,
+                "buy_start": 1516378650
             }
         ]
         """
@@ -288,12 +289,15 @@ class GateIoExchange(ExchangeBase):
         for rule in symbols_info:
             try:
                 trading_pair = convert_from_exchange_trading_pair(rule["id"])
-                price_step = Decimal(str(rule["tickSize"]))
-                size_step = Decimal(str(rule["quantityIncrement"]))
+                min_amount = Decimal(str(rule.get("min_base_amount", f"1e-{rule['amount_precision']}")))
+                min_notional = Decimal(str(rule.get("min_quote_amount", f"1e-{rule['precision']}")))
                 result[trading_pair] = TradingRule(trading_pair,
-                                                   min_order_size=size_step,
-                                                   min_base_amount_increment=size_step,
-                                                   min_price_increment=price_step)
+                                                   min_order_size=min_amount,
+                                                   min_price_increment=Decimal(f"1e-{rule['precision']}"),
+                                                   min_base_amount_increment=Decimal(f"1e-{rule['amount_precision']}"),
+                                                   min_notional_size=min_notional,
+                                                   min_order_value=min_notional,
+                                                   )
             except Exception:
                 self.logger().error(f"Error parsing the trading pair rule {rule}. Skipping.", exc_info=True)
         return result
@@ -316,7 +320,7 @@ class GateIoExchange(ExchangeBase):
         url = f"{Constants.REST_URL}/{endpoint}"
         shared_client = await self._http_client()
         # Turn `params` into either GET params or POST body data
-        qs_params: dict = params if method.upper() == "GET" else None
+        qs_params: dict = params if method.upper() != "POST" else None
         req_params = ujson.dumps(params) if method.upper() == "POST" and params is not None else None
         # Generate auth headers if needed.
         headers: dict = {"Content-Type": "application/json"}
@@ -865,7 +869,7 @@ class GateIoExchange(ExchangeBase):
                     continue
                 if channel == Constants.WS_SUB["USER_TRADES"]:
                     for trade_msg in params:
-                        self._process_trade_message(trade_msg)
+                        await self._process_trade_message(trade_msg)
                 elif channel == Constants.WS_SUB["USER_ORDERS"]:
                     for order_msg in params:
                         self._process_order_message(order_msg)

@@ -65,14 +65,15 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
             await self._ws.subscribe(Constants.WS_SUB['USER_BALANCE'])
 
             async for msg in self._ws.on_message():
+                self._last_recv_time = time.time()
+
                 if msg is None:
                     # Skip empty subscribed/unsubscribed messages
                     continue
-                self._last_recv_time = time.time()
 
-                if msg.get("params", msg.get("result", None)) is None:
+                if msg.get("result", None) is None:
                     continue
-                elif msg.get("method", None) in user_channels:
+                elif msg.get("channel", None) in user_channels:
                     yield msg
         except Exception as e:
             raise e
