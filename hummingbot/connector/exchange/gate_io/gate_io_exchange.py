@@ -183,6 +183,7 @@ class GateIoExchange(ExchangeBase):
         This function is called automatically by the clock.
         """
         super().stop(clock)
+        self._last_timestamp = 0
 
     async def start_network(self):
         """
@@ -289,12 +290,14 @@ class GateIoExchange(ExchangeBase):
         for rule in symbols_info:
             try:
                 trading_pair = convert_from_exchange_trading_pair(rule["id"])
-                min_amount = Decimal(str(rule.get("min_base_amount", f"1e-{rule['amount_precision']}")))
-                min_notional = Decimal(str(rule.get("min_quote_amount", f"1e-{rule['precision']}")))
+                min_amount_inc = Decimal(f"1e-{rule['amount_precision']}")
+                min_price_inc = Decimal(f"1e-{rule['precision']}")
+                min_amount = Decimal(str(rule.get("min_base_amount", min_amount_inc)))
+                min_notional = Decimal(str(rule.get("min_quote_amount", min_price_inc)))
                 result[trading_pair] = TradingRule(trading_pair,
                                                    min_order_size=min_amount,
-                                                   min_price_increment=Decimal(f"1e-{rule['precision']}"),
-                                                   min_base_amount_increment=Decimal(f"1e-{rule['amount_precision']}"),
+                                                   min_price_increment=min_price_inc,
+                                                   min_base_amount_increment=min_amount_inc,
                                                    min_notional_size=min_notional,
                                                    min_order_value=min_notional,
                                                    )
