@@ -1,12 +1,14 @@
+import logging
 from decimal import Decimal
 from enum import Enum
 from typing import Dict, List, Set
 
 from hummingbot.strategy.data_types import HangingOrder
 from hummingbot.strategy.strategy_base import StrategyBase
-from collections import defaultdict
+from hummingbot.core.data_type.limit_order import LimitOrder
 
 s_decimal_zero = Decimal(0)
+sb_logger = None
 
 
 class HangingOrdersAggregationType(Enum):
@@ -17,31 +19,25 @@ class HangingOrdersAggregationType(Enum):
 
 
 class CreatedPairOfOrders:
-    def __init__(self, buy_price, sell_price):
-        self._buy_price = buy_price
-        self._sell_price = sell_price
-        self._filled_buy = False
-        self._filled_sell = False
+    def __init__(self, buy_order: LimitOrder, sell_order: LimitOrder):
+        self.buy_order = buy_order
+        self.sell_order = sell_order
+        self.filled_buy = False
+        self.filled_sell = False
 
-    def contains_price(self, price, side):
-        return (side == 'buy' and self._buy_price == price and not self._filled_buy) or\
-               (side == 'sell' and self._sell_price == price and not self._filled_sell)
-
-    def fill_side(self, side):
-        if side == 'buy':
-            self._filled_buy = True
-        else:
-            self._filled_sell = True
+    def contains_order(self, order: LimitOrder):
+        return (self.buy_order.client_order_id == order.client_order_id) or \
+               (self.sell_order.client_order_id == order.client_order_id)
 
     def partially_filled(self):
-        return (self._filled_buy and not self._filled_sell) or (not self._filled_buy and self._filled_sell)
+        return (self.filled_buy and not self.filled_sell) or (not self.filled_buy and self.filled_sell)
 
-    def get_unfilled_side(self):
+    def get_unfilled_order(self):
         if self.partially_filled():
-            if not self._filled_sell:
-                return self._sell_price, 'sell'
+            if not self.filled_buy:
+                return self.buy_order
             else:
-                return self._buy_price, 'buy'
+                return self.sell_order
 
 
 class HangingOrdersTracker:
@@ -52,88 +48,108 @@ class HangingOrdersTracker:
         HangingOrdersAggregationType.VOLUME_DISTANCE_WEIGHTED: "_get_equivalent_order_volume_and_distance_weighted"
     }
 
+    @classmethod
+    def logger(cls):
+        global sb_logger
+        if sb_logger is None:
+            sb_logger = logging.getLogger(__name__)
+        return sb_logger
+
     def __init__(self,
                  strategy: StrategyBase,
                  aggregation_method: HangingOrdersAggregationType = None,
-                 orders: Dict[str, HangingOrder] = None):
+                 hanging_orders_cancel_pct=None,
+                 orders: Dict[str, HangingOrder] = None,
+                 trading_pair: str = None):
         self.strategy = strategy
         self.aggregation_method = aggregation_method or HangingOrdersAggregationType.NO_AGGREGATION
-        self.original_orders = orders or dict()
-        self.equivalent_orders = dict()
+        self._hanging_orders_cancel_pct = hanging_orders_cancel_pct or Decimal("0.1")
+        self.original_orders = orders or set()
+        self.trading_pair = trading_pair or self.strategy.trading_pair
+        self.strategy_current_hanging_orders = set()
         self.current_timestamp = s_decimal_zero
-        self.current_created_pairs_of_orders = defaultdict(list)
+        self.current_created_pairs_of_orders = list()
 
     def add_order(self, hanging_order: HangingOrder):
-        self.original_orders[hanging_order.order_id] = hanging_order
+        self.original_orders.add(hanging_order)
 
-    def remove_order(self, order_id):
-        if order_id in self.original_orders.keys():
-            self.original_orders.pop(order_id)
+    def remove_order(self, order: LimitOrder):
+        if order in self.original_orders:
+            self.original_orders.remove(order)
 
-    def remove_max_aged_orders(self) -> List[str]:
-        """ Returns List[order_id] to be cancelled"""
-        result = []
-        max_age = getattr(self.strategy, "_max_order_age")
+    def remove_all_orders(self):
+        self.original_orders.clear()
+
+    def remove_max_aged_orders(self):
+        max_age = getattr(self.strategy, "max_order_age", None)
+        to_be_removed = set()
         if max_age:
-            for order_id, order in self.original_orders.items():
+            for order in self.original_orders:
                 if order.age > max_age:
-                    # self.strategy.cancel_order(order.order_id) # Don't need to cancel cause original orders are not present in strategy
-                    self.remove_order(order_id)
-        return result
+                    self.logger().info(f"Reached max_order_age={max_age}sec order: {order}. Removing...")
+                    to_be_removed.add(order)
+        for order in to_be_removed:
+            self.remove_order(order)
+
+    def remove_orders_far_from_price(self):
+        current_price = self.strategy.get_price()
+        for order in self.original_orders:
+            if order.distance_to_price(current_price) / current_price > self._hanging_orders_cancel_pct:
+                self.logger().info(
+                    f"Hanging order passed max_distance from price={self._hanging_orders_cancel_pct * 100}% {order}. Removing...")
+                self.remove_order(order)
 
     def set_aggregation_method(self, aggregation_method: HangingOrdersAggregationType):
         self.aggregation_method = aggregation_method
 
-    def get_order_ages(self):
-        return {order_id: order.age for order_id, order in self.original_orders.items()}
+    def get_equivalent_orders(self) -> Set[HangingOrder]:
+        if self.original_orders:
+            return getattr(self,
+                           self.AGGREGATION_METHODS.get(self.aggregation_method,
+                                                        "_get_equivalent_orders_no_aggregation"))(self.original_orders)
+        return set()
 
-    def get_equivalent_orders(self) -> Dict[str, Dict[str, HangingOrder]]:
-        """
-        Final result will be a dictionary of Lists.
-        -> Dictionary[trading_pair, Set: HangingOrder]
-        """
-        result = dict()
-        for trading_pair, orders in self.orders_by_trading_pair:
-            result[trading_pair] = getattr(self,
-                                           self.AGGREGATION_METHODS.get(self.aggregation_method,
-                                                                        self._get_equivalent_orders_no_aggregation)
-                                           )(orders)
-        return result
+    @property
+    def equivalent_orders(self):
+        return self.get_equivalent_orders()
+
+    def is_order_id_in_hanging_orders(self, order_id: str):
+        return any((o.order_id == order_id for o in self.strategy_current_hanging_orders))
 
     def update_strategy_orders_with_equivalent_orders(self):
-        for trading_pair, orders in self.strategy.hanging_orders:
-            equivalent_orders_for_trading_pair = self.equivalent_orders.get(trading_pair, set())
-            orders_to_cancel = orders.difference(equivalent_orders_for_trading_pair)
-            orders_to_create = equivalent_orders_for_trading_pair.difference(orders)
-            self.cancel_multiple_orders_in_strategy([o.order_id for o in orders_to_cancel])
-            # In the future this should also apply to strategies with multiple trading_pairs to have an order proposal with trading_pair info
-            self.execute_orders_in_strategy(orders_to_create)
-            self.add_created_orders_to_strategy_hanging_orders(orders_to_create, trading_pair)
+        equivalent_orders = self.get_equivalent_orders()
+        orders_to_cancel = self.strategy_current_hanging_orders.difference(equivalent_orders)
+        orders_to_create = equivalent_orders.difference(self.strategy_current_hanging_orders)
+        self.cancel_multiple_orders_in_strategy([o.order_id for o in orders_to_cancel])
+        self.execute_orders_in_strategy(orders_to_create)
+        self.add_created_orders_to_strategy_hanging_orders(orders_to_create)
 
-    def add_created_orders_to_strategy_hanging_orders(self, orders: Set[HangingOrder], trading_pair: str):
-        # Need to do this in case strategy is cython based
-        current_hanging_orders = self.strategy.hanging_orders
-        current_hanging_orders[trading_pair].extend(orders)
-        self.strategy.hanging_orders = current_hanging_orders
+    def add_created_orders_to_strategy_hanging_orders(self, orders: Set[HangingOrder]):
+        self.strategy_current_hanging_orders = self.strategy_current_hanging_orders.union(orders)
 
     def execute_orders_in_strategy(self, orders: Set[HangingOrder]):
+        # ToDo: Need to verify budget restriction (?)
+        # Currently prioritizing hanging orders and then creating orders with remaining balance
+
         order_type = self.strategy.market_info.market.get_maker_order_type()
         for order in orders:
+            quantized_amount = self.strategy.market_info.market.quantize_order_amount(self.trading_pair, order.amount)
+            quantized_price = self.strategy.market_info.market.quantize_order_price(self.trading_pair, order.price)
             if order.is_buy:
                 bid_order_id = self.strategy.buy_with_specific_market(
                     self.strategy.market_info,
-                    order.amount,
+                    quantized_amount,
                     order_type=order_type,
-                    price=order.price,
+                    price=quantized_price,
                     expiration_seconds=self.strategy.order_refresh_time
                 )
                 order.order_id = bid_order_id
             else:
                 ask_order_id = self.strategy.sell_with_specific_market(
                     self.strategy.market_info,
-                    order.amount,
+                    quantized_amount,
                     order_type=order_type,
-                    price=order.price,
+                    price=quantized_price,
                     expiration_seconds=self.strategy.order_refresh_time
                 )
                 order.order_id = ask_order_id
@@ -145,56 +161,74 @@ class HangingOrdersTracker:
     def _get_equivalent_orders_no_aggregation(self, orders):
         return frozenset(orders)
 
-    def _get_equivalent_order_volume_weighted(self, orders):
-        # ToDo
-        return frozenset(orders)
+    def _obtain_equivalent_weighted_order(self, orders, weight_function):
+        buys = [o for o in orders if o.is_buy]
+        sells = [o for o in orders if not o.is_buy]
+        current_price = self.strategy.get_price()
+        distance_prod_subs = sum(abs(current_price - o.price) * o.amount * weight_function(o) for o in sells) -\
+            sum(abs(current_price - o.price) * o.amount * weight_function(o) for o in buys)
+        if distance_prod_subs != 0:
+            isbuy = distance_prod_subs < 0
+            price = current_price + distance_prod_subs / sum(o.amount * weight_function(o) for o in orders)
+            amount_sum = sum(o.amount * weight_function(o) for o in orders)
+            amount = (sum(o.amount for o in sells) * sum(o.amount * weight_function(o) for o in sells) -
+                      sum(o.amount for o in buys) * sum(o.amount * weight_function(o) for o in buys)) / amount_sum
 
-    def _get_equivalent_order_volume_and_age_weighted(self, orders):
-        # ToDo
-        return frozenset(orders)
+            return frozenset([HangingOrder(None, self.trading_pair, isbuy, price, amount)])
+        return frozenset()
 
-    def _get_equivalent_order_volume_and_distance_weighted(self, orders):
-        # ToDo
-        return frozenset(orders)
+    def _get_equivalent_order_volume_weighted(self, orders: Set[HangingOrder]):
+        return self._obtain_equivalent_weighted_order(orders, lambda o: Decimal("1"))
 
-    def _get_orders_for_trading_pair(self, trading_pair: str) -> Dict[str, HangingOrder]:
-        return {k: v for k, v in self.original_orders.items() if v.trading_pair == trading_pair}
+    def _get_equivalent_order_volume_and_age_weighted(self, orders: Set[HangingOrder]):
+        max_order_age = getattr(self.strategy, "max_order_age", lambda: None)
+        if max_order_age:
+            return self._obtain_equivalent_weighted_order(orders,
+                                                          lambda o: Decimal.exp(-Decimal(str(o.age / max_order_age))))
+        return frozenset()
 
-    @property
-    def orders_by_trading_pair(self) -> Dict[str, Dict[str, HangingOrder]]:
-        trading_pairs = {v.trading_pair for k, v in self.original_orders.items()}
-        result = dict()
-        for trading_pair in trading_pairs:
-            result[trading_pair] = self._get_orders_for_trading_pair(trading_pair)
-        return result
+    def _get_equivalent_order_volume_and_distance_weighted(self, orders: Set[HangingOrder]):
+        current_price = self.strategy.get_price()
+        return self._obtain_equivalent_weighted_order(orders,
+                                                      lambda o: Decimal.exp(-Decimal(str(abs(o.price - current_price)
+                                                                                         / current_price))))
 
-    def is_order_id_in_hanging_orders(self, order_id: str, trading_pair: str):
-        return order_id in self.equivalent_orders[trading_pair]
+    def add_current_pairs_of_proposal_orders_executed_by_strategy(self, pair: CreatedPairOfOrders):
+        self.current_created_pairs_of_orders.append(pair)
 
-    def add_current_pairs_of_proposal_orders_executed_by_strategy(self, trading_pair, pair: CreatedPairOfOrders):
-        self.current_created_pairs_of_orders[trading_pair].append(pair)
-
-    def did_fill_order(self, trading_pair, side):
-        for pair in self.current_created_pairs_of_orders[trading_pair]:
-            if pair.contains_price(*side):
-                if side[1] == 'buy':
-                    pair._filled_buy = True
+    def did_fill_order(self, order: LimitOrder):
+        for pair in self.current_created_pairs_of_orders:
+            if pair.contains_order(order):
+                if order.is_buy:
+                    pair.filled_buy = True
                 else:
-                    pair._filled_sell = True
+                    pair.filled_sell = True
+
+    def did_fill_hanging_order(self, order: LimitOrder):
+        order_to_be_removed = next((o for o in self.strategy_current_hanging_orders if
+                                    o.order_id == order.client_order_id))
+        if order_to_be_removed:
+            self.strategy_current_hanging_orders.remove(order_to_be_removed)
+        if self.aggregation_method == HangingOrdersAggregationType.NO_AGGREGATION.name:
+            self.remove_order(order.client_order_id)
+        else:
+            # For any aggregation other than no_aggregation, the hanging order is the equivalent to all original
+            # hanging orders
+            self.remove_all_orders()
 
     def add_hanging_orders_based_on_partially_executed_pairs(self):
-        for trading_pair, pairs in self.current_created_pairs_of_orders.items():
-            for pair in pairs:
-                if pair.partially_filled():
-                    side = pair.get_unfilled_side()
-                    price = side[0]
-                    is_buy = side[1] == 'buy'
-                    order_in_strategy = next((o for o in self.strategy.active_orders if (o.is_buy == is_buy and
-                                                                                         o.price == price and
-                                                                                         o.trading_pair == trading_pair)
-                                              ))
-                    self.add_order(HangingOrder(order_in_strategy.client_order_id,
-                                                order_in_strategy.trading_pair,
-                                                is_buy,
-                                                price,
-                                                order_in_strategy.quantity))
+        for pair in self.current_created_pairs_of_orders:
+            if pair.partially_filled():
+                unfilled_order = pair.get_unfilled_order()
+                order_in_strategy = next((o for o in self.strategy.active_orders if
+                                          (o.client_order_id == unfilled_order.client_order_id)), None)
+                if order_in_strategy:
+                    self.add_hanging_order_based_on_limit_order(order_in_strategy)
+        self.current_created_pairs_of_orders.clear()
+
+    def add_hanging_order_based_on_limit_order(self, order: LimitOrder):
+        self.add_order(HangingOrder(order.client_order_id,
+                                    order.trading_pair,
+                                    order.is_buy,
+                                    order.price,
+                                    order.quantity))
