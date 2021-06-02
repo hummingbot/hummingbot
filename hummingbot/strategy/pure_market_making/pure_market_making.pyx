@@ -595,7 +595,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         lines.extend(["", "  Markets:"] + ["    " + line for line in markets_df.to_string(index=False).split("\n")])
 
         assets_df = self.pure_mm_assets_df(not self._inventory_skew_enabled).astype(str)
-        self.logger().info(assets_df)
         # append inventory skew stats.
         if self._inventory_skew_enabled:
             inventory_skew_df = self.inventory_skew_stats_data_frame().astype(str)
