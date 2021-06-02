@@ -11,7 +11,7 @@ dependencies:
   - bzip2=1.0.8=h7b6447c_0
   - ca-certificates=2020.1.1=0
   - certifi=2019.11.28=py38_0
-  - coverage=5.5=py38h9ed2024_2
+  - coverage=5.5
   - cython=0.29.15=py38he6710b0_0
   - hdf5=1.10.4=hb1b8bf9_0
   - intel-openmp=2020.0=166
