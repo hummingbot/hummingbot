@@ -96,16 +96,6 @@ jobs:
           conda env export
           ./compile
 
-      # Install tools for coverage calculation
-      - name: Install Coverage Tools
-        if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
-        shell: bash -l {0}
-        run: |
-          source /usr/share/miniconda/etc/profile.d/conda.sh
-          conda activate hummingbot
-          conda install coverage
-          pip install diff-cover
-
       - name: Run stable tests and global coverage
         if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
         shell: bash
