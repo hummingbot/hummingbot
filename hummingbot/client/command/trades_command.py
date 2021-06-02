@@ -9,7 +9,7 @@ from datetime import datetime
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.data_type.trade import Trade, TradeType
 from hummingbot.core.data_type.common import OpenOrder
-from hummingbot.client.performance import smart_round
+from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.client.command.history_command import get_timestamp
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
@@ -73,7 +73,7 @@ class TradesCommand:
             time = f"{datetime.fromtimestamp(trade.timestamp / 1e3).strftime('%Y-%m-%d %H:%M:%S')} "
             side = "buy" if trade.side is TradeType.BUY else "sell"
             usd = await RateOracle.global_value(trade.trading_pair.split("-")[0], trade.amount)
-            data.append([time, side, smart_round(trade.price), smart_round(trade.amount), round(usd)])
+            data.append([time, side, PerformanceMetrics.smart_round(trade.price), PerformanceMetrics.smart_round(trade.amount), round(usd)])
             for fee in trade.trade_fee.flat_fees:
                 if fee[0] not in fees:
                     fees[fee[0]] = fee[1]
