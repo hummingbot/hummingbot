@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 20
+template_version: 21
 
 # Exchange configs
 bamboo_relay_use_coordinator: false
@@ -204,6 +204,18 @@ heartbeat_enabled:
 heartbeat_interval_min:
 # a list of binance markets (for trades/pnl reporting) separated by ',' e.g. RLC-USDT,RLC-BTC
 binance_markets:
+
+
+
+# Command Shortcuts
+# Define abbreviations for often used commands
+# or batch grouped commands together
+#
+command_shortcuts:
+- command: spreads
+  help: Set bid and ask spread
+  arguments: ['Bid Spread', 'Ask Spread']
+  output: ['config bid_spread $1', 'config ask_spread $2']
 
 # A source for rate oracle, currently binance or coingecko
 rate_oracle_source:
