@@ -8,7 +8,6 @@ dependencies:
   - bzip2=1.0.8=he774522_0
   - ca-certificates=2020.1.1=0
   - certifi=2019.11.28=py38_0
-  - coverage=5.5
   - cython=0.29.15=py38ha925a31_0
   - hdf5=1.10.4=h7ebc959_0
   - icc_rt=2019.0.0=h0cc432a_1
@@ -78,7 +77,6 @@ dependencies:
     - dateparser==0.7.4
     - decorator==4.4.2
     - deprecated==1.2.7
-    - diff-cover==5.1.2
     - distlib==0.3.0
     - dydx-python==0.11.2
     - dydx-v3-python==1.0.0
