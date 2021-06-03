@@ -462,6 +462,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     self.c_apply_order_price_modifiers(proposal)
 
                 self._hanging_orders_tracker.remove_orders_far_from_price()
+                self._hanging_orders_tracker.renew_hanging_orders_past_max_order_age()
                 self.c_cancel_active_orders(proposal)
                 refresh_proposal = self.c_aged_order_refresh()
                 if refresh_proposal is not None:

@@ -80,6 +80,17 @@ class HangingOrdersTracker:
     def remove_all_orders(self):
         self.original_orders.clear()
 
+    def renew_hanging_orders_past_max_order_age(self):
+        max_age = getattr(self.strategy, "max_order_age", None)
+        to_be_renewed = set()
+        if max_age:
+            for order in self.strategy_current_hanging_orders:
+                if order.age > max_age:
+                    self.logger().info(f"Reached max_order_age={max_age}sec hanging order: {order}. Renewing...")
+                    to_be_renewed.add(order)
+            self.cancel_multiple_orders_in_strategy([o.order_id for o in to_be_renewed])
+            self.execute_orders_in_strategy(to_be_renewed)
+
     def remove_orders_far_from_price(self):
         current_price = self.strategy.get_price()
         for order in self.original_orders:
@@ -113,31 +124,41 @@ class HangingOrdersTracker:
         self.execute_orders_in_strategy(orders_to_create)
         self.add_created_orders_to_strategy_hanging_orders(orders_to_create)
 
+        self.logger().info("Updating hanging orders...")
+        self.logger().info(f"Original hanging orders: {self.original_orders}")
+        self.logger().info(f"Equivalent hanging orders: {self.equivalent_orders}")
+
     def add_created_orders_to_strategy_hanging_orders(self, orders: Set[HangingOrder]):
         self.strategy_current_hanging_orders = self.strategy_current_hanging_orders.union(orders)
 
     def execute_orders_in_strategy(self, orders: Set[HangingOrder]):
-        # ToDo: Need to verify budget restriction (?)
+        """ToDo: Need to verify budget restriction.
+        Specially when execution of orders happens after they were cancelled to be renewed.
+        In that case we are not waiting for orders to be successfully cancelled before creating the new ones
+        and that might lead to lack of budget."""
         # Currently prioritizing hanging orders and then creating orders with remaining balance
 
         order_type = self.strategy.market_info.market.get_maker_order_type()
         for order in orders:
             quantized_amount = self.strategy.market_info.market.quantize_order_amount(self.trading_pair, order.amount)
             quantized_price = self.strategy.market_info.market.quantize_order_price(self.trading_pair, order.price)
+            order.amount = quantized_amount
+            order.price = quantized_price
             if quantized_amount > 0:
                 if order.is_buy:
                     bid_order_id = self.strategy.buy_with_specific_market(
                         self.strategy.market_info,
-                        quantized_amount,
+                        amount=quantized_amount,
                         order_type=order_type,
                         price=quantized_price,
                         expiration_seconds=self.strategy.order_refresh_time
                     )
                     order.order_id = bid_order_id
+
                 else:
                     ask_order_id = self.strategy.sell_with_specific_market(
                         self.strategy.market_info,
-                        quantized_amount,
+                        amount=quantized_amount,
                         order_type=order_type,
                         price=quantized_price,
                         expiration_seconds=self.strategy.order_refresh_time
