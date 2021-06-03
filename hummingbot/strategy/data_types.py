@@ -73,8 +73,9 @@ class HangingOrder:
 
     @property
     def creation_timestamp(self):
-        if "//" not in self.order_id:
-            return int(self.order_id[-16:]) / 1e6
+        if self.order_id:
+            if "//" not in self.order_id:
+                return int(self.order_id[-16:]) / 1e6
 
     @property
     def age(self):
