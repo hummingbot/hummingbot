@@ -6,43 +6,41 @@ channels:
 dependencies:
   - _libgcc_mutex=0.1=conda_forge
   - _openmp_mutex=4.5=0_gnu
-  - blas=1.0=openblas
-  - blosc=1.16.3=hd408876_0
-  - bzip2=1.0.8=h7b6447c_0
-  - ca-certificates=2020.1.1=0
-  - certifi=2019.11.28=py38_0
-  - cython=0.29.15=py38he6710b0_0
-  - hdf5=1.10.4=hb1b8bf9_0
-  - intel-openmp=2020.0=166
+  - blas=1.1
+  - blosc=1.21.0
+  - bzip2=1.0.8
+  - ca-certificates
+  - certifi
+  - hdf5=1.10.5
+  - intel-openmp
   - ld_impl_linux-64=2.33.1=h53a641e_8
-  - libffi=3.2.1=he1b5a44_1006
-  - libgcc-ng=9.2.0=h24d8f2e_2
-  - libgfortran-ng=7.3.0=hdf63c60_0
-  - libgomp=9.2.0=h24d8f2e_2
-  - libopenblas=0.3.7=h5ec1e0e_6
-  - libstdcxx-ng=9.2.0=hdf63c60_2
-  - lz4-c=1.8.1.2=h14c3975_0
-  - lzo=2.10=h49e0be7_2
+  - libffi=3.2.1
+  - libgcc-ng
+  - libgfortran-ng
+  - libgomp
+  - libopenblas=0.3.13
+  - libstdcxx-ng
+  - lz4-c=1.9.3
+  - lzo=2.10
   - mock=4.0.1=py_0
   - ncurses=6.1=hf484d3e_1002
-  - nomkl=3.0=0
+  - nomkl=1.0
   - nose=1.3.7=py38_2
   - numexpr=2.7.1=py38h7ea95a0_0
-  - numpy=1.18.5=py38h7130bb8_0
+  - numpy=1.20.0
   - numpy-base=1.18.5=py38h2f8d375_0
-  - openblas=0.3.7=he1df0ab_6
-  - openssl=1.1.1d=h7b6447c_4
-  - pandas=1.0.1=py38h0573a6f_0
-  - pip=20.0.2=py_2
+  - openblas=0.3.4
+  - openssl=1.1.1k
+  - pandas=1.2.1
+  - pip=21.1.2
   - prompt_toolkit=3.0.3=py_0
   - pygments=2.5.2=py_0
-  - pytables=3.6.1=py38h9fd0a39_0
+  - pytables=3.6.1
   - python=3.8.2=h9d8adfe_4_cpython
   - python-dateutil=2.8.1=py_0
   - python_abi=3.8=1_cp38
   - pytz=2019.3=py_0
   - readline=8.0=hf8c457e_0
-  - setuptools=45.2.0=py38_0
   - six=1.14.0=py38_0
   - snappy=1.1.7=hbae5bb6_3
   - sqlalchemy=1.3.13=py38h7b6447c_0
@@ -79,13 +77,14 @@ dependencies:
     - coincurve==13.0.0
     - constantly==15.1.0
     - cryptography==2.8
-    - cytoolz==0.10.1
-    - dateparser==0.7.4
+    - cython==3.0a7
+    - cytoolz==0.11.0
+    - dateparser==1.0.0
     - decorator==4.4.2
     - deprecated==1.2.7
     - distlib==0.3.0
-    - dydx-python==0.11.2
-    - dydx-v3-python==1.0.0
+    - dydx-python==0.11.3
+    - dydx-v3-python==1.0.8
     - entrypoints==0.3
     - eth-abi==2.1.1
     - eth-account==0.4.0
@@ -103,7 +102,7 @@ dependencies:
     - hexbytes==0.2.0
     - hyperlink==19.0.0
     - identify==1.4.11
-    - idna==2.9
+    - idna==2.8
     - incremental==17.5.0
     - ipfshttpclient==0.4.12
     - jsonschema==3.2.0
@@ -135,7 +134,7 @@ dependencies:
     - python-telegram-bot==12.4.2
     - pyyaml==5.3
     - regex==2020.2.20
-    - requests==2.23.0
+    - requests==2.22.0
     - rlp==1.2.0
     - rsa==4.7
     - ruamel-yaml==0.16.10
@@ -151,11 +150,11 @@ dependencies:
     - urllib3==1.25.8
     - varint==1.0.2
     - virtualenv==20.0.8
-    - web3==5.5.1
+    - web3==5.8.0
     - websockets==8.1
     - wrapt==1.12.0
     - yarl==1.4.2
     - zope-interface==4.7.1
     - git+https://github.com/CoinAlpha/python-signalr-client.git
-    - https://hummingbot-python.s3-us-west-2.amazonaws.com/hummingsim-20200902-cp38-cp38-linux_x86_64.whl
+      #    - https://hummingbot-python.s3-us-west-2.amazonaws.com/hummingsim-20200902-cp38-cp38-linux_x86_64.whl
 prefix: /home/martin_kou/anaconda3/envs/hummingbot
