@@ -12,7 +12,7 @@ from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.client.settings import ETH_WALLET_CONNECTORS
-from hummingbot.client.performance import smart_round
+from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.connector.connector.uniswap.uniswap_connector import UniswapConnector
 
 from .utils import create_arb_proposals, ArbProposal
@@ -251,9 +251,9 @@ class AmmArbStrategy(StrategyPyBase):
             sell_price = await market.get_quote_price(trading_pair, False, self._order_amount)
 
             # check for unavailable price data
-            buy_price = smart_round(Decimal(str(buy_price)), 8) if buy_price is not None else '-'
-            sell_price = smart_round(Decimal(str(sell_price)), 8) if sell_price is not None else '-'
-            mid_price = smart_round(((buy_price + sell_price) / 2), 8) if '-' not in [buy_price, sell_price] else '-'
+            buy_price = PerformanceMetrics.smart_round(Decimal(str(buy_price)), 8) if buy_price is not None else '-'
+            sell_price = PerformanceMetrics.smart_round(Decimal(str(sell_price)), 8) if sell_price is not None else '-'
+            mid_price = PerformanceMetrics.smart_round(((buy_price + sell_price) / 2), 8) if '-' not in [buy_price, sell_price] else '-'
 
             data.append([
                 market.display_name,
