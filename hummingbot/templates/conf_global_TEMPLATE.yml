@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 20
+template_version: 21
 
 # Exchange configs
 bamboo_relay_use_coordinator: false
@@ -40,6 +40,13 @@ coinzoom_username: null
 
 dydx_eth_private_key: null
 dydx_node_address: null
+
+dydx_perpetual_api_key: null
+dydx_perpetual_api_secret: null
+dydx_perpetual_passphrase: null
+dydx_perpetual_account_number: null
+dydx_perpetual_stark_private_key: null
+dydx_perpetual_ethereum_address: null
 
 ftx_api_key: null
 ftx_secret_key: null
@@ -88,6 +95,9 @@ terra_wallet_seeds: null
 
 digifinex_api_key: null
 digifinex_secret_key: null
+
+k2_api_key: null
+k2_secret_key: null
 
 balancer_max_swaps: 4
 
@@ -196,6 +206,18 @@ heartbeat_enabled:
 heartbeat_interval_min:
 # a list of binance markets (for trades/pnl reporting) separated by ',' e.g. RLC-USDT,RLC-BTC
 binance_markets:
+
+
+
+# Command Shortcuts
+# Define abbreviations for often used commands
+# or batch grouped commands together
+#
+command_shortcuts:
+- command: spreads
+  help: Set bid and ask spread
+  arguments: ['Bid Spread', 'Ask Spread']
+  output: ['config bid_spread $1', 'config ask_spread $2']
 
 # A source for rate oracle, currently binance or coingecko
 rate_oracle_source:

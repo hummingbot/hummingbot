@@ -21,7 +21,8 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
         object _stop_loss_spread
         object _close_position_order_type
         object _close_order_type
-        double _market_position_close_timestamp
+        double _next_buy_exit_order_timestamp
+        double _next_sell_exit_order_timestamp
         int _order_levels
         int _buy_levels
         int _sell_levels

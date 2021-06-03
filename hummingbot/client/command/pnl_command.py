@@ -11,7 +11,7 @@ from hummingbot.client.config.security import Security
 from hummingbot.user.user_balances import UserBalances
 from hummingbot.core.data_type.trade import Trade
 from hummingbot.core.data_type.common import OpenOrder
-from hummingbot.client.performance import calculate_performance_metrics
+from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.client.command.history_command import get_timestamp
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
@@ -57,7 +57,7 @@ class PnlCommand:
         if market is not None:
             market = market.upper()
             trades: List[Trade] = await connector.get_my_trades(market, days)
-            perf = await calculate_performance_metrics(exchange, market, trades, cur_balances)
+            perf = await PerformanceMetrics.create(exchange, market, trades, cur_balances)
             self.report_performance_by_market(exchange, market, perf, precision=None)
             return
         self._notify(f"Starting: {datetime.fromtimestamp(get_timestamp(days)).strftime('%Y-%m-%d %H:%M:%S')}"
@@ -80,7 +80,7 @@ class PnlCommand:
             trades: List[Trade] = await connector.get_my_trades(market, days)
             if not trades:
                 continue
-            perf = await calculate_performance_metrics(exchange, market, trades, cur_balances)
+            perf = await PerformanceMetrics.create(exchange, market, trades, cur_balances)
             volume = await RateOracle.global_value(quote, abs(perf.b_vol_quote) + abs(perf.s_vol_quote))
             fee = await RateOracle.global_value(quote, perf.fee_in_quote)
             pnl = await RateOracle.global_value(quote, perf.total_pnl)

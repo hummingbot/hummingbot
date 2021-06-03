@@ -16,6 +16,7 @@ def start(self):
     spot_market_slippage_buffer = spot_perpetual_arbitrage_config_map.get("spot_market_slippage_buffer").value / Decimal("100")
     derivative_market_slippage_buffer = spot_perpetual_arbitrage_config_map.get("derivative_market_slippage_buffer").value / Decimal("100")
     maximize_funding_rate = spot_perpetual_arbitrage_config_map.get("maximize_funding_rate").value
+    next_arbitrage_cycle_delay = spot_perpetual_arbitrage_config_map.get("next_arbitrage_cycle_delay").value
 
     self._initialize_markets([(spot_connector, [spot_market]), (derivative_connector, [derivative_market])])
     base_1, quote_1 = spot_market.split("-")
@@ -34,4 +35,5 @@ def start(self):
                                                    min_convergence,
                                                    spot_market_slippage_buffer,
                                                    derivative_market_slippage_buffer,
-                                                   maximize_funding_rate)
+                                                   maximize_funding_rate,
+                                                   next_arbitrage_cycle_delay)
