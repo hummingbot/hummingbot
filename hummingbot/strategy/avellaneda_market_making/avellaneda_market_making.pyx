@@ -146,6 +146,14 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         return all([market.ready for market in self._sb_markets])
 
     @property
+    def avg_vol(self):
+        return self._avg_vol
+
+    @avg_vol.setter
+    def avg_vol(self, indicator: AverageVolatilityIndicator):
+        self._avg_vol = indicator
+
+    @property
     def market_info(self) -> MarketTradingPairTuple:
         return self._market_info
 
