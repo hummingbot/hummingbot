@@ -2,7 +2,7 @@
 ###   Spot-Perpetual Arbitrage strategy config   ###
 ##########################################
 
-template_version: 1
+template_version: 2
 strategy: null
 
 # The following configuations are only required for the AMM arbitrage trading strategy
@@ -35,3 +35,6 @@ derivative_market_slippage_buffer: null
 
 # A flag (true/false), if true the bot would only execute second arbitrage once funding payment is received provided second arbitrage wasn't executed before funding period.
 maximize_funding_rate: null
+
+# cool off period between arbitrage cycles
+next_arbitrage_cycle_delay: null
