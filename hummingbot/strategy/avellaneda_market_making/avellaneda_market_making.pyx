@@ -146,6 +146,14 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         return all([market.ready for market in self._sb_markets])
 
     @property
+    def latest_parameter_calculation_vol(self):
+        return self._latest_parameter_calculation_vol
+
+    @latest_parameter_calculation_vol.setter
+    def latest_parameter_calculation_vol(self, value):
+        self._latest_parameter_calculation_vol = value
+
+    @property
     def avg_vol(self):
         return self._avg_vol
 
@@ -480,6 +488,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             if self._parameters_based_on_spread:
                 self.c_recalculate_parameters()
             self.logger().info("Recycling algorithm time left and parameters if needed.")
+
+    def collect_market_variables(self, timestamp: float):
+        self.c_collect_market_variables(timestamp)
 
     def volatility_diff_from_last_parameter_calculation(self, current_vol) -> Decimal:
         if self._latest_parameter_calculation_vol == 0:
