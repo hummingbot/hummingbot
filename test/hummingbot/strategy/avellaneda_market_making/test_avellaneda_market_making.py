@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 import unittest
 import pandas as pd
+import math
 import numpy as np
 
 from decimal import Decimal
+from typing import List
 
 from hummingsim.backtest.backtest_market import BacktestMarket
 from hummingsim.backtest.market import (
@@ -13,13 +15,16 @@ from hummingsim.backtest.mock_order_book_loader import MockOrderBookLoader
 
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.strategy.avellaneda_market_making import AvellanedaMarketMakingStrategy
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 from hummingbot.strategy.__utils__.trailing_indicators.average_volatility import AverageVolatilityIndicator
 from hummingbot.core.event.events import OrderType
+from hummingbot.strategy.avellaneda_market_making.data_types import PriceSize, Proposal
 
 s_decimal_zero = Decimal(0)
+s_decimal_nan = Decimal("NaN")
 
 
 class AvellanedaMarketMakingUnitTests(unittest.TestCase):
@@ -37,8 +42,13 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         cls.clock_tick_size: int = 1
         cls.clock: Clock = Clock(ClockMode.BACKTEST, cls.clock_tick_size, cls.start_timestamp, cls.end_timestamp)
 
+        # Testing Constants
+        cls.low_vol: Decimal = Decimal("0.5462346278631169")
+        cls.high_vol: Decimal = Decimal("10.884136001718568")
+
         # Strategy Initial Configuration Parameters
         cls.order_amount: Decimal = Decimal("100")
+        cls.inventory_target_base_pct: Decimal = Decimal("0.5")  # 50%
 
     def setUp(self):
         self.market: BacktestMarket = BacktestMarket()
@@ -66,37 +76,55 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.strategy: AvellanedaMarketMakingStrategy = AvellanedaMarketMakingStrategy(
             market_info=self.market_info,
             order_amount=self.order_amount,
+            inventory_target_base_pct=self.inventory_target_base_pct,
         )
+
+        self.avg_vol_indicator: AverageVolatilityIndicator = AverageVolatilityIndicator(sampling_length=100,
+                                                                                        processing_length=1)
+
+        self.strategy.avg_vol = self.avg_vol_indicator
+
         self.clock.add_iterator(self.market)
         self.clock.add_iterator(self.strategy)
+        self.strategy.start(self.clock)
 
     @staticmethod
-    def simulate_volatility_increase(strategy):
+    def simulate_low_volatility(strategy: AvellanedaMarketMakingStrategy):
         N_SAMPLES = 1000
-        BUFFER_SIZE = 100
+        BUFFER_SIZE = 30  # Default Buffer Size used for tests
         INITIAL_RANDOM_SEED = 3141592653
         original_price = 100
-        volatility = 0.005       # 0.5% of volatility (If asset is liquid, this is quite high!)
+        volatility = AvellanedaMarketMakingUnitTests.low_vol / Decimal("100")  # Assuming 0.5% volatility
         np.random.seed(INITIAL_RANDOM_SEED)     # Using this hardcoded random seed we guarantee random samples generated are always the same
         samples = np.random.normal(original_price, volatility * original_price, N_SAMPLES)
 
-        '''
-        Idea is that this samples created guarantee the volatility is going to be the one you want.
-        I'm testing the indicator volatility, but you could actually fix the rest of the parameters by fixing the samples.
-        You can then change the volatility to be approximately equal to what you need. In this case ~0.5%
-        '''
-        volatility_indicator = AverageVolatilityIndicator(BUFFER_SIZE, 1)  # This replicates the same indicator Avellaneda uses if volatility_buffer_samples = 100
+        # This replicates the same indicator Avellaneda uses if volatility_buffer_samples = 30
+        volatility_indicator = AverageVolatilityIndicator(BUFFER_SIZE, 1)
 
         for sample in samples:
             volatility_indicator.add_sample(sample)
-            # TODO: Investigate how to add samples into strategy's AverageVolatilityIndicator
-            # strategy._avg_vol.add_sample(sample)
 
-        # The nice thing about harcoding the random seed is that you can harcode the assertions and it should work.
-        # At the minimum change in any calculation this assertion will fail, and that looks good to me as a reminder to developer contributing with new code,
-        # to assess if result of this test changing is reasonable or not (if in the future some calculations are changed on purpose and result changes, then test is rebased).
-        # self.assertEqual(volatility_indicator.current_value, 0.5018627218927454)
-        # unittest.TestCase.assertEqual(strategy._avg_vol, 0.5018627218927454)
+        # Note: Current Value of volatility is 0.5945301953179808
+        strategy.avg_vol = volatility_indicator
+
+    @staticmethod
+    def simulate_high_volatility(strategy: AvellanedaMarketMakingStrategy):
+        N_SAMPLES = 1000
+        BUFFER_SIZE = 30  # Default Buffer Size used for tests
+        INITIAL_RANDOM_SEED = 3141592653
+        original_price = 100
+        volatility = AvellanedaMarketMakingUnitTests.high_vol / Decimal("100")  # Assuming 10% volatility
+        np.random.seed(INITIAL_RANDOM_SEED)     # Using this hardcoded random seed we guarantee random samples generated are always the same
+        samples = np.random.normal(original_price, volatility * original_price, N_SAMPLES)
+
+        # This replicates the same indicator Avellaneda uses if volatility_buffer_samples = 30
+        volatility_indicator = AverageVolatilityIndicator(BUFFER_SIZE, 1)
+
+        for sample in samples:
+            volatility_indicator.add_sample(sample)
+
+        # Note: Current Value of volatility is 10.884136001718568
+        strategy.avg_vol = volatility_indicator
 
     @staticmethod
     def simulate_place_limit_order(strategy: AvellanedaMarketMakingStrategy, market_info: MarketTradingPairTuple, order: LimitOrder):
@@ -277,40 +305,93 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         # TODO: replicate order_tracker property in Avellaneda strategy. Already exists in StrategyBase
         pass
 
-    def test_pure_mm_asset_df(self):
-        pass
+    def test_execute_orders_proposal(self):
+        self.assertEqual(0, len(self.strategy.active_orders))
 
-    def test_active_orders_df(self):
-        pass
+        buys: List[PriceSize] = [PriceSize(price=Decimal("99"), size=Decimal("1"))]
+        sells: List[PriceSize] = [PriceSize(price=Decimal("101"), size=Decimal("1"))]
+        proposal: Proposal = Proposal(buys, sells)
 
-    def test_market_data_frame(self):
-        pass
+        self.strategy.execute_orders_proposal(proposal)
 
-    def test_format_status(self):
-        pass
+        self.assertEqual(2, len(self.strategy.active_orders))
 
     def test_cancel_order(self):
-        pass
+        self.assertEqual(0, len(self.strategy.active_orders))
+
+        buys: List[PriceSize] = [PriceSize(price=Decimal("99"), size=Decimal("1"))]
+        sells: List[PriceSize] = [PriceSize(price=Decimal("101"), size=Decimal("1"))]
+        proposal: Proposal = Proposal(buys, sells)
+
+        self.strategy.execute_orders_proposal(proposal)
+
+        self.assertEqual(2, len(self.strategy.active_orders))
+
+        for order in self.strategy.active_orders:
+            self.strategy.cancel_order(order.client_order_id)
+
+        self.assertEqual(0, len(self.strategy.active_orders))
+
+    def test_is_algorithm_ready(self):
+        self.assertFalse(self.strategy.is_algorithm_ready())
+
+        self.simulate_high_volatility(self.strategy)
+
+        self.assertTrue(self.strategy.is_algorithm_ready())
 
     def test_volatility_diff_from_last_parameter_calculation(self):
-        pass
+        # Initial volatility check. Should return s_decimal_zero
+        self.assertEqual(s_decimal_zero, self.strategy.volatility_diff_from_last_parameter_calculation(self.strategy.get_volatility()))
+
+        # Simulate buffers being filled and initial market volatility
+        self.simulate_low_volatility(self.strategy)
+        self.strategy.collect_market_variables(int(self.strategy.current_timestamp))
+        self.strategy.recalculate_parameters()
+        initial_vol: Decimal = self.strategy.get_volatility()
+
+        # Simulate change in volatitly
+        self.simulate_high_volatility(self.strategy)
+        new_vol = self.strategy.get_volatility()
+
+        self.assertNotEqual(s_decimal_zero, self.strategy.volatility_diff_from_last_parameter_calculation(self.strategy.get_volatility()))
+
+        expected_diff_vol: Decimal = abs(initial_vol - new_vol) / initial_vol
+        self.assertEqual(expected_diff_vol, self.strategy.volatility_diff_from_last_parameter_calculation(self.strategy.get_volatility()))
 
     def test_get_spread(self):
-        pass
+        order_book: OrderBook = self.market.get_order_book(self.trading_pair)
+        expected_spread = order_book.get_price(True) - order_book.get_price(False)
+
+        self.assertEqual(expected_spread, self.strategy.get_spread())
 
     def test_get_volatility(self):
-        pass
+        # Initial Volatility
+        self.assertTrue(math.isnan(self.strategy.get_volatility()))
+
+        # Simulate volatility update
+        self.simulate_low_volatility(self.strategy)
+
+        # Check updated volatility
+        self.assertAlmostEqual(self.low_vol, self.strategy.get_volatility(), 1)
 
     def test_calculate_target_inventory(self):
-        pass
+        # Calculate expected quantize order amount
+        current_price = self.market_info.get_mid_price()
+
+        base_asset_amount = self.market.get_balance(self.trading_pair.split("-")[0])
+        quote_asset_amount = self.market.get_balance(self.trading_pair.split("-")[1])
+        base_value = base_asset_amount * current_price
+        inventory_value = base_value + quote_asset_amount
+        target_inventory_value = Decimal((inventory_value * self.inventory_target_base_pct) / current_price)
+
+        expected_quantize_order_amount = self.market.quantize_order_amount(self.trading_pair, target_inventory_value)
+
+        self.assertEqual(expected_quantize_order_amount, self.strategy.calculate_target_inventory())
 
     def test_get_min_and_max_spread(self):
         pass
 
     def test_recalculate_parameters(self):
-        pass
-
-    def test_is_algorithm_ready(self):
         pass
 
     def test_create_proposal_based_on_order_override(self):
@@ -349,9 +430,37 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
     def test_to_create_orders(self):
         pass
 
-    def test_execute_orders_proposal(self):
-        pass
-
     def test_integrated_avellaneda_strategy(self):
-        # TODO: Implement an integrated test that essentially runs the entire bot.
+        # TODO: Implement an integrated test that essentially runs the entire strategy.
+
+        # 1. self._all_markets_ready
+        # (1) True
+        # (2) False
+
+        # 2. self.c_collect_market_variables()
+        # Check if new sample has been added to the RingBuffer of the avg vol indicator
+        # Check value of the self._q_adjustment_factor
+        # (1) self._time_left == 0
+        #     - Check if self.c_recalculate_parameters() is called and the variables have been updated
+        # (2) self._time_left > 0
+
+        # 3. self.c_is_algorithm_ready()
+        #   (1) True
+        #       Condition: (self._gamma is None) or (self._kappa is None) or (self._parameters_based_on_spread and (diff in vol > vol_threshold ))
+        #       - self.c_recalculate_parameters
+        #       - self. c_calculate_reserved_price_and_optimal_spread()
+        #       - proposal = self.c_create_base_proposal()
+        #       - self.c_apply_order_amount_eta_transformation(proposal)
+        #       - self.c_apply_order_price_modifiers(proposal)
+        #       - self.c_apply_budget_constraint(proposal)
+        #       - self.c_cancel_active_orders(proposal)
+        #       - refreshed_proposal = self.c_aged_order_refresh()
+        #         (1) is not None
+        #             - self.c_execute_order_proposal(refresh_proposal)
+        #
+        #       - self.c_to_create_order(proposal):
+        #         (1) True
+        #             - self.c_execute_order_proposal(refresh_proposal)
+        #   (2) False
+        #       - Update self._ticks_to_be_ready
         pass
