@@ -80,17 +80,6 @@ class HangingOrdersTracker:
     def remove_all_orders(self):
         self.original_orders.clear()
 
-    def remove_max_aged_orders(self):
-        max_age = getattr(self.strategy, "max_order_age", None)
-        to_be_removed = set()
-        if max_age:
-            for order in self.original_orders:
-                if order.age > max_age:
-                    self.logger().info(f"Reached max_order_age={max_age}sec order: {order}. Removing...")
-                    to_be_removed.add(order)
-        for order in to_be_removed:
-            self.remove_order(order)
-
     def remove_orders_far_from_price(self):
         current_price = self.strategy.get_price()
         for order in self.original_orders:
@@ -135,24 +124,25 @@ class HangingOrdersTracker:
         for order in orders:
             quantized_amount = self.strategy.market_info.market.quantize_order_amount(self.trading_pair, order.amount)
             quantized_price = self.strategy.market_info.market.quantize_order_price(self.trading_pair, order.price)
-            if order.is_buy:
-                bid_order_id = self.strategy.buy_with_specific_market(
-                    self.strategy.market_info,
-                    quantized_amount,
-                    order_type=order_type,
-                    price=quantized_price,
-                    expiration_seconds=self.strategy.order_refresh_time
-                )
-                order.order_id = bid_order_id
-            else:
-                ask_order_id = self.strategy.sell_with_specific_market(
-                    self.strategy.market_info,
-                    quantized_amount,
-                    order_type=order_type,
-                    price=quantized_price,
-                    expiration_seconds=self.strategy.order_refresh_time
-                )
-                order.order_id = ask_order_id
+            if quantized_amount > 0:
+                if order.is_buy:
+                    bid_order_id = self.strategy.buy_with_specific_market(
+                        self.strategy.market_info,
+                        quantized_amount,
+                        order_type=order_type,
+                        price=quantized_price,
+                        expiration_seconds=self.strategy.order_refresh_time
+                    )
+                    order.order_id = bid_order_id
+                else:
+                    ask_order_id = self.strategy.sell_with_specific_market(
+                        self.strategy.market_info,
+                        quantized_amount,
+                        order_type=order_type,
+                        price=quantized_price,
+                        expiration_seconds=self.strategy.order_refresh_time
+                    )
+                    order.order_id = ask_order_id
 
     def cancel_multiple_orders_in_strategy(self, order_ids: List[str]):
         for order_id in order_ids:
