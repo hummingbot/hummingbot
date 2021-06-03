@@ -183,7 +183,6 @@ class GateIoExchange(ExchangeBase):
         This function is called automatically by the clock.
         """
         super().stop(clock)
-        self._last_timestamp = 0
 
     async def start_network(self):
         """
@@ -202,6 +201,10 @@ class GateIoExchange(ExchangeBase):
         """
         This function is required by NetworkIterator base class and is called automatically.
         """
+        # Resets timestamps for status_polling_task
+        self._last_poll_timestamp = 0
+        self._last_timestamp = 0
+
         self._order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
