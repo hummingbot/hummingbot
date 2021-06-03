@@ -93,11 +93,14 @@ class HangingOrdersTracker:
 
     def remove_orders_far_from_price(self):
         current_price = self.strategy.get_price()
+        orders_to_be_removed = set()
         for order in self.original_orders:
             if order.distance_to_price(current_price) / current_price > self._hanging_orders_cancel_pct:
                 self.logger().info(
                     f"Hanging order passed max_distance from price={self._hanging_orders_cancel_pct * 100}% {order}. Removing...")
-                self.remove_order(order)
+                orders_to_be_removed.add(order)
+        for order in orders_to_be_removed:
+            self.remove_order(order)
 
     def set_aggregation_method(self, aggregation_method: HangingOrdersAggregationType):
         self.aggregation_method = aggregation_method
@@ -124,9 +127,10 @@ class HangingOrdersTracker:
         self.execute_orders_in_strategy(orders_to_create)
         self.add_created_orders_to_strategy_hanging_orders(orders_to_create)
 
-        self.logger().info("Updating hanging orders...")
-        self.logger().info(f"Original hanging orders: {self.original_orders}")
-        self.logger().info(f"Equivalent hanging orders: {self.equivalent_orders}")
+        if any((orders_to_cancel, orders_to_create)):
+            self.logger().info("Updating hanging orders...")
+            self.logger().info(f"Original hanging orders: {self.original_orders}")
+            self.logger().info(f"Equivalent hanging orders: {self.equivalent_orders}")
 
     def add_created_orders_to_strategy_hanging_orders(self, orders: Set[HangingOrder]):
         self.strategy_current_hanging_orders = self.strategy_current_hanging_orders.union(orders)
