@@ -26,8 +26,8 @@ class CreatedPairOfOrders:
         self.filled_sell = False
 
     def contains_order(self, order: LimitOrder):
-        return (self.buy_order.client_order_id == order.client_order_id) or \
-               (self.sell_order.client_order_id == order.client_order_id)
+        return ((self.buy_order is not None) and (self.buy_order.client_order_id == order.client_order_id)) or \
+               ((self.sell_order is not None) and (self.sell_order.client_order_id == order.client_order_id))
 
     def partially_filled(self):
         return (self.filled_buy and not self.filled_sell) or (not self.filled_buy and self.filled_sell)
