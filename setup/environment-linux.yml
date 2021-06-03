@@ -11,7 +11,6 @@ dependencies:
   - bzip2=1.0.8=h7b6447c_0
   - ca-certificates=2020.1.1=0
   - certifi=2019.11.28=py38_0
-  - coverage=5.5
   - cython=0.29.15=py38he6710b0_0
   - hdf5=1.10.4=hb1b8bf9_0
   - intel-openmp=2020.0=166
@@ -84,7 +83,6 @@ dependencies:
     - dateparser==0.7.4
     - decorator==4.4.2
     - deprecated==1.2.7
-    - diff-cover==5.1.2
     - distlib==0.3.0
     - dydx-python==0.11.2
     - dydx-v3-python==1.0.0
