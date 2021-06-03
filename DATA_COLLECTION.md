@@ -16,9 +16,7 @@ Users who provide data allow us to more easily diagnose problems, troubleshoot, 
 
 ## Types of data collected
 
-Hummingbot can collect error logs and report them to CoinAlpha.
-Hummingbot can collect aggregate trade data including volume totals, order count, trade count (not individual trades), tokens traded (base & quote), and exchange(s) used.
-Hummingbot can collect client data including software version, installation type (binary, source, Docker), O/S, and a random unique instance ID. The instance ID is a randomly generated number and does not identify the user in any way.
+Hummingbot aggregates and collects total traded volume per exchange denominated in USDT. The data collected is subsequently reported to CoinAlpha's backend services.
 
 All data collected will be used exclusively by the Hummingbot team for analytical and marketing purposes only. The data will be neither accessible nor sold to any third party.
 

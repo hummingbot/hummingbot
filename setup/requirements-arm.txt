@@ -29,3 +29,6 @@ pysha3==1.0.2
 psutil==5.7.2
 ethsnarks-loopring==0.1.5
 dydx-python==0.11.2
+dydx-v3-python==1.0.0
+rsa==4.7.2
+simplejson==3.16.0
