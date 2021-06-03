@@ -643,7 +643,6 @@ class AscendExExchange(ExchangePyBase):
                     self._update_order_status(),
                 )
                 self._last_poll_timestamp = self.current_timestamp
-                self._poll_notifier = asyncio.Event()
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -653,6 +652,8 @@ class AscendExExchange(ExchangePyBase):
                                       app_warning_msg="Could not fetch account updates from AscendEx. "
                                                       "Check API key and network connection.")
                 await asyncio.sleep(0.5)
+            finally:
+                self._poll_notifier = asyncio.Event()
 
     async def _update_balances(self):
         """
