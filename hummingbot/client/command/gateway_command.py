@@ -112,9 +112,8 @@ class GatewayCommand:
 
         if key is None or key not in all_keys:
             self._notify(f"Specify one of {all_keys} config to update.")
+            return
         elif value is None:
-            if key not in all_keys:
-                self._notify(f"Specify one of {all_keys} config to update.")
             self.app.clear_input()
             self.placeholder_mode = True
             self.app.hide_input = True
