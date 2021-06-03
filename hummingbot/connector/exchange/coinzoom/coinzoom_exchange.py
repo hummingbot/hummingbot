@@ -573,7 +573,6 @@ class CoinzoomExchange(ExchangeBase):
                     self._update_order_status(),
                 )
                 self._last_poll_timestamp = self.current_timestamp
-                self._poll_notifier = asyncio.Event()
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -583,6 +582,8 @@ class CoinzoomExchange(ExchangeBase):
                 self.logger().network("Unexpected error while fetching account updates.", exc_info=True,
                                       app_warning_msg=warn_msg)
                 await asyncio.sleep(0.5)
+            finally:
+                self._poll_notifier = asyncio.Event()
 
     async def _update_balances(self):
         """
