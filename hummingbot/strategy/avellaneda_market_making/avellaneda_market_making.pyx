@@ -413,7 +413,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         # start tracking any restored limit order
         restored_order_ids = self.c_track_restored_orders(self.market_info)
         for order_id in restored_order_ids:
-            order = next(o for o in self.market_pair.market.limit_orders if o.client_order_id == order_id)
+            order = next(o for o in self.market_info.market.limit_orders if o.client_order_id == order_id)
             if order:
                 self._hanging_orders_tracker.add_hanging_order_based_on_limit_order(order)
         self._time_left = self._closing_time
