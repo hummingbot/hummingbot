@@ -113,6 +113,8 @@ class GatewayCommand:
         if key is None or key not in all_keys:
             self._notify(f"Specify one of {all_keys} config to update.")
         elif value is None:
+            if key not in all_keys:
+                self._notify(f"Specify one of {all_keys} config to update.")
             self.app.clear_input()
             self.placeholder_mode = True
             self.app.hide_input = True
@@ -125,13 +127,13 @@ class GatewayCommand:
             self.app.hide_input = False
             self.app.change_prompt(prompt=">>> ")
         if key and value:
-            settings = {key: value}
+            settings = {key: value.lower()}
             try:
                 await self._api_request("post", "api/update", settings)
             except Exception:
                 # silently ignore exception due to gateway restarting
                 pass
-            self._notify(f"\nGateway api has restarted to update {key} to {value}.")
+            self._notify(f"\nGateway api has restarted to update {key} to {value.lower()}.")
 
             # the following will commented out untill gateway api is refactored to support multichain
             """try:
