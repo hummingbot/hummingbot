@@ -59,7 +59,6 @@ class AscendExOrderBookTracker(OrderBookTracker):
 
         message_queue: asyncio.Queue = self._tracking_message_queues[trading_pair]
         order_book: AscendExOrderBook = self._order_books[trading_pair]
-        active_order_tracker: AscendExActiveOrderTracker = self._active_order_trackers[trading_pair]
 
         last_message_timestamp: float = time.time()
         diff_messages_accepted: int = 0
@@ -75,8 +74,8 @@ class AscendExOrderBookTracker(OrderBookTracker):
                     message = await message_queue.get()
 
                 if message.type is OrderBookMessageType.DIFF:
-                    bids, asks = active_order_tracker.convert_diff_message_to_order_book_row(message)
-                    order_book.apply_diffs(bids, asks, message.update_id)
+                    # bids, asks = active_order_tracker.convert_diff_message_to_order_book_row(message)
+                    order_book.apply_diffs(message.bids, message.asks, message.update_id)
                     past_diffs_window.append(message)
                     while len(past_diffs_window) > self.PAST_DIFF_WINDOW_SIZE:
                         past_diffs_window.popleft()
@@ -89,17 +88,14 @@ class AscendExOrderBookTracker(OrderBookTracker):
                         diff_messages_accepted = 0
                     last_message_timestamp = now
                 elif message.type is OrderBookMessageType.SNAPSHOT:
-                    past_diffs: List[AscendExOrderBookMessage] = list(past_diffs_window)
-                    # only replay diffs later than snapshot, first update active order with snapshot then replay diffs
+                    past_diffs = list(past_diffs_window)
                     replay_position = bisect.bisect_right(past_diffs, message)
                     replay_diffs = past_diffs[replay_position:]
-                    s_bids, s_asks = active_order_tracker.convert_snapshot_message_to_order_book_row(message)
-                    order_book.apply_snapshot(s_bids, s_asks, message.update_id)
-                    for diff_message in replay_diffs:
-                        d_bids, d_asks = active_order_tracker.convert_diff_message_to_order_book_row(diff_message)
-                        order_book.apply_diffs(d_bids, d_asks, diff_message.update_id)
-
+                    order_book.apply_snapshot(message.bids, message.asks, message.update_id)
+                    for diff in replay_diffs:
+                        order_book.apply_diffs(diff.bids, diff.asks, diff.update_id)
                     self.logger().debug(f"Processed order book snapshot for {trading_pair}.")
+
             except asyncio.CancelledError:
                 raise
             except Exception:

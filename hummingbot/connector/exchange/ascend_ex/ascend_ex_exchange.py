@@ -35,7 +35,7 @@ from hummingbot.core.event.events import (
     TradeType,
     TradeFee
 )
-from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_order_book_tracker import AscendExOrderBookTracker
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_user_stream_tracker import AscendExUserStreamTracker
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
@@ -45,14 +45,27 @@ from hummingbot.connector.exchange.ascend_ex.ascend_ex_constants import EXCHANGE
 from hummingbot.core.data_type.common import OpenOrder
 ctce_logger = None
 s_decimal_NaN = Decimal("nan")
+s_decimal_0 = Decimal("0")
 
-
-AscendExTradingRule = namedtuple("AscendExTradingRule", "minNotional maxNotional")
 AscendExOrder = namedtuple("AscendExOrder", "symbol price orderQty orderType avgPx cumFee cumFilledQty errorCode feeAsset lastExecTime orderId seqNum side status stopPrice execInst")
 AscendExBalance = namedtuple("AscendExBalance", "asset availableBalance totalBalance")
 
 
-class AscendExExchange(ExchangeBase):
+class AscendExTradingRule(TradingRule):
+    def __init__(self,
+                 trading_pair: str,
+                 min_price_increment: Decimal,
+                 min_base_amount_increment: Decimal,
+                 min_notional_size: Decimal,
+                 max_notional_size: Decimal):
+        super().__init__(trading_pair=trading_pair,
+                         min_price_increment=min_price_increment,
+                         min_base_amount_increment=min_base_amount_increment,
+                         min_notional_size=min_notional_size)
+        self.max_notional_size = max_notional_size
+
+
+class AscendExExchange(ExchangePyBase):
     """
     AscendExExchange connects with AscendEx exchange and provides order book pricing, user account tracking and
     trading functionality.
@@ -93,8 +106,7 @@ class AscendExExchange(ExchangeBase):
         self._last_timestamp = 0
         self._in_flight_orders = {}  # Dict[client_order_id:str, AscendExInFlightOrder]
         self._order_not_found_records = {}  # Dict[client_order_id:str, count:int]
-        self._trading_rules = {}  # Dict[trading_pair:str, TradingRule]
-        self._ascend_ex_trading_rules = {}  # Dict[trading_pair:str, AscendExTradingRule]
+        self._trading_rules = {}  # Dict[trading_pair:str, AscendExTradingRule]
         self._status_polling_task = None
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
@@ -111,7 +123,7 @@ class AscendExExchange(ExchangeBase):
         return self._order_book_tracker.order_books
 
     @property
-    def trading_rules(self) -> Dict[str, TradingRule]:
+    def trading_rules(self) -> Dict[str, AscendExTradingRule]:
         return self._trading_rules
 
     @property
@@ -126,7 +138,7 @@ class AscendExExchange(ExchangeBase):
         return {
             "order_books_initialized": self._order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
-            "trading_rule_initialized": len(self._trading_rules) > 0 and len(self._ascend_ex_trading_rules) > 0,
+            "trading_rule_initialized": len(self._trading_rules) > 0,
             "user_stream_initialized":
                 self._user_stream_tracker.data_source.last_recv_time > 0 if self._trading_required else True,
             "account_data": self._account_group is not None and self._account_uid is not None
@@ -268,16 +280,13 @@ class AscendExExchange(ExchangeBase):
         instruments_info = await self._api_request(
             method="get",
             path_url="products")
-        [trading_rules, ascend_ex_trading_rules] = self._format_trading_rules(instruments_info)
         self._trading_rules.clear()
-        self._trading_rules = trading_rules
-        self._ascend_ex_trading_rules.clear()
-        self._ascend_ex_trading_rules = ascend_ex_trading_rules
+        self._trading_rules = self._format_trading_rules(instruments_info)
 
     def _format_trading_rules(
         self,
         instruments_info: Dict[str, Any]
-    ) -> [Dict[str, TradingRule], Dict[str, Dict[str, AscendExTradingRule]]]:
+    ) -> Dict[str, AscendExTradingRule]:
         """
         Converts json API response into a dictionary of trading rules.
         :param instruments_info: The json API response
@@ -303,22 +312,19 @@ class AscendExExchange(ExchangeBase):
         }
         """
         trading_rules = {}
-        ascend_ex_trading_rules = {}
         for rule in instruments_info["data"]:
             try:
                 trading_pair = ascend_ex_utils.convert_from_exchange_trading_pair(rule["symbol"])
-                trading_rules[trading_pair] = TradingRule(
+                trading_rules[trading_pair] = AscendExTradingRule(
                     trading_pair,
                     min_price_increment=Decimal(rule["tickSize"]),
-                    min_base_amount_increment=Decimal(rule["lotSize"])
-                )
-                ascend_ex_trading_rules[trading_pair] = AscendExTradingRule(
-                    minNotional=Decimal(rule["minNotional"]),
-                    maxNotional=Decimal(rule["maxNotional"])
+                    min_base_amount_increment=Decimal(rule["lotSize"]),
+                    min_notional_size=Decimal(rule["minNotional"]),
+                    max_notional_size=Decimal(rule["maxNotional"])
                 )
             except Exception:
                 self.logger().error(f"Error parsing the trading pair rule {rule}. Skipping.", exc_info=True)
-        return [trading_rules, ascend_ex_trading_rules]
+        return trading_rules
 
     async def _update_account_data(self):
         headers = {
@@ -484,18 +490,11 @@ class AscendExExchange(ExchangeBase):
         """
         if not order_type.is_limit_type():
             raise Exception(f"Unsupported order type: {order_type}")
-        ascend_ex_trading_rule = self._ascend_ex_trading_rules[trading_pair]
-
         amount = self.quantize_order_amount(trading_pair, amount)
         price = self.quantize_order_price(trading_pair, price)
-
+        if amount <= s_decimal_0:
+            raise ValueError("Order amount must be greater than zero.")
         try:
-            # ascend_ex has a unique way of determening if the order has enough "worth" to be posted
-            # see https://ascendex.github.io/ascendex-pro-api/#place-order
-            notional = Decimal(price * amount)
-            if notional < ascend_ex_trading_rule.minNotional or notional > ascend_ex_trading_rule.maxNotional:
-                raise ValueError(f"Notional amount {notional} is not withing the range of {ascend_ex_trading_rule.minNotional}-{ascend_ex_trading_rule.maxNotional}.")
-
             # TODO: check balance
             [exchange_order_id, timestamp] = ascend_ex_utils.gen_exchange_order_id(self._account_uid, order_id)
 
@@ -1010,3 +1009,24 @@ class AscendExExchange(ExchangeBase):
         for asset_name in asset_names_to_remove:
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
+
+    def quantize_order_amount(self, trading_pair: str, amount: Decimal, price: Decimal = s_decimal_0) -> Decimal:
+        trading_rule: AscendExTradingRule = self._trading_rules[trading_pair]
+        quantized_amount: Decimal = super().quantize_order_amount(trading_pair, amount)
+
+        # Check against min_order_size and min_notional_size. If not passing either check, return 0.
+        if quantized_amount < trading_rule.min_order_size:
+            return s_decimal_0
+
+        if price == s_decimal_0:
+            current_price: Decimal = self.get_price(trading_pair, False)
+            notional_size = current_price * quantized_amount
+        else:
+            notional_size = price * quantized_amount
+
+        # Add 1% as a safety factor in case the prices changed while making the order.
+        if notional_size < trading_rule.min_notional_size * Decimal("1.01") or \
+                notional_size > trading_rule.max_notional_size:
+            return s_decimal_0
+
+        return quantized_amount
