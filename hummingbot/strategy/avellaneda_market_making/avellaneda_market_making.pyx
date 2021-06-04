@@ -750,23 +750,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             object base_size
             object adjusted_amount
 
-        # active_orders_order_ids = {o.client_order_id for o in self.active_orders}
-        # missing_hanging_orders_ids_in_active_orders = {o.order_id for o in
-        #                                                self._hanging_orders_tracker.strategy_current_hanging_orders
-        #                                                if o.order_id not in active_orders_order_ids}
-        #
-        # limit_orders_from_missing_hanging_orders = [LimitOrder(o.order_id,
-        #                                                        o.trading_pair,
-        #                                                        o.is_buy,
-        #                                                        self.base_asset,
-        #                                                        self.quote_asset,
-        #                                                        o.price,
-        #                                                        o.amount) for o in
-        #                                             self._hanging_orders_tracker.strategy_current_hanging_orders
-        #                                             if o.order_id in missing_hanging_orders_ids_in_active_orders]
-        #
-        # self.logger().info(f"Missing orders in the available balance check: {limit_orders_from_missing_hanging_orders}")
-
         base_balance, quote_balance = self.c_get_adjusted_available_balance(self.active_non_hanging_orders)
 
         for buy in proposal.buys:
@@ -1037,9 +1020,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 to_defer_canceling = True
 
         if not to_defer_canceling:
-            self.logger().info(f"Active: {[o.client_order_id for o in self.active_orders]}")
-            self.logger().info(f"Hanging: {[o.order_id for o in self._hanging_orders_tracker.strategy_current_hanging_orders]}")
-            self.logger().info(f"Active non-hanging: {[o.client_order_id for o in self.active_non_hanging_orders]}")
+            # self.logger().info(f"Active: {[o.client_order_id for o in self.active_orders]}")
+            # self.logger().info(f"Hanging: {[o.order_id for o in self._hanging_orders_tracker.strategy_current_hanging_orders]}")
+            # self.logger().info(f"Active non-hanging: {[o.client_order_id for o in self.active_non_hanging_orders]}")
             self._hanging_orders_tracker.add_hanging_orders_based_on_partially_executed_pairs()
             for order in self.active_non_hanging_orders:
                 self.c_cancel_order(self._market_info, order.client_order_id)
