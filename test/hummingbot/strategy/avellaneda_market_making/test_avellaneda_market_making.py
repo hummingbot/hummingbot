@@ -5,7 +5,10 @@ import math
 import numpy as np
 
 from decimal import Decimal
-from typing import List
+from typing import (
+    List,
+    Tuple,
+)
 
 from hummingsim.backtest.backtest_market import BacktestMarket
 from hummingsim.backtest.market import (
@@ -48,7 +51,10 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         # Strategy Initial Configuration Parameters
         cls.order_amount: Decimal = Decimal("100")
-        cls.inventory_target_base_pct: Decimal = Decimal("0.5")  # 50%
+        cls.inventory_target_base_pct: Decimal = Decimal("0.5")     # Indicates 50%
+        cls.min_spread: Decimal = Decimal("0.15")                   # Default strategy value
+        cls.max_spread: Decimal = Decimal("2")                      # Default strategy value
+        cls.vol_to_spread_multiplier: Decimal = Decimal("1.3")      # Default strategy value
 
     def setUp(self):
         self.market: BacktestMarket = BacktestMarket()
@@ -76,7 +82,10 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.strategy: AvellanedaMarketMakingStrategy = AvellanedaMarketMakingStrategy(
             market_info=self.market_info,
             order_amount=self.order_amount,
+            min_spread=self.min_spread,
+            max_spread=self.max_spread,
             inventory_target_base_pct=self.inventory_target_base_pct,
+            vol_to_spread_multiplier=self.vol_to_spread_multiplier,
         )
 
         self.avg_vol_indicator: AverageVolatilityIndicator = AverageVolatilityIndicator(sampling_length=100,
@@ -164,7 +173,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.assertEqual(Decimal("1"), self.strategy.order_amount)
 
     def test_inventory_target_base_pct(self):
-        self.assertEqual(s_decimal_zero, self.strategy.inventory_target_base_pct)
+        self.assertEqual(self.inventory_target_base_pct, self.strategy.inventory_target_base_pct)
 
         # Test setter method
         self.strategy.inventory_target_base_pct = Decimal("1")
@@ -389,7 +398,25 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.assertEqual(expected_quantize_order_amount, self.strategy.calculate_target_inventory())
 
     def test_get_min_and_max_spread(self):
-        pass
+        # Simulate low volatility. vol approx. 0.5%
+        self.simulate_low_volatility(self.strategy)
+
+        # Calculating min and max spread in low volatility
+        curr_price: Decimal = self.strategy.get_price()
+        expected_min_spread: Decimal = self.min_spread * curr_price
+        expected_max_spread: Decimal = self.max_spread * curr_price * (expected_min_spread / (self.min_spread * curr_price))
+
+        self.assertEqual((expected_min_spread, expected_max_spread), self.strategy._get_min_and_max_spread())
+
+        # Simulate high volatility. vol approx. 10%
+        self.simulate_high_volatility(self.strategy)
+
+        curr_price: Decimal = self.strategy.get_price()
+        curr_vol: Decimal = self.strategy.get_volatility()
+        expected_min_spread: Decimal = self.vol_to_spread_multiplier * curr_vol
+        expected_max_spread: Decimal = self.max_spread * curr_price * (expected_min_spread / (self.min_spread * curr_price))
+
+        self.assertEqual((expected_min_spread, expected_max_spread), self.strategy._get_min_and_max_spread())
 
     def test_recalculate_parameters(self):
         pass
@@ -404,7 +431,21 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         pass
 
     def test_get_adjusted_available_balance(self):
-        pass
+        expected_available_balance: Tuple[Decimal, Decimal] = (Decimal("500"), Decimal("5000"))  # Initial asset balance
+        self.assertEqual(expected_available_balance, self.strategy.get_adjusted_available_balance(self.strategy.active_orders))
+
+        # Simulate order being placed
+        limit_order: LimitOrder = LimitOrder(client_order_id="test",
+                                             trading_pair=self.trading_pair,
+                                             is_buy=True,
+                                             base_currency=self.trading_pair.split("-")[0],
+                                             quote_currency=self.trading_pair.split("-")[1],
+                                             price=Decimal("101.0"),
+                                             quantity=Decimal("10"))
+
+        self.simulate_place_limit_order(self.strategy, self.market_info, limit_order)
+
+        self.assertEqual(expected_available_balance, self.strategy.get_adjusted_available_balance(self.strategy.active_orders))
 
     def test_apply_order_price_modifiers(self):
         pass
@@ -431,7 +472,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         pass
 
     def test_integrated_avellaneda_strategy(self):
-        # TODO: Implement an integrated test that essentially runs the entire strategy.
+        # TODO: Implement an integrated test that essentially runs the entire strategy for 3 cycles
 
         # 1. self._all_markets_ready
         # (1) True
@@ -463,4 +504,6 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         #             - self.c_execute_order_proposal(refresh_proposal)
         #   (2) False
         #       - Update self._ticks_to_be_ready
+
+        # Check active_orders()
         pass
