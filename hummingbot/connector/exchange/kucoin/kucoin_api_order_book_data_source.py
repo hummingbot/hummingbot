@@ -22,16 +22,18 @@ from typing import (
 )
 import websockets
 from websockets.client import Connect as WSConnectionContext
+from urllib.parse import urlencode
 
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.logger import HummingbotLogger
+from hummingbot.connector.exchange.kucoin.kucoin_auth import KucoinAuth
 from hummingbot.connector.exchange.kucoin.kucoin_order_book import KucoinOrderBook
 from hummingbot.connector.exchange.kucoin.kucoin_active_order_tracker import KucoinActiveOrderTracker
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
-SNAPSHOT_REST_URL = "https://api.kucoin.com/api/v2/market/orderbook/level2"
+SNAPSHOT_REST_URL = "https://api.kucoin.com/api/v3/market/orderbook/level2"
 DIFF_STREAM_URL = ""
 TICKER_PRICE_CHANGE_URL = "https://api.kucoin.com/api/v1/market/allTickers"
 EXCHANGE_INFO_URL = "https://api.kucoin.com/api/v1/symbols"
@@ -289,8 +291,9 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._kaobds_logger = logging.getLogger(__name__)
         return cls._kaobds_logger
 
-    def __init__(self, trading_pairs: List[str]):
+    def __init__(self, trading_pairs: List[str], auth: KucoinAuth):
         super().__init__(trading_pairs)
+        self._auth = auth
         self._order_book_create_function = lambda: OrderBook()
         self._tasks: DefaultDict[StreamType, Dict[int, KucoinAPIOrderBookDataSource.TaskEntry]] = defaultdict(dict)
 
@@ -320,9 +323,14 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 return []
 
     @staticmethod
-    async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, Any]:
+    async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str, auth: KucoinAuth) -> Dict[str, Any]:
         params: Dict = {"symbol": trading_pair}
-        async with client.get(SNAPSHOT_REST_URL, params=params) as response:
+
+        path_url = f"/api/v3/market/orderbook/level2?{urlencode(params)}"
+
+        headers = auth.add_auth_to_params("get", path_url)
+
+        async with client.get(SNAPSHOT_REST_URL, params=params, headers=headers) as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
                 raise IOError(f"Error fetching Kucoin market snapshot for {trading_pair}. "
@@ -332,7 +340,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         async with aiohttp.ClientSession() as client:
-            snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair)
+            snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair, self._auth)
             snapshot_timestamp: float = time.time()
             snapshot_msg: OrderBookMessage = KucoinOrderBook.snapshot_message_from_exchange(
                 snapshot,
@@ -511,7 +519,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 async with aiohttp.ClientSession() as client:
                     for trading_pair in trading_pairs:
                         try:
-                            snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair)
+                            snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair, self._auth)
                             snapshot_timestamp: float = time.time()
                             snapshot_msg: OrderBookMessage = KucoinOrderBook.snapshot_message_from_exchange(
                                 snapshot,
