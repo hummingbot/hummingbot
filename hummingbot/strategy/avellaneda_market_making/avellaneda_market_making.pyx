@@ -241,6 +241,38 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     def trading_pair(self):
         return self._market_info.trading_pair
 
+    @property
+    def gamma(self):
+        return self._gamma
+
+    @gamma.setter
+    def gamma(self, value):
+        self._gamma = value
+
+    @property
+    def kappa(self):
+        return self._kappa
+
+    @kappa.setter
+    def kappa(self, value):
+        self._kappa = value
+
+    @property
+    def eta(self):
+        return self._eta
+
+    @eta.setter
+    def eta(self, value):
+        self._eta = value
+
+    @property
+    def q_adjustment_factor(self):
+        return self._q_adjustment_factor
+
+    @q_adjustment_factor.setter
+    def q_adjustment_factor(self, value):
+        self._q_adjustment_factor = value
+
     def get_price(self) -> float:
         return self.get_mid_price()
 
