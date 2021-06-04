@@ -93,8 +93,7 @@ class HangingOrdersTracker:
                 self.strategy_current_hanging_orders.remove(order)
 
             executed_orders = self.execute_orders_in_strategy(to_be_renewed)
-            for order in executed_orders:
-                self.strategy_current_hanging_orders.add(order)
+            self.strategy_current_hanging_orders = self.strategy_current_hanging_orders.union(executed_orders)
 
     def remove_orders_far_from_price(self):
         current_price = self.strategy.get_price()
@@ -127,6 +126,9 @@ class HangingOrdersTracker:
     def update_strategy_orders_with_equivalent_orders(self):
         equivalent_orders = self.get_equivalent_orders()
         orders_to_cancel = self.strategy_current_hanging_orders.difference(equivalent_orders)
+        self.logger().info(f"Equivalent orders: {equivalent_orders}")
+        self.logger().info(f"Current Hanging: {self.strategy_current_hanging_orders}")
+        self.logger().info(f"Orders to cancel: {orders_to_cancel}")
         orders_to_create = equivalent_orders.difference(self.strategy_current_hanging_orders)
         self.cancel_multiple_orders_in_strategy([o.order_id for o in orders_to_cancel])
         executed_orders = self.execute_orders_in_strategy(orders_to_create)
@@ -241,12 +243,9 @@ class HangingOrdersTracker:
         for pair in self.current_created_pairs_of_orders:
             if pair.partially_filled():
                 unfilled_order = pair.get_unfilled_order()
-                order_in_strategy = next((o for o in self.strategy.active_orders if
-                                          (o.price == unfilled_order.price) and
-                                          (o.quantity == unfilled_order.quantity) and
-                                          (o.is_buy == unfilled_order.is_buy)))
-                if order_in_strategy:
-                    self.add_hanging_order_based_on_limit_order(order_in_strategy)
+                # Check if the unfilled order is in active_orders because it might have failed before being created
+                if unfilled_order in self.strategy.active_orders:
+                    self.add_hanging_order_based_on_limit_order(unfilled_order)
         self.current_created_pairs_of_orders.clear()
 
     def add_hanging_order_based_on_limit_order(self, order: LimitOrder):

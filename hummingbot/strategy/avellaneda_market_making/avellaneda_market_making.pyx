@@ -750,7 +750,24 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             object base_size
             object adjusted_amount
 
-        base_balance, quote_balance = self.c_get_adjusted_available_balance(self.active_orders)
+        # active_orders_order_ids = {o.client_order_id for o in self.active_orders}
+        # missing_hanging_orders_ids_in_active_orders = {o.order_id for o in
+        #                                                self._hanging_orders_tracker.strategy_current_hanging_orders
+        #                                                if o.order_id not in active_orders_order_ids}
+        #
+        # limit_orders_from_missing_hanging_orders = [LimitOrder(o.order_id,
+        #                                                        o.trading_pair,
+        #                                                        o.is_buy,
+        #                                                        self.base_asset,
+        #                                                        self.quote_asset,
+        #                                                        o.price,
+        #                                                        o.amount) for o in
+        #                                             self._hanging_orders_tracker.strategy_current_hanging_orders
+        #                                             if o.order_id in missing_hanging_orders_ids_in_active_orders]
+        #
+        # self.logger().info(f"Missing orders in the available balance check: {limit_orders_from_missing_hanging_orders}")
+
+        base_balance, quote_balance = self.c_get_adjusted_available_balance(self.active_non_hanging_orders)
 
         for buy in proposal.buys:
             buy_fee = market.c_get_fee(self.base_asset, self.quote_asset, OrderType.LIMIT, TradeType.BUY,
@@ -1032,16 +1049,16 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     # Refresh all active non hanging orders that are older that the _max_order_age
     cdef c_aged_order_refresh(self):
         cdef:
-            list active_orders = self.active_non_hanging_orders
+            list active_non_hanging_orders = self.active_non_hanging_orders
             list buys = []
             list sells = []
 
-        for order in active_orders:
+        for order in active_non_hanging_orders:
             age = 0 if "//" in order.client_order_id else \
                 int(int(time.time()) - int(order.client_order_id[-16:])/1e6)
 
             # To prevent duplicating orders due to delay in receiving cancel response
-            refresh_check = [o for o in active_orders if o.price == order.price
+            refresh_check = [o for o in active_non_hanging_orders if o.price == order.price
                              and o.quantity == order.quantity]
             if len(refresh_check) > 1:
                 continue
