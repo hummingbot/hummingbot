@@ -196,6 +196,7 @@ class CoinzoomExchange(ExchangeBase):
         updating statuses and tracking user data.
         """
         self._order_book_tracker.start()
+
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
@@ -206,6 +207,10 @@ class CoinzoomExchange(ExchangeBase):
         """
         This function is required by NetworkIterator base class and is called automatically.
         """
+        # Resets timestamps for status_polling_task
+        self._last_poll_timestamp = 0
+        self._last_timestamp = 0
+
         self._order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
@@ -562,7 +567,6 @@ class CoinzoomExchange(ExchangeBase):
         """
         while True:
             try:
-                self._poll_notifier = asyncio.Event()
                 await self._poll_notifier.wait()
                 await safe_gather(
                     self._update_balances(),
@@ -578,6 +582,8 @@ class CoinzoomExchange(ExchangeBase):
                 self.logger().network("Unexpected error while fetching account updates.", exc_info=True,
                                       app_warning_msg=warn_msg)
                 await asyncio.sleep(0.5)
+            finally:
+                self._poll_notifier = asyncio.Event()
 
     async def _update_balances(self):
         """
