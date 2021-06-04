@@ -172,7 +172,8 @@ class HangingOrdersTracker:
 
     def cancel_multiple_orders_in_strategy(self, order_ids: List[str]):
         for order_id in order_ids:
-            self.strategy.cancel_order(order_id)
+            if any(o.client_order_id == order_id for o in self.strategy.active_orders):
+                self.strategy.cancel_order(order_id)
 
     def _get_equivalent_orders_no_aggregation(self, orders):
         return frozenset(orders)
