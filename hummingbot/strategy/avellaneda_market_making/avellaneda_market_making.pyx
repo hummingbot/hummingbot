@@ -1020,6 +1020,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 to_defer_canceling = True
 
         if not to_defer_canceling:
+            self.logger().info(f"Active: {[o.client_order_id for o in self.active_orders]}")
+            self.logger().info(f"Hanging: {[o.order_id for o in self._hanging_orders_tracker.strategy_current_hanging_orders]}")
+            self.logger().info(f"Active non-hanging: {[o.client_order_id for o in self.active_non_hanging_orders]}")
             self._hanging_orders_tracker.add_hanging_orders_based_on_partially_executed_pairs()
             for order in self.active_non_hanging_orders:
                 self.c_cancel_order(self._market_info, order.client_order_id)

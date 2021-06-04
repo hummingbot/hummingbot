@@ -55,7 +55,7 @@ class Proposal:
                f"{len(self.sells)} sells: {', '.join([str(o) for o in self.sells])}"
 
 
-@dataclass
+@dataclass(frozen=True)
 class HangingOrder:
     order_id: str
     trading_pair: str
@@ -86,5 +86,12 @@ class HangingOrder:
     def distance_to_price(self, price: Decimal):
         return abs(self.price - price)
 
+    def __eq__(self, other):
+        return all(
+            (self.trading_pair == other.trading_pair,
+             self.is_buy == other.is_buy,
+             self.price == other.price,
+             self.amount == other.amount))
+
     def __hash__(self):
-        return hash((self.trading_pair, self.price, self.amount, self.is_buy))
+        return hash((self.trading_pair, self.is_buy, self.price, self.amount))
