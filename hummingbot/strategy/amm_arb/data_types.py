@@ -58,6 +58,10 @@ class ArbProposal:
         """
         buy = self.first_side if self.first_side.is_buy else self.second_side
         sell = self.first_side if not self.first_side.is_buy else self.second_side
+        sell_base_to_buy_base_rate = (Decimal(1)
+                                      if buy.amount != sell.amount
+                                      else rate_source.rate(f"{sell.market_info.base_asset}"
+                                                            f"-{buy.market_info.base_asset}"))
         sell_quote_to_buy_quote_rate = rate_source.rate(f"{sell.market_info.quote_asset}"
                                                         f"-{buy.market_info.quote_asset}")
 
@@ -65,7 +69,7 @@ class ArbProposal:
         sell_fee_amount = s_decimal_0
         result = s_decimal_0
 
-        if sell_quote_to_buy_quote_rate:
+        if sell_quote_to_buy_quote_rate and sell_base_to_buy_base_rate:
             if account_for_fee:
                 buy_trade_fee = estimate_fee(buy.market_info.market.name, False)
                 sell_trade_fee = estimate_fee(sell.market_info.market.name, False)
@@ -89,7 +93,8 @@ class ArbProposal:
 
             buy_spent_net = (buy.amount * buy.quote_price) + buy_fee_amount
             sell_gained_net = (sell.amount * sell.quote_price) - sell_fee_amount
-            sell_gained_net_in_buy_quote_currency = sell_gained_net * sell_quote_to_buy_quote_rate
+            sell_gained_net_in_buy_quote_currency = (sell_gained_net * sell_quote_to_buy_quote_rate
+                                                     / sell_base_to_buy_base_rate)
 
             result = (((sell_gained_net_in_buy_quote_currency - buy_spent_net) / buy_spent_net)
                       if buy_spent_net != s_decimal_0
