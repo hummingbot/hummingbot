@@ -197,12 +197,10 @@ prompt_eth_gasstation_setup () {
     if [[ "$PROCEED" == "N" || "$PROCEED" == "n" ]]
     then
       ENABLE_ETH_GAS_STATION=false
-      # set manual gas price
-      read -p "   Enter fixed gas price (in Gwei) you want to use for Ethereum transactions (default = \"100\") >>> " MANUAL_GAS_PRICE
-      if [ "$MANUAL_GAS_PRICE" == "" ]
-      then
-        MANUAL_GAS_PRICE=100
-      fi
+      ETH_GAS_STATION_API_KEY=null
+      ETH_GAS_STATION_GAS_LEVEL=fast
+      ETH_GAS_STATION_REFRESH_TIME=60
+      MANUAL_GAS_PRICE=100
     else
       prompt_eth_gasstation_setup
     fi
@@ -289,7 +287,10 @@ prompt_terra_setup () {
 prompt_terra_setup
 
 # setup uniswap config
-UNISWAP_ROUTER=0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D
+UNISWAP_ROUTER="0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
+UNISWAP_V3_CORE="0x1F98431c8aD98523631AE4a59f267346ea31F984"
+UNISWAP_V3_ROUTER="0xE592427A0AEce92De3Edee1F18E0157C05861564"
+UNISWAP_V3_NFT_MANAGER="0xC36442b4a4522E871399CD717aBDD847Ab11FE88"
 
 # network setup verifications
 if [[ "$ETHEREUM_SETUP" != true && "$TERRA_SETUP" != true ]]
@@ -350,6 +351,9 @@ printf "%30s %5s\n" "Balancer Subgraph:" "$REACT_APP_SUBGRAPH_URL"
 printf "%30s %5s\n" "Balancer Exchange Proxy:" "$EXCHANGE_PROXY"
 printf "%30s %5s\n" "Balancer Max Swaps:" "$BALANCER_MAX_SWAPS"
 printf "%30s %5s\n" "Uniswap Router:" "$UNISWAP_ROUTER"
+printf "%30s %5s\n" "Uniswap V3 Core:" "$UNISWAP_V3_CORE"
+printf "%30s %5s\n" "Uniswap V3 Router:" "$UNISWAP_V3_ROUTER"
+printf "%30s %5s\n" "Uniswap V3 NFT Manager:" "$UNISWAP_V3_NFT_MANAGER"
 printf "%30s %5s\n" "Uniswap Allowed Slippage:" "$UNISWAP_SLIPPAGE"
 printf "%30s %5s\n" "Terra Chain:" "$TERRA"
 printf "%30s %5s\n" "Gateway Log Path:" "$LOG_PATH"
@@ -357,55 +361,66 @@ printf "%30s %5s\n" "Gateway Cert Path:" "$CERT_PATH"
 printf "%30s %5s\n" "Gateway Port:" "$PORT"
 echo
 
-ENV_FILE="./gateway.env"
+ENV_FILE="$FOLDER/hummingbot_conf/global_conf.yml"
 echo "  Writing config to environment file"
 echo "" > $ENV_FILE # clear existing file data
 echo "# gateway-api script generated env" >> $ENV_FILE
 echo "" >> $ENV_FILE
-echo "NODE_ENV=prod" >> $ENV_FILE
-echo "PORT=$PORT" >> $ENV_FILE
+echo "CORE:" >> $ENV_FILE
+echo "  NODE_ENV: prod" >> $ENV_FILE
+echo "  PORT: $PORT" >> $ENV_FILE
 echo "" >> $ENV_FILE
-echo "HUMMINGBOT_INSTANCE_ID=$HUMMINGBOT_INSTANCE_ID" >> $ENV_FILE
+echo "HUMMINGBOT_INSTANCE_ID: $HUMMINGBOT_INSTANCE_ID" >> $ENV_FILE
 
 # ethereum config
 echo "" >> $ENV_FILE
 echo "# Ethereum Settings" >> $ENV_FILE
-echo "ETHEREUM_CHAIN=$ETHEREUM_CHAIN" >> $ENV_FILE
-echo "ETHEREUM_RPC_URL=$ETHEREUM_RPC_URL" >> $ENV_FILE
-echo "ETHEREUM_TOKEN_LIST_URL=$ETHEREUM_TOKEN_LIST_URL" >> $ENV_FILE
+echo "ETHEREUM_CHAIN: $ETHEREUM_CHAIN" >> $ENV_FILE
+echo "ETHEREUM_RPC_URL: $ETHEREUM_RPC_URL" >> $ENV_FILE
+echo "ETHEREUM_TOKEN_LIST_URL: $ETHEREUM_TOKEN_LIST_URL" >> $ENV_FILE
 echo "" >> $ENV_FILE
-echo "ENABLE_ETH_GAS_STATION=$ENABLE_ETH_GAS_STATION" >> $ENV_FILE
-echo "ETH_GAS_STATION_API_KEY=$ETH_GAS_STATION_API_KEY" >> $ENV_FILE
-echo "ETH_GAS_STATION_GAS_LEVEL=$ETH_GAS_STATION_GAS_LEVEL" >> $ENV_FILE
-echo "ETH_GAS_STATION_REFRESH_TIME=$ETH_GAS_STATION_REFRESH_TIME" >> $ENV_FILE
-echo "MANUAL_GAS_PRICE=$MANUAL_GAS_PRICE" >> $ENV_FILE
+echo "ENABLE_ETH_GAS_STATION: $ENABLE_ETH_GAS_STATION" >> $ENV_FILE
+echo "ETH_GAS_STATION_API_KEY: $ETH_GAS_STATION_API_KEY" >> $ENV_FILE
+echo "ETH_GAS_STATION_GAS_LEVEL: $ETH_GAS_STATION_GAS_LEVEL" >> $ENV_FILE
+echo "ETH_GAS_STATION_REFRESH_TIME: $ETH_GAS_STATION_REFRESH_TIME" >> $ENV_FILE
+echo "MANUAL_GAS_PRICE: $MANUAL_GAS_PRICE" >> $ENV_FILE
 
 # balancer config
 echo "" >> $ENV_FILE
 echo "# Balancer Settings" >> $ENV_FILE
-echo "REACT_APP_SUBGRAPH_URL=$REACT_APP_SUBGRAPH_URL" >> $ENV_FILE # must used "REACT_APP_SUBGRAPH_URL" for balancer-sor
-echo "EXCHANGE_PROXY=$EXCHANGE_PROXY" >> $ENV_FILE
-echo "BALANCER_MAX_SWAPS=$BALANCER_MAX_SWAPS" >> $ENV_FILE
+echo "REACT_APP_SUBGRAPH_URL: $REACT_APP_SUBGRAPH_URL" >> $ENV_FILE # must used "REACT_APP_SUBGRAPH_URL" for balancer-sor
+echo "EXCHANGE_PROXY: $EXCHANGE_PROXY" >> $ENV_FILE
+echo "BALANCER_MAX_SWAPS: $BALANCER_MAX_SWAPS" >> $ENV_FILE
 
 # uniswap config
 echo "" >> $ENV_FILE
 echo "# Uniswap Settings" >> $ENV_FILE
-echo "UNISWAP_ROUTER=$UNISWAP_ROUTER" >> $ENV_FILE
-echo "UNISWAP_ALLOWED_SLIPPAGE=$UNISWAP_SLIPPAGE" >> $ENV_FILE
-echo "UNISWAP_NO_RESERVE_CHECK_INTERVAL=300000" >> $ENV_FILE
-echo "UNISWAP_PAIRS_CACHE_TIME=1000" >> $ENV_FILE
+echo "UNISWAP_ROUTER: $UNISWAP_ROUTER" >> $ENV_FILE
+echo "UNISWAP_V3_CORE: $UNISWAP_V3_CORE" >> $ENV_FILE
+echo "UNISWAP_V3_ROUTER: $UNISWAP_V3_ROUTER" >> $ENV_FILE
+echo "UNISWAP_V3_NFT_MANAGER: $UNISWAP_V3_NFT_MANAGER" >> $ENV_FILE
+echo "UNISWAP_ALLOWED_SLIPPAGE: $UNISWAP_SLIPPAGE" >> $ENV_FILE
+echo "UNISWAP_NO_RESERVE_CHECK_INTERVAL: 300000" >> $ENV_FILE
+echo "UNISWAP_PAIRS_CACHE_TIME: 1000" >> $ENV_FILE
 
 # terra config
 echo "" >> $ENV_FILE
 echo "# Terra Settings" >> $ENV_FILE
-echo "TERRA_LCD_URL=$TERRA_LCD_URL" >> $ENV_FILE
-echo "TERRA_CHAIN=$TERRA_CHAIN" >> $ENV_FILE
+echo "TERRA_LCD_URL: $TERRA_LCD_URL" >> $ENV_FILE
+echo "TERRA_CHAIN: $TERRA_CHAIN" >> $ENV_FILE
 
 # perpeptual finance config
 echo "" >> $ENV_FILE
 echo "# Perpeptual Settings" >> $ENV_FILE
-echo "XDAI_PROVIDER=$XDAI_PROVIDER" >> $ENV_FILE
+echo "XDAI_PROVIDER: $XDAI_PROVIDER" >> $ENV_FILE
 
+# certs
+echo "" >> $ENV_FILE
+echo "# cert" >> $ENV_FILE
+echo "CERT_PATH: ./certs" >> $ENV_FILE
+echo "CERT_PASSPHRASE: $PASSWORD" >> $ENV_FILE
+
+echo "GMT_OFFSET: '+0800'" >> $ENV_FILE
 echo "" >> $ENV_FILE
 
 prompt_proceed () {
@@ -434,11 +449,9 @@ create_instance () {
  docker run -d \
  --name $GATEWAY_INSTANCE_NAME \
  -p 127.0.0.1:$PORT:$PORT \
- --env-file $ENV_FILE \
- -e CERT_PASSPHRASE="$PASSWORD" \
- -e GMT_OFFSET="$GMT_OFFSET" \
  --mount "type=bind,source=$CERT_PATH,destination=/usr/src/app/certs/" \
  --mount "type=bind,source=$LOG_PATH,destination=/usr/src/app/logs/" \
+ --mount "type=bind,source=$FOLDER/hummingbot_conf/,destination=/usr/src/app/conf/" \
  coinalpha/gateway-api:$GATEWAY_TAG
 }
 
