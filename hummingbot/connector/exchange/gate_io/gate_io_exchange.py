@@ -530,7 +530,7 @@ class GateIoExchange(ExchangeBase):
         except asyncio.CancelledError:
             raise
         except GateIoAPIError as e:
-            err = e.error_payload.get('message', e.error_payload)
+            err = e.error_payload
             self._order_not_found_records[order_id] = self._order_not_found_records.get(order_id, 0) + 1
             if err.get('label') == 'ORDER_NOT_FOUND' and \
                     self._order_not_found_records[order_id] >= self.ORDER_NOT_EXIST_CANCEL_COUNT:
@@ -604,7 +604,7 @@ class GateIoExchange(ExchangeBase):
             for response, tracked_order in zip(responses, tracked_orders):
                 client_order_id = tracked_order.client_order_id
                 if isinstance(response, GateIoAPIError):
-                    err = response.error_payload.get('message', response.error_payload)
+                    err = response.error_payload
                     if err.get('label') == 'ORDER_NOT_FOUND':
                         self._order_not_found_records[client_order_id] = \
                             self._order_not_found_records.get(client_order_id, 0) + 1
