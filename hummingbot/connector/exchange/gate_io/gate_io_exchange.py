@@ -593,11 +593,10 @@ class GateIoExchange(ExchangeBase):
             tracked_orders = list(self._in_flight_orders.values())
             tasks = []
             for tracked_order in tracked_orders:
-                # exchange_order_id = await tracked_order.get_exchange_order_id()
-                order_id = tracked_order.client_order_id
+                exchange_order_id = await tracked_order.get_exchange_order_id()
                 trading_pair = convert_to_exchange_trading_pair(tracked_order.trading_pair)
                 tasks.append(self._api_request("GET",
-                                               Constants.ENDPOINT["ORDER_STATUS"].format(id=order_id),
+                                               Constants.ENDPOINT["ORDER_STATUS"].format(id=exchange_order_id),
                                                params={'currency_pair': trading_pair},
                                                is_auth_required=True))
             self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
@@ -619,8 +618,8 @@ class GateIoExchange(ExchangeBase):
                         self.stop_tracking_order(client_order_id)
                     else:
                         continue
-                elif "clientOrderId" not in response:
-                    self.logger().info(f"_update_order_status clientOrderId not in resp: {response}")
+                elif "id" not in response:
+                    self.logger().info(f"_update_order_status id not in resp: {response}")
                     continue
                 else:
                     self._process_order_message(response)
