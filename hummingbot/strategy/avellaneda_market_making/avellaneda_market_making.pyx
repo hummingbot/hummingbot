@@ -266,6 +266,34 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._eta = value
 
     @property
+    def reserved_price(self):
+        return self._reserved_price
+
+    @reserved_price.setter
+    def reserved_price(self, value):
+        self._reserved_price = value
+
+    @property
+    def optimal_spread(self):
+        return self._optimal_spread
+
+    @property
+    def optimal_ask(self):
+        return self._optimal_ask
+
+    @optimal_ask.setter
+    def optimal_ask(self, value):
+        self._optimal_ask = value
+
+    @property
+    def optimal_bid(self):
+        return self._optimal_bid
+
+    @optimal_bid.setter
+    def optimal_bid(self, value):
+        self._optimal_bid = value
+
+    @property
     def q_adjustment_factor(self):
         return self._q_adjustment_factor
 
