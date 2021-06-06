@@ -354,7 +354,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         # Simulate buffers being filled and initial market volatility
         self.simulate_low_volatility(self.strategy)
-        self.strategy.collect_market_variables(int(self.strategy.current_timestamp))
+        self.strategy.collect_market_variables(self.strategy.current_timestamp)
         self.strategy.recalculate_parameters()
         initial_vol: Decimal = self.strategy.get_volatility()
 
@@ -419,7 +419,34 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.assertEqual((expected_min_spread, expected_max_spread), self.strategy._get_min_and_max_spread())
 
     def test_recalculate_parameters(self):
-        pass
+
+        # Simulate low volatility
+        self.simulate_low_volatility(self.strategy)
+        self.strategy.collect_market_variables(self.strategy.current_timestamp)
+        self.strategy.recalculate_parameters()
+
+        # Check initial gamma, kappa, eta, latest_parameter_calculation_vol
+        expected_gamma = Decimal('0.003298')
+        expected_kappa = Decimal('0.004993')
+        expected_eta = Decimal('0.004186')
+
+        self.assertAlmostEqual(expected_gamma, self.strategy.gamma, 5)
+        self.assertAlmostEqual(expected_kappa, self.strategy.kappa, 5)
+        self.assertAlmostEqual(expected_eta, self.strategy.eta, 5)
+
+        # Simulate high volatility
+        self.simulate_high_volatility(self.strategy)
+        self.strategy.collect_market_variables(self.strategy.current_timestamp)
+        self.strategy.recalculate_parameters()
+
+        # Check new gamma, kappa, eta, latest_parameter_calculation_vol
+        expected_gamma = Decimal('0.000008')
+        expected_kappa = Decimal('0.006429')
+        expected_eta = Decimal('0.004186')
+
+        self.assertAlmostEqual(expected_gamma, self.strategy.gamma, 5)
+        self.assertAlmostEqual(expected_kappa, self.strategy.kappa, 5)
+        self.assertAlmostEqual(expected_eta, self.strategy.eta, 5)
 
     def test_create_proposal_based_on_order_override(self):
         pass
