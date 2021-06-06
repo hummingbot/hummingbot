@@ -556,21 +556,36 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
     def test_create_proposal_based_on_order_levels(self):
         # Simulate low volatility
-        self.simulate_low_volatility(self.strategy)
+        self.simulate_high_volatility(self.strategy)
 
         # Prepare market variables and parameters for calculation
         self.strategy.collect_market_variables(self.strategy.current_timestamp)
         self.strategy.recalculate_parameters()
         self.strategy.calculate_reserved_price_and_optimal_spread()
 
-        #
-        print()
+        # Check order_levels default = 0
+        empty_proposal = ([], [])
+        self.assertEqual(empty_proposal, self.strategy.create_proposal_based_on_order_levels())
+
         # Re-initialize strategy with order_level configurations
         self.strategy = AvellanedaMarketMakingStrategy(
             market_info=self.market_info,
             order_amount=self.order_amount,
-            order_level=2,
+            order_levels=2,
         )
+        self.strategy.start(self.clock)
+
+        # Simulate low volatility
+        self.simulate_high_volatility(self.strategy)
+
+        # Prepare market variables and parameters for calculation
+        self.strategy.collect_market_variables(self.strategy.current_timestamp)
+        self.strategy.recalculate_parameters()
+        self.strategy.calculate_reserved_price_and_optimal_spread()
+
+        # TODO: Calculate expected proposals
+        # expected_proposal = ([], [])
+        # self.assertEqual(expected_proposal, self.strategy.create_proposal_based_on_order_levels())
 
     def test_create_basic_proposal(self):
         pass
