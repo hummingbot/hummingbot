@@ -448,10 +448,131 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.assertAlmostEqual(expected_kappa, self.strategy.kappa, 5)
         self.assertAlmostEqual(expected_eta, self.strategy.eta, 5)
 
+    def test_calculate_reserved_price_and_optimal_spread(self):
+        # Simulate low volatility
+        self.simulate_low_volatility(self.strategy)
+
+        # Prepare market variables and parameters for calculation
+        self.strategy.collect_market_variables(self.strategy.current_timestamp)
+        self.strategy.recalculate_parameters()
+        self.strategy.calculate_reserved_price_and_optimal_spread()
+
+        # Check reserved_price, optimal_ask and optimal_bid
+        self.assertAlmostEqual(Decimal("53.75"), self.strategy.reserved_price, 2)
+        self.assertAlmostEqual(Decimal("207.5"), self.strategy.optimal_ask, 1)
+        self.assertAlmostEqual(Decimal("-100.0"), self.strategy.optimal_bid, 1)
+
+        # Simulate high volatility
+        self.simulate_high_volatility(self.strategy)
+
+        # Prepare market variables and parameters for calculation
+        self.strategy.collect_market_variables(self.strategy.current_timestamp)
+        self.strategy.recalculate_parameters()
+        self.strategy.calculate_reserved_price_and_optimal_spread()
+
+        # Check reserved_price, optimal_ask and optimal_bid
+        self.assertAlmostEqual(Decimal("53.24"), self.strategy.reserved_price, 2)
+        self.assertAlmostEqual(Decimal("208.68"), self.strategy.optimal_ask, 2)
+        self.assertAlmostEqual(Decimal("-102.19"), self.strategy.optimal_bid, 1)
+
     def test_create_proposal_based_on_order_override(self):
-        pass
+        # Initial check for empty order_override
+        expected_output: Tuple[List, List] = ([], [])
+        self.assertEqual(expected_output, self.strategy.create_proposal_based_on_order_override())
+
+        order_override = {
+            "order_1": ["sell", 2.5, 100],
+            "order_2": ["buy", 0.5, 100]
+        }
+
+        # Re-initialize strategy with order_ride configurations
+        self.strategy = AvellanedaMarketMakingStrategy(
+            market_info=self.market_info,
+            order_amount=self.order_amount,
+            order_override=order_override,
+        )
+
+        expected_proposal = (list(), list())
+        for order in order_override.values():
+            list_to_append = expected_proposal[0] if order[0] == "buy" else expected_proposal[1]
+            if "buy" == order[0]:
+                price = self.strategy.get_price() * (Decimal("1") - Decimal(str(order[1])) / Decimal("100"))
+            else:
+                price = self.strategy.get_price() * (Decimal("1") + Decimal(str(order[1])) / Decimal("100"))
+
+            price = self.market.quantize_order_price(self.trading_pair, price)
+            size = self.market.quantize_order_amount(self.trading_pair, Decimal(str(order[2])))
+
+            list_to_append.append(PriceSize(price, size))
+
+        self.assertEqual(str(expected_proposal), str(self.strategy.create_proposal_based_on_order_override()))
+
+    def test_get_logspaced_level_spreads(self):
+        # Re-initialize strategy with order_level configurations
+        self.strategy = AvellanedaMarketMakingStrategy(
+            market_info=self.market_info,
+            order_amount=self.order_amount,
+            order_levels=2,
+        )
+        self.strategy.start(self.clock)
+
+        # Simulate low volatility.
+        # Note: bid/ask_level_spreads Requires volatility, optimal_bid, optimal_ask to be defined
+        self.simulate_low_volatility(self.strategy)
+
+        self.strategy.collect_market_variables(self.strategy.current_timestamp)
+        self.strategy.recalculate_parameters()
+        self.strategy.calculate_reserved_price_and_optimal_spread()
+
+        # TODO: Show exact calculation. Find a better max_spread parameter to better illustrate bid levels
+        expected_bid_spreads = [0.0, 0.0]
+        expected_ask_spreads = [0.0, 92.5]
+
+        bid_level_spreads, ask_level_spreads = self.strategy._get_logspaced_level_spreads()
+        for i, spread in enumerate(bid_level_spreads):
+            self.assertAlmostEqual(expected_bid_spreads[i], spread, 1)
+
+        for i, spread in enumerate(ask_level_spreads):
+            self.assertAlmostEqual(expected_ask_spreads[i], spread, 1)
+
+        # Simulate high volatility. Find a better max_spread parameter to better illustrate bid levels
+        # Note: bid/ask_level_spreads Requires volatility, optimal_bid, optimal_ask to be defined
+        self.simulate_high_volatility(self.strategy)
+
+        self.strategy.collect_market_variables(self.strategy.current_timestamp)
+        self.strategy.recalculate_parameters()
+        self.strategy.calculate_reserved_price_and_optimal_spread()
+
+        # TODO: Show exact calculation
+        expected_bid_spreads = [0.0, 0.0]
+        expected_ask_spreads = [0.0, 93.5]
+
+        bid_level_spreads, ask_level_spreads = self.strategy._get_logspaced_level_spreads()
+        for i, spread in enumerate(bid_level_spreads):
+            self.assertAlmostEqual(expected_bid_spreads[i], spread, 1)
+
+        for i, spread in enumerate(ask_level_spreads):
+            self.assertAlmostEqual(expected_ask_spreads[i], spread, 1)
 
     def test_create_proposal_based_on_order_levels(self):
+        # Simulate low volatility
+        self.simulate_low_volatility(self.strategy)
+
+        # Prepare market variables and parameters for calculation
+        self.strategy.collect_market_variables(self.strategy.current_timestamp)
+        self.strategy.recalculate_parameters()
+        self.strategy.calculate_reserved_price_and_optimal_spread()
+
+        #
+        print()
+        # Re-initialize strategy with order_level configurations
+        self.strategy = AvellanedaMarketMakingStrategy(
+            market_info=self.market_info,
+            order_amount=self.order_amount,
+            order_level=2,
+        )
+
+    def test_create_basic_proposal(self):
         pass
 
     def test_create_base_proposal(self):
@@ -516,7 +637,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         #   (1) True
         #       Condition: (self._gamma is None) or (self._kappa is None) or (self._parameters_based_on_spread and (diff in vol > vol_threshold ))
         #       - self.c_recalculate_parameters
-        #       - self. c_calculate_reserved_price_and_optimal_spread()
+        #       - self.c_calculate_reserved_price_and_optimal_spread()
         #       - proposal = self.c_create_base_proposal()
         #       - self.c_apply_order_amount_eta_transformation(proposal)
         #       - self.c_apply_order_price_modifiers(proposal)
