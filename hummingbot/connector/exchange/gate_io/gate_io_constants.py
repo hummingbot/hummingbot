@@ -40,8 +40,9 @@ class Constants:
     # Intervals
     # Only used when nothing is received from WS
     SHORT_POLL_INTERVAL = 5.0
+    # 45 seconds should be fine since we get trades, orders and balances via WS
+    LONG_POLL_INTERVAL = 45.0
     # One minute should be fine since we get trades, orders and balances via WS
-    LONG_POLL_INTERVAL = 60.0
     UPDATE_ORDER_STATUS_INTERVAL = 60.0
     # 10 minute interval to update trading rules, these would likely never change whilst running.
     INTERVAL_TRADING_RULES = 600

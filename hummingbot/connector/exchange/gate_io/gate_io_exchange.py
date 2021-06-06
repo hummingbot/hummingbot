@@ -660,6 +660,10 @@ class GateIoExchange(ExchangeBase):
             "user": 5660412,
         }
         """
+
+        # Call Update balances on every message to catch order create, fill and cancel - websocket doesn't support this.
+        safe_ensure_future(self._update_balances())
+
         exchange_order_id = str(order_msg["id"])
         tracked_orders = list(self._in_flight_orders.values())
         track_order = [o for o in tracked_orders if exchange_order_id == o.exchange_order_id]
@@ -668,9 +672,6 @@ class GateIoExchange(ExchangeBase):
         tracked_order = track_order[0]
 
         updated = tracked_order.update_with_order_update(order_msg)
-
-        # Call Update balances on every message to catch order create, fill and cancel - websocket doesn't support this.
-        safe_ensure_future(self._update_balances())
 
         if updated:
             safe_ensure_future(self._trigger_order_fill(tracked_order, order_msg))
@@ -815,8 +816,9 @@ class GateIoExchange(ExchangeBase):
         It checks if status polling task is due for execution.
         """
         now = time.time()
+        # Using 120 seconds here as Gate.io websocket is quiet
         poll_interval = (Constants.SHORT_POLL_INTERVAL
-                         if now - self._user_stream_tracker.last_recv_time > 60.0
+                         if now - self._user_stream_tracker.last_recv_time > 120.0
                          else Constants.LONG_POLL_INTERVAL)
         last_tick = int(self._last_timestamp / poll_interval)
         current_tick = int(timestamp / poll_interval)
