@@ -173,7 +173,6 @@ class PerformanceMetricsUnitTest(unittest.TestCase):
         self.assertEqual(metrics.total_pnl, Decimal("650"))
 
     def test_smart_round(self):
-        """Dummy comment"""
         value = PerformanceMetrics.smart_round(None)
         self.assertIsNone(value)
         value = PerformanceMetrics.smart_round(Decimal("NaN"))
