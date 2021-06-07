@@ -157,6 +157,7 @@ class HangingOrdersTracker:
             self.logger().info(f"Original hanging orders: {self.original_orders}")
             self.logger().info(f"Equivalent hanging orders: {self.equivalent_orders}")
             self.logger().info(f"Need to create: {self.orders_to_be_created}")
+            self.logger().info(f"Need to cancel: {orders_to_cancel}")
 
     def execute_orders_to_be_created(self):
         executed_orders = self.execute_orders_in_strategy(self.orders_to_be_created)
@@ -265,6 +266,11 @@ class HangingOrdersTracker:
             # For any aggregation other than no_aggregation, the hanging order is the equivalent to all original
             # hanging orders
             self.remove_all_orders()
+
+    def did_cancel_hanging_order(self, order_id: str):
+        order_to_be_removed = next(o for o in self.strategy_current_hanging_orders if o.order_id == order_id)
+        if order_to_be_removed:
+            self.strategy_current_hanging_orders.remove(order_to_be_removed)
 
     def add_hanging_orders_based_on_partially_executed_pairs(self):
         for pair in self.current_created_pairs_of_orders:
