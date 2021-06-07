@@ -68,7 +68,7 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 | <img src="assets/perpetual_finance_logo.png" alt="Perpetual Protocol" width="90" /> | perpetual_finance | [Perpetual Protocol](https://perp.fi/) | * | [SDK](https://docs.perp.fi/) | ![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 | <img src="assets/terra_logo.png" alt="Terra" width="90" /> | terra | [Terra](https://terra.money/) | * | [SDK](https://docs.terra.money/) | ![GREEN](https://via.placeholder.com/15/008000/?text=+) |
 | <img src="assets/uniswap_logo.svg" alt="Uniswap" width="90" height="30" /> | uniswap | [Uniswap](https://uniswap.org/) | 2 | [SDK](https://uniswap.org/docs/v2/) | ![GREEN](https://via.placeholder.com/15/008000/?text=+) |
-| <img src="assets/uniswapv3_logo.png" alt="Uniswap v3" width="90" height="30" /> | uniswap v3 | [Uniswap v3](https://uniswap.org/) | 2 | [SDK](https://uniswap.org/blog/uniswap-v3/) | ![GREEN](https://via.placeholder.com/15/008000/?text=+) |
+| <img src="assets/uniswapv3_logo.png" alt="Uniswap v3" width="90" height="45" /> | uniswap v3 | [Uniswap v3](https://uniswap.org/) | 2 | [SDK](https://uniswap.org/blog/uniswap-v3/) | ![GREEN](https://via.placeholder.com/15/008000/?text=+) |
 
 
 
