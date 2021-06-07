@@ -65,6 +65,7 @@ class HangingOrdersTracker:
         self.aggregation_method = aggregation_method or HangingOrdersAggregationType.NO_AGGREGATION
         self._hanging_orders_cancel_pct = hanging_orders_cancel_pct or Decimal("0.1")
         self.trading_pair = trading_pair or self.strategy.trading_pair
+        self.orders_to_be_created = set()
         self.current_created_pairs_of_orders = list()
         self.original_orders: Set[LimitOrder] = orders or set()
         self.strategy_current_hanging_orders: Set[HangingOrder] = set()
@@ -81,19 +82,24 @@ class HangingOrdersTracker:
 
     def renew_hanging_orders_past_max_order_age(self):
         max_age = getattr(self.strategy, "max_order_age", None)
-        to_be_renewed = set()
+        to_be_cancelled = set()
+        to_be_created = set()
         if max_age:
             for order in self.strategy_current_hanging_orders:
                 if order.age > max_age:
                     self.logger().info(f"Reached max_order_age={max_age}sec hanging order: {order}. Renewing...")
-                    to_be_renewed.add(order)
+                    to_be_cancelled.add(order)
 
-            self.cancel_multiple_orders_in_strategy([o.order_id for o in to_be_renewed if o.order_id])
-            for order in to_be_renewed:
+            self.cancel_multiple_orders_in_strategy([o.order_id for o in to_be_cancelled if o.order_id])
+            for order in to_be_cancelled:
                 self.strategy_current_hanging_orders.remove(order)
+                to_be_created.add(HangingOrder(None,
+                                               order.trading_pair,
+                                               order.is_buy,
+                                               order.price,
+                                               order.amount))
 
-            executed_orders = self.execute_orders_in_strategy(to_be_renewed)
-            self.strategy_current_hanging_orders = self.strategy_current_hanging_orders.union(executed_orders)
+            self.orders_to_be_created = self.orders_to_be_created.union(to_be_created)
 
     def remove_orders_far_from_price(self):
         current_price = self.strategy.get_price()
@@ -123,52 +129,74 @@ class HangingOrdersTracker:
     def is_order_id_in_hanging_orders(self, order_id: str):
         return any((o.order_id == order_id for o in self.strategy_current_hanging_orders))
 
+    def is_hanging_order_in_strategy_active_orders(self, order: HangingOrder):
+        return any(all(order.trading_pair == o.trading_pair,
+                       order.is_buy == o.is_buy,
+                       order.price == o.price,
+                       order.amount == o.quantity) for o in self.strategy.active_orders)
+
+    def is_order_to_be_added_to_hanging_orders(self, order: LimitOrder):
+        hanging_order = HangingOrder(order.client_order_id,
+                                     order.trading_pair,
+                                     order.is_buy,
+                                     order.price,
+                                     order.quantity)
+        return hanging_order in self.equivalent_orders.union(self.orders_to_be_created)
+
     def update_strategy_orders_with_equivalent_orders(self):
         equivalent_orders = self.get_equivalent_orders()
         orders_to_cancel = self.strategy_current_hanging_orders.difference(equivalent_orders)
-        orders_to_create = equivalent_orders.difference(self.strategy_current_hanging_orders)
-        self.cancel_multiple_orders_in_strategy([o.order_id for o in orders_to_cancel])
-        executed_orders = self.execute_orders_in_strategy(orders_to_create)
-        self.add_created_orders_to_strategy_hanging_orders(executed_orders)
+        orders_to_create = equivalent_orders.union(self.orders_to_be_created).difference(self.strategy_current_hanging_orders)
+        self.cancel_multiple_orders_in_strategy([o.order_id for o in orders_to_cancel.difference(orders_to_create)])
+        self.orders_to_be_created = self.orders_to_be_created.union(orders_to_create)
 
         if any((orders_to_cancel, orders_to_create)):
             self.logger().info("Updating hanging orders...")
             self.logger().info(f"Original hanging orders: {self.original_orders}")
             self.logger().info(f"Equivalent hanging orders: {self.equivalent_orders}")
+            self.logger().info(f"Need to create: {self.orders_to_be_created}")
 
-    def add_created_orders_to_strategy_hanging_orders(self, orders: Set[HangingOrder]):
-        self.strategy_current_hanging_orders = self.strategy_current_hanging_orders.union(orders)
+    def execute_orders_to_be_created(self):
+        executed_orders = self.execute_orders_in_strategy(self.orders_to_be_created)
+        self.strategy_current_hanging_orders = self.strategy_current_hanging_orders.union(executed_orders)
+        self.orders_to_be_created.clear()
 
     def execute_orders_in_strategy(self, candidate_orders: Set[HangingOrder]):
         """ToDo: Need to verify budget restriction.
         Specially when execution of orders happens after they were cancelled to be renewed.
         In that case we are not waiting for orders to be successfully cancelled before creating the new ones
         and that might lead to lack of budget."""
-        # Currently prioritizing hanging orders and then creating orders with remaining balance
-        executed_orders = set()
+        new_hanging_orders = set()
         order_type = self.strategy.market_info.market.get_maker_order_type()
         for order in candidate_orders:
-            quantized_amount = self.strategy.market_info.market.quantize_order_amount(self.trading_pair, order.amount)
-            quantized_price = self.strategy.market_info.market.quantize_order_price(self.trading_pair, order.price)
-            if quantized_amount > 0:
-                if order.is_buy:
-                    order_id = self.strategy.buy_with_specific_market(
-                        self.strategy.market_info,
-                        amount=quantized_amount,
-                        order_type=order_type,
-                        price=quantized_price,
-                        expiration_seconds=self.strategy.order_refresh_time
-                    )
-                else:
-                    order_id = self.strategy.sell_with_specific_market(
-                        self.strategy.market_info,
-                        amount=quantized_amount,
-                        order_type=order_type,
-                        price=quantized_price,
-                        expiration_seconds=self.strategy.order_refresh_time
-                    )
-                executed_orders.add(HangingOrder(order_id, order.trading_pair, order.is_buy, quantized_price, quantized_amount))
-        return executed_orders
+            # Only execute if order is new
+            if order.order_id is None:
+                if order.amount > 0:
+                    if order.is_buy:
+                        order_id = self.strategy.buy_with_specific_market(
+                            self.strategy.market_info,
+                            amount=order.amount,
+                            order_type=order_type,
+                            price=order.price,
+                            expiration_seconds=self.strategy.order_refresh_time
+                        )
+                    else:
+                        order_id = self.strategy.sell_with_specific_market(
+                            self.strategy.market_info,
+                            amount=order.amount,
+                            order_type=order_type,
+                            price=order.price,
+                            expiration_seconds=self.strategy.order_refresh_time
+                        )
+                    new_hanging_orders.add(HangingOrder(order_id,
+                                                        order.trading_pair,
+                                                        order.is_buy,
+                                                        order.price,
+                                                        order.amount))
+            # If it's a preexistent order we don't create it but we add it to hanging orders
+            else:
+                new_hanging_orders.add(order)
+        return new_hanging_orders
 
     def cancel_multiple_orders_in_strategy(self, order_ids: List[str]):
         for order_id in order_ids:
@@ -191,7 +219,10 @@ class HangingOrdersTracker:
             amount = (sum(o.amount for o in sells) * sum(o.amount * weight_function(o) for o in sells) -
                       sum(o.amount for o in buys) * sum(o.amount * weight_function(o) for o in buys)) / amount_sum
 
-            return frozenset([HangingOrder(None, self.trading_pair, isbuy, price, amount)])
+            quantized_amount = self.strategy.market_info.market.quantize_order_amount(self.trading_pair, amount)
+            quantized_price = self.strategy.market_info.market.quantize_order_price(self.trading_pair, price)
+
+            return frozenset([HangingOrder(None, self.trading_pair, isbuy, quantized_price, quantized_amount)])
         return frozenset()
 
     def _get_equivalent_order_volume_weighted(self, orders: Set[LimitOrder]):
