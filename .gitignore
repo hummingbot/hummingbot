@@ -67,3 +67,8 @@ debug.log
 /certs
 *.pem
 gateway.env
+
+# Coverage
+.coverage
+/cover/
+coverage.xml
