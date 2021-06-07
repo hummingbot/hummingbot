@@ -17,6 +17,7 @@ from async_timeout import timeout
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.clock import Clock
+from hummingbot.core.utils.asyncio_throttle import Throttler
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.cancellation_result import CancellationResult
@@ -98,6 +99,7 @@ class GateIoExchange(ExchangeBase):
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
         self._last_poll_timestamp = 0
+        self._throttler = Throttler(rate_limit = (8.0, 6))
 
     @property
     def name(self) -> str:
@@ -323,35 +325,36 @@ class GateIoExchange(ExchangeBase):
         signature to the request.
         :returns A response in json format.
         """
-        url = f"{Constants.REST_URL}/{endpoint}"
-        shared_client = await self._http_client()
-        # Turn `params` into either GET params or POST body data
-        qs_params: dict = params if method.upper() != "POST" else None
-        req_params = ujson.dumps(params) if method.upper() == "POST" and params is not None else None
-        # Generate auth headers if needed.
-        headers: dict = {"Content-Type": "application/json"}
-        if is_auth_required:
-            headers: dict = self._gate_io_auth.get_headers(method, f"{Constants.REST_URL_AUTH}/{endpoint}",
-                                                           req_params if req_params is not None else params)
-        # Build request coro
-        response_coro = shared_client.request(method=method.upper(), url=url, headers=headers,
-                                              params=qs_params, data=req_params,
-                                              timeout=Constants.API_CALL_TIMEOUT)
-        http_status, parsed_response, request_errors = await aiohttp_response_with_errors(response_coro)
-        if request_errors or parsed_response is None:
-            if try_count < Constants.API_MAX_RETRIES:
-                try_count += 1
-                time_sleep = retry_sleep_time(try_count)
-                self.logger().info(f"Error fetching data from {url}. HTTP status is {http_status}. "
-                                   f"Retrying in {time_sleep:.0f}s.")
-                await asyncio.sleep(time_sleep)
-                return await self._api_request(method=method, endpoint=endpoint, params=params,
-                                               is_auth_required=is_auth_required, try_count=try_count)
-            else:
-                raise GateIoAPIError({"error": parsed_response, "status": http_status})
-        if "message" in parsed_response:
-            raise GateIoAPIError(parsed_response)
-        return parsed_response
+        async with self._throttler.weighted_task(request_weight=1):
+            url = f"{Constants.REST_URL}/{endpoint}"
+            shared_client = await self._http_client()
+            # Turn `params` into either GET params or POST body data
+            qs_params: dict = params if method.upper() != "POST" else None
+            req_params = ujson.dumps(params) if method.upper() == "POST" and params is not None else None
+            # Generate auth headers if needed.
+            headers: dict = {"Content-Type": "application/json"}
+            if is_auth_required:
+                headers: dict = self._gate_io_auth.get_headers(method, f"{Constants.REST_URL_AUTH}/{endpoint}",
+                                                               req_params if req_params is not None else params)
+            # Build request coro
+            response_coro = shared_client.request(method=method.upper(), url=url, headers=headers,
+                                                  params=qs_params, data=req_params,
+                                                  timeout=Constants.API_CALL_TIMEOUT)
+            http_status, parsed_response, request_errors = await aiohttp_response_with_errors(response_coro)
+            if request_errors or parsed_response is None:
+                if try_count < Constants.API_MAX_RETRIES:
+                    try_count += 1
+                    time_sleep = retry_sleep_time(try_count)
+                    self.logger().info(f"Error fetching data from {url}. HTTP status is {http_status}. "
+                                       f"Retrying in {time_sleep:.0f}s.")
+                    await asyncio.sleep(time_sleep)
+                    return await self._api_request(method=method, endpoint=endpoint, params=params,
+                                                   is_auth_required=is_auth_required, try_count=try_count)
+                else:
+                    raise GateIoAPIError({"error": parsed_response, "status": http_status})
+            if "message" in parsed_response:
+                raise GateIoAPIError(parsed_response)
+            return parsed_response
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal):
         """
@@ -465,7 +468,7 @@ class GateIoExchange(ExchangeBase):
         except asyncio.CancelledError:
             raise
         except GateIoAPIError as e:
-            error_reason = e.error_payload.get('error', {}).get('message')
+            error_reason = e.error_payload.get('message')
             self.stop_tracking_order(order_id)
             self.logger().network(
                 f"Error submitting {trade_type.name} {order_type.name} order to {Constants.EXCHANGE_NAME} for "
@@ -815,11 +818,11 @@ class GateIoExchange(ExchangeBase):
         Is called automatically by the clock for each clock's tick (1 second by default).
         It checks if status polling task is due for execution.
         """
-        now = time.time()
         # Using 120 seconds here as Gate.io websocket is quiet
-        poll_interval = (Constants.SHORT_POLL_INTERVAL
-                         if now - self._user_stream_tracker.last_recv_time > 120.0
-                         else Constants.LONG_POLL_INTERVAL)
+        requires_short_poll = (time.time() - self._user_stream_tracker.last_recv_time > 120.0 or
+                               self._user_stream_tracker.data_source.last_recv_time <= 0 or
+                               len(self._account_balances) == 0)
+        poll_interval = Constants.SHORT_POLL_INTERVAL if requires_short_poll else Constants.LONG_POLL_INTERVAL
         last_tick = int(self._last_timestamp / poll_interval)
         current_tick = int(timestamp / poll_interval)
         if current_tick > last_tick:
