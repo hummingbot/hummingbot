@@ -169,6 +169,7 @@ class MockWebSocketServer:
         self.port = port
         self.websocket = None
         self.stock_responses = {}
+        self._thread: Thread = None
 
     def add_stock_response(self, request, json_response):
         """
@@ -208,6 +209,7 @@ class MockWebSocketServer:
         self.ev_loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.ev_loop)
         asyncio.ensure_future(websockets.serve(self._handler, self.host, self.port))
+        self._started = True
         self.ev_loop.run_forever()
 
     async def wait_til_started(self):
@@ -217,26 +219,22 @@ class MockWebSocketServer:
         while not self._started:
             await asyncio.sleep(0.1)
 
-    async def _stop(self):
-        """
-         Stop the event loop
-        """
-        self.port = None
-        self._started = False
-        self.ev_loop.stop()
-
     def start(self):
         """
          Start the Humming Web Server in thread-safe way
         """
         if self.started:
             self.stop()
-        thread = Thread(target=self._start)
-        thread.daemon = True
-        thread.start()
+        self._thread = Thread(target=self._start)
+        self._thread.daemon = True
+        self._thread.start()
 
     def stop(self):
         """
          Stop the Humming Web Server in thread-safe way
         """
-        asyncio.run_coroutine_threadsafe(self._stop(), self.ev_loop)
+        self.port = None
+        self._started = False
+        self.ev_loop.stop()
+        self._thread.join()
+        self.ev_loop.close()
