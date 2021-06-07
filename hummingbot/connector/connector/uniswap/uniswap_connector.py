@@ -79,7 +79,7 @@ class UniswapConnector(ConnectorBase):
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client = None
         self._last_poll_timestamp = 0.0
-        self._last_balance_poll_timestamp = time.time()
+        self._last_balance_poll_timestamp = 0
         self._last_est_gas_cost_reported = 0
         self._in_flight_orders = {}
         self._allowances = {}

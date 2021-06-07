@@ -1,3 +1,8 @@
+"""
+Define ConnectorSetting class (contains metadata about the exchanges hummingbot can interact with), and a function to
+generate a dictionary of exchange names to ConnectorSettings.
+"""
+
 import importlib
 from os import scandir
 from os.path import (
@@ -36,12 +41,16 @@ CONF_POSTFIX = "_strategy"
 SCRIPTS_PATH = realpath(join(__file__, "../../../scripts/"))
 CERTS_PATH = "certs/"
 
+# Certificates for securely communicating with the gateway api
 GATEAWAY_CA_CERT_PATH = realpath(join(__file__, join(f"../../../{CERTS_PATH}/ca_cert.pem")))
 GATEAWAY_CLIENT_CERT_PATH = realpath(join(__file__, join(f"../../../{CERTS_PATH}/client_cert.pem")))
 GATEAWAY_CLIENT_KEY_PATH = realpath(join(__file__, join(f"../../../{CERTS_PATH}/client_key.pem")))
 
 
 class ConnectorType(Enum):
+    """
+    The types of exchanges that hummingbot client can communicate with.
+    """
     Connector = 1
     Exchange = 2
     Derivative = 3
@@ -61,6 +70,10 @@ class ConnectorSetting(NamedTuple):
     parent_name: str
     domain_parameter: str
     use_eth_gas_lookup: bool
+    """
+    This class has metadata data about Exchange connections. The name of the connection and the file path location of
+    the connector file.
+    """
 
     def module_name(self) -> str:
         # returns connector module name, e.g. binance_exchange
@@ -97,6 +110,9 @@ class ConnectorSetting(NamedTuple):
 
 
 def _create_connector_settings() -> Dict[str, ConnectorSetting]:
+    """
+    Iterate over files in specific Python directories to create a dictionary of exchange names to ConnectorSetting.
+    """
     connector_exceptions = ["paper_trade", "eterbase"]
     connector_settings = {}
     package_dir = Path(__file__).resolve().parent.parent.parent
@@ -155,15 +171,24 @@ def _create_connector_settings() -> Dict[str, ConnectorSetting]:
 
 
 def ethereum_wallet_required() -> bool:
+    """
+    Check if an Ethereum wallet is required for any of the exchanges the user's config uses.
+    """
     return any(e in ETH_WALLET_CONNECTORS for e in required_exchanges)
 
 
 def ethereum_gas_station_required() -> bool:
+    """
+    Check if the user's config needs to look up gas costs from an Ethereum gas station.
+    """
     return any(name for name, con_set in CONNECTOR_SETTINGS.items() if name in required_exchanges
                and con_set.use_eth_gas_lookup)
 
 
 def ethereum_required_trading_pairs() -> List[str]:
+    """
+    Check if the trading pairs require an ethereum wallet (ERC-20 tokens).
+    """
     ret_val = []
     for conn, t_pair in requried_connector_trading_pairs.items():
         if CONNECTOR_SETTINGS[conn].use_ethereum_wallet:
