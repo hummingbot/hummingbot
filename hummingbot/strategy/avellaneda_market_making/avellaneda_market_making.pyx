@@ -882,6 +882,19 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             price = sell.price * (Decimal(1) + fee.percent)
             sell.price = market.c_quantize_order_price(self.trading_pair, price)
 
+    cdef c_did_cancel_order(self, object cancelled_event):
+        cdef:
+            str order_id = cancelled_event.order_id
+        if self._hanging_orders_tracker.is_order_id_in_hanging_orders(order_id):
+            self.log_with_clock(
+                logging.INFO,
+                f"({self.trading_pair}) Hanging order {order_id} cancelled."
+            )
+            self.notify_hb_app(
+                f"({self.trading_pair}) Hanging order {order_id} cancelled."
+            )
+            self._hanging_orders_tracker.did_cancel_hanging_order(order_id)
+
     cdef c_did_fill_order(self, object order_filled_event):
         cdef:
             str order_id = order_filled_event.order_id
