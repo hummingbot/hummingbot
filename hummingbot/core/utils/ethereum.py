@@ -11,13 +11,20 @@ from typing import List
 from web3 import Web3
 
 
+def is_connected_to_web3(ethereum_rpc_url: str) -> bool:
+    """
+    This is abstracted out of check_web3 to make mock testing easier
+    """
+    w3: Web3 = Web3(Web3.HTTPProvider(ethereum_rpc_url, request_kwargs={"timeout": 2.0}))
+    return w3.isConnected()
+
+
 def check_web3(ethereum_rpc_url: str) -> bool:
     """
     Confirm that the provided url is a valid Ethereum RPC url.
     """
     try:
-        w3: Web3 = Web3(Web3.HTTPProvider(ethereum_rpc_url, request_kwargs={"timeout": 2.0}))
-        ret = w3.isConnected()
+        ret = is_connected_to_web3(ethereum_rpc_url)
     except Exception:
         ret = False
 
@@ -69,17 +76,24 @@ def check_transaction_exceptions(trade_data: dict) -> list:
     return exception_list
 
 
+async def get_token_list():
+    """
+    This is abstracted out of fetch_trading_pairs to make mock testing easier
+    """
+    token_list_url = global_config_map.get("ethereum_token_list_url").value
+    async with aiohttp.ClientSession() as client:
+        resp = await client.get(token_list_url)
+        return resp.json()
+
+
 @async_ttl_cache(ttl=30)
 async def fetch_trading_pairs() -> List[str]:
     """
     List of all trading pairs in all permutations, for example:
     ETH-BTC, BTC-ETH, BNB-ETH, ETH-BNB
     """
-    token_list_url = global_config_map.get("ethereum_token_list_url").value
     tokens = set()
-    async with aiohttp.ClientSession() as client:
-        resp = await client.get(token_list_url)
-        resp_json = await resp.json()
+    resp_json = await get_token_list()
     for token in resp_json["tokens"]:
         tokens.add(token["symbol"])
     trading_pairs = []
