@@ -15,13 +15,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
-        if: github.event_name == 'pull_request'
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.ref }}
-
-      - uses: actions/checkout@v2
-        if: github.event_name == 'push'
         with:
           fetch-depth: 0
     
@@ -119,6 +112,7 @@ jobs:
           source /usr/share/miniconda/etc/profile.d/conda.sh
           conda activate hummingbot
           git fetch --all -q
+          git checkout -b $GITHUB_SHA
           diff-cover --compare-branch=origin/$GITHUB_BASE_REF --fail-under=50 coverage.xml
 
       # Notify results to discord
