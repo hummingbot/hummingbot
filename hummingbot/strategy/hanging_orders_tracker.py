@@ -142,7 +142,7 @@ class HangingOrdersTracker:
                                      order.price,
                                      order.quantity)
         if hanging_order in self.equivalent_orders.union(self.orders_to_be_created):
-            return any(o.client_id == order.client_order_id
+            return any(o.order_id == order.client_order_id
                        for o in self.equivalent_orders.union(self.orders_to_be_created))
 
     def update_strategy_orders_with_equivalent_orders(self):
