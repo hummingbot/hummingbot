@@ -464,8 +464,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         base_balance = market.get_balance(base_asset)
         quote_balance = market.get_balance(quote_asset)
         inventory_in_base = quote_balance / price + base_balance
-        self._q_adjustment_factor = Decimal(
-            "1e5") / inventory_in_base
+        self._q_adjustment_factor = (Decimal("1e5") / inventory_in_base) if inventory_in_base else Decimal("1e5")
         if self._time_left == 0:
             # Re-cycle algorithm
             self._time_left = self._closing_time
@@ -506,35 +505,36 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         vol = self.get_volatility()
         mid_price_variance = vol ** 2
 
-        self._reserved_price = price - (q * self._gamma * mid_price_variance * time_left_fraction)
-        self._optimal_spread = self._gamma * mid_price_variance * time_left_fraction + 2 * Decimal(
-            1 + self._gamma / self._kappa).ln() / self._gamma
+        if all((q, self._gamma, self._kappa)):
+            self._reserved_price = price - (q * self._gamma * mid_price_variance * time_left_fraction)
+            self._optimal_spread = self._gamma * mid_price_variance * time_left_fraction + 2 * Decimal(
+                1 + self._gamma / self._kappa).ln() / self._gamma
 
-        if self._parameters_based_on_spread:
-            spread_inflation_due_to_volatility = max(self._vol_to_spread_multiplier * vol,
-                                                     price * self._min_spread) / (price * self._min_spread)
-            min_limit_bid = price * (1 - self._max_spread * spread_inflation_due_to_volatility)
-            max_limit_bid = price * (1 - self._min_spread * spread_inflation_due_to_volatility)
-            min_limit_ask = price * (1 + self._min_spread * spread_inflation_due_to_volatility)
-            max_limit_ask = price * (1 + self._max_spread * spread_inflation_due_to_volatility)
-        else:
-            min_limit_bid = s_decimal_zero
-            max_limit_bid = min_limit_ask = price
-            max_limit_ask = Decimal("Inf")
+            if self._parameters_based_on_spread:
+                spread_inflation_due_to_volatility = max(self._vol_to_spread_multiplier * vol,
+                                                         price * self._min_spread) / (price * self._min_spread)
+                min_limit_bid = price * (1 - self._max_spread * spread_inflation_due_to_volatility)
+                max_limit_bid = price * (1 - self._min_spread * spread_inflation_due_to_volatility)
+                min_limit_ask = price * (1 + self._min_spread * spread_inflation_due_to_volatility)
+                max_limit_ask = price * (1 + self._max_spread * spread_inflation_due_to_volatility)
+            else:
+                min_limit_bid = s_decimal_zero
+                max_limit_bid = min_limit_ask = price
+                max_limit_ask = Decimal("Inf")
 
-        self._optimal_ask = min(max(self._reserved_price + self._optimal_spread / 2,
-                                    min_limit_ask),
-                                max_limit_ask)
-        self._optimal_bid = min(max(self._reserved_price - self._optimal_spread / 2,
-                                    min_limit_bid),
-                                max_limit_bid)
-        # This is not what the algorithm will use as proposed bid and ask. This is just the raw output.
-        # Optimal bid and optimal ask prices will be used
-        if self._is_debug:
-            self.logger().info(f"bid={(price-(self._reserved_price - self._optimal_spread / 2)) / price * 100:.4f}% | "
-                               f"ask={((self._reserved_price + self._optimal_spread / 2) - price) / price * 100:.4f}% | "
-                               f"q={q/self._q_adjustment_factor:.4f} | "
-                               f"vol={vol:.4f}")
+            self._optimal_ask = min(max(self._reserved_price + self._optimal_spread / 2,
+                                        min_limit_ask),
+                                    max_limit_ask)
+            self._optimal_bid = min(max(self._reserved_price - self._optimal_spread / 2,
+                                        min_limit_bid),
+                                    max_limit_bid)
+            # This is not what the algorithm will use as proposed bid and ask. This is just the raw output.
+            # Optimal bid and optimal ask prices will be used
+            if self._is_debug:
+                self.logger().info(f"bid={(price-(self._reserved_price - self._optimal_spread / 2)) / price * 100:.4f}% | "
+                                   f"ask={((self._reserved_price + self._optimal_spread / 2) - price) / price * 100:.4f}% | "
+                                   f"q={q/self._q_adjustment_factor:.4f} | "
+                                   f"vol={vol:.4f}")
 
     cdef object c_calculate_target_inventory(self):
         cdef:
@@ -674,18 +674,13 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             list buys = []
             list sells = []
 
-        # If order_override is set, it will override order_levels
         if self._order_override is not None and len(self._order_override) > 0:
-            self.logger().info(f"ATTENTION: Spreads and order levels will be overridden by order_override parameter. "
-                               "To change this parameter, manually edit the strategy config file.")
-            buys, sells = self._create_propasal_based_on_order_override()
+            # If order_override is set, it will override order_levels
+            buys, sells = self._create_proposal_based_on_order_override()
         elif self._order_levels > 0 and self._parameters_based_on_spread:
             # Simple order levels will only be available for automated parameters calculation setup
             buys, sells = self._create_proposal_based_on_order_levels()
         else:
-            if self._order_levels > 0:
-                self.logger().info("ATTENTION: Order levels are only valid if using parameters_based_on_spread mode. "
-                                   "Current order_levels configuration won't have effect")
             # No order levels nor order_overrides. Just 1 bid and 1 ask order
             buys, sells = self._create_basic_proposal()
 
@@ -813,21 +808,23 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             ExchangeBase market = self._market_info.market
             str trading_pair = self._market_info.trading_pair
 
-        # eta parameter is described in the paper as the shape parameter for having exponentially decreasing order amount
-        # for orders that go against inventory target (i.e. Want to buy when excess inventory or sell when deficit inventory)
-        q = market.get_balance(self.base_asset) - self.c_calculate_target_inventory()
-        if len(proposal.buys) > 0:
-            if q > 0:
-                for i, proposed in enumerate(proposal.buys):
+        # Order amounts should be changed only if order_override is not active
+        if (self._order_override is None) or (len(self._order_override) == 0):
+            # eta parameter is described in the paper as the shape parameter for having exponentially decreasing order amount
+            # for orders that go against inventory target (i.e. Want to buy when excess inventory or sell when deficit inventory)
+            q = market.get_balance(self.base_asset) - self.c_calculate_target_inventory()
+            if len(proposal.buys) > 0:
+                if q > 0:
+                    for i, proposed in enumerate(proposal.buys):
 
-                    proposal.buys[i].size = market.c_quantize_order_amount(trading_pair, proposal.buys[i].size * Decimal.exp(-self._eta * q))
-                proposal.buys = [o for o in proposal.buys if o.size > 0]
+                        proposal.buys[i].size = market.c_quantize_order_amount(trading_pair, proposal.buys[i].size * Decimal.exp(-self._eta * q))
+                    proposal.buys = [o for o in proposal.buys if o.size > 0]
 
-        if len(proposal.sells) > 0:
-            if q < 0:
-                for i, proposed in enumerate(proposal.sells):
-                    proposal.sells[i].size = market.c_quantize_order_amount(trading_pair, proposal.sells[i].size * Decimal.exp(self._eta * q))
-                proposal.sells = [o for o in proposal.sells if o.size > 0]
+            if len(proposal.sells) > 0:
+                if q < 0:
+                    for i, proposed in enumerate(proposal.sells):
+                        proposal.sells[i].size = market.c_quantize_order_amount(trading_pair, proposal.sells[i].size * Decimal.exp(self._eta * q))
+                    proposal.sells = [o for o in proposal.sells if o.size > 0]
 
     cdef object c_apply_add_transaction_costs(self, object proposal):
         cdef:
