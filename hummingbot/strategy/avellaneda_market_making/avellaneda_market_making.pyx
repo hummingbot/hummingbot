@@ -467,9 +467,10 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 refresh_proposal = self.c_aged_order_refresh()
                 if refresh_proposal is not None:
                     self.c_execute_orders_proposal(refresh_proposal)
+                self._hanging_orders_tracker.update_strategy_orders_with_equivalent_orders()
 
                 if self.c_to_create_orders(proposal):
-                    self._hanging_orders_tracker.update_strategy_orders_with_equivalent_orders()
+                    self._hanging_orders_tracker.execute_orders_to_be_created()
                     # 4. Apply budget constraint (after hanging orders were created), i.e. can't buy/sell more than what you have.
                     self.c_apply_budget_constraint(proposal)
                     self.c_execute_orders_proposal(proposal)
@@ -750,7 +751,16 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             object base_size
             object adjusted_amount
 
-        base_balance, quote_balance = self.c_get_adjusted_available_balance(self.active_non_hanging_orders)
+        current_and_new_hanging_orders = [LimitOrder(o.order_id,
+                                                     o.trading_pair,
+                                                     o.is_buy,
+                                                     self.base_asset,
+                                                     self.quote_asset,
+                                                     o.price,
+                                                     o.amount) for o in
+                                          self._hanging_orders_tracker.strategy_current_hanging_orders]
+        base_balance, quote_balance = self.c_get_adjusted_available_balance(self.active_non_hanging_orders +
+                                                                            current_and_new_hanging_orders)
 
         for buy in proposal.buys:
             buy_fee = market.c_get_fee(self.base_asset, self.quote_asset, OrderType.LIMIT, TradeType.BUY,
@@ -1020,12 +1030,13 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 to_defer_canceling = True
 
         if not to_defer_canceling:
-            # self.logger().info(f"Active: {[o.client_order_id for o in self.active_orders]}")
-            # self.logger().info(f"Hanging: {[o.order_id for o in self._hanging_orders_tracker.strategy_current_hanging_orders]}")
-            # self.logger().info(f"Active non-hanging: {[o.client_order_id for o in self.active_non_hanging_orders]}")
             self._hanging_orders_tracker.add_hanging_orders_based_on_partially_executed_pairs()
             for order in self.active_non_hanging_orders:
-                self.c_cancel_order(self._market_info, order.client_order_id)
+                # If is about to be added to hanging_orders then don't cancel
+                if not self._hanging_orders_tracker.is_order_to_be_added_to_hanging_orders(order):
+                    self.c_cancel_order(self._market_info, order.client_order_id)
+                else:
+                    self.logger().info(f"Preserving {order} which will be added to hanging orders")
         else:
             self.set_timers()
 
@@ -1058,8 +1069,11 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         return Proposal(buys, sells)
 
     cdef bint c_to_create_orders(self, object proposal):
+        non_hanging_orders_non_cancelled = [o for o in self.active_non_hanging_orders if not
+                                            self._hanging_orders_tracker.is_order_to_be_added_to_hanging_orders(o)]
+
         return self._create_timestamp < self._current_timestamp and \
-            proposal is not None and len(self.active_non_hanging_orders) == 0
+            proposal is not None and len(non_hanging_orders_non_cancelled) == 0
 
     cdef c_execute_orders_proposal(self, object proposal):
         cdef:
