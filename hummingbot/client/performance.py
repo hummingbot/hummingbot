@@ -86,6 +86,7 @@ class PerformanceMetrics:
 
     @staticmethod
     def aggregate_orders(orders: list) -> list:
+        """Dummy comment"""
         grouped_orders = {}
         for order in orders:
             group = grouped_orders.get(order.order_id, [])
