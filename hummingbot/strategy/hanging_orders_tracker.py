@@ -145,12 +145,14 @@ class HangingOrdersTracker:
 
     def update_strategy_orders_with_equivalent_orders(self):
         equivalent_orders = self.get_equivalent_orders()
-        orders_to_cancel = self.strategy_current_hanging_orders.difference(equivalent_orders)
-        orders_to_create = equivalent_orders.union(self.orders_to_be_created).difference(self.strategy_current_hanging_orders)
-        self.cancel_multiple_orders_in_strategy([o.order_id for o in orders_to_cancel.difference(orders_to_create)])
+        orders_to_create = equivalent_orders.union(self.orders_to_be_created).\
+            difference(self.strategy_current_hanging_orders)
+        orders_to_cancel = self.strategy_current_hanging_orders.difference(equivalent_orders).\
+            difference(orders_to_create)
+        self.cancel_multiple_orders_in_strategy([o.order_id for o in orders_to_cancel])
         self.orders_to_be_created = self.orders_to_be_created.union(orders_to_create)
 
-        if any((orders_to_cancel, orders_to_create)):
+        if any((orders_to_cancel, self.orders_to_be_created)):
             self.logger().info("Updating hanging orders...")
             self.logger().info(f"Original hanging orders: {self.original_orders}")
             self.logger().info(f"Equivalent hanging orders: {self.equivalent_orders}")
@@ -162,10 +164,6 @@ class HangingOrdersTracker:
         self.orders_to_be_created.clear()
 
     def execute_orders_in_strategy(self, candidate_orders: Set[HangingOrder]):
-        """ToDo: Need to verify budget restriction.
-        Specially when execution of orders happens after they were cancelled to be renewed.
-        In that case we are not waiting for orders to be successfully cancelled before creating the new ones
-        and that might lead to lack of budget."""
         new_hanging_orders = set()
         order_type = self.strategy.market_info.market.get_maker_order_type()
         for order in candidate_orders:
@@ -221,8 +219,8 @@ class HangingOrdersTracker:
 
             quantized_amount = self.strategy.market_info.market.quantize_order_amount(self.trading_pair, amount)
             quantized_price = self.strategy.market_info.market.quantize_order_price(self.trading_pair, price)
-
-            return frozenset([HangingOrder(None, self.trading_pair, isbuy, quantized_price, quantized_amount)])
+            if quantized_amount > 0:
+                return frozenset([HangingOrder(None, self.trading_pair, isbuy, quantized_price, quantized_amount)])
         return frozenset()
 
     def _get_equivalent_order_volume_weighted(self, orders: Set[LimitOrder]):
