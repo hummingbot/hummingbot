@@ -27,6 +27,7 @@ from hummingbot.core.event.events import OrderType
 from hummingbot.strategy.avellaneda_market_making.data_types import PriceSize, Proposal
 
 s_decimal_zero = Decimal(0)
+s_decimal_one = Decimal(1)
 s_decimal_nan = Decimal("NaN")
 
 
@@ -40,6 +41,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.trading_pair: str = "COINALPHA-HBOT"
+        cls.base_asset, cls.quote_asset = cls.trading_pair.split("-")
         cls.initial_mid_price: int = 100
 
         cls.clock_tick_size: int = 1
@@ -48,8 +50,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         # Testing Constants
         cls.low_vol: Decimal = Decimal("0.05")
         cls.expected_low_vol: Decimal = Decimal("0.0501863845537047")
-        cls.high_vol: Decimal = Decimal("10")
-        cls.expected_high_vol: Decimal = Decimal("10.037243725081089")
+        cls.high_vol: Decimal = Decimal("5")
+        cls.expected_high_vol: Decimal = Decimal("5.018622242594793")
 
         # Strategy Initial Configuration Parameters
         cls.order_amount: Decimal = Decimal("10")
@@ -74,7 +76,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
                                                      price_step_size=1,
                                                      volume_step_size=10)
         self.market.add_data(self.order_book_data)
-        self.market.set_balance("COINALPHA", 100)
+        self.market.set_balance("COINALPHA", 1)
         self.market.set_balance("HBOT", 500)
         self.market.set_quantization_param(
             QuantizationParams(
@@ -154,7 +156,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         for sample in samples:
             volatility_indicator.add_sample(sample)
 
-        # Note: Current Value of volatility is ~10%
+        # Note: Current Value of volatility is ~5%
         strategy.avg_vol = volatility_indicator
 
         # Simulates change in mid price to reflect last sample added
@@ -338,7 +340,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
                                              base_currency=self.trading_pair.split("-")[0],
                                              quote_currency=self.trading_pair.split("-")[1],
                                              price=Decimal("101.0"),
-                                             quantity=Decimal("10"))
+                                             quantity=Decimal("0.5"))
 
         self.simulate_place_limit_order(self.strategy, self.market_info, limit_order)
 
@@ -468,58 +470,63 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         # Simulate low volatility
         self.simulate_low_volatility(self.strategy)
 
+        # Calculate expected gamma, kappa and eta
+        q = (self.market.get_balance(self.base_asset) - self.strategy.calculate_target_inventory()) * self.strategy.q_adjustment_factor
+        vol = self.strategy.get_volatility()
+        min_spread, max_spread = self.strategy._get_min_and_max_spread()
+
+        expected_gamma = self.ira * (max_spread - min_spread) / (2 * abs(q) * (vol ** 2))
+
+        max_spread_around_reserved_price = max_spread * (2 - self.ira) + min_spread * self.ira
+        expected_kappa = expected_gamma / (Decimal.exp((max_spread_around_reserved_price * expected_gamma - (vol * expected_gamma) ** 2) / 2) - 1)
+
+        q_where_to_decay_order_amount = self.strategy.calculate_target_inventory() / (self.ira * Decimal.ln(Decimal("10")))
+        expected_eta = s_decimal_one / q_where_to_decay_order_amount
+
         self.strategy.recalculate_parameters()
-
-        # Check initial gamma, kappa, eta, latest_parameter_calculation_vol
-        expected_gamma = Decimal('0.003373')
-        expected_kappa = Decimal('0.004962')
-        expected_eta = Decimal('0.023025')
-
         self.assertAlmostEqual(expected_gamma, self.strategy.gamma, 5)
         self.assertAlmostEqual(expected_kappa, self.strategy.kappa, 5)
         self.assertAlmostEqual(expected_eta, self.strategy.eta, 5)
 
-        # Simulate high volatility
-        self.simulate_high_volatility(self.strategy)
-        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
-        self.strategy.collect_market_variables(self.strategy.current_timestamp)
-        self.strategy.recalculate_parameters()
+        # Simulate close to _inventory_target_base_pct
+        self.market.set_balance("COINALPHA", 5)
+        self.market.set_balance("HBOT", 500)
 
-        # Check new gamma, kappa, eta, latest_parameter_calculation_vol
-        expected_gamma = Decimal('0.000008')
-        expected_kappa = Decimal('0.006499')
-        expected_eta = Decimal('0.023025')
+        q = (self.market.get_balance(self.base_asset) - self.strategy.calculate_target_inventory()) * self.strategy.q_adjustment_factor
+        vol = self.strategy.get_volatility()
+        min_spread, max_spread = self.strategy._get_min_and_max_spread()
 
-        self.assertAlmostEqual(expected_gamma, self.strategy.gamma, 5)
-        self.assertAlmostEqual(expected_kappa, self.strategy.kappa, 5)
-        self.assertAlmostEqual(expected_eta, self.strategy.eta, 5)
+        # TODO: Test for expected_gamma = self.ira * (max_spread * (2-self.ira) / self.ira + min_spread) / (vol ** 2)
 
     def test_calculate_reserved_price_and_optimal_spread(self):
+        # Test (1) Low volatility, Default min_spread = Decimal(0.2)
         # Simulate low volatility
         self.simulate_low_volatility(self.strategy)
 
-        # Prepare market variables and parameters for calculation
-        self.strategy.collect_market_variables(self.strategy.current_timestamp)
+        # Prepare parameters for calculation
         self.strategy.recalculate_parameters()
+
+        price = self.strategy.get_price()
+        q = (self.market.get_balance(self.base_asset) - self.strategy.calculate_target_inventory()) * self.strategy.q_adjustment_factor
+        vol = self.strategy.get_volatility()
+        mid_price_variance = vol ** 2
+
+        time_left_fraction = Decimal("1")
+        expected_reserved_price = price - (q * self.strategy.gamma * mid_price_variance * time_left_fraction)
+        expected_optimal_spread = self.strategy.gamma * mid_price_variance * time_left_fraction + 2 * Decimal(
+            1 + self.strategy.gamma / self.strategy.kappa).ln() / self.strategy.gamma
+        expected_optimal_ask = expected_reserved_price + expected_optimal_spread / 2
+        expected_optimal_bid = expected_reserved_price - expected_optimal_spread / 2
+
         self.strategy.calculate_reserved_price_and_optimal_spread()
 
         # Check reserved_price, optimal_ask and optimal_bid
-        self.assertAlmostEqual(Decimal("53.75"), self.strategy.reserved_price, 2)
-        self.assertAlmostEqual(Decimal("207.5"), self.strategy.optimal_ask, 1)
-        self.assertAlmostEqual(Decimal("-100.0"), self.strategy.optimal_bid, 1)
+        self.assertAlmostEqual(expected_reserved_price, self.strategy.reserved_price, 2)
+        self.assertAlmostEqual(expected_optimal_spread, self.strategy.optimal_spread, 2)
+        self.assertAlmostEqual(expected_optimal_ask, self.strategy.optimal_ask, 1)
+        self.assertAlmostEqual(expected_optimal_bid, self.strategy.optimal_bid, 1)
 
-        # Simulate high volatility
-        self.simulate_high_volatility(self.strategy)
-
-        # Prepare market variables and parameters for calculation
-        self.strategy.collect_market_variables(self.strategy.current_timestamp)
-        self.strategy.recalculate_parameters()
-        self.strategy.calculate_reserved_price_and_optimal_spread()
-
-        # Check reserved_price, optimal_ask and optimal_bid
-        self.assertAlmostEqual(Decimal("53.24"), self.strategy.reserved_price, 2)
-        self.assertAlmostEqual(Decimal("208.68"), self.strategy.optimal_ask, 2)
-        self.assertAlmostEqual(Decimal("-102.19"), self.strategy.optimal_bid, 1)
+        # TODO: Test for different paths optimal_ask and optimal_bid. See AvellanedaMM line 631-648.
 
     def test_create_proposal_based_on_order_override(self):
         # Initial check for empty order_override
@@ -560,19 +567,24 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
             order_amount=self.order_amount,
             order_levels=2,
         )
-        self.strategy.start(self.clock)
+        self.strategy.start(self.clock, self.start_timestamp)
 
         # Simulate low volatility.
         # Note: bid/ask_level_spreads Requires volatility, optimal_bid, optimal_ask to be defined
         self.simulate_low_volatility(self.strategy)
 
-        self.strategy.collect_market_variables(self.strategy.current_timestamp)
         self.strategy.recalculate_parameters()
         self.strategy.calculate_reserved_price_and_optimal_spread()
 
-        # TODO: Show exact calculation. Find a better max_spread parameter to better illustrate bid levels
-        expected_bid_spreads = [0.0, 0.0]
-        expected_ask_spreads = [0.0, 92.5]
+        # Calculation for expected bid/ask_level_spreads
+        reference_price = self.strategy.get_price()
+        _, max_spread = self.strategy._get_min_and_max_spread()
+        optimal_ask_spread = self.strategy.optimal_ask - reference_price
+        optimal_bid_spread = reference_price - self.strategy.optimal_bid
+        expected_bid_spreads = np.logspace(0, np.log(float(max_spread - optimal_bid_spread) + 1), base=np.e,
+                                           num=2) - 1
+        expected_ask_spreads = np.logspace(0, np.log(float(max_spread - optimal_ask_spread) + 1), base=np.e,
+                                           num=2) - 1
 
         bid_level_spreads, ask_level_spreads = self.strategy._get_logspaced_level_spreads()
         for i, spread in enumerate(bid_level_spreads):
@@ -581,17 +593,22 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         for i, spread in enumerate(ask_level_spreads):
             self.assertAlmostEqual(expected_ask_spreads[i], spread, 1)
 
-        # Simulate high volatility. Find a better max_spread parameter to better illustrate bid levels
+        # Simulate high volatility. TODO: Find a better max_spread parameter to better illustrate bid levels
         # Note: bid/ask_level_spreads Requires volatility, optimal_bid, optimal_ask to be defined
         self.simulate_high_volatility(self.strategy)
 
-        self.strategy.collect_market_variables(self.strategy.current_timestamp)
         self.strategy.recalculate_parameters()
         self.strategy.calculate_reserved_price_and_optimal_spread()
 
-        # TODO: Show exact calculation
-        expected_bid_spreads = [0.0, 0.0]
-        expected_ask_spreads = [0.0, 93.5]
+        # Calculation for expected bid/ask_level_spreads
+        reference_price = self.strategy.get_price()
+        _, max_spread = self.strategy._get_min_and_max_spread()
+        optimal_ask_spread = self.strategy.optimal_ask - reference_price
+        optimal_bid_spread = reference_price - self.strategy.optimal_bid
+        expected_bid_spreads = np.logspace(0, np.log(float(max_spread - optimal_bid_spread) + 1), base=np.e,
+                                           num=2) - 1
+        expected_ask_spreads = np.logspace(0, np.log(float(max_spread - optimal_ask_spread) + 1), base=np.e,
+                                           num=2) - 1
 
         bid_level_spreads, ask_level_spreads = self.strategy._get_logspaced_level_spreads()
         for i, spread in enumerate(bid_level_spreads):
@@ -602,36 +619,38 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
     def test_create_proposal_based_on_order_levels(self):
         # Simulate low volatility
-        self.simulate_high_volatility(self.strategy)
+        self.simulate_low_volatility(self.strategy)
 
         # Prepare market variables and parameters for calculation
-        self.strategy.collect_market_variables(self.strategy.current_timestamp)
         self.strategy.recalculate_parameters()
         self.strategy.calculate_reserved_price_and_optimal_spread()
 
-        # Check order_levels default = 0
+        # Test(1) Check order_levels default = 0
         empty_proposal = ([], [])
         self.assertEqual(empty_proposal, self.strategy.create_proposal_based_on_order_levels())
 
         # Re-initialize strategy with order_level configurations
-        self.strategy = AvellanedaMarketMakingStrategy(
-            market_info=self.market_info,
-            order_amount=self.order_amount,
-            order_levels=2,
-        )
-        self.strategy.start(self.clock)
+        self.strategy.order_levels = 2
 
-        # Simulate low volatility
-        self.simulate_high_volatility(self.strategy)
+        # Calculate order levels
+        bid_level_spreads, ask_level_spreads = self.strategy._get_logspaced_level_spreads()
 
-        # Prepare market variables and parameters for calculation
-        self.strategy.collect_market_variables(self.strategy.current_timestamp)
-        self.strategy.recalculate_parameters()
-        self.strategy.calculate_reserved_price_and_optimal_spread()
+        expected_buys = []
+        expected_sells = []
 
-        # TODO: Calculate expected proposals
-        # expected_proposal = ([], [])
-        # self.assertEqual(expected_proposal, self.strategy.create_proposal_based_on_order_levels())
+        order_amount = self.market.quantize_order_amount(self.trading_pair, self.order_amount)
+        for level in range(self.strategy.order_levels):
+            bid_price = self.market.quantize_order_price(self.trading_pair,
+                                                         self.strategy.optimal_bid - Decimal(str(bid_level_spreads[level])))
+            ask_price = self.market.quantize_order_price(self.trading_pair,
+                                                         self.strategy.optimal_ask + Decimal(str(ask_level_spreads[level])))
+
+            expected_buys.append(PriceSize(bid_price, order_amount))
+            expected_sells.append(PriceSize(ask_price, order_amount))
+
+        expected_proposal = (expected_buys, expected_sells)
+
+        self.assertEqual(str(expected_proposal), str(self.strategy.create_proposal_based_on_order_levels()))
 
     def test_create_basic_proposal(self):
         pass
@@ -640,7 +659,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         pass
 
     def test_get_adjusted_available_balance(self):
-        expected_available_balance: Tuple[Decimal, Decimal] = (Decimal("500"), Decimal("5000"))  # Initial asset balance
+        expected_available_balance: Tuple[Decimal, Decimal] = (Decimal("1"), Decimal("500"))  # Initial asset balance
         self.assertEqual(expected_available_balance, self.strategy.get_adjusted_available_balance(self.strategy.active_orders))
 
         # Simulate order being placed
@@ -650,7 +669,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
                                              base_currency=self.trading_pair.split("-")[0],
                                              quote_currency=self.trading_pair.split("-")[1],
                                              price=Decimal("101.0"),
-                                             quantity=Decimal("10"))
+                                             quantity=Decimal("1"))
 
         self.simulate_place_limit_order(self.strategy, self.market_info, limit_order)
 
