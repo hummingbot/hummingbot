@@ -230,6 +230,30 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._vol_to_spread_multiplier = value
 
     @property
+    def min_spread(self) -> Decimal:
+        return self._min_spread
+
+    @min_spread.setter
+    def min_spread(self, value):
+        self._min_spread = value
+
+    @property
+    def max_spread(self) -> Decimal:
+        return self._max_spread
+
+    @max_spread.setter
+    def max_spread(self, value):
+        self._max_spread = value
+
+    @property
+    def order_levels(self) -> int:
+        return self._order_levels
+
+    @order_levels.setter
+    def order_levels(self, value):
+        self._order_levels = value
+
+    @property
     def add_transaction_costs_to_orders(self) -> bool:
         return self._add_transaction_costs_to_orders
 
