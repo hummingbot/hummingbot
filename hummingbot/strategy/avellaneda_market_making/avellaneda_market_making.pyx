@@ -86,7 +86,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                  closing_time: Decimal = Decimal("1"),
                  debug_csv_path: str = '',
                  volatility_buffer_size: int = 30,
-                 is_debug: bool = True,
+                 is_debug: bool = False,
                  ):
         super().__init__()
         self._sb_order_tracker = OrderTracker()
@@ -222,6 +222,14 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._filled_order_delay = value
 
     @property
+    def vol_to_spread_multiplier(self) -> Decimal:
+        return self._vol_to_spread_multiplier
+
+    @vol_to_spread_multiplier.setter
+    def vol_to_spread_multiplier(self, value):
+        self._vol_to_spread_multiplier = value
+
+    @property
     def add_transaction_costs_to_orders(self) -> bool:
         return self._add_transaction_costs_to_orders
 
@@ -300,6 +308,14 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     @q_adjustment_factor.setter
     def q_adjustment_factor(self, value):
         self._q_adjustment_factor = value
+
+    @property
+    def time_left(self):
+        return self._time_left
+
+    @property
+    def closing_time(self):
+        return self._closing_time
 
     def get_price(self) -> float:
         return self.get_mid_price()
@@ -469,6 +485,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         # start tracking any restored limit order
         restored_order_ids = self.c_track_restored_orders(self.market_info)
         self._time_left = self._closing_time
+
+    def start(self, Clock clock, double timestamp):
+        self.c_start(clock, timestamp)
 
     cdef c_tick(self, double timestamp):
         StrategyBase.c_tick(self, timestamp)
