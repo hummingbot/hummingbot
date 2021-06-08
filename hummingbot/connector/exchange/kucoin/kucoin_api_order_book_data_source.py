@@ -304,7 +304,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
             resp = await client.get(TICKER_PRICE_CHANGE_URL)
             resp_json = await resp.json()
             for trading_pair in trading_pairs:
-                resp_record = [o for o in resp_json["data"]["ticker"] if o["symbolName"] == trading_pair][0]
+                resp_record = [o for o in resp_json["data"]["ticker"] if o["symbol"] == trading_pair][0]
                 results[trading_pair] = float(resp_record["last"])
         return results
 
