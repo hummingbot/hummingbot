@@ -715,7 +715,6 @@ cdef class BinanceExchange(ExchangeBase):
     async def _status_polling_loop(self):
         while True:
             try:
-                self._poll_notifier = asyncio.Event()
                 await self._poll_notifier.wait()
                 await safe_gather(
                     self._update_balances(),
@@ -731,6 +730,8 @@ cdef class BinanceExchange(ExchangeBase):
                                       app_warning_msg="Could not fetch account updates from Binance. "
                                                       "Check API key and network connection.")
                 await asyncio.sleep(0.5)
+            finally:
+                self._poll_notifier = asyncio.Event()
 
     async def _trading_rules_polling_loop(self):
         while True:
@@ -783,6 +784,10 @@ cdef class BinanceExchange(ExchangeBase):
             self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
 
     def _stop_network(self):
+        # Reset timestamps for status_polling_task
+        self._last_poll_timestamp = 0
+        self._last_timestamp = 0
+
         self._order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
