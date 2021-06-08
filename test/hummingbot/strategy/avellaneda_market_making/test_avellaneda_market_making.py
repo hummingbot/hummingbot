@@ -46,15 +46,18 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         cls.clock: Clock = Clock(ClockMode.BACKTEST, cls.clock_tick_size, cls.start_timestamp, cls.end_timestamp)
 
         # Testing Constants
-        cls.low_vol: Decimal = Decimal("0.5462346278631169")
-        cls.high_vol: Decimal = Decimal("10.884136001718568")
+        cls.low_vol: Decimal = Decimal("0.05")
+        cls.expected_low_vol: Decimal = Decimal("0.0501863845537047")
+        cls.high_vol: Decimal = Decimal("10")
+        cls.expected_high_vol: Decimal = Decimal("10.037243725081089")
 
         # Strategy Initial Configuration Parameters
-        cls.order_amount: Decimal = Decimal("100")
+        cls.order_amount: Decimal = Decimal("10")
         cls.inventory_target_base_pct: Decimal = Decimal("0.5")     # Indicates 50%
-        cls.min_spread: Decimal = Decimal("0.15")                   # Default strategy value
-        cls.max_spread: Decimal = Decimal("2")                      # Default strategy value
+        cls.min_spread: Decimal = Decimal("0.2")                   # Default strategy value
+        cls.max_spread: Decimal = Decimal("0.5")                      # Default strategy value
         cls.vol_to_spread_multiplier: Decimal = Decimal("1.3")      # Default strategy value
+        cls.ira: Decimal = Decimal("0.8")
 
     def setUp(self):
         self.market: BacktestMarket = BacktestMarket()
@@ -71,8 +74,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
                                                      price_step_size=1,
                                                      volume_step_size=10)
         self.market.add_data(self.order_book_data)
-        self.market.set_balance("COINALPHA", 500)
-        self.market.set_balance("HBOT", 5000)
+        self.market.set_balance("COINALPHA", 100)
+        self.market.set_balance("HBOT", 500)
         self.market.set_quantization_param(
             QuantizationParams(
                 self.trading_pair.split("-")[0], 6, 6, 6, 6
@@ -86,6 +89,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
             max_spread=self.max_spread,
             inventory_target_base_pct=self.inventory_target_base_pct,
             vol_to_spread_multiplier=self.vol_to_spread_multiplier,
+            inventory_risk_aversion=self.ira
         )
 
         self.avg_vol_indicator: AverageVolatilityIndicator = AverageVolatilityIndicator(sampling_length=100,
@@ -95,12 +99,11 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         self.clock.add_iterator(self.market)
         self.clock.add_iterator(self.strategy)
-        self.strategy.start(self.clock)
+        self.strategy.start(self.clock, self.start_timestamp)
 
     @staticmethod
     def simulate_low_volatility(strategy: AvellanedaMarketMakingStrategy):
         N_SAMPLES = 1000
-        BUFFER_SIZE = 30  # Default Buffer Size used for tests
         INITIAL_RANDOM_SEED = 3141592653
         original_price = 100
         volatility = AvellanedaMarketMakingUnitTests.low_vol / Decimal("100")  # Assuming 0.5% volatility
@@ -108,18 +111,37 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         samples = np.random.normal(original_price, volatility * original_price, N_SAMPLES)
 
         # This replicates the same indicator Avellaneda uses if volatility_buffer_samples = 30
-        volatility_indicator = AverageVolatilityIndicator(BUFFER_SIZE, 1)
+        volatility_indicator = strategy.avg_vol
 
         for sample in samples:
             volatility_indicator.add_sample(sample)
 
-        # Note: Current Value of volatility is 0.5945301953179808
+        # Note: Current Value of volatility is ~0.5%
         strategy.avg_vol = volatility_indicator
+
+        # Simulates change in mid price to reflect last sample added
+        order_book_data: MockOrderBookLoader = MockOrderBookLoader(
+            strategy.trading_pair, *strategy.trading_pair.split("-")
+        )
+        order_book_data.set_balanced_order_book(mid_price=samples[-1],
+                                                min_price=1,
+                                                max_price=200,
+                                                price_step_size=1,
+                                                volume_step_size=10)
+        strategy.market_info.market.add_data(order_book_data)
+
+        # Simulates c_collect_market_variables().
+        # This is required since c_collect_market_variables() calls avg_vol.add_sample() which would affect calculations.
+        price = strategy.get_price()
+        base_balance = strategy.market_info.market.get_balance("COINALPHA")
+        quote_balance = strategy.market_info.market.get_balance("HBOT")
+        inventory_in_base = quote_balance / price + base_balance
+
+        strategy.q_adjustment_factor = (Decimal("1e5") / inventory_in_base) if inventory_in_base else Decimal("1e5")
 
     @staticmethod
     def simulate_high_volatility(strategy: AvellanedaMarketMakingStrategy):
         N_SAMPLES = 1000
-        BUFFER_SIZE = 30  # Default Buffer Size used for tests
         INITIAL_RANDOM_SEED = 3141592653
         original_price = 100
         volatility = AvellanedaMarketMakingUnitTests.high_vol / Decimal("100")  # Assuming 10% volatility
@@ -127,13 +149,33 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         samples = np.random.normal(original_price, volatility * original_price, N_SAMPLES)
 
         # This replicates the same indicator Avellaneda uses if volatility_buffer_samples = 30
-        volatility_indicator = AverageVolatilityIndicator(BUFFER_SIZE, 1)
+        volatility_indicator = strategy.avg_vol
 
         for sample in samples:
             volatility_indicator.add_sample(sample)
 
-        # Note: Current Value of volatility is 10.884136001718568
+        # Note: Current Value of volatility is ~10%
         strategy.avg_vol = volatility_indicator
+
+        # Simulates change in mid price to reflect last sample added
+        order_book_data: MockOrderBookLoader = MockOrderBookLoader(
+            strategy.trading_pair, *strategy.trading_pair.split("-")
+        )
+        order_book_data.set_balanced_order_book(mid_price=samples[-1],
+                                                min_price=1,
+                                                max_price=200,
+                                                price_step_size=1,
+                                                volume_step_size=10)
+        strategy.market_info.market.add_data(order_book_data)
+
+        # Simulates c_collect_market_variables().
+        # This is required since c_collect_market_variables() calls avg_vol.add_sample() which would affect calculations.
+        price = strategy.get_price()
+        base_balance = strategy.market_info.market.get_balance("COINALPHA")
+        quote_balance = strategy.market_info.market.get_balance("HBOT")
+        inventory_in_base = quote_balance / price + base_balance
+
+        strategy.q_adjustment_factor = (Decimal("1e5") / inventory_in_base) if inventory_in_base else Decimal("1e5")
 
     @staticmethod
     def simulate_place_limit_order(strategy: AvellanedaMarketMakingStrategy, market_info: MarketTradingPairTuple, order: LimitOrder):
@@ -381,7 +423,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.simulate_low_volatility(self.strategy)
 
         # Check updated volatility
-        self.assertAlmostEqual(self.low_vol, self.strategy.get_volatility(), 1)
+        self.assertAlmostEqual(self.expected_low_vol, self.strategy.get_volatility(), 1)
 
     def test_calculate_target_inventory(self):
         # Calculate expected quantize order amount
@@ -411,9 +453,12 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         # Simulate high volatility. vol approx. 10%
         self.simulate_high_volatility(self.strategy)
 
+        # Initialize strategy with high vol_to_spread_multiplier config
+        self.strategy.vol_to_spread_multiplier = Decimal("10")
+
         curr_price: Decimal = self.strategy.get_price()
         curr_vol: Decimal = self.strategy.get_volatility()
-        expected_min_spread: Decimal = self.vol_to_spread_multiplier * curr_vol
+        expected_min_spread: Decimal = self.strategy.vol_to_spread_multiplier * curr_vol
         expected_max_spread: Decimal = self.max_spread * curr_price * (expected_min_spread / (self.min_spread * curr_price))
 
         self.assertEqual((expected_min_spread, expected_max_spread), self.strategy._get_min_and_max_spread())
@@ -422,13 +467,13 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         # Simulate low volatility
         self.simulate_low_volatility(self.strategy)
-        self.strategy.collect_market_variables(self.strategy.current_timestamp)
+
         self.strategy.recalculate_parameters()
 
         # Check initial gamma, kappa, eta, latest_parameter_calculation_vol
-        expected_gamma = Decimal('0.003298')
-        expected_kappa = Decimal('0.004993')
-        expected_eta = Decimal('0.004186')
+        expected_gamma = Decimal('0.003373')
+        expected_kappa = Decimal('0.004962')
+        expected_eta = Decimal('0.023025')
 
         self.assertAlmostEqual(expected_gamma, self.strategy.gamma, 5)
         self.assertAlmostEqual(expected_kappa, self.strategy.kappa, 5)
@@ -436,13 +481,14 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         # Simulate high volatility
         self.simulate_high_volatility(self.strategy)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
         self.strategy.collect_market_variables(self.strategy.current_timestamp)
         self.strategy.recalculate_parameters()
 
         # Check new gamma, kappa, eta, latest_parameter_calculation_vol
         expected_gamma = Decimal('0.000008')
-        expected_kappa = Decimal('0.006429')
-        expected_eta = Decimal('0.004186')
+        expected_kappa = Decimal('0.006499')
+        expected_eta = Decimal('0.023025')
 
         self.assertAlmostEqual(expected_gamma, self.strategy.gamma, 5)
         self.assertAlmostEqual(expected_kappa, self.strategy.kappa, 5)
