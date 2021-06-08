@@ -237,7 +237,9 @@ class AmmArbStrategy(StrategyPyBase):
         for proposal in arb_proposal:
             side1 = "buy" if proposal.first_side.is_buy else "sell"
             side2 = "buy" if proposal.second_side.is_buy else "sell"
-            profit_pct = proposal.profit_pct(True, first_side_quote_eth_rate=self._market_1_quote_eth_rate,
+            profit_pct = proposal.profit_pct(True,
+                                             rate_source=self._rate_source,
+                                             first_side_quote_eth_rate=self._market_1_quote_eth_rate,
                                              second_side_quote_eth_rate = self._market_2_quote_eth_rate)
             lines.append(f"{'    ' if indented else ''}{side1} at {proposal.first_side.market_info.market.display_name}"
                          f", {side2} at {proposal.second_side.market_info.market.display_name}: "
