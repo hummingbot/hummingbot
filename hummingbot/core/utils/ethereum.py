@@ -83,7 +83,7 @@ async def get_token_list():
     token_list_url = global_config_map.get("ethereum_token_list_url").value
     async with aiohttp.ClientSession() as client:
         resp = await client.get(token_list_url)
-        return resp.json()
+        return await resp.json()
 
 
 @async_ttl_cache(ttl=30)
