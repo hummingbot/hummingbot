@@ -561,7 +561,6 @@ class GateIoExchange(ExchangeBase):
         """
         while True:
             try:
-                self._poll_notifier = asyncio.Event()
                 await self._poll_notifier.wait()
                 await safe_gather(
                     self._update_balances(),
@@ -577,6 +576,8 @@ class GateIoExchange(ExchangeBase):
                 self.logger().network("Unexpected error while fetching account updates.", exc_info=True,
                                       app_warning_msg=warn_msg)
                 await asyncio.sleep(0.5)
+            finally:
+                self._poll_notifier = asyncio.Event()
 
     async def _update_balances(self):
         """
@@ -818,11 +819,11 @@ class GateIoExchange(ExchangeBase):
         Is called automatically by the clock for each clock's tick (1 second by default).
         It checks if status polling task is due for execution.
         """
+        now = time.time()
         # Using 120 seconds here as Gate.io websocket is quiet
-        requires_short_poll = (time.time() - self._user_stream_tracker.last_recv_time > 120.0 or
-                               self._user_stream_tracker.data_source.last_recv_time <= 0 or
-                               len(self._account_balances) == 0)
-        poll_interval = Constants.SHORT_POLL_INTERVAL if requires_short_poll else Constants.LONG_POLL_INTERVAL
+        poll_interval = (Constants.SHORT_POLL_INTERVAL
+                         if now - self._user_stream_tracker.last_recv_time > 120.0
+                         else Constants.LONG_POLL_INTERVAL)
         last_tick = int(self._last_timestamp / poll_interval)
         current_tick = int(timestamp / poll_interval)
         if current_tick > last_tick:
