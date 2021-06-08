@@ -1,12 +1,15 @@
 from decimal import Decimal
+import logging
 from typing import Any
 
 from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.utils.fixed_rate_source import FixedRateSource
+from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 s_decimal_nan = Decimal("NaN")
 s_decimal_0 = Decimal("0")
+arbprop_logger = None
 
 
 class ArbProposalSide:
@@ -40,6 +43,14 @@ class ArbProposalSide:
 
 
 class ArbProposal:
+
+    @classmethod
+    def logger(cls) -> HummingbotLogger:
+        global arbprop_logger
+        if arbprop_logger is None:
+            arbprop_logger = logging.getLogger(__name__)
+        return arbprop_logger
+
     """
     An arbitrage proposal which contains 2 sides of the proposal - one buy and one sell.
     """
@@ -55,15 +66,15 @@ class ArbProposal:
                    second_side_quote_eth_rate: Decimal = None) -> Decimal:
         """
         Returns a profit in percentage value (e.g. 0.01 for 1% profitability)
+        Assumes the base token is the same in both arbitrage sides
         """
         buy = self.first_side if self.first_side.is_buy else self.second_side
         sell = self.first_side if not self.first_side.is_buy else self.second_side
-        sell_base_to_buy_base_rate = (Decimal(1)
-                                      if buy.amount != sell.amount
-                                      else rate_source.rate(f"{sell.market_info.base_asset}"
-                                                            f"-{buy.market_info.base_asset}"))
-        sell_quote_to_buy_quote_rate = rate_source.rate(f"{sell.market_info.quote_asset}"
-                                                        f"-{buy.market_info.quote_asset}")
+        base_conversion_pair = f"{sell.market_info.base_asset}-{buy.market_info.base_asset}"
+        quote_conversion_pair = f"{sell.market_info.quote_asset}-{buy.market_info.quote_asset}"
+
+        sell_base_to_buy_base_rate = Decimal(1)
+        sell_quote_to_buy_quote_rate = rate_source.rate(quote_conversion_pair)
 
         buy_fee_amount = s_decimal_0
         sell_fee_amount = s_decimal_0
@@ -99,6 +110,10 @@ class ArbProposal:
             result = (((sell_gained_net_in_buy_quote_currency - buy_spent_net) / buy_spent_net)
                       if buy_spent_net != s_decimal_0
                       else s_decimal_0)
+        else:
+            self.logger().warning("The arbitrage proposal profitability could not be calculated due to a missing rate"
+                                  f" ({base_conversion_pair}={sell_base_to_buy_base_rate},"
+                                  f" {quote_conversion_pair}={sell_quote_to_buy_quote_rate})")
 
         return result
 
