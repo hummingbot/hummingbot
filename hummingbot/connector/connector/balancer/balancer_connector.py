@@ -88,7 +88,6 @@ class BalancerConnector(ConnectorBase):
         self._initiate_pool_task = None
         self._initiate_pool_status = None
         self._real_time_balance_update = False
-        self._max_swaps = global_config_map['balancer_max_swaps'].value
         self._poll_notifier = None
 
     @property
