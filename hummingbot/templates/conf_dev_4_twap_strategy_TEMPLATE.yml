@@ -11,11 +11,11 @@ strategy: null
 exchange: null
 trading_pair: null
 
-# Type of Order (Limit/Market)
-order_type: null
+# Total amount to be traded, considering all orders
+target_asset_amount: null
 
 # Size of the Order
-order_amount: null
+order_step_size: null
 
 # Price of Order (in case of Limit Order)
 order_price: null
