@@ -21,7 +21,7 @@ from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.arbitrage.arbitrage_market_pair import ArbitrageMarketPair
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
-from hummingbot.client.performance import smart_round
+from hummingbot.client.performance import PerformanceMetrics
 
 NaN = float("nan")
 s_decimal_0 = Decimal(0)
@@ -62,6 +62,12 @@ cdef class ArbitrageStrategy(StrategyBase):
         :param status_report_interval: how often to report network connection related warnings, if any
         :param next_trade_delay_interval: cool off period between trades
         :param failed_order_tolerance: number of failed orders to force stop the strategy when exceeded
+        :param use_oracle_conversion_rate: Enables the use of the Oracle to get the price in ETH of each quote token to
+        compare the trading pairs in between markets.
+        If true the Oracle will be used. If false the reates will be fetched from uniswap. The default is false.
+        :param secondary_to_primary_base_conversion_rate: Conversion rate of base token between markets. The default is 1
+        :param secondary_to_primary_quote_conversion_rate: Conversion rate of quote token between markets. The default is 1
+        :param hb_app_notification: Enables sending notifications to the client application. The default is false.
         """
 
         if len(market_pairs) < 0:
@@ -140,9 +146,9 @@ cdef class ArbitrageStrategy(StrategyBase):
         quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate = \
             self.get_second_to_first_conversion_rate()
         if quote_pair.split("-")[0] != quote_pair.split("-")[1]:
-            self.logger().info(f"{quote_pair} ({quote_rate_source}) conversion rate: {smart_round(quote_rate)}")
+            self.logger().info(f"{quote_pair} ({quote_rate_source}) conversion rate: {PerformanceMetrics.smart_round(quote_rate)}")
         if base_pair.split("-")[0] != base_pair.split("-")[1]:
-            self.logger().info(f"{base_pair} ({base_rate_source}) conversion rate: {smart_round(base_rate)}")
+            self.logger().info(f"{base_pair} ({base_rate_source}) conversion rate: {PerformanceMetrics.smart_round(base_rate)}")
 
     def oracle_status_df(self):
         columns = ["Source", "Pair", "Rate"]
@@ -151,11 +157,11 @@ cdef class ArbitrageStrategy(StrategyBase):
             self.get_second_to_first_conversion_rate()
         if quote_pair.split("-")[0] != quote_pair.split("-")[1]:
             data.extend([
-                [quote_rate_source, quote_pair, smart_round(quote_rate)],
+                [quote_rate_source, quote_pair, PerformanceMetrics.smart_round(quote_rate)],
             ])
         if base_pair.split("-")[0] != base_pair.split("-")[1]:
             data.extend([
-                [base_rate_source, base_pair, smart_round(base_rate)],
+                [base_rate_source, base_pair, PerformanceMetrics.smart_round(base_rate)],
             ])
         return pd.DataFrame(data=data, columns=columns)
 
@@ -408,7 +414,7 @@ cdef class ArbitrageStrategy(StrategyBase):
             ExchangeBase buy_market = buy_market_trading_pair_tuple.market
             ExchangeBase sell_market = sell_market_trading_pair_tuple.market
 
-        best_amount, best_profitability, buy_price, sell_price = self.c_find_best_profitable_amount(
+        best_amount, best_profitability, sell_price, buy_price = self.c_find_best_profitable_amount(
             buy_market_trading_pair_tuple, sell_market_trading_pair_tuple
         )
         quantized_buy_amount = buy_market.c_quantize_order_amount(buy_market_trading_pair_tuple.trading_pair, Decimal(best_amount))
@@ -679,7 +685,7 @@ cdef list c_find_profitable_arbitrage_orders(object min_profitability,
 
             step_amount = min(bid_leftover_amount, ask_leftover_amount)
 
-            # skip cases where step_amount=0 for exchages like binance that include orders with 0 amount
+            # skip cases where step_amount=0 for exchanges like binance that include orders with 0 amount
             if step_amount == 0:
                 continue
 

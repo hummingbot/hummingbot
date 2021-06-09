@@ -1,3 +1,7 @@
+"""
+Tools for running asynchronous functions multiple times.
+"""
+
 import asyncio
 import functools
 import logging
@@ -22,13 +26,14 @@ def async_retry(retry_count: int = 2,
                 retry_interval: float = 0.5
                 ):
     """
-    :param stats:
-    :param retry_interval: interval between retry
-    :param raise_exp: rase exception if all retries failed
+    A decorator for async functions that will retry a function x times, where x is retry_count.
+
     :param retry_count: Number of retries
-    :param exception_types: Exception type for triggering retry
-    :param logger:
-    :return:
+    :param exception_types: All exceptions trigger retry, but exceptions in the list also get logging
+    :param logger: if raise_exp is false then log the last exception instead of raising it
+    :param stats:
+    :param raise_exp: raise an exception if all retries failed, otherwise log the last exception
+    :param retry_interval: time to wait between retries
     """
     def decorator(fn):
         @functools.wraps(fn)

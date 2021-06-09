@@ -133,7 +133,7 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
                     async for raw_msg in self._inner_messages(ws):
                         msg = ujson.loads(raw_msg)
-                        if msg is None or msg.get("m") != "trades":
+                        if (msg is None or msg.get("m") != "trades"):
                             continue
 
                         trading_pair: str = convert_from_exchange_trading_pair(msg.get("symbol"))
@@ -146,7 +146,6 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                 metadata={"trading_pair": trading_pair}
                             )
                             output.put_nowait(trade_msg)
-
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -173,17 +172,19 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
                     async for raw_msg in self._inner_messages(ws):
                         msg = ujson.loads(raw_msg)
-                        if msg is None or msg.get("m") != "depth":
+                        if msg is None:
                             continue
-
-                        msg_timestamp: int = msg.get("data").get("ts")
-                        trading_pair: str = convert_from_exchange_trading_pair(msg.get("symbol"))
-                        order_book_message: OrderBookMessage = AscendExOrderBook.diff_message_from_exchange(
-                            msg.get("data"),
-                            msg_timestamp,
-                            metadata={"trading_pair": trading_pair}
-                        )
-                        output.put_nowait(order_book_message)
+                        if msg.get("m", '') == "ping":
+                            await ws.send(ujson.dumps(dict(op="pong")))
+                        if msg.get("m", '') == "depth":
+                            msg_timestamp: int = msg.get("data").get("ts")
+                            trading_pair: str = convert_from_exchange_trading_pair(msg.get("symbol"))
+                            order_book_message: OrderBookMessage = AscendExOrderBook.diff_message_from_exchange(
+                                msg.get("data"),
+                                msg_timestamp,
+                                metadata={"trading_pair": trading_pair}
+                            )
+                            output.put_nowait(order_book_message)
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -242,12 +243,9 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     raw_msg: str = await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)
                     yield raw_msg
                 except asyncio.TimeoutError:
-                    try:
-                        pong_waiter = ws.send(ujson.dumps(PONG_PAYLOAD))
-                        await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
-                        self._last_recv_time = time.time()
-                    except asyncio.TimeoutError:
-                        raise
+                    pong_waiter = ws.send(ujson.dumps(PONG_PAYLOAD))
+                    await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
+                    self._last_recv_time = time.time()
         except asyncio.TimeoutError:
             self.logger().warning("WebSocket ping timed out. Going to reconnect...")
             return

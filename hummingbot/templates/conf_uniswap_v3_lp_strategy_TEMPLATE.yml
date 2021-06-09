@@ -1,0 +1,24 @@
+#########################################
+###   Uniswap v3 LP strategy config   ###
+#########################################
+
+template_version: 1
+strategy: null
+
+# The pair you provide liquidity to
+market: null
+
+# The pool you provide liquidity to
+fee_tier: null
+
+# The spread between lower price to the upper price for buy position
+buy_position_price_spread: null
+
+# The spread between lower price to the upper price for sell position
+sell_position_price_spread: null
+
+# The base amount of token (liquidity) provided to the pool
+base_token_amount: null
+
+# The quote amount of token (liquidity) provided to the pool
+quote_token_amount: null
