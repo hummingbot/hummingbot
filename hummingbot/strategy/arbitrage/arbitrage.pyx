@@ -634,13 +634,12 @@ cdef list c_find_profitable_arbitrage_orders(object min_profitability,
     """
     cdef:
         object step_amount = s_decimal_0
-        _bid_price_adjusted
-        object current_ask_
         object bid_leftover_amount = s_decimal_0
         object ask_leftover_amount = s_decimal_0
         object current_bid = None
         object current_ask = None
-        object currentprice_adjusted
+        object current_bid_price_adjusted
+        object current_ask_price_adjusted
         str sell_market_quote_asset = sell_market_trading_pair_tuple.quote_asset
         str buy_market_quote_asset = buy_market_trading_pair_tuple.quote_asset
 
