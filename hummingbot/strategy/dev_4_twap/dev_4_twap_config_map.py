@@ -19,7 +19,7 @@ def trading_pair_prompt():
 
 def target_asset_amount_prompt():
     trading_pair = dev_4_twap_config_map.get("trading_pair").value
-    is_buy = dev_4_twap_config_map.get("is_buy").value
+    is_buy = dev_4_twap_config_map.get("trade_side").value == "buy"
     base_token, quote_token = trading_pair.split("-")
     target_asset = quote_token if is_buy else base_token
 

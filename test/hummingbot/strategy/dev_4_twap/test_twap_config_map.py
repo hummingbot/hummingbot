@@ -16,12 +16,12 @@ class TwapConfigMapTests(TestCase):
                          "Enter the token trading pair you would like to trade on undefined-exchange >>> ")
 
     def test_target_asset_amount_prompt(self):
-        twap_config_map_module.dev_4_twap_config_map.get("market").value = "BTC-USDT"
-        twap_config_map_module.dev_4_twap_config_map.get("is_buy").value = True
+        twap_config_map_module.dev_4_twap_config_map.get("trading_pair").value = "BTC-USDT"
+        twap_config_map_module.dev_4_twap_config_map.get("trade_side").value = "buy"
         self.assertEqual(twap_config_map_module.target_asset_amount_prompt(),
                          "What is the total amount of USDT to be traded? >>> ")
 
-        twap_config_map_module.dev_4_twap_config_map.get("is_buy").value = False
+        twap_config_map_module.dev_4_twap_config_map.get("trade_side").value = "sell"
         self.assertEqual(twap_config_map_module.target_asset_amount_prompt(),
                          "What is the total amount of BTC to be traded? >>> ")
 
