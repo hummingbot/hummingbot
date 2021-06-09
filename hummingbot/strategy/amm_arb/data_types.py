@@ -1,9 +1,15 @@
 from decimal import Decimal
-from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+import logging
+from typing import Any
+
 from hummingbot.core.utils.estimate_fee import estimate_fee
+from hummingbot.core.utils.fixed_rate_source import FixedRateSource
+from hummingbot.logger import HummingbotLogger
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 s_decimal_nan = Decimal("NaN")
 s_decimal_0 = Decimal("0")
+arbprop_logger = None
 
 
 class ArbProposalSide:
@@ -37,6 +43,14 @@ class ArbProposalSide:
 
 
 class ArbProposal:
+
+    @classmethod
+    def logger(cls) -> HummingbotLogger:
+        global arbprop_logger
+        if arbprop_logger is None:
+            arbprop_logger = logging.getLogger(__name__)
+        return arbprop_logger
+
     """
     An arbitrage proposal which contains 2 sides of the proposal - one buy and one sell.
     """
@@ -46,40 +60,62 @@ class ArbProposal:
         self.first_side: ArbProposalSide = first_side
         self.second_side: ArbProposalSide = second_side
 
-    def profit_pct(self, account_for_fee: bool = False, first_side_quote_eth_rate: Decimal = None,
+    def profit_pct(self, account_for_fee: bool = False,
+                   rate_source: Any = FixedRateSource(),
+                   first_side_quote_eth_rate: Decimal = None,
                    second_side_quote_eth_rate: Decimal = None) -> Decimal:
         """
         Returns a profit in percentage value (e.g. 0.01 for 1% profitability)
+        Assumes the base token is the same in both arbitrage sides
         """
         buy = self.first_side if self.first_side.is_buy else self.second_side
         sell = self.first_side if not self.first_side.is_buy else self.second_side
-        if buy.quote_price == 0:
-            return s_decimal_0
-        if not account_for_fee:
-            return (sell.quote_price - buy.quote_price) / buy.quote_price
-        buy_trade_fee = estimate_fee(buy.market_info.market.name, False)
-        sell_trade_fee = estimate_fee(sell.market_info.market.name, False)
-        buy_quote_eth_rate = first_side_quote_eth_rate if self.first_side.is_buy else second_side_quote_eth_rate
-        sell_quote_eth_rate = first_side_quote_eth_rate if not self.first_side.is_buy else second_side_quote_eth_rate
-        if buy_quote_eth_rate is not None and buy_trade_fee.flat_fees[0][0].upper() == "ETH":
-            buy_fee_amount = buy_trade_fee.flat_fees[0][1] / buy_quote_eth_rate
-        else:
-            buy_fee_amount = buy_trade_fee.fee_amount_in_quote(buy.market_info.trading_pair,
-                                                               buy.quote_price, buy.amount)
-        if sell_quote_eth_rate is not None and sell_trade_fee.flat_fees[0][0].upper() == "ETH":
-            sell_fee_amount = sell_trade_fee.flat_fees[0][1] / sell_quote_eth_rate
-        else:
-            sell_fee_amount = sell_trade_fee.fee_amount_in_quote(sell.market_info.trading_pair, sell.quote_price,
-                                                                 sell.amount)
+        base_conversion_pair = f"{sell.market_info.base_asset}-{buy.market_info.base_asset}"
+        quote_conversion_pair = f"{sell.market_info.quote_asset}-{buy.market_info.quote_asset}"
 
-        # buy_fee_amount = buy_trade_fee.fee_amount_in_quote(buy.market_info.trading_pair,
-        #                                                    buy.quote_price, buy.amount)
-        # sell_fee_amount = sell_trade_fee.fee_amount_in_quote(sell.market_info.trading_pair, sell.quote_price,
-        #                                                      sell.amount)
+        sell_base_to_buy_base_rate = Decimal(1)
+        sell_quote_to_buy_quote_rate = rate_source.rate(quote_conversion_pair)
 
-        sell_gained_net = (sell.amount * sell.quote_price) - sell_fee_amount
-        buy_spent_net = (buy.amount * buy.quote_price) + buy_fee_amount
-        return ((sell_gained_net - buy_spent_net) / buy_spent_net) if buy_spent_net != s_decimal_0 else s_decimal_0
+        buy_fee_amount = s_decimal_0
+        sell_fee_amount = s_decimal_0
+        result = s_decimal_0
+
+        if sell_quote_to_buy_quote_rate and sell_base_to_buy_base_rate:
+            if account_for_fee:
+                buy_trade_fee = estimate_fee(buy.market_info.market.name, False)
+                sell_trade_fee = estimate_fee(sell.market_info.market.name, False)
+                buy_quote_eth_rate = (first_side_quote_eth_rate
+                                      if self.first_side.is_buy
+                                      else second_side_quote_eth_rate)
+                sell_quote_eth_rate = (first_side_quote_eth_rate
+                                       if not self.first_side.is_buy
+                                       else second_side_quote_eth_rate)
+                if buy_quote_eth_rate is not None and buy_trade_fee.flat_fees[0][0].upper() == "ETH":
+                    buy_fee_amount = buy_trade_fee.flat_fees[0][1] / buy_quote_eth_rate
+                else:
+                    buy_fee_amount = buy_trade_fee.fee_amount_in_quote(buy.market_info.trading_pair,
+                                                                       buy.quote_price, buy.amount)
+                if sell_quote_eth_rate is not None and sell_trade_fee.flat_fees[0][0].upper() == "ETH":
+                    sell_fee_amount = sell_trade_fee.flat_fees[0][1] / sell_quote_eth_rate
+                else:
+                    sell_fee_amount = sell_trade_fee.fee_amount_in_quote(sell.market_info.trading_pair,
+                                                                         sell.quote_price,
+                                                                         sell.amount)
+
+            buy_spent_net = (buy.amount * buy.quote_price) + buy_fee_amount
+            sell_gained_net = (sell.amount * sell.quote_price) - sell_fee_amount
+            sell_gained_net_in_buy_quote_currency = (sell_gained_net * sell_quote_to_buy_quote_rate
+                                                     / sell_base_to_buy_base_rate)
+
+            result = (((sell_gained_net_in_buy_quote_currency - buy_spent_net) / buy_spent_net)
+                      if buy_spent_net != s_decimal_0
+                      else s_decimal_0)
+        else:
+            self.logger().warning("The arbitrage proposal profitability could not be calculated due to a missing rate"
+                                  f" ({base_conversion_pair}={sell_base_to_buy_base_rate},"
+                                  f" {quote_conversion_pair}={sell_quote_to_buy_quote_rate})")
+
+        return result
 
     def __repr__(self):
         return f"First Side - {self.first_side}\nSecond Side - {self.second_side}"
