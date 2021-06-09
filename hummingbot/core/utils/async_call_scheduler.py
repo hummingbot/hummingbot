@@ -83,7 +83,7 @@ class AsyncCallScheduler:
                     fut.cancel()
                 except Exception:
                     pass
-                raise
+                raise asyncio.CancelledError
             except asyncio.InvalidStateError:
                 # The future is already cancelled from outside. Ignore.
                 pass

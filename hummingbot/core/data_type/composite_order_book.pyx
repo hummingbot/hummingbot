@@ -187,12 +187,9 @@ cdef class CompositeOrderBook(OrderBook):
 
         ask_it = self.ask_entries()
         bid_it = self.bid_entries()
-        try:
-            if is_buy:
-                best_ask = next(ask_it)
-                return best_ask.price
-            else:
-                best_bid = next(bid_it)
-                return best_bid.price
-        except Exception:
-            raise
+        if is_buy:
+            best_ask = next(ask_it)
+            return best_ask.price
+        else:
+            best_bid = next(bid_it)
+            return best_bid.price

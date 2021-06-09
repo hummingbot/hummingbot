@@ -45,30 +45,27 @@ class ProbitAuth():
 
     async def get_auth_headers(self, http_client: aiohttp.ClientSession = aiohttp.ClientSession()) -> Dict[str, Any]:
         if self.token_has_expired:
-            try:
-                now: int = int(time.time())
-                headers = self.get_headers()
-                headers.update({
-                    "Authorization": f"Basic {self.token_payload}"
-                })
-                body = ujson.dumps({
-                    "grant_type": "client_credentials"
-                })
-                resp = await http_client.post(url=CONSTANTS.TOKEN_URL.format(self._domain),
-                                              headers=headers,
-                                              data=body)
-                token_resp = await resp.json()
+            now: int = int(time.time())
+            headers = self.get_headers()
+            headers.update({
+                "Authorization": f"Basic {self.token_payload}"
+            })
+            body = ujson.dumps({
+                "grant_type": "client_credentials"
+            })
+            resp = await http_client.post(url=CONSTANTS.TOKEN_URL.format(self._domain),
+                                          headers=headers,
+                                          data=body)
+            token_resp = await resp.json()
 
-                if resp.status != 200:
-                    raise ValueError(f"Error occurred retrieving new OAuth Token. Response: {token_resp}")
+            if resp.status != 200:
+                raise ValueError(f"Error occurred retrieving new OAuth Token. Response: {token_resp}")
 
-                # POST /token endpoint returns both access_token and expires_in
-                # Updates _oauth_token_expiration_time
+            # POST /token endpoint returns both access_token and expires_in
+            # Updates _oauth_token_expiration_time
 
-                self.update_expiration_time(now + token_resp["expires_in"])
-                self.update_oauth_token(token_resp["access_token"])
-            except Exception as e:
-                raise e
+            self.update_expiration_time(now + token_resp["expires_in"])
+            self.update_oauth_token(token_resp["access_token"])
 
         return self.generate_auth_dict()
 

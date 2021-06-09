@@ -20,13 +20,10 @@ RE_3_LETTERS_QUOTE = re.compile(r"^(\w+)(\w{3})$")
 
 # Helper Functions ---
 def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
-    try:
-        m = RE_4_LETTERS_QUOTE.match(trading_pair)
-        if m is None:
-            m = RE_3_LETTERS_QUOTE.match(trading_pair)
-        return m.group(1), m.group(2)
-    except Exception as e:
-        raise e
+    m = RE_4_LETTERS_QUOTE.match(trading_pair)
+    if m is None:
+        m = RE_3_LETTERS_QUOTE.match(trading_pair)
+    return m.group(1), m.group(2)
 
 
 def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:

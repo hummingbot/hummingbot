@@ -223,8 +223,7 @@ class DigifinexExchange(ExchangeBase):
             await self._global.rest_api.request("get", "ping")
         except asyncio.CancelledError:
             raise
-        except Exception as e:
-            _ = e
+        except Exception:
             self.logger().exception('check_network', stack_info=True)
             return NetworkStatus.NOT_CONNECTED
         return NetworkStatus.CONNECTED

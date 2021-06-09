@@ -64,38 +64,32 @@ class CoinGeckoDataFeed(DataFeedBase):
             await asyncio.sleep(self._update_interval)
 
     async def update_asset_prices(self):
-        try:
-            client: aiohttp.ClientSession = await self._http_client()
-            price_url: str = f"{self.BASE_URL}/coins/markets"
-            price_dict: Dict[str, float] = {}
+        client: aiohttp.ClientSession = await self._http_client()
+        price_url: str = f"{self.BASE_URL}/coins/markets"
+        price_dict: Dict[str, float] = {}
 
-            for i in range(1, 5):
-                params: Dict[str, str] = {"vs_currency": "usd", "order": "market_cap_desc", "per_page": 250,
-                                          "page": i, "sparkline": "false"}
-                try:
-                    async with client.request("GET", price_url, params=params) as resp:
-                        results: Dict[str, Dict[str, float]] = await resp.json()
-                        if 'error' in results:
-                            raise Exception(f"{results['error']}")
-                        for result in results:
-                            symbol = result["symbol"].upper()
-                            price = float(result["current_price"]) if result["current_price"] is not None else 0.0
-                            if symbol not in price_dict:
-                                price_dict[symbol] = price
-                except Exception as e:
-                    self.logger().warning(f"Coin Gecko API request failed. Exception: {str(e)}")
-                    raise e
-                await asyncio.sleep(0.1)
-            self._price_dict = price_dict
-        except Exception:
-            raise
+        for i in range(1, 5):
+            params: Dict[str, str] = {"vs_currency": "usd", "order": "market_cap_desc", "per_page": 250,
+                                      "page": i, "sparkline": "false"}
+            try:
+                async with client.request("GET", price_url, params=params) as resp:
+                    results: Dict[str, Dict[str, float]] = await resp.json()
+                    if 'error' in results:
+                        raise Exception(f"{results['error']}")
+                    for result in results:
+                        symbol = result["symbol"].upper()
+                        price = float(result["current_price"]) if result["current_price"] is not None else 0.0
+                        if symbol not in price_dict:
+                            price_dict[symbol] = price
+            except Exception as e:
+                self.logger().warning(f"Coin Gecko API request failed. Exception: {str(e)}")
+                raise e
+            await asyncio.sleep(0.1)
+        self._price_dict = price_dict
 
     async def fetch_data(self):
-        try:
-            await self.update_asset_prices()
-            self._ready_event.set()
-        except Exception:
-            raise
+        await self.update_asset_prices()
+        self._ready_event.set()
 
     async def start_network(self):
         await self.stop_network()
