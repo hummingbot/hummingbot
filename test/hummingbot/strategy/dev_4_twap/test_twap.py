@@ -86,7 +86,7 @@ class TWAPUnitTest(unittest.TestCase):
             is_buy=False,
             order_delay_time=self.order_delay_time,
             target_asset_amount=Decimal("5.0"),
-            order_step_size=Decimal("1.66")
+            order_step_size=Decimal("1.67")
         )
 
         self.clock.add_iterator(self.market)
@@ -206,7 +206,7 @@ class TWAPUnitTest(unittest.TestCase):
         self.assertEqual(1, len(self.limit_sell_strategy.active_asks))
         ask_order: LimitOrder = self.limit_sell_strategy.active_asks[0][1]
         self.assertEqual(Decimal("101"), ask_order.price)
-        self.assertEqual(Decimal("1.66666"), ask_order.quantity)
+        self.assertEqual(Decimal("1.67000"), ask_order.quantity)
 
         # test whether number of orders is two after time delay
         # check whether the order is sell
@@ -217,7 +217,7 @@ class TWAPUnitTest(unittest.TestCase):
         self.assertEqual(2, len(self.limit_sell_strategy.active_asks))
         ask_order: LimitOrder = self.limit_sell_strategy.active_asks[1][1]
         self.assertEqual(Decimal("101"), ask_order.price)
-        self.assertEqual(Decimal("1.66666"), ask_order.quantity)
+        self.assertEqual(Decimal("1.67000"), ask_order.quantity)
 
         # test whether number of orders is three after two time delays
         # check whether the order is sell
@@ -228,7 +228,7 @@ class TWAPUnitTest(unittest.TestCase):
         self.assertEqual(3, len(self.limit_sell_strategy.active_asks))
         ask_order: LimitOrder = self.limit_sell_strategy.active_asks[2][1]
         self.assertEqual(Decimal("101"), ask_order.price)
-        self.assertEqual(Decimal("1.66666"), ask_order.quantity)
+        self.assertEqual(Decimal("1.66000"), ask_order.quantity)
 
     def test_order_filled_events(self):
         self.clock.add_iterator(self.limit_buy_strategy)
@@ -245,7 +245,7 @@ class TWAPUnitTest(unittest.TestCase):
         self.assertEqual(1, len(self.limit_sell_strategy.active_asks))
         ask_order: LimitOrder = self.limit_sell_strategy.active_asks[0][1]
         self.assertEqual(Decimal("101"), ask_order.price)
-        self.assertEqual(Decimal("1.66666"), ask_order.quantity)
+        self.assertEqual(Decimal("1.67000"), ask_order.quantity)
 
         self.assertEqual(1, len(self.limit_buy_strategy.active_bids))
         bid_order: LimitOrder = self.limit_buy_strategy.active_bids[0][1]
