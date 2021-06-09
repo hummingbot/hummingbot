@@ -4,6 +4,7 @@ from typing import (
     Tuple,
     Dict,
     List)
+from hummingbot.exceptions import UnsupportedAsset
 from hummingbot.core.event.events import TradeType
 from hummingbot.model.trade_fill import TradeFill
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
@@ -37,7 +38,7 @@ def calculate_trade_asset_delta_with_fees(trade: TradeFill) -> Tuple[Decimal, De
         net_base_delta: Decimal = amount * (Decimal("1") - Decimal(str(trade_fee["percent"]))) - total_flat_fees
         net_quote_delta: Decimal = amount * price
     else:
-        raise Exception(f"Unsupported trade type {trade.trade_type}")
+        raise UnsupportedAsset(f"Unsupported trade type {trade.trade_type}")
     return net_base_delta, net_quote_delta
 
 

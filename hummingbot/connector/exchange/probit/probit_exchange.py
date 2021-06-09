@@ -16,6 +16,7 @@ from typing import (
     AsyncIterable,
 )
 
+from hummingbot.exceptions import UnsupportedOrderType
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange.probit import probit_constants as CONSTANTS
 from hummingbot.connector.exchange.probit import probit_utils
@@ -439,7 +440,7 @@ class ProbitExchange(ExchangeBase):
         :param price: The order price
         """
         if not order_type.is_limit_type():
-            raise Exception(f"Unsupported order type: {order_type}")
+            raise UnsupportedOrderType(f"Unsupported order type: {order_type}")
         trading_rule = self._trading_rules[trading_pair]
 
         amount = self.quantize_order_amount(trading_pair, amount)
@@ -819,7 +820,7 @@ class ProbitExchange(ExchangeBase):
                                    f"Response: {result} ")
             for order in result["data"]:
                 if order["type"] != "limit":
-                    raise Exception(f"Unsupported order type {order['type']}")
+                    raise UnsupportedOrderType(f"Unsupported order type {order['type']}")
                 ret_val.append(
                     OpenOrder(
                         client_order_id=order["client_order_id"],

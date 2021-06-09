@@ -13,6 +13,7 @@ import math
 import time
 from async_timeout import timeout
 
+from hummingbot.exceptions import UnsupportedOrderType
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.clock import Clock
@@ -421,7 +422,7 @@ class HitbtcExchange(ExchangeBase):
         :param price: The order price
         """
         if not order_type.is_limit_type():
-            raise Exception(f"Unsupported order type: {order_type}")
+            raise UnsupportedOrderType(f"Unsupported order type: {order_type}")
         trading_rule = self._trading_rules[trading_pair]
 
         amount = self.quantize_order_amount(trading_pair, amount)

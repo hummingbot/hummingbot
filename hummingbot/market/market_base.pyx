@@ -7,6 +7,7 @@ from typing import (
     Optional,
     Iterator)
 
+from hummingbot.exceptions import UnsupportedOrderType
 from hummingbot.client.config.global_config_map import (
     global_config_map,
 )
@@ -476,7 +477,7 @@ cdef class MarketBase(NetworkIterator):
         elif OrderType.LIMIT in self.supported_order_types():
             return OrderType.LIMIT
         else:
-            raise Exception("There is no maker order type supported by this exchange.")
+            raise UnsupportedOrderType("There is no maker order type supported by this exchange.")
 
     def get_taker_order_type(self):
         if OrderType.MARKET in self.supported_order_types():
@@ -484,6 +485,6 @@ cdef class MarketBase(NetworkIterator):
         elif OrderType.LIMIT in self.supported_order_types():
             return OrderType.LIMIT
         else:
-            raise Exception("There is no taker order type supported by this exchange.")
+            raise UnsupportedOrderType("There is no taker order type supported by this exchange.")
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>

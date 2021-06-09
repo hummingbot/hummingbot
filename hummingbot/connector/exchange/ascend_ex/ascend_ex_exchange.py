@@ -13,6 +13,7 @@ import aiohttp
 import time
 from collections import namedtuple
 
+from hummingbot.exceptions import UnsupportedOrderType
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.clock import Clock
@@ -491,7 +492,7 @@ class AscendExExchange(ExchangePyBase):
         :param price: The order price
         """
         if not order_type.is_limit_type():
-            raise Exception(f"Unsupported order type: {order_type}")
+            raise UnsupportedOrderType(f"Unsupported order type: {order_type}")
         amount = self.quantize_order_amount(trading_pair, amount)
         price = self.quantize_order_price(trading_pair, price)
         if amount <= s_decimal_0:

@@ -1,3 +1,4 @@
+from hummingbot.exceptions import SingletonException
 from hummingbot.core.utils.market_price import get_last_price
 from hummingbot.client.settings import CONNECTOR_SETTINGS
 from hummingbot.client.config.security import Security
@@ -43,7 +44,7 @@ class UserBalances:
 
     def __init__(self):
         if UserBalances.__instance is not None:
-            raise Exception("This class is a singleton!")
+            raise SingletonException("This class is a singleton!")
         else:
             UserBalances.__instance = self
         self._markets = {}

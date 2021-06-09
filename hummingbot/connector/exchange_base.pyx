@@ -7,6 +7,7 @@ from typing import (
     Optional,
     Iterator,
     Any)
+from hummingbot.exceptions import UnsupportedOrderType
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.order_book_query_result import (
     OrderBookQueryResult,
@@ -249,7 +250,7 @@ cdef class ExchangeBase(ConnectorBase):
         elif OrderType.LIMIT in self.supported_order_types():
             return OrderType.LIMIT
         else:
-            raise Exception("There is no maker order type supported by this exchange.")
+            raise UnsupportedOrderType("There is no maker order type supported by this exchange.")
 
     def get_taker_order_type(self):
         """
@@ -260,7 +261,7 @@ cdef class ExchangeBase(ConnectorBase):
         elif OrderType.LIMIT in self.supported_order_types():
             return OrderType.LIMIT
         else:
-            raise Exception("There is no taker order type supported by this exchange.")
+            raise UnsupportedOrderType("There is no taker order type supported by this exchange.")
 
     def get_price_by_type(self, trading_pair: str, price_type: PriceType) -> Decimal:
         """

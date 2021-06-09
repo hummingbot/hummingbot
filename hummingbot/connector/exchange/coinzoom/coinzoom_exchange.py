@@ -14,6 +14,7 @@ import time
 import ujson
 from async_timeout import timeout
 
+from hummingbot.exceptions import UnsupportedOrderType
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.clock import Clock
@@ -430,7 +431,7 @@ class CoinzoomExchange(ExchangeBase):
         :param price: The order price
         """
         if not order_type.is_limit_type():
-            raise Exception(f"Unsupported order type: {order_type}")
+            raise UnsupportedOrderType(f"Unsupported order type: {order_type}")
         trading_rule = self._trading_rules[trading_pair]
 
         amount = self.quantize_order_amount(trading_pair, amount)
@@ -789,8 +790,6 @@ class CoinzoomExchange(ExchangeBase):
         :param timeout_seconds: The timeout at which the operation will be canceled.
         :returns List of CancellationResult which indicates whether each order is successfully cancelled.
         """
-        # if self._trading_pairs is None:
-        #     raise Exception("cancel_all can only be used when trading_pairs are specified.")
         open_orders = [o for o in self._in_flight_orders.values() if not o.is_done]
         if len(open_orders) == 0:
             return []

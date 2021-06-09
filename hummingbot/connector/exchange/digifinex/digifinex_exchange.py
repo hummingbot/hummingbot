@@ -13,6 +13,7 @@ import asyncio
 import math
 import time
 
+from hummingbot.exceptions import UnsupportedOrderType
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.clock import Clock
@@ -365,7 +366,7 @@ class DigifinexExchange(ExchangeBase):
         :param price: The order price
         """
         if not order_type.is_limit_type():
-            raise Exception(f"Unsupported order type: {order_type}")
+            raise UnsupportedOrderType(f"Unsupported order type: {order_type}")
         trading_rule = self._trading_rules[trading_pair]
 
         amount = self.quantize_order_amount(trading_pair, amount)
@@ -810,7 +811,7 @@ class DigifinexExchange(ExchangeBase):
             # if digifinex_utils.HBOT_BROKER_ID not in order["client_oid"]:
             #     continue
             if order["type"] not in ["buy", "sell"]:
-                raise Exception(f"Unsupported order type {order['type']}")
+                raise UnsupportedOrderType(f"Unsupported order type {order['type']}")
             ret_val.append(
                 OpenOrder(
                     client_order_id=None,
