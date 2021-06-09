@@ -62,6 +62,12 @@ cdef class ArbitrageStrategy(StrategyBase):
         :param status_report_interval: how often to report network connection related warnings, if any
         :param next_trade_delay_interval: cool off period between trades
         :param failed_order_tolerance: number of failed orders to force stop the strategy when exceeded
+        :param use_oracle_conversion_rate: Enables the use of the Oracle to get the price in ETH of each quote token to
+        compare the trading pairs in between markets.
+        If true the Oracle will be used. If false the reates will be fetched from uniswap. The default is false.
+        :param secondary_to_primary_base_conversion_rate: Conversion rate of base token between markets. The default is 1
+        :param secondary_to_primary_quote_conversion_rate: Conversion rate of quote token between markets. The default is 1
+        :param hb_app_notification: Enables sending notifications to the client application. The default is false.
         """
 
         if len(market_pairs) < 0:
@@ -679,7 +685,7 @@ cdef list c_find_profitable_arbitrage_orders(object min_profitability,
 
             step_amount = min(bid_leftover_amount, ask_leftover_amount)
 
-            # skip cases where step_amount=0 for exchages like binance that include orders with 0 amount
+            # skip cases where step_amount=0 for exchanges like binance that include orders with 0 amount
             if step_amount == 0:
                 continue
 
