@@ -14,6 +14,7 @@ import pandas as pd
 from async_timeout import timeout
 from libc.stdint cimport int64_t
 
+from hummingbot.exceptions import OrderException
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -626,11 +627,11 @@ cdef class FtxExchange(ExchangeBase):
 
             # Verify the response from the exchange
             if "success" not in order_result.keys():
-                raise Exception(order_result)
+                raise OrderException(order_result)
 
             success = order_result["success"]
             if not success:
-                raise Exception(order_result)
+                raise OrderException(order_result)
 
             exchange_order_id = str(order_result["result"]["id"])
 
@@ -750,11 +751,11 @@ cdef class FtxExchange(ExchangeBase):
 
             # Verify the response from the exchange
             if "success" not in order_result.keys():
-                raise Exception(order_result)
+                raise OrderException(order_result)
 
             success = order_result["success"]
             if not success:
-                raise Exception(order_result)
+                raise OrderException(order_result)
 
             exchange_order_id = str(order_result["result"]["id"])
 

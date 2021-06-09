@@ -6,6 +6,7 @@ from typing import (
     Dict,
 )
 
+from hummingbot.exceptions import NetworkException
 from hummingbot.core.network_base import NetworkBase, NetworkStatus
 from hummingbot.logger import HummingbotLogger
 
@@ -66,7 +67,7 @@ class DataFeedBase(NetworkBase):
                 async with session.get(self.health_check_endpoint) as resp:
                     status_text = await resp.text()
                     if resp.status != 200:
-                        raise Exception(f"Data feed {self.name} server is down. Status is {status_text}")
+                        raise NetworkException(f"Data feed {self.name} server is down. Status is {status_text}")
         except asyncio.CancelledError:
             raise
         except Exception:

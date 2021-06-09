@@ -17,6 +17,7 @@ from dateutil.parser import parse as dataparse
 
 from dydx3.errors import DydxApiError
 
+from hummingbot.exceptions import OrderException
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
@@ -378,12 +379,12 @@ class DydxPerpetualDerivative(DerivativeBase):
 
             # Verify the response from the exchange
             if "order" not in creation_response.keys():
-                raise Exception(creation_response['errors'][0]['msg'])
+                raise OrderException(creation_response['errors'][0]['msg'])
 
             order = creation_response["order"]
             status = order["status"]
             if status not in ['PENDING', 'OPEN']:
-                raise Exception(status)
+                raise OrderException(status)
 
             dydx_order_id = order["id"]
 
@@ -474,7 +475,7 @@ class DydxPerpetualDerivative(DerivativeBase):
                     self.trigger_event(ORDER_CANCELLED_EVENT, cancellation_event)
                     return False
                 else:
-                    raise Exception(f"order {client_order_id} has no exchange id")
+                    raise OrderException(f"order {client_order_id} has no exchange id")
             await self.dydx_client.cancel_order(exchange_order_id)
             return True
 
@@ -486,7 +487,7 @@ class DydxPerpetualDerivative(DerivativeBase):
                     self.trigger_event(ORDER_CANCELLED_EVENT, cancellation_event)
                     return False
                 else:
-                    raise Exception(
+                    raise OrderException(
                         f"order {client_order_id} does not yet exist on the exchange and could not be cancelled.")
             else:
                 self.logger().warning(f"Unable to cancel order {exchange_order_id}: {str(e)}")

@@ -23,6 +23,7 @@ from typing import (
 from dydx.exceptions import DydxAPIError
 import dydx.constants as dydx_consts
 
+from hummingbot.exceptions import OrderException
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -333,12 +334,12 @@ cdef class DydxExchange(ExchangeBase):
 
             # Verify the response from the exchange
             if "order" not in creation_response.keys():
-                raise Exception(creation_response['errors'][0]['msg'])
+                raise OrderException(creation_response['errors'][0]['msg'])
 
             order = creation_response["order"]
             status = order["status"]
             if status not in ['PENDING', 'OPEN']:
-                raise Exception(status)
+                raise OrderException(status)
 
             dydx_order_id = order["id"]
             in_flight_order = self._in_flight_orders.get(client_order_id)
@@ -442,7 +443,7 @@ cdef class DydxExchange(ExchangeBase):
                     return False
                 else:
                     in_flight_order.cancel_attempted_before_eoid_set()
-                    raise Exception(f"order {client_order_id} has no exchange id")
+                    raise OrderException(f"order {client_order_id} has no exchange id")
             res = await self.dydx_client.cancel_order(exchange_order_id)
             if 'order' in res:
                 cancel_details = res['order']
@@ -462,7 +463,7 @@ cdef class DydxExchange(ExchangeBase):
                     self.c_trigger_event(ORDER_CANCELLED_EVENT, cancellation_event)
                     return False
                 else:
-                    raise Exception(f"order {client_order_id} does not yet exist on the exchange and could not be cancelled.")
+                    raise OrderException(f"order {client_order_id} does not yet exist on the exchange and could not be cancelled.")
             else:
                 self.logger().warning("Unable to cancel order {exchange_order_id}: {str(e)}")
                 return False

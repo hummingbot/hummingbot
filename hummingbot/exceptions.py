@@ -32,3 +32,27 @@ class SingletonException(HummingbotException):
     """
     There can only be one instance of the class.
     """
+
+
+class NetworkException(HummingbotException):
+    """
+    Network call (to any protocol) unexpectedly failed.
+    """
+
+
+class GatewayAPIException(HummingbotException):
+    """
+    There was an issue communicating with the Hummingbot GatewayAPI.
+    """
+
+
+class ConnectorException(HummingbotException):
+    """
+    There was an error with a Connector (Exchange API).
+    """
+
+
+class OrderException(HummingbotException):
+    """
+    Something went wrong with an exchange order.
+    """

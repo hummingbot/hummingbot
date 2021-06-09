@@ -12,6 +12,7 @@ from typing import (
     Dict,
 )
 from web3 import Web3
+from humminbgot.exceptions import NetworkException
 from hummingbot.core.utils.async_utils import safe_gather
 
 RADAR_RELAY_ENDPOINT = "https://api.radarrelay.com/v2/markets"
@@ -58,7 +59,7 @@ async def download_radar_relay_token_addresses(token_dict: Dict[str, str]):
                             if quote not in token_dict:
                                 token_dict[quote] = Web3.toChecksumAddress(market.get("quoteTokenAddress"))
                     else:
-                        raise Exception(f"Call to {url} failed with status {response.status}")
+                        raise NetworkException(f"Call to {url} failed with status {response.status}")
                 except Exception as err:
                     logging.getLogger().error(err)
                     break
@@ -84,7 +85,7 @@ async def download_bamboo_relay_token_addresses(token_dict: Dict[str, str]):
                             if quote not in token_dict:
                                 token_dict[quote] = Web3.toChecksumAddress(market.get("quoteTokenAddress"))
                     else:
-                        raise Exception(f"Call to {url} failed with status {response.status}")
+                        raise NetworkException(f"Call to {url} failed with status {response.status}")
                 except Exception as err:
                     logging.getLogger().error(err)
                     break

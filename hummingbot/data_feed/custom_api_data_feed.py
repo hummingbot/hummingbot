@@ -2,6 +2,7 @@ import asyncio
 import aiohttp
 import logging
 from typing import Optional
+from hummingbot.exceptions import NetworkException
 from hummingbot.core.network_base import NetworkBase, NetworkStatus
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -46,7 +47,7 @@ class CustomAPIDataFeed(NetworkBase):
         async with client.request("GET", self.health_check_endpoint) as resp:
             status_text = await resp.text()
             if resp.status != 200:
-                raise Exception(f"Custom API Feed {self.name} server error: {status_text}")
+                raise NetworkException(f"Custom API Feed {self.name} server error: {status_text}")
         return NetworkStatus.CONNECTED
 
     def get_price(self) -> Decimal:
@@ -70,7 +71,7 @@ class CustomAPIDataFeed(NetworkBase):
         async with client.request("GET", self._api_url) as resp:
             resp_text = await resp.text()
             if resp.status != 200:
-                raise Exception(f"Custom API Feed {self.name} server error: {resp_text}")
+                raise NetworkException(f"Custom API Feed {self.name} server error: {resp_text}")
             self._price = Decimal(str(resp_text))
         self._ready_event.set()
 

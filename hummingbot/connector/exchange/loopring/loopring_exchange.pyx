@@ -17,6 +17,8 @@ import math
 import logging
 from decimal import *
 from libc.stdint cimport int64_t
+
+from hummingbot.exceptions import OrderException
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
@@ -385,7 +387,7 @@ cdef class LoopringExchange(ExchangeBase):
 
             status = creation_response["status"]
             if status != 'processing':
-                raise Exception(status)
+                raise OrderException(status)
 
             loopring_order_hash = creation_response["hash"]
             in_flight_order.update_exchange_order_id(loopring_order_hash)
@@ -474,7 +476,7 @@ cdef class LoopringExchange(ExchangeBase):
                     self.c_trigger_event(ORDER_CANCELLED_EVENT, cancellation_event)
                     self.c_stop_tracking_order(client_order_id)
                 elif code is not None and code != 0 and (code != 100001 or message != "order in status CANCELLED can't be cancelled"):
-                    raise Exception(f"Cancel order returned code {res['resultInfo']['code']} ({res['resultInfo']['message']})")
+                    raise OrderException(f"Cancel order returned code {res['resultInfo']['code']} ({res['resultInfo']['message']})")
 
             return True
 

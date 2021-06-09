@@ -1,4 +1,5 @@
 from typing import List, Callable
+from hummingbot.exceptions import ConnectorException
 from hummingbot.client.config.config_helpers import get_connector_class
 from hummingbot.connector.exchange.paper_trade.market_config import MarketConfig
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import PaperTradeExchange
@@ -16,7 +17,7 @@ def get_order_book_tracker_class(connector_name: str) -> Callable:
         return getattr(mod, class_name)
     except Exception:
         pass
-    raise Exception(f"Connector {connector_name} OrderBookTracker class not found")
+    raise ConnectorException(f"Connector {connector_name} OrderBookTracker class not found")
 
 
 def create_paper_trade_market(exchange_name: str, trading_pairs: List[str]):

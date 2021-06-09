@@ -14,6 +14,7 @@ from decimal import Decimal
 from typing import List, NamedTuple, Dict, Any
 from hummingbot import get_strategy_list
 from pathlib import Path
+from hummingbot.exceptions import ConnectorException
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.core.event.events import TradeFeeType
 
@@ -124,7 +125,7 @@ def _create_connector_settings() -> Dict[str, ConnectorSetting]:
                     connector_dir.name in connector_exceptions:
                 continue
             if connector_dir.name in connector_settings:
-                raise Exception(f"Multiple connectors with the same {connector_dir.name} name.")
+                raise ConnectorException(f"Multiple connectors with the same {connector_dir.name} name.")
             path = f"hummingbot.connector.{type_dir.name}.{connector_dir.name}.{connector_dir.name}_utils"
             try:
                 util_module = importlib.import_module(path)

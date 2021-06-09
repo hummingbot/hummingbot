@@ -7,6 +7,7 @@ import json
 import time
 import ssl
 import copy
+from hummingbot.exceptions import GatewayAPIException
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.core.event.events import TradeFee
 from hummingbot.core.utils import async_ttl_cache
@@ -436,7 +437,7 @@ class PerpetualFinanceDerivative(DerivativeBase):
         try:
             response = await self._api_request("get", "api")
             if response["status"] != "ok":
-                raise Exception(f"Error connecting to Gateway API. HTTP status is {response.status}.")
+                raise GatewayAPIException(f"Error connecting to Gateway API. HTTP status is {response.status}.")
         except asyncio.CancelledError:
             raise
         except Exception:

@@ -6,6 +6,7 @@ from typing import (
     Tuple,
 )
 
+from hummingbot.exceptions import OrderException
 from hummingbot.core.event.events import (
     OrderType,
     TradeType,
@@ -79,7 +80,7 @@ cdef class BitfinexInFlightOrder(InFlightOrderBase):
         ))
 
         if (len(statuses) < 1):
-            raise Exception(f"status not found for order_status {order_status}")
+            raise OrderException(f"status not found for order_status {order_status}")
 
         self.last_state = statuses[0]
 

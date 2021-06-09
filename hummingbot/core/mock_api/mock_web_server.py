@@ -9,6 +9,7 @@ from yarl import URL
 from collections import namedtuple
 import requests
 from threading import Thread
+from hummingbot.exceptions import SingletonException
 
 StockResponse = namedtuple("StockResponse", "method host path params is_json response")
 
@@ -73,7 +74,7 @@ class MockWebServer:
         Constructs all the necessary attributes for the Humming Web object
         """
         if MockWebServer.__instance is not None:
-            raise Exception("This class is a singleton!")
+            raise SingletonException("This class is a singleton!")
         else:
             MockWebServer.__instance = self
         self._ev_loop: None

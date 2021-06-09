@@ -7,6 +7,7 @@ from typing import (
 )
 import aiohttp
 
+from hummingbot.exceptions import NetworkException
 from hummingbot.core.network_base import (
     NetworkBase,
     NetworkStatus
@@ -97,7 +98,7 @@ class LogServerClient(NetworkBase):
                 async with session.get(self.log_server_url) as resp:
                     status_text = await resp.text()
                     if status_text != "OK":
-                        raise Exception("Log proxy server is down.")
+                        raise NetworkException("Log proxy server is down.")
         except asyncio.CancelledError:
             raise
         except Exception:
