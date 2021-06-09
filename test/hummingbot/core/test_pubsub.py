@@ -11,7 +11,6 @@ from test.mock.mock_listener import MockEventListener
 
 class PubSubTest(unittest.TestCase):
     def setUp(self) -> None:
-        self.ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         self.pubsub = PubSub()
         self.listener_zero = MockEventListener()
         self.listener_one = MockEventListener()
