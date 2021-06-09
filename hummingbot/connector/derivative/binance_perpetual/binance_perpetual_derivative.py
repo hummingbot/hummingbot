@@ -97,7 +97,6 @@ class BinancePerpetualDerivative(DerivativeBase):
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
     LONG_POLL_INTERVAL = 120.0
     ORDER_NOT_EXIST_CONFIRMATION_COUNT = 3
-    FUNDING_FEE_POLL_TIMEDELTA = 300.0
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -138,6 +137,7 @@ class BinancePerpetualDerivative(DerivativeBase):
         self._funding_fee_polling_task = None
         self._last_poll_timestamp = 0
         self._throttler = Throttler((10.0, 1.0))
+        self._funding_payment_span = [0, 30]
 
     @property
     def name(self) -> str:
@@ -718,18 +718,25 @@ class BinancePerpetualDerivative(DerivativeBase):
         return float(int_ts - mod + eight_hours)
 
     async def _funding_fee_polling_loop(self):
-        self._next_funding_fee_timestamp = self.get_next_funding_timestamp()
+        # get our first funding time
+        next_funding_fee_timestamp = self.get_next_funding_timestamp()
+
+        # funding payment loop
         while True:
-            try:
-                # wait for funding timestamp plus a small delta to allow account to update
-                if self.current_timestamp > self._next_funding_fee_timestamp + self.FUNDING_FEE_POLL_TIMEDELTA:
-                    # get a start time just before the funding event
-                    startTime = self._next_funding_fee_timestamp - self.FUNDING_FEE_POLL_TIMEDELTA
+            # wait for funding timestamp plus payment span
+            if self.current_timestamp > next_funding_fee_timestamp + self._funding_payment_span[1]:
+                # get a start time to query funding payments
+                startTime = next_funding_fee_timestamp - self._funding_payment_span[0]
+                try:
+                    # generate funding payment events
                     await self.get_funding_payment(startTime)
-                    self._next_funding_fee_timestamp = self.get_next_funding_timestamp()
-            except Exception:
-                self.logger().error("Unexpected error whilst retrieving funding fees", exc_info=True)
-            await asyncio.sleep(60)
+                    next_funding_fee_timestamp = self.get_next_funding_timestamp()
+                except Exception:
+                    self.logger().error("Unexpected error whilst retrieving funding payments. Retrying after 10 seconds... ",
+                                        exc_info=True)
+                    await asyncio.sleep(10.0)
+
+            await asyncio.sleep(10)
 
     async def _status_polling_loop(self):
         while True:
