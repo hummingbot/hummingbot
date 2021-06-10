@@ -69,6 +69,9 @@ class RateOracle(NetworkBase):
         self._fetch_price_task: Optional[asyncio.Task] = None
         self._ready_event = asyncio.Event()
 
+    def __str__(self):
+        return f"{self.source.name.title()} rate oracle"
+
     @classmethod
     async def _http_client(cls) -> aiohttp.ClientSession:
         if cls._shared_client is None:
