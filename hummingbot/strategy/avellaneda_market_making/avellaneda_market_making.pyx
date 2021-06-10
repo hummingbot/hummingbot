@@ -246,6 +246,14 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._max_spread = value
 
     @property
+    def order_override(self) -> Dict[str, any]:
+        return self._order_override
+
+    @order_override.setter
+    def order_override(self, value):
+        self._order_override = value
+
+    @property
     def order_levels(self) -> int:
         return self._order_levels
 
