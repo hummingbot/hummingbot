@@ -104,7 +104,7 @@ jobs:
           source /usr/share/miniconda/etc/profile.d/conda.sh
           conda activate hummingbot
           git fetch --all -q
-          find test/hummingbot/ -iname "test_*.py" | xargs nosetests -v --with-coverage --cover-inclusive --cover-package=hummingbot --cover-xml --cover-min-percentage=0
+          find test/hummingbot/ -iname "test_*.py" | xargs nosetests -v --with-coverage --cover-inclusive --cover-package=hummingbot --cover-xml --cover-min-percentage=45
       - name: Validate coverage for the changes
         if: github.event_name == 'pull_request' && (steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true')
         shell: bash
@@ -113,7 +113,7 @@ jobs:
           conda activate hummingbot
           git fetch --all -q
           git checkout -b $GITHUB_SHA
-          diff-cover --compare-branch=origin/$GITHUB_BASE_REF --fail-under=0 coverage.xml
+          diff-cover --compare-branch=origin/$GITHUB_BASE_REF --fail-under=50 coverage.xml
 
       # Notify results to discord
       - uses: actions/setup-ruby@v1
