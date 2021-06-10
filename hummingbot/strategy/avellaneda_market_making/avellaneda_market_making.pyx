@@ -262,6 +262,14 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._order_levels = value
 
     @property
+    def max_order_age(self) -> float:
+        return self._max_order_age
+
+    @max_order_age.setter
+    def max_order_age(self, value):
+        self._max_order_age = value
+
+    @property
     def add_transaction_costs_to_orders(self) -> bool:
         return self._add_transaction_costs_to_orders
 
@@ -1140,7 +1148,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         return self.c_cancel_active_orders(proposal)
 
     # Refresh all active order that are older that the _max_order_age
-    cdef c_aged_order_refresh(self):
+    cdef object c_aged_order_refresh(self):
         cdef:
             list active_orders = self.active_orders
             list buys = []
@@ -1167,8 +1175,8 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 self.c_cancel_order(self._market_info, order.client_order_id)
         return Proposal(buys, sells)
 
-    def aged_order_refresh(self):
-        self.c_aged_order_refresh()
+    def aged_order_refresh(self) -> Proposal:
+        return self.c_aged_order_refresh()
 
     cdef bint c_to_create_orders(self, object proposal):
         return self._create_timestamp < self._current_timestamp and \
