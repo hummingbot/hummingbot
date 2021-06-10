@@ -87,7 +87,7 @@ class HangingOrder:
         return abs(self.price - price)
 
     def __eq__(self, other):
-        return all(
+        return isinstance(other, HangingOrder) and all(
             (self.trading_pair == other.trading_pair,
              self.is_buy == other.is_buy,
              self.price == other.price,
