@@ -192,6 +192,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
     @staticmethod
     def simulate_place_limit_order(strategy: AvellanedaMarketMakingStrategy, market_info: MarketTradingPairTuple, order: LimitOrder):
+        strategy.set_timers()
         if order.is_buy:
             return strategy.buy_with_specific_market(market_trading_pair_tuple=market_info,
                                                      order_type=OrderType.LIMIT,
@@ -203,8 +204,6 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
                                                       order_type=OrderType.LIMIT,
                                                       price=order.price,
                                                       amount=order.quantity)
-
-        strategy.set_timers()
 
     def test_all_markets_ready(self):
         self.assertTrue(self.strategy.all_markets_ready())
@@ -1031,17 +1030,31 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.strategy.cancel_active_orders(proposal)
         self.assertEqual(0, len(self.strategy.active_orders))
 
-        # Case (2): Has active orders and exceed _order_refresh_tolerance_pct. Default: _order_refresh_tolerance_pct = -1
-        # Note: Orders will be cancelled
+        # Case (2): Has active orders and within _order_refresh_tolerance_pct.
+        # Note: Order will NOT be cancelled
+        self.strategy.order_refresh_tolerance_pct = Decimal("100")
         self.simulate_place_limit_order(self.strategy, self.market_info, limit_buy_order)
         self.simulate_place_limit_order(self.strategy, self.market_info, limit_sell_order)
         self.assertEqual(2, len(self.strategy.active_orders))
+
+        # Case (3a): Has active orders and EXCEED _order_refresh_tolerance_pct BUT cancel_timestamp > current_timestamp
+        # Note: Orders will NOT be cancelled
+        self.strategy.order_refresh_tolerance_pct = Decimal("-1")
+        self.assertEqual(2, len(self.strategy.active_orders))
+
+        self.strategy.cancel_active_orders(proposal)
+
+        self.assertEqual(2, len(self.strategy.active_orders))
+
+        # Case (3b): Has active orders and EXCEED _order_refresh_tolerance_pct AND cancel_timestamp <= current_timestamp
+        # Note: Orders will be cancelled
+        self.clock.backtest_til(self.strategy.current_timestamp + self.strategy.order_refresh_time + 1)
 
         self.strategy.cancel_active_orders(proposal)
 
         self.assertEqual(0, len(self.strategy.active_orders))
 
-        # Case (3): Has active orders and within _order_refresh_tolerance_pct.
+        # Case (4): Has active orders and within _order_refresh_tolerance_pct BUT cancel_timestamp > current_timestamp
         # Note: Order not cancelled
         self.strategy.order_refresh_tolerance_pct = Decimal("100")
         self.simulate_place_limit_order(self.strategy, self.market_info, limit_buy_order)
@@ -1052,10 +1065,10 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         self.assertEqual(2, len(self.strategy.active_orders))
 
-        # Case (4): Exceed _cancel_timestamp
+        # Case (5): Has active orders and within _order_refresh_tolerance_pct AND cancel_timestamp <= current_timestamp
         self.strategy.order_refresh_tolerance_pct = s_decimal_neg_one
 
-        self.clock.backtest_til(self.start_timestamp + self.strategy.order_refresh_time + 1)
+        self.clock.backtest_til(self.strategy.current_timestamp + self.strategy.order_refresh_time + 1)
 
         self.strategy.cancel_active_orders(proposal)
 
@@ -1097,4 +1110,36 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.assertEqual(str(expected_proposal), str(refreshed_proposal))
 
     def test_to_create_orders(self):
+        # Simulate order being placed. Placing an order updates create_timestamp = next_cycle
+        limit_buy_order: LimitOrder = LimitOrder(client_order_id="test",
+                                                 trading_pair=self.trading_pair,
+                                                 is_buy=True,
+                                                 base_currency=self.trading_pair.split("-")[0],
+                                                 quote_currency=self.trading_pair.split("-")[1],
+                                                 price=Decimal("99"),
+                                                 quantity=self.order_amount)
+        limit_sell_order: LimitOrder = LimitOrder(client_order_id="test",
+                                                  trading_pair=self.trading_pair,
+                                                  is_buy=False,
+                                                  base_currency=self.trading_pair.split("-")[0],
+                                                  quote_currency=self.trading_pair.split("-")[1],
+                                                  price=Decimal("101"),
+                                                  quantity=self.order_amount)
+        self.simulate_place_limit_order(self.strategy, self.market_info, limit_buy_order)
+        self.simulate_place_limit_order(self.strategy, self.market_info, limit_sell_order)
+
+        # Simulate new proposal being created
+        bid_price: Decimal = Decimal("99.5")
+        ask_price: Decimal = Decimal("101.5")
+        proposal: Proposal = Proposal(
+            [PriceSize(bid_price, self.order_amount)],  # Bids
+            [PriceSize(ask_price, self.order_amount)]   # Sells
+        )
+
+        # Case (1) create_timestamp < current_timestamp
+        self.assertFalse(self.strategy.to_create_orders(proposal))
+
+        # Case (2) create_timestamp >= current_timestamp
+        self.clock.backtest_til(self.start_timestamp + self.strategy.order_refresh_time + 1)
+        self.assertTrue(self.strategy.to_create_orders(proposal))
         pass

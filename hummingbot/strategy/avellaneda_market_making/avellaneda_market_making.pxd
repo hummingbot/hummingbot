@@ -70,7 +70,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     cdef object c_aged_order_refresh(self)
     cdef bint c_to_create_orders(self, object proposal)
     cdef c_execute_orders_proposal(self, object proposal)
-    cdef set_timers(self)
     cdef double c_get_spread(self)
     cdef c_collect_market_variables(self, double timestamp)
     cdef bint c_is_algorithm_ready(self)

@@ -1237,7 +1237,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     def execute_orders_proposal(self, proposal: Proposal):
         self.c_execute_orders_proposal(proposal)
 
-    cdef set_timers(self):
+    def set_timers(self):
         cdef double next_cycle = self._current_timestamp + self._order_refresh_time
         if self._create_timestamp <= self._current_timestamp:
             self._create_timestamp = next_cycle
