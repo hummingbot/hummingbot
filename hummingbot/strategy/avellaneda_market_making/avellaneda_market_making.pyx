@@ -331,6 +331,8 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 age = pd.Timestamp(int(time.time()) - int(order.client_order_id[-16:])/1e6,
                                    unit='s').strftime('%H:%M:%S')
             amount_orig = self._order_amount
+            if self._hanging_orders_tracker.is_order_id_in_hanging_orders(order.client_order_id):
+                amount_orig = float(order.quantity)
             data.append([
                 "hang" if self._hanging_orders_tracker.is_order_id_in_hanging_orders(order.client_order_id) else level,
                 "buy" if order.is_buy else "sell",
