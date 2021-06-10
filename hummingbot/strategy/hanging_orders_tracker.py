@@ -166,7 +166,7 @@ class HangingOrdersTracker:
     def execute_orders_to_be_created(self):
         executed_orders = self._execute_orders_in_strategy(self.orders_to_be_created)
         self.strategy_current_hanging_orders = self.strategy_current_hanging_orders.union(executed_orders)
-        self.orders_to_be_created.clear()
+        self.orders_to_be_created = frozenset()
 
     def _execute_orders_in_strategy(self, candidate_orders: Set[HangingOrder]):
         new_hanging_orders = set()
