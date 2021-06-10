@@ -183,9 +183,10 @@ class BinancePerpetualDerivative(DerivativeBase):
             self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
 
     def _stop_network(self):
-        # Reset timestamps for status_polling_task
+        # Reset timestamps and _poll_notifier for status_polling_loop
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
+        self._poll_notifier = asyncio.Event()
 
         self._order_book_tracker.stop()
         if self._status_polling_task is not None:
