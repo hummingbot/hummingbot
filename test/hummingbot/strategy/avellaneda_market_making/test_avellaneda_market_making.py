@@ -24,7 +24,11 @@ from hummingsim.backtest.mock_order_book_loader import MockOrderBookLoader
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.event.events import OrderType
+from hummingbot.core.event.events import (
+    OrderType,
+    TradeType,
+    TradeFee,
+)
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 
 from hummingbot.strategy.avellaneda_market_making import AvellanedaMarketMakingStrategy
@@ -873,7 +877,59 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.assertEqual(str(initial_proposal), str(new_proposal))
 
     def test_apply_budget_constraint(self):
-        pass
+        # Simulate low volatility
+        self.simulate_low_volatility(self.strategy)
+
+        # Prepare market variables and parameters for calculation
+        self.strategy.recalculate_parameters()
+        self.strategy.calculate_reserved_price_and_optimal_spread()
+
+        # Create a basic proposal.
+        order_amount: Decimal = self.market.quantize_order_amount(self.trading_pair, self.order_amount)
+        bid_price: Decimal = self.market.quantize_order_price(self.trading_pair, self.strategy.optimal_bid)
+        ask_price: Decimal = self.market.quantize_order_price(self.trading_pair, self.strategy.optimal_ask)
+
+        initial_proposal: Proposal = Proposal([PriceSize(bid_price, order_amount)], [PriceSize(ask_price, order_amount)])
+
+        # (1) Base & Quote balance < Base & Quote sizes in Proposal
+
+        # Modify base_balance and quote_balance
+        self.market.set_balance("COINALPHA", int(self.order_amount * Decimal("0.5")))
+        self.market.set_balance("HBOT", int(self.order_amount * Decimal("0.5")))
+
+        # Calculate expected proposal
+        proposal = deepcopy(initial_proposal)
+        base_balance, quote_balance = self.strategy.get_adjusted_available_balance(self.strategy.active_orders)
+        buy_fee: TradeFee = self.market.get_fee(self.base_asset,
+                                                self.quote_asset,
+                                                OrderType.LIMIT,
+                                                TradeType.BUY,
+                                                proposal.buys[0].size,
+                                                proposal.buys[0].price)
+        buy_adjusted_amount: Decimal = quote_balance / (proposal.buys[0].price * (Decimal("1") + buy_fee.percent))
+        expected_buy_amount: Decimal = self.market.quantize_order_amount(self.trading_pair, buy_adjusted_amount)
+        expected_sell_amount = self.market.quantize_order_amount(self.trading_pair, base_balance)
+        expected_proposal: Proposal = Proposal(
+            [PriceSize(bid_price, expected_buy_amount)],
+            [PriceSize(ask_price, expected_sell_amount)]
+        )
+
+        self.strategy.apply_budget_constraint(proposal)
+
+        self.assertEqual(str(expected_proposal), str(proposal))
+
+        # (2) Base & Quote balance = s_decimal_zero
+
+        # Modify base_balance and quote_balance
+        self.market.set_balance("COINALPHA", 0)
+        self.market.set_balance("HBOT", 0)
+
+        proposal = deepcopy(initial_proposal)
+        self.strategy.apply_budget_constraint(proposal)
+
+        expected_proposal: Proposal = Proposal([], [])
+
+        self.assertEqual(str(expected_proposal), str(proposal))
 
     def test_apply_order_amount_eta_transformation(self):
         pass
@@ -885,41 +941,4 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         pass
 
     def test_to_create_orders(self):
-        pass
-
-    def test_integrated_avellaneda_strategy(self):
-        # TODO: Implement an integrated test that essentially runs the entire strategy for 3 cycles
-
-        # 1. self._all_markets_ready
-        # (1) True
-        # (2) False
-
-        # 2. self.c_collect_market_variables()
-        # Check if new sample has been added to the RingBuffer of the avg vol indicator
-        # Check value of the self._q_adjustment_factor
-        # (1) self._time_left == 0
-        #     - Check if self.c_recalculate_parameters() is called and the variables have been updated
-        # (2) self._time_left > 0
-
-        # 3. self.c_is_algorithm_ready()
-        #   (1) True
-        #       Condition: (self._gamma is None) or (self._kappa is None) or (self._parameters_based_on_spread and (diff in vol > vol_threshold ))
-        #       - self.c_recalculate_parameters
-        #       - self.c_calculate_reserved_price_and_optimal_spread()
-        #       - proposal = self.c_create_base_proposal()
-        #       - self.c_apply_order_amount_eta_transformation(proposal)
-        #       - self.c_apply_order_price_modifiers(proposal)
-        #       - self.c_apply_budget_constraint(proposal)
-        #       - self.c_cancel_active_orders(proposal)
-        #       - refreshed_proposal = self.c_aged_order_refresh()
-        #         (1) is not None
-        #             - self.c_execute_order_proposal(refresh_proposal)
-        #
-        #       - self.c_to_create_order(proposal):
-        #         (1) True
-        #             - self.c_execute_order_proposal(refresh_proposal)
-        #   (2) False
-        #       - Update self._ticks_to_be_ready
-
-        # Check active_orders()
         pass
