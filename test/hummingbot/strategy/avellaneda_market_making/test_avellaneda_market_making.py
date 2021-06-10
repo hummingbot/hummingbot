@@ -4,6 +4,7 @@ import pandas as pd
 import math
 import numpy as np
 
+from copy import deepcopy
 from decimal import Decimal
 from typing import (
     List,
@@ -14,17 +15,22 @@ from hummingsim.backtest.backtest_market import BacktestMarket
 from hummingsim.backtest.market import (
     QuantizationParams,
 )
+from hummingsim.backtest.market_config import (
+    AssetType,
+    MarketConfig,
+)
 from hummingsim.backtest.mock_order_book_loader import MockOrderBookLoader
 
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.strategy.avellaneda_market_making import AvellanedaMarketMakingStrategy
-from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-
-from hummingbot.strategy.__utils__.trailing_indicators.average_volatility import AverageVolatilityIndicator
 from hummingbot.core.event.events import OrderType
+from hummingbot.core.data_type.order_book_row import OrderBookRow
+
+from hummingbot.strategy.avellaneda_market_making import AvellanedaMarketMakingStrategy
 from hummingbot.strategy.avellaneda_market_making.data_types import PriceSize, Proposal
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+from hummingbot.strategy.__utils__.trailing_indicators.average_volatility import AverageVolatilityIndicator
 
 s_decimal_zero = Decimal(0)
 s_decimal_one = Decimal(1)
@@ -538,12 +544,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
             "order_2": ["buy", 0.5, 100]
         }
 
-        # Re-initialize strategy with order_ride configurations
-        self.strategy = AvellanedaMarketMakingStrategy(
-            market_info=self.market_info,
-            order_amount=self.order_amount,
-            order_override=order_override,
-        )
+        # Re-configure strategy with order_ride configurations
+        self.strategy.order_override = order_override
 
         expected_proposal = (list(), list())
         for order in order_override.values():
@@ -637,7 +639,6 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         expected_buys = []
         expected_sells = []
-
         order_amount = self.market.quantize_order_amount(self.trading_pair, self.order_amount)
         for level in range(self.strategy.order_levels):
             bid_price = self.market.quantize_order_price(self.trading_pair,
@@ -653,9 +654,99 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.assertEqual(str(expected_proposal), str(self.strategy.create_proposal_based_on_order_levels()))
 
     def test_create_basic_proposal(self):
-        pass
+        # Simulate low volatility
+        self.simulate_low_volatility(self.strategy)
+
+        # Prepare market variables and parameters for calculation
+        self.strategy.recalculate_parameters()
+        self.strategy.calculate_reserved_price_and_optimal_spread()
+
+        expected_order_amount: Decimal = self.market.quantize_order_amount(self.trading_pair,
+                                                                           self.order_amount)
+        expected_bid_price: Decimal = self.market.quantize_order_price(self.trading_pair,
+                                                                       self.strategy.optimal_bid)
+
+        expected_ask_price: Decimal = self.market.quantize_order_price(self.trading_pair,
+                                                                       self.strategy.optimal_ask)
+
+        expected_proposal = ([PriceSize(expected_bid_price, expected_order_amount)],
+                             [PriceSize(expected_ask_price, expected_order_amount)])
+
+        self.assertEqual(str(expected_proposal), str(self.strategy.create_basic_proposal()))
 
     def test_create_base_proposal(self):
+        # Simulate low volatility
+        self.simulate_low_volatility(self.strategy)
+
+        # Prepare market variables and parameters for calculation
+        self.strategy.recalculate_parameters()
+        self.strategy.calculate_reserved_price_and_optimal_spread()
+
+        # (1) Default
+        expected_order_amount: Decimal = self.market.quantize_order_amount(self.trading_pair,
+                                                                           self.order_amount)
+        expected_bid_price: Decimal = self.market.quantize_order_price(self.trading_pair,
+                                                                       self.strategy.optimal_bid)
+
+        expected_ask_price: Decimal = self.market.quantize_order_price(self.trading_pair,
+                                                                       self.strategy.optimal_ask)
+
+        expected_proposal: Proposal = Proposal([PriceSize(expected_bid_price, expected_order_amount)],
+                                               [PriceSize(expected_ask_price, expected_order_amount)])
+
+        self.assertEqual(str(expected_proposal), str(self.strategy.create_base_proposal()))
+
+        # (2) With order_override
+        order_override = {
+            "order_1": ["sell", 2.5, 100],
+            "order_2": ["buy", 0.5, 100]
+        }
+
+        # Re-configure strategy with order_ride configurations
+        self.strategy.order_override = order_override
+
+        expected_buys = []
+        expected_sells = []
+        for order in order_override.values():
+            list_to_append = expected_buys if order[0] == "buy" else expected_sells
+            if "buy" == order[0]:
+                price = self.strategy.get_price() * (Decimal("1") - Decimal(str(order[1])) / Decimal("100"))
+            else:
+                price = self.strategy.get_price() * (Decimal("1") + Decimal(str(order[1])) / Decimal("100"))
+
+            price = self.market.quantize_order_price(self.trading_pair, price)
+            size = self.market.quantize_order_amount(self.trading_pair, Decimal(str(order[2])))
+
+            list_to_append.append(PriceSize(price, size))
+
+        expected_proposal: Proposal = Proposal(expected_buys, expected_sells)
+
+        self.assertEqual(str(expected_proposal), str(self.strategy.create_base_proposal()))
+
+        # Reset order_override configuration
+        self.strategy.order_override = {}
+
+        # (3) With order_levels
+        self.strategy.order_levels = 2
+
+        # Calculate order levels
+        bid_level_spreads, ask_level_spreads = self.strategy._get_logspaced_level_spreads()
+
+        expected_buys = []
+        expected_sells = []
+        order_amount = self.market.quantize_order_amount(self.trading_pair, self.order_amount)
+        for level in range(self.strategy.order_levels):
+            bid_price = self.market.quantize_order_price(self.trading_pair,
+                                                         self.strategy.optimal_bid - Decimal(str(bid_level_spreads[level])))
+            ask_price = self.market.quantize_order_price(self.trading_pair,
+                                                         self.strategy.optimal_ask + Decimal(str(ask_level_spreads[level])))
+
+            expected_buys.append(PriceSize(bid_price, order_amount))
+            expected_sells.append(PriceSize(ask_price, order_amount))
+
+        expected_proposal: Proposal = Proposal(expected_buys, expected_sells)
+        self.assertEqual(str(expected_proposal), str(self.strategy.create_base_proposal()))
+
         pass
 
     def test_get_adjusted_available_balance(self):
@@ -675,19 +766,116 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         self.assertEqual(expected_available_balance, self.strategy.get_adjusted_available_balance(self.strategy.active_orders))
 
+    def test_apply_order_optimization(self):
+        # Simulate low volatility
+        self.simulate_low_volatility(self.strategy)
+
+        # Prepare market variables and parameters for calculation
+        self.strategy.recalculate_parameters()
+        self.strategy.calculate_reserved_price_and_optimal_spread()
+
+        # Create a basic proposal.
+        order_amount: Decimal = self.market.quantize_order_amount(self.trading_pair, self.order_amount)
+        bid_price: Decimal = self.market.quantize_order_price(self.trading_pair, self.strategy.optimal_bid)
+        ask_price: Decimal = self.market.quantize_order_price(self.trading_pair, self.strategy.optimal_ask)
+
+        initial_proposal: Proposal = Proposal([PriceSize(bid_price, order_amount)], [PriceSize(ask_price, order_amount)])
+
+        # Intentionally make top_bid/ask_price lower/higher respectively.
+        ob_bids: List[OrderBookRow] = [OrderBookRow(bid_price * Decimal("0.5"), self.order_amount, 2)]
+        ob_asks: List[OrderBookRow] = [OrderBookRow(ask_price * Decimal("1.5"), self.order_amount, 2)]
+        self.market.order_books[self.trading_pair].apply_snapshot(ob_bids, ob_asks, 2)
+
+        new_proposal: Proposal = deepcopy(initial_proposal)
+        self.strategy.apply_order_price_modifiers(new_proposal)
+
+        self.assertNotEqual(initial_proposal, new_proposal)
+
+    def test_apply_add_transaction_costs(self):
+        # Simulate low volatility
+        self.simulate_low_volatility(self.strategy)
+
+        # Prepare market variables and parameters for calculation
+        self.strategy.recalculate_parameters()
+        self.strategy.calculate_reserved_price_and_optimal_spread()
+
+        # Create a basic proposal.
+        order_amount: Decimal = self.market.quantize_order_amount(self.trading_pair, self.order_amount)
+        bid_price: Decimal = self.market.quantize_order_price(self.trading_pair, self.strategy.optimal_bid)
+        ask_price: Decimal = self.market.quantize_order_price(self.trading_pair, self.strategy.optimal_ask)
+
+        initial_proposal: Proposal = Proposal([PriceSize(bid_price, order_amount)], [PriceSize(ask_price, order_amount)])
+
+        # Set TradeFees
+        self.market.config: MarketConfig = MarketConfig(AssetType.BASE_CURRENCY,
+                                                        Decimal("0.25"),
+                                                        AssetType.QUOTE_CURRENCY,
+                                                        Decimal("0.25"))
+
+        new_proposal: Proposal = deepcopy(initial_proposal)
+        self.strategy.apply_order_price_modifiers(new_proposal)
+
+        self.assertNotEqual(initial_proposal, new_proposal)
+
     def test_apply_order_price_modifiers(self):
-        pass
+        # >>>> Test Preparation Start
+        # Simulate low volatility
+        self.simulate_low_volatility(self.strategy)
+
+        # Prepare market variables and parameters for calculation
+        self.strategy.recalculate_parameters()
+        self.strategy.calculate_reserved_price_and_optimal_spread()
+
+        # Create a basic proposal.
+        order_amount: Decimal = self.market.quantize_order_amount(self.trading_pair, self.order_amount)
+        bid_price: Decimal = self.market.quantize_order_price(self.trading_pair, self.strategy.optimal_bid)
+        ask_price: Decimal = self.market.quantize_order_price(self.trading_pair, self.strategy.optimal_ask)
+
+        initial_proposal: Proposal = Proposal([PriceSize(bid_price, order_amount)], [PriceSize(ask_price, order_amount)])
+        # <<<<< Test Preparation End
+
+        # (1) Default Both Enabled: order_optimization = True, add_transaction_costs_to_orders = True
+
+        #   Intentionally make top_bid/ask_price lower/higher respectively & set TradeFees
+        ob_bids: List[OrderBookRow] = [OrderBookRow(bid_price * Decimal("0.5"), self.order_amount, 2)]
+        ob_asks: List[OrderBookRow] = [OrderBookRow(ask_price * Decimal("1.5"), self.order_amount, 2)]
+        self.market.order_books[self.trading_pair].apply_snapshot(ob_bids, ob_asks, 2)
+        self.market.config: MarketConfig = MarketConfig(AssetType.BASE_CURRENCY,
+                                                        Decimal("0.25"),
+                                                        AssetType.QUOTE_CURRENCY,
+                                                        Decimal("0.25"))
+
+        expected_bid_price = self.market.quantize_order_price(
+            self.trading_pair,
+            bid_price * Decimal("0.5") * (Decimal("1") - Decimal("0.25")))
+
+        expected_ask_price = self.market.quantize_order_price(
+            self.trading_pair,
+            ask_price * Decimal("1.5") * (Decimal("1") + Decimal("0.25")))
+
+        new_proposal: Proposal = deepcopy(initial_proposal)
+        self.strategy.apply_order_price_modifiers(new_proposal)
+
+        self.assertNotEqual(str(initial_proposal), new_proposal)
+
+        new_bid_price = new_proposal.buys[0].price
+        new_ask_price = new_proposal.sells[0].price
+
+        self.assertAlmostEqual(expected_bid_price, new_bid_price, 6)
+        self.assertAlmostEqual(expected_ask_price, new_ask_price, 6)
+
+        # (2) With none enabled
+        self.strategy.order_optimization_enabled = self.strategy.add_transaction_costs_to_orders = False
+
+        new_proposal: Proposal = deepcopy(initial_proposal)
+        self.strategy.apply_order_price_modifiers(new_proposal)
+
+        self.assertEqual(str(initial_proposal), str(new_proposal))
 
     def test_apply_budget_constraint(self):
         pass
 
-    def test_apply_order_optimization(self):
-        pass
-
     def test_apply_order_amount_eta_transformation(self):
-        pass
-
-    def test_apply_add_transaction_costs(self):
         pass
 
     def test_cancel_active_orders(self):
