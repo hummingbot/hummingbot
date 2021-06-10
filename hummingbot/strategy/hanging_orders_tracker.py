@@ -146,7 +146,7 @@ class HangingOrdersTracker:
     def update_strategy_orders_with_equivalent_orders(self):
         if self.aggregation_method != HangingOrdersAggregationType.NO_AGGREGATION:
             # For all cases, except no_aggregation, orders based on renewal of max_aged ones are not considered
-            self.orders_to_be_created = frozenset()
+            self.orders_to_be_created.clear()
         equivalent_orders = self.equivalent_orders
         orders_to_create = equivalent_orders.union(self.orders_to_be_created).\
             difference(self.strategy_current_hanging_orders)
@@ -165,7 +165,7 @@ class HangingOrdersTracker:
     def execute_orders_to_be_created(self):
         executed_orders = self._execute_orders_in_strategy(self.orders_to_be_created)
         self.strategy_current_hanging_orders = self.strategy_current_hanging_orders.union(executed_orders)
-        self.orders_to_be_created = frozenset()
+        self.orders_to_be_created.clear()
 
     def _execute_orders_in_strategy(self, candidate_orders: Set[HangingOrder]):
         new_hanging_orders = set()
