@@ -214,9 +214,10 @@ cdef class KucoinExchange(ExchangeBase):
             await self._update_balances()
 
     def _stop_network(self):
-        # Resets timestamps for status_polling_task
+        # Resets timestamps and events for status_polling_loop
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
+        self._poll_notifier = asyncio.Event()
 
         self._order_book_tracker.stop()
         if self._status_polling_task is not None:
