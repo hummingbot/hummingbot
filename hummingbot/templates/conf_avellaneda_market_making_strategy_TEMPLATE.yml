@@ -44,7 +44,7 @@ add_transaction_costs: null
 # when one side is filled (hanging orders feature) (true/false).
 hanging_orders_enabled: null
 
-# Select way of aggregation hanging orders. Weather if leaving them as they are or calculating a resulting hanging order
+# Select way of aggregating hanging orders. Whether if leaving them as they are or calculating a resulting hanging order
 hanging_orders_aggregation_type: null
 
 # Spread (from mid price, in percentage) hanging orders will be canceled (Enter 1 to indicate 1%)

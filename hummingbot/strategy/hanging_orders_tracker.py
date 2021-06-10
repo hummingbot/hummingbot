@@ -31,7 +31,7 @@ class CreatedPairOfOrders:
                ((self.sell_order is not None) and (self.sell_order.client_order_id == order.client_order_id))
 
     def partially_filled(self):
-        return (self.filled_buy and not self.filled_sell) or (not self.filled_buy and self.filled_sell)
+        return self.filled_buy != self.filled_sell
 
     def get_unfilled_order(self):
         if self.partially_filled():
@@ -119,9 +119,8 @@ class HangingOrdersTracker:
 
     def _get_equivalent_orders(self) -> Set[HangingOrder]:
         if self.original_orders:
-            return getattr(self,
-                           self.AGGREGATION_METHODS.get(self.aggregation_method,
-                                                        "_get_equivalent_orders_no_aggregation"))(self.original_orders)
+            return getattr(self, self.AGGREGATION_METHODS.get(self.aggregation_method),
+                           self._get_equivalent_orders_no_aggregation)(self.original_orders)
         return set()
 
     @property
@@ -258,7 +257,18 @@ class HangingOrdersTracker:
         order_to_be_removed = next(o for o in self.strategy_current_hanging_orders
                                    if o == self._get_hanging_order_from_limit_order(order))
         if order_to_be_removed:
+            order_side = "BUY" if order.is_buy else "SELL"
             self.strategy_current_hanging_orders.remove(order_to_be_removed)
+            self.strategy.log_with_clock(
+                logging.INFO,
+                f"({self.trading_pair}) Hanging maker {order_side} order {order.client_order_id} "
+                f"({order.quantity} {order.base_currency} @ "
+                f"{order.price} {order.quote_currency}) has been completely filled."
+            )
+            self.strategy.notify_hb_app(
+                f"Hanging maker {order_side} order {order.quantity} {order.base_currency} @ "
+                f"{order.price} {order.quote_currency} is filled."
+            )
         if self.aggregation_method == HangingOrdersAggregationType.NO_AGGREGATION.name:
             self.remove_order(order)
         else:

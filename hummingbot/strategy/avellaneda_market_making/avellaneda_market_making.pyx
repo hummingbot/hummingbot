@@ -317,7 +317,8 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         lvl_buy, lvl_sell = 0, 0
         for idx in range(0, len(active_orders)):
             order = active_orders[idx]
-            if not self._hanging_orders_tracker.is_order_id_in_hanging_orders(order.client_order_id):
+            is_hanging_order = self._hanging_orders_tracker.is_order_id_in_hanging_orders(order.client_order_id)
+            if not is_hanging_order:
                 if order.is_buy:
                     level = lvl_buy + 1
                     lvl_buy += 1
@@ -331,10 +332,11 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 age = pd.Timestamp(int(time.time()) - int(order.client_order_id[-16:])/1e6,
                                    unit='s').strftime('%H:%M:%S')
             amount_orig = self._order_amount
-            if self._hanging_orders_tracker.is_order_id_in_hanging_orders(order.client_order_id):
+            if is_hanging_order:
                 amount_orig = float(order.quantity)
+                level = "hang"
             data.append([
-                "hang" if self._hanging_orders_tracker.is_order_id_in_hanging_orders(order.client_order_id) else level,
+                level,
                 "buy" if order.is_buy else "sell",
                 float(order.price),
                 f"{spread:.2%}",
@@ -932,16 +934,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
         # If the filled order is a hanging order, do nothing
         if self._hanging_orders_tracker.is_order_id_in_hanging_orders(order_id):
-            self.log_with_clock(
-                logging.INFO,
-                f"({self.trading_pair}) Hanging maker buy order {order_id} "
-                f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
-                f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
-            )
-            self.notify_hb_app(
-                f"Hanging maker BUY order {limit_order_record.quantity} {limit_order_record.base_currency} @ "
-                f"{limit_order_record.price} {limit_order_record.quote_currency} is filled."
-            )
             self._hanging_orders_tracker.did_fill_hanging_order(limit_order_record)
             return
 
@@ -975,16 +967,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
         # If the filled order is a hanging order, do nothing
         if self._hanging_orders_tracker.is_order_id_in_hanging_orders(order_id):
-            self.log_with_clock(
-                logging.INFO,
-                f"({self.trading_pair}) Hanging maker sell order {order_id} "
-                f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
-                f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
-            )
-            self.notify_hb_app(
-                f"Hanging maker BUY order {limit_order_record.quantity} {limit_order_record.base_currency} @ "
-                f"{limit_order_record.price} {limit_order_record.quote_currency} is filled."
-            )
             self._hanging_orders_tracker.did_fill_hanging_order(limit_order_record)
             return
 
