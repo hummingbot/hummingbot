@@ -91,13 +91,14 @@ class SslCertTest(unittest.TestCase):
         """
 
         # setup global cert_path and make sure it is empty
-        cp = tempfile.gettempdir() + "/certs"
-        set_cert_path(cp)
-        if not os.path.exists(cp):
-            os.mkdir(cp)
+        with tempfile.TemporaryDirectory() as tempdir:
+            cp = tempdir + "/certs"
+            set_cert_path(cp)
+            if not os.path.exists(cp):
+                os.mkdir(cp)
 
-        self.assertEqual(certs_files_exist(), False)
+            self.assertEqual(certs_files_exist(), False)
 
-        # generate all necessary certs then confirm they exist in the expected place
-        create_self_sign_certs("abc123")
-        self.assertEqual(certs_files_exist(), True)
+            # generate all necessary certs then confirm they exist in the expected place
+            create_self_sign_certs("abc123")
+            self.assertEqual(certs_files_exist(), True)
