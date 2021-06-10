@@ -39,6 +39,7 @@ from hummingbot.strategy.__utils__.trailing_indicators.average_volatility import
 s_decimal_zero = Decimal(0)
 s_decimal_one = Decimal(1)
 s_decimal_nan = Decimal("NaN")
+s_decimal_neg_one = Decimal(-1)
 
 
 class AvellanedaMarketMakingUnitTests(unittest.TestCase):
@@ -202,6 +203,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
                                                       order_type=OrderType.LIMIT,
                                                       price=order.price,
                                                       amount=order.quantity)
+
+        strategy.set_timers()
 
     def test_all_markets_ready(self):
         self.assertTrue(self.strategy.all_markets_ready())
@@ -1001,10 +1004,97 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.assertEqual(str(expected_proposal), str(proposal))
 
     def test_cancel_active_orders(self):
-        pass
+
+        bid_price: Decimal = Decimal("99.5")
+        ask_price: Decimal = Decimal("101.5")
+        proposal: Proposal = Proposal(
+            [PriceSize(bid_price, self.order_amount)],  # Bids
+            [PriceSize(ask_price, self.order_amount)]   # Sells
+        )
+
+        limit_buy_order: LimitOrder = LimitOrder(client_order_id="test",
+                                                 trading_pair=self.trading_pair,
+                                                 is_buy=True,
+                                                 base_currency=self.trading_pair.split("-")[0],
+                                                 quote_currency=self.trading_pair.split("-")[1],
+                                                 price=Decimal("99"),
+                                                 quantity=self.order_amount)
+        limit_sell_order: LimitOrder = LimitOrder(client_order_id="test",
+                                                  trading_pair=self.trading_pair,
+                                                  is_buy=False,
+                                                  base_currency=self.trading_pair.split("-")[0],
+                                                  quote_currency=self.trading_pair.split("-")[1],
+                                                  price=Decimal("101"),
+                                                  quantity=self.order_amount)
+
+        # Case (1): No orders to cancel
+        self.strategy.cancel_active_orders(proposal)
+        self.assertEqual(0, len(self.strategy.active_orders))
+
+        # Case (2): Has active orders and exceed _order_refresh_tolerance_pct. Default: _order_refresh_tolerance_pct = -1
+        # Note: Orders will be cancelled
+        self.simulate_place_limit_order(self.strategy, self.market_info, limit_buy_order)
+        self.simulate_place_limit_order(self.strategy, self.market_info, limit_sell_order)
+        self.assertEqual(2, len(self.strategy.active_orders))
+
+        self.strategy.cancel_active_orders(proposal)
+
+        self.assertEqual(0, len(self.strategy.active_orders))
+
+        # Case (3): Has active orders and within _order_refresh_tolerance_pct.
+        # Note: Order not cancelled
+        self.strategy.order_refresh_tolerance_pct = Decimal("100")
+        self.simulate_place_limit_order(self.strategy, self.market_info, limit_buy_order)
+        self.simulate_place_limit_order(self.strategy, self.market_info, limit_sell_order)
+        self.assertEqual(2, len(self.strategy.active_orders))
+
+        self.strategy.cancel_active_orders(proposal)
+
+        self.assertEqual(2, len(self.strategy.active_orders))
+
+        # Case (4): Exceed _cancel_timestamp
+        self.strategy.order_refresh_tolerance_pct = s_decimal_neg_one
+
+        self.clock.backtest_til(self.start_timestamp + self.strategy.order_refresh_time + 1)
+
+        self.strategy.cancel_active_orders(proposal)
+
+        self.assertEqual(0, len(self.strategy.active_orders))
 
     def test_aged_order_refresh(self):
-        pass
+        limit_buy_order: LimitOrder = LimitOrder(client_order_id="test",
+                                                 trading_pair=self.trading_pair,
+                                                 is_buy=True,
+                                                 base_currency=self.trading_pair.split("-")[0],
+                                                 quote_currency=self.trading_pair.split("-")[1],
+                                                 price=Decimal("99"),
+                                                 quantity=self.order_amount)
+        limit_sell_order: LimitOrder = LimitOrder(client_order_id="test",
+                                                  trading_pair=self.trading_pair,
+                                                  is_buy=False,
+                                                  base_currency=self.trading_pair.split("-")[0],
+                                                  quote_currency=self.trading_pair.split("-")[1],
+                                                  price=Decimal("101"),
+                                                  quantity=self.order_amount)
+        self.simulate_place_limit_order(self.strategy, self.market_info, limit_buy_order)
+        self.simulate_place_limit_order(self.strategy, self.market_info, limit_sell_order)
+        self.assertEqual(2, len(self.strategy.active_orders))
+
+        # Case (1) Order's age < max_order_age
+        expected_proposal: Proposal = Proposal([], [])
+        refreshed_proposal: Proposal = self.strategy.aged_order_refresh()
+
+        self.assertEqual(str(expected_proposal), str(refreshed_proposal))
+
+        # Case (2) Order's age > max_order_age
+        self.strategy.max_order_age = 0
+        expected_proposal: Proposal = Proposal(
+            [PriceSize(limit_buy_order.price, limit_buy_order.quantity)],
+            [PriceSize(limit_sell_order.price, limit_sell_order.quantity)]
+        )
+
+        refreshed_proposal: Proposal = self.strategy.aged_order_refresh()
+        self.assertEqual(str(expected_proposal), str(refreshed_proposal))
 
     def test_to_create_orders(self):
         pass

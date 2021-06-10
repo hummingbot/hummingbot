@@ -67,7 +67,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     cdef c_apply_add_transaction_costs(self, object proposal)
     cdef bint c_is_within_tolerance(self, list current_prices, list proposal_prices)
     cdef c_cancel_active_orders(self, object proposal)
-    cdef c_aged_order_refresh(self)
+    cdef object c_aged_order_refresh(self)
     cdef bint c_to_create_orders(self, object proposal)
     cdef c_execute_orders_proposal(self, object proposal)
     cdef set_timers(self)
