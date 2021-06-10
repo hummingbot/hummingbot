@@ -38,7 +38,9 @@ def validate_exchange_trading_pair(value: str) -> Optional[str]:
 
 
 def validate_max_spread(value: str) -> Optional[str]:
-    validate_decimal(value, 0, 100, inclusive=False)
+    is_invalid_decimal = validate_decimal(value, 0, 100, inclusive=False)
+    if is_invalid_decimal:
+        return is_invalid_decimal
     if avellaneda_market_making_config_map["min_spread"].value is not None:
         min_spread = Decimal(avellaneda_market_making_config_map["min_spread"].value)
         max_spread = Decimal(value)
