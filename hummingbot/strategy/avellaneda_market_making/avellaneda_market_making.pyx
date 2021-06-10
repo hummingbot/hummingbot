@@ -415,7 +415,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         for order_id in restored_order_ids:
             order = next(o for o in self.market_info.market.limit_orders if o.client_order_id == order_id)
             if order:
-                self._hanging_orders_tracker.add_hanging_order_based_on_limit_order(order)
+                self._hanging_orders_tracker.add_order(order)
         self._time_left = self._closing_time
 
     cdef c_tick(self, double timestamp):

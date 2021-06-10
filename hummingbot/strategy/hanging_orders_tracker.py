@@ -1,4 +1,5 @@
 import logging
+import time
 from decimal import Decimal
 from enum import Enum
 from typing import Dict, List, Set
@@ -61,17 +62,17 @@ class HangingOrdersTracker:
                  hanging_orders_cancel_pct=None,
                  orders: Dict[str, HangingOrder] = None,
                  trading_pair: str = None):
-        self.strategy = strategy
-        self.aggregation_method = aggregation_method or HangingOrdersAggregationType.NO_AGGREGATION
-        self._hanging_orders_cancel_pct = hanging_orders_cancel_pct or Decimal("0.1")
-        self.trading_pair = trading_pair or self.strategy.trading_pair
-        self.orders_to_be_created = set()
-        self.current_created_pairs_of_orders = list()
+        self.strategy: StrategyBase = strategy
+        self.aggregation_method: HangingOrdersAggregationType = aggregation_method or HangingOrdersAggregationType.NO_AGGREGATION
+        self._hanging_orders_cancel_pct: Decimal = hanging_orders_cancel_pct or Decimal("0.1")
+        self.trading_pair: str = trading_pair or self.strategy.trading_pair
+        self.orders_to_be_created: Set[HangingOrder] = set()
+        self.current_created_pairs_of_orders: List[CreatedPairOfOrders] = list()
         self.original_orders: Set[LimitOrder] = orders or set()
         self.strategy_current_hanging_orders: Set[HangingOrder] = set()
 
-    def add_order(self, hanging_order: LimitOrder):
-        self.original_orders.add(hanging_order)
+    def add_order(self, order: LimitOrder):
+        self.original_orders.add(order)
 
     def remove_order(self, order: LimitOrder):
         if order in self.original_orders:
@@ -90,7 +91,7 @@ class HangingOrdersTracker:
                     self.logger().info(f"Reached max_order_age={max_age}sec hanging order: {order}. Renewing...")
                     to_be_cancelled.add(order)
 
-            self.cancel_multiple_orders_in_strategy([o.order_id for o in to_be_cancelled if o.order_id])
+            self._cancel_multiple_orders_in_strategy([o.order_id for o in to_be_cancelled if o.order_id])
             for order in to_be_cancelled:
                 self.strategy_current_hanging_orders.remove(order)
                 to_be_created.add(HangingOrder(None,
@@ -105,7 +106,7 @@ class HangingOrdersTracker:
         current_price = self.strategy.get_price()
         orders_to_be_removed = set()
         for order in self.original_orders:
-            if order.distance_to_price(current_price) / current_price > self._hanging_orders_cancel_pct:
+            if abs(order.price - current_price) / current_price > self._hanging_orders_cancel_pct:
                 self.logger().info(
                     f"Hanging order passed max_distance from price={self._hanging_orders_cancel_pct * 100}% {order}. Removing...")
                 orders_to_be_removed.add(order)
@@ -114,8 +115,9 @@ class HangingOrdersTracker:
 
     def set_aggregation_method(self, aggregation_method: HangingOrdersAggregationType):
         self.aggregation_method = aggregation_method
+        self.orders_to_be_created.clear()
 
-    def get_equivalent_orders(self) -> Set[HangingOrder]:
+    def _get_equivalent_orders(self) -> Set[HangingOrder]:
         if self.original_orders:
             return getattr(self,
                            self.AGGREGATION_METHODS.get(self.aggregation_method,
@@ -123,50 +125,50 @@ class HangingOrdersTracker:
         return set()
 
     @property
-    def equivalent_orders(self):
-        return self.get_equivalent_orders()
+    def equivalent_orders(self) -> Set[HangingOrder]:
+        return self._get_equivalent_orders()
 
-    def is_order_id_in_hanging_orders(self, order_id: str):
+    def is_order_id_in_hanging_orders(self, order_id: str) -> bool:
         return any((o.order_id == order_id for o in self.strategy_current_hanging_orders))
 
-    def is_hanging_order_in_strategy_active_orders(self, order: HangingOrder):
+    def is_hanging_order_in_strategy_active_orders(self, order: HangingOrder) -> bool:
         return any(all(order.trading_pair == o.trading_pair,
                        order.is_buy == o.is_buy,
                        order.price == o.price,
                        order.amount == o.quantity) for o in self.strategy.active_orders)
 
-    def is_order_to_be_added_to_hanging_orders(self, order: LimitOrder):
-        hanging_order = HangingOrder(order.client_order_id,
-                                     order.trading_pair,
-                                     order.is_buy,
-                                     order.price,
-                                     order.quantity)
+    def is_order_to_be_added_to_hanging_orders(self, order: LimitOrder) -> bool:
+        hanging_order = self._get_hanging_order_from_limit_order(order)
         if hanging_order in self.equivalent_orders.union(self.orders_to_be_created):
             return any(o.order_id == order.client_order_id
                        for o in self.equivalent_orders.union(self.orders_to_be_created))
 
     def update_strategy_orders_with_equivalent_orders(self):
-        equivalent_orders = self.get_equivalent_orders()
+        equivalent_orders = self.equivalent_orders
         orders_to_create = equivalent_orders.union(self.orders_to_be_created).\
             difference(self.strategy_current_hanging_orders)
         orders_to_cancel = self.strategy_current_hanging_orders.difference(equivalent_orders).\
             difference(orders_to_create)
-        self.cancel_multiple_orders_in_strategy([o.order_id for o in orders_to_cancel])
+        self._cancel_multiple_orders_in_strategy([o.order_id for o in orders_to_cancel])
         self.orders_to_be_created = self.orders_to_be_created.union(orders_to_create)
+
+        if self.aggregation_method != HangingOrdersAggregationType.NO_AGGREGATION:
+            # For all cases, except no_aggregation, orders based on renewal of max_aged ones are not considered
+            self.orders_to_be_created = equivalent_orders
 
         if any((orders_to_cancel, self.orders_to_be_created)):
             self.logger().info("Updating hanging orders...")
             self.logger().info(f"Original hanging orders: {self.original_orders}")
-            self.logger().info(f"Equivalent hanging orders: {self.equivalent_orders}")
+            self.logger().info(f"Equivalent hanging orders: {equivalent_orders}")
             self.logger().info(f"Need to create: {self.orders_to_be_created}")
             self.logger().info(f"Need to cancel: {orders_to_cancel}")
 
     def execute_orders_to_be_created(self):
-        executed_orders = self.execute_orders_in_strategy(self.orders_to_be_created)
+        executed_orders = self._execute_orders_in_strategy(self.orders_to_be_created)
         self.strategy_current_hanging_orders = self.strategy_current_hanging_orders.union(executed_orders)
         self.orders_to_be_created.clear()
 
-    def execute_orders_in_strategy(self, candidate_orders: Set[HangingOrder]):
+    def _execute_orders_in_strategy(self, candidate_orders: Set[HangingOrder]):
         new_hanging_orders = set()
         order_type = self.strategy.market_info.market.get_maker_order_type()
         for order in candidate_orders:
@@ -199,26 +201,24 @@ class HangingOrdersTracker:
                 new_hanging_orders.add(order)
         return new_hanging_orders
 
-    def cancel_multiple_orders_in_strategy(self, order_ids: List[str]):
+    def _cancel_multiple_orders_in_strategy(self, order_ids: List[str]):
         for order_id in order_ids:
             if any(o.client_order_id == order_id for o in self.strategy.active_orders):
                 self.strategy.cancel_order(order_id)
 
     def _get_equivalent_orders_no_aggregation(self, orders):
-        return frozenset(orders)
+        return frozenset(self._get_hanging_order_from_limit_order(o) for o in orders)
 
     def _obtain_equivalent_weighted_order(self, orders, weight_function):
         buys = [o for o in orders if o.is_buy]
         sells = [o for o in orders if not o.is_buy]
         current_price = self.strategy.get_price()
-        distance_prod_subs = sum(abs(current_price - o.price) * o.amount * weight_function(o) for o in sells) -\
-            sum(abs(current_price - o.price) * o.amount * weight_function(o) for o in buys)
+        distance_prod_subs = sum(abs(current_price - o.price) * o.quantity * weight_function(o) for o in sells) -\
+            sum(abs(current_price - o.price) * o.quantity * weight_function(o) for o in buys)
         if distance_prod_subs != 0:
             isbuy = distance_prod_subs < 0
-            price = current_price + distance_prod_subs / sum(o.amount * weight_function(o) for o in orders)
-            amount_sum = sum(o.amount * weight_function(o) for o in orders)
-            amount = (sum(o.amount for o in sells) * sum(o.amount * weight_function(o) for o in sells) -
-                      sum(o.amount for o in buys) * sum(o.amount * weight_function(o) for o in buys)) / amount_sum
+            price = current_price + distance_prod_subs / sum(o.quantity * weight_function(o) for o in orders)
+            amount = sum(o.quantity for o in orders)
 
             quantized_amount = self.strategy.market_info.market.quantize_order_amount(self.trading_pair, amount)
             quantized_price = self.strategy.market_info.market.quantize_order_price(self.trading_pair, price)
@@ -233,7 +233,9 @@ class HangingOrdersTracker:
         max_order_age = getattr(self.strategy, "max_order_age", lambda: None)
         if max_order_age:
             return self._obtain_equivalent_weighted_order(orders,
-                                                          lambda o: Decimal.exp(-Decimal(str(o.age / max_order_age))))
+                                                          lambda o: Decimal.exp(-Decimal(
+                                                              str(HangingOrdersTracker._get_limit_order_age(o) /
+                                                                  max_order_age))))
         return frozenset()
 
     def _get_equivalent_order_volume_and_distance_weighted(self, orders: Set[LimitOrder]):
@@ -255,11 +257,7 @@ class HangingOrdersTracker:
 
     def did_fill_hanging_order(self, order: LimitOrder):
         order_to_be_removed = next(o for o in self.strategy_current_hanging_orders
-                                   if o == HangingOrder(order.client_order_id,
-                                                        order.trading_pair,
-                                                        order.is_buy,
-                                                        order.price,
-                                                        order.quantity))
+                                   if o == self._get_hanging_order_from_limit_order(order))
         if order_to_be_removed:
             self.strategy_current_hanging_orders.remove(order_to_be_removed)
         if self.aggregation_method == HangingOrdersAggregationType.NO_AGGREGATION.name:
@@ -280,12 +278,19 @@ class HangingOrdersTracker:
                 unfilled_order = pair.get_unfilled_order()
                 # Check if the unfilled order is in active_orders because it might have failed before being created
                 if unfilled_order in self.strategy.active_orders:
-                    self.add_hanging_order_based_on_limit_order(unfilled_order)
+                    self.add_order(unfilled_order)
         self.current_created_pairs_of_orders.clear()
 
-    def add_hanging_order_based_on_limit_order(self, order: LimitOrder):
-        self.add_order(HangingOrder(order.client_order_id,
-                                    order.trading_pair,
-                                    order.is_buy,
-                                    order.price,
-                                    order.quantity))
+    def _get_hanging_order_from_limit_order(self, order: LimitOrder):
+        return HangingOrder(order.client_order_id, order.trading_pair, order.is_buy, order.price, order.quantity)
+
+    @classmethod
+    def _get_limit_order_age(cls, order: LimitOrder):
+        creation_timestamp = None
+        if order.client_order_id:
+            if "//" not in order.client_order_id:
+                creation_timestamp = int(order.client_order_id[-16:]) / 1e6
+
+        if creation_timestamp:
+            return int(time.time()) - creation_timestamp
+        return 0
