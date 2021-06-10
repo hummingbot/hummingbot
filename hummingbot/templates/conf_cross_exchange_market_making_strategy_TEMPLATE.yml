@@ -15,7 +15,7 @@ maker_market_trading_pair: null
 taker_market_trading_pair: null
 
 # Minimum profitability target required to place an order
-# Expressed in decimals: 0.01 = 1% target profit
+# Expressed in percentage value, e.g. 1 = 1% target profit
 min_profitability: null
 
 # Maximum order size in terms of base currency

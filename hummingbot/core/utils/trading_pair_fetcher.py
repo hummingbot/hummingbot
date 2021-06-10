@@ -56,6 +56,6 @@ class TradingPairFetcher:
             self.trading_pairs[exchange_name] = await fetch_fn
         except Exception:
             self.logger().error(f"Connector {exchange_name} failed to retrieve its trading pairs. "
-                                f"Trading pairs autocompletion won't work.")
+                                f"Trading pairs autocompletion won't work.", exc_info=True)
             # In case of error just assign empty list, this is st. the bot won't stop working
             self.trading_pairs[exchange_name] = []
