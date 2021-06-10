@@ -1,3 +1,7 @@
+"""
+The configuration parameters for a user made liquidity_mining strategy.
+"""
+
 from decimal import Decimal
 from typing import Optional
 from hummingbot.client.config.config_var import ConfigVar
