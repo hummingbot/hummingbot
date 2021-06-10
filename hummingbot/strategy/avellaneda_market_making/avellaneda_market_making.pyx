@@ -469,9 +469,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 refresh_proposal = self.c_aged_order_refresh()
                 if refresh_proposal is not None:
                     self.c_execute_orders_proposal(refresh_proposal)
-                self._hanging_orders_tracker.update_strategy_orders_with_equivalent_orders()
 
                 if self.c_to_create_orders(proposal):
+                    self._hanging_orders_tracker.update_strategy_orders_with_equivalent_orders()
                     self._hanging_orders_tracker.execute_orders_to_be_created()
                     # 4. Apply budget constraint (after hanging orders were created), i.e. can't buy/sell more than what you have.
                     self.c_apply_budget_constraint(proposal)
