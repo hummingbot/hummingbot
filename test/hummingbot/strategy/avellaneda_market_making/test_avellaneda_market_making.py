@@ -891,7 +891,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         initial_proposal: Proposal = Proposal([PriceSize(bid_price, order_amount)], [PriceSize(ask_price, order_amount)])
 
-        # (1) Base & Quote balance < Base & Quote sizes in Proposal
+        # Test (1) Base & Quote balance < Base & Quote sizes in Proposal
 
         # Modify base_balance and quote_balance
         self.market.set_balance("COINALPHA", int(self.order_amount * Decimal("0.5")))
@@ -918,7 +918,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         self.assertEqual(str(expected_proposal), str(proposal))
 
-        # (2) Base & Quote balance = s_decimal_zero
+        # Test (2) Base & Quote balance = s_decimal_zero
 
         # Modify base_balance and quote_balance
         self.market.set_balance("COINALPHA", 0)
@@ -932,7 +932,73 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.assertEqual(str(expected_proposal), str(proposal))
 
     def test_apply_order_amount_eta_transformation(self):
-        pass
+        # Simulate low volatility
+        self.simulate_low_volatility(self.strategy)
+
+        # Prepare market variables and parameters for calculation
+        self.strategy.recalculate_parameters()
+        self.strategy.calculate_reserved_price_and_optimal_spread()
+
+        # Create a basic proposal.
+        order_amount: Decimal = self.market.quantize_order_amount(self.trading_pair, self.order_amount)
+        bid_price: Decimal = self.market.quantize_order_price(self.trading_pair, self.strategy.optimal_bid)
+        ask_price: Decimal = self.market.quantize_order_price(self.trading_pair, self.strategy.optimal_ask)
+
+        initial_proposal: Proposal = Proposal([PriceSize(bid_price, order_amount)], [PriceSize(ask_price, order_amount)])
+
+        # Test (1) Check proposal when order_override is NOT None
+        proposal: Proposal = deepcopy(initial_proposal)
+
+        order_override = {
+            "order_1": ["sell", 2.5, 100],
+            "order_2": ["buy", 0.5, 100]
+        }
+
+        # Re-configure strategy with order_ride configurations
+        self.strategy.order_override = order_override
+
+        self.strategy.apply_order_amount_eta_transformation(proposal)
+
+        self.assertEqual(str(initial_proposal), str(proposal))
+
+        # Test (2) Check proposal when order_override is None
+
+        # Re-configure strategy with order_ride configurations
+        self.strategy.order_override = None
+
+        proposal: Proposal = deepcopy(initial_proposal)
+
+        # Case(1): if q < 0
+        eta: Decimal = self.strategy.eta
+        q: Decimal = self.market.get_balance(self.base_asset) - self.strategy.calculate_target_inventory()
+
+        expected_bid_amount: Decimal = proposal.buys[0].size
+        expected_ask_amount: Decimal = self.market.quantize_order_amount(self.trading_pair,
+                                                                         proposal.sells[0].size * Decimal.exp(eta * q))
+        expected_proposal: Proposal = Proposal(
+            [PriceSize(proposal.buys[0].price, expected_bid_amount)],
+            [PriceSize(proposal.sells[0].price, expected_ask_amount)]
+        )
+
+        self.strategy.apply_order_amount_eta_transformation(proposal)
+        self.assertEqual(str(expected_proposal), str(proposal))
+
+        # Case(2): if q > 0
+        self.market.set_balance("COINALPHA", 100)
+        eta: Decimal = self.strategy.eta
+        q: Decimal = self.market.get_balance(self.base_asset) - self.strategy.calculate_target_inventory()
+
+        expected_bid_amount: Decimal = self.market.quantize_order_amount(self.trading_pair,
+                                                                         proposal.buys[0].size * Decimal.exp(-eta * q))
+        expected_ask_amount: Decimal = proposal.sells[0].size
+
+        expected_proposal: Proposal = Proposal(
+            [PriceSize(proposal.buys[0].price, expected_bid_amount)],
+            [PriceSize(proposal.sells[0].price, expected_ask_amount)]
+        )
+
+        self.strategy.apply_order_amount_eta_transformation(proposal)
+        self.assertEqual(str(expected_proposal), str(proposal))
 
     def test_cancel_active_orders(self):
         pass
