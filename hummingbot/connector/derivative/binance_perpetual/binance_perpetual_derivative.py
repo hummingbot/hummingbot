@@ -174,6 +174,7 @@ class BinancePerpetualDerivative(DerivativeBase):
 
     def stop(self, clock: Clock):
         super().stop(clock)
+        BinanceTime.get_instance().stop()
 
     async def start_network(self):
         self._order_book_tracker.start()
