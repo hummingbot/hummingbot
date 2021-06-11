@@ -28,7 +28,7 @@ from hummingbot.core.event.events import (
     OrderFilledEvent,
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent,
-    TradeFee
+    TradeFee, OrderCancelledEvent, MarketOrderFailureEvent, OrderExpiredEvent
 )
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.strategy.dev_4_twap import Dev4TwapTradeStrategy
@@ -43,7 +43,13 @@ class TWAPUnitTest(unittest.TestCase):
     maker_trading_pairs: List[str] = ["COINALPHA-WETH", "COINALPHA", "WETH"]
     clock_tick_size = 10
 
+    level = 0
+    log_records = []
+
     def setUp(self):
+
+        super().setUp()
+        self.log_records = []
 
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
         self.market: BacktestMarket = BacktestMarket()
@@ -99,6 +105,13 @@ class TWAPUnitTest(unittest.TestCase):
         self.market.add_listener(MarketEvent.SellOrderCompleted, self.sell_order_completed_logger)
         self.market.add_listener(MarketEvent.OrderFilled, self.maker_order_fill_logger)
         self.market.add_listener(MarketEvent.OrderCancelled, self.cancel_order_logger)
+
+    def handle(self, record):
+        self.log_records.append(record)
+
+    def _is_logged(self, log_level: str, message: str) -> bool:
+        return any(record.levelname == log_level and record.getMessage().startswith(message)
+                   for record in self.log_records)
 
     @staticmethod
     def simulate_limit_order_fill(market: Market, limit_order: LimitOrder):
@@ -167,9 +180,9 @@ class TWAPUnitTest(unittest.TestCase):
         order_time_1 = self.start_timestamp + self.clock_tick_size
         self.clock.backtest_til(order_time_1)
         self.assertEqual(1, len(self.limit_buy_strategy.active_bids))
-        bid_order: LimitOrder = self.limit_buy_strategy.active_bids[0][1]
-        self.assertEqual(Decimal("99"), bid_order.price)
-        self.assertEqual(1, bid_order.quantity)
+        first_bid_order: LimitOrder = self.limit_buy_strategy.active_bids[0][1]
+        self.assertEqual(Decimal("99"), first_bid_order.price)
+        self.assertEqual(1, first_bid_order.quantity)
 
         # test whether number of orders is two after time delay
         # check whether the order is buy
@@ -178,18 +191,21 @@ class TWAPUnitTest(unittest.TestCase):
         order_time_2 = order_time_1 + self.clock_tick_size * math.ceil(self.order_delay_time / self.clock_tick_size)
         self.clock.backtest_til(order_time_2)
         self.assertEqual(2, len(self.limit_buy_strategy.active_bids))
-        bid_order: LimitOrder = self.limit_buy_strategy.active_bids[0][1]
-        self.assertEqual(Decimal("99"), bid_order.price)
-        self.assertEqual(1, bid_order.quantity)
+        second_bid_order: LimitOrder = self.limit_buy_strategy.active_bids[1][1]
+        self.assertEqual(Decimal("99"), second_bid_order.price)
+        self.assertEqual(1, second_bid_order.quantity)
 
         # Check whether order is cancelled after cancel_order_wait_time
         cancel_time_1 = order_time_1 + self.cancel_order_wait_time
         self.clock.backtest_til(cancel_time_1)
         self.assertEqual(1, len(self.limit_buy_strategy.active_bids))
+        self.assertEqual(self.limit_buy_strategy.active_bids[0][1], second_bid_order)
 
         cancel_time_2 = order_time_2 + self.cancel_order_wait_time
         self.clock.backtest_til(cancel_time_2)
-        self.assertEqual(0, len(self.limit_buy_strategy.active_bids))
+        self.assertEqual(1, len(self.limit_buy_strategy.active_bids))
+        self.assertNotEqual(self.limit_buy_strategy.active_bids[0][1], first_bid_order)
+        self.assertNotEqual(self.limit_buy_strategy.active_bids[0][1], second_bid_order)
 
     def test_limit_sell_order(self):
         self.clock.add_iterator(self.limit_sell_strategy)
@@ -282,3 +298,85 @@ class TWAPUnitTest(unittest.TestCase):
         market_sell_events: List[SellOrderCompletedEvent] = [t for t in self.sell_order_completed_logger.event_log
                                                              if isinstance(t, SellOrderCompletedEvent)]
         self.assertEqual(0, len(market_sell_events))
+
+    def test_remaining_quantity_updated_after_cancel_order_event(self):
+        self.limit_buy_strategy.logger().setLevel(1)
+        self.limit_buy_strategy.logger().addHandler(self)
+
+        self.clock.add_iterator(self.limit_buy_strategy)
+        # check no orders are placed before time delay
+        self.clock.backtest_til(self.start_timestamp)
+        self.assertEqual(0, len(self.limit_buy_strategy.active_bids))
+
+        # one order created after first tick
+        self.clock.backtest_til(self.start_timestamp + math.ceil(self.clock_tick_size / self.order_delay_time))
+        self.assertEqual(1, len(self.limit_buy_strategy.active_bids))
+        bid_order: LimitOrder = self.limit_buy_strategy.active_bids[0][1]
+        self.assertEqual(1, bid_order.quantity)
+        self.assertEqual(self.limit_buy_strategy._quantity_remaining, 1)
+
+        # Simulate order cancel
+        self.market.trigger_event(MarketEvent.OrderCancelled, OrderCancelledEvent(
+            self.market.current_timestamp,
+            bid_order.client_order_id))
+
+        self.assertEqual(0, len(self.limit_buy_strategy.active_bids))
+        self.assertEqual(self.limit_buy_strategy._quantity_remaining, 2)
+
+        self.assertTrue(self._is_logged('INFO',
+                                        f"Updating status after order cancel (id: {bid_order.client_order_id})"))
+
+    def test_remaining_quantity_updated_after_failed_order_event(self):
+        self.limit_buy_strategy.logger().setLevel(1)
+        self.limit_buy_strategy.logger().addHandler(self)
+
+        self.clock.add_iterator(self.limit_buy_strategy)
+        # check no orders are placed before time delay
+        self.clock.backtest_til(self.start_timestamp)
+        self.assertEqual(0, len(self.limit_buy_strategy.active_bids))
+
+        # one order created after first tick
+        self.clock.backtest_til(self.start_timestamp + math.ceil(self.clock_tick_size / self.order_delay_time))
+        self.assertEqual(1, len(self.limit_buy_strategy.active_bids))
+        bid_order: LimitOrder = self.limit_buy_strategy.active_bids[0][1]
+        self.assertEqual(1, bid_order.quantity)
+        self.assertEqual(self.limit_buy_strategy._quantity_remaining, 1)
+
+        # Simulate order cancel
+        self.market.trigger_event(MarketEvent.OrderFailure, MarketOrderFailureEvent(
+            self.market.current_timestamp,
+            bid_order.client_order_id,
+            OrderType.LIMIT))
+
+        self.assertEqual(0, len(self.limit_buy_strategy.active_bids))
+        self.assertEqual(self.limit_buy_strategy._quantity_remaining, 2)
+
+        self.assertTrue(self._is_logged('INFO',
+                                        f"Updating status after order fail (id: {bid_order.client_order_id})"))
+
+    def test_remaining_quantity_updated_after_expired_order_event(self):
+        self.limit_buy_strategy.logger().setLevel(1)
+        self.limit_buy_strategy.logger().addHandler(self)
+
+        self.clock.add_iterator(self.limit_buy_strategy)
+        # check no orders are placed before time delay
+        self.clock.backtest_til(self.start_timestamp)
+        self.assertEqual(0, len(self.limit_buy_strategy.active_bids))
+
+        # one order created after first tick
+        self.clock.backtest_til(self.start_timestamp + math.ceil(self.clock_tick_size / self.order_delay_time))
+        self.assertEqual(1, len(self.limit_buy_strategy.active_bids))
+        bid_order: LimitOrder = self.limit_buy_strategy.active_bids[0][1]
+        self.assertEqual(1, bid_order.quantity)
+        self.assertEqual(self.limit_buy_strategy._quantity_remaining, 1)
+
+        # Simulate order cancel
+        self.market.trigger_event(MarketEvent.OrderExpired, OrderExpiredEvent(
+            self.market.current_timestamp,
+            bid_order.client_order_id))
+
+        self.assertEqual(0, len(self.limit_buy_strategy.active_bids))
+        self.assertEqual(self.limit_buy_strategy._quantity_remaining, 2)
+
+        self.assertTrue(self._is_logged('INFO',
+                                        f"Updating status after order expire (id: {bid_order.client_order_id})"))
