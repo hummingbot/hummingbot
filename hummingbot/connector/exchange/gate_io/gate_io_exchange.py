@@ -208,6 +208,7 @@ class GateIoExchange(ExchangeBase):
         # Resets timestamps for status_polling_task
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
+        self._poll_notifier = asyncio.Event()
 
         self._order_book_tracker.stop()
         if self._status_polling_task is not None:
