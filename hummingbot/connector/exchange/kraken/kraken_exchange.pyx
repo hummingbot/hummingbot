@@ -775,19 +775,14 @@ cdef class KrakenExchange(ExchangeBase):
                 except Exception:
                     raise IOError(f"Error parsing data from {url}.")
 
-                try:
-                    err = response_json["error"]
-                    if "EOrder:Unknown order" in err or "EOrder:Invalid order" in err:
-                        return {"error": err}
-                    elif "EAPI:Invalid nonce" in err:
-                        self.logger().error(f"Invalid nonce error from {url}. " +
-                                            "Please ensure your Kraken API key nonce window is at least 10, " +
-                                            "and if needed reset your API key.")
-                        raise IOError({"error": response_json})
-                except IOError:
-                    raise
-                except Exception:
-                    pass
+                err = response_json["error"]
+                if "EOrder:Unknown order" in err or "EOrder:Invalid order" in err:
+                    return {"error": err}
+                elif "EAPI:Invalid nonce" in err:
+                    self.logger().error(f"Invalid nonce error from {url}. " +
+                                        "Please ensure your Kraken API key nonce window is at least 10, " +
+                                        "and if needed reset your API key.")
+                    raise IOError({"error": response_json})
 
                 data = response_json.get("result")
                 if data is None:
@@ -849,48 +844,44 @@ cdef class KrakenExchange(ExchangeBase):
             raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
                              f"{trading_rule.min_order_size}.")
 
-        try:
-            order_result = None
-            order_decimal_amount = f"{decimal_amount:f}"
-            if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
-                order_decimal_price = f"{decimal_price:f}"
-                self.c_start_tracking_order(
-                    order_id,
-                    "",
-                    trading_pair,
-                    TradeType.BUY,
-                    decimal_price,
-                    decimal_amount,
-                    order_type,
-                    userref
-                )
-                order_result = await self.place_order(userref=userref,
-                                                      trading_pair=trading_pair,
-                                                      amount=order_decimal_amount,
-                                                      order_type=order_type,
-                                                      is_buy=True,
-                                                      price=order_decimal_price)
-            else:
-                raise ValueError(f"Invalid OrderType {order_type}. Aborting.")
+        order_result = None
+        order_decimal_amount = f"{decimal_amount:f}"
+        if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
+            order_decimal_price = f"{decimal_price:f}"
+            self.c_start_tracking_order(
+                order_id,
+                "",
+                trading_pair,
+                TradeType.BUY,
+                decimal_price,
+                decimal_amount,
+                order_type,
+                userref
+            )
+            order_result = await self.place_order(userref=userref,
+                                                  trading_pair=trading_pair,
+                                                  amount=order_decimal_amount,
+                                                  order_type=order_type,
+                                                  is_buy=True,
+                                                  price=order_decimal_price)
+        else:
+            raise ValueError(f"Invalid OrderType {order_type}. Aborting.")
 
-            exchange_order_id = order_result["txid"][0]
-            tracked_order = self._in_flight_orders.get(order_id)
-            if tracked_order is not None:
-                self.logger().info(f"Created {order_type} buy order {order_id} for "
-                                   f"{decimal_amount} {trading_pair}.")
-                tracked_order.exchange_order_id = exchange_order_id
-            self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
-                                 BuyOrderCreatedEvent(
-                                     self._current_timestamp,
-                                     order_type,
-                                     trading_pair,
-                                     decimal_amount,
-                                     decimal_price,
-                                     order_id
-                                 ))
-
-        except asyncio.CancelledError:
-            raise
+        exchange_order_id = order_result["txid"][0]
+        tracked_order = self._in_flight_orders.get(order_id)
+        if tracked_order is not None:
+            self.logger().info(f"Created {order_type} buy order {order_id} for "
+                               f"{decimal_amount} {trading_pair}.")
+            tracked_order.exchange_order_id = exchange_order_id
+        self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
+                             BuyOrderCreatedEvent(
+                                 self._current_timestamp,
+                                 order_type,
+                                 trading_pair,
+                                 decimal_amount,
+                                 decimal_price,
+                                 order_id
+                             ))
 
         except Exception as e:
             self.c_stop_tracking_order(order_id)
