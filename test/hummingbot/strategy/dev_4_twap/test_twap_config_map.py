@@ -6,6 +6,19 @@ import hummingbot.strategy.dev_4_twap.dev_4_twap_config_map as twap_config_map_m
 
 class TwapConfigMapTests(TestCase):
 
+    def test_string_to_boolean_conversion(self):
+        true_variants = ["Yes", "YES", "yes", "y", "Y",
+                         "true", "True", "TRUE", "t", "T",
+                         "1"]
+        for variant in true_variants:
+            self.assertTrue(twap_config_map_module.str2bool(variant))
+
+        false_variants = ["No", "NO", "no", "n", "N",
+                          "false", "False", "FALSE", "f", "F",
+                          "0"]
+        for variant in false_variants:
+            self.assertFalse(twap_config_map_module.str2bool(variant))
+
     def test_trading_pair_prompt(self):
         twap_config_map_module.dev_4_twap_config_map.get("exchange").value = "binance"
         self.assertEqual(twap_config_map_module.trading_pair_prompt(),
@@ -19,11 +32,11 @@ class TwapConfigMapTests(TestCase):
         twap_config_map_module.dev_4_twap_config_map.get("trading_pair").value = "BTC-USDT"
         twap_config_map_module.dev_4_twap_config_map.get("trade_side").value = "buy"
         self.assertEqual(twap_config_map_module.target_asset_amount_prompt(),
-                         "What is the total amount of USDT to be traded? >>> ")
+                         "What is the total amount of BTC to be traded? (Default is 1.0) >>> ")
 
         twap_config_map_module.dev_4_twap_config_map.get("trade_side").value = "sell"
         self.assertEqual(twap_config_map_module.target_asset_amount_prompt(),
-                         "What is the total amount of BTC to be traded? >>> ")
+                         "What is the total amount of BTC to be traded? (Default is 1.0) >>> ")
 
     def test_trade_side_config(self):
         config_var = twap_config_map_module.dev_4_twap_config_map.get("trade_side")
