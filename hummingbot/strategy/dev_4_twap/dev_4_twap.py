@@ -12,7 +12,7 @@ from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.event.events import OrderType
+from hummingbot.core.event.events import OrderType, OrderCancelledEvent, MarketOrderFailureEvent, OrderExpiredEvent
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
@@ -172,23 +172,31 @@ class Dev4TwapTradeStrategy(StrategyPyBase):
 
         if market_info is not None:
             limit_order_record = self.order_tracker.get_limit_order(market_info, order_id)
-            # If its not market order
+            order_type = "buy" if limit_order_record.is_buy else "sell"
+            self.log_with_clock(
+                logging.INFO,
+                f"({market_info.trading_pair}) Limit {order_type} order {order_id} "
+                f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
+                f"{limit_order_record.price} {limit_order_record.quote_currency}) has been filled."
+            )
+
+    def did_cancel_order(self, cancelled_event: OrderCancelledEvent):
+        self.update_remaining_after_removing_order(cancelled_event.order_id, 'cancel')
+
+    def did_fail_order(self, order_failed_event: MarketOrderFailureEvent):
+        self.update_remaining_after_removing_order(order_failed_event.order_id, 'fail')
+
+    def did_expire_order(self, expired_event: OrderExpiredEvent):
+        self.update_remaining_after_removing_order(expired_event.order_id, 'expire')
+
+    def update_remaining_after_removing_order(self, order_id: str, event_type: str):
+        market_info = self.order_tracker.get_market_pair_from_order_id(order_id)
+
+        if market_info is not None:
+            limit_order_record = self.order_tracker.get_limit_order(market_info, order_id)
             if limit_order_record is not None:
-                order_type = "buy" if limit_order_record.is_buy else "sell"
-                self.log_with_clock(
-                    logging.INFO,
-                    f"({market_info.trading_pair}) Limit {order_type} order {order_id} "
-                    f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
-                    f"{limit_order_record.price} {limit_order_record.quote_currency}) has been filled."
-                )
-            else:
-                market_order_record = self.order_tracker.get_market_order(market_info, order_id)
-                order_type = "buy" if market_order_record.is_buy else "sell"
-                self.log_with_clock(
-                    logging.INFO,
-                    f"({market_info.trading_pair}) Market {order_type} order {order_id} "
-                    f"({market_order_record.amount} {market_order_record.base_asset}) has been filled."
-                )
+                self.log_with_clock(logging.INFO, f"Updating status after order {event_type} (id: {order_id})")
+                self._quantity_remaining += limit_order_record.quantity
 
     def process_market(self, market_info):
         """
@@ -313,5 +321,6 @@ class Dev4TwapTradeStrategy(StrategyPyBase):
         order_book: OrderBook = market_info.order_book
         price = order_book.get_price_for_volume(True, float(self._quantity_remaining)).result_price
 
-        return quote_asset_balance >= float(self._quantity_remaining) * price if self._is_buy else base_asset_balance >= float(
-            self._quantity_remaining)
+        return quote_asset_balance >= (self._quantity_remaining * Decimal(price)) \
+            if self._is_buy \
+            else base_asset_balance >= self._quantity_remaining
