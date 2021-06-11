@@ -20,15 +20,23 @@ class KucoinUtilsUnitTests(unittest.TestCase):
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
 
     def test_split_trading_pair(self):
-        # Test (1) Regular trading pair
+        # Test (1) Non-matching trading pair
         expected_output = self.base_asset, self.quote_asset
         self.assertEqual(expected_output, split_trading_pair(self.trading_pair))
 
-        # Test (2) Trading Pair contains matching asset with different asset name
+        # Test (2) Matching base asset
         matching_asset, asset_name = next(iter(ASSET_TO_NAME_MAPPING.items()))
 
         trading_pair = f"{matching_asset}-{self.quote_asset}"
         expected_output = asset_name, self.quote_asset
+
+        self.assertEqual(expected_output, split_trading_pair(trading_pair))
+
+        # Test (3) Matching quote asset
+        matching_asset, asset_name = next(iter(ASSET_TO_NAME_MAPPING.items()))
+
+        trading_pair = f"{self.base_asset}-{matching_asset}"
+        expected_output = self.base_asset, asset_name
 
         self.assertEqual(expected_output, split_trading_pair(trading_pair))
 
@@ -51,14 +59,22 @@ class KucoinUtilsUnitTests(unittest.TestCase):
         self.assertEqual(matching_asset, convert_asset_to_exchange(asset_name))
 
     def test_convert_from_exchange_trading_pair(self):
-        # Test (1) Regular asset
+        # Test (1) Non-matching trading pair
         self.assertEqual(self.trading_pair, convert_from_exchange_trading_pair(self.trading_pair))
 
-        # Test (2) Matching asset
+        # Test (2) Matching base asset
         matching_asset, asset_name = next(iter(ASSET_TO_NAME_MAPPING.items()))
 
         trading_pair = f"{matching_asset}-{self.quote_asset}"
         expected_trading_pair = f"{asset_name}-{self.quote_asset}"
+
+        self.assertEqual(expected_trading_pair, convert_from_exchange_trading_pair(trading_pair))
+
+        # Test (3) Matching quote asset
+        matching_asset, asset_name = next(iter(ASSET_TO_NAME_MAPPING.items()))
+
+        trading_pair = f"{self.base_asset}-{matching_asset}"
+        expected_trading_pair = f"{self.base_asset}-{asset_name}"
 
         self.assertEqual(expected_trading_pair, convert_from_exchange_trading_pair(trading_pair))
 
