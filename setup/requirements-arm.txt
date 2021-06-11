@@ -8,7 +8,7 @@ aiokafka==0.6.0
 SQLAlchemy==1.3.18
 binance==0.3
 ujson==3.1.0
-websockets==8.1
+websockets==9.1
 signalr-client-aio==0.0.1.6.2
 web3==5.12.0
 prompt-toolkit==3.0.5
