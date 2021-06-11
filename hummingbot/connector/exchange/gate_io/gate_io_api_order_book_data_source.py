@@ -68,7 +68,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
         try:
             ex_pair = convert_to_exchange_trading_pair(trading_pair)
             orderbook_response: Dict[Any] = await api_call_with_retries("GET", Constants.ENDPOINT["ORDER_BOOK"],
-                                                                        params={"limit": 150, "currency_pair": ex_pair, "with_id": 1})
+                                                                        params={"currency_pair": ex_pair, "with_id": 1})
             return orderbook_response
         except GateIoAPIError as e:
             err = e.error_payload.get('error', e.error_payload)
