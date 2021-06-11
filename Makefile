@@ -3,7 +3,6 @@
 .ONESHELL:
 
 test:
-	nosetests -d -v test/test*.py
 	find test/hummingbot/ -iname "test_*.py" | xargs nosetests -v -d
 
 coverage:
