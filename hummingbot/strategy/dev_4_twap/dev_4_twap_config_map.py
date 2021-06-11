@@ -19,15 +19,13 @@ def trading_pair_prompt():
 
 def target_asset_amount_prompt():
     trading_pair = dev_4_twap_config_map.get("trading_pair").value
-    is_buy = dev_4_twap_config_map.get("trade_side").value == "buy"
-    base_token, quote_token = trading_pair.split("-")
-    target_asset = quote_token if is_buy else base_token
+    base_token, _ = trading_pair.split("-")
 
-    return f"What is the total amount of {target_asset} to be traded? >>> "
+    return f"What is the total amount of {base_token} to be traded? (Default is 1.0) >>> "
 
 
 def str2bool(value: str):
-    return str(value).lower() in ("yes", "true", "t", "1")
+    return str(value).lower() in ("yes", "y", "true", "t", "1")
 
 
 # checks if the trading pair is valid
@@ -79,8 +77,8 @@ dev_4_twap_config_map = {
                   prompt_on_new=True),
     "order_delay_time":
         ConfigVar(key="order_delay_time",
-                  prompt="How many seconds do you want to wait between each individual order? (Enter 10 to indicate 10 seconds. "
-                         "Default is 10)? >>> ",
+                  prompt="How many seconds do you want to wait between each individual order?"
+                         " (Enter 10 to indicate 10 seconds. Default is 10)? >>> ",
                   type_str="float",
                   default=10,
                   prompt_on_new=True),
@@ -88,8 +86,7 @@ dev_4_twap_config_map = {
         ConfigVar(key="cancel_order_wait_time",
                   prompt="How long do you want to wait before cancelling your limit order (in seconds). "
                          "(Default is 60 seconds) ? >>> ",
-                  required_if=lambda: dev_4_twap_config_map.get("order_type").value == "limit",
                   type_str="float",
-                  default=60),
-
+                  default=60,
+                  prompt_on_new=True)
 }
