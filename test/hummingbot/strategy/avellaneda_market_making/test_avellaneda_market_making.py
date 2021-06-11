@@ -56,7 +56,6 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         cls.initial_mid_price: int = 100
 
         cls.clock_tick_size: int = 1
-        cls.clock: Clock = Clock(ClockMode.BACKTEST, cls.clock_tick_size, cls.start_timestamp, cls.end_timestamp)
 
         # Testing Constants
         cls.low_vol: Decimal = Decimal("0.05")
@@ -109,6 +108,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
                                                                                         processing_length=1)
 
         self.strategy.avg_vol = self.avg_vol_indicator
+
+        self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
 
         self.clock.add_iterator(self.market)
         self.clock.add_iterator(self.strategy)
@@ -1142,4 +1143,3 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         # Case (2) create_timestamp >= current_timestamp
         self.clock.backtest_til(self.start_timestamp + self.strategy.order_refresh_time + 1)
         self.assertTrue(self.strategy.to_create_orders(proposal))
-        pass
