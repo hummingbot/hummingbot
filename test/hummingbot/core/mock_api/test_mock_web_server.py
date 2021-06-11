@@ -39,7 +39,7 @@ class MockWebServerTest(unittest.TestCase):
                 self.assertEqual(self.web_app.TEST_RESPONSE, text)
 
     def test_web_app_response(self):
-        self.ev_loop.run_until_complete(self._test_web_app_response())
+        self.ev_loop.run_until_complete(asyncio.wait_for(self._test_web_app_response(), 20))
 
     def test_get_request_response(self):
         self.web_app.clear_responses()
