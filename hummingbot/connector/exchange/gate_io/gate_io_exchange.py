@@ -817,8 +817,9 @@ class GateIoExchange(ExchangeBase):
             return []
         tasks = [self._execute_cancel(o.trading_pair, o.client_order_id) for o in open_orders]
         cancellation_results = []
+        cancel_timeout = timeout_seconds * len(open_orders) if len(open_orders) else timeout_seconds
         try:
-            async with timeout(timeout_seconds):
+            async with timeout(cancel_timeout):
                 cancellation_results = await safe_gather(*tasks, return_exceptions=False)
         except Exception:
             self.logger().network(
