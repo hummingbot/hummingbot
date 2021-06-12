@@ -170,6 +170,7 @@ class MockWebSocketServer:
         self.websocket = None
         self.stock_responses = {}
         self._thread: Thread = None
+        self._request_service_task = None
 
     def add_stock_response(self, request, json_response):
         """
@@ -208,7 +209,7 @@ class MockWebSocketServer:
         """
         self.ev_loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.ev_loop)
-        asyncio.ensure_future(websockets.serve(self._handler, self.host, self.port))
+        self._request_service_task = asyncio.ensure_future(websockets.serve(self._handler, self.host, self.port))
         self._started = True
         self.ev_loop.run_forever()
 
@@ -225,7 +226,7 @@ class MockWebSocketServer:
         """
         if self.started:
             self.stop()
-        self._thread = Thread(target=self._start)
+        self._thread = Thread(target=self._start, daemon=True)
         self._thread.daemon = True
         self._thread.start()
 
@@ -235,6 +236,5 @@ class MockWebSocketServer:
         """
         self.port = None
         self._started = False
+        self._request_service_task.cancel()
         self.ev_loop.stop()
-        self._thread.join()
-        self.ev_loop.close()
