@@ -269,12 +269,12 @@ class HangingOrdersTracker:
                 f"Hanging maker {order_side} order {order.quantity} {order.base_currency} @ "
                 f"{order.price} {order.quote_currency} is filled."
             )
-        if self.aggregation_method == HangingOrdersAggregationType.NO_AGGREGATION:
-            self.remove_order(order)
-        else:
-            # For any aggregation other than no_aggregation, the hanging order is the equivalent to all original
-            # hanging orders
-            self.remove_all_orders()
+            if self.aggregation_method == HangingOrdersAggregationType.NO_AGGREGATION:
+                self.remove_order(order)
+            else:
+                # For any aggregation other than no_aggregation, the hanging order is the equivalent to all original
+                # hanging orders
+                self.remove_all_orders()
 
     def did_cancel_hanging_order(self, order_id: str):
         order_to_be_removed = next(o for o in self.strategy_current_hanging_orders if o.order_id == order_id)
