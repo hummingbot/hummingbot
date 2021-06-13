@@ -1032,8 +1032,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 # If is about to be added to hanging_orders then don't cancel
                 if not self._hanging_orders_tracker.is_order_to_be_added_to_hanging_orders(order):
                     self.c_cancel_order(self._market_info, order.client_order_id)
-                else:
-                    self.logger().info(f"Preserving {order} which will be added to hanging orders")
         else:
             self.set_timers()
 
