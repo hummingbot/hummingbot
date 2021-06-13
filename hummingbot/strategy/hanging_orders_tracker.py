@@ -269,7 +269,7 @@ class HangingOrdersTracker:
                 f"Hanging maker {order_side} order {order.quantity} {order.base_currency} @ "
                 f"{order.price} {order.quote_currency} is filled."
             )
-        if self.aggregation_method == HangingOrdersAggregationType.NO_AGGREGATION.name:
+        if self.aggregation_method == HangingOrdersAggregationType.NO_AGGREGATION:
             self.remove_order(order)
         else:
             # For any aggregation other than no_aggregation, the hanging order is the equivalent to all original
