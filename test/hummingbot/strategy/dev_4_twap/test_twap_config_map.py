@@ -28,6 +28,10 @@ class TwapConfigMapTests(TestCase):
         self.assertEqual(twap_config_map_module.trading_pair_prompt(),
                          "Enter the token trading pair you would like to trade on undefined-exchange >>> ")
 
+    def test_trading_pair_validation(self):
+        twap_config_map_module.dev_4_twap_config_map.get("exchange").value = "binance"
+        self.assertIsNone(twap_config_map_module.validate_market_trading_pair_tuple("BTC-USDT"))
+
     def test_target_asset_amount_prompt(self):
         twap_config_map_module.dev_4_twap_config_map.get("trading_pair").value = "BTC-USDT"
         twap_config_map_module.dev_4_twap_config_map.get("trade_side").value = "buy"

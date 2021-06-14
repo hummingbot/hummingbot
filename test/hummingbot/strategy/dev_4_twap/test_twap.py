@@ -2,7 +2,8 @@
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from decimal import Decimal
 import math
-import logging; logging.basicConfig(level=logging.ERROR)
+import logging
+
 import pandas as pd
 from typing import List
 import unittest
@@ -30,6 +31,8 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.strategy.dev_4_twap import Dev4TwapTradeStrategy
+
+logging.basicConfig(level=logging.ERROR)
 
 
 class TWAPUnitTest(unittest.TestCase):
@@ -377,3 +380,53 @@ class TWAPUnitTest(unittest.TestCase):
 
         self.assertTrue(self._is_logged('INFO',
                                         f"Updating status after order expire (id: {bid_order.client_order_id})"))
+
+    def test_status_after_first_order_filled(self):
+        self.clock.add_iterator(self.limit_sell_strategy)
+        self.clock.backtest_til(self.start_timestamp)
+
+        order_time_1 = self.start_timestamp + self.clock_tick_size
+        self.clock.backtest_til(order_time_1)
+        ask_order: LimitOrder = self.limit_sell_strategy.active_asks[0][1]
+        self.simulate_limit_order_fill(self.market, ask_order)
+
+        order_time_2 = order_time_1 + self.clock_tick_size * math.ceil(self.order_delay_time / self.clock_tick_size)
+        self.clock.backtest_til(order_time_2)
+        ask_order2: LimitOrder = self.limit_sell_strategy.active_asks[0][1]
+
+        buy_not_started_status = self.limit_buy_strategy.format_status()
+        expected_buy_status = ("\n  Configuration:\n"
+                               "    Total amount: 2.0 COINALPHA"
+                               "    Order price: 99 WETH"
+                               "    Order size: 1.0 COINALPHA\n\n"
+                               "  Markets:\n"
+                               "             Exchange          Market  Best Bid Price  Best Ask Price  Mid Price\n"
+                               "    0  BacktestMarket  COINALPHA-WETH            99.5           100.5        100\n\n"
+                               "  Assets:\n"
+                               "             Exchange      Asset  Total Balance  Available Balance\n"
+                               "    0  BacktestMarket  COINALPHA         498.33             496.66\n"
+                               "    1  BacktestMarket       WETH        5168.67            5168.67\n\n"
+                               "  No active maker orders.\n\n"
+                               "  Average filled orders price: 0 WETH\n"
+                               "  Pending amount: 2.0 COINALPHA")
+
+        sell_started_status = self.limit_sell_strategy.format_status()
+        expected_sell_status = ("\n  Configuration:\n"
+                                "    Total amount: 5.0 COINALPHA"
+                                "    Order price: 101 WETH"
+                                "    Order size: 1.67 COINALPHA\n\n"
+                                "  Markets:\n"
+                                "             Exchange          Market  Best Bid Price  Best Ask Price  Mid Price\n"
+                                "    0  BacktestMarket  COINALPHA-WETH            99.5           100.5        100\n\n"
+                                "  Assets:\n"
+                                "             Exchange      Asset  Total Balance  Available Balance\n"
+                                "    0  BacktestMarket  COINALPHA         498.33             496.66\n"
+                                "    1  BacktestMarket       WETH        5168.67            5168.67\n\n"
+                                "  Active orders:\n"
+                                "      Order ID  Type  Price Spread  Amount  Age Hang\n"
+                                f"    0  ...{ask_order2.client_order_id[-4:]}  sell    101  0.00%    1.67  n/a  n/a\n\n"
+                                "  Average filled orders price: 0 WETH\n"
+                                "  Pending amount: 1.66000 COINALPHA")
+
+        self.assertEqual(buy_not_started_status, expected_buy_status)
+        self.assertEqual(sell_started_status, expected_sell_status)
