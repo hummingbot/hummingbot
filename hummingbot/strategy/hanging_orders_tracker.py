@@ -67,6 +67,7 @@ class HangingOrdersTracker:
         self._hanging_orders_cancel_pct: Decimal = hanging_orders_cancel_pct or Decimal("0.1")
         self.trading_pair: str = trading_pair or self.strategy.trading_pair
         self.orders_to_be_created: Set[HangingOrder] = set()
+        self.orders_renewed: Set[HangingOrder] = set()
         self.current_created_pairs_of_orders: List[CreatedPairOfOrders] = list()
         self.original_orders: Set[LimitOrder] = orders or set()
         self.strategy_current_hanging_orders: Set[HangingOrder] = set()
@@ -83,8 +84,8 @@ class HangingOrdersTracker:
 
     def renew_hanging_orders_past_max_order_age(self):
         max_age = getattr(self.strategy, "max_order_age", None)
-        to_be_cancelled = set()
-        to_be_created = set()
+        to_be_cancelled: Set[HangingOrder] = set()
+        to_be_created: Set[HangingOrder] = set()
         if max_age:
             for order in self.strategy_current_hanging_orders:
                 if order.age > max_age:
@@ -94,11 +95,16 @@ class HangingOrdersTracker:
             self._cancel_multiple_orders_in_strategy([o.order_id for o in to_be_cancelled if o.order_id])
             for order in to_be_cancelled:
                 self.strategy_current_hanging_orders.remove(order)
-                to_be_created.add(HangingOrder(None,
-                                               order.trading_pair,
-                                               order.is_buy,
-                                               order.price,
-                                               order.amount))
+                order_to_be_created = HangingOrder(None,
+                                                   order.trading_pair,
+                                                   order.is_buy,
+                                                   order.price,
+                                                   order.amount)
+                if self.aggregation_method == HangingOrdersAggregationType.NO_AGGREGATION:
+                    self.original_orders.remove(next(o for o in self.original_orders
+                                                     if o.client_order_id == order.order_id))
+                    self.orders_renewed.add(order_to_be_created)
+                to_be_created.add(order_to_be_created)
 
             self.orders_to_be_created = self.orders_to_be_created.union(to_be_created)
 
@@ -189,11 +195,19 @@ class HangingOrdersTracker:
                             price=order.price,
                             expiration_seconds=self.strategy.order_refresh_time
                         )
-                    new_hanging_orders.add(HangingOrder(order_id,
-                                                        order.trading_pair,
-                                                        order.is_buy,
-                                                        order.price,
-                                                        order.amount))
+                    new_hanging_order = HangingOrder(order_id,
+                                                     order.trading_pair,
+                                                     order.is_buy,
+                                                     order.price,
+                                                     order.amount)
+                    # If newly created order is an original order which was renewed, it will be added to original_orders
+                    if order in self.orders_renewed:
+                        limit_order_from_hanging_order = next(o for o in self.strategy.active_orders
+                                                              if o.client_order_id == order_id)
+                        if limit_order_from_hanging_order:
+                            self.add_order(limit_order_from_hanging_order)
+                            self.orders_renewed.remove(order)
+                    new_hanging_orders.add(new_hanging_order)
             # If it's a preexistent order we don't create it but we add it to hanging orders
             else:
                 new_hanging_orders.add(order)
