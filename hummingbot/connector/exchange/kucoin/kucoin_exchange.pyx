@@ -46,6 +46,12 @@ from hummingbot.connector.exchange.kucoin.kucoin_auth import KucoinAuth
 from hummingbot.connector.exchange.kucoin.kucoin_in_flight_order import KucoinInFlightOrder
 from hummingbot.connector.exchange.kucoin.kucoin_order_book_tracker import KucoinOrderBookTracker
 from hummingbot.connector.exchange.kucoin.kucoin_user_stream_tracker import KucoinUserStreamTracker
+from hummingbot.connector.exchange.kucoin.kucoin_utils import (
+    convert_asset_from_exchange,
+    convert_asset_to_exchange,
+    convert_to_exchange_trading_pair,
+    convert_from_exchange_trading_pair,
+)
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
@@ -123,22 +129,6 @@ cdef class KucoinExchange(ExchangeBase):
         self._tx_tracker = KucoinExchangeTransactionTracker(self)
         self._user_stream_tracker = KucoinUserStreamTracker(kucoin_auth=self._kucoin_auth)
 
-    @staticmethod
-    def split_trading_pair(trading_pair: str) -> Tuple[str, str]:
-        try:
-            m = trading_pair.split("-")
-            return m[0], m[1]
-        except Exception as e:
-            raise ValueError(f"Error parsing trading_pair {trading_pair}: {str(e)}")
-
-    @staticmethod
-    def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
-        return exchange_trading_pair
-
-    @staticmethod
-    def convert_to_exchange_trading_pair(ku_trading_pair: str) -> str:
-        return ku_trading_pair
-
     @property
     def name(self) -> str:
         return "kucoin"
@@ -191,9 +181,6 @@ cdef class KucoinExchange(ExchangeBase):
     @property
     def user_stream_tracker(self) -> KucoinUserStreamTracker:
         return self._user_stream_tracker
-
-    async def get_active_exchange_markets(self) -> pd.DataFrame:
-        return await KucoinAPIOrderBookDataSource.get_active_exchange_markets()
 
     cdef c_start(self, Clock clock, double timestamp):
         self._tx_tracker.c_start(clock, timestamp)
@@ -294,7 +281,7 @@ cdef class KucoinExchange(ExchangeBase):
                         self.logger().debug(f"Event: {event_message}")
                         continue
                 elif event_type == "message" and event_topic == "/account/balance":
-                    currency = execution_data["currency"]
+                    currency = convert_asset_from_exchange(execution_data["currency"])
                     available_balance = Decimal(execution_data["available"])
                     total_balance = Decimal(execution_data["total"])
                     self._account_balances.update({currency: total_balance})
@@ -432,7 +419,7 @@ cdef class KucoinExchange(ExchangeBase):
         data = await self._api_request("get", path_url=path_url, is_auth_required=True)
         if data:
             for balance_entry in data["data"]:
-                asset_name = balance_entry["currency"]
+                asset_name = convert_asset_from_exchange(balance_entry["currency"])
                 self._account_available_balances[asset_name] = Decimal(balance_entry["available"])
                 self._account_balances[asset_name] = Decimal(balance_entry["balance"])
                 remote_asset_names.add(asset_name)
@@ -480,7 +467,7 @@ cdef class KucoinExchange(ExchangeBase):
         for info in raw_trading_pair_info["data"]:
             try:
                 trading_rules.append(
-                    TradingRule(trading_pair=info["symbol"],
+                    TradingRule(trading_pair=convert_from_exchange_trading_pair(info["symbol"]),
                                 min_order_size=Decimal(info["baseMinSize"]),
                                 max_order_size=Decimal(info["baseMaxSize"]),
                                 min_price_increment=Decimal(info['priceIncrement']),
@@ -664,7 +651,7 @@ cdef class KucoinExchange(ExchangeBase):
             "size": str(amount),
             "clientOid": order_id,
             "side": side,
-            "symbol": trading_pair,
+            "symbol": convert_to_exchange_trading_pair(trading_pair),
             "type": order_type_str,
         }
         if order_type is OrderType.LIMIT:
