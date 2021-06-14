@@ -32,6 +32,10 @@ from hummingbot.connector.exchange.kucoin.kucoin_auth import KucoinAuth
 from hummingbot.connector.exchange.kucoin.kucoin_order_book import KucoinOrderBook
 from hummingbot.connector.exchange.kucoin.kucoin_active_order_tracker import KucoinActiveOrderTracker
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.connector.exchange.kucoin.kucoin_utils import (
+    convert_from_exchange_trading_pair,
+    convert_to_exchange_trading_pair,
+)
 
 SNAPSHOT_REST_URL = "https://api.kucoin.com/api/v3/market/orderbook/level2"
 DIFF_STREAM_URL = ""
@@ -122,7 +126,7 @@ class KucoinWSConnectionIterator:
                 subscribe_requests.append({
                     "id": int(time.time()),
                     "type": "subscribe" if subscribe else "unsubscribe",
-                    "topic": f"/market/level2:{market_str}",
+                    "topic": f"/market/level2:{convert_to_exchange_trading_pair(market_str)}",
                     "response": True
                 })
         else:
@@ -131,7 +135,7 @@ class KucoinWSConnectionIterator:
                 subscribe_requests.append({
                     "id": int(time.time()),
                     "type": "subscribe" if subscribe else "unsubscribe",
-                    "topic": f"/market/match:{market_str}",
+                    "topic": f"/market/match:{convert_to_exchange_trading_pair(market_str)}",
                     "privateChannel": False,
                     "response": True
                 })
@@ -298,7 +302,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
             resp = await client.get(TICKER_PRICE_CHANGE_URL)
             resp_json = await resp.json()
             for trading_pair in trading_pairs:
-                resp_record = [o for o in resp_json["data"]["ticker"] if o["symbolName"] == trading_pair][0]
+                resp_record = [o for o in resp_json["data"]["ticker"] if convert_from_exchange_trading_pair(o["symbol"]) == trading_pair][0]
                 results[trading_pair] = float(resp_record["last"])
         return results
 
@@ -310,7 +314,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     try:
                         data: Dict[str, Any] = await response.json()
                         all_trading_pairs = data.get("data", [])
-                        return [item["symbol"] for item in all_trading_pairs if item["enableTrading"] is True]
+                        return [convert_from_exchange_trading_pair(item["symbol"]) for item in all_trading_pairs if item["enableTrading"] is True]
                     except Exception:
                         pass
                         # Do nothing if the request fails -- there will be no autocomplete for kucoin trading pairs
@@ -318,7 +322,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str, auth: KucoinAuth) -> Dict[str, Any]:
-        params: Dict = {"symbol": trading_pair}
+        params: Dict = {"symbol": convert_to_exchange_trading_pair(trading_pair)}
 
         path_url = f"/api/v3/market/orderbook/level2?{urlencode(params)}"
 
@@ -448,7 +452,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         if stream_type == StreamType.Depth:
                             order_book_message: OrderBookMessage = KucoinOrderBook.diff_message_from_exchange(raw_msg)
                         else:
-                            trading_pair: str = raw_msg["data"]["symbol"]
+                            trading_pair: str = convert_to_exchange_trading_pair(raw_msg["data"]["symbol"])
                             data = raw_msg["data"]
                             order_book_message: OrderBookMessage = \
                                 KucoinOrderBook.trade_message_from_exchange(
