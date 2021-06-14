@@ -1,6 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 import logging
+import statistics
 from typing import (
     List,
     Tuple,
@@ -12,7 +13,11 @@ from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.event.events import OrderType, OrderCancelledEvent, MarketOrderFailureEvent, OrderExpiredEvent
+from hummingbot.core.event.events import (MarketOrderFailureEvent,
+                                          OrderCancelledEvent,
+                                          OrderExpiredEvent,
+                                          OrderType,
+                                          TradeType)
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
@@ -104,11 +109,25 @@ class Dev4TwapTradeStrategy(StrategyPyBase):
     def place_orders(self):
         return self._place_orders
 
+    def filled_trades(self):
+        trade_type = TradeType.BUY if self._is_buy else TradeType.SELL
+        return [trade
+                for trade
+                in self.trades
+                if trade.trade_type == trade_type and trade.order_type == OrderType.LIMIT]
+
     def format_status(self) -> str:
         lines: list = []
         warning_lines: list = []
 
         for market_info in self._market_infos.values():
+            lines.extend(["",
+                          "  Configuration:",
+                          ("    "
+                           f"Total amount: {self._target_asset_amount} {market_info.base_asset}    "
+                           f"Order price: {self._order_price} {market_info.quote_asset}    "
+                           f"Order size: {self._order_step_size} {market_info.base_asset}")])
+
             active_orders = self.market_info_to_active_orders.get(market_info, [])
 
             warning_lines.extend(self.network_warning([market_info]))
@@ -127,6 +146,14 @@ class Dev4TwapTradeStrategy(StrategyPyBase):
                              ["    " + line for line in df_lines])
             else:
                 lines.extend(["", "  No active maker orders."])
+
+            filled_trades = self.filled_trades()
+            lines.extend(["",
+                          f"  Average filled orders price: "
+                          f"{statistics.mean([trade.price for trade in filled_trades()]) if filled_trades else 0} "
+                          f"{market_info.quote_asset}"])
+
+            lines.extend([f"  Pending amount: {self._quantity_remaining} {market_info.base_asset}"])
 
             warning_lines.extend(self.balance_warning([market_info]))
 
