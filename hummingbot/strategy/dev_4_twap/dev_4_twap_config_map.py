@@ -64,7 +64,7 @@ dev_4_twap_config_map = {
                   type_str="decimal",
                   prompt_on_new=True),
     "order_step_size":
-        ConfigVar(key="order_amount",
+        ConfigVar(key="order_step_size",
                   prompt="What is the amount of each individual order (denominated in the base asset, default is 1)? "
                          ">>> ",
                   default=1.0,
