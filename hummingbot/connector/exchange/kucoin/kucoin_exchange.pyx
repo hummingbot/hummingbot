@@ -214,6 +214,11 @@ cdef class KucoinExchange(ExchangeBase):
             await self._update_balances()
 
     def _stop_network(self):
+        # Resets timestamps and events for status_polling_loop
+        self._last_poll_timestamp = 0
+        self._last_timestamp = 0
+        self._poll_notifier = asyncio.Event()
+
         self._order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
@@ -597,7 +602,6 @@ cdef class KucoinExchange(ExchangeBase):
     async def _status_polling_loop(self):
         while True:
             try:
-                self._poll_notifier = asyncio.Event()
                 await self._poll_notifier.wait()
 
                 await safe_gather(
@@ -613,6 +617,8 @@ cdef class KucoinExchange(ExchangeBase):
                                       app_warning_msg="Could not fetch account updates from Kucoin. "
                                                       "Check API key and network connection.")
                 await asyncio.sleep(0.5)
+            finally:
+                self._poll_notifier = asyncio.Event()
 
     async def _trading_rules_polling_loop(self):
         while True:
