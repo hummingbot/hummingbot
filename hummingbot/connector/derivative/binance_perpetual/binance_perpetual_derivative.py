@@ -57,6 +57,7 @@ from hummingbot.connector.derivative.binance_perpetual.constants import (
 )
 from hummingbot.connector.derivative_base import DerivativeBase, s_decimal_NaN
 from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.connector.exchange.binance.binance_time import BinanceTime
 
 
 class MethodType(Enum):
@@ -113,6 +114,7 @@ class BinancePerpetualDerivative(DerivativeBase):
                  **domain):
         self._testnet = True if len(domain) > 0 else False
         super().__init__()
+        BinanceTime.get_instance().start()
         self._api_key = binance_perpetual_api_key
         self._api_secret = binance_perpetual_api_secret
         self._trading_required = trading_required
@@ -172,6 +174,7 @@ class BinancePerpetualDerivative(DerivativeBase):
 
     def stop(self, clock: Clock):
         super().stop(clock)
+        BinanceTime.get_instance().stop()
 
     async def start_network(self):
         self._order_book_tracker.start()
@@ -183,6 +186,11 @@ class BinancePerpetualDerivative(DerivativeBase):
             self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
 
     def _stop_network(self):
+        # Reset timestamps and _poll_notifier for status_polling_loop
+        self._last_poll_timestamp = 0
+        self._last_timestamp = 0
+        self._poll_notifier = asyncio.Event()
+
         self._order_book_tracker.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
@@ -712,7 +720,6 @@ class BinancePerpetualDerivative(DerivativeBase):
     async def _status_polling_loop(self):
         while True:
             try:
-                self._poll_notifier = asyncio.Event()
                 await self._poll_notifier.wait()
                 await safe_gather(
                     self._update_balances(),
@@ -728,6 +735,8 @@ class BinancePerpetualDerivative(DerivativeBase):
                                       app_warning_msg="Could not fetch account updates from Binance Perpetuals. "
                                                       "Check API key and network connection.")
                 await asyncio.sleep(0.5)
+            finally:
+                self._poll_notifier = asyncio.Event()
 
     async def _update_balances(self):
         local_asset_names = set(self._account_balances.keys())
@@ -997,10 +1006,8 @@ class BinancePerpetualDerivative(DerivativeBase):
                       add_timestamp: bool = False, is_signed: bool = False, request_weight: int = 1, return_err: bool = False):
         async with self._throttler.weighted_task(request_weight):
             try:
-                # TODO: QUESTION --- SHOULD I ADD AN ASYNC TIMEOUT? (aync with timeout(API_CALL_TIMEOUT)
-                # async with aiohttp.ClientSession() as client:
                 if add_timestamp:
-                    params["timestamp"] = f"{int(time.time()) * 1000}"
+                    params["timestamp"] = str(int(BinanceTime.get_instance().time()) * 1000)
                     params["recvWindow"] = f"{20000}"
                 query = urlencode(sorted(params.items()))
                 if is_signed:
@@ -1021,6 +1028,13 @@ class BinancePerpetualDerivative(DerivativeBase):
                                           f"Request Error: {error_response}")
                     return await response.json()
             except Exception as e:
-                self.logger().error(f"Error fetching {path}", exc_info=True)
-                self.logger().warning(f"{e}")
+                if "Timestamp for this request" in str(e):
+                    self.logger().warning("Got Binance timestamp error. "
+                                          "Going to force update Binance server time offset...")
+                    binance_time = BinanceTime.get_instance()
+                    binance_time.clear_time_offset_ms_samples()
+                    await binance_time.schedule_update_server_time_offset()
+                else:
+                    self.logger().error(f"Error fetching {path}", exc_info=True)
+                    self.logger().warning(f"{e}")
                 raise e
