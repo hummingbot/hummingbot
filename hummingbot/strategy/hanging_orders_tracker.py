@@ -294,6 +294,10 @@ class HangingOrdersTracker:
         order_to_be_removed = next(o for o in self.strategy_current_hanging_orders if o.order_id == order_id)
         if order_to_be_removed:
             self.strategy_current_hanging_orders.remove(order_to_be_removed)
+        if self.aggregation_method == HangingOrdersAggregationType.NO_AGGREGATION:
+            limit_order_to_be_removed = next(o for o in self.original_orders if o.client_order_id == order_id)
+            if limit_order_to_be_removed:
+                self.remove_order(limit_order_to_be_removed)
 
     def add_hanging_orders_based_on_partially_executed_pairs(self):
         for pair in self.current_created_pairs_of_orders:
