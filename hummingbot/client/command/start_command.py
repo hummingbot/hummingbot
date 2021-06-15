@@ -27,8 +27,9 @@ from hummingbot.connector.connector_status import get_connector_status, warning_
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.command.rate_command import RateCommand
 from hummingbot.client.config.config_validators import validate_bool
-from hummingbot.client.errors import OracleRateUnavailable
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
+from hummingbot.exceptions import OracleRateUnavailable
+
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
@@ -149,6 +150,9 @@ class StartCommand:
             self._notify(f"\n'{strategy_name}' strategy started.\n"
                          f"Run `status` command to query the progress.")
             self.logger().info("start command initiated.")
+
+            if self.strategy_name == "uniswap_v3_lp":  # this would be removed in subsequent iterations
+                self._notify("Warning: Ensure that the trading pair is in the right order .i.e. {BASE}-{QUOTE}.")
 
             if self._trading_required:
                 self.kill_switch = KillSwitch(self)

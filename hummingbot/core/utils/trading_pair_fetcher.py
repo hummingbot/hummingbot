@@ -3,12 +3,13 @@ from typing import (
     Dict,
     Any,
     Optional,
+    Callable,
+    Awaitable,
+    List
 )
 from hummingbot.logger import HummingbotLogger
 from hummingbot.client.settings import CONNECTOR_SETTINGS, ConnectorType
 import logging
-import asyncio
-import requests
 
 from .async_utils import safe_ensure_future
 
@@ -50,11 +51,11 @@ class TradingPairFetcher:
 
         self.ready = True
 
-    async def call_fetch_pairs(self, fetch_fn, exchange_name):
-        # In case trading pair fetching returned timeout, using empty list
+    async def call_fetch_pairs(self, fetch_fn: Callable[[], Awaitable[List[str]]], exchange_name: str):
         try:
             self.trading_pairs[exchange_name] = await fetch_fn
-        except (asyncio.TimeoutError, asyncio.CancelledError, requests.exceptions.RequestException):
+        except Exception:
             self.logger().error(f"Connector {exchange_name} failed to retrieve its trading pairs. "
-                                f"Trading pairs autocompletion won't work.")
+                                f"Trading pairs autocompletion won't work.", exc_info=True)
+            # In case of error just assign empty list, this is st. the bot won't stop working
             self.trading_pairs[exchange_name] = []

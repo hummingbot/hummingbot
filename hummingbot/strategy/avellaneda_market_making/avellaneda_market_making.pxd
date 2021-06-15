@@ -13,6 +13,8 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         double _max_order_age
         object _order_refresh_tolerance_pct
         double _filled_order_delay
+        int _order_levels
+        object _order_override
         object _inventory_target_base_pct
         bint _order_optimization_enabled
         bint _add_transaction_costs_to_orders
@@ -36,6 +38,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         object _min_spread
         object _max_spread
         object _vol_to_spread_multiplier
+        object _volatility_sensibility
         object _inventory_risk_aversion
         object _kappa
         object _gamma
@@ -52,6 +55,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         object _avg_vol
 
     cdef object c_get_mid_price(self)
+    cdef _create_proposal_based_on_order_override(self)
+    cdef _create_proposal_based_on_order_levels(self)
+    cdef _create_basic_proposal(self)
     cdef object c_create_base_proposal(self)
     cdef tuple c_get_adjusted_available_balance(self, list orders)
     cdef c_apply_order_price_modifiers(self, object proposal)
