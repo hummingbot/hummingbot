@@ -9,6 +9,7 @@ from typing import (
     Dict
 )
 
+from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -124,9 +125,12 @@ class Dev4TwapTradeStrategy(StrategyPyBase):
             lines.extend(["",
                           "  Configuration:",
                           ("    "
-                           f"Total amount: {self._target_asset_amount} {market_info.base_asset}    "
-                           f"Order price: {self._order_price} {market_info.quote_asset}    "
-                           f"Order size: {self._order_step_size} {market_info.base_asset}")])
+                           f"Total amount: {PerformanceMetrics.smart_round(self._target_asset_amount)} "
+                           f"{market_info.base_asset}    "
+                           f"Order price: {PerformanceMetrics.smart_round(self._order_price)} "
+                           f"{market_info.quote_asset}    "
+                           f"Order size: {PerformanceMetrics.smart_round(self._order_step_size)} "
+                           f"{market_info.base_asset}")])
 
             active_orders = self.market_info_to_active_orders.get(market_info, [])
 
@@ -148,12 +152,16 @@ class Dev4TwapTradeStrategy(StrategyPyBase):
                 lines.extend(["", "  No active maker orders."])
 
             filled_trades = self.filled_trades()
+            average_price = (statistics.mean([trade.price for trade in filled_trades])
+                             if filled_trades
+                             else Decimal(0))
             lines.extend(["",
                           f"  Average filled orders price: "
-                          f"{statistics.mean([trade.price for trade in filled_trades()]) if filled_trades else 0} "
+                          f"{PerformanceMetrics.smart_round(average_price)} "
                           f"{market_info.quote_asset}"])
 
-            lines.extend([f"  Pending amount: {self._quantity_remaining} {market_info.base_asset}"])
+            lines.extend([f"  Pending amount: {PerformanceMetrics.smart_round(self._quantity_remaining)} "
+                          f"{market_info.base_asset}"])
 
             warning_lines.extend(self.balance_warning([market_info]))
 
