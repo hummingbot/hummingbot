@@ -204,10 +204,6 @@ class KucoinWSConnectionIterator:
                     await ws.send(json.dumps(ping_msg))
             except websockets.exceptions.ConnectionClosedError:
                 pass
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                raise
             await asyncio.sleep(interval_secs)
 
     async def _inner_messages(self, ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
@@ -243,8 +239,6 @@ class KucoinWSConnectionIterator:
                 async for raw_msg in self._inner_messages(ws):
                     msg: Dict[str, any] = json.loads(raw_msg)
                     yield msg
-        except asyncio.TimeoutError:
-            raise
         finally:
             # Clean up.
             if ping_task is not None:
