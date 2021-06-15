@@ -1,7 +1,7 @@
 import asyncio
 from unittest import TestCase
 
-import hummingbot.strategy.dev_4_twap.dev_4_twap_config_map as twap_config_map_module
+import hummingbot.strategy.twap.twap_config_map as twap_config_map_module
 
 
 class TwapConfigMapTests(TestCase):
@@ -20,30 +20,30 @@ class TwapConfigMapTests(TestCase):
             self.assertFalse(twap_config_map_module.str2bool(variant))
 
     def test_trading_pair_prompt(self):
-        twap_config_map_module.dev_4_twap_config_map.get("exchange").value = "binance"
+        twap_config_map_module.twap_config_map.get("exchange").value = "binance"
         self.assertEqual(twap_config_map_module.trading_pair_prompt(),
                          "Enter the token trading pair you would like to trade on binance (e.g. ZRX-ETH) >>> ")
 
-        twap_config_map_module.dev_4_twap_config_map.get("exchange").value = "undefined-exchange"
+        twap_config_map_module.twap_config_map.get("exchange").value = "undefined-exchange"
         self.assertEqual(twap_config_map_module.trading_pair_prompt(),
                          "Enter the token trading pair you would like to trade on undefined-exchange >>> ")
 
     def test_trading_pair_validation(self):
-        twap_config_map_module.dev_4_twap_config_map.get("exchange").value = "binance"
+        twap_config_map_module.twap_config_map.get("exchange").value = "binance"
         self.assertIsNone(twap_config_map_module.validate_market_trading_pair_tuple("BTC-USDT"))
 
     def test_target_asset_amount_prompt(self):
-        twap_config_map_module.dev_4_twap_config_map.get("trading_pair").value = "BTC-USDT"
-        twap_config_map_module.dev_4_twap_config_map.get("trade_side").value = "buy"
+        twap_config_map_module.twap_config_map.get("trading_pair").value = "BTC-USDT"
+        twap_config_map_module.twap_config_map.get("trade_side").value = "buy"
         self.assertEqual(twap_config_map_module.target_asset_amount_prompt(),
                          "What is the total amount of BTC to be traded? (Default is 1.0) >>> ")
 
-        twap_config_map_module.dev_4_twap_config_map.get("trade_side").value = "sell"
+        twap_config_map_module.twap_config_map.get("trade_side").value = "sell"
         self.assertEqual(twap_config_map_module.target_asset_amount_prompt(),
                          "What is the total amount of BTC to be traded? (Default is 1.0) >>> ")
 
     def test_trade_side_config(self):
-        config_var = twap_config_map_module.dev_4_twap_config_map.get("trade_side")
+        config_var = twap_config_map_module.twap_config_map.get("trade_side")
 
         self.assertTrue(config_var.required)
 
@@ -51,7 +51,7 @@ class TwapConfigMapTests(TestCase):
         self.assertEqual(prompt_text, "What operation will be executed? (buy/sell) >>> ")
 
     def test_trade_side_only_accepts_buy_or_sell(self):
-        config_var = twap_config_map_module.dev_4_twap_config_map.get("trade_side")
+        config_var = twap_config_map_module.twap_config_map.get("trade_side")
 
         validate_result = asyncio.get_event_loop().run_until_complete(config_var.validate("invalid value"))
         self.assertEqual(validate_result, "Invalid operation type.")

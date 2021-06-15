@@ -26,7 +26,7 @@ from hummingbot.strategy.strategy_py_base import StrategyPyBase
 d4twap_logger = None
 
 
-class Dev4TwapTradeStrategy(StrategyPyBase):
+class TwapTradeStrategy(StrategyPyBase):
 
     @classmethod
     def logger(cls) -> HummingbotLogger:

@@ -11,14 +11,14 @@ from typing import Optional
 
 
 def trading_pair_prompt():
-    exchange = dev_4_twap_config_map.get("exchange").value
+    exchange = twap_config_map.get("exchange").value
     example = EXAMPLE_PAIRS.get(exchange)
     return "Enter the token trading pair you would like to trade on %s%s >>> " \
            % (exchange, f" (e.g. {example})" if example else "")
 
 
 def target_asset_amount_prompt():
-    trading_pair = dev_4_twap_config_map.get("trading_pair").value
+    trading_pair = twap_config_map.get("trading_pair").value
     base_token, _ = trading_pair.split("-")
 
     return f"What is the total amount of {base_token} to be traded? (Default is 1.0) >>> "
@@ -30,15 +30,15 @@ def str2bool(value: str):
 
 # checks if the trading pair is valid
 def validate_market_trading_pair_tuple(value: str) -> Optional[str]:
-    exchange = dev_4_twap_config_map.get("exchange").value
+    exchange = twap_config_map.get("exchange").value
     return validate_market_trading_pair(exchange, value)
 
 
-dev_4_twap_config_map = {
+twap_config_map = {
     "strategy":
         ConfigVar(key="strategy",
                   prompt=None,
-                  default="dev_4_twap"),
+                  default="twap"),
     "exchange":
         ConfigVar(key="exchange",
                   prompt="Enter the name of the exchange >>> ",
