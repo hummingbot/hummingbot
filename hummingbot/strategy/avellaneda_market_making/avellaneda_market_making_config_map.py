@@ -4,6 +4,7 @@ from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
     validate_exchange,
     validate_market_trading_pair,
+    validate_int,
     validate_bool,
     validate_decimal,
 )
@@ -35,7 +36,9 @@ def validate_exchange_trading_pair(value: str) -> Optional[str]:
 
 
 def validate_max_spread(value: str) -> Optional[str]:
-    validate_decimal(value, 0, 100, inclusive=False)
+    is_invalid_decimal = validate_decimal(value, 0, 100, inclusive=False)
+    if is_invalid_decimal:
+        return is_invalid_decimal
     if avellaneda_market_making_config_map["min_spread"].value is not None:
         min_spread = Decimal(avellaneda_market_making_config_map["min_spread"].value)
         max_spread = Decimal(value)
@@ -143,12 +146,18 @@ avellaneda_market_making_config_map = {
                   prompt_on_new=True),
     "vol_to_spread_multiplier":
         ConfigVar(key="vol_to_spread_multiplier",
-                  prompt="Enter the Volatility threshold multiplier (Should be greater than 1.0): "
+                  prompt="Enter the Volatility threshold multiplier: "
                          "(If market volatility multiplied by this value is above the minimum spread, it will increase the minimum and maximum spread value) >>>",
                   type_str="decimal",
                   required_if=lambda: avellaneda_market_making_config_map.get("parameters_based_on_spread").value,
-                  validator=lambda v: validate_decimal(v, 1, 10, inclusive=False),
+                  validator=lambda v: validate_decimal(v, 0, 10, inclusive=True),
                   prompt_on_new=True),
+    "volatility_sensibility":
+        ConfigVar(key="volatility_sensibility",
+                  prompt="Enter volatility change threshold to trigger parameter recalculation>>> ",
+                  type_str="decimal",
+                  validator=lambda v: validate_decimal(v, 0, 100, inclusive=True),
+                  default=20),
     "inventory_risk_aversion":
         ConfigVar(key="inventory_risk_aversion",
                   prompt="Enter Inventory risk aversion between 0 and 1: (For values close to 0.999 spreads will be more "
@@ -240,4 +249,16 @@ avellaneda_market_making_config_map = {
                   type_str="int",
                   validator=lambda v: validate_decimal(v, 5, 600),
                   default=60),
+    "order_levels":
+        ConfigVar(key="order_levels",
+                  prompt="How many orders do you want to place on both sides? >>> ",
+                  type_str="int",
+                  validator=lambda v: validate_int(v, min_value=-1, inclusive=False),
+                  default=1),
+    "order_override":
+        ConfigVar(key="order_override",
+                  prompt=None,
+                  required_if=lambda: False,
+                  default=None,
+                  type_str="json")
 }
