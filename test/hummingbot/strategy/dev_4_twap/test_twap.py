@@ -396,9 +396,9 @@ class TWAPUnitTest(unittest.TestCase):
 
         buy_not_started_status = self.limit_buy_strategy.format_status()
         expected_buy_status = ("\n  Configuration:\n"
-                               "    Total amount: 2.0 COINALPHA"
-                               "    Order price: 99 WETH"
-                               "    Order size: 1.0 COINALPHA\n\n"
+                               "    Total amount: 2.00 COINALPHA"
+                               "    Order price: 99.00 WETH"
+                               "    Order size: 1 COINALPHA\n\n"
                                "  Markets:\n"
                                "             Exchange          Market  Best Bid Price  Best Ask Price  Mid Price\n"
                                "    0  BacktestMarket  COINALPHA-WETH            99.5           100.5        100\n\n"
@@ -408,12 +408,12 @@ class TWAPUnitTest(unittest.TestCase):
                                "    1  BacktestMarket       WETH        5168.67            5168.67\n\n"
                                "  No active maker orders.\n\n"
                                "  Average filled orders price: 0 WETH\n"
-                               "  Pending amount: 2.0 COINALPHA")
+                               "  Pending amount: 2.00 COINALPHA")
 
         sell_started_status = self.limit_sell_strategy.format_status()
         expected_sell_status = ("\n  Configuration:\n"
-                                "    Total amount: 5.0 COINALPHA"
-                                "    Order price: 101 WETH"
+                                "    Total amount: 5.00 COINALPHA"
+                                "    Order price: 101.0 WETH"
                                 "    Order size: 1.67 COINALPHA\n\n"
                                 "  Markets:\n"
                                 "             Exchange          Market  Best Bid Price  Best Ask Price  Mid Price\n"
@@ -426,7 +426,7 @@ class TWAPUnitTest(unittest.TestCase):
                                 "      Order ID  Type  Price Spread  Amount  Age Hang\n"
                                 f"    0  ...{ask_order2.client_order_id[-4:]}  sell    101  0.00%    1.67  n/a  n/a\n\n"
                                 "  Average filled orders price: 0 WETH\n"
-                                "  Pending amount: 1.66000 COINALPHA")
+                                "  Pending amount: 1.66 COINALPHA")
 
         self.assertEqual(buy_not_started_status, expected_buy_status)
         self.assertEqual(sell_started_status, expected_sell_status)
