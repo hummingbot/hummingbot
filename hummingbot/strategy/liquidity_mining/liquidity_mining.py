@@ -5,7 +5,6 @@ from typing import Dict, List, Set
 import pandas as pd
 import numpy as np
 from statistics import mean
-import time
 from hummingbot.core.clock import Clock
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
@@ -20,6 +19,7 @@ from hummingbot.strategy.pure_market_making.inventory_skew_calculator import (
 )
 from hummingbot.connector.parrot import get_campaign_summary
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
+from hummingbot.strategy.utils import order_age
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -128,15 +128,6 @@ class LiquidityMiningStrategy(StrategyPyBase):
 
         self._last_timestamp = timestamp
 
-    @staticmethod
-    def order_age(order: LimitOrder) -> float:
-        """
-        Get the age of a limit order
-        """
-        if "//" not in order.client_order_id:
-            return int(time.time()) - int(order.client_order_id[-16:]) / 1e6
-        return -1.
-
     async def active_orders_df(self) -> pd.DataFrame:
         """
         Return the active orders in a DataFrame.
@@ -148,7 +139,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
             mid_price = self._market_infos[order.trading_pair].get_mid_price()
             spread = 0 if mid_price == 0 else abs(order.price - mid_price) / mid_price
             size_q = order.quantity * mid_price
-            age = self.order_age(order)
+            age = order_age(order)
             # // indicates order is a paper order so 'n/a'. For real orders, calculate age.
             age_txt = "n/a" if age <= 0. else pd.Timestamp(age, unit='s').strftime('%H:%M:%S')
             data.append([
@@ -382,7 +373,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
         for proposal in proposals:
             to_cancel = False
             cur_orders = [o for o in self.active_orders if o.trading_pair == proposal.market]
-            if cur_orders and any(self.order_age(o) > self._max_order_age for o in cur_orders):
+            if cur_orders and any(order_age(o) > self._max_order_age for o in cur_orders):
                 to_cancel = True
             elif self._refresh_times[proposal.market] <= self.current_timestamp and \
                     cur_orders and not self.is_within_tolerance(cur_orders, proposal):
