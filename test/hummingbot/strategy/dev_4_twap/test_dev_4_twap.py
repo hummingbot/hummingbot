@@ -91,7 +91,7 @@ class Dev4TwapTradeStrategyTest(TestCase):
 
         status = strategy.format_status()
         expected_status = ("\n  Configuration:\n"
-                           "    Total amount: 100 ETH    Order price: 25000 USDT    Order size: 10 ETH\n\n"
+                           "    Total amount: 100 ETH    Order price: 25000 USDT    Order size: 10.00 ETH\n\n"
                            "  Markets:\n"
                            "           Exchange    Market  Best Bid Price  Best Ask Price  Mid Price\n"
                            "    0  MockExchange  ETH-USDT           24900           25100      25000\n\n"
