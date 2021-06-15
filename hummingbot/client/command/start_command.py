@@ -27,8 +27,9 @@ from hummingbot.connector.connector_status import get_connector_status, warning_
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.command.rate_command import RateCommand
 from hummingbot.client.config.config_validators import validate_bool
-from hummingbot.client.errors import OracleRateUnavailable
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
+from hummingbot.exceptions import OracleRateUnavailable
+
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
