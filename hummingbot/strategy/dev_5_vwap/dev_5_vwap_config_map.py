@@ -11,10 +11,10 @@ from typing import Optional
 
 
 def symbol_prompt():
-    market = dev_5_vwap_config_map.get("market").value
-    example = EXAMPLE_PAIRS.get(market)
-    return "Enter the token symbol you would like to trade on %s%s >>> " \
-           % (market, f" (e.g. {example})" if example else "")
+    exchange = dev_5_vwap_config_map.get("exchange").value
+    example = EXAMPLE_PAIRS.get(exchange)
+    return "Enter the trading pair you would like to trade on %s%s >>> " \
+           % (exchange, f" (e.g. {example})" if example else "")
 
 
 def str2bool(value: str):
@@ -23,7 +23,7 @@ def str2bool(value: str):
 
 # checks if the symbol pair is valid
 def validate_market_trading_pair_tuple(value: str) -> Optional[str]:
-    market = dev_5_vwap_config_map.get("market").value
+    market = dev_5_vwap_config_map.get("exchange").value
     return validate_market_trading_pair(market, value)
 
 
@@ -38,15 +38,17 @@ dev_5_vwap_config_map = {
         ConfigVar(key="strategy",
                   prompt="",
                   default="dev_5_vwap"),
-    "market":
-        ConfigVar(key="market",
+    "exchange":
+        ConfigVar(key="exchange",
                   prompt="Enter the name of the exchange >>> ",
                   validator=validate_exchange,
-                  on_validated=lambda value: required_exchanges.append(value)),
-    "market_trading_pair_tuple":
-        ConfigVar(key="market_trading_pair_tuple",
+                  on_validated=lambda value: required_exchanges.append(value),
+                  prompt_on_new=True),
+    "market":
+        ConfigVar(key="market",
                   prompt=symbol_prompt,
-                  validator=validate_market_trading_pair_tuple),
+                  validator=validate_market_trading_pair_tuple,
+                  prompt_on_new=True),
     "order_type":
         ConfigVar(key="order_type",
                   prompt="Enter type of order (limit/market) default is market >>> ",

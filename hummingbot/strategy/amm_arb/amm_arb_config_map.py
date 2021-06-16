@@ -1,3 +1,5 @@
+from hummingbot.client import settings
+from hummingbot.client.config.config_helpers import parse_cvar_value
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
     validate_market_trading_pair,
@@ -53,6 +55,27 @@ def order_amount_prompt() -> str:
     trading_pair = amm_arb_config_map["market_1"].value
     base_asset, quote_asset = trading_pair.split("-")
     return f"What is the amount of {base_asset} per order? >>> "
+
+
+def update_oracle_settings(value: str):
+    c_map = amm_arb_config_map
+    if not (c_map["use_oracle_conversion_rate"].value is not None and
+            c_map["market_1"].value is not None and
+            c_map["market_2"].value is not None):
+        return
+    use_oracle = parse_cvar_value(c_map["use_oracle_conversion_rate"], c_map["use_oracle_conversion_rate"].value)
+    first_base, first_quote = c_map["market_1"].value.split("-")
+    second_base, second_quote = c_map["market_2"].value.split("-")
+    if use_oracle and (first_base != second_base or first_quote != second_quote):
+        settings.required_rate_oracle = True
+        settings.rate_oracle_pairs = []
+        if first_base != second_base:
+            settings.rate_oracle_pairs.append(f"{second_base}-{first_base}")
+        if first_quote != second_quote:
+            settings.rate_oracle_pairs.append(f"{second_quote}-{first_quote}")
+    else:
+        settings.required_rate_oracle = False
+        settings.rate_oracle_pairs = []
 
 
 amm_arb_config_map = {
@@ -121,4 +144,21 @@ amm_arb_config_map = {
         default=False,
         validator=validate_bool,
         type_str="bool"),
+    "use_oracle_conversion_rate": ConfigVar(
+        key="use_oracle_conversion_rate",
+        type_str="bool",
+        prompt="Do you want to use rate oracle on unmatched trading pairs? (Yes/No) >>> ",
+        prompt_on_new=True,
+        validator=validate_bool,
+        on_validated=update_oracle_settings,
+    ),
+    "secondary_to_primary_quote_conversion_rate": ConfigVar(
+        key="secondary_to_primary_quote_conversion_rate",
+        prompt="Enter conversion rate for secondary quote asset value to primary quote asset value, e.g. "
+               "if primary quote asset is USD and the secondary is DAI and 1 DAI is valued at 1.25 USD, "
+               "the conversion rate is 1.25 >>> ",
+        default=Decimal("1"),
+        validator=lambda v: validate_decimal(v, Decimal(0), inclusive=False),
+        type_str="decimal",
+    ),
 }

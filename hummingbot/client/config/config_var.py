@@ -1,9 +1,16 @@
+"""
+ConfigVar is variable that is configured by the user via the hummingbot client that controls the trading behavior
+of the bot. The client provides a screen prompt to the user, then the user provides input. This input is validated
+by ConfigVar.
+"""
+
 from typing import (
     Optional,
     Callable
 )
 import inspect
 
+# function types passed into ConfigVar
 RequiredIf = Callable[[str], Optional[bool]]
 Validator = Callable[[str], Optional[str]]
 Prompt = Callable[[str], Optional[str]]
@@ -40,6 +47,9 @@ class ConfigVar:
         self.printable_key = printable_key
 
     async def get_prompt(self):
+        """
+        Call self.prompt if it is a function, otherwise return it as a value.
+        """
         if inspect.iscoroutinefunction(self.prompt):
             return await self.prompt()
         elif inspect.isfunction(self.prompt):
@@ -53,6 +63,10 @@ class ConfigVar:
         return self._required_if()
 
     async def validate(self, value: str) -> Optional[str]:
+        """
+        Validate user input against the function self._validator, if it is valid, then call self._on_validated,
+        if it is invalid, then return the error message.
+        """
         assert callable(self._validator)
         assert callable(self._on_validated)
         if self.required and (value is None or value == ""):

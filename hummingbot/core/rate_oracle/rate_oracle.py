@@ -11,6 +11,7 @@ from enum import Enum
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.network_base import NetworkBase, NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
+import hummingbot.client.settings # noqa
 from hummingbot.connector.exchange.binance.binance_utils import convert_from_exchange_trading_pair as \
     binance_convert_from_exchange_pair
 from hummingbot.core.rate_oracle.utils import find_rate
@@ -67,6 +68,9 @@ class RateOracle(NetworkBase):
         self._prices: Dict[str, Decimal] = {}
         self._fetch_price_task: Optional[asyncio.Task] = None
         self._ready_event = asyncio.Event()
+
+    def __str__(self):
+        return f"{self.source.name.title()} rate oracle"
 
     @classmethod
     async def _http_client(cls) -> aiohttp.ClientSession:
@@ -252,7 +256,7 @@ class RateOracle(NetworkBase):
         results = {}
         client = await cls._http_client()
         async with client.request("GET", cls.coingecko_usd_price_url.format(vs_currency, page_no)) as resp:
-            records = await resp.json()
+            records = await resp.json(content_type=None)
             for record in records:
                 pair = f'{record["symbol"].upper()}-{vs_currency.upper()}'
                 if record["current_price"]:
