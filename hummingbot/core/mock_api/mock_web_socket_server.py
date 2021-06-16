@@ -189,6 +189,7 @@ class MockWebSocketServer:
                path: json response
         :return: the web socket
         """
+        print(f"*** _handler {websocket}")
         self.websocket = websocket
         async for msg in self.websocket:
             stock_responses = [v for k, v in self.stock_responses.items() if k in msg]
@@ -209,10 +210,12 @@ class MockWebSocketServer:
         """
          Start the Humming Web Server
         """
+        print("*** Starting the web socket server")
         self.ev_loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.ev_loop)
         self._request_service_task = asyncio.ensure_future(websockets.serve(self._handler, self.host, self.port))
         self._started = True
+        print(f"*** Web socket server started {self.websocket}")
         self.ev_loop.run_forever()
 
     async def wait_til_started(self):
