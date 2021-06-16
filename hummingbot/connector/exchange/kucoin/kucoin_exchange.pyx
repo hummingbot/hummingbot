@@ -113,7 +113,7 @@ cdef class KucoinExchange(ExchangeBase):
         self._in_flight_orders = {}
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
-        self._order_book_tracker = KucoinOrderBookTracker(trading_pairs, self._kucoin_auth)
+        self._order_book_tracker = KucoinOrderBookTracker(trading_pairs)
         self._poll_notifier = asyncio.Event()
         self._shared_client = None
         self._status_polling_task = None
