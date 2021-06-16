@@ -1,4 +1,5 @@
 import asyncio
+import threading
 import unittest.mock
 import websockets
 from hummingbot.core.mock_api.mock_web_socket_server import MockWebSocketServerFactory
@@ -29,6 +30,8 @@ class MockWebSocketServerFactoryTest(unittest.TestCase):
         # Retry up to 3 times if there is any error connecting to the mock server address and port
         for retry_attempt in range(1, 4):
             try:
+                print(f"About to test in thread {threading.current_thread().ident}."
+                      f"\n\tServer started? {self.ws_server.started}")
                 async with websockets.connect(uri) as websocket:
                     print(f"7-- {self.ws_server}\n{self.ws_server.websocket}")
                     print(f"2-- {websocket}")
