@@ -681,6 +681,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
                 if not self._take_if_crossed:
                     self.c_filter_out_takers(proposal)
+            self.c_cancel_active_orders_on_max_age_limit()
             self.c_cancel_active_orders(proposal)
             self.c_cancel_hanging_orders()
             self.c_cancel_orders_below_min_spread()
@@ -852,8 +853,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             if quote_balance < quote_size:
                 adjusted_amount = quote_balance / (buy.price * (Decimal("1") + buy_fee.percent))
                 adjusted_amount = market.c_quantize_order_amount(self.trading_pair, adjusted_amount)
-                # self.logger().info(f"Not enough balance for buy order (Size: {buy.size.normalize()}, Price: {buy.price.normalize()}), "
-                #                    f"order_amount is adjusted to {adjusted_amount}")
                 buy.size = adjusted_amount
                 quote_balance = s_decimal_zero
             elif quote_balance == s_decimal_zero:
@@ -869,8 +868,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             # Adjust sell order size to use remaining balance if less than the order amount
             if base_balance < base_size:
                 adjusted_amount = market.c_quantize_order_amount(self.trading_pair, base_balance)
-                # self.logger().info(f"Not enough balance for sell order (Size: {sell.size.normalize()}, Price: {sell.price.normalize()}), "
-                #                    f"order_amount is adjusted to {adjusted_amount}")
                 sell.size = adjusted_amount
                 base_balance = s_decimal_zero
             elif base_balance == s_decimal_zero:
@@ -1083,9 +1080,20 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                 return False
         return True
 
-    # Cancel active non hanging orders
-    # Return value: whether order cancellation is deferred.
+    cdef c_cancel_active_orders_on_max_age_limit(self):
+        """
+        Cancels active non hanging orders if they are older than max age limit
+        """
+        cdef:
+            list active_orders = self.active_non_hanging_orders
+        if active_orders and any(order_age(o) > self._max_order_age for o in active_orders):
+            for order in active_orders:
+                self.c_cancel_order(self._market_info, order.client_order_id)
+
     cdef c_cancel_active_orders(self, object proposal):
+        """
+        Cancels active non hanging orders, checks if the order prices are within tolerance threshold
+        """
         if self._cancel_timestamp > self._current_timestamp:
             return
         if not global_config_map.get("0x_active_cancels").value:
@@ -1107,18 +1115,14 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             proposal_buys = [buy.price for buy in proposal.buys]
             proposal_sells = [sell.price for sell in proposal.sells]
             if self.c_is_within_tolerance(active_buy_prices, proposal_buys) and \
-                    self.c_is_within_tolerance(active_sell_prices, proposal_sells) and \
-                    all(order_age(o) <= self._max_order_age for o in active_orders):
+                    self.c_is_within_tolerance(active_sell_prices, proposal_sells):
                 to_defer_canceling = True
 
         if not to_defer_canceling:
             for order in active_orders:
                 self.c_cancel_order(self._market_info, order.client_order_id)
-        else:
-            # self.logger().info(f"Not cancelling active orders since difference between new order prices "
-            #                    f"and current order prices is within "
-            #                    f"{self._order_refresh_tolerance_pct:.2%} order_refresh_tolerance_pct")
-            self.set_timers()
+        # else:
+        #     self.set_timers()
 
     cdef c_cancel_hanging_orders(self):
         if not global_config_map.get("0x_active_cancels").value:
@@ -1228,9 +1232,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     price=buy.price,
                     expiration_seconds=expiration_seconds
                 )
-                # if buy.price in self._hanging_aged_order_prices:
-                #     self._hanging_order_ids.append(bid_order_id)
-                #     self._hanging_aged_order_prices.remove(buy.price)
                 orders_created = True
         if len(proposal.sells) > 0:
             if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
@@ -1249,9 +1250,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     price=sell.price,
                     expiration_seconds=expiration_seconds
                 )
-                # if sell.price in self._hanging_aged_order_prices:
-                #     self._hanging_order_ids.append(ask_order_id)
-                #     self._hanging_aged_order_prices.remove(sell.price)
                 orders_created = True
         if orders_created:
             self.set_timers()
