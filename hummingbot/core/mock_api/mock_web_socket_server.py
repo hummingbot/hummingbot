@@ -15,6 +15,7 @@ def detect_available_port(starting_port: int) -> int:
                 s.bind(("127.0.0.1", current_port))
                 break
             except OSError as e:
+                print(f"@@@ {e.errno} {e}")
                 if e.errno == errno.EADDRINUSE:
                     current_port += 1
                     continue
@@ -99,6 +100,7 @@ class MockWebSocketServerFactory:
         if delay > 0:
             await asyncio.sleep(delay)
         ws_server = MockWebSocketServerFactory.get_ws_server(url)
+        print(f"3-- {url}\n{ws_server.websocket}")
         await ws_server.websocket.send(message)
 
     @staticmethod
