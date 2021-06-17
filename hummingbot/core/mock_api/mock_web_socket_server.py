@@ -1,5 +1,5 @@
 import asyncio
-from threading import Thread
+from threading import Event, Thread
 import websockets
 import socket
 import errno
@@ -99,6 +99,7 @@ class MockWebSocketServerFactory:
         if delay > 0:
             await asyncio.sleep(delay)
         ws_server = MockWebSocketServerFactory.get_ws_server(url)
+        ws_server.wait_til_websocket_is_initialized()
         await ws_server.websocket.send(message)
 
     @staticmethod
@@ -125,6 +126,7 @@ class MockWebSocketServerFactory:
                 await asyncio.sleep(delay)
             ws_server = MockWebSocketServerFactory.get_ws_server(url)
             message = json.dumps(data)
+            ws_server.wait_til_websocket_is_initialized()
             await ws_server.websocket.send(message)
         except Exception as e:
             print(f"HummingWsServerFactory Error: {str(e)}")
@@ -168,6 +170,7 @@ class MockWebSocketServer:
         self.host = host
         self.port = port
         self.websocket = None
+        self._websocket_initialized_event = Event()
         self.stock_responses = {}
         self._thread: Thread = None
         self._request_service_task = None
@@ -180,6 +183,9 @@ class MockWebSocketServer:
         """
         self.stock_responses[request] = json_response
 
+    def wait_til_websocket_is_initialized(self):
+        self._websocket_initialized_event.wait()
+
     async def _handler(self, websocket, path):
         """
         Stock the json response
@@ -188,11 +194,11 @@ class MockWebSocketServer:
         :return: the web socket
         """
         self.websocket = websocket
+        self._websocket_initialized_event.set()
         async for msg in self.websocket:
             stock_responses = [v for k, v in self.stock_responses.items() if k in msg]
             if len(stock_responses) > 0:
                 await websocket.send(json.dumps(stock_responses[0]))
-        print('websocket connection closed')
         return self.websocket
 
     @property
