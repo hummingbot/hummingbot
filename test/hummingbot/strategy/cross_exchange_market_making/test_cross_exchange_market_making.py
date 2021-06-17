@@ -1,7 +1,4 @@
 #!/usr/bin/env python
-
-from os.path import join, realpath
-import sys
 import pandas as pd
 from typing import List
 import unittest
@@ -38,9 +35,6 @@ from nose.plugins.attrib import attr
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from decimal import Decimal
 import logging
-
-sys.path.insert(0, realpath(join(__file__, "../../")))
-
 
 logging.basicConfig(level=logging.ERROR)
 

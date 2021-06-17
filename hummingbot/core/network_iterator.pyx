@@ -45,6 +45,10 @@ cdef class NetworkIterator(TimeIterator):
     def last_connected_timestamp(self) -> float:
         return self._last_connected_timestamp
 
+    @last_connected_timestamp.setter
+    def last_connected_timestamp(self, value):
+        self._last_connected_timestamp = value
+
     @property
     def check_network_task(self) -> Optional[asyncio.Task]:
         return self._check_network_task
