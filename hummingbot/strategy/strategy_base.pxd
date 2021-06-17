@@ -57,4 +57,3 @@ cdef class StrategyBase(TimeIterator):
     cdef object c_sum_flat_fees(self,
                                 str quote_currency,
                                 list flat_fees)
-    cdef c_notify_hb_app(self, str msg)
