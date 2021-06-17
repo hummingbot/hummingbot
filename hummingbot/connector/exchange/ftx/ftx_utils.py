@@ -48,11 +48,12 @@ KEYS = {
                   prompt="Enter your FTX API secret >>> ",
                   required_if=using_exchange("ftx"),
                   is_secure=True,
-                  is_connect_key=True),
-    "ftx_subaccount_name":
+                  is_connect_key=True)
+    #This part commented out should prevent a user from having to input something
+ """    "ftx_subaccount_name":
         ConfigVar(key="ftx_subaccount_name",
                   prompt="Enter your FTX subaccount name (if this is not a subaccount, leave blank) >>> ",
                   required_if=using_exchange("ftx"),
                   is_secure=True,
-                  is_connect_key=True),
+                  is_connect_key=True), """
 }

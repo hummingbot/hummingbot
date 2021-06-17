@@ -79,7 +79,9 @@ cdef class FtxExchange(ExchangeBase):
     UPDATE_ORDERS_INTERVAL = 10.0
     ORDER_NOT_EXIST_CONFIRMATION_COUNT = 3
 
-    FTX_API_ENDPOINT = "https://ftx.com/api"
+    # changing to FTX US 
+    FTX_API_ENDPOINT = https://ftx.us/api 
+    # originally "https://ftx.com/api"
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -91,7 +93,8 @@ cdef class FtxExchange(ExchangeBase):
     def __init__(self,
                  ftx_secret_key: str,
                  ftx_api_key: str,
-                 ftx_subaccount_name: str = None,
+             # Commented out the subaccount line below 
+             #    ftx_subaccount_name: str = None,
                  poll_interval: float = 5.0,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True):

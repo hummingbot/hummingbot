@@ -38,8 +38,9 @@ class FtxAuth:
             "FTX-SIGN": signature,
             "FTX-TS": str(ts)
         }
-        if self.subaccount_name is not None and self.subaccount_name != "":
-            headers["FTX-SUBACCOUNT"] = self.subaccount_name
+    # Commented out subaccount logic below . It might still take the input from the user but it shouldn't be used anywhere
+   #     if self.subaccount_name is not None and self.subaccount_name != "":
+   #         headers["FTX-SUBACCOUNT"] = self.subaccount_name
 
         return headers
 
@@ -55,7 +56,8 @@ class FtxAuth:
             },
             "op": "login"
         }
-        if self.subaccount_name is not None and self.subaccount_name != "":
-            subscribe["args"]["subaccount"] = self.subaccount_name
+         # Commented out subaccount logic below . It might still take the input from the user but it shouldn't be used anywhere
+        # if self.subaccount_name is not None and self.subaccount_name != "":
+        #    subscribe["args"]["subaccount"] = self.subaccount_name
 
         return subscribe
