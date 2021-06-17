@@ -563,5 +563,15 @@ cdef class StrategyBase(TimeIterator):
     def track_restored_orders(self, market_pair: MarketTradingPairTuple):
         return self.c_track_restored_orders(market_pair)
 
+    cdef c_notify_hb_app(self, str msg):
+        """
+        Method called to display message on the Output Panel(upper left)
+        """
+        from hummingbot.client.hummingbot_application import HummingbotApplication
+        HummingbotApplication.main_application()._notify(msg)
+
+    def notify_hb_app(self, msg: str):
+        self.c_notify_hb_app(msg)
+
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>
