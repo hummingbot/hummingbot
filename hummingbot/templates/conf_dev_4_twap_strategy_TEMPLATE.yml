@@ -8,7 +8,7 @@ strategy: null
 # twap strategy
 
 # Exchange and token parameters
-exchange: null
+connector: null
 trading_pair: null
 
 # Total amount to be traded, considering all orders
