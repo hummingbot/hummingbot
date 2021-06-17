@@ -30,16 +30,15 @@ class MockWebSocketServerFactoryTest(unittest.TestCase):
                 async with websockets.connect(uri) as websocket:
                     await MockWebSocketServerFactory.send_str(uri, "aaa")
                     answer = await websocket.recv()
-                    print(answer)
                     self.assertEqual("aaa", answer)
+
                     await MockWebSocketServerFactory.send_json(uri, data={"foo": "bar"})
                     answer = await websocket.recv()
-                    print(answer)
                     answer = json.loads(answer)
                     self.assertEqual(answer["foo"], "bar")
+
                     await self.ws_server.websocket.send("xxx")
                     answer = await websocket.recv()
-                    print(answer)
                     self.assertEqual("xxx", answer)
             except OSError:
                 # Continue retrying
