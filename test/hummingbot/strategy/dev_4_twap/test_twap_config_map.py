@@ -20,16 +20,16 @@ class TwapConfigMapTests(TestCase):
             self.assertFalse(twap_config_map_module.str2bool(variant))
 
     def test_trading_pair_prompt(self):
-        twap_config_map_module.dev_4_twap_config_map.get("exchange").value = "binance"
+        twap_config_map_module.dev_4_twap_config_map.get("connector").value = "binance"
         self.assertEqual(twap_config_map_module.trading_pair_prompt(),
                          "Enter the token trading pair you would like to trade on binance (e.g. ZRX-ETH) >>> ")
 
-        twap_config_map_module.dev_4_twap_config_map.get("exchange").value = "undefined-exchange"
+        twap_config_map_module.dev_4_twap_config_map.get("connector").value = "undefined-exchange"
         self.assertEqual(twap_config_map_module.trading_pair_prompt(),
                          "Enter the token trading pair you would like to trade on undefined-exchange >>> ")
 
     def test_trading_pair_validation(self):
-        twap_config_map_module.dev_4_twap_config_map.get("exchange").value = "binance"
+        twap_config_map_module.dev_4_twap_config_map.get("connector").value = "binance"
         self.assertIsNone(twap_config_map_module.validate_market_trading_pair_tuple("BTC-USDT"))
 
     def test_target_asset_amount_prompt(self):

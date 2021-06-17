@@ -115,7 +115,7 @@ class Dev4TwapTradeStrategy(StrategyPyBase):
         return [trade
                 for trade
                 in self.trades
-                if trade.trade_type == trade_type and trade.order_type == OrderType.LIMIT]
+                if trade.trade_type == trade_type.name and trade.order_type == OrderType.LIMIT]
 
     def format_status(self) -> str:
         lines: list = []
