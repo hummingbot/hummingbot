@@ -643,7 +643,7 @@ class PMMUnitTest(unittest.TestCase):
         hanging_sell: LimitOrder = strategy.active_sells[0]
         self.assertEqual(hanging_sell.client_order_id, strategy.hanging_order_ids[0])
 
-        strategy.to_recreate_hanging_orders.append(hanging_sell)
+        strategy.hanging_orders_to_recreate.append(hanging_sell)
         self.market.trigger_event(MarketEvent.OrderCancelled, OrderCancelledEvent(
             self.market.current_timestamp,
             hanging_sell.client_order_id

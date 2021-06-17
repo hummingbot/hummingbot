@@ -53,7 +53,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         double _status_report_interval
         int64_t _logging_options
         object _last_own_trade_price
-        list _to_recreate_hanging_orders
+        list _hanging_orders_to_recreate
 
     cdef object c_get_mid_price(self)
     cdef object c_create_base_proposal(self)
