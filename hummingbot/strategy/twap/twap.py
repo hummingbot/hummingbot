@@ -24,17 +24,17 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
 
-d4twap_logger = None
+twap_logger = None
 
 
-class Dev4TwapTradeStrategy(StrategyPyBase):
+class TwapTradeStrategy(StrategyPyBase):
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        global d4twap_logger
-        if d4twap_logger is None:
-            d4twap_logger = logging.getLogger(__name__)
-        return d4twap_logger
+        global twap_logger
+        if twap_logger is None:
+            twap_logger = logging.getLogger(__name__)
+        return twap_logger
 
     def __init__(self,
                  market_infos: List[MarketTradingPairTuple],
