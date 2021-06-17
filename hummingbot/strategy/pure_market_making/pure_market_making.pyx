@@ -137,7 +137,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
         self._cancel_timestamp = 0
         self._create_timestamp = 0
-        self._to_recreate_hanging_orders = []
+        self._hanging_orders_to_recreate = []
         self._limit_order_type = self._market_info.market.get_maker_order_type()
         if take_if_crossed:
             self._limit_order_type = OrderType.LIMIT
@@ -685,10 +685,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             self.c_cancel_active_orders(proposal)
             self.c_cancel_hanging_orders()
             self.c_cancel_orders_below_min_spread()
-            # refresh_proposal = self.c_aged_order_refresh()
-            # # Firstly restore cancelled aged order
-            # if refresh_proposal is not None:
-            #     self.c_execute_orders_proposal(refresh_proposal)
             if self.c_to_create_orders(proposal):
                 self.c_execute_orders_proposal(proposal)
         finally:
@@ -1145,17 +1141,17 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                 elif order_age(order) > self._max_order_age:
                     self.c_cancel_order(self._market_info, order.client_order_id)
                     self._hanging_order_ids.remove(order.client_order_id)
-                    self._to_recreate_hanging_orders.append(order)
+                    self._hanging_orders_to_recreate.append(order)
 
     cdef c_did_cancel_order(self, object cancelled_event):
         cdef:
-            list orders = [o for o in self._to_recreate_hanging_orders if o.client_order_id == cancelled_event.order_id]
+            list orders = [o for o in self._hanging_orders_to_recreate if o.client_order_id == cancelled_event.order_id]
         if orders:
             self.c_recreate_hanging_order(orders[0])
 
     @property
-    def to_recreate_hanging_orders(self) -> List[LimitOrder]:
-        return self._to_recreate_hanging_orders
+    def hanging_orders_to_recreate(self) -> List[LimitOrder]:
+        return self._hanging_orders_to_recreate
 
     cdef c_recreate_hanging_order(self, object order):
         """
@@ -1182,7 +1178,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                 price=hanging_order.price
             )
         self.logger().info(f"New hanging order: {order_id} ")
-        self._to_recreate_hanging_orders.remove(order)
+        self._hanging_orders_to_recreate.remove(order)
         self._hanging_order_ids.append(order_id)
 
     # Cancel Non-Hanging, Active Orders if Spreads are below minimum_spread
