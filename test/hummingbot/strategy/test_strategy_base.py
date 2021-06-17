@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import unittest
+import unittest.mock
 import asyncio
 import logging
 import time
@@ -18,6 +19,7 @@ from hummingsim.backtest.backtest_market import BacktestMarket
 from hummingsim.backtest.market import QuantizationParams
 from hummingsim.backtest.mock_order_book_loader import MockOrderBookLoader
 
+from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.market_order import MarketOrder
 from hummingbot.core.event.events import (
@@ -401,3 +403,24 @@ class StrategyBaseUnitTests(unittest.TestCase):
         self.market.restored_market_states(saved_states)
 
         self.assertEqual(10, len(self.strategy.track_restored_orders(self.market_info)))
+
+    @unittest.mock.patch('hummingbot.client.hummingbot_application.HummingbotApplication.main_application')
+    @unittest.mock.patch('hummingbot.client.hummingbot_application.HummingbotCLI')
+    def test_notify_hb_app(self, cli_class_mock, main_application_function_mock):
+        messages = []
+        cli_logs = []
+
+        cli_instance = cli_class_mock.return_value
+        cli_instance.log.side_effect = lambda message: cli_logs.append(message)
+
+        notifier_mock = unittest.mock.MagicMock()
+        notifier_mock.add_msg_to_queue.side_effect = lambda message: messages.append(message)
+
+        hummingbot_application = HummingbotApplication()
+        hummingbot_application.notifiers.append(notifier_mock)
+        main_application_function_mock.return_value = hummingbot_application
+
+        self.strategy.notify_hb_app("Test message")
+
+        self.assertIn("Test message", cli_logs)
+        self.assertIn("Test message", messages)
