@@ -62,6 +62,12 @@ cdef class ArbitrageStrategy(StrategyBase):
         :param status_report_interval: how often to report network connection related warnings, if any
         :param next_trade_delay_interval: cool off period between trades
         :param failed_order_tolerance: number of failed orders to force stop the strategy when exceeded
+        :param use_oracle_conversion_rate: Enables the use of the Oracle to get the price in ETH of each quote token to
+        compare the trading pairs in between markets.
+        If true the Oracle will be used. If false the reates will be fetched from uniswap. The default is false.
+        :param secondary_to_primary_base_conversion_rate: Conversion rate of base token between markets. The default is 1
+        :param secondary_to_primary_quote_conversion_rate: Conversion rate of quote token between markets. The default is 1
+        :param hb_app_notification: Enables sending notifications to the client application. The default is false.
         """
         if len(market_pairs) < 0:
             raise ValueError(f"market_pairs must not be empty.")
@@ -212,8 +218,7 @@ cdef class ArbitrageStrategy(StrategyBase):
 
     def notify_hb_app(self, msg: str):
         if self._hb_app_notification:
-            from hummingbot.client.hummingbot_application import HummingbotApplication
-            HummingbotApplication.main_application()._notify(msg)
+            super().notify_hb_app(msg)
 
     cdef c_tick(self, double timestamp):
         """
@@ -271,7 +276,7 @@ cdef class ArbitrageStrategy(StrategyBase):
             if self._logging_options & self.OPTION_LOG_ORDER_COMPLETED:
                 self.log_with_clock(logging.INFO,
                                     f"Limit order completed on {market_trading_pair_tuple[0].name}: {buy_order.order_id}")
-                self.notify_hb_app(f"{buy_order.base_asset_amount:.8f} {buy_order.base_asset}-{buy_order.quote_asset} buy limit order completed on {market_trading_pair_tuple[0].name}")
+                self.notify_hb_app_with_timestamp(f"{buy_order.base_asset_amount:.8f} {buy_order.base_asset}-{buy_order.quote_asset} buy limit order completed on {market_trading_pair_tuple[0].name}")
 
     cdef c_did_complete_sell_order(self, object sell_order_completed_event):
         """
@@ -287,7 +292,7 @@ cdef class ArbitrageStrategy(StrategyBase):
             if self._logging_options & self.OPTION_LOG_ORDER_COMPLETED:
                 self.log_with_clock(logging.INFO,
                                     f"Limit order completed on {market_trading_pair_tuple[0].name}: {sell_order.order_id}")
-                self.notify_hb_app(f"{sell_order.base_asset_amount:.8f} {sell_order.base_asset}-{sell_order.quote_asset} sell limit order completed on {market_trading_pair_tuple[0].name}")
+                self.notify_hb_app_with_timestamp(f"{sell_order.base_asset_amount:.8f} {sell_order.base_asset}-{sell_order.quote_asset} sell limit order completed on {market_trading_pair_tuple[0].name}")
 
     cdef c_did_cancel_order(self, object cancel_event):
         """
@@ -406,7 +411,7 @@ cdef class ArbitrageStrategy(StrategyBase):
             ExchangeBase buy_market = buy_market_trading_pair_tuple.market
             ExchangeBase sell_market = sell_market_trading_pair_tuple.market
 
-        best_amount, best_profitability, buy_price, sell_price = self.c_find_best_profitable_amount(
+        best_amount, best_profitability, sell_price, buy_price = self.c_find_best_profitable_amount(
             buy_market_trading_pair_tuple, sell_market_trading_pair_tuple
         )
         quantized_buy_amount = buy_market.c_quantize_order_amount(buy_market_trading_pair_tuple.trading_pair, Decimal(best_amount))
@@ -677,7 +682,7 @@ cdef list c_find_profitable_arbitrage_orders(object min_profitability,
 
             step_amount = min(bid_leftover_amount, ask_leftover_amount)
 
-            # skip cases where step_amount=0 for exchages like binance that include orders with 0 amount
+            # skip cases where step_amount=0 for exchanges like binance that include orders with 0 amount
             if step_amount == 0:
                 continue
 

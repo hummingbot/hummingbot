@@ -538,7 +538,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                     f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
                     f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
                 )
-                self.notify_hb_app(
+                self.notify_hb_app_with_timestamp(
                     f"Maker BUY order ({limit_order_record.quantity} {limit_order_record.base_currency} @ "
                     f"{limit_order_record.price} {limit_order_record.quote_currency}) is filled."
                 )
@@ -548,7 +548,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                     f"({market_pair.taker.trading_pair}) Taker buy order {order_id} for "
                     f"({order_completed_event.base_asset_amount} {order_completed_event.base_asset} has been completely filled."
                 )
-                self.notify_hb_app(
+                self.notify_hb_app_with_timestamp(
                     f"Taker buy order {order_completed_event.base_asset_amount} {order_completed_event.base_asset} is filled."
                 )
 
@@ -573,7 +573,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                     f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
                     f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
                 )
-                self.notify_hb_app(
+                self.notify_hb_app_with_timestamp(
                     f"Maker sell order ({limit_order_record.quantity} {limit_order_record.base_currency} @ "
                     f"{limit_order_record.price} {limit_order_record.quote_currency}) is filled."
                 )
@@ -583,7 +583,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                     f"({market_pair.taker.trading_pair}) Taker sell order {order_id} for "
                     f"({order_completed_event.base_asset_amount} {order_completed_event.base_asset} has been completely filled."
                 )
-                self.notify_hb_app(
+                self.notify_hb_app_with_timestamp(
                     f"Taker sell order {order_completed_event.base_asset_amount} {order_completed_event.base_asset} is filled."
                 )
 
@@ -1327,5 +1327,4 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
 
     def notify_hb_app(self, msg: str):
         if self._hb_app_notification:
-            from hummingbot.client.hummingbot_application import HummingbotApplication
-            HummingbotApplication.main_application()._notify(msg)
+            super().notify_hb_app(msg)

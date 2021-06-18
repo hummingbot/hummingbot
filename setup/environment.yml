@@ -9,6 +9,7 @@ dependencies:
   - bzip2=1.0.8=h0d85af4_4
   - ca-certificates=2021.5.30=h033912b_0
   - certifi=2021.5.30=py38h50d1736_0
+  - coverage=5.5
   - hdf5=1.10.5=nompi_h0cbb7df_1103
   - intel-openmp=2021.2.0=hecd8cb5_564
   - libblas=3.8.0=7_hd44dcd8_netlib
@@ -84,6 +85,7 @@ dependencies:
     - dateparser==1.0.0
     - decorator==4.4.2
     - deprecated==1.2.7
+    - diff-cover==5.1.2
     - distlib==0.3.0
     - dydx-python==0.11.3
     - dydx-v3-python==1.0.8
