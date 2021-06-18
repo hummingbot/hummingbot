@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 from decimal import Decimal
-from os.path import join, realpath
-import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
-
-import logging; logging.basicConfig(level=logging.ERROR)
+import logging
 import pandas as pd
 import unittest
 import mock
@@ -26,6 +23,8 @@ from hummingbot.strategy.celo_arb.celo_arb import CeloArbStrategy, get_trade_pro
 from test.connector.fixture_celo import outputs as celo_outputs, TEST_ADDRESS, TEST_PASSWORD
 from hummingbot.market.celo.celo_cli import CeloCLI
 
+
+logging.basicConfig(level=logging.ERROR)
 
 MOCK_CELO_COMMANDS = True
 

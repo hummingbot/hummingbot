@@ -11,6 +11,7 @@ dependencies:
   - bzip2=1.0.8
   - ca-certificates
   - certifi
+  - coverage=5.5
   - hdf5=1.10.5
   - intel-openmp
   - ld_impl_linux-64=2.33.1=h53a641e_8
@@ -82,6 +83,7 @@ dependencies:
     - dateparser==1.0.0
     - decorator==4.4.2
     - deprecated==1.2.7
+    - diff-cover==5.1.2
     - distlib==0.3.0
     - dydx-python==0.11.3
     - dydx-v3-python==1.0.8
