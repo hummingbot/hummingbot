@@ -16,7 +16,7 @@ def start(self):
         trade_side = dev_4_twap_config_map.get("trade_side").value
         target_asset_amount = dev_4_twap_config_map.get("target_asset_amount").value
         order_delay_time = dev_4_twap_config_map.get("order_delay_time").value
-        exchange = dev_4_twap_config_map.get("exchange").value.lower()
+        exchange = dev_4_twap_config_map.get("connector").value.lower()
         raw_market_trading_pair = dev_4_twap_config_map.get("trading_pair").value
         order_price = dev_4_twap_config_map.get("order_price").value
         cancel_order_wait_time = dev_4_twap_config_map.get("cancel_order_wait_time").value
