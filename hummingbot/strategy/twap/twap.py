@@ -28,6 +28,10 @@ twap_logger = None
 
 
 class TwapTradeStrategy(StrategyPyBase):
+    """
+    Time-Weighted Average Price strategy
+    This strategy is intended for  executing trades evenly over a specified time period.
+    """
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -47,12 +51,12 @@ class TwapTradeStrategy(StrategyPyBase):
                  status_report_interval: float = 900):
         """
         :param market_infos: list of market trading pairs
-        :param order_price: price to place the order at
-        :param cancel_order_wait_time: how long to wait before cancelling an order
         :param is_buy: if the order is to buy
-        :param order_delay_time: how long to wait between placing trades
-        :param num_individual_orders: how many individual orders to split the order into
         :param target_asset_amount: qty of the order to place
+        :param order_step_size: amount of base asset to be configured in each order
+        :param order_price: price to place the order at
+        :param order_delay_time: how long to wait between placing trades
+        :param cancel_order_wait_time: how long to wait before cancelling an order
         :param status_report_interval: how often to report network connection related warnings, if any
         """
 
@@ -111,6 +115,10 @@ class TwapTradeStrategy(StrategyPyBase):
         return self._place_orders
 
     def filled_trades(self):
+        """
+        Returns a list of all filled trades generated from limit orders with the same trade type the strategy
+        has in its configuration
+        """
         trade_type = TradeType.BUY if self._is_buy else TradeType.SELL
         return [trade
                 for trade
