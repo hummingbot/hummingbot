@@ -520,14 +520,14 @@ class LiquidityMiningStrategy(StrategyPyBase):
                 msg = f"({market_info.trading_pair}) Maker BUY order (price: {event.price}) of {event.amount} " \
                       f"{market_info.base_asset} is filled."
                 self.log_with_clock(logging.INFO, msg)
-                self.notify_hb_app(msg)
+                self.notify_hb_app_with_timestamp(msg)
                 self._buy_budgets[market_info.trading_pair] -= (event.amount * event.price)
                 self._sell_budgets[market_info.trading_pair] += event.amount
             else:
                 msg = f"({market_info.trading_pair}) Maker SELL order (price: {event.price}) of {event.amount} " \
                       f"{market_info.base_asset} is filled."
                 self.log_with_clock(logging.INFO, msg)
-                self.notify_hb_app(msg)
+                self.notify_hb_app_with_timestamp(msg)
                 self._sell_budgets[market_info.trading_pair] -= event.amount
                 self._buy_budgets[market_info.trading_pair] += (event.amount * event.price)
 
@@ -570,5 +570,4 @@ class LiquidityMiningStrategy(StrategyPyBase):
         Send a message to the hummingbot application
         """
         if self._hb_app_notification:
-            from hummingbot.client.hummingbot_application import HummingbotApplication
-            HummingbotApplication.main_application()._notify(msg)
+            super().notify_hb_app(msg)
