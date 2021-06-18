@@ -3,17 +3,11 @@ import asyncio
 import pandas as pd
 import time
 
-from hummingbot.core.pubsub import PubSub
 from hummingbot.core.clock import (
     Clock,
     ClockMode
 )
 from hummingbot.core.time_iterator import TimeIterator
-
-
-class MockIterator(PubSub):
-    def __init__(self):
-        super().__init__()
 
 
 class ClockUnitTest(unittest.TestCase):
@@ -95,8 +89,7 @@ class ClockUnitTest(unittest.TestCase):
         self.assertEqual(0, len(self.clock_backtest.child_iterators))
 
     def test_run(self):
-        time_iterator: TimeIterator = TimeIterator()
-        self.clock_realtime.add_iterator(time_iterator)
+        # Note: Technically you do not execute `run()` when in BACKTEST mode
 
         # Tests EnvironmentError raised when not runnning within a context
         with self.assertRaises(EnvironmentError):
@@ -108,11 +101,8 @@ class ClockUnitTest(unittest.TestCase):
 
         self.assertLess(self.realtime_start_timestamp, self.clock_realtime.current_timestamp)
 
-        # Note: Technically you do not execute `run()` when in BACKTEST mode
-
     def test_run_til(self):
-        time_iterator: TimeIterator = TimeIterator()
-        self.clock_realtime.add_iterator(time_iterator)
+        # Note: Technically you do not execute `run_til()` when in BACKTEST mode
 
         # Tests EnvironmentError raised when not runnning within a context
         with self.assertRaises(EnvironmentError):
@@ -123,25 +113,15 @@ class ClockUnitTest(unittest.TestCase):
 
         self.assertGreaterEqual(self.clock_realtime.current_timestamp, self.realtime_end_timestamp)
 
-        # Note: Technically you do not execute `run_til()` when in BACKTEST mode
-
     def test_backtest(self):
-        time_iterator: TimeIterator = TimeIterator()
-        self.clock_backtest.add_iterator(time_iterator)
-
-        self.clock_backtest.backtest()
-
-        self.assertGreaterEqual(self.clock_backtest.current_timestamp, self.backtest_end_timestamp)
-
         # Note: Technically you do not execute `backtest()` when in REALTIME mode
 
+        self.clock_backtest.backtest()
+        self.assertGreaterEqual(self.clock_backtest.current_timestamp, self.backtest_end_timestamp)
+
     def test_backtest_til(self):
-        time_iterator: TimeIterator = TimeIterator()
-        self.clock_backtest.add_iterator(time_iterator)
+        # Note: Technically you do not execute `backtest_til()` when in REALTIME mode
 
         self.clock_backtest.backtest_til(self.backtest_start_timestamp + self.tick_size)
-
         self.assertGreater(self.clock_backtest.current_timestamp, self.clock_backtest.start_time)
         self.assertLess(self.clock_backtest.current_timestamp, self.backtest_end_timestamp)
-
-        # Note: Technically you do not execute `backtest_til()` when in REALTIME mode
