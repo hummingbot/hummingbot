@@ -32,7 +32,7 @@ from hummingbot.core.event.events import (
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 
 from hummingbot.strategy.avellaneda_market_making import AvellanedaMarketMakingStrategy
-from hummingbot.strategy.avellaneda_market_making.data_types import PriceSize, Proposal
+from hummingbot.strategy.data_types import PriceSize, Proposal
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.__utils__.trailing_indicators.average_volatility import AverageVolatilityIndicator
 
