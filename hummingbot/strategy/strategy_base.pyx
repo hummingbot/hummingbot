@@ -563,5 +563,22 @@ cdef class StrategyBase(TimeIterator):
     def track_restored_orders(self, market_pair: MarketTradingPairTuple):
         return self.c_track_restored_orders(market_pair)
 
+    def notify_hb_app(self, msg: str):
+        """
+        Method called to display message on the Output Panel(upper left)
+        :param msg: The message to be notified
+        """
+        from hummingbot.client.hummingbot_application import HummingbotApplication
+        HummingbotApplication.main_application()._notify(msg)
+
+    def notify_hb_app_with_timestamp(self, msg: str):
+        """
+        Method called to display message on the Output Panel(upper left)
+        This implementation adds the timestamp as the first element of the notification
+        :param msg: The message to be notified
+        """
+        timestamp = pd.Timestamp.fromtimestamp(self._current_timestamp)
+        self.notify_hb_app(f"({timestamp}) {msg}")
+
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>
