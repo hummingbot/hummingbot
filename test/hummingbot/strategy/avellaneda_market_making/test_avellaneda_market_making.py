@@ -282,13 +282,6 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         # Avellaneda Strategy get_price is simply a wrapper for MarketTradingPairTuple.get_mid_price()
         self.assertEqual(self.market_info.get_mid_price(), self.strategy.get_price())
 
-    def test_get_last_price(self):
-        # TODO: Determine if the get_last_price() function is needed in Avellaneda Strategy
-        # Note: MarketTrradingPairTuple does not have a get_last_price() function
-
-        # self.assertEqual(self.market_info.get_last_price(), self.strategy.get_last_price())
-        pass
-
     def test_get_mid_price(self):
         self.assertEqual(self.market_info.get_mid_price(), self.strategy.get_mid_price())
 
@@ -326,6 +319,10 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.simulate_place_limit_order(self.strategy, self.market_info, limit_order)
 
         self.assertEqual(1, len(self.strategy.active_orders))
+        # Note: The order_id created by the BacktestMarket class is as follows [buy/sell]://{trading_pair}/{random_uuid}
+        self.assertTrue(f"buy://{self.trading_pair}" in self.strategy.active_orders[0].client_order_id)
+        self.assertEqual(limit_order.price, self.strategy.active_orders[0].price)
+        self.assertEqual(limit_order.quantity, self.strategy.active_orders[0].quantity)
 
     def test_active_buys(self):
         self.assertEqual(0, len(self.strategy.active_buys))
@@ -342,6 +339,9 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.simulate_place_limit_order(self.strategy, self.market_info, limit_order)
 
         self.assertEqual(1, len(self.strategy.active_buys))
+        self.assertTrue(f"buy://{self.trading_pair}" in self.strategy.active_buys[0].client_order_id)
+        self.assertEqual(limit_order.price, self.strategy.active_buys[0].price)
+        self.assertEqual(limit_order.quantity, self.strategy.active_buys[0].quantity)
 
     def test_active_sells(self):
         self.assertEqual(0, len(self.strategy.active_sells))
@@ -358,6 +358,9 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.simulate_place_limit_order(self.strategy, self.market_info, limit_order)
 
         self.assertEqual(1, len(self.strategy.active_sells))
+        self.assertTrue(f"sell://{self.trading_pair}" in self.strategy.active_sells[0].client_order_id)
+        self.assertEqual(limit_order.price, self.strategy.active_sells[0].price)
+        self.assertEqual(limit_order.quantity, self.strategy.active_sells[0].quantity)
 
     def test_logging_options(self):
         self.assertEqual(AvellanedaMarketMakingStrategy.OPTION_LOG_ALL, self.strategy.logging_options)
@@ -366,10 +369,6 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.strategy.logging_options = AvellanedaMarketMakingStrategy.OPTION_LOG_CREATE_ORDER
 
         self.assertEqual(AvellanedaMarketMakingStrategy.OPTION_LOG_CREATE_ORDER, self.strategy.logging_options)
-
-    def test_order_tracker(self):
-        # TODO: replicate order_tracker property in Avellaneda strategy. Already exists in StrategyBase
-        pass
 
     def test_execute_orders_proposal(self):
         self.assertEqual(0, len(self.strategy.active_orders))
@@ -380,7 +379,16 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         self.strategy.execute_orders_proposal(proposal)
 
-        self.assertEqual(2, len(self.strategy.active_orders))
+        self.assertEqual(1, len(self.strategy.active_buys))
+        self.assertEqual(1, len(self.strategy.active_sells))
+
+        self.assertTrue(f"buy://{self.trading_pair}" in self.strategy.active_buys[0].client_order_id)
+        self.assertEqual(buys[0].price, self.strategy.active_buys[0].price)
+        self.assertEqual(buys[0].size, self.strategy.active_buys[0].quantity)
+
+        self.assertTrue(f"sell://{self.trading_pair}" in self.strategy.active_sells[0].client_order_id)
+        self.assertEqual(sells[0].price, self.strategy.active_sells[0].price)
+        self.assertEqual(sells[0].size, self.strategy.active_sells[0].quantity)
 
     def test_cancel_order(self):
         self.assertEqual(0, len(self.strategy.active_orders))
@@ -753,8 +761,6 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         expected_proposal: Proposal = Proposal(expected_buys, expected_sells)
         self.assertEqual(str(expected_proposal), str(self.strategy.create_base_proposal()))
-
-        pass
 
     def test_get_adjusted_available_balance(self):
         expected_available_balance: Tuple[Decimal, Decimal] = (Decimal("1"), Decimal("500"))  # Initial asset balance
