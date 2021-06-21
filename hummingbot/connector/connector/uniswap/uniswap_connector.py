@@ -109,21 +109,23 @@ class UniswapConnector(ConnectorBase):
         """
         Initiate connector and start caching paths for trading_pairs
         """
-        try:
-            self.logger().info(f"Initializing Uniswap connector and paths for {self._trading_pairs} pairs.")
-            resp = await self._api_request("get", "eth/uniswap/start",
-                                           {"pairs": json.dumps(self._trading_pairs)})
-            status = bool(str(resp["success"]))
-            if bool(str(resp["success"])):
-                self._initiate_pool_status = status
-        except asyncio.CancelledError:
-            raise
-        except Exception as e:
-            self.logger().network(
-                f"Error initializing {self._trading_pairs} ",
-                exc_info=True,
-                app_warning_msg=str(e)
-            )
+        while True:
+            try:
+                self.logger().info(f"Initializing Uniswap connector and paths for {self._trading_pairs} pairs.")
+                resp = await self._api_request("get", "eth/uniswap/start",
+                                               {"pairs": json.dumps(self._trading_pairs)})
+                status = bool(str(resp["success"]))
+                if bool(str(resp["success"])):
+                    self._initiate_pool_status = status
+                    await asyncio.sleep(60)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                self.logger().network(
+                    f"Error initializing {self._trading_pairs} ",
+                    exc_info=True,
+                    app_warning_msg=str(e)
+                )
 
     async def auto_approve(self):
         """
