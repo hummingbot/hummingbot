@@ -281,12 +281,13 @@ cdef class KucoinExchange(ExchangeBase):
                         self.logger().debug(f"Event: {event_message}")
                         continue
                 elif event_type == "message" and event_topic == "/account/balance":
-                    currency = convert_asset_from_exchange(execution_data["currency"])
-                    available_balance = Decimal(execution_data["available"])
-                    total_balance = Decimal(execution_data["total"])
-                    self._account_balances.update({currency: total_balance})
-                    self._account_available_balances.update({currency: available_balance})
-                    continue
+                    if "trade" in execution_data["relationEvent"]:
+                        currency = convert_asset_from_exchange(execution_data["currency"])
+                        available_balance = Decimal(execution_data["available"])
+                        total_balance = Decimal(execution_data["total"])
+                        self._account_balances.update({currency: total_balance})
+                        self._account_available_balances.update({currency: available_balance})
+                        continue
                 else:
                     continue
 

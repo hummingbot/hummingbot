@@ -15,6 +15,8 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         double _filled_order_delay
         int _order_levels
         object _order_override
+        bint _hanging_orders_enabled
+        object _hanging_orders_tracker
         object _inventory_target_base_pct
         bint _order_optimization_enabled
         bint _add_transaction_costs_to_orders
