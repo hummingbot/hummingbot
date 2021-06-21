@@ -18,16 +18,15 @@ class ClockUnitTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        super().setUpClass()
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        return super().setUpClass()
 
     def setUp(self):
+        super().setUp()
         self.realtime_start_timestamp = time.time()
         self.realtime_end_timestamp = self.realtime_start_timestamp + 2.0  #
         self.clock_realtime = Clock(ClockMode.REALTIME, self.tick_size, self.realtime_start_timestamp, self.realtime_end_timestamp)
         self.clock_backtest = Clock(ClockMode.BACKTEST, self.tick_size, self.backtest_start_timestamp, self.backtest_end_timestamp)
-
-        return super().setUp()
 
     def test_clock_mode(self):
         self.assertEqual(ClockMode.REALTIME, self.clock_realtime.clock_mode)
