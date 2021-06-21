@@ -6,13 +6,13 @@ from hummingbot.core.clock import (
     Clock,
     ClockMode)
 
-from hummingbot.strategy.dev_4_twap import Dev4TwapTradeStrategy
+from hummingbot.strategy.twap import TwapTradeStrategy
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
-from test.hummingbot.strategy.dev_4_twap.dev_4_twap_test_support import MockExchange
+from test.hummingbot.strategy.twap.twap_test_support import MockExchange
 
 
-class Dev4TwapTradeStrategyTest(TestCase):
+class TwapTradeStrategyTest(TestCase):
 
     level = 0
     log_records = []
@@ -30,14 +30,14 @@ class Dev4TwapTradeStrategyTest(TestCase):
 
     def test_creation_without_market_info_fails(self):
         with self.assertRaises(ValueError) as ex_context:
-            Dev4TwapTradeStrategy([])
+            TwapTradeStrategy([])
 
         self.assertEqual(str(ex_context.exception), "market_infos must not be empty.")
 
     def test_start(self):
         exchange = MockExchange()
         marketTuple = MarketTradingPairTuple(exchange, "ETH-USDT", "ETH", "USDT")
-        strategy = Dev4TwapTradeStrategy(market_infos=[marketTuple])
+        strategy = TwapTradeStrategy(market_infos=[marketTuple])
         strategy.logger().setLevel(1)
         strategy.logger().addHandler(self)
 
@@ -50,7 +50,7 @@ class Dev4TwapTradeStrategyTest(TestCase):
         exchange = MockExchange()
         exchange.ready = False
         marketTuple = MarketTradingPairTuple(exchange, "ETH-USDT", "ETH", "USDT")
-        strategy = Dev4TwapTradeStrategy(market_infos=[marketTuple])
+        strategy = TwapTradeStrategy(market_infos=[marketTuple])
         strategy.logger().setLevel(1)
         strategy.logger().addHandler(self)
 
@@ -64,7 +64,7 @@ class Dev4TwapTradeStrategyTest(TestCase):
         exchange = MockExchange()
         exchange.ready = True
         marketTuple = MarketTradingPairTuple(exchange, "ETH-USDT", "ETH", "USDT")
-        strategy = Dev4TwapTradeStrategy(market_infos=[marketTuple])
+        strategy = TwapTradeStrategy(market_infos=[marketTuple])
         strategy.logger().setLevel(1)
         strategy.logger().addHandler(self)
 
@@ -83,11 +83,11 @@ class Dev4TwapTradeStrategyTest(TestCase):
         exchange.update_account_balance({"ETH": Decimal("100000"), "USDT": Decimal(10000)})
         exchange.update_account_available_balance({"ETH": Decimal("100000"), "USDT": Decimal(10000)})
         marketTuple = MarketTradingPairTuple(exchange, "ETH-USDT", "ETH", "USDT")
-        strategy = Dev4TwapTradeStrategy(market_infos=[marketTuple],
-                                         is_buy=True,
-                                         target_asset_amount=Decimal(100),
-                                         order_step_size=Decimal(10),
-                                         order_price=Decimal(25000))
+        strategy = TwapTradeStrategy(market_infos=[marketTuple],
+                                     is_buy=True,
+                                     target_asset_amount=Decimal(100),
+                                     order_step_size=Decimal(10),
+                                     order_price=Decimal(25000))
 
         status = strategy.format_status()
         expected_status = ("\n  Configuration:\n"
