@@ -917,7 +917,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     def apply_order_price_modifiers(self, proposal: Proposal):
         self.c_apply_order_price_modifiers(proposal)
 
-      def apply_budget_constraint(self, proposal: Proposal):
+    def apply_budget_constraint(self, proposal: Proposal):
         return self.c_apply_budget_constraint(proposal)
 
     cdef c_apply_budget_constraint(self, object proposal):
