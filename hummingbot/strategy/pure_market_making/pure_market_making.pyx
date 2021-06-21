@@ -1000,7 +1000,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
                     f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
                 )
-                self.notify_hb_app(
+                self.notify_hb_app_with_timestamp(
                     f"Hanging maker BUY order {limit_order_record.quantity} {limit_order_record.base_currency} @ "
                     f"{limit_order_record.price} {limit_order_record.quote_currency} is filled."
                 )
@@ -1023,7 +1023,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
             f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
         )
-        self.notify_hb_app(
+        self.notify_hb_app_with_timestamp(
             f"Maker BUY order {limit_order_record.quantity} {limit_order_record.base_currency} @ "
             f"{limit_order_record.price} {limit_order_record.quote_currency} is filled."
         )
@@ -1044,7 +1044,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
                     f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
                 )
-                self.notify_hb_app(
+                self.notify_hb_app_with_timestamp(
                     f"Hanging maker SELL order {limit_order_record.quantity} {limit_order_record.base_currency} @ "
                     f"{limit_order_record.price} {limit_order_record.quote_currency} is filled."
                 )
@@ -1067,7 +1067,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
             f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
         )
-        self.notify_hb_app(
+        self.notify_hb_app_with_timestamp(
             f"Maker SELL order {limit_order_record.quantity} {limit_order_record.base_currency} @ "
             f"{limit_order_record.price} {limit_order_record.quote_currency} is filled."
         )
@@ -1251,8 +1251,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
     def notify_hb_app(self, msg: str):
         if self._hb_app_notification:
-            from hummingbot.client.hummingbot_application import HummingbotApplication
-            HummingbotApplication.main_application()._notify(msg)
+            super().notify_hb_app(msg)
 
     def get_price_type(self, price_type_str: str) -> PriceType:
         if price_type_str == "mid_price":
