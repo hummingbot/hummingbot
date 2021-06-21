@@ -30,7 +30,7 @@ from hummingbot.core.event.events import (
     TradeFee, OrderCancelledEvent, MarketOrderFailureEvent, OrderExpiredEvent
 )
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.strategy.dev_4_twap import Dev4TwapTradeStrategy
+from hummingbot.strategy.twap import TwapTradeStrategy
 
 logging.basicConfig(level=logging.ERROR)
 
@@ -76,7 +76,7 @@ class TWAPUnitTest(unittest.TestCase):
         )
 
         # Define strategies to test
-        self.limit_buy_strategy: Dev4TwapTradeStrategy = Dev4TwapTradeStrategy(
+        self.limit_buy_strategy: TwapTradeStrategy = TwapTradeStrategy(
             [self.market_info],
             order_price=Decimal("99"),
             cancel_order_wait_time=self.cancel_order_wait_time,
@@ -85,7 +85,7 @@ class TWAPUnitTest(unittest.TestCase):
             target_asset_amount=Decimal("2.0"),
             order_step_size=Decimal("1.0")
         )
-        self.limit_sell_strategy: Dev4TwapTradeStrategy = Dev4TwapTradeStrategy(
+        self.limit_sell_strategy: TwapTradeStrategy = TwapTradeStrategy(
             [self.market_info],
             order_price=Decimal("101"),
             cancel_order_wait_time=self.cancel_order_wait_time,
