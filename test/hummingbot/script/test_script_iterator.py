@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 from os.path import join, realpath
-import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 
 import pandas as pd
 import unittest
