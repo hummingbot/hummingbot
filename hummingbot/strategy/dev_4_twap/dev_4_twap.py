@@ -1,6 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 import logging
+import statistics
 from typing import (
     List,
     Tuple,
@@ -8,11 +9,16 @@ from typing import (
     Dict
 )
 
+from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.event.events import OrderType
+from hummingbot.core.event.events import (MarketOrderFailureEvent,
+                                          OrderCancelledEvent,
+                                          OrderExpiredEvent,
+                                          OrderType,
+                                          TradeType)
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
@@ -32,23 +38,21 @@ class Dev4TwapTradeStrategy(StrategyPyBase):
 
     def __init__(self,
                  market_infos: List[MarketTradingPairTuple],
-                 order_type: str = "limit",
-                 order_price: Optional[float] = None,
-                 cancel_order_wait_time: Optional[float] = 60.0,
                  is_buy: bool = True,
-                 time_delay: float = 10.0,
-                 num_individual_orders: int = 1,
-                 order_amount: Decimal = Decimal("1.0"),
+                 target_asset_amount: Decimal = Decimal("1.0"),
+                 order_step_size: Decimal = Decimal("1.0"),
+                 order_price: Optional[Decimal] = None,
+                 order_delay_time: float = 10.0,
+                 cancel_order_wait_time: Optional[float] = 60.0,
                  status_report_interval: float = 900):
         """
         :param market_infos: list of market trading pairs
-        :param order_type: type of order to place
         :param order_price: price to place the order at
         :param cancel_order_wait_time: how long to wait before cancelling an order
         :param is_buy: if the order is to buy
-        :param time_delay: how long to wait between placing trades
+        :param order_delay_time: how long to wait between placing trades
         :param num_individual_orders: how many individual orders to split the order into
-        :param order_amount: qty of the order to place
+        :param target_asset_amount: qty of the order to place
         :param status_report_interval: how often to report network connection related warnings, if any
         """
 
@@ -63,13 +67,12 @@ class Dev4TwapTradeStrategy(StrategyPyBase):
         self._all_markets_ready = False
         self._place_orders = True
         self._status_report_interval = status_report_interval
-        self._time_delay = time_delay
-        self._num_individual_orders = num_individual_orders
-        self._quantity_remaining = order_amount
+        self._order_delay_time = order_delay_time
+        self._quantity_remaining = target_asset_amount
         self._time_to_cancel = {}
-        self._order_type = order_type
         self._is_buy = is_buy
-        self._order_amount = order_amount
+        self._target_asset_amount = target_asset_amount
+        self._order_step_size = order_step_size
         self._first_order = True
         self._previous_timestamp = 0
         self._last_timestamp = 0
@@ -107,11 +110,28 @@ class Dev4TwapTradeStrategy(StrategyPyBase):
     def place_orders(self):
         return self._place_orders
 
+    def filled_trades(self):
+        trade_type = TradeType.BUY if self._is_buy else TradeType.SELL
+        return [trade
+                for trade
+                in self.trades
+                if trade.trade_type == trade_type.name and trade.order_type == OrderType.LIMIT]
+
     def format_status(self) -> str:
         lines: list = []
         warning_lines: list = []
 
         for market_info in self._market_infos.values():
+            lines.extend(["",
+                          "  Configuration:",
+                          ("    "
+                           f"Total amount: {PerformanceMetrics.smart_round(self._target_asset_amount)} "
+                           f"{market_info.base_asset}    "
+                           f"Order price: {PerformanceMetrics.smart_round(self._order_price)} "
+                           f"{market_info.quote_asset}    "
+                           f"Order size: {PerformanceMetrics.smart_round(self._order_step_size)} "
+                           f"{market_info.base_asset}")])
+
             active_orders = self.market_info_to_active_orders.get(market_info, [])
 
             warning_lines.extend(self.network_warning([market_info]))
@@ -130,6 +150,18 @@ class Dev4TwapTradeStrategy(StrategyPyBase):
                              ["    " + line for line in df_lines])
             else:
                 lines.extend(["", "  No active maker orders."])
+
+            filled_trades = self.filled_trades()
+            average_price = (statistics.mean([trade.price for trade in filled_trades])
+                             if filled_trades
+                             else Decimal(0))
+            lines.extend(["",
+                          f"  Average filled orders price: "
+                          f"{PerformanceMetrics.smart_round(average_price)} "
+                          f"{market_info.quote_asset}"])
+
+            lines.extend([f"  Pending amount: {PerformanceMetrics.smart_round(self._quantity_remaining)} "
+                          f"{market_info.base_asset}"])
 
             warning_lines.extend(self.balance_warning([market_info]))
 
@@ -175,23 +207,31 @@ class Dev4TwapTradeStrategy(StrategyPyBase):
 
         if market_info is not None:
             limit_order_record = self.order_tracker.get_limit_order(market_info, order_id)
-            # If its not market order
+            order_type = "buy" if limit_order_record.is_buy else "sell"
+            self.log_with_clock(
+                logging.INFO,
+                f"({market_info.trading_pair}) Limit {order_type} order {order_id} "
+                f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
+                f"{limit_order_record.price} {limit_order_record.quote_currency}) has been filled."
+            )
+
+    def did_cancel_order(self, cancelled_event: OrderCancelledEvent):
+        self.update_remaining_after_removing_order(cancelled_event.order_id, 'cancel')
+
+    def did_fail_order(self, order_failed_event: MarketOrderFailureEvent):
+        self.update_remaining_after_removing_order(order_failed_event.order_id, 'fail')
+
+    def did_expire_order(self, expired_event: OrderExpiredEvent):
+        self.update_remaining_after_removing_order(expired_event.order_id, 'expire')
+
+    def update_remaining_after_removing_order(self, order_id: str, event_type: str):
+        market_info = self.order_tracker.get_market_pair_from_order_id(order_id)
+
+        if market_info is not None:
+            limit_order_record = self.order_tracker.get_limit_order(market_info, order_id)
             if limit_order_record is not None:
-                order_type = "buy" if limit_order_record.is_buy else "sell"
-                self.log_with_clock(
-                    logging.INFO,
-                    f"({market_info.trading_pair}) Limit {order_type} order {order_id} "
-                    f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
-                    f"{limit_order_record.price} {limit_order_record.quote_currency}) has been filled."
-                )
-            else:
-                market_order_record = self.order_tracker.get_market_order(market_info, order_id)
-                order_type = "buy" if market_order_record.is_buy else "sell"
-                self.log_with_clock(
-                    logging.INFO,
-                    f"({market_info.trading_pair}) Market {order_type} order {order_id} "
-                    f"({market_order_record.amount} {market_order_record.base_asset}) has been filled."
-                )
+                self.log_with_clock(logging.INFO, f"Updating status after order {event_type} (id: {order_id})")
+                self._quantity_remaining += limit_order_record.quantity
 
     def process_market(self, market_info):
         """
@@ -200,8 +240,6 @@ class Dev4TwapTradeStrategy(StrategyPyBase):
 
         :param market_info: a market trading pair
         """
-        cancel_order_ids = set()
-
         if self._quantity_remaining > 0:
 
             # If current timestamp is greater than the start timestamp and its the first order
@@ -213,27 +251,28 @@ class Dev4TwapTradeStrategy(StrategyPyBase):
                 self._first_order = False
 
             # If current timestamp is greater than the start timestamp + time delay place orders
-            elif (self.current_timestamp > self._previous_timestamp + self._time_delay) and (self._first_order is False):
+            elif (self.current_timestamp > self._previous_timestamp + self._order_delay_time) and (self._first_order is False):
                 self.logger().info("Current time: "
                                    f"{datetime.fromtimestamp(self.current_timestamp).strftime('%Y-%m-%d %H:%M:%S')} "
                                    "is now greater than "
                                    "Previous time: "
                                    f"{datetime.fromtimestamp(self._previous_timestamp).strftime('%Y-%m-%d %H:%M:%S')} "
-                                   f" with time delay: {self._time_delay}. Trying to place orders now. ")
+                                   f" with time delay: {self._order_delay_time}. Trying to place orders now. ")
                 self._previous_timestamp = self.current_timestamp
                 self.place_orders_for_market(market_info)
 
         active_orders = self.market_info_to_active_orders.get(market_info, [])
 
-        for active_order in active_orders:
-            if self.current_timestamp >= self._time_to_cancel[active_order.client_order_id]:
-                cancel_order_ids.add(active_order.client_order_id)
+        orders_to_cancel = (active_order
+                            for active_order
+                            in active_orders
+                            if self.current_timestamp >= self._time_to_cancel[active_order.client_order_id])
 
-        for order in cancel_order_ids:
-            self.cancel_order(market_info, order)
+        for order in orders_to_cancel:
+            self.cancel_order(market_info, order.client_order_id)
 
     def start(self, clock: Clock, timestamp: float):
-        self.logger().info(f"Waiting for {self._time_delay} to place orders")
+        self.logger().info(f"Waiting for {self._order_delay_time} to place orders")
         self._previous_timestamp = timestamp
         self._last_timestamp = timestamp
 
@@ -274,7 +313,7 @@ class Dev4TwapTradeStrategy(StrategyPyBase):
         :param market_info: a market trading pair
         """
         market: ExchangeBase = market_info.market
-        curr_order_amount = min(self._order_amount / self._num_individual_orders, self._quantity_remaining)
+        curr_order_amount = min(self._order_step_size, self._quantity_remaining)
         quantized_amount = market.quantize_order_amount(market_info.trading_pair, Decimal(curr_order_amount))
         quantized_price = market.quantize_order_price(market_info.trading_pair, Decimal(self._order_price))
 
@@ -283,31 +322,19 @@ class Dev4TwapTradeStrategy(StrategyPyBase):
 
         if quantized_amount != 0:
             if self.has_enough_balance(market_info):
-
-                if self._order_type == "market":
-                    if self._is_buy:
-                        order_id = self.buy_with_specific_market(market_info,
-                                                                 amount=quantized_amount)
-                        self.logger().info("Market buy order has been executed")
-                    else:
-                        order_id = self.sell_with_specific_market(market_info,
-                                                                  amount=quantized_amount)
-                        self.logger().info("Market sell order has been executed")
+                if self._is_buy:
+                    order_id = self.buy_with_specific_market(market_info,
+                                                             amount=quantized_amount,
+                                                             order_type=OrderType.LIMIT,
+                                                             price=quantized_price)
+                    self.logger().info("Limit buy order has been placed")
                 else:
-                    if self._is_buy:
-                        order_id = self.buy_with_specific_market(market_info,
-                                                                 amount=quantized_amount,
-                                                                 order_type=OrderType.LIMIT,
-                                                                 price=quantized_price)
-                        self.logger().info("Limit buy order has been placed")
-
-                    else:
-                        order_id = self.sell_with_specific_market(market_info,
-                                                                  amount=quantized_amount,
-                                                                  order_type=OrderType.LIMIT,
-                                                                  price=quantized_price)
-                        self.logger().info("Limit sell order has been placed")
-                    self._time_to_cancel[order_id] = self.current_timestamp + self._cancel_order_wait_time
+                    order_id = self.sell_with_specific_market(market_info,
+                                                              amount=quantized_amount,
+                                                              order_type=OrderType.LIMIT,
+                                                              price=quantized_price)
+                    self.logger().info("Limit sell order has been placed")
+                self._time_to_cancel[order_id] = self.current_timestamp + self._cancel_order_wait_time
 
                 self._quantity_remaining = Decimal(self._quantity_remaining) - quantized_amount
 
@@ -329,5 +356,6 @@ class Dev4TwapTradeStrategy(StrategyPyBase):
         order_book: OrderBook = market_info.order_book
         price = order_book.get_price_for_volume(True, float(self._quantity_remaining)).result_price
 
-        return quote_asset_balance >= float(self._quantity_remaining) * price if self._is_buy else base_asset_balance >= float(
-            self._quantity_remaining)
+        return quote_asset_balance >= (self._quantity_remaining * Decimal(price)) \
+            if self._is_buy \
+            else base_asset_balance >= self._quantity_remaining

@@ -15,6 +15,27 @@ s_decimal_NaN = Decimal("nan")
 
 class MockExchange(ExchangeBase):
 
+    def __init__(self):
+        super(MockExchange, self).__init__()
+        self._buy_price = Decimal(1)
+        self._sell_price = Decimal(1)
+
+    @property
+    def buy_price(self) -> Decimal:
+        return self._buy_price
+
+    @buy_price.setter
+    def buy_price(self, price: Decimal):
+        self._buy_price = price
+
+    @property
+    def sell_price(self) -> Decimal:
+        return self._sell_price
+
+    @sell_price.setter
+    def sell_price(self, price: Decimal):
+        self._sell_price = price
+
     @property
     def status_dict(self) -> Dict[str, bool]:
         pass
@@ -70,3 +91,20 @@ class MockExchange(ExchangeBase):
     @ready.setter
     def ready(self, status: bool):
         self._ready = status
+
+    def get_price(self, trading_pair: str, is_buy_price: bool) -> Decimal:
+        return self.buy_price if is_buy_price else self.sell_price
+
+    def update_account_balance(self, asset_balance: Dict[str, Decimal]):
+        if not self._account_balances:
+            self._account_balances = {}
+
+        for asset, balance in asset_balance.items():
+            self._account_balances[asset] = self._account_balances.get(asset, Decimal(0)) + balance
+
+    def update_account_available_balance(self, asset_balance: Dict[str, Decimal]):
+        if not self._account_available_balances:
+            self._account_available_balances = {}
+
+        for asset, balance in asset_balance.items():
+            self._account_available_balances[asset] = self._account_available_balances.get(asset, Decimal(0)) + balance
