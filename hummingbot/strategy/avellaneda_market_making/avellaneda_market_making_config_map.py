@@ -21,6 +21,8 @@ from hummingbot.client.config.config_helpers import (
 )
 from typing import Optional
 
+from hummingbot.strategy.hanging_orders_tracker import HangingOrdersAggregationType
+
 
 def maker_trading_pair_prompt():
     exchange = avellaneda_market_making_config_map.get("exchange").value
@@ -36,7 +38,9 @@ def validate_exchange_trading_pair(value: str) -> Optional[str]:
 
 
 def validate_max_spread(value: str) -> Optional[str]:
-    validate_decimal(value, 0, 100, inclusive=False)
+    is_invalid_decimal = validate_decimal(value, 0, 100, inclusive=False)
+    if is_invalid_decimal:
+        return is_invalid_decimal
     if avellaneda_market_making_config_map["min_spread"].value is not None:
         min_spread = Decimal(avellaneda_market_making_config_map["min_spread"].value)
         max_spread = Decimal(value)
@@ -212,7 +216,7 @@ avellaneda_market_making_config_map = {
                   required_if=lambda: not (using_exchange("radar_relay")() or
                                            (using_exchange("bamboo_relay")() and not using_bamboo_coordinator_mode())),
                   type_str="float",
-                  default=Decimal("1800"),
+                  default=1800,
                   validator=lambda v: validate_decimal(v, 0, inclusive=False)),
     "order_refresh_tolerance_pct":
         ConfigVar(key="order_refresh_tolerance_pct",
@@ -258,5 +262,26 @@ avellaneda_market_making_config_map = {
                   prompt=None,
                   required_if=lambda: False,
                   default=None,
-                  type_str="json")
+                  type_str="json"),
+    "hanging_orders_enabled":
+        ConfigVar(key="hanging_orders_enabled",
+                  prompt="Do you want to enable hanging orders? (Yes/No) >>> ",
+                  type_str="bool",
+                  default=False,
+                  validator=validate_bool),
+    "hanging_orders_aggregation_type":
+        ConfigVar(key="hanging_orders_aggregation_type",
+                  prompt="What kind of aggregation for the hanging orders? (no_aggregation/volume_weighted/volume_time_weighted/volume_distance_weighted) >>> ",
+                  type_str="str",
+                  default="no_aggregation",
+                  validator=lambda v: "Invalid option" if v.upper() not in [s.name for s in HangingOrdersAggregationType] else None,
+                  required_if=lambda: avellaneda_market_making_config_map.get("hanging_orders_enabled").value),
+    "hanging_orders_cancel_pct":
+        ConfigVar(key="hanging_orders_cancel_pct",
+                  prompt="At what spread percentage (from mid price) will hanging orders be canceled? "
+                         "(Enter 1 to indicate 1%) >>> ",
+                  required_if=lambda: avellaneda_market_making_config_map.get("hanging_orders_enabled").value,
+                  type_str="decimal",
+                  default=Decimal("10"),
+                  validator=lambda v: validate_decimal(v, 0, 100, inclusive=False)),
 }
