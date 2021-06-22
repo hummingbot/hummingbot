@@ -270,7 +270,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._order_levels = value
 
     @property
-    def max_order_age(self) -> float:
+    def max_order_age(self):
         return self._max_order_age
 
     @max_order_age.setter
@@ -380,6 +380,10 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     @property
     def max_order_age(self):
         return self._max_order_age
+
+    @max_order_age.setter
+    def max_order_age(self, value):
+        self._max_order_age = value
 
     @property
     def market_info_to_active_orders(self) -> Dict[MarketTradingPairTuple, List[LimitOrder]]:
@@ -1185,6 +1189,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 return False
         return True
 
+    def is_within_tolerance(self, current_prices: List[Decimal], proposal_prices: List[Decimal]) -> bool:
+        return self.c_is_within_tolerance(current_prices, proposal_prices)
+
     # Cancel active orders
     # Return value: whether order cancellation is deferred.
     cdef c_cancel_active_orders(self, object proposal):
@@ -1217,7 +1224,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 if not self._hanging_orders_tracker.is_order_to_be_added_to_hanging_orders(order):
                     self.c_cancel_order(self._market_info, order.client_order_id)
         else:
-            self.set_timers()
+            self.c_set_timers()
 
     def cancel_active_orders(self, proposal: Proposal):
         return self.c_cancel_active_orders(proposal)
@@ -1322,17 +1329,20 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     if order:
                         self._hanging_orders_tracker.current_created_pairs_of_orders[idx].sell_order = order
         if orders_created:
-            self.set_timers()
+            self.c_set_timers()
 
     def execute_orders_proposal(self, proposal: Proposal):
         self.c_execute_orders_proposal(proposal)
 
-    def set_timers(self):
+    cdef c_set_timers(self):
         cdef double next_cycle = self._current_timestamp + self._order_refresh_time
         if self._create_timestamp <= self._current_timestamp:
             self._create_timestamp = next_cycle
         if self._cancel_timestamp <= self._current_timestamp:
             self._cancel_timestamp = min(self._create_timestamp, next_cycle)
+
+    def set_timers(self):
+        self.c_set_timers()
 
     def notify_hb_app(self, msg: str):
         if self._hb_app_notification:

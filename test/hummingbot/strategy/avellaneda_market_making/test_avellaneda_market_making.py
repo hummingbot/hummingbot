@@ -1009,6 +1009,29 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.strategy.apply_order_amount_eta_transformation(proposal)
         self.assertEqual(str(expected_proposal), str(proposal))
 
+    def test_is_within_tolerance(self):
+        bid_price: Decimal = Decimal("99.5")
+        ask_price: Decimal = Decimal("101.5")
+
+        buy_prices: List[Decimal] = [bid_price]
+        sell_prices: List[Decimal] = [ask_price]
+
+        proposal: Proposal = Proposal(
+            [PriceSize(bid_price, self.order_amount)],  # Bids
+            [PriceSize(ask_price, self.order_amount)]   # Sells
+        )
+        proposal_buys = [buy.price for buy in proposal.buys]
+        proposal_sells = [sell.price for sell in proposal.sells]
+
+        # Default order_refresh_tolerance_pct is -1. So it will always NOT be within tolerance
+        self.assertFalse(self.strategy.is_within_tolerance(buy_prices, proposal_buys))
+        self.assertFalse(self.strategy.is_within_tolerance(sell_prices, proposal_sells))
+
+        self.strategy.order_refresh_tolerance_pct = Decimal("1.0")
+
+        self.assertTrue(self.strategy.is_within_tolerance(buy_prices, proposal_buys))
+        self.assertTrue(self.strategy.is_within_tolerance(sell_prices, proposal_sells))
+
     def test_cancel_active_orders(self):
 
         bid_price: Decimal = Decimal("99.5")
@@ -1023,14 +1046,14 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
                                                  is_buy=True,
                                                  base_currency=self.trading_pair.split("-")[0],
                                                  quote_currency=self.trading_pair.split("-")[1],
-                                                 price=Decimal("99"),
+                                                 price=bid_price,
                                                  quantity=self.order_amount)
         limit_sell_order: LimitOrder = LimitOrder(client_order_id="test",
                                                   trading_pair=self.trading_pair,
                                                   is_buy=False,
                                                   base_currency=self.trading_pair.split("-")[0],
                                                   quote_currency=self.trading_pair.split("-")[1],
-                                                  price=Decimal("101"),
+                                                  price=ask_price,
                                                   quantity=self.order_amount)
 
         # Case (1): No orders to cancel
