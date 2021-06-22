@@ -5,9 +5,14 @@ from typing import (
 )
 from decimal import Decimal
 from hummingbot.core.event.events import OrderType
+from dataclasses import dataclass
+
+import time
 
 ORDER_PROPOSAL_ACTION_CREATE_ORDERS = 1
 ORDER_PROPOSAL_ACTION_CANCEL_ORDERS = 1 << 1
+
+NaN = float("nan")
 
 
 class OrdersProposal(NamedTuple):
@@ -48,3 +53,45 @@ class Proposal:
     def __repr__(self):
         return f"{len(self.buys)} buys: {', '.join([str(o) for o in self.buys])} " \
                f"{len(self.sells)} sells: {', '.join([str(o) for o in self.sells])}"
+
+
+@dataclass(frozen=True)
+class HangingOrder:
+    order_id: str
+    trading_pair: str
+    is_buy: bool
+    price: Decimal
+    amount: Decimal
+
+    @property
+    def base_asset(self):
+        return self.trading_pair.split('-')[0]
+
+    @property
+    def quote_asset(self):
+        return self.trading_pair.split('-')[1]
+
+    @property
+    def creation_timestamp(self):
+        if self.order_id:
+            if "//" not in self.order_id:
+                return int(self.order_id[-16:]) / 1e6
+
+    @property
+    def age(self):
+        if self.creation_timestamp:
+            return int(time.time()) - self.creation_timestamp
+        return 0
+
+    def distance_to_price(self, price: Decimal):
+        return abs(self.price - price)
+
+    def __eq__(self, other):
+        return isinstance(other, HangingOrder) and all(
+            (self.trading_pair == other.trading_pair,
+             self.is_buy == other.is_buy,
+             self.price == other.price,
+             self.amount == other.amount))
+
+    def __hash__(self):
+        return hash((self.trading_pair, self.is_buy, self.price, self.amount))

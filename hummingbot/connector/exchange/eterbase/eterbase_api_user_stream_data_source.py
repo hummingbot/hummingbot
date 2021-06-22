@@ -122,10 +122,7 @@ class EterbaseAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     msg: str = await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)
                     yield msg
                 except asyncio.TimeoutError:
-                    try:
-                        await ws.send('{"type": "ping"}')
-                    except asyncio.TimeoutError:
-                        raise
+                    await ws.send('{"type": "ping"}')
         except asyncio.TimeoutError:
             self.logger().warning("WebSocket ping timed out. Going to reconnect...")
             return
