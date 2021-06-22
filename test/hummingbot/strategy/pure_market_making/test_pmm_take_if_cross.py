@@ -1,11 +1,7 @@
 #!/usr/bin/env python
-
-from os.path import join, realpath
-import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
-
 from typing import List
 from decimal import Decimal
-import logging; logging.basicConfig(level=logging.ERROR)
+import logging
 import pandas as pd
 import unittest
 
@@ -24,6 +20,8 @@ from hummingbot.strategy.pure_market_making.pure_market_making import PureMarket
 from hummingbot.strategy.pure_market_making.order_book_asset_price_delegate import OrderBookAssetPriceDelegate
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_row import OrderBookRow
+
+logging.basicConfig(level=logging.ERROR)
 
 
 # Update the orderbook so that the top bids and asks are lower than actual for a wider bid ask spread
