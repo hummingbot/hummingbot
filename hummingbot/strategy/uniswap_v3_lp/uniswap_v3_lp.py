@@ -4,7 +4,7 @@ import asyncio
 import pandas as pd
 from hummingbot.core.clock import Clock
 from hummingbot.logger import HummingbotLogger
-from hummingbot.client.performance import smart_round
+from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -86,9 +86,9 @@ class UniswapV3LpStrategy(StrategyPyBase):
                     position.trading_pair,
                     "Buy" if position in self.active_buys else "Sell",
                     position.fee_tier,
-                    f"{smart_round(Decimal(str(amount)), 8)}",
-                    smart_round(Decimal(str(position.upper_price)), 8),
-                    smart_round(Decimal(str(position.lower_price)), 8),
+                    f"{PerformanceMetrics.smart_round(Decimal(str(amount)), 8)}",
+                    PerformanceMetrics.smart_round(Decimal(str(position.upper_price)), 8),
+                    PerformanceMetrics.smart_round(Decimal(str(position.lower_price)), 8),
                     "[In range]" if self._last_price >= position.lower_price and self._last_price <= position.upper_price else "[Out of range]"
                 ])
         return pd.DataFrame(data=data, columns=columns)
@@ -107,7 +107,7 @@ class UniswapV3LpStrategy(StrategyPyBase):
         data.append([
             market.display_name,
             trading_pair,
-            smart_round(Decimal(str(self._last_price)), 8)
+            PerformanceMetrics.smart_round(Decimal(str(self._last_price)), 8)
         ])
         markets_df = pd.DataFrame(data=data, columns=columns)
         lines = []
