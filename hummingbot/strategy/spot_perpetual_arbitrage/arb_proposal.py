@@ -1,6 +1,8 @@
 from decimal import Decimal
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+from hummingbot.core.event.events import FundingInfo
+from hummingbot.connector.perpetual_trading import PerpetualTrading
 
 s_decimal_nan = Decimal("NaN")
 s_decimal_0 = Decimal("0")
@@ -70,10 +72,12 @@ class ArbProposal:
         Check if it's time for funding payment.
         Return True if it's time for funding payment else False.
         """
-        funding_info = self.derivative_market_info.market.get_funding_info(self.derivative_market_info.trading_pair)
-        funding_payment_span = self.derivative_market_info.market._funding_payment_span
-        if self.timestamp > (funding_info["nextFundingTime"] - funding_payment_span[0]) and \
-           self.timestamp < (funding_info["nextFundingTime"] + funding_payment_span[1]):
+        perp_trading: PerpetualTrading = self.derivative_market_info.market
+        f_info: FundingInfo = perp_trading.get_funding_info(
+            self.derivative_market_info.trading_pair)
+        payment_span = perp_trading.funding_payment_span
+        if (f_info.next_funding_utc_timestamp - payment_span[0]) < self.timestamp < \
+                (f_info.next_funding_utc_timestamp + payment_span[1]):
             return True
         else:
             return False
