@@ -10,7 +10,7 @@ from hummingbot.client.config.config_helpers import (
 )
 from hummingbot.client.config.config_validators import validate_decimal, validate_exchange
 from hummingbot.market.celo.celo_cli import CeloCLI
-from hummingbot.client.performance import smart_round
+from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 import pandas as pd
 from decimal import Decimal
@@ -96,7 +96,7 @@ class BalanceCommand:
             else:
                 lines = ["    " + line for line in df.to_string(index=False).split("\n")]
                 self._notify("\n".join(lines))
-                self._notify(f"\n  Total: {RateOracle.global_token_symbol} {smart_round(df[total_col_name].sum())}    "
+                self._notify(f"\n  Total: {RateOracle.global_token_symbol} {PerformanceMetrics.smart_round(df[total_col_name].sum())}    "
                              f"Allocated: {allocated_total / df[total_col_name].sum():.2%}")
                 exchanges_total += df[total_col_name].sum()
 
@@ -144,7 +144,7 @@ class BalanceCommand:
             allocated_total += rate * (bal - avai)
             rows.append({"Asset": token.upper(),
                          "Total": round(bal, 4),
-                         total_col_name: smart_round(global_value),
+                         total_col_name: PerformanceMetrics.smart_round(global_value),
                          "Allocated": allocated,
                          })
         df = pd.DataFrame(data=rows, columns=["Asset", "Total", total_col_name, "Allocated"])

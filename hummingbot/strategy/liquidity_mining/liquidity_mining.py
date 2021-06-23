@@ -5,7 +5,6 @@ from typing import Dict, List, Set
 import pandas as pd
 import numpy as np
 from statistics import mean
-import time
 from hummingbot.core.clock import Clock
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
@@ -20,6 +19,7 @@ from hummingbot.strategy.pure_market_making.inventory_skew_calculator import (
 )
 from hummingbot.connector.parrot import get_campaign_summary
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
+from hummingbot.strategy.utils import order_age
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -87,8 +87,19 @@ class LiquidityMiningStrategy(StrategyPyBase):
 
     @property
     def active_orders(self):
+        """
+        List active orders (they have been sent to the market and have not been cancelled yet)
+        """
         limit_orders = self.order_tracker.active_limit_orders
         return [o[1] for o in limit_orders]
+
+    @property
+    def sell_budgets(self):
+        return self._sell_budgets
+
+    @property
+    def buy_budgets(self):
+        return self._buy_budgets
 
     def tick(self, timestamp: float):
         """
@@ -117,13 +128,10 @@ class LiquidityMiningStrategy(StrategyPyBase):
 
         self._last_timestamp = timestamp
 
-    @staticmethod
-    def order_age(order: LimitOrder) -> float:
-        if "//" not in order.client_order_id:
-            return int(time.time()) - int(order.client_order_id[-16:]) / 1e6
-        return -1.
-
     async def active_orders_df(self) -> pd.DataFrame:
+        """
+        Return the active orders in a DataFrame.
+        """
         size_q_col = f"Amt({self._token})" if self.is_token_a_quote_token() else "Amt(Quote)"
         columns = ["Market", "Side", "Price", "Spread", "Amount", size_q_col, "Age"]
         data = []
@@ -131,7 +139,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
             mid_price = self._market_infos[order.trading_pair].get_mid_price()
             spread = 0 if mid_price == 0 else abs(order.price - mid_price) / mid_price
             size_q = order.quantity * mid_price
-            age = self.order_age(order)
+            age = order_age(order)
             # // indicates order is a paper order so 'n/a'. For real orders, calculate age.
             age_txt = "n/a" if age <= 0. else pd.Timestamp(age, unit='s').strftime('%H:%M:%S')
             data.append([
@@ -148,6 +156,9 @@ class LiquidityMiningStrategy(StrategyPyBase):
         return df
 
     def budget_status_df(self) -> pd.DataFrame:
+        """
+        Return the trader's budget in a DataFrame
+        """
         data = []
         columns = ["Market", f"Budget({self._token})", "Base bal", "Quote bal", "Base/Quote"]
         for market, market_info in self._market_infos.items():
@@ -172,6 +183,9 @@ class LiquidityMiningStrategy(StrategyPyBase):
         return df
 
     def market_status_df(self) -> pd.DataFrame:
+        """
+        Return the market status (prices, volatility) in a DataFrame
+        """
         data = []
         columns = ["Market", "Mid price", "Best bid", "Best ask", "Volatility"]
         for market, market_info in self._market_infos.items():
@@ -192,6 +206,9 @@ class LiquidityMiningStrategy(StrategyPyBase):
         return df
 
     async def miner_status_df(self) -> pd.DataFrame:
+        """
+        Return the miner status (payouts, rewards, liquidity, etc.) in a DataFrame
+        """
         data = []
         g_sym = RateOracle.global_token_symbol
         columns = ["Market", "Payout", "Reward/wk", "Liquidity", "Yield/yr", "Max spread"]
@@ -211,6 +228,9 @@ class LiquidityMiningStrategy(StrategyPyBase):
         return df
 
     async def format_status(self) -> str:
+        """
+        Return the budget, market, miner and order statuses.
+        """
         if not self._ready_to_trade:
             return "Market connectors are not ready."
         lines = []
@@ -227,7 +247,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
         if not miner_df.empty:
             lines.extend(["", "  Miner:"] + ["    " + line for line in miner_df.to_string(index=False).split("\n")])
 
-        # See if there're any open orders.
+        # See if there are any open orders.
         if len(self.active_orders) > 0:
             df = await self.active_orders_df()
             lines.extend(["", "  Orders:"] + ["    " + line for line in df.to_string(index=False).split("\n")])
@@ -248,6 +268,10 @@ class LiquidityMiningStrategy(StrategyPyBase):
         pass
 
     def create_base_proposals(self):
+        """
+        Each tick this strategy creates a set of proposals based on the market_info and the parameters from the
+        constructor.
+        """
         proposals = []
         for market, market_info in self._market_infos.items():
             spread = self._spread
@@ -267,6 +291,9 @@ class LiquidityMiningStrategy(StrategyPyBase):
         return proposals
 
     def total_port_value_in_token(self) -> Decimal:
+        """
+        Total portfolio value in self._token amount
+        """
         all_bals = self.adjusted_available_balances()
         port_value = all_bals.get(self._token, s_decimal_zero)
         for market, market_info in self._market_infos.items():
@@ -278,11 +305,13 @@ class LiquidityMiningStrategy(StrategyPyBase):
         return port_value
 
     def create_budget_allocation(self):
-        # Create buy and sell budgets for every market
+        """
+        Create buy and sell budgets for every market
+        """
         self._sell_budgets = {m: s_decimal_zero for m in self._market_infos}
         self._buy_budgets = {m: s_decimal_zero for m in self._market_infos}
-        port_value = self.total_port_value_in_token()
-        market_portion = port_value / len(self._market_infos)
+        portfolio_value = self.total_port_value_in_token()
+        market_portion = portfolio_value / len(self._market_infos)
         balances = self.adjusted_available_balances()
         for market, market_info in self._market_infos.items():
             base, quote = market.split("-")
@@ -321,6 +350,10 @@ class LiquidityMiningStrategy(StrategyPyBase):
             balances[proposal.quote()] -= quote_size
 
     def is_within_tolerance(self, cur_orders: List[LimitOrder], proposal: Proposal):
+        """
+        False if there are no buys or sells or if the difference between the proposed price and current price is less
+        than the tolerance. The tolerance value is strict max, cannot be equal.
+        """
         cur_buy = [o for o in cur_orders if o.is_buy]
         cur_sell = [o for o in cur_orders if not o.is_buy]
         if (cur_buy and proposal.buy.size <= 0) or (cur_sell and proposal.sell.size <= 0):
@@ -334,10 +367,13 @@ class LiquidityMiningStrategy(StrategyPyBase):
         return True
 
     def cancel_active_orders(self, proposals: List[Proposal]):
+        """
+        Cancel any orders that have an order age greater than self._max_order_age or if orders are not within tolerance
+        """
         for proposal in proposals:
             to_cancel = False
             cur_orders = [o for o in self.active_orders if o.trading_pair == proposal.market]
-            if cur_orders and any(self.order_age(o) > self._max_order_age for o in cur_orders):
+            if cur_orders and any(order_age(o) > self._max_order_age for o in cur_orders):
                 to_cancel = True
             elif self._refresh_times[proposal.market] <= self.current_timestamp and \
                     cur_orders and not self.is_within_tolerance(cur_orders, proposal):
@@ -349,6 +385,10 @@ class LiquidityMiningStrategy(StrategyPyBase):
                     self._refresh_times[order.trading_pair] = self.current_timestamp + 0.1
 
     def execute_orders_proposal(self, proposals: List[Proposal]):
+        """
+        Execute a list of proposals if the current timestamp is less than its refresh timestamp.
+        Update the refresh timestamp.
+        """
         for proposal in proposals:
             cur_orders = [o for o in self.active_orders if o.trading_pair == proposal.market]
             if cur_orders or self._refresh_times[proposal.market] > self.current_timestamp:
@@ -387,24 +427,36 @@ class LiquidityMiningStrategy(StrategyPyBase):
                 self._refresh_times[proposal.market] = self.current_timestamp + self._order_refresh_time
 
     def is_token_a_quote_token(self):
+        """
+        Check if self._token is a quote token
+        """
         quotes = self.all_quote_tokens()
         if len(quotes) == 1 and self._token in quotes:
             return True
         return False
 
     def all_base_tokens(self) -> Set[str]:
+        """
+        Get the base token (left-hand side) from all markets in this strategy
+        """
         tokens = set()
         for market in self._market_infos:
             tokens.add(market.split("-")[0])
         return tokens
 
     def all_quote_tokens(self) -> Set[str]:
+        """
+        Get the quote token (right-hand side) from all markets in this strategy
+        """
         tokens = set()
         for market in self._market_infos:
             tokens.add(market.split("-")[1])
         return tokens
 
     def all_tokens(self) -> Set[str]:
+        """
+        Return a list of all tokens involved in this strategy (base and quote)
+        """
         tokens = set()
         for market in self._market_infos:
             tokens.update(market.split("-"))
@@ -430,6 +482,9 @@ class LiquidityMiningStrategy(StrategyPyBase):
         return adjusted_bals
 
     def apply_inventory_skew(self, proposals: List[Proposal]):
+        """
+        Apply an inventory split between the quote and base asset
+        """
         for proposal in proposals:
             buy_budget = self._buy_budgets[proposal.market]
             sell_budget = self._sell_budgets[proposal.market]
@@ -446,6 +501,9 @@ class LiquidityMiningStrategy(StrategyPyBase):
             proposal.sell.size *= Decimal(bid_ask_ratios.ask_ratio)
 
     def did_fill_order(self, event):
+        """
+        Check if order has been completed, log it, notify the hummingbot application, and update budgets.
+        """
         order_id = event.order_id
         market_info = self.order_tracker.get_shadow_market_pair_from_order_id(order_id)
         if market_info is not None:
@@ -453,18 +511,21 @@ class LiquidityMiningStrategy(StrategyPyBase):
                 msg = f"({market_info.trading_pair}) Maker BUY order (price: {event.price}) of {event.amount} " \
                       f"{market_info.base_asset} is filled."
                 self.log_with_clock(logging.INFO, msg)
-                self.notify_hb_app(msg)
+                self.notify_hb_app_with_timestamp(msg)
                 self._buy_budgets[market_info.trading_pair] -= (event.amount * event.price)
                 self._sell_budgets[market_info.trading_pair] += event.amount
             else:
                 msg = f"({market_info.trading_pair}) Maker SELL order (price: {event.price}) of {event.amount} " \
                       f"{market_info.base_asset} is filled."
                 self.log_with_clock(logging.INFO, msg)
-                self.notify_hb_app(msg)
+                self.notify_hb_app_with_timestamp(msg)
                 self._sell_budgets[market_info.trading_pair] -= event.amount
                 self._buy_budgets[market_info.trading_pair] += (event.amount * event.price)
 
     def update_mid_prices(self):
+        """
+        Query asset markets for mid price
+        """
         for market in self._market_infos:
             mid_price = self._market_infos[market].get_mid_price()
             self._mid_prices[market].append(mid_price)
@@ -473,6 +534,9 @@ class LiquidityMiningStrategy(StrategyPyBase):
             self._mid_prices[market] = self._mid_prices[market][-1 * max_len:]
 
     def update_volatility(self):
+        """
+        Update volatility data from the market
+        """
         self._volatility = {market: s_decimal_nan for market in self._market_infos}
         for market, mid_prices in self._mid_prices.items():
             last_index = len(mid_prices) - 1
@@ -493,6 +557,8 @@ class LiquidityMiningStrategy(StrategyPyBase):
             self._last_vol_reported = self.current_timestamp
 
     def notify_hb_app(self, msg: str):
+        """
+        Send a message to the hummingbot application
+        """
         if self._hb_app_notification:
-            from hummingbot.client.hummingbot_application import HummingbotApplication
-            HummingbotApplication.main_application()._notify(msg)
+            super().notify_hb_app(msg)
