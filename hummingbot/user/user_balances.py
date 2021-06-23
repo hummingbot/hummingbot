@@ -1,10 +1,11 @@
-from hummingbot.core.utils.market_price import get_mid_price
+from hummingbot.core.utils.market_price import get_last_price
 from hummingbot.client.settings import CONNECTOR_SETTINGS
 from hummingbot.client.config.security import Security
 from hummingbot.client.config.config_helpers import get_connector_class, get_eth_wallet_private_key
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.connector.connector.balancer.balancer_connector import BalancerConnector
+from hummingbot.connector.derivative.perpetual_finance.perpetual_finance_derivative import PerpetualFinanceDerivative
 from hummingbot.client.settings import ethereum_required_trading_pairs
 from typing import Optional, Dict, List
 from decimal import Decimal
@@ -123,6 +124,15 @@ class UserBalances:
         return connector.get_all_balances()
 
     @staticmethod
+    async def xdai_balances() -> Dict[str, Decimal]:
+        connector = PerpetualFinanceDerivative("",
+                                               get_eth_wallet_private_key(),
+                                               "",
+                                               True)
+        await connector._update_balances()
+        return connector.get_all_balances()
+
+    @staticmethod
     def validate_ethereum_wallet() -> Optional[str]:
         if global_config_map.get("ethereum_wallet").value is None:
             return "Ethereum wallet is required."
@@ -139,12 +149,12 @@ class UserBalances:
         return None
 
     @staticmethod
-    def base_amount_ratio(exchange, trading_pair, balances) -> Optional[Decimal]:
+    async def base_amount_ratio(exchange, trading_pair, balances) -> Optional[Decimal]:
         try:
             base, quote = trading_pair.split("-")
             base_amount = balances.get(base, 0)
             quote_amount = balances.get(quote, 0)
-            price = get_mid_price(exchange, trading_pair)
+            price = await get_last_price(exchange, trading_pair)
             total_value = base_amount + (quote_amount / price)
             return None if total_value <= 0 else base_amount / total_value
         except Exception:

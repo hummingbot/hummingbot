@@ -14,6 +14,8 @@ from typing import (
     Iterable,
     Tuple
 )
+import sys
+sys.setrecursionlimit(5000)
 
 global SPEC
 

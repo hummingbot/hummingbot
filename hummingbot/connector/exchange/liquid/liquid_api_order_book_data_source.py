@@ -4,10 +4,7 @@ import logging
 import pandas as pd
 import time
 from typing import Any, AsyncIterable, Dict, List, Optional
-from decimal import Decimal
 import ujson
-import requests
-import cachetools.func
 import websockets
 from websockets.exceptions import ConnectionClosed
 
@@ -163,19 +160,6 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
         ]
 
     @staticmethod
-    @cachetools.func.ttl_cache(ttl=10)
-    def get_mid_price(trading_pair: str) -> Optional[Decimal]:
-        resp = requests.get(url=Constants.GET_EXCHANGE_MARKETS_URL)
-        records = resp.json()
-        result = None
-        for record in records:
-            pair = f"{record['base_currency']}-{record['quoted_currency']}"
-            if trading_pair == pair and record["market_ask"] is not None and record["market_bid"] is not None:
-                result = (Decimal(record["market_ask"]) + Decimal(record["market_bid"])) / Decimal("2")
-                break
-        return result
-
-    @staticmethod
     async def fetch_trading_pairs() -> List[str]:
         try:
             # Returns a List of str, representing each active trading pair on the exchange.
@@ -321,11 +305,8 @@ class LiquidAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     msg: str = await asyncio.wait_for(ws.recv(), timeout=Constants.MESSAGE_TIMEOUT)
                     yield msg
                 except asyncio.TimeoutError:
-                    try:
-                        pong_waiter = await ws.ping()
-                        await asyncio.wait_for(pong_waiter, timeout=Constants.PING_TIMEOUT)
-                    except asyncio.TimeoutError:
-                        raise
+                    pong_waiter = await ws.ping()
+                    await asyncio.wait_for(pong_waiter, timeout=Constants.PING_TIMEOUT)
         except asyncio.TimeoutError:
             self.logger().warning("WebSocket ping timed out. Going to reconnect...")
             return

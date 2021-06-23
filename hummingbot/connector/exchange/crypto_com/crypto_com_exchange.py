@@ -602,16 +602,18 @@ class CryptoComExchange(ExchangeBase):
                                                {"order_id": order_id},
                                                True))
             self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
-            update_results = await safe_gather(*tasks, return_exceptions=True)
-            for update_result in update_results:
-                if isinstance(update_result, Exception):
-                    raise update_result
-                if "result" not in update_result:
-                    self.logger().info(f"_update_order_status result not in resp: {update_result}")
+            responses = await safe_gather(*tasks, return_exceptions=True)
+            for response in responses:
+                if isinstance(response, Exception):
+                    raise response
+                if "result" not in response:
+                    self.logger().info(f"_update_order_status result not in resp: {response}")
                     continue
-                for trade_msg in update_result["result"]["trade_list"]:
-                    await self._process_trade_message(trade_msg)
-                self._process_order_message(update_result["result"]["order_info"])
+                result = response["result"]
+                if "trade_list" in result:
+                    for trade_msg in result["trade_list"]:
+                        await self._process_trade_message(trade_msg)
+                self._process_order_message(result["order_info"])
 
     def _process_order_message(self, order_msg: Dict[str, Any]):
         """
@@ -702,22 +704,31 @@ class CryptoComExchange(ExchangeBase):
         """
         if self._trading_pairs is None:
             raise Exception("cancel_all can only be used when trading_pairs are specified.")
+        tracked_orders: Dict[str, CryptoComInFlightOrder] = self._in_flight_orders.copy().items()
         cancellation_results = []
         try:
-            for trading_pair in self._trading_pairs:
-                await self._api_request(
-                    "post",
-                    "private/cancel-all-orders",
-                    {"instrument_name": crypto_com_utils.convert_to_exchange_trading_pair(trading_pair)},
-                    True
-                )
+            tasks = []
+
+            for _, order in tracked_orders:
+                api_params = {
+                    "instrument_name": crypto_com_utils.convert_to_exchange_trading_pair(order.trading_pair),
+                    "order_id": order.exchange_order_id,
+                }
+                tasks.append(self._api_request(method="post",
+                                               path_url="private/cancel-order",
+                                               params=api_params,
+                                               is_auth_required=True))
+
+            await safe_gather(*tasks)
+
             open_orders = await self.get_open_orders()
-            for cl_order_id, tracked_order in self._in_flight_orders.items():
+            for cl_order_id, tracked_order in tracked_orders:
                 open_order = [o for o in open_orders if o.client_order_id == cl_order_id]
                 if not open_order:
                     cancellation_results.append(CancellationResult(cl_order_id, True))
                     self.trigger_event(MarketEvent.OrderCancelled,
                                        OrderCancelledEvent(self.current_timestamp, cl_order_id))
+                    self.stop_tracking_order(cl_order_id)
                 else:
                     cancellation_results.append(CancellationResult(cl_order_id, False))
         except Exception:
