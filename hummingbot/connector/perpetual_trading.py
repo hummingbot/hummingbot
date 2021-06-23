@@ -63,8 +63,7 @@ class PerpetualTrading:
     def position_mode(self) -> PositionMode:
         return self._position_mode
 
-    @position_mode.setter
-    def position_mode(self, value: PositionMode):
+    def set_position_mode(self, value: PositionMode):
         """
         Sets position mode for perpetual trading, a child class might need to override this to set position mode on
         the exchange
