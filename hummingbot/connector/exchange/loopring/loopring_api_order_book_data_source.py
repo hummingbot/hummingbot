@@ -1,18 +1,9 @@
 #!/usr/bin/env python
 
 import asyncio
-from decimal import Decimal
-
 import aiohttp
 import logging
-# import pandas as pd
-# import math
-
-import requests
-import cachetools.func
-
 from typing import AsyncIterable, Dict, List, Optional, Any
-
 import time
 import ujson
 import websockets
@@ -110,11 +101,8 @@ class LoopringAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     msg: str = await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)
                     yield msg
                 except asyncio.TimeoutError:
-                    try:
-                        pong_waiter = await ws.ping()
-                        await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
-                    except asyncio.TimeoutError:
-                        raise
+                    pong_waiter = await ws.ping()
+                    await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
         except asyncio.TimeoutError:
             self.logger().warning("WebSocket ping timed out. Going to reconnect...")
             return
@@ -122,17 +110,6 @@ class LoopringAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return
         finally:
             await ws.close()
-
-    @staticmethod
-    @cachetools.func.ttl_cache(ttl=10)
-    def get_mid_price(trading_pair: str) -> Optional[Decimal]:
-        resp = requests.get(url=LOOPRING_PRICE_URL, params={"market": trading_pair})
-        record = resp.json()
-        if record["resultInfo"]["code"] == 0:
-            data = record["data"]
-            mid_price = (Decimal(data[9]) + Decimal(data[10])) / 2
-
-            return mid_price
 
     @staticmethod
     async def fetch_trading_pairs() -> List[str]:

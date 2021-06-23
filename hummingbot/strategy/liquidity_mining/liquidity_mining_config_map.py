@@ -1,10 +1,15 @@
+"""
+The configuration parameters for a user made liquidity_mining strategy.
+"""
+
 from decimal import Decimal
 from typing import Optional
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
     validate_exchange,
     validate_decimal,
-    validate_int
+    validate_int,
+    validate_bool
 )
 from hummingbot.client.settings import (
     required_exchanges,
@@ -37,7 +42,7 @@ liquidity_mining_config_map = {
         default="liquidity_mining"),
     "exchange":
         ConfigVar(key="exchange",
-                  prompt="Enter your liquidity mining exchange name >>> ",
+                  prompt="Enter the spot connector to use for liquidity mining >>> ",
                   validator=validate_exchange,
                   on_validated=exchange_on_validated,
                   prompt_on_new=True),
@@ -65,6 +70,12 @@ liquidity_mining_config_map = {
                   type_str="decimal",
                   validator=lambda v: validate_decimal(v, 0, 100, inclusive=False),
                   prompt_on_new=True),
+    "inventory_skew_enabled":
+        ConfigVar(key="inventory_skew_enabled",
+                  prompt="Would you like to enable inventory skew? (Yes/No) >>> ",
+                  type_str="bool",
+                  default=True,
+                  validator=validate_bool),
     "target_base_pct":
         ConfigVar(key="target_base_pct",
                   prompt="For each pair, what is your target base asset percentage? (Enter 20 to indicate 20%) >>> ",
@@ -112,4 +123,16 @@ liquidity_mining_config_map = {
                   type_str="decimal",
                   validator=lambda v: validate_decimal(v, min_value=0, inclusive=False),
                   default=Decimal("1")),
+    "max_spread":
+        ConfigVar(key="max_spread",
+                  prompt="What is the maximum spread? (Enter 1 to indicate 1% or -1 to ignore this setting) >>> ",
+                  type_str="decimal",
+                  validator=lambda v: validate_decimal(v),
+                  default=Decimal("-1")),
+    "max_order_age":
+        ConfigVar(key="max_order_age",
+                  prompt="What is the maximum life time of your orders (in seconds)? >>> ",
+                  type_str="float",
+                  validator=lambda v: validate_decimal(v, min_value=0, inclusive=False),
+                  default=60. * 60.),
 }

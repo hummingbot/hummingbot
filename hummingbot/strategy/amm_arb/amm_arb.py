@@ -2,20 +2,20 @@ from decimal import Decimal
 import logging
 import asyncio
 import pandas as pd
-from typing import List, Dict, Tuple, Optional
-from hummingbot.core.utils.async_utils import safe_ensure_future
+from typing import List, Dict, Tuple, Optional, Any
+from hummingbot.client.settings import ETH_WALLET_CONNECTORS
+from hummingbot.client.performance import PerformanceMetrics
+from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.connector.connector.uniswap.uniswap_connector import UniswapConnector
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.market_order import MarketOrder
+from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.utils.fixed_rate_source import FixedRateSource
 from hummingbot.logger import HummingbotLogger
+from hummingbot.strategy.amm_arb.utils import create_arb_proposals, ArbProposal
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
-from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.client.settings import ETH_WALLET_CONNECTORS
-from hummingbot.connector.connector.uniswap.uniswap_connector import UniswapConnector
-
-from .utils import create_arb_proposals, ArbProposal
-
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -44,7 +44,8 @@ class AmmArbStrategy(StrategyPyBase):
                  market_1_slippage_buffer: Decimal = Decimal("0"),
                  market_2_slippage_buffer: Decimal = Decimal("0"),
                  concurrent_orders_submission: bool = True,
-                 status_report_interval: float = 900):
+                 status_report_interval: float = 900,
+                 rate_source: Any = FixedRateSource()):
         """
         :param market_info_1: The first market
         :param market_info_2: The second market
@@ -54,9 +55,11 @@ class AmmArbStrategy(StrategyPyBase):
         the order getting filled. This is quite important for AMM which transaction takes a long time where a slippage
         is acceptable rather having the transaction get rejected. The submitted order price will be adjust higher
         for buy order and lower for sell order.
-        :param market_1_slippage_buffer: The slipper buffer for market_2
+        :param market_2_slippage_buffer: The slipper buffer for market_2
         :param concurrent_orders_submission: whether to submit both arbitrage taker orders (buy and sell) simultaneously
         If false, the bot will wait for first exchange order filled before submitting the other order.
+        :param status_report_interval: Amount of seconds to wait to refresh the status report
+        :param rate_source: Provider of conversion rates between tokens
         """
         super().__init__()
         self._market_info_1 = market_info_1
@@ -83,6 +86,8 @@ class AmmArbStrategy(StrategyPyBase):
         self._quote_eth_rate_fetch_loop_task = None
         self._market_1_quote_eth_rate = None
         self._market_2_quote_eth_rate = None
+
+        self._rate_source = rate_source
 
     @property
     def min_profitability(self) -> Decimal:
@@ -127,6 +132,7 @@ class AmmArbStrategy(StrategyPyBase):
             t.copy() for t in self._arb_proposals
             if t.profit_pct(
                 account_for_fee=True,
+                rate_source=self._rate_source,
                 first_side_quote_eth_rate=self._market_1_quote_eth_rate,
                 second_side_quote_eth_rate=self._market_2_quote_eth_rate
             ) >= self._min_profitability
@@ -231,12 +237,21 @@ class AmmArbStrategy(StrategyPyBase):
         for proposal in arb_proposal:
             side1 = "buy" if proposal.first_side.is_buy else "sell"
             side2 = "buy" if proposal.second_side.is_buy else "sell"
-            profit_pct = proposal.profit_pct(True, first_side_quote_eth_rate=self._market_1_quote_eth_rate,
+            profit_pct = proposal.profit_pct(True,
+                                             rate_source=self._rate_source,
+                                             first_side_quote_eth_rate=self._market_1_quote_eth_rate,
                                              second_side_quote_eth_rate = self._market_2_quote_eth_rate)
             lines.append(f"{'    ' if indented else ''}{side1} at {proposal.first_side.market_info.market.display_name}"
                          f", {side2} at {proposal.second_side.market_info.market.display_name}: "
                          f"{profit_pct:.2%}")
         return lines
+
+    def quotes_rate_df(self):
+        columns = ["Quotes pair", "Rate"]
+        quotes_pair = f"{self._market_info_2.quote_asset}-{self._market_info_1.quote_asset}"
+        data = [[quotes_pair, PerformanceMetrics.smart_round(self._rate_source.rate(quotes_pair))]]
+
+        return pd.DataFrame(data=data, columns=columns)
 
     async def format_status(self) -> str:
         """
@@ -253,13 +268,18 @@ class AmmArbStrategy(StrategyPyBase):
             market, trading_pair, base_asset, quote_asset = market_info
             buy_price = await market.get_quote_price(trading_pair, True, self._order_amount)
             sell_price = await market.get_quote_price(trading_pair, False, self._order_amount)
-            mid_price = (buy_price + sell_price) / 2
+
+            # check for unavailable price data
+            buy_price = PerformanceMetrics.smart_round(Decimal(str(buy_price)), 8) if buy_price is not None else '-'
+            sell_price = PerformanceMetrics.smart_round(Decimal(str(sell_price)), 8) if sell_price is not None else '-'
+            mid_price = PerformanceMetrics.smart_round(((buy_price + sell_price) / 2), 8) if '-' not in [buy_price, sell_price] else '-'
+
             data.append([
                 market.display_name,
                 trading_pair,
-                float(sell_price),
-                float(buy_price),
-                float(mid_price)
+                sell_price,
+                buy_price,
+                mid_price
             ])
         markets_df = pd.DataFrame(data=data, columns=columns)
         lines = []
@@ -270,6 +290,10 @@ class AmmArbStrategy(StrategyPyBase):
                      ["    " + line for line in str(assets_df).split("\n")])
 
         lines.extend(["", "  Profitability:"] + self.short_proposal_msg(self._arb_proposals))
+
+        quotes_rates_df = self.quotes_rate_df()
+        lines.extend(["", f"  Quotes Rates ({str(self._rate_source)})"] +
+                     ["    " + line for line in str(quotes_rates_df).split("\n")])
 
         warning_lines = self.network_warning([self._market_info_1])
         warning_lines.extend(self.network_warning([self._market_info_2]))
@@ -335,7 +359,7 @@ class AmmArbStrategy(StrategyPyBase):
                     self._market_2_quote_eth_rate = await self.request_rate_in_eth(self._market_info_2.quote_asset)
                     self.logger().warning(f"Estimate conversion rate - "
                                           f"{self._market_info_2.quote_asset}:ETH = {self._market_2_quote_eth_rate} ")
-                await asyncio.sleep(60 * 5)
+                await asyncio.sleep(60 * 1)
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -348,4 +372,5 @@ class AmmArbStrategy(StrategyPyBase):
     async def request_rate_in_eth(self, quote: str) -> int:
         if self._uniswap is None:
             self._uniswap = UniswapConnector([f"{quote}-WETH"], "", None)
+            await self._uniswap.initiate_pool()  # initiate to cache swap pool
         return await self._uniswap.get_quote_price(f"{quote}-WETH", True, 1)

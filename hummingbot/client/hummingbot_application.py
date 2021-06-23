@@ -8,6 +8,7 @@ from typing import List, Dict, Optional, Tuple, Set, Deque
 
 from hummingbot.client.command import __all__ as commands
 from hummingbot.core.clock import Clock
+from hummingbot.exceptions import ArgumentParserError
 from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.application_warning import ApplicationWarning
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
@@ -18,10 +19,8 @@ from hummingbot.client.ui.keybindings import load_key_bindings
 from hummingbot.client.ui.parser import load_parser, ThrowingArgumentParser
 from hummingbot.client.ui.hummingbot_cli import HummingbotCLI
 from hummingbot.client.ui.completer import load_completer
-from hummingbot.client.errors import InvalidCommandError, ArgumentParserError
 from hummingbot.client.config.global_config_map import global_config_map, using_wallet
 from hummingbot.client.config.config_helpers import (
-    get_erc20_token_addresses,
     get_strategy_config_map,
     get_connector_class,
     get_eth_wallet_private_key,
@@ -29,6 +28,7 @@ from hummingbot.client.config.config_helpers import (
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarketPair
 from hummingbot.core.utils.kill_switch import KillSwitch
+from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.notifier.notifier_base import NotifierBase
 from hummingbot.notifier.telegram_notifier import TelegramNotifier
@@ -36,7 +36,6 @@ from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.client.config.security import Security
 from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 from hummingbot.client.settings import CONNECTOR_SETTINGS, ConnectorType
 s_logger = None
 
@@ -62,6 +61,8 @@ class HummingbotApplication(*commands):
         return cls._main_app
 
     def __init__(self):
+        # This is to start fetching trading pairs for auto-complete
+        TradingPairFetcher.get_instance()
         self.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         self.parser: ThrowingArgumentParser = load_parser(self)
         self.app = HummingbotCLI(
@@ -96,10 +97,10 @@ class HummingbotApplication(*commands):
         self.trade_fill_db: Optional[SQLConnectionManager] = None
         self.markets_recorder: Optional[MarketsRecorder] = None
         self._script_iterator = None
-        # This is to start fetching trading pairs for auto-complete
-        TradingPairFetcher.get_instance()
-
         self._binance_connector = None
+
+        # gateway variables
+        self._shared_client = None
 
     @property
     def strategy_file_name(self) -> str:
@@ -128,19 +129,46 @@ class HummingbotApplication(*commands):
             self.app.to_stop_config = False
 
         raw_command = raw_command.lower().strip()
+        command_split = raw_command.split()
         try:
             if self.placeholder_mode:
                 pass
             else:
-                args = self.parser.parse_args(args=raw_command.split())
-                kwargs = vars(args)
-                if not hasattr(args, "func"):
-                    return
-                f = args.func
-                del kwargs["func"]
-                f(**kwargs)
-        except InvalidCommandError as e:
-            self._notify("Invalid command: %s" % (str(e),))
+                shortcuts = global_config_map.get("command_shortcuts").value
+                shortcut = None
+                # see if we match against shortcut command
+                if shortcuts is not None:
+                    for s in shortcuts:
+                        if command_split[0] == s['command']:
+                            shortcut = s
+                            break
+
+                # perform shortcut expansion
+                if shortcut is not None:
+                    # check number of arguments
+                    num_shortcut_args = len(shortcut['arguments'])
+                    if len(command_split) == num_shortcut_args + 1:
+                        # notify each expansion if there's more than 1
+                        verbose = True if len(shortcut['output']) > 1 else False
+                        # do argument replace and re-enter this function with the expanded command
+                        for output_cmd in shortcut['output']:
+                            final_cmd = output_cmd
+                            for i in range(1, num_shortcut_args + 1):
+                                final_cmd = final_cmd.replace(f'${i}', command_split[i])
+                            if verbose is True:
+                                self._notify(f'  >>> {final_cmd}')
+                            self._handle_command(final_cmd)
+                    else:
+                        self._notify('Invalid number of arguments for shortcut')
+                # regular command
+                else:
+                    args = self.parser.parse_args(args=command_split)
+                    kwargs = vars(args)
+                    if not hasattr(args, "func"):
+                        return
+                    f = args.func
+                    del kwargs["func"]
+                    f(**kwargs)
         except ArgumentParserError as e:
             if not self.be_silly(raw_command):
                 self._notify(str(e))
@@ -195,10 +223,14 @@ class HummingbotApplication(*commands):
         return market_trading_pairs
 
     def _initialize_wallet(self, token_trading_pairs: List[str]):
+        # Todo: This function should be removed as it's currently not used by current working connectors
+
         if not using_wallet():
             return
-        if not self.token_list:
-            self.token_list = get_erc20_token_addresses()
+        # Commented this out for now since get_erc20_token_addresses uses blocking call
+
+        # if not self.token_list:
+        #     self.token_list = get_erc20_token_addresses()
 
         ethereum_wallet = global_config_map.get("ethereum_wallet").value
         private_key = Security._private_keys[ethereum_wallet]
@@ -225,10 +257,7 @@ class HummingbotApplication(*commands):
         for connector_name, trading_pairs in self.market_trading_pairs_map.items():
             conn_setting = CONNECTOR_SETTINGS[connector_name]
             if global_config_map.get("paper_trade_enabled").value and conn_setting.type == ConnectorType.Exchange:
-                try:
-                    connector = create_paper_trade_market(connector_name, trading_pairs)
-                except Exception:
-                    raise
+                connector = create_paper_trade_market(connector_name, trading_pairs)
                 paper_trade_account_balance = global_config_map.get("paper_trade_account_balance").value
                 for asset, balance in paper_trade_account_balance.items():
                     connector.set_balance(asset, balance)
@@ -241,7 +270,7 @@ class HummingbotApplication(*commands):
                 if conn_setting.use_ethereum_wallet:
                     ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
                     # Todo: Hard coded this execption for now until we figure out how to handle all ethereum connectors.
-                    if connector_name in ["balancer", "uniswap"]:
+                    if connector_name in ["balancer", "uniswap", "uniswap_v3", "perpetual_finance"]:
                         private_key = get_eth_wallet_private_key()
                         init_params.update(wallet_private_key=private_key, ethereum_rpc_url=ethereum_rpc_url)
                     else:

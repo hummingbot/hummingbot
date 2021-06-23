@@ -148,7 +148,6 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
 
         self._cancel_timestamp = 0
         self._create_timestamp = 0
-        self._market_position_close_timestamp = 0
         self._all_markets_ready = False
         self._filled_buys_balance = 0
         self._filled_sells_balance = 0
@@ -160,6 +159,8 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
         self._ts_peak_bid_price = Decimal('0')
         self._ts_peak_ask_price = Decimal('0')
         self._exit_orders = []
+        self._next_buy_exit_order_timestamp = 0
+        self._next_sell_exit_order_timestamp = 0
 
         self.c_add_markets([market_info.market])
 
@@ -271,14 +272,6 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
     @order_refresh_time.setter
     def order_refresh_time(self, value: float):
         self._order_refresh_time = value
-
-    @property
-    def filled_order_delay(self) -> float:
-        return self._filled_order_delay
-
-    @filled_order_delay.setter
-    def filled_order_delay(self, value: float):
-        self._filled_order_delay = value
 
     @property
     def filled_order_delay(self) -> float:
@@ -555,7 +548,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
     cdef c_apply_initial_settings(self, str trading_pair, object position, int64_t leverage):
         cdef:
             ExchangeBase market = self._market_info.market
-        market.set_margin(trading_pair, leverage)
+        market.set_leverage(trading_pair, leverage)
         market.set_position_mode(position)
 
     cdef c_tick(self, double timestamp):
@@ -661,7 +654,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
         for position in active_positions:
             if (ask_price > position.entry_price and position.amount > 0) or (bid_price < position.entry_price and position.amount < 0):
                 # check if there is an active order to take profit, and create if none exists
-                profit_spread = self._long_profit_taking_spread if position.amount < 0 else self._short_profit_taking_spread
+                profit_spread = self._long_profit_taking_spread if position.amount > 0 else self._short_profit_taking_spread
                 take_profit_price = position.entry_price * (Decimal("1") + profit_spread) if position.amount > 0 \
                     else position.entry_price * (Decimal("1") - profit_spread)
                 price = market.c_quantize_order_price(self.trading_pair, take_profit_price)
@@ -675,10 +668,8 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
                     size = market.c_quantize_order_amount(self.trading_pair, abs(position.amount))
                     if size > 0 and price > 0:
                         if position.amount < 0:
-                            self.logger().info(f"Creating profit taking buy order to lock profit on long position.")
                             buys.append(PriceSize(price, size))
                         else:
-                            self.logger().info(f"Creating profit taking sell order to lock profit on short position.")
                             sells.append(PriceSize(price, size))
         return Proposal(buys, sells)
 
@@ -735,16 +726,11 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
                             if not order.is_buy:
                                 create_order = False
                         if create_order is True and price > position.entry_price:
-                            if self._close_position_order_type == OrderType.MARKET and self._current_timestamp <= self._market_position_close_timestamp:
-                                continue
-                            self._market_position_close_timestamp = self._current_timestamp + 10  # 10 seconds delay before attempting to close position with market order
                             sells.append(PriceSize(price, abs(position.amount)))
-                            self.logger().info(f"Trailing stop will Close long position immediately at {price}{self.quote_asset} due to {self._ts_callback_rate}%"
-                                               f" deviation from {self._ts_peak_ask_price} {self.quote_asset} trailing maximum price to secure profit.")
             else:
                 top_bid = market.get_price(self.trading_pair, True)
                 if min(top_bid, self._ts_peak_bid_price) <= (position.entry_price * (Decimal("1") - self._ts_activation_spread)):
-                    if top_bid < self._ts_peak_bid_price or self._ts_peak_ask_price == Decimal("0"):
+                    if top_bid < self._ts_peak_bid_price or self._ts_peak_bid_price == Decimal("0"):
                         estimated_exit = (top_bid * (Decimal("1") + self._ts_callback_rate))
                         estimated_exit = "Nill" if estimated_exit >= position.entry_price else estimated_exit
                         self.logger().info(f"New {top_bid} {self.quote_asset} peak price on buy order book, estimated exit price"
@@ -763,12 +749,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
                             if order.is_buy:
                                 create_order = False
                         if create_order is True and price < position.entry_price:
-                            if self._close_position_order_type == OrderType.MARKET and self._current_timestamp <= self._market_position_close_timestamp:
-                                continue
-                            self._market_position_close_timestamp = self._current_timestamp + 10  # 10 seconds delay before attempting to close position with market order
                             buys.append(PriceSize(price, abs(position.amount)))
-                            self.logger().info(f"Trailing stop will close short position immediately at {price}{self.quote_asset} due to {self._ts_callback_rate}%"
-                                               f" deviation from {self._ts_peak_bid_price}{self.quote_asset} trailing minimum price to secure profit.")
             return Proposal(buys, sells)
 
     cdef c_stop_loss_feature(self, object mode, list active_positions):
@@ -791,14 +772,10 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
                 # cancel take profit orders if they exist
                 for old_order in take_profit_orders:
                     self.c_cancel_order(self._market_info, old_order.client_order_id)
-                    self.logger().info(f"Initiated cancellation of existing take profit order {old_order.client_order_id} in favour of new stop loss order.")
                 exit_order_exists = [o for o in active_orders if o.price == price and not o.is_buy]
                 if len(exit_order_exists) == 0:
                     size = market.c_quantize_order_amount(self.trading_pair, abs(position.amount))
                     if size > 0 and price > 0:
-                        if self._close_position_order_type == OrderType.MARKET and self._current_timestamp <= self._market_position_close_timestamp:
-                            continue
-                        self._market_position_close_timestamp = self._current_timestamp + 10  # 10 seconds delay before attempting to close position with market order
                         self.logger().info(f"Creating stop loss sell order to close long position.")
                         sells.append(PriceSize(price, size))
             elif (top_bid >= stop_loss_price and position.amount < 0):
@@ -807,14 +784,10 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
                 # cancel take profit orders if they exist
                 for old_order in take_profit_orders:
                     self.c_cancel_order(self._market_info, old_order.client_order_id)
-                    self.logger().info(f"Initiated cancellation existing take profit order {old_order.client_order_id} in favour of stop loss order.")
                 exit_order_exists = [o for o in active_orders if o.price == price and o.is_buy]
                 if len(exit_order_exists) == 0:
                     size = market.c_quantize_order_amount(self.trading_pair, abs(position.amount))
                     if size > 0 and price > 0:
-                        if self._close_position_order_type == OrderType.MARKET and self._current_timestamp <= self._market_position_close_timestamp:
-                            continue
-                        self._market_position_close_timestamp = self._current_timestamp + 10  # 10 seconds delay before attempting to close position with market order
                         self.logger().info(f"Creating stop loss buy order to close short position.")
                         buys.append(PriceSize(price, size))
         return Proposal(buys, sells)
@@ -922,14 +895,12 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
             object base_size_total = Decimal("0")
 
         quote_balance = market.c_get_available_balance(self.quote_asset)
-        funding_rate = market.get_funding_rate(self.trading_pair)
         trading_fees = market.c_get_fee(self.base_asset, self.quote_asset, OrderType.LIMIT, TradeType.BUY,
                                         s_decimal_zero, s_decimal_zero)
 
         for buy in proposal.buys:
             order_size = buy.size * buy.price
-            funding_amount = order_size * funding_rate if funding_rate > s_decimal_zero else s_decimal_zero
-            quote_size = (order_size / self._leverage) + (order_size * trading_fees.percent) + funding_amount
+            quote_size = (order_size / self._leverage) + (order_size * trading_fees.percent)
             if quote_balance < quote_size_total + quote_size:
                 self.logger().info(f"Insufficient balance: Buy order (price: {buy.price}, size: {buy.size}) is omitted, {self.quote_asset} available balance: {quote_balance - quote_size_total}.")
                 self.logger().warning("You are also at a possible risk of being liquidated if there happens to be an open loss.")
@@ -939,8 +910,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
         proposal.buys = [o for o in proposal.buys if o.size > 0]
         for sell in proposal.sells:
             order_size = sell.size * sell.price
-            funding_amount = order_size * funding_rate if funding_rate < s_decimal_zero else s_decimal_zero
-            quote_size = (order_size / self._leverage) + (order_size * trading_fees.percent) + funding_amount
+            quote_size = (order_size / self._leverage) + (order_size * trading_fees.percent)
             if quote_balance < quote_size_total + quote_size:
                 self.logger().info(f"Insufficient balance: Sell order (price: {sell.price}, size: {sell.size}) is omitted, {self.quote_asset} available balance: {quote_balance - quote_size_total}.")
                 self.logger().warning("You are also at a possible risk of being liquidated if there happens to be an open loss.")
@@ -1066,13 +1036,13 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
                     f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
                     f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
                 )
-                self.notify_hb_app(
+                self.notify_hb_app_with_timestamp(
                     f"Hanging maker BUY order {limit_order_record.quantity} {limit_order_record.base_currency} @ "
                     f"{limit_order_record.price} {limit_order_record.quote_currency} is filled."
                 )
                 return
 
-        # delay order creation by filled_order_dalay (in seconds)
+        # delay order creation by filled_order_delay (in seconds)
         self._create_timestamp = self._current_timestamp + self._filled_order_delay
         self._cancel_timestamp = min(self._cancel_timestamp, self._create_timestamp)
 
@@ -1089,7 +1059,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
             f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
             f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
         )
-        self.notify_hb_app(
+        self.notify_hb_app_with_timestamp(
             f"Maker BUY order {limit_order_record.quantity} {limit_order_record.base_currency} @ "
             f"{limit_order_record.price} {limit_order_record.quote_currency} is filled."
         )
@@ -1110,13 +1080,13 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
                     f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
                     f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
                 )
-                self.notify_hb_app(
+                self.notify_hb_app_with_timestamp(
                     f"Hanging maker SELL order {limit_order_record.quantity} {limit_order_record.base_currency} @ "
                     f"{limit_order_record.price} {limit_order_record.quote_currency} is filled."
                 )
                 return
 
-        # delay order creation by filled_order_dalay (in seconds)
+        # delay order creation by filled_order_delay (in seconds)
         self._create_timestamp = self._current_timestamp + self._filled_order_delay
         self._cancel_timestamp = min(self._cancel_timestamp, self._create_timestamp)
 
@@ -1133,7 +1103,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
             f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
             f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
         )
-        self.notify_hb_app(
+        self.notify_hb_app_with_timestamp(
             f"Maker SELL order {limit_order_record.quantity} {limit_order_record.base_currency} @ "
             f"{limit_order_record.price} {limit_order_record.quote_currency} is filled."
         )
@@ -1222,6 +1192,11 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
             object order_type = self._close_order_type
 
         if len(proposal.buys) > 0:
+            if position_action == PositionAction.CLOSE:
+                if self._current_timestamp < self._next_buy_exit_order_timestamp:
+                    return
+                else:
+                    self._next_buy_exit_order_timestamp = self._current_timestamp + self.filled_order_delay
             if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
                 price_quote_str = [f"{buy.size.normalize()} {self.base_asset}, "
                                    f"{buy.price.normalize()} {self.quote_asset}"
@@ -1243,6 +1218,11 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
                     self._exit_orders.append(bid_order_id)
                 orders_created = True
         if len(proposal.sells) > 0:
+            if position_action == PositionAction.CLOSE:
+                if self._current_timestamp < self._next_sell_exit_order_timestamp:
+                    return
+                else:
+                    self._next_sell_exit_order_timestamp = self._current_timestamp + self.filled_order_delay
             if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
                 price_quote_str = [f"{sell.size.normalize()} {self.base_asset}, "
                                    f"{sell.price.normalize()} {self.quote_asset}"
@@ -1275,8 +1255,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
 
     def notify_hb_app(self, msg: str):
         if self._hb_app_notification:
-            from hummingbot.client.hummingbot_application import HummingbotApplication
-            HummingbotApplication.main_application()._notify(msg)
+            super().notify_hb_app(msg)
 
     def get_price_type(self, price_type_str: str) -> PriceType:
         if price_type_str == "mid_price":

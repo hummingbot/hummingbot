@@ -19,6 +19,7 @@ from hummingbot.core.event.events import (
 )
 
 from .order_tracker import OrderTracker
+from hummingbot.connector.derivative_base import DerivativeBase
 
 NaN = float("nan")
 s_decimal_nan = Decimal("NaN")
@@ -44,6 +45,11 @@ cdef class SellOrderCompletedListener(BaseStrategyEventListener):
     cdef c_call(self, object arg):
         self._owner.c_did_complete_sell_order(arg)
         self._owner.c_did_complete_sell_order_tracker(arg)
+
+
+cdef class FundingPaymentCompletedListener(BaseStrategyEventListener):
+    cdef c_call(self, object arg):
+        self._owner.c_did_complete_funding_payment(arg)
 
 
 cdef class OrderFilledListener(BaseStrategyEventListener):
@@ -77,18 +83,29 @@ cdef class BuyOrderCreatedListener(BaseStrategyEventListener):
 cdef class SellOrderCreatedListener(BaseStrategyEventListener):
     cdef c_call(self, object arg):
         self._owner.c_did_create_sell_order(arg)
+
+cdef class RangePositionCreatedListener(BaseStrategyEventListener):
+    cdef c_call(self, object arg):
+        self._owner.c_did_create_range_position_order(arg)
+
+cdef class RangePositionRemovedListener(BaseStrategyEventListener):
+    cdef c_call(self, object arg):
+        self._owner.c_did_remove_range_position_order(arg)
 # </editor-fold>
 
 
 cdef class StrategyBase(TimeIterator):
     BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted.value
     SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted.value
+    FUNDING_PAYMENT_COMPLETED_EVENT_TAG = MarketEvent.FundingPaymentCompleted.value
     ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled.value
     ORDER_CANCELLED_EVENT_TAG = MarketEvent.OrderCancelled.value
     ORDER_EXPIRED_EVENT_TAG = MarketEvent.OrderExpired.value
     ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure.value
     BUY_ORDER_CREATED_EVENT_TAG = MarketEvent.BuyOrderCreated.value
     SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated.value
+    RANGE_POSITION_CREATED_EVENT_TAG = MarketEvent.RangePositionCreated.value
+    RANGE_POSITION_REMOVED_EVENT_TAG = MarketEvent.RangePositionRemoved.value
 
     @classmethod
     def logger(cls) -> logging.Logger:
@@ -105,6 +122,9 @@ cdef class StrategyBase(TimeIterator):
         self._sb_expire_order_listener = OrderExpiredListener(self)
         self._sb_complete_buy_order_listener = BuyOrderCompletedListener(self)
         self._sb_complete_sell_order_listener = SellOrderCompletedListener(self)
+        self._sb_complete_funding_payment_listener = FundingPaymentCompletedListener(self)
+        self._sb_create_range_position_order_listener = RangePositionCreatedListener(self)
+        self._sb_remove_range_position_order_listener = RangePositionRemovedListener(self)
 
         self._sb_delegate_lock = False
 
@@ -113,6 +133,10 @@ cdef class StrategyBase(TimeIterator):
     @property
     def active_markets(self) -> List[ConnectorBase]:
         return list(self._sb_markets)
+
+    @property
+    def order_tracker(self) -> OrderTracker:
+        return self._sb_order_tracker
 
     def format_status(self):
         raise NotImplementedError
@@ -123,6 +147,10 @@ cdef class StrategyBase(TimeIterator):
 
     @property
     def trades(self) -> List[Trade]:
+        """
+        Returns a list of all completed trades from the market.
+        The trades are taken from the market event logs.
+        """
         def event_to_trade(order_filled_event: OrderFilledEvent, market_name: str):
             return Trade(order_filled_event.trading_pair,
                          order_filled_event.trade_type,
@@ -206,7 +234,7 @@ cdef class StrategyBase(TimeIterator):
         for market_trading_pair_tuple in market_trading_pair_tuples:
             base_balance = market_trading_pair_tuple.market.get_balance(market_trading_pair_tuple.base_asset)
             quote_balance = market_trading_pair_tuple.market.get_balance(market_trading_pair_tuple.quote_asset)
-            if base_balance <= Decimal("0.0001"):
+            if base_balance <= Decimal("0.0001") and not isinstance(market_trading_pair_tuple.market, DerivativeBase):
                 warning_lines.append(f"  {market_trading_pair_tuple.market.name} market "
                                      f"{market_trading_pair_tuple.base_asset} balance is too low. Cannot place order.")
             if quote_balance <= Decimal("0.0001"):
@@ -255,7 +283,13 @@ cdef class StrategyBase(TimeIterator):
             typed_market.c_add_listener(self.ORDER_EXPIRED_EVENT_TAG, self._sb_expire_order_listener)
             typed_market.c_add_listener(self.BUY_ORDER_COMPLETED_EVENT_TAG, self._sb_complete_buy_order_listener)
             typed_market.c_add_listener(self.SELL_ORDER_COMPLETED_EVENT_TAG, self._sb_complete_sell_order_listener)
+            typed_market.c_add_listener(self.FUNDING_PAYMENT_COMPLETED_EVENT_TAG, self._sb_complete_funding_payment_listener)
+            typed_market.c_add_listener(self.RANGE_POSITION_CREATED_EVENT_TAG, self._sb_create_range_position_order_listener)
+            typed_market.c_add_listener(self.RANGE_POSITION_REMOVED_EVENT_TAG, self._sb_remove_range_position_order_listener)
             self._sb_markets.add(typed_market)
+
+    def add_markets(self, markets: List[ConnectorBase]):
+        self.c_add_markets(markets)
 
     cdef c_remove_markets(self, list markets):
         cdef:
@@ -273,7 +307,13 @@ cdef class StrategyBase(TimeIterator):
             typed_market.c_remove_listener(self.ORDER_EXPIRED_EVENT_TAG, self._sb_expire_order_listener)
             typed_market.c_remove_listener(self.BUY_ORDER_COMPLETED_EVENT_TAG, self._sb_complete_buy_order_listener)
             typed_market.c_remove_listener(self.SELL_ORDER_COMPLETED_EVENT_TAG, self._sb_complete_sell_order_listener)
+            typed_market.c_remove_listener(self.FUNDING_PAYMENT_COMPLETED_EVENT_TAG, self._sb_complete_funding_payment_listener)
+            typed_market.c_remove_listener(self.RANGE_POSITION_CREATED_EVENT_TAG, self._sb_create_range_position_order_listener)
+            typed_market.c_remove_listener(self.RANGE_POSITION_REMOVED_EVENT_TAG, self._sb_remove_range_position_order_listener)
             self._sb_markets.remove(typed_market)
+
+    def remove_markets(self, markets: List[ConnectorBase]):
+        self.c_remove_markets(markets)
 
     cdef object c_sum_flat_fees(self, str quote_asset, list flat_fees):
 
@@ -291,6 +331,9 @@ cdef class StrategyBase(TimeIterator):
                 # as we don't support different token conversion atm.
                 raise Exception("Flat fee in other token than quote asset is not supported.")
         return total_flat_fees
+
+    def cum_flat_fees(self, quote_asset: str, flat_fees: List):
+        return self.c_sum_flat_fees(quote_asset, flat_fees)
 
     # <editor-fold desc="+ Market event interfaces">
     # ----------------------------------------------------------------------------------------------------------
@@ -316,6 +359,15 @@ cdef class StrategyBase(TimeIterator):
         pass
 
     cdef c_did_complete_sell_order(self, object order_completed_event):
+        pass
+
+    cdef c_did_complete_funding_payment(self, object funding_payment_completed_event):
+        pass
+
+    cdef c_did_create_range_position_order(self, object order_created_event):
+        pass
+
+    cdef c_did_remove_range_position_order(self, object order_completed_event):
         pass
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>
@@ -461,6 +513,9 @@ cdef class StrategyBase(TimeIterator):
                 f"({market_trading_pair_tuple.trading_pair}) Cancelling the limit order {order_id}."
             )
             market.c_cancel(market_trading_pair_tuple.trading_pair, order_id)
+
+    def cancel_order(self, market_trading_pair_tuple: MarketTradingPairTuple, order_id: str):
+        self.c_cancel_order(market_trading_pair_tuple, order_id)
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>
 
@@ -472,14 +527,28 @@ cdef class StrategyBase(TimeIterator):
                                       object quantity):
         self._sb_order_tracker.c_start_tracking_limit_order(market_pair, order_id, is_buy, price, quantity)
 
+    def start_tracking_limit_order(self, market_pair: MarketTradingPairTuple, order_id: str, is_buy: bool, price: Decimal,
+                                   quantity: Decimal):
+
+        self.c_start_tracking_limit_order(market_pair, order_id, is_buy, price, quantity)
+
     cdef c_stop_tracking_limit_order(self, object market_pair, str order_id):
         self._sb_order_tracker.c_stop_tracking_limit_order(market_pair, order_id)
+
+    def stop_tracking_limit_order(self, market_pair: MarketTradingPairTuple, order_id: str):
+        self.c_stop_tracking_limit_order(market_pair, order_id)
 
     cdef c_start_tracking_market_order(self, object market_pair, str order_id, bint is_buy, object quantity):
         self._sb_order_tracker.c_start_tracking_market_order(market_pair, order_id, is_buy, quantity)
 
+    def start_tracking_market_order(self, market_pair: MarketTradingPairTuple, order_id: str, is_buy: bool, quantity: Decimal):
+        self.c_start_tracking_market_order(market_pair, order_id, is_buy, quantity)
+
     cdef c_stop_tracking_market_order(self, object market_pair, str order_id):
         self._sb_order_tracker.c_stop_tracking_market_order(market_pair, order_id)
+
+    def stop_tracking_market_order(self, market_pair: MarketTradingPairTuple, order_id: str):
+        self.c_stop_tracking_market_order(market_pair, order_id)
 
     cdef c_track_restored_orders(self, object market_pair):
         cdef:
@@ -494,6 +563,26 @@ cdef class StrategyBase(TimeIterator):
                                               order.price,
                                               order.quantity)
         return restored_order_ids
+
+    def track_restored_orders(self, market_pair: MarketTradingPairTuple):
+        return self.c_track_restored_orders(market_pair)
+
+    def notify_hb_app(self, msg: str):
+        """
+        Method called to display message on the Output Panel(upper left)
+        :param msg: The message to be notified
+        """
+        from hummingbot.client.hummingbot_application import HummingbotApplication
+        HummingbotApplication.main_application()._notify(msg)
+
+    def notify_hb_app_with_timestamp(self, msg: str):
+        """
+        Method called to display message on the Output Panel(upper left)
+        This implementation adds the timestamp as the first element of the notification
+        :param msg: The message to be notified
+        """
+        timestamp = pd.Timestamp.fromtimestamp(self._current_timestamp)
+        self.notify_hb_app(f"({timestamp}) {msg}")
 
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>

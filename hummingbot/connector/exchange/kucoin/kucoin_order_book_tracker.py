@@ -17,6 +17,7 @@ from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.connector.exchange.kucoin.kucoin_api_order_book_data_source import KucoinAPIOrderBookDataSource
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
+from hummingbot.connector.exchange.kucoin.kucoin_auth import KucoinAuth
 from hummingbot.connector.exchange.kucoin.kucoin_order_book_message import KucoinOrderBookMessage
 from hummingbot.connector.exchange.kucoin.kucoin_active_order_tracker import KucoinActiveOrderTracker
 
@@ -31,8 +32,10 @@ class KucoinOrderBookTracker(OrderBookTracker):
         return cls._kobt_logger
 
     def __init__(self,
-                 trading_pairs: List[str]):
-        super().__init__(KucoinAPIOrderBookDataSource(trading_pairs), trading_pairs)
+                 trading_pairs: List[str],
+                 auth: KucoinAuth):
+        super().__init__(KucoinAPIOrderBookDataSource(trading_pairs, auth), trading_pairs)
+        self._auth = auth
         self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()
         self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
@@ -75,10 +78,8 @@ class KucoinOrderBookTracker(OrderBookTracker):
                 # Log some statistics.
                 now: float = time.time()
                 if int(now / 60.0) > int(last_message_timestamp / 60.0):
-                    self.logger().debug("Diff messages processed: %d, rejected: %d, queued: %d",
-                                        messages_accepted,
-                                        messages_rejected,
-                                        messages_queued)
+                    self.logger().debug(f"Diff messages processed: {messages_accepted}, "
+                                        f"rejected: {messages_rejected}, queued: {messages_queued}")
                     messages_accepted = 0
                     messages_rejected = 0
                     messages_queued = 0
@@ -127,8 +128,7 @@ class KucoinOrderBookTracker(OrderBookTracker):
                     # Output some statistics periodically.
                     now: float = time.time()
                     if int(now / 60.0) > int(last_message_timestamp / 60.0):
-                        self.logger().debug("Processed %d order book diffs for %s.",
-                                            diff_messages_accepted, trading_pair)
+                        self.logger().debug(f"Processed {diff_messages_accepted} order book diffs for {trading_pair}.")
                         diff_messages_accepted = 0
                     last_message_timestamp = now
                 elif message.type is OrderBookMessageType.SNAPSHOT:
@@ -142,7 +142,7 @@ class KucoinOrderBookTracker(OrderBookTracker):
                         d_bids, d_asks = active_order_tracker.convert_diff_message_to_order_book_row(diff_message)
                         order_book.apply_diffs(d_bids, d_asks, diff_message.update_id)
 
-                    self.logger().debug("Processed order book snapshot for %s.", trading_pair)
+                    self.logger().debug(f"Processed order book snapshot for {trading_pair}.")
             except asyncio.CancelledError:
                 raise
             except Exception:

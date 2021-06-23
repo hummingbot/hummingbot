@@ -18,7 +18,7 @@ from hummingbot.client.config.config_helpers import (
 )
 from hummingbot.client.config.security import Security
 from hummingbot.user.user_balances import UserBalances
-from hummingbot.client.settings import required_exchanges, ethereum_wallet_required, ethereum_gas_station_required
+from hummingbot.client.settings import required_exchanges, ethereum_wallet_required
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
 from typing import TYPE_CHECKING
@@ -68,7 +68,7 @@ class StatusCommand:
 
         return "\n".join(lines)
 
-    async def strategy_status(self):
+    async def strategy_status(self, live: bool = False):
         paper_trade = "\n  Paper Trading ON: All orders are simulated, and no real orders are placed." if global_config_map.get("paper_trade_enabled").value \
             else ""
         app_warning = self.application_warning()
@@ -78,7 +78,7 @@ class StatusCommand:
         else:
             st_status = self.strategy.format_status()
         status = paper_trade + "\n" + st_status + "\n" + app_warning
-        if self._script_iterator is not None:
+        if self._script_iterator is not None and live is False:
             self._script_iterator.request_status()
         return status
 
@@ -124,11 +124,11 @@ class StatusCommand:
             if live:
                 await self.stop_live_update()
                 self.app.live_updates = True
-                while self.app.live_updates:
+                while self.app.live_updates and self.strategy:
                     script_status = '\n Status from script would not appear here. ' \
                                     'Simply run the status command without "--live" to see script status.'
                     await self.cls_display_delay(
-                        await self.strategy_status() + script_status + "\n\n Press escape key to stop update.", 1
+                        await self.strategy_status(live=True) + script_status + "\n\n Press escape key to stop update.", 1
                     )
                 self._notify("Stopped live status display update.")
             else:
@@ -185,10 +185,6 @@ class StatusCommand:
                         self._notify("  - ETH wallet check: Minimum ETH requirement satisfied")
             else:
                 self._notify("  - ETH wallet check: ETH wallet is not connected.")
-
-        if ethereum_gas_station_required() and not global_config_map["ethgasstation_gas_enabled"].value:
-            self._notify(f'  - ETH gas station check: Manual gas price is fixed at '
-                         f'{global_config_map["manual_gas_price"].value}.')
 
         loading_markets: List[ConnectorBase] = []
         for market in self.markets.values():

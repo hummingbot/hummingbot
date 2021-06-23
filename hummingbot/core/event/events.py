@@ -34,6 +34,12 @@ class MarketEvent(Enum):
     TransactionFailure = 199
     BuyOrderCreated = 200
     SellOrderCreated = 201
+    FundingPaymentCompleted = 202
+    RangePositionInitiated = 300
+    RangePositionCreated = 301
+    RangePositionRemoved = 302
+    RangePositionUpdated = 303
+    RangePositionFailure = 304
 
 
 class NewBlocksWatcherEvent(Enum):
@@ -60,6 +66,7 @@ class ZeroExEvent(Enum):
 class TradeType(Enum):
     BUY = 1
     SELL = 2
+    RANGE = 3
 
 
 class OrderType(Enum):
@@ -201,6 +208,15 @@ class OrderCancelledEvent:
 class OrderExpiredEvent(NamedTuple):
     timestamp: float
     order_id: str
+
+
+@dataclass
+class FundingPaymentCompletedEvent:
+    timestamp: float
+    market: str
+    trading_pair: str
+    amount: Decimal
+    funding_rate: Decimal
 
 
 class MarketWithdrawAssetEvent(NamedTuple):
@@ -356,3 +372,58 @@ class SellOrderCreatedEvent:
     exchange_order_id: Optional[str] = None
     leverage: Optional[int] = 1
     position: Optional[str] = "NILL"
+
+
+@dataclass
+class RangePositionInitiatedEvent:
+    timestamp: float
+    hb_id: str
+    tx_hash: str
+    trading_pair: str
+    fee_tier: str
+    lower_price: Decimal
+    upper_price: Decimal
+    base_amount: Decimal
+    quote_amount: Decimal
+    status: str
+    gas_price: Decimal
+
+
+@dataclass
+class RangePositionCreatedEvent:
+    timestamp: float
+    hb_id: str
+    tx_hash: str
+    token_id: str
+    trading_pair: str
+    fee_tier: str
+    lower_price: Decimal
+    upper_price: Decimal
+    base_amount: Decimal
+    quote_amount: Decimal
+    status: str
+    gas_price: Decimal
+
+
+@dataclass
+class RangePositionUpdatedEvent:
+    timestamp: float
+    hb_id: str
+    tx_hash: str
+    token_id: str
+    base_amount: Decimal
+    quote_amount: Decimal
+    status: str
+
+
+@dataclass
+class RangePositionRemovedEvent:
+    timestamp: float
+    hb_id: str
+    token_id: Optional[str] = None
+
+
+@dataclass
+class RangePositionFailureEvent:
+    timestamp: float
+    hb_id: str

@@ -1,27 +1,38 @@
 #!/usr/bin/env python
 
 connector_status = {
+    'ascend_ex': 'green',
+    'balancer': 'green',
+    'beaxy': 'green',
     'binance': 'green',
-    'binance_perpetual': 'green',
-    'binance_perpetual_testnet': 'green',
+    'binance_perpetual': 'yellow',
+    'binance_perpetual_testnet': 'yellow',
     'binance_us': 'yellow',
     'bitfinex': 'yellow',
-    'bitmax': 'yellow',
     'bittrex': 'yellow',
     'blocktane': 'yellow',
     'celo': 'green',
-    'coinbase_pro': 'green',
-    'crypto_com': 'yellow',
+    'coinbase_pro': 'yellow',
+    'coinzoom': 'yellow',
+    'crypto_com': 'green',
+    'digifinex': "yellow",
     'dydx': 'green',
-    'eterbase': 'red',
+    'dydx_perpetual': 'yellow',
     'ethereum': 'red',
+    'ftx': 'green',
+    'hitbtc': 'green',
     'huobi': 'green',
-    'kraken': 'yellow',
-    'kucoin': 'green',
+    'kraken': 'green',
+    'kucoin': 'yellow',
+    'k2': 'red',
     'liquid': 'green',
     'loopring': 'yellow',
-    'okex': 'green',
-    'terra': 'green'
+    'okex': 'yellow',
+    'perpetual_finance': 'yellow',
+    'probit': 'yellow',
+    'probit_kr': 'yellow',
+    'terra': 'green',
+    'uniswap': 'green'
 }
 
 warning_messages = {

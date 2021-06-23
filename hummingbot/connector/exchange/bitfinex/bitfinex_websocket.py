@@ -66,11 +66,8 @@ class BitfinexWebsocket():
 
                     yield msg
                 except asyncio.TimeoutError:
-                    try:
-                        pong_waiter = await self._client.ping()
-                        await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
-                    except asyncio.TimeoutError:
-                        raise
+                    pong_waiter = await self._client.ping()
+                    await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
         except asyncio.TimeoutError:
             self.logger().error("WebSocket ping timed out. Going to reconnect...")
             return

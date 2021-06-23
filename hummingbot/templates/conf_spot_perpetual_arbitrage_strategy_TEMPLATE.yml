@@ -1,0 +1,40 @@
+##########################################
+###   Spot-Perpetual Arbitrage strategy config   ###
+##########################################
+
+template_version: 2
+strategy: null
+
+# The following configuations are only required for the AMM arbitrage trading strategy
+
+# Connectors and markets parameters
+spot_connector: null
+spot_market: null
+derivative_connector: null
+derivative_market: null
+
+order_amount: null
+
+derivative_leverage: null
+
+# Spread required before first arbitrage can take place, expressed in percentage value, e.g. 1 = 1%
+min_divergence: null
+
+# Spread required after first arbitrage before second arbitreage can take place, expressed in percentage value, e.g. 1 = 1%
+min_convergence: null
+
+# A buffer for which to adjust order price for higher chance of the order getting filled.
+# This is important for AMM which transaction takes a long time where a slippage is acceptable rather having
+# the transaction get rejected. The submitted order price will be adjust higher (by percentage value) for buy order
+# and lower for sell order. (Enter 1 for 1%)
+spot_market_slippage_buffer: null
+
+# A buffer to add to the price to account for slippage when buying/selling on second connector market
+# (Enter 1 for 1%)
+derivative_market_slippage_buffer: null
+
+# A flag (true/false), if true the bot would only execute second arbitrage once funding payment is received provided second arbitrage wasn't executed before funding period.
+maximize_funding_rate: null
+
+# cool off period between arbitrage cycles
+next_arbitrage_cycle_delay: null

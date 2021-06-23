@@ -471,8 +471,6 @@ cdef class BitfinexExchange(ExchangeBase):
 
         try:
             return await self._api_private_fn(http_method, path_url, data)
-        except Exception:
-            raise
         finally:
             self._pending_requests.pop(0)
 
@@ -1115,14 +1113,16 @@ cdef class BitfinexExchange(ExchangeBase):
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         try:
-            order_ids = list(map(lambda order: order.client_order_id, self._in_flight_orders.values()))
+            tracked_orders = self._in_flight_orders.copy().values()
+            client_oids = list(map(lambda order: order.client_order_id, tracked_orders))
+            exchange_oids = list(map(lambda order: int(order.exchange_order_id), tracked_orders))
 
             data = [
                 0,
                 "oc_multi",
                 None,
                 {
-                    "all": 1
+                    "id": exchange_oids
                 }
             ]
 
@@ -1133,18 +1133,22 @@ cdef class BitfinexExchange(ExchangeBase):
             await ws.emit(data)
 
             response = None
+            cancellation_results = []
             async for _response in ws.messages(waitFor=waitFor):
-                response = _response
+                cancelled_client_oids = [o[-1]['order_id'] for o in _response[2][4]]
+                self.logger().info(f"Succesfully cancelled orders: {cancelled_client_oids}")
+                for c_oid in cancelled_client_oids:
+                    cancellation_results.append(CancellationResult(c_oid, True))
                 break
 
-            return list(map(lambda client_order_id: CancellationResult(client_order_id, True), order_ids))
+            return cancellation_results
         except Exception as e:
             self.logger().network(
-                f"Failed to cancel all orders: {order_ids}",
+                f"Failed to cancel all orders: {client_oids}",
                 exc_info=True,
                 app_warning_msg=f"Failed to cancel all orders on Bitfinex. Check API key and network connection."
             )
-            return list(map(lambda client_order_id: CancellationResult(client_order_id, False), order_ids))
+            return list(map(lambda client_order_id: CancellationResult(client_order_id, False), client_oids))
 
     async def get_active_exchange_markets(self) -> pd.DataFrame:
         """
