@@ -168,7 +168,9 @@ class HangingOrdersTracker:
         for order_pair in self.current_created_pairs_of_orders:
             if order_pair.contains_order(order):
                 unfilled_order = order_pair.get_unfilled_order()
-                return unfilled_order.client_order_id == order.client_order_id
+                if unfilled_order:
+                    return unfilled_order.client_order_id == order.client_order_id
+                break
 
         return False
 

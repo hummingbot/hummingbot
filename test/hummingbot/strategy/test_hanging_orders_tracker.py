@@ -1,7 +1,11 @@
 import unittest
 from decimal import Decimal
 from mock import MagicMock, patch
-from hummingbot.strategy.hanging_orders_tracker import HangingOrdersTracker, HangingOrdersAggregationType
+from hummingbot.strategy.hanging_orders_tracker import (
+    CreatedPairOfOrders,
+    HangingOrdersAggregationType,
+    HangingOrdersTracker,
+)
 from hummingbot.strategy.data_types import HangingOrder, OrderType
 from hummingbot.core.data_type.limit_order import LimitOrder
 
@@ -244,3 +248,24 @@ class TestHangingOrdersTracker(unittest.TestCase):
                                                                           is_buy=False,
                                                                           price=Decimal('103.17945'),
                                                                           amount=Decimal('11.00000'))})
+
+    def test_is_order_to_be_added_to_hanging_orders(self):
+        limit_buy_order: LimitOrder = LimitOrder("Order-number-1", "BTC-USDT", True, "BTC", "USDT", Decimal(99), Decimal(6))
+        limit_sell_order: LimitOrder = LimitOrder("Order-number-2", "BTC-USDT", False, "BTC", "USDT", Decimal(101), Decimal(6))
+        order_not_tracked: LimitOrder = LimitOrder("UNKNOWN_ORDER", "COINALPHA-HBOT", True, "COINALPHA", "HBOT", Decimal(1), Decimal(1))
+
+        order_pair: CreatedPairOfOrders = CreatedPairOfOrders(limit_buy_order, limit_sell_order)
+
+        self.tracker.add_order(limit_buy_order)
+        self.tracker.add_order(limit_sell_order)
+        self.tracker.add_current_pairs_of_proposal_orders_executed_by_strategy(order_pair)
+
+        # Case (1) Order not tracked
+        self.assertFalse(self.tracker.is_order_to_be_added_to_hanging_orders(order_not_tracked))
+
+        # Case (2a) Order is tracked, but corresponding order is not filled
+        self.assertFalse(self.tracker.is_order_to_be_added_to_hanging_orders(limit_buy_order))
+
+        # Case (2b) Order is tracked and corresponding order is filled
+        self.tracker.did_fill_order(limit_buy_order)
+        self.assertTrue(self.tracker.is_order_to_be_added_to_hanging_orders(limit_sell_order))
