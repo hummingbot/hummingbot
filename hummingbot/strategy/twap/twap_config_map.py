@@ -1,7 +1,8 @@
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
+    validate_bool,
     validate_exchange,
-    validate_market_trading_pair,
+    validate_market_trading_pair, validate_timestamp_iso_string,
 )
 from hummingbot.client.settings import (
     required_exchanges,
@@ -75,12 +76,36 @@ twap_config_map = {
                   prompt="What is the price for the limit orders? >>> ",
                   type_str="decimal",
                   prompt_on_new=True),
+    "is_time_span_execution":
+        ConfigVar(key="is_time_span_execution",
+                  prompt="Do you want to specify a start time and an end time for the execution? >>> ",
+                  type_str="bool",
+                  default=False,
+                  validator=validate_bool,
+                  prompt_on_new=True),
+    "start_datetime":
+        ConfigVar(key="start_datetime",
+                  prompt="Please enter the start date and time"
+                         " (YYYY-MM-DD HH:MM:SS) >>> ",
+                  type_str="str",
+                  validator=validate_timestamp_iso_string,
+                  required_if=lambda: twap_config_map.get("is_time_span_execution").value,
+                  prompt_on_new=True),
+    "end_datetime":
+        ConfigVar(key="end_datetime",
+                  prompt="Please enter the end date and time"
+                         " (YYYY-MM-DD HH:MM:SS) >>> ",
+                  type_str="str",
+                  validator=validate_timestamp_iso_string,
+                  required_if=lambda: twap_config_map.get("is_time_span_execution").value,
+                  prompt_on_new=True),
     "order_delay_time":
         ConfigVar(key="order_delay_time",
                   prompt="How many seconds do you want to wait between each individual order?"
                          " (Enter 10 to indicate 10 seconds. Default is 10)? >>> ",
                   type_str="float",
                   default=10,
+                  required_if=lambda: not twap_config_map.get("is_time_span_execution").value,
                   prompt_on_new=True),
     "cancel_order_wait_time":
         ConfigVar(key="cancel_order_wait_time",
