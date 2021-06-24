@@ -32,7 +32,7 @@ from hummingbot.core.event.events import (
     PositionAction,
     FundingInfo
 )
-from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.connector.derivative.perpetual_finance.perpetual_finance_in_flight_order import PerpetualFinanceInFlightOrder
 from hummingbot.connector.derivative.perpetual_finance.perpetual_finance_utils import convert_to_exchange_trading_pair
@@ -47,7 +47,7 @@ s_decimal_NaN = Decimal("nan")
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 
-class PerpetualFinanceDerivative(ExchangeBase, PerpetualTrading):
+class PerpetualFinanceDerivative(ConnectorBase, PerpetualTrading):
     """
     PerpetualFinanceConnector connects with perpetual_finance gateway APIs and provides pricing, user account tracking and trading
     functionality.
@@ -74,7 +74,7 @@ class PerpetualFinanceDerivative(ExchangeBase, PerpetualTrading):
         :param wallet_private_key: a private key for eth wallet
         :param trading_required: Whether actual trading is needed.
         """
-        ExchangeBase.__init__(self)
+        ConnectorBase.__init__(self)
         PerpetualTrading.__init__(self)
         self._trading_pairs = trading_pairs
         self._wallet_private_key = wallet_private_key
