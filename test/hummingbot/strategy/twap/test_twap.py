@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from decimal import Decimal
+from datetime import datetime
 import math
 import logging
 
@@ -402,7 +403,8 @@ class TWAPUnitTest(unittest.TestCase):
         expected_buy_status = ("\n  Configuration:\n"
                                "    Total amount: 2.00 COINALPHA"
                                "    Order price: 99.00 WETH"
-                               "    Order size: 1 COINALPHA\n\n"
+                               "    Order size: 1 COINALPHA\n"
+                               "    Execution type: run continuously\n\n"
                                "  Markets:\n"
                                "             Exchange          Market  Best Bid Price  Best Ask Price  Mid Price\n"
                                "    0  BacktestMarket  COINALPHA-WETH            99.5           100.5        100\n\n"
@@ -418,7 +420,8 @@ class TWAPUnitTest(unittest.TestCase):
         expected_sell_status = ("\n  Configuration:\n"
                                 "    Total amount: 5.00 COINALPHA"
                                 "    Order price: 101.0 WETH"
-                                "    Order size: 1.67 COINALPHA\n\n"
+                                "    Order size: 1.67 COINALPHA\n"
+                                "    Execution type: run continuously\n\n"
                                 "  Markets:\n"
                                 "             Exchange          Market  Best Bid Price  Best Ask Price  Mid Price\n"
                                 "    0  BacktestMarket  COINALPHA-WETH            99.5           100.5        100\n\n"
@@ -432,8 +435,8 @@ class TWAPUnitTest(unittest.TestCase):
                                 "  Average filled orders price: 101.0 WETH\n"
                                 "  Pending amount: 1.66 COINALPHA")
 
-        self.assertEqual(buy_not_started_status, expected_buy_status)
-        self.assertEqual(sell_started_status, expected_sell_status)
+        self.assertEqual(expected_buy_status, buy_not_started_status)
+        self.assertEqual(expected_sell_status, sell_started_status)
 
     def test_strategy_time_span_execution(self):
         span_start_time = self.start_timestamp + (self.clock_tick_size * 5)
@@ -446,7 +449,8 @@ class TWAPUnitTest(unittest.TestCase):
             order_delay_time=self.order_delay_time,
             target_asset_amount=Decimal("100.0"),
             order_step_size=Decimal("1.0"),
-            execution_state=RunInTimeSpanExecutionState(start_timestamp=span_start_time, end_timestamp=span_end_time)
+            execution_state=RunInTimeSpanExecutionState(start_timestamp=datetime.fromtimestamp(span_start_time),
+                                                        end_timestamp=datetime.fromtimestamp(span_end_time))
         )
 
         self.clock.add_iterator(strategy)

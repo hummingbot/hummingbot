@@ -118,6 +118,22 @@ class TwapTradeStrategy(StrategyPyBase):
     def place_orders(self):
         return self._place_orders
 
+    def configuration_status_lines(self,):
+        lines = ["", "  Configuration:"]
+
+        for market_info in self._market_infos.values():
+            lines.append("    "
+                         f"Total amount: {PerformanceMetrics.smart_round(self._target_asset_amount)} "
+                         f"{market_info.base_asset}    "
+                         f"Order price: {PerformanceMetrics.smart_round(self._order_price)} "
+                         f"{market_info.quote_asset}    "
+                         f"Order size: {PerformanceMetrics.smart_round(self._order_step_size)} "
+                         f"{market_info.base_asset}")
+
+        lines.append(f"    Execution type: {self._execution_state}")
+
+        return lines
+
     def filled_trades(self):
         """
         Returns a list of all filled trades generated from limit orders with the same trade type the strategy
@@ -133,16 +149,9 @@ class TwapTradeStrategy(StrategyPyBase):
         lines: list = []
         warning_lines: list = []
 
+        lines.extend(self.configuration_status_lines())
+
         for market_info in self._market_infos.values():
-            lines.extend(["",
-                          "  Configuration:",
-                          ("    "
-                           f"Total amount: {PerformanceMetrics.smart_round(self._target_asset_amount)} "
-                           f"{market_info.base_asset}    "
-                           f"Order price: {PerformanceMetrics.smart_round(self._order_price)} "
-                           f"{market_info.quote_asset}    "
-                           f"Order size: {PerformanceMetrics.smart_round(self._order_step_size)} "
-                           f"{market_info.base_asset}")])
 
             active_orders = self.market_info_to_active_orders.get(market_info, [])
 
