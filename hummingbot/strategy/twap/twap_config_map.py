@@ -78,7 +78,7 @@ twap_config_map = {
                   prompt_on_new=True),
     "is_time_span_execution":
         ConfigVar(key="is_time_span_execution",
-                  prompt="Do you want to specify a start time and an end time for the execution? >>> ",
+                  prompt="Do you want to specify a start time and an end time for the execution? (Yes/No) >>> ",
                   type_str="bool",
                   default=False,
                   validator=validate_bool,
