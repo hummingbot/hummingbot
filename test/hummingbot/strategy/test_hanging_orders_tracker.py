@@ -269,3 +269,8 @@ class TestHangingOrdersTracker(unittest.TestCase):
         # Case (2b) Order is tracked and corresponding order is filled
         self.tracker.did_fill_order(limit_buy_order)
         self.assertTrue(self.tracker.is_order_to_be_added_to_hanging_orders(limit_sell_order))
+
+        # Case (2c) Order is tracker and both orders are filled
+        self.tracker.did_fill_order(limit_sell_order)
+        self.assertFalse(self.tracker.is_order_to_be_added_to_hanging_orders(limit_buy_order))
+        self.assertFalse(self.tracker.is_order_to_be_added_to_hanging_orders(limit_sell_order))
