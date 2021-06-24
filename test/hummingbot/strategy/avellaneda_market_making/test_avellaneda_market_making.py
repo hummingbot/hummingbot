@@ -206,6 +206,10 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
                                                       price=order.price,
                                                       amount=order.quantity)
 
+    @staticmethod
+    def simulate_cancelling_all_active_orders(strategy: AvellanedaMarketMakingStrategy):
+        strategy.cancel_active_orders(None)
+
     def test_all_markets_ready(self):
         self.assertTrue(self.strategy.all_markets_ready())
 
@@ -1169,6 +1173,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         # Case (1) create_timestamp < current_timestamp
         self.assertFalse(self.strategy.to_create_orders(proposal))
 
-        # Case (2) create_timestamp >= current_timestamp
+        # Case (2) create_timestamp >= current_timestamp + order_refresh_time
         self.clock.backtest_til(self.start_timestamp + self.strategy.order_refresh_time + 1)
+        self.simulate_cancelling_all_active_orders(self.strategy)
+
         self.assertTrue(self.strategy.to_create_orders(proposal))
