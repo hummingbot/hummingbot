@@ -2,7 +2,12 @@ import logging
 import time
 from decimal import Decimal
 from enum import Enum
-from typing import Dict, List, Set
+from typing import (
+    Dict,
+    List,
+    Optional,
+    Set,
+)
 
 from hummingbot.strategy.data_types import HangingOrder
 from hummingbot.strategy.strategy_base import StrategyBase
@@ -30,10 +35,10 @@ class CreatedPairOfOrders:
         return ((self.buy_order is not None) and (self.buy_order.client_order_id == order.client_order_id)) or \
                ((self.sell_order is not None) and (self.sell_order.client_order_id == order.client_order_id))
 
-    def partially_filled(self):
+    def partially_filled(self) -> bool:
         return self.filled_buy != self.filled_sell
 
-    def get_unfilled_order(self):
+    def get_unfilled_order(self) -> Optional[LimitOrder]:
         if self.partially_filled():
             if not self.filled_buy:
                 return self.buy_order
@@ -159,10 +164,13 @@ class HangingOrdersTracker:
                        order.amount == o.quantity) for o in self.strategy.active_orders)
 
     def is_order_to_be_added_to_hanging_orders(self, order: LimitOrder) -> bool:
-        hanging_order = self._get_hanging_order_from_limit_order(order)
-        if hanging_order in self.equivalent_orders.union(self.orders_to_be_created):
-            return any(o.order_id == order.client_order_id
-                       for o in self.equivalent_orders.union(self.orders_to_be_created))
+        # Order will be added to hanging orders iff the corresponding order pair has been completely filled
+        for order_pair in self.current_created_pairs_of_orders:
+            if order_pair.contains_order(order):
+                unfilled_order = order_pair.get_unfilled_order()
+                return unfilled_order.client_order_id == order.client_order_id
+
+        return False
 
     def update_strategy_orders_with_equivalent_orders(self):
         if self.aggregation_method != HangingOrdersAggregationType.NO_AGGREGATION:
