@@ -2,6 +2,7 @@ import unittest
 import numpy as np
 from hummingbot.strategy.__utils__.trailing_indicators.historical_volatility import HistoricalVolatilityIndicator
 
+
 class HistoricalVolatilityTest(unittest.TestCase):
     INITIAL_RANDOM_SEED = 123456789
     BUFFER_LENGTH = 1000
@@ -12,10 +13,10 @@ class HistoricalVolatilityTest(unittest.TestCase):
     def test_calculate_volatility_without_smoothing(self):
         original_price = 100
         volatility = 0.1
-        returns = np.random.normal(0, volatility, self.BUFFER_LENGTH-1)
+        returns = np.random.normal(0, volatility, self.BUFFER_LENGTH - 1)
         samples = [original_price]
         for r in returns:
-            samples.append(samples[-1]*np.exp(r))
+            samples.append(samples[-1] * np.exp(r))
         self.indicator = HistoricalVolatilityIndicator(self.BUFFER_LENGTH, 1)
 
         for sample in samples:

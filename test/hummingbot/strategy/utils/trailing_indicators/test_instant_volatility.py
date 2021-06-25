@@ -6,6 +6,7 @@ from hummingbot.strategy.__utils__.trailing_indicators.instant_volatility import
 class InstantVolatilityTest(unittest.TestCase):
     INITIAL_RANDOM_SEED = 3141592653
     BUFFER_LENGTH = 10000
+
     def setUp(self) -> None:
         np.random.seed(self.INITIAL_RANDOM_SEED)
 
