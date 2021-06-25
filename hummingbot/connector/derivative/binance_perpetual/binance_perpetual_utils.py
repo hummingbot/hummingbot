@@ -18,7 +18,6 @@ RE_4_LETTERS_QUOTE = re.compile(r"^(\w{2,})(BIDR|BKRW|BUSD|BVND|IDRT|TUSD|USDC|U
 RE_3_LETTERS_QUOTE = re.compile(r"^(\w+)(\w{3})$")
 
 
-# Helper Functions ---
 def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
     try:
         m = SPECIAL_PAIRS.match(trading_pair)
@@ -27,8 +26,9 @@ def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
         if m is None:
             m = RE_3_LETTERS_QUOTE.match(trading_pair)
         return m.group(1), m.group(2)
-    except Exception as e:
-        raise e
+    # Exceptions are now logged as warnings in trading pair fetcher
+    except Exception:
+        return None
 
 
 def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
