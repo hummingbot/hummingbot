@@ -39,10 +39,7 @@ class TradingPairUtilsTest(unittest.TestCase):
         url = EXCHANGE_INFO_URL.format(TESTNET_BASE_URL)
         resp = requests.get(url)
         data = resp.json()
-        pairs = [
-            d for d in data["symbols"]
-            if d["status"] == "TRADING" and d["pair"] != "CRVUSDT"
-        ]
+        pairs = [d for d in data["symbols"] if d["status"] == "TRADING"]
         for p in pairs:
             parsed_pair = utils.convert_from_exchange_trading_pair(p["pair"])
             expected_pair = f"{p['baseAsset']}-{p['quoteAsset']}"
@@ -52,10 +49,7 @@ class TradingPairUtilsTest(unittest.TestCase):
         url = EXCHANGE_INFO_URL.format(PERPETUAL_BASE_URL)
         resp = requests.get(url)
         data = resp.json()
-        pairs = [
-            d for d in data["symbols"]
-            if d["status"] == "TRADING" and d["pair"] != "CRVUSDT"
-        ]
+        pairs = [d for d in data["symbols"] if d["status"] == "TRADING"]
         for p in pairs:
             parsed_pair = utils.convert_from_exchange_trading_pair(p["pair"])
             expected_pair = f"{p['baseAsset']}-{p['quoteAsset']}"
