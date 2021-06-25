@@ -22,6 +22,8 @@ class PerpetualTest(unittest.TestCase):
         pt._account_positions["market1"] = aPos
         self.assertEqual(len(pt.account_positions), 1)
         self.assertEqual(pt.account_positions["market1"], aPos)
+        self.assertEqual(pt.get_position("market1"), aPos)
+        self.assertEqual(pt.get_position("market2"), None)
 
     def test_position_key(self):
         pt: PerpetualTrading = PerpetualTrading()
