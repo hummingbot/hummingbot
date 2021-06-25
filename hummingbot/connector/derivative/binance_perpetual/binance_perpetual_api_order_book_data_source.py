@@ -89,7 +89,7 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 async with client.get(EXCHANGE_INFO_URL.format(BASE_URL), timeout=10) as response:
                     if response.status == 200:
                         data = await response.json()
-                        raw_trading_pairs = [d["symbol"] for d in data["symbols"] if d["status"] == "TRADING"]
+                        raw_trading_pairs = [d["pair"] for d in data["symbols"] if d["status"] == "TRADING"]
                         trading_pair_list: List[str] = []
                         for raw_trading_pair in raw_trading_pairs:
                             try:
