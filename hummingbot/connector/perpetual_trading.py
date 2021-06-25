@@ -1,6 +1,6 @@
 from decimal import Decimal
-from typing import Dict, List
-from hummingbot.core.event.events import PositionMode, FundingInfo
+from typing import Dict, List, Optional
+from hummingbot.core.event.events import PositionMode, FundingInfo, PositionSide
 from hummingbot.connector.derivative.position import Position
 
 
@@ -15,19 +15,40 @@ class PerpetualTrading:
     """
 
     def __init__(self):
-        super().__init__()
-        self._account_positions: List[Position] = []
-        self._position_mode: PositionMode = None
+        self._account_positions: Dict[str, Position] = {}
+        self._position_mode: PositionMode = PositionMode.ONEWAY
         self._leverages: Dict[str, int] = {}
         self._funding_info: Dict[str, FundingInfo] = {}
         self._funding_payment_span: List[int] = [0, 0]
 
     @property
-    def account_positions(self) -> List[Position]:
+    def account_positions(self) -> Dict[str, Position]:
         """
-        Returns a list current active open positions
+        Returns a dictionary of current active open positions
         """
         return self._account_positions
+
+    def position_key(self, trading_pair: str, side: PositionSide = None) -> str:
+        """
+        Returns a key to a position in account_positions. On OneWay position mode this is the trading pair.
+        On Hedge position mode this is a combination of trading pair and position side
+        :param trading_pair: The market trading pair
+        :param side: The position side (long or short)
+        :return: A key to the position in account_positions dictionary
+        """
+        if self._position_mode == PositionMode.ONEWAY:
+            return trading_pair
+        elif self._position_mode == PositionMode.HEDGE:
+            return f"{trading_pair}{side.name}"
+
+    def get_position(self, trading_pair: str, side: PositionSide = None) -> Optional[Position]:
+        """
+        Returns an active position if exists, otherwise returns None
+        :param trading_pair: The market trading pair
+        :param side: The position side (long or short)
+        :return: A position from account_positions or None
+        """
+        return self.account_positions.get(self.position_key(trading_pair, side), None)
 
     @property
     def funding_payment_span(self) -> List[int]:
