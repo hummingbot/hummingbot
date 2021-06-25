@@ -86,13 +86,16 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 async with client.get(url, timeout=10) as response:
                     if response.status == 200:
                         data = await response.json()
+                        # fetch d["symbol"] for binance us/com
                         raw_trading_pairs = [d["symbol"] for d in data["symbols"] if d["status"] == "TRADING"]
+                        trading_pair_targets = [
+                            f"{d['baseAsset']}-{d['quoteAsset']}" for d in data["symbols"] if d["status"] == "TRADING"
+                        ]
                         trading_pair_list: List[str] = []
-                        for raw_trading_pair in raw_trading_pairs:
-                            converted_trading_pair: Optional[str] = \
-                                convert_from_exchange_trading_pair(raw_trading_pair)
-                            if converted_trading_pair is not None:
-                                trading_pair_list.append(converted_trading_pair)
+                        for raw_trading_pair, pair_target in zip(raw_trading_pairs, trading_pair_targets):
+                            trading_pair: Optional[str] = convert_from_exchange_trading_pair(raw_trading_pair)
+                            if trading_pair is not None and trading_pair == pair_target:
+                                trading_pair_list.append(trading_pair)
                         return trading_pair_list
 
         except Exception:
