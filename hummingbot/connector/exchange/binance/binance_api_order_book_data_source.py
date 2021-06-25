@@ -12,7 +12,6 @@ from typing import (
     Optional
 )
 from decimal import Decimal
-import re
 import time
 import ujson
 import websockets
@@ -25,8 +24,6 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.binance.binance_order_book import BinanceOrderBook
 from hummingbot.connector.exchange.binance.binance_utils import convert_to_exchange_trading_pair
-
-TRADING_PAIR_FILTER = re.compile(r"(BTC|ETH|USDT)$")
 
 SNAPSHOT_REST_URL = "https://api.binance.{}/api/v1/depth"
 DIFF_STREAM_URL = "wss://stream.binance.{}:9443/ws"
