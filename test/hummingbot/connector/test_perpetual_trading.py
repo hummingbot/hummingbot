@@ -10,7 +10,7 @@ class PerpetualTest(unittest.TestCase):
     def test_init(self):
         pt: PerpetualTrading = PerpetualTrading()
         self.assertEqual(len(pt.account_positions), 0)
-        self.assertEqual(pt.position_mode, None)
+        self.assertEqual(pt.position_mode, PositionMode.ONEWAY)
         self.assertEqual(pt.funding_payment_span, [0, 0])
 
     def test_account_positions(self):
@@ -18,16 +18,27 @@ class PerpetualTest(unittest.TestCase):
         Test getting account positions by manually adding a position to the class member
         """
         pt: PerpetualTrading = PerpetualTrading()
-        aPos: Position = Position("", PositionSide.LONG, Decimal("0"), Decimal("100"), Decimal("1"), Decimal("5"))
-        pt._account_positions.append(aPos)
+        aPos: Position = Position("market1", PositionSide.LONG, Decimal("0"), Decimal("100"), Decimal("1"), Decimal("5"))
+        pt._account_positions["market1"] = aPos
         self.assertEqual(len(pt.account_positions), 1)
-        self.assertEqual(pt.account_positions[0], aPos)
+        self.assertEqual(pt.account_positions["market1"], aPos)
+        self.assertEqual(pt.get_position("market1"), aPos)
+        self.assertEqual(pt.get_position("market2"), None)
+
+    def test_position_key(self):
+        pt: PerpetualTrading = PerpetualTrading()
+        pt.position_mode = PositionMode.ONEWAY
+        self.assertEqual(pt.position_key("market1"), "market1")
+        self.assertEqual(pt.position_key("market1", PositionSide.LONG), "market1")
+        pt.position_mode = PositionMode.HEDGE
+        self.assertEqual(pt.position_key("market1", PositionSide.LONG), "market1LONG")
+        self.assertEqual(pt.position_key("market1", PositionSide.SHORT), "market1SHORT")
 
     def test_position_mode(self):
         pt: PerpetualTrading = PerpetualTrading()
-        self.assertEqual(pt.position_mode, None)
-        pt.position_mode = PositionMode.ONEWAY
         self.assertEqual(pt.position_mode, PositionMode.ONEWAY)
+        pt.position_mode = PositionMode.HEDGE
+        self.assertEqual(pt.position_mode, PositionMode.HEDGE)
 
     def test_leverage(self):
         pt: PerpetualTrading = PerpetualTrading()
