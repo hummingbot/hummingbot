@@ -508,7 +508,6 @@ class PerpetualFinanceDerivative(ConnectorBase, PerpetualTrading):
                                                     "perpfi/position",
                                                     {"pair": convert_to_exchange_trading_pair(pair)}))
         positions = await safe_gather(*position_tasks, return_exceptions=True)
-        self._account_positions.clear()
         for trading_pair, position in zip(self._trading_pairs, positions):
             position = position.get("position", {})
             amount = self.quantize_order_amount(trading_pair, Decimal(position.get("size")))
@@ -517,15 +516,18 @@ class PerpetualFinanceDerivative(ConnectorBase, PerpetualTrading):
                 unrealized_pnl = self.quantize_order_amount(trading_pair, Decimal(position.get("pnl")))
                 entry_price = self.quantize_order_price(trading_pair, Decimal(position.get("entryPrice")))
                 leverage = self._leverage[trading_pair]
-                self._account_positions.append(Position(
+                self._account_positions[self.position_key(trading_pair)] = Position(
                     trading_pair=trading_pair,
                     position_side=position_side,
                     unrealized_pnl=unrealized_pnl,
                     entry_price=entry_price,
                     amount=amount,
                     leverage=leverage
-                ))
+                )
             else:
+                if self.position_key(trading_pair) in self._account_positions:
+                    del self._account_positions[self.position_key(trading_pair)]
+
                 payment = Decimal(str(position.get("fundingPayment")))
                 oldPayment = self._fundingPayment.get(trading_pair, 0)
                 if payment != oldPayment:
