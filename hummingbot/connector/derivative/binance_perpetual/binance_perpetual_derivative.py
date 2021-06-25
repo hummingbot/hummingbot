@@ -578,14 +578,12 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
 
                     # update position
                     for asset in update_data.get("P", []):
-                        position = [p for p in self._account_positions if p.trading_pair == asset['s'] and
-                                    p.position_side.name == asset['ps']]
-                        if position:
-                            position = position[0]
+                        position = self.get_position(asset['s'], PositionSide[asset['ps']])
+                        if position is not None:
                             position.update_position(position_side=PositionSide[asset["ps"]],
-                                                     unrealized_pnl=Decimal(asset["up"]),
-                                                     entry_price=Decimal(asset["ep"]),
-                                                     amount=Decimal(asset["pa"]))
+                                                     unrealized_pnl = Decimal(asset["up"]),
+                                                     entry_price = Decimal(asset["ep"]),
+                                                     amount = Decimal(asset["pa"]))
                         else:
                             await self._update_positions()
                 elif event_type == "MARGIN_CALL":
@@ -594,10 +592,8 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                     # total_pnl = 0
                     negative_pnls_msg = ""
                     for position in positions:
-                        existing_position = [p for p in self._account_positions if p.trading_pair == asset['s'] and
-                                             p.position_side.name == asset['ps']]
-                        if existing_position:
-                            existing_position = existing_position[0]
+                        existing_position = self.get_position(asset['s'], PositionSide[asset['ps']])
+                        if existing_position is not None:
                             existing_position.update_position(position_side=PositionSide[asset["ps"]],
                                                               unrealized_pnl=Decimal(asset["up"]),
                                                               amount=Decimal(asset["pa"]))
@@ -797,7 +793,6 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
 
     async def _update_positions(self):
         positions = await self.request(path="/fapi/v2/positionRisk", add_timestamp=True, is_signed=True)
-        self._account_positions.clear()
         for position in positions:
             trading_pair = position.get("symbol")
             position_side = PositionSide[position.get("positionSide")]
@@ -806,14 +801,17 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             amount = Decimal(position.get("positionAmt"))
             leverage = Decimal(position.get("leverage"))
             if amount != 0:
-                self._account_positions.append(Position(
+                self._account_positions[self.position_key(trading_pair, position_side)] = Position(
                     trading_pair=convert_from_exchange_trading_pair(trading_pair),
                     position_side=position_side,
                     unrealized_pnl=unrealized_pnl,
                     entry_price=entry_price,
                     amount=amount,
                     leverage=leverage
-                ))
+                )
+            else:
+                if (trading_pair + position_side.name) in self._account_positions:
+                    del self._account_positions[trading_pair + position_side.name]
 
     async def _update_order_fills_from_trades(self):
         last_tick = int(self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
