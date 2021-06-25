@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Dict, List
+from typing import Dict, List, Optional
 from hummingbot.core.event.events import PositionMode, FundingInfo, PositionSide
 from hummingbot.connector.derivative.position import Position
 
@@ -40,6 +40,15 @@ class PerpetualTrading:
             return trading_pair
         elif self._position_mode == PositionMode.HEDGE:
             return f"{trading_pair}{side.name}"
+
+    def get_position(self, trading_pair: str, side: PositionSide = None) -> Optional[Position]:
+        """
+        Returns an active position if exists, otherwise returns None
+        :param trading_pair: The market trading pair
+        :param side: The position side (long or short)
+        :return: A position from account_positions or None
+        """
+        return self.account_positions.get(self.position_key(trading_pair, side), None)
 
     @property
     def funding_payment_span(self) -> List[int]:
