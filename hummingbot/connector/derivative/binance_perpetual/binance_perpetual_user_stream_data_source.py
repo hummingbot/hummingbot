@@ -67,12 +67,9 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                     self._last_recv_time = time.time()
                     yield raw_msg
                 except asyncio.TimeoutError:
-                    try:
-                        self._last_recv_time = time.time()
-                        pong_waiter = await client.ping()
-                        await asyncio.wait_for(pong_waiter, timeout=50.0)
-                    except asyncio.TimeoutError:
-                        raise
+                    self._last_recv_time = time.time()
+                    pong_waiter = await client.ping()
+                    await asyncio.wait_for(pong_waiter, timeout=50.0)
         except asyncio.TimeoutError:
             self.logger().warning("Websocket ping timed out. Going to reconnect... ")
             return
