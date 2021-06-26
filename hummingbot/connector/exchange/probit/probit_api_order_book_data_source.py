@@ -64,7 +64,7 @@ class ProbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
             async with client.get(f"{CONSTANTS.MARKETS_URL.format(domain)}") as response:
                 if response.status == 200:
                     resp_json: Dict[str, Any] = await response.json()
-                    return [market["id"] for market in resp_json["data"]]
+                    return [market["id"] for market in resp_json["data"] if market["closed"] is False]
                 return []
 
     @staticmethod
@@ -102,11 +102,8 @@ class ProbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 msg: str = await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)
                 yield msg
         except asyncio.TimeoutError:
-            try:
-                pong_waiter = await ws.ping()
-                await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
-            except asyncio.TimeoutError:
-                raise
+            pong_waiter = await ws.ping()
+            await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
         except websockets.exceptions.ConnectionClosed:
             return
         finally:

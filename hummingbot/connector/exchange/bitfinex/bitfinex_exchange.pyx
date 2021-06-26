@@ -471,8 +471,6 @@ cdef class BitfinexExchange(ExchangeBase):
 
         try:
             return await self._api_private_fn(http_method, path_url, data)
-        except Exception:
-            raise
         finally:
             self._pending_requests.pop(0)
 

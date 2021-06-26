@@ -201,11 +201,8 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def _get_response(self, ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
         try:
             while True:
-                try:
-                    msg: str = await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)
-                    yield msg
-                except asyncio.TimeoutError:
-                    raise
+                msg: str = await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)
+                yield msg
         except asyncio.TimeoutError:
             self.logger().warning("WebSocket ping timed out. Going to reconnect...")
             return
