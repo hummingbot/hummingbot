@@ -434,8 +434,6 @@ class GateIoExchange(ExchangeBase):
         :param order_type: The order type
         :param price: The order price
         """
-        if not order_type.is_limit_type():
-            raise Exception(f"Unsupported order type: {order_type}")
         trading_rule = self._trading_rules[trading_pair]
 
         amount = self.quantize_order_amount(trading_pair, amount)
