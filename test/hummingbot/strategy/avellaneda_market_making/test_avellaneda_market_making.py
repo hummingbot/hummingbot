@@ -114,6 +114,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.clock.add_iterator(self.market)
         self.clock.add_iterator(self.strategy)
         self.strategy.start(self.clock, self.start_timestamp)
+        self.clock.backtest_til(self.start_timestamp)
 
     @staticmethod
     def simulate_low_volatility(strategy: AvellanedaMarketMakingStrategy):
