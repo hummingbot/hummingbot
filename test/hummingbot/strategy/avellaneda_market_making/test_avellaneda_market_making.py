@@ -1247,9 +1247,6 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.market.set_balance("COINALPHA", 100)
         self.market.set_balance("HBOT", 50000)
 
-        # Remove the default strategy from the clock, because we will create a different one for the test
-        self.clock.remove_iterator(self.strategy)
-
         # Create a new strategy, with hanging orders enabled
         self.strategy = AvellanedaMarketMakingStrategy(
             market_info=self.market_info,
@@ -1263,6 +1260,11 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
             hanging_orders_cancel_pct=Decimal(1),
             filled_order_delay=30
         )
+
+        # Create a new clock to start the strategy from scratch
+        self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
+        self.clock.add_iterator(self.market)
+        self.clock.add_iterator(self.strategy)
 
         self.strategy.avg_vol = self.avg_vol_indicator
         self.clock.add_iterator(self.strategy)
