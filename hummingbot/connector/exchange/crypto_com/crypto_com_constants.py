@@ -1,12 +1,37 @@
 # A single source of truth for constant variables related to the exchange
 
 
+from hummingbot.core.utils.asyncio_throttle import RateLimitType
+
 EXCHANGE_NAME = "crypto_com"
 REST_URL = "https://api.crypto.com/v2"
 # WSS_PRIVATE_URL = "wss://stream.crypto.com/v2/user"
 WSS_PRIVATE_URL = "wss://d289dek49b4wqs.cloudfront.net/v2/user"
 # WSS_PUBLIC_URL = "wss://stream.crypto.com/v2/market"
 WSS_PUBLIC_URL = "wss://d10tq1f9ygdz7y.cloudfront.net/v2/market"
+
+# REST API ENDPOINTS
+CHECK_NETWORK_PATH_URL = "public/get-ticker?instrument_name=BTC_USDT"
+GET_TRADING_RULES_PATH_URL = "public/get-instruments"
+CREATE_ORDER_PATH_URL = "private/create-order"
+CANCEL_ORDER_PATH_URL = "private/cancel-order"
+GET_ACCOUNT_SUMMARY_PATH_URL = "private/get-account-summary"
+GET_ORDER_DETAIL_PATH_URL = "private/get-order-detail"
+GET_OPEN_ORDERS_PATH_URL = "private/get-open-orders"
+
+RATE_LIMIT_TYPE = RateLimitType.PER_METHOD
+
+# Crypto.com has a per method API limit
+RATE_LIMITS = {
+    # PATH_URL :                Tuple[RateLimit, TimeInterval]
+    CHECK_NETWORK_PATH_URL: (100, 1),
+    GET_TRADING_RULES_PATH_URL: (100, 1),
+    CREATE_ORDER_PATH_URL: (15, 0.1),
+    CANCEL_ORDER_PATH_URL: (15, 0.1),
+    GET_ACCOUNT_SUMMARY_PATH_URL: (3, 0.1),
+    GET_ORDER_DETAIL_PATH_URL: (30, 0.1),
+    GET_OPEN_ORDERS_PATH_URL: (3, 0.1),
+}
 
 API_REASONS = {
     0: "Success",
