@@ -537,8 +537,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         return self.c_cancel_order(self._market_info, order_id)
 
     cdef c_start(self, Clock clock, double timestamp):
-        # TODO
-        print("Entering c_start")
         StrategyBase.c_start(self, clock, timestamp)
         self._last_timestamp = timestamp
         # start tracking any restored limit order
@@ -561,9 +559,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                                            (self._logging_options & self.OPTION_LOG_STATUS_REPORT))
             object proposal
 
-        # TODO
-        print(f"Entering c_tick for {self._current_timestamp}")
-        print(f"    Current price: {self.get_price()}")
         try:
             if not self._all_markets_ready:
                 self._all_markets_ready = all([mkt.ready for mkt in self._sb_markets])
@@ -606,15 +601,10 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 if refresh_proposal is not None:
                     self.c_execute_orders_proposal(refresh_proposal)
 
-                # TODO
-                print(f"    Create timestamp: {self._create_timestamp} - Cancel timestamp: {self._cancel_timestamp}")
-                print(f"    In {self._current_timestamp} will create orders? {self.c_to_create_orders(proposal)}")
                 if self.c_to_create_orders(proposal):
                     self._hanging_orders_tracker.update_strategy_orders_with_equivalent_orders()
                     # 4. Apply budget constraint (after hanging orders were created), i.e. can't buy/sell more than what you have.
                     self.c_apply_budget_constraint(proposal)
-                    # TODO
-                    print(f"    Entering c_execute_orders_proposal with {proposal}")
                     self.c_execute_orders_proposal(proposal)
 
                 if self._is_debug:
@@ -931,8 +921,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                                          o.price,
                                          o.amount) for o in
                               self._hanging_orders_tracker.orders_to_be_created]
-        # TODO
-        print(f"New hanging orders: {new_hanging_orders}")
+
         return self.c_get_adjusted_available_balance(self.active_non_hanging_orders +
                                                      new_hanging_orders)
 
@@ -1131,8 +1120,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         # delay order creation by filled_order_delay (in seconds)
         self._create_timestamp = self._current_timestamp + self._filled_order_delay
         self._cancel_timestamp = min(self._cancel_timestamp, self._create_timestamp)
-        # TODO
-        print(f"*** Set create_timestamp to {self._create_timestamp} and cancel_timestamp to {self._cancel_timestamp}")
 
         self._filled_buys_balance += 1
         self._last_own_trade_price = limit_order_record.price
@@ -1166,8 +1153,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         # delay order creation by filled_order_delay (in seconds)
         self._create_timestamp = self._current_timestamp + self._filled_order_delay
         self._cancel_timestamp = min(self._cancel_timestamp, self._create_timestamp)
-        # TODO
-        print(f"*** Set create_timestamp to {self._create_timestamp} and cancel_timestamp to {self._cancel_timestamp}")
 
         self._filled_sells_balance += 1
         self._last_own_trade_price = limit_order_record.price
@@ -1208,24 +1193,25 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             if ((self._market_info.market.name in self.RADAR_RELAY_TYPE_EXCHANGES) or
                     (self._market_info.market.name == "bamboo_relay" and not self._market_info.market.use_coordinator)):
                 return
-
         cdef:
             list active_buy_prices = []
             list active_sells = []
             bint to_defer_canceling = False
-        if len(self.active_orders) == 0:
+        if len(self.active_non_hanging_orders) == 0:
             return
         if proposal is not None:
             active_buy_prices = [Decimal(str(o.price)) for o in self.active_non_hanging_orders if o.is_buy]
             active_sell_prices = [Decimal(str(o.price)) for o in self.active_non_hanging_orders if not o.is_buy]
             proposal_buys = [buy.price for buy in proposal.buys]
             proposal_sells = [sell.price for sell in proposal.sells]
+
             if self.c_is_within_tolerance(active_buy_prices, proposal_buys) and \
                     self.c_is_within_tolerance(active_sell_prices, proposal_sells):
                 to_defer_canceling = True
 
         if not to_defer_canceling:
             self._hanging_orders_tracker.add_hanging_orders_based_on_partially_executed_pairs()
+            self._hanging_orders_tracker.update_strategy_orders_with_equivalent_orders()
             for order in self.active_non_hanging_orders:
                 # If is about to be added to hanging_orders then don't cancel
                 if not self._hanging_orders_tracker.is_order_to_be_added_to_hanging_orders(order):
@@ -1286,11 +1272,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                                          else NaN)
             str bid_order_id, ask_order_id
             bint orders_created = False
-        # TODO
-        print(f"        Entering c_execute_orders_proposal with {proposal}")
         # Number of pair of orders to track for hanging orders
-        # TODO
-        print(f"        Buys: {len(proposal.buys)}, Sells: {len(proposal.sells)}, HO enabled: {self._hanging_orders_enabled}")
         number_of_pairs = min((len(proposal.buys), len(proposal.sells))) if self._hanging_orders_enabled else 0
 
         if len(proposal.buys) > 0:
@@ -1311,8 +1293,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     expiration_seconds=expiration_seconds
                 )
                 orders_created = True
-                # TODO
-                print(f"    Cycling buys({bid_order_id}) - {idx} idx and {number_of_pairs} number_of_pairs")
                 if idx < number_of_pairs:
                     order = next((o for o in self.active_orders if o.client_order_id == bid_order_id))
                     if order:
