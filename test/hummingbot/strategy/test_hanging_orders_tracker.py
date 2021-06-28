@@ -107,7 +107,6 @@ class TestHangingOrdersTracker(unittest.TestCase):
 
         with patch('time.time', return_value=current_time_mock):
             self.tracker.update_strategy_orders_with_equivalent_orders()
-            self.tracker.execute_orders_to_be_created()
             self.tracker.renew_hanging_orders_past_max_order_age()
             self.assertEqual(self.tracker.orders_to_be_created, {HangingOrder(None,
                                                                               "BTC-USDT",
