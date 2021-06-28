@@ -64,12 +64,13 @@ class UniswapV3Connector(UniswapConnector):
         """
         while True:
             try:
-                self.logger().info(f"Initializing Uniswap connector and paths for {self._trading_pairs} pairs.")
+                # self.logger().info(f"Initializing Uniswap connector and paths for {self._trading_pairs} pairs.")
                 resp = await self._api_request("get", "eth/uniswap/v3/start",
                                                {"pairs": json.dumps(self._trading_pairs)})
                 status = bool(str(resp["success"]))
                 if bool(str(resp["success"])):
                     self._initiate_pool_status = status
+                    self._trading_pairs = resp["pairs"]
                     await asyncio.sleep(60)
             except asyncio.CancelledError:
                 raise
@@ -110,15 +111,15 @@ class UniswapV3Connector(UniswapConnector):
         }
         return {"orders": orders, "positions": positions}
 
-    def parse_liquidity_events(self, events):
+    def parse_liquidity_events(self, events, base_decimals, quote_decimals):
         token_id = amount0 = amount1 = 0
         for event in events:
             if event["name"] == "tokenId":
                 token_id = event["value"]
             elif event["name"] == "amount0":
-                amount0 = event["value"]
+                amount0 = Decimal(event["value"]) / 10 ** base_decimals
             elif event["name"] == "amount1":
-                amount1 = event["value"]
+                amount1 = Decimal(event["value"]) / 10 ** quote_decimals
         return token_id, amount0, amount1
 
     async def update_swap_order(self, update_result: Dict[str, any], tracked_order: UniswapInFlightOrder):
@@ -180,10 +181,13 @@ class UniswapV3Connector(UniswapConnector):
             if update_result["receipt"].get("status", 0) == 1:
                 transaction_results = await self._api_request("post",
                                                               "eth/uniswap/v3/result",
-                                                              {"logs": json.dumps(update_result["receipt"]["logs"])})
+                                                              {"logs": json.dumps(update_result["receipt"]["logs"]),
+                                                               "pair": tracked_pos.trading_pair})
                 for result in transaction_results["info"]:
                     if result["name"] == "IncreaseLiquidity" and tracked_pos.last_status == UniswapV3PositionStatus.PENDING_CREATE:
-                        token_id, amount0, amount1 = self.parse_liquidity_events(result["events"])
+                        token_id, amount0, amount1 = self.parse_liquidity_events(result["events"],
+                                                                                 transaction_results["baseDecimal"],
+                                                                                 transaction_results["quoteDecimal"])
                         tracked_pos.token_id = token_id
                         tracked_pos.base_amount = amount0
                         tracked_pos.quote_amount = amount1
@@ -213,7 +217,9 @@ class UniswapV3Connector(UniswapConnector):
                                                                      tracked_pos.gas_price
                                                                      ))
                     elif result["name"] == "DecreaseLiquidity" and tracked_pos.last_status == UniswapV3PositionStatus.PENDING_REMOVE:
-                        token_id, amount0, amount1 = self.parse_liquidity_events(result["events"])
+                        token_id, amount0, amount1 = self.parse_liquidity_events(result["events"],
+                                                                                 transaction_results["baseDecimal"],
+                                                                                 transaction_results["quoteDecimal"])
                         tracked_pos.token_id = token_id
                         tracked_pos.last_status = UniswapV3PositionStatus.REMOVED
                         self.logger().info(f"Liquidity decreased for tokenID - {token_id}.")
@@ -288,9 +294,18 @@ class UniswapV3Connector(UniswapConnector):
             position_results = await safe_gather(*tasks, return_exceptions=True)
             for update_result, tracked_item in zip(position_results, open_positions):
                 if not isinstance(update_result, Exception) and len(update_result.get("position", {})) > 0:
-                    tracked_item.lower_price = update_result["position"].get("lowerPrice", Decimal("0"))
-                    tracked_item.upper_price = update_result["position"].get("upperPrice", Decimal("0"))
-                    # To-do in subsequent itearations, other fields from the position response would be updated
+                    tracked_item.lower_price = Decimal(update_result["position"].get("lowerPrice", "0"))
+                    tracked_item.upper_price = Decimal(update_result["position"].get("upperPrice", "0"))
+                    if tracked_item.trading_pair.split("-")[0] == update_result["position"]["token0"]:
+                        tracked_item.current_base_amount = Decimal(update_result["position"].get("amount0", "0"))
+                        tracked_item.current_quote_amount = Decimal(update_result["position"].get("amount1", "0"))
+                        tracked_item.unclaimed_base_amount = Decimal(update_result["position"].get("unclaimedToken0", "0"))
+                        tracked_item.unclaimed_quote_amount = Decimal(update_result["position"].get("unclaimedToken1", "0"))
+                    else:
+                        tracked_item.current_base_amount = Decimal(update_result["position"].get("amount1", "0"))
+                        tracked_item.current_quote_amount = Decimal(update_result["position"].get("amount0", "0"))
+                        tracked_item.unclaimed_base_amount = Decimal(update_result["position"].get("unclaimedToken1", "0"))
+                        tracked_item.unclaimed_quote_amount = Decimal(update_result["position"].get("unclaimedToken0", "0"))
 
     def add_position(self,
                      trading_pair: str,
@@ -471,7 +486,7 @@ class UniswapV3Connector(UniswapConnector):
                                             "tier": tier.upper(),
                                             "seconds": seconds})
 
-            return Decimal(str(resp["twap"])) if twap else Decimal(str(resp["price"]))
+            return resp["prices"] if twap else Decimal(str(resp["price"]))
         except asyncio.CancelledError:
             raise
         except Exception as e:
