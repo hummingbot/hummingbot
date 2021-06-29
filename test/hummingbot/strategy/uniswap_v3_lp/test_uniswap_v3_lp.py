@@ -74,18 +74,36 @@ class UniswapV3LpStrategyTest(unittest.TestCase):
 
         self.default_strategy = UniswapV3LpStrategy(
             self.market_infos[trading_pairs[0]],
+            True,
+            Decimal("144"),
+            Decimal("2"),
             "MEDIUM",
             Decimal('0.01'),
             Decimal('0.01'),
             Decimal('1'),
-            Decimal('1')
+            Decimal('1'),
+            Decimal('5'),
         )
 
-    def test_generate_proposal(self):
+    def test_generate_proposal_with_volatility(self):
         """
         Test that the generate proposal function works correctly
         """
 
+        self.default_strategy._last_price = Decimal("100")
+        buy_lower, buy_upper = self.default_strategy.generate_proposal(True)
+        self.assertEqual(buy_upper, Decimal("100"))
+        self.assertEqual(buy_lower, Decimal("99"))
+        sell_lower, sell_upper = self.default_strategy.generate_proposal(False)
+        self.assertEqual(sell_upper, Decimal("101"))
+        self.assertEqual(sell_lower, Decimal("100"))
+
+    def test_generate_proposal_without_volatility(self):
+        """
+        Test that the generate proposal function works correctly
+        """
+
+        self.default_strategy._use_volatility = False
         self.default_strategy._last_price = Decimal("100")
         buy_lower, buy_upper = self.default_strategy.generate_proposal(True)
         self.assertEqual(buy_upper, Decimal("100"))

@@ -29,4 +29,3 @@ class HistoricalVolatilityIndicatorUnitTest(unittest.TestCase):
         # test historical_volatility calcluation
         self.assertEqual(PerformanceMetrics.smart_round(Decimal(str(historical_volatility.current_value))),
                          PerformanceMetrics.smart_round(Decimal("0.006602295840346792")))
-        # self.assertEqual(historical_volatility.current_value, 0.006959421377874)
