@@ -378,14 +378,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         return self._market_info.get_mid_price()
 
     @property
-    def max_order_age(self):
-        return self._max_order_age
-
-    @max_order_age.setter
-    def max_order_age(self, value):
-        self._max_order_age = value
-
-    @property
     def market_info_to_active_orders(self) -> Dict[MarketTradingPairTuple, List[LimitOrder]]:
         return self._sb_order_tracker.market_pair_to_active_orders
 
