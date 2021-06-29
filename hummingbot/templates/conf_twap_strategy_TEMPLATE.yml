@@ -2,7 +2,7 @@
 ###       Execution4 strategy config               ###
 ########################################################
 
-template_version: 4
+template_version: 5
 strategy: null
 # The following configuations are only required for the
 # twap strategy
@@ -25,11 +25,23 @@ order_price: null
 # it will cancel the limit order.
 cancel_order_wait_time: null
 
-# How long to between placing incremental orders
-order_delay_time: null
-
 # Specify buy/sell.
 trade_side: "buy"
+
+# Specifies if the strategy should run during a fixed time span
+is_time_span_execution: False
+
+# Date and time the strategy should start running
+# Only valid if is_time_span_execution is True
+start_datetime: null
+
+# Date and time the strategy should stop running
+# Only valid if is_time_span_execution is True
+end_datetime: null
+
+# How long to between placing incremental orders
+# Only valid if is_time_span_execution is False
+order_delay_time: null
 
 # For more detailed information, see:
 # https://docs.hummingbot.io/strategies/simple-trade/#configuration-parameters
