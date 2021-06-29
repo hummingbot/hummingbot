@@ -602,7 +602,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     self.c_execute_orders_proposal(refresh_proposal)
 
                 if self.c_to_create_orders(proposal):
-                    self._hanging_orders_tracker.update_strategy_orders_with_equivalent_orders()
                     # 4. Apply budget constraint (after hanging orders were created), i.e. can't buy/sell more than what you have.
                     self.c_apply_budget_constraint(proposal)
                     self.c_execute_orders_proposal(proposal)
