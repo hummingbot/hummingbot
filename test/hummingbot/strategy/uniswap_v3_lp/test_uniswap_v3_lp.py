@@ -147,5 +147,4 @@ class UniswapV3LpStrategyTest(unittest.TestCase):
         pos.unclaimed_quote_amount = Decimal("10")
         pos.gas_price = Decimal("5")
         result = self.default_strategy.calculate_profitability(pos)
-        self.assertEqual(result["tx_fee"], 10)
         self.assertEqual(result["profitability"], 1)
