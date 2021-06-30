@@ -6,9 +6,6 @@ import requests
 
 from aiohttp import web
 from unittest.mock import patch
-from typing import (
-    List,
-)
 
 from hummingbot.core.mock_api.mock_web_server import MockWebServer
 from hummingbot.core.utils.api_throttler import APIThrottler, RateLimit, RateLimitType
@@ -16,19 +13,18 @@ from hummingbot.core.utils.api_throttler import APIThrottler, RateLimit, RateLim
 BASE_URL = "www.hbottesst.com"
 
 
-WEIGHTED_PATH_URL = "/test_weighted"
-PER_METHOD_PATH_URL = "/test_per_method"
+TEST_PATH_URL = "/test"
 
 FIXED_RATE_LIMIT = [
-    RateLimit(100, 1)
+    RateLimit(5, 1)
 ]
 
 WEIGHTED_RATE_LIMIT = [
-    RateLimit(100, 10, WEIGHTED_PATH_URL, 2)
+    RateLimit(5, 1, TEST_PATH_URL, 2)
 ]
 
 PER_METHOD_RATE_LIMIT = [
-    RateLimit(5, 1, PER_METHOD_PATH_URL)
+    RateLimit(5, 1, TEST_PATH_URL)
 ]
 
 
@@ -37,6 +33,10 @@ class ThrottledMockServer(MockWebServer):
     def __init__(self):
         super().__init__()
         self._request_count = 0
+
+    @property
+    def request_count(self) -> int:
+        return self._request_count
 
     async def _handler(self, request: web.Request):
         self._request_count += 1
@@ -67,7 +67,7 @@ class APIThrottlerUnitTests(unittest.TestCase):
         cls.mock_server.clear_responses()
         cls.mock_server.update_response(method="GET",
                                         host=BASE_URL,
-                                        path=PER_METHOD_PATH_URL,
+                                        path=TEST_PATH_URL,
                                         data=cls.mock_server.TEST_RESPONSE,
                                         is_json=False
                                         )
@@ -79,7 +79,9 @@ class APIThrottlerUnitTests(unittest.TestCase):
                                                       rate_limit_type=RateLimitType.PER_METHOD,
                                                       retry_interval=5.0)
 
-        # self.fixed_rate_throttler = APIThrottler()
+        self.fixed_rate_throttler = APIThrottler(rate_limit_list=FIXED_RATE_LIMIT,
+                                                 rate_limit_type=RateLimitType.FIXED,
+                                                 retry_interval=5.0)
         # self.weighted_rate_throttler = APIThrottler()
 
     @classmethod
@@ -89,49 +91,97 @@ class APIThrottlerUnitTests(unittest.TestCase):
         cls._req_patcher.stop()
         super().tearDownClass()
 
-    async def execute_n_per_method_requests(self, n: int, throttler: APIThrottler, message_queue: List[str]):
+    async def execute_n_per_method_requests(self, n: int, throttler: APIThrottler):
         for _ in range(n):
-            async with throttler.per_method_task(path_url=PER_METHOD_PATH_URL):
+            async with throttler.per_method_task(path_url=TEST_PATH_URL):
                 async with aiohttp.ClientSession() as client:
-                    async with client.get(f"https://{BASE_URL + PER_METHOD_PATH_URL}") as resp:
-                        data: str = await resp.text()
-                        message_queue.append(data)
+                    await client.get(f"https://{BASE_URL + TEST_PATH_URL}")
+
+    async def execute_n_fixed_requests(self, n: int, throttler: APIThrottler):
+        for _ in range(n):
+            async with throttler.fixed_rate_task():
+                async with aiohttp.ClientSession() as client:
+                    await client.get(f"https://{BASE_URL + TEST_PATH_URL}")
 
     def test_per_method_rate_throttler_above_limit(self):
         # Test Scenario: API requests sent > Rate Limit
         n: int = 10
-        result_message: List[str] = []
+        limit: int = PER_METHOD_RATE_LIMIT[0].limit
 
-        # Note that we assert a timeout; ensuring that the throttler does not wait for the limit interval
+        # Note: We assert a timeout ensuring that the throttler does not wait for the limit interval
         with self.assertRaises(asyncio.exceptions.TimeoutError):
             self.ev_loop.run_until_complete(
                 asyncio.wait_for(
                     self.execute_n_per_method_requests(n,
-                                                       throttler=self.per_method_rate_throttler,
-                                                       message_queue=result_message),
+                                                       throttler=self.per_method_rate_throttler),
                     timeout=1.0))
-        self.assertEqual(len(result_message), PER_METHOD_RATE_LIMIT[0].limit)
+
+        self.assertEqual(limit, self.mock_server.request_count)
 
     def test_per_method_rate_throttler_below_limit(self):
         # Test Scenario: API requests sent < Rate Limit
         n: int = random.randint(1, PER_METHOD_RATE_LIMIT[0].limit - 1)
-        result_message: List[str] = []
-        self.ev_loop.run_until_complete(asyncio.wait_for(
-            self.execute_n_per_method_requests(n,
-                                               throttler=self.per_method_rate_throttler,
-                                               message_queue=result_message),
-            timeout=1.0))
+        limit: int = PER_METHOD_RATE_LIMIT[0].limit
 
-        self.assertLessEqual(len(result_message), PER_METHOD_RATE_LIMIT[0].limit)
+        self.ev_loop.run_until_complete(
+            self.execute_n_per_method_requests(n,
+                                               throttler=self.per_method_rate_throttler))
+
+        self.assertEqual(self.mock_server.request_count, n)
+        self.assertLess(self.mock_server.request_count, limit)
 
     def test_per_method_rate_throttler_equal_limit(self):
         # Test Scenario: API requests sent = Rate Limit
-        n: int = 5
-        result_message: List[str] = []
-        self.ev_loop.run_until_complete(asyncio.wait_for(
-            self.execute_n_per_method_requests(n,
-                                               throttler=self.per_method_rate_throttler,
-                                               message_queue=result_message),
-            timeout=1.0))
+        n = limit = PER_METHOD_RATE_LIMIT[0].limit
 
-        self.assertEqual(len(result_message), PER_METHOD_RATE_LIMIT[0].limit)
+        self.ev_loop.run_until_complete(
+            self.execute_n_per_method_requests(n,
+                                               throttler=self.per_method_rate_throttler))
+
+        self.assertEqual(self.mock_server.request_count, limit)
+
+    def test_fixed_rate_throttler_above_limit(self):
+        # Test Scenario: API requests sent > Rate Limit
+        n: int = 10
+        limit: int = FIXED_RATE_LIMIT[0].limit
+
+        # Note: We assert a timeout ensuring that the throttler does not wait for the limit interval
+        with self.assertRaises(asyncio.exceptions.TimeoutError):
+            self.ev_loop.run_until_complete(
+                asyncio.wait_for(
+                    self.execute_n_fixed_requests(n,
+                                                  throttler=self.fixed_rate_throttler),
+                    timeout=1.0))
+
+        self.assertEqual(limit, self.mock_server.request_count)
+
+    def test_fixed_rate_throttler_below_limit(self):
+        # Test Scenario: API requests sent < Rate Limit
+        n: int = random.randint(1, FIXED_RATE_LIMIT[0].limit - 1)
+        limit: int = FIXED_RATE_LIMIT[0].limit
+
+        self.ev_loop.run_until_complete(
+            self.execute_n_fixed_requests(n,
+                                          throttler=self.fixed_rate_throttler))
+
+        self.assertEqual(self.mock_server.request_count, n)
+        self.assertLess(self.mock_server.request_count, limit)
+
+    def test_fixed_rate_throttler_equal_limit(self):
+        # Test Scenario: API requests sent = Rate Limit
+        n = limit = FIXED_RATE_LIMIT[0].limit
+
+        self.ev_loop.run_until_complete(
+            self.execute_n_fixed_requests(n,
+                                          throttler=self.fixed_rate_throttler))
+
+        self.assertEqual(self.mock_server.request_count, limit)
+
+    def test_weighted_rate_throttler_above_limit(self):
+        pass
+
+    def test_weighted_rate_throttler_below_limit(self):
+        pass
+
+    def test_weighted_rate_throttler_equal_limit(self):
+        pass

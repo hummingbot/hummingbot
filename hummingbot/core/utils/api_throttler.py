@@ -76,7 +76,7 @@ class APIThrottler:
         )
 
     def fixed_rate_task(self):
-        rate_limit: RateLimit = next(iter(self._path_rate_limit_map.items()))
+        rate_limit: RateLimit = next(iter(self._path_rate_limit_map.values()))
 
         return APIRequestContext(
             task_logs=self._task_logs,
