@@ -16,15 +16,15 @@ BASE_URL = "www.hbottesst.com"
 TEST_PATH_URL = "/test"
 
 FIXED_RATE_LIMIT = [
-    RateLimit(5, 1)
+    RateLimit(5, 5)
 ]
 
 WEIGHTED_RATE_LIMIT = [
-    RateLimit(5, 1, TEST_PATH_URL, 2)
+    RateLimit(5, 5, TEST_PATH_URL, 2)
 ]
 
 PER_METHOD_RATE_LIMIT = [
-    RateLimit(5, 1, TEST_PATH_URL)
+    RateLimit(5, 5, TEST_PATH_URL)
 ]
 
 
@@ -82,7 +82,10 @@ class APIThrottlerUnitTests(unittest.TestCase):
         self.fixed_rate_throttler = APIThrottler(rate_limit_list=FIXED_RATE_LIMIT,
                                                  rate_limit_type=RateLimitType.FIXED,
                                                  retry_interval=5.0)
-        # self.weighted_rate_throttler = APIThrottler()
+
+        self.weighted_rate_throttler = APIThrottler(rate_limit_list=WEIGHTED_RATE_LIMIT,
+                                                    rate_limit_type=RateLimitType.WEIGHTED,
+                                                    retry_interval=5.0)
 
     @classmethod
     def tearDownClass(cls):
@@ -100,6 +103,12 @@ class APIThrottlerUnitTests(unittest.TestCase):
     async def execute_n_fixed_requests(self, n: int, throttler: APIThrottler):
         for _ in range(n):
             async with throttler.fixed_rate_task():
+                async with aiohttp.ClientSession() as client:
+                    await client.get(f"https://{BASE_URL + TEST_PATH_URL}")
+
+    async def execute_n_weighted_requests(self, n: int, throttler: APIThrottler):
+        for _ in range(n):
+            async with throttler.weighted_task(path_url=TEST_PATH_URL):
                 async with aiohttp.ClientSession() as client:
                     await client.get(f"https://{BASE_URL + TEST_PATH_URL}")
 
@@ -178,10 +187,43 @@ class APIThrottlerUnitTests(unittest.TestCase):
         self.assertEqual(self.mock_server.request_count, limit)
 
     def test_weighted_rate_throttler_above_limit(self):
-        pass
+        # Test Scenario: API requests sent > Rate Limit
+        n: int = 10
+        limit: int = WEIGHTED_RATE_LIMIT[0].limit
+        weight: int = WEIGHTED_RATE_LIMIT[0].weight
+
+        expected_request_count: int = limit // weight
+
+        # Note: We assert a timeout ensuring that the throttler does not wait for the limit interval
+        with self.assertRaises(asyncio.exceptions.TimeoutError):
+            self.ev_loop.run_until_complete(
+                asyncio.wait_for(
+                    self.execute_n_weighted_requests(n,
+                                                     throttler=self.weighted_rate_throttler),
+                    timeout=1.0))
+
+        self.assertEqual(expected_request_count, self.mock_server.request_count)
 
     def test_weighted_rate_throttler_below_limit(self):
-        pass
+        n: int = WEIGHTED_RATE_LIMIT[0].limit // WEIGHTED_RATE_LIMIT[0].weight
+
+        self.ev_loop.run_until_complete(
+            self.execute_n_weighted_requests(n,
+                                             throttler=self.weighted_rate_throttler))
+
+        self.assertEqual(n, self.mock_server.request_count)
 
     def test_weighted_rate_throttler_equal_limit(self):
-        pass
+        rate_limit: RateLimit = RateLimit(5, 5, TEST_PATH_URL, 1)
+
+        n: int = rate_limit.limit // rate_limit.weight
+
+        self.weighted_rate_throttler = APIThrottler(rate_limit_list=[rate_limit],
+                                                    rate_limit_type=RateLimitType.WEIGHTED,
+                                                    retry_interval=5.0)
+
+        self.ev_loop.run_until_complete(
+            self.execute_n_weighted_requests(n,
+                                             throttler=self.weighted_rate_throttler))
+
+        self.assertEqual(n, self.mock_server.request_count)
