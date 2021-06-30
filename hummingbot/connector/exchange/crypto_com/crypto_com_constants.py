@@ -1,5 +1,6 @@
 # A single source of truth for constant variables related to the exchange
 
+from hummingbot.core.utils.api_throttler import RateLimit
 
 EXCHANGE_NAME = "crypto_com"
 REST_URL = "https://api.crypto.com/v2"
@@ -18,16 +19,16 @@ GET_ORDER_DETAIL_PATH_URL = "private/get-order-detail"
 GET_OPEN_ORDERS_PATH_URL = "private/get-open-orders"
 
 # Crypto.com has a per method API limit
-RATE_LIMITS = {
-    # PATH_URL :                Tuple[RateLimit, TimeInterval]
-    CHECK_NETWORK_PATH_URL: (100, 1),
-    GET_TRADING_RULES_PATH_URL: (100, 1),
-    CREATE_ORDER_PATH_URL: (15, 0.1),
-    CANCEL_ORDER_PATH_URL: (15, 0.1),
-    GET_ACCOUNT_SUMMARY_PATH_URL: (3, 0.1),
-    GET_ORDER_DETAIL_PATH_URL: (30, 0.1),
-    GET_OPEN_ORDERS_PATH_URL: (3, 0.1),
-}
+RATE_LIMITS = [
+    # RateLimit(Limit, TimeInterval, RequestPath)
+    RateLimit(100, 1, path_url=CHECK_NETWORK_PATH_URL),
+    RateLimit(100, 1, path_url=GET_TRADING_RULES_PATH_URL),
+    RateLimit(15, 0.1, path_url=CREATE_ORDER_PATH_URL),
+    RateLimit(15, 0.1, path_url=CANCEL_ORDER_PATH_URL),
+    RateLimit(3, 0.1, path_url=GET_ACCOUNT_SUMMARY_PATH_URL),
+    RateLimit(30, 0.1, path_url=GET_ORDER_DETAIL_PATH_URL),
+    RateLimit(3, 0.1, path_url=GET_OPEN_ORDERS_PATH_URL),
+]
 
 API_REASONS = {
     0: "Success",
