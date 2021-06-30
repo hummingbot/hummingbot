@@ -21,7 +21,7 @@ EXAMPLE_PAIR = "BTC-USDT"
 
 DEFAULT_FEES = [0.2, 0.2]
 
-REQUEST_THROTTLER = Throttler(rate_limit = (12.0, 10.0))
+REQUEST_THROTTLER = Throttler(rate_limit = (18.0, 8.0))
 
 
 class GateIoAPIError(IOError):
