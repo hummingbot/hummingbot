@@ -120,10 +120,8 @@ class APIThrottlerUnitTests(unittest.TestCase):
         # Note: We assert a timeout ensuring that the throttler does not wait for the limit interval
         with self.assertRaises(asyncio.exceptions.TimeoutError):
             self.ev_loop.run_until_complete(
-                asyncio.wait_for(
-                    self.execute_n_per_method_requests(n,
-                                                       throttler=self.per_method_rate_throttler),
-                    timeout=1.0))
+                asyncio.wait_for(self.execute_n_per_method_requests(n, throttler=self.per_method_rate_throttler), timeout=1.0)
+            )
 
         self.assertEqual(limit, self.mock_server.request_count)
 
@@ -133,8 +131,7 @@ class APIThrottlerUnitTests(unittest.TestCase):
         limit: int = PER_METHOD_RATE_LIMIT[0].limit
 
         self.ev_loop.run_until_complete(
-            self.execute_n_per_method_requests(n,
-                                               throttler=self.per_method_rate_throttler))
+            self.execute_n_per_method_requests(n, throttler=self.per_method_rate_throttler))
 
         self.assertEqual(self.mock_server.request_count, n)
         self.assertLess(self.mock_server.request_count, limit)
@@ -144,8 +141,7 @@ class APIThrottlerUnitTests(unittest.TestCase):
         n = limit = PER_METHOD_RATE_LIMIT[0].limit
 
         self.ev_loop.run_until_complete(
-            self.execute_n_per_method_requests(n,
-                                               throttler=self.per_method_rate_throttler))
+            self.execute_n_per_method_requests(n, throttler=self.per_method_rate_throttler))
 
         self.assertEqual(self.mock_server.request_count, limit)
 
@@ -157,10 +153,8 @@ class APIThrottlerUnitTests(unittest.TestCase):
         # Note: We assert a timeout ensuring that the throttler does not wait for the limit interval
         with self.assertRaises(asyncio.exceptions.TimeoutError):
             self.ev_loop.run_until_complete(
-                asyncio.wait_for(
-                    self.execute_n_fixed_requests(n,
-                                                  throttler=self.fixed_rate_throttler),
-                    timeout=1.0))
+                asyncio.wait_for(self.execute_n_fixed_requests(n, throttler=self.fixed_rate_throttler), timeout=1.0)
+            )
 
         self.assertEqual(limit, self.mock_server.request_count)
 
@@ -170,8 +164,7 @@ class APIThrottlerUnitTests(unittest.TestCase):
         limit: int = FIXED_RATE_LIMIT[0].limit
 
         self.ev_loop.run_until_complete(
-            self.execute_n_fixed_requests(n,
-                                          throttler=self.fixed_rate_throttler))
+            self.execute_n_fixed_requests(n, throttler=self.fixed_rate_throttler))
 
         self.assertEqual(self.mock_server.request_count, n)
         self.assertLess(self.mock_server.request_count, limit)
@@ -181,8 +174,7 @@ class APIThrottlerUnitTests(unittest.TestCase):
         n = limit = FIXED_RATE_LIMIT[0].limit
 
         self.ev_loop.run_until_complete(
-            self.execute_n_fixed_requests(n,
-                                          throttler=self.fixed_rate_throttler))
+            self.execute_n_fixed_requests(n, throttler=self.fixed_rate_throttler))
 
         self.assertEqual(self.mock_server.request_count, limit)
 
@@ -197,10 +189,8 @@ class APIThrottlerUnitTests(unittest.TestCase):
         # Note: We assert a timeout ensuring that the throttler does not wait for the limit interval
         with self.assertRaises(asyncio.exceptions.TimeoutError):
             self.ev_loop.run_until_complete(
-                asyncio.wait_for(
-                    self.execute_n_weighted_requests(n,
-                                                     throttler=self.weighted_rate_throttler),
-                    timeout=1.0))
+                asyncio.wait_for(self.execute_n_weighted_requests(n, throttler=self.weighted_rate_throttler), timeout=1.0)
+            )
 
         self.assertEqual(expected_request_count, self.mock_server.request_count)
 
@@ -208,8 +198,7 @@ class APIThrottlerUnitTests(unittest.TestCase):
         n: int = WEIGHTED_RATE_LIMIT[0].limit // WEIGHTED_RATE_LIMIT[0].weight
 
         self.ev_loop.run_until_complete(
-            self.execute_n_weighted_requests(n,
-                                             throttler=self.weighted_rate_throttler))
+            self.execute_n_weighted_requests(n, throttler=self.weighted_rate_throttler))
 
         self.assertEqual(n, self.mock_server.request_count)
 
@@ -223,7 +212,6 @@ class APIThrottlerUnitTests(unittest.TestCase):
                                                     retry_interval=5.0)
 
         self.ev_loop.run_until_complete(
-            self.execute_n_weighted_requests(n,
-                                             throttler=self.weighted_rate_throttler))
+            self.execute_n_weighted_requests(n, throttler=self.weighted_rate_throttler))
 
         self.assertEqual(n, self.mock_server.request_count)
