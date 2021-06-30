@@ -71,7 +71,7 @@ class GateIoWebsocket():
                         # Raise API error for login failures.
                         if msg.get('error', None) is not None:
                             err_msg = msg.get('error', {}).get('message', msg['error'])
-                            raise GateIoAPIError({"error": f"Error received via websocket - {err_msg}."})
+                            raise GateIoAPIError({"label": "WSS_ERROR", "message": f"Error received via websocket - {err_msg}."})
 
                         # Filter subscribed/unsubscribed messages
                         msg_event = msg.get('event')

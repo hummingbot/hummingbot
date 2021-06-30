@@ -71,10 +71,9 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                                                         params={"currency_pair": ex_pair, "with_id": 1})
             return orderbook_response
         except GateIoAPIError as e:
-            err = e.error_payload.get('error', e.error_payload)
             raise IOError(
                 f"Error fetching OrderBook for {trading_pair} at {Constants.EXCHANGE_NAME}. "
-                f"HTTP status is {e.error_payload['status']}. Error is {err.get('message', str(err))}.")
+                f"HTTP status is {e.http_status}. Error is {e.error_message}.")
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair)

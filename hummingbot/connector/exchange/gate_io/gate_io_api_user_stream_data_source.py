@@ -96,7 +96,7 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
             except asyncio.CancelledError:
                 raise
             except GateIoAPIError as e:
-                self.logger().error(e.error_payload.get('error'), exc_info=True)
+                self.logger().error(e.error_message, exc_info=True)
                 raise
             except Exception:
                 self.logger().error(

@@ -28,6 +28,13 @@ class GateIoAPIError(IOError):
     def __init__(self, error_payload: Dict[str, Any]):
         super().__init__(str(error_payload))
         self.error_payload = error_payload
+        self.http_status = error_payload.get('status')
+        if isinstance(error_payload, dict):
+            self.error_message = error_payload.get('error', error_payload).get('message', error_payload)
+            self.error_label = error_payload.get('error', error_payload).get('label', error_payload)
+        else:
+            self.error_message = error_payload
+            self.error_label = error_payload
 
 
 # Request ID class
@@ -132,7 +139,7 @@ async def api_call_with_retries(method,
                 return await api_call_with_retries(method=method, endpoint=endpoint, params=params,
                                                    shared_client=shared_client, try_count=try_count)
             else:
-                raise GateIoAPIError({"error": parsed_response, "status": http_status})
+                raise GateIoAPIError({"label": "HTTP_ERROR", "message": parsed_response, "status": http_status})
         return parsed_response
 
 
