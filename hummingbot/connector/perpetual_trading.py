@@ -17,7 +17,7 @@ class PerpetualTrading:
     def __init__(self):
         self._account_positions: Dict[str, Position] = {}
         self._position_mode: PositionMode = PositionMode.ONEWAY
-        self._leverages: Dict[str, int] = {}
+        self._leverage: Dict[str, int] = {}
         self._funding_info: Dict[str, FundingInfo] = {}
         self._funding_payment_span: List[int] = [0, 0]
 
@@ -77,7 +77,7 @@ class PerpetualTrading:
         :param trading_pair: the market trading pair
         :return: leverage level
         """
-        return self._leverages[trading_pair]
+        return self._leverage[trading_pair]
 
     def set_leverage(self, trading_pair: str, leverage: int = 1):
         """
@@ -86,7 +86,7 @@ class PerpetualTrading:
         :param trading_pair: the market trading pair
         :param leverage: leverage to be used
         """
-        self._leverages[trading_pair] = leverage
+        self._leverage[trading_pair] = leverage
 
     def supported_position_modes(self) -> List[PositionMode]:
         """
