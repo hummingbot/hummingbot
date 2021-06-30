@@ -354,7 +354,7 @@ class GateIoExchange(ExchangeBase):
                     return await self._api_request(method=method, endpoint=endpoint, params=params,
                                                    is_auth_required=is_auth_required, try_count=try_count)
                 else:
-                    raise GateIoAPIError({"error": parsed_response, "status": http_status})
+                    raise GateIoAPIError({"label": "HTTP_ERROR", "message": parsed_response, "status": http_status})
             if "message" in parsed_response:
                 raise GateIoAPIError(parsed_response)
             return parsed_response
@@ -452,6 +452,8 @@ class GateIoExchange(ExchangeBase):
         self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, order_type)
         try:
             order_result = await self._api_request("POST", Constants.ENDPOINT["ORDER_CREATE"], api_params, True)
+            if order_result.get('status') in {"cancelled", "expired", "failed"}:
+                raise GateIoAPIError({'label': 'ORDER_REJECTED', 'message': 'Order rejected.'})
             exchange_order_id = str(order_result["id"])
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
@@ -475,7 +477,7 @@ class GateIoExchange(ExchangeBase):
         except asyncio.CancelledError:
             raise
         except GateIoAPIError as e:
-            error_reason = e.error_payload.get('message')
+            error_reason = e.error_message
             self.stop_tracking_order(order_id)
             self.logger().network(
                 f"Error submitting {trade_type.name} {order_type.name} order to {Constants.EXCHANGE_NAME} for "
@@ -541,11 +543,13 @@ class GateIoExchange(ExchangeBase):
             raise
         except (asyncio.TimeoutError, GateIoAPIError) as e:
             if isinstance(e, asyncio.TimeoutError):
-                err = {'label': 'ORDER_NOT_FOUND', 'message': 'Order not tracked.'}
+                err_msg = 'Order not tracked.'
+                err_lbl = 'ORDER_NOT_FOUND'
             else:
-                err = e.error_payload
+                err_msg = e.error_message
+                err_lbl = e.error_label
             self._order_not_found_records[order_id] = self._order_not_found_records.get(order_id, 0) + 1
-            if err.get('label') == 'ORDER_NOT_FOUND' and \
+            if err_lbl == 'ORDER_NOT_FOUND' and \
                     self._order_not_found_records[order_id] >= self.ORDER_NOT_EXIST_CANCEL_COUNT:
                 order_was_cancelled = True
         if order_was_cancelled:
@@ -557,7 +561,7 @@ class GateIoExchange(ExchangeBase):
             return CancellationResult(order_id, True)
         else:
             self.logger().network(
-                f"Failed to cancel order {order_id}: {err.get('message', str(err))}",
+                f"Failed to cancel order {order_id}: {err_msg}",
                 exc_info=True,
                 app_warning_msg=f"Failed to cancel the order {order_id} on {Constants.EXCHANGE_NAME}. "
                                 f"Check API key and network connection."
@@ -625,8 +629,7 @@ class GateIoExchange(ExchangeBase):
             for response, tracked_order in zip(responses, tracked_orders):
                 client_order_id = tracked_order.client_order_id
                 if isinstance(response, GateIoAPIError):
-                    err = response.error_payload
-                    if err.get('label') == 'ORDER_NOT_FOUND':
+                    if response.error_label == 'ORDER_NOT_FOUND':
                         self._order_not_found_records[client_order_id] = \
                             self._order_not_found_records.get(client_order_id, 0) + 1
                         if self._order_not_found_records[client_order_id] < self.ORDER_NOT_EXIST_CONFIRMATION_COUNT:
