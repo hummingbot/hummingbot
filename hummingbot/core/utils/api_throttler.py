@@ -147,7 +147,9 @@ class APIRequestContext:
             elif self._rate_limit_type == RateLimitType.FIXED:
                 current_capacity: int = self._rate_limit.limit - len(self._task_logs)
             elif self._rate_limit_type == RateLimitType.WEIGHTED:
-                current_capacity: int = self._rate_limit.limit - sum(task.weight for task in self._task_logs)
+                current_capacity: int = self._rate_limit.limit - sum([task.weight
+                                                                      for task in self._task_logs
+                                                                      if task.path_url == self._rate_limit.path_url])
 
             # Request Weight for non-weighted requests defaults to 1
             if current_capacity - self._rate_limit.weight >= 0:
