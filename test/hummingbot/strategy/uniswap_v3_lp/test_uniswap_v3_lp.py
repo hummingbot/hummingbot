@@ -4,6 +4,7 @@ Unit tests for hummingbot.strategy.uniswap_v3_lp.uniswap_v3_lp
 
 from decimal import Decimal
 import pandas as pd
+import numpy as np
 from typing import Dict, List
 import unittest.mock
 
@@ -12,6 +13,8 @@ from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import MarketEvent
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.uniswap_v3_lp.uniswap_v3_lp import UniswapV3LpStrategy
+from hummingbot.connector.connector.uniswap_v3.uniswap_v3_in_flight_position import UniswapV3InFlightPosition
+from hummingbot.strategy.__utils__.trailing_indicators.historical_volatility import HistoricalVolatilityIndicator
 
 from hummingsim.backtest.backtest_market import BacktestMarket
 from hummingsim.backtest.market import QuantizationParams
@@ -53,6 +56,7 @@ class UniswapV3LpStrategyTest(unittest.TestCase):
         return market, market_infos
 
     def setUp(self) -> None:
+        np.random.seed(123456789)
         self.clock_tick_size = 1
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
 
@@ -75,17 +79,46 @@ class UniswapV3LpStrategyTest(unittest.TestCase):
         self.default_strategy = UniswapV3LpStrategy(
             self.market_infos[trading_pairs[0]],
             "MEDIUM",
+            True,
+            Decimal('144'),
+            Decimal('2'),
             Decimal('0.01'),
             Decimal('0.01'),
             Decimal('1'),
-            Decimal('1')
+            Decimal('1'),
+            Decimal('0.05')
         )
 
-    def test_generate_proposal(self):
+    def test_generate_proposal_with_volatility(self):
         """
-        Test that the generate proposal function works correctly
+        Test that the generate proposal function works correctly using volatility
         """
 
+        original_price = 100
+        volatility = 0.1
+        returns = np.random.normal(0, volatility, 3599)
+        samples = [original_price]
+        for r in returns:
+            samples.append(samples[-1] * np.exp(r))
+        self.default_strategy._volatility = HistoricalVolatilityIndicator(3600, 1)
+
+        for sample in samples:
+            self.default_strategy._volatility.add_sample(sample)
+
+        self.default_strategy._last_price = Decimal(str(original_price))
+        buy_lower, buy_upper = self.default_strategy.generate_proposal(True)
+        self.assertEqual(buy_upper, Decimal("100"))
+        self.assertEqual(buy_lower, Decimal("0"))
+        sell_lower, sell_upper = self.default_strategy.generate_proposal(False)
+        self.assertAlmostEqual(sell_upper, Decimal("343.9"), 1)
+        self.assertEqual(sell_lower, Decimal("100"))
+
+    def test_generate_proposal_without_volatility(self):
+        """
+        Test that the generate proposal function works correctly using user set spreads
+        """
+
+        self.default_strategy._use_volatility = False
         self.default_strategy._last_price = Decimal("100")
         buy_lower, buy_upper = self.default_strategy.generate_proposal(True)
         self.assertEqual(buy_upper, Decimal("100"))
@@ -93,3 +126,26 @@ class UniswapV3LpStrategyTest(unittest.TestCase):
         sell_lower, sell_upper = self.default_strategy.generate_proposal(False)
         self.assertEqual(sell_upper, Decimal("101"))
         self.assertEqual(sell_lower, Decimal("100"))
+
+    def test_profitability_calculation(self):
+        """
+        Test that the profitability calculation function works correctly
+        """
+
+        self.default_strategy._last_price = Decimal("100")
+        pos = UniswapV3InFlightPosition(hb_id="pos1",
+                                        token_id=1,
+                                        trading_pair="HBOT-USDT",
+                                        fee_tier="MEDIUM",
+                                        base_amount=Decimal("0"),
+                                        quote_amount=Decimal("100"),
+                                        lower_price=Decimal("100"),
+                                        upper_price=Decimal("101"))
+        pos.current_base_amount = Decimal("1")
+        pos.current_quote_amount = Decimal("0")
+        pos.unclaimed_base_amount = Decimal("1")
+        pos.unclaimed_quote_amount = Decimal("10")
+        pos.gas_price = Decimal("5")
+        result = self.default_strategy.calculate_profitability(pos)
+        self.assertEqual(result["tx_fee"], 10)
+        self.assertEqual(result["profitability"], 1)
