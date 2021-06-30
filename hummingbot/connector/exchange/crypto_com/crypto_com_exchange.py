@@ -94,7 +94,7 @@ class CryptoComExchange(ExchangeBase):
         self._trading_rules_polling_task = None
         self._last_poll_timestamp = 0
         self._throttler = APIThrottler(
-            rate_limit=CONSTANTS.RATE_LIMITS,
+            rate_limit_list=CONSTANTS.RATE_LIMITS,
             rate_limit_type=RateLimitType.PER_METHOD
         )
 

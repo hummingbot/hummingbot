@@ -1,14 +1,13 @@
-import logging
-import time
 import asyncio
+import time
+
 from collections import deque
+from dataclasses import dataclass
 from enum import Enum
 from typing import (
     Deque,
     Dict,
-    Optional,
-    Tuple,
-    Union,
+    List,
 )
 
 
@@ -18,31 +17,31 @@ class RateLimitType(Enum):
     PER_METHOD = 3
 
 
-Limit = int         # Integer representing the no. of requests be time interval
+@dataclass
+class RateLimit():
+    limit: int
+    time_interval: float
+    path_url: str = ""
+    weight: int = 1
+
+
+@dataclass
+class TaskLog():
+    timestamp: float
+    path_url: str = ""
+    weight: int = 1
+
+
+Limit = int             # Integer representing the no. of requests be time interval
 RequestPath = str       # String representing the request path url
 RequestWeight = int     # Integer representing the request weight of the path url
 
-TimeInterval = float    # Time interval for the defined rate limits(in seconds)
-Timestamp_s = float     # Current timestamp(in seconds)
 Seconds = float
-
-# TODO: Create a RateLimit class
-WeightedRateLimit = Dict[RequestPath, Tuple[Limit, RequestWeight, TimeInterval]]
-FixedRateLimit = Tuple[Limit, TimeInterval]
-PerMethodRateLimit = Dict[RequestPath, Tuple[Limit, TimeInterval]]
-
-RateLimit = Union[FixedRateLimit, WeightedRateLimit, PerMethodRateLimit]
-
-FixedRateTask = Tuple[Timestamp_s]
-PerMethodTask = Tuple[Timestamp_s, RequestPath]
-WeightedTask = Tuple[Timestamp_s, RequestWeight]
-
-TaskLog = Union[FixedRateTask, PerMethodTask, WeightedTask]
 
 
 class APIThrottler:
     def __init__(self,
-                 rate_limit: RateLimit,
+                 rate_limit_list: List[RateLimit],
                  rate_limit_type: RateLimitType = RateLimitType.FIXED,
                  period_safety_margin: Seconds = 0.1,
                  retry_interval: Seconds = 0.1):
@@ -51,81 +50,77 @@ class APIThrottler:
         managers
         """
 
-        self._rate_limit_type = rate_limit_type
-        self._rate_limit = rate_limit
+        # Rate Limit Definitions
+        self._rate_limit_type: RateLimitType = rate_limit_type
+        self._rate_limit_list: List[RateLimit] = rate_limit_list
+
+        self._path_rate_limit_map: Dict[RequestPath, RateLimit] = {
+            limit.path_url: limit
+            for limit in self._rate_limit_list
+        }
+
+        # Throttler Parameters
         self._retry_interval: float = retry_interval
         self._period_safety_margin = period_safety_margin
 
         self._task_logs: Deque[TaskLog] = deque()
 
-    @property
-    def rate_limit_type(self) -> RateLimitType:
-        return self._rate_limit_type
+    def weighted_task(self, path_url: str):
+        rate_limit: RateLimit = self._path_rate_limit_map[path_url]
 
-    def weighted_task(self, path_url):
-        return ThrottlerContextManager(
+        return APIRequestContext(
             task_logs=self._task_logs,
-            rate_limit=self._rate_limit[path_url][0],
+            rate_limit=rate_limit,
             rate_limit_type=self._rate_limit_type,
-            time_interval=self._rate_limit[path_url][2],
-            request_weight=self._rate_limit[path_url][1],
+            retry_interval=self._retry_interval,
         )
 
     def fixed_rate_task(self):
-        return ThrottlerContextManager(
+        rate_limit: RateLimit = next(iter(self._path_rate_limit_map.items()))
+
+        return APIRequestContext(
             task_logs=self._task_logs,
-            rate_limit=self._rate_limit[0],
+            rate_limit=rate_limit,
             rate_limit_type=self._rate_limit_type,
-            time_interval=self._rate_limit[1]
+            retry_interval=self._retry_interval,
         )
 
     def per_method_task(self, path_url):
-        return ThrottlerContextManager(
+        rate_limit: RateLimit = self._path_rate_limit_map[path_url]
+
+        return APIRequestContext(
             task_logs=self._task_logs,
-            rate_limit=self._rate_limit[path_url][0],
+            rate_limit=rate_limit,
             rate_limit_type=self._rate_limit_type,
-            request_path=path_url,
-            time_interval=self._rate_limit[path_url][1]
+            retry_interval=self._retry_interval,
         )
 
 
-class ThrottlerContextManager:
-    throttler_logger: Optional[logging.Logger] = None
-
-    @classmethod
-    def logger(cls) -> logging.Logger:
-        if cls.throttler_logger is None:
-            cls.throttler_logger = logging.getLogger(__name__)
-        return cls.throttler_logger
+class APIRequestContext:
 
     def __init__(self,
                  task_logs: Deque[TaskLog],
-                 rate_limit: Limit,
+                 rate_limit: RateLimit,
                  rate_limit_type: RateLimitType,
-                 request_weight: RequestWeight = 1,
-                 request_path: RequestPath = "",
                  period_safety_margin: Seconds = 0.1,
-                 time_interval: Seconds = 1.0,
                  retry_interval: Seconds = 0.1):
         """
+        Asynchronous context associated with each API request.
         :param task_logs: Shared task logs
-        :param rate_limit: Max API calls allowed in the given period
+        :param rate_limit: Rate limit for the associated API request
         :param rate_limit_type: Rate limit type
-        :param request_weight: Weight of the request of the task
-        :param request_path: Path URL of the API request
         :param period_safety_margin: estimate for the network latency
-        :param period: Time interval of the rate limit
         :param retry_interval: Time between each limit check
         """
-        self._period_safety_margin = period_safety_margin
         self._lock = asyncio.Lock()
-        self._request_path = request_path
-        self._request_weight: RequestWeight = request_weight
-        self._rate_limit: int = rate_limit
-        self._rate_limit_type: RateLimitType = rate_limit_type
-        self._time_interval: float = time_interval
-        self._retry_interval: float = retry_interval
         self._task_logs: Deque[TaskLog] = task_logs
+
+        self._rate_limit: RateLimit = rate_limit
+        self._rate_limit_type: RateLimitType = rate_limit_type
+
+        self._time_interval: float = rate_limit.time_interval
+        self._retry_interval: float = retry_interval
+        self._period_safety_margin = period_safety_margin
 
     def flush(self):
         """
@@ -135,8 +130,7 @@ class ThrottlerContextManager:
         now: float = time.time()
         while self._task_logs:
             task_log: TaskLog = self._task_logs[0]
-            task_ts: float = task_log[0]
-            elapsed: float = now - task_ts
+            elapsed: float = now - task_log.timestamp
             if elapsed > self._time_interval - self._period_safety_margin:
                 self._task_logs.popleft()
             else:
@@ -147,23 +141,22 @@ class ThrottlerContextManager:
             self.flush()
 
             if self._rate_limit_type == RateLimitType.PER_METHOD:
-                current_capacity: int = self._rate_limit - len([path for _, path in self._task_logs if path == self._request_path])
+                current_capacity: int = self._rate_limit.limit - len([task
+                                                                      for task in self._task_logs
+                                                                      if task.path_url == self._rate_limit.path_url])
             elif self._rate_limit_type == RateLimitType.FIXED:
-                current_capacity: int = self._rate_limit - len(self._task_logs)
+                current_capacity: int = self._rate_limit.limit - len(self._task_logs)
             elif self._rate_limit_type == RateLimitType.WEIGHTED:
-                current_capacity: int = self._rate_limit - sum(weight for (_, weight) in self._task_logs)
+                current_capacity: int = self._rate_limit.limit - sum(task.weight for task in self._task_logs)
 
             # Request Weight for non-weighted requests defaults to 1
-            if current_capacity - self._request_weight > 0:
+            if current_capacity - self._rate_limit.weight >= 0:
                 break
             await asyncio.sleep(self._retry_interval)
 
-        if self._rate_limit_type == RateLimitType.PER_METHOD:
-            task: PerMethodTask = (time.time(), self._request_path)
-        elif self._rate_limit_type == RateLimitType.FIXED:
-            task: FixedRateTask = (time.time())
-        elif self._rate_limit_type == RateLimitType.WEIGHTED:
-            task: WeightedTask = (time.time(), self._request_weight)
+        task = TaskLog(timestamp=time.time(),
+                       path_url=self._rate_limit.path_url,
+                       weight=self._rate_limit.weight)
 
         self._task_logs.append(task)
 
