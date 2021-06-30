@@ -34,7 +34,7 @@ from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.strategy.avellaneda_market_making import AvellanedaMarketMakingStrategy
 from hummingbot.strategy.data_types import PriceSize, Proposal
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.strategy.__utils__.trailing_indicators.average_volatility import AverageVolatilityIndicator
+from hummingbot.strategy.__utils__.trailing_indicators.instant_volatility import InstantVolatilityIndicator
 
 s_decimal_zero = Decimal(0)
 s_decimal_one = Decimal(1)
@@ -104,7 +104,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
             inventory_risk_aversion=self.ira
         )
 
-        self.avg_vol_indicator: AverageVolatilityIndicator = AverageVolatilityIndicator(sampling_length=100,
+        self.avg_vol_indicator: InstantVolatilityIndicator = InstantVolatilityIndicator(sampling_length=100,
                                                                                         processing_length=1)
 
         self.strategy.avg_vol = self.avg_vol_indicator
