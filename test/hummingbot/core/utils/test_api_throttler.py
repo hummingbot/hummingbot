@@ -29,9 +29,22 @@ PER_METHOD_RATE_LIMIT = [
 
 
 class ThrottledMockServer(MockWebServer):
+    __instance = None
+
+    @staticmethod
+    def get_instance():
+        """
+        Initiate a Humming Web App instance
+        :return: An instance of Humming Web App
+        """
+        if ThrottledMockServer.__instance is None:
+            ThrottledMockServer()
+        return ThrottledMockServer.__instance
 
     def __init__(self):
         super().__init__()
+        ThrottledMockServer.__instance = self
+
         self._request_count = 0
 
     @property
@@ -53,7 +66,7 @@ class APIThrottlerUnitTests(unittest.TestCase):
         super().setUpClass()
         cls.ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
 
-        cls.mock_server = ThrottledMockServer()
+        cls.mock_server = ThrottledMockServer.get_instance()
         cls.mock_server.add_host_to_mock(BASE_URL)
 
         cls.mock_server.start()
