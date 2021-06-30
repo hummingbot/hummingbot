@@ -34,7 +34,7 @@ from hummingbot.strategy.data_types import (
     PriceSize
 )
 from ..order_tracker cimport OrderTracker
-from ..__utils__.trailing_indicators.average_volatility import AverageVolatilityIndicator
+from ..__utils__.trailing_indicators.instant_volatility import InstantVolatilityIndicator
 
 
 NaN = float("nan")
@@ -130,7 +130,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._vol_to_spread_multiplier = vol_to_spread_multiplier
         self._volatility_sensibility = volatility_sensibility
         self._inventory_risk_aversion = inventory_risk_aversion
-        self._avg_vol = AverageVolatilityIndicator(volatility_buffer_size, 1)
+        self._avg_vol = InstantVolatilityIndicator(volatility_buffer_size, 1)
         self._last_sampling_timestamp = 0
         self._kappa = order_book_depth_factor
         self._gamma = risk_factor
@@ -166,7 +166,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         return self._avg_vol
 
     @avg_vol.setter
-    def avg_vol(self, indicator: AverageVolatilityIndicator):
+    def avg_vol(self, indicator: InstantVolatilityIndicator):
         self._avg_vol = indicator
 
     @property
