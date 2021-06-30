@@ -38,6 +38,9 @@ class ThrottledMockServer(MockWebServer):
     def request_count(self) -> int:
         return self._request_count
 
+    def reset_request_count(self):
+        self._request_count = 0
+
     async def _handler(self, request: web.Request):
         self._request_count += 1
         return await super()._handler(request)
@@ -74,6 +77,8 @@ class APIThrottlerUnitTests(unittest.TestCase):
 
     def setUp(self) -> None:
         super().setUp()
+
+        self.mock_server.reset_request_count()
 
         self.per_method_rate_throttler = APIThrottler(rate_limit_list=PER_METHOD_RATE_LIMIT,
                                                       rate_limit_type=RateLimitType.PER_METHOD,
