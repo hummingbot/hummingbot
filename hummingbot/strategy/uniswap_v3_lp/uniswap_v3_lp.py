@@ -58,6 +58,7 @@ class UniswapV3LpStrategy(StrategyPyBase):
         self._last_price = s_decimal_0
         self._volatility = HistoricalVolatilityIndicator(3600, 1)
         self._main_task = None
+        self._next_price_fetch = 0
 
     @property
     def base_asset(self):
@@ -215,8 +216,15 @@ class UniswapV3LpStrategy(StrategyPyBase):
                 if self._market_info.market._trading_pairs[0] != self.trading_pair:
                     self.logger().info(f"Market should be {self._market_info.market._trading_pairs[0]}"
                                        f" not {self.trading_pair}. Update config accordingly and restart strategy.")
+                    self._connector_ready = False
                     return
                 self.logger().info("Uniswap v3 connector is ready. Trading started.")
+
+        if timestamp > self._next_price_fetch:
+            await self.get_current_price(True)
+            if self._volatility.is_sampling_buffer_full:
+                self._next_price_fetch = timestamp + 3600
+
         if self._main_task is None or self._main_task.done():
             self._main_task = safe_ensure_future(self.main())
 
@@ -238,14 +246,14 @@ class UniswapV3LpStrategy(StrategyPyBase):
         :return [lower_price, upper_price]
         """
         if is_buy:
-            buy_spread = (self._volatility_factor * Decimal(str(np.sqrt(self._volatility_period))) *
+            buy_spread = (self._volatility_factor * Decimal(str(np.sqrt(self._volatility_period * Decimal("3600")))) *
                           Decimal(str(self._volatility.current_value))) if self._use_volatility else \
                 self._buy_position_price_spread
             upper_price = self._last_price
             lower_price = (Decimal("1") - buy_spread) * self._last_price
             lower_price = s_decimal_0 if lower_price < s_decimal_0 else lower_price
         else:
-            sell_spread = (self._volatility_factor * Decimal(str(np.sqrt(self._volatility_period))) *
+            sell_spread = (self._volatility_factor * Decimal(str(np.sqrt(self._volatility_period * Decimal("3600")))) *
                            Decimal(str(self._volatility.current_value))) if self._use_volatility else \
                 self._sell_position_price_spread
             lower_price = self._last_price
@@ -273,9 +281,6 @@ class UniswapV3LpStrategy(StrategyPyBase):
         if self._last_price != current_price or len(self.active_buys) == 0 or len(self.active_sells) == 0:
             if current_price != s_decimal_0:
                 self._last_price = current_price
-
-            if self._use_volatility:
-                current_price = await self.get_current_price(True)
 
             if (not self.in_range_sell() and len(self.active_buys) == 0) or \
                (self.in_range_sell() and len(self.active_sells) == 1 and len(self.active_buys) == 0):
