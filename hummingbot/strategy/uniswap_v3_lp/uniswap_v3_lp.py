@@ -2,6 +2,7 @@ from decimal import Decimal
 import logging
 import asyncio
 import pandas as pd
+import numpy as np
 from hummingbot.core.clock import Clock
 from hummingbot.logger import HummingbotLogger
 from hummingbot.client.performance import PerformanceMetrics
@@ -10,7 +11,7 @@ from hummingbot.connector.connector.uniswap_v3.uniswap_v3_in_flight_position imp
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
-from ..__utils__.trailing_indicators.average_volatility import AverageVolatilityIndicator
+from ..__utils__.trailing_indicators.historical_volatility import HistoricalVolatilityIndicator
 
 ulp_logger = None
 s_decimal_0 = Decimal("0")
@@ -55,7 +56,7 @@ class UniswapV3LpStrategy(StrategyPyBase):
         self.add_markets([market_info.market])
         self._connector_ready = False
         self._last_price = s_decimal_0
-        self._volatility = AverageVolatilityIndicator(3600, 1)
+        self._volatility = HistoricalVolatilityIndicator(3600, 1)
         self._main_task = None
 
     @property
@@ -89,8 +90,8 @@ class UniswapV3LpStrategy(StrategyPyBase):
     async def get_current_price(self, update_volatility: bool = False) -> float:
         if update_volatility:
             prices = await self._market_info.market.get_price_by_fee_tier(self.trading_pair, self._fee_tier, 3600, True)
-            for idx in range(1, len(prices)):
-                self._volatility.add_sample((Decimal(prices[idx]) / Decimal(prices[idx - 1])) - 1)
+            for price in prices:
+                self._volatility.add_sample(price)
         else:
             price = await self._market_info.market.get_price_by_fee_tier(self.trading_pair, self._fee_tier)
         return Decimal(prices[-1]) if update_volatility else Decimal(price)
@@ -130,7 +131,7 @@ class UniswapV3LpStrategy(StrategyPyBase):
             tx_fee = Decimal(str(position.gas_price)) * 2
         init_value = (init_base * self._last_price) + init_quote
         profitability = s_decimal_0 if init_value == s_decimal_0 else \
-            ((((base_change + base_fee) * self._last_price) + quote_change + quote_fee - tx_fee) / init_value) - 1
+            ((((base_change + base_fee) * self._last_price) + quote_change + quote_fee - tx_fee) / init_value)
         return {"base_change": base_change,
                 "quote_change": quote_change,
                 "base_fee": base_fee,
@@ -225,12 +226,15 @@ class UniswapV3LpStrategy(StrategyPyBase):
 
     def generate_proposal(self, is_buy):
         if is_buy:
-            buy_spread = (self._volatility_factor * self._volatility.current_value) if self._use_volatility else \
+            buy_spread = (self._volatility_factor * Decimal(str(np.sqrt(self._volatility_period))) *
+                          Decimal(str(self._volatility.current_value))) if self._use_volatility else \
                 self._buy_position_price_spread
             upper_price = self._last_price
             lower_price = (Decimal("1") - buy_spread) * self._last_price
+            lower_price = s_decimal_0 if lower_price < s_decimal_0 else lower_price
         else:
-            sell_spread = (self._volatility_factor * self._volatility.current_value) if self._use_volatility else \
+            sell_spread = (self._volatility_factor * Decimal(str(np.sqrt(self._volatility_period))) *
+                           Decimal(str(self._volatility.current_value))) if self._use_volatility else \
                 self._sell_position_price_spread
             lower_price = self._last_price
             upper_price = (Decimal("1") + sell_spread) * self._last_price
