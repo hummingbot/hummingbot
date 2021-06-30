@@ -166,7 +166,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         return self._avg_vol
 
     @avg_vol.setter
-    def avg_vol(self, indicator: AverageVolatilityIndicator):
+    def avg_vol(self, indicator: InstantVolatilityIndicator):
         self._avg_vol = indicator
 
     @property
