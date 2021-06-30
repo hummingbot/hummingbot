@@ -609,7 +609,12 @@ class GateIoExchange(ExchangeBase):
             tracked_orders = list(self._in_flight_orders.values())
             tasks = []
             for tracked_order in tracked_orders:
-                exchange_order_id = await tracked_order.get_exchange_order_id()
+                try:
+                    exchange_order_id = await tracked_order.get_exchange_order_id()
+                except asyncio.TimeoutError:
+                    self.logger().network(f"Skipped order status update for {tracked_order.client_order_id} "
+                                          "- waiting for exchange order id.")
+                    continue
                 trading_pair = convert_to_exchange_trading_pair(tracked_order.trading_pair)
                 tasks.append(self._api_request("GET",
                                                Constants.ENDPOINT["ORDER_STATUS"].format(id=exchange_order_id),
