@@ -25,6 +25,7 @@ class TwapStartTest(unittest.TestCase):
         twap_config_map_module.twap_config_map.get("trading_pair").value = "ETH-USDT"
         twap_config_map_module.twap_config_map.get("order_price").value = Decimal(2500)
         twap_config_map_module.twap_config_map.get("cancel_order_wait_time").value = 60
+        twap_config_map_module.twap_config_map.get("is_time_span_execution").value = False
 
         self.raise_exception_for_market_initialization = False
         self.raise_exception_for_market_assets_initialization = False
@@ -59,6 +60,21 @@ class TwapStartTest(unittest.TestCase):
         self.assertEqual(self.strategy._order_step_size, Decimal(1))
         self.assertEqual(self.strategy._order_price, Decimal(2500))
         self.assertEqual(self.strategy._order_delay_time, 10)
+        self.assertEqual(self.strategy._cancel_order_wait_time, Decimal(60))
+
+    @unittest.mock.patch('hummingbot.strategy.twap.twap.TwapTradeStrategy.add_markets')
+    def test_twap_strategy_creation_with_time_span_execution(self, add_markets_mock):
+        twap_config_map_module.twap_config_map.get("is_time_span_execution").value = True
+        twap_config_map_module.twap_config_map.get("start_datetime").value = "2021-06-23 10:00:00"
+        twap_config_map_module.twap_config_map.get("end_datetime").value = "2021-06-23 11:00:00"
+
+        twap_start_module.start(self)
+
+        self.assertTrue(self.strategy._is_buy)
+        self.assertEqual(self.strategy._target_asset_amount, Decimal(10))
+        self.assertEqual(self.strategy._order_step_size, Decimal(1))
+        self.assertEqual(self.strategy._order_price, Decimal(2500))
+        self.assertEqual(self.strategy._order_delay_time, 360)
         self.assertEqual(self.strategy._cancel_order_wait_time, Decimal(60))
 
     def test_twap_strategy_creation_when_market_assets_initialization_fails(self):
