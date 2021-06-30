@@ -42,7 +42,7 @@ from hummingbot.connector.exchange.crypto_com.crypto_com_in_flight_order import 
 from hummingbot.connector.exchange.crypto_com import crypto_com_utils
 from hummingbot.connector.exchange.crypto_com import crypto_com_constants as CONSTANTS
 from hummingbot.core.data_type.common import OpenOrder
-from hummingbot.core.utils.api_throttler import APIRequestThrottler, RateLimitType
+from hummingbot.core.utils.api_throttler import APIThrottler, RateLimitType
 ctce_logger = None
 s_decimal_NaN = Decimal("nan")
 
@@ -93,7 +93,7 @@ class CryptoComExchange(ExchangeBase):
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
         self._last_poll_timestamp = 0
-        self._throttler = APIRequestThrottler(
+        self._throttler = APIThrottler(
             rate_limit=CONSTANTS.RATE_LIMITS,
             rate_limit_type=RateLimitType.PER_METHOD
         )
