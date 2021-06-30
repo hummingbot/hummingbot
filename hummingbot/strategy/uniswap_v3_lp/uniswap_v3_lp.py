@@ -114,6 +114,12 @@ class UniswapV3LpStrategy(StrategyPyBase):
         return pd.DataFrame(data=data, columns=columns)
 
     def calculate_profitability(self, position: UniswapV3InFlightPosition):
+        """
+        Does simple computation and returns a dictionary containing data required by other functions.
+        :param position: an instance of UniswapV3InFlightPosition
+        :return {}: dictionaty containing "base_change", "quote_change", "base_fee", "quote_fee"
+                    "tx_fee", "profitability".
+        """
         base_tkn, quote_tkn = position.trading_pair.split("-")
         init_base = Decimal(str(position.base_amount))
         init_quote = Decimal(str(position.quote_amount))
@@ -216,8 +222,9 @@ class UniswapV3LpStrategy(StrategyPyBase):
 
     async def main(self):
         pending_positions = [position.last_status.is_pending() for position in self.active_positions]
-        if not any(pending_positions) and len(self.active_orders) == 0:
-            # Firstly, we remove inactive positions that have attained minimum profitability
+        if not any(pending_positions) and len(self.active_orders) == 0 and len(self.active_positions) < 2:
+            # Firstly, we remove inactive positions that have attained minimum profitability.
+            # Also, we ensure there there is a maximum of 2 positions per time
             await self.range_position_remover()
             # Then we proceed with creating new position if necessary3
             proposal = await self.propose_position_creation()
@@ -225,6 +232,11 @@ class UniswapV3LpStrategy(StrategyPyBase):
                 await self.execute_proposal(proposal)
 
     def generate_proposal(self, is_buy):
+        """
+        We use this to generate range for positions.
+        :param is_buy: True is position range goes below current price, else False
+        :return [lower_price, upper_price]
+        """
         if is_buy:
             buy_spread = (self._volatility_factor * Decimal(str(np.sqrt(self._volatility_period))) *
                           Decimal(str(self._volatility.current_value))) if self._use_volatility else \
@@ -250,16 +262,20 @@ class UniswapV3LpStrategy(StrategyPyBase):
         return False
 
     async def propose_position_creation(self):
+        """
+        We use this to create proposal for new range positions
+        :return : [buy_prices, sell_prices]
+        """
         buy_prices = sell_prices = []  # [lower_price, upper_price]
 
-        if self._use_volatility:
-            current_price = await self.get_current_price(True)
-        else:
-            current_price = await self.get_current_price()
+        current_price = await self.get_current_price()
 
         if self._last_price != current_price or len(self.active_buys) == 0 or len(self.active_sells) == 0:
             if current_price != s_decimal_0:
                 self._last_price = current_price
+
+            if self._use_volatility:
+                current_price = await self.get_current_price(True)
 
             if (not self.in_range_sell() and len(self.active_buys) == 0) or \
                (self.in_range_sell() and len(self.active_sells) == 1 and len(self.active_buys) == 0):
@@ -271,6 +287,10 @@ class UniswapV3LpStrategy(StrategyPyBase):
         return [buy_prices, sell_prices]
 
     async def execute_proposal(self, proposal):
+        """
+        This execute proposal generated earlier by propose_position_creation function.
+        :param proposal: [buy_prices, sell_prices]
+        """
         base_balance = self._market_info.market.get_available_balance(self.base_asset)
         quote_balance = self._market_info.market.get_available_balance(self.quote_asset)
         if len(proposal[0]) > 0:
