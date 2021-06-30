@@ -552,7 +552,6 @@ class PerpetualFinanceDerivative(ConnectorBase, PerpetualTrading):
                                                                 {"pair": convert_to_exchange_trading_pair(pair)}))
                 funding_infos = await safe_gather(*funding_info_tasks, return_exceptions=True)
                 for trading_pair, funding_info in zip(self._trading_pairs, funding_infos):
-                    self._funding_info[trading_pair] = funding_info["fr"]
                     self._funding_info[trading_pair] = FundingInfo(
                         trading_pair,
                         Decimal(funding_info["fr"]['indexPrice']),
