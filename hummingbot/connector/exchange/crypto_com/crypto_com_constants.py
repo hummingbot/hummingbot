@@ -1,8 +1,6 @@
 # A single source of truth for constant variables related to the exchange
 
 
-from hummingbot.core.utils.asyncio_throttle import RateLimitType
-
 EXCHANGE_NAME = "crypto_com"
 REST_URL = "https://api.crypto.com/v2"
 # WSS_PRIVATE_URL = "wss://stream.crypto.com/v2/user"
@@ -18,8 +16,6 @@ CANCEL_ORDER_PATH_URL = "private/cancel-order"
 GET_ACCOUNT_SUMMARY_PATH_URL = "private/get-account-summary"
 GET_ORDER_DETAIL_PATH_URL = "private/get-order-detail"
 GET_OPEN_ORDERS_PATH_URL = "private/get-open-orders"
-
-RATE_LIMIT_TYPE = RateLimitType.PER_METHOD
 
 # Crypto.com has a per method API limit
 RATE_LIMITS = {
