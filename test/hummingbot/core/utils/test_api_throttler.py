@@ -9,7 +9,7 @@ from aiohttp import web
 from hummingbot.core.mock_api.mock_web_server import MockWebServer
 from hummingbot.core.utils.api_throttler import APIThrottler, RateLimitType
 
-BASE_URL = "http://127.0.0.1"
+BASE_URL = "www.hbottest.com"
 
 TEST_PATH_URL = "/test"
 
@@ -48,8 +48,6 @@ class APIThrottlerUnitTests(unittest.TestCase):
         cls.mock_server.start()
         cls.ev_loop.run_until_complete(cls.mock_server.wait_til_started())
 
-        cls.port = cls.mock_server.port
-
         cls._patcher = patch("aiohttp.client.URL")
         cls._url_mock = cls._patcher.start()
         cls._url_mock.side_effect = MockWebServer.reroute_local
@@ -76,14 +74,14 @@ class APIThrottlerUnitTests(unittest.TestCase):
             if throttler.rate_limit_type == RateLimitType.PER_METHOD:
                 async with throttler.per_method_task(path_url="/test_per_method"):
                     async with aiohttp.ClientSession() as client:
-                        async with client.get(f"{BASE_URL}:{self.port}/test_per_method") as resp:
+                        async with client.get(f"https://{BASE_URL}/test_per_method") as resp:
                             text: str = await resp.text()
                             print(text)
 
     def test_per_method_rate_throttler(self):
         self.mock_server.clear_responses()
         self.mock_server.update_response(method="GET",
-                                         host=f"{BASE_URL}:{self.port}",
+                                         host=BASE_URL,
                                          path="/test_per_method",
                                          data=self.mock_server.TEST_RESPONSE,
                                          is_json=False
