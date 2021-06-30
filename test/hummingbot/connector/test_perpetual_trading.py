@@ -27,17 +27,17 @@ class PerpetualTest(unittest.TestCase):
 
     def test_position_key(self):
         pt: PerpetualTrading = PerpetualTrading()
-        pt.position_mode = PositionMode.ONEWAY
+        pt.set_position_mode(PositionMode.ONEWAY)
         self.assertEqual(pt.position_key("market1"), "market1")
         self.assertEqual(pt.position_key("market1", PositionSide.LONG), "market1")
-        pt.position_mode = PositionMode.HEDGE
+        pt.set_position_mode(PositionMode.HEDGE)
         self.assertEqual(pt.position_key("market1", PositionSide.LONG), "market1LONG")
         self.assertEqual(pt.position_key("market1", PositionSide.SHORT), "market1SHORT")
 
     def test_position_mode(self):
         pt: PerpetualTrading = PerpetualTrading()
         self.assertEqual(pt.position_mode, PositionMode.ONEWAY)
-        pt.position_mode = PositionMode.HEDGE
+        pt.set_position_mode(PositionMode.HEDGE)
         self.assertEqual(pt.position_mode, PositionMode.HEDGE)
 
     def test_leverage(self):
