@@ -53,29 +53,25 @@ class MockWebServer:
     reroute_request(self, method, url, **kwargs)
     """
     TEST_RESPONSE = f"hello {str(random.randint(0, 10000000))}"
-    __instance = None
     _hosts_to_mock = {}
     host = "127.0.0.1"
     _port: Optional[int] = None
 
-    @staticmethod
-    def get_instance():
+    @classmethod
+    def get_instance(cls):
         """
         Initiate a Humming Web App instance
         :return: An instance of Humming Web App
         """
-        if MockWebServer.__instance is None:
-            MockWebServer()
-        return MockWebServer.__instance
+        instance = cls.__dict__.get("__instance__")
+        if instance is None:
+            cls.__instance__ = instance = cls()
+        return instance
 
     def __init__(self):
         """
         Constructs all the necessary attributes for the Humming Web object
         """
-        if MockWebServer.__instance is not None:
-            raise Exception("This class is a singleton!")
-        else:
-            MockWebServer.__instance = self
         self._ev_loop: None
         self._impl: Optional[web.Application] = None
         self._runner: Optional[web.AppRunner] = None
