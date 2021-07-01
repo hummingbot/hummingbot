@@ -242,7 +242,7 @@ class GateIoExchange(ExchangeBase):
         try:
             # since there is no ping endpoint, the lowest rate call is to get BTC-USD symbol
             await self._api_request("GET",
-                                    Constants.ENDPOINT['CURRENCY'].format(currency='BTC'))
+                                    Constants.ENDPOINT['NETWORK_CHECK'])
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -335,7 +335,8 @@ class GateIoExchange(ExchangeBase):
         signature to the request.
         :returns A response in json format.
         """
-        async with self._throttler.weighted_task(request_weight=1):
+        request_weight = 0 if endpoint == Constants.ENDPOINT['NETWORK_CHECK'] else 1
+        async with self._throttler.weighted_task(request_weight=request_weight):
             url = f"{Constants.REST_URL}/{endpoint}"
             shared_client = await self._http_client()
             # Turn `params` into either GET params or POST body data
@@ -461,6 +462,8 @@ class GateIoExchange(ExchangeBase):
             order_result = await self._api_request("POST", Constants.ENDPOINT["ORDER_CREATE"], api_params, True)
             if order_result.get('status') in {"cancelled", "expired", "failed"}:
                 raise GateIoAPIError({'label': 'ORDER_REJECTED', 'message': 'Order rejected.'})
+            if order_result.get('status') != 'open':
+                self.logger().network(f"Unexpected order result:\n{order_result}")
             exchange_order_id = str(order_result["id"])
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
