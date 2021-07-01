@@ -631,8 +631,14 @@ class GateIoExchange(ExchangeBase):
             if self._update_balances_queued and not self._update_balances_finished.is_set():
                 self._update_balances_finished.set()
         except Exception as e:
-            if self._update_balances_queued and self._update_balances_finished.is_set():
-                self._update_balances_finished = asyncio.Event()
+            if self._update_balances_queued:
+                if self._update_balances_finished.is_set():
+                    self._update_balances_finished = asyncio.Event()
+                else:
+                    self._update_balances_finished.set()
+                self._update_balances_queued = False
+            if self._update_balances_fetching:
+                self._update_balances_fetching = False
             warn_msg = (f"Could not fetch balance update from {Constants.EXCHANGE_NAME}")
             self.logger().network(f"Unexpected error while fetching balance update - {str(e)}", exc_info=True,
                                   app_warning_msg=warn_msg)
