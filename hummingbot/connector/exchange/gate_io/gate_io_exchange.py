@@ -177,7 +177,10 @@ class GateIoExchange(ExchangeBase):
         :return a list of OrderType supported by this connector.
         Note that Market order type is no longer required and will not be used.
         """
-        return [OrderType.LIMIT, OrderType.MARKET]
+        return [OrderType.LIMIT]
+
+    def get_taker_order_type(self):
+        return OrderType.LIMIT
 
     def start(self, clock: Clock, timestamp: float):
         """
@@ -386,7 +389,7 @@ class GateIoExchange(ExchangeBase):
             raise ValueError(f"No order book exists for '{trading_pair}'.")
         return self._order_book_tracker.order_books[trading_pair]
 
-    def buy(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
+    def buy(self, trading_pair: str, amount: Decimal, order_type=OrderType.LIMIT,
             price: Decimal = s_decimal_NaN, **kwargs) -> str:
         """
         Buys an amount of base asset (of the given trading pair). This function returns immediately.
@@ -401,7 +404,7 @@ class GateIoExchange(ExchangeBase):
         safe_ensure_future(self._create_order(TradeType.BUY, order_id, trading_pair, amount, order_type, price))
         return order_id
 
-    def sell(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
+    def sell(self, trading_pair: str, amount: Decimal, order_type=OrderType.LIMIT,
              price: Decimal = s_decimal_NaN, **kwargs) -> str:
         """
         Sells an amount of base asset (of the given trading pair). This function returns immediately.
@@ -442,6 +445,8 @@ class GateIoExchange(ExchangeBase):
         :param order_type: The order type
         :param price: The order price
         """
+        if not order_type.is_limit_type():
+            raise Exception(f"Unsupported order type: {order_type}")
         trading_rule = self._trading_rules[trading_pair]
 
         amount = self.quantize_order_amount(trading_pair, amount)
