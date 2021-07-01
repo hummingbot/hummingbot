@@ -21,6 +21,7 @@ from hummingbot.core.event.events import (MarketOrderFailureEvent,
                                           TradeType)
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger import HummingbotLogger
+from hummingbot.strategy.conditional_execution_state import ConditionalExecutionState, RunAlwaysExecutionState
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
 
@@ -47,6 +48,7 @@ class TwapTradeStrategy(StrategyPyBase):
                  order_step_size: Decimal = Decimal("1.0"),
                  order_price: Optional[Decimal] = None,
                  order_delay_time: float = 10.0,
+                 execution_state: ConditionalExecutionState = RunAlwaysExecutionState(),
                  cancel_order_wait_time: Optional[float] = 60.0,
                  status_report_interval: float = 900):
         """
@@ -56,6 +58,7 @@ class TwapTradeStrategy(StrategyPyBase):
         :param order_step_size: amount of base asset to be configured in each order
         :param order_price: price to place the order at
         :param order_delay_time: how long to wait between placing trades
+        :param execution_state: execution state object with the conditions that should be satisfied to run each tick
         :param cancel_order_wait_time: how long to wait before cancelling an order
         :param status_report_interval: how often to report network connection related warnings, if any
         """
@@ -81,6 +84,7 @@ class TwapTradeStrategy(StrategyPyBase):
         self._previous_timestamp = 0
         self._last_timestamp = 0
         self._order_price = Decimal("NaN")
+        self._execution_state = execution_state
 
         if order_price is not None:
             self._order_price = order_price
@@ -114,6 +118,22 @@ class TwapTradeStrategy(StrategyPyBase):
     def place_orders(self):
         return self._place_orders
 
+    def configuration_status_lines(self,):
+        lines = ["", "  Configuration:"]
+
+        for market_info in self._market_infos.values():
+            lines.append("    "
+                         f"Total amount: {PerformanceMetrics.smart_round(self._target_asset_amount)} "
+                         f"{market_info.base_asset}    "
+                         f"Order price: {PerformanceMetrics.smart_round(self._order_price)} "
+                         f"{market_info.quote_asset}    "
+                         f"Order size: {PerformanceMetrics.smart_round(self._order_step_size)} "
+                         f"{market_info.base_asset}")
+
+        lines.append(f"    Execution type: {self._execution_state}")
+
+        return lines
+
     def filled_trades(self):
         """
         Returns a list of all filled trades generated from limit orders with the same trade type the strategy
@@ -129,16 +149,9 @@ class TwapTradeStrategy(StrategyPyBase):
         lines: list = []
         warning_lines: list = []
 
+        lines.extend(self.configuration_status_lines())
+
         for market_info in self._market_infos.values():
-            lines.extend(["",
-                          "  Configuration:",
-                          ("    "
-                           f"Total amount: {PerformanceMetrics.smart_round(self._target_asset_amount)} "
-                           f"{market_info.base_asset}    "
-                           f"Order price: {PerformanceMetrics.smart_round(self._order_price)} "
-                           f"{market_info.quote_asset}    "
-                           f"Order size: {PerformanceMetrics.smart_round(self._order_step_size)} "
-                           f"{market_info.base_asset}")])
 
             active_orders = self.market_info_to_active_orders.get(market_info, [])
 
@@ -292,27 +305,37 @@ class TwapTradeStrategy(StrategyPyBase):
 
         :param timestamp: current tick timestamp
         """
-        current_tick = (timestamp // self._status_report_interval)
+
+        try:
+            self._execution_state.process_tick(timestamp, self)
+        finally:
+            self._last_timestamp = timestamp
+
+    def process_tick(self, timestamp: float):
+        """
+        Clock tick entry point.
+        For the TWAP strategy, this function simply checks for the readiness and connection status of markets, and
+        then delegates the processing of each market info to process_market().
+        """
+        current_tick = timestamp // self._status_report_interval
         last_tick = (self._last_timestamp // self._status_report_interval)
         should_report_warnings = current_tick > last_tick
 
-        try:
+        if not self._all_markets_ready:
+            self._all_markets_ready = all([market.ready for market in self.active_markets])
             if not self._all_markets_ready:
-                self._all_markets_ready = all([market.ready for market in self.active_markets])
-                if not self._all_markets_ready:
-                    # Markets not ready yet. Don't do anything.
-                    if should_report_warnings:
-                        self.logger().warning("Markets are not ready. No market making trades are permitted.")
-                    return
+                # Markets not ready yet. Don't do anything.
+                if should_report_warnings:
+                    self.logger().warning("Markets are not ready. No market making trades are permitted.")
+                return
 
-            if not all([market.network_status is NetworkStatus.CONNECTED for market in self.active_markets]):
-                self.logger().warning("WARNING: Some markets are not connected or are down at the moment. Market "
-                                      "making may be dangerous when markets or networks are unstable.")
+        if (should_report_warnings
+                and not all([market.network_status is NetworkStatus.CONNECTED for market in self.active_markets])):
+            self.logger().warning("WARNING: Some markets are not connected or are down at the moment. Market "
+                                  "making may be dangerous when markets or networks are unstable.")
 
-            for market_info in self._market_infos.values():
-                self.process_market(market_info)
-        finally:
-            self._last_timestamp = timestamp
+        for market_info in self._market_infos.values():
+            self.process_market(market_info)
 
     def place_orders_for_market(self, market_info):
         """
