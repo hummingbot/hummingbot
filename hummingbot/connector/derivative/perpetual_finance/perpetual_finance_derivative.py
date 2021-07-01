@@ -535,12 +535,14 @@ class PerpetualFinanceDerivative(ConnectorBase, PerpetualTrading):
                     action = "paid" if payment < 0 else "received"
                     if payment != Decimal("0"):
                         self.logger().info(f"Funding payment of {payment} {action} on {trading_pair} market.")
-                        self.trigger_event(MarketEvent.FundingPaymentCompleted,
-                                           FundingPaymentCompletedEvent(timestamp=time.time(),
-                                                                        market=self.name,
-                                                                        funding_rate=self._funding_info[trading_pair]["rate"],
-                                                                        trading_pair=trading_pair,
-                                                                        amount=payment))
+                        self.trigger_event(
+                            MarketEvent.FundingPaymentCompleted,
+                            FundingPaymentCompletedEvent(timestamp=time.time(),
+                                                         market=self.name,
+                                                         funding_rate=self._funding_info[trading_pair].rate,
+                                                         trading_pair=trading_pair,
+                                                         amount=payment)
+                        )
 
     async def _funding_info_polling_loop(self):
         while True:
