@@ -912,7 +912,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         return self.c_apply_budget_constraint(proposal)
 
     def adjusted_available_balance_for_orders_budget_constrain(self):
-        new_hanging_orders = [LimitOrder(o.order_id,
+        new_hanging_orders = [LimitOrder("",
                                          o.trading_pair,
                                          o.is_buy,
                                          self.base_asset,
