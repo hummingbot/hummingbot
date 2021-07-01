@@ -10,6 +10,7 @@ class Constants:
 
     ENDPOINT = {
         # Public Endpoints
+        "NETWORK_CHECK": "spot/currencies/BTC",
         "TICKER": "spot/tickers",
         "SYMBOL": "spot/currency_pairs",
         "CURRENCY": "spot/currencies/{currency}",
