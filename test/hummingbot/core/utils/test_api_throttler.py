@@ -29,22 +29,9 @@ PER_METHOD_RATE_LIMIT = [
 
 
 class ThrottledMockServer(MockWebServer):
-    __instance = None
-
-    @staticmethod
-    def get_instance():
-        """
-        Initiate a Humming Web App instance
-        :return: An instance of Humming Web App
-        """
-        if ThrottledMockServer.__instance is None:
-            ThrottledMockServer()
-        return ThrottledMockServer.__instance
 
     def __init__(self):
         super().__init__()
-        ThrottledMockServer.__instance = self
-
         self._request_count = 0
 
     @property
