@@ -114,6 +114,13 @@ class UniswapV3LpStrategy(StrategyPyBase):
                 ])
         return pd.DataFrame(data=data, columns=columns)
 
+    def calculate_volatility(self):
+        """
+        This function returns the current volatility.
+        """
+        return (self._volatility_factor * Decimal(str(np.sqrt(self._volatility_period * Decimal("3600")))) *
+                Decimal(str(self._volatility.current_value)))
+
     def calculate_profitability(self, position: UniswapV3InFlightPosition):
         """
         Does simple computation and returns a dictionary containing data required by other functions.
@@ -223,6 +230,7 @@ class UniswapV3LpStrategy(StrategyPyBase):
         if timestamp > self._next_price_fetch:
             await self.get_current_price(True)
             if self._volatility.is_sampling_buffer_full:
+                self.logger().info(f"New volatility for {self._volatility_period} hours: {self.calculate_volatility()}")
                 self._next_price_fetch = timestamp + 3600
 
         if self._main_task is None or self._main_task.done():
@@ -246,16 +254,12 @@ class UniswapV3LpStrategy(StrategyPyBase):
         :return [lower_price, upper_price]
         """
         if is_buy:
-            buy_spread = (self._volatility_factor * Decimal(str(np.sqrt(self._volatility_period * Decimal("3600")))) *
-                          Decimal(str(self._volatility.current_value))) if self._use_volatility else \
-                self._buy_position_price_spread
+            buy_spread = self.calculate_volatility() if self._use_volatility else self._buy_position_price_spread
             upper_price = self._last_price
             lower_price = (Decimal("1") - buy_spread) * self._last_price
             lower_price = s_decimal_0 if lower_price < s_decimal_0 else lower_price
         else:
-            sell_spread = (self._volatility_factor * Decimal(str(np.sqrt(self._volatility_period * Decimal("3600")))) *
-                           Decimal(str(self._volatility.current_value))) if self._use_volatility else \
-                self._sell_position_price_spread
+            sell_spread = self.calculate_volatility() if self._use_volatility else self._sell_position_price_spread
             lower_price = self._last_price
             upper_price = (Decimal("1") + sell_spread) * self._last_price
         return [lower_price, upper_price]
