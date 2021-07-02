@@ -504,7 +504,7 @@ cdef class KrakenExchange(ExchangeBase):
                                                               tracked_order.order_type,
                                                               Decimal(trade.get("price")),
                                                               Decimal(trade.get("vol")),
-                                                              Decimal(trade.get("fee")),
+                                                              TradeFee(0.0, [(tracked_order.fee_asset, Decimal((trade.get("fee"))))]),
                                                               trade.get("trade_id")))
 
                         if tracked_order.is_done:
