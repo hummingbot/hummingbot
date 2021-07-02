@@ -1,51 +1,41 @@
 import unittest
 from decimal import Decimal
-from mock import MagicMock, patch
+from mock import MagicMock, patch, PropertyMock
 from hummingbot.strategy.hanging_orders_tracker import HangingOrdersTracker, HangingOrdersAggregationType
 from hummingbot.strategy.data_types import HangingOrder, OrderType
 from hummingbot.core.data_type.limit_order import LimitOrder
 
 
-class MarketMock(MagicMock):
-    PRECISION = Decimal("0.00001")
-
-    def quantize_order_amount(self, trading_pair: str, amount: Decimal):
-        return amount.quantize(MarketMock.PRECISION)
-
-    def quantize_order_price(self, trading_pair: str, price: Decimal):
-        return price.quantize(MarketMock.PRECISION)
-
-    def get_maker_order_type(self):
-        return OrderType.LIMIT
-
-
-class StrategyMock(MagicMock):
-    @property
-    def max_order_age(self) -> float:
-        return 1800.0
-
-    @property
-    def order_refresh_time(self) -> float:
-        return 45.0
-
-    def get_price(self) -> Decimal:
-        return Decimal("100.0")
-
-    @property
-    def market_info(self):
-        market_info_mock = MagicMock()
-        market_info_mock.market = MarketMock()
-        return market_info_mock
-
-    @property
-    def trading_pair(self):
-        return "BTC-USDT"
-
-
 class TestHangingOrdersTracker(unittest.TestCase):
     def setUp(self) -> None:
-        self.strategy = StrategyMock()
+        self.strategy = self.create_mock_strategy()
         self.tracker = HangingOrdersTracker(self.strategy, hanging_orders_cancel_pct=Decimal("0.1"))
+
+    @staticmethod
+    def quantize_order_amount(trading_pair: str, amount: Decimal):
+        return amount.quantize(Decimal("0.00001"))
+
+    @staticmethod
+    def quantize_order_price(trading_pair: str, price: Decimal):
+        return price.quantize(Decimal("0.00001"))
+
+    def create_mock_strategy(self):
+        market = MagicMock()
+        market.quantize_order_amount.side_effect = self.quantize_order_amount
+        market.quantize_order_price.side_effect = self.quantize_order_price
+        market.get_maker_order_type.return_value = OrderType.LIMIT
+
+        market_info = MagicMock()
+        market_info.market = market
+
+        strategy = MagicMock()
+        type(strategy).max_order_age = PropertyMock(return_value=1800.0)
+        type(strategy).order_refresh_time = PropertyMock(return_value=45.0)
+        strategy.get_price.return_value = Decimal("100.0")
+        type(strategy).market_info = PropertyMock(return_value=market_info)
+        type(strategy).trading_pair = PropertyMock(return_value="BTC-USDT")
+
+        return strategy
 
     def test_tracker_initialized(self):
         self.assertEqual(self.tracker.trading_pair, "BTC-USDT")
@@ -78,7 +68,8 @@ class TestHangingOrdersTracker(unittest.TestCase):
         self.assertEqual(len(self.tracker.original_orders), 1)
 
     def test_renew_hanging_orders_past_max_order_age(self):
-        current_time_mock = 1234567891
+        type(self.strategy).current_timestamp = PropertyMock(return_value=1234567891)
+
         # Order just executed
         self.tracker.add_order(LimitOrder("Order-1234567890000000",
                                           "BTC-USDT",
@@ -96,14 +87,13 @@ class TestHangingOrdersTracker(unittest.TestCase):
                                           Decimal(105),
                                           Decimal(1)))
 
-        with patch('time.time', return_value=current_time_mock):
-            self.tracker.update_strategy_orders_with_equivalent_orders()
-            self.tracker.renew_hanging_orders_past_max_order_age()
-            self.assertEqual(self.tracker.orders_to_be_created, {HangingOrder(None,
-                                                                              "BTC-USDT",
-                                                                              True,
-                                                                              Decimal(105),
-                                                                              Decimal(1))})
+        self.tracker.update_strategy_orders_with_equivalent_orders()
+        self.tracker.renew_hanging_orders_past_max_order_age(1800)
+        self.assertEqual(self.tracker.orders_to_be_created, {HangingOrder(None,
+                                                                          "BTC-USDT",
+                                                                          True,
+                                                                          Decimal(105),
+                                                                          Decimal(1))})
 
     def test_asymmetrical_volume_weighted(self):
         # Asymmetrical in distance to mid-price and amounts
