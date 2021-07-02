@@ -68,7 +68,7 @@ class UniswapV3Connector(UniswapConnector):
                 resp = await self._api_request("get", "eth/uniswap/v3/start",
                                                {"pairs": json.dumps(self._trading_pairs)})
                 status = bool(str(resp["success"]))
-                if bool(str(resp["success"])):
+                if status:
                     self._initiate_pool_status = status
                     self._trading_pairs = resp["pairs"]
                     await asyncio.sleep(60)
@@ -476,6 +476,8 @@ class UniswapV3Connector(UniswapConnector):
         Get price on a specific fee tier.
         :param trading_pair: trading pair to fetch
         :param tier: tier to return
+        :param seconds: number of seconds to get historical prices
+        :param twap: if to return historical price from pool or current price over multiple pools
         """
         try:
             base, quote = trading_pair.split("-")
@@ -596,9 +598,15 @@ class UniswapV3Connector(UniswapConnector):
                                                  {"tokenList": "[" + (",".join(['"' + t + '"' for t in self._tokens])) + "]",
                                                   "connector": "uniswapV3NFTManager"})
         for token, amount in router_allowances["approvals"].items():
-            ret_val["R" + token] = Decimal(str(amount))
+            try:
+                ret_val["R" + token] = Decimal(str(amount))
+            except Exception:
+                ret_val["R" + token] = s_decimal_0
         for token, amount in nft_allowances["approvals"].items():
-            ret_val["N" + token] = Decimal(str(amount))
+            try:
+                ret_val["N" + token] = Decimal(str(amount))
+            except Exception:
+                ret_val["N" + token] = s_decimal_0
         return ret_val
 
     def has_allowances(self) -> bool:

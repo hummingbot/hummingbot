@@ -245,7 +245,7 @@ class UniswapV3LpStrategy(StrategyPyBase):
         pending_positions = [position.last_status.is_pending() for position in self.active_positions]
         if not any(pending_positions) and len(self.active_orders) == 0 and len(self.active_positions) < 2:
             # Firstly, we remove inactive positions that have attained minimum profitability.
-            # Also, we ensure there there is a maximum of 2 positions per time
+            # Also, we ensure there is a maximum of 2 positions per time
             await self.range_position_remover()
             # Then we proceed with creating new position if necessary3
             proposal = await self.propose_position_creation()
@@ -256,13 +256,12 @@ class UniswapV3LpStrategy(StrategyPyBase):
         """
         We use this to generate range for positions.
         :param is_buy: True is position range goes below current price, else False
-        :return [lower_price, upper_price]
+        :return: [lower_price, upper_price]
         """
         if is_buy:
             buy_spread = self.calculate_volatility() if self._use_volatility else self._buy_position_price_spread
             upper_price = self._last_price
-            lower_price = (Decimal("1") - buy_spread) * self._last_price
-            lower_price = s_decimal_0 if lower_price < s_decimal_0 else lower_price
+            lower_price = max(s_decimal_0, (Decimal("1") - buy_spread) * self._last_price)
         else:
             sell_spread = self.calculate_volatility() if self._use_volatility else self._sell_position_price_spread
             lower_price = self._last_price
