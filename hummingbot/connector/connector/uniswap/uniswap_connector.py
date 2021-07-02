@@ -115,7 +115,7 @@ class UniswapConnector(ConnectorBase):
                 resp = await self._api_request("get", "eth/uniswap/start",
                                                {"pairs": json.dumps(self._trading_pairs)})
                 status = bool(str(resp["success"]))
-                if bool(str(resp["success"])):
+                if status:
                     self._initiate_pool_status = status
                     await asyncio.sleep(60)
             except asyncio.CancelledError:
