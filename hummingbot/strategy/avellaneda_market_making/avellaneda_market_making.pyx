@@ -595,11 +595,13 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     self.c_apply_order_price_modifiers(proposal)
 
                 self._hanging_orders_tracker.remove_orders_far_from_price()
-                self._hanging_orders_tracker.renew_hanging_orders_past_max_order_age()
                 self.c_cancel_active_orders(proposal)
+                # The refresh of the aged orders is done after the cancel step, to avoid refreshing orders that were
+                # about to be canceled
                 refresh_proposal = self.c_aged_order_refresh()
                 if refresh_proposal is not None:
                     self.c_execute_orders_proposal(refresh_proposal)
+                self._hanging_orders_tracker.renew_hanging_orders_past_max_order_age(max_order_age=self._max_order_age)
 
                 if self.c_to_create_orders(proposal):
                     # 4. Apply budget constraint (after hanging orders were created), i.e. can't buy/sell more than what you have.

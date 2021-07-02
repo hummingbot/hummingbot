@@ -1,12 +1,12 @@
 import logging
-import time
 from decimal import Decimal
 from enum import Enum
 from typing import Dict, List, Set
 
+from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.strategy.data_types import HangingOrder
 from hummingbot.strategy.strategy_base import StrategyBase
-from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.strategy.utils import order_age
 
 s_decimal_zero = Decimal(0)
 sb_logger = None
@@ -98,14 +98,21 @@ class HangingOrdersTracker:
         for order in to_be_removed:
             self.original_orders.remove(order)
 
-    def renew_hanging_orders_past_max_order_age(self):
-        max_age = getattr(self.strategy, "max_order_age", None)
+    def hanging_order_age(self, hanging_order: HangingOrder) -> float:
+        """
+        Returns the number of seconds between the current time (taken from the strategy) and the order creation time
+        """
+        return (self.strategy.current_timestamp - hanging_order.creation_timestamp
+                if hanging_order.creation_timestamp
+                else -1)
+
+    def renew_hanging_orders_past_max_order_age(self, max_order_age: float):
         to_be_cancelled: Set[HangingOrder] = set()
         to_be_created: Set[HangingOrder] = set()
-        if max_age:
+        if max_order_age:
             for order in self.strategy_current_hanging_orders:
-                if order.age > max_age:
-                    self.logger().info(f"Reached max_order_age={max_age}sec hanging order: {order}. Renewing...")
+                if self.hanging_order_age(order) > max_order_age:
+                    self.logger().info(f"Reached max_order_age={max_order_age}sec hanging order: {order}. Renewing...")
                     to_be_cancelled.add(order)
 
             self._cancel_multiple_orders_in_strategy([o.order_id for o in to_be_cancelled if o.order_id])
@@ -271,7 +278,7 @@ class HangingOrdersTracker:
         if max_order_age:
             return self._obtain_equivalent_weighted_order(orders,
                                                           lambda o: Decimal.exp(-Decimal(
-                                                              str(HangingOrdersTracker._get_limit_order_age(o) /
+                                                              str(self._limit_order_age(o) /
                                                                   max_order_age))))
         return frozenset()
 
@@ -340,13 +347,6 @@ class HangingOrdersTracker:
     def _get_hanging_order_from_limit_order(self, order: LimitOrder):
         return HangingOrder(order.client_order_id, order.trading_pair, order.is_buy, order.price, order.quantity)
 
-    @classmethod
-    def _get_limit_order_age(cls, order: LimitOrder):
-        creation_timestamp = None
-        if order.client_order_id:
-            if "//" not in order.client_order_id:
-                creation_timestamp = int(order.client_order_id[-16:]) / 1e6
-
-        if creation_timestamp:
-            return int(time.time()) - creation_timestamp
-        return 0
+    def _limit_order_age(self, order: LimitOrder):
+        calculated_age = order_age(order)
+        return calculated_age if calculated_age >= 0 else 0
