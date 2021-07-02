@@ -103,6 +103,7 @@ class UniswapV3LpStrategyTest(unittest.TestCase):
         Test in_range_sell function.
         """
 
+        self.loop.run_until_complete(self.default_strategy.tick(1))
         self.assertFalse(self.default_strategy.in_range_sell())
         self.default_strategy._market_info.market._in_flight_positions["pos1"] = UniswapV3InFlightPosition(hb_id="pos1",
                                                                                                            token_id=1,
