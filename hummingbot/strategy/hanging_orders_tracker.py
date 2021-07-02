@@ -171,10 +171,12 @@ class HangingOrdersTracker:
         equivalent_orders = self.equivalent_orders
         orders_to_create = equivalent_orders.union(self.orders_to_be_created).\
             difference(self.strategy_current_hanging_orders)
-        orders_to_cancel = self.strategy_current_hanging_orders.difference(equivalent_orders).\
-            difference(orders_to_create)
+        orders_to_cancel = self.strategy_current_hanging_orders.difference(equivalent_orders)
+
         self._cancel_multiple_orders_in_strategy([o.order_id for o in orders_to_cancel])
+
         self.orders_to_be_created = self.orders_to_be_created.union(orders_to_create)
+        self.execute_orders_to_be_created()
 
         if any((orders_to_cancel, self.orders_to_be_created)):
             self.logger().info("Updating hanging orders...")
