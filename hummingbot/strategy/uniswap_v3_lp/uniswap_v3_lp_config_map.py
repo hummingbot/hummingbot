@@ -60,7 +60,7 @@ uniswap_v3_lp_config_map = {
     "volatility_period": ConfigVar(
         key="volatility_period",
         type_str="int",
-        prompt="Enter how long(in hours) do you want to use for price volatility calculation >>> ",
+        prompt="Enter how long (in hours) do you want to use for price volatility calculation >>> ",
         required_if=lambda: uniswap_v3_lp_config_map.get("use_volatility").value,
         validator=lambda v: validate_int(v, 1),
         default=3600,
