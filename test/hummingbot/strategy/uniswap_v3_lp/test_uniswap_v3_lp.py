@@ -7,18 +7,32 @@ import pandas as pd
 import numpy as np
 from typing import Dict, List
 import unittest.mock
+import asyncio
 
 from hummingbot.core.clock import Clock, ClockMode
-from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import MarketEvent
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.uniswap_v3_lp.uniswap_v3_lp import UniswapV3LpStrategy
 from hummingbot.connector.connector.uniswap_v3.uniswap_v3_in_flight_position import UniswapV3InFlightPosition
-from hummingbot.strategy.__utils__.trailing_indicators.historical_volatility import HistoricalVolatilityIndicator
 
 from hummingsim.backtest.backtest_market import BacktestMarket
 from hummingsim.backtest.market import QuantizationParams
 from hummingsim.backtest.mock_order_book_loader import MockOrderBookLoader
+
+
+class ExtendedBacktestMarket(BacktestMarket):
+    def __init__(self):
+        super().__init__()
+        self._trading_pairs = ["ETH-USDT"]
+        np.random.seed(123456789)
+        self._in_flight_positions = {}
+
+    async def get_price_by_fee_tier(self, trading_pair: str, tier: str, seconds: int = 1, twap: bool = False):
+        if twap:
+            original_price = 100
+            volatility = 0.1
+            return np.random.normal(original_price, volatility, 3599)
+        else:
+            return Decimal("100")
 
 
 class UniswapV3LpStrategyTest(unittest.TestCase):
@@ -33,7 +47,7 @@ class UniswapV3LpStrategyTest(unittest.TestCase):
         """
         Create a BacktestMarket and marketinfo dictionary to be used by the liquidity mining strategy
         """
-        market: BacktestMarket = BacktestMarket()
+        market: ExtendedBacktestMarket = ExtendedBacktestMarket()
         market_infos: Dict[str, MarketTradingPairTuple] = {}
 
         for trading_pair in trading_pairs:
@@ -56,7 +70,7 @@ class UniswapV3LpStrategyTest(unittest.TestCase):
         return market, market_infos
 
     def setUp(self) -> None:
-        np.random.seed(123456789)
+        self.loop = asyncio.get_event_loop()
         self.clock_tick_size = 1
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
 
@@ -70,12 +84,6 @@ class UniswapV3LpStrategyTest(unittest.TestCase):
         self.market = market
         self.market_infos = market_infos
 
-        self.clock.add_iterator(self.market)
-        self.order_fill_logger: EventLogger = EventLogger()
-        self.cancel_order_logger: EventLogger = EventLogger()
-        self.market.add_listener(MarketEvent.OrderFilled, self.order_fill_logger)
-        self.market.add_listener(MarketEvent.OrderCancelled, self.cancel_order_logger)
-
         self.default_strategy = UniswapV3LpStrategy(
             self.market_infos[trading_pairs[0]],
             "MEDIUM",
@@ -88,51 +96,64 @@ class UniswapV3LpStrategyTest(unittest.TestCase):
             Decimal('1'),
             Decimal('0.05')
         )
+        self.default_strategy._last_price = Decimal("100")
 
-    def test_generate_proposal_with_volatility(self):
+    def test_in_range_sell(self):
         """
-        Test that the generate proposal function works correctly using volatility
+        Test in_range_sell function.
         """
 
-        original_price = 100
-        volatility = 0.1
-        returns = np.random.normal(0, volatility, 3599)
-        samples = [original_price]
-        for r in returns:
-            samples.append(samples[-1] * np.exp(r))
-        self.default_strategy._volatility = HistoricalVolatilityIndicator(3600, 1)
+        self.assertFalse(self.default_strategy.in_range_sell())
+        self.default_strategy._market_info.market._in_flight_positions["pos1"] = UniswapV3InFlightPosition(hb_id="pos1",
+                                                                                                           token_id=1,
+                                                                                                           trading_pair="ETH-USDT",
+                                                                                                           fee_tier="MEDIUM",
+                                                                                                           base_amount=Decimal("0"),
+                                                                                                           quote_amount=Decimal("100"),
+                                                                                                           lower_price=Decimal("98"),
+                                                                                                           upper_price=Decimal("101"))
+        self.assertTrue(self.default_strategy.in_range_sell())
+        self.default_strategy._market_info.market._in_flight_positions = {}
 
-        for sample in samples:
-            self.default_strategy._volatility.add_sample(sample)
+    def test_generate_proposal_with_volatility_above_zero(self):
+        """
+        Test generate proposal function works correctly when volatility is above zero
+        """
 
-        self.default_strategy._last_price = Decimal(str(original_price))
-        buy_lower, buy_upper = self.default_strategy.generate_proposal(True)
-        self.assertEqual(buy_upper, Decimal("100"))
-        self.assertEqual(buy_lower, Decimal("0"))
-        sell_lower, sell_upper = self.default_strategy.generate_proposal(False)
-        self.assertAlmostEqual(sell_upper, Decimal("343.9"), 1)
-        self.assertEqual(sell_lower, Decimal("100"))
+        orders = self.loop.run_until_complete(self.default_strategy.propose_position_creation())
+        self.assertEqual(orders[0][0], Decimal("0"))
+        self.assertEqual(orders[0][1], Decimal("100"))
+        self.assertEqual(orders[1][0], Decimal("100"))
+        self.assertAlmostEqual(orders[1][1], Decimal("305.35"), 1)
+
+    def test_generate_proposal_with_volatility_equal_zero(self):
+        """
+        Test generate proposal function works correctly when volatility is zero
+        """
+
+        for x in range(3600):
+            self.default_strategy._volatility.add_sample(100)
+        orders = self.loop.run_until_complete(self.default_strategy.propose_position_creation())
+        self.assertEqual(orders[0], [])
+        self.assertEqual(orders[1], [])
 
     def test_generate_proposal_without_volatility(self):
         """
-        Test that the generate proposal function works correctly using user set spreads
+        Test generate proposal function works correctly using user set spreads
         """
 
         self.default_strategy._use_volatility = False
-        self.default_strategy._last_price = Decimal("100")
-        buy_lower, buy_upper = self.default_strategy.generate_proposal(True)
-        self.assertEqual(buy_upper, Decimal("100"))
-        self.assertEqual(buy_lower, Decimal("99"))
-        sell_lower, sell_upper = self.default_strategy.generate_proposal(False)
-        self.assertEqual(sell_upper, Decimal("101"))
-        self.assertEqual(sell_lower, Decimal("100"))
+        orders = self.loop.run_until_complete(self.default_strategy.propose_position_creation())
+        self.assertEqual(orders[0][0], Decimal("99"))
+        self.assertEqual(orders[0][1], Decimal("100"))
+        self.assertEqual(orders[1][0], Decimal("100"))
+        self.assertEqual(orders[1][1], Decimal("101"))
 
     def test_profitability_calculation(self):
         """
-        Test that the profitability calculation function works correctly
+        Test profitability calculation function works correctly
         """
 
-        self.default_strategy._last_price = Decimal("100")
         pos = UniswapV3InFlightPosition(hb_id="pos1",
                                         token_id=1,
                                         trading_pair="HBOT-USDT",
