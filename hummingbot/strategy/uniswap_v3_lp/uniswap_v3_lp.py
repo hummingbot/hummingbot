@@ -58,6 +58,7 @@ class UniswapV3LpStrategy(StrategyPyBase):
         self._last_price = s_decimal_0
         self._volatility = HistoricalVolatilityIndicator(3600, 1)
         self._main_task = None
+        self._fetch_prices_task = None
         self._next_price_fetch = 0
 
     @property
@@ -92,7 +93,7 @@ class UniswapV3LpStrategy(StrategyPyBase):
         if update_volatility:
             prices = await self._market_info.market.get_price_by_fee_tier(self.trading_pair, self._fee_tier, 3600, True)
             for price in prices:
-                self._volatility.add_sample(price)
+                self._volatility.add_sample(float(price))
         else:
             price = await self._market_info.market.get_price_by_fee_tier(self.trading_pair, self._fee_tier)
         return Decimal(prices[-1]) if update_volatility else Decimal(price)
@@ -227,11 +228,15 @@ class UniswapV3LpStrategy(StrategyPyBase):
                     return
                 self.logger().info("Uniswap v3 connector is ready. Trading started.")
 
-        if timestamp > self._next_price_fetch:
-            await self.get_current_price(True)
-            if self._volatility.is_sampling_buffer_full:
+        if timestamp > self._next_price_fetch and self._use_volatility:
+            if not self._fetch_prices_task:
+                self._fetch_prices_task = safe_ensure_future(self.get_current_price(True))
+            elif self._fetch_prices_task.done():
                 self.logger().info(f"New volatility for {self._volatility_period} hours: {self.calculate_volatility()}")
                 self._next_price_fetch = timestamp + 3600
+                self._fetch_prices_task = None
+            else:
+                return
 
         if self._main_task is None or self._main_task.done():
             self._main_task = safe_ensure_future(self.main())
@@ -282,6 +287,9 @@ class UniswapV3LpStrategy(StrategyPyBase):
 
         current_price = await self.get_current_price()
 
+        while not self._volatility.is_sampling_buffer_full:
+            await self.get_current_price(True)
+
         if self._last_price != current_price or len(self.active_buys) == 0 or len(self.active_sells) == 0:
             if current_price != s_decimal_0:
                 self._last_price = current_price
@@ -292,6 +300,11 @@ class UniswapV3LpStrategy(StrategyPyBase):
 
             if len(self.active_sells) == 0:
                 sell_prices = self.generate_proposal(False)
+
+            if self._use_volatility and self.calculate_volatility() == s_decimal_0:
+                self.logger().info("Unable to use price volatility to set spreads because volatility in last hour is zero."
+                                   " Kindly disable volatility and set spreads manually.")
+                return [[], []]
 
         return [buy_prices, sell_prices]
 
