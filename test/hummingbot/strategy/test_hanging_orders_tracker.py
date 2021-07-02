@@ -68,15 +68,6 @@ class TestHangingOrdersTracker(unittest.TestCase):
         self.tracker.remove_all_orders()
         self.assertEqual(len(self.tracker.original_orders), 0)
 
-    def test_update_orders_to_be_created(self):
-        order_to_add = LimitOrder("Order-number-1", "BTC-USDT", True, "BTC", "USDT", Decimal(100), Decimal(1))
-        self.tracker.add_order(order_to_add)
-        self.tracker.set_aggregation_method(HangingOrdersAggregationType.NO_AGGREGATION)
-        self.tracker.update_strategy_orders_with_equivalent_orders()
-
-        self.assertEqual(self.tracker.orders_to_be_created,
-                         {HangingOrder("Order-number-1", "BTC-USDT", True, Decimal(100), Decimal(1))})
-
     def test_remove_orders_far_from_price(self):
         # hanging_orders_cancel_pct = 10% so will add one closer and one further
         # Current price = 100.0
@@ -107,7 +98,6 @@ class TestHangingOrdersTracker(unittest.TestCase):
 
         with patch('time.time', return_value=current_time_mock):
             self.tracker.update_strategy_orders_with_equivalent_orders()
-            self.tracker.execute_orders_to_be_created()
             self.tracker.renew_hanging_orders_past_max_order_age()
             self.assertEqual(self.tracker.orders_to_be_created, {HangingOrder(None,
                                                                               "BTC-USDT",
@@ -124,16 +114,17 @@ class TestHangingOrdersTracker(unittest.TestCase):
 
         self.tracker.set_aggregation_method(HangingOrdersAggregationType.VOLUME_WEIGHTED)
         self.tracker.update_strategy_orders_with_equivalent_orders()
-        self.assertEqual(self.tracker.orders_to_be_created, {HangingOrder(order_id=None,
-                                                                          trading_pair='BTC-USDT',
-                                                                          is_buy=True,
-                                                                          price=Decimal('97.66667'),
-                                                                          amount=Decimal('3.00000')),
-                                                             HangingOrder(order_id=None,
-                                                                          trading_pair='BTC-USDT',
-                                                                          is_buy=False,
-                                                                          price=Decimal('107.36364'),
-                                                                          amount=Decimal('11.00000'))})
+        self.assertEqual(self.tracker.strategy_current_hanging_orders,
+                         {HangingOrder(order_id=None,
+                                       trading_pair='BTC-USDT',
+                                       is_buy=True,
+                                       price=Decimal('97.66667'),
+                                       amount=Decimal('3.00000')),
+                          HangingOrder(order_id=None,
+                                       trading_pair='BTC-USDT',
+                                       is_buy=False,
+                                       price=Decimal('107.36364'),
+                                       amount=Decimal('11.00000'))})
 
     def test_symmetrical_volume_weighted(self):
         # Symmetrical in distance to mid-price and amounts
@@ -144,16 +135,17 @@ class TestHangingOrdersTracker(unittest.TestCase):
 
         self.tracker.set_aggregation_method(HangingOrdersAggregationType.VOLUME_WEIGHTED)
         self.tracker.update_strategy_orders_with_equivalent_orders()
-        self.assertEqual(self.tracker.orders_to_be_created, {HangingOrder(order_id=None,
-                                                                          trading_pair='BTC-USDT',
-                                                                          is_buy=True,
-                                                                          price=Decimal('95.36364'),
-                                                                          amount=Decimal('11.00000')),
-                                                             HangingOrder(order_id=None,
-                                                                          trading_pair='BTC-USDT',
-                                                                          is_buy=False,
-                                                                          price=Decimal('104.63636'),
-                                                                          amount=Decimal('11.00000'))})
+        self.assertEqual(self.tracker.strategy_current_hanging_orders,
+                         {HangingOrder(order_id=None,
+                                       trading_pair='BTC-USDT',
+                                       is_buy=True,
+                                       price=Decimal('95.36364'),
+                                       amount=Decimal('11.00000')),
+                          HangingOrder(order_id=None,
+                                       trading_pair='BTC-USDT',
+                                       is_buy=False,
+                                       price=Decimal('104.63636'),
+                                       amount=Decimal('11.00000'))})
 
     def test_asymmetrical_volume_age_weighted(self):
         current_time_mock = 1234567891
@@ -168,16 +160,17 @@ class TestHangingOrdersTracker(unittest.TestCase):
         with patch('time.time', return_value=current_time_mock):
             self.tracker.set_aggregation_method(HangingOrdersAggregationType.VOLUME_TIME_WEIGHTED)
             self.tracker.update_strategy_orders_with_equivalent_orders()
-            self.assertEqual(self.tracker.orders_to_be_created, {HangingOrder(order_id=None,
-                                                                              trading_pair='BTC-USDT',
-                                                                              is_buy=True,
-                                                                              price=Decimal('95.31641'),
-                                                                              amount=Decimal('9.00000')),
-                                                                 HangingOrder(order_id=None,
-                                                                              trading_pair='BTC-USDT',
-                                                                              is_buy=False,
-                                                                              price=Decimal('109.00000'),
-                                                                              amount=Decimal('5.00000'))})
+            self.assertEqual(self.tracker.strategy_current_hanging_orders,
+                             {HangingOrder(order_id=None,
+                                           trading_pair='BTC-USDT',
+                                           is_buy=True,
+                                           price=Decimal('95.31641'),
+                                           amount=Decimal('9.00000')),
+                              HangingOrder(order_id=None,
+                                           trading_pair='BTC-USDT',
+                                           is_buy=False,
+                                           price=Decimal('109.00000'),
+                                           amount=Decimal('5.00000'))})
 
     def test_symmetrical_volume_age_weighted(self):
         # Symmetrical in distance to mid-price and amounts, BUT different ages
@@ -194,16 +187,17 @@ class TestHangingOrdersTracker(unittest.TestCase):
         with patch('time.time', return_value=current_time_mock):
             self.tracker.set_aggregation_method(HangingOrdersAggregationType.VOLUME_TIME_WEIGHTED)
             self.tracker.update_strategy_orders_with_equivalent_orders()
-            self.assertEqual(self.tracker.orders_to_be_created, {HangingOrder(order_id=None,
-                                                                              trading_pair='BTC-USDT',
-                                                                              is_buy=True,
-                                                                              price=Decimal('95.69098'),
-                                                                              amount=Decimal('11.00000')),
-                                                                 HangingOrder(order_id=None,
-                                                                              trading_pair='BTC-USDT',
-                                                                              is_buy=False,
-                                                                              price=Decimal('104.20177'),
-                                                                              amount=Decimal('11.00000'))})
+            self.assertEqual(self.tracker.strategy_current_hanging_orders,
+                             {HangingOrder(order_id=None,
+                                           trading_pair='BTC-USDT',
+                                           is_buy=True,
+                                           price=Decimal('95.69098'),
+                                           amount=Decimal('11.00000')),
+                              HangingOrder(order_id=None,
+                                           trading_pair='BTC-USDT',
+                                           is_buy=False,
+                                           price=Decimal('104.20177'),
+                                           amount=Decimal('11.00000'))})
 
     def test_asymmetrical_volume_distance_weighted(self):
         # Asymmetrical in distance to mid-price and amounts, BUT with distance affecting the weight exponentially
@@ -214,16 +208,17 @@ class TestHangingOrdersTracker(unittest.TestCase):
 
         self.tracker.set_aggregation_method(HangingOrdersAggregationType.VOLUME_DISTANCE_WEIGHTED)
         self.tracker.update_strategy_orders_with_equivalent_orders()
-        self.assertEqual(self.tracker.orders_to_be_created, {HangingOrder(order_id=None,
-                                                                          trading_pair='BTC-USDT',
-                                                                          is_buy=False,
-                                                                          price=Decimal('107.14511'),
-                                                                          amount=Decimal('11.00000')),
-                                                             HangingOrder(order_id=None,
-                                                                          trading_pair='BTC-USDT',
-                                                                          is_buy=True,
-                                                                          price=Decimal('97.99590'),
-                                                                          amount=Decimal('3.00000'))})
+        self.assertEqual(self.tracker.strategy_current_hanging_orders,
+                         {HangingOrder(order_id=None,
+                                       trading_pair='BTC-USDT',
+                                       is_buy=False,
+                                       price=Decimal('107.14511'),
+                                       amount=Decimal('11.00000')),
+                          HangingOrder(order_id=None,
+                                       trading_pair='BTC-USDT',
+                                       is_buy=True,
+                                       price=Decimal('97.99590'),
+                                       amount=Decimal('3.00000'))})
 
     def test_symmetrical_volume_distance_weighted(self):
         # Symmetrical in distance to mid-price and amounts, BUT with distance affecting the weight exponentially
@@ -234,13 +229,14 @@ class TestHangingOrdersTracker(unittest.TestCase):
 
         self.tracker.set_aggregation_method(HangingOrdersAggregationType.VOLUME_DISTANCE_WEIGHTED)
         self.tracker.update_strategy_orders_with_equivalent_orders()
-        self.assertEqual(self.tracker.orders_to_be_created, {HangingOrder(order_id=None,
-                                                                          trading_pair='BTC-USDT',
-                                                                          is_buy=True,
-                                                                          price=Decimal('96.82055'),
-                                                                          amount=Decimal('11.00000')),
-                                                             HangingOrder(order_id=None,
-                                                                          trading_pair='BTC-USDT',
-                                                                          is_buy=False,
-                                                                          price=Decimal('103.17945'),
-                                                                          amount=Decimal('11.00000'))})
+        self.assertEqual(self.tracker.strategy_current_hanging_orders,
+                         {HangingOrder(order_id=None,
+                                       trading_pair='BTC-USDT',
+                                       is_buy=True,
+                                       price=Decimal('96.82055'),
+                                       amount=Decimal('11.00000')),
+                          HangingOrder(order_id=None,
+                                       trading_pair='BTC-USDT',
+                                       is_buy=False,
+                                       price=Decimal('103.17945'),
+                                       amount=Decimal('11.00000'))})
