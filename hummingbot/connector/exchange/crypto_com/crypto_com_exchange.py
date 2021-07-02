@@ -42,7 +42,8 @@ from hummingbot.connector.exchange.crypto_com.crypto_com_in_flight_order import 
 from hummingbot.connector.exchange.crypto_com import crypto_com_utils
 from hummingbot.connector.exchange.crypto_com import crypto_com_constants as CONSTANTS
 from hummingbot.core.data_type.common import OpenOrder
-from hummingbot.core.utils.api_throttler import APIThrottler, RateLimitType
+from hummingbot.core.api_throttler.varied_rate_api_throttler import VariedRateThrottler
+
 ctce_logger = None
 s_decimal_NaN = Decimal("nan")
 
@@ -93,9 +94,8 @@ class CryptoComExchange(ExchangeBase):
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
         self._last_poll_timestamp = 0
-        self._throttler = APIThrottler(
+        self._throttler = VariedRateThrottler(
             rate_limit_list=CONSTANTS.RATE_LIMITS,
-            rate_limit_type=RateLimitType.PER_METHOD
         )
 
     @property
@@ -201,6 +201,7 @@ class CryptoComExchange(ExchangeBase):
         This function is required by NetworkIterator base class and is called automatically.
         """
         self._order_book_tracker.stop()
+        self._throttler.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
             self._status_polling_task = None
@@ -320,7 +321,7 @@ class CryptoComExchange(ExchangeBase):
         signature to the request.
         :returns A response in json format.
         """
-        async with self._throttler.per_method_task(path_url):
+        async with self._throttler.execute_task(path_url):
             url = f"{CONSTANTS.REST_URL}/{path_url}"
             client = await self._http_client()
             if is_auth_required:
