@@ -1,5 +1,3 @@
-import asyncio
-
 from collections import deque
 from typing import (
     Deque,
@@ -40,11 +38,5 @@ class APIThrottlerBase:
         self._task_logs: Deque[TaskLog] = deque()
         self._pending_task: Deque[int]
 
-        # Event
-        self._throttler_stop_event = asyncio.Event()
-
     def execute_task(self):
         raise NotImplementedError
-
-    def stop(self):
-        self._throttler_stop_event.set()
