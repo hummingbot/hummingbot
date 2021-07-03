@@ -16,9 +16,7 @@ class APIRequestContextBase:
 
     def __init__(self,
                  task_logs: Deque[TaskLog],
-                 pending_tasks: Deque[TaskLog],
                  rate_limit: RateLimit,
-                 stop_event: asyncio.Event,
                  period_safety_margin: Seconds = 0.1,
                  retry_interval: Seconds = 0.1):
         """
@@ -30,9 +28,7 @@ class APIRequestContextBase:
         :param retry_interval: Time between each limit check
         """
         self._lock = asyncio.Lock()
-        self._stop_event = stop_event
         self._task_logs: Deque[TaskLog] = task_logs
-        self._pending_tasks: Deque[TaskLog] = pending_tasks
 
         self._rate_limit: RateLimit = rate_limit
 
@@ -58,7 +54,6 @@ class APIRequestContextBase:
         raise NotImplementedError
 
     async def acquire(self):
-        self._pending_tasks.append(id(self))
         while True:
             self.flush()
 
@@ -66,7 +61,6 @@ class APIRequestContextBase:
                 break
             await asyncio.sleep(self._retry_interval)
 
-        self._pending_tasks.remove(id(self))
         task = TaskLog(timestamp=time.time(),
                        path_url=self._rate_limit.path_url,
                        weight=self._rate_limit.weight)
@@ -78,5 +72,4 @@ class APIRequestContextBase:
             await self.acquire()
 
     async def __aexit__(self, exc_type, exc, tb):
-        if self._stop_event.is_set():
-            raise asyncio.CancelledError
+        pass
