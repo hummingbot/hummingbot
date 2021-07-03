@@ -1,5 +1,3 @@
-import asyncio
-
 from typing import Deque, List
 
 from hummingbot.core.api_throttler.api_request_context_base import APIRequestContextBase
@@ -25,7 +23,6 @@ class VariedRateThrottler(APIThrottlerBase):
         return VariedRateRequestContext(
             task_logs=self._task_logs,
             rate_limit=rate_limit,
-            stop_event=self._throttler_stop_event,
             period_safety_margin=self._period_safety_margin,
             retry_interval=self._retry_interval,
         )
@@ -36,13 +33,11 @@ class VariedRateRequestContext(APIRequestContextBase):
     def __init__(self,
                  task_logs: Deque[TaskLog],
                  rate_limit: RateLimit,
-                 stop_event: asyncio.Event,
                  period_safety_margin: Seconds = 0.1,
                  retry_interval: Seconds = 0.1):
         super().__init__(
             task_logs,
             rate_limit,
-            stop_event,
             period_safety_margin=period_safety_margin,
             retry_interval=retry_interval)
 
