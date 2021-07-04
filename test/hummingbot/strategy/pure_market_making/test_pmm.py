@@ -6,6 +6,7 @@ import logging
 import pandas as pd
 import unittest
 
+from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingsim.backtest.backtest_market import BacktestMarket
 from hummingsim.backtest.market import QuantizationParams
@@ -17,7 +18,7 @@ from hummingbot.core.event.events import (
     OrderBookTradeEvent,
     TradeType,
     PriceType,
-)
+    OrderCancelledEvent)
 from hummingbot.model.sql_connection_manager import (
     SQLConnectionManager,
     SQLConnectionType,
@@ -100,7 +101,7 @@ class PMMUnitTest(unittest.TestCase):
             order_refresh_time=5.0,
             filled_order_delay=5.0,
             order_refresh_tolerance_pct=-1,
-            minimum_spread=-1,
+            minimum_spread=-1
         )
 
         self.multi_levels_strategy = PureMarketMakingStrategy()
@@ -603,7 +604,8 @@ class PMMUnitTest(unittest.TestCase):
         self.assertEqual(0, len(strategy.active_buys))
         self.assertEqual(1, len(strategy.active_sells))
         self.assertEqual(1, len(strategy.hanging_order_ids))
-        hanging_order_id = strategy.hanging_order_ids[0]
+        hanging_sell = strategy.active_sells[0]
+        self.assertEqual(hanging_sell.client_order_id, strategy.hanging_order_ids[0])
 
         # At order_refresh_time, hanging order remains.
         self.clock.backtest_til(self.start_timestamp + 5)
@@ -615,7 +617,7 @@ class PMMUnitTest(unittest.TestCase):
         self.assertEqual(1, len(strategy.active_buys))
         self.assertEqual(2, len(strategy.active_sells))
 
-        self.assertIn(hanging_order_id, [order.client_order_id for order in strategy.active_sells])
+        self.assertIn(hanging_sell.client_order_id, [order.client_order_id for order in strategy.active_sells])
 
         simulate_order_book_widening(self.book_data.order_book, 80, 100)
         # As book bids moving lower, the ask hanging order price spread is now more than the hanging_orders_cancel_pct
@@ -626,6 +628,38 @@ class PMMUnitTest(unittest.TestCase):
         self.assertNotIn(strategy.active_sells[0].client_order_id, strategy.hanging_order_ids)
 
         self.order_fill_logger.clear()
+
+    def test_hanging_order_max_order_age(self):
+        # Note: Due to orders created by backtest market don't have timestamp in their IDs, thus max order age cannot
+        # be calculated. We manually add the order to to_recreate_hanging_orders and trigger order cancel event here to
+        # simulate the recreate.
+        strategy = self.one_level_strategy
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(self.start_timestamp + 1)
+        self.assertEqual(1, len(strategy.active_buys))
+        self.assertEqual(1, len(strategy.active_sells))
+
+        strategy.hanging_orders_enabled = True
+        self.simulate_maker_market_trade(False, 100, 98.9)
+        self.clock.backtest_til(self.start_timestamp + 6)
+        self.assertEqual(1, len(self.order_fill_logger.event_log))
+        self.assertEqual(0, len(strategy.active_buys))
+        self.assertEqual(1, len(strategy.active_sells))
+        self.assertEqual(1, len(strategy.hanging_order_ids))
+        hanging_sell: LimitOrder = strategy.active_sells[0]
+        self.assertEqual(hanging_sell.client_order_id, strategy.hanging_order_ids[0])
+
+        strategy.hanging_orders_to_recreate.append(hanging_sell)
+        self.market.trigger_event(MarketEvent.OrderCancelled, OrderCancelledEvent(
+            self.market.current_timestamp,
+            hanging_sell.client_order_id
+        ))
+        self.clock.backtest_til(self.start_timestamp + 7)
+        self.assertEqual(2, len(strategy.active_sells))
+        new_hang: LimitOrder = [o for o in strategy.active_sells if o.price == hanging_sell.price
+                                and o.quantity == hanging_sell.quantity]
+
+        self.assertNotEqual(hanging_sell.client_order_id, new_hang[0].client_order_id)
 
     def test_hanging_orders_multiple_orders(self):
         strategy = self.multi_levels_strategy

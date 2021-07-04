@@ -155,6 +155,10 @@ cdef class StrategyBase(TimeIterator):
 
     @property
     def trades(self) -> List[Trade]:
+        """
+        Returns a list of all completed trades from the market.
+        The trades are taken from the market event logs.
+        """
         def event_to_trade(order_filled_event: OrderFilledEvent, market_name: str):
             return Trade(order_filled_event.trading_pair,
                          order_filled_event.trade_type,
