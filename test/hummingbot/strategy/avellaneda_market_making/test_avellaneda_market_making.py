@@ -647,7 +647,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
     def test_get_logspaced_level_spreads(self):
         # Re-initialize strategy with order_level configurations
-        self.strategy = AvellanedaMarketMakingStrategy(
+        self.strategy = AvellanedaMarketMakingStrategy()
+        self.strategy.init_params(
             market_info=self.market_info,
             order_amount=self.order_amount,
             order_levels=2,
