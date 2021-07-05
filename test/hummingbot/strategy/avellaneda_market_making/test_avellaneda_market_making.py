@@ -99,7 +99,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
             )
         )
 
-        self.strategy: AvellanedaMarketMakingStrategy = AvellanedaMarketMakingStrategy(
+        self.strategy: AvellanedaMarketMakingStrategy = AvellanedaMarketMakingStrategy()
+        self.strategy.init_params(
             market_info=self.market_info,
             order_amount=self.order_amount,
             min_spread=self.min_spread,
