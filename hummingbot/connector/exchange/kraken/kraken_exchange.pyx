@@ -258,22 +258,12 @@ cdef class KrakenExchange(ExchangeBase):
                           object amount,
                           object price):
         """
-        cdef:
-            object maker_trade_fee = Decimal("0.0016")
-            object taker_trade_fee = Decimal("0.0026")
-            str trading_pair = base_currency + quote_currency
-
-        if order_type is OrderType.LIMIT and fee_overrides_config_map["kraken_maker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["kraken_maker_fee"].value / Decimal("100"))
-        if order_type is OrderType.MARKET and fee_overrides_config_map["kraken_taker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["kraken_taker_fee"].value / Decimal("100"))
-
-        if trading_pair in self._trade_fees:
-            maker_trade_fee, taker_trade_fee = self._trade_fees.get(trading_pair)
-        return TradeFee(percent=maker_trade_fee if order_type is OrderType.LIMIT else taker_trade_fee)
+        To get trading fee, this function is simplified by using fee override configuration. Most parameters to this
+        function are ignore except order_type. Use OrderType.LIMIT_MAKER to specify you want trading fee for
+        maker order.
         """
         is_maker = order_type is OrderType.LIMIT_MAKER
-        return estimate_fee("kraken", is_maker)
+        return TradeFee(percent=self.estimate_fee_pct(is_maker))
 
     async def _update_trading_rules(self):
         cdef:
@@ -514,13 +504,7 @@ cdef class KrakenExchange(ExchangeBase):
                                                               tracked_order.order_type,
                                                               Decimal(trade.get("price")),
                                                               Decimal(trade.get("vol")),
-                                                              self.c_get_fee(
-                                                                  tracked_order.base_asset,
-                                                                  tracked_order.quote_asset,
-                                                                  tracked_order.order_type,
-                                                                  tracked_order.trade_type,
-                                                                  float(Decimal(trade.get("price"))),
-                                                                  float(Decimal(trade.get("vol")))),
+                                                              TradeFee(0.0, [(tracked_order.fee_asset, Decimal((trade.get("fee"))))]),
                                                               trade.get("trade_id")))
 
                         if tracked_order.is_done:
@@ -841,7 +825,6 @@ cdef class KrakenExchange(ExchangeBase):
             TradingRule trading_rule = self._trading_rules[trading_pair]
             str base_currency = self.split_trading_pair(trading_pair)[0]
             str quote_currency = self.split_trading_pair(trading_pair)[1]
-            object buy_fee = self.c_get_fee(base_currency, quote_currency, order_type, TradeType.BUY, amount, price)
 
         decimal_amount = self.c_quantize_order_amount(trading_pair, amount)
         decimal_price = self.c_quantize_order_price(trading_pair, price)
