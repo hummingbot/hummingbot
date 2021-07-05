@@ -222,7 +222,8 @@ class LiquidityMiningTest(unittest.TestCase):
         trading_pairs = list(map(lambda quote_asset: "ETH-" + quote_asset, ["USDT", "BUSD", "BTC"]))
         market, market_infos = self.create_market(trading_pairs, 100, {"USDT": usdt_balance, "BUSD": busd_balance, "ETH": eth_balance, "BTC": btc_balance})
 
-        strategy = LiquidityMiningStrategy(
+        strategy = LiquidityMiningStrategy()
+        strategy.init_params(
             exchange=market,
             market_infos=market_infos,
             token="ETH",
@@ -267,7 +268,8 @@ class LiquidityMiningTest(unittest.TestCase):
         trading_pairs = list(map(lambda quote_asset: "ETH-" + quote_asset, ["USDT", "BUSD", "BTC"]))
         market, market_infos = self.create_market(trading_pairs, 100, {"USDT": usdt_balance, "BUSD": busd_balance, "ETH": eth_balance, "BTC": btc_balance})
 
-        skewed_base_strategy = LiquidityMiningStrategy(
+        skewed_base_strategy = LiquidityMiningStrategy()
+        skewed_base_strategy.init_params(
             exchange=market,
             market_infos=market_infos,
             token="ETH",
@@ -279,7 +281,8 @@ class LiquidityMiningTest(unittest.TestCase):
             order_refresh_tolerance_pct=Decimal(0.1),  # tolerance of 10 % change
         )
 
-        unskewed_strategy = LiquidityMiningStrategy(
+        unskewed_strategy = LiquidityMiningStrategy()
+        unskewed_strategy.init_params(
             exchange=market,
             market_infos=market_infos,
             token="ETH",
@@ -324,7 +327,8 @@ class LiquidityMiningTest(unittest.TestCase):
         trading_pairs = list(map(lambda quote_asset: "ETH-" + quote_asset, ["USDT"]))
         market, market_infos = self.create_market(trading_pairs, 100, {"USDT": usdt_balance, "ETH": eth_balance})
 
-        strategy = LiquidityMiningStrategy(
+        strategy = LiquidityMiningStrategy()
+        strategy.init_params(
             exchange=market,
             market_infos=market_infos,
             token="ETH",
@@ -394,7 +398,8 @@ class LiquidityMiningTest(unittest.TestCase):
         hummingbot_application.notifiers.append(notifier_mock)
         main_application_function_mock.return_value = hummingbot_application
 
-        strategy = self.default_strategy = LiquidityMiningStrategy(
+        strategy = self.default_strategy = LiquidityMiningStrategy()
+        self.default_strategy.init_params(
             exchange=self.market,
             market_infos=self.market_infos,
             token="ETH",
@@ -405,7 +410,8 @@ class LiquidityMiningTest(unittest.TestCase):
             order_refresh_time=5,
             order_refresh_tolerance_pct=Decimal(0.1),  # tolerance of 10 % change
             max_order_age=3,
-            hb_app_notification=True)
+            hb_app_notification=True
+        )
 
         timestamp = self.start_timestamp + 10
         self.clock.add_iterator(strategy)
