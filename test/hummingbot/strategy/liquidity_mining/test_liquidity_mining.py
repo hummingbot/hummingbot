@@ -77,7 +77,8 @@ class LiquidityMiningTest(unittest.TestCase):
         self.market.add_listener(MarketEvent.OrderFilled, self.order_fill_logger)
         self.market.add_listener(MarketEvent.OrderCancelled, self.cancel_order_logger)
 
-        self.default_strategy = LiquidityMiningStrategy(
+        self.default_strategy = LiquidityMiningStrategy()
+        self.default_strategy.init_params(
             exchange=self.market,
             market_infos=self.market_infos,
             token="ETH",
