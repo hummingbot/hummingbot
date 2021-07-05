@@ -1249,7 +1249,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.market.set_balance("HBOT", 50000)
 
         # Create a new strategy, with hanging orders enabled
-        self.strategy = AvellanedaMarketMakingStrategy(
+        self.strategy = AvellanedaMarketMakingStrategy()
+        self.strategy.init_params(
             market_info=self.market_info,
             order_amount=self.order_amount,
             min_spread=self.min_spread,
