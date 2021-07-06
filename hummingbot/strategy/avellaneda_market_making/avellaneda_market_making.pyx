@@ -547,8 +547,14 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 self._hanging_orders_tracker.add_order(order)
         self._time_left = self._closing_time
 
-    def start(self, Clock clock, double timestamp):
+        self._hanging_orders_tracker.register_events(self.active_markets)
+
+    def start(self, clock: Clock, timestamp: float):
         self.c_start(clock, timestamp)
+
+    cdef c_stop(self, Clock clock):
+        self._hanging_orders_tracker.unregister_events(self.active_markets)
+        StrategyBase.c_stop(self, clock)
 
     cdef c_tick(self, double timestamp):
         StrategyBase.c_tick(self, timestamp)
@@ -1066,19 +1072,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
     def apply_add_transaction_costs(self, proposal: Proposal):
         self.c_apply_add_transaction_costs(proposal)
-
-    cdef c_did_cancel_order(self, object cancelled_event):
-        cdef:
-            str order_id = cancelled_event.order_id
-        if self._hanging_orders_tracker.is_order_id_in_hanging_orders(order_id):
-            self.log_with_clock(
-                logging.INFO,
-                f"({self.trading_pair}) Hanging order {order_id} cancelled."
-            )
-            self.notify_hb_app(
-                f"({self.trading_pair}) Hanging order {order_id} cancelled."
-            )
-            self._hanging_orders_tracker.did_cancel_hanging_order(order_id)
 
     cdef c_did_fill_order(self, object order_filled_event):
         cdef:
