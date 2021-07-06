@@ -1,6 +1,9 @@
+import logging
 import unittest
 from decimal import Decimal
 from mock import MagicMock, patch, PropertyMock
+
+from hummingbot.core.event.events import MarketEvent, OrderCancelledEvent
 from hummingbot.strategy.hanging_orders_tracker import HangingOrdersTracker, HangingOrdersAggregationType
 from hummingbot.strategy.data_types import HangingOrder, OrderType
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -68,32 +71,127 @@ class TestHangingOrdersTracker(unittest.TestCase):
         self.assertEqual(len(self.tracker.original_orders), 1)
 
     def test_renew_hanging_orders_past_max_order_age(self):
-        type(self.strategy).current_timestamp = PropertyMock(return_value=1234567891)
+        cancelled_orders_ids = []
+        strategy_active_orders = []
+        type(self.strategy).current_timestamp = PropertyMock(return_value=1234967891)
+        type(self.strategy).active_orders = PropertyMock(return_value=strategy_active_orders)
+        self.strategy.cancel_order.side_effect = lambda order_id: cancelled_orders_ids.append(order_id)
+        self.strategy.buy_with_specific_market.return_value = "Order-1234569990000000"
 
         # Order just executed
-        self.tracker.add_order(LimitOrder("Order-1234567890000000",
-                                          "BTC-USDT",
-                                          True,
-                                          "BTC",
-                                          "USDT",
-                                          Decimal(101),
-                                          Decimal(1)))
+        new_order = LimitOrder("Order-1234567890000000",
+                               "BTC-USDT",
+                               True,
+                               "BTC",
+                               "USDT",
+                               Decimal(101),
+                               Decimal(1))
         # Order executed 1900 seconds ago
-        self.tracker.add_order(LimitOrder("Order-1234565991000000",
-                                          "BTC-USDT",
-                                          True,
-                                          "BTC",
-                                          "USDT",
-                                          Decimal(105),
-                                          Decimal(1)))
+        old_order = LimitOrder("Order-1234565991000000",
+                               "BTC-USDT",
+                               True,
+                               "BTC",
+                               "USDT",
+                               Decimal(105),
+                               Decimal(1))
+
+        self.tracker.add_order(new_order)
+        strategy_active_orders.append(new_order)
+        self.tracker.add_order(old_order)
+        strategy_active_orders.append(old_order)
 
         self.tracker.update_strategy_orders_with_equivalent_orders()
+
+        self.assertTrue(any(order.trading_pair == "BTC-USDT" and order.price == Decimal(105)
+                            for order
+                            in self.tracker.strategy_current_hanging_orders))
+
+        # When calling the renew logic, the old order should start the renew process (it should be canceled)
+        # but it will only stop being a current hanging order once the cancel confirmation arrives
         self.tracker.renew_hanging_orders_past_max_order_age(1800)
-        self.assertEqual(self.tracker.orders_to_be_created, {HangingOrder(None,
-                                                                          "BTC-USDT",
-                                                                          True,
-                                                                          Decimal(105),
-                                                                          Decimal(1))})
+        self.assertTrue(old_order.client_order_id in cancelled_orders_ids)
+        self.assertTrue(any(order.trading_pair == "BTC-USDT" and order.price == Decimal(105)
+                            for order
+                            in self.tracker.strategy_current_hanging_orders))
+
+        # When the cancel is confirmed the order should no longer be considered a hanging order
+        strategy_active_orders.remove(old_order)
+        self.tracker._did_cancel_order(MarketEvent.OrderCancelled,
+                                       self,
+                                       OrderCancelledEvent(old_order.client_order_id, old_order.client_order_id))
+        self.assertFalse(any(order.order_id == old_order.client_order_id for order
+                             in self.tracker.strategy_current_hanging_orders))
+        self.assertTrue(any(order.order_id == "Order-1234569990000000" for order
+                            in self.tracker.strategy_current_hanging_orders))
+
+    def test_hanging_order_being_renewed_discarded_if_not_current_hanging_order_after_cancel(self):
+        cancelled_orders_ids = []
+        strategy_active_orders = []
+
+        newly_created_orders_ids = ["Order-1234569990000000", "Order-1234570000000000"]
+
+        type(self.strategy).current_timestamp = PropertyMock(return_value=1234900000)
+        type(self.strategy).active_orders = PropertyMock(return_value=strategy_active_orders)
+        self.strategy.cancel_order.side_effect = lambda order_id: cancelled_orders_ids.append(order_id)
+        self.strategy.buy_with_specific_market.side_effect = newly_created_orders_ids
+
+        self.tracker.set_aggregation_method(HangingOrdersAggregationType.VOLUME_TIME_WEIGHTED)
+
+        # Order just executed
+        new_order = LimitOrder("Order-1234567890000000",
+                               "BTC-USDT",
+                               True,
+                               "BTC",
+                               "USDT",
+                               Decimal(101),
+                               Decimal(1))
+        # Order executed 1900 seconds ago
+        old_order = LimitOrder("Order-1234565991000000",
+                               "BTC-USDT",
+                               True,
+                               "BTC",
+                               "USDT",
+                               Decimal(105),
+                               Decimal(1))
+
+        self.tracker.add_order(old_order)
+        strategy_active_orders.append(old_order)
+        self.tracker.update_strategy_orders_with_equivalent_orders()
+
+        # A new order should have been created.
+        self.assertTrue(any(order.order_id == newly_created_orders_ids[0] for order
+                            in self.tracker.strategy_current_hanging_orders))
+
+        hanging_order = next(iter(self.tracker.strategy_current_hanging_orders))
+        strategy_active_orders.append(LimitOrder(hanging_order.order_id,
+                                                 hanging_order.trading_pair,
+                                                 hanging_order.is_buy,
+                                                 hanging_order.base_asset,
+                                                 hanging_order.quote_asset,
+                                                 hanging_order.price,
+                                                 hanging_order.amount))
+
+        # When calling the renew logic, the old order should start the renew process (it should be canceled)
+        # but it will only stop being a current hanging order once the cancel confirmation arrives
+        self.tracker.renew_hanging_orders_past_max_order_age(1800)
+        self.assertTrue(newly_created_orders_ids[0] in cancelled_orders_ids)
+        self.assertTrue(any(order.order_id == newly_created_orders_ids[0] for order
+                            in self.tracker.strategy_current_hanging_orders))
+
+        # Before cancellation is confirmed a new order is added to the tracker, generating a new grouped hanging order
+        self.tracker.add_order(new_order)
+        strategy_active_orders.append(new_order)
+        self.tracker.update_strategy_orders_with_equivalent_orders()
+
+        # When the cancel is confirmed the order should no longer be considered a hanging order
+        strategy_active_orders.remove(old_order)
+        self.tracker._did_cancel_order(MarketEvent.OrderCancelled,
+                                       self,
+                                       OrderCancelledEvent(old_order.client_order_id, old_order.client_order_id))
+        self.assertFalse(any(order.order_id == old_order.client_order_id for order
+                             in self.tracker.strategy_current_hanging_orders))
+        self.assertTrue(any(order.order_id == "Order-1234569990000000" for order
+                            in self.tracker.strategy_current_hanging_orders))
 
     def test_asymmetrical_volume_weighted(self):
         # Asymmetrical in distance to mid-price and amounts
@@ -230,3 +328,35 @@ class TestHangingOrdersTracker(unittest.TestCase):
                                        is_buy=False,
                                        price=Decimal('103.17945'),
                                        amount=Decimal('11.00000'))})
+
+    def test_hanging_order_removed_when_cancelled(self):
+        strategy_active_orders = []
+        strategy_logs = []
+        app_notifications = []
+
+        type(self.strategy).active_orders = PropertyMock(return_value=strategy_active_orders)
+        self.strategy.log_with_clock.side_effect = lambda log_type, message: strategy_logs.append((log_type, message))
+        self.strategy.notify_hb_app.side_effect = lambda message: app_notifications.append(message)
+
+        new_order = LimitOrder("Order-1234567890000000",
+                               "BTC-USDT",
+                               True,
+                               "BTC",
+                               "USDT",
+                               Decimal(101),
+                               Decimal(1))
+
+        self.tracker.add_order(new_order)
+        strategy_active_orders.append(new_order)
+
+        self.tracker.update_strategy_orders_with_equivalent_orders()
+
+        # Now we simulate the order is cancelled
+        self.tracker._did_cancel_order(MarketEvent.OrderCancelled,
+                                       self,
+                                       OrderCancelledEvent(new_order.client_order_id, new_order.client_order_id))
+
+        self.assertIn((logging.INFO, "(BTC-USDT) Hanging order Order-1234567890000000 cancelled."), strategy_logs)
+        self.assertIn("(BTC-USDT) Hanging order Order-1234567890000000 cancelled.", app_notifications)
+        self.assertTrue(len(self.tracker.strategy_current_hanging_orders) == 0)
+        self.assertNotIn(new_order, self.tracker.original_orders)
