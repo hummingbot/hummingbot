@@ -361,7 +361,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
 
     @property
     def active_positions(self) -> List[LimitOrder]:
-        return self._market_info.market._account_positions
+        return self._market_info.market.account_positions
 
     @property
     def active_buys(self) -> List[LimitOrder]:

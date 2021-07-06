@@ -3,7 +3,7 @@ import time
 import logging
 import asyncio
 import pandas as pd
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Union
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -12,6 +12,8 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
 from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.connector.perpetual_trading import PerpetualTrading
+from hummingbot.core.event.events import FundingInfo
 
 from hummingbot.core.event.events import (
     PositionAction,
@@ -125,7 +127,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
 
     @property
     def deriv_position(self) -> List[Position]:
-        return [s for s in self._derivative_market_info.market._account_positions.values() if
+        return [s for s in self._derivative_market_info.market.account_positions.values() if
                 s.trading_pair == self._derivative_market_info.trading_pair]
 
     def tick(self, timestamp: float):
@@ -235,9 +237,9 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         :param active_position: information about active position for the derivative connector
         :return: True if funding payment would be received, else, False
         """
-        funding_info = self._derivative_market_info.market.get_funding_info(self._derivative_market_info.trading_pair)
-        if (active_position[0].amount > 0 and funding_info["rate"] < 0) or \
-           (active_position[0].amount < 0 and funding_info["rate"] > 0):
+        funding_info: FundingInfo = self._derivative_market_info.market.get_funding_info(
+            self._derivative_market_info.trading_pair)
+        if (active_position[0].amount > 0 > funding_info.rate) or (active_position[0].amount < 0 < funding_info.rate):
             return True
         return False
 
@@ -266,7 +268,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         :param arb_proposal: the arbitrage proposal
         """
         spot_market = self._spot_market_info.market
-        deriv_market = self._derivative_market_info.market
+        deriv_market: Union[ConnectorBase, PerpetualTrading] = self._derivative_market_info.market
         spot_token = self._spot_market_info.quote_asset if arb_proposal.spot_side.is_buy else self._spot_market_info.base_asset
         deriv_token = self._derivative_market_info.quote_asset
         spot_token_balance = spot_market.get_available_balance(spot_token)
