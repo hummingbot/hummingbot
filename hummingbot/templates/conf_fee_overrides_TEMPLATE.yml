@@ -51,6 +51,9 @@ dolomite_taker_fee_amount:
 hitbtc_maker_fee:
 hitbtc_taker_fee:
 
+gate_io_maker_fee:
+gate_io_taker_fee:
+
 loopring_maker_fee:
 loopring_taker_fee:
 
