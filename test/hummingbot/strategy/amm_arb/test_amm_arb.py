@@ -298,9 +298,9 @@ class AmmArbUnitTest(unittest.TestCase):
         self.strategy._arb_proposals = [ArbProposal(first_side, second_side)]
 
         expected_status = ("  Markets:\n"
-                           "    Exchange    Market   Sell Price    Buy Price    Mid Price\n"
-                           "       onion HBOT-USDT 100.00000000 101.00000000 100.50000000\n"
-                           "      garlic HBOT-USDT 104.00000000 105.00000000 104.50000000\n\n"
+                           "    Exchange     Market    Sell Price     Buy Price     Mid Price\n"
+                           "       onion  HBOT-USDT  100.00000000  101.00000000  100.50000000\n"
+                           "      garlic  HBOT-USDT  104.00000000  105.00000000  104.50000000\n\n"
                            "  Assets:\n"
                            "      Exchange Asset  Total Balance  Available Balance\n"
                            "    0    onion  HBOT            500                500\n"
