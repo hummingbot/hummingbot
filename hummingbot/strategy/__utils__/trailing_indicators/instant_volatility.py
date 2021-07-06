@@ -2,7 +2,7 @@ from .base_trailing_indicator import BaseTrailingIndicator
 import numpy as np
 
 
-class AverageVolatilityIndicator(BaseTrailingIndicator):
+class InstantVolatilityIndicator(BaseTrailingIndicator):
     def __init__(self, sampling_length: int = 30, processing_length: int = 15):
         super().__init__(sampling_length, processing_length)
 
