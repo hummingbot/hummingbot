@@ -56,6 +56,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        super().setUpClass()
         cls.trading_pair: str = "COINALPHA-HBOT"
         cls.base_asset, cls.quote_asset = cls.trading_pair.split("-")
         cls.initial_mid_price: int = 100
@@ -77,6 +78,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         cls.ira: Decimal = Decimal("0.8")
 
     def setUp(self):
+        super().setUp()
         self.market: BacktestMarket = BacktestMarket()
         self.market_info: MarketTradingPairTuple = MarketTradingPairTuple(
             self.market, self.trading_pair, *self.trading_pair.split("-")
@@ -120,6 +122,10 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.clock.add_iterator(self.strategy)
         self.strategy.start(self.clock, self.start_timestamp)
         self.clock.backtest_til(self.start_timestamp)
+
+    def tearDown(self) -> None:
+        self.strategy.stop(self.clock)
+        super().tearDown()
 
     @staticmethod
     def simulate_low_volatility(strategy: AvellanedaMarketMakingStrategy):
