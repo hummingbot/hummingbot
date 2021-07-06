@@ -108,6 +108,10 @@ crypto_com_secret_key = os.getenv("CRYPTO_COM_SECRET_KEY")
 hitbtc_api_key = os.getenv("HITBTC_API_KEY")
 hitbtc_secret_key = os.getenv("HITBTC_SECRET_KEY")
 
+# Gate.io Tests
+gate_io_api_key = os.getenv("GATE_IO_API_KEY")
+gate_io_secret_key = os.getenv("GATE_IO_SECRET_KEY")
+
 # CoinZoom Test
 coinzoom_api_key = os.getenv("COINZOOM_API_KEY")
 coinzoom_secret_key = os.getenv("COINZOOM_SECRET_KEY")
