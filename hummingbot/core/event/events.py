@@ -96,6 +96,14 @@ class PositionMode(Enum):
     ONEWAY = False
 
 
+class FundingInfo(NamedTuple):
+    trading_pair: str
+    index_price: Decimal
+    mark_price: Decimal
+    next_funding_utc_timestamp: int
+    rate: Decimal
+
+
 class PriceType(Enum):
     MidPrice = 1
     BestBid = 2
