@@ -434,8 +434,11 @@ class TWAPUnitTest(unittest.TestCase):
                                 f"    0  ...{ask_order2.client_order_id[-4:]}  sell    101  0.00%    1.67  n/a  n/a\n\n"
                                 "  Average filled orders price: 101.0 WETH\n"
                                 "  Pending amount: 1.66 COINALPHA")
-
+        print(f"Expected_buy_status\n{expected_buy_status}")
+        print(f"Actual_buy_status\n{buy_not_started_status}")
         self.assertEqual(expected_buy_status, buy_not_started_status)
+        print(f"Expected_sell_status\n{expected_sell_status}")
+        print(f"Actual_sell_status\n{sell_started_status}")
         self.assertEqual(expected_sell_status, sell_started_status)
 
     def test_strategy_time_span_execution(self):
