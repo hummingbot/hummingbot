@@ -71,7 +71,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     order_level_spread: Decimal = s_decimal_zero,
                     order_level_amount: Decimal = s_decimal_zero,
                     order_refresh_time: float = 30.0,
-                    max_order_age: int = 1800.0,
+                    max_order_age: float = 1800.0,
                     order_refresh_tolerance_pct: Decimal = s_decimal_neg_one,
                     filled_order_delay: float = 60.0,
                     inventory_skew_enabled: bool = False,
@@ -156,6 +156,30 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     @property
     def market_info(self) -> MarketTradingPairTuple:
         return self._market_info
+
+    @property
+    def max_order_age(self) -> float:
+        return self._max_order_age
+
+    @property
+    def minimum_spread(self) -> Decimal:
+        return self._minimum_spread
+
+    @property
+    def ping_pong_enabled(self) -> bool:
+        return self._ping_pong_enabled
+
+    @property
+    def ask_order_optimization_depth(self) -> Decimal:
+        return self._ask_order_optimization_depth
+
+    @property
+    def bid_order_optimization_depth(self) -> Decimal:
+        return self._bid_order_optimization_depth
+
+    @property
+    def price_type(self) -> PriceType:
+        return self._price_type
 
     @property
     def order_refresh_tolerance_pct(self) -> Decimal:

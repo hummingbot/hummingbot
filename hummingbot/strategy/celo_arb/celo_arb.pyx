@@ -124,6 +124,10 @@ cdef class CeloArbStrategy(StrategyBase):
         self.c_add_markets([market_info.market])
 
     @property
+    def celo_slippage_buffer(self):
+        return self._celo_slippage_buffer
+
+    @property
     def min_profitability(self) -> Decimal:
         return self._min_profitability
 

@@ -99,6 +99,14 @@ cdef class ArbitrageStrategy(StrategyBase):
         self.c_add_markets(list(all_markets))
 
     @property
+    def min_profitability(self) -> Decimal:
+        return self._min_profitability
+
+    @property
+    def use_oracle_conversion_rate(self) -> Decimal:
+        return self._use_oracle_conversion_rate
+
+    @property
     def tracked_limit_orders(self) -> List[Tuple[ExchangeBase, LimitOrder]]:
         return self._sb_order_tracker.tracked_limit_orders
 

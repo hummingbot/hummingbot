@@ -148,6 +148,14 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         self.c_add_markets(all_markets)
 
     @property
+    def order_amount(self):
+        return self._order_amount
+
+    @property
+    def min_profitability(self):
+        return self._min_profitability
+
+    @property
     def active_limit_orders(self) -> List[Tuple[ExchangeBase, LimitOrder]]:
         return [(ex, order) for ex, order in self._sb_order_tracker.active_limit_orders
                 if order.client_order_id in self._maker_order_ids]
