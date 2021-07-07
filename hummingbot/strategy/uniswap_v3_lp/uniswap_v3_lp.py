@@ -246,11 +246,11 @@ class UniswapV3LpStrategy(StrategyPyBase):
         if not any(pending_positions) and len(self.active_orders) == 0 and len(self.active_positions) < 2:
             # Firstly, we remove inactive positions that have attained minimum profitability.
             # Also, we ensure there is a maximum of 2 positions per time
-            await self.range_position_remover()
+            self.range_position_remover()
             # Then we proceed with creating new position if necessary3
             proposal = await self.propose_position_creation()
             if len(proposal) > 0:
-                await self.execute_proposal(proposal)
+                self.execute_proposal(proposal)
 
     def generate_proposal(self, is_buy):
         """
@@ -286,7 +286,7 @@ class UniswapV3LpStrategy(StrategyPyBase):
 
         current_price = await self.get_current_price()
 
-        while not self._volatility.is_sampling_buffer_full:
+        while not self._volatility.is_sampling_buffer_full and self._use_volatility:
             await self.get_current_price(True)
 
         if self._last_price != current_price or len(self.active_buys) == 0 or len(self.active_sells) == 0:
@@ -307,7 +307,7 @@ class UniswapV3LpStrategy(StrategyPyBase):
 
         return [buy_prices, sell_prices]
 
-    async def execute_proposal(self, proposal):
+    def execute_proposal(self, proposal):
         """
         This execute proposal generated earlier by propose_position_creation function.
         :param proposal: [buy_prices, sell_prices]
@@ -349,7 +349,7 @@ class UniswapV3LpStrategy(StrategyPyBase):
                                                   proposal[1][0],
                                                   proposal[1][1])
 
-    async def range_position_remover(self):
+    def range_position_remover(self):
         """
         This function removes  positions that are out of range and have attained min profitability.
         """

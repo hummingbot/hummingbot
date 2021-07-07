@@ -34,6 +34,26 @@ class ExtendedBacktestMarket(BacktestMarket):
         else:
             return Decimal("100")
 
+    def add_position(self,
+                     trading_pair: str,
+                     fee_tier: str,
+                     base_amount: Decimal,
+                     quote_amount: Decimal,
+                     lower_price: Decimal,
+                     upper_price: Decimal,
+                     token_id: int = 0):
+        self._in_flight_positions["pos1"] = UniswapV3InFlightPosition(hb_id="pos1",
+                                                                      token_id=token_id,
+                                                                      trading_pair=trading_pair,
+                                                                      fee_tier=fee_tier,
+                                                                      base_amount=base_amount,
+                                                                      quote_amount=quote_amount,
+                                                                      lower_price=lower_price,
+                                                                      upper_price=upper_price)
+
+    def remove_position(self, hb_id: str, token_id: str = "1", reducePercent: Decimal = Decimal("100.0")):
+        self._in_flight_positions.pop(hb_id)
+
 
 class UniswapV3LpStrategyTest(unittest.TestCase):
     start: pd.Timestamp = pd.Timestamp("2019-01-01", tz="UTC")
@@ -170,3 +190,32 @@ class UniswapV3LpStrategyTest(unittest.TestCase):
         pos.gas_price = Decimal("5")
         result = self.default_strategy.calculate_profitability(pos)
         self.assertEqual(result["profitability"], (Decimal("110") - result["tx_fee"]) / Decimal("100"))
+
+    def test_position_creation(self):
+        """
+        Test that positions are created properly.
+        """
+        self.assertEqual(len(self.default_strategy._market_info.market._in_flight_positions), 0)
+        self.default_strategy.execute_proposal([[95, 100], []])
+        self.assertEqual(len(self.default_strategy._market_info.market._in_flight_positions), 1)
+
+    def test_range_position_removal(self):
+        """
+        Test that positions are removed when profitability is reached.
+        """
+        self.default_strategy._market_info.market._in_flight_positions["pos1"] = UniswapV3InFlightPosition(hb_id="pos1",
+                                                                                                           token_id=1,
+                                                                                                           trading_pair="ETH-USDT",
+                                                                                                           fee_tier="MEDIUM",
+                                                                                                           base_amount=Decimal("0"),
+                                                                                                           quote_amount=Decimal("100"),
+                                                                                                           lower_price=Decimal("90"),
+                                                                                                           upper_price=Decimal("95"))
+        self.default_strategy._market_info.market._in_flight_positions["pos1"].current_base_amount = Decimal("1")
+        self.default_strategy._market_info.market._in_flight_positions["pos1"].current_quote_amount = Decimal("0")
+        self.default_strategy._market_info.market._in_flight_positions["pos1"].unclaimed_base_amount = Decimal("1")
+        self.default_strategy._market_info.market._in_flight_positions["pos1"].unclaimed_quote_amount = Decimal("100")
+        self.default_strategy._market_info.market._in_flight_positions["pos1"].gas_price = Decimal("0")
+        self.assertEqual(len(self.default_strategy._market_info.market._in_flight_positions), 1)
+        self.default_strategy.range_position_remover()
+        self.assertEqual(len(self.default_strategy._market_info.market._in_flight_positions), 0)
