@@ -42,7 +42,6 @@ class TestHangingOrdersTracker(unittest.TestCase):
 
     def test_tracker_initialized(self):
         self.assertEqual(self.tracker.trading_pair, "BTC-USDT")
-        self.assertEqual(self.tracker.orders_to_be_created, set())
         self.assertEqual(self.tracker.original_orders, set())
         self.assertEqual(self.tracker.strategy_current_hanging_orders, set())
         self.assertEqual(self.tracker.current_created_pairs_of_orders, list())
