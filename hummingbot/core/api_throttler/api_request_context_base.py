@@ -14,6 +14,8 @@ from hummingbot.core.api_throttler.data_types import (
 
 class APIRequestContextBase:
 
+    _lock = asyncio.Lock()
+
     def __init__(self,
                  task_logs: Deque[TaskLog],
                  rate_limit: RateLimit,
@@ -23,11 +25,9 @@ class APIRequestContextBase:
         Asynchronous context associated with each API request.
         :param task_logs: Shared task logs
         :param rate_limit: Rate limit for the associated API request
-        :param rate_limit_type: Rate limit type
         :param period_safety_margin: estimate for the network latency
         :param retry_interval: Time between each limit check
         """
-        self._lock = asyncio.Lock()
         self._task_logs: Deque[TaskLog] = task_logs
 
         self._rate_limit: RateLimit = rate_limit

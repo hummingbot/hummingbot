@@ -201,7 +201,6 @@ class CryptoComExchange(ExchangeBase):
         This function is required by NetworkIterator base class and is called automatically.
         """
         self._order_book_tracker.stop()
-        self._throttler.stop()
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
             self._status_polling_task = None
