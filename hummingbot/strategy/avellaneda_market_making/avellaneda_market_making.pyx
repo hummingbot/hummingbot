@@ -15,26 +15,29 @@ from math import (
 import time
 import datetime
 import os
+
+from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.core.event.events import OrderType
 
-from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.strategy.strategy_base import StrategyBase
-from hummingbot.strategy.hanging_orders_tracker import HangingOrdersTracker, HangingOrdersAggregationType, CreatedPairOfOrders
-from hummingbot.client.config.global_config_map import global_config_map
-
+from hummingbot.strategy.__utils__.trailing_indicators.instant_volatility import InstantVolatilityIndicator
 from hummingbot.strategy.data_types import (
     Proposal,
-    PriceSize
-)
-from ..order_tracker cimport OrderTracker
-from ..__utils__.trailing_indicators.instant_volatility import InstantVolatilityIndicator
+    PriceSize)
+from hummingbot.strategy.hanging_orders_tracker import (
+    CreatedPairOfOrders,
+    HangingOrdersAggregationType,
+    HangingOrdersTracker)
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+from hummingbot.strategy.order_tracker cimport OrderTracker
+from hummingbot.strategy.strategy_base import StrategyBase
+from hummingbot.strategy.utils import order_age
 
 
 NaN = float("nan")
@@ -601,16 +604,13 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     self.c_apply_order_price_modifiers(proposal)
 
                 self._hanging_orders_tracker.remove_orders_far_from_price()
+                self.c_cancel_active_orders_on_max_age_limit()
                 self.c_cancel_active_orders(proposal)
-                # The refresh of the aged orders is done after the cancel step, to avoid refreshing orders that were
-                # about to be canceled
-                refresh_proposal = self.c_aged_order_refresh()
-                if refresh_proposal is not None:
-                    self.c_execute_orders_proposal(refresh_proposal)
                 self._hanging_orders_tracker.renew_hanging_orders_past_max_order_age(max_order_age=self._max_order_age)
 
                 if self.c_to_create_orders(proposal):
-                    # 4. Apply budget constraint (after hanging orders were created), i.e. can't buy/sell more than what you have.
+                    # 4. Apply budget constraint (after hanging orders were created), i.e. can't buy/sell
+                    # more than what you have.
                     self.c_apply_budget_constraint(proposal)
                     self.c_execute_orders_proposal(proposal)
 
@@ -1178,8 +1178,16 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     def is_within_tolerance(self, current_prices: List[Decimal], proposal_prices: List[Decimal]) -> bool:
         return self.c_is_within_tolerance(current_prices, proposal_prices)
 
-    # Cancel active orders
-    # Return value: whether order cancellation is deferred.
+    cdef c_cancel_active_orders_on_max_age_limit(self):
+        """
+        Cancels active non hanging orders if they are older than max age limit
+        """
+        cdef:
+            list active_orders = self.active_non_hanging_orders
+        for order in active_orders:
+            if order_age(order) > self._max_order_age:
+                self.c_cancel_order(self._market_info, order.client_order_id)
+
     cdef c_cancel_active_orders(self, object proposal):
         if self._cancel_timestamp > self._current_timestamp:
             return
@@ -1215,37 +1223,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
     def cancel_active_orders(self, proposal: Proposal):
         return self.c_cancel_active_orders(proposal)
-
-    # Refresh all active non hanging orders that are older that the _max_order_age
-    cdef object c_aged_order_refresh(self):
-        cdef:
-            list active_non_hanging_orders = self.active_non_hanging_orders
-            list buys = []
-            list sells = []
-
-        for order in active_non_hanging_orders:
-            age = 0 if "//" in order.client_order_id else \
-                int(int(time.time()) - int(order.client_order_id[-16:])/1e6)
-
-            # To prevent duplicating orders due to delay in receiving cancel response
-            refresh_check = [o for o in active_non_hanging_orders if o.price == order.price
-                             and o.quantity == order.quantity]
-            if len(refresh_check) > 1:
-                continue
-
-            if age >= self._max_order_age:
-                if order.is_buy:
-                    buys.append(PriceSize(order.price, order.quantity))
-                else:
-                    sells.append(PriceSize(order.price, order.quantity))
-                self.logger().info(f"Refreshing {'Buy' if order.is_buy else 'Sell'} order with ID - "
-                                   f"{order.client_order_id} because it reached maximum order age of "
-                                   f"{self._max_order_age} seconds.")
-                self.c_cancel_order(self._market_info, order.client_order_id)
-        return Proposal(buys, sells)
-
-    def aged_order_refresh(self) -> Proposal:
-        return self.c_aged_order_refresh()
 
     cdef bint c_to_create_orders(self, object proposal):
         non_hanging_orders_non_cancelled = [o for o in self.active_non_hanging_orders if not
