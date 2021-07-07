@@ -153,6 +153,14 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         return all([market.ready for market in self._sb_markets])
 
     @property
+    def volatility_sensibility(self) -> Decimal:
+        return self._volatility_sensibility
+
+    @property
+    def inventory_risk_aversion(self) -> Decimal:
+        return self._inventory_risk_aversion
+
+    @property
     def latest_parameter_calculation_vol(self):
         return self._latest_parameter_calculation_vol
 
