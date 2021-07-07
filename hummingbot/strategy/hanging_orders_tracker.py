@@ -69,7 +69,6 @@ class HangingOrdersTracker:
         self.aggregation_method: HangingOrdersAggregationType = aggregation_method or HangingOrdersAggregationType.NO_AGGREGATION
         self._hanging_orders_cancel_pct: Decimal = hanging_orders_cancel_pct or Decimal("0.1")
         self.trading_pair: str = trading_pair or self.strategy.trading_pair
-        self.orders_to_be_created: Set[HangingOrder] = set()
         self.orders_being_renewed: Set[HangingOrder] = set()
         self.current_created_pairs_of_orders: List[CreatedPairOfOrders] = list()
         self.original_orders: Set[LimitOrder] = orders or set()
@@ -190,7 +189,6 @@ class HangingOrdersTracker:
 
     def set_aggregation_method(self, aggregation_method: HangingOrdersAggregationType):
         self.aggregation_method = aggregation_method
-        self.orders_to_be_created.clear()
 
     def _get_equivalent_orders(self) -> Set[HangingOrder]:
         if self.original_orders:
@@ -213,32 +211,26 @@ class HangingOrdersTracker:
 
     def is_order_to_be_added_to_hanging_orders(self, order: LimitOrder) -> bool:
         hanging_order = self._get_hanging_order_from_limit_order(order)
-        if hanging_order in self.equivalent_orders.union(self.orders_to_be_created):
-            return any(o.order_id == order.client_order_id
-                       for o in self.equivalent_orders.union(self.orders_to_be_created))
+        if hanging_order in self.equivalent_orders:
+            return any(order.order_id == order.client_order_id for order in self.equivalent_orders)
 
     def update_strategy_orders_with_equivalent_orders(self):
-        if self.aggregation_method != HangingOrdersAggregationType.NO_AGGREGATION:
-            # For all cases, except no_aggregation, orders based on renewal of max_aged ones are not considered
-            self.orders_to_be_created.clear()
+
         equivalent_orders = self.equivalent_orders
-        orders_to_create = equivalent_orders.union(self.orders_to_be_created).\
-            difference(self.strategy_current_hanging_orders)
+        orders_to_create = equivalent_orders.difference(self.strategy_current_hanging_orders)
         orders_to_cancel = self.strategy_current_hanging_orders.difference(equivalent_orders)
 
         self._cancel_multiple_orders_in_strategy([o.order_id for o in orders_to_cancel])
-        self.orders_to_be_created = self.orders_to_be_created.union(orders_to_create)
 
-        if any((orders_to_cancel, self.orders_to_be_created)):
+        if any((orders_to_cancel, orders_to_create)):
             self.logger().info("Updating hanging orders...")
             self.logger().info(f"Original hanging orders: {self.original_orders}")
             self.logger().info(f"Equivalent hanging orders: {equivalent_orders}")
-            self.logger().info(f"Need to create: {self.orders_to_be_created}")
+            self.logger().info(f"Need to create: {orders_to_create}")
             self.logger().info(f"Need to cancel: {orders_to_cancel}")
 
-        executed_orders = self._execute_orders_in_strategy(self.orders_to_be_created)
+        executed_orders = self._execute_orders_in_strategy(orders_to_create)
         self.strategy_current_hanging_orders = self.strategy_current_hanging_orders.union(executed_orders)
-        self.orders_to_be_created.clear()
 
     def _execute_orders_in_strategy(self, candidate_orders: Set[HangingOrder]):
         new_hanging_orders = set()
