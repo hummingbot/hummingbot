@@ -1,21 +1,9 @@
-from typing import Deque, List
-
 from hummingbot.core.api_throttler.api_request_context_base import APIRequestContextBase
 from hummingbot.core.api_throttler.api_throttler_base import APIThrottlerBase
-from hummingbot.core.api_throttler.data_types import (
-    RateLimit,
-    Seconds,
-    TaskLog
-)
+from hummingbot.core.api_throttler.data_types import RateLimit
 
 
 class FixedRateThrottler(APIThrottlerBase):
-
-    def __init__(self,
-                 rate_limit_list: List[RateLimit],
-                 period_safety_margin: Seconds = 0.1,
-                 retry_interval: Seconds = 0.1):
-        super().__init__(rate_limit_list, period_safety_margin=period_safety_margin, retry_interval=retry_interval)
 
     def execute_task(self):
         rate_limit: RateLimit = next(iter(self._path_rate_limit_map.values()))
@@ -28,13 +16,6 @@ class FixedRateThrottler(APIThrottlerBase):
 
 
 class FixedRateRequestContext(APIRequestContextBase):
-
-    def __init__(self,
-                 task_logs: Deque[TaskLog],
-                 rate_limit: RateLimit,
-                 period_safety_margin: Seconds,
-                 retry_interval: Seconds):
-        super().__init__(task_logs, rate_limit, period_safety_margin=period_safety_margin, retry_interval=retry_interval)
 
     def within_capacity(self) -> bool:
         current_capacity: int = self._rate_limit.limit - len(self._task_logs)
