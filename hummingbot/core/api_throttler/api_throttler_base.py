@@ -36,7 +36,6 @@ class APIThrottlerBase:
         self._period_safety_margin = period_safety_margin
 
         self._task_logs: Deque[TaskLog] = deque()
-        self._pending_task: Deque[int]
 
     def execute_task(self):
         raise NotImplementedError
