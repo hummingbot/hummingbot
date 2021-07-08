@@ -17,13 +17,14 @@ class APIThrotterBaseUnitTests(unittest.TestCase):
         super().setUpClass()
 
         cls.rate_limit: RateLimit = RateLimit(1, 1)
-        cls.throttler = APIThrottlerBase(rate_limit_list=[cls.rate_limit])
+        cls.throttler = MockAPIThrottler(rate_limit_list=[cls.rate_limit])
 
     def test_execute_task(self):
 
         # Test 1: Abstract method not implemented
         with self.assertRaises(NotImplementedError):
-            self.throttler.execute_task()
+            throttler = APIThrottlerBase([self.rate_limit])
+            throttler.execute_task()
 
         # Test 2: Mock implementation of execute_task
         throttler = MockAPIThrottler([self.rate_limit])
