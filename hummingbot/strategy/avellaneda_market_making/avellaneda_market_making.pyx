@@ -404,10 +404,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._logging_options = logging_options
 
     @property
-    def order_tracker(self):
-        return self._sb_order_tracker
-
-    @property
     def hanging_orders_tracker(self):
         return self._hanging_orders_tracker
 
@@ -542,6 +538,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     cdef c_start(self, Clock clock, double timestamp):
         StrategyBase.c_start(self, clock, timestamp)
         self._last_timestamp = timestamp
+
+        self._hanging_orders_tracker.register_events(self.active_markets)
+
         # start tracking any restored limit order
         restored_order_ids = self.c_track_restored_orders(self.market_info)
         for order_id in restored_order_ids:
@@ -549,8 +548,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             if order:
                 self._hanging_orders_tracker.add_order(order)
         self._time_left = self._closing_time
-
-        self._hanging_orders_tracker.register_events(self.active_markets)
 
     def start(self, clock: Clock, timestamp: float):
         self.c_start(clock, timestamp)
@@ -603,10 +600,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     # 3. Apply functions that modify orders price
                     self.c_apply_order_price_modifiers(proposal)
 
-                self._hanging_orders_tracker.remove_orders_far_from_price()
+                self._hanging_orders_tracker.process_tick()
                 self.c_cancel_active_orders_on_max_age_limit()
                 self.c_cancel_active_orders(proposal)
-                self._hanging_orders_tracker.renew_hanging_orders_past_max_order_age(max_order_age=self._max_order_age)
 
                 if self.c_to_create_orders(proposal):
                     # 4. Apply budget constraint (after hanging orders were created), i.e. can't buy/sell
@@ -1089,70 +1085,45 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     )
 
     cdef c_did_complete_buy_order(self, object order_completed_event):
-        cdef:
-            str order_id = order_completed_event.order_id
-            limit_order_record = self._sb_order_tracker.c_get_limit_order(self._market_info, order_id)
-        if limit_order_record is None:
-            return
-        active_sell_ids = [x.client_order_id for x in self.active_orders if not x.is_buy]
-
-        # If the filled order is a hanging order, do nothing
-        if self._hanging_orders_tracker.is_order_id_in_hanging_orders(order_id):
-            self._hanging_orders_tracker.did_fill_hanging_order(limit_order_record)
-            return
-
-        # delay order creation by filled_order_delay (in seconds)
-        self._create_timestamp = self._current_timestamp + self._filled_order_delay
-        self._cancel_timestamp = min(self._cancel_timestamp, self._create_timestamp)
-
-        self._filled_buys_balance += 1
-        self._last_own_trade_price = limit_order_record.price
-
-        self._hanging_orders_tracker.did_fill_order(limit_order_record)
-
-        self.log_with_clock(
-            logging.INFO,
-            f"({self.trading_pair}) Maker buy order {order_id} "
-            f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
-            f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
-        )
-        self.notify_hb_app_with_timestamp(
-            f"Maker BUY order {limit_order_record.quantity} {limit_order_record.base_currency} @ "
-            f"{limit_order_record.price} {limit_order_record.quote_currency} is filled."
-        )
+        self.c_did_complete_order(order_completed_event)
 
     cdef c_did_complete_sell_order(self, object order_completed_event):
+        self.c_did_complete_order(order_completed_event)
+
+    cdef c_did_complete_order(self, object order_completed_event):
         cdef:
             str order_id = order_completed_event.order_id
             LimitOrder limit_order_record = self._sb_order_tracker.c_get_limit_order(self._market_info, order_id)
+
         if limit_order_record is None:
             return
-        active_buy_ids = [x.client_order_id for x in self.active_orders if x.is_buy]
 
-        # If the filled order is a hanging order, do nothing
-        if self._hanging_orders_tracker.is_order_id_in_hanging_orders(order_id):
-            self._hanging_orders_tracker.did_fill_hanging_order(limit_order_record)
-            return
+        # Continue only if the order is not a hanging order
+        if not self._hanging_orders_tracker.is_order_id_in_hanging_orders(order_id):
+            # delay order creation by filled_order_delay (in seconds)
+            self._create_timestamp = self._current_timestamp + self._filled_order_delay
+            self._cancel_timestamp = min(self._cancel_timestamp, self._create_timestamp)
 
-        # delay order creation by filled_order_delay (in seconds)
-        self._create_timestamp = self._current_timestamp + self._filled_order_delay
-        self._cancel_timestamp = min(self._cancel_timestamp, self._create_timestamp)
+            if limit_order_record.is_buy:
+                self._filled_buys_balance += 1
+                order_action_string = "buy"
+            else:
+                self._filled_sells_balance += 1
+                order_action_string = "sell"
 
-        self._filled_sells_balance += 1
-        self._last_own_trade_price = limit_order_record.price
+            self._last_own_trade_price = limit_order_record.price
 
-        self._hanging_orders_tracker.did_fill_order(limit_order_record)
-
-        self.log_with_clock(
-            logging.INFO,
-            f"({self.trading_pair}) Maker sell order {order_id} "
-            f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
-            f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
-        )
-        self.notify_hb_app_with_timestamp(
-            f"Maker SELL order {limit_order_record.quantity} {limit_order_record.base_currency} @ "
-            f"{limit_order_record.price} {limit_order_record.quote_currency} is filled."
-        )
+            self.log_with_clock(
+                logging.INFO,
+                f"({self.trading_pair}) Maker {order_action_string} order {order_id} "
+                f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
+                f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
+            )
+            self.notify_hb_app_with_timestamp(
+                f"Maker {order_action_string.upper()} order "
+                f"{limit_order_record.quantity} {limit_order_record.base_currency} @ "
+                f"{limit_order_record.price} {limit_order_record.quote_currency} is filled."
+            )
 
     cdef bint c_is_within_tolerance(self, list current_prices, list proposal_prices):
         if len(current_prices) != len(proposal_prices):
@@ -1202,7 +1173,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 to_defer_canceling = True
 
         if not to_defer_canceling:
-            self._hanging_orders_tracker.add_hanging_orders_based_on_partially_executed_pairs()
             self._hanging_orders_tracker.update_strategy_orders_with_equivalent_orders()
             for order in self.active_non_hanging_orders:
                 # If is about to be added to hanging_orders then don't cancel

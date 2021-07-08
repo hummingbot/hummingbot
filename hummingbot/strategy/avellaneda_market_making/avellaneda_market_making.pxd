@@ -79,3 +79,4 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     cdef c_calculate_reserved_price_and_optimal_spread(self)
     cdef object c_calculate_target_inventory(self)
     cdef c_recalculate_parameters(self)
+    cdef c_did_complete_order(self, object order_completed_event)
