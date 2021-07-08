@@ -1,12 +1,16 @@
 import logging
 from decimal import Decimal
 from enum import Enum
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Set, Tuple, Union
 
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
-from hummingbot.core.event.events import OrderCancelledEvent, MarketEvent
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    MarketEvent,
+    OrderCancelledEvent,
+    SellOrderCompletedEvent)
 from hummingbot.strategy.data_types import HangingOrder
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.utils import order_age
@@ -29,9 +33,9 @@ class CreatedPairOfOrders:
         self.filled_buy = False
         self.filled_sell = False
 
-    def contains_order(self, order: LimitOrder):
-        return ((self.buy_order is not None) and (self.buy_order.client_order_id == order.client_order_id)) or \
-               ((self.sell_order is not None) and (self.sell_order.client_order_id == order.client_order_id))
+    def contains_order(self, order_id: str):
+        return ((self.buy_order is not None) and (self.buy_order.client_order_id == order_id)) or \
+               ((self.sell_order is not None) and (self.sell_order.client_order_id == order_id))
 
     def partially_filled(self):
         return self.filled_buy != self.filled_sell
@@ -75,8 +79,13 @@ class HangingOrdersTracker:
         self.strategy_current_hanging_orders: Set[HangingOrder] = set()
 
         self._cancel_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_cancel_order)
+        self._complete_buy_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_complete_buy_order)
+        self._complete_sell_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(
+            self._did_complete_sell_order)
         self._event_pairs: List[Tuple[MarketEvent, SourceInfoEventForwarder]] = [
-            (MarketEvent.OrderCancelled, self._cancel_order_forwarder)]
+            (MarketEvent.OrderCancelled, self._cancel_order_forwarder),
+            (MarketEvent.BuyOrderCompleted, self._complete_buy_order_forwarder),
+            (MarketEvent.SellOrderCompleted, self._complete_sell_order_forwarder)]
 
     def register_events(self, markets: List[ConnectorBase]):
         for market in markets:
@@ -111,6 +120,65 @@ class HangingOrdersTracker:
                                              if order.client_order_id == event.order_id), None)
             if limit_order_to_be_removed:
                 self.remove_order(limit_order_to_be_removed)
+
+    def _did_complete_buy_order(self,
+                                event_tag: int,
+                                market: ConnectorBase,
+                                event: Union[BuyOrderCompletedEvent, SellOrderCompletedEvent]):
+        self._did_complete_order(event, True)
+
+    def _did_complete_sell_order(self,
+                                 event_tag: int,
+                                 market: ConnectorBase,
+                                 event: Union[BuyOrderCompletedEvent, SellOrderCompletedEvent]):
+        self._did_complete_order(event, False)
+
+    def _did_complete_order(self,
+                            event: Union[BuyOrderCompletedEvent, SellOrderCompletedEvent],
+                            is_buy: bool):
+
+        hanging_order = next((hanging_order for hanging_order in self.strategy_current_hanging_orders
+                              if hanging_order.order_id == event.order_id), None)
+
+        if hanging_order:
+            self._did_complete_hanging_order(hanging_order)
+        else:
+            for pair in self.current_created_pairs_of_orders:
+                if pair.contains_order(event.order_id):
+                    pair.filled_buy = pair.filled_buy or is_buy
+                    pair.filled_sell = pair.filled_sell or not is_buy
+
+    def _did_complete_hanging_order(self, order: HangingOrder):
+
+        if order:
+            order_side = "BUY" if order.is_buy else "SELL"
+            self.strategy_current_hanging_orders.remove(order)
+            self.strategy.log_with_clock(
+                logging.INFO,
+                f"({self.trading_pair}) Hanging maker {order_side} order {order.order_id} "
+                f"({order.trading_pair} {order.amount} @ "
+                f"{order.price}) has been completely filled."
+            )
+            self.strategy.notify_hb_app(
+                f"Hanging maker {order_side} order {order.trading_pair} {order.amount} @ "
+                f"{order.price} is filled."
+            )
+            if self.aggregation_method == HangingOrdersAggregationType.NO_AGGREGATION:
+                limit_order_to_be_removed = next((original_order for original_order in self.original_orders
+                                                  if original_order.client_order_id == order.order_id), None)
+                if limit_order_to_be_removed:
+                    self.remove_order(limit_order_to_be_removed)
+            else:
+                # For any aggregation other than no_aggregation, the hanging order is the equivalent to all original
+                # hanging orders of the same type (buy/sell)
+                if order.is_buy:
+                    self.remove_all_buys()
+                else:
+                    self.remove_all_sells()
+
+    def process_tick(self):
+        self.remove_orders_far_from_price()
+        self.renew_hanging_orders_past_max_order_age()
 
     def _process_cancel_as_part_of_renew(self, event: OrderCancelledEvent):
         renewing_order = next((order for order in self.orders_being_renewed if order.order_id == event.order_id), None)
@@ -165,8 +233,9 @@ class HangingOrdersTracker:
                 if hanging_order.creation_timestamp
                 else -1)
 
-    def renew_hanging_orders_past_max_order_age(self, max_order_age: float):
+    def renew_hanging_orders_past_max_order_age(self):
         to_be_cancelled: Set[HangingOrder] = set()
+        max_order_age = getattr(self.strategy, "max_order_age", lambda: None)
         if max_order_age:
             for order in self.strategy_current_hanging_orders:
                 if self.hanging_order_age(order) > max_order_age:
@@ -212,9 +281,11 @@ class HangingOrdersTracker:
     def is_order_to_be_added_to_hanging_orders(self, order: LimitOrder) -> bool:
         hanging_order = self._get_hanging_order_from_limit_order(order)
         if hanging_order in self.equivalent_orders:
-            return any(order.order_id == order.client_order_id for order in self.equivalent_orders)
+            return any(equivalent_order.order_id == order.client_order_id for equivalent_order in self.equivalent_orders)
 
     def update_strategy_orders_with_equivalent_orders(self):
+
+        self._add_hanging_orders_based_on_partially_executed_pairs()
 
         equivalent_orders = self.equivalent_orders
         orders_to_create = equivalent_orders.difference(self.strategy_current_hanging_orders)
@@ -321,41 +392,7 @@ class HangingOrdersTracker:
     def add_current_pairs_of_proposal_orders_executed_by_strategy(self, pair: CreatedPairOfOrders):
         self.current_created_pairs_of_orders.append(pair)
 
-    def did_fill_order(self, order: LimitOrder):
-        for pair in self.current_created_pairs_of_orders:
-            if pair.contains_order(order):
-                if order.is_buy:
-                    pair.filled_buy = True
-                else:
-                    pair.filled_sell = True
-
-    def did_fill_hanging_order(self, order: LimitOrder):
-        order_to_be_removed = next(o for o in self.strategy_current_hanging_orders
-                                   if o == self._get_hanging_order_from_limit_order(order))
-        if order_to_be_removed:
-            order_side = "BUY" if order.is_buy else "SELL"
-            self.strategy_current_hanging_orders.remove(order_to_be_removed)
-            self.strategy.log_with_clock(
-                logging.INFO,
-                f"({self.trading_pair}) Hanging maker {order_side} order {order.client_order_id} "
-                f"({order.quantity} {order.base_currency} @ "
-                f"{order.price} {order.quote_currency}) has been completely filled."
-            )
-            self.strategy.notify_hb_app(
-                f"Hanging maker {order_side} order {order.quantity} {order.base_currency} @ "
-                f"{order.price} {order.quote_currency} is filled."
-            )
-            if self.aggregation_method == HangingOrdersAggregationType.NO_AGGREGATION:
-                self.remove_order(order)
-            else:
-                # For any aggregation other than no_aggregation, the hanging order is the equivalent to all original
-                # hanging orders of the same type (buy/sell)
-                if order.is_buy:
-                    self.remove_all_buys()
-                else:
-                    self.remove_all_sells()
-
-    def add_hanging_orders_based_on_partially_executed_pairs(self):
+    def _add_hanging_orders_based_on_partially_executed_pairs(self):
         for pair in self.current_created_pairs_of_orders:
             if pair.partially_filled():
                 unfilled_order = pair.get_unfilled_order()
