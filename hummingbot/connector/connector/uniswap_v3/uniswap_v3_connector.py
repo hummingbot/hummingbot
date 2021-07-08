@@ -1,8 +1,9 @@
 import asyncio
 import json
 from decimal import Decimal
-from typing import Dict, List
+from typing import Dict, List, Optional
 
+from hummingbot.core.utils import async_ttl_cache
 from hummingbot.connector.connector.uniswap.uniswap_connector import UniswapConnector
 from hummingbot.connector.connector.uniswap.uniswap_in_flight_order import UniswapInFlightOrder
 from hummingbot.connector.connector.uniswap_v3.uniswap_v3_in_flight_position import UniswapV3InFlightPosition, UniswapV3PositionStatus
@@ -25,6 +26,8 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.core.utils.ethereum import check_transaction_exceptions
+from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 
 s_logger = None
 s_decimal_0 = Decimal("0")
@@ -55,11 +58,28 @@ class UniswapV3Connector(UniswapConnector):
     def name(self) -> str:
         return "uniswap_v3"
 
-    def get_order_price_quantum(self, trading_pair: str, price: Decimal) -> Decimal:
-        return Decimal("1e-6")
-
-    def get_order_size_quantum(self, trading_pair: str, order_size: Decimal) -> Decimal:
-        return Decimal("1e-6")
+    async def initiate_pool(self) -> str:
+        """
+        Initiate connector and start caching paths for trading_pairs
+        """
+        while True:
+            try:
+                # self.logger().info(f"Initializing Uniswap connector and paths for {self._trading_pairs} pairs.")
+                resp = await self._api_request("get", "eth/uniswap/v3/start",
+                                               {"pairs": json.dumps(self._trading_pairs)})
+                status = bool(str(resp["success"]))
+                if status:
+                    self._initiate_pool_status = status
+                    self._trading_pairs = resp["pairs"]
+                    await asyncio.sleep(60)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                self.logger().network(
+                    f"Error initializing {self._trading_pairs} ",
+                    exc_info=True,
+                    app_warning_msg=str(e)
+                )
 
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         self.logger().info("Restoring existing orders and positions to inflight tracker.")
@@ -91,15 +111,15 @@ class UniswapV3Connector(UniswapConnector):
         }
         return {"orders": orders, "positions": positions}
 
-    def parse_liquidity_events(self, events):
+    def parse_liquidity_events(self, events, base_decimals, quote_decimals):
         token_id = amount0 = amount1 = 0
         for event in events:
             if event["name"] == "tokenId":
                 token_id = event["value"]
             elif event["name"] == "amount0":
-                amount0 = event["value"]
+                amount0 = Decimal(event["value"]) / 10 ** base_decimals
             elif event["name"] == "amount1":
-                amount1 = event["value"]
+                amount1 = Decimal(event["value"]) / 10 ** quote_decimals
         return token_id, amount0, amount1
 
     async def update_swap_order(self, update_result: Dict[str, any], tracked_order: UniswapInFlightOrder):
@@ -161,10 +181,13 @@ class UniswapV3Connector(UniswapConnector):
             if update_result["receipt"].get("status", 0) == 1:
                 transaction_results = await self._api_request("post",
                                                               "eth/uniswap/v3/result",
-                                                              {"logs": json.dumps(update_result["receipt"]["logs"])})
+                                                              {"logs": json.dumps(update_result["receipt"]["logs"]),
+                                                               "pair": tracked_pos.trading_pair})
                 for result in transaction_results["info"]:
                     if result["name"] == "IncreaseLiquidity" and tracked_pos.last_status == UniswapV3PositionStatus.PENDING_CREATE:
-                        token_id, amount0, amount1 = self.parse_liquidity_events(result["events"])
+                        token_id, amount0, amount1 = self.parse_liquidity_events(result["events"],
+                                                                                 transaction_results["baseDecimal"],
+                                                                                 transaction_results["quoteDecimal"])
                         tracked_pos.token_id = token_id
                         tracked_pos.base_amount = amount0
                         tracked_pos.quote_amount = amount1
@@ -194,7 +217,9 @@ class UniswapV3Connector(UniswapConnector):
                                                                      tracked_pos.gas_price
                                                                      ))
                     elif result["name"] == "DecreaseLiquidity" and tracked_pos.last_status == UniswapV3PositionStatus.PENDING_REMOVE:
-                        token_id, amount0, amount1 = self.parse_liquidity_events(result["events"])
+                        token_id, amount0, amount1 = self.parse_liquidity_events(result["events"],
+                                                                                 transaction_results["baseDecimal"],
+                                                                                 transaction_results["quoteDecimal"])
                         tracked_pos.token_id = token_id
                         tracked_pos.last_status = UniswapV3PositionStatus.REMOVED
                         self.logger().info(f"Liquidity decreased for tokenID - {token_id}.")
@@ -269,9 +294,18 @@ class UniswapV3Connector(UniswapConnector):
             position_results = await safe_gather(*tasks, return_exceptions=True)
             for update_result, tracked_item in zip(position_results, open_positions):
                 if not isinstance(update_result, Exception) and len(update_result.get("position", {})) > 0:
-                    tracked_item.lower_price = update_result["position"].get("lowerPrice", Decimal("0"))
-                    tracked_item.upper_price = update_result["position"].get("upperPrice", Decimal("0"))
-                    # To-do in subsequent itearations, other fields from the position response would be updated
+                    tracked_item.lower_price = Decimal(update_result["position"].get("lowerPrice", "0"))
+                    tracked_item.upper_price = Decimal(update_result["position"].get("upperPrice", "0"))
+                    if tracked_item.trading_pair.split("-")[0] == update_result["position"]["token0"]:
+                        tracked_item.current_base_amount = Decimal(update_result["position"].get("amount0", "0"))
+                        tracked_item.current_quote_amount = Decimal(update_result["position"].get("amount1", "0"))
+                        tracked_item.unclaimed_base_amount = Decimal(update_result["position"].get("unclaimedToken0", "0"))
+                        tracked_item.unclaimed_quote_amount = Decimal(update_result["position"].get("unclaimedToken1", "0"))
+                    else:
+                        tracked_item.current_base_amount = Decimal(update_result["position"].get("amount1", "0"))
+                        tracked_item.current_quote_amount = Decimal(update_result["position"].get("amount0", "0"))
+                        tracked_item.unclaimed_base_amount = Decimal(update_result["position"].get("unclaimedToken1", "0"))
+                        tracked_item.unclaimed_quote_amount = Decimal(update_result["position"].get("unclaimedToken0", "0"))
 
     def add_position(self,
                      trading_pair: str,
@@ -279,16 +313,17 @@ class UniswapV3Connector(UniswapConnector):
                      base_amount: Decimal,
                      quote_amount: Decimal,
                      lower_price: Decimal,
-                     upper_price: Decimal):
+                     upper_price: Decimal,
+                     token_id: int = 0):
         hb_id = f"{trading_pair}-{get_tracking_nonce()}"
         safe_ensure_future(self._add_position(hb_id, trading_pair, fee_tier, base_amount, quote_amount,
-                                              lower_price, upper_price))
+                                              lower_price, upper_price, token_id))
         return hb_id
 
     def start_tracking_position(self,
                                 hb_id: str,
                                 trading_pair: str,
-                                fee_tier: Decimal,
+                                fee_tier: str,
                                 base_amount: Decimal,
                                 quote_amount: Decimal,
                                 lower_price: Decimal,
@@ -317,19 +352,21 @@ class UniswapV3Connector(UniswapConnector):
     async def _add_position(self,
                             hb_id: str,
                             trading_pair: str,
-                            fee_tier: Decimal,
+                            fee_tier: str,
                             base_amount: Decimal,
                             quote_amount: Decimal,
                             lower_price: Decimal,
-                            upper_price: Decimal):
+                            upper_price: Decimal,
+                            token_id: int):
         """
-        Calls add position end point to create a new range position.
+        Calls add position end point to create/increase a range position.
         :param hb_id: Internal Hummingbot id
         :param trading_pair: The market trading pair of the pool
         :param fee_tier: The expected fee
         :param base_amount: The amount of base token to put into the pool
         :param lower_price: The lower bound of the price range
         :param upper_price: The upper bound of the price range
+        :param token_id: The token id of position to be increased
         """
         base_amount = self.quantize_order_amount(trading_pair, base_amount)
         quote_amount = self.quantize_order_amount(trading_pair, quote_amount)
@@ -338,11 +375,12 @@ class UniswapV3Connector(UniswapConnector):
         base, quote = trading_pair.split("-")
         api_params = {"token0": base,
                       "token1": quote,
-                      "fee": str(fee_tier),
+                      "fee": fee_tier,
                       "lowerPrice": str(lower_price),
                       "upperPrice": str(upper_price),
                       "amount0": str(base_amount),
                       "amount1": str(quote_amount),
+                      "tokenId": token_id
                       }
         self.start_tracking_position(hb_id, trading_pair, fee_tier, base_amount, quote_amount,
                                      lower_price, upper_price)
@@ -353,7 +391,7 @@ class UniswapV3Connector(UniswapConnector):
             tracked_pos.update_last_tx_hash(tx_hash)
             tracked_pos.gas_price = order_result.get("gasPrice")
             tracked_pos.last_status = UniswapV3PositionStatus.PENDING_CREATE
-            self.logger().info(f"Created range position for {trading_pair}, hb_id: {hb_id}, tx_hash: {tx_hash} "
+            self.logger().info(f"Adding liquidity for {trading_pair}, hb_id: {hb_id}, tx_hash: {tx_hash} "
                                f"amount: {base_amount} ({base}), "
                                f"range: {lower_price} - {upper_price}")
             self.trigger_event(
@@ -385,20 +423,30 @@ class UniswapV3Connector(UniswapConnector):
             self.trigger_event(MarketEvent.RangePositionFailure,
                                RangePositionFailureEvent(self.current_timestamp, hb_id))
 
-    def remove_position(self, hb_id: str, token_id: str):
-        safe_ensure_future(self._remove_position(hb_id, token_id))
+    def remove_position(self, hb_id: str, token_id: str, reducePercent: Decimal = Decimal("100.0")):
+        safe_ensure_future(self._remove_position(hb_id, token_id, reducePercent))
         # get the inflight order that has this token_id
         return hb_id
 
-    async def _remove_position(self, hb_id: str, token_id: str):
+    async def _remove_position(self, hb_id: str, token_id: str, reducePercent: Decimal):
+        """
+        Calls add position end point to create/increase a range position.
+        :param hb_id: Internal Hummingbot id
+        :param token_id: The token id of position to be increased
+        :param reducePercent: The percentage of liquidity to remove from position with the specified token id
+        """
         tracked_pos = self._in_flight_positions.get(hb_id)
         await tracked_pos.get_last_tx_hash()
         tracked_pos.last_status = UniswapV3PositionStatus.PENDING_REMOVE
         tracked_pos.update_last_tx_hash(None)
         try:
-            result = await self._api_request("post", "eth/uniswap/v3/remove-position", {"tokenId": token_id})
+            result = await self._api_request("post",
+                                             "eth/uniswap/v3/remove-position",
+                                             {"tokenId": token_id, "reducePercent": reducePercent})
             hash = result.get("hash")
-            self.logger().info(f"Initiated removal of position with ID - {token_id}.")
+            action = "removal of" if reducePercent == Decimal("100.0") else \
+                     f"{reducePercent}% reduction of liquidity for"
+            self.logger().info(f"Initiated {action} of position with ID - {token_id}.")
             tracked_pos.update_last_tx_hash(hash)
             self.trigger_event(MarketEvent.RangePositionUpdated,
                                RangePositionUpdatedEvent(self.current_timestamp, tracked_pos.hb_id,
@@ -415,76 +463,6 @@ class UniswapV3Connector(UniswapConnector):
             self.trigger_event(MarketEvent.RangePositionFailure,
                                RangePositionFailureEvent(self.current_timestamp, hb_id))
 
-    def replace_position(self,
-                         token_id: str,
-                         trading_pair: str,
-                         fee_tier: Decimal,
-                         base_amount: Decimal,
-                         quote_amount: Decimal,
-                         lower_price: Decimal,
-                         upper_price: Decimal):
-        hb_id = f"{trading_pair}-{get_tracking_nonce()}"
-        safe_ensure_future(self._replace_position(hb_id, token_id, trading_pair, fee_tier, base_amount, quote_amount, lower_price, upper_price))
-        return hb_id
-
-    async def _replace_position(self,
-                                hb_id: str,
-                                token_id: str,
-                                trading_pair: str,
-                                fee_tier: Decimal,
-                                base_amount: Decimal,
-                                quote_amount: Decimal,
-                                lower_price: Decimal,
-                                upper_price: Decimal):
-        """
-        Calls add position end point to create a new range position.
-        :param hb_id: Internal Hummingbot id
-        :param trading_pair: The market trading pair of the pool
-        :param fee_tier: The expected fee
-        :param base_amount: The amount of base token to put into the pool
-        :param lower_price: The lower bound of the price range
-        :param upper_price: The upper bound of the price range
-        """
-        base_amount = self.quantize_order_amount(trading_pair, base_amount)
-        quote_amount = self.quantize_order_amount(trading_pair, quote_amount)
-        lower_price = self.quantize_order_price(trading_pair, lower_price)
-        upper_price = self.quantize_order_price(trading_pair, upper_price)
-        base, quote = trading_pair.split("-")
-        tracked_pos = self._in_flight_positions.get(hb_id)
-        await tracked_pos.get_last_tx_hash()
-        tracked_pos.last_status = UniswapV3PositionStatus.PENDING_REMOVE
-        tracked_pos.update_last_tx_hash(None)
-
-        new_hb_id = f"{trading_pair}-{get_tracking_nonce()}"
-        self.start_tracking_position(new_hb_id, trading_pair, fee_tier, base_amount, quote_amount,
-                                     lower_price, upper_price)
-        try:
-            order_result = await self._api_request("post", "eth/uniswap/v3/replace-position",
-                                                   {"tokenId": token_id,
-                                                    "token0": base,
-                                                    "token1": quote,
-                                                    "fee": str(fee_tier),
-                                                    "lowerPrice": str(lower_price),
-                                                    "upperPrice": str(upper_price),
-                                                    "amount0": str(base_amount),
-                                                    "amount1": str(quote_amount),
-                                                    })
-            tracked_pos = self._in_flight_positions.get(new_hb_id)
-            tracked_pos.token_id = order_result.get("tokenId")
-            tracked_pos.gas_price = Decimal(str(order_result.get("gasPrice")))
-            tracked_pos.update_last_tx_hash(order_result.get("hash"))
-            self.logger().info(f"Initiated replacement of position with ID - {token_id}.")
-        except Exception as e:
-            self.stop_tracking_order(hb_id)
-            self.logger().network(
-                f"Error replacing range position to Uniswap with ID - {token_id} "
-                f"hb_id: {hb_id}",
-                exc_info=True,
-                app_warning_msg=str(e)
-            )
-            self.trigger_event(MarketEvent.RangePositionFailure,
-                               RangePositionFailureEvent(self.current_timestamp, hb_id))
-
     async def get_position(self, token_id: str):
         result = await self._api_request("post", "eth/uniswap/v3/position", {"tokenId": token_id})
         return result
@@ -493,20 +471,24 @@ class UniswapV3Connector(UniswapConnector):
         result = await self._api_request("post", "eth/uniswap/v3/collect-fees", {"tokenId": token_id})
         return result
 
-    async def get_price_by_fee_tier(self, trading_pair: str, tier: str):
+    async def get_price_by_fee_tier(self, trading_pair: str, tier: str, seconds: int = 1, twap: bool = False):
         """
         Get price on a specific fee tier.
         :param trading_pair: trading pair to fetch
         :param tier: tier to return
+        :param seconds: number of seconds to get historical prices
+        :param twap: if to return historical price from pool or current price over multiple pools
         """
         try:
             base, quote = trading_pair.split("-")
             resp = await self._api_request("post",
                                            "eth/uniswap/v3/price",
                                            {"base": base,
-                                            "quote": quote})
+                                            "quote": quote,
+                                            "tier": tier.upper(),
+                                            "seconds": seconds})
 
-            return Decimal(str(resp["prices"][tier.upper()]))
+            return resp["prices"] if twap else Decimal(str(resp["price"]))
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -515,6 +497,72 @@ class UniswapV3Connector(UniswapConnector):
                 exc_info=True,
                 app_warning_msg=str(e)
             )
+
+    @async_ttl_cache(ttl=5, maxsize=10)
+    async def get_quote_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Optional[Decimal]:
+        """
+        Retrieves a quote price.
+        :param trading_pair: The market trading pair
+        :param is_buy: True for an intention to buy, False for an intention to sell
+        :param amount: The amount required (in base token unit)
+        :return: The quote price.
+        """
+
+        try:
+            base, quote = trading_pair.split("-")
+            side = "buy" if is_buy else "sell"
+            resp = await self._api_request("post",
+                                           "eth/uniswap/price",
+                                           {"base": base,
+                                            "quote": quote,
+                                            "side": side.upper(),
+                                            "amount": amount})
+            required_items = ["price", "gasLimit", "gasPrice", "gasCost"]
+            if any(item not in resp.keys() for item in required_items):
+                if "info" in resp.keys():
+                    self.logger().info(f"Unable to get price. {resp['info']}")
+                else:
+                    self.logger().info(f"Missing data from price result. Incomplete return result for ({resp.keys()})")
+            else:
+                gas_limit = resp["gasLimit"]
+                gas_price = resp["gasPrice"]
+                gas_cost = resp["gasCost"]
+                price = resp["price"]
+                account_standing = {
+                    "allowances": self._allowances,
+                    "balances": self._account_balances,
+                    "base": base,
+                    "quote": quote,
+                    "amount": amount,
+                    "side": side,
+                    "gas_limit": gas_limit,
+                    "gas_price": gas_price,
+                    "gas_cost": gas_cost,
+                    "price": price
+                }
+                exceptions = check_transaction_exceptions(account_standing)
+                for index in range(len(exceptions)):
+                    self.logger().info(f"Warning! [{index+1}/{len(exceptions)}] {side} order - {exceptions[index]}")
+
+                if price is not None and len(exceptions) == 0:
+                    # TODO standardize quote price object to include price, fee, token, is fee part of quote.
+                    fee_overrides_config_map["uniswap_maker_fee_amount"].value = Decimal(str(gas_cost))
+                    fee_overrides_config_map["uniswap_taker_fee_amount"].value = Decimal(str(gas_cost))
+                    return Decimal(str(price))
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self.logger().network(
+                f"Error getting quote price for {trading_pair}  {side} order for {amount} amount.",
+                exc_info=True,
+                app_warning_msg=str(e)
+            )
+
+    async def get_order_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
+        """
+        This is simply the quote price
+        """
+        return await self.get_quote_price(trading_pair, is_buy, amount)
 
     def get_token_id(self, client_order_id):  # to be refactored to fetch from databse in subsequent releases
         return self._in_flight_positions.get(client_order_id, 0)
@@ -550,9 +598,15 @@ class UniswapV3Connector(UniswapConnector):
                                                  {"tokenList": "[" + (",".join(['"' + t + '"' for t in self._tokens])) + "]",
                                                   "connector": "uniswapV3NFTManager"})
         for token, amount in router_allowances["approvals"].items():
-            ret_val["R" + token] = Decimal(str(amount))
+            try:
+                ret_val["R" + token] = Decimal(str(amount))
+            except Exception:
+                ret_val["R" + token] = s_decimal_0
         for token, amount in nft_allowances["approvals"].items():
-            ret_val["N" + token] = Decimal(str(amount))
+            try:
+                ret_val["N" + token] = Decimal(str(amount))
+            except Exception:
+                ret_val["N" + token] = s_decimal_0
         return ret_val
 
     def has_allowances(self) -> bool:
@@ -625,16 +679,3 @@ class UniswapV3Connector(UniswapConnector):
             )
             self.trigger_event(MarketEvent.OrderFailure,
                                MarketOrderFailureEvent(self.current_timestamp, order_id, OrderType.LIMIT))
-
-    async def start_network(self):
-        if self._trading_required:
-            self._status_polling_task = safe_ensure_future(self._status_polling_loop())
-            self._auto_approve_task = safe_ensure_future(self.auto_approve())
-
-    async def stop_network(self):
-        if self._status_polling_task is not None:
-            self._status_polling_task.cancel()
-            self._status_polling_task = None
-        if self._auto_approve_task is not None:
-            self._auto_approve_task.cancel()
-            self._auto_approve_task = None
