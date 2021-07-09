@@ -235,7 +235,7 @@ class HangingOrdersTracker:
 
     def renew_hanging_orders_past_max_order_age(self):
         to_be_cancelled: Set[HangingOrder] = set()
-        max_order_age = getattr(self.strategy, "max_order_age", lambda: None)
+        max_order_age = getattr(self.strategy, "max_order_age", None)
         if max_order_age:
             for order in self.strategy_current_hanging_orders:
                 if self.hanging_order_age(order) > max_order_age:
@@ -374,7 +374,7 @@ class HangingOrdersTracker:
         return self._obtain_equivalent_weighted_order(orders, lambda o: Decimal("1"))
 
     def _get_equivalent_order_volume_and_age_weighted(self, orders: Set[LimitOrder]):
-        max_order_age = getattr(self.strategy, "max_order_age", lambda: None)
+        max_order_age = getattr(self.strategy, "max_order_age", None)
         if max_order_age:
             return self._obtain_equivalent_weighted_order(orders,
                                                           lambda o: Decimal.exp(-Decimal(
