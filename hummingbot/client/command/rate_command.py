@@ -5,7 +5,7 @@ from typing import (
 )
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
-from hummingbot.client.errors import OracleRateUnavailable
+from hummingbot.exceptions import OracleRateUnavailable
 
 s_float_0 = float(0)
 s_decimal_0 = Decimal("0")

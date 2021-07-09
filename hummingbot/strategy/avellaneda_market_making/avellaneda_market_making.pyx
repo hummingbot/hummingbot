@@ -5,6 +5,7 @@ import numpy as np
 from typing import (
     List,
     Dict,
+    Tuple,
 )
 from math import (
     floor,
@@ -25,14 +26,15 @@ from hummingbot.core.event.events import OrderType
 
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base import StrategyBase
+from hummingbot.strategy.hanging_orders_tracker import HangingOrdersTracker, HangingOrdersAggregationType, CreatedPairOfOrders
 from hummingbot.client.config.global_config_map import global_config_map
 
-from .data_types import (
+from hummingbot.strategy.data_types import (
     Proposal,
     PriceSize
 )
 from ..order_tracker cimport OrderTracker
-from ..__utils__.trailing_indicators.average_volatility import AverageVolatilityIndicator
+from ..__utils__.trailing_indicators.instant_volatility import InstantVolatilityIndicator
 
 
 NaN = float("nan")
@@ -62,12 +64,15 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                  market_info: MarketTradingPairTuple,
                  order_amount: Decimal,
                  order_refresh_time: float = 30.0,
-                 max_order_age = 1800.0,
+                 max_order_age: float = 1800,
                  order_refresh_tolerance_pct: Decimal = s_decimal_neg_one,
                  order_optimization_enabled = True,
                  filled_order_delay: float = 60.0,
                  order_levels: int = 0,
                  order_override: Dict[str, List[str]] = {},
+                 hanging_orders_enabled: bool = False,
+                 hanging_orders_aggregation_type: HangingOrdersAggregationType = HangingOrdersAggregationType.NO_AGGREGATION,
+                 hanging_orders_cancel_pct: Decimal = Decimal("0.1"),
                  inventory_target_base_pct: Decimal = s_decimal_zero,
                  add_transaction_costs_to_orders: bool = True,
                  logging_options: int = OPTION_LOG_ALL,
@@ -85,7 +90,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                  closing_time: Decimal = Decimal("1"),
                  debug_csv_path: str = '',
                  volatility_buffer_size: int = 30,
-                 is_debug: bool = True,
+                 is_debug: bool = False,
                  ):
         super().__init__()
         self._sb_order_tracker = OrderTracker()
@@ -101,6 +106,10 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._inventory_target_base_pct = inventory_target_base_pct
         self._add_transaction_costs_to_orders = add_transaction_costs_to_orders
         self._hb_app_notification = hb_app_notification
+        self._hanging_orders_enabled = hanging_orders_enabled
+        self._hanging_orders_tracker = HangingOrdersTracker(self,
+                                                            hanging_orders_aggregation_type,
+                                                            hanging_orders_cancel_pct)
 
         self._cancel_timestamp = 0
         self._create_timestamp = 0
@@ -121,7 +130,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._vol_to_spread_multiplier = vol_to_spread_multiplier
         self._volatility_sensibility = volatility_sensibility
         self._inventory_risk_aversion = inventory_risk_aversion
-        self._avg_vol = AverageVolatilityIndicator(volatility_buffer_size, 1)
+        self._avg_vol = InstantVolatilityIndicator(volatility_buffer_size, 1)
         self._last_sampling_timestamp = 0
         self._kappa = order_book_depth_factor
         self._gamma = risk_factor
@@ -143,6 +152,22 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
     def all_markets_ready(self):
         return all([market.ready for market in self._sb_markets])
+
+    @property
+    def latest_parameter_calculation_vol(self):
+        return self._latest_parameter_calculation_vol
+
+    @latest_parameter_calculation_vol.setter
+    def latest_parameter_calculation_vol(self, value):
+        self._latest_parameter_calculation_vol = value
+
+    @property
+    def avg_vol(self):
+        return self._avg_vol
+
+    @avg_vol.setter
+    def avg_vol(self, indicator: InstantVolatilityIndicator):
+        self._avg_vol = indicator
 
     @property
     def market_info(self) -> MarketTradingPairTuple:
@@ -197,12 +222,52 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._filled_order_delay = value
 
     @property
-    def filled_order_delay(self) -> float:
-        return self._filled_order_delay
+    def vol_to_spread_multiplier(self) -> Decimal:
+        return self._vol_to_spread_multiplier
 
-    @filled_order_delay.setter
-    def filled_order_delay(self, value: float):
-        self._filled_order_delay = value
+    @vol_to_spread_multiplier.setter
+    def vol_to_spread_multiplier(self, value):
+        self._vol_to_spread_multiplier = value
+
+    @property
+    def min_spread(self) -> Decimal:
+        return self._min_spread
+
+    @min_spread.setter
+    def min_spread(self, value):
+        self._min_spread = value
+
+    @property
+    def max_spread(self) -> Decimal:
+        return self._max_spread
+
+    @max_spread.setter
+    def max_spread(self, value):
+        self._max_spread = value
+
+    @property
+    def order_override(self) -> Dict[str, any]:
+        return self._order_override
+
+    @order_override.setter
+    def order_override(self, value):
+        self._order_override = value
+
+    @property
+    def order_levels(self) -> int:
+        return self._order_levels
+
+    @order_levels.setter
+    def order_levels(self, value):
+        self._order_levels = value
+
+    @property
+    def max_order_age(self):
+        return self._max_order_age
+
+    @max_order_age.setter
+    def max_order_age(self, value):
+        self._max_order_age = value
 
     @property
     def add_transaction_costs_to_orders(self) -> bool:
@@ -223,6 +288,74 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     @property
     def trading_pair(self):
         return self._market_info.trading_pair
+
+    @property
+    def gamma(self):
+        return self._gamma
+
+    @gamma.setter
+    def gamma(self, value):
+        self._gamma = value
+
+    @property
+    def kappa(self):
+        return self._kappa
+
+    @kappa.setter
+    def kappa(self, value):
+        self._kappa = value
+
+    @property
+    def eta(self):
+        return self._eta
+
+    @eta.setter
+    def eta(self, value):
+        self._eta = value
+
+    @property
+    def reserved_price(self):
+        return self._reserved_price
+
+    @reserved_price.setter
+    def reserved_price(self, value):
+        self._reserved_price = value
+
+    @property
+    def optimal_spread(self):
+        return self._optimal_spread
+
+    @property
+    def optimal_ask(self):
+        return self._optimal_ask
+
+    @optimal_ask.setter
+    def optimal_ask(self, value):
+        self._optimal_ask = value
+
+    @property
+    def optimal_bid(self):
+        return self._optimal_bid
+
+    @optimal_bid.setter
+    def optimal_bid(self, value):
+        self._optimal_bid = value
+
+    @property
+    def q_adjustment_factor(self):
+        return self._q_adjustment_factor
+
+    @q_adjustment_factor.setter
+    def q_adjustment_factor(self, value):
+        self._q_adjustment_factor = value
+
+    @property
+    def time_left(self):
+        return self._time_left
+
+    @property
+    def closing_time(self):
+        return self._closing_time
 
     def get_price(self) -> float:
         return self.get_mid_price()
@@ -247,6 +380,11 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         return self.market_info_to_active_orders[self._market_info]
 
     @property
+    def active_non_hanging_orders(self) -> List[LimitOrder]:
+        orders = [o for o in self.active_orders if not self._hanging_orders_tracker.is_order_id_in_hanging_orders(o.client_order_id)]
+        return orders
+
+    @property
     def active_buys(self) -> List[LimitOrder]:
         return [o for o in self.active_orders if o.is_buy]
 
@@ -265,6 +403,10 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     @property
     def order_tracker(self):
         return self._sb_order_tracker
+
+    @property
+    def hanging_orders_tracker(self):
+        return self._hanging_orders_tracker
 
     def pure_mm_assets_df(self, to_show_current_pct: bool) -> pd.DataFrame:
         market, trading_pair, base_asset, quote_asset = self._market_info
@@ -292,13 +434,22 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         market, trading_pair, base_asset, quote_asset = self._market_info
         price = self.get_price()
         active_orders = self.active_orders
-        no_sells = len([o for o in active_orders if not o.is_buy and o.client_order_id])
+        no_sells = len([o for o in active_orders if not o.is_buy and o.client_order_id and
+                        not self._hanging_orders_tracker.is_order_id_in_hanging_orders(o.client_order_id)])
         active_orders.sort(key=lambda x: x.price, reverse=True)
         columns = ["Level", "Type", "Price", "Spread", "Amount (Orig)", "Amount (Adj)", "Age"]
         data = []
         lvl_buy, lvl_sell = 0, 0
         for idx in range(0, len(active_orders)):
             order = active_orders[idx]
+            is_hanging_order = self._hanging_orders_tracker.is_order_id_in_hanging_orders(order.client_order_id)
+            if not is_hanging_order:
+                if order.is_buy:
+                    level = lvl_buy + 1
+                    lvl_buy += 1
+                else:
+                    level = no_sells - lvl_sell
+                    lvl_sell += 1
             spread = 0 if price == 0 else abs(order.price - price)/price
             age = "n/a"
             # // indicates order is a paper order so 'n/a'. For real orders, calculate age.
@@ -306,8 +457,11 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 age = pd.Timestamp(int(time.time()) - int(order.client_order_id[-16:])/1e6,
                                    unit='s').strftime('%H:%M:%S')
             amount_orig = self._order_amount
+            if is_hanging_order:
+                amount_orig = float(order.quantity)
+                level = "hang"
             data.append([
-                "",
+                level,
                 "buy" if order.is_buy else "sell",
                 float(order.price),
                 f"{spread:.2%}",
@@ -376,22 +530,25 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
         return "\n".join(lines)
 
-    # The following exposed Python functions are meant for unit tests
-    # ---------------------------------------------------------------
     def execute_orders_proposal(self, proposal: Proposal):
         return self.c_execute_orders_proposal(proposal)
 
     def cancel_order(self, order_id: str):
         return self.c_cancel_order(self._market_info, order_id)
 
-    # ---------------------------------------------------------------
-
     cdef c_start(self, Clock clock, double timestamp):
         StrategyBase.c_start(self, clock, timestamp)
         self._last_timestamp = timestamp
         # start tracking any restored limit order
         restored_order_ids = self.c_track_restored_orders(self.market_info)
+        for order_id in restored_order_ids:
+            order = next(o for o in self.market_info.market.limit_orders if o.client_order_id == order_id)
+            if order:
+                self._hanging_orders_tracker.add_order(order)
         self._time_left = self._closing_time
+
+    def start(self, Clock clock, double timestamp):
+        self.c_start(clock, timestamp)
 
     cdef c_tick(self, double timestamp):
         StrategyBase.c_tick(self, timestamp)
@@ -400,7 +557,8 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             int64_t last_tick = <int64_t>(self._last_timestamp // self._status_report_interval)
             bint should_report_warnings = ((current_tick > last_tick) and
                                            (self._logging_options & self.OPTION_LOG_STATUS_REPORT))
-            cdef object proposal
+            object proposal
+
         try:
             if not self._all_markets_ready:
                 self._all_markets_ready = all([mkt.ready for mkt in self._sb_markets])
@@ -435,18 +593,21 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     self.c_apply_order_amount_eta_transformation(proposal)
                     # 3. Apply functions that modify orders price
                     self.c_apply_order_price_modifiers(proposal)
-                    # 4. Apply budget constraint, i.e. can't buy/sell more than what you have.
-                    self.c_apply_budget_constraint(proposal)
 
+                self._hanging_orders_tracker.remove_orders_far_from_price()
+                self._hanging_orders_tracker.renew_hanging_orders_past_max_order_age()
                 self.c_cancel_active_orders(proposal)
-                if self._is_debug:
-                    self.dump_debug_variables()
                 refresh_proposal = self.c_aged_order_refresh()
-                # Firstly restore cancelled aged order
                 if refresh_proposal is not None:
                     self.c_execute_orders_proposal(refresh_proposal)
+
                 if self.c_to_create_orders(proposal):
+                    # 4. Apply budget constraint (after hanging orders were created), i.e. can't buy/sell more than what you have.
+                    self.c_apply_budget_constraint(proposal)
                     self.c_execute_orders_proposal(proposal)
+
+                if self._is_debug:
+                    self.dump_debug_variables()
             else:
                 self._ticks_to_be_ready-=1
                 if self._ticks_to_be_ready % 5 == 0:
@@ -472,7 +633,10 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 self.c_recalculate_parameters()
             self.logger().info("Recycling algorithm time left and parameters if needed.")
 
-    def volatility_diff_from_last_parameter_calculation(self, current_vol):
+    def collect_market_variables(self, timestamp: float):
+        self.c_collect_market_variables(timestamp)
+
+    def volatility_diff_from_last_parameter_calculation(self, current_vol) -> Decimal:
         if self._latest_parameter_calculation_vol == 0:
             return s_decimal_zero
         return abs(self._latest_parameter_calculation_vol - Decimal(str(current_vol))) / self._latest_parameter_calculation_vol
@@ -483,6 +647,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             str trading_pair = self._market_info.trading_pair
 
         return market.c_get_price(trading_pair, True) - market.c_get_price(trading_pair, False)
+
+    def get_spread(self):
+        return self.c_get_spread()
 
     def get_volatility(self):
         vol = Decimal(str(self._avg_vol.current_value))
@@ -536,6 +703,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                                    f"q={q/self._q_adjustment_factor:.4f} | "
                                    f"vol={vol:.4f}")
 
+    def calculate_reserved_price_and_optimal_spread(self):
+        return self.c_calculate_reserved_price_and_optimal_spread()
+
     cdef object c_calculate_target_inventory(self):
         cdef:
             ExchangeBase market = self._market_info.market
@@ -554,6 +724,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         inventory_value = base_value + quote_asset_amount
         target_inventory_value = inventory_value * self._inventory_target_base_pct
         return market.c_quantize_order_amount(trading_pair, Decimal(str(target_inventory_value / price)))
+
+    def calculate_target_inventory(self) -> Decimal:
+        return self.c_calculate_target_inventory()
 
     def _get_min_and_max_spread(self):
         vol = self.get_volatility()
@@ -599,8 +772,14 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
             self._latest_parameter_calculation_vol = vol
 
+    def recalculate_parameters(self):
+        return self.c_recalculate_parameters()
+
     cdef bint c_is_algorithm_ready(self):
         return self._avg_vol.is_sampling_buffer_full
+
+    def is_algorithm_ready(self) -> bool:
+        return self.c_is_algorithm_ready()
 
     def _get_logspaced_level_spreads(self, ):
         reference_price = self.get_price()
@@ -634,6 +813,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     list_to_be_appended.append(PriceSize(price, size))
         return buys, sells
 
+    def create_proposal_based_on_order_override(self) -> Tuple[List[Proposal], List[Proposal]]:
+        return self._create_proposal_based_on_order_override()
+
     cdef _create_proposal_based_on_order_levels(self):
         cdef:
             ExchangeBase market = self._market_info.market
@@ -652,6 +834,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 sells.append(PriceSize(ask_price, size))
         return buys, sells
 
+    def create_proposal_based_on_order_levels(self):
+        return self._create_proposal_based_on_order_levels()
+
     cdef _create_basic_proposal(self):
         cdef:
             ExchangeBase market = self._market_info.market
@@ -667,6 +852,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         if size > 0:
             sells.append(PriceSize(price, size))
         return buys, sells
+
+    def create_basic_proposal(self):
+        return self._create_basic_proposal()
 
     cdef object c_create_base_proposal(self):
         cdef:
@@ -686,6 +874,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
         return Proposal(buys, sells)
 
+    def create_base_proposal(self):
+        return self.c_create_base_proposal()
+
     cdef tuple c_get_adjusted_available_balance(self, list orders):
         """
         Calculates the available balance, plus the amount attributed to orders.
@@ -704,12 +895,34 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
         return base_balance, quote_balance
 
+    def get_adjusted_available_balance(self, orders: List[LimitOrder]):
+        return self.c_get_adjusted_available_balance(orders)
+
     cdef c_apply_order_price_modifiers(self, object proposal):
         if self._order_optimization_enabled:
             self.c_apply_order_optimization(proposal)
 
         if self._add_transaction_costs_to_orders:
             self.c_apply_add_transaction_costs(proposal)
+
+    def apply_order_price_modifiers(self, proposal: Proposal):
+        self.c_apply_order_price_modifiers(proposal)
+
+    def apply_budget_constraint(self, proposal: Proposal):
+        return self.c_apply_budget_constraint(proposal)
+
+    def adjusted_available_balance_for_orders_budget_constrain(self):
+        new_hanging_orders = [LimitOrder("",
+                                         o.trading_pair,
+                                         o.is_buy,
+                                         self.base_asset,
+                                         self.quote_asset,
+                                         o.price,
+                                         o.amount) for o in
+                              self._hanging_orders_tracker.orders_to_be_created]
+
+        return self.c_get_adjusted_available_balance(self.active_non_hanging_orders +
+                                                     new_hanging_orders)
 
     cdef c_apply_budget_constraint(self, object proposal):
         cdef:
@@ -718,7 +931,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             object base_size
             object adjusted_amount
 
-        base_balance, quote_balance = self.c_get_adjusted_available_balance(self.active_orders)
+        base_balance, quote_balance = self.adjusted_available_balance_for_orders_budget_constrain()
 
         for buy in proposal.buys:
             buy_fee = market.c_get_fee(self.base_asset, self.quote_asset, OrderType.LIMIT, TradeType.BUY,
@@ -752,6 +965,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 base_balance -= base_size
 
         proposal.sells = [o for o in proposal.sells if o.size > 0]
+
+    def apply_budget_constraint(self, proposal: Proposal):
+        return self.c_apply_budget_constraint(proposal)
 
     # Compare the market price with the top bid and top ask price
     cdef c_apply_order_optimization(self, object proposal):
@@ -803,6 +1019,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 if proposal.sells[i].price < price_below_ask:
                     proposal.sells[i].price = market.c_quantize_order_price(self.trading_pair, price_below_ask)
 
+    def apply_order_optimization(self, proposal: Proposal):
+        return self.c_apply_order_optimization(proposal)
+
     cdef c_apply_order_amount_eta_transformation(self, object proposal):
         cdef:
             ExchangeBase market = self._market_info.market
@@ -826,7 +1045,10 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                         proposal.sells[i].size = market.c_quantize_order_amount(trading_pair, proposal.sells[i].size * Decimal.exp(self._eta * q))
                     proposal.sells = [o for o in proposal.sells if o.size > 0]
 
-    cdef object c_apply_add_transaction_costs(self, object proposal):
+    def apply_order_amount_eta_transformation(self, proposal: Proposal):
+        self.c_apply_order_amount_eta_transformation(proposal)
+
+    cdef c_apply_add_transaction_costs(self, object proposal):
         cdef:
             ExchangeBase market = self._market_info.market
         for buy in proposal.buys:
@@ -839,6 +1061,22 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                                    self._limit_order_type, TradeType.SELL, sell.size, sell.price)
             price = sell.price * (Decimal(1) + fee.percent)
             sell.price = market.c_quantize_order_price(self.trading_pair, price)
+
+    def apply_add_transaction_costs(self, proposal: Proposal):
+        self.c_apply_add_transaction_costs(proposal)
+
+    cdef c_did_cancel_order(self, object cancelled_event):
+        cdef:
+            str order_id = cancelled_event.order_id
+        if self._hanging_orders_tracker.is_order_id_in_hanging_orders(order_id):
+            self.log_with_clock(
+                logging.INFO,
+                f"({self.trading_pair}) Hanging order {order_id} cancelled."
+            )
+            self.notify_hb_app(
+                f"({self.trading_pair}) Hanging order {order_id} cancelled."
+            )
+            self._hanging_orders_tracker.did_cancel_hanging_order(order_id)
 
     cdef c_did_fill_order(self, object order_filled_event):
         cdef:
@@ -873,6 +1111,11 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             return
         active_sell_ids = [x.client_order_id for x in self.active_orders if not x.is_buy]
 
+        # If the filled order is a hanging order, do nothing
+        if self._hanging_orders_tracker.is_order_id_in_hanging_orders(order_id):
+            self._hanging_orders_tracker.did_fill_hanging_order(limit_order_record)
+            return
+
         # delay order creation by filled_order_delay (in seconds)
         self._create_timestamp = self._current_timestamp + self._filled_order_delay
         self._cancel_timestamp = min(self._cancel_timestamp, self._create_timestamp)
@@ -880,13 +1123,15 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._filled_buys_balance += 1
         self._last_own_trade_price = limit_order_record.price
 
+        self._hanging_orders_tracker.did_fill_order(limit_order_record)
+
         self.log_with_clock(
             logging.INFO,
             f"({self.trading_pair}) Maker buy order {order_id} "
             f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
             f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
         )
-        self.notify_hb_app(
+        self.notify_hb_app_with_timestamp(
             f"Maker BUY order {limit_order_record.quantity} {limit_order_record.base_currency} @ "
             f"{limit_order_record.price} {limit_order_record.quote_currency} is filled."
         )
@@ -899,6 +1144,11 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             return
         active_buy_ids = [x.client_order_id for x in self.active_orders if x.is_buy]
 
+        # If the filled order is a hanging order, do nothing
+        if self._hanging_orders_tracker.is_order_id_in_hanging_orders(order_id):
+            self._hanging_orders_tracker.did_fill_hanging_order(limit_order_record)
+            return
+
         # delay order creation by filled_order_delay (in seconds)
         self._create_timestamp = self._current_timestamp + self._filled_order_delay
         self._cancel_timestamp = min(self._cancel_timestamp, self._create_timestamp)
@@ -906,13 +1156,15 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._filled_sells_balance += 1
         self._last_own_trade_price = limit_order_record.price
 
+        self._hanging_orders_tracker.did_fill_order(limit_order_record)
+
         self.log_with_clock(
             logging.INFO,
             f"({self.trading_pair}) Maker sell order {order_id} "
             f"({limit_order_record.quantity} {limit_order_record.base_currency} @ "
             f"{limit_order_record.price} {limit_order_record.quote_currency}) has been completely filled."
         )
-        self.notify_hb_app(
+        self.notify_hb_app_with_timestamp(
             f"Maker SELL order {limit_order_record.quantity} {limit_order_record.base_currency} @ "
             f"{limit_order_record.price} {limit_order_record.quote_currency} is filled."
         )
@@ -928,6 +1180,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 return False
         return True
 
+    def is_within_tolerance(self, current_prices: List[Decimal], proposal_prices: List[Decimal]) -> bool:
+        return self.c_is_within_tolerance(current_prices, proposal_prices)
+
     # Cancel active orders
     # Return value: whether order cancellation is deferred.
     cdef c_cancel_active_orders(self, object proposal):
@@ -937,42 +1192,48 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             if ((self._market_info.market.name in self.RADAR_RELAY_TYPE_EXCHANGES) or
                     (self._market_info.market.name == "bamboo_relay" and not self._market_info.market.use_coordinator)):
                 return
-
         cdef:
-            list active_orders = self.active_orders
             list active_buy_prices = []
             list active_sells = []
             bint to_defer_canceling = False
-        if len(active_orders) == 0:
+        if len(self.active_non_hanging_orders) == 0:
             return
         if proposal is not None:
-            active_buy_prices = [Decimal(str(o.price)) for o in active_orders if o.is_buy]
-            active_sell_prices = [Decimal(str(o.price)) for o in active_orders if not o.is_buy]
+            active_buy_prices = [Decimal(str(o.price)) for o in self.active_non_hanging_orders if o.is_buy]
+            active_sell_prices = [Decimal(str(o.price)) for o in self.active_non_hanging_orders if not o.is_buy]
             proposal_buys = [buy.price for buy in proposal.buys]
             proposal_sells = [sell.price for sell in proposal.sells]
+
             if self.c_is_within_tolerance(active_buy_prices, proposal_buys) and \
                     self.c_is_within_tolerance(active_sell_prices, proposal_sells):
                 to_defer_canceling = True
 
         if not to_defer_canceling:
-            for order in active_orders:
-                self.c_cancel_order(self._market_info, order.client_order_id)
+            self._hanging_orders_tracker.add_hanging_orders_based_on_partially_executed_pairs()
+            self._hanging_orders_tracker.update_strategy_orders_with_equivalent_orders()
+            for order in self.active_non_hanging_orders:
+                # If is about to be added to hanging_orders then don't cancel
+                if not self._hanging_orders_tracker.is_order_to_be_added_to_hanging_orders(order):
+                    self.c_cancel_order(self._market_info, order.client_order_id)
         else:
-            self.set_timers()
+            self.c_set_timers()
 
-    # Refresh all active order that are older that the _max_order_age
-    cdef c_aged_order_refresh(self):
+    def cancel_active_orders(self, proposal: Proposal):
+        return self.c_cancel_active_orders(proposal)
+
+    # Refresh all active non hanging orders that are older that the _max_order_age
+    cdef object c_aged_order_refresh(self):
         cdef:
-            list active_orders = self.active_orders
+            list active_non_hanging_orders = self.active_non_hanging_orders
             list buys = []
             list sells = []
 
-        for order in active_orders:
+        for order in active_non_hanging_orders:
             age = 0 if "//" in order.client_order_id else \
                 int(int(time.time()) - int(order.client_order_id[-16:])/1e6)
 
             # To prevent duplicating orders due to delay in receiving cancel response
-            refresh_check = [o for o in active_orders if o.price == order.price
+            refresh_check = [o for o in active_non_hanging_orders if o.price == order.price
                              and o.quantity == order.quantity]
             if len(refresh_check) > 1:
                 continue
@@ -988,9 +1249,18 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 self.c_cancel_order(self._market_info, order.client_order_id)
         return Proposal(buys, sells)
 
+    def aged_order_refresh(self) -> Proposal:
+        return self.c_aged_order_refresh()
+
     cdef bint c_to_create_orders(self, object proposal):
+        non_hanging_orders_non_cancelled = [o for o in self.active_non_hanging_orders if not
+                                            self._hanging_orders_tracker.is_order_to_be_added_to_hanging_orders(o)]
+
         return self._create_timestamp < self._current_timestamp and \
-            proposal is not None
+            proposal is not None and len(non_hanging_orders_non_cancelled) == 0
+
+    def to_create_orders(self, proposal: Proposal) -> bool:
+        return self.c_to_create_orders(proposal)
 
     cdef c_execute_orders_proposal(self, object proposal):
         cdef:
@@ -1001,6 +1271,8 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                                          else NaN)
             str bid_order_id, ask_order_id
             bint orders_created = False
+        # Number of pair of orders to track for hanging orders
+        number_of_pairs = min((len(proposal.buys), len(proposal.sells))) if self._hanging_orders_enabled else 0
 
         if len(proposal.buys) > 0:
             if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
@@ -1011,7 +1283,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     f"({self.trading_pair}) Creating {len(proposal.buys)} bid orders "
                     f"at (Size, Price): {price_quote_str}"
                 )
-            for buy in proposal.buys:
+            for idx, buy in enumerate(proposal.buys):
                 bid_order_id = self.c_buy_with_specific_market(
                     self._market_info,
                     buy.size,
@@ -1020,6 +1292,11 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     expiration_seconds=expiration_seconds
                 )
                 orders_created = True
+                if idx < number_of_pairs:
+                    order = next((o for o in self.active_orders if o.client_order_id == bid_order_id))
+                    if order:
+                        self._hanging_orders_tracker.add_current_pairs_of_proposal_orders_executed_by_strategy(
+                            CreatedPairOfOrders(order, None))
         if len(proposal.sells) > 0:
             if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
                 price_quote_str = [f"{sell.size.normalize()} {self.base_asset}, "
@@ -1029,7 +1306,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     f"({self.trading_pair}) Creating {len(proposal.sells)} ask "
                     f"orders at (Size, Price): {price_quote_str}"
                 )
-            for sell in proposal.sells:
+            for idx, sell in enumerate(proposal.sells):
                 ask_order_id = self.c_sell_with_specific_market(
                     self._market_info,
                     sell.size,
@@ -1038,20 +1315,29 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     expiration_seconds=expiration_seconds
                 )
                 orders_created = True
+                if idx < number_of_pairs:
+                    order = next((o for o in self.active_orders if o.client_order_id == ask_order_id))
+                    if order:
+                        self._hanging_orders_tracker.current_created_pairs_of_orders[idx].sell_order = order
         if orders_created:
-            self.set_timers()
+            self.c_set_timers()
 
-    cdef set_timers(self):
+    def execute_orders_proposal(self, proposal: Proposal):
+        self.c_execute_orders_proposal(proposal)
+
+    cdef c_set_timers(self):
         cdef double next_cycle = self._current_timestamp + self._order_refresh_time
         if self._create_timestamp <= self._current_timestamp:
             self._create_timestamp = next_cycle
         if self._cancel_timestamp <= self._current_timestamp:
             self._cancel_timestamp = min(self._create_timestamp, next_cycle)
 
+    def set_timers(self):
+        self.c_set_timers()
+
     def notify_hb_app(self, msg: str):
         if self._hb_app_notification:
-            from hummingbot.client.hummingbot_application import HummingbotApplication
-            HummingbotApplication.main_application()._notify(msg)
+            super().notify_hb_app(msg)
 
     def dump_debug_variables(self):
         market = self._market_info.market
