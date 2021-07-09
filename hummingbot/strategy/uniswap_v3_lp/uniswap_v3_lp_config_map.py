@@ -104,7 +104,8 @@ uniswap_v3_lp_config_map = {
     "min_profitability": ConfigVar(
         key="min_profitability",
         prompt="What minimum profit do you want each position to have before they can be adjusted? (Enter 1 to indicate 1%) >>>",
-        prompt_on_new=True,
+        prompt_on_new=False,
         validator=lambda v: validate_decimal(v, Decimal("0")),
+        default=Decimal("1"),
         type_str="decimal"),
 }
