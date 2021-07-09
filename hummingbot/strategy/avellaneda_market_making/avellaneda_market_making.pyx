@@ -1176,7 +1176,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             self._hanging_orders_tracker.update_strategy_orders_with_equivalent_orders()
             for order in self.active_non_hanging_orders:
                 # If is about to be added to hanging_orders then don't cancel
-                if not self._hanging_orders_tracker.is_order_to_be_added_to_hanging_orders(order):
+                if not self._hanging_orders_tracker.is_potential_hanging_order(order):
                     self.c_cancel_order(self._market_info, order.client_order_id)
         else:
             self.c_set_timers()
@@ -1186,7 +1186,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
     cdef bint c_to_create_orders(self, object proposal):
         non_hanging_orders_non_cancelled = [o for o in self.active_non_hanging_orders if not
-                                            self._hanging_orders_tracker.is_order_to_be_added_to_hanging_orders(o)]
+                                            self._hanging_orders_tracker.is_potential_hanging_order(o)]
 
         return self._create_timestamp < self._current_timestamp and \
             proposal is not None and len(non_hanging_orders_non_cancelled) == 0
