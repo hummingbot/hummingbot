@@ -136,14 +136,16 @@ class UniswapV3LpStrategy(StrategyPyBase):
         quote_change = Decimal(str(position.current_quote_amount)) - Decimal(str(position.quote_amount))
         base_fee = Decimal(str(position.unclaimed_base_amount))
         quote_fee = Decimal(str(position.unclaimed_quote_amount))
-        if base_tkn != "WETH":
+        remove_lp_fee = self._market_info.market.remove_position(position.hb_id, position.token_id, Decimal("100.0"), True)
+        position.tx_fees.append(remove_lp_fee)
+        if quote_tkn != "WETH":
             fee_rate = RateOracle.get_instance().rate(f"ETH-{quote_tkn}")
             if fee_rate:
-                tx_fee = Decimal(str(position.gas_price)) * 2 * fee_rate
+                tx_fee = sum(position.tx_fees) * fee_rate
             else:  # cases like this would be rare
-                tx_fee = Decimal(str(position.gas_price)) * 2
+                tx_fee = sum(position.tx_fees)
         else:
-            tx_fee = Decimal(str(position.gas_price)) * 2
+            tx_fee = sum(position.tx_fees)
         init_value = (init_base * self._last_price) + init_quote
         profitability = s_decimal_0 if init_value == s_decimal_0 else \
             ((((base_change + base_fee) * self._last_price) + quote_change + quote_fee - tx_fee) / init_value)
