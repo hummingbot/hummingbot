@@ -8,7 +8,7 @@ import psutil
 import datetime
 import asyncio
 from hummingbot.model.trade_fill import TradeFill
-from hummingbot.client.performance import calculate_performance_metrics, smart_round
+from hummingbot.client.performance import PerformanceMetrics
 
 
 s_decimal_0 = Decimal("0")
@@ -65,12 +65,12 @@ async def start_trade_monitor(trade_monitor):
                         quote_asset = symbol.split("-")[1]  # Note that the qiote asset of the last pair is assumed to be the quote asset of P&L for simplicity
                         cur_trades = [t for t in trades if t.market == market and t.symbol == symbol]
                         cur_balances = await hb.get_current_balances(market)
-                        perf = await calculate_performance_metrics(market, symbol, cur_trades, cur_balances)
+                        perf = await PerformanceMetrics.create(market, symbol, cur_trades, cur_balances)
                         return_pcts.append(perf.return_pct)
                         pnls.append(perf.total_pnl)
                     avg_return = sum(return_pcts) / len(return_pcts) if len(return_pcts) > 0 else s_decimal_0
                     total_pnls = sum(pnls)  # Note that this sum doesn't handles cases with different multiple pairs for simplisity
-                    trade_monitor.log(f"Trades: {total_trades}, Total P&L: {smart_round(total_pnls)} {quote_asset}, Return %: {avg_return:.2%}")
+                    trade_monitor.log(f"Trades: {total_trades}, Total P&L: {PerformanceMetrics.smart_round(total_pnls)} {quote_asset}, Return %: {avg_return:.2%}")
                     return_pcts.clear()
                     pnls.clear()
         await asyncio.sleep(2)  # sleeping for longer to manage resources
