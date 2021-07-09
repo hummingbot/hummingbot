@@ -32,11 +32,16 @@ class APIThrottlerBase:
             for limit in self._rate_limit_list
         }
 
+        # Each path url has its own queue.
+        # Rate Limits have a DEFAULT_PATH. See data_types.py
+        self._path_task_logs_map: Dict[RequestPath, Deque[TaskLog]] = {
+            limit.path_url: deque()
+            for limit in self._rate_limit_list
+        }
+
         # Throttler Parameters
         self._retry_interval: float = retry_interval
         self._period_safety_margin = period_safety_margin
-
-        self._task_logs: Deque[TaskLog] = deque()
 
     @abstractmethod
     def execute_task(self):
