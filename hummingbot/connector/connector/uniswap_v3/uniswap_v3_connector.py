@@ -159,6 +159,9 @@ class UniswapV3Connector(UniswapConnector):
         """
         if update_result.get("confirmed", False):
             if update_result["receipt"].get("status", 0) == 1:
+                gas_used = update_result["receipt"]["gasUsed"]
+                gas_price = tracked_pos.gas_price
+                fee = Decimal(str(gas_used)) * Decimal(str(gas_price)) / Decimal(str(1e9))
                 transaction_results = await self._api_request("post",
                                                               "eth/uniswap/v3/result",
                                                               {"logs": json.dumps(update_result["receipt"]["logs"])})
@@ -169,6 +172,7 @@ class UniswapV3Connector(UniswapConnector):
                         tracked_pos.base_amount = amount0
                         tracked_pos.quote_amount = amount1
                         tracked_pos.last_status = UniswapV3PositionStatus.OPEN
+                        tracked_pos.tx_fees.append(fee)
                         self.logger().info(f"Liquidity added for tokenID - {token_id}.")
                         self.trigger_event(MarketEvent.RangePositionUpdated,
                                            RangePositionUpdatedEvent(self.current_timestamp,
@@ -385,100 +389,34 @@ class UniswapV3Connector(UniswapConnector):
             self.trigger_event(MarketEvent.RangePositionFailure,
                                RangePositionFailureEvent(self.current_timestamp, hb_id))
 
-    def remove_position(self, hb_id: str, token_id: str):
-        safe_ensure_future(self._remove_position(hb_id, token_id))
+    def remove_position(self, hb_id: str, token_id: str, fee_estimate: bool = False):
+        safe_ensure_future(self._remove_position(hb_id, token_id, fee_estimate))
         # get the inflight order that has this token_id
         return hb_id
 
-    async def _remove_position(self, hb_id: str, token_id: str):
+    async def _remove_position(self, hb_id: str, token_id: str, fee_estimate: bool):
         tracked_pos = self._in_flight_positions.get(hb_id)
         await tracked_pos.get_last_tx_hash()
         tracked_pos.last_status = UniswapV3PositionStatus.PENDING_REMOVE
         tracked_pos.update_last_tx_hash(None)
         try:
-            result = await self._api_request("post", "eth/uniswap/v3/remove-position", {"tokenId": token_id})
-            hash = result.get("hash")
-            self.logger().info(f"Initiated removal of position with ID - {token_id}.")
-            tracked_pos.update_last_tx_hash(hash)
-            self.trigger_event(MarketEvent.RangePositionUpdated,
-                               RangePositionUpdatedEvent(self.current_timestamp, tracked_pos.hb_id,
-                                                         tracked_pos.last_tx_hash, tracked_pos.token_id,
-                                                         tracked_pos.base_amount, tracked_pos.quote_amount,
-                                                         tracked_pos.last_status.name))
+            result = await self._api_request("post", "eth/uniswap/v3/remove-position", {"tokenId": token_id,
+                                                                                        "getFee": str(fee_estimate)})
+            if not fee_estimate:
+                hash = result.get("hash")
+                self.logger().info(f"Initiated removal of position with ID - {token_id}.")
+                tracked_pos.update_last_tx_hash(hash)
+                self.trigger_event(MarketEvent.RangePositionUpdated,
+                                   RangePositionUpdatedEvent(self.current_timestamp, tracked_pos.hb_id,
+                                                             tracked_pos.last_tx_hash, tracked_pos.token_id,
+                                                             tracked_pos.base_amount, tracked_pos.quote_amount,
+                                                             tracked_pos.last_status.name))
+            else:
+                return Decimal(str(result.get("gasFee")))
         except Exception as e:
             # self.stop_tracking_position(hb_id)
             self.logger().network(
                 f"Error removing range position, token_id: {token_id}, hb_id: {hb_id}",
-                exc_info=True,
-                app_warning_msg=str(e)
-            )
-            self.trigger_event(MarketEvent.RangePositionFailure,
-                               RangePositionFailureEvent(self.current_timestamp, hb_id))
-
-    def replace_position(self,
-                         token_id: str,
-                         trading_pair: str,
-                         fee_tier: Decimal,
-                         base_amount: Decimal,
-                         quote_amount: Decimal,
-                         lower_price: Decimal,
-                         upper_price: Decimal):
-        hb_id = f"{trading_pair}-{get_tracking_nonce()}"
-        safe_ensure_future(self._replace_position(hb_id, token_id, trading_pair, fee_tier, base_amount, quote_amount, lower_price, upper_price))
-        return hb_id
-
-    async def _replace_position(self,
-                                hb_id: str,
-                                token_id: str,
-                                trading_pair: str,
-                                fee_tier: Decimal,
-                                base_amount: Decimal,
-                                quote_amount: Decimal,
-                                lower_price: Decimal,
-                                upper_price: Decimal):
-        """
-        Calls add position end point to create a new range position.
-        :param hb_id: Internal Hummingbot id
-        :param trading_pair: The market trading pair of the pool
-        :param fee_tier: The expected fee
-        :param base_amount: The amount of base token to put into the pool
-        :param lower_price: The lower bound of the price range
-        :param upper_price: The upper bound of the price range
-        """
-        base_amount = self.quantize_order_amount(trading_pair, base_amount)
-        quote_amount = self.quantize_order_amount(trading_pair, quote_amount)
-        lower_price = self.quantize_order_price(trading_pair, lower_price)
-        upper_price = self.quantize_order_price(trading_pair, upper_price)
-        base, quote = trading_pair.split("-")
-        tracked_pos = self._in_flight_positions.get(hb_id)
-        await tracked_pos.get_last_tx_hash()
-        tracked_pos.last_status = UniswapV3PositionStatus.PENDING_REMOVE
-        tracked_pos.update_last_tx_hash(None)
-
-        new_hb_id = f"{trading_pair}-{get_tracking_nonce()}"
-        self.start_tracking_position(new_hb_id, trading_pair, fee_tier, base_amount, quote_amount,
-                                     lower_price, upper_price)
-        try:
-            order_result = await self._api_request("post", "eth/uniswap/v3/replace-position",
-                                                   {"tokenId": token_id,
-                                                    "token0": base,
-                                                    "token1": quote,
-                                                    "fee": str(fee_tier),
-                                                    "lowerPrice": str(lower_price),
-                                                    "upperPrice": str(upper_price),
-                                                    "amount0": str(base_amount),
-                                                    "amount1": str(quote_amount),
-                                                    })
-            tracked_pos = self._in_flight_positions.get(new_hb_id)
-            tracked_pos.token_id = order_result.get("tokenId")
-            tracked_pos.gas_price = Decimal(str(order_result.get("gasPrice")))
-            tracked_pos.update_last_tx_hash(order_result.get("hash"))
-            self.logger().info(f"Initiated replacement of position with ID - {token_id}.")
-        except Exception as e:
-            self.stop_tracking_order(hb_id)
-            self.logger().network(
-                f"Error replacing range position to Uniswap with ID - {token_id} "
-                f"hb_id: {hb_id}",
                 exc_info=True,
                 app_warning_msg=str(e)
             )
