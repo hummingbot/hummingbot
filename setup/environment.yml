@@ -10,6 +10,7 @@ dependencies:
   - bzip2=1.0.8=h1de35cc_0
   - ca-certificates=2020.6.24=0
   - certifi=2020.6.20=py38_0
+  - coverage=5.5
   - cython=0.29.15=py38h0a44026_0
   - hdf5=1.10.4=hfa1e0ec_0
   - intel-openmp=2019.4=233
@@ -79,8 +80,10 @@ dependencies:
     - dateparser==0.7.4
     - decorator==4.4.2
     - deprecated==1.2.7
+    - diff-cover==5.1.2
     - distlib==0.3.0
     - dydx-python==0.11.2
+    - dydx-v3-python==1.0.0
     - entrypoints==0.3
     - eth-abi==2.1.1
     - eth-account==0.4.0
@@ -134,9 +137,11 @@ dependencies:
     - regex==2020.2.20
     - requests==2.23.0
     - rlp==1.2.0
+    - rsa==4.7
     - ruamel-yaml==0.16.10
     - ruamel-yaml-clib==0.2.0
     - service-identity==18.1.0
+    - simplejson==3.17.2
     - stringcase==1.2.0
     - toml==0.10.0
     - toolz==0.10.0

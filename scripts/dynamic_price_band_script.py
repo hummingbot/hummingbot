@@ -16,7 +16,7 @@ class DynamicPriceBandScript(ScriptBase):
     band_lower_bound_pct = Decimal("0.03")
     # Let's sample mid prices once every 10 seconds
     avg_interval = 10
-    # Let's average the last 10 samples
+    # Let's average the last 5 samples
     avg_length = 5
 
     def __init__(self):

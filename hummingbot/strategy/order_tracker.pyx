@@ -3,6 +3,7 @@ from collections import (
     OrderedDict
 )
 import pandas as pd
+from decimal import Decimal
 from typing import (
     Dict,
     List,
@@ -137,8 +138,14 @@ cdef class OrderTracker(TimeIterator):
     cdef dict c_get_shadow_limit_orders(self):
         return self._shadow_tracked_limit_orders
 
+    def get_shadow_limit_orders(self) -> Dict[MarketTradingPairTuple, Dict[str, LimitOrder]]:
+        return self.c_get_shadow_limit_orders()
+
     cdef bint c_has_in_flight_cancel(self, str order_id):
         return self._in_flight_cancels.get(order_id, NaN) + self.CANCEL_EXPIRY_DURATION > self._current_timestamp
+
+    def has_in_flight_cancel(self, order_id: str):
+        return self.c_has_in_flight_cancel(order_id)
 
     cdef bint c_check_and_track_cancel(self, str order_id):
         """
@@ -165,8 +172,14 @@ cdef class OrderTracker(TimeIterator):
         self._in_flight_cancels[order_id] = self._current_timestamp
         return True
 
+    def check_and_track_cancel(self, order_id: str) -> bool:
+        return self.c_check_and_track_cancel(order_id)
+
     cdef object c_get_market_pair_from_order_id(self, str order_id):
         return self._order_id_to_market_pair.get(order_id)
+
+    def get_market_pair_from_order_id(self, order_id: str):
+        return self.c_get_market_pair_from_order_id(order_id)
 
     cdef object c_get_shadow_market_pair_from_order_id(self, str order_id):
         return self._shadow_order_id_to_market_pair.get(order_id)
@@ -177,8 +190,14 @@ cdef class OrderTracker(TimeIterator):
     cdef LimitOrder c_get_limit_order(self, object market_pair, str order_id):
         return self._tracked_limit_orders.get(market_pair, {}).get(order_id)
 
+    def get_limit_order(self, market_pair, order_id: str) -> LimitOrder:
+        return self.c_get_limit_order(market_pair, order_id)
+
     cdef object c_get_market_order(self, object market_pair, str order_id):
         return self._tracked_market_orders.get(market_pair, {}).get(order_id)
+
+    def get_market_order(self, market_pair, order_id: str) -> MarketOrder:
+        return self.c_get_market_order(market_pair, order_id)
 
     cdef LimitOrder c_get_shadow_limit_order(self, str order_id):
         cdef:
@@ -209,6 +228,10 @@ cdef class OrderTracker(TimeIterator):
         self._order_id_to_market_pair[order_id] = market_pair
         self._shadow_order_id_to_market_pair[order_id] = market_pair
 
+    def start_tracking_limit_order(self, market_pair: MarketTradingPairTuple, order_id: str, is_buy: bool, price: Decimal,
+                                   quantity: Decimal):
+        return self.c_start_tracking_limit_order(market_pair, order_id, is_buy, price, quantity)
+
     cdef c_stop_tracking_limit_order(self, object market_pair, str order_id):
         if market_pair in self._tracked_limit_orders and order_id in self._tracked_limit_orders[market_pair]:
             del self._tracked_limit_orders[market_pair][order_id]
@@ -225,6 +248,9 @@ cdef class OrderTracker(TimeIterator):
         if order_id in self._in_flight_cancels:
             del self._in_flight_cancels[order_id]
 
+    def stop_tracking_limit_order(self, market_pair: MarketTradingPairTuple, order_id: str):
+        return self.c_stop_tracking_limit_order(market_pair, order_id)
+
     cdef c_start_tracking_market_order(self, object market_pair, str order_id, bint is_buy, object quantity):
         if market_pair not in self._tracked_market_orders:
             self._tracked_market_orders[market_pair] = {}
@@ -239,6 +265,9 @@ cdef class OrderTracker(TimeIterator):
         )
         self._order_id_to_market_pair[order_id] = market_pair
 
+    def start_tracking_market_order(self, market_pair: MarketTradingPairTuple, order_id: str, is_buy: bool, quantity: Decimal):
+        return self.c_start_tracking_market_order(market_pair, order_id, is_buy, quantity)
+
     cdef c_stop_tracking_market_order(self, object market_pair, str order_id):
         if market_pair in self._tracked_market_orders and order_id in self._tracked_market_orders[market_pair]:
             del self._tracked_market_orders[market_pair][order_id]
@@ -246,6 +275,9 @@ cdef class OrderTracker(TimeIterator):
                 del self._tracked_market_orders[market_pair]
         if order_id in self._order_id_to_market_pair:
             del self._order_id_to_market_pair[order_id]
+
+    def stop_tracking_market_order(self, market_pair: MarketTradingPairTuple, order_id: str):
+        return self.c_stop_tracking_market_order(market_pair, order_id)
 
     cdef c_check_and_cleanup_shadow_records(self):
         cdef:
@@ -261,8 +293,17 @@ cdef class OrderTracker(TimeIterator):
             if order_id in self._shadow_order_id_to_market_pair:
                 del self._shadow_order_id_to_market_pair[order_id]
 
+    def check_and_cleanup_shadow_records(self):
+        self.c_check_and_cleanup_shadow_records()
+
     cdef c_add_create_order_pending(self, str order_id):
         self.in_flight_pending_created.add(order_id)
 
+    def add_create_order_pending(self, order_id: str):
+        self.c_add_create_order_pending(order_id)
+
     cdef c_remove_create_order_pending(self, str order_id):
         self._in_flight_pending_created.discard(order_id)
+
+    def remove_create_order_pending(self, order_id: str):
+        self.c_remove_create_order_pending(order_id)
