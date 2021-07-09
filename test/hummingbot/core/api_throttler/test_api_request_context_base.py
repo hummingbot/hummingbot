@@ -38,63 +38,63 @@ class APIRequestContextBaseUnitTests(unittest.TestCase):
         self.throttler = MockAPIThrottler(rate_limit_list=[self.rate_limit])
 
     @staticmethod
-    def simulate_throttler_getting_freed(throttler: APIThrottlerBase):
-        while len(throttler._task_logs) > 0:
-            throttler._task_logs.popleft()
+    def simulate_throttler_getting_freed(throttler: APIThrottlerBase, path_url: str):
+        while len(throttler._path_task_logs_map[path_url]) > 0:
+            throttler._path_task_logs_map[path_url].popleft()
 
     def test_flush(self):
 
         # Test: No Task Logs to flush
-        context = MockAPIRequestContext(self.throttler._task_logs, self.rate_limit)
+        context = MockAPIRequestContext(self.throttler._path_task_logs_map[TEST_PATH_URL], self.rate_limit)
         context.flush()
 
-        self.assertEqual(0, len(self.throttler._task_logs))
+        self.assertEqual(0, len(self.throttler._path_task_logs_map[TEST_PATH_URL]))
 
         # Test: Test that TaskLogs are being flushed accordingly.
         task_0 = TaskLog(timestamp=1.0, path_url=TEST_PATH_URL)
         task_1 = TaskLog(timestamp=time.time() + 60, path_url=TEST_PATH_URL)
-        self.throttler._task_logs.append(task_0)
-        self.throttler._task_logs.append(task_1)
-        self.assertEqual(2, len(self.throttler._task_logs))
+        self.throttler._path_task_logs_map[TEST_PATH_URL].append(task_0)
+        self.throttler._path_task_logs_map[TEST_PATH_URL].append(task_1)
+        self.assertEqual(2, len(self.throttler._path_task_logs_map[TEST_PATH_URL]))
 
-        context = MockAPIRequestContext(self.throttler._task_logs, self.rate_limit)
+        context = MockAPIRequestContext(self.throttler._path_task_logs_map[TEST_PATH_URL], self.rate_limit)
         context.flush()
-        self.assertEqual(1, len(self.throttler._task_logs))
+        self.assertEqual(1, len(self.throttler._path_task_logs_map[TEST_PATH_URL]))
 
     def test_within_capacity(self):
         # Test 1: Abstract method not implemented
         with self.assertRaises(NotImplementedError):
-            context = APIRequestContextBase(self.throttler._task_logs, self.rate_limit)
+            context = APIRequestContextBase(self.throttler._path_task_logs_map[TEST_PATH_URL], self.rate_limit)
             context.within_capacity()
 
         # Test 2: Mock implementation of within_capacity
-        context = MockAPIRequestContext(self.throttler._task_logs, self.rate_limit)
+        context = MockAPIRequestContext(self.throttler._path_task_logs_map[TEST_PATH_URL], self.rate_limit)
         self.assertTrue(context.within_capacity())
 
     def test_task_appended_after_acquire(self):
         # Test 1: Task gets appended to task_logs
-        context = MockAPIRequestContext(self.throttler._task_logs, rate_limit=self.rate_limit)
+        context = MockAPIRequestContext(self.throttler._path_task_logs_map[TEST_PATH_URL], rate_limit=self.rate_limit)
         self.ev_loop.run_until_complete(context.acquire())
 
-        self.assertEqual(1, len(self.throttler._task_logs))
+        self.assertEqual(1, len(self.throttler._path_task_logs_map[TEST_PATH_URL]))
 
     def test_acquire_awaits_when_exceed_capacity(self):
         # Test 1: Test acquire() awaiting when NOT within_capacity
         task = TaskLog(timestamp=time.time(), path_url=TEST_PATH_URL)
-        self.throttler._task_logs.append(task)
+        self.throttler._path_task_logs_map[TEST_PATH_URL].append(task)
 
-        context = MockAPIRequestContext(self.throttler._task_logs, rate_limit=self.rate_limit)
+        context = MockAPIRequestContext(self.throttler._path_task_logs_map[TEST_PATH_URL], rate_limit=self.rate_limit)
         with self.assertRaises(asyncio.exceptions.TimeoutError):
             self.ev_loop.run_until_complete(
                 asyncio.wait_for(context.acquire(), 1.0)
             )
 
         # Simulate throttler being freed and ready to take new task.
-        self.simulate_throttler_getting_freed(self.throttler)
-        self.assertEqual(0, len(self.throttler._task_logs))
+        self.simulate_throttler_getting_freed(self.throttler, TEST_PATH_URL)
+        self.assertEqual(0, len(self.throttler._path_task_logs_map[TEST_PATH_URL]))
 
         # Test 2: Test acquire being able to take new tasks when within capacity
         self.ev_loop.run_until_complete(
             asyncio.wait_for(context.acquire(), 1.0)
         )
-        self.assertEqual(1, len(self.throttler._task_logs))
+        self.assertEqual(1, len(self.throttler._path_task_logs_map[TEST_PATH_URL]))
