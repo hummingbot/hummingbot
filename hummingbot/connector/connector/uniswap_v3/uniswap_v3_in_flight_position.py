@@ -9,6 +9,8 @@ from typing import (
     Optional,
 )
 
+s_decimal_0 = Decimal("0")
+
 
 class UniswapV3PositionStatus(Enum):
     PENDING_CREATE = 0  # add position request submitted but yet to get a returned hash nor token_id from Gateway
@@ -56,6 +58,10 @@ class UniswapV3InFlightPosition:
         self.last_status = last_status
         self.last_tx_hash = last_tx_hash
         self.last_tx_hash_update_event = asyncio.Event()
+        self.current_base_amount = s_decimal_0
+        self.current_quote_amount = s_decimal_0
+        self.unclaimed_base_amount = s_decimal_0
+        self.unclaimed_quote_amount = s_decimal_0
 
     def update_last_tx_hash(self, last_tx_hash: Optional[str]):
         self.last_tx_hash = last_tx_hash
