@@ -4,6 +4,7 @@ from async_timeout import timeout
 from enum import Enum
 from typing import (
     Dict,
+    List,
     Any,
     Optional,
 )
@@ -39,6 +40,7 @@ class UniswapV3InFlightPosition:
                  quote_amount: Decimal,
                  fee_tier: str,
                  gas_price: Decimal = Decimal("0"),
+                 tx_fees: List = [],
                  last_status: UniswapV3PositionStatus = UniswapV3PositionStatus.PENDING_CREATE,
                  last_tx_hash: Optional[str] = None):
         self.hb_id = hb_id
@@ -49,6 +51,7 @@ class UniswapV3InFlightPosition:
         self.base_amount = base_amount
         self.quote_amount = quote_amount
         self.gas_price = gas_price
+        self.tx_fees = tx_fees
         self.fee_tier = fee_tier
         self.last_status = last_status
         self.last_tx_hash = last_tx_hash
@@ -79,6 +82,7 @@ class UniswapV3InFlightPosition:
             base_amount=Decimal(data["base_amount"]),
             quote_amount=Decimal(data["quote_amount"]),
             gas_price=Decimal(data["gas_price"]),
+            tx_fees=[Decimal(fee) for fee in data["tx_fees"]],
             fee_tier=data["fee_tier"],
             last_tx_hash=data["last_tx_hash"],
         )
@@ -94,6 +98,7 @@ class UniswapV3InFlightPosition:
             "base_amount": str(self.base_amount),
             "quote_amount": str(self.quote_amount),
             "gas_price": str(self.gas_price),
+            "tx_fees": [str(fee) for fee in self.tx_fees],
             "fee_tier": str(self.fee_tier),
             "last_tx_hash": self.last_tx_hash
         }
