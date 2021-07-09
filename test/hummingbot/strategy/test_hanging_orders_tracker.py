@@ -12,6 +12,9 @@ from hummingbot.core.data_type.limit_order import LimitOrder
 
 class TestHangingOrdersTracker(unittest.TestCase):
     def setUp(self) -> None:
+        super().setUp()
+
+        self.current_market_price = Decimal("100.0")
         self.strategy = self.create_mock_strategy()
         self.tracker = HangingOrdersTracker(self.strategy, hanging_orders_cancel_pct=Decimal("0.1"))
 
@@ -35,7 +38,7 @@ class TestHangingOrdersTracker(unittest.TestCase):
         strategy = MagicMock()
         type(strategy).max_order_age = PropertyMock(return_value=1800.0)
         type(strategy).order_refresh_time = PropertyMock(return_value=45.0)
-        strategy.get_price.return_value = Decimal("100.0")
+        strategy.get_price.return_value = self.current_market_price
         type(strategy).market_info = PropertyMock(return_value=market_info)
         type(strategy).trading_pair = PropertyMock(return_value="BTC-USDT")
 
@@ -61,15 +64,6 @@ class TestHangingOrdersTracker(unittest.TestCase):
         self.tracker.add_order(LimitOrder("Order-number-4", "BTC-USDT", True, "BTC", "USDT", Decimal(100), Decimal(1)))
         self.tracker.remove_all_orders()
         self.assertEqual(len(self.tracker.original_orders), 0)
-
-    def test_remove_orders_far_from_price(self):
-        # hanging_orders_cancel_pct = 10% so will add one closer and one further
-        # Current price = 100.0
-        self.tracker.add_order(LimitOrder("Order-number-1", "BTC-USDT", False, "BTC", "USDT", Decimal(101), Decimal(1)))
-        self.tracker.add_order(LimitOrder("Order-number-2", "BTC-USDT", False, "BTC", "USDT", Decimal(120), Decimal(1)))
-        self.assertEqual(len(self.tracker.original_orders), 2)
-        self.tracker.remove_orders_far_from_price()
-        self.assertEqual(len(self.tracker.original_orders), 1)
 
     def test_renew_hanging_orders_past_max_order_age(self):
         cancelled_orders_ids = []
@@ -365,14 +359,18 @@ class TestHangingOrdersTracker(unittest.TestCase):
     def test_grouped_hanging_order_and_original_orders_removed_when_hanging_order_completed(self):
         strategy_active_orders = []
         newly_created_buy_orders_ids = ["Order-1234570000000000",
-                                        "Order-1234570010000000",
                                         "Order-1234570020000000",
-                                        "Order-1234570030000000"]
+                                        "Order-1234570040000000",
+                                        "Order-1234570060000000"]
+        newly_created_sell_orders_ids = ["Order-1234570010000000",
+                                         "Order-1234570030000000",
+                                         "Order-1234570050000000",
+                                         "Order-1234570070000000"]
 
         type(self.strategy).active_orders = PropertyMock(return_value=strategy_active_orders)
         self.strategy.buy_with_specific_market.side_effect = newly_created_buy_orders_ids
+        self.strategy.sell_with_specific_market.side_effect = newly_created_sell_orders_ids
 
-        # Order just executed
         buy_order_1 = LimitOrder("Order-1234569960000000",
                                  "BTC-USDT",
                                  True,
@@ -484,12 +482,17 @@ class TestHangingOrdersTracker(unittest.TestCase):
     def test_non_grouped_hanging_order_and_original_order_removed_when_hanging_order_completed(self):
         strategy_active_orders = []
         newly_created_buy_orders_ids = ["Order-1234570000000000",
-                                        "Order-1234570010000000",
                                         "Order-1234570020000000",
-                                        "Order-1234570030000000"]
+                                        "Order-1234570040000000",
+                                        "Order-1234570060000000"]
+        newly_created_sell_orders_ids = ["Order-1234570010000000",
+                                         "Order-1234570030000000",
+                                         "Order-1234570050000000",
+                                         "Order-1234570070000000"]
 
         type(self.strategy).active_orders = PropertyMock(return_value=strategy_active_orders)
         self.strategy.buy_with_specific_market.side_effect = newly_created_buy_orders_ids
+        self.strategy.sell_with_specific_market.side_effect = newly_created_sell_orders_ids
 
         buy_order_1 = LimitOrder("Order-1234569960000000",
                                  "BTC-USDT",
@@ -542,3 +545,249 @@ class TestHangingOrdersTracker(unittest.TestCase):
         self.assertNotIn(buy_hanging_order, self.tracker.strategy_current_hanging_orders)
         self.assertEqual(1, len(self.tracker.original_orders))
         self.assertNotIn(buy_order_1, self.tracker.original_orders)
+
+    def test_limit_order_added_to_grouping_tracker_is_potential_hanging_order(self):
+        strategy_active_orders = []
+        newly_created_buy_orders_ids = ["Order-1234570000000000",
+                                        "Order-1234570020000000",
+                                        "Order-1234570040000000",
+                                        "Order-1234570060000000"]
+        newly_created_sell_orders_ids = ["Order-1234570010000000",
+                                         "Order-1234570030000000",
+                                         "Order-1234570050000000",
+                                         "Order-1234570070000000"]
+
+        type(self.strategy).active_orders = PropertyMock(return_value=strategy_active_orders)
+        self.strategy.buy_with_specific_market.side_effect = newly_created_buy_orders_ids
+        self.strategy.sell_with_specific_market.side_effect = newly_created_sell_orders_ids
+
+        buy_order_1 = LimitOrder("Order-1234569960000000",
+                                 "BTC-USDT",
+                                 True,
+                                 "BTC",
+                                 "USDT",
+                                 Decimal(101),
+                                 Decimal(1))
+        buy_order_2 = LimitOrder("Order-1234569980000000",
+                                 "BTC-USDT",
+                                 True,
+                                 "BTC",
+                                 "USDT",
+                                 Decimal(105),
+                                 Decimal(1))
+
+        sell_order_1 = LimitOrder("Order-1234569970000000",
+                                  "BTC-USDT",
+                                  False,
+                                  "BTC",
+                                  "USDT",
+                                  Decimal(110),
+                                  Decimal(1))
+
+        self.tracker.set_aggregation_method(HangingOrdersAggregationType.VOLUME_WEIGHTED)
+
+        self.tracker.add_order(buy_order_1)
+        strategy_active_orders.append(buy_order_1)
+        self.tracker.add_order(buy_order_2)
+        strategy_active_orders.append(buy_order_2)
+        self.tracker.add_order(sell_order_1)
+        strategy_active_orders.append(sell_order_1)
+
+        self.tracker.update_strategy_orders_with_equivalent_orders()
+
+        self.assertTrue(self.tracker.is_potential_hanging_order(buy_order_1))
+        self.assertTrue(self.tracker.is_potential_hanging_order(buy_order_2))
+        self.assertTrue(self.tracker.is_potential_hanging_order(sell_order_1))
+
+    def test_limit_order_added_to_non_grouping_tracker_is_potential_hanging_order(self):
+        strategy_active_orders = []
+        newly_created_buy_orders_ids = ["Order-1234570000000000",
+                                        "Order-1234570020000000",
+                                        "Order-1234570040000000",
+                                        "Order-1234570060000000"]
+        newly_created_sell_orders_ids = ["Order-1234570010000000",
+                                         "Order-1234570030000000",
+                                         "Order-1234570050000000",
+                                         "Order-1234570070000000"]
+
+        type(self.strategy).active_orders = PropertyMock(return_value=strategy_active_orders)
+        self.strategy.buy_with_specific_market.side_effect = newly_created_buy_orders_ids
+        self.strategy.sell_with_specific_market.side_effect = newly_created_sell_orders_ids
+
+        buy_order_1 = LimitOrder("Order-1234569960000000",
+                                 "BTC-USDT",
+                                 True,
+                                 "BTC",
+                                 "USDT",
+                                 Decimal(101),
+                                 Decimal(1))
+        buy_order_2 = LimitOrder("Order-1234569980000000",
+                                 "BTC-USDT",
+                                 True,
+                                 "BTC",
+                                 "USDT",
+                                 Decimal(105),
+                                 Decimal(1))
+
+        sell_order_1 = LimitOrder("Order-1234569970000000",
+                                  "BTC-USDT",
+                                  False,
+                                  "BTC",
+                                  "USDT",
+                                  Decimal(110),
+                                  Decimal(1))
+
+        self.tracker.set_aggregation_method(HangingOrdersAggregationType.NO_AGGREGATION)
+
+        self.tracker.add_order(buy_order_1)
+        strategy_active_orders.append(buy_order_1)
+        self.tracker.add_order(buy_order_2)
+        strategy_active_orders.append(buy_order_2)
+        self.tracker.add_order(sell_order_1)
+        strategy_active_orders.append(sell_order_1)
+
+        self.tracker.update_strategy_orders_with_equivalent_orders()
+
+        self.assertTrue(self.tracker.is_potential_hanging_order(buy_order_1))
+        self.assertTrue(self.tracker.is_potential_hanging_order(buy_order_2))
+        self.assertTrue(self.tracker.is_potential_hanging_order(sell_order_1))
+
+    def test_non_grouping_tracker_cancels_order_when_removing_far_from_price(self):
+        cancelled_orders_ids = []
+        strategy_active_orders = []
+
+        newly_created_buy_orders_ids = ["Order-1234570000000000",
+                                        "Order-1234570020000000",
+                                        "Order-1234570040000000",
+                                        "Order-1234570060000000"]
+        newly_created_sell_orders_ids = ["Order-1234570010000000",
+                                         "Order-1234570030000000",
+                                         "Order-1234570050000000",
+                                         "Order-1234570070000000"]
+
+        type(self.strategy).active_orders = PropertyMock(return_value=strategy_active_orders)
+        self.strategy.cancel_order.side_effect = lambda order_id: cancelled_orders_ids.append(order_id)
+        self.strategy.buy_with_specific_market.side_effect = newly_created_buy_orders_ids
+        self.strategy.sell_with_specific_market.side_effect = newly_created_sell_orders_ids
+
+        self.tracker.set_aggregation_method(HangingOrdersAggregationType.NO_AGGREGATION)
+
+        buy_order_1 = LimitOrder("Order-1234569960000000",
+                                 "BTC-USDT",
+                                 True,
+                                 "BTC",
+                                 "USDT",
+                                 Decimal(101),
+                                 Decimal(1))
+        buy_order_2 = LimitOrder("Order-1234569980000000",
+                                 "BTC-USDT",
+                                 True,
+                                 "BTC",
+                                 "USDT",
+                                 Decimal(120),
+                                 Decimal(1))
+
+        self.tracker.add_order(buy_order_1)
+        strategy_active_orders.append(buy_order_1)
+        self.tracker.add_order(buy_order_2)
+        strategy_active_orders.append(buy_order_2)
+
+        self.tracker.update_strategy_orders_with_equivalent_orders()
+
+        # The hanging orders are created
+        hanging_order_1 = next(hanging_order for hanging_order in self.tracker.strategy_current_hanging_orders
+                               if hanging_order.order_id == buy_order_1.client_order_id)
+        hanging_order_2 = next(hanging_order for hanging_order in self.tracker.strategy_current_hanging_orders
+                               if hanging_order.order_id == buy_order_2.client_order_id)
+
+        # After removing orders far from price, the order 2 should be canceled
+        self.tracker.remove_orders_far_from_price()
+        self.assertEqual(1, len(cancelled_orders_ids))
+        self.assertIn(hanging_order_2.order_id, cancelled_orders_ids)
+
+        # We emulate the reception of the cancellation confirmation. After that the hanging order should not be present
+        # in the tracker, and the original order should not be considered a potential hanging order.
+        strategy_active_orders.remove(buy_order_2)
+        self.tracker._did_cancel_order(MarketEvent.OrderCancelled,
+                                       self,
+                                       OrderCancelledEvent(buy_order_2.client_order_id, buy_order_2.client_order_id))
+
+        self.assertNotIn(hanging_order_2, self.tracker.strategy_current_hanging_orders)
+        self.assertFalse(self.tracker.is_potential_hanging_order(buy_order_2))
+        self.assertIn(hanging_order_1, self.tracker.strategy_current_hanging_orders)
+        self.assertTrue(self.tracker.is_potential_hanging_order(buy_order_1))
+
+    def test_grouping_tracker_removes_original_order_when_removing_far_from_price(self):
+        cancelled_orders_ids = []
+        strategy_active_orders = []
+
+        newly_created_buy_orders_ids = ["Order-1234570000000000",
+                                        "Order-1234570020000000",
+                                        "Order-1234570040000000",
+                                        "Order-1234570060000000"]
+        newly_created_sell_orders_ids = ["Order-1234570010000000",
+                                         "Order-1234570030000000",
+                                         "Order-1234570050000000",
+                                         "Order-1234570070000000"]
+
+        type(self.strategy).active_orders = PropertyMock(return_value=strategy_active_orders)
+        self.strategy.cancel_order.side_effect = lambda order_id: cancelled_orders_ids.append(order_id)
+        self.strategy.buy_with_specific_market.side_effect = newly_created_buy_orders_ids
+        self.strategy.sell_with_specific_market.side_effect = newly_created_sell_orders_ids
+
+        self.tracker.set_aggregation_method(HangingOrdersAggregationType.VOLUME_WEIGHTED)
+
+        buy_order_1 = LimitOrder("Order-1234569960000000",
+                                 "BTC-USDT",
+                                 True,
+                                 "BTC",
+                                 "USDT",
+                                 Decimal(101),
+                                 Decimal(1))
+        buy_order_2 = LimitOrder("Order-1234569980000000",
+                                 "BTC-USDT",
+                                 True,
+                                 "BTC",
+                                 "USDT",
+                                 Decimal(120),
+                                 Decimal(1))
+
+        self.tracker.add_order(buy_order_1)
+        strategy_active_orders.append(buy_order_1)
+        self.tracker.add_order(buy_order_2)
+        strategy_active_orders.append(buy_order_2)
+
+        self.tracker.update_strategy_orders_with_equivalent_orders()
+
+        # The hanging orders are created
+        grouped_hanging_order = next(iter(self.tracker.strategy_current_hanging_orders))
+        strategy_active_orders.append(LimitOrder(grouped_hanging_order.order_id,
+                                                 grouped_hanging_order.trading_pair,
+                                                 grouped_hanging_order.is_buy,
+                                                 "BTC",
+                                                 "USDT",
+                                                 grouped_hanging_order.price,
+                                                 grouped_hanging_order.amount))
+
+        # After removing orders far from price, no order is cancelled, but buy_order_2 should no longer be considered
+        # a potential hanging order
+        self.tracker.remove_orders_far_from_price()
+        self.assertEqual(0, len(cancelled_orders_ids))
+
+        self.assertFalse(self.tracker.is_potential_hanging_order(buy_order_2))
+        self.assertTrue(self.tracker.is_potential_hanging_order(buy_order_1))
+
+        # The hanging order will still be the same, until it is recreated
+        self.assertIn(grouped_hanging_order, self.tracker.strategy_current_hanging_orders)
+
+        self.tracker.update_strategy_orders_with_equivalent_orders()
+        self.assertEqual(1, len(cancelled_orders_ids))
+        self.assertIn(grouped_hanging_order.order_id, cancelled_orders_ids)
+
+        self.tracker._did_cancel_order(MarketEvent.OrderCancelled,
+                                       self,
+                                       OrderCancelledEvent(grouped_hanging_order.order_id,
+                                                           grouped_hanging_order.order_id))
+        new_grouped_hanging_order = next(iter(self.tracker.strategy_current_hanging_orders))
+        self.assertNotEqual(grouped_hanging_order, new_grouped_hanging_order)
+        self.assertNotIn(grouped_hanging_order, self.tracker.strategy_current_hanging_orders)

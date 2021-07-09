@@ -253,8 +253,12 @@ class HangingOrdersTracker:
                 self.logger().info(
                     f"Hanging order passed max_distance from price={self._hanging_orders_cancel_pct * 100}% {order}. Removing...")
                 orders_to_be_removed.add(order)
-        for order in orders_to_be_removed:
-            self.remove_order(order)
+
+        if self.aggregation_method == HangingOrdersAggregationType.NO_AGGREGATION:
+            self._cancel_multiple_orders_in_strategy([order.client_order_id for order in orders_to_be_removed])
+        else:
+            for order in orders_to_be_removed:
+                self.remove_order(order)
 
     def set_aggregation_method(self, aggregation_method: HangingOrdersAggregationType):
         self.aggregation_method = aggregation_method
@@ -278,10 +282,8 @@ class HangingOrdersTracker:
                        order.price == o.price,
                        order.amount == o.quantity) for o in self.strategy.active_orders)
 
-    def is_order_to_be_added_to_hanging_orders(self, order: LimitOrder) -> bool:
-        hanging_order = self._get_hanging_order_from_limit_order(order)
-        if hanging_order in self.equivalent_orders:
-            return any(equivalent_order.order_id == order.client_order_id for equivalent_order in self.equivalent_orders)
+    def is_potential_hanging_order(self, order: LimitOrder) -> bool:
+        return order in self.original_orders
 
     def update_strategy_orders_with_equivalent_orders(self):
 
