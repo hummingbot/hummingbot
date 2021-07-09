@@ -18,7 +18,7 @@ order_refresh_time: null
 # Whether to enable order optimization mode (true/false).
 order_optimization_enabled: true
 
-# Time in seconds before replacing existing order with new orders at thesame price.
+# Time in seconds before replacing existing order with new orders at the same price.
 max_order_age: null
 
 # The spread (from mid price) to defer order refresh process to the next cycle.
