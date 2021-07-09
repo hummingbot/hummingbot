@@ -1,16 +1,17 @@
+from typing import Deque
 
 from hummingbot.core.api_throttler.api_request_context_base import APIRequestContextBase
 from hummingbot.core.api_throttler.api_throttler_base import APIThrottlerBase
-from hummingbot.core.api_throttler.data_types import RateLimit
+from hummingbot.core.api_throttler.data_types import RateLimit, TaskLog
 
 
 class WeightedAPIThrottler(APIThrottlerBase):
 
     def execute_task(self, path_url: str):
         rate_limit: RateLimit = self._path_rate_limit_map[path_url]
-
+        task_logs: Deque[TaskLog] = self._path_task_logs_map[path_url]
         return WeightedRequestContext(
-            task_logs=self._task_logs,
+            task_logs=task_logs,
             rate_limit=rate_limit,
             retry_interval=self._retry_interval,
         )

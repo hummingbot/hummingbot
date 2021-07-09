@@ -26,9 +26,10 @@ class VariedRateThrottler(APIThrottlerBase):
 
     def execute_task(self, path_url: str):
         rate_limit: RateLimit = self._path_rate_limit_map[path_url]
+        task_logs: Deque[TaskLog] = self._path_task_logs_map[path_url]
 
         return VariedRateRequestContext(
-            task_logs=self._task_logs,
+            task_logs=task_logs,
             pending_tasks=self._pending_tasks,
             rate_limit=rate_limit,
             period_safety_margin=self._period_safety_margin,
@@ -49,6 +50,8 @@ class VariedRateRequestContext(APIRequestContextBase):
             rate_limit,
             period_safety_margin=period_safety_margin,
             retry_interval=retry_interval)
+
+        # VariedRateThrottler has a pending_task to ensure the order in which the requests are being executed.
         self._pending_tasks = pending_tasks
 
     def within_capacity(self) -> bool:
