@@ -245,11 +245,9 @@ class UniswapV3LpStrategy(StrategyPyBase):
 
     async def main(self):
         pending_positions = [position.last_status.is_pending() for position in self.active_positions]
-        if not any(pending_positions) and len(self.active_orders) == 0 and len(self.active_positions) < 2:
-            # Firstly, we remove inactive positions that have attained minimum profitability.
-            # Also, we ensure there is a maximum of 2 positions per time
+        if not any(pending_positions) and len(self.active_orders) == 0:
             self.range_position_remover()
-            # Then we proceed with creating new position if necessary3
+            # Then we proceed with creating new position if necessary
             proposal = await self.propose_position_creation()
             if len(proposal) > 0:
                 self.execute_proposal(proposal)
@@ -353,8 +351,28 @@ class UniswapV3LpStrategy(StrategyPyBase):
 
     def range_position_remover(self):
         """
-        This function removes  positions that are out of range and have attained min profitability.
+        This removes the farthest position.
         """
+        inactive_sells = [position for position in self.active_positions if position.lower_price > self._last_price]
+        inactive_buys = [position for position in self.active_positions if position.upper_price < self._last_price]
+        farthest_position = None
+        if len(inactive_sells) > 1:
+            for position in inactive_sells:
+                farthest_position = position if farthest_position is None else position
+                farthest_position = position if position.lower_price > farthest_position.lower_price else position
+        elif len(inactive_buys) > 1:
+            for position in inactive_buys:
+                farthest_position = position if farthest_position is None else position
+                farthest_position = position if position.upper_price < farthest_position.upper_price else position
+        if farthest_position is not None and self._last_price > s_decimal_0:
+            self.log_with_clock(logging.INFO,
+                                f"Removing position with ID - {farthest_position.token_id} because"
+                                f" it is the farthest inactive position.")
+            self._market_info.market.remove_position(farthest_position.hb_id, farthest_position.token_id)
+
+        """
+        This function removes  positions that are out of range and have attained min profitability.
+
         for position in self.active_positions:
             if position.upper_price < self._last_price or position.lower_price > self._last_price:
                 profitability = self.calculate_profitability(position)
@@ -364,6 +382,7 @@ class UniswapV3LpStrategy(StrategyPyBase):
                                         f"{profitability['profitability']:%} is greater than {self._min_profitability:%} "
                                         "minimum profitability.")
                     self._market_info.market.remove_position(position.hb_id, position.token_id)
+        """
 
     def stop(self, clock: Clock):
         if self._main_task is not None:
