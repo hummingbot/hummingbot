@@ -54,7 +54,6 @@ class PerformanceMetrics:
         # fees is a dictionary of token and total fee amount paid in that token.
         self.fees: Dict[str, Decimal] = {}
 
-
     @classmethod
     async def create(cls, exchange: str,
                      trading_pair: str,
