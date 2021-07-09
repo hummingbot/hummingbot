@@ -260,12 +260,13 @@ class UniswapV3LpStrategy(StrategyPyBase):
         :param is_buy: True is position range goes below current price, else False
         :return: [lower_price, upper_price]
         """
+        volatility = self.calculate_volatility() if self._use_volatility else s_decimal_0
         if is_buy:
-            buy_spread = self.calculate_volatility() if self._use_volatility else self._buy_position_price_spread
+            buy_spread = volatility if volatility != s_decimal_0 else self._buy_position_price_spread
             upper_price = self._last_price
             lower_price = max(s_decimal_0, (Decimal("1") - buy_spread) * self._last_price)
         else:
-            sell_spread = self.calculate_volatility() if self._use_volatility else self._sell_position_price_spread
+            sell_spread = volatility if volatility != s_decimal_0 else self._sell_position_price_spread
             lower_price = self._last_price
             upper_price = (Decimal("1") + sell_spread) * self._last_price
         return [lower_price, upper_price]
@@ -304,8 +305,7 @@ class UniswapV3LpStrategy(StrategyPyBase):
 
             if self._use_volatility and self.calculate_volatility() == s_decimal_0:
                 self.logger().info("Unable to use price volatility to set spreads because volatility in last hour is zero."
-                                   " Kindly disable volatility and set spreads manually.")
-                return [[], []]
+                                   " Using set spreads.")
 
         return [buy_prices, sell_prices]
 
