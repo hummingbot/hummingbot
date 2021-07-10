@@ -12,10 +12,22 @@ import time
 from hummingbot.core.event.events import LimitOrderStatus
 
 cdef class LimitOrder:
+    """
+    A Python wrapper class on C++ LimitOrder. This data class is used to store order information and it is passed around
+    between connectors and strategies. It is also used in HummingSim for back testing as well.
+    """
     @classmethod
     def to_pandas(cls, limit_orders: List[LimitOrder], mid_price: float = 0.0, hanging_ids: List[str] = None,
                   end_time_order_age: int = 0) \
             -> pd.DataFrame:
+        """
+        Creates a dataframe for displaying current active orders
+        :param limit_orders: A list of current active LimitOrder from a single market
+        :param mid_price: The mid price (between best bid and best ask) of the market
+        :param hanging_ids: A list of hanging order ids if applicable
+        :param end_time_order_age: The end time for order age calculation, if unspecified the current time is used.
+        :return: A pandas data frame object
+        """
         cdef:
             list buys = [o for o in limit_orders if o.is_buy]
             list sells = [o for o in limit_orders if not o.is_buy]
@@ -124,6 +136,11 @@ cdef class LimitOrder:
         return LimitOrderStatus(self._cpp_limit_order.getStatus())
 
     cdef long c_age_til(self, long end_timestamp):
+        """
+        Calculates and returns age of the order since it was created til end_timestamp in seconds
+        :param end_timestamp: The end timestamp
+        :return: The age of the order in seconds
+        """
         cdef long start_timestamp = 0
         if self.creation_timestamp > 0:
             start_timestamp = self.creation_timestamp
@@ -135,6 +152,9 @@ cdef class LimitOrder:
             return -1
 
     cdef long c_age(self):
+        """
+        Calculates and returns age of the order since it was created til now.
+        """
         return self.c_age_til(int(time.time() * 1e6))
 
     def age(self) -> int:
