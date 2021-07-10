@@ -13,7 +13,8 @@ from hummingbot.core.event.events import LimitOrderStatus
 
 cdef class LimitOrder:
     @classmethod
-    def to_pandas(cls, limit_orders: List[LimitOrder], mid_price: float = 0.0, hanging_ids: List[str] = None) \
+    def to_pandas(cls, limit_orders: List[LimitOrder], mid_price: float = 0.0, hanging_ids: List[str] = None,
+                  end_time_order_age: int = 0) \
             -> pd.DataFrame:
         cdef:
             list buys = [o for o in limit_orders if o.is_buy]
@@ -21,25 +22,26 @@ cdef class LimitOrder:
         buys.sort(key=lambda x: x.price, reverse=True)
         sells.sort(key=lambda x: x.price, reverse=True)
         cdef:
-            list orders
+            list orders = []
             list columns = ["Order ID", "Type", "Price", "Spread", "Amount", "Age", "Hang"]
             list data = []
-            str order_id_txt, type_txt, price_txt, spread_txt, age_txt, hang_txt
-            double quantity
+            str order_id_txt, type_txt, spread_txt, age_txt, hang_txt
+            double price, quantity
             long age_seconds
-        orders = sells.extend(buys)
-        for order in orders:
-            order_id_txt = f"...{order.client_order_id[-4:]}"
+            long now_timestamp = int(time.time() * 1e6) if end_time_order_age == 0 else end_time_order_age
+        sells.extend(buys)
+        for order in sells:
+            order_id_txt = order.client_order_id if len(order.client_order_id) <= 7 else f"...{order.client_order_id[-4:]}"
             type_txt = "buy" if order.is_buy else "sell"
-            price_txt = float(order.price)
+            price = float(order.price)
             spread_txt = f"{(0 if mid_price == 0 else abs(float(order.price) - mid_price) / mid_price):.2%}"
             quantity = float(order.quantity)
             age_txt = "n/a"
-            age_seconds = order.age_seconds()
-            if order.creation_timestamp >= 0:
+            age_seconds = order.age_til(now_timestamp)
+            if age_seconds >= 0:
                 age_txt = pd.Timestamp(age_seconds, unit='s', tz='UTC').strftime('%H:%M:%S')
             hang_txt = "n/a" if hanging_ids is None else ("yes" if order.client_order_id in hanging_ids else "no")
-            data.append([order_id_txt, type_txt, price_txt, spread_txt, quantity, age_txt, hang_txt])
+            data.append([order_id_txt, type_txt, price, spread_txt, quantity, age_txt, hang_txt])
         return pd.DataFrame(data=data, columns=columns)
 
     def __init__(self,
@@ -121,28 +123,25 @@ cdef class LimitOrder:
     def status(self) -> LimitOrderStatus:
         return LimitOrderStatus(self._cpp_limit_order.getStatus())
 
-    cdef long c_age_seconds_since(self, unsigned long start_timestamp):
-        print(f"start_time: {start_timestamp}")
-        cdef unsigned long age = -1
+    cdef long c_age_til(self, long end_timestamp):
+        cdef long start_timestamp = 0
         if self.creation_timestamp > 0:
-            print(self.creation_timestamp)
-            age = (start_timestamp - self.creation_timestamp) / 1e6
+            start_timestamp = self.creation_timestamp
         elif len(self.client_order_id) > 16 and self.client_order_id[-16:].isnumeric():
-            print(self.client_order_id)
-            age = (start_timestamp - int(self.client_order_id[-16:])) / 1e6
-        return age
+            start_timestamp = int(self.client_order_id[-16:])
+        if 0 < start_timestamp < end_timestamp:
+            return int(end_timestamp - start_timestamp) / 1e6
+        else:
+            return -1
 
-    cdef long c_age_seconds(self):
-        # return 0
-        cdef unsigned long age = self.c_age_seconds_since(int(time.time() * 1e6))
-        print(f"age: {age}")
-        return age
+    cdef long c_age(self):
+        return self.c_age_til(int(time.time() * 1e6))
 
-    def age_seconds(self) -> int:
-        return self.c_age_seconds()
+    def age(self) -> int:
+        return self.c_age()
 
-    def age_seconds_since(self, start_timestamp: int) -> int:
-        return self.c_age_seconds_since(start_timestamp)
+    def age_til(self, start_timestamp: int) -> int:
+        return self.c_age_til(start_timestamp)
 
     def __repr__(self) -> str:
         return (f"LimitOrder('{self.client_order_id}', '{self.trading_pair}', {self.is_buy}, '{self.base_currency}', "

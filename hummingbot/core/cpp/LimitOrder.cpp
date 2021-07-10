@@ -43,7 +43,7 @@ LimitOrder::LimitOrder(std::string clientOrderID,
                        PyObject *price,
                        PyObject *quantity,
                        PyObject *filledQuantity,
-                       unsigned long creationTimestamp,
+                       long creationTimestamp,
                        short int status
                        ) {
     this->clientOrderID = clientOrderID;
@@ -145,7 +145,7 @@ PyObject *LimitOrder::getFilledQuantity() const {
     return this->filledQuantity;
 }
 
-unsigned long LimitOrder::getCreationTimestamp() const{
+long LimitOrder::getCreationTimestamp() const{
     return this->creationTimestamp;
 }
 
