@@ -13,7 +13,7 @@ class LimitOrder {
     PyObject *price;
     PyObject *quantity;
     PyObject *filledQuantity;
-    unsigned long creationTimestamp;
+    long creationTimestamp;
     short int status;
 
     public:
@@ -33,7 +33,7 @@ class LimitOrder {
                    PyObject *price,
                    PyObject *quantity,
                    PyObject *filledQuantity,
-                   unsigned long creationTimestamp,
+                   long creationTimestamp,
                    short int status);
         ~LimitOrder();
         LimitOrder(const LimitOrder &other);
@@ -48,7 +48,7 @@ class LimitOrder {
         PyObject *getPrice() const;
         PyObject *getQuantity() const;
         PyObject *getFilledQuantity() const;
-        unsigned long getCreationTimestamp() const;
+        long getCreationTimestamp() const;
         short int getStatus() const;
 };
 
