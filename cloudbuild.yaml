@@ -3,10 +3,10 @@ steps:
 - name: 'gcr.io/cloud-builders/docker'
   entrypoint: 'sh'
   args: [ '-c', 'docker build -t us-central1-docker.pkg.dev/$_ARTIFACT_PROJECT_ID/$_REPO_NAME/images/hummingbot:$SHORT_SHA .' ]
-  timeout: 900s
 # Store images in Google Artifact Registry
 - name: 'gcr.io/cloud-builders/docker'
   args: ['push',  'us-central1-docker.pkg.dev/$_ARTIFACT_PROJECT_ID/$_REPO_NAME/images/hummingbot:$SHORT_SHA']
+timeout: 900s
 images: ['us-central1-docker.pkg.dev/$_ARTIFACT_PROJECT_ID/$_REPO_NAME/images/hummingbot:$SHORT_SHA']
 options:
   machineType: E2_HIGHCPU_8
