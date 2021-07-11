@@ -1,0 +1,11 @@
+steps:
+# Docker Build
+- name: 'gcr.io/cloud-builders/docker'
+  entrypoint: 'sh'
+  args: [ '-c', 'docker build -t us-central1-docker.pkg.dev/$_ARTIFACT_PROJECT_ID/$_REPO_NAME/images/hummingbot:$SHORT_SHA .' ]
+# Store images in Google Artifact Registry
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['push',  'us-central1-docker.pkg.dev/$_ARTIFACT_PROJECT_ID/$_REPO_NAME/images/hummingbot:$SHORT_SHA']
+images: ['us-central1-docker.pkg.dev/$_ARTIFACT_PROJECT_ID/$_REPO_NAME/images/hummingbot:$SHORT_SHA']
+options:
+  machineType: E2_HIGHCPU_8
