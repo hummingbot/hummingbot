@@ -43,14 +43,14 @@ class SpreadsAdjustedOnVolatility(ScriptBase):
     last_order_levels_updated = 0
 
     ema_interval = 60
-    ema_short_length = 20
-    ema_long_length = 60
+    ema_short_length = 15
+    ema_long_length = 30
 
     s_decimal_1 = Decimal("1")
     # Let's set the upper bound of the band to 0.07% away from the mid price moving average
-    band_upper_bound_pct = Decimal("0.007")
+    band_upper_bound_pct = Decimal("0.0035")
     # Let's set the lower bound of the band to 0.07% away from the mid price moving average
-    band_lower_bound_pct = Decimal("0.007")
+    band_lower_bound_pct = Decimal("0.0035")
 
     MIN_VOLATILITY = Decimal(0.0001)
     MAX_DURATION = Decimal(200)
@@ -58,7 +58,7 @@ class SpreadsAdjustedOnVolatility(ScriptBase):
     MAXIMUM_SPREAD = Decimal(0.01)
 
     # Distance from trend to decide up or down trend
-    TREND_DISTANCE_PCT = Decimal(0.03)
+    TREND_DISTANCE_PCT = Decimal(0.02)
     ORDER_LEVELS_FACTOR = Decimal(2)
     ORDER_BUY_SELL_FACTOR = Decimal(5)
 
@@ -226,25 +226,29 @@ class SpreadsAdjustedOnVolatility(ScriptBase):
 
             new_sell_levels = 0
             new_buy_levels = 0
+            new_inventory_target_base_pct = Decimal(0.5)
 
             if distance_percent <= self.TREND_DISTANCE_PCT:
-                self.notify("Trend is sideway, reset order level")
                 new_sell_levels = self.original_order_levels
                 new_buy_levels = self.original_order_levels
+                new_inventory_target_base_pct = self.get_sideway_inv_target_base_pct()
                 self.buy_sell_spread_ratio = Decimal(1.0)
                 self.market_trend = "sideway"
+                self.notify(f"Trend is sideway, reset order level, inventory_target_base_pct: {new_inventory_target_base_pct}")
             elif short_avg_mid_price > long_avg_mid_price:
-                self.notify("Trend is uptrend, more buy less sell")
                 new_sell_levels = self.original_order_levels // self.ORDER_LEVELS_FACTOR
                 new_buy_levels = self.original_order_levels
+                new_inventory_target_base_pct = Decimal(0.5)
                 self.buy_sell_spread_ratio = self.ORDER_BUY_SELL_FACTOR
                 self.market_trend = "uptrend"
+                self.notify("Trend is uptrend, more buy less sell")
             else:
-                self.notify("Trend is down trend, more sell less buy")
                 new_sell_levels = self.original_order_levels
                 new_buy_levels = self.original_order_levels // self.ORDER_LEVELS_FACTOR
+                new_inventory_target_base_pct = Decimal(0.5)
                 self.buy_sell_spread_ratio = self.ORDER_BUY_SELL_FACTOR ** -1
                 self.market_trend = "downtrend"
+                self.notify("Trend is down trend, more sell less buy")
 
             # Apply price band to prevent buy high sell low
             upper_bound = short_avg_mid_price * (s_decimal_1 + self.band_upper_bound_pct)
@@ -259,5 +263,19 @@ class SpreadsAdjustedOnVolatility(ScriptBase):
 
             self.pmm_parameters.sell_levels = new_sell_levels
             self.pmm_parameters.buy_levels = new_buy_levels
+            self.pmm_parameters.inventory_target_base_pct = new_inventory_target_base_pct
 
             self.last_order_levels_updated = time.time()
+
+    def get_sideway_inv_target_base_pct(self):
+        last_trend = self.market_trend
+        current_ratio = self.pmm_parameters.inventory_target_base_pct
+
+        if last_trend == "sideway":
+            return current_ratio
+
+        if last_trend == "downtrend":
+            return Decimal(0.7)
+
+        if last_trend == "uptrend":
+            return Decimal(0.3)
