@@ -43,18 +43,30 @@ class SpreadsAdjustedOnVolatility(ScriptBase):
     last_order_levels_updated = 0
 
     ema_interval = 60
-    ema_short_length = 7
-    ema_long_length = 35
+    ema_short_length = 20
+    ema_long_length = 60
 
     s_decimal_1 = Decimal("1")
-    # Let's set the upper bound of the band to 1.67% away from the mid price moving average
-    band_upper_bound_pct = Decimal("0.0167")
-    # Let's set the lower bound of the band to 1.67% away from the mid price moving average
-    band_lower_bound_pct = Decimal("0.0167")
+    # Let's set the upper bound of the band to 0.07% away from the mid price moving average
+    band_upper_bound_pct = Decimal("0.007")
+    # Let's set the lower bound of the band to 0.07% away from the mid price moving average
+    band_lower_bound_pct = Decimal("0.007")
 
     MIN_VOLATILITY = Decimal(0.0001)
     MAX_DURATION = Decimal(200)
     MINIMUM_SPREAD = Decimal(0.0001)
+    MAXIMUM_SPREAD = Decimal(0.01)
+
+    # Distance from trend to decide up or down trend
+    TREND_DISTANCE_PCT = Decimal(0.03)
+    ORDER_LEVELS_FACTOR = Decimal(2)
+    ORDER_BUY_SELL_FACTOR = Decimal(5)
+
+    # Coefficients for spread exponent function
+    COEFFICIENT_A = Decimal(2.8)
+    COEFFICIENT_B = Decimal(3.3)
+    COEFFICIENT_C = Decimal(1.1)
+    COEFFICIENT_D = Decimal(1)
 
     def __init__(self):
         super().__init__()
@@ -66,21 +78,24 @@ class SpreadsAdjustedOnVolatility(ScriptBase):
         self.max_volatility = None
         self.duration = None
         self.buy_sell_spread_ratio = None
+        self.market_trend = None
 
     def volatility_msg(self, include_mid_price=False):
         if self.avg_short_volatility is None:
             return "volatility: N/A "
 
-        max_volatility_msg = f"\nmax_volatility: {self.max_volatility:.2%} " \
-            f"duration: {self.duration}" if not include_mid_price else ""
+        return f"short_volatility: {self.avg_short_volatility:.2%},  mid_price: {self.mid_price:<15}"
 
-        buy_sell_ratio_msg = f"\nbuy_sell_spread_ratio: {self.buy_sell_spread_ratio:.2}" if not include_mid_price else ""
+    def status_msg(self):
+        if self.avg_short_volatility is None:
+            return "volatility: N/A "
 
-        mid_price_msg = f"  mid_price: {self.mid_price:<15}" if include_mid_price else ""
-        return f"short_volatility: {self.avg_short_volatility:.2%}  " \
-               f"{max_volatility_msg}" \
-               f"{buy_sell_ratio_msg}" \
-               f"{mid_price_msg}"
+        max_volatility_msg = f"max_volatility: {self.max_volatility:.2%}, duration: {self.duration}"
+        buy_sell_ratio_msg = f"buy_sell_spread_ratio: {self.buy_sell_spread_ratio:.2}"
+        trend_msg = f"market_trend: {self.market_trend}"
+
+        return f"short_volatility: {self.avg_short_volatility:.2%}, {max_volatility_msg}" \
+               f"\n{buy_sell_ratio_msg}, {trend_msg}"
 
     def on_tick(self):
         # First, let's keep the original spreads.
@@ -99,6 +114,9 @@ class SpreadsAdjustedOnVolatility(ScriptBase):
         if self.buy_sell_spread_ratio is None:
             self.buy_sell_spread_ratio = Decimal(1.0)
 
+        if self.market_trend is None:
+            self.market_trend = "sideway"
+
         # Average volatility (price change) over a short period of time, this is to detect recent sudden changes.
         self.avg_short_volatility = self.avg_price_volatility(self.interval, self.short_period)
 
@@ -114,20 +132,20 @@ class SpreadsAdjustedOnVolatility(ScriptBase):
         self.adjust_orders_on_market_trend()
 
     def on_status(self) -> str:
-        return self.volatility_msg()
+        return self.status_msg()
 
     def make_new_spread(self, volatility: Decimal):
-        a = Decimal(2)
-        b = Decimal(1.2)
-        c = Decimal(4)
-        d = Decimal(2)
+        a = Decimal(self.COEFFICIENT_A)
+        b = Decimal(self.COEFFICIENT_B)
+        c = Decimal(self.COEFFICIENT_C)
+        d = Decimal(self.COEFFICIENT_D)
         x = volatility
         new_spread = a ** (10000 * x / (b * c)) / (10000 / d)
 
-        if new_spread >= 0.03:
-            return Decimal(0.03)
+        if new_spread >= self.MAXIMUM_SPREAD:
+            return self.MAXIMUM_SPREAD
 
-        if new_spread < 0.0:
+        if new_spread <= self.MINIMUM_SPREAD:
             return self.MINIMUM_SPREAD
 
         return new_spread
@@ -171,20 +189,23 @@ class SpreadsAdjustedOnVolatility(ScriptBase):
 
             new_spread = self.make_new_spread_on_duration()
 
-            new_bid_spread = max(self.original_bid_spread, new_spread) * self.buy_sell_spread_ratio ** -1
+            new_bid_spread = max(self.original_bid_spread, new_spread) / self.buy_sell_spread_ratio
             new_bid_spread = self.round_by_step(new_bid_spread, Decimal("0.0001"))
+            new_bid_spread = max(new_bid_spread, self.MINIMUM_SPREAD)
             if new_bid_spread != self.pmm_parameters.bid_spread:
                 self.pmm_parameters.bid_spread = new_bid_spread
                 self.notify(f"Upated bid spread with: {new_bid_spread:.2%} at volatility: {self.max_volatility:.2%}, duration: {self.duration}")
 
             new_ask_spread = max(self.original_ask_spread, new_spread) * self.buy_sell_spread_ratio
             new_ask_spread = self.round_by_step(new_ask_spread, Decimal("0.0001"))
+            new_ask_spread = max(new_ask_spread, self.MINIMUM_SPREAD)
             if new_ask_spread != self.pmm_parameters.ask_spread:
                 self.pmm_parameters.ask_spread = new_ask_spread
                 self.notify(f"Upated ask spread with: {new_ask_spread:.2%} at volatility: {self.max_volatility:.2%}, duration: {self.duration}")
 
             new_order_level_spread = max(self.original_order_level_spread, new_spread)
             new_order_level_spread = self.round_by_step(new_order_level_spread, Decimal("0.0001"))
+            new_order_level_spread = max(new_order_level_spread, self.MINIMUM_SPREAD)
             if new_order_level_spread != self.pmm_parameters.order_level_spread:
                 self.pmm_parameters.order_level_spread = new_order_level_spread
                 self.notify(f"Upated order level spread with: {new_order_level_spread:.2%} at volatility: {self.max_volatility:.2%}, duration: {self.duration}")
@@ -195,39 +216,45 @@ class SpreadsAdjustedOnVolatility(ScriptBase):
             short_avg_mid_price = self.avg_mid_price(self.ema_interval, self.ema_short_length)
             long_avg_mid_price = self.avg_mid_price(self.ema_interval, self.ema_long_length)
             # The avg can be None when the bot just started as there are not enough mid prices to sample values from.
-            if short_avg_mid_price is None or long_avg_mid_price is None:
+            if short_avg_mid_price is None:
                 return
 
-            distance_percent = abs(short_avg_mid_price - long_avg_mid_price) / long_avg_mid_price * 100
+            if long_avg_mid_price is None:
+                distance_percent = Decimal(0)
+            else:
+                distance_percent = abs(short_avg_mid_price - long_avg_mid_price) / long_avg_mid_price * 100
 
             new_sell_levels = 0
             new_buy_levels = 0
 
-            if distance_percent <= 0.05:
+            if distance_percent <= self.TREND_DISTANCE_PCT:
                 self.notify("Trend is sideway, reset order level")
                 new_sell_levels = self.original_order_levels
                 new_buy_levels = self.original_order_levels
                 self.buy_sell_spread_ratio = Decimal(1.0)
+                self.market_trend = "sideway"
             elif short_avg_mid_price > long_avg_mid_price:
                 self.notify("Trend is uptrend, more buy less sell")
-                new_sell_levels = self.original_order_levels // 3
+                new_sell_levels = self.original_order_levels // self.ORDER_LEVELS_FACTOR
                 new_buy_levels = self.original_order_levels
-                self.buy_sell_spread_ratio = Decimal(4)
+                self.buy_sell_spread_ratio = self.ORDER_BUY_SELL_FACTOR
+                self.market_trend = "uptrend"
             else:
                 self.notify("Trend is down trend, more sell less buy")
                 new_sell_levels = self.original_order_levels
-                new_buy_levels = self.original_order_levels // 3
-                self.buy_sell_spread_ratio = Decimal(0.25)
+                new_buy_levels = self.original_order_levels // self.ORDER_LEVELS_FACTOR
+                self.buy_sell_spread_ratio = self.ORDER_BUY_SELL_FACTOR ** -1
+                self.market_trend = "downtrend"
 
             # Apply price band to prevent buy high sell low
-            upper_bound = long_avg_mid_price * (s_decimal_1 + self.band_upper_bound_pct)
-            lower_bound = long_avg_mid_price * (s_decimal_1 - self.band_lower_bound_pct)
+            upper_bound = short_avg_mid_price * (s_decimal_1 + self.band_upper_bound_pct)
+            lower_bound = short_avg_mid_price * (s_decimal_1 - self.band_lower_bound_pct)
 
-            if short_avg_mid_price >= upper_bound:
+            if self.mid_price >= upper_bound:
                 new_buy_levels = 0
 
             # When mid_price reaches the lower bound, we don't want to be a seller.
-            if short_avg_mid_price <= lower_bound:
+            if self.mid_price <= lower_bound:
                 new_sell_levels = 0
 
             self.pmm_parameters.sell_levels = new_sell_levels
