@@ -111,7 +111,7 @@ class UniswapConnector(ConnectorBase):
         """
         while True:
             try:
-                self.logger().info(f"Initializing Uniswap connector and paths for {self._trading_pairs} pairs.")
+                # self.logger().info(f"Initializing Uniswap connector and paths for {self._trading_pairs} pairs.")
                 resp = await self._api_request("get", "eth/uniswap/start",
                                                {"pairs": json.dumps(self._trading_pairs)})
                 status = bool(str(resp["success"]))
