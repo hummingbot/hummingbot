@@ -138,9 +138,6 @@ cdef class StrategyBase(TimeIterator):
     def order_tracker(self) -> OrderTracker:
         return self._sb_order_tracker
 
-    def limit_order_from_order_tracker(self, order_id: str):
-        return self.order_tracker.get
-
     def format_status(self):
         raise NotImplementedError
 
