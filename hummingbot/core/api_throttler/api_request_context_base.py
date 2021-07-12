@@ -1,7 +1,7 @@
 import asyncio
 import time
 
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from typing import (
     Deque,
 )
@@ -13,7 +13,7 @@ from hummingbot.core.api_throttler.data_types import (
 )
 
 
-class APIRequestContextBase:
+class APIRequestContextBase(ABC):
 
     _lock = asyncio.Lock()
 
