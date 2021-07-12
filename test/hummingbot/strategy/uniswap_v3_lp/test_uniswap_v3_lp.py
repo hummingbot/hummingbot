@@ -25,6 +25,7 @@ class ExtendedBacktestMarket(BacktestMarket):
         self._trading_pairs = ["ETH-USDT"]
         np.random.seed(123456789)
         self._in_flight_positions = {}
+        self._in_flight_orders = {}
 
     async def get_price_by_fee_tier(self, trading_pair: str, tier: str, seconds: int = 1, twap: bool = False):
         if twap:
@@ -50,6 +51,9 @@ class ExtendedBacktestMarket(BacktestMarket):
                                                                       quote_amount=quote_amount,
                                                                       lower_price=lower_price,
                                                                       upper_price=upper_price)
+
+    async def _remove_position(self, hb_id: str, token_id: str = "1", reducePercent: Decimal = Decimal("100.0"), fee_estimate: bool = False):
+        return self.remove_position(hb_id, token_id, reducePercent, fee_estimate)
 
     def remove_position(self, hb_id: str, token_id: str = "1", reducePercent: Decimal = Decimal("100.0"), fee_estimate: bool = False):
         if fee_estimate:
@@ -193,7 +197,7 @@ class UniswapV3LpStrategyTest(unittest.TestCase):
         pos.unclaimed_base_amount = Decimal("1")
         pos.unclaimed_quote_amount = Decimal("10")
         pos.gas_price = Decimal("5")
-        result = self.default_strategy.calculate_profitability(pos)
+        result = self.loop.run_until_complete(self.default_strategy.calculate_profitability(pos))
         self.assertEqual(result["profitability"], (Decimal("110") - result["tx_fee"]) / Decimal("100"))
 
     def test_position_creation(self):
