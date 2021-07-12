@@ -429,7 +429,6 @@ class UniswapV3Connector(UniswapConnector):
 
     def remove_position(self, hb_id: str, token_id: str, reducePercent: Decimal = Decimal("100.0"), fee_estimate: bool = False):
         safe_ensure_future(self._remove_position(hb_id, token_id, reducePercent, fee_estimate))
-        # get the inflight order that has this token_id
         return hb_id
 
     async def _remove_position(self, hb_id: str, token_id: str, reducePercent: Decimal, fee_estimate: bool):
@@ -496,7 +495,7 @@ class UniswapV3Connector(UniswapConnector):
                                             "tier": tier.upper(),
                                             "seconds": seconds})
 
-            return resp["prices"] if twap else Decimal(str(resp["price"]))
+            return resp.get("prices", []) if twap else Decimal(str(resp.get("price", "0")))
         except asyncio.CancelledError:
             raise
         except Exception as e:

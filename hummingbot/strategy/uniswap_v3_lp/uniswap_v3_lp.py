@@ -119,10 +119,10 @@ class UniswapV3LpStrategy(StrategyPyBase):
         """
         This function returns the current volatility.
         """
-        return (self._volatility_factor * Decimal(str(np.sqrt(self._volatility_period * Decimal("3600")))) *
-                Decimal(str(self._volatility.current_value)))
+        current_volatility = Decimal(str(self._volatility.current_value)) if self._volatility.current_value else s_decimal_0
+        return (self._volatility_factor * Decimal(str(np.sqrt(self._volatility_period * Decimal("3600")))) * current_volatility)
 
-    def calculate_profitability(self, position: UniswapV3InFlightPosition):
+    async def calculate_profitability(self, position: UniswapV3InFlightPosition):
         """
         Does simple computation and returns a dictionary containing data required by other functions.
         :param position: an instance of UniswapV3InFlightPosition
@@ -136,7 +136,7 @@ class UniswapV3LpStrategy(StrategyPyBase):
         quote_change = Decimal(str(position.current_quote_amount)) - Decimal(str(position.quote_amount))
         base_fee = Decimal(str(position.unclaimed_base_amount))
         quote_fee = Decimal(str(position.unclaimed_quote_amount))
-        remove_lp_fee = self._market_info.market.remove_position(position.hb_id, position.token_id, Decimal("100.0"), True)
+        remove_lp_fee = await self._market_info.market._remove_position(position.hb_id, position.token_id, Decimal("100.0"), True)
         position.tx_fees.append(remove_lp_fee)
         if quote_tkn != "WETH":
             fee_rate = RateOracle.get_instance().rate(f"ETH-{quote_tkn}")
@@ -157,12 +157,12 @@ class UniswapV3LpStrategy(StrategyPyBase):
                 "profitability": profitability
                 }
 
-    def profitability_df(self):
+    async def profitability_df(self):
         data = []
         columns = ["Id", f"{self.base_asset} Change", f"{self.quote_asset} Change",
                    f"Unclaimed {self.base_asset}", f"Unclaimed {self.quote_asset}", "Total Profit/loss (%)"]
         for position in self.active_positions:
-            profit_data = self.calculate_profitability(position)
+            profit_data = await self.calculate_profitability(position)
             data.append([position.token_id,
                         PerformanceMetrics.smart_round(profit_data['base_change'], 8),
                         PerformanceMetrics.smart_round(profit_data['quote_change'], 8),
@@ -196,7 +196,7 @@ class UniswapV3LpStrategy(StrategyPyBase):
             pos_info_df = self.active_positions_df()
             lines.extend(["", "  Positions:"] + ["    " + line for line in pos_info_df.to_string(index=False).split("\n")])
 
-            pos_profitability_df = self.profitability_df()
+            pos_profitability_df = await self.profitability_df()
             lines.extend(["", "  Positions Performance:"] + ["    " + line for line in pos_profitability_df.to_string(index=False).split("\n")])
         else:
             lines.extend(["", "  No active positions."])
@@ -358,12 +358,14 @@ class UniswapV3LpStrategy(StrategyPyBase):
         farthest_position = None
         if len(inactive_sells) > 1:
             for position in inactive_sells:
-                farthest_position = position if farthest_position is None else position
-                farthest_position = position if position.lower_price > farthest_position.lower_price else position
+                if farthest_position is None:
+                    farthest_position = position
+                farthest_position = position if position.lower_price > farthest_position.lower_price else farthest_position
         elif len(inactive_buys) > 1:
             for position in inactive_buys:
-                farthest_position = position if farthest_position is None else position
-                farthest_position = position if position.upper_price < farthest_position.upper_price else position
+                if farthest_position is None:
+                    farthest_position = position
+                farthest_position = position if position.upper_price < farthest_position.upper_price else farthest_position
         if farthest_position is not None and self._last_price > s_decimal_0:
             self.log_with_clock(logging.INFO,
                                 f"Removing position with ID - {farthest_position.token_id} because"
