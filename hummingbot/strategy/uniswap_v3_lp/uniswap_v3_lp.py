@@ -246,7 +246,7 @@ class UniswapV3LpStrategy(StrategyPyBase):
     async def main(self):
         pending_positions = [position.last_status.is_pending() for position in self.active_positions]
         if not any(pending_positions) and len(self.active_orders) == 0:
-            self.range_position_remover()
+            self.remove_farthest_position()
             # Then we proceed with creating new position if necessary
             proposal = await self.propose_position_creation()
             if len(proposal) > 0:
@@ -349,7 +349,7 @@ class UniswapV3LpStrategy(StrategyPyBase):
                                                   proposal[1][0],
                                                   proposal[1][1])
 
-    def range_position_remover(self):
+    def remove_farthest_position(self):
         """
         This removes the farthest position.
         """
