@@ -1,6 +1,6 @@
 # A single source of truth for constant variables related to the exchange
 
-from hummingbot.core.utils.api_throttler import RateLimit
+from hummingbot.core.api_throttler.data_types import RateLimit
 
 EXCHANGE_NAME = "crypto_com"
 REST_URL = "https://api.crypto.com/v2"
