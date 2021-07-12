@@ -252,6 +252,6 @@ class UniswapV3LpStrategyTest(unittest.TestCase):
                                                                                                            lower_price=Decimal("85"),
                                                                                                            upper_price=Decimal("90"))
         self.assertEqual(len(self.default_strategy._market_info.market._in_flight_positions), 4)
-        self.default_strategy.range_position_remover()
+        self.default_strategy.remove_farthest_position()
         self.assertEqual(len(self.default_strategy._market_info.market._in_flight_positions), 3)
         self.assertEqual(self.default_strategy._market_info.market._in_flight_positions.get("pos4", 0), 0)
