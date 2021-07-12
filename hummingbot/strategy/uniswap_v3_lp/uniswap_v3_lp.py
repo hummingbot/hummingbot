@@ -136,8 +136,10 @@ class UniswapV3LpStrategy(StrategyPyBase):
         quote_change = Decimal(str(position.current_quote_amount)) - Decimal(str(position.quote_amount))
         base_fee = Decimal(str(position.unclaimed_base_amount))
         quote_fee = Decimal(str(position.unclaimed_quote_amount))
-        remove_lp_fee = await self._market_info.market._remove_position(position.hb_id, position.token_id, Decimal("100.0"), True)
-        position.tx_fees.append(remove_lp_fee)
+        if len(position.tx_fees) < 2 or position.tx_fees[-1] == s_decimal_0:
+            remove_lp_fee = await self._market_info.market._remove_position(position.hb_id, position.token_id, Decimal("100.0"), True)
+            remove_lp_fee = remove_lp_fee if remove_lp_fee is not None else s_decimal_0
+            position.tx_fees.append(remove_lp_fee)
         if quote_tkn != "WETH":
             fee_rate = RateOracle.get_instance().rate(f"ETH-{quote_tkn}")
             if fee_rate:

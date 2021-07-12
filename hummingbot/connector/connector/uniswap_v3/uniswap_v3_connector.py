@@ -182,6 +182,7 @@ class UniswapV3Connector(UniswapConnector):
                 gas_used = update_result["receipt"]["gasUsed"]
                 gas_price = tracked_pos.gas_price
                 fee = Decimal(str(gas_used)) * Decimal(str(gas_price)) / Decimal(str(1e9))
+                tracked_pos.tx_fees.append(fee)
                 transaction_results = await self._api_request("post",
                                                               "eth/uniswap/v3/result",
                                                               {"logs": json.dumps(update_result["receipt"]["logs"]),
@@ -195,7 +196,6 @@ class UniswapV3Connector(UniswapConnector):
                         tracked_pos.base_amount = amount0
                         tracked_pos.quote_amount = amount1
                         tracked_pos.last_status = UniswapV3PositionStatus.OPEN
-                        tracked_pos.tx_fees.append(fee)
                         self.logger().info(f"Liquidity added for tokenID - {token_id}.")
                         self.trigger_event(MarketEvent.RangePositionUpdated,
                                            RangePositionUpdatedEvent(self.current_timestamp,
@@ -462,13 +462,14 @@ class UniswapV3Connector(UniswapConnector):
                                                              tracked_pos.last_status.name))
         except Exception as e:
             # self.stop_tracking_position(hb_id)
-            self.logger().network(
-                f"Error removing range position, token_id: {token_id}, hb_id: {hb_id}",
-                exc_info=True,
-                app_warning_msg=str(e)
-            )
-            self.trigger_event(MarketEvent.RangePositionFailure,
-                               RangePositionFailureEvent(self.current_timestamp, hb_id))
+            if not fee_estimate:
+                self.logger().network(
+                    f"Error removing range position, token_id: {token_id}, hb_id: {hb_id}",
+                    exc_info=True,
+                    app_warning_msg=str(e)
+                )
+                self.trigger_event(MarketEvent.RangePositionFailure,
+                                   RangePositionFailureEvent(self.current_timestamp, hb_id))
 
     async def get_position(self, token_id: str):
         result = await self._api_request("post", "eth/uniswap/v3/position", {"tokenId": token_id})
