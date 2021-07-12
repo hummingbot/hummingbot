@@ -63,7 +63,7 @@ uniswap_v3_lp_config_map = {
         prompt="Enter how long (in hours) do you want to use for price volatility calculation >>> ",
         required_if=lambda: uniswap_v3_lp_config_map.get("use_volatility").value,
         validator=lambda v: validate_int(v, 1),
-        default=3600,
+        default=1,
         prompt_on_new=True
     ),
     "volatility_factor": ConfigVar(
