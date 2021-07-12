@@ -62,8 +62,8 @@ class APIRequestContextBaseUnitTests(unittest.TestCase):
         self.assertEqual(1, len(self.throttler._path_task_logs_map[TEST_PATH_URL]))
 
     def test_within_capacity(self):
-        # Test 1: Abstract method not implemented
-        with self.assertRaises(NotImplementedError):
+        # Test 1: Abstract Class cannot be instantiated
+        with self.assertRaises(TypeError):
             context = APIRequestContextBase(self.throttler._path_task_logs_map[TEST_PATH_URL], self.rate_limit)
             context.within_capacity()
 
