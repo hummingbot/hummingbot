@@ -1,4 +1,4 @@
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from collections import deque
 from typing import (
     Deque,
@@ -14,7 +14,7 @@ from hummingbot.core.api_throttler.data_types import (
 )
 
 
-class APIThrottlerBase:
+class APIThrottlerBase(ABC):
     def __init__(self,
                  rate_limit_list: List[RateLimit],
                  period_safety_margin: Seconds = 0.1,
