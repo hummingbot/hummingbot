@@ -72,7 +72,7 @@ class MockWebServer:
         """
         Constructs all the necessary attributes for the Humming Web object
         """
-        self._ev_loop: None
+        self._ev_loop: asyncio.AbstractEventLoop = None
         self._impl: Optional[web.Application] = None
         self._runner: Optional[web.AppRunner] = None
         self._started: bool = False
