@@ -433,7 +433,7 @@ class UniswapV3Connector(UniswapConnector):
 
     async def _remove_position(self, hb_id: str, token_id: str, reducePercent: Decimal, fee_estimate: bool):
         """
-        Calls add position end point to create/increase a range position.
+        Calls remove position end point to remove/decrease a range position.
         :param hb_id: Internal Hummingbot id
         :param token_id: The token id of position to be increased
         :param reducePercent: The percentage of liquidity to remove from position with the specified token id
