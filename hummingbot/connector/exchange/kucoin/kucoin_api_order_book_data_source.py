@@ -23,6 +23,7 @@ from typing import (
 import websockets
 from websockets.client import Connect as WSConnectionContext
 from urllib.parse import urlencode
+from yarl import URL
 
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
@@ -38,6 +39,7 @@ from hummingbot.connector.exchange.kucoin.kucoin_utils import (
 )
 
 SNAPSHOT_REST_URL = "https://api.kucoin.com/api/v3/market/orderbook/level2"
+SNAPSHOT_REST_URL_NO_AUTH = "https://api.kucoin.com/api/v1/market/orderbook/level2_100"
 DIFF_STREAM_URL = ""
 TICKER_PRICE_CHANGE_URL = "https://api.kucoin.com/api/v1/market/allTickers"
 EXCHANGE_INFO_URL = "https://api.kucoin.com/api/v1/symbols"
@@ -289,7 +291,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._kaobds_logger = logging.getLogger(__name__)
         return cls._kaobds_logger
 
-    def __init__(self, trading_pairs: List[str], auth: KucoinAuth):
+    def __init__(self, trading_pairs: List[str], auth: KucoinAuth = None):
         super().__init__(trading_pairs)
         self._auth = auth
         self._order_book_create_function = lambda: OrderBook()
@@ -321,14 +323,14 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 return []
 
     @staticmethod
-    async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str, auth: KucoinAuth) -> Dict[str, Any]:
+    async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str, auth: KucoinAuth = None) -> Dict[str, Any]:
         params: Dict = {"symbol": convert_to_exchange_trading_pair(trading_pair)}
 
-        path_url = f"/api/v3/market/orderbook/level2?{urlencode(params)}"
+        url = SNAPSHOT_REST_URL if auth else SNAPSHOT_REST_URL_NO_AUTH
+        path_url = f"{URL(url).path}?{urlencode(params)}"
+        headers = auth.add_auth_to_params("get", path_url) if auth else None
 
-        headers = auth.add_auth_to_params("get", path_url)
-
-        async with client.get(SNAPSHOT_REST_URL, params=params, headers=headers) as response:
+        async with client.get(url, params=params, headers=headers) as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
                 raise IOError(f"Error fetching Kucoin market snapshot for {trading_pair}. "
