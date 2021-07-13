@@ -77,7 +77,7 @@ class ProbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                   params={"market_id": trading_pair}) as response:
                 if response.status != 200:
                     raise IOError(
-                        f"Error fetching OrderBook for {trading_pair} at {CONSTANTS.ORDER_BOOK_PATH_URL.format(domain)}. "
+                        f"Error fetching OrderBook for {trading_pair} at {CONSTANTS.ORDER_BOOK_URL.format(domain)}. "
                         f"HTTP {response.status}. Response: {await response.json()}"
                     )
                 return await response.json()
