@@ -33,7 +33,7 @@ class KucoinOrderBookTracker(OrderBookTracker):
 
     def __init__(self,
                  trading_pairs: List[str],
-                 auth: KucoinAuth):
+                 auth: KucoinAuth = None):
         super().__init__(KucoinAPIOrderBookDataSource(trading_pairs, auth), trading_pairs)
         self._auth = auth
         self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()
