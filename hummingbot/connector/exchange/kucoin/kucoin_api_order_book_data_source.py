@@ -119,6 +119,7 @@ class KucoinWSConnectionIterator:
                                   trading_pairs: Set[str],
                                   subscribe: bool):
         # Kucoin has a limit of 100 subscription per 10 seconds
+        trading_pairs = {convert_to_exchange_trading_pair(t) for t in trading_pairs}
         it = iter(trading_pairs)
         trading_pair_chunks: List[Tuple[str]] = list(iter(lambda: tuple(islice(it, 100)), ()))
         subscribe_requests: List[Dict[str, Any]] = []
@@ -128,7 +129,7 @@ class KucoinWSConnectionIterator:
                 subscribe_requests.append({
                     "id": int(time.time()),
                     "type": "subscribe" if subscribe else "unsubscribe",
-                    "topic": f"/market/level2:{convert_to_exchange_trading_pair(market_str)}",
+                    "topic": f"/market/level2:{market_str}",
                     "response": True
                 })
         else:
@@ -137,7 +138,7 @@ class KucoinWSConnectionIterator:
                 subscribe_requests.append({
                     "id": int(time.time()),
                     "type": "subscribe" if subscribe else "unsubscribe",
-                    "topic": f"/market/match:{convert_to_exchange_trading_pair(market_str)}",
+                    "topic": f"/market/match:{market_str}",
                     "privateChannel": False,
                     "response": True
                 })
