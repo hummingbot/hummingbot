@@ -7,8 +7,6 @@ from decimal import Decimal
 from hummingbot.core.event.events import OrderType
 from dataclasses import dataclass
 
-import time
-
 ORDER_PROPOSAL_ACTION_CREATE_ORDERS = 1
 ORDER_PROPOSAL_ACTION_CANCEL_ORDERS = 1 << 1
 
@@ -76,12 +74,6 @@ class HangingOrder:
         if self.order_id:
             if "//" not in self.order_id:
                 return int(self.order_id[-16:]) / 1e6
-
-    @property
-    def age(self):
-        if self.creation_timestamp:
-            return int(time.time()) - self.creation_timestamp
-        return 0
 
     def distance_to_price(self, price: Decimal):
         return abs(self.price - price)
