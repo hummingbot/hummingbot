@@ -1,0 +1,43 @@
+import asyncio
+import unittest
+
+
+from hummingbot.connector.exchange.ndax.ndax_api_order_book_data_source import NdaxAPIOrderBookDataSource
+from hummingbot.core.data_type.order_book import OrderBook
+
+
+class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
+
+    def setUp(self) -> None:
+        super().setUp()
+
+        self.ev_loop = asyncio.get_event_loop()
+        self.trading_pair = "BTC-CAD"
+        self.data_source = NdaxAPIOrderBookDataSource([self.trading_pair])
+
+    def test_init_trading_pair_ids(self):
+        self.ev_loop.run_until_complete(self.data_source.init_trading_pair_ids())
+        self.assertEqual(1, self.data_source._trading_pair_id_map[self.trading_pair])
+
+    def test_get_last_traded_prices(self):
+        results = self.ev_loop.run_until_complete(asyncio.gather(self.data_source.get_last_traded_prices([self.trading_pair])))
+        results = results[0]
+        self.assertGreaterEqual(results[self.trading_pair], 30000.0)
+
+    def test_fetch_trading_pairs(self):
+        results = self.ev_loop.run_until_complete(asyncio.gather(self.data_source.fetch_trading_pairs()))
+        result = results[0]
+        self.assertTrue(self.trading_pair in result)
+
+    def test_get_order_book_data(self):
+        results = self.ev_loop.run_until_complete(asyncio.gather(self.data_source.get_order_book_data(self.trading_pair)))
+        result = results[0]
+        self.assertTrue("data" in result)
+        self.assertGreaterEqual(len(result["data"]), 0)
+
+    def test_get_new_order_book(self):
+        results = self.ev_loop.run_until_complete(asyncio.gather(self.data_source.get_new_order_book(self.trading_pair)))
+        result: OrderBook = results[0]
+
+        self.assertTrue(type(result) == OrderBook)
+        self.assertNotEqual(result.snapshot_uid, 0)
