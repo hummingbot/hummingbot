@@ -75,17 +75,12 @@ class KrakenAPIUserStreamDataSource(UserStreamTrackerDataSource):
             except Exception:
                 raise IOError(f"Error parsing data from {url}.")
 
-            try:
-                err = response_json["error"]
-                if "EAPI:Invalid nonce" in err:
-                    self.logger().error(f"Invalid nonce error from {url}. " +
-                                        "Please ensure your Kraken API key nonce window is at least 10, " +
-                                        "and if needed reset your API key.")
-                    raise IOError({"error": response_json})
-            except IOError:
-                raise
-            except Exception:
-                pass
+            err = response_json["error"]
+            if "EAPI:Invalid nonce" in err:
+                self.logger().error(f"Invalid nonce error from {url}. " +
+                                    "Please ensure your Kraken API key nonce window is at least 10, " +
+                                    "and if needed reset your API key.")
+                raise IOError({"error": response_json})
 
             return response_json["result"]["token"]
 
@@ -143,11 +138,8 @@ class KrakenAPIUserStreamDataSource(UserStreamTrackerDataSource):
                          "subscriptionStatus" not in msg)):
                         yield msg
                 except asyncio.TimeoutError:
-                    try:
-                        pong_waiter = await ws.ping()
-                        await asyncio.wait_for(pong_waiter, timeout=PING_TIMEOUT)
-                    except asyncio.TimeoutError:
-                        raise
+                    pong_waiter = await ws.ping()
+                    await asyncio.wait_for(pong_waiter, timeout=PING_TIMEOUT)
         except asyncio.TimeoutError:
             self.logger().warning("WebSocket ping timed out. Going to reconnect...")
             return

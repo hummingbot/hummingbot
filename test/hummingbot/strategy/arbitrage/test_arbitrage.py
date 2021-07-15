@@ -1,8 +1,5 @@
 #!/usr/bin/env python
 from decimal import Decimal
-from os.path import join, realpath
-import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
-
 from nose.plugins.attrib import attr
 
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
