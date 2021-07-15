@@ -91,11 +91,8 @@ class CoinGeckoDataFeed(DataFeedBase):
             raise
 
     async def fetch_data(self):
-        try:
-            await self.update_asset_prices()
-            self._ready_event.set()
-        except Exception:
-            raise
+        await self.update_asset_prices()
+        self._ready_event.set()
 
     async def start_network(self):
         await self.stop_network()

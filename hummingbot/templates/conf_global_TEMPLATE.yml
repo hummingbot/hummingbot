@@ -77,6 +77,9 @@ crypto_com_secret_key: null
 hitbtc_api_key: null
 hitbtc_secret_key: null
 
+gate_io_api_key: null
+gate_io_secret_key: null
+
 bitfinex_api_key: null
 bitfinex_secret_key: null
 

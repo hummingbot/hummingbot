@@ -15,6 +15,8 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         double _filled_order_delay
         int _order_levels
         object _order_override
+        bint _hanging_orders_enabled
+        object _hanging_orders_tracker
         object _inventory_target_base_pct
         bint _order_optimization_enabled
         bint _add_transaction_costs_to_orders
@@ -67,13 +69,14 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     cdef c_apply_add_transaction_costs(self, object proposal)
     cdef bint c_is_within_tolerance(self, list current_prices, list proposal_prices)
     cdef c_cancel_active_orders(self, object proposal)
-    cdef c_aged_order_refresh(self)
+    cdef c_cancel_active_orders_on_max_age_limit(self)
     cdef bint c_to_create_orders(self, object proposal)
     cdef c_execute_orders_proposal(self, object proposal)
-    cdef set_timers(self)
+    cdef c_set_timers(self)
     cdef double c_get_spread(self)
     cdef c_collect_market_variables(self, double timestamp)
     cdef bint c_is_algorithm_ready(self)
     cdef c_calculate_reserved_price_and_optimal_spread(self)
     cdef object c_calculate_target_inventory(self)
     cdef c_recalculate_parameters(self)
+    cdef c_did_complete_order(self, object order_completed_event)

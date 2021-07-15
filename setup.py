@@ -33,7 +33,7 @@ class BuildExt(build_ext):
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20210616"
+    version = "20210715"
     packages = [
         "hummingbot",
         "hummingbot.client",
@@ -74,6 +74,7 @@ def main():
         "hummingbot.connector.exchange.eterbase",
         "hummingbot.connector.exchange.beaxy",
         "hummingbot.connector.exchange.hitbtc",
+        "hummingbot.connector.exchange.gate_io",
         "hummingbot.connector.exchange.k2",
         "hummingbot.connector.derivative",
         "hummingbot.connector.derivative.binance_perpetual",

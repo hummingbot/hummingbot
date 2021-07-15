@@ -29,9 +29,11 @@ from hummingbot.core.event.events import (
     OrderType,
     TradeType,
     PositionSide,
-    PositionAction
+    PositionAction,
+    FundingInfo
 )
-from hummingbot.connector.derivative_base import DerivativeBase
+from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.connector.derivative.perpetual_finance.perpetual_finance_in_flight_order import PerpetualFinanceInFlightOrder
 from hummingbot.connector.derivative.perpetual_finance.perpetual_finance_utils import convert_to_exchange_trading_pair
 from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
@@ -45,7 +47,7 @@ s_decimal_NaN = Decimal("nan")
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 
-class PerpetualFinanceDerivative(DerivativeBase):
+class PerpetualFinanceDerivative(ExchangeBase, PerpetualTrading):
     """
     PerpetualFinanceConnector connects with perpetual_finance gateway APIs and provides pricing, user account tracking and trading
     functionality.
@@ -72,7 +74,8 @@ class PerpetualFinanceDerivative(DerivativeBase):
         :param wallet_private_key: a private key for eth wallet
         :param trading_required: Whether actual trading is needed.
         """
-        super().__init__()
+        ExchangeBase.__init__(self)
+        PerpetualTrading.__init__(self)
         self._trading_pairs = trading_pairs
         self._wallet_private_key = wallet_private_key
         self._trading_required = trading_required
@@ -513,7 +516,7 @@ class PerpetualFinanceDerivative(DerivativeBase):
                 unrealized_pnl = self.quantize_order_amount(trading_pair, Decimal(position.get("pnl")))
                 entry_price = self.quantize_order_price(trading_pair, Decimal(position.get("entryPrice")))
                 leverage = self._leverage[trading_pair]
-                self._account_positions[trading_pair] = Position(
+                self._account_positions[self.position_key(trading_pair)] = Position(
                     trading_pair=trading_pair,
                     position_side=position_side,
                     unrealized_pnl=unrealized_pnl,
@@ -522,8 +525,8 @@ class PerpetualFinanceDerivative(DerivativeBase):
                     leverage=leverage
                 )
             else:
-                if trading_pair in self._account_positions:
-                    del self._account_positions[trading_pair]
+                if self.position_key(trading_pair) in self._account_positions:
+                    del self._account_positions[self.position_key(trading_pair)]
 
                 payment = Decimal(str(position.get("fundingPayment")))
                 oldPayment = self._fundingPayment.get(trading_pair, 0)
@@ -532,12 +535,14 @@ class PerpetualFinanceDerivative(DerivativeBase):
                     action = "paid" if payment < 0 else "received"
                     if payment != Decimal("0"):
                         self.logger().info(f"Funding payment of {payment} {action} on {trading_pair} market.")
-                        self.trigger_event(MarketEvent.FundingPaymentCompleted,
-                                           FundingPaymentCompletedEvent(timestamp=time.time(),
-                                                                        market=self.name,
-                                                                        funding_rate=self._funding_info[trading_pair]["rate"],
-                                                                        trading_pair=trading_pair,
-                                                                        amount=payment))
+                        self.trigger_event(
+                            MarketEvent.FundingPaymentCompleted,
+                            FundingPaymentCompletedEvent(timestamp=time.time(),
+                                                         market=self.name,
+                                                         funding_rate=self._funding_info[trading_pair].rate,
+                                                         trading_pair=trading_pair,
+                                                         amount=payment)
+                        )
 
     async def _funding_info_polling_loop(self):
         while True:
@@ -549,7 +554,13 @@ class PerpetualFinanceDerivative(DerivativeBase):
                                                                 {"pair": convert_to_exchange_trading_pair(pair)}))
                 funding_infos = await safe_gather(*funding_info_tasks, return_exceptions=True)
                 for trading_pair, funding_info in zip(self._trading_pairs, funding_infos):
-                    self._funding_info[trading_pair] = funding_info["fr"]
+                    self._funding_info[trading_pair] = FundingInfo(
+                        trading_pair,
+                        Decimal(funding_info["fr"]['indexPrice']),
+                        Decimal(funding_info["fr"]['markPrice']),
+                        int(funding_info["fr"]['nextFundingTime']),
+                        Decimal(funding_info["fr"]['rate'])
+                    )
             except Exception:
                 self.logger().network("Unexpected error while fetching funding info.", exc_info=True,
                                       app_warning_msg="Could not fetch new funding info from Perpetual Finance protocol. "
