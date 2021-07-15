@@ -2,9 +2,9 @@ name: ci
 
 on:
   push:
-    branches: [master, development, 'refactor/unit_tests**', 'main/**']
+    branches: [master, development, 'refactor/unit_tests**', 'epic/**']
   pull_request:
-    branches: [master, development, 'refactor/unit_tests**', 'main/**']
+    branches: [master, development, 'refactor/unit_tests**', 'epic/**']
     types: [ready_for_review, opened, synchronize, reopened]
 
 jobs:
