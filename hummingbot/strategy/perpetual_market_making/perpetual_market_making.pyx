@@ -393,10 +393,6 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
     def asset_price_delegate(self, value):
         self._asset_price_delegate = value
 
-    @property
-    def order_tracker(self):
-        return self._sb_order_tracker
-
     def perpetual_mm_assets_df(self, to_show_current_pct: bool) -> pd.DataFrame:
         market, trading_pair, base_asset, quote_asset = self._market_info
         price = self._market_info.get_mid_price()
