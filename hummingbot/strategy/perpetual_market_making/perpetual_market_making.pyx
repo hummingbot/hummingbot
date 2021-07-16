@@ -40,6 +40,7 @@ from .perpetual_market_making_order_tracker import PerpetualMarketMakingOrderTra
 from .asset_price_delegate cimport AssetPriceDelegate
 from .asset_price_delegate import AssetPriceDelegate
 from .order_book_asset_price_delegate cimport OrderBookAssetPriceDelegate
+from hummingbot.core.utils import map_df_to_str
 
 
 NaN = float("nan")
@@ -497,7 +498,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
         markets_df = self.market_status_data_frame([self._market_info])
         lines.extend(["", "  Markets:"] + ["    " + line for line in markets_df.to_string(index=False).split("\n")])
 
-        assets_df = self.perpetual_mm_assets_df(False)
+        assets_df = map_df_to_str(self.perpetual_mm_assets_df(False))
 
         first_col_length = max(*assets_df[0].apply(len))
         df_lines = assets_df.to_string(index=False, header=False,
