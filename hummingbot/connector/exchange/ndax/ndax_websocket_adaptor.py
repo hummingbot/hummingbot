@@ -16,6 +16,12 @@ class NdaxMessageType(Enum):
 
 
 class NdaxWebSocketAdaptor:
+
+    _message_type_field_name = "m"
+    _message_number_field_name = "i"
+    _endpoint_field_name = "n"
+    _payload_field_name = "o"
+
     """
     Auxiliary class that works as a wrapper of a low level web socket. It contains the logic to create messages
     with the format expected by NDAX
@@ -37,12 +43,24 @@ class NdaxWebSocketAdaptor:
 
     async def send_request(self, endpoint_name: str, payload: Dict[str, Any]):
         message_number = await self.next_message_number()
-        message = {"m": NdaxMessageType.REQUEST_TYPE.value,
-                   "i": message_number,
-                   "n": endpoint_name,
-                   "o": ujson.dumps(payload)}
+        message = {self._message_type_field_name: NdaxMessageType.REQUEST_TYPE.value,
+                   self._message_number_field_name: message_number,
+                   self._endpoint_field_name: endpoint_name,
+                   self._payload_field_name: ujson.dumps(payload)}
 
         await self._websocket.send(ujson.dumps(message))
 
     async def recv(self):
         return await self._websocket.recv()
+
+    async def close(self, *args, **kwars):
+        return await self._websocket.close(*args, **kwars)
+
+    def endpoint_from_raw_message(self, raw_message: str) -> str:
+        message = ujson.loads(raw_message)
+        return message.get(self._endpoint_field_name)
+
+    def payload_from_raw_message(self, raw_message: str) -> Dict[str, Any]:
+        message = ujson.loads(raw_message)
+        payload = ujson.loads(message.get(self._payload_field_name))
+        return payload
