@@ -22,7 +22,7 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
     def test_get_last_traded_prices(self):
         results = self.ev_loop.run_until_complete(asyncio.gather(self.data_source.get_last_traded_prices([self.trading_pair])))
         results = results[0]
-        self.assertGreaterEqual(results[self.trading_pair], 30000.0)
+        self.assertGreaterEqual(results[self.trading_pair], 0.0)
 
     def test_fetch_trading_pairs(self):
         results = self.ev_loop.run_until_complete(asyncio.gather(self.data_source.fetch_trading_pairs()))
@@ -41,3 +41,22 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.assertTrue(type(result) == OrderBook)
         self.assertNotEqual(result.snapshot_uid, 0)
+
+    def test_listen_for_snapshots(self):
+        msg_queue: asyncio.Queue = asyncio.Queue()
+
+        with self.assertRaises(asyncio.TimeoutError):
+            self.ev_loop.run_until_complete(
+                asyncio.wait_for(self.data_source.listen_for_order_book_snapshots(self.ev_loop, msg_queue), timeout=2.0)
+            )
+
+        self.assertGreater(msg_queue.qsize(), 0)
+
+    def test_listen_for_order_book_diffs(self):
+        msg_queue: asyncio.Queue = asyncio.Queue()
+
+        with self.assertRaises(asyncio.TimeoutError):
+            self.ev_loop.run_until_complete(
+                asyncio.wait_for(self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue), timeout=2.0))
+
+        self.assertGreater(msg_queue.qsize(), 0)
