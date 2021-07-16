@@ -57,3 +57,18 @@ class NdaxWebSocketAdaptorTests(TestCase):
         received_message = asyncio.get_event_loop().run_until_complete(adaptor.recv())
 
         self.assertEqual('test message', received_message)
+
+    def test_get_payload_from_raw_received_message(self):
+        ws = AsyncMock()
+        payload = {"Key1": True,
+                   "Key2": "Value2"}
+        message = {"m": 1,
+                   "i": 1,
+                   "n": "Endpoint",
+                   "o": json.dumps(payload)}
+        raw_message = json.dumps(message)
+
+        adaptor = NdaxWebSocketAdaptor(websocket=ws)
+        extracted_payload = adaptor.payload_from_raw_message(raw_message=raw_message)
+
+        self.assertEqual(payload, extracted_payload)
