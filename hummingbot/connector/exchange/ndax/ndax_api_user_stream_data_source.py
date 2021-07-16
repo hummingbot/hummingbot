@@ -20,7 +20,6 @@ from hummingbot.logger import HummingbotLogger
 
 
 class NdaxAPIUserStreamDataSource(UserStreamTrackerDataSource):
-
     _logger: Optional[HummingbotLogger] = None
 
     @classmethod
@@ -82,8 +81,8 @@ class NdaxAPIUserStreamDataSource(UserStreamTrackerDataSource):
         except asyncio.CancelledError:
             raise
         except Exception as ex:
-            self.logger().info(f"Error occurred when authenticating to user stream ({ex})",
-                               exc_info=True)
+            self.logger().error(f"Error occurred when authenticating to user stream ({ex})",
+                                exc_info=True)
             raise
 
     async def _subscribe_to_events(self, ws: NdaxWebSocketAdaptor):
@@ -98,7 +97,7 @@ class NdaxAPIUserStreamDataSource(UserStreamTrackerDataSource):
         except asyncio.CancelledError:
             raise
         except Exception as ex:
-            self.logger().error(f"Error occurred subscribing to {CONSTANTS.EXCHANGE_NAME} private channels ({ex}).",
+            self.logger().error(f"Error occurred subscribing to {CONSTANTS.EXCHANGE_NAME} private channels ({ex})",
                                 exc_info=True)
             raise
 
