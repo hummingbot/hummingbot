@@ -8,7 +8,6 @@ from typing import (
     Any,
     AsyncIterable,
     Dict,
-    List,
     Optional,
 )
 
@@ -28,16 +27,13 @@ class NdaxAPIUserStreamDataSource(UserStreamTrackerDataSource):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self,
-                 auth_assistant: NdaxAuth,
-                 trading_pairs: Optional[List[str]] = []):
+    def __init__(self, auth_assistant: NdaxAuth):
         super().__init__()
-        self._websocket_client: NdaxWebSocketAdaptor = None
+        self._websocket_client: Optional[NdaxWebSocketAdaptor] = None
         self._auth_assistant: NdaxAuth = auth_assistant
-        self._trading_pairs = trading_pairs
         self._last_recv_time: float = 0
-        self._account_id: int = None
-        self._oms_id: int = None
+        self._account_id: Optional[int] = None
+        self._oms_id: Optional[int] = None
 
     @property
     def last_recv_time(self) -> float:
