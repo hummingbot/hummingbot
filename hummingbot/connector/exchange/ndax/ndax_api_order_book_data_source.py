@@ -2,7 +2,12 @@
 import aiohttp
 import asyncio
 import logging
+import pandas as pd
 import time
+import ujson
+import websockets
+
+import hummingbot.connector.exchange.ndax.ndax_constants as CONSTANTS
 
 from typing import (
     Any,
@@ -11,10 +16,10 @@ from typing import (
     Optional,
 )
 
-import hummingbot.connector.exchange.ndax.ndax_constants as CONSTANTS
-
 from hummingbot.connector.exchange.ndax.ndax_order_book import NdaxOrderBook
 from hummingbot.connector.exchange.ndax.ndax_order_book_message import NdaxOrderBookEntry
+from hummingbot.connector.exchange.ndax.ndax_utils import convert_to_exchange_trading_pair
+from hummingbot.connector.exchange.ndax.ndax_websocket_adaptor import NdaxWebSocketAdaptor
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -22,6 +27,8 @@ from hummingbot.logger.logger import HummingbotLogger
 
 
 class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
+    MESSAGE_TIMEOUT = 30.0
+    PING_TIMEOUT = 10.0
 
     _logger: Optional[HummingbotLogger] = None
     _trading_pair_id_map: Dict[str, int] = {}
@@ -78,15 +85,13 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 params = {
                     "OMSId": 1,
                     "InstrumentId": cls._trading_pair_id_map[trading_pair],
-                    "Depth": 1,
                 }
-                async with client.get(f"{CONSTANTS.ORDER_BOOK_URL}", params=params) as response:
+                async with client.get(f"{CONSTANTS.LAST_TRADE_PRICE_URL}", params=params) as response:
                     if response.status == 200:
                         resp_json: Dict[str, Any] = await response.json()
-                        entry = resp_json[0]
 
                         results.update({
-                            trading_pair: float(entry[4])
+                            trading_pair: float(resp_json["LastTradedPx"])
                         })
 
         return results
@@ -132,7 +137,7 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         f"HTTP {response.status}. Response: {await response.json()}"
                     )
 
-                response = await response.json()
+                response: List[Any] = await response.json()
                 orderbook_entries: List[NdaxOrderBookEntry] = [NdaxOrderBookEntry(*entry) for entry in response]
                 return {"data": orderbook_entries}
 
@@ -152,6 +157,9 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return order_book
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        """
+        Periodically polls for orderbook snapshots using the REST API.
+        """
         while True:
             try:
                 for trading_pair in self._trading_pairs:
@@ -178,6 +186,10 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                             "Check network connection."
                         )
                         await asyncio.sleep(5.0)
+                this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
+                next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)
+                delta: float = next_hour.timestamp() - time.time()
+                await asyncio.sleep(delta)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -186,7 +198,57 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 await asyncio.sleep(5.0)
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
-        pass
+        """
+        Listen for orderbook diffs using WebSocket API.
+        """
+        while True:
+            try:
+                async with websockets.connect(uri=CONSTANTS.WSS_URL) as ws:
+                    ws_adapter: NdaxWebSocketAdaptor = NdaxWebSocketAdaptor(websocket=ws)
+                    for trading_pair in self._trading_pairs:
+                        payload = {
+                            "OMSId": 1,
+                            "Symbol": convert_to_exchange_trading_pair(trading_pair),
+                            "Depth": 99999
+                        }
+                        await ws_adapter.send_request(endpoint_name=CONSTANTS.WS_ORDER_BOOK_CHANNEL,
+                                                      payload=payload)
+                    async for raw_msg in ws_adapter.iter_messages():
+                        msg: Dict[str, Any] = ujson.loads(raw_msg)
+                        msg_event: str = msg["n"]
+
+                        if msg_event not in [CONSTANTS.WS_ORDER_BOOK_CHANNEL, CONSTANTS.WS_ORDER_BOOK_L2_UPDATE_EVENT]:
+                            continue
+
+                        msg_data: List[NdaxOrderBookEntry] = [NdaxOrderBookEntry(*entry)
+                                                              for entry in ujson.loads(msg["o"])]
+                        msg_timestamp: int = max([e.actionDateTime for e in msg_data])
+
+                        content = {"data": msg_data}
+
+                        if msg_event == CONSTANTS.WS_ORDER_BOOK_CHANNEL:
+                            snapshot_msg: OrderBookMessage = NdaxOrderBook.snapshot_message_from_exchange(msg=content,
+                                                                                                          timestamp=msg_timestamp)
+                            output.put_nowait(snapshot_msg)
+                        elif msg_event == CONSTANTS.WS_ORDER_BOOK_L2_UPDATE_EVENT:
+                            diff_msg: OrderBookMessage = NdaxOrderBook.diff_message_from_exchange(msg=content,
+                                                                                                  timestamp=msg_timestamp)
+                            output.put_nowait(diff_msg)
+
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().network(
+                    "Unexpected error with WebSocket connection.",
+                    exc_info=True,
+                    app_warning_msg="Unexpected error with WebSocket connection. Retrying in 30 seconds. "
+                                    "Check network connection."
+                )
+                await asyncio.sleep(30.0)
+            finally:
+                await ws.close()
 
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        # NDAX does not have a public orderbook trade channel, rather it can be inferred from the Level2UpdateEvent when
+        # subscribed to the SubscribeLevel2 channel
         pass

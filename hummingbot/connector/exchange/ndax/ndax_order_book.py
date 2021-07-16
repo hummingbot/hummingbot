@@ -111,6 +111,7 @@ class NdaxOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
 
+        # TODO: Update msg with the appropriate fields
         msg.update({
             "exchange_order_id": msg.get("id"),
             "trade_type": msg.get("side"),
