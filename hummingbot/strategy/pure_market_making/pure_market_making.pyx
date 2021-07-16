@@ -452,10 +452,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     def inventory_cost_price_delegate(self, value):
         self._inventory_cost_price_delegate = value
 
-    @property
-    def order_tracker(self):
-        return self._sb_order_tracker
-
     def inventory_skew_stats_data_frame(self) -> Optional[pd.DataFrame]:
         cdef:
             ExchangeBase market = self._market_info.market

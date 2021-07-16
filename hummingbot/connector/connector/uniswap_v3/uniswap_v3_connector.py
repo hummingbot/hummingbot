@@ -179,6 +179,10 @@ class UniswapV3Connector(UniswapConnector):
         """
         if update_result.get("confirmed", False):
             if update_result["receipt"].get("status", 0) == 1:
+                gas_used = update_result["receipt"]["gasUsed"]
+                gas_price = tracked_pos.gas_price
+                fee = Decimal(str(gas_used)) * Decimal(str(gas_price)) / Decimal(str(1e9))
+                tracked_pos.tx_fees.append(fee)
                 transaction_results = await self._api_request("post",
                                                               "eth/uniswap/v3/result",
                                                               {"logs": json.dumps(update_result["receipt"]["logs"]),
@@ -423,17 +427,17 @@ class UniswapV3Connector(UniswapConnector):
             self.trigger_event(MarketEvent.RangePositionFailure,
                                RangePositionFailureEvent(self.current_timestamp, hb_id))
 
-    def remove_position(self, hb_id: str, token_id: str, reducePercent: Decimal = Decimal("100.0")):
-        safe_ensure_future(self._remove_position(hb_id, token_id, reducePercent))
-        # get the inflight order that has this token_id
+    def remove_position(self, hb_id: str, token_id: str, reducePercent: Decimal = Decimal("100.0"), fee_estimate: bool = False):
+        safe_ensure_future(self._remove_position(hb_id, token_id, reducePercent, fee_estimate))
         return hb_id
 
-    async def _remove_position(self, hb_id: str, token_id: str, reducePercent: Decimal):
+    async def _remove_position(self, hb_id: str, token_id: str, reducePercent: Decimal, fee_estimate: bool):
         """
-        Calls add position end point to create/increase a range position.
+        Calls remove position end point to remove/decrease a range position.
         :param hb_id: Internal Hummingbot id
         :param token_id: The token id of position to be increased
         :param reducePercent: The percentage of liquidity to remove from position with the specified token id
+        :param fee_estimate: True if to get fee estimate to remove lp
         """
         tracked_pos = self._in_flight_positions.get(hb_id)
         await tracked_pos.get_last_tx_hash()
@@ -442,26 +446,30 @@ class UniswapV3Connector(UniswapConnector):
         try:
             result = await self._api_request("post",
                                              "eth/uniswap/v3/remove-position",
-                                             {"tokenId": token_id, "reducePercent": reducePercent})
-            hash = result.get("hash")
-            action = "removal of" if reducePercent == Decimal("100.0") else \
-                     f"{reducePercent}% reduction of liquidity for"
-            self.logger().info(f"Initiated {action} of position with ID - {token_id}.")
-            tracked_pos.update_last_tx_hash(hash)
-            self.trigger_event(MarketEvent.RangePositionUpdated,
-                               RangePositionUpdatedEvent(self.current_timestamp, tracked_pos.hb_id,
-                                                         tracked_pos.last_tx_hash, tracked_pos.token_id,
-                                                         tracked_pos.base_amount, tracked_pos.quote_amount,
-                                                         tracked_pos.last_status.name))
+                                             {"tokenId": token_id, "reducePercent": reducePercent, "getFee": str(fee_estimate)})
+            if fee_estimate:
+                return Decimal(str(result.get("gasFee")))
+            else:
+                hash = result.get("hash")
+                action = "removal of" if reducePercent == Decimal("100.0") else \
+                         f"{reducePercent}% reduction of liquidity for"
+                self.logger().info(f"Initiated {action} of position with ID - {token_id}.")
+                tracked_pos.update_last_tx_hash(hash)
+                self.trigger_event(MarketEvent.RangePositionUpdated,
+                                   RangePositionUpdatedEvent(self.current_timestamp, tracked_pos.hb_id,
+                                                             tracked_pos.last_tx_hash, tracked_pos.token_id,
+                                                             tracked_pos.base_amount, tracked_pos.quote_amount,
+                                                             tracked_pos.last_status.name))
         except Exception as e:
             # self.stop_tracking_position(hb_id)
-            self.logger().network(
-                f"Error removing range position, token_id: {token_id}, hb_id: {hb_id}",
-                exc_info=True,
-                app_warning_msg=str(e)
-            )
-            self.trigger_event(MarketEvent.RangePositionFailure,
-                               RangePositionFailureEvent(self.current_timestamp, hb_id))
+            if not fee_estimate:
+                self.logger().network(
+                    f"Error removing range position, token_id: {token_id}, hb_id: {hb_id}",
+                    exc_info=True,
+                    app_warning_msg=str(e)
+                )
+                self.trigger_event(MarketEvent.RangePositionFailure,
+                                   RangePositionFailureEvent(self.current_timestamp, hb_id))
 
     async def get_position(self, token_id: str):
         result = await self._api_request("post", "eth/uniswap/v3/position", {"tokenId": token_id})
@@ -488,7 +496,7 @@ class UniswapV3Connector(UniswapConnector):
                                             "tier": tier.upper(),
                                             "seconds": seconds})
 
-            return resp["prices"] if twap else Decimal(str(resp["price"]))
+            return resp.get("prices", []) if twap else Decimal(str(resp.get("price", "0")))
         except asyncio.CancelledError:
             raise
         except Exception as e:
