@@ -8,16 +8,26 @@ from hummingbot.core.data_type.order_book import OrderBook
 
 class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
-    def setUp(self) -> None:
-        super().setUp()
+    @classmethod
+    def setUpClass(cls) -> None:
+        super().setUpClass()
 
-        self.ev_loop = asyncio.get_event_loop()
-        self.trading_pair = "BTC-CAD"
-        self.data_source = NdaxAPIOrderBookDataSource([self.trading_pair])
+        cls.ev_loop = asyncio.get_event_loop()
+        cls.trading_pair = "BTC-CAD"
+        cls.data_source = NdaxAPIOrderBookDataSource([cls.trading_pair])
+        cls.ev_loop.run_until_complete(cls.wait_til_data_source_ready())
 
-    def test_init_trading_pair_ids(self):
-        self.ev_loop.run_until_complete(self.data_source.init_trading_pair_ids())
-        self.assertEqual(1, self.data_source._trading_pair_id_map[self.trading_pair])
+    @classmethod
+    async def wait_til_data_source_ready(cls):
+        while True:
+            if len(cls.data_source._trading_pair_id_map) > 0:
+                print("Initialized data source.")
+                return
+            await asyncio.sleep(1)
+
+    # def test_init_trading_pair_ids(self):
+    #     self.ev_loop.run_until_complete(self.data_source.init_trading_pair_ids())
+    #     self.assertEqual(1, self.data_source._trading_pair_id_map[self.trading_pair])
 
     def test_get_last_traded_prices(self):
         results = self.ev_loop.run_until_complete(asyncio.gather(self.data_source.get_last_traded_prices([self.trading_pair])))
