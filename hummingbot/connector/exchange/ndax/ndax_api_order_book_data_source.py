@@ -121,6 +121,8 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Returns:
             Dict[str, any]: Parsed API Response.
         """
+        if not len(cls._trading_pair_id_map) > 0:
+            await cls.init_trading_pair_ids()
         params = {
             "OMSId": 1,
             "InstrumentId": cls._trading_pair_id_map[trading_pair],

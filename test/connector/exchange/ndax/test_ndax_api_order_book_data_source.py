@@ -25,9 +25,9 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                 return
             await asyncio.sleep(1)
 
-    # def test_init_trading_pair_ids(self):
-    #     self.ev_loop.run_until_complete(self.data_source.init_trading_pair_ids())
-    #     self.assertEqual(1, self.data_source._trading_pair_id_map[self.trading_pair])
+    def test_init_trading_pair_ids(self):
+        self.ev_loop.run_until_complete(self.data_source.init_trading_pair_ids())
+        self.assertEqual(1, self.data_source._trading_pair_id_map[self.trading_pair])
 
     def test_get_last_traded_prices(self):
         results = self.ev_loop.run_until_complete(asyncio.gather(self.data_source.get_last_traded_prices([self.trading_pair])))
