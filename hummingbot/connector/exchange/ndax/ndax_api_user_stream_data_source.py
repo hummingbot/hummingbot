@@ -70,7 +70,7 @@ class NdaxAPIUserStreamDataSource(UserStreamTrackerDataSource):
                                     exc_info=True)
                 raise Exception("Could not authenticate websocket connection with NDAX")
 
-            auth_user = ujson.loads(auth_payload.get("User"))
+            auth_user = auth_payload.get("User")
             self._account_id = auth_user.get("AccountId")
             self._oms_id = auth_user.get("OMSId")
 
