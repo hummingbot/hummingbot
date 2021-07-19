@@ -118,8 +118,6 @@ dependencies:
     - flake8==3.7.9
     - future==0.18.2
     - hexbytes==0.2.0
-    - hummingbot==20210601.dev1
-    - hummingsim==20210601
     - hyperlink==19.0.0
     - identify==1.4.11
     - idna==2.8
