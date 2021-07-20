@@ -3,12 +3,12 @@
 EXCHANGE_NAME = "ndax"
 
 # Production URLs
-# REST_URL = "https://api.ndax.io:8443/AP/"
-# WSS_URL = "wss://api.ndax.io/WSGateway"
+REST_URL = "https://api.ndax.io:8443/AP"
+WSS_URL = "wss://api.ndax.io/WSGateway"
 
 # Testing URLs
-REST_URL = "https://ndaxmarginstaging.cdnhop.net:8443/AP/"
-WSS_URL = "wss://ndaxmarginstaging.cdnhop.net/WSGateway"
+# REST_URL = "https://ndaxmarginstaging.cdnhop.net:8443/AP/"
+# WSS_URL = "wss://ndaxmarginstaging.cdnhop.net/WSGateway"
 
 REST_API_VERSON = "v3.3"
 
