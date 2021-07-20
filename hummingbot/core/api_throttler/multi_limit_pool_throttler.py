@@ -35,7 +35,7 @@ class MultiLimitPoolsRequestContext:
                  rate_limits: List[CallRateLimit],
                  retry_interval: Seconds = 0.1):
         """
-        :param task_logs: A list of current active tasks
+        :param task_logs: A list of task logs
         :param rate_limits: A list of rate limits appreciable to this context
         :param retry_interval: A retry interval (wait time) between each try once the rate limit is reached
         """
@@ -45,7 +45,7 @@ class MultiLimitPoolsRequestContext:
 
     def _within_capacity(self) -> bool:
         """
-        Checks if an additional task is still within all its call rate limits. Log a warning message if the limit is
+        Checks if an additional task is still within all its call rate limits. Logs a warning message if the limit is
         about to reach.
         :Return: True if it is within capacity to add a new task
         """
