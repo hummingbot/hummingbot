@@ -16,8 +16,8 @@ MAX_CAPACITY_REACHED_WARNING_INTERVAL = 10.
 
 class MultiLimitPoolsRequestContext:
     """
-    An async context class (use it with async with syntax) with a lock to prevent other instance from running acquire
-    before it finishes with it.
+    An async context class ('async with' syntax) that checks for rate limit and wait for the capacity if needed.
+    It uses async lock to prevent other instances of this class from running acquire fn before it finishes with it.
     """
 
     @classmethod
@@ -45,7 +45,8 @@ class MultiLimitPoolsRequestContext:
 
     def _within_capacity(self) -> bool:
         """
-        Check if an additional task is still within all its call rate limits.
+        Checks if an additional task is still within all its call rate limits. Log a warning message if the limit is
+        about to reach.
         :Return: True if it is within capacity to add a new task
         """
         now: float = time.time()
@@ -95,12 +96,12 @@ class MultiLimitPoolsThrottler:
     """
     Handles call rate limits by providing async context (async with), it delays as needed to make sure calls stay
     within defined limits.
-    A task can have multiple call rates (weight), though tasks are still ordered in sequence and they come (FIFO).
+    A task can have multiple call rates (weight), though tasks are still ordered in sequence as they come (FIFO).
     For example
     Pool 0 - rate limit is 100 calls per second
     Pool 1 - rate limit is 10 calls per second
     Task A which increases rate limit for both Pool 0 and Pool 1 can be called at 10 calls per second, any calls after
-    this (whether it belongs to Pool 0 or Pool 1) will have to wait for capacity (some of the Task A flushed out).
+    this (whether it belongs to Pool 0 or Pool 1) will have to wait for new capacity (some of the Task A flushed out).
     """
 
     def __init__(self,
@@ -116,6 +117,12 @@ class MultiLimitPoolsThrottler:
         self._task_logs: List[MultiLimitsTaskLog] = list()
 
     def execute_task(self, limit_ids: List[str]) -> MultiLimitPoolsRequestContext:
+        """
+        Creates an async context where code within the context (a task) can be run only when all rate
+        limits have capacity for the new task.
+        :param limit_ids: A list of limit_ids for rate limits supplied during init
+        :return: An async context (used with async with syntax)
+        """
         rate_limits: List[CallRateLimit] = [r for r in self._rate_limit_list if r.limit_id in limit_ids]
         return MultiLimitPoolsRequestContext(
             task_logs=self._task_logs,

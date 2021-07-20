@@ -27,7 +27,9 @@ class TaskLog:
 
 
 class CallRateLimit:
-
+    """
+    Defines call rate limits typical for API endpoints.
+    """
     def __init__(self,
                  limit_id: str,
                  limit: Limit,
@@ -37,7 +39,7 @@ class CallRateLimit:
                  ):
         """
         :param limit_id: A unique identifier for this CallRateLimit object, this is usually an API request path
-        :param limit: A total number of calls * weight permitted with time_interval period
+        :param limit: A total number of calls * weight permitted within time_interval period
         :param time_interval: The time interval
         :param weight: The weight (in integer) of each call
         :param period_safety_margin: An extra safety margin, in seconds, to make sure calls are within the limit,
