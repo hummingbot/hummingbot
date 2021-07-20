@@ -53,7 +53,7 @@ def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
         if trading_pair == 'USDTUSD':
             return 'USD', 'TUSD'
         elif trading_pair == 'USDTGUSD':
-            return 'USD', 'GUSD'
+            return 'USDT', 'GUSD'
         m = TRADING_PAIR_SPLITTER.match(trading_pair)
         return m.group(1), m.group(2)
     # Exceptions are now logged as warnings in trading pair fetcher
