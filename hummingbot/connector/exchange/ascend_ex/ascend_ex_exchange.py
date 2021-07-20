@@ -41,8 +41,9 @@ from hummingbot.connector.exchange.ascend_ex.ascend_ex_user_stream_tracker impor
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_in_flight_order import AscendExInFlightOrder
 from hummingbot.connector.exchange.ascend_ex import ascend_ex_utils
-from hummingbot.connector.exchange.ascend_ex.ascend_ex_constants import EXCHANGE_NAME, REST_URL
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_constants import EXCHANGE_NAME, REST_URL, REQUEST_CALL_LIMITS
 from hummingbot.core.data_type.common import OpenOrder
+from hummingbot.core.api_throttler.multi_limit_pool_throttler import MultiLimitPoolsThrottler
 ctce_logger = None
 s_decimal_NaN = Decimal("nan")
 s_decimal_0 = Decimal("0")
@@ -113,6 +114,7 @@ class AscendExExchange(ExchangePyBase):
         self._last_poll_timestamp = 0
         self._account_group = None  # required in order to make post requests
         self._account_uid = None  # required in order to produce deterministic order ids
+        self._throttler: MultiLimitPoolsThrottler = MultiLimitPoolsThrottler(list(REQUEST_CALL_LIMITS.values()))
 
     @property
     def name(self) -> str:
@@ -364,56 +366,61 @@ class AscendExExchange(ExchangePyBase):
         signature to the request.
         :returns A response in json format.
         """
-        url = None
-        headers = None
+        api_limit_pools = [REQUEST_CALL_LIMITS["all_endpoints"].limit_id]
+        if path_url in REQUEST_CALL_LIMITS:
+            api_limit_pools.append(path_url)
+        async with self._throttler.execute_task(limit_ids=api_limit_pools):
+            url = None
+            headers = None
 
-        if is_auth_required:
-            if (self._account_group) is None:
-                await self._update_account_data()
+            if is_auth_required:
+                if (self._account_group) is None:
+                    await self._update_account_data()
 
-            url = f"{ascend_ex_utils.get_rest_url_private(self._account_group)}/{path_url}"
-            headers = {
-                **self._ascend_ex_auth.get_headers(),
-                **self._ascend_ex_auth.get_auth_headers(
-                    path_url if force_auth_path_url is None else force_auth_path_url
-                ),
-            }
-        else:
-            url = f"{REST_URL}/{path_url}"
-            headers = self._ascend_ex_auth.get_headers()
+                url = f"{ascend_ex_utils.get_rest_url_private(self._account_group)}/{path_url}"
+                headers = {
+                    **self._ascend_ex_auth.get_headers(),
+                    **self._ascend_ex_auth.get_auth_headers(
+                        path_url if force_auth_path_url is None else force_auth_path_url
+                    ),
+                }
+            else:
+                url = f"{REST_URL}/{path_url}"
+                headers = self._ascend_ex_auth.get_headers()
 
-        client = await self._http_client()
-        if method == "get":
-            response = await client.get(
-                url,
-                headers=headers
-            )
-        elif method == "post":
-            response = await client.post(
-                url,
-                headers=headers,
-                data=json.dumps(params)
-            )
-        elif method == "delete":
-            response = await client.delete(
-                url,
-                headers=headers,
-                data=json.dumps(params)
-            )
-        else:
-            raise NotImplementedError
+            client = await self._http_client()
+            if method == "get":
+                response = await client.get(
+                    url,
+                    headers=headers
+                )
+            elif method == "post":
+                response = await client.post(
+                    url,
+                    headers=headers,
+                    data=json.dumps(params)
+                )
+            elif method == "delete":
+                response = await client.delete(
+                    url,
+                    headers=headers,
+                    data=json.dumps(params)
+                )
+            else:
+                raise NotImplementedError
 
-        try:
-            parsed_response = json.loads(await response.text())
-        except Exception as e:
-            raise IOError(f"Error parsing data from {url}. Error: {str(e)}")
-        if response.status != 200:
-            raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. "
-                          f"Message: {parsed_response}")
-        if parsed_response["code"] != 0:
-            raise IOError(f"{url} API call failed, response: {parsed_response}")
+            resp_text = await response.text()
+            if response.status != 200:
+                raise IOError(f"Error calling {url}. HTTP status is {response.status}. "
+                              f"Message: {resp_text}")
+            try:
+                parsed_response = json.loads(resp_text)
+            except Exception as e:
+                raise IOError(f"Error calling {url}. Error: {str(e)}")
+            if parsed_response["code"] != 0:
+                raise IOError(f"{url} API call failed, response: {parsed_response}")
 
-        return parsed_response
+            return parsed_response
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal):
         """

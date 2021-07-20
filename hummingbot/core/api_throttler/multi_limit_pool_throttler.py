@@ -1,6 +1,6 @@
 import asyncio
 import time
-
+import logging
 from typing import List
 
 from hummingbot.core.api_throttler.data_types import (
@@ -8,6 +8,10 @@ from hummingbot.core.api_throttler.data_types import (
     Seconds,
     MultiLimitsTaskLog
 )
+from hummingbot.logger import HummingbotLogger
+
+mlpt_logger = None
+MAX_CAPACITY_REACHED_WARNING_INTERVAL = 10.
 
 
 class MultiLimitPoolsRequestContext:
@@ -16,7 +20,15 @@ class MultiLimitPoolsRequestContext:
     before it finishes with it.
     """
 
+    @classmethod
+    def logger(cls) -> HummingbotLogger:
+        global mlpt_logger
+        if mlpt_logger is None:
+            mlpt_logger = logging.getLogger(__name__)
+        return mlpt_logger
+
     _lock = asyncio.Lock()
+    _last_max_cap_warning_ts: float = 0.
 
     def __init__(self,
                  task_logs: List[MultiLimitsTaskLog],
@@ -41,6 +53,11 @@ class MultiLimitPoolsRequestContext:
             same_pool_tasks = [t for t in self._task_logs if rate_limit in t.rate_limits and
                                now - rate_limit.period_safety_margin - t.timestamp <= rate_limit.time_interval]
             if (len(same_pool_tasks) + 1) * rate_limit.weight > rate_limit.limit:
+                if self._last_max_cap_warning_ts < time.time() - MAX_CAPACITY_REACHED_WARNING_INTERVAL:
+                    self.logger().warning(f"A rate limit on {rate_limit.limit_id} has almost reached. Number of calls "
+                                          f"is {len(same_pool_tasks) * rate_limit.weight} in the last "
+                                          f"{rate_limit.time_interval} seconds")
+                    MultiLimitPoolsRequestContext._last_max_cap_warning_ts = time.time()
                 return False
         return True
 
@@ -83,7 +100,7 @@ class MultiLimitPoolsThrottler:
     Pool 0 - rate limit is 100 calls per second
     Pool 1 - rate limit is 10 calls per second
     Task A which increases rate limit for both Pool 0 and Pool 1 can be called at 10 calls per second, any calls after
-    this (whether it belongs to Pool 0 or Pool 1) will have to wait for some of the Task A to pass (flushed out).
+    this (whether it belongs to Pool 0 or Pool 1) will have to wait for capacity (some of the Task A flushed out).
     """
 
     def __init__(self,
