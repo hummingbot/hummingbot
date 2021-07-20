@@ -1,5 +1,4 @@
 
-from hummingbot.core.utils.async_utils import safe_ensure_future
 import aiohttp
 import asyncio
 import logging
@@ -36,7 +35,6 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     def __init__(self, trading_pairs: List[str]):
         super().__init__(trading_pairs)
-        safe_ensure_future(self.init_trading_pair_ids())
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -75,6 +73,9 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Returns:
             Dict[str, float]: Dictionary of trading pairs to its last traded price in float
         """
+        if not len(cls._trading_pair_id_map) > 0:
+            await cls.init_trading_pair_ids()
+
         results = {}
 
         async with aiohttp.ClientSession() as client:
@@ -159,6 +160,8 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         Periodically polls for orderbook snapshots using the REST API.
         """
+        if not len(self._trading_pair_id_map) > 0:
+            await self.init_trading_pair_ids()
         while True:
             try:
                 for trading_pair in self._trading_pairs:
@@ -200,6 +203,9 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         Listen for orderbook diffs using WebSocket API.
         """
+        if not len(self._trading_pair_id_map) > 0:
+            await self.init_trading_pair_ids()
+
         while True:
             try:
 

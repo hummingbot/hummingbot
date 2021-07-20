@@ -1,6 +1,12 @@
 import asyncio
 import unittest
 
+from unittest.mock import patch, AsyncMock
+from typing import (
+    Any,
+    Dict,
+    List,
+)
 
 from hummingbot.connector.exchange.ndax.ndax_api_order_book_data_source import NdaxAPIOrderBookDataSource
 from hummingbot.core.data_type.order_book import OrderBook
@@ -13,28 +19,59 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         super().setUpClass()
 
         cls.ev_loop = asyncio.get_event_loop()
-        cls.trading_pair = "BTC-CAD"
+        cls.base_asset = "COINALPHA"
+        cls.quote_asset = "HBOT"
+        cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
+        cls.instrument_id = 1
         cls.data_source = NdaxAPIOrderBookDataSource([cls.trading_pair])
-        cls.ev_loop.run_until_complete(cls.wait_til_data_source_ready())
 
-    @classmethod
-    async def wait_til_data_source_ready(cls):
-        while True:
-            if len(cls.data_source._trading_pair_id_map) > 0:
-                print("Initialized data source.")
-                return
-            await asyncio.sleep(1)
+    def simulate_trading_pair_ids_initialized(self):
+        self.data_source._trading_pair_id_map.update({self.trading_pair: self.instrument_id})
 
-    def test_init_trading_pair_ids(self):
+    def set_mock_response(self, mock_api, status, json_data):
+        mock_api.return_value.__aenter__.return_value.status = status
+        mock_api.return_value.__aenter__.return_value.json = AsyncMock(return_value=json_data)
+
+    @patch("aiohttp.ClientSession.get")
+    def test_init_trading_pair_ids(self, mock_api):
+
+        mock_response: List[Any] = [{
+            "Product1Symbol": self.base_asset,
+            "Product2Symbol": self.quote_asset,
+            "InstrumentId": self.instrument_id,
+        }]
+
+        self.set_mock_response(mock_api, 200, mock_response)
+
         self.ev_loop.run_until_complete(self.data_source.init_trading_pair_ids())
         self.assertEqual(1, self.data_source._trading_pair_id_map[self.trading_pair])
 
-    def test_get_last_traded_prices(self):
-        results = self.ev_loop.run_until_complete(asyncio.gather(self.data_source.get_last_traded_prices([self.trading_pair])))
-        results = results[0]
-        self.assertGreaterEqual(results[self.trading_pair], 0.0)
+    @patch("aiohttp.ClientSession.get")
+    def test_get_last_traded_prices(self, mock_api):
 
-    def test_fetch_trading_pairs(self):
+        self.simulate_trading_pair_ids_initialized()
+        mock_response: Dict[Any] = {
+            "LastTradedPx": 1.0
+        }
+
+        self.set_mock_response(mock_api, 200, mock_response)
+
+        results = self.ev_loop.run_until_complete(asyncio.gather(self.data_source.get_last_traded_prices([self.trading_pair])))
+        results: Dict[str, Any] = results[0]
+
+        self.assertEqual(results[self.trading_pair], mock_response["LastTradedPx"])
+
+    @patch("aiohttp.ClientSession.get")
+    def test_fetch_trading_pairs(self, mock_api):
+
+        self.simulate_trading_pair_ids_initialized()
+
+        mock_response: List[Any] = [{
+            "Product1Symbol": self.base_asset,
+            "Product2Symbol": self.quote_asset,
+        }]
+        self.set_mock_response(mock_api, 200, mock_response)
+
         results = self.ev_loop.run_until_complete(asyncio.gather(self.data_source.fetch_trading_pairs()))
         result = results[0]
         self.assertTrue(self.trading_pair in result)
