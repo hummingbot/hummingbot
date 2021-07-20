@@ -61,7 +61,7 @@ class NdaxAPIUserStreamDataSourceTests(TestCase):
                 "Use2FA": True}
         payload = {"Authenticated": authenticated,
                    "SessionToken": "74e7c5b0-26b1-4ca5-b852-79b796b0e599",
-                   "User": json.dumps(user),
+                   "User": user,
                    "Locked": False,
                    "Requires2FA": False,
                    "EnforceEnable2FA": False,
