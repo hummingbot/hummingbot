@@ -1,0 +1,32 @@
+---
+title: Overview
+---
+
+## What are Connectors?
+
+Connectors are packages of code that link Hummingbot's internal trading algorithms with live information from different cryptocurrency exchanges. They interact with a given exchange's API, such as by gathering order book data and sending and cancelling trades.
+
+### How connectors are integrated into Hummingbot?
+
+Connectors are packages of code that link Hummingbot's internal trading algorithms with live information from different cryptocurrency exchanges. They interact with a given exchange's API, such as by gathering order book data and sending and canceling trades.
+
+Generally, there are two ways of getting connectors integrated into Hummingbot:
+
+1. Exchanges or protocols contact the Hummingbot team to write/build the connector, merge it into our codebase, and ship it out during a release. Some examples of these connectors are [Binance.com](https://www.binance.com/en), [Crypto.com](https://crypto.com/), [Balancer](https://balancer.fi/), [Uniswap](https://uniswap.org/), [Terra](https://www.terra.money/)
+
+2. Connectors that start life as a fork or pre-built [pull request](https://github.com/CoinAlpha/hummingbot/pulls) that goes through the [governance process](https://hummingbot.io/blog/2020-08-exchange-connector-governance/) - we let the community vote for the next exchange connector that we integrate into Hummingbot. Some examples are [Loopring](https://loopring.org/#/) and [dYdX](https://dydx.exchange/)
+
+If you are affiliated with the exchange and would like to discuss building and/or integrating a connector into Hummingbot, please send an email to partnerships@hummingbot.io
+
+## Protocol Connector Status
+
+Below are the status of each connector as of version 0.40.0.
+
+| Connector                                         | Status                                              | Descripton                                                                                                                                                                                      |
+| :------------------------------------------------ | :-------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Balancer](/protocol-connectors/balancer)         | <span style="color:green; font-size:25px">⬤</span>  | Connector is working properly and safe to use                                                                                                                                                   |
+| [Celo](/strategies/celo-arb/)                     | <span style="color:green; font-size:25px">⬤</span>  | Connector is working properly and safe to use                                                                                                                                                   |
+| [Perpetual Finance](/protocol-connectors/perp-fi) | <span style="color:yellow; font-size:25px">⬤</span> | Connector has one or more reported issues. Refer to our [Github page](https://github.com/CoinAlpha/hummingbot/issues?q=is%3Aopen+%22perpetual+finance%22+in%3Atitle+) page for more information |
+| [Terra](/protocol-connectors/terra)               | <span style="color:green; font-size:25px">⬤</span>  | Connector is working properly and safe to use                                                                                                                                                   |
+| [Uniswap](/protocol-connectors/uniswap)           | <span style="color:green; font-size:25px">⬤</span>  | Connector is working properly and safe to use                                                                                                                                                   |
+| [Uniswap v3](/protocol-connectors/uniswapv3)      | <span style="color:yellow; font-size:25px">⬤</span> | Connector is new (BETA) and may have some undiscovered issues                                                                                                                                   |
