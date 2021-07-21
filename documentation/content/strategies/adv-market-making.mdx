@@ -1,0 +1,29 @@
+---
+title: Overview
+description: Learn how to use advanced market making strategies
+---
+
+These advanced parameters give you more control over how your bot behaves. Please take the time to understand how these parameters work before risking extensive capital with bots that utilize them.
+
+There are two ways to configure these parameters:
+
+1. Run `config` to see the current strategy settings. Run command `config [parameter_name]` to reconfigure the parameter.
+2. Outside of the Hummingbot client, you can edit the strategy configuration file directly using a text editor and then import it later.
+
+## Advanced Pure Market Making Parameters
+
+| Parameter                                                   | Definition                                                                                                                  |
+| ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| [Order Levels](./order-levels)                              | Set the number of order levels to place for each side of the order book.                                                    |
+| [Inventory Skew](./inventory-skew)                          | Set and maintain a target inventory split between base and quote assets.                                                    |
+| [Filled Order Delay](./filled-order-delay)                  | Set the duration of how long to wait before placing the next set of orders in case at least one of your orders gets filled. |
+| [Hanging Orders](./hanging-orders)                          | If enabled, the orders on the side opposite to the filled orders remains active.                                            |
+| [Minimum Spread](./minimum-spread)                          | Set the minimum spread value for active orders to be canceled when the spread falls below this value.                       |
+| [Order Refresh Tolerance](./order-refresh-tolerance)        | Set the spread (from mid price) to defer order refresh process to the next cycle.                                           |
+| [Price Band](./price-band)                                  | Place only sell orders when mid price goes above this price.                                                                |
+| [Ping Pong](./ping-pong)                                    | Set the buy and sell orders to be place alternately.                                                                        |
+| [Order Optimization](./order-optimization)                  | Set bid and ask order prices to be adjusted based on the current top bid and ask prices in the market.                      |
+| [Add Transaction Costs](./add-transaction-costs)            | If enabled, the transaction costs are added to the order price calculation.                                                 |
+| [External Price Source](/strategies/external-price-source/) | If enabled, set external pricing source for the mid price.                                                                  |
+| [Order Override](/strategies/order-override/)               | Set and customize how Hummingbot creates orders in terms of order levels, size, and spread.                                 |
+| [Max Order Age](/strategies/max-order-age/)                 | Set the duration of the maximum age of the order, and it will be refreshed depending on the value set.                      |
