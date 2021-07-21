@@ -1,0 +1,55 @@
+---
+title: Performance History
+---
+
+import Callout from "../../src/components/Callout";
+
+<Callout
+  type="info"
+  body="The screenshots shown in this document are based on testing and for illustrative purposes only."
+/>
+
+## History Command
+
+The `history` command displays the current duration of total past trades, asset inventory and value, and market trading pair performance. Run `history --verbose` to see all recent trades.
+
+Trades are saved locally in a .csv file located in the `data` folder which you can view by running `history --verbose --days` command even after you restart Hummingbot.
+
+Optional argument `--precision` specifies the number of decimal values.
+
+![](/img/history.png)
+
+This block below shows the calculation for some of the values displayed in the history output.
+
+```bash
+Avg price = total trade volume of quote / total trade volume of base asset
+Hold portfolio value = (base start asset * current market price) + quote start asset
+Current portfolio value = (base current asset * current market price) + quote current asset
+Trade P&L = current portfolio value - hold portfolio value
+Total P&L = trade P&L + fees paid
+Return % = total P&L / hold portfolio value
+```
+
+<Callout
+  type="tip"
+  body="The Return % in the navbar at the bottom of Hummingbot client may be different from the history command output. This is because the Return % in history takes the price changes into calculation while the navbar in the bottom UI does not."
+/>
+
+## Profit & Loss
+
+The `pnl` command shows consolidated performance for all running bots in the same Binance account. This command can be useful when participating in Liquidity Mining campaigns.
+
+![](/img/pnl-command.png)
+
+| Optional Argument      | Description                                      |
+| :--------------------- | :----------------------------------------------- |
+| `--days`               | How many days in the past (can be decimal value) |
+| `--market`             | The market you want to see pnl                   |
+| `--open_order_markets` | See pnl from current open order markets          |
+
+### Adding trading pairs
+
+If your desired Binance trading pair(s) does not show in the output, you can add them in two ways:
+
+1. Edit `binance_markets` list in `conf_global.yml` located in the `conf` folder
+2. Run `config binance_markets` from the Hummingbot terminal
