@@ -1,0 +1,112 @@
+<!doctype html>
+
+<meta charset="utf-8">
+<title>Dagre D3 Demo: User-defined Shapes and Arrows</title>
+
+<link rel="stylesheet" href="demo.css">
+<script src="https://d3js.org/d3.v5.min.js" charset="utf-8"></script>
+<script src="../dagre-d3.js"></script>
+
+<style id="css">
+body {
+  font: 300 14px 'Helvetica Neue', Helvetica;
+}
+
+.node rect,
+.node circle,
+.node ellipse,
+.node polygon {
+  stroke: #333;
+  fill: #fff;
+  stroke-width: 1.5px;
+}
+
+.edgePath path.path {
+  stroke: #333;
+  fill: none;
+  stroke-width: 1.5px;
+}
+</style>
+
+<h1>Dagre D3 Demo: User-defined Shapes and Arrows</h1>
+
+<svg width=960 height=600><g/></svg>
+
+<section>
+<p>An example that shows how to create and use user-defined shapes and arrows.
+</section>
+
+<script id="js">
+// Create a new directed graph
+var g = new dagreD3.graphlib.Graph().setGraph({});
+
+g.setNode("house", { shape: "house", label: "house" });
+g.setNode("rect", { shape: "rect" });
+g.setEdge("house", "rect", { arrowhead: "hollowPoint" });
+
+var svg = d3.select("svg"),
+    inner = svg.select("g");
+
+// Set up zoom support
+var zoom = d3.zoom().on("zoom", function() {
+    inner.attr("transform", d3.event.transform);
+  });
+svg.call(zoom);
+
+// Create the renderer
+var render = new dagreD3.render();
+
+// Add our custom shape (a house)
+render.shapes().house = function(parent, bbox, node) {
+  var w = bbox.width,
+      h = bbox.height,
+      points = [
+        { x:   0, y:        0 },
+        { x:   w, y:        0 },
+        { x:   w, y:       -h },
+        { x: w/2, y: -h * 3/2 },
+        { x:   0, y:       -h }
+      ];
+      shapeSvg = parent.insert("polygon", ":first-child")
+        .attr("points", points.map(function(d) { return d.x + "," + d.y; }).join(" "))
+        .attr("transform", "translate(" + (-w/2) + "," + (h * 3/4) + ")");
+
+  node.intersect = function(point) {
+    return dagreD3.intersect.polygon(node, points, point);
+  };
+
+  return shapeSvg;
+};
+
+// Add our custom arrow (a hollow-point)
+render.arrows().hollowPoint = function normal(parent, id, edge, type) {
+  var marker = parent.append("marker")
+    .attr("id", id)
+    .attr("viewBox", "0 0 10 10")
+    .attr("refX", 9)
+    .attr("refY", 5)
+    .attr("markerUnits", "strokeWidth")
+    .attr("markerWidth", 8)
+    .attr("markerHeight", 6)
+    .attr("orient", "auto");
+
+  var path = marker.append("path")
+    .attr("d", "M 0 0 L 10 5 L 0 10 z")
+    .style("stroke-width", 1)
+    .style("stroke-dasharray", "1,0")
+    .style("fill", "#fff")
+    .style("stroke", "#333");
+  dagreD3.util.applyStyle(path, edge[type + "Style"]);
+};
+
+// Run the renderer. This is what draws the final graph.
+render(inner, g);
+
+// Center the graph
+var initialScale = 0.75;
+svg.call(zoom.transform, d3.zoomIdentity.translate((svg.attr("width") - g.graph().width * initialScale) / 2, 20).scale(initialScale));
+
+svg.attr('height', g.graph().height * initialScale + 40);
+</script>
+
+<script src="demo.js"></script>

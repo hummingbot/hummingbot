@@ -1,0 +1,30 @@
+{
+    "name": "@types/debug",
+    "version": "0.0.30",
+    "description": "TypeScript definitions for debug",
+    "license": "MIT",
+    "contributors": [
+        {
+            "name": "Seon-Wook Park",
+            "url": "https://github.com/swook"
+        },
+        {
+            "name": "Gal Talmor",
+            "url": "https://github.com/galtalmor"
+        },
+        {
+            "name": "John McLaughlin",
+            "url": "https://github.com/zamb3zi"
+        }
+    ],
+    "main": "",
+    "repository": {
+        "type": "git",
+        "url": "https://www.github.com/DefinitelyTyped/DefinitelyTyped.git"
+    },
+    "scripts": {},
+    "dependencies": {},
+    "peerDependencies": {},
+    "typesPublisherContentHash": "e5fc8bd543d6bbe41b682a0483c1bfb3483430ae9c0962e676265d7be4678f8c",
+    "typeScriptVersion": "2.0"
+}

@@ -1,0 +1,38 @@
+{
+  "name": "better-queue",
+  "version": "3.8.10",
+  "description": "Better Queue for NodeJS",
+  "main": "lib/queue.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/diamondio/better-queue.git"
+  },
+  "keywords": [
+    "queue",
+    "cargo",
+    "async",
+    "timeout",
+    "priority"
+  ],
+  "author": "Diamond Inc. <ops@diamond.io>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/diamondio/better-queue/issues"
+  },
+  "homepage": "https://github.com/diamondio/better-queue",
+  "devDependencies": {
+    "mocha": "^2.3.4",
+    "mocha-junit-reporter": "^1.12.1"
+  },
+  "dependencies": {
+    "better-queue-memory": "^1.0.1",
+    "node-eta": "^0.9.0",
+    "uuid": "^3.0.0"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "name": "idbwrapper",
+  "description": "A cross-browser wrapper for IndexedDB",
+  "main": "idbstore.js",
+  "version": "1.7.2",
+  "dependencies": {}
+}

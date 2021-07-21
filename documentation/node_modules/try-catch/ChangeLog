@@ -1,0 +1,34 @@
+2019.09.12, v2.0.1
+
+feature:
+- (try-catch) add madrun
+- (package) eslint v6.3.0
+- (package) nyc v14.1.1
+- (package) nyc v12.0.2
+- (try-catch) changed the way result is returned
+
+
+2018.02.08, v2.0.0
+
+feature:
+- (try-catch) changed the way arguments returned
+
+
+2014.11.24, v1.0.2
+
+feature:
+- (trammel) rm util-io
+- (size) rm exec
+
+
+2014.11.20, v1.0.1
+
+feature:
+- (trammel) util-io v1.6.3
+
+
+2014.11.19, v1.0.0
+
+feature:
+- (size) trammel.get -> trammel
+

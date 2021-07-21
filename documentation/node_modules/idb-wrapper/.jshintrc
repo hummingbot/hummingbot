@@ -1,0 +1,24 @@
+{
+  "bitwise": true,
+  "curly": true,
+  "eqeqeq": false,
+  "forin": false,
+  "freeze": true,
+  "futurehostile": true,
+  "latedef": "nofunc",
+  "noarg": true,
+  "nonbsp": true,
+  "nonew": true,
+  "strict": "function",
+  "undef": true,
+  "unused": true,
+
+  "expr": true,
+
+  "camelcase": true,
+  "quotmark": "single",
+  "newcap": true,
+
+  "browser": true,
+  "worker": true
+}

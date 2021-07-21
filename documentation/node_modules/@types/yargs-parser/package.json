@@ -1,0 +1,24 @@
+{
+    "name": "@types/yargs-parser",
+    "version": "15.0.0",
+    "description": "TypeScript definitions for yargs-parser",
+    "license": "MIT",
+    "contributors": [
+        {
+            "name": "Miles Johnson",
+            "url": "https://github.com/milesj",
+            "githubUsername": "milesj"
+        }
+    ],
+    "main": "",
+    "types": "index.d.ts",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
+        "directory": "types/yargs-parser"
+    },
+    "scripts": {},
+    "dependencies": {},
+    "typesPublisherContentHash": "dfb678a3324e6b48900f50da7ca18c044ba7c18cf0bfecb96c1c1a6998d736d6",
+    "typeScriptVersion": "2.8"
+}

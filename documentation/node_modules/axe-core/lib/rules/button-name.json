@@ -1,0 +1,25 @@
+{
+	"id": "button-name",
+	"selector": "button, [role=\"button\"]:not(input)",
+	"tags": [
+		"cat.name-role-value",
+		"wcag2a",
+		"wcag412",
+		"section508",
+		"section508.22.a"
+	],
+	"metadata": {
+		"description": "Ensures buttons have discernible text",
+		"help": "Buttons must have discernible text"
+	},
+	"all": [],
+	"any": [
+		"button-has-visible-text",
+		"aria-label",
+		"aria-labelledby",
+		"role-presentation",
+		"role-none",
+		"non-empty-title"
+	],
+	"none": []
+}

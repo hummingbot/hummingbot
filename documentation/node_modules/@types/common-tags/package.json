@@ -1,0 +1,33 @@
+{
+    "name": "@types/common-tags",
+    "version": "1.8.0",
+    "description": "TypeScript definitions for common-tags",
+    "license": "MIT",
+    "contributors": [
+        {
+            "name": "Viktor Zozuliak",
+            "url": "https://github.com/zuzusik",
+            "githubUsername": "zuzusik"
+        },
+        {
+            "name": "Paul Wang",
+            "url": "https://github.com/tzupengwang",
+            "githubUsername": "tzupengwang"
+        },
+        {
+            "name": "BendingBender",
+            "url": "https://github.com/BendingBender",
+            "githubUsername": "BendingBender"
+        }
+    ],
+    "main": "",
+    "types": "index",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git"
+    },
+    "scripts": {},
+    "dependencies": {},
+    "typesPublisherContentHash": "0a69c3453d0a952fe8cd008ebf730e80f11820a9e493bd3271d40a2d973f39a3",
+    "typeScriptVersion": "2.3"
+}

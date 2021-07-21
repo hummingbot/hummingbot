@@ -1,0 +1,83 @@
+{
+  "name": "eslint-plugin-react",
+  "version": "7.21.5",
+  "author": "Yannick Croissant <yannick.croissant+npm@gmail.com>",
+  "description": "React specific linting rules for ESLint",
+  "main": "index.js",
+  "scripts": {
+    "coveralls": "cat ./coverage/lcov.info | coveralls",
+    "lint": "eslint ./",
+    "postlint": "npm run type-check",
+    "pretest": "npm run lint",
+    "test": "npm run unit-test",
+    "posttest": "aud --production",
+    "type-check": "tsc",
+    "unit-test": "istanbul cover node_modules/mocha/bin/_mocha tests/lib/**/*.js tests/util/**/*.js tests/index.js",
+    "generate-list-of-rules": "md-magic --path README.md",
+    "generate-list-of-rules:check": "npm run generate-list-of-rules && git diff --exit-code README.md"
+  },
+  "files": [
+    "LICENSE",
+    "README.md",
+    "index.js",
+    "lib"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yannickcr/eslint-plugin-react"
+  },
+  "homepage": "https://github.com/yannickcr/eslint-plugin-react",
+  "bugs": "https://github.com/yannickcr/eslint-plugin-react/issues",
+  "dependencies": {
+    "array-includes": "^3.1.1",
+    "array.prototype.flatmap": "^1.2.3",
+    "doctrine": "^2.1.0",
+    "has": "^1.0.3",
+    "jsx-ast-utils": "^2.4.1 || ^3.0.0",
+    "object.entries": "^1.1.2",
+    "object.fromentries": "^2.0.2",
+    "object.values": "^1.1.1",
+    "prop-types": "^15.7.2",
+    "resolve": "^1.18.1",
+    "string.prototype.matchall": "^4.0.2"
+  },
+  "devDependencies": {
+    "@types/eslint": "^7.2.3",
+    "@types/estree": "0.0.45",
+    "@types/node": "^14.11.2",
+    "@typescript-eslint/parser": "^2.34.0",
+    "aud": "^1.1.2",
+    "babel-eslint": "^8.2.6",
+    "coveralls": "^3.1.0",
+    "eslint": "^3 || ^4 || ^5 || ^6 || ^7",
+    "eslint-config-airbnb-base": "^14.2.0",
+    "eslint-plugin-eslint-plugin": "^2.3.0",
+    "eslint-plugin-import": "^2.22.1",
+    "espree": "^3.5.4",
+    "istanbul": "^0.4.5",
+    "markdown-magic": "^1.0.0",
+    "mocha": "^5.2.0",
+    "semver": "^6.3.0",
+    "sinon": "^7.5.0",
+    "typescript": "^3.9.7",
+    "typescript-eslint-parser": "^20.1.1"
+  },
+  "peerDependencies": {
+    "eslint": "^3 || ^4 || ^5 || ^6 || ^7"
+  },
+  "engines": {
+    "node": ">=4"
+  },
+  "keywords": [
+    "eslint",
+    "eslint-plugin",
+    "eslintplugin",
+    "react"
+  ],
+  "license": "MIT",
+  "greenkeeper": {
+    "ignore": [
+      "semver"
+    ]
+  }
+}

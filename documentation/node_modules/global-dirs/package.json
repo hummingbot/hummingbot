@@ -1,0 +1,52 @@
+{
+  "name": "global-dirs",
+  "version": "0.1.1",
+  "description": "Get the directory of globally installed packages and binaries",
+  "license": "MIT",
+  "repository": "sindresorhus/global-dirs",
+  "author": {
+    "name": "Sindre Sorhus",
+    "email": "sindresorhus@gmail.com",
+    "url": "sindresorhus.com"
+  },
+  "engines": {
+    "node": ">=4"
+  },
+  "scripts": {
+    "test": "xo && ava"
+  },
+  "files": [
+    "index.js"
+  ],
+  "keywords": [
+    "global",
+    "prefix",
+    "path",
+    "paths",
+    "npm",
+    "yarn",
+    "node",
+    "modules",
+    "node-modules",
+    "package",
+    "packages",
+    "binary",
+    "binaries",
+    "bin",
+    "directory",
+    "directories",
+    "npmrc",
+    "rc",
+    "config",
+    "root",
+    "resolve"
+  ],
+  "dependencies": {
+    "ini": "^1.3.4"
+  },
+  "devDependencies": {
+    "ava": "*",
+    "execa": "^0.7.0",
+    "xo": "*"
+  }
+}

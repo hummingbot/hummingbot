@@ -1,0 +1,43 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`tachyons .dim 1`] = `
+Object {
+  ":focus": Object {
+    "opacity": ".5",
+  },
+  ":hover": Object {
+    "opacity": ".5",
+  },
+  "opacity": 1,
+  "transition": "opacity .15s ease-in",
+}
+`;
+
+exports[`tachyons .grow 1`] = `
+Object {
+  "-moz-osx-font-smoothing": "grayscale",
+  ":focus": Object {
+    "transform": "scale(1.05)",
+  },
+  ":hover": Object {
+    "transform": "scale(1.05)",
+  },
+  "backfaceVisibility": "hidden",
+  "transform": "translateZ(0)",
+  "transition": "transform 0.25s ease-out",
+}
+`;
+
+exports[`tachyons multiple rules 1`] = `
+Object {
+  "float": "left",
+  "fontFamily": "georgia,times,serif",
+  "fontSize": "1.25rem",
+  "fontStyle": "italic",
+  "fontWeight": "bold",
+  "maxWidth": "30em",
+  "textDecoration": "line-through",
+  "textTransform": "uppercase",
+  "width": "36.66667%",
+}
+`;

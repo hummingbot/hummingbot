@@ -1,0 +1,30 @@
+{
+  "name": "fn-name",
+  "version": "2.0.1",
+  "description": "Get the name of a named function",
+  "repository": "sindresorhus/fn-name",
+  "keywords": [
+    "function",
+    "func",
+    "fn",
+    "name"
+  ],
+  "license": "MIT",
+  "author": {
+    "name": "Sindre Sorhus",
+    "email": "sindresorhus@gmail.com",
+    "url": "http://sindresorhus.com"
+  },
+  "files": [
+    "index.js"
+  ],
+  "scripts": {
+    "test": "mocha"
+  },
+  "devDependencies": {
+    "mocha": "*"
+  },
+  "engines": {
+    "node": ">=0.10.0"
+  }
+}

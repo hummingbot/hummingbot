@@ -1,0 +1,423 @@
+<!doctype html>
+
+<meta charset="utf-8">
+<title>Graph Storyboard. Add and Prune Dependencies Algorithm</title>
+
+<script src="https://d3js.org/d3.v4.js"></script>
+<script src="../dagre-d3.js"></script>
+
+<style id="css">
+h1 {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serf;
+  margin-top: 0.8em;
+  margin-bottom: 0.2em;
+}
+
+text {
+  font-weight: 300;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serf;
+  font-size: 14px;
+}
+
+.node rect {
+  stroke: #333;
+  fill: #fff;
+  stroke-width: 1.5px;
+}
+
+.node polygon {
+  stroke: #333;
+  fill: #fff;
+  stroke-width: 1.5px;
+}
+
+.edgePath path.path {
+  stroke: #333;
+  fill: none;
+  stroke-width: 1.5px;
+}
+
+div#top-frame {
+  height: 350px;
+}
+
+div#WBS-frame {
+  float: left;
+  width: 50%;
+}
+
+div#dependencies-frame {
+  float: left;
+  width: 50%;
+}
+
+div#schedule-frame {
+  float: none;
+}
+</style>
+
+<script>
+// Polyfill for PhantomJS. This can be safely ignored if not using PhantomJS.
+// Source: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/bind
+if (!Function.prototype.bind) {
+  Function.prototype.bind = function(oThis) {
+    if (typeof this !== 'function') {
+      // closest thing possible to the ECMAScript 5
+      // internal IsCallable function
+      throw new TypeError('Function.prototype.bind - what is trying to be bound is not callable');
+    }
+
+    var aArgs   = Array.prototype.slice.call(arguments, 1),
+        fToBind = this,
+        fNOP    = function() {},
+        fBound  = function() {
+          return fToBind.apply(this instanceof fNOP && oThis
+                 ? this
+                 : oThis,
+                 aArgs.concat(Array.prototype.slice.call(arguments)));
+        };
+
+    fNOP.prototype = this.prototype;
+    fBound.prototype = new fNOP();
+
+    return fBound;
+  };
+}
+</script>
+
+<script>
+var dagred3Story = function(svgelement, graphType, interframetime) {
+	this.interframetime = interframetime;
+	this.lastrenderTime = null;
+	this.g = new dagreD3.graphlib.Graph().setGraph({});
+	//// Setup animation (if required)
+	//this.g.graph().transition = function(selection) {
+    //  return selection.transition().duration(50);
+    //}.bind(this);
+	this.g.setDefaultEdgeLabel(function() { return {}; });
+  this.g.graph().marginx = 10;
+  this.g.graph().marginy = 10;
+	switch(graphType) {
+	case 'Work Breakdown Structure':
+		this.WBS = true;
+		this.Schedule = false;
+		this.g.graph().ranksep = 30;
+		this.g.graph().nodesep = 30;
+		break;
+	case 'Schedule Network':
+		this.Schedule = true;
+		this.WBS = false;
+		this.g.graph().rankdir = "LR";
+		this.g.graph().ranksep = 15;
+		this.g.graph().nodesep = 15;
+		break;
+	default:
+		console.log ("graphType of "+x+" is not implemented")
+	}
+	this.svg = d3.select(svgelement);
+  this.inner = this.svg.append("g");
+	this.svg.call(d3.zoom().on("zoom", (function() {
+		this.inner.attr("transform", d3.event.transform)
+  }).bind(this)));
+	
+	this.t = 0;
+
+	this.dagreD3render = new dagreD3.render();
+};
+
+dagred3Story.prototype.animateFrame = function(RenderAfter, Frame) {
+	this.t += RenderAfter
+	//var that = this;
+	setTimeout(function() {
+		Frame.forEach(function(x) {
+			if (this.Schedule) {
+				switch(x[0]) {
+				case 'setActivity':
+					this.g.setNode(x[1],{})
+					break;
+				case 'removeNode':
+					this.g.removeNode(x[1])
+					break;
+				case 'setMilestone':
+					this.g.setNode(x[1],{ shape: 'diamond', style: "fill: #fff; stroke: #000" })
+					break;
+				case 'AddCoherenceEdge':
+					this.g.setEdge(x[1], x[2], {
+						curve: d3.curveBasis 
+					});
+					break;
+				case 'AddDependencyEdge':
+					this.g.setEdge(x[1], x[2], {
+						curve: d3.curveBasis
+						,label: 'added'
+						,labeloffset: 5
+						,labelpos: 'l'
+					});
+					break;
+				case 'MakeRedundantEdge':
+					this.g.setEdge(x[1], x[2], {
+						style: "stroke: #aaa;   stroke-dasharray: 5, 10;" 
+						,curve: d3.curveBasis
+						,arrowheadStyle: "fill: #aaa"
+						,labelpos: 'c'
+						,label: 'pruned'
+						,labelStyle: 'stroke: #aaa'
+					});
+					break;
+				case 'RemoveEdge':
+					this.g.removeEdge(x[1], x[2]);
+					break;
+				default:
+					console.log ("Schedule Network element "+x+" is not implemented")
+				}
+			} else if (this.WBS ) {
+				switch(x[0]) {
+				case 'setComponent':
+					this.g.setNode(x[1],{})
+					break;
+				case 'AddWBSEdge':
+					this.g.setEdge(x[1], x[2], {
+						arrowhead: 'undirected'
+					});
+					break;
+				default:
+					console.log ("WBS element "+x+" is not implemented")
+				}
+			}
+		}.bind(this))
+		
+		if (this.g) {
+			// Render
+			this.dagreD3render(this.inner,this.g);
+		}
+	}.bind(this), this.t)
+};
+
+dagred3Story.prototype.animateStory = function(RenderAfter, Story) {
+	this.t += RenderAfter
+	setTimeout(function() {
+		Story.forEach(function(Frame) {
+			this.animateFrame(this.interframetime, Frame);
+		}.bind(this))
+	}.bind(this), this.t)
+};
+
+</script>
+
+<div id="top-frame">
+  <div id="WBS-frame">
+    <h1>WBS</h1>
+    <svg id="WBS" width=250 height=250></svg>
+  </div>
+
+  <div id="dependencies-frame">
+    <h1>Sequencing</h1>
+    <svg id="dependencies" width=300 height=250></svg>
+  </div>
+</div>
+
+<div id="schedule-frame">
+  <h1>Coherent Schedule Network</h1>
+  <svg id="schedule" width=1150 height=500></svg>
+</div>
+
+<script id="js">
+var framedelay = 2000;
+var dependenciesstory = new dagred3Story("#dependencies", "Schedule Network", framedelay);
+dependenciesstory.animateStory(0,
+[
+	[
+		
+	],[ 
+		
+	],[
+		
+	],[ 
+		
+	]
+	,[
+		["setActivity", "A.1"]
+		,
+		["setMilestone", "A.2 Start"]
+		,
+		["AddDependencyEdge", "A.1", "A.2 Start"]
+	],[
+		
+	],[
+		
+	],[
+		
+	],[
+		
+	],[
+		["setActivity", "A.2.2"]
+		,
+		["setActivity", "A.2.3"]
+		,
+		["AddDependencyEdge", "A.2.2", "A.2.3"]
+	],[
+		
+	],[
+		
+	],[
+		
+	],[
+		
+	],[
+		["setActivity", "A.2.1"]
+		,
+		["setActivity", "B"]
+		,
+		["AddDependencyEdge", "A.2.1", "B"]
+	],[
+		
+	],[
+		
+	]
+]);
+
+var WBSstory = new dagred3Story("#WBS", "Work Breakdown Structure", framedelay);
+
+WBSstory.animateStory(0,
+[
+	[
+		["setComponent", "Project"]
+	],[
+		["setComponent", "A"]
+		,
+		["AddWBSEdge", "Project", "A"]
+		,
+		["setComponent", "B"]
+		,
+		["AddWBSEdge", "Project", "B"]
+	],[
+		["setComponent", "A.1"]
+		, 
+		["AddWBSEdge", "A", "A.1"]
+		,
+		["setComponent", "A.2"]
+		, 
+		["AddWBSEdge",  "A", "A.2"]
+	],[
+		["setComponent", "A.2.1"]
+		, 
+		["AddWBSEdge", "A.2", "A.2.1"]
+		,
+		["setComponent", "A.2.2"]
+		, 
+		["AddWBSEdge",  "A.2", "A.2.2"]
+		,
+		["setComponent", "A.2.3"]
+		, 
+		["AddWBSEdge",  "A.2", "A.2.3"]
+	]
+]);
+
+var schedulestory = new dagred3Story("#schedule", "Schedule Network",framedelay);
+
+// Create the input graph
+
+schedulestory.animateStory(0,
+[
+	[
+		["setActivity", "Project"]
+	],[ 
+		["removeNode", "Project"]
+		,
+		["setMilestone", "Project Finish"]
+		, 
+		["setMilestone", "Project Start"]
+		,
+		["setActivity", "A"]
+		,
+		["setActivity", "B"]
+		,
+		["AddCoherenceEdge", "Project Start", "A"]
+		,
+		["AddCoherenceEdge", "Project Start", "B"]
+		,
+		["AddCoherenceEdge", "A", "Project Finish"]
+		,
+		["AddCoherenceEdge", "B", "Project Finish"]
+	],[
+		["removeNode", "A"]
+		,
+		["setMilestone", "A Start"]
+		, 
+		["setActivity", "A.1"]
+		,  
+		["setActivity", "A.2"]
+		,  
+		["setMilestone", "A Finish"]
+		,
+		["AddCoherenceEdge", "A Start", "A.1"]
+		,
+		["AddCoherenceEdge", "A Start", "A.2"]
+		,
+		["AddCoherenceEdge", "A.1", "A Finish"]
+		,
+		["AddCoherenceEdge", "A.2", "A Finish"]
+		,
+		["AddCoherenceEdge", "Project Start", "A Start"]
+		,
+		["AddCoherenceEdge", "A Finish", "Project Finish"]
+	],[ 
+		["removeNode", "A.2"]
+		,
+		["setMilestone", "A.2 Start"]
+		, 
+		["setActivity", "A.2.1"]
+		,  
+		["setActivity", "A.2.2"]
+		,  
+		["setActivity", "A.2.3"]
+		,  
+		["setMilestone", "A.2 Finish"]
+		,
+		["AddCoherenceEdge", "A.2 Start", "A.2.1"]
+		,
+		["AddCoherenceEdge", "A.2 Start", "A.2.2"]
+		,
+		["AddCoherenceEdge", "A.2 Start", "A.2.3"]
+		,
+		["AddCoherenceEdge", "A.2.1", "A.2 Finish"]
+		,
+		["AddCoherenceEdge", "A.2.2", "A.2 Finish"]
+		,
+		["AddCoherenceEdge", "A.2.3", "A.2 Finish"]
+		,
+		["AddCoherenceEdge", "A Start", "A.2 Start"]
+		,
+		["AddCoherenceEdge", "A.2 Finish", "A Finish"]
+	]
+	,[
+		["AddDependencyEdge", "A.1", "A.2 Start"]
+	],[
+		["MakeRedundantEdge", "A Start", "A.2 Start"]
+	],[
+		["MakeRedundantEdge", "A.1", "A Finish"]
+	],[
+		["RemoveEdge", "A Start", "A.2 Start"]
+	],[
+		["RemoveEdge", "A.1", "A Finish"]
+	],[
+		["AddDependencyEdge", "A.2.2", "A.2.3"]
+	],[
+		["MakeRedundantEdge", "A.2 Start", "A.2.3"]
+	],[
+		["MakeRedundantEdge", "A.2.2", "A.2 Finish"]
+	],[
+		["RemoveEdge", "A.2 Start", "A.2.3"]
+	],[
+		["RemoveEdge", "A.2.2", "A.2 Finish"]
+	],[
+		["AddDependencyEdge", "A.2.1", "B"]
+	],[
+		["MakeRedundantEdge", "Project Start", "B"]
+	],[
+		["RemoveEdge", "Project Start", "B"]
+	]
+]);
+</script>
+</body>
+</html>

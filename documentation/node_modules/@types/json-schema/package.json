@@ -1,0 +1,44 @@
+{
+    "name": "@types/json-schema",
+    "version": "7.0.6",
+    "description": "TypeScript definitions for json-schema 4.0, 6.0 and",
+    "license": "MIT",
+    "contributors": [
+        {
+            "name": "Boris Cherny",
+            "url": "https://github.com/bcherny",
+            "githubUsername": "bcherny"
+        },
+        {
+            "name": "Cyrille Tuzi",
+            "url": "https://github.com/cyrilletuzi",
+            "githubUsername": "cyrilletuzi"
+        },
+        {
+            "name": "Lucian Buzzo",
+            "url": "https://github.com/lucianbuzzo",
+            "githubUsername": "lucianbuzzo"
+        },
+        {
+            "name": "Roland Groza",
+            "url": "https://github.com/rolandjitsu",
+            "githubUsername": "rolandjitsu"
+        },
+        {
+            "name": "Jason Kwok",
+            "url": "https://github.com/JasonHK",
+            "githubUsername": "JasonHK"
+        }
+    ],
+    "main": "",
+    "types": "index.d.ts",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
+        "directory": "types/json-schema"
+    },
+    "scripts": {},
+    "dependencies": {},
+    "typesPublisherContentHash": "bb4b22e70ee94bf7b787307444fcee2f57a8869f012a460ed8f15b5b6985ed70",
+    "typeScriptVersion": "3.1"
+}

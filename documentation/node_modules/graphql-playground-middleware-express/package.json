@@ -1,0 +1,44 @@
+{
+  "name": "graphql-playground-middleware-express",
+  "version": "1.7.22",
+  "homepage": "https://github.com/graphcool/graphql-playground/tree/master/packages/graphql-playground-middleware-express",
+  "description": "GraphQL IDE for better development workflows (GraphQL Subscriptions, interactive docs & collaboration).",
+  "contributors": [
+    "Tim Suchanek <tim@graph.cool>",
+    "Johannes Schickling <johannes@graph.cool>",
+    "Mohammad Rajabifard <mo.rajbi@gmail.com>"
+  ],
+  "repository": "http://github.com/graphcool/graphql-playground.git",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rimraf dist && tsc",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "graphql",
+    "graphiql",
+    "playground",
+    "graphcool"
+  ],
+  "peerDependencies": {
+    "express": "^4.16.2"
+  },
+  "devDependencies": {
+    "@types/node": "12.12.34",
+    "express": "^4.17.1",
+    "rimraf": "3.0.2",
+    "typescript": "3.8.3"
+  },
+  "dependencies": {
+    "graphql-playground-html": "^1.6.29"
+  },
+  "typings": "dist/index.d.ts",
+  "typescript": {
+    "definition": "dist/index.d.ts"
+  },
+  "gitHead": "ac496f12652be0b0e2f2bcb4ff1dd6a765a904c9"
+}

@@ -1,0 +1,57 @@
+{
+  "name": "devcert",
+  "version": "1.1.3",
+  "description": "Generate trusted local SSL/TLS certificates for local SSL development",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build",
+    "test": "echo \"Ha.\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/davewasmer/devcert.git"
+  },
+  "keywords": [
+    "ssl",
+    "certificate",
+    "openssl",
+    "trust"
+  ],
+  "author": "Dave Wasmer",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/davewasmer/devcert/issues"
+  },
+  "homepage": "https://github.com/davewasmer/devcert#readme",
+  "devDependencies": {
+    "standard-version": "^8.0.1",
+    "typescript": "^2.9.2"
+  },
+  "dependencies": {
+    "@types/configstore": "^2.1.1",
+    "@types/debug": "^0.0.30",
+    "@types/get-port": "^3.2.0",
+    "@types/glob": "^5.0.34",
+    "@types/lodash": "^4.14.92",
+    "@types/mkdirp": "^0.5.2",
+    "@types/node": "^8.5.7",
+    "@types/rimraf": "^2.0.2",
+    "@types/tmp": "^0.0.33",
+    "application-config-path": "^0.1.0",
+    "command-exists": "^1.2.4",
+    "debug": "^3.1.0",
+    "eol": "^0.9.1",
+    "get-port": "^3.2.0",
+    "glob": "^7.1.2",
+    "lodash": "^4.17.4",
+    "mkdirp": "^0.5.1",
+    "password-prompt": "^1.0.4",
+    "rimraf": "^2.6.2",
+    "sudo-prompt": "^8.2.0",
+    "tmp": "^0.0.33",
+    "tslib": "^1.10.0"
+  },
+  "optionalDependencies": {}
+}

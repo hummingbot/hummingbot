@@ -1,0 +1,75 @@
+// @flow
+
+import type { operatorT as Wonka_types_operatorT } from "./Wonka_types.gen";
+import type { sourceT as Wonka_types_sourceT } from "./Wonka_types.gen";
+declare export var buffer: <a, b>(
+  notifier: Wonka_types_sourceT<a>
+) => Wonka_types_operatorT<b, b[]>;
+declare export var combine: <a, b>(
+  sourceA: Wonka_types_sourceT<a>,
+  sourceB: Wonka_types_sourceT<b>
+) => Wonka_types_sourceT<[a, b]>;
+declare export var concatMap: <a, b>(
+  f: (_1: a) => Wonka_types_sourceT<b>
+) => Wonka_types_operatorT<a, b>;
+declare export var concatAll: <a>(
+  source: Wonka_types_sourceT<Wonka_types_sourceT<a>>
+) => Wonka_types_sourceT<a>;
+declare export var concat: <a>(
+  sources: Wonka_types_sourceT<a>[]
+) => Wonka_types_sourceT<a>;
+declare export var filter: <a>(
+  f: (_1: a) => boolean
+) => Wonka_types_operatorT<a, a>;
+declare export var map: <a, b>(f: (_1: a) => b) => Wonka_types_operatorT<a, b>;
+declare export var mergeMap: <a, b>(
+  f: (_1: a) => Wonka_types_sourceT<b>
+) => Wonka_types_operatorT<a, b>;
+declare export var merge: <a>(
+  sources: Wonka_types_sourceT<a>[]
+) => Wonka_types_sourceT<a>;
+declare export var mergeAll: <a>(
+  source: Wonka_types_sourceT<Wonka_types_sourceT<a>>
+) => Wonka_types_sourceT<a>;
+declare export var flatten: <T1>(
+  _1: Wonka_types_sourceT<Wonka_types_sourceT<T1>>
+) => Wonka_types_sourceT<T1>;
+declare export var onEnd: <a>(f: () => void) => Wonka_types_operatorT<a, a>;
+declare export var onPush: <a>(
+  f: (_1: a) => void
+) => Wonka_types_operatorT<a, a>;
+declare export var tap: <T1>(
+  _1: (_1: T1) => void
+) => Wonka_types_operatorT<T1, T1>;
+declare export var onStart: <a>(f: () => void) => Wonka_types_operatorT<a, a>;
+declare export var sample: <a, b>(
+  notifier: Wonka_types_sourceT<a>
+) => Wonka_types_operatorT<b, b>;
+declare export var scan: <a, acc>(
+  f: (_1: acc, _2: a) => acc,
+  seed: acc
+) => Wonka_types_operatorT<a, acc>;
+declare export var share: <a>(
+  source: Wonka_types_sourceT<a>
+) => Wonka_types_sourceT<a>;
+declare export var skip: <a>(wait: number) => Wonka_types_operatorT<a, a>;
+declare export var skipUntil: <a, b>(
+  notifier: Wonka_types_sourceT<a>
+) => Wonka_types_operatorT<b, b>;
+declare export var skipWhile: <a>(
+  f: (_1: a) => boolean
+) => Wonka_types_operatorT<a, a>;
+declare export var switchMap: <a, b>(
+  f: (_1: a) => Wonka_types_sourceT<b>
+) => Wonka_types_operatorT<a, b>;
+declare export var switchAll: <a>(
+  source: Wonka_types_sourceT<Wonka_types_sourceT<a>>
+) => Wonka_types_sourceT<a>;
+declare export var take: <a>(max: number) => Wonka_types_operatorT<a, a>;
+declare export var takeLast: <a>(max: number) => Wonka_types_operatorT<a, a>;
+declare export var takeUntil: <a, b>(
+  notifier: Wonka_types_sourceT<a>
+) => Wonka_types_operatorT<b, b>;
+declare export var takeWhile: <a>(
+  f: (_1: a) => boolean
+) => Wonka_types_operatorT<a, a>;

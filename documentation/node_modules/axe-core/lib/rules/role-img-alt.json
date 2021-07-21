@@ -1,0 +1,19 @@
+{
+	"id": "role-img-alt",
+	"selector": "[role='img']:not(img):not(area):not(input):not(object)",
+	"matches": "html-namespace-matches.js",
+	"tags": [
+		"cat.text-alternatives",
+		"wcag2a",
+		"wcag111",
+		"section508",
+		"section508.22.a"
+	],
+	"metadata": {
+		"description": "Ensures [role='img'] elements have alternate text",
+		"help": "[role='img'] elements have an alternative text"
+	},
+	"all": [],
+	"any": ["aria-label", "aria-labelledby", "non-empty-title"],
+	"none": []
+}

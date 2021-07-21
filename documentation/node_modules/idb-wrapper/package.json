@@ -1,0 +1,38 @@
+{
+  "name": "idb-wrapper",
+  "version": "1.7.2",
+  "description": "A cross-browser wrapper for IndexedDB",
+  "keywords": [
+    "storage",
+    "offline",
+    "IndexedDB"
+  ],
+  "author": "jensarps <mail@jensarps.de> (http://jensarps.de/)",
+  "repository": "jensarps/IDBWrapper",
+  "main": "idbstore.js",
+  "homepage": "https://github.com/jensarps/IDBWrapper",
+  "contributors": [
+    "Github Contributors (https://github.com/jensarps/IDBWrapper/graphs/contributors)"
+  ],
+  "bugs": "https://github.com/jensarps/IDBWrapper/issues",
+  "dependencies": {},
+  "devDependencies": {
+    "chai": "^4.1.2",
+    "grunt": "^1.0.1",
+    "grunt-closurecompiler": "^0.9.9",
+    "grunt-contrib-copy": "^1.0.0",
+    "grunt-contrib-jshint": "^1.1.0",
+    "grunt-jsdoc": "^2.2.0",
+    "grunt-karma": "^2.0.0",
+    "grunt-md2html": "^0.3.1",
+    "jsdoc-oblivion": "^0.0.9",
+    "karma": "^1.7.1",
+    "karma-chai": "^0.1.0",
+    "karma-chrome-launcher": "^2.2.0",
+    "karma-firefox-launcher": "^1.0.1",
+    "karma-mocha": "^1.3.0",
+    "mocha": "^4.0.1"
+  },
+  "license": "MIT",
+  "scripts": {}
+}

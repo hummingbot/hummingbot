@@ -1,0 +1,158 @@
+1.7.1 / 2017-11-28
+------------------
+
+* Update dev dependencies
+* Set license to MIT only
+* For the full changelog, please see: https://github.com/jensarps/IDBWrapper/compare/v1.7.1...v1.7.2
+
+1.7.1 / 2016-08-31
+------------------
+
+* Improve error handling during store creation
+* For the full changelog, please see: https://github.com/jensarps/IDBWrapper/compare/v1.7.0...v1.7.1
+
+
+
+1.7.0 / 2016-04-01
+------------------
+
+* Add `filter` option to `query()`
+* Add `allowItemRejection` option to `iterate()`
+* For the full changelog, please see: https://github.com/jensarps/IDBWrapper/compare/v1.6.2...v1.7.0
+
+
+
+1.6.2 / 2016-03-02
+------------------
+
+* Switch from Makefile to Grunt for running tasks
+* Provide version-specific documentation
+* For the full changelog, please see: https://github.com/jensarps/IDBWrapper/compare/v1.6.1...v1.6.2
+
+
+
+1.6.1 / 2015-11-07
+------------------
+
+* Make implementation preference configurable, don't prefer shim by default
+* For the full changelog, please see: https://github.com/jensarps/IDBWrapper/compare/v1.6.0...v1.6.1
+
+
+
+1.6.0 / 2015-10-05
+------------------
+
+* Remove support for old Firefox browsers without autoIncrement
+* prefer `shimIndexedDB` to allow using the shim instead of native IDB on buggy Safaris
+* For the full changelog, please see: https://github.com/jensarps/IDBWrapper/compare/v1.5...v1.6.0
+
+
+
+1.5.0 / 2015-04-22
+------------------
+
+* Add pagination to `query()`
+* Add `upsertBatch()`
+* Add callbacks to `deleteDatabase()`
+* Stability improvements
+
+
+
+1.4.1 / 2013-11-11
+------------------
+
+* Support deletion of indexes through constructor arguments
+* Fix issue when using out-of-line keyPath setup with IE10
+* Fix issue when using compound indexes (keyPath sequences)
+* Add integration tests
+
+
+
+1.4.0 / 2013-09-24
+------------------
+
+* Add .only property to makeKeyRange() options
+* Add getBatch() method
+* Fix bug when calling IDBStore without arguments
+* Fix bug when calling IDBStore with ready callback as only argument
+* Point IDBStore prototype's constructor property to IDBStore
+* Make all methods that open a transaction return this transaction. These
+  methods are: put, get, remove, getAll, clear, batch, putBatch, removeBatch,
+  getBatch, iterate, query and count
+* Stability improvements
+
+
+
+1.3.0 / 2013-08-13
+------------------
+
+* Make IDBWrapper able to run inside of Workers
+* Add putBatch() and removeBatch() methods
+* Add worker example
+* Move JSHint settings to own config file
+
+
+
+1.2.0 / 2013-05-31
+------------------
+
+* Add autoContinue option to iterate() method [maxogden]
+* Make put() method work with out-of-line keys [maxogden]
+* Make batch() method work with out-of-line keys [maxogden]
+* Misc Refactoring
+
+
+
+1.1.0 / 2013-03-26
+------------------
+
+* Move all callbacks from request level to transaction level
+* Misc Refactoring
+
+
+
+1.0.0 / 2013-02-05
+------------------
+
+* Add query() method
+* Add storePrefix property to constructor [englercj]
+* Add JSDoc
+* Add input checks to the batch() method
+* Add Closure Compiler to repository
+* Add MAKEFILE
+* Misc cleanup
+
+
+
+0.3.1 / 2013-01-04
+------------------
+
+* lowercase idbstore.js
+* Add minified version
+* Add version property to IDBStore
+
+
+
+0.3.0 / 2012-12-18
+------------------
+
+* Fix potentially non-unique generated IDs
+* Add batch() method [Raynos]
+* Fix a bug where the success handler could be called even if there was an error
+* Fix a bug where old IndexedDB implementations were not detected successfully
+
+
+
+0.2.1 / 2012-11-20
+------------------
+
+* Add error handler to constructor
+* Remove support for numeric transaction and cursor types.
+* Misc cleanup
+
+
+
+0.2.0 / 2012-11-20
+------------------
+
+* Start versioning

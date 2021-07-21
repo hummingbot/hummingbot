@@ -1,0 +1,52 @@
+{
+  "name": "git-up",
+  "version": "4.0.2",
+  "description": "A low level git url parser.",
+  "main": "lib/index.js",
+  "directories": {
+    "example": "example",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "node test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/IonicaBizau/git-up.git"
+  },
+  "keywords": [
+    "git",
+    "url",
+    "parser",
+    "parsing"
+  ],
+  "author": "Ionică Bizău <bizauionica@gmail.com> (https://ionicabizau.net)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/IonicaBizau/git-up/issues"
+  },
+  "homepage": "https://github.com/IonicaBizau/git-up",
+  "dependencies": {
+    "is-ssh": "^1.3.0",
+    "parse-url": "^5.0.0"
+  },
+  "devDependencies": {
+    "tester": "^1.4.3"
+  },
+  "files": [
+    "bin/",
+    "app/",
+    "lib/",
+    "dist/",
+    "src/",
+    "scripts/",
+    "resources/",
+    "menu/",
+    "cli.js",
+    "index.js",
+    "bloggify.js",
+    "bloggify.json",
+    "bloggify/"
+  ],
+  "blah": {}
+}

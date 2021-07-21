@@ -1,0 +1,26 @@
+{
+	"id": "input-button-name",
+	"selector": "input[type=\"button\"], input[type=\"submit\"], input[type=\"reset\"]",
+	"tags": [
+		"cat.name-role-value",
+		"wcag2a",
+		"wcag412",
+		"section508",
+		"section508.22.a"
+	],
+	"metadata": {
+		"description": "Ensures input buttons have discernible text",
+		"help": "Input buttons must have discernible text"
+	},
+	"all": [],
+	"any": [
+		"non-empty-if-present",
+		"non-empty-value",
+		"aria-label",
+		"aria-labelledby",
+		"role-presentation",
+		"role-none",
+		"non-empty-title"
+	],
+	"none": []
+}

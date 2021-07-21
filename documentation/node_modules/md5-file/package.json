@@ -1,0 +1,27 @@
+{
+  "name": "md5-file",
+  "version": "5.0.0",
+  "keywords": [
+    "md5",
+    "md5sum",
+    "checksum"
+  ],
+  "repository": "roryrjb/md5-file",
+  "license": "MIT",
+  "bin": "cli.js",
+  "files": [
+    "cli.js",
+    "index.d.ts",
+    "index.js"
+  ],
+  "scripts": {
+    "test": "standard && mocha"
+  },
+  "devDependencies": {
+    "mocha": "^7.1.1",
+    "standard": "^14.3.3"
+  },
+  "engines": {
+    "node": ">=10.13.0"
+  }
+}

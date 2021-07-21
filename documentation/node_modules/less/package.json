@@ -1,0 +1,134 @@
+{
+	"name": "less",
+	"version": "3.12.2",
+	"description": "Leaner CSS",
+	"homepage": "http://lesscss.org",
+	"author": {
+		"name": "Alexis Sellier",
+		"email": "self@cloudhead.net"
+	},
+	"contributors": [
+		"The Core Less Team"
+	],
+	"bugs": {
+		"url": "https://github.com/less/less.js/issues"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/less/less.js.git"
+	},
+	"master": {
+		"url": "https://github.com/less/less.js/blob/master/",
+		"raw": "https://raw.githubusercontent.com/less/less.js/master/"
+	},
+	"license": "Apache-2.0",
+	"bin": {
+		"lessc": "./bin/lessc"
+	},
+	"main": "index",
+	"module": "./lib/less-node/index",
+	"directories": {
+		"test": "./test"
+	},
+	"browser": "./dist/less.js",
+	"engines": {
+		"node": ">=6"
+	},
+	"scripts": {
+		"test": "grunt test",
+		"grunt": "grunt",
+		"build": "npm-run-all clean compile",
+		"clean": "shx rm -rf ./lib tsconfig.tsbuildinfo",
+		"compile": "tsc -p tsconfig.json",
+		"copy:root": "shx cp -rf ./dist ../../",
+		"dev": "tsc -p tsconfig.json -w",
+		"prepublishOnly": "grunt dist"
+	},
+	"optionalDependencies": {
+		"errno": "^0.1.1",
+		"graceful-fs": "^4.1.2",
+		"image-size": "~0.5.0",
+		"make-dir": "^2.1.0",
+		"mime": "^1.4.1",
+		"native-request": "^1.0.5",
+		"source-map": "~0.6.0"
+	},
+	"devDependencies": {
+		"@less/test-data": "^3.12.2",
+		"@less/test-import-module": "^3.12.0",
+		"@typescript-eslint/eslint-plugin": "^3.3.0",
+		"@typescript-eslint/parser": "^3.3.0",
+		"benny": "^3.6.12",
+		"bootstrap-less-port": "0.3.0",
+		"chai": "^4.2.0",
+		"copy-anything": "^2.0.1",
+		"diff": "^3.2.0",
+		"eslint": "^6.8.0",
+		"fs-extra": "^8.1.0",
+		"git-rev": "^0.2.1",
+		"globby": "^10.0.1",
+		"grunt": "^1.0.4",
+		"grunt-cli": "^1.3.2",
+		"grunt-contrib-clean": "^1.0.0",
+		"grunt-contrib-connect": "^1.0.2",
+		"grunt-eslint": "^21.1.0",
+		"grunt-saucelabs": "^9.0.1",
+		"grunt-shell": "^1.3.0",
+		"html-template-tag": "^3.2.0",
+		"jit-grunt": "^0.10.0",
+		"less-plugin-autoprefix": "^1.5.1",
+		"less-plugin-clean-css": "^1.5.1",
+		"minimist": "^1.2.0",
+		"mocha": "^6.2.1",
+		"mocha-headless-chrome": "^2.0.3",
+		"mocha-teamcity-reporter": "^3.0.0",
+		"npm-run-all": "^4.1.5",
+		"performance-now": "^0.2.0",
+		"phin": "^2.2.3",
+		"promise": "^7.1.1",
+		"read-glob": "^3.0.0",
+		"resolve": "^1.17.0",
+		"rollup": "^1.17.0",
+		"rollup-plugin-commonjs": "^10.0.1",
+		"rollup-plugin-node-resolve": "^5.2.0",
+		"rollup-plugin-terser": "^5.1.1",
+		"rollup-plugin-typescript2": "^0.24.3",
+		"semver": "^6.3.0",
+		"shx": "^0.3.2",
+		"time-grunt": "^1.3.0",
+		"ts-node": "^8.4.1",
+		"typescript": "^3.6.3",
+		"uikit": "2.27.4"
+	},
+	"keywords": [
+		"compile less",
+		"css nesting",
+		"css variable",
+		"css",
+		"gradients css",
+		"gradients css3",
+		"less compiler",
+		"less css",
+		"less mixins",
+		"less",
+		"less.js",
+		"lesscss",
+		"mixins",
+		"nested css",
+		"parser",
+		"preprocessor",
+		"bootstrap css",
+		"bootstrap less",
+		"style",
+		"styles",
+		"stylesheet",
+		"variables in css",
+		"css less"
+	],
+	"rawcurrent": "https://raw.github.com/less/less.js/v",
+	"sourcearchive": "https://github.com/less/less.js/archive/v",
+	"dependencies": {
+		"tslib": "^1.10.0"
+	},
+	"gitHead": "185762a999519708fd914c9fad99b61720f34281"
+}

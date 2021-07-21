@@ -1,0 +1,19 @@
+@font-face{
+    font-family: 'Source Sans Variable';
+    font-weight: 200 900;
+    font-style: normal;
+    font-stretch: normal;
+    src: url('WOFF2/VAR/SourceSansVariable-Roman.ttf.woff2') format('woff2'),
+         url('WOFF/VAR/SourceSansVariable-Roman.ttf.woff') format('woff'),
+         url('VAR/SourceSansVariable-Roman.ttf') format('truetype');
+}
+
+@font-face{
+    font-family: 'Source Sans Variable';
+    font-weight: 200 900;
+    font-style: italic;
+    font-stretch: normal;
+    src: url('WOFF2/VAR/SourceSansVariable-Italic.ttf.woff2') format('woff2'),
+         url('WOFF/VAR/SourceSansVariable-Italic.ttf.woff') format('woff'),
+         url('VAR/SourceSansVariable-Italic.ttf') format('truetype');
+}

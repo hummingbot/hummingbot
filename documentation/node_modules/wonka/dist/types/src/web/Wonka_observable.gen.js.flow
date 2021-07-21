@@ -1,0 +1,15 @@
+// @flow
+
+import type { observableObserverT as $$observableObserverT } from "../shims/Js.shim";
+import type { observableSubscriptionT as $$observableSubscriptionT } from "../shims/Js.shim";
+import type { observableT as $$observableT } from "../shims/Js.shim";
+import type { sourceT as Wonka_types_sourceT } from "../../src/Wonka_types.gen";
+export type observableSubscriptionT = $$observableSubscriptionT;
+export type observableObserverT<a> = $$observableObserverT<a>;
+export type observableT<a> = $$observableT<a>;
+declare export var fromObservable: <a>(
+  input: observableT<a>
+) => Wonka_types_sourceT<a>;
+declare export var toObservable: <a>(
+  source: Wonka_types_sourceT<a>
+) => observableT<a>;

@@ -1,0 +1,27 @@
+{
+  "name": "node-gyp-build",
+  "version": "3.7.0",
+  "description": "Build tool and bindings loader for node-gyp that supports prebuilds",
+  "main": "index.js",
+  "devDependencies": {
+    "standard": "^8.6.0"
+  },
+  "scripts": {
+    "test": "standard"
+  },
+  "bin": {
+    "node-gyp-build": "./bin.js",
+    "node-gyp-build-optional": "./optional.js",
+    "node-gyp-build-test": "./build-test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mafintosh/node-gyp-build.git"
+  },
+  "author": "Mathias Buus (@mafintosh)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/mafintosh/node-gyp-build/issues"
+  },
+  "homepage": "https://github.com/mafintosh/node-gyp-build"
+}

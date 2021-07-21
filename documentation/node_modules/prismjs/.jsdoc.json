@@ -1,0 +1,66 @@
+{
+	"plugins": [
+		"plugins/markdown",
+		"./gulpfile.js/docs.js"
+	],
+	"opts": {
+		"destination": "./docs",
+		"encoding": "utf8",
+		"template": "./node_modules/docdash",
+		"access": [
+			"public",
+			"protected"
+		]
+	},
+	"recurseDepth": 10,
+	"source": {
+		"includePattern": "\\.js$",
+		"excludePattern": "\\.min\\.js$"
+	},
+	"tags": {
+		"allowUnknownTags": true,
+		"dictionaries": [
+			"jsdoc",
+			"closure"
+		]
+	},
+	"templates": {
+		"cleverLinks": true,
+		"monospaceLinks": true,
+		"default": {
+			"includeDate": false
+		}
+	},
+	"docdash": {
+		"static": true,
+		"sort": true,
+		"search": true,
+		"collapse": false,
+		"wrap": false,
+		"typedefs": true,
+		"private": false,
+		"scripts": [
+			"styles/overwrites.css"
+		],
+		"openGraph": {
+			"title": "Prism generated API documentation",
+			"type": "website",
+			"image": "/logo.svg",
+			"site_name": "Prism",
+			"url": "https://prismjs.com"
+		},
+		"menu": {
+			"PrismJS": {
+				"href": "https://prismjs.com",
+				"class": "menu-item",
+				"id": "website_link"
+			},
+			"GitHub": {
+				"href": "https://github.com/PrismJS/prism",
+				"target": "_blank",
+				"class": "menu-item",
+				"id": "github_link"
+			}
+		}
+	}
+}

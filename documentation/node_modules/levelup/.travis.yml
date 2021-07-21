@@ -1,0 +1,24 @@
+language: node_js
+node_js:
+  - "0.8"
+  - "0.10"
+branches:
+  only:
+    - master
+notifications:
+  email:
+    - r@va.gg
+    - john@chesl.es
+    - raynos2@gmail.com
+    - dominic.tarr@gmail.com
+    - max@maxogden.com
+    - lars.magnus.skog@gmail.com
+    - david.bjorklund@gmail.com
+    - julian@juliangruber.com
+    - paolo@async.ly
+    - anton.whalley@nearform.com
+    - matteo.collina@gmail.com
+    - pedro.teixeira@gmail.com
+    - mail@substack.net
+script: npm run-script alltests
+

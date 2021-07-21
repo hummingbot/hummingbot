@@ -1,0 +1,191 @@
+/* from https://www.gatsbyjs.org/packages/gatsby-remark-prismjs/#include-css */
+
+@font-family-monospace: 'Source Code Pro', monospace;
+@gatsby-code-title-height: 50px;
+
+.gatsby-code-title {
+  display: flex;
+  align-items: center;
+  margin-bottom: -@gatsby-code-title-height;
+  height: @gatsby-code-title-height;
+  font-size: 15px;
+  font-family: @font-family-monospace;
+  color: @color-text2;
+  padding-left: 19px;
+}
+
+.gatsby-highlight-code-line {
+  background-color: @color-background2;
+  display: block;
+  margin-right: -1em;
+  margin-left: -3.5em;
+  padding-right: 1em;
+  padding-left: 3.5em;
+}
+
+/**
+ * Add back the container background-color, border-radius, padding, margin
+ * and overflow that we removed from <pre>.
+ */
+// .gatsby-highlight {
+//   background: @color-background;
+//   border: 1px solid @color-divider;
+//   border-radius: 4px;
+//   margin: 0.5em 0 1.45em;
+//   padding: 1em;
+//   overflow: auto;
+// }
+
+/**
+ * Remove the default PrismJS theme background-color, border-radius, margin,
+ * padding and overflow.
+ * 1. Make the element just wide enough to fit its content.
+ * 2. Always fill the visible space in .gatsby-highlight.
+ * 3. Adjust the position of the line numbers
+ */
+.gatsby-highlight pre[class*="language-"] {
+  background-color: transparent;
+  margin: 0;
+  padding: 0;
+  overflow: initial;
+  float: left; /* 1 */
+  min-width: 100%; /* 2 */
+}
+
+/* Adjust the position of the line numbers */
+.gatsby-highlight pre[class*="language-"].line-numbers {
+  padding-left: 2.5em;
+}
+
+.gatsby-highlight pre[class*="language-"].line-numbers .line-numbers-rows {
+  border-right: none;
+}
+
+.gatsby-highlight pre[class*="language-"].line-numbers .line-numbers-rows > span:before {
+  color: @color-text4;
+}
+
+/* Generated with http://k88hudson.github.io/syntax-highlighting-theme-generator/www */
+/* http://k88hudson.github.io/react-markdocs */
+/**
+ * @author k88hudson
+ *
+ * Based on prism.js default theme for JavaScript, CSS and HTML
+ * Based on dabblet (http://dabblet.com)
+ * @author Lea Verou
+ */
+/*********************************************************
+* General
+*/
+pre[class*="language-"],
+code[class*="language-"] {
+  color: @color-text1;
+  font-size: 15px;
+  text-shadow: none;
+  font-family: @font-family-monospace;
+  direction: ltr;
+  text-align: left;
+  white-space: pre;
+  word-spacing: normal;
+  word-break: normal;
+  line-height: 1.5;
+  -moz-tab-size: 4;
+  -o-tab-size: 4;
+  tab-size: 4;
+  -webkit-hyphens: none;
+  -moz-hyphens: none;
+  -ms-hyphens: none;
+  hyphens: none;
+}
+@media print {
+  pre[class*="language-"],
+  code[class*="language-"] {
+    text-shadow: none;
+  }
+}
+pre[class*="language-"] {
+  padding: 1em;
+  margin: .5em 0;
+  overflow: auto;
+  background: @color-background;
+}
+:not(pre) > code[class*="language-"] {
+  padding: .1em .3em;
+  border-radius: .3em;
+  font-size: 0.9em;
+  color: @color-secondary;
+  background: @color-background2;
+}
+/*********************************************************
+* Tokens
+*/
+.namespace {
+  opacity: .7;
+}
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+  color: @color-text3;
+}
+.token.punctuation {
+  color: @color-text2;
+}
+.token.property,
+.token.tag,
+.token.boolean,
+.token.number,
+.token.constant,
+.token.symbol,
+.token.deleted {
+  color: @color-secondary;
+}
+.token.selector,
+.token.attr-name,
+.token.string,
+.token.char,
+.token.builtin,
+.token.inserted {
+  color: @color-tertiary;
+}
+.token.operator,
+.token.entity,
+.token.url,
+.language-css .token.string,
+.style .token.string {
+  color: inherit;
+  background: transparent;
+}
+.token.atrule,
+.token.attr-value,
+.token.keyword {
+  color: @color-primary;
+}
+.token.class-name,
+.token.function {
+  color: @color-secondary;
+}
+.token.regex,
+.token.important,
+.token.variable {
+  color: @color-warning;
+}
+.token.important,
+.token.bold {
+  font-weight: bold;
+}
+.token.italic {
+  font-style: italic;
+}
+.token.entity {
+  cursor: help;
+}
+/*********************************************************
+* Line highlighting
+*/
+pre[data-line] {
+  position: relative;
+}
+pre[class*="language-"] > code[class*="language-"] {
+  position: relative;
+}

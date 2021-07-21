@@ -1,0 +1,62 @@
+{
+  "name": "react-icons",
+  "version": "3.11.0",
+  "description": "SVG React icons of popular icon packs using ES6 imports",
+  "author": "Goran Gajic",
+  "contributors": [
+    "kamijin_fanta <kamijin@live.jp>"
+  ],
+  "license": "MIT",
+  "main": "lib",
+  "types": "./lib/esm/index.d.ts",
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com:react-icons/react-icons.git"
+  },
+  "bugs": {
+    "url": "https://github.com/react-icons/react-icons/issues"
+  },
+  "homepage": "https://github.com/react-icons/react-icons#readme",
+  "peerDependencies": {
+    "react": "*"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.8.3",
+    "@babel/core": "^7.8.3",
+    "@types/react": "^16.9.19",
+    "babel-eslint": "^10.0.3",
+    "camelcase": "^5.0.0",
+    "cheerio": "^1.0.0-rc.2",
+    "copy": "^0.3.2",
+    "eslint": "^5.6.1",
+    "eslint-config-google": "^0.12.0",
+    "eslint-config-prettier": "^4.2.0",
+    "eslint-config-standard": "^12.0.0",
+    "eslint-plugin-import": "^2.17.2",
+    "eslint-plugin-node": "^9.0.1",
+    "eslint-plugin-prettier": "^3.0.0",
+    "eslint-plugin-promise": "^4.0.1",
+    "eslint-plugin-standard": "^4.0.0",
+    "feather-icons": "^4.7.3",
+    "find-package": "^1.0.0",
+    "glob-promise": "^3.4.0",
+    "ionicons": "^4.4.4",
+    "lerna": "^3.20.2",
+    "netlify-cli": "^2.30.0",
+    "octicons": "^8.1.0",
+    "prettier": "^1.19.1",
+    "renamer": "^1.0.0",
+    "rimraf": "^2.6.2",
+    "typescript": "^3.4.5"
+  },
+  "scripts": {
+    "build": "node scripts/build.js && yarn build-mjs && yarn build-cjs",
+    "prebuild": "node ../../node_modules/copy/bin/cli.js ../../README.md ./packages/react-icons && rimraf ./lib",
+    "build-mjs": "tsc && babel ./lib/esm -d ./lib/esm",
+    "build-cjs": "tsc -p ./tsconfig.commonjs.json"
+  },
+  "dependencies": {
+    "camelcase": "^5.0.0"
+  }
+}

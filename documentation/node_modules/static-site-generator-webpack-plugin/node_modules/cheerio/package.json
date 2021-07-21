@@ -1,0 +1,59 @@
+{
+  "name": "cheerio",
+  "version": "0.22.0",
+  "description": "Tiny, fast, and elegant implementation of core jQuery designed specifically for the server",
+  "author": "Matt Mueller <mattmuelle@gmail.com> (mat.io)",
+  "license": "MIT",
+  "keywords": [
+    "htmlparser",
+    "jquery",
+    "selector",
+    "scraper",
+    "parser",
+    "html"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/cheeriojs/cheerio.git"
+  },
+  "main": "./index.js",
+  "files": [
+    "index.js",
+    "lib"
+  ],
+  "engines": {
+    "node": ">= 0.6"
+  },
+  "dependencies": {
+    "css-select": "~1.2.0",
+    "dom-serializer": "~0.1.0",
+    "entities": "~1.1.1",
+    "htmlparser2": "^3.9.1",
+    "lodash.assignin": "^4.0.9",
+    "lodash.bind": "^4.1.4",
+    "lodash.defaults": "^4.0.1",
+    "lodash.filter": "^4.4.0",
+    "lodash.flatten": "^4.2.0",
+    "lodash.foreach": "^4.3.0",
+    "lodash.map": "^4.4.0",
+    "lodash.merge": "^4.4.0",
+    "lodash.pick": "^4.2.1",
+    "lodash.reduce": "^4.4.0",
+    "lodash.reject": "^4.4.0",
+    "lodash.some": "^4.4.0"
+  },
+  "devDependencies": {
+    "benchmark": "^2.1.0",
+    "coveralls": "^2.11.9",
+    "expect.js": "~0.3.1",
+    "istanbul": "^0.4.3",
+    "jsdom": "^9.2.1",
+    "jquery": "^3.0.0",
+    "jshint": "^2.9.2",
+    "mocha": "^2.5.3",
+    "xyz": "~0.5.0"
+  },
+  "scripts": {
+    "test": "make test"
+  }
+}

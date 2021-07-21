@@ -1,0 +1,47 @@
+{
+  "name": "hummingbot-docs",
+  "description": "This is the documentation the Hummingbot client",
+  "version": "1.0.0",
+  "scripts": {
+    "prestart": "gatsby clean",
+    "start": "gatsby develop",
+    "build": "GATSBY_EXPERIMENTAL_PAGE_BUILD_ON_DATA_CHANGES=true gatsby build --log-pages",
+    "serve": "gatsby serve"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "pretty-quick --staged"
+    }
+  },
+  "dependencies": {
+    "dotenv": "^8.2.0",
+    "gatsby": "^2.24.84",
+    "gatsby-plugin-algolia": "^0.14.0",
+    "gatsby-plugin-manifest": "^2.4.35",
+    "gatsby-remark-katex": "^3.3.14",
+    "gatsby-theme-apollo-docs": "^4.5.3",
+    "gatsby-transformer-remark": "^2.8.45",
+    "github-slugger": "^1.3.0",
+    "katex": "^0.13.2",
+    "react": "^17.0.0",
+    "react-dom": "^17.0.0",
+    "react-icons": "^4.1.0",
+    "react-scroll": "^1.8.2",
+    "remark-grid-tables": "^2.1.1",
+    "remark-math": "^4.0.0"
+  },
+  "devDependencies": {
+    "husky": "^4.3.0",
+    "prettier": "^2.1.1",
+    "pretty-quick": "^3.0.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CoinAlpha/hummingbot-docs.git"
+  },
+  "bugs": {
+    "url": "https://github.com/CoinAlpha/hummingbot-docs/issues"
+  },
+  "homepage": "https://github.com/CoinAlpha/hummingbot-docs#readme",
+  "license": "UNLICENSED"
+}

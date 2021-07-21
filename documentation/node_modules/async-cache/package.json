@@ -1,0 +1,33 @@
+{
+  "name": "async-cache",
+  "version": "1.1.0",
+  "description": "Cache your async lookups and don't fetch the same thing more than necessary.",
+  "main": "ac.js",
+  "directories": {
+    "test": "test"
+  },
+  "files": [
+    "ac.js"
+  ],
+  "dependencies": {
+    "lru-cache": "^4.0.0"
+  },
+  "devDependencies": {
+    "standard": "^3.11.0",
+    "tap": "^2.0.0"
+  },
+  "scripts": {
+    "test": "standard && tap test/*.js --cov"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/isaacs/async-cache"
+  },
+  "keywords": [
+    "async",
+    "cache",
+    "lru"
+  ],
+  "author": "Isaac Z. Schlueter <i@izs.me> (http://blog.izs.me/)",
+  "license": "ISC"
+}

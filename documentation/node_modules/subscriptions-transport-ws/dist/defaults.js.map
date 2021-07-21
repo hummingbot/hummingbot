@@ -1,0 +1,1 @@
+{"version":3,"file":"defaults.js","sourceRoot":"","sources":["../src/defaults.ts"],"names":[],"mappings":";;;AAAA,IAAM,cAAc,GAAG,IAAI,CAAC;AAI1B,wCAAc;AAHhB,IAAM,UAAU,GAAG,KAAK,CAAC;AAIvB,gCAAU","sourcesContent":["const MIN_WS_TIMEOUT = 1000;\nconst WS_TIMEOUT = 30000;\n\nexport {\n  MIN_WS_TIMEOUT,\n  WS_TIMEOUT,\n};\n"]}

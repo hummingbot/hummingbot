@@ -1,0 +1,36 @@
+// @flow
+
+import type { callbagT as Wonka_callbag_callbagT } from "./Wonka_callbag.gen";
+import type { element as Dom_element } from "../../src/shims/Dom.shim";
+import type { event as Dom_event } from "../../src/shims/Dom.shim";
+import type { observableT as Wonka_observable_observableT } from "./Wonka_observable.gen";
+import type { operatorT as Wonka_types_operatorT } from "../../src/Wonka_types.gen";
+import type { sourceT as Wonka_types_sourceT } from "../../src/Wonka_types.gen";
+declare export var fromObservable: <T1>(
+  _1: Wonka_observable_observableT<T1>
+) => Wonka_types_sourceT<T1>;
+declare export var toObservable: <T1>(
+  _1: Wonka_types_sourceT<T1>
+) => Wonka_observable_observableT<T1>;
+declare export var fromCallbag: <T1>(
+  _1: Wonka_callbag_callbagT<T1>
+) => Wonka_types_sourceT<T1>;
+declare export var toCallbag: <T1>(
+  _1: Wonka_types_sourceT<T1>
+) => Wonka_callbag_callbagT<T1>;
+declare export var debounce: <a>(
+  f: (_1: a) => number
+) => Wonka_types_operatorT<a, a>;
+declare export var delay: <a>(wait: number) => Wonka_types_operatorT<a, a>;
+declare export var throttle: <a>(
+  f: (_1: a) => number
+) => Wonka_types_operatorT<a, a>;
+declare export var toPromise: <a>(source: Wonka_types_sourceT<a>) => Promise<a>;
+declare export var interval: (p: number) => Wonka_types_sourceT<number>;
+declare export var fromDomEvent: (
+  element: Dom_element,
+  event: string
+) => Wonka_types_sourceT<Dom_event>;
+declare export var fromPromise: <a>(
+  promise: Promise<a>
+) => Wonka_types_sourceT<a>;

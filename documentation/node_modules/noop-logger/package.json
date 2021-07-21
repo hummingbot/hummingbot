@@ -1,0 +1,15 @@
+{
+  "name": "noop-logger",
+  "description": "A logger that does exactly nothing.",
+  "repository": "git://github.com/segmentio/noop-logger.git",
+  "version": "0.1.1",
+  "license": "MIT",
+  "main": "lib/index.js",
+  "dependencies": {},
+  "scripts": {
+    "test": "mocha"
+  },
+  "devDependencies": {
+    "mocha": "1.x"
+  }
+}

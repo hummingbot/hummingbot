@@ -1,0 +1,11 @@
+{
+	"id": "landmark",
+	"evaluate": "landmark.js",
+	"metadata": {
+		"impact": "serious",
+		"messages": {
+			"pass": "Page has a landmark region",
+			"fail": "Page does not have a landmark region"
+		}
+	}
+}

@@ -1,0 +1,33 @@
+{
+  "name": "buffer-es6",
+  "description": "Node.js Buffer API, for the browser",
+  "version": "4.9.3",
+  "author": {
+    "name": "Feross Aboukhadijeh",
+    "email": "feross@feross.org",
+    "url": "http://feross.org"
+  },
+  "bugs": {
+    "url": "https://github.com/calvinmetcalf/buffer-es6/issues"
+  },
+  "contributors": [
+    "Romain Beauxis <toots@rastageeks.org>",
+    "James Halliday <mail@substack.net>"
+  ],
+  "keywords": [
+    "arraybuffer",
+    "browser",
+    "browserify",
+    "buffer",
+    "compatible",
+    "dataview",
+    "uint8array"
+  ],
+  "license": "MIT",
+  "main": "index.js",
+  "module": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/calvinmetcalf/buffer-es6.git"
+  }
+}

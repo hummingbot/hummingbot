@@ -1,0 +1,43 @@
+{
+  "name": "level-js",
+  "version": "2.2.4",
+  "description": "leveldown/leveldb library for browsers using IndexedDB",
+  "main": "index.js",
+  "scripts": {
+    "test": "beefy test/test.js:test.js test/test-levelup.js:test-levelup.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:maxogden/level.js.git"
+  },
+  "keywords": [
+    "level",
+    "leveldb"
+  ],
+  "author": "max ogden",
+  "license": "BSD-2-Clause",
+  "devDependencies": {
+    "beefy": "~0.3.0",
+    "browserify": "^4.1.2",
+    "levelup": "~0.18.2",
+    "tape": "^4.0.0"
+  },
+  "dependencies": {
+    "abstract-leveldown": "~0.12.0",
+    "idb-wrapper": "^1.5.0",
+    "isbuffer": "~0.0.0",
+    "ltgt": "^2.1.2",
+    "typedarray-to-buffer": "~1.0.0",
+    "xtend": "~2.1.2"
+  },
+  "testling": {
+    "files": "test/test.js",
+    "browsers": [
+      "ie/10..latest",
+      "firefox/17..latest",
+      "chrome/25..latest",
+      "opera/15..latest",
+      "safari/6.0..latest"
+    ]
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "name": "moment-mini",
+  "version": "2.24.0",
+  "description": "Parse, validate, manipulate, and display dates",
+  "main": "moment.min.js",
+  "typings": "moment.d.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ksloan/moment-mini.git"
+  },
+  "keywords": [
+    "moment",
+    "date",
+    "time",
+    "parse",
+    "format",
+    "validate",
+    "i18n",
+    "l10n",
+    "ender"
+  ],
+  "author": "Tim Wood, Iskren Chernev, Moment.js contributors",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/ksloan/moment-mini/issues"
+  },
+  "homepage": "https://github.com/ksloan/moment-mini#readme"
+}

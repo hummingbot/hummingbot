@@ -1,0 +1,16 @@
+{
+  "author": "Roman Shtylman <shtylman@gmail.com>",
+  "name": "process-es6",
+  "description": "process information for node.js and browsers, but in es6",
+  "keywords": [
+    "process"
+  ],
+  "version": "0.11.6",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/calvinmetcalf/node-process-es6.git"
+  },
+  "license": "MIT",
+  "main": "./browser.js",
+  "module": "./browser.js"
+}

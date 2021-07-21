@@ -1,0 +1,37 @@
+environment:
+  # https://github.com/jasongin/nvs/blob/master/doc/CI.md
+  NVS_VERSION: 1.4.2
+  matrix:
+    - NODEJS_VERSION: node/10
+    - NODEJS_VERSION: node/12
+    - NODEJS_VERSION: node/14
+    - NODEJS_VERSION: nightly
+
+os: Visual Studio 2017
+platform:
+  - x86
+  - x64
+
+install:
+  # nvs
+  - git clone --branch v%NVS_VERSION% --depth 1 https://github.com/jasongin/nvs %LOCALAPPDATA%\nvs
+  - set PATH=%LOCALAPPDATA%\nvs;%PATH%
+  - nvs --version
+  # node.js
+  - nvs add %NODEJS_VERSION%/%PLATFORM%
+  - nvs use %NODEJS_VERSION%/%PLATFORM%
+  - node --version
+  - node -p process.arch
+  - npm --version
+  # app
+  - npm install
+
+test_script:
+  - npm test
+
+build: off
+
+version: "{build}"
+
+cache:
+  - node_modules

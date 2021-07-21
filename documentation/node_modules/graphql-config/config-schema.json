@@ -1,0 +1,143 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "anyOf": [
+    {
+      "$ref": "#/definitions/IGraphQLProjects"
+    },
+    {
+      "$ref": "#/definitions/IGraphQLProject"
+    },
+    {
+      "$ref": "#/definitions/IGraphQLProjectLegacy"
+    }
+  ],
+  "definitions": {
+    "IExtensions": {
+      "additionalProperties": {},
+      "description": "Configuration of each used extension",
+      "title": "IExtensions",
+      "type": "object"
+    },
+    "IGraphQLProject": {
+      "description": "GraphQL Project",
+      "properties": {
+        "documents": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "documents"
+        },
+        "exclude": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "exclude"
+        },
+        "extensions": {
+          "$ref": "#/definitions/IExtensions",
+          "title": "extensions"
+        },
+        "include": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "include"
+        },
+        "schema": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "schema"
+        }
+      },
+      "required": ["schema"],
+      "title": "IGraphQLProject",
+      "type": "object"
+    },
+    "IGraphQLProjectLegacy": {
+      "description": "Legacy structure of GraphQL Config v2",
+      "properties": {
+        "excludes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "excludes",
+          "type": "array"
+        },
+        "extensions": {
+          "additionalProperties": {},
+          "title": "extensions",
+          "type": "object"
+        },
+        "includes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "includes",
+          "type": "array"
+        },
+        "schemaPath": {
+          "title": "schemaPath",
+          "type": "string"
+        }
+      },
+      "required": ["schemaPath"],
+      "title": "IGraphQLProjectLegacy",
+      "type": "object"
+    },
+    "IGraphQLProjects": {
+      "description": "Multiple named projects",
+      "properties": {
+        "projects": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/IGraphQLProject"
+              },
+              {
+                "$ref": "#/definitions/IGraphQLProjectLegacy"
+              }
+            ]
+          },
+          "title": "projects",
+          "type": "object"
+        }
+      },
+      "required": ["projects"],
+      "title": "IGraphQLProjects",
+      "type": "object"
+    }
+  }
+}

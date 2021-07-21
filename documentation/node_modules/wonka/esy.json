@@ -1,0 +1,20 @@
+{
+  "name": "wonka",
+  "version": "4.0.3",
+  "esy": {
+    "build": "dune build -p #{self.name}"
+  },
+  "peerDependencies": {
+    "ocaml": ">= 4.6.0"
+  },
+  "dependencies": {
+    "@opam/dune": "^1.7.3",
+    "@esy-ocaml/reason": ">= 3.4.0 < 3.6.0",
+    "refmterr": "*",
+    "belt": "jaredly/belt"
+  },
+  "devDependencies": {
+    "@opam/merlin": "*",
+    "ocaml": "4.8.1000"
+  }
+}

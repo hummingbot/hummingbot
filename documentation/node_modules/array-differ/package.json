@@ -1,0 +1,35 @@
+{
+	"name": "array-differ",
+	"version": "3.0.0",
+	"description": "Create an array with values that are present in the first input array but not additional ones",
+	"license": "MIT",
+	"repository": "sindresorhus/array-differ",
+	"author": {
+		"name": "Sindre Sorhus",
+		"email": "sindresorhus@gmail.com",
+		"url": "sindresorhus.com"
+	},
+	"engines": {
+		"node": ">=8"
+	},
+	"scripts": {
+		"test": "xo && ava && tsd"
+	},
+	"files": [
+		"index.js",
+		"index.d.ts"
+	],
+	"keywords": [
+		"array",
+		"difference",
+		"diff",
+		"differ",
+		"filter",
+		"exclude"
+	],
+	"devDependencies": {
+		"ava": "^1.4.1",
+		"tsd": "^0.7.2",
+		"xo": "^0.24.0"
+	}
+}

@@ -1,0 +1,68 @@
+{
+  "name": "unist-builder",
+  "version": "1.0.4",
+  "description": "Helper for creating unist trees",
+  "license": "MIT",
+  "keywords": [
+    "ast",
+    "build",
+    "builder",
+    "create",
+    "dsl",
+    "hyperscript",
+    "sugar",
+    "syntax",
+    "tree",
+    "unist"
+  ],
+  "repository": "syntax-tree/unist-builder",
+  "bugs": "https://github.com/syntax-tree/unist-builder/issues",
+  "author": "Eugene Sharygin <eush77@gmail.com>",
+  "contributors": [
+    "Eugene Sharygin <eush77@gmail.com>",
+    "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)"
+  ],
+  "files": [
+    "index.js"
+  ],
+  "dependencies": {
+    "object-assign": "^4.1.0"
+  },
+  "devDependencies": {
+    "nyc": "^14.0.0",
+    "prettier": "^1.14.2",
+    "remark-cli": "^6.0.0",
+    "remark-preset-wooorm": "^5.0.0",
+    "tape": "^4.0.0",
+    "xo": "^0.24.0"
+  },
+  "scripts": {
+    "format": "remark . -qfo && prettier --write \"**/*.js\" && xo --fix",
+    "test-api": "node test",
+    "test-coverage": "nyc --reporter lcov tape test.js",
+    "test": "npm run format && npm run test-coverage"
+  },
+  "nyc": {
+    "check-coverage": true,
+    "lines": 100,
+    "functions": 100,
+    "branches": 100
+  },
+  "prettier": {
+    "tabWidth": 2,
+    "useTabs": false,
+    "singleQuote": true,
+    "bracketSpacing": false,
+    "semi": false,
+    "trailingComma": "none"
+  },
+  "xo": {
+    "prettier": true,
+    "esnext": false
+  },
+  "remarkConfig": {
+    "plugins": [
+      "preset-wooorm"
+    ]
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "name": "@braintree/sanitize-url",
+  "version": "3.1.0",
+  "description": "A url sanitizer",
+  "main": "index.js",
+  "author": "",
+  "scripts": {
+    "test": "mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/braintree/sanitize-url.git"
+  },
+  "keywords": [],
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/braintree/sanitize-url/issues"
+  },
+  "homepage": "https://github.com/braintree/sanitize-url#readme",
+  "devDependencies": {
+    "chai": "^4.1.0",
+    "mocha": "^3.5.0"
+  }
+}

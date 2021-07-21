@@ -1,0 +1,47 @@
+{
+	"name": "object-keys",
+	"version": "0.2.0",
+	"author": "Jordan Harband",
+	"description": "An Object.keys replacement, in case Object.keys is not available. From https://github.com/kriskowal/es5-shim",
+	"license": "MIT",
+	"main": "index.js",
+	"scripts": {
+		"test": "node test.js"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git://github.com/ljharb/object-keys.git"
+	},
+	"keywords": [
+		"Object.keys",
+		"keys",
+		"ES5",
+		"shim"
+	],
+	"dependencies": {
+        "foreach": "~2.0.1",
+		"indexof": "~0.0.1",
+		"is": "~0.2.6"
+	},
+	"devDependencies": {
+		"tape": "~1.0.2"
+	},
+	"testling": {
+		"files": "test.js",
+		"browsers": [
+			"iexplore/6.0..latest",
+			"firefox/3.0..6.0",
+			"firefox/15.0..latest",
+			"firefox/nightly",
+			"chrome/4.0..10.0",
+			"chrome/20.0..latest",
+			"chrome/canary",
+			"opera/10.0..latest",
+			"opera/next",
+			"safari/4.0..latest",
+			"ipad/6.0..latest",
+			"iphone/6.0..latest"
+		]
+	}
+}
+

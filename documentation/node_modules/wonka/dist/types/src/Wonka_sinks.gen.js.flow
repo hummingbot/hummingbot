@@ -1,0 +1,14 @@
+// @flow
+
+import type { sourceT as Wonka_types_sourceT } from "./Wonka_types.gen";
+import type { subscriptionT as Wonka_types_subscriptionT } from "./Wonka_types.gen";
+export type subscribeConsumerT<a> = (
+  _1: Wonka_types_sourceT<a>
+) => Wonka_types_subscriptionT;
+export type forEachConsumerT<a> = (_1: Wonka_types_sourceT<a>) => void;
+declare export var subscribe: <a>(f: (_1: a) => void) => subscribeConsumerT<a>;
+declare export var forEach: <a>(f: (_1: a) => void) => forEachConsumerT<a>;
+declare export var publish: <a>(
+  source: Wonka_types_sourceT<a>
+) => Wonka_types_subscriptionT;
+declare export var toArray: <a>(source: Wonka_types_sourceT<a>) => a[];

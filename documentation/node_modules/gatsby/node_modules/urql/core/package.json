@@ -1,0 +1,10 @@
+{
+  "name": "urql-core",
+  "private": true,
+  "main": "index.js",
+  "module": "index.esm.js",
+  "types": "index.d.ts",
+  "dependencies": {
+    "@urql/core": "^1.7.0"
+  }
+}

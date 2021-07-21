@@ -1,0 +1,30 @@
+{
+  "name": "better-queue-memory",
+  "version": "1.0.4",
+  "description": "A really fast memory store for better-queue",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/diamondio/better-queue-memory.git"
+  },
+  "keywords": [
+    "better",
+    "queue",
+    "memory",
+    "store",
+    "plugin"
+  ],
+  "author": "Diamond Inc. <ops@diamond.io>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/diamondio/better-queue-memory/issues"
+  },
+  "homepage": "https://github.com/diamondio/better-queue-memory#readme",
+  "devDependencies": {
+    "better-queue-store-test": "^1.0.2"
+  },
+  "dependencies": {}
+}

@@ -1,0 +1,83 @@
+{
+  "name": "mdast-util-to-nlcst",
+  "version": "3.2.3",
+  "description": "Transform MDAST to NLCST",
+  "license": "MIT",
+  "keywords": [
+    "mdast",
+    "remark",
+    "nlcst",
+    "retext",
+    "markdown",
+    "natural",
+    "language"
+  ],
+  "repository": "syntax-tree/mdast-util-to-nlcst",
+  "bugs": "https://github.com/syntax-tree/mdast-util-to-nlcst/issues",
+  "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+  "contributors": [
+    "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)"
+  ],
+  "files": [
+    "index.js"
+  ],
+  "dependencies": {
+    "nlcst-to-string": "^2.0.0",
+    "repeat-string": "^1.5.2",
+    "unist-util-position": "^3.0.0",
+    "vfile-location": "^2.0.0"
+  },
+  "devDependencies": {
+    "browserify": "^16.0.0",
+    "is-hidden": "^1.0.0",
+    "negate": "^1.0.0",
+    "nyc": "^14.0.0",
+    "parse-dutch": "^4.0.0",
+    "parse-english": "^4.0.0",
+    "parse-latin": "^4.0.0",
+    "prettier": "^1.0.0",
+    "remark": "^10.0.0",
+    "remark-cli": "^6.0.0",
+    "remark-frontmatter": "^1.0.0",
+    "remark-preset-wooorm": "^5.0.0",
+    "tape": "^4.0.0",
+    "tinyify": "^2.0.0",
+    "vfile": "^4.0.0",
+    "xo": "^0.24.0"
+  },
+  "scripts": {
+    "format": "remark *.md -qfo && prettier --write \"**/*.js\" && xo --fix",
+    "build-bundle": "browserify . -s mdastUtilToNLCST > mdast-util-to-nlcst.js",
+    "build-mangle": "browserify . -s mdastUtilToNLCST -p tinyify > mdast-util-to-nlcst.min.js",
+    "build": "npm run build-bundle && npm run build-mangle",
+    "test-api": "node test",
+    "test-coverage": "nyc --reporter lcov tape test/index.js",
+    "test": "npm run format && npm run build && npm run test-coverage"
+  },
+  "nyc": {
+    "check-coverage": true,
+    "lines": 100,
+    "functions": 100,
+    "branches": 100
+  },
+  "prettier": {
+    "tabWidth": 2,
+    "useTabs": false,
+    "singleQuote": true,
+    "bracketSpacing": false,
+    "semi": false,
+    "trailingComma": "none"
+  },
+  "xo": {
+    "prettier": true,
+    "esnext": false,
+    "ignores": [
+      "mdast-util-to-nlcst.js"
+    ]
+  },
+  "remarkConfig": {
+    "plugins": [
+      "preset-wooorm"
+    ]
+  }
+}

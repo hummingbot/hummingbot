@@ -1,0 +1,17 @@
+{
+    "name": "stack-generator",
+    "repository": "stacktracejs/stack-generator",
+    "description": "Generate artificial backtrace by walking arguments.callee.caller chain",
+    "version": "2.0.0",
+    "keywords": [
+        "stacktrace",
+        "error"
+    ],
+    "main": "stack-generator.js",
+    "scripts": [
+        "stack-generator.js"
+    ],
+    "dependencies": {
+        "stacktracejs/stackframe": "1.0.2"
+    }
+}

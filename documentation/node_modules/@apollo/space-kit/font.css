@@ -1,0 +1,47 @@
+@import url('https://fonts.googleapis.com/css?family=Source+Sans+Pro:400,600,700');
+@import url('https://fonts.googleapis.com/css?family=Source+Code+Pro:400,600');
+
+.font-semibold {
+  font-weight: 600;
+}
+
+.font-t1 {
+  font-size: 2.066rem;
+  line-height: 2.8rem;
+}
+
+.font-t2 {
+  font-size: 1.733rem;
+  line-height: 2.213rem;
+}
+
+.font-t3 {
+  font-size: 1.375rem;
+  line-height: 2.2rem;
+}
+
+.font-lg {
+  font-size: 1.2rem;
+  line-height: 1.8rem;
+}
+
+html {
+  font-size: 15px;
+  line-height: 1.533em;
+}
+
+.font-sm {
+  font-size: 0.8666rem;
+  line-height: 1.333rem;
+}
+
+.font-lbl {
+  font-size: 0.7333rem;
+  line-height: 1.133rem;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.font-code {
+  font-family: 'Source Code Pro', monospace;
+}

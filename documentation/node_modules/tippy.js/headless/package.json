@@ -1,0 +1,16 @@
+{
+  "name": "tippy-headless",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Headless rendering for Tippy.js",
+  "types": "../index.d.ts",
+  "main": "dist/tippy-headless.cjs.js",
+  "module": "dist/tippy-headless.esm.js",
+  "unpkg": "dist/tippy-headless.umd.min.js",
+  "sideEffects": false,
+  "files": [
+    "dist/"
+  ],
+  "author": "atomiks",
+  "license": "MIT"
+}

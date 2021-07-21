@@ -1,0 +1,11 @@
+{
+	"id": "non-empty-value",
+	"evaluate": "non-empty-value.js",
+	"metadata": {
+		"impact": "critical",
+		"messages": {
+			"pass": "Element has a non-empty value attribute",
+			"fail": "Element has no value attribute or the value attribute is empty"
+		}
+	}
+}

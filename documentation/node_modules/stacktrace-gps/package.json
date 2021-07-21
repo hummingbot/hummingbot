@@ -1,0 +1,66 @@
+{
+  "name": "stacktrace-gps",
+  "description": "Turns partial code location into precise code location",
+  "maintainers": [
+    "Eric Wendelin <me@eriwen.com> (https://www.eriwen.com)",
+    "Victor Homyakov <vkhomyackov@gmail.com> (https://github.com/victor-homyakov)",
+    "Oliver Salzburg (https://github.com/oliversalzburg)"
+  ],
+  "version": "3.0.4",
+  "license": "MIT",
+  "keywords": [
+    "stacktrace",
+    "error",
+    "debugger"
+  ],
+  "homepage": "https://www.stacktracejs.com",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/stacktracejs/stacktrace-gps.git"
+  },
+  "dependencies": {
+    "source-map": "0.5.6",
+    "stackframe": "^1.1.1"
+  },
+  "devDependencies": {
+    "es6-promise": "^3.0.2",
+    "eslint": "^6.8.0",
+    "jasmine": "^2.7.0",
+    "jasmine-ajax": "^3.3.1",
+    "jasmine-core": "^2.7.0",
+    "karma": "^4.4.1",
+    "karma-chrome-launcher": "^3.1.0",
+    "karma-coverage": "^2.0.1",
+    "karma-coveralls": "^2.1.0",
+    "karma-firefox-launcher": "^1.2.0",
+    "karma-ie-launcher": "^1.0.0",
+    "karma-jasmine": "^1.1.2",
+    "karma-jasmine-ajax": "^0.1.13",
+    "karma-opera-launcher": "^1.0.0",
+    "karma-phantomjs-launcher": "^1.0.4",
+    "karma-safari-launcher": "^1.0.0",
+    "karma-sauce-launcher": "^2.0.2",
+    "karma-spec-reporter": "^0.0.32",
+    "run-sequence": "^1.1.4",
+    "webpack": "^4.41.5",
+    "webpack-cli": "^3.3.10"
+  },
+  "bugs": {
+    "url": "https://github.com/stacktracejs/stacktrace-gps/issues"
+  },
+  "main": "./stacktrace-gps.js",
+  "files": [
+    "LICENSE",
+    "README.md",
+    "stacktrace-gps.js",
+    "dist/",
+    "node_modules/source-map/"
+  ],
+  "scripts": {
+    "lint": "eslint --fix stacktrace-gps.js spec/",
+    "prepare": "cp stacktrace-gps.js polyfills.js dist/ && ./node_modules/.bin/webpack --mode production && uglifyjs node_modules/stackframe/stackframe.js ./build/bundle.js stacktrace-gps.js -o dist/stacktrace-gps.min.js --compress --mangle --source-map \"url=stacktrace-gps.min.js.map\" && uglifyjs node_modules/es6-promise/dist/es6-promise.js polyfills.js node_modules/stackframe/stackframe.js build/bundle.js stacktrace-gps.js -o dist/stacktrace-gps-with-polyfills.min.js --compress --mangle --source-map \"url=stacktrace-gps-polyfilled.min.js.map\"",
+    "test": "karma start karma.conf.js --single-run",
+    "test-pr": "karma start karma.conf.js --single-run --browsers Firefox,Chrome_Travis",
+    "test-ci": "karma start karma.conf.ci.js --single-run"
+  }
+}

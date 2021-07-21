@@ -1,0 +1,73 @@
+{
+  "name": "envinfo",
+  "version": "5.12.1",
+  "description": "Info about your dev environment for debugging purposes",
+  "repository": "https://github.com/tabrindle/envinfo",
+  "author": "tabrindle@gmail.com",
+  "license": "MIT",
+  "files": [
+    "dist/"
+  ],
+  "main": "dist/envinfo.js",
+  "bin": {
+    "envinfo": "dist/cli.js"
+  },
+  "engines": {
+    "node": ">=4"
+  },
+  "scripts": {
+    "build": "webpack",
+    "check:format": "prettier -l src/*.js",
+    "compress": "gzexe envinfo-* && upx envinfo-win.exe",
+    "postcompress": "tar -czvf envinfo-linux.tar.gz envinfo-linux && tar -czvf envinfo-macos.tar.gz envinfo-macos && zip -r -X envinfo-win.zip envinfo-win.exe",
+    "executable": "pkg package.json",
+    "format": "prettier --write src/*.js",
+    "lint": "eslint src",
+    "preversion": "npm run test && webpack && git add .",
+    "postversion": "npm run executable && npm run compress && npm run release",
+    "release": "github-release upload --owner=tabrindle --repo=envinfo --tag=${npm_package_version} 'envinfo-linux.tar.gz' 'envinfo-macos.tar.gz' 'envinfo-win.zip'",
+    "start": "node src/cli.js",
+    "test": "jest --env=node && npm run lint && npm run check:format"
+  },
+  "keywords": [
+    "development",
+    "env",
+    "environment",
+    "info",
+    "issues",
+    "reporting",
+    "diagnostics"
+  ],
+  "pkg": {
+    "scripts": "dist/*.js",
+    "targets": [
+      "linux",
+      "macos",
+      "win"
+    ]
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "all-contributors-cli": "^4.11.1",
+    "array-includes": "^3.0.3",
+    "clipboardy": "^1.2.2",
+    "eslint": "^4.10.0",
+    "eslint-config-airbnb-base": "^12.1.0",
+    "eslint-config-prettier": "^2.7.0",
+    "eslint-plugin-import": "^2.8.0",
+    "eslint-plugin-prettier": "^2.3.1",
+    "github-release-cli": "^0.4.1",
+    "glob": "^7.1.2",
+    "jest": "^22.4.3",
+    "minimist": "^1.2.0",
+    "object.entries": "^1.0.4",
+    "object.values": "^1.0.4",
+    "os-name": "^2.0.1",
+    "pkg": "^4.3.4",
+    "prettier-eslint-cli": "^4.1.1",
+    "webpack": "^4.25.1",
+    "webpack-cli": "^2.0.14",
+    "which": "^1.2.14",
+    "yamlify-object": "^0.4.5"
+  }
+}

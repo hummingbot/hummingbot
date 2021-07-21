@@ -1,0 +1,37 @@
+{
+  "name": "single-trailing-newline",
+  "description": "Ensure a string has a single trailing newline based off it's dominant newline character.",
+  "author": "John Otander",
+  "version": "1.0.0",
+  "main": "index.js",
+  "files": [
+    "index.js"
+  ],
+  "scripts": {
+    "test": "ava"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/johnotander/single-trailing-newline.git"
+  },
+  "keywords": [
+    "newline",
+    "trailing",
+    "single",
+    "cf",
+    "lf",
+    "linebreak",
+    "eol"
+  ],
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/johnotander/single-trailing-newline/issues"
+  },
+  "homepage": "https://github.com/johnotander/single-trailing-newline",
+  "dependencies": {
+    "detect-newline": "^1.0.3"
+  },
+  "devDependencies": {
+    "ava": "*"
+  }
+}

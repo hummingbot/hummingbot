@@ -1,0 +1,65 @@
+{
+	"name": "is-negative-zero",
+	"version": "2.0.0",
+	"description": "Is this value negative zero? === will lie to you",
+	"author": "Jordan Harband",
+	"license": "MIT",
+	"main": "index.js",
+	"scripts": {
+		"test": "npm run lint && node test.js && npm run coverage-quiet",
+		"coverage": "covert test.js",
+		"coverage-quiet": "covert test.js --quiet",
+		"lint": "npm run jscs && npm run eslint",
+		"jscs": "jscs *.js",
+		"eslint": "eslint *.js"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git://github.com/ljharb/is-negative-zero.git"
+	},
+	"bugs": {
+		"url": "https://github.com/ljharb/is-negative-zero/issues"
+	},
+	"homepage": "https://github.com/ljharb/is-negative-zero",
+	"keywords": [
+		"is",
+		"negative",
+		"zero",
+		"negative zero",
+		"number",
+		"positive",
+		"0",
+		"-0"
+	],
+	"dependencies": {},
+	"devDependencies": {
+		"tape": "^4.0.1",
+		"covert": "^1.1.0",
+		"jscs": "^1.13.1",
+		"eslint": "^1.0.0-rc-3",
+		"@ljharb/eslint-config": "^1.0.3"
+	},
+	"testling": {
+		"files": "test.js",
+		"browsers": [
+			"iexplore/6.0..latest",
+			"firefox/3.0..6.0",
+			"firefox/15.0..latest",
+			"firefox/nightly",
+			"chrome/4.0..10.0",
+			"chrome/20.0..latest",
+			"chrome/canary",
+			"opera/10.0..12.0",
+			"opera/15.0..latest",
+			"opera/next",
+			"safari/4.0..latest",
+			"ipad/6.0..latest",
+			"iphone/6.0..latest",
+			"android-browser/4.2"
+		]
+	},
+	"engines": {
+		"node": ">= 0.4"
+	}
+}
+

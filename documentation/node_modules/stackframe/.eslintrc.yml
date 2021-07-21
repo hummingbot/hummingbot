@@ -1,0 +1,29 @@
+env:
+  browser: true
+  commonjs: true
+  node: true
+extends: 'eslint:recommended'
+globals:
+  define: false
+  describe: false
+  expect: false
+  it: false
+parserOptions:
+  ecmaVersion: 5
+rules:
+  indent:
+    - error
+    - 4
+  linebreak-style:
+    - error
+    - unix
+  quotes:
+    - error
+    - single
+  semi:
+    - error
+    - always
+  no-console:
+    - error
+    - allow:
+      - error

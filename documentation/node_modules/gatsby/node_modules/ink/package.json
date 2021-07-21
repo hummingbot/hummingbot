@@ -1,0 +1,151 @@
+{
+	"name": "ink",
+	"version": "2.7.1",
+	"description": "React for CLI",
+	"license": "MIT",
+	"repository": "vadimdemedes/ink",
+	"author": {
+		"name": "vdemedes",
+		"email": "vdemedes@gmail.com",
+		"url": "github.com/vadimdemedes"
+	},
+	"main": "build",
+	"engines": {
+		"node": ">=8"
+	},
+	"scripts": {
+		"build": "babel src --out-dir=build",
+		"prepare": "npm run build",
+		"test": "xo && FORCE_COLOR=true EXPERIMENTAL=true ava && FORCE_COLOR=true ava && tsd",
+		"pretest": "npm run build",
+		"cast": "svg-term --command='node media/demo.js' --out=media/demo.svg --from=100 --window --width=50 --height=8 --term=iterm2 --profile=Snazzy"
+	},
+	"types": "index.d.ts",
+	"files": [
+		"build",
+		"index.d.ts"
+	],
+	"keywords": [
+		"react",
+		"cli",
+		"jsx",
+		"stdout",
+		"components",
+		"command-line",
+		"preact",
+		"redux",
+		"print",
+		"render",
+		"colors",
+		"text"
+	],
+	"dependencies": {
+		"ansi-escapes": "^4.2.1",
+		"arrify": "^2.0.1",
+		"auto-bind": "^4.0.0",
+		"chalk": "^3.0.0",
+		"cli-cursor": "^3.1.0",
+		"cli-truncate": "^2.1.0",
+		"is-ci": "^2.0.0",
+		"lodash.throttle": "^4.1.1",
+		"log-update": "^3.0.0",
+		"prop-types": "^15.6.2",
+		"react-reconciler": "^0.24.0",
+		"scheduler": "^0.18.0",
+		"signal-exit": "^3.0.2",
+		"slice-ansi": "^3.0.0",
+		"string-length": "^3.1.0",
+		"widest-line": "^3.1.0",
+		"wrap-ansi": "^6.2.0",
+		"yoga-layout-prebuilt": "^1.9.3"
+	},
+	"devDependencies": {
+		"@babel/cli": "^7.8.3",
+		"@babel/core": "^7.8.3",
+		"@babel/plugin-proposal-class-properties": "^7.8.3",
+		"@babel/plugin-proposal-object-rest-spread": "^7.8.3",
+		"@babel/preset-react": "^7.8.3",
+		"@types/react": "^16.9.19",
+		"ava": "^2.4.0",
+		"babel-eslint": "^10.0.1",
+		"delay": "^4.1.0",
+		"eslint-config-xo-react": "^0.22.0",
+		"eslint-plugin-react": "^7.18.0",
+		"eslint-plugin-react-hooks": "^2.3.0",
+		"import-jsx": "^3.1.0",
+		"ms": "^2.1.1",
+		"node-pty": "^0.9.0",
+		"p-queue": "^6.2.1",
+		"react": "^16.9.0",
+		"sinon": "^8.1.1",
+		"strip-ansi": "^6.0.0",
+		"svg-term-cli": "^2.1.1",
+		"tsd": "^0.11.0",
+		"xo": "^0.25.3"
+	},
+	"peerDependencies": {
+		"@types/react": ">=16.8.0",
+		"react": ">=16.8.0"
+	},
+	"peerDependenciesMeta": {
+		"@types/react": {
+			"optional": true
+		}
+	},
+	"babel": {
+		"plugins": [
+			"@babel/plugin-proposal-class-properties",
+			"@babel/plugin-proposal-object-rest-spread",
+			"@babel/plugin-transform-modules-commonjs"
+		],
+		"presets": [
+			"@babel/preset-react"
+		]
+	},
+	"ava": {
+		"babel": {
+			"testOptions": {
+				"plugins": [
+					"@babel/plugin-proposal-class-properties",
+					"@babel/plugin-proposal-object-rest-spread",
+					"@babel/plugin-transform-modules-commonjs"
+				],
+				"presets": [
+					"@babel/preset-react"
+				]
+			}
+		},
+		"files": [
+			"test/*.js"
+		],
+		"helpers": [
+			"test/helpers/*.js"
+		]
+	},
+	"xo": {
+		"parser": "babel-eslint",
+		"extends": [
+			"xo-react"
+		],
+		"plugins": [
+			"react"
+		],
+		"rules": {
+			"react/no-unescaped-entities": "off",
+			"react/state-in-constructor": "off",
+			"react/jsx-indent": "off"
+		},
+		"overrides": [
+			{
+				"files": [
+					"src/components/*.js",
+					"src/hooks/*.js"
+				],
+				"rules": {
+					"unicorn/filename-case": "off",
+					"react/require-default-props": "warn"
+				}
+			}
+		]
+	}
+}

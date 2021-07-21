@@ -1,0 +1,44 @@
+{
+  "name": "@svgr/webpack",
+  "description": "SVGR webpack loader.",
+  "version": "4.3.3",
+  "main": "lib/index.js",
+  "repository": "https://github.com/smooth-code/svgr/tree/master/packages/webpack",
+  "author": "Greg Bergé <berge.greg@gmail.com>",
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "svgr",
+    "svg",
+    "react",
+    "webpack",
+    "webpack-loader"
+  ],
+  "engines": {
+    "node": ">=8"
+  },
+  "license": "MIT",
+  "scripts": {
+    "prebuild": "rm -rf lib/",
+    "build": "babel --config-file ../../babel.config.js -d lib --ignore \"**/*.test.js\" src",
+    "prepublishOnly": "yarn run build"
+  },
+  "dependencies": {
+    "@babel/core": "^7.4.5",
+    "@babel/plugin-transform-react-constant-elements": "^7.0.0",
+    "@babel/preset-env": "^7.4.5",
+    "@babel/preset-react": "^7.0.0",
+    "@svgr/core": "^4.3.3",
+    "@svgr/plugin-jsx": "^4.3.3",
+    "@svgr/plugin-svgo": "^4.3.1",
+    "loader-utils": "^1.2.3"
+  },
+  "devDependencies": {
+    "babel-loader": "^8.0.6",
+    "memory-fs": "^0.4.1",
+    "url-loader": "^2.0.0",
+    "webpack": "^4.33.0"
+  },
+  "gitHead": "14a26644e7bda24c2ff97524f3d8841801a6442f"
+}

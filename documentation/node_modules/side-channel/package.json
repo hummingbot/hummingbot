@@ -1,0 +1,65 @@
+{
+	"name": "side-channel",
+	"version": "1.0.3",
+	"description": "Store information about any JS value in a side channel. Uses WeakMap if available.",
+	"main": "index.js",
+	"exports": {
+		"./package.json": "./package.json",
+		".": [
+			{
+				"default": "./index.js"
+			},
+			"./index.js"
+		]
+	},
+	"scripts": {
+		"prepublish": "safe-publish-latest",
+		"lint": "eslint .",
+		"pretest": "npm run lint",
+		"tests-only": "node test",
+		"test": "npm run tests-only",
+		"posttest": "npx aud --production",
+		"version": "auto-changelog && git add CHANGELOG.md",
+		"postversion": "auto-changelog && git add CHANGELOG.md && git commit --no-edit --amend && git tag -f \"v$(node -e \"console.log(require('./package.json').version)\")\""
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/ljharb/side-channel.git"
+	},
+	"keywords": [
+		"weakmap",
+		"map",
+		"side",
+		"channel",
+		"metadata"
+	],
+	"author": "Jordan Harband <ljharb@gmail.com>",
+	"funding": {
+		"url": "https://github.com/sponsors/ljharb"
+	},
+	"license": "MIT",
+	"bugs": {
+		"url": "https://github.com/ljharb/side-channel/issues"
+	},
+	"homepage": "https://github.com/ljharb/side-channel#readme",
+	"devDependencies": {
+		"@ljharb/eslint-config": "^17.2.0",
+		"aud": "^1.1.2",
+		"auto-changelog": "^2.2.0",
+		"eslint": "^7.7.0",
+		"safe-publish-latest": "^1.1.4",
+		"tape": "^5.0.1"
+	},
+	"dependencies": {
+		"es-abstract": "^1.18.0-next.0",
+		"object-inspect": "^1.8.0"
+	},
+	"auto-changelog": {
+		"output": "CHANGELOG.md",
+		"template": "keepachangelog",
+		"unreleased": false,
+		"commitLimit": false,
+		"backfillLimit": false,
+		"hideCredit": true
+	}
+}

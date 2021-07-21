@@ -1,0 +1,37 @@
+{
+  "name": "express-graphql",
+  "version": "0.9.0",
+  "description": "Production ready GraphQL HTTP middleware.",
+  "license": "MIT",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "homepage": "https://github.com/graphql/express-graphql",
+  "bugs": {
+    "url": "https://github.com/graphql/express-graphql/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/graphql/express-graphql.git"
+  },
+  "keywords": [
+    "express",
+    "restify",
+    "connect",
+    "http",
+    "graphql",
+    "middleware",
+    "api"
+  ],
+  "engines": {
+    "node": ">= 8.x"
+  },
+  "dependencies": {
+    "accepts": "^1.3.7",
+    "content-type": "^1.0.4",
+    "http-errors": "^1.7.3",
+    "raw-body": "^2.4.1"
+  },
+  "peerDependencies": {
+    "graphql": "^14.4.1"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "less",
+  "main": "dist/less.js",
+  "ignore": [
+    "**/.*",
+    "benchmark",
+    "bin",
+    "lib",
+    "src",
+    "build",
+    "test",
+    "*.md",
+    "LICENSE",
+    "Gruntfile.js",
+    "*.json",
+    "*.yml",
+    ".gitattributes",
+    ".npmignore",
+    ".eslintignore",
+    "tsconfig.json"
+  ]
+}

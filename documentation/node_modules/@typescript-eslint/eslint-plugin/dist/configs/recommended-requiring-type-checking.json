@@ -1,0 +1,19 @@
+{
+    "extends": "./configs/base.json",
+    "rules": {
+        "@typescript-eslint/await-thenable": "error",
+        "@typescript-eslint/no-for-in-array": "error",
+        "@typescript-eslint/no-misused-promises": "error",
+        "@typescript-eslint/no-unnecessary-type-assertion": "error",
+        "@typescript-eslint/prefer-includes": "error",
+        "@typescript-eslint/prefer-regexp-exec": "error",
+        "@typescript-eslint/prefer-string-starts-ends-with": "error",
+        "require-await": "off",
+        "@typescript-eslint/require-await": "error",
+        "@typescript-eslint/unbound-method": "error",
+        "no-var": "error",
+        "prefer-const": "error",
+        "prefer-rest-params": "error",
+        "prefer-spread": "error"
+    }
+}

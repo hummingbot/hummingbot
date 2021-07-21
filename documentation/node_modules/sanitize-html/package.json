@@ -1,0 +1,51 @@
+{
+  "name": "sanitize-html",
+  "version": "1.27.5",
+  "description": "Clean up user-submitted HTML, preserving whitelisted elements and whitelisted attributes on a per-element basis",
+  "sideEffects": false,
+  "main": "dist/sanitize-html.js",
+  "files": [
+    "dist/"
+  ],
+  "scripts": {
+    "build": "mkdir -p dist && browserify src/index.js > dist/sanitize-html-es2015.js --standalone 'sanitizeHtml' && babel dist/sanitize-html-es2015.js --out-file dist/sanitize-html.js --presets=@babel/preset-env",
+    "minify": "npm run build && uglifyjs dist/sanitize-html.js > dist/sanitize-html.min.js",
+    "prepublishOnly": "npm run minify",
+    "test": "npx eslint . && npm run prepublishOnly && mocha test/test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/apostrophecms/sanitize-html.git"
+  },
+  "keywords": [
+    "html",
+    "parser",
+    "sanitizer",
+    "apostrophecms"
+  ],
+  "author": "Apostrophe Technologies, Inc.",
+  "license": "MIT",
+  "dependencies": {
+    "htmlparser2": "^4.1.0",
+    "lodash": "^4.17.15",
+    "parse-srcset": "^1.0.2",
+    "postcss": "^7.0.27"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.8.4",
+    "@babel/core": "^7.8.4",
+    "@babel/preset-env": "^7.8.4",
+    "babelify": "^10.0.0",
+    "browserify": "^16.2.3",
+    "eslint": "^4.0.0",
+    "eslint-config-apostrophe": "3.3.0",
+    "eslint-config-standard": "^11.0.0",
+    "eslint-plugin-import": "^2.13.0",
+    "eslint-plugin-node": "^6.0.1",
+    "eslint-plugin-promise": "^3.8.0",
+    "eslint-plugin-standard": "^3.1.0",
+    "mocha": "^5.2.0",
+    "sinon": "^9.0.2",
+    "uglify-js": "^3.8.0"
+  }
+}

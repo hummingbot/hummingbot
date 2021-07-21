@@ -1,0 +1,73 @@
+{
+  "name": "levelup",
+  "description": "Fast & simple storage - a Node.js-style LevelDB wrapper",
+  "version": "0.18.6",
+  "contributors": [
+    "Rod Vagg <r@va.gg> (https://github.com/rvagg)",
+    "John Chesley <john@chesl.es> (https://github.com/chesles/)",
+    "Jake Verbaten <raynos2@gmail.com> (https://github.com/raynos)",
+    "Dominic Tarr <dominic.tarr@gmail.com> (https://github.com/dominictarr)",
+    "Max Ogden <max@maxogden.com> (https://github.com/maxogden)",
+    "Lars-Magnus Skog <lars.magnus.skog@gmail.com> (https://github.com/ralphtheninja)",
+    "David Björklund <david.bjorklund@gmail.com> (https://github.com/kesla)",
+    "Julian Gruber <julian@juliangruber.com> (https://github.com/juliangruber)",
+    "Paolo Fragomeni <paolo@async.ly> (https://github.com/hij1nx)",
+    "Anton Whalley <anton.whalley@nearform.com> (https://github.com/No9)",
+    "Matteo Collina <matteo.collina@gmail.com> (https://github.com/mcollina)",
+    "Pedro Teixeira <pedro.teixeira@gmail.com> (https://github.com/pgte)",
+    "James Halliday <mail@substack.net> (https://github.com/substack)"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rvagg/node-levelup.git"
+  },
+  "homepage": "https://github.com/rvagg/node-levelup",
+  "keywords": [
+    "leveldb",
+    "stream",
+    "database",
+    "db",
+    "store",
+    "storage",
+    "json"
+  ],
+  "main": "lib/levelup.js",
+  "dependencies": {
+    "bl": "~0.8.1",
+    "deferred-leveldown": "~0.2.0",
+    "errno": "~0.1.1",
+    "prr": "~0.0.0",
+    "readable-stream": "~1.0.26",
+    "semver": "~2.3.1",
+    "xtend": "~3.0.0"
+  },
+  "devDependencies": {
+    "leveldown": "~0.10.0",
+    "bustermove": "*",
+    "tap": "*",
+    "referee": "*",
+    "rimraf": "*",
+    "async": "*",
+    "fstream": "*",
+    "tar": "*",
+    "mkfiletree": "*",
+    "readfiletree": "*",
+    "slow-stream": ">=0.0.4",
+    "delayed": "*",
+    "boganipsum": "*",
+    "du": "*",
+    "memdown": "*",
+    "msgpack-js": "*"
+  },
+  "browser": {
+    "leveldown": false,
+    "leveldown/package": false,
+    "semver": false
+  },
+  "scripts": {
+    "test": "tap test/*-test.js --stderr",
+    "functionaltests": "node ./test/functional/fstream-test.js && node ./test/functional/binary-data-test.js && node ./test/functional/compat-test.js",
+    "alltests": "npm test && npm run-script functionaltests"
+  },
+  "license": "MIT"
+}

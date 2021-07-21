@@ -1,0 +1,17 @@
+{
+	"id": "group-labelledby",
+	"evaluate": "group-labelledby.js",
+	"after": "group-labelledby-after.js",
+	"deprecated": true,
+	"metadata": {
+		"impact": "critical",
+		"messages": {
+			"pass": "Elements with the name \"${data.name}\" have both a shared label, and a unique label, referenced through aria-labelledby",
+			"fail": {
+				"default": "Elements with the name \"${data.name}\" do not all have both a shared label, and a unique label referenced through aria-labelledby",
+				"no-shared-label": "Elements with the name \"${data.name}\" do not all have a shared label referenced through aria-labelledby",
+				"no-unique-label": "Elements with the name \"${data.name}\" do not all have a unique label referenced through aria-labelledby"
+			}
+		}
+	}
+}

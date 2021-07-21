@@ -1,0 +1,63 @@
+{
+  "name": "rollup-plugin-commonjs",
+  "version": "10.1.0",
+  "description": "Convert CommonJS modules to ES2015",
+  "main": "dist/rollup-plugin-commonjs.cjs.js",
+  "module": "dist/rollup-plugin-commonjs.es.js",
+  "jsnext:main": "dist/rollup-plugin-commonjs.es.js",
+  "scripts": {
+    "test": "npm run test:only",
+    "test:only": "mocha && tsc",
+    "pretest": "npm run build",
+    "build": "shx rm -rf dist/* && rollup -c",
+    "dev": "rollup -c -w",
+    "lint": "prettier --write src/**/*.js test/test.js test/**/_config.js && eslint --fix src/**/*.js test/test.js test/**/_config.js",
+    "prepublishOnly": "npm run lint && npm run test:only",
+    "prepare": "npm run build"
+  },
+  "files": [
+    "src",
+    "dist",
+    "index.d.ts",
+    "README.md"
+  ],
+  "peerDependencies": {
+    "rollup": ">=1.12.0"
+  },
+  "dependencies": {
+    "estree-walker": "^0.6.1",
+    "is-reference": "^1.1.2",
+    "magic-string": "^0.25.2",
+    "resolve": "^1.11.0",
+    "rollup-pluginutils": "^2.8.1"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.4.5",
+    "@babel/preset-env": "^7.4.5",
+    "@babel/register": "^7.4.4",
+    "acorn": "^6.1.1",
+    "eslint": "^6.0.1",
+    "eslint-plugin-import": "^2.18.0",
+    "husky": "^2.4.1",
+    "lint-staged": "^8.2.1",
+    "locate-character": "^2.0.5",
+    "mocha": "^6.1.4",
+    "prettier": "^1.18.2",
+    "require-relative": "^0.8.7",
+    "rollup": "^1.16.2",
+    "rollup-plugin-babel": "^4.3.3",
+    "rollup-plugin-json": "^4.0.0",
+    "rollup-plugin-node-resolve": "^5.1.0",
+    "shx": "^0.3.2",
+    "source-map": "^0.6.1",
+    "source-map-support": "^0.5.12",
+    "typescript": "^3.5.2"
+  },
+  "repository": "rollup/rollup-plugin-commonjs",
+  "author": "Rich Harris",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/rollup/rollup-plugin-commonjs/issues"
+  },
+  "homepage": "https://github.com/rollup/rollup-plugin-commonjs"
+}

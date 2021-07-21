@@ -1,0 +1,99 @@
+<!doctype html>
+
+<meta charset="utf-8">
+<title>Dagre D3 Demo: DOM Example</title>
+
+<link rel="stylesheet" href="demo.css">
+<script src="https://d3js.org/d3.v5.min.js" charset="utf-8"></script>
+<script src="../dagre-d3.js"></script>
+
+<h1>Dagre D3 Demo: DOM Example</h1>
+
+<style id="css">
+text {
+  font-weight: 300;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serf;
+  font-size: 14px;
+}
+
+.node rect {
+  stroke: #333;
+  fill: #fff;
+  stroke-width: 1.5px;
+}
+
+.edgePath path {
+  stroke: #333;
+  stroke-width: 1.5px;
+}
+
+table {
+  border-spacing: 0;
+}
+
+table td {
+  padding: 7px;
+}
+
+table td:first-child {
+  background-color: #afa;
+  border-top: 1px solid #333;
+  border-left: 1px solid #333;
+  border-bottom: 1px solid #333;
+  border-radius: 5px 0 0 5px;
+}
+
+table td:last-child {
+  background-color: #faa;
+  border-top: 1px solid #333;
+  border-right: 1px solid #333;
+  border-bottom: 1px solid #333;
+  border-radius: 0 5px 5px 0;
+}
+</style>
+
+<svg width=960 height=600></svg>
+
+<section>
+<p>A sample showing how to use DOM nodes in a graph. Note that IE does not
+support this technique.
+</section>
+
+<script id="js">
+// Create a new directed graph
+var g = new dagreD3.graphlib.Graph().setGraph({});
+
+g.setNode("root", {
+  label: function() {
+    var table = document.createElement("table"),
+        tr = d3.select(table).append("tr");
+    tr.append("td").text("A");
+    tr.append("td").text("B");
+    return table;
+  },
+  padding: 0,
+  rx: 5,
+  ry: 5
+});
+g.setNode("A", { label: "A", fill: "#afa" });
+g.setNode("B", { label: "B", fill: "#faa" });
+g.setEdge("root", "A", {});
+g.setEdge("root", "B", {});
+
+// Create the renderer
+var render = new dagreD3.render();
+
+// Set up an SVG group so that we can translate the final graph.
+var svg = d3.select('svg'),
+    svgGroup = svg.append('g');
+
+// Run the renderer. This is what draws the final graph.
+render(svgGroup, g);
+
+// Center the graph
+var xCenterOffset = (svg.attr('width') - g.graph().width) / 2;
+svgGroup.attr('transform', 'translate(' + xCenterOffset + ', 20)');
+svg.attr('height', g.graph().height + 40);
+</script>
+
+<script src="demo.js"></script>

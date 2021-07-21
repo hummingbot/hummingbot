@@ -1,0 +1,82 @@
+{
+  "name": "stacktrace-js",
+  "description": "Framework-agnostic, micro-library for getting stack traces in all environments",
+  "maintainers": [
+    "Eric Wendelin <me@eriwen.com> (https://www.eriwen.com)",
+    "Victor Homyakov <vkhomyackov@gmail.com> (https://github.com/victor-homyakov)",
+    "Oliver Salzburg (https://github.com/oliversalzburg)",
+    "Ben Gourley (https://github.com/bengourley)"
+  ],
+  "version": "2.0.2",
+  "license": "MIT",
+  "keywords": [
+    "stacktrace",
+    "error",
+    "debugger",
+    "client",
+    "browser"
+  ],
+  "homepage": "https://www.stacktracejs.com",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/stacktracejs/stacktrace.js.git"
+  },
+  "dependencies": {
+    "error-stack-parser": "^2.0.6",
+    "stack-generator": "^2.0.5",
+    "stacktrace-gps": "^3.0.4"
+  },
+  "devDependencies": {
+    "browserify": "^16.3.0",
+    "colors": "^1.1.2",
+    "del": "^3.0.0",
+    "es6-promise": "^3.1.2",
+    "eslint": "^6.8.0",
+    "gulp": "^3.9.1",
+    "gulp-concat": "^2.6.0",
+    "gulp-rename": "^1.2.2",
+    "gulp-sourcemaps": "^1.12.0",
+    "gulp-uglify": "^1.5.1",
+    "jasmine": "^2.7.0",
+    "jasmine-ajax": "^3.2.0",
+    "jasmine-core": "^2.7.0",
+    "jsdoc-dash-template": "^2.1.0",
+    "json3": "^3.3.2",
+    "karma": "^4.4.1",
+    "karma-chrome-launcher": "^3.1.0",
+    "karma-coverage": "^2.0.1",
+    "karma-coveralls": "^2.1.0",
+    "karma-firefox-launcher": "^1.2.0",
+    "karma-ie-launcher": "^1.0.0",
+    "karma-jasmine": "^1.1.2",
+    "karma-jasmine-ajax": "^0.1.13",
+    "karma-opera-launcher": "^1.0.0",
+    "karma-phantomjs-launcher": "^1.0.4",
+    "karma-safari-launcher": "^1.0.0",
+    "karma-sauce-launcher": "^2.0.2",
+    "karma-spec-reporter": "^0.0.32",
+    "run-sequence": "^1.1.2",
+    "vinyl-buffer": "^1.0.0",
+    "vinyl-source-stream": "^1.1.0"
+  },
+  "bugs": {
+    "url": "https://github.com/stacktracejs/stacktrace.js/issues"
+  },
+  "main": "./stacktrace.js",
+  "files": [
+    "LICENSE",
+    "CHANGELOG.md",
+    "README.md",
+    "stacktrace.js",
+    "stacktrace-js.d.ts",
+    "dist/"
+  ],
+  "typings": "./stacktrace-js.d.ts",
+  "scripts": {
+    "lint": "eslint --fix polyfills.js stacktrace.js spec/",
+    "prepare": "gulp dist",
+    "test": "karma start karma.conf.js --single-run",
+    "test-pr": "karma start karma.conf.js --single-run --browsers Firefox,Chrome_Travis",
+    "test-ci": "karma start karma.conf.ci.js --single-run"
+  }
+}

@@ -1,0 +1,12 @@
+on: issue_comment
+name: Automatic Rebase
+jobs:
+  rebase:
+    name: Rebase
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    - name: Rebase
+      uses: docker://cirrusactions/rebase:latest
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

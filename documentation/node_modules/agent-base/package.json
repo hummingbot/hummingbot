@@ -1,0 +1,37 @@
+{
+  "name": "agent-base",
+  "version": "4.3.0",
+  "description": "Turn a function into an `http.Agent` instance",
+  "main": "./index.js",
+  "scripts": {
+    "test": "mocha --reporter spec"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/TooTallNate/node-agent-base.git"
+  },
+  "keywords": [
+    "http",
+    "agent",
+    "base",
+    "barebones",
+    "https"
+  ],
+  "author": "Nathan Rajlich <nathan@tootallnate.net> (http://n8.io/)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/TooTallNate/node-agent-base/issues"
+  },
+  "devDependencies": {
+    "@types/es6-promisify": "^5.0.0",
+    "@types/node": "^10.5.3",
+    "mocha": "^3.4.2",
+    "ws": "^3.0.0"
+  },
+  "dependencies": {
+    "es6-promisify": "^5.0.0"
+  },
+  "engines": {
+    "node": ">= 4.0.0"
+  }
+}

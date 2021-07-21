@@ -1,0 +1,22 @@
+{
+  "name": "level-peek",
+  "description": "",
+  "version": "1.0.6",
+  "homepage": "https://github.com/dominictarr/level-peek",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/dominictarr/level-peek.git"
+  },
+  "dependencies": {
+    "level-fix-range": "~1.0.2"
+  },
+  "devDependencies": {
+    "levelup": "~0.6.2",
+    "tape": "~0.3.2"
+  },
+  "scripts": {
+    "test": "set -e; for t in test/*.js; do node $t; done"
+  },
+  "author": "Dominic Tarr <dominic.tarr@gmail.com> (http://dominictarr.com)",
+  "license": "MIT"
+}

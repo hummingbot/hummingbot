@@ -1,0 +1,25 @@
+// @flow
+
+import type { signalT as $$signalT } from "./shims/Js.shim";
+import type { talkbackT as $$talkbackT } from "./shims/Js.shim";
+export type talkbackT = $$talkbackT;
+export type signalT<a> = $$signalT<a>;
+export type sinkT<a> = (_1: signalT<a>) => void;
+export type sourceT<a> = (_1: sinkT<a>) => void;
+export type operatorT<a, b> = (_1: sourceT<a>) => sourceT<b>;
+export type teardownT = () => void;
+export type subscriptionT = {
+  +unsubscribe: () => void,
+  ...
+};
+export type observerT<a> = {
+  +next: (_1: a) => void,
+  +complete: () => void,
+  ...
+};
+export type subjectT<a> = {
+  +source: sourceT<a>,
+  +next: (_1: a) => void,
+  +complete: () => void,
+  ...
+};

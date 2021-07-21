@@ -1,0 +1,46 @@
+{
+  "name": "try-to-catch",
+  "version": "1.1.1",
+  "author": "coderaiser <mnemonic.enemy@gmail.com> (https://github.com/coderaiser)",
+  "description": "function try-catch wrapper for promises",
+  "homepage": "http://github.com/coderaiser/try-to-catch",
+  "main": "lib/try-to-catch.js",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/coderaiser/try-to-catch.git"
+  },
+  "scripts": {
+    "test": "tape 'test/*.js'",
+    "watch:test": "nodemon -w lib -w test -x \"npm test\"",
+    "lint": "eslint lib test",
+    "coverage": "nyc npm test",
+    "report": "nyc report --reporter=text-lcov | coveralls",
+    "build": "babel lib -d legacy",
+    "wisdom": "redrun build legacy",
+    "legacy": "echo \"module.exports = require('./try-to-catch')\" > legacy/index.js"
+  },
+  "dependencies": {},
+  "keywords": [
+    "try",
+    "catch",
+    "function",
+    "promise",
+    "async",
+    "await",
+    "try-catch",
+    "then"
+  ],
+  "devDependencies": {
+    "@babel/cli": "^7.0.0",
+    "@babel/core": "^7.0.0",
+    "@babel/preset-env": "^7.0.0",
+    "coveralls": "^3.0.0",
+    "eslint": "^5.6.0",
+    "nodemon": "^1.14.12",
+    "nyc": "^13.0.1",
+    "redrun": "^7.0.2",
+    "tape": "^4.8.0",
+    "try-to-tape": "^1.0.0"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,5 @@
+lib
+**/node_modules
+**/webpack.config.js
+examples/**/server.js
+examples/**/dist/*

@@ -1,0 +1,26 @@
+{
+  "tags": {
+    "allowUnknownTags": true
+  },
+  "source": {
+    "includePattern": ".+\\.js(doc)?$",
+    "excludePattern": "(^|\\/|\\\\)_"
+  },
+  "plugins": [],
+  "templates": {
+    "cleverLinks": false,
+    "monospaceLinks": false,
+    "default": {
+      "outputSourceFiles": true
+    },
+    "systemName": "IDBWrapper",
+    "footer": "",
+    "copyright": "Copyright © 2017 <a href='http://jensarps.de/' target='_blank'>Jens Arps</a>",
+    "navType": "vertical",
+    "outputSourceFiles": true,
+    "theme": "oblivion",
+    "linenums": true,
+    "collapseSymbols": false,
+    "inverseNav": false
+  }
+}

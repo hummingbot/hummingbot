@@ -1,0 +1,52 @@
+{
+  "name": "wonka",
+  "version": "3.1.0",
+  "namespace": false,
+  "bsc-flags": ["-bs-super-errors", "-bs-no-version-header"],
+  "refmt": 3,
+  "gentypeconfig": {
+    "language": "typescript",
+    "importPath": "relative",
+    "shims": {
+      "Js": "Js",
+      "Dom": "Dom",
+      "ReasonPervasives": "ReasonPervasives"
+    }
+  },
+  "suffix": ".bs.js",
+  "package-specs": {
+    "module": "es6",
+    "in-source": true
+  },
+  "sources": [
+    {
+      "dir": "src",
+      "subdirs": [
+        {
+          "dir": "shims"
+        },
+        {
+          "dir": "helpers"
+        },
+        {
+          "dir": "web",
+          "backend": ["js"]
+        },
+        {
+          "dir": "include",
+          "subdirs": [
+            {
+              "dir": "rebel_native"
+            },
+            {
+              "dir": "rebel_js",
+              "backend": ["js"]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "bs-dependencies": [],
+  "bs-dev-dependencies": []
+}

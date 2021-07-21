@@ -1,0 +1,24 @@
+{
+    "name": "@hapi/hoek",
+    "description": "General purpose node utilities",
+    "version": "8.5.1",
+    "repository": "git://github.com/hapijs/hoek",
+    "main": "lib/index.js",
+    "types": "lib/index.d.ts",
+    "keywords": [
+        "utilities"
+    ],
+    "files": [
+        "lib"
+    ],
+    "dependencies": {},
+    "devDependencies": {
+        "@hapi/code": "6.x.x",
+        "@hapi/lab": "20.x.x"
+    },
+    "scripts": {
+        "test": "lab -a @hapi/code -t 100 -L -Y",
+        "test-cov-html": "lab -a @hapi/code -t 100 -L -r html -o coverage.html"
+    },
+    "license": "BSD-3-Clause"
+}

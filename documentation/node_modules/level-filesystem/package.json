@@ -1,0 +1,51 @@
+{
+  "name": "level-filesystem",
+  "version": "1.2.0",
+  "description": "Full implementation of the fs module on top of leveldb",
+  "repository": "git://github.com:mafintosh/level-filesystem.git",
+  "dependencies": {
+    "octal": "^1.0.0",
+    "once": "^1.3.0",
+    "errno": "^0.1.1",
+    "concat-stream": "^1.4.4",
+    "level-sublevel": "^5.2.0",
+    "level-blobs": "^0.1.7",
+    "fwd-stream": "^1.0.4",
+    "xtend": "^2.2.0",
+    "level-peek": "^1.0.6"
+  },
+  "devDependencies": {
+    "memdb": "^0.1.0",
+    "tape": "^2.12.0",
+    "memdown": "git://github.com/maxogden/memdown",
+    "levelup": "^0.18.2",
+    "browserify": "^12.0.1"
+  },
+  "keywords": [
+    "leveldb",
+    "level",
+    "filesystem",
+    "fs",
+    "file",
+    "replacement"
+  ],
+  "scripts": {
+    "test": "tape test/*.js"
+  },
+  "testling": {
+    "files": "test/*.js",
+    "browsers": [
+      "ie/8..latest",
+      "firefox/17..latest",
+      "firefox/nightly",
+      "chrome/22..latest",
+      "chrome/canary",
+      "opera/12..latest",
+      "opera/next",
+      "safari/5.1..latest",
+      "ipad/6.0..latest",
+      "iphone/6.0..latest",
+      "android-browser/4.2..latest"
+    ]
+  }
+}

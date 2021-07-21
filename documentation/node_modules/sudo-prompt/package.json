@@ -1,0 +1,43 @@
+{
+  "name": "sudo-prompt",
+  "version": "8.2.5",
+  "description": "Run a command using sudo, prompting the user with an OS dialog if necessary",
+  "main": "index.js",
+  "files": [
+    "CHANGELOG.md",
+    "LICENSE",
+    "README.md",
+    "index.js",
+    "linux.png",
+    "macos.png",
+    "package.json",
+    "test-concurrent.js",
+    "test.js",
+    "windows.png"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jorangreef/sudo-prompt.git"
+  },
+  "keywords": [
+    "sudo",
+    "os",
+    "dialog",
+    "prompt",
+    "command",
+    "exec",
+    "user access control",
+    "UAC",
+    "privileges",
+    "administrative",
+    "elevate",
+    "run as administrator"
+  ],
+  "author": "Joran Dirk Greef",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/jorangreef/sudo-prompt/issues"
+  },
+  "homepage": "https://github.com/jorangreef/sudo-prompt#readme",
+  "scripts": {}
+}

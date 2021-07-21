@@ -1,0 +1,19 @@
+{
+  "name": "parseqs",
+  "version": "0.0.6",
+  "description": "Provides methods for parsing a query string into an object, and vice versa.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/get/querystring.git"
+  },
+  "homepage": "https://github.com/get/querystring",
+  "scripts": {
+    "test": "make test"
+  },
+  "devDependencies": {
+    "mocha": "1.17.1",
+    "better-assert": "~1.0.0"
+  },
+  "author": "Gal Koren",
+  "license": "MIT"
+}

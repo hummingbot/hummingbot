@@ -1,0 +1,16 @@
+// @flow
+
+import type { callbagT as $$callbagT } from "../shims/Js.shim";
+import type { sourceT as Wonka_types_sourceT } from "../../src/Wonka_types.gen";
+export type callbagSignal = 0 | 1 | 2;
+declare export class callbagData<a> {
+  opaque: a;
+}
+export type callbagTalkback = (_1: callbagSignal) => void;
+export type callbagT<a> = $$callbagT<a>;
+declare export var fromCallbag: <a>(
+  callbag: callbagT<a>
+) => Wonka_types_sourceT<a>;
+declare export var toCallbag: <a>(
+  source: Wonka_types_sourceT<a>
+) => callbagT<a>;

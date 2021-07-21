@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "alwaysStrict": true,
+    "declaration": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "forceConsistentCasingInFileNames": true,
+    "inlineSourceMap": false,
+    "jsx": "react",
+    "lib": ["dom", "scripthost", "es2015", "es2016", "es2017", "es2018", "es2019", "es2020"],
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "newLine": "LF",
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": false,
+    "outDir": "dist",
+    "pretty": true,
+    "strictNullChecks": true,
+    "target": "es5"
+  },
+  "include": [
+    "src"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}

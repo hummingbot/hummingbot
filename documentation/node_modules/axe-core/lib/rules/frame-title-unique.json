@@ -1,0 +1,13 @@
+{
+	"id": "frame-title-unique",
+	"selector": "frame[title], iframe[title]",
+	"matches": "frame-title-has-text.js",
+	"tags": ["cat.text-alternatives", "best-practice"],
+	"metadata": {
+		"description": "Ensures <iframe> and <frame> elements contain a unique title attribute",
+		"help": "Frames must have a unique title attribute"
+	},
+	"all": [],
+	"any": [],
+	"none": ["unique-frame-title"]
+}

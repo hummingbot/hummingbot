@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "outDir": "./lib",
+    "rootDir": "./src",
+    "allowJs": true,
+    "sourceMap": true,
+    "inlineSources": true,
+    "esModuleInterop": true,
+    "target": "ES5"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules"]
+}

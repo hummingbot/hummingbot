@@ -1,0 +1,47 @@
+{
+	"name": "read-chunk",
+	"version": "3.2.0",
+	"description": "Read a chunk from a file",
+	"license": "MIT",
+	"repository": "sindresorhus/read-chunk",
+	"author": {
+		"name": "Sindre Sorhus",
+		"email": "sindresorhus@gmail.com",
+		"url": "sindresorhus.com"
+	},
+	"engines": {
+		"node": ">=6"
+	},
+	"scripts": {
+		"test": "xo && ava && tsd"
+	},
+	"files": [
+		"index.js",
+		"index.d.ts"
+	],
+	"keywords": [
+		"read",
+		"file",
+		"readfile",
+		"fs",
+		"chunk",
+		"slice",
+		"part",
+		"head",
+		"tail",
+		"buffer",
+		"fd",
+		"open"
+	],
+	"dependencies": {
+		"pify": "^4.0.1",
+		"with-open-file": "^0.1.6"
+	},
+	"devDependencies": {
+		"@types/node": "^11.12.2",
+		"ava": "^1.4.1",
+		"sinon": "^7.3.1",
+		"tsd": "^0.7.1",
+		"xo": "^0.24.0"
+	}
+}

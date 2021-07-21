@@ -1,0 +1,20 @@
+{
+  "name": "octal",
+  "version": "1.0.0",
+  "description": "Interpret a number as base 8",
+  "main": "index.js",
+  "dependencies": {},
+  "devDependencies": {
+    "tape": "^4.2.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mafintosh/octal.git"
+  },
+  "author": "Mathias Buus (@mafintosh)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/mafintosh/octal/issues"
+  },
+  "homepage": "https://github.com/mafintosh/octal"
+}

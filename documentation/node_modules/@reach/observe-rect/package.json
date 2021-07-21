@@ -1,0 +1,53 @@
+{
+	"name": "@reach/observe-rect",
+	"version": "1.2.0",
+	"description": "Observe the Rect of a DOM element.",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/reach/observe-rect",
+		"directory": "packages/auto-id"
+	},
+	"scripts": {
+		"build": "cross-env NODE_ENV=production tsdx build --format=cjs,esm,umd",
+		"start": "cross-env NODE_ENV=development tsdx watch",
+		"test": "cross-env NODE_ENV=test tsdx test",
+		"serve": "serve"
+	},
+	"files": [
+		"dist",
+		"README.md"
+	],
+	"main": "dist/index.js",
+	"umd:main": "dist/observe-rect.umd.production.js",
+	"module": "dist/observe-rect.esm.js",
+	"typings": "dist/index.d.ts",
+	"author": "React Training <hello@reacttraining.com>",
+	"license": "MIT",
+	"dependencies": {},
+	"devDependencies": {
+		"@typescript-eslint/eslint-plugin": "^3.3.0",
+		"@typescript-eslint/parser": "^3.3.0",
+		"babel-eslint": "^10.1.0",
+		"cross-env": "^7.0.2",
+		"eslint": "^7.3.0",
+		"eslint-plugin-import": "^2.21.2",
+		"eslint-plugin-jest": "^23.16.0",
+		"husky": "^4.2.5",
+		"prettier": "^2.0.5",
+		"pretty-quick": "^2.0.1",
+		"serve": "^11.3.2",
+		"tsdx": "^0.12.1",
+		"tslib": "^2.0.0",
+		"typescript": "^3.9.5"
+	},
+	"husky": {
+		"hooks": {
+			"pre-commit": "pretty-quick --staged"
+		}
+	},
+	"prettier": {
+		"semi": true,
+		"trailingComma": "es5",
+		"useTabs": true
+	}
+}

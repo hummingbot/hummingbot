@@ -1,0 +1,22 @@
+{
+  "name": "component-bind",
+  "version": "1.0.0",
+  "description": "function binding utility",
+  "keywords": [
+    "bind",
+    "utility"
+  ],
+  "devDependencies": {
+    "mocha": "*",
+    "should": "*"
+  },
+  "component": {
+    "scripts": {
+      "bind/index.js": "index.js"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/component/bind.git"
+  }
+}

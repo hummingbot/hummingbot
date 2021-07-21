@@ -1,0 +1,33 @@
+{
+  "name": "source-sans-pro",
+  "version": "3.6.0",
+  "description": "Source Sans Pro is a set of OpenType fonts that have been designed to work well in user interface (UI) environments.",
+  "keywords": [
+    "font",
+    "sans-serif",
+    "Adobe",
+    "OpenType",
+    "otf",
+    "ttf",
+    "woff",
+    "woff2",
+    "variable"
+  ],
+  "homepage": "https://adobe-fonts.github.io/source-sans-pro",
+  "bugs": {
+    "url": "https://github.com/adobe-fonts/source-sans-pro/issues"
+  },
+  "license": "OFL-1.1",
+  "author": {
+    "name": "Paul D. Hunt"
+  },
+  "contributors": [
+    {
+      "name": "Miguel Sousa"
+    }
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/adobe-fonts/source-sans-pro.git#release"
+  }
+}

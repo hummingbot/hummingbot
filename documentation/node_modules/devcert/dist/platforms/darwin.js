@@ -1,0 +1,140 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const tslib_1 = require("tslib");
+const path_1 = tslib_1.__importDefault(require("path"));
+const fs_1 = require("fs");
+const debug_1 = tslib_1.__importDefault(require("debug"));
+const command_exists_1 = require("command-exists");
+const utils_1 = require("../utils");
+const shared_1 = require("./shared");
+const debug = debug_1.default('devcert:platforms:macos');
+const getCertUtilPath = () => path_1.default.join(utils_1.run('brew', ['--prefix', 'nss']).toString().trim(), 'bin', 'certutil');
+class MacOSPlatform {
+    constructor() {
+        this.FIREFOX_BUNDLE_PATH = '/Applications/Firefox.app';
+        this.FIREFOX_BIN_PATH = path_1.default.join(this.FIREFOX_BUNDLE_PATH, 'Contents/MacOS/firefox');
+        this.FIREFOX_NSS_DIR = path_1.default.join(process.env.HOME, 'Library/Application Support/Firefox/Profiles/*');
+        this.HOST_FILE_PATH = '/etc/hosts';
+    }
+    /**
+     * macOS is pretty simple - just add the certificate to the system keychain,
+     * and most applications will delegate to that for determining trusted
+     * certificates. Firefox, of course, does it's own thing. We can try to
+     * automatically install the cert with Firefox if we can use certutil via the
+     * `nss` Homebrew package, otherwise we go manual with user-facing prompts.
+     */
+    addToTrustStores(certificatePath, options = {}) {
+        return tslib_1.__awaiter(this, void 0, void 0, function* () {
+            // Chrome, Safari, system utils
+            debug('Adding devcert root CA to macOS system keychain');
+            utils_1.run('sudo', [
+                'security',
+                'add-trusted-cert',
+                '-d',
+                '-r',
+                'trustRoot',
+                '-k',
+                '/Library/Keychains/System.keychain',
+                '-p',
+                'ssl',
+                '-p',
+                'basic',
+                certificatePath
+            ]);
+            if (this.isFirefoxInstalled()) {
+                // Try to use certutil to install the cert automatically
+                debug('Firefox install detected. Adding devcert root CA to Firefox trust store');
+                if (!this.isNSSInstalled()) {
+                    if (!options.skipCertutilInstall) {
+                        if (command_exists_1.sync('brew')) {
+                            debug(`certutil is not already installed, but Homebrew is detected. Trying to install certutil via Homebrew...`);
+                            try {
+                                utils_1.run('brew', ['install', 'nss'], { stdio: 'ignore' });
+                            }
+                            catch (e) {
+                                debug(`brew install nss failed`);
+                            }
+                        }
+                        else {
+                            debug(`Homebrew didn't work, so we can't try to install certutil. Falling back to manual certificate install`);
+                            return yield shared_1.openCertificateInFirefox(this.FIREFOX_BIN_PATH, certificatePath);
+                        }
+                    }
+                    else {
+                        debug(`certutil is not already installed, and skipCertutilInstall is true, so we have to fall back to a manual install`);
+                        return yield shared_1.openCertificateInFirefox(this.FIREFOX_BIN_PATH, certificatePath);
+                    }
+                }
+                yield shared_1.closeFirefox();
+                yield shared_1.addCertificateToNSSCertDB(this.FIREFOX_NSS_DIR, certificatePath, getCertUtilPath());
+            }
+            else {
+                debug('Firefox does not appear to be installed, skipping Firefox-specific steps...');
+            }
+        });
+    }
+    removeFromTrustStores(certificatePath) {
+        debug('Removing devcert root CA from macOS system keychain');
+        try {
+            utils_1.run('sudo', [
+                'security',
+                'remove-trusted-cert',
+                '-d',
+                certificatePath
+            ], {
+                stdio: 'ignore'
+            });
+        }
+        catch (e) {
+            debug(`failed to remove ${certificatePath} from macOS cert store, continuing. ${e.toString()}`);
+        }
+        if (this.isFirefoxInstalled() && this.isNSSInstalled()) {
+            debug('Firefox install and certutil install detected. Trying to remove root CA from Firefox NSS databases');
+            shared_1.removeCertificateFromNSSCertDB(this.FIREFOX_NSS_DIR, certificatePath, getCertUtilPath());
+        }
+    }
+    addDomainToHostFileIfMissing(domain) {
+        return tslib_1.__awaiter(this, void 0, void 0, function* () {
+            const trimDomain = domain.trim().replace(/[\s;]/g, '');
+            let hostsFileContents = fs_1.readFileSync(this.HOST_FILE_PATH, 'utf8');
+            if (!hostsFileContents.includes(trimDomain)) {
+                utils_1.sudoAppend(this.HOST_FILE_PATH, `127.0.0.1 ${trimDomain}\n`);
+            }
+        });
+    }
+    deleteProtectedFiles(filepath) {
+        shared_1.assertNotTouchingFiles(filepath, 'delete');
+        utils_1.run('sudo', ['rm', '-rf', filepath]);
+    }
+    readProtectedFile(filepath) {
+        return tslib_1.__awaiter(this, void 0, void 0, function* () {
+            shared_1.assertNotTouchingFiles(filepath, 'read');
+            return (yield utils_1.run('sudo', ['cat', filepath])).toString().trim();
+        });
+    }
+    writeProtectedFile(filepath, contents) {
+        return tslib_1.__awaiter(this, void 0, void 0, function* () {
+            shared_1.assertNotTouchingFiles(filepath, 'write');
+            if (fs_1.existsSync(filepath)) {
+                yield utils_1.run('sudo', ['rm', filepath]);
+            }
+            fs_1.writeFileSync(filepath, contents);
+            yield utils_1.run('sudo', ['chown', '0', filepath]);
+            yield utils_1.run('sudo', ['chmod', '600', filepath]);
+        });
+    }
+    isFirefoxInstalled() {
+        return fs_1.existsSync(this.FIREFOX_BUNDLE_PATH);
+    }
+    isNSSInstalled() {
+        try {
+            return utils_1.run('brew', ['list', '-1']).toString().includes('\nnss\n');
+        }
+        catch (e) {
+            return false;
+        }
+    }
+}
+exports.default = MacOSPlatform;
+;
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiZGFyd2luLmpzIiwic291cmNlUm9vdCI6Ii9Vc2Vycy9qemV0bGVuL2dpdHMvZGV2Y2VydC8iLCJzb3VyY2VzIjpbInBsYXRmb3Jtcy9kYXJ3aW4udHMiXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6Ijs7O0FBQUEsd0RBQXdCO0FBQ3hCLDJCQUE0RjtBQUM1RiwwREFBZ0M7QUFDaEMsbURBQXVEO0FBQ3ZELG9DQUEyQztBQUUzQyxxQ0FBcUo7QUFHckosTUFBTSxLQUFLLEdBQUcsZUFBVyxDQUFDLHlCQUF5QixDQUFDLENBQUM7QUFFckQsTUFBTSxlQUFlLEdBQUcsR0FBRyxFQUFFLENBQUMsY0FBSSxDQUFDLElBQUksQ0FBQyxXQUFHLENBQUMsTUFBTSxFQUFFLENBQUMsVUFBVSxFQUFFLEtBQUssQ0FBQyxDQUFDLENBQUMsUUFBUSxFQUFFLENBQUMsSUFBSSxFQUFFLEVBQUUsS0FBSyxFQUFFLFVBQVUsQ0FBQyxDQUFDO0FBRS9HO0lBQUE7UUFFVSx3QkFBbUIsR0FBRywyQkFBMkIsQ0FBQztRQUNsRCxxQkFBZ0IsR0FBRyxjQUFJLENBQUMsSUFBSSxDQUFDLElBQUksQ0FBQyxtQkFBbUIsRUFBRSx3QkFBd0IsQ0FBQyxDQUFDO1FBQ2pGLG9CQUFlLEdBQUcsY0FBSSxDQUFDLElBQUksQ0FBQyxPQUFPLENBQUMsR0FBRyxDQUFDLElBQUksRUFBRSxnREFBZ0QsQ0FBQyxDQUFDO1FBRWhHLG1CQUFjLEdBQUcsWUFBWSxDQUFDO0lBb0h4QyxDQUFDO0lBbEhDOzs7Ozs7T0FNRztJQUNHLGdCQUFnQixDQUFDLGVBQXVCLEVBQUUsVUFBbUIsRUFBRTs7WUFFbkUsK0JBQStCO1lBQy9CLEtBQUssQ0FBQyxpREFBaUQsQ0FBQyxDQUFDO1lBQ3pELFdBQUcsQ0FBQyxNQUFNLEVBQUU7Z0JBQ1YsVUFBVTtnQkFDVixrQkFBa0I7Z0JBQ2xCLElBQUk7Z0JBQ0osSUFBSTtnQkFDSixXQUFXO2dCQUNYLElBQUk7Z0JBQ0osb0NBQW9DO2dCQUNwQyxJQUFJO2dCQUNKLEtBQUs7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ZnJvbSAncGF0aCc7XG5pbXBvcnQgeyB3cml0ZUZpbGVTeW5jIGFzIHdyaXRlRmlsZSwgZXhpc3RzU3luYyBhcyBleGlzdHMsIHJlYWRGaWxlU3luYyBhcyByZWFkIH0gZnJvbSAnZnMnO1xuaW1wb3J0IGNyZWF0ZURlYnVnIGZyb20gJ2RlYnVnJztcbmltcG9ydCB7IHN5bmMgYXMgY29tbWFuZEV4aXN0cyB9IGZyb20gJ2NvbW1hbmQtZXhpc3RzJztcbmltcG9ydCB7IHJ1biwgc3Vkb0FwcGVuZCB9IGZyb20gJy4uL3V0aWxzJztcbmltcG9ydCB7IE9wdGlvbnMgfSBmcm9tICcuLi9pbmRleCc7XG5pbXBvcnQgeyBhZGRDZXJ0aWZpY2F0ZVRvTlNTQ2VydERCLCBhc3NlcnROb3RUb3VjaGluZ0ZpbGVzLCBvcGVuQ2VydGlmaWNhdGVJbkZpcmVmb3gsIGNsb3NlRmlyZWZveCwgcmVtb3ZlQ2VydGlmaWNhdGVGcm9tTlNTQ2VydERCIH0gZnJvbSAnLi9zaGFyZWQnO1xuaW1wb3J0IHsgUGxhdGZvcm0gfSBmcm9tICcuJztcblxuY29uc3QgZGVidWcgPSBjcmVhdGVEZWJ1ZygnZGV2Y2VydDpwbGF0Zm9ybXM6bWFjb3MnKTtcblxuY29uc3QgZ2V0Q2VydFV0aWxQYXRoID0gKCkgPT4gcGF0aC5qb2luKHJ1bignYnJldycsIFsnLS1wcmVmaXgnLCAnbnNzJ10pLnRvU3RyaW5nKCkudHJpbSgpLCAnYmluJywgJ2NlcnR1dGlsJyk7XG5cbmV4cG9ydCBkZWZhdWx0IGNsYXNzIE1hY09TUGxhdGZvcm0gaW1wbGVtZW50cyBQbGF0Zm9ybSB7XG5cbiAgcHJpdmF0ZSBGSVJFRk9YX0JVTkRMRV9QQVRIID0gJy9BcHBsaWNhdGlvbnMvRmlyZWZveC5hcHAnO1xuICBwcml2YXRlIEZJUkVGT1hfQklOX1BBVEggPSBwYXRoLmpvaW4odGhpcy5GSVJFRk9YX0JVTkRMRV9QQVRILCAnQ29udGVudHMvTWFjT1MvZmlyZWZveCcpO1xuICBwcml2YXRlIEZJUkVGT1hfTlNTX0RJUiA9IHBhdGguam9pbihwcm9jZXNzLmVudi5IT01FLCAnTGlicmFyeS9BcHBsaWNhdGlvbiBTdXBwb3J0L0ZpcmVmb3gvUHJvZmlsZXMvKicpO1xuXG4gIHByaXZhdGUgSE9TVF9GSUxFX1BBVEggPSAnL2V0Yy9ob3N0cyc7XG5cbiAgLyoqXG4gICAqIG1hY09TIGlzIHByZXR0eSBzaW1wbGUgLSBqdXN0IGFkZCB0aGUgY2VydGlmaWNhdGUgdG8gdGhlIHN5c3RlbSBrZXljaGFpbixcbiAgICogYW5kIG1vc3QgYXBwbGljYXRpb25zIHdpbGwgZGVsZWdhdGUgdG8gdGhhdCBmb3IgZGV0ZXJtaW5pbmcgdHJ1c3RlZFxuICAgKiBjZXJ0aWZpY2F0ZXMuIEZpcmVmb3gsIG9mIGNvdXJzZSwgZG9lcyBpdCdzIG93biB0aGluZy4gV2UgY2FuIHRyeSB0b1xuICAgKiBhdXRvbWF0aWNhbGx5IGluc3RhbGwgdGhlIGNlcnQgd2l0aCBGaXJlZm94IGlmIHdlIGNhbiB1c2UgY2VydHV0aWwgdmlhIHRoZVxuICAgKiBgbnNzYCBIb21lYnJldyBwYWNrYWdlLCBvdGhlcndpc2Ugd2UgZ28gbWFudWFsIHdpdGggdXNlci1mYWNpbmcgcHJvbXB0cy5cbiAgICovXG4gIGFzeW5jIGFkZFRvVHJ1c3RTdG9yZXMoY2VydGlmaWNhdGVQYXRoOiBzdHJpbmcsIG9wdGlvbnM6IE9wdGlvbnMgPSB7fSk6IFByb21pc2U8dm9pZD4ge1xuXG4gICAgLy8gQ2hyb21lLCBTYWZhcmksIHN5c3RlbSB1dGlsc1xuICAgIGRlYnVnKCdBZGRpbmcgZGV2Y2VydCByb290IENBIHRvIG1hY09TIHN5c3RlbSBrZXljaGFpbicpO1xuICAgIHJ1bignc3VkbycsIFtcbiAgICAgICdzZWN1cml0eScsXG4gICAgICAnYWRkLXRydXN0ZWQtY2VydCcsXG4gICAgICAnLWQnLFxuICAgICAgJy1yJyxcbiAgICAgICd0cnVzdFJvb3QnLFxuICAgICAgJy1rJyxcbiAgICAgICcvTGlicmFyeS9LZXljaGFpbnMvU3lzdGVtLmtleWNoYWluJyxcbiAgICAgICctcCcsXG4gICAgICAnc3NsJyxcbiAgICAgICctcCcsXG4gICAgICAnYmFzaWMnLFxuICAgICAgY2VydGlmaWNhdGVQYXRoXG4gICAgXSk7XG5cbiAgICBpZiAodGhpcy5pc0ZpcmVmb3hJbnN0YWxsZWQoKSkge1xuICAgICAgLy8gVHJ5IHRvIHVzZSBjZXJ0dXRpbCB0byBpbnN0YWxsIHRoZSBjZXJ0IGF1dG9tYXRpY2FsbHlcbiAgICAgIGRlYnVnKCdGaXJlZm94IGluc3RhbGwgZGV0ZWN0ZWQuIEFkZGluZyBkZXZjZXJ0IHJvb3QgQ0EgdG8gRmlyZWZveCB0cnVzdCBzdG9yZScpO1xuICAgICAgaWYgKCF0aGlzLmlzTlNTSW5zdGFsbGVkKCkpIHtcbiAgICAgICAgaWYgKCFvcHRpb25zLnNraXBDZXJ0dXRpbEluc3RhbGwpIHtcbiAgICAgICAgICBpZiAoY29tbWFuZEV4aXN0cygnYnJldycpKSB7XG4gICAgICAgICAgICBkZWJ1ZyhgY2VydHV0aWwgaXMgbm90IGFscmVhZHkgaW5zdGFsbGVkLCBidXQgSG9tZWJyZXcgaXMgZGV0ZWN0ZWQuIFRyeWluZyB0byBpbnN0YWxsIGNlcnR1dGlsIHZpYSBIb21lYnJldy4uLmApO1xuICAgICAgICAgICAgdHJ5IHtcbiAgICAgICAgICAgICAgcnVuKCdicmV3JywgWydpbnN0YWxsJywgJ25zcyddLCB7IHN0ZGlvOiAnaWdub3JlJyB9KTtcbiAgICAgICAgICAgIH0gY2F0Y2ggKGUpIHtcbiAgICAgICAgICAgICAgZGVidWcoYGJyZXcgaW5zdGFsbCBuc3MgZmFpbGVkYCk7XG4gICAgICAgICAgICB9XG4gICAgICAgICAgfSBlbHNlIHtcbiAgICAgICAgICAgIGRlYnVnKGBIb21lYnJldyBkaWRuJ3Qgd29yaywgc28gd2UgY2FuJ3QgdHJ5IHRvIGluc3RhbGwgY2VydHV0aWwuIEZhbGxpbmcgYmFjayB0byBtYW51YWwgY2VydGlmaWNhdGUgaW5zdGFsbGApO1xuICAgICAgICAgICAgcmV0dXJuIGF3YWl0IG9wZW5DZXJ0aWZpY2F0ZUluRmlyZWZveCh0aGlzLkZJUkVGT1hfQklOX1BBVEgsIGNlcnRpZmljYXRlUGF0aCk7XG4gICAgICAgICAgfVxuICAgICAgICB9IGVsc2Uge1xuICAgICAgICAgIGRlYnVnKGBjZXJ0dXRpbCBpcyBub3QgYWxyZWFkeSBpbnN0YWxsZWQsIGFuZCBza2lwQ2VydHV0aWxJbnN0YWxsIGlzIHRydWUsIHNvIHdlIGhhdmUgdG8gZmFsbCBiYWNrIHRvIGEgbWFudWFsIGluc3RhbGxgKVxuICAgICAgICAgIHJldHVybiBhd2FpdCBvcGVuQ2VydGlmaWNhdGVJbkZpcmVmb3godGhpcy5GSVJFRk9YX0JJTl9QQVRILCBjZXJ0aWZpY2F0ZVBhdGgpO1xuICAgICAgICB9XG4gICAgICB9XG4gICAgICBhd2FpdCBjbG9zZUZpcmVmb3goKTtcbiAgICAgIGF3YWl0IGFkZENlcnRpZmljYXRlVG9OU1NDZXJ0REIodGhpcy5GSVJFRk9YX05TU19ESVIsIGNlcnRpZmljYXRlUGF0aCwgZ2V0Q2VydFV0aWxQYXRoKCkpO1xuICAgIH0gZWxzZSB7XG4gICAgICBkZWJ1ZygnRmlyZWZveCBkb2VzIG5vdCBhcHBlYXIgdG8gYmUgaW5zdGFsbGVkLCBza2lwcGluZyBGaXJlZm94LXNwZWNpZmljIHN0ZXBzLi4uJyk7XG4gICAgfVxuICB9XG4gIFxuICByZW1vdmVGcm9tVHJ1c3RTdG9yZXMoY2VydGlmaWNhdGVQYXRoOiBzdHJpbmcpIHtcbiAgICBkZWJ1ZygnUmVtb3ZpbmcgZGV2Y2VydCByb290IENBIGZyb20gbWFjT1Mgc3lzdGVtIGtleWNoYWluJyk7XG4gICAgdHJ5IHtcbiAgICAgIHJ1bignc3VkbycsIFtcbiAgICAgICAgJ3NlY3VyaXR5JyxcbiAgICAgICAgJ3JlbW92ZS10cnVzdGVkLWNlcnQnLFxuICAgICAgICAnLWQnLFxuICAgICAgICBjZXJ0aWZpY2F0ZVBhdGhcbiAgICAgIF0sIHtcbiAgICAgICAgc3RkaW86ICdpZ25vcmUnXG4gICAgICB9KTtcbiAgICB9IGNhdGNoKGUpIHtcbiAgICAgIGRlYnVnKGBmYWlsZWQgdG8gcmVtb3ZlICR7IGNlcnRpZmljYXRlUGF0aCB9IGZyb20gbWFjT1MgY2VydCBzdG9yZSwgY29udGludWluZy4gJHsgZS50b1N0cmluZygpIH1gKTtcbiAgICB9XG4gICAgaWYgKHRoaXMuaXNGaXJlZm94SW5zdGFsbGVkKCkgJiYgdGhpcy5pc05TU0luc3RhbGxlZCgpKSB7XG4gICAgICBkZWJ1ZygnRmlyZWZveCBpbnN0YWxsIGFuZCBjZXJ0dXRpbCBpbnN0YWxsIGRldGVjdGVkLiBUcnlpbmcgdG8gcmVtb3ZlIHJvb3QgQ0EgZnJvbSBGaXJlZm94IE5TUyBkYXRhYmFzZXMnKTtcbiAgICAgIHJlbW92ZUNlcnRpZmljYXRlRnJvbU5TU0NlcnREQih0aGlzLkZJUkVGT1hfTlNTX0RJUiwgY2VydGlmaWNhdGVQYXRoLCBnZXRDZXJ0VXRpbFBhdGgoKSk7XG4gICAgfVxuICB9XG5cbiAgYXN5bmMgYWRkRG9tYWluVG9Ib3N0RmlsZUlmTWlzc2luZyhkb21haW46IHN0cmluZykge1xuICAgIGNvbnN0IHRyaW1Eb21haW4gPSBkb21haW4udHJpbSgpLnJlcGxhY2UoL1tcXHM7XS9nLCcnKVxuICAgIGxldCBob3N0c0ZpbGVDb250ZW50cyA9IHJlYWQodGhpcy5IT1NUX0ZJTEVfUEFUSCwgJ3V0ZjgnKTtcbiAgICBpZiAoIWhvc3RzRmlsZUNvbnRlbnRzLmluY2x1ZGVzKHRyaW1Eb21haW4pKSB7XG4gICAgICBzdWRvQXBwZW5kKHRoaXMuSE9TVF9GSUxFX1BBVEgsIGAxMjcuMC4wLjEgJHt0cmltRG9tYWlufVxcbmApO1xuICAgIH1cbiAgfVxuXG4gIGRlbGV0ZVByb3RlY3RlZEZpbGVzKGZpbGVwYXRoOiBzdHJpbmcpIHtcbiAgICBhc3NlcnROb3RUb3VjaGluZ0ZpbGVzKGZpbGVwYXRoLCAnZGVsZXRlJyk7XG4gICAgcnVuKCdzdWRvJywgWydybScsICctcmYnLCBmaWxlcGF0aF0pO1xuICB9XG5cbiAgYXN5bmMgcmVhZFByb3RlY3RlZEZpbGUoZmlsZXBhdGg6IHN0cmluZykge1xuICAgIGFzc2VydE5vdFRvdWNoaW5nRmlsZXMoZmlsZXBhdGgsICdyZWFkJyk7XG4gICAgcmV0dXJuIChhd2FpdCBydW4oJ3N1ZG8nLCBbJ2NhdCcsIGZpbGVwYXRoXSkpLnRvU3RyaW5nKCkudHJpbSgpO1xuICB9XG5cbiAgYXN5bmMgd3JpdGVQcm90ZWN0ZWRGaWxlKGZpbGVwYXRoOiBzdHJpbmcsIGNvbnRlbnRzOiBzdHJpbmcpIHtcbiAgICBhc3NlcnROb3RUb3VjaGluZ0ZpbGVzKGZpbGVwYXRoLCAnd3JpdGUnKTtcbiAgICBpZiAoZXhpc3RzKGZpbGVwYXRoKSkge1xuICAgICAgYXdhaXQgcnVuKCdzdWRvJywgWydybScsIGZpbGVwYXRoXSk7XG4gICAgfVxuICAgIHdyaXRlRmlsZShmaWxlcGF0aCwgY29udGVudHMpO1xuICAgIGF3YWl0IHJ1bignc3VkbycsIFsnY2hvd24nLCAnMCcsIGZpbGVwYXRoXSk7XG4gICAgYXdhaXQgcnVuKCdzdWRvJywgWydjaG1vZCcsICc2MDAnLCBmaWxlcGF0aF0pO1xuICB9XG5cbiAgcHJpdmF0ZSBpc0ZpcmVmb3hJbnN0YWxsZWQoKSB7XG4gICAgcmV0dXJuIGV4aXN0cyh0aGlzLkZJUkVGT1hfQlVORExFX1BBVEgpO1xuICB9XG5cbiAgcHJpdmF0ZSBpc05TU0luc3RhbGxlZCgpIHtcbiAgICB0cnkge1xuICAgICAgcmV0dXJuIHJ1bignYnJldycsIFsnbGlzdCcsICctMSddKS50b1N0cmluZygpLmluY2x1ZGVzKCdcXG5uc3NcXG4nKTtcbiAgICB9IGNhdGNoIChlKSB7XG4gICAgICByZXR1cm4gZmFsc2U7XG4gICAgfVxuICB9XG5cbn07XG4iXX0=

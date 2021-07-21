@@ -1,0 +1,11 @@
+{
+	"id": "role-none",
+	"evaluate": "role-none.js",
+	"metadata": {
+		"impact": "minor",
+		"messages": {
+			"pass": "Element's default semantics were overriden with role=\"none\"",
+			"fail": "Element's default semantics were not overridden with role=\"none\""
+		}
+	}
+}

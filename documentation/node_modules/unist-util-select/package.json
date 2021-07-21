@@ -1,0 +1,51 @@
+{
+  "name": "unist-util-select",
+  "version": "1.5.0",
+  "description": "Select unist nodes using css-like selectors",
+  "author": "Eugene Sharygin <eush77@gmail.com>",
+  "license": "MIT",
+  "scripts": {
+    "test": "tape test/*.js"
+  },
+  "files": [
+    "index.js",
+    "lib/"
+  ],
+  "homepage": "https://github.com/eush77/unist-util-select",
+  "repository": "eush77/unist-util-select",
+  "bugs": {
+    "url": "https://github.com/eush77/unist-util-select/issues"
+  },
+  "keywords": [
+    "child",
+    "descendant",
+    "sibling",
+    "type",
+    "attribute",
+    "expression",
+    "filter",
+    "find",
+    "match",
+    "ast",
+    "mdast",
+    "node",
+    "retext",
+    "select",
+    "selector",
+    "tree",
+    "unist",
+    "util",
+    "utility",
+    "visit",
+    "walk"
+  ],
+  "dependencies": {
+    "css-selector-parser": "^1.1.0",
+    "debug": "^2.2.0",
+    "nth-check": "^1.0.1"
+  },
+  "devDependencies": {
+    "tape": "^4.2.0",
+    "unist-builder": "^1.0.1"
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "name": "es6-promisify",
+  "version": "5.0.0",
+  "description": "Converts callback-based functions to ES6 Promises",
+  "main": "dist/promisify.js",
+  "author": "Mike Hall <mikehall314@gmail.com>",
+  "keywords": [
+    "promises",
+    "es6",
+    "promisify"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "es6-promise": "^4.0.3"
+  },
+  "scripts": {
+    "pretest": "./node_modules/eslint/bin/eslint.js ./lib/*.js ./tests/*.js",
+    "test": "gulp && nodeunit tests"
+  },
+  "bugs": "http://github.com/digitaldesignlabs/es6-promisify/issues",
+  "files": [
+    "dist/promisify.js",
+    "dist/promise.js"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/digitaldesignlabs/es6-promisify.git"
+  },
+  "devDependencies": {
+    "babel-preset-es2015": "^6.9.0",
+    "eslint": "^2.13.1",
+    "gulp": "^3.9.1",
+    "gulp-babel": "^6.1.2",
+    "nodeunit": "^0.10.0"
+  },
+  "greenkeeper": {
+    "ignore": [
+      "eslint"
+    ]
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "name": "lockfile",
+  "version": "1.0.4",
+  "main": "lockfile.js",
+  "directories": {
+    "test": "test"
+  },
+  "dependencies": {
+    "signal-exit": "^3.0.2"
+  },
+  "devDependencies": {
+    "tap": "^11.1.3",
+    "touch": "0"
+  },
+  "scripts": {
+    "test": "tap test/*.js --cov -J",
+    "changelog": "bash gen-changelog.sh",
+    "postversion": "npm run changelog && git add CHANGELOG.md && git commit -m 'update changelog - '${npm_package_version}"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/npm/lockfile.git"
+  },
+  "keywords": [
+    "lockfile",
+    "lock",
+    "file",
+    "fs",
+    "O_EXCL"
+  ],
+  "author": "Isaac Z. Schlueter <i@izs.me> (http://blog.izs.me/)",
+  "license": "ISC",
+  "description": "A very polite lock file utility, which endeavors to not litter, and to wait patiently for others."
+}

@@ -1,0 +1,15 @@
+{
+  "name": "backo2",
+  "version": "1.0.2",
+  "repository": "mokesmokes/backo",
+  "description": "simple backoff based on segmentio/backo",
+  "keywords": [
+    "backoff"
+  ],
+  "dependencies": {},
+  "devDependencies": {
+    "mocha": "*",
+    "should": "*"
+  },
+  "license": "MIT"
+}

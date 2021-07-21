@@ -1,0 +1,52 @@
+{
+  "name": "eslint-plugin-graphql",
+  "version": "4.0.0",
+  "description": "GraphQL ESLint plugin.",
+  "author": "Sashko Stubailo",
+  "main": "lib/index.js",
+  "scripts": {
+    "test": "tav --ci && mocha test/index.js",
+    "prepublish": "babel ./src --ignore test --out-dir ./lib",
+    "pretest": "babel-node test/updateSchemaJson.js",
+    "tav": "tav",
+    "lint": "eslint 'src/**/*.js' 'test/**/*.js'"
+  },
+  "homepage": "https://github.com/apollostack/eslint-plugin-graphql",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/apollostack/eslint-plugin-graphql.git"
+  },
+  "devDependencies": {
+    "@babel/cli": "7.10.1",
+    "@babel/core": "7.10.1",
+    "@babel/node": "7.10.1",
+    "@babel/plugin-transform-runtime": "7.10.1",
+    "@babel/preset-env": "7.10.1",
+    "@babel/register": "7.9.0",
+    "babel-eslint": "10.1.0",
+    "eslint": "6.8.0",
+    "graphql": "15.0.0",
+    "mocha": "7.2.0",
+    "pretty-quick": "2.0.1",
+    "test-all-versions": "4.1.1"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "pretty-quick --staged"
+    }
+  },
+  "engines": {
+    "node": ">=10.0"
+  },
+  "browserslist": "node 10",
+  "license": "MIT",
+  "dependencies": {
+    "@babel/runtime": "^7.10.0",
+    "graphql-config": "^3.0.2",
+    "lodash.flatten": "^4.4.0",
+    "lodash.without": "^4.4.0"
+  },
+  "peerDependencies": {
+    "graphql": "^0.12.0 || ^0.13.0 || ^14.0.0 || ^15.0.0"
+  }
+}

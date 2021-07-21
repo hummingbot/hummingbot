@@ -1,0 +1,30 @@
+{
+  "name": "isbuffer",
+  "description": "isBuffer for node and browser (supports typed arrays)",
+  "version": "0.0.0",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/juliangruber/isbuffer.git"
+  },
+  "homepage": "https://github.com/juliangruber/isbuffer",
+  "main": "index.js",
+  "scripts": {
+    "test": "tape test.js"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "tape": "~1.0.2"
+  },
+  "keywords": [
+    "isbuffer",
+    "buffer",
+    "typedarrays",
+    "arraybuffer"
+  ],
+  "author": {
+    "name": "Julian Gruber",
+    "email": "mail@juliangruber.com",
+    "url": "http://juliangruber.com"
+  },
+  "license": "MIT"
+}

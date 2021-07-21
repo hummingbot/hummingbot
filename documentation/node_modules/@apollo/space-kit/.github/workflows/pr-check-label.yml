@@ -1,0 +1,16 @@
+on: 
+  pull_request:
+    types: [labeled, unlabeled, opened, synchronize, reopened]
+name: Run `check-label` when a PR's labels are changed
+jobs:
+  check-label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: fire check-label
+        uses: ./.github/actions/run-circle-ci-job
+        with:
+          job: 'check-label'
+        env:
+          CIRCLE_API_TOKEN: ${{ secrets.CIRCLE_API_TOKEN }}

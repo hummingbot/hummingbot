@@ -1,0 +1,92 @@
+[
+  {
+    "runtime": "node",
+    "target": "11.0.0",
+    "lts": false,
+    "future": false,
+    "abi": "67"
+  },
+  {
+    "runtime": "electron",
+    "target": "5.0.0",
+    "lts": false,
+    "future": false,
+    "abi": "70"
+  },
+  {
+    "runtime": "node",
+    "target": "12.0.0",
+    "lts": [
+      "2019-10-21",
+      "2020-10-20"
+    ],
+    "future": false,
+    "abi": "68"
+  },
+  {
+    "runtime": "electron",
+    "target": "6.0.0",
+    "lts": false,
+    "future": false,
+    "abi": "73"
+  },
+  {
+    "runtime": "electron",
+    "target": "7.0.0",
+    "lts": false,
+    "future": false,
+    "abi": "75"
+  },
+  {
+    "runtime": "electron",
+    "target": "8.0.0",
+    "lts": false,
+    "future": false,
+    "abi": "76"
+  },
+  {
+    "runtime": "node",
+    "target": "13.0.0",
+    "lts": false,
+    "future": false,
+    "abi": "74"
+  },
+  {
+    "runtime": "electron",
+    "target": "9.0.0",
+    "lts": false,
+    "future": false,
+    "abi": "80"
+  },
+  {
+    "runtime": "node",
+    "target": "14.0.0",
+    "lts": [
+      "2020-10-27",
+      "2021-10-19"
+    ],
+    "future": false,
+    "abi": "81"
+  },
+  {
+    "runtime": "electron",
+    "target": "10.0.0-beta.1",
+    "lts": false,
+    "future": true,
+    "abi": "82"
+  },
+  {
+    "runtime": "node",
+    "target": "15.0.0",
+    "lts": false,
+    "future": true,
+    "abi": "84"
+  },
+  {
+    "runtime": "electron",
+    "target": "11.0.0-beta.1",
+    "lts": false,
+    "future": true,
+    "abi": "85"
+  }
+]

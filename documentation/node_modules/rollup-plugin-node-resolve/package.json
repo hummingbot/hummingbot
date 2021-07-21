@@ -1,0 +1,60 @@
+{
+  "name": "rollup-plugin-node-resolve",
+  "description": "Bundle third-party dependencies in node_modules",
+  "version": "5.2.0",
+  "devDependencies": {
+    "@babel/core": "^7.4.5",
+    "@babel/preset-env": "^7.4.5",
+    "@babel/register": "^7.4.4",
+    "es5-ext": "^0.10.50",
+    "eslint": "^5.16.0",
+    "mocha": "^6.1.4",
+    "rollup": "^1.16.1",
+    "rollup-plugin-babel": "^4.3.2",
+    "rollup-plugin-commonjs": "^10.0.0",
+    "rollup-plugin-json": "^4.0.0",
+    "string-capitalize": "^1.0.1",
+    "typescript": "^3.5.2"
+  },
+  "main": "dist/rollup-plugin-node-resolve.cjs.js",
+  "module": "dist/rollup-plugin-node-resolve.es.js",
+  "jsnext:main": "dist/rollup-plugin-node-resolve.es.js",
+  "scripts": {
+    "build": "rollup -c",
+    "pretest": "npm run build",
+    "test": "mocha",
+    "posttest": "tsc && eslint src test/*.js",
+    "lint": "eslint src",
+    "prepublishOnly": "npm test",
+    "prepare": "npm run build"
+  },
+  "files": [
+    "src",
+    "dist",
+    "index.d.ts"
+  ],
+  "dependencies": {
+    "@types/resolve": "0.0.8",
+    "builtin-modules": "^3.1.0",
+    "is-module": "^1.0.0",
+    "resolve": "^1.11.1",
+    "rollup-pluginutils": "^2.8.1"
+  },
+  "peerDependencies": {
+    "rollup": ">=1.11.0"
+  },
+  "repository": "rollup/rollup-plugin-node-resolve",
+  "keywords": [
+    "rollup",
+    "rollup-plugin",
+    "es2015",
+    "npm",
+    "modules"
+  ],
+  "author": "Rich Harris <richard.a.harris@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/rollup/rollup-plugin-node-resolve/issues"
+  },
+  "homepage": "https://github.com/rollup/rollup-plugin-node-resolve#readme"
+}

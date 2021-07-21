@@ -1,0 +1,35 @@
+{
+  "name": "estree-walker",
+  "description": "Traverse an ESTree-compliant AST",
+  "version": "0.5.2",
+  "author": "Rich Harris",
+  "license": "MIT",
+  "typings": "index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Rich-Harris/estree-walker"
+  },
+  "main": "dist/estree-walker.umd.js",
+  "module": "dist/estree-walker.es.js",
+  "jsnext:main": "dist/estree-walker.es.js",
+  "scripts": {
+    "prepublish": "npm run lint && npm test",
+    "build": "rollup -c",
+    "test": "mocha test/test.js --compilers js:buble/register",
+    "pretest": "npm run build",
+    "lint": "eslint src"
+  },
+  "devDependencies": {
+    "buble": "^0.15.2",
+    "eslint": "^4.5.0",
+    "mocha": "^3.5.0",
+    "rollup": "^0.48.0",
+    "rollup-plugin-buble": "^0.15.0"
+  },
+  "files": [
+    "src",
+    "dist",
+    "index.d.ts",
+    "README.md"
+  ]
+}

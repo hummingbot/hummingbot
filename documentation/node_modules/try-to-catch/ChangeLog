@@ -1,0 +1,28 @@
+2018.11.08, v1.1.1
+
+fix:
+- (try-to-catch) wraptile -> noArg
+
+
+2018.11.08, v1.1.0
+
+feature:
+- (try-to-catch) add support of a functions
+- (package) redrun v7.0.2
+- (package) nyc v13.0.1
+- (package) eslint v5.6.0
+- (package) babel v7.0.0
+- (package) redrun v6.0.0
+
+
+2018.02.13, v1.0.2
+
+fix:
+- (package) legacy
+
+
+2018.02.12, v1.0.1
+
+feature:
+- (package) keywords: then
+

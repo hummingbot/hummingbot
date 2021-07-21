@@ -1,0 +1,134 @@
+{
+  "name": "katex",
+  "version": "0.12.0",
+  "description": "Fast math typesetting for the web.",
+  "main": "dist/katex.js",
+  "homepage": "https://katex.org",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/KaTeX/KaTeX.git"
+  },
+  "files": [
+    "katex.js",
+    "cli.js",
+    "src/",
+    "contrib/",
+    "dist/"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@babel/core": "^7.3.3",
+    "@babel/plugin-proposal-class-properties": "^7.3.3",
+    "@babel/plugin-transform-runtime": "^7.2.0",
+    "@babel/preset-env": "^7.3.1",
+    "@babel/preset-flow": "^7.0.0",
+    "@babel/register": "^7.0.0",
+    "@babel/runtime": "^7.3.1",
+    "babel-eslint": "^10.0.1",
+    "babel-jest": "^24.1.0",
+    "babel-loader": "^8.0.5",
+    "babel-plugin-istanbul": "^5.1.1",
+    "babel-plugin-preval": "^3.0.1",
+    "babel-plugin-version-inline": "^1.0.0",
+    "benchmark": "^2.1.4",
+    "browserslist": "^4.7.1",
+    "caniuse-lite": "^1.0.30001002",
+    "codecov": "^3.2.0",
+    "css-loader": "^3.0.0",
+    "cssnano": "^4.1.10",
+    "eslint": "^5.14.1",
+    "eslint-plugin-flowtype": "^3.4.2",
+    "eslint-plugin-react": "^7.12.4",
+    "eslint-plugin-transform-runtime-aliasing": "^2.0.0",
+    "file-loader": "^3.0.1",
+    "flow-bin": "^0.102.0",
+    "fs-extra": "^7.0.1",
+    "husky": "^1.3.1",
+    "istanbul-api": "^2.1.1",
+    "istanbul-lib-coverage": "^2.0.3",
+    "jest": "^24.1.0",
+    "jest-serializer-html": "^6.0.0",
+    "js-yaml": "^3.12.1",
+    "json-stable-stringify": "^1.0.1",
+    "jspngopt": "^0.2.0",
+    "less": "^3.9.0",
+    "less-loader": "^4.1.0",
+    "mini-css-extract-plugin": "^0.5.0",
+    "mkdirp": "^0.5.1",
+    "pako": "^1.0.8",
+    "postcss-loader": "^3.0.0",
+    "prettier": "^1.18.2",
+    "query-string": "^6.2.0",
+    "rimraf": "^2.6.3",
+    "rollup": "^1.2.2",
+    "rollup-plugin-alias": "^1.5.1",
+    "rollup-plugin-babel": "^4.3.2",
+    "selenium-webdriver": "^3.6.0",
+    "sri-toolbox": "^0.2.0",
+    "style-loader": "^0.23.1",
+    "stylelint": "^9.10.1",
+    "stylelint-config-standard": "^18.2.0",
+    "terser-webpack-plugin": "^1.2.2",
+    "webpack": "^4.29.5",
+    "webpack-bundle-analyzer": "^3.0.4",
+    "webpack-cli": "^3.2.3",
+    "webpack-dev-server": "^3.2.0"
+  },
+  "bin": "cli.js",
+  "scripts": {
+    "test": "yarn test:lint && yarn test:flow && yarn test:jest",
+    "test:lint": "yarn test:lint:js && yarn test:lint:css",
+    "test:lint:js": "eslint *.js src static test contrib dockers website",
+    "test:lint:css": "stylelint src/katex.less static/main.css contrib/**/*.css website/static/**/*.css",
+    "test:flow": "flow",
+    "test:jest": "jest",
+    "test:jest:watch": "jest --watch",
+    "test:jest:update": "jest --updateSnapshot",
+    "test:jest:coverage": "jest --coverage",
+    "test:screenshots": "yarn test:screenshots:update --verify",
+    "test:screenshots:update": "dockers/screenshotter/screenshotter.sh",
+    "test:perf": "NODE_ENV=test node test/perf-test.js",
+    "clean": "rm -rf dist/ node_modules/",
+    "clean-install": "yarn clean && yarn",
+    "start": "webpack-dev-server --hot --config webpack.dev.js",
+    "analyze": "webpack --config webpack.analyze.js",
+    "build": "rimraf dist/ && mkdirp dist && cp README.md dist && rollup -c && webpack",
+    "watch": "yarn build --watch",
+    "dist": "yarn test && yarn build && yarn dist:zip",
+    "dist:zip": "rimraf katex/ katex.tar.gz katex.zip && cp -R dist katex && tar czf katex.tar.gz katex && zip -rq katex.zip katex && rimraf katex/"
+  },
+  "dependencies": {
+    "commander": "^2.19.0"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "yarn test:lint",
+      "post-merge": "git submodule update --init --recursive",
+      "post-checkout": "git submodule update --init --recursive"
+    }
+  },
+  "jest": {
+    "collectCoverageFrom": [
+      "src/**/*.js",
+      "contrib/**/*.js",
+      "!src/unicodeSymbols.js",
+      "!contrib/mhchem/**"
+    ],
+    "setupFilesAfterEnv": [
+      "<rootDir>/test/setup.js"
+    ],
+    "snapshotSerializers": [
+      "jest-serializer-html"
+    ],
+    "testMatch": [
+      "**/test/*-spec.js"
+    ],
+    "testURL": "http://localhost/",
+    "transform": {
+      "^.+\\.js$": "babel-jest"
+    },
+    "moduleNameMapper": {
+      "^katex$": "<rootDir>/katex.js"
+    }
+  }
+}

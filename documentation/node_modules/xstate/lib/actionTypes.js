@@ -1,0 +1,23 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.pure = exports.choose = exports.update = exports.error = exports.errorPlatform = exports.errorExecution = exports.invoke = exports.init = exports.log = exports.doneState = exports.after = exports.assign = exports.nullEvent = exports.cancel = exports.send = exports.raise = exports.stop = exports.start = void 0;
+var types_1 = require("./types");
+// xstate-specific action types
+exports.start = types_1.ActionTypes.Start;
+exports.stop = types_1.ActionTypes.Stop;
+exports.raise = types_1.ActionTypes.Raise;
+exports.send = types_1.ActionTypes.Send;
+exports.cancel = types_1.ActionTypes.Cancel;
+exports.nullEvent = types_1.ActionTypes.NullEvent;
+exports.assign = types_1.ActionTypes.Assign;
+exports.after = types_1.ActionTypes.After;
+exports.doneState = types_1.ActionTypes.DoneState;
+exports.log = types_1.ActionTypes.Log;
+exports.init = types_1.ActionTypes.Init;
+exports.invoke = types_1.ActionTypes.Invoke;
+exports.errorExecution = types_1.ActionTypes.ErrorExecution;
+exports.errorPlatform = types_1.ActionTypes.ErrorPlatform;
+exports.error = types_1.ActionTypes.ErrorCustom;
+exports.update = types_1.ActionTypes.Update;
+exports.choose = types_1.ActionTypes.Choose;
+exports.pure = types_1.ActionTypes.Pure;

@@ -1,0 +1,6 @@
+{
+  "main": "../dist/cjs/core.js",
+  "jsnext:main": "../dist/esm/core.js",
+  "module": "../dist/esm/core.js",
+  "types": "../core.d.ts"
+}

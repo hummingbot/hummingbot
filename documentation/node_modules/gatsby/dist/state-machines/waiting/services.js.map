@@ -1,0 +1,1 @@
+{"version":3,"sources":["../../../src/state-machines/waiting/services.ts"],"names":["waitingServices","runMutationBatch"],"mappings":";;;;;AAAA;;AAEO,MAAMA,eAAe,GAAG;AAAEC,EAAAA,gBAAgB,EAAhBA;AAAF,CAAxB","sourcesContent":["import { runMutationBatch } from \"../../services\"\n\nexport const waitingServices = { runMutationBatch }\n"],"file":"services.js"}

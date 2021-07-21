@@ -1,0 +1,6 @@
+[build]
+  base    = "docs/"
+  publish = "docs/public/"
+  command = "gatsby build --prefix-paths && mkdir -p docs/graphql-subscriptions && mv public/* docs/graphql-subscriptions && mv docs public/ && mv public/docs/graphql-subscriptions/_redirects public"
+[build.environment]
+  NPM_VERSION = "6"

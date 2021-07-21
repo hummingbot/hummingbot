@@ -1,0 +1,13 @@
+{
+	"id": "aria-hidden-body",
+	"selector": "body",
+	"excludeHidden": false,
+	"tags": ["cat.aria", "wcag2a", "wcag412"],
+	"metadata": {
+		"description": "Ensures aria-hidden='true' is not present on the document body.",
+		"help": "aria-hidden='true' must not be present on the document body"
+	},
+	"all": [],
+	"any": ["aria-hidden-body"],
+	"none": []
+}

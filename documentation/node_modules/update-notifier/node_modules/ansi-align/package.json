@@ -1,0 +1,43 @@
+{
+  "name": "ansi-align",
+  "version": "2.0.0",
+  "description": "align-text with ANSI support for CLIs",
+  "main": "index.js",
+  "scripts": {
+    "pretest": "standard",
+    "test": "nyc ava",
+    "coverage": "nyc report --reporter=text-lcov | coveralls",
+    "release": "standard-version"
+  },
+  "files": [
+    "index.js"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nexdrew/ansi-align.git"
+  },
+  "keywords": [
+    "ansi",
+    "align",
+    "cli",
+    "center",
+    "pad"
+  ],
+  "author": "nexdrew",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/nexdrew/ansi-align/issues"
+  },
+  "homepage": "https://github.com/nexdrew/ansi-align#readme",
+  "dependencies": {
+    "string-width": "^2.0.0"
+  },
+  "devDependencies": {
+    "ava": "^0.19.1",
+    "chalk": "^1.1.3",
+    "coveralls": "^2.13.1",
+    "nyc": "^10.3.0",
+    "standard": "^10.0.2",
+    "standard-version": "^4.0.0"
+  }
+}

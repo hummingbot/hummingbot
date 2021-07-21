@@ -1,0 +1,30 @@
+{
+    "predef": [ "assert", "refute" ]
+  , "boss": true
+  , "bitwise": true
+  , "shadow": true
+  , "trailing": true
+  , "immed": true
+  , "latedef": true
+  , "forin": false
+  , "curly": false
+  , "debug": true
+  , "devel": false
+  , "evil": true
+  , "regexp": false
+  , "undef": true
+  , "sub": true
+  , "white": false
+  , "asi": true
+  , "laxbreak": true
+  , "eqnull": true
+  , "browser": true
+  , "node": true
+  , "laxcomma": true
+  , "proto": true
+  , "expr": true
+  , "es5": true
+  , "esnext": true
+  , "strict": false
+  , "loopfunc": true
+}

@@ -1,0 +1,54 @@
+{
+  "name": "with-open-file",
+  "version": "0.1.7",
+  "description": "Do stuff with an open file, knowing it will finally be closed",
+  "repository": "raphinesse/with-open-file",
+  "license": "MIT",
+  "author": {
+    "name": "Raphael von der Grün",
+    "email": "raphinesse@gmail.com"
+  },
+  "files": [
+    "index.js"
+  ],
+  "xo": {
+    "space": 2,
+    "prettier": true
+  },
+  "prettier": {
+    "bracketSpacing": true,
+    "semi": false,
+    "singleQuote": true,
+    "trailingComma": "es5"
+  },
+  "scripts": {
+    "test": "xo && nyc ava"
+  },
+  "dependencies": {
+    "p-finally": "^1.0.0",
+    "p-try": "^2.1.0",
+    "pify": "^4.0.1"
+  },
+  "devDependencies": {
+    "ava": "^1.4.1",
+    "delay": "^4.1.0",
+    "nyc": "^14.1.1",
+    "rewire": "^4.0.1",
+    "sinon": "^7.3.1",
+    "xo": "^0.24.0"
+  },
+  "engines": {
+    "node": ">=6"
+  },
+  "keywords": [
+    "node",
+    "node.js",
+    "close",
+    "fd",
+    "file",
+    "finally",
+    "fs",
+    "open",
+    "with"
+  ]
+}

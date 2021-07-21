@@ -1,0 +1,12 @@
+{
+	"id": "heading-order",
+	"evaluate": "heading-order.js",
+	"after": "heading-order-after.js",
+	"metadata": {
+		"impact": "moderate",
+		"messages": {
+			"pass": "Heading order valid",
+			"fail": "Heading order invalid"
+		}
+	}
+}

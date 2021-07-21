@@ -1,0 +1,21 @@
+{
+    "name": "@types/get-port",
+    "version": "3.2.0",
+    "description": "TypeScript definitions for get-port",
+    "license": "MIT",
+    "contributors": [
+        {
+            "name": "York Yao",
+            "url": "https://github.com/plantain-00/"
+        }
+    ],
+    "main": "",
+    "repository": {
+        "type": "git",
+        "url": "https://www.github.com/DefinitelyTyped/DefinitelyTyped.git"
+    },
+    "scripts": {},
+    "dependencies": {},
+    "typesPublisherContentHash": "82f8af7bd2107d1d66f5ef70f9619020ed4354441c7245db9caad172bc9c8e0c",
+    "typeScriptVersion": "2.0"
+}

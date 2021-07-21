@@ -1,0 +1,30 @@
+{
+  "name": "fd",
+  "description": "File descriptor manager",
+  "version": "0.0.3",
+  "homepage": "https://github.com/rvagg/node-fd",
+  "authors": [
+    "Rod Vagg <rod@vagg.org> (https://github.com/rvagg)"
+  ],
+  "keywords": [
+    "fd",
+    "fs",
+    "descriptor",
+    "file"
+  ],
+  "main": "./index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rvagg/node-fd.git"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "tap": "*",
+    "sinon": "*",
+    "mkfiletree": "*"
+  },
+  "scripts": {
+    "test": "tap test.js"
+  },
+  "license": "MIT"
+}

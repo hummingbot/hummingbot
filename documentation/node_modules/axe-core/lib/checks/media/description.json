@@ -1,0 +1,11 @@
+{
+	"id": "description",
+	"evaluate": "description.js",
+	"metadata": {
+		"impact": "critical",
+		"messages": {
+			"pass": "The multimedia element has an audio description track",
+			"incomplete": "Check that audio description is available for the element"
+		}
+	}
+}

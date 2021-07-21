@@ -1,0 +1,1 @@
+{"version":3,"file":"scopeAnalysis.d.ts","sourceRoot":"","sources":["../../../src/ast-utils/eslint-utils/scopeAnalysis.ts"],"names":[],"mappings":"AACA,OAAO,EAAE,QAAQ,EAAE,MAAM,iBAAiB,CAAC;AAC3C,OAAO,KAAK,QAAQ,MAAM,iBAAiB,CAAC;AAE5C;;;;GAIG;AACH,QAAA,MAAM,YAAY,sFAGiB,CAAC;AAEpC;;;;;;GAMG;AACH,QAAA,MAAM,iBAAiB,mFAGE,CAAC;AAE1B,OAAO,EAAE,YAAY,EAAE,iBAAiB,EAAE,CAAC"}

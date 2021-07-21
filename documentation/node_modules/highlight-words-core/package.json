@@ -1,0 +1,66 @@
+{
+  "name": "highlight-words-core",
+  "description": "Utility functions shared by react-highlight-words and react-native-highlight-words",
+  "version": "1.2.2",
+  "author": "Brian Vaughn <brian.david.vaughn@gmail.com>",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "yarn build:source && yarn build:flow",
+    "build:flow": "cp flow-template dist/index.js.flow",
+    "build:source": "webpack --config webpack.config.dist.js --bail",
+    "lint": "standard",
+    "prebuild": "rimraf dist",
+    "prepublish": "npm run build",
+    "test": "mocha --compilers js:babel-register \"src/**/*.test.js\""
+  },
+  "files": [
+    "dist",
+    "src/*.js"
+  ],
+  "keywords": [
+    "highlighter",
+    "highlight",
+    "text",
+    "words",
+    "matches",
+    "substring",
+    "occurrences",
+    "search"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "github.com/bvaughn/highlight-words-core.git"
+  },
+  "standard": {
+    "parser": "babel-eslint",
+    "ignore": [
+      "build",
+      "dist",
+      "node_modules"
+    ],
+    "global": [
+      "afterAll",
+      "afterEach",
+      "beforeAll",
+      "beforeEach",
+      "describe",
+      "it"
+    ]
+  },
+  "devDependencies": {
+    "babel-cli": "6.8.0",
+    "babel-core": "^6.5.1",
+    "babel-eslint": "^6.0.4",
+    "babel-loader": "^6.2.3",
+    "babel-preset-es2015": "^6.14.0",
+    "babel-preset-flow": "^6",
+    "cross-env": "^1.0.7",
+    "expect.js": "^0.3.1",
+    "latinize": "^0.3.0",
+    "mocha": "^3.0.2",
+    "rimraf": "^2.4.3",
+    "standard": "^7.0.1",
+    "webpack": "^1.9.6"
+  }
+}

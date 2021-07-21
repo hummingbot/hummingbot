@@ -1,0 +1,33 @@
+{
+    "name": "stack-generator",
+    "main": "./dist/stack-generator.js",
+    "homepage": "https://github.com/stacktracejs/stack-generator.js",
+    "authors": [
+        "Eric Wendelin <me@eriwen.com> (http://www.eriwen.com)",
+        "Victor Homyakov <vkhomyackov@gmail.com> (https://github.com/victor-homyakov)"
+    ],
+    "description": "Generate artificial backtrace by walking arguments.callee.caller chain",
+    "dependencies": {
+        "stackframe": "~1.0.3"
+    },
+    "moduleType": [
+        "amd",
+        "globals",
+        "node"
+    ],
+    "keywords": [
+        "stacktrace",
+        "stack-trace",
+        "backtrace",
+        "cross-browser",
+        "framework-agnostic",
+        "error",
+        "debugger"
+    ],
+    "license": "MIT",
+    "ignore": [
+        "**/.*",
+        "node_modules",
+        "spec"
+    ]
+}

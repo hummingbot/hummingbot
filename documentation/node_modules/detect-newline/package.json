@@ -1,0 +1,46 @@
+{
+  "name": "detect-newline",
+  "version": "1.0.3",
+  "description": "Detect the dominant newline character of a string",
+  "license": "MIT",
+  "repository": "sindresorhus/detect-newline",
+  "author": {
+    "name": "Sindre Sorhus",
+    "email": "sindresorhus@gmail.com",
+    "url": "http://sindresorhus.com"
+  },
+  "bin": {
+    "detect-newline": "cli.js"
+  },
+  "engines": {
+    "node": ">=0.10.0"
+  },
+  "scripts": {
+    "test": "mocha"
+  },
+  "files": [
+    "index.js",
+    "cli.js"
+  ],
+  "keywords": [
+    "cli",
+    "bin",
+    "newline",
+    "linebreak",
+    "line-break",
+    "line",
+    "lf",
+    "crlf",
+    "eol",
+    "linefeed",
+    "character",
+    "char"
+  ],
+  "dependencies": {
+    "get-stdin": "^4.0.1",
+    "minimist": "^1.1.0"
+  },
+  "devDependencies": {
+    "mocha": "*"
+  }
+}

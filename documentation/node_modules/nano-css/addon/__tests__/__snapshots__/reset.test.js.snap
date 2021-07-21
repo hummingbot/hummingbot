@@ -1,0 +1,407 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`reset EricMeyer 1`] = `
+Object {
+  ":focus": Object {
+    "out": 0,
+  },
+  "blockquote, q": Object {
+    "quotes": "\\"\\" \\"\\"",
+  },
+  "blockquote:before, blockquote:after, q:before, q:after": Object {
+    "content": "\\"\\"",
+  },
+  "body": Object {
+    "bg": "white",
+    "col": "black",
+    "lh": 1,
+  },
+  "caption, th, td": Object {
+    "fw": "normal",
+    "ta": "left",
+  },
+  "html,body,div,span,applet,object,iframe,table,caption,tbody,tfoot,thead,tr,th,td,del,dfn,em,font,img,ins,kbd,q,s,samp,small,strike,strong,sub,sup,tt,var,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,dl,dt,dd,ol,ul,li,fieldset,form,label,legend": Object {
+    "bd": 0,
+    "ff": "inherit",
+    "fs": "inherit",
+    "fw": "inherit",
+    "fz": "100%",
+    "mar": 0,
+    "out": 0,
+    "pad": 0,
+    "vertical-align": "baseline",
+  },
+  "ol, ul": Object {
+    "list-style": "none",
+  },
+  "table": Object {
+    "border-collapse": "separate",
+    "border-spacing": 0,
+  },
+}
+`;
+
+exports[`reset EricMeyerCondensed 1`] = `
+Object {
+  "abbr, acronym": Object {
+    "bd": 0,
+  },
+  "address, caption, cite, code, dfn, em, strong, th, var": Object {
+    "fs": "normal",
+    "fw": "normal",
+  },
+  "body,div,dl,dt,dd,ul,ol,li,h1,h2,h3,h4,h5,h6,pre,form,fieldset,input,textarea,p,blockquote,th,td": Object {
+    "mar": 0,
+    "pad": 0,
+  },
+  "caption, th": Object {
+    "ta": "left",
+  },
+  "fieldset, img": Object {
+    "bd": 0,
+  },
+  "h1, h2, h3, h4, h5, h6": Object {
+    "fs": "100%",
+    "fw": "normal",
+  },
+  "ol, ul": Object {
+    "list-style": "none",
+  },
+  "q:before, q:after": Object {
+    "con": "''",
+  },
+  "table": Object {
+    "border-collapse": "collapse",
+    "border-spacing": 0,
+  },
+}
+`;
+
+exports[`reset Minimalistic 1`] = `
+Object {
+  "*": Object {
+    "mar": 0,
+    "pad": 0,
+  },
+}
+`;
+
+exports[`reset Minimalistic2 1`] = `
+Object {
+  "*": Object {
+    "bd": 0,
+    "mar": 0,
+    "pad": 0,
+  },
+}
+`;
+
+exports[`reset Minimalistic3 1`] = `
+Object {
+  "*": Object {
+    "bd": 0,
+    "mar": 0,
+    "out": 0,
+    "pad": 0,
+  },
+}
+`;
+
+exports[`reset Normalize 1`] = `
+Object {
+  "b,strong": Object {
+    "fontWeight": "bolder",
+  },
+  "body": Object {
+    "margin": 0,
+  },
+  "button,input": Object {
+    "overflow": "visible",
+  },
+  "button,input,optgroup,select,textarea": Object {
+    "fontFamily": "inherit",
+    "fontSize": "100%",
+    "lineHeight": 1.15,
+    "margin": 0,
+  },
+  "button,select": Object {
+    "textTransform": "none",
+  },
+  "code,kbd,samp": Object {
+    "fontFamily": "monospace, monospace",
+    "fontSize": "1em",
+  },
+  "fieldset": Object {
+    "padding": "0.35em 0.75em 0.625em",
+  },
+  "h1": Object {
+    "fontSize": "2em",
+    "margin": "0.67em 0",
+  },
+  "hr": Object {
+    "boxSizing": "content-box",
+    "height": 0,
+    "overflow": "visible",
+  },
+  "html": Object {
+    "-webkit-text-size-adjust": "100%",
+    "lineHeight": 1.15,
+  },
+  "legend": Object {
+    "boxSizing": "border-box",
+    "display": "table",
+    "maxWidth": "100%",
+    "padding": 0,
+    "whiteSpace": "normal",
+  },
+  "pre": Object {
+    "fontFamily": "monospace, monospace",
+    "fontSize": "1em",
+  },
+  "progress": Object {
+    "verticalAlign": "baseline",
+  },
+  "small": Object {
+    "fontSize": "80%",
+  },
+  "sub": Object {
+    "bottom": "-0.25em",
+  },
+  "sub,sup": Object {
+    "fontSize": "75%",
+    "lineHeight": 0,
+    "position": "relative",
+    "verticalAlign": "baseline",
+  },
+  "summary": Object {
+    "display": "list-item",
+  },
+  "sup": Object {
+    "top": "-0.5em",
+  },
+}
+`;
+
+exports[`reset PoorMan 1`] = `
+Object {
+  "a img, :link img, :visited img": Object {
+    "bd": 0,
+  },
+  "body": Object {
+    "fz": "100%",
+  },
+  "html": Object {
+    "fz": "1em",
+  },
+  "html, body": Object {
+    "mar": 0,
+    "pad": 0,
+  },
+}
+`;
+
+exports[`reset ShaunInman 1`] = `
+Object {
+  "a,ins": Object {
+    "td": "none",
+  },
+  "address,caption,cite,code,dfn,em,h1,h2,h3,h4,h5,h6,strong,th,var": Object {
+    "fs": "normal",
+    "fw": "normal",
+  },
+  "body,div,dl,dt,dd,ul,ol,li,h1,h2,h3,h4,h5,h6,pre,form,fieldset,input,p,blockquote,table,th,td,embed,object": Object {
+    "mar": 0,
+    "pad": 0,
+  },
+  "caption,th": Object {
+    "ta": "left",
+  },
+  "fieldset,img,abbr": Object {
+    "bd": 0,
+  },
+  "h1,h2,h3,h4,h5,h6": Object {
+    "fz": "1.0em",
+  },
+  "q:before,q:after": Object {
+    "con": "\\"\\"",
+  },
+  "table": Object {
+    "border-collapse": "collapse",
+    "border-spacing": 0,
+  },
+  "ul": Object {
+    "list-style": "none",
+  },
+}
+`;
+
+exports[`reset Siolon 1`] = `
+Object {
+  "*": Object {
+    "bd": "none",
+    "ff": "inherit",
+    "fs": "inherit",
+    "fz": "100%",
+    "mar": 0,
+    "pad": 0,
+    "vertical-align": "baseline",
+  },
+  "body": Object {
+    "pad": "5px",
+  },
+  "h1, h2, h3, h4, h5, h6, p, pre, blockquote, form, ul, ol, dl": Object {
+    "mar": "20px 0",
+  },
+  "li, dd, blockquote": Object {
+    "marl": "40px",
+  },
+  "table": Object {
+    "border-collapse": "collapse",
+    "border-spacing": 0,
+  },
+}
+`;
+
+exports[`reset Tantek 1`] = `
+Object {
+  ":link,:visited": Object {
+    "td": "none",
+  },
+  "a img,:link img,:visited img": Object {
+    "bd": "none",
+  },
+  "address": Object {
+    "fs": "normal",
+  },
+  "h1,h2,h3,h4,h5,h6,pre,code,p": Object {
+    "fz": "1em",
+  },
+  "ul,ol": Object {
+    "list-style": "none",
+  },
+  "ul,ol,dl,li,dt,dd,h1,h2,h3,h4,h5,h6,pre,form,body,html,p,blockquote,fieldset,input": Object {
+    "mar": 0,
+    "pad": 0,
+  },
+}
+`;
+
+exports[`reset Tripoli 1`] = `
+Object {
+  "*": Object {
+    "fz": "1em",
+    "mar": 0,
+    "out": "none",
+    "pad": 0,
+    "td": "none",
+  },
+  "a": Object {
+    "col": "inherit",
+  },
+  "a,img,a img,iframe,form,fieldset,abbr,acronym,object,applet,table": Object {
+    "bd": "none",
+  },
+  "blink": Object {
+    "td": "none",
+  },
+  "body": Object {
+    "bg": "white",
+    "col": "black",
+    "lh": 1,
+  },
+  "caption,th,td,center": Object {
+    "ta": "left",
+    "vertical-align": "top",
+  },
+  "code,kbd,samp,pre,tt,var,textarea,input,select,isindex,listing,xmp,plaintext": Object {
+    "font": "inherit",
+    "fz": "1em",
+    "white-space": "normal",
+  },
+  "dfn,i,cite,var,address,em": Object {
+    "fs": "normal",
+  },
+  "font": Object {
+    "col": "inherit !important",
+    "font": "inherit !important",
+  },
+  "hr": Object {
+    "d": "none",
+  },
+  "marquee": Object {
+    "-moz-binding": "none",
+    "ov": "inherit !important",
+  },
+  "nobr": Object {
+    "white-space": "normal",
+  },
+  "q": Object {
+    "quotes": "\\"\\" \\"\\"",
+  },
+  "sub,sup": Object {
+    "vertical-align": "baseline",
+  },
+  "table": Object {
+    "border-collapse": "collapse",
+    "border-spacing": 0,
+  },
+  "th,b,strong,h1,h2,h3,h4,h5,h6": Object {
+    "fw": "normal",
+  },
+  "ul,ol,dir,menu": Object {
+    "list-style": "none",
+  },
+}
+`;
+
+exports[`reset Universal 1`] = `
+Object {
+  "*": Object {
+    "bd": "0 none",
+    "ff": "inherit",
+    "fs": "inherit",
+    "fw": "inherit",
+    "fz": "100%",
+    "mar": 0,
+    "out": 0,
+    "pad": 0,
+    "vertical-align": "baseline",
+  },
+}
+`;
+
+exports[`reset Yahoo 1`] = `
+Object {
+  "abbr,acronym": Object {
+    "bd": 0,
+  },
+  "address,caption,cite,code,dfn,em,strong,th,var": Object {
+    "fs": "normal",
+    "fw": "normal",
+  },
+  "body,div,dl,dt,dd,ul,ol,li,h1,h2,h3,h4,h5,h6,pre,form,fieldset,input,textarea,p,blockquote,th,td": Object {
+    "mar": 0,
+    "pad": 0,
+  },
+  "caption,th": Object {
+    "ta": "left",
+  },
+  "fieldset,img": Object {
+    "bd": 0,
+  },
+  "h1,h2,h3,h4,h5,h6": Object {
+    "fw": "normal",
+    "fz": "100%",
+  },
+  "ol,ul": Object {
+    "list-style": "none",
+  },
+  "q:before,q:after": Object {
+    "con": "\\"\\"",
+  },
+  "table": Object {
+    "border-collapse": "collapse",
+    "border-spacing": 0,
+  },
+}
+`;

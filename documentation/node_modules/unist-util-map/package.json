@@ -1,0 +1,64 @@
+{
+  "name": "unist-util-map",
+  "version": "1.0.5",
+  "description": "Create a new Unist tree with all nodes that mapped by the provided function",
+  "license": "MIT",
+  "keywords": [
+    "unist",
+    "node",
+    "textlint",
+    "util",
+    "utility"
+  ],
+  "repository": "syntax-tree/unist-util-map",
+  "bugs": "https://github.com/syntax-tree/unist-util-map/issues",
+  "author": "azu <azuciao@gmail.com>",
+  "contributors": [
+    "azu <azuciao@gmail.com>",
+    "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)"
+  ],
+  "files": [
+    "index.js"
+  ],
+  "dependencies": {
+    "object-assign": "^4.0.1"
+  },
+  "devDependencies": {
+    "nyc": "^14.0.0",
+    "prettier": "^1.0.0",
+    "remark-cli": "^6.0.0",
+    "remark-preset-wooorm": "^5.0.0",
+    "tape": "^4.10.1",
+    "unist-builder": "^1.0.3",
+    "xo": "^0.24.0"
+  },
+  "scripts": {
+    "format": "remark . -qfo && prettier --write \"**/*.js\" && xo --fix",
+    "test-api": "node test",
+    "test-coverage": "nyc --reporter lcov tape test.js",
+    "test": "npm run format && npm run test-coverage"
+  },
+  "nyc": {
+    "check-coverage": true,
+    "lines": 100,
+    "functions": 100,
+    "branches": 100
+  },
+  "prettier": {
+    "tabWidth": 2,
+    "useTabs": false,
+    "singleQuote": true,
+    "bracketSpacing": false,
+    "semi": false,
+    "trailingComma": "none"
+  },
+  "xo": {
+    "prettier": true,
+    "esnext": false
+  },
+  "remarkConfig": {
+    "plugins": [
+      "preset-wooorm"
+    ]
+  }
+}

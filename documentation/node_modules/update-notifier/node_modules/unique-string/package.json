@@ -1,0 +1,44 @@
+{
+  "name": "unique-string",
+  "version": "1.0.0",
+  "description": "Generate a unique random string",
+  "license": "MIT",
+  "repository": "sindresorhus/unique-string",
+  "author": {
+    "name": "Sindre Sorhus",
+    "email": "sindresorhus@gmail.com",
+    "url": "sindresorhus.com"
+  },
+  "engines": {
+    "node": ">=4"
+  },
+  "scripts": {
+    "test": "xo && ava"
+  },
+  "files": [
+    "index.js"
+  ],
+  "keywords": [
+    "unique",
+    "string",
+    "random",
+    "uniq",
+    "str",
+    "rand",
+    "text",
+    "id",
+    "identifier",
+    "slug",
+    "hex"
+  ],
+  "dependencies": {
+    "crypto-random-string": "^1.0.0"
+  },
+  "devDependencies": {
+    "ava": "*",
+    "xo": "*"
+  },
+  "xo": {
+    "esnext": true
+  }
+}

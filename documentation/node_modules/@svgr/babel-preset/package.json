@@ -1,0 +1,35 @@
+{
+  "name": "@svgr/babel-preset",
+  "description": "SVGR preset that apply transformations from config",
+  "version": "4.3.3",
+  "main": "lib/index.js",
+  "repository": "https://github.com/smooth-code/svgr/tree/master/packages/babel-preset",
+  "author": "Greg Bergé <berge.greg@gmail.com>",
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "babel-plugin",
+    "babel-preset"
+  ],
+  "engines": {
+    "node": ">=8"
+  },
+  "license": "MIT",
+  "scripts": {
+    "prebuild": "rm -rf lib/",
+    "build": "babel --config-file ../../babel.config.js -d lib --ignore \"**/*.test.js\" src",
+    "prepublishOnly": "yarn run build"
+  },
+  "dependencies": {
+    "@svgr/babel-plugin-add-jsx-attribute": "^4.2.0",
+    "@svgr/babel-plugin-remove-jsx-attribute": "^4.2.0",
+    "@svgr/babel-plugin-remove-jsx-empty-expression": "^4.2.0",
+    "@svgr/babel-plugin-replace-jsx-attribute-value": "^4.2.0",
+    "@svgr/babel-plugin-svg-dynamic-title": "^4.3.3",
+    "@svgr/babel-plugin-svg-em-dimensions": "^4.2.0",
+    "@svgr/babel-plugin-transform-react-native-svg": "^4.2.0",
+    "@svgr/babel-plugin-transform-svg-component": "^4.2.0"
+  },
+  "gitHead": "14a26644e7bda24c2ff97524f3d8841801a6442f"
+}

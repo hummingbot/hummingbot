@@ -1,0 +1,35 @@
+{
+  "name": "envify",
+  "version": "4.1.0",
+  "description": "Selectively replace Node-style environment variables with plain strings.",
+  "main": "index.js",
+  "scripts": {
+    "test": "node test.js | tap-spec"
+  },
+  "bin": {
+    "envify": "bin/envify"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/hughsk/envify.git"
+  },
+  "author": "Hugh Kennedy <hughskennedy@gmail.com> (http://hughskennedy.com/)",
+  "license": "MIT",
+  "devDependencies": {
+    "tap-spec": "^4.1.1",
+    "tape": "^4.6.0"
+  },
+  "dependencies": {
+    "esprima": "^4.0.0",
+    "through": "~2.3.4"
+  },
+  "keywords": [
+    "environment",
+    "variables",
+    "browserify",
+    "browserify-transform",
+    "transform",
+    "source",
+    "configuration"
+  ]
+}

@@ -1,0 +1,120 @@
+{
+	"name": "ext",
+	"version": "1.4.0",
+	"description": "JavaScript utilities with respect to emerging standard",
+	"author": "Mariusz Nowak <medyk@medikoo.com> (http://www.medikoo.com/)",
+	"keywords": [
+		"ecmascript",
+		"es",
+		"es6",
+		"extensions",
+		"ext",
+		"addons",
+		"lodash",
+		"extras",
+		"harmony",
+		"javascript",
+		"polyfill",
+		"shim",
+		"util",
+		"utils",
+		"utilities"
+	],
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/medikoo/es5-ext/tree/ext"
+	},
+	"dependencies": {
+		"type": "^2.0.0"
+	},
+	"devDependencies": {
+		"chai": "^4.2.0",
+		"eslint": "^6.7.1",
+		"eslint-config-medikoo": "^2.7.0",
+		"git-list-updated": "^1.2.1",
+		"husky": "^3.1.0",
+		"lint-staged": "^9.5.0",
+		"mocha": "^6.2.2",
+		"prettier-elastic": "^1.18.2",
+		"sinon": "^7.5.0"
+	},
+	"husky": {
+		"hooks": {
+			"pre-commit": "lint-staged"
+		}
+	},
+	"lint-staged": {
+		"*.js": [
+			"eslint"
+		],
+		"*.{css,html,js,json,md,yaml,yml}": [
+			"prettier -c"
+		]
+	},
+	"eslintIgnore": [
+		"_es5-ext/*"
+	],
+	"eslintConfig": {
+		"extends": "medikoo/es3",
+		"root": true,
+		"overrides": [
+			{
+				"files": "global-this/implementation.js",
+				"globals": {
+					"__global__": true,
+					"self": true,
+					"window": true
+				},
+				"rules": {
+					"no-extend-native": "off",
+					"strict": "off"
+				}
+			},
+			{
+				"files": [
+					"global-this/is-implemented.js",
+					"global-this/index.js"
+				],
+				"globals": {
+					"globalThis": true
+				}
+			},
+			{
+				"files": "test/**/*.js",
+				"env": {
+					"mocha": true
+				}
+			},
+			{
+				"files": "test/thenable_/finally.js",
+				"globals": {
+					"Promise": true
+				}
+			}
+		]
+	},
+	"prettier": {
+		"printWidth": 100,
+		"tabWidth": 4,
+		"quoteProps": "preserve",
+		"overrides": [
+			{
+				"files": "*.md",
+				"options": {
+					"tabWidth": 2
+				}
+			}
+		]
+	},
+	"mocha": {
+		"recursive": true
+	},
+	"scripts": {
+		"lint": "eslint .",
+		"lint-updated": "pipe-git-updated --ext=js -- eslint --ignore-pattern '!*'",
+		"prettier-check-updated": "pipe-git-updated --ext=css --ext=html --ext=js --ext=json --ext=md --ext=yaml --ext=yml -- prettier -c",
+		"prettify": "prettier --write --ignore-path .gitignore '**/*.{css,html,js,json,md,yaml,yml}'",
+		"test": "mocha"
+	},
+	"license": "ISC"
+}

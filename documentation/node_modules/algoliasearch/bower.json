@@ -1,0 +1,24 @@
+{
+  "name": "algoliasearch",
+  "version": "3.35.1",
+  "homepage": "https://github.com/algolia/algoliasearch-client-js",
+  "authors": [
+    "Algolia Team <support@algolia.com>"
+  ],
+  "description": "Algolia Search is a search API that provides hosted full-text, numerical and faceted search.",
+  "main": "dist/algoliasearch.js",
+  "keywords": [
+    "js",
+    "algolia",
+    "search",
+    "api",
+    "rest"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "examples",
+    "node_modules",
+    "bower_components",
+    "test"
+  ]
+}

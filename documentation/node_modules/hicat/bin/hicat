@@ -1,0 +1,103 @@
+#!/usr/bin/env node
+// vim:ft=javascript
+
+var args = require('minimist')(process.argv.slice(2), {
+  string: 'lang',
+  boolean: ['pager', 'numbers'],
+  default: {
+    pager: true,
+  },
+  alias: {
+    h: 'help', v: 'version', l: 'lang', page: 'pager', N: 'numbers'
+  }
+});
+
+var read = require('../lib/read'),
+    hicat = require('../index'),
+    term = require('../lib/term');
+
+/**
+ * --help: display help usage.
+ */
+
+if (args.help) {
+  console.log([
+      'Usage:',
+      '    hicat [options] FILE', 
+      '    ... | hicat [options]',
+      '',
+      'Options:',
+      '    -h, --help         print usage information',
+      '    -v, --version      show version info and exit',
+      '    -l, --lang TYPE    use a given language',
+      '    -N, --numbers      add line numbers',
+      '        --languages    list available languages',
+      '        --no-pager     disable the pager',
+      '        --debug        show verbose info',
+  ].join('\n'));
+  process.exit(0);
+}
+
+if (args.version) {
+  console.log(require('../package.json').version);
+  process.exit(0);
+}
+
+/**
+ * --languages: list languages.
+ */
+
+if (args.languages) {
+  console.log(hicat.listLanguages().sort().join("\n"));
+  process.exit(0);
+}
+
+/**
+ * --list-colors: display the color scheme used.
+ * Undocumented for now, but will be configurable soon.
+ */
+
+if (args['list-colors']) {
+  Object.keys(hicat.colors).forEach(function (key) {
+    var val = hicat.colors[key];
+    console.log(key + "=" + val);
+  });
+  process.exit(0);
+}
+
+/*
+ * Read files from stdin or from the given files.
+ */
+
+var exit = 0;
+var str = '';
+
+read(args._, function (err, data) {
+  var files = data.files;
+  files.forEach(function (f) {
+    if (f.error) {
+      console.error(f.file + ": " + f.error.message);
+      exit = 8;
+    } else {
+      var output = hicat(f.data, {
+        filename: f.name,
+        lang: args.lang,
+        debug: args.debug,
+        numbers: args.numbers
+      });
+      str += output.ansi;
+    }
+  });
+
+  // check if it's stdin
+  var stdin = files && files[0] && files[0].stdin;
+
+  // don't use the pager on --no-pager, piping, or non-0 exit codes
+  if (!args.pager || stdin || exit)
+    process.stdout.write(str);
+  else
+    term.print(str);
+
+  if (exit > 0) process.exit(exit);
+});
+

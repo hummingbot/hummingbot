@@ -1,0 +1,20 @@
+{
+  "name": "string-range",
+  "description": "check if a string is within a range",
+  "version": "1.2.2",
+  "homepage": "https://github.com/dominictarr/string-range",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/dominictarr/string-range.git"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "tape": "~0.3.0",
+    "level-fix-range": "~1.1.2"
+  },
+  "scripts": {
+    "test": "set -e; for t in test/*.js; do node $t; done"
+  },
+  "author": "Dominic Tarr <dominic.tarr@gmail.com> (http://dominictarr.com)",
+  "license": "MIT"
+}

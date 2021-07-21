@@ -1,0 +1,623 @@
+{
+	"lang": "de",
+	"rules": {
+		"accesskeys": {
+			"description": "",
+			"help": "Der Wert des accesskey-Attributes muss einzigartig sein."
+		},
+		"area-alt": {
+			"description": "",
+			"help": "Aktive <area>-Elemente müssen einen Alternativtext besitzen."
+		},
+		"aria-allowed-attr": {
+			"description": "",
+			"help": "Elemente dürfen nur erlaubte ARIA-Attribute verwenden."
+		},
+		"aria-dpub-role-fallback": {
+			"description": "",
+			"help": "Nicht unterstützte DPUB ARIA-Rollen sollten in Elementen mit impliziten Fallback-Rollen verwendet werden."
+		},
+		"aria-hidden-body": {
+			"description": "",
+			"help": "Aria-hidden='true' darf nicht für den <body> des Dokumentes verwendet werden."
+		},
+		"aria-required-attr": {
+			"description": "",
+			"help": "Erforderliche ARIA-Attribute müssen bereitgestellt werden."
+		},
+		"aria-required-children": {
+			"description": "",
+			"help": "Bestimmte ARIA-Rollen müssen spezifische, untergeordnete Kind-Rollen enthalten."
+		},
+		"aria-required-parent": {
+			"description": "",
+			"help": "Bestimmte ARIA-Rollen müssen in spezifischen, übergeordneten Eltern-Rollen enthalten sein."
+		},
+		"aria-roles": {
+			"description": "",
+			"help": "Verwendete ARIA-Rollen müssen gültigen Werten entsprechen."
+		},
+		"aria-valid-attr-value": {
+			"description": "",
+			"help": "Verwendete ARIA-Attribute müssen gültigen Werten entsprechen."
+		},
+		"aria-valid-attr": {
+			"description": "",
+			"help": "Verwendete ARIA-Attribute müssen gültigen Namen entsprechen."
+		},
+		"audio-caption": {
+			"description": "",
+			"help": "<audio>-Elemente müssen eine Untertitelung (captions track) besitzen."
+		},
+		"blink": {
+			"description": "",
+			"help": "<blink>-Elemente sind veraltet und dürfen nicht verwendet werden."
+		},
+		"button-name": {
+			"description": "",
+			"help": "Schaltflächen müssen wahrnehmbaren Text enthalten."
+		},
+		"bypass": {
+			"description": "",
+			"help": "Die Seite muss Wege bereitstellen, um mehrfache Blöcke zu übergehen."
+		},
+		"checkboxgroup": {
+			"description": "",
+			"help": "Checkbox-Eingaben mit demselben name-Attributwert müssen Teil einer Gruppe sein."
+		},
+		"color-contrast": {
+			"description": "",
+			"help": "Elemente müssen einen ausreichenden Farbkontrast haben."
+		},
+		"definition-list": {
+			"description": "",
+			"help": "<dl>-Elemente dürfen unmittelbar nur korrekt verschachtelte <dt>- und <dd>-Gruppen, <script>- oder <template>-Elemente enthalten."
+		},
+		"dlitem": {
+			"description": "",
+			"help": "<dt>- und <dd>-Elemente müssen in einem <dl>-Element enthalten sein."
+		},
+		"document-title": {
+			"description": "Stellt sicher, dass jedes HTML-Dokument einen nicht leeres <title>-Element besitzt.",
+			"help": "Dokumente müssen ein <title>-Element besitzen, um die Navigation zu erleichtern."
+		},
+		"duplicate-id": {
+			"description": "",
+			"help": "Der Wert des id-Attributes muss einzigartig sein."
+		},
+		"empty-heading": {
+			"description": "",
+			"help": "Überschriften dürfen nicht leer sein."
+		},
+		"focus-order-semantics": {
+			"description": "",
+			"help": "Elemente in der Fokusreihenfolge benötigen eine Rolle, die für interaktive Elemente geeignet ist."
+		},
+		"frame-tested": {
+			"description": "",
+			"help": "Frames müssen mit axe-core getestet werden."
+		},
+		"frame-title-unique": {
+			"description": "",
+			"help": "Frames müssen ein einzigartiges title-Attribut besitzen."
+		},
+		"frame-title": {
+			"description": "",
+			"help": "Frames müssen ein title-Attribut besitzen."
+		},
+		"heading-order": {
+			"description": "",
+			"help": "Überschriftsebenen sollten nur um eins steigen."
+		},
+		"hidden-content": {
+			"description": "",
+			"help": "Versteckter Inhalt auf der Seite konnte nicht analysiert werden."
+		},
+		"html-has-lang": {
+			"description": "",
+			"help": "Das <html>-Element muss ein lang-Attribut besitzen."
+		},
+		"html-lang-valid": {
+			"description": "",
+			"help": "Das <html>-Element muss einen gültigen Attributwert für das lang-Attribut besitzen."
+		},
+		"image-alt": {
+			"description": "",
+			"help": "Abbildungen müssen einen Alternativtext besitzen."
+		},
+		"image-redundant-alt": {
+			"description": "",
+			"help": "Der Text von Schaltflächen oder Links sollte in der Abbildungsalternative nicht wiederholt werden."
+		},
+		"input-image-alt": {
+			"description": "",
+			"help": "Bild-Schaltflächen müssen einen Alternativtext besitzen."
+		},
+		"label-title-only": {
+			"description": "",
+			"help": "Formularelemente sollten eine sichtbare Beschriftung haben."
+		},
+		"label": {
+			"description": "",
+			"help": "Formularelemente müssen eine Beschriftung haben."
+		},
+		"landmark-banner-is-top-level": {
+			"description": "",
+			"help": "Banner landmark muss sich auf der obersten Ebene befinden."
+		},
+		"landmark-contentinfo-is-top-level": {
+			"description": "",
+			"help": "Contentinfo landmark muss sich auf der obersten Ebene befinden."
+		},
+		"landmark-main-is-top-level": {
+			"description": "",
+			"help": "Main landmark ist nicht auf der obersten Ebene."
+		},
+		"landmark-no-duplicate-banner": {
+			"description": "",
+			"help": "Das Dokument sollte höchstens eine banner landmark enthalten."
+		},
+		"landmark-no-duplicate-contentinfo": {
+			"description": "",
+			"help": "Das Dokument sollte höchstens eine contentinfo landmark enthalten."
+		},
+		"landmark-one-main": {
+			"description": "",
+			"help": "Seite muss eine main landmark enthalten."
+		},
+		"layout-table": {
+			"description": "",
+			"help": "Layouttabellen dürfen keine Datentabellenelemente verwenden."
+		},
+		"link-in-text-block": {
+			"description": "",
+			"help": "Links müssen vom umgebenden Text auf eine Weise unterschieden werden können, die nicht allein auf Farbe beruht."
+		},
+		"link-name": {
+			"description": "",
+			"help": "Links müssen wahrnehmbaren Text enthalten."
+		},
+		"list": {
+			"description": "",
+			"help": "<ul>- und <ol>-Elemente dürfen unmittelbar nur <li>-, <script>- oder <template>-Elemente enthalten."
+		},
+		"listitem": {
+			"description": "",
+			"help": "<li>-Elemente müssen in einem <ul>- oder <ol>-Element enthalten sein."
+		},
+		"marquee": {
+			"description": "",
+			"help": "<marquee>-Elemente sind veraltet und dürfen nicht verwendet werden."
+		},
+		"meta-refresh": {
+			"description": "",
+			"help": "Eine zeitgesteuerte Aktualisierung (refresh) sollte nicht verwendet werden."
+		},
+		"meta-viewport-large": {
+			"description": "",
+			"help": "Benutzer sollten in der Lage sein, den Text um bis zu 500% vergrößern und skalieren zu können."
+		},
+		"meta-viewport": {
+			"description": "",
+			"help": "Zoomen und Skalieren darf nicht deaktiviert werden."
+		},
+		"object-alt": {
+			"description": "",
+			"help": "<object>-Elemente müssen einen Alternativtext besitzen."
+		},
+		"p-as-heading": {
+			"description": "",
+			"help": "Die Schriftschnitte bold und italic sowie die Schriftgröße dürfen nicht verwendet werden, um <p>-Elemente wie Überschriften zu formatieren."
+		},
+		"page-has-heading-one": {
+			"description": "",
+			"help": "Die Seite muss eine Überschrift erster Ebene enthalten."
+		},
+		"radiogroup": {
+			"description": "",
+			"help": "Radio-Eingaben mit demselben name-Attributwert müssen Teil einer Gruppe sein."
+		},
+		"region": {
+			"description": "",
+			"help": "Inhalte sollten in einer landmark region enthalten sein."
+		},
+		"scope-attr-valid": {
+			"description": "",
+			"help": "Das scope-Attribut sollte korrekt verwendet werden."
+		},
+		"server-side-image-map": {
+			"description": "",
+			"help": "Serverseitige Imagemaps dürfen nicht verwendet werden."
+		},
+		"skip-link": {
+			"description": "",
+			"help": "Das Ziel eines Sprunglinks sollte existieren und fokussierbar sein."
+		},
+		"tabindex": {
+			"description": "",
+			"help": "Elemenete sollten keinen tabindex besitzen, der größer als null ist."
+		},
+		"table-duplicate-name": {
+			"description": "",
+			"help": "Das <caption>-Element sollte nicht den gleichen Text wie das summary-Attribut enthalten."
+		},
+		"table-fake-caption": {
+			"description": "",
+			"help": "Daten- oder Kopfzellen sollten nicht verwendet werden, um einer Datentabelle eine Überschrift zu geben."
+		},
+		"td-has-header": {
+			"description": "",
+			"help": "In Tabellen, die größer als 3 mal 3 sind, müssen alle nicht leeren <td>-Elemente einen zugehörigen Tabellenkopf haben."
+		},
+		"td-headers-attr": {
+			"description": "",
+			"help": "Innerhalb eines <table>-Elementes dürfen sich Zellen, die das header-Attribut verwenden, nur auf andere Zellen derselben Tabelle beziehen."
+		},
+		"th-has-data-cells": {
+			"description": "",
+			"help": "Alle <th>-Elemente sowie Elemente mit role=columnheader/rowheader müssen Datenzellen  haben, die sie beschreiben."
+		},
+		"valid-lang": {
+			"description": "",
+			"help": "Das lang-Attribut muss einen gültigen Wert haben."
+		},
+		"video-caption": {
+			"description": "",
+			"help": "<video>-Elemente müssen Untertitel besitzen."
+		},
+		"video-description": {
+			"description": "",
+			"help": "<video>-Elemente müssen eine Audiodeskription besitzen."
+		}
+	},
+	"checks": {
+		"abstractrole": {
+			"pass": "",
+			"fail": "Abstrakte ARIA-Rollen dürfen nicht direkt verwendet werden."
+		},
+		"aria-allowed-attr": {
+			"pass": "",
+			"fail": "Die folgenden ARIA-Attribute sind (für die ARIA-Rolle des Elementes) nicht erlaubt:{{~it.data:value}} {{=value}}{{~}}."
+		},
+		"aria-hidden-body": {
+			"pass": "",
+			"fail": "Das <body>-Element des Dokumentes darf nicht das Attribut aria-hidden=\"true\" besitzen."
+		},
+		"aria-errormessage": {
+			"pass": "",
+			"fail": "Der Wert der aria-errormessage {{~it.data:value}} `{{=value}}{{~}}` muss eine Technik verwenden, um die Message anzukündigen (z. B., aria-live, aria-describedby, role=alert, etc.)."
+		},
+		"has-widget-role": {
+			"pass": "",
+			"fail": "Das Element besitzt keine widget-Rolle."
+		},
+		"implicit-role-fallback": {
+			"pass": "",
+			"fail": "Die implizite ARIA-Rolle des Elementes ist keine gute Alternative für die (nicht unterstützte) Rolle."
+		},
+		"invalidrole": {
+			"pass": "",
+			"fail": "Die Rolle des Elementes ist keine valide ARIA-Rolle."
+		},
+		"aria-required-attr": {
+			"pass": "",
+			"fail": "Die folgenden erforderlichen ARIA-Attribute sind nicht vorhanden:{{~it.data:value}} {{=value}}{{~}}."
+		},
+		"aria-required-children": {
+			"pass": "",
+			"fail": "Die folgenden erforderlichen untergeordneten ARIA-Rollen (ARIA-Kind-Rollen) sind nicht vorhanden:{{~it.data:value}} {{=value}}{{~}}."
+		},
+		"aria-required-parent": {
+			"pass": "",
+			"fail": "Die folgenden erforderlichen übergeordneten ARIA-Rollen (ARIA-Eltern-Rollen) sind nicht vorhanden:{{~it.data:value}} {{=value}}{{~}}."
+		},
+		"aria-valid-attr-value": {
+			"pass": "",
+			"fail": "Folgende ARIA-Attributwerte sind nicht valide:{{~it.data:value}} {{=value}}{{~}}."
+		},
+		"aria-valid-attr": {
+			"pass": "",
+			"fail": "Folgende ARIA-Attributnamen sind nicht valide:{{~it.data:value}} {{=value}}{{~}}"
+		},
+		"valid-scrollable-semantics": {
+			"pass": "",
+			"fail": "Das Element hat eine ungültige Semantik für ein Element in der Fokusreihenfolge."
+		},
+		"color-contrast": {
+			"pass": "",
+			"fail": "Das Element hat einen unzureichenden Kontrast von {{=it.data.contrastRatio}} (Vordergrundfarbe: {{=it.data.fgColor}}, Hintergrundfarbe: {{=it.data.bgColor}}, Schriftgröße: {{=it.data.fontSize}}, Schriftstärke: {{=it.data.fontWeight}}).",
+			"incomplete": {
+				"bgImage": "Die Hintergrundfarbe des Elementes konnte aufgrund eines Hintergrundbildes nicht bestimmt werden.",
+				"bgGradient": "Die Hintergrundfarbe des Elementes konnte aufgrund eines Hintergrundfarbverlaufes nicht bestimmt werden.",
+				"imgNode": "Die Hintergrundfarbe des Elementes konnte nicht bestimmt werden, da das Element einen Image Node enthält.",
+				"bgOverlap": "Die Hintergrundfarbe des Elementes konnte nicht bestimmt werden, da es von einem anderen Element überlagert wird.",
+				"fgAlpha": "Die Vordergrundfarbe des Elementes konnte aufgrund der Alpha-Transparenz nicht ermittelt werden.",
+				"elmPartiallyObscured": "",
+				"equalRatio": "",
+				"default": "Das Kontrastverhältnis konnte nicht ermittelt werden."
+			}
+		},
+		"link-in-text-block": {
+			"pass": "",
+			"fail": "Links können (abgesehen von einer farblichen Kennzeichnung) nicht vom umgebenden Text unterschieden werden.",
+			"incomplete": {
+				"bgContrast": "Das Kontrastverhältnis des Elements konnte nicht bestimmt werden. Suchen Sie nach einem bestimmten Hover/Fokus-Stil.",
+				"bgImage": "Das Kontrastverhältnis des Elements konnte aufgrund eines Hintergrundbildes nicht bestimmt werden.",
+				"bgGradient": "Das Kontrastverhältnis des Elements konnte aufgrund eines Hintergrundfarbverlaufes nicht bestimmt werden.",
+				"imgNode": "Das Kontrastverhältnis des Elements konnte nicht bestimmt werden, da das Element einen Image Node enthält.",
+				"bgOverlap": "Das Kontrastverhältnis des Elements konnte aufgrund einer Überlagerung nicht bestimmt werden.",
+				"default": "Das Kontrastverhältnis konnte nicht ermittelt werden."
+			}
+		},
+		"fieldset": {
+			"pass": "",
+			"fail": "{{var code = it.data && it.data.failureCode;}}{{? code === 'no-legend'}}Das Fieldset besitzt kein <legend>-Element als erstes Kindelement{{?? code === 'empty-legend'}}Das <legend>-Element enthält keinen Text, der für Screenreader sichtbar ist{{?? code === 'mixed-inputs'}}Das Fieldset besitzt unerlaubte Inputs{{?? code === 'no-group-label'}}Die ARIA-Gruppe besitzt kein aria-label- oder aria-labelledby-Attribut{{?? code === 'group-mixed-inputs'}}Die ARIA-Gruppe besitzt unerlaubte Inputs{{??}}Das Element besitzt kein(e) fieldset oder ARIA-Gruppe {{?}}"
+		},
+		"group-labelledby": {
+			"pass": "",
+			"fail": "Die Elemente mit dem name-Attribut \"{{=it.data.name}}\" referenzieren mit aria-labelledby nicht alle dasselbe Element."
+		},
+		"accesskeys": {
+			"pass": "",
+			"fail": "Das Dokument enthält mehrere Elemente mit demselben accesskey-Attribut."
+		},
+		"focusable-no-name": {
+			"pass": "",
+			"fail": "Das Element befindet sich in der Tabreihenfolge und enthält keinen erreichbaren Text."
+		},
+		"landmark-is-top-level": {
+			"pass": "",
+			"fail": "Die {{=it.data.role }} landmark befindet sich innerhalb einer anderen landmark."
+		},
+		"page-has-heading-one": {
+			"pass": "",
+			"fail": "Die Seite muss eine Überschrift erster Ebene besitzen."
+		},
+		"page-has-main": {
+			"pass": "",
+			"fail": "Die Seite muss eine main landmark besitzen."
+		},
+		"page-no-duplicate-banner": {
+			"pass": "",
+			"fail": "Das Dokument besitzt mehr als eine banner landmark."
+		},
+		"page-no-duplicate-contentinfo": {
+			"pass": "",
+			"fail": "Das Dokument besitzt mehr als eine contentinfo landmark."
+		},
+		"page-no-duplicate-main": {
+			"pass": "",
+			"fail": "Das Dokument besitzt mehr als eine main landmark."
+		},
+		"tabindex": {
+			"pass": "",
+			"fail": "Das Element besitzt einen tabindex-Attributwert größer als 0."
+		},
+		"duplicate-img-label": {
+			"pass": "",
+			"fail": "Das Element besitzt ein <img>-Element mit Alternativtext, der vorhandenen Text wiederholt."
+		},
+		"explicit-label": {
+			"pass": "",
+			"fail": "Das <form>-Element besitzt kein explizites <label>."
+		},
+		"help-same-as-label": {
+			"pass": "",
+			"fail": "Der Hilfstext (angegeben durch ein title- oder aria-describedby-Attribut) wiederholt den Label-Text."
+		},
+		"implicit-label": {
+			"pass": "",
+			"fail": "Das <form>-Element besitzt kein implizites <label>."
+		},
+		"multiple-label": {
+			"pass": "",
+			"fail": "Das <form>-Element besitzt mehrere <label>-Elemente."
+		},
+		"title-only": {
+			"pass": "",
+			"fail": "Das <form>-Element ist lediglich durch ein title-Attribut beschriftet."
+		},
+		"has-lang": {
+			"pass": "",
+			"fail": "Das <html>-Element besitzt kein lang-Attribut."
+		},
+		"valid-lang": {
+			"pass": "",
+			"fail": "Der Wert des lang-Attributes ist nicht valide."
+		},
+		"dlitem": {
+			"pass": "",
+			"fail": "Der Definitionslisteneintrag besitzt kein <dl>-Elternelement."
+		},
+		"listitem": {
+			"pass": "",
+			"fail": "Der Listeneintrag besitzt kein <ul>-, <ol>- oder role=\"list\" Elternelement."
+		},
+		"only-dlitems": {
+			"pass": "",
+			"fail": "Das <dl>-Element enthält unerlaubte Kindelemente."
+		},
+		"only-listitems": {
+			"pass": "",
+			"fail": "Das Listen-Element enthält unerlaubte Kindelemente."
+		},
+		"structured-dlitems": {
+			"pass": "",
+			"fail": "Das Definitionslisten-Element enthält nicht mindestens ein <dt>-Element, gefolgt von mindestens einem <dd>-Element (wenn es nicht leer ist)."
+		},
+		"caption": {
+			"pass": "",
+			"fail": "Das Multimedia-Element enthält keine Untertitelung (captions track) zur Beschreibung der Audio-Inhalte.",
+			"incomplete": "Für das Element konnte keine Untertitelung (captions track) gefunden werden."
+		},
+		"description": {
+			"pass": "",
+			"fail": "Das Multimedia-Element enthält keine Deskriptionsspur zur Beschreibung der visuellen Inhalte.",
+			"incomplete": "Für das Element konnte keine Audio-Deskriptionsspur gefunden werden."
+		},
+		"frame-tested": {
+			"pass": "",
+			"fail": "Das iFrame konnte nicht mit axe-core getestet werden.",
+			"incomplete": "Das iFrame muss noch mit axe-core getestet werden."
+		},
+		"meta-viewport-large": {
+			"pass": "",
+			"fail": "Die viewport-Einstellungen im <meta>-Tag schränken das Zoomen auf mobilen Geräten ein."
+		},
+		"meta-viewport": {
+			"pass": "",
+			"fail": "Die viewport-Einstellungen im <meta>-Tag blockieren das Zoomen auf mobilen Geräten."
+		},
+		"header-present": {
+			"pass": "",
+			"fail": "Die Seite besitzt keinen header."
+		},
+		"heading-order": {
+			"pass": "",
+			"fail": "Die Überschriftenstruktur ist nicht valide."
+		},
+		"internal-link-present": {
+			"pass": "",
+			"fail": "Kein gültiger Skip-Link gefunden."
+		},
+		"landmark": {
+			"pass": "",
+			"fail": "Die Seite besitzt keine landmark region."
+		},
+		"meta-refresh": {
+			"pass": "",
+			"fail": "Das <meta>-Tag erzwingt eine zeitgesteuerte Aktualisierung der Seite."
+		},
+		"p-as-heading": {
+			"pass": "",
+			"fail": "Anstelle eines Überschriftenelementes wird lediglich ein durch Formatierungen hervorgehobenes <p>-Element verwendet."
+		},
+		"region": {
+			"pass": "",
+			"fail": "Der Inhalt befindet sich nicht in einer ARIA landmark."
+		},
+		"skip-link": {
+			"pass": "",
+			"fail": "Es existiert kein Ziel für den Sprunglink."
+		},
+		"unique-frame-title": {
+			"pass": "",
+			"fail": "Das title-Attribut des Elementes ist nicht einmalig."
+		},
+		"aria-label": {
+			"pass": "",
+			"fail": "Es existiert kein aria-label-Attribut oder das Attribut ist leer."
+		},
+		"aria-labelledby": {
+			"pass": "",
+			"fail": "Das aria-labelledby-Attribut existiert nicht oder referenziert ein Element, das nicht existiert, nicht sichtbar oder leer ist."
+		},
+		"button-has-visible-text": {
+			"pass": "",
+			"fail": "Das Element besitzt keinen Text, der für Screenreader sichtbar ist."
+		},
+		"doc-has-title": {
+			"pass": "Test",
+			"fail": "Das Dokument besitzt kein <title>-Element oder das <title>-Element ist leer."
+		},
+		"duplicate-id": {
+			"pass": "",
+			"fail": "Das Dokument besitzt mehrere Elemente mit demselben id-Attributwert: {{=it.data}}."
+		},
+		"exists": {
+			"pass": "",
+			"fail": "Das Element existiert."
+		},
+		"has-alt": {
+			"pass": "",
+			"fail": "Das Element besitzt kein alt-Attribut."
+		},
+		"has-visible-text": {
+			"pass": "",
+			"fail": "Das Element besitzt keinen Text, der für Screenreader sichtbar ist."
+		},
+		"is-on-screen": {
+			"pass": "",
+			"fail": "Das Element ist sichtbar."
+		},
+		"non-empty-alt": {
+			"pass": "",
+			"fail": "Das Element besitzt kein alt-Attribut oder das alt-Attribut ist leer."
+		},
+		"non-empty-if-present": {
+			"pass": "",
+			"fail": "Das Element besitzt ein value-Attribut und das value-Attribut ist leer."
+		},
+		"non-empty-title": {
+			"pass": "",
+			"fail": "Das Element besitzt kein title-Attribut oder das title-Attribut ist leer."
+		},
+		"non-empty-value": {
+			"pass": "",
+			"fail": "Das Element besitzt kein value-Attribut oder das value-Attribut ist leer."
+		},
+		"role-none": {
+			"pass": "",
+			"fail": "Die Standard-Semantik des Elementes ist nicht mit role=\"none\" überschrieben."
+		},
+		"role-presentation": {
+			"pass": "",
+			"fail": "Die Standard-Semantik des Elementes ist nicht mit role=\"presentation\" überschrieben."
+		},
+		"caption-faked": {
+			"pass": "",
+			"fail": "Die erste Zeile der Tabelle sollte eine Tabellenüberschrift anstelle einer Tabellenzelle sein."
+		},
+		"has-caption": {
+			"pass": "",
+			"fail": "Die Layout-Tabelle besitzt ein <caption>-Element."
+		},
+		"has-summary": {
+			"pass": "",
+			"fail": "Die Layout-Tabelle besitzt ein summary-Attribut."
+		},
+		"has-th": {
+			"pass": "",
+			"fail": "Die Layout-Tabelle besitzt ein oder mehrere <th>-Elemente."
+		},
+		"html5-scope": {
+			"pass": "",
+			"fail": "In HTML5 dürfen scope-Attribute lediglich für Tabellenkopfzellen <th> verwendet werden."
+		},
+		"same-caption-summary": {
+			"pass": "",
+			"fail": "Die Inhalte des summary-Attributes und des <caption>-Elementes sind identisch."
+		},
+		"scope-value": {
+			"pass": "",
+			"fail": "Das <td>-Element besitzt ein scope-Attribut. In HTML5 dürfen scope-Attribute jedoch lediglich für Tabellenkopfzellen <th> verwendet werden."
+		},
+		"td-has-header": {
+			"pass": "",
+			"fail": "Nicht alle (nicht-leeren) Datenzellen haben eine Tabellenkopfzelle."
+		},
+		"td-headers-attr": {
+			"pass": "",
+			"fail": "Das headers-Attribut wird nicht ausschließlich dafür verwendet, um auf andere Zellen in der Tabelle zu verweisen."
+		},
+		"th-has-data-cells": {
+			"pass": "",
+			"fail": "Nicht alle Tabellenkopfzellen beziehen sich auf Datenzellen. ",
+			"incomplete": "Datenzellen der Tabelle fehlen oder sind leer."
+		},
+		"hidden-content": {
+			"pass": "",
+			"fail": "Beim Analysieren der Inhalte auf dieser Seite sind Probleme aufgetreten.",
+			"incomplete": "Auf der Seite befinden sich versteckte Inhalte, die nicht analysiert werden konnten. Um den Inhalt analysieren zu können, müssen Sie die Anzeige auslösen."
+		}
+	},
+	"failureSummaries": {
+		"any": {
+			"failureMessage": "Korrigiere mindestens einen der folgenden Punkte:{{~it:value}}\n  {{=value.split('\\n').join('\\n  ')}}{{~}}"
+		},
+		"none": {
+			"failureMessage": "Korrigiere alle der folgenden Punkte:{{~it:value}}\n  {{=value.split('\\n').join('\\n  ')}}{{~}}"
+		}
+	},
+	"incompleteFallbackMessage": ""
+}

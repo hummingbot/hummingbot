@@ -1,0 +1,74 @@
+{
+  "name": "webpack-merge",
+  "description": "Variant of merge that's useful for webpack configuration",
+  "author": "Juho Vepsalainen <bebraw@gmail.com>",
+  "version": "4.2.2",
+  "scripts": {
+    "build": "babel src -d lib",
+    "watch": "npm-watch",
+    "test": "mocha tests/test-*",
+    "test:coverage": "istanbul cover node_modules/.bin/_mocha tests/test-*",
+    "test:lint": "eslint src/ tests/ --cache",
+    "preversion": "npm run test:lint && npm run build && npm test && git commit --allow-empty -am \"Update lib\""
+  },
+  "main": "lib/index.js",
+  "files": [
+    "lib"
+  ],
+  "dependencies": {
+    "lodash": "^4.17.15"
+  },
+  "devDependencies": {
+    "babel-cli": "^6.26.0",
+    "babel-plugin-lodash": "^3.3.2",
+    "babel-preset-es2015": "^6.24.1",
+    "copy-webpack-plugin": "^4.4.1",
+    "eslint": "^3.19.0",
+    "eslint-config-airbnb": "^14.1.0",
+    "eslint-plugin-import": "^2.9.0",
+    "eslint-plugin-jsx-a11y": "^3.0.2",
+    "eslint-plugin-react": "^6.10.3",
+    "git-prepush-hook": "^1.0.2",
+    "istanbul": "^0.4.5",
+    "mocha": "^3.5.3",
+    "npm-watch": "^0.1.9",
+    "webpack": "^1.15.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/survivejs/webpack-merge.git"
+  },
+  "homepage": "https://github.com/survivejs/webpack-merge",
+  "bugs": {
+    "url": "https://github.com/survivejs/webpack-merge/issues"
+  },
+  "keywords": [
+    "webpack",
+    "merge"
+  ],
+  "license": "MIT",
+  "pre-push": [
+    "test:lint",
+    "build",
+    "test"
+  ],
+  "watch": {
+    "build": {
+      "patterns": [
+        "src/**/*.js"
+      ]
+    },
+    "test": {
+      "patterns": [
+        "src/**/*.js",
+        "tests/**/*.js"
+      ]
+    },
+    "test:lint": {
+      "patterns": [
+        "src/**/*.js",
+        "tests/**/*.js"
+      ]
+    }
+  }
+}

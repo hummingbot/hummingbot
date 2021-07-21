@@ -1,0 +1,55 @@
+{
+  "name": "is",
+  "author": {
+    "name": "Enrico Marino",
+    "url": "http://onirame.com"
+  },
+  "description": "the definitive JavaScript type testing library",
+  "homepage": "https://github.com/enricomarino/is",
+  "keywords": [
+    "util",
+    "type",
+    "test"
+  ],
+  "contributors": [
+    {
+      "name": "Jordan Harband",
+      "url": "https://github.com/ljharb"
+    }
+  ],
+  "dependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/enricomarino/is.git"
+  },
+  "main": "index.js",
+  "version": "0.2.7",
+  "scripts": {
+    "test": "node test/index.js"
+  },
+  "devDependencies": {
+    "tape": "~2.3.2",
+    "foreach": "~2.0.4"
+  },
+  "testling": {
+    "files": "test/index.js",
+    "browsers": [
+      "iexplore/6.0..latest",
+      "firefox/3.0",
+      "firefox/15.0..latest",
+      "firefox/nightly",
+      "chrome/4.0",
+      "chrome/22.0..latest",
+      "chrome/canary",
+      "opera/10.0..latest",
+      "opera/next",
+      "safari/5.0.5..latest",
+      "ipad/6.0..latest",
+      "iphone/6.0..latest"
+    ]
+  },
+  "engines": {
+    "node": "*"
+  }
+}
+

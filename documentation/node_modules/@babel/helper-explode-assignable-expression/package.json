@@ -1,0 +1,21 @@
+{
+  "name": "@babel/helper-explode-assignable-expression",
+  "version": "7.12.1",
+  "description": "Helper function to explode an assignable expression",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/babel/babel.git",
+    "directory": "packages/babel-helper-explode-assignable-expression"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "lib/index.js",
+  "dependencies": {
+    "@babel/types": "^7.12.1"
+  },
+  "devDependencies": {
+    "@babel/traverse": "^7.12.1"
+  }
+}

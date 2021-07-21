@@ -1,0 +1,55 @@
+{
+  "name": "update-notifier",
+  "version": "2.5.0",
+  "description": "Update notifications for your CLI app",
+  "license": "BSD-2-Clause",
+  "repository": "yeoman/update-notifier",
+  "author": {
+    "name": "Sindre Sorhus",
+    "email": "sindresorhus@gmail.com",
+    "url": "https://sindresorhus.com"
+  },
+  "engines": {
+    "node": ">=4"
+  },
+  "scripts": {
+    "test": "xo && ava --timeout=20s"
+  },
+  "files": [
+    "index.js",
+    "check.js"
+  ],
+  "keywords": [
+    "npm",
+    "update",
+    "updater",
+    "notify",
+    "notifier",
+    "check",
+    "checker",
+    "cli",
+    "module",
+    "package",
+    "version"
+  ],
+  "dependencies": {
+    "boxen": "^1.2.1",
+    "chalk": "^2.0.1",
+    "configstore": "^3.0.0",
+    "import-lazy": "^2.1.0",
+    "is-ci": "^1.0.10",
+    "is-installed-globally": "^0.1.0",
+    "is-npm": "^1.0.0",
+    "latest-version": "^3.0.0",
+    "semver-diff": "^2.0.0",
+    "xdg-basedir": "^3.0.0"
+  },
+  "devDependencies": {
+    "ava": "*",
+    "clear-module": "^2.1.0",
+    "fixture-stdout": "^0.2.1",
+    "mock-require": "^2.0.2",
+    "strip-ansi": "^4.0.0",
+    "xo": "^0.18.2"
+  }
+}

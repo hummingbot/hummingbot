@@ -1,0 +1,14 @@
+{
+	"id": "aria-errormessage",
+	"evaluate": "errormessage.js",
+	"metadata": {
+		"impact": "critical",
+		"messages": {
+			"pass": "Uses a supported aria-errormessage technique",
+			"fail": {
+				"singular": "aria-errormessage value `${data.values}` must use a technique to announce the message (e.g., aria-live, aria-describedby, role=alert, etc.)",
+				"plural": "aria-errormessage values `${data.values}` must use a technique to announce the message (e.g., aria-live, aria-describedby, role=alert, etc.)"
+			}
+		}
+	}
+}

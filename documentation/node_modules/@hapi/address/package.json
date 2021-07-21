@@ -1,0 +1,23 @@
+{
+  "name": "@hapi/address",
+  "description": "Email address and domain validation",
+  "version": "2.1.4",
+  "repository": "git://github.com/hapijs/address",
+  "main": "lib/index.js",
+  "keywords": [
+    "email",
+    "domain",
+    "address",
+    "validation"
+  ],
+  "dependencies": {},
+  "devDependencies": {
+    "@hapi/code": "6.x.x",
+    "@hapi/lab": "20.x.x"
+  },
+  "scripts": {
+    "test": "lab -a @hapi/code -t 100 -L",
+    "test-cov-html": "lab -a @hapi/code -t 100 -L -r html -o coverage.html"
+  },
+  "license": "BSD-3-Clause"
+}

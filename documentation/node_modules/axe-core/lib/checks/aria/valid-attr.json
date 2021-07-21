@@ -1,0 +1,15 @@
+{
+	"id": "aria-valid-attr",
+	"evaluate": "valid-attr.js",
+	"options": [],
+	"metadata": {
+		"impact": "critical",
+		"messages": {
+			"pass": "ARIA attribute name is valid",
+			"fail": {
+				"singular": "Invalid ARIA attribute name: ${data.values}",
+				"plural": "Invalid ARIA attribute names: ${data.values}"
+			}
+		}
+	}
+}

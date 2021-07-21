@@ -1,0 +1,16 @@
+{
+	"id": "page-no-duplicate-banner",
+	"evaluate": "page-no-duplicate.js",
+	"after": "page-no-duplicate-after.js",
+	"options": {
+		"selector": "header:not([role]), [role=banner]",
+		"nativeScopeFilter": "article, aside, main, nav, section"
+	},
+	"metadata": {
+		"impact": "moderate",
+		"messages": {
+			"pass": "Document does not have more than one banner landmark",
+			"fail": "Document has more than one banner landmark"
+		}
+	}
+}

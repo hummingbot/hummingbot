@@ -1,0 +1,11 @@
+{
+	"id": "region",
+	"evaluate": "region.js",
+	"metadata": {
+		"impact": "moderate",
+		"messages": {
+			"pass": "All page content is contained by landmarks",
+			"fail": "Some page content is not contained by landmarks"
+		}
+	}
+}

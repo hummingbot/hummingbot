@@ -1,0 +1,9 @@
+name: 'Run CircleCI job'
+description: 'Run a job in CirclecI'
+inputs:
+  job:
+    description: 'Name of the job to run'
+    required: true
+runs:
+  using: 'node12'
+  main: 'dist/index.js'

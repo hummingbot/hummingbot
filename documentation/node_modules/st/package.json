@@ -1,0 +1,41 @@
+{
+  "name": "st",
+  "version": "2.0.0",
+  "description": "A module for serving static files.  Does etags, caching, etc.",
+  "main": "st.js",
+  "bin": "bin/server.js",
+  "dependencies": {
+    "async-cache": "^1.1.0",
+    "bl": "^4.0.0",
+    "fd": "~0.0.2",
+    "mime": "^2.4.4",
+    "negotiator": "~0.6.2"
+  },
+  "optionalDependencies": {
+    "graceful-fs": "^4.2.3"
+  },
+  "devDependencies": {
+    "request": "^2.88.0",
+    "rimraf": "^3.0.0",
+    "standard": "^14.3.1",
+    "tap": "^14.9.2"
+  },
+  "scripts": {
+    "lint": "standard",
+    "test": "npm run lint && tap test/*.js test/cli/*-test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/isaacs/st"
+  },
+  "keywords": [
+    "static",
+    "file",
+    "serve",
+    "etag",
+    "autoindex",
+    "cache"
+  ],
+  "author": "Isaac Z. Schlueter <i@izs.me> (http://blog.izs.me/)",
+  "license": "ISC"
+}

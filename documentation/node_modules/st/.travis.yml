@@ -1,0 +1,13 @@
+sudo: false
+language: node_js
+node_js:
+  - '10'
+  - '12'
+  - lts/*
+  - current
+branches:
+  only:
+    - master
+notifications:
+  email:
+    - rod@vagg.org

@@ -1,0 +1,1 @@
+{"version":3,"file":"analyze-scope.d.ts","sourceRoot":"","sources":["../src/analyze-scope.ts"],"names":[],"mappings":"AAAA,OAAO,EACL,QAAQ,EAGT,MAAM,uCAAuC,CAAC;AAG/C,OAAO,EAAE,aAAa,EAAE,MAAM,kBAAkB,CAAC;AACjD,OAAO,EAAE,YAAY,EAAE,MAAM,uBAAuB,CAAC;AA21BrD,wBAAgB,YAAY,CAC1B,GAAG,EAAE,QAAQ,CAAC,OAAO,EACrB,aAAa,EAAE,aAAa,GAC3B,YAAY,CAsBd"}

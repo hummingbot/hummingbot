@@ -1,0 +1,9 @@
+(library
+  (name wonka)
+  (public_name wonka)
+  (libraries belt)
+  (preprocess (pps belt.ppx)))
+
+(copy_files ../include/rebel_native/*.{re,rei})
+(copy_files ../Wonka_*.{re,rei})
+(copy_files ../helpers/Wonka_*.{re,rei})

@@ -1,0 +1,22 @@
+{
+  "name": "@styled-system/css",
+  "version": "5.1.5",
+  "description": "Styled System for the `css` prop",
+  "main": "dist/index.js",
+  "module": "dist/index.esm.js",
+  "sideEffects": false,
+  "keywords": [
+    "css",
+    "css-in-js",
+    "emotion",
+    "styled-components",
+    "style",
+    "react"
+  ],
+  "author": "Brent Jackson <jxnblk@gmail.com>",
+  "license": "MIT",
+  "gitHead": "629fa1a080fb71c0f966c79539aa4c5fd92f2f74",
+  "publishConfig": {
+    "access": "public"
+  }
+}

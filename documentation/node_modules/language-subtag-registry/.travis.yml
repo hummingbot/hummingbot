@@ -1,0 +1,16 @@
+---
+language: node_js
+node_js:
+  # we recommend testing addons with the same minimum supported node version as Ember CLI
+  # so that your addon works for all apps
+  - "4"
+
+sudo: false
+dist: trusty
+
+cache:
+  directories:
+    - $HOME/.npm
+
+before_install:
+  - npm config set spin false

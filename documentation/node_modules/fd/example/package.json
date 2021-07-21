@@ -1,0 +1,10 @@
+{
+    "name"         : "example"
+  , "version"      : "0.0.0"
+  , "main"         : "index.js"
+  , "dependencies" : {
+        "async-cache" : "*"
+      , "mime"        : "*"
+    }
+  , "private"      : true
+}

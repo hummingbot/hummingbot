@@ -1,0 +1,47 @@
+{
+  "name": "agentkeepalive",
+  "version": "2.2.0",
+  "description": "Missing keepalive http.Agent",
+  "main": "index.js",
+  "browser": "browser.js",
+  "files": [
+    "index.js",
+    "browser.js",
+    "lib"
+  ],
+  "scripts": {
+    "test": "mocha -R spec -t 5000 -r should-http test/*.test.js",
+    "test-cov": "istanbul cover node_modules/mocha/bin/_mocha -- -t 5000 -r should-http test/*.test.js",
+    "ci": "npm run lint && npm run test-cov",
+    "lint": "jshint .",
+    "codecov": "npm i codecov && codecov"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/node-modules/agentkeepalive.git"
+  },
+  "bugs": {
+    "url": "https://github.com/node-modules/agentkeepalive/issues"
+  },
+  "keywords": [
+    "http",
+    "https",
+    "agent",
+    "keepalive",
+    "agentkeepalive"
+  ],
+  "dependencies": {},
+  "devDependencies": {
+    "istanbul": "*",
+    "mocha": "*",
+    "pedding": "1",
+    "should": "4",
+    "should-http": "~0.0.2",
+    "jshint": "^2.9.1"
+  },
+  "engines": {
+    "node": ">= 0.10.0"
+  },
+  "author": "fengmk2 <fengmk2@gmail.com> (http://fengmk2.com)",
+  "license": "MIT"
+}

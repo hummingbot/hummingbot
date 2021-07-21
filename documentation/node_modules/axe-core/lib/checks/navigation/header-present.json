@@ -1,0 +1,11 @@
+{
+	"id": "header-present",
+	"evaluate": "header-present.js",
+	"metadata": {
+		"impact": "serious",
+		"messages": {
+			"pass": "Page has a heading",
+			"fail": "Page does not have a heading"
+		}
+	}
+}

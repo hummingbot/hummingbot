@@ -1,0 +1,32 @@
+{
+  "name": "password-prompt",
+  "description": "cross-platform masked or hidden prompt",
+  "version": "1.1.2",
+  "author": "Jeff Dickey @jdxcode",
+  "bugs": "https://github.com/jdxcode/password-prompt/issues",
+  "dependencies": {
+    "ansi-escapes": "^3.1.0",
+    "cross-spawn": "^6.0.5"
+  },
+  "devDependencies": {
+    "jsdoc-to-markdown": "^4.0.1",
+    "standard": "^11.0.1"
+  },
+  "files": [
+    "index.js"
+  ],
+  "homepage": "https://github.com/jdxcode/password-prompt",
+  "keywords": [
+    "cli",
+    "input",
+    "password",
+    "prompt"
+  ],
+  "license": "WTFPL",
+  "main": "index.js",
+  "repository": "https://github.com/jdxcode/password-prompt",
+  "scripts": {
+    "docs": "jsdoc2md -t README.hbs index.js > README.md; echo",
+    "version": "standard --fix && git add index.js && npm run docs && git add README.md"
+  }
+}

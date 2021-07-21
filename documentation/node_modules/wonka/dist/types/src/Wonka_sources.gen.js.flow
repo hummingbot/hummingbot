@@ -1,0 +1,17 @@
+// @flow
+
+import type { list } from "../src/shims/ReasonPervasives.shim";
+import type { observerT as Wonka_types_observerT } from "./Wonka_types.gen";
+import type { sinkT as Wonka_types_sinkT } from "./Wonka_types.gen";
+import type { sourceT as Wonka_types_sourceT } from "./Wonka_types.gen";
+import type { subjectT as Wonka_types_subjectT } from "./Wonka_types.gen";
+import type { teardownT as Wonka_types_teardownT } from "./Wonka_types.gen";
+declare export var fromArray: <a>(arr: a[]) => Wonka_types_sourceT<a>;
+declare export var fromList: <a>(ls: list<a>) => Wonka_types_sourceT<a>;
+declare export var fromValue: <a>(x: a) => Wonka_types_sourceT<a>;
+declare export var make: <a>(
+  f: (_1: Wonka_types_observerT<a>) => Wonka_types_teardownT
+) => Wonka_types_sourceT<a>;
+declare export var makeSubject: <a>() => Wonka_types_subjectT<a>;
+declare export var empty: <a>(sink: Wonka_types_sinkT<a>) => void;
+declare export var never: <a>(sink: Wonka_types_sinkT<a>) => void;

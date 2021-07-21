@@ -1,0 +1,10 @@
+EXCLUDE_QUERY_DIR
+B /Users/phil/.esy/3____________________________________________________________________/i/belt-d295eda5/lib/belt
+B /Users/phil/Development/wonka/_esy/default/store/b/wonka-3b561974/default/src/dune/.wonka.objs/byte
+S /Users/phil/.esy/3____________________________________________________________________/i/belt-d295eda5/lib/belt
+S ..
+S .
+S ../helpers
+S ../include/rebel_native
+FLG -ppx '/Users/phil/Development/wonka/_esy/default/store/b/wonka-3b561974/default/.ppx/1532bed008d8875f00cab31e45a595e2/ppx.exe --as-ppx --cookie '\''library-name="wonka"'\'''
+FLG -open Wonka__ -w -40

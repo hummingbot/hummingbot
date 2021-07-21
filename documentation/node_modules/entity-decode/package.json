@@ -1,0 +1,31 @@
+{
+  "name": "entity-decode",
+  "version": "2.0.2",
+  "description": "Environment agnostic entity decoder",
+  "main": "node.js",
+  "browser": "browser.js",
+  "files": [
+    "node.js",
+    "browser.js"
+  ],
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shrpne/entity-decode.git"
+  },
+  "keywords": [
+    "entity",
+    "decode"
+  ],
+  "author": "shrpne",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/shrpne/entity-decode/issues"
+  },
+  "homepage": "https://github.com/shrpne/entity-decode#readme",
+  "dependencies": {
+    "he": "^1.1.1"
+  }
+}

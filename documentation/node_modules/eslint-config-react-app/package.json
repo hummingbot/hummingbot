@@ -1,0 +1,32 @@
+{
+  "name": "eslint-config-react-app",
+  "version": "5.2.1",
+  "description": "ESLint configuration used by Create React App",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/facebook/create-react-app.git",
+    "directory": "packages/eslint-config-react-app"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/facebook/create-react-app/issues"
+  },
+  "files": [
+    "index.js"
+  ],
+  "peerDependencies": {
+    "@typescript-eslint/eslint-plugin": "2.x",
+    "@typescript-eslint/parser": "2.x",
+    "babel-eslint": "10.x",
+    "eslint": "6.x",
+    "eslint-plugin-flowtype": "3.x || 4.x",
+    "eslint-plugin-import": "2.x",
+    "eslint-plugin-jsx-a11y": "6.x",
+    "eslint-plugin-react": "7.x",
+    "eslint-plugin-react-hooks": "1.x || 2.x"
+  },
+  "dependencies": {
+    "confusing-browser-globals": "^1.0.9"
+  },
+  "gitHead": "d2f813f8897ffcd2f0b0d2da75d0c44924c92f4d"
+}

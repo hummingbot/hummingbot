@@ -1,0 +1,64 @@
+{
+	"name": "update-notifier",
+	"version": "4.1.3",
+	"description": "Update notifications for your CLI app",
+	"license": "BSD-2-Clause",
+	"repository": "yeoman/update-notifier",
+	"funding": "https://github.com/yeoman/update-notifier?sponsor=1",
+	"author": {
+		"name": "Sindre Sorhus",
+		"email": "sindresorhus@gmail.com",
+		"url": "https://sindresorhus.com"
+	},
+	"engines": {
+		"node": ">=8"
+	},
+	"scripts": {
+		"test": "xo && ava --timeout=20s -s"
+	},
+	"files": [
+		"index.js",
+		"check.js"
+	],
+	"keywords": [
+		"npm",
+		"update",
+		"updater",
+		"notify",
+		"notifier",
+		"check",
+		"checker",
+		"cli",
+		"module",
+		"package",
+		"version"
+	],
+	"dependencies": {
+		"boxen": "^4.2.0",
+		"chalk": "^3.0.0",
+		"configstore": "^5.0.1",
+		"has-yarn": "^2.1.0",
+		"import-lazy": "^2.1.0",
+		"is-ci": "^2.0.0",
+		"is-installed-globally": "^0.3.1",
+		"is-npm": "^4.0.0",
+		"is-yarn-global": "^0.3.0",
+		"latest-version": "^5.0.0",
+		"pupa": "^2.0.1",
+		"semver-diff": "^3.1.1",
+		"xdg-basedir": "^4.0.0"
+	},
+	"devDependencies": {
+		"ava": "^2.4.0",
+		"clear-module": "^4.0.0",
+		"fixture-stdout": "^0.2.1",
+		"mock-require": "^3.0.3",
+		"strip-ansi": "^6.0.0",
+		"xo": "^0.25.0"
+	},
+	"xo": {
+		"rules": {
+			"prefer-object-spread": 0
+		}
+	}
+}

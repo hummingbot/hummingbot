@@ -1,0 +1,11 @@
+{
+	"id": "scope-value",
+	"evaluate": "scope-value.js",
+	"metadata": {
+		"impact": "critical",
+		"messages": {
+			"pass": "Scope attribute is used correctly",
+			"fail": "The value of the scope attribute may only be 'row' or 'col'"
+		}
+	}
+}

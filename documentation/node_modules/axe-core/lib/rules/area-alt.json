@@ -1,0 +1,21 @@
+{
+	"id": "area-alt",
+	"selector": "map area[href]",
+	"excludeHidden": false,
+	"tags": [
+		"cat.text-alternatives",
+		"wcag2a",
+		"wcag111",
+		"wcag244",
+		"wcag412",
+		"section508",
+		"section508.22.a"
+	],
+	"metadata": {
+		"description": "Ensures <area> elements of image maps have alternate text",
+		"help": "Active <area> elements must have alternate text"
+	},
+	"all": [],
+	"any": ["non-empty-alt", "non-empty-title", "aria-label", "aria-labelledby"],
+	"none": []
+}

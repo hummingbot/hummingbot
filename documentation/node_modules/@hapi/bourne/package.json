@@ -1,0 +1,24 @@
+{
+  "name": "@hapi/bourne",
+  "description": "JSON parse with prototype poisoning protection",
+  "version": "1.3.2",
+  "repository": "git://github.com/hapijs/bourne",
+  "main": "lib/index.js",
+  "keywords": [
+    "JSON",
+    "parse",
+    "safe",
+    "prototype"
+  ],
+  "dependencies": {},
+  "devDependencies": {
+    "@hapi/code": "5.x.x",
+    "@hapi/lab": "18.x.x",
+    "benchmark": "^2.1.4"
+  },
+  "scripts": {
+    "test": "lab -a @hapi/code -t 100 -L",
+    "test-cov-html": "lab -a @hapi/code -r html -o coverage.html"
+  },
+  "license": "BSD-3-Clause"
+}

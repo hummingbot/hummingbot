@@ -1,0 +1,12 @@
+{
+	"id": "aria-required-parent",
+	"selector": "[role]",
+	"tags": ["cat.aria", "wcag2a", "wcag131"],
+	"metadata": {
+		"description": "Ensures elements with an ARIA role that require parent roles are contained by them",
+		"help": "Certain ARIA roles must be contained by particular parents"
+	},
+	"all": [],
+	"any": ["aria-required-parent"],
+	"none": []
+}

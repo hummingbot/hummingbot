@@ -1,0 +1,64 @@
+{
+  "author": {
+    "email": "gajus@gajus.com",
+    "name": "Gajus Kuizinas",
+    "url": "http://gajus.com"
+  },
+  "dependencies": {
+    "lodash": "^4.17.15"
+  },
+  "description": "Flowtype linting rules for ESLint.",
+  "devDependencies": {
+    "ajv": "^6.10.2",
+    "babel-cli": "^6.26.0",
+    "babel-eslint": "^10.0.2",
+    "babel-plugin-add-module-exports": "^1.0.2",
+    "babel-plugin-transform-object-rest-spread": "^6.26.0",
+    "babel-preset-env": "^1.7.0",
+    "babel-register": "^6.26.0",
+    "chai": "^4.2.0",
+    "eslint": "^5.13.0",
+    "eslint-config-canonical": "^17.3.2",
+    "gitdown": "^3.1.1",
+    "glob": "^7.1.4",
+    "husky": "^3.0.2",
+    "jsonlint": "^1.6.3",
+    "mocha": "^6.2.0",
+    "semantic-release": "^15.13.19"
+  },
+  "engines": {
+    "node": ">=4"
+  },
+  "husky": {
+    "hooks": {
+      "post-commit": "npm run create-readme && git add README.md && git commit -m 'docs: generate docs' --no-verify",
+      "pre-commit": "npm run check-docs && npm run check-tests && npm run lint && npm run test && npm run build && npm run format-json"
+    }
+  },
+  "keywords": [
+    "eslint",
+    "plugin",
+    "flowtype"
+  ],
+  "license": "BSD-3-Clause",
+  "main": "./dist/index.js",
+  "name": "eslint-plugin-flowtype",
+  "peerDependencies": {
+    "eslint": ">=5.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gajus/eslint-plugin-flowtype"
+  },
+  "scripts": {
+    "build": "rm -fr ./dist && babel ./src --out-dir ./dist --copy-files",
+    "check-docs": "babel-node ./src/bin/checkDocs",
+    "check-tests": "babel-node ./src/bin/checkTests",
+    "create-readme": "gitdown ./.README/README.md --output-file ./README.md && npm run documentation-add-assertions",
+    "documentation-add-assertions": "babel-node ./src/bin/addAssertions",
+    "format-json": "jsonlint --sort-keys --in-place --indent '  ' ./src/configs/recommended.json && echo '' >> ./src/configs/recommended.json",
+    "lint": "eslint ./src ./tests",
+    "test": "mocha --require babel-core/register ./tests/rules/index.js"
+  },
+  "version": "3.13.0"
+}

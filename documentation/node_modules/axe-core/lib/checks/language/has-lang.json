@@ -1,0 +1,14 @@
+{
+	"id": "has-lang",
+	"evaluate": "has-lang.js",
+	"metadata": {
+		"impact": "serious",
+		"messages": {
+			"pass": "The <html> element has a lang attribute",
+			"fail": {
+				"noXHTML": "The xml:lang attribute is not valid on HTML pages, use the lang attribute.",
+				"noLang": "The <html> element does not have a lang attribute"
+			}
+		}
+	}
+}

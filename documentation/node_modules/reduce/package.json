@@ -1,0 +1,59 @@
+{
+  "name": "reduce",
+  "version": "1.0.2",
+  "description": "A better [].reduce",
+  "keywords": [],
+  "author": "Raynos <raynos2@gmail.com>",
+  "repository": "git://github.com/Raynos/reduce.git",
+  "main": "index",
+  "homepage": "https://github.com/Raynos/reduce",
+  "contributors": [
+    {
+      "name": "Jake Verbaten"
+    }
+  ],
+  "bugs": {
+    "url": "https://github.com/Raynos/reduce/issues",
+    "email": "raynos2@gmail.com"
+  },
+  "dependencies": {
+    "object-keys": "^1.1.0"
+  },
+  "devDependencies": {
+    "@ljharb/eslint-config": "^13.1.1",
+    "covert": "^1.1.1",
+    "eslint": "^5.14.1",
+    "tape": "^4.10.1"
+  },
+  "licenses": [
+    {
+      "type": "MIT",
+      "url": "http://github.com/Raynos/reduce/raw/master/LICENSE"
+    }
+  ],
+  "testling": {
+    "files": "test/*.js",
+    "browsers": [
+      "iexplore/6.0..latest",
+      "firefox/3.0..6.0",
+      "firefox/15.0..latest",
+      "firefox/nightly",
+      "chrome/4.0..10.0",
+      "chrome/20.0..latest",
+      "chrome/canary",
+      "opera/10.0..latest",
+      "opera/next",
+      "safari/4.0..latest",
+      "ipad/6.0..latest",
+      "iphone/6.0..latest"
+    ]
+  },
+  "scripts": {
+    "pretest": "npm run lint",
+    "tests-only": "node test/simple.js",
+    "test": "npm run tests-only",
+    "posttest": "npx aud",
+    "coverage": "covert test/simple.js",
+    "lint": "eslint ."
+  }
+}

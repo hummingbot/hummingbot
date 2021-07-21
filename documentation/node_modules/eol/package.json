@@ -1,0 +1,47 @@
+{
+  "name": "eol",
+  "description": "Newline character converter",
+  "version": "0.9.1",
+  "homepage": "https://github.com/ryanve/eol",
+  "license": "MIT",
+  "author": "Ryan Van Etten",
+  "main": "eol.js",
+  "types": "eol.d.ts",
+  "typings": "eol.d.ts",
+  "scripts": {
+    "lint": "eslint . --ext .js",
+    "preversion": "npm test",
+    "pretest": "npm run lint",
+    "test": "node test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ryanve/eol.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ryanve/eol/issues"
+  },
+  "keywords": [
+    "eol",
+    "lf",
+    "cr",
+    "crlf",
+    "newline",
+    "newlines",
+    "convert",
+    "converter",
+    "conversion",
+    "character",
+    "formatting",
+    "format",
+    "string",
+    "javascript",
+    "typescript",
+    "ender",
+    "file"
+  ],
+  "devDependencies": {
+    "aok": "^1.9.0",
+    "eslint": "^3.15.0"
+  }
+}

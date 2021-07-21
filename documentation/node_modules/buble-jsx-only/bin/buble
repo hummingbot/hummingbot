@@ -1,0 +1,24 @@
+#!/usr/bin/env node
+var minimist = require('minimist');
+
+var command = minimist(process.argv.slice(2), {
+	alias: {
+		// Short options
+		h: 'help',
+		i: 'input',
+		m: 'sourcemap',
+		o: 'output',
+		v: 'version',
+		t: 'target',
+		y: 'yes',
+		n: 'no'
+	}
+});
+
+if (command.help || (process.argv.length <= 2 && process.stdin.isTTY)) {
+	require('./showHelp')();
+} else if (command.version) {
+	console.log('Bublé version ' + require('../package.json').version);
+} else {
+	require('./runBuble')(command);
+}

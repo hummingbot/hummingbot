@@ -1,0 +1,11 @@
+{
+	"id": "role-presentation",
+	"evaluate": "role-presentation.js",
+	"metadata": {
+		"impact": "minor",
+		"messages": {
+			"pass": "Element's default semantics were overriden with role=\"presentation\"",
+			"fail": "Element's default semantics were not overridden with role=\"presentation\""
+		}
+	}
+}

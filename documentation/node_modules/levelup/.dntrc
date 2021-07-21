@@ -1,0 +1,19 @@
+## DNT config file
+## see https://github.com/rvagg/dnt
+
+NODE_VERSIONS="\
+  master   \
+  v0.11.9  \
+  v0.11.8  \
+  v0.10.22 \
+  v0.10.21 \
+  v0.8.26  \
+"
+OUTPUT_PREFIX="levelup-"
+TEST_CMD="\
+  cd /dnt/ &&                                                    \
+  rm -rf node_modules/leveldown/ &&                              \
+  npm install --nodedir=/usr/src/node &&                         \
+  node_modules/.bin/tap test/*-test.js --stderr;                 \
+#"
+

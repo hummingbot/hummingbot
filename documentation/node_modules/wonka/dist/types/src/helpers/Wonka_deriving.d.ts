@@ -1,0 +1,13 @@
+import { talkbackT, signalT } from '../Wonka_types.gen';
+declare type talkbackCb = (tb: talkbackT) => void;
+export declare const pull: import("../shims/Js.shim").talkbackT;
+export declare const close: import("../shims/Js.shim").talkbackT;
+export declare const start: <a>(tb: talkbackCb) => import("../shims/Js.shim").signalT<a>;
+export declare const push: <a>(x: a) => import("../shims/Js.shim").signalT<a>;
+export declare const end: <a>() => import("../shims/Js.shim").signalT<a>;
+export declare const isStart: <a>(s: import("../shims/Js.shim").signalT<a>) => boolean;
+export declare const isPush: <a>(s: import("../shims/Js.shim").signalT<a>) => boolean;
+export declare const isEnd: <a>(s: import("../shims/Js.shim").signalT<a>) => boolean;
+export declare const unboxPush: <a>(s: import("../shims/Js.shim").signalT<a>) => a;
+export declare const unboxStart: <a>(s: import("../shims/Js.shim").signalT<a>) => talkbackCb;
+export {};

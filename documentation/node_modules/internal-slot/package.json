@@ -1,0 +1,61 @@
+{
+	"name": "internal-slot",
+	"version": "1.0.2",
+	"description": "ES spec-like internal slots",
+	"main": "index.js",
+	"scripts": {
+		"prepublish": "safe-publish-latest",
+		"version": "auto-changelog && git add CHANGELOG.md",
+		"postversion": "auto-changelog && git add CHANGELOG.md && git commit --no-edit --amend && git tag -f \"v$(node -e \"console.log(require('./package.json').version)\")\"",
+		"pretest": "npm run lint",
+		"lint": "eslint .",
+		"tests-only": "node test",
+		"test": "npm run tests-only",
+		"posttest": "npx aud"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/ljharb/internal-slot.git"
+	},
+	"keywords": [
+		"internal",
+		"slot",
+		"internal slot",
+		"ecmascript",
+		"es",
+		"spec",
+		"private",
+		"data",
+		"private data",
+		"weakmap"
+	],
+	"author": "Jordan Harband <ljharb@gmail.com>",
+	"license": "MIT",
+	"bugs": {
+		"url": "https://github.com/ljharb/internal-slot/issues"
+	},
+	"homepage": "https://github.com/ljharb/internal-slot#readme",
+	"engines": {
+		"node": ">= 0.4"
+	},
+	"devDependencies": {
+		"@ljharb/eslint-config": "^15.1.0",
+		"auto-changelog": "^1.16.2",
+		"eslint": "^6.7.2",
+		"foreach": "^2.0.5",
+		"object-inspect": "^1.7.0",
+		"safe-publish-latest": "^1.1.4",
+		"tape": "^4.12.0"
+	},
+	"dependencies": {
+		"es-abstract": "^1.17.0-next.1",
+		"has": "^1.0.3",
+		"side-channel": "^1.0.2"
+	},
+	"auto-changelog": {
+		"output": "CHANGELOG.md",
+		"unreleased": false,
+		"commitLimit": false,
+		"backfillLimit": false
+	}
+}

@@ -1,0 +1,29 @@
+{
+  "name": "@svgr/plugin-svgo",
+  "description": "Optimize SVG",
+  "version": "4.3.1",
+  "main": "lib/index.js",
+  "repository": "https://github.com/smooth-code/svgr/tree/master/packages/plugin-svgo",
+  "author": "Greg Bergé <berge.greg@gmail.com>",
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "svgr-plugin"
+  ],
+  "engines": {
+    "node": ">=8"
+  },
+  "license": "MIT",
+  "scripts": {
+    "prebuild": "rm -rf lib/",
+    "build": "babel --config-file ../../babel.config.js -d lib --ignore \"**/*.test.js\" src",
+    "prepublishOnly": "yarn run build"
+  },
+  "dependencies": {
+    "cosmiconfig": "^5.2.1",
+    "merge-deep": "^3.0.2",
+    "svgo": "^1.2.2"
+  },
+  "gitHead": "06e1e996a92289183fca0aabe4ba286e3a227f1b"
+}

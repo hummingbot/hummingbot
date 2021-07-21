@@ -1,0 +1,25 @@
+{
+	"id": "object-alt",
+	"selector": "object",
+	"tags": [
+		"cat.text-alternatives",
+		"wcag2a",
+		"wcag111",
+		"section508",
+		"section508.22.a"
+	],
+	"metadata": {
+		"description": "Ensures <object> elements have alternate text",
+		"help": "<object> elements must have alternate text"
+	},
+	"all": [],
+	"any": [
+		"has-visible-text",
+		"aria-label",
+		"aria-labelledby",
+		"non-empty-title",
+		"role-presentation",
+		"role-none"
+	],
+	"none": []
+}

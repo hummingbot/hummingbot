@@ -1,0 +1,38 @@
+// @flow
+
+import type { talkbackT, signalT } from "../Wonka_types.gen";
+declare type talkbackCb = (tb: talkbackT) => void;
+declare export var pull: $PropertyType<
+  $Exports<"../shims/Js.shim">,
+  "talkbackT"
+>;
+declare export var close: $PropertyType<
+  $Exports<"../shims/Js.shim">,
+  "talkbackT"
+>;
+declare export var start: <a>(
+  tb: talkbackCb
+) => $PropertyType<$Exports<"../shims/Js.shim">, "signalT">;
+declare export var push: <a>(
+  x: a
+) => $PropertyType<$Exports<"../shims/Js.shim">, "signalT">;
+declare export var end: <a>() => $PropertyType<
+  $Exports<"../shims/Js.shim">,
+  "signalT"
+>;
+declare export var isStart: <a>(
+  s: $PropertyType<$Exports<"../shims/Js.shim">, "signalT">
+) => boolean;
+declare export var isPush: <a>(
+  s: $PropertyType<$Exports<"../shims/Js.shim">, "signalT">
+) => boolean;
+declare export var isEnd: <a>(
+  s: $PropertyType<$Exports<"../shims/Js.shim">, "signalT">
+) => boolean;
+declare export var unboxPush: <a>(
+  s: $PropertyType<$Exports<"../shims/Js.shim">, "signalT">
+) => a;
+declare export var unboxStart: <a>(
+  s: $PropertyType<$Exports<"../shims/Js.shim">, "signalT">
+) => talkbackCb;
+declare export {};

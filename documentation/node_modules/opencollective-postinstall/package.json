@@ -1,0 +1,32 @@
+{
+  "name": "opencollective-postinstall",
+  "version": "2.0.3",
+  "description": "Lightweight npm postinstall message to invite people to donate to your collective",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/opencollective/opencollective-postinstall.git"
+  },
+  "files": [
+    "index.js"
+  ],
+  "bin": "index.js",
+  "keywords": [
+    "opencollective",
+    "donation",
+    "funding",
+    "sustain"
+  ],
+  "author": "Xavier Damman (@xdamman)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/opencollective/opencollective-postinstall/issues"
+  },
+  "homepage": "https://github.com/opencollective/opencollective-postinstall#readme",
+  "devDependencies": {
+    "jest": "^26.0.1"
+  }
+}

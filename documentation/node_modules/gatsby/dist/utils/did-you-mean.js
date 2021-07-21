@@ -1,0 +1,27 @@
+"use strict";
+
+var _interopRequireDefault = require("@babel/runtime/helpers/interopRequireDefault");
+
+exports.__esModule = true;
+exports.didYouMean = didYouMean;
+exports.default = exports.KNOWN_CONFIG_KEYS = void 0;
+
+var _meant = _interopRequireDefault(require("meant"));
+
+const KNOWN_CONFIG_KEYS = [`__experimentalThemes`, `polyfill`, `assetPrefix`, `pathPrefix`, `siteMetadata`, `mapping`, `plugins`, `proxy`, `developMiddleware`];
+exports.KNOWN_CONFIG_KEYS = KNOWN_CONFIG_KEYS;
+
+function didYouMean(configKey, commands = KNOWN_CONFIG_KEYS) {
+  const bestSimilarity = (0, _meant.default)(configKey, commands);
+  if (bestSimilarity.length === 0) return ``;
+
+  if (bestSimilarity.length === 1) {
+    return `Did you mean "${bestSimilarity[0]}"?`;
+  } else {
+    return [`Did you mean one of these?`].concat(bestSimilarity.slice(0, 3)).join(`\n`) + `\n`;
+  }
+}
+
+var _default = didYouMean;
+exports.default = _default;
+//# sourceMappingURL=did-you-mean.js.map

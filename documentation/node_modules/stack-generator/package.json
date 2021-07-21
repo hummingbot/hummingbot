@@ -1,0 +1,53 @@
+{
+  "name": "stack-generator",
+  "description": "Generate artificial backtrace by walking arguments.callee.caller chain",
+  "maintainers": [
+    "Eric Wendelin <me@eriwen.com> (https://www.eriwen.com)",
+    "Victor Homyakov <vkhomyackov@gmail.com> (https://github.com/victor-homyakov)",
+    "Oliver Salzburg (https://github.com/oliversalzburg)",
+    "Ben Gourley (https://github.com/bengourley)"
+  ],
+  "version": "2.0.5",
+  "license": "MIT",
+  "keywords": [
+    "stacktrace",
+    "error"
+  ],
+  "homepage": "https://www.stacktracejs.com",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/stacktracejs/stack-generator.git"
+  },
+  "dependencies": {
+    "stackframe": "^1.1.1"
+  },
+  "devDependencies": {
+    "eslint": "^6.8.0",
+    "jasmine": "^3.5.0",
+    "jasmine-core": "^3.5.0",
+    "karma": "^4.4.1",
+    "karma-chrome-launcher": "^3.1.0",
+    "karma-coverage": "^2.0.1",
+    "karma-coveralls": "^2.1.0",
+    "karma-firefox-launcher": "^1.2.0",
+    "karma-ie-launcher": "^1.0.0",
+    "karma-jasmine": "^1.1.2",
+    "karma-opera-launcher": "^1.0.0",
+    "karma-phantomjs-launcher": "^1.0.4",
+    "karma-safari-launcher": "^1.0.0",
+    "karma-sauce-launcher": "^2.0.2",
+    "karma-spec-reporter": "0.0.32",
+    "uglify-es": "^3.3.9"
+  },
+  "bugs": {
+    "url": "https://github.com/stacktracejs/stack-generator/issues"
+  },
+  "main": "./stack-generator.js",
+  "scripts": {
+    "lint": "eslint --fix stack-generator.js spec/",
+    "test": "karma start karma.conf.js --single-run",
+    "test-pr": "karma start karma.conf.js --single-run --browsers Firefox,Chrome_Travis",
+    "test-ci": "karma start karma.conf.ci.js --single-run",
+    "prepare": "cp stack-generator.js dist/ && uglifyjs node_modules/stackframe/stackframe.js stack-generator.js -o dist/stack-generator.min.js --compress --mangle --source-map \"url=stack-generator.min.js.map\""
+  }
+}

@@ -1,0 +1,97 @@
+{
+  "name": "throttle-debounce",
+  "version": "2.3.0",
+  "description": "Throttle and debounce functions.",
+  "main": "index.cjs.js",
+  "module": "index.esm.js",
+  "browser": "index.umd.js",
+  "author": "Ivan Nikolić <niksy5@gmail.com> (http://ivannikolic.com)",
+  "contributors": [
+    "Ben Alman (http://benalman.com)"
+  ],
+  "license": "MIT",
+  "files": [
+    "index.cjs.{js,js.map}",
+    "index.esm.{js,js.map}",
+    "index.umd.{js,js.map}",
+    "CHANGELOG.md",
+    "LICENSE.md",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "build": "rollup --config rollup.config.js",
+    "lint": "eslint '{index,debounce,throttle,test/**/*}.js'",
+    "postpublish": "GITHUB_TOKEN=$GITHUB_RELEASE_TOKEN echo 'github-release-from-changelog'",
+    "prepublishOnly": "npm run build",
+    "release": "np",
+    "test": "npm run lint && npm run test:automated",
+    "test:automated": "BABEL_ENV=test SERVICE_PORT=$(get-port) karma start",
+    "test:automated:watch": "npm run test:automated -- --auto-watch --no-single-run",
+    "version": "version-changelog CHANGELOG.md && changelog-verify CHANGELOG.md && git add CHANGELOG.md"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@babel/cli": "^7.2.3",
+    "@babel/core": "^7.2.2",
+    "@babel/plugin-transform-object-assign": "^7.2.0",
+    "@babel/plugin-transform-runtime": "^7.2.0",
+    "@babel/runtime": "^7.2.0",
+    "babel-loader": "^8.0.4",
+    "babel-preset-niksy": "^4.1.0",
+    "changelog-verify": "^1.1.2",
+    "core-js": "^2.6.5",
+    "eslint": "^6.7.2",
+    "eslint-config-niksy": "^8.0.0",
+    "eslint-config-prettier": "^4.2.0",
+    "eslint-plugin-extend": "^0.1.1",
+    "eslint-plugin-import": "^2.18.2",
+    "eslint-plugin-jsdoc": "^18.4.3",
+    "eslint-plugin-mocha": "^6.2.2",
+    "eslint-plugin-node": "^10.0.0",
+    "eslint-plugin-prettier": "^3.0.1",
+    "eslint-plugin-promise": "^4.2.1",
+    "eslint-plugin-react": "^7.9.1",
+    "eslint-plugin-unicorn": "^14.0.1",
+    "esm": "^3.0.51",
+    "get-port": "^4.0.0",
+    "get-port-cli": "^2.0.0",
+    "github-release-from-changelog": "^2.1.1",
+    "husky": "^3.1.0",
+    "karma": "^4.0.1",
+    "karma-browserstack-launcher": "^1.0.0",
+    "karma-chrome-launcher": "^2.2.0",
+    "karma-firefox-launcher": "^0.1.7",
+    "karma-mocha-reporter": "^2.2.5",
+    "karma-qunit": "^0.1.9",
+    "karma-sourcemap-loader": "^0.3.7",
+    "karma-webpack": "^3.0.0",
+    "lint-staged": "^9.5.0",
+    "minimist": "^1.2.0",
+    "np": "^3.0.4",
+    "prettier": "^1.17.0",
+    "qunitjs": "^1.23.1",
+    "rollup": "^1.0.0",
+    "rollup-plugin-babel": "^4.2.0",
+    "version-changelog": "^3.1.1",
+    "webpack": "^4.12.0"
+  },
+  "engines": {
+    "node": ">=8"
+  },
+  "keywords": [
+    "debounce",
+    "throttle"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/niksy/throttle-debounce.git"
+  },
+  "bugs": {
+    "url": "https://github.com/niksy/throttle-debounce/issues"
+  },
+  "homepage": "https://github.com/niksy/throttle-debounce#readme"
+}

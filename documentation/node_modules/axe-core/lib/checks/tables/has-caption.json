@@ -1,0 +1,12 @@
+{
+	"id": "has-caption",
+	"evaluate": "has-caption.js",
+	"deprecated": true,
+	"metadata": {
+		"impact": "serious",
+		"messages": {
+			"pass": "Layout table does not use <caption> element",
+			"fail": "Layout table uses <caption> element"
+		}
+	}
+}

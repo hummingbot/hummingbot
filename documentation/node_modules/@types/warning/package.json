@@ -1,0 +1,16 @@
+{
+    "name": "@types/warning",
+    "version": "3.0.0",
+    "description": "TypeScript definitions for warning",
+    "license": "MIT",
+    "author": "Chi Vinh Le <https://github.com/cvle>",
+    "main": "",
+    "repository": {
+        "type": "git",
+        "url": "https://www.github.com/DefinitelyTyped/DefinitelyTyped.git"
+    },
+    "scripts": {},
+    "dependencies": {},
+    "peerDependencies": {},
+    "typesPublisherContentHash": "f4abd393ae060f65b1fa76c5dea60adc3206914a2cd9e10c3d128e84a3ccf4b6"
+}

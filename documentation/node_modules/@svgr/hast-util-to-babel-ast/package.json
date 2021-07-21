@@ -1,0 +1,32 @@
+{
+  "name": "@svgr/hast-util-to-babel-ast",
+  "description": "Transform HAST to Babel AST (JSX)",
+  "version": "4.3.2",
+  "main": "lib/index.js",
+  "repository": "https://github.com/smooth-code/svgr/tree/master/packages/hast-util-to-babel-ast",
+  "author": "Greg Bergé <berge.greg@gmail.com>",
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "html",
+    "hast",
+    "babel",
+    "hast-util",
+    "unist-util",
+    "unist"
+  ],
+  "engines": {
+    "node": ">=8"
+  },
+  "license": "MIT",
+  "scripts": {
+    "prebuild": "rm -rf lib/",
+    "build": "babel --config-file ../../babel.config.js -d lib --ignore \"**/*.test.js\" src",
+    "prepublishOnly": "yarn run build"
+  },
+  "dependencies": {
+    "@babel/types": "^7.4.4"
+  },
+  "gitHead": "85446119414d768be3ab660ed4a20930a59f8eb5"
+}

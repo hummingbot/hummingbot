@@ -1,0 +1,24 @@
+{
+  "name": "@svgr/babel-plugin-transform-react-native-svg",
+  "description": "Transform DOM elements into react-native-svg components",
+  "version": "4.2.0",
+  "main": "lib/index.js",
+  "repository": "https://github.com/smooth-code/svgr/tree/master/packages/babel-plugin-transform-react-native-svg",
+  "author": "Greg Bergé <berge.greg@gmail.com>",
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "babel-plugin"
+  ],
+  "engines": {
+    "node": ">=8"
+  },
+  "license": "MIT",
+  "scripts": {
+    "prebuild": "rm -rf lib/",
+    "build": "babel --config-file ../../babel.config.js -d lib --ignore \"**/*.test.js\" src",
+    "prepublishOnly": "yarn run build"
+  },
+  "gitHead": "35d3f4d446e5402902ee922a3f9984000bb74920"
+}

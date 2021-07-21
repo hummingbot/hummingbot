@@ -1,0 +1,73 @@
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.parentAutofocusables = exports.getAllTabbableNodes = exports.getTabbableNodes = exports.filterFocusable = exports.getCommonParent = exports.notHiddenInput = exports.isVisible = undefined;
+
+var _tabOrder = require('./tabOrder');
+
+var _tabUtils = require('./tabUtils');
+
+var _array = require('./array');
+
+var isElementHidden = function isElementHidden(computedStyle) {
+  if (!computedStyle || !computedStyle.getPropertyValue) {
+    return false;
+  }
+  return computedStyle.getPropertyValue('display') === 'none' || computedStyle.getPropertyValue('visibility') === 'hidden';
+};
+
+var isVisible = exports.isVisible = function isVisible(node) {
+  return !node || node === document || node.nodeType === Node.DOCUMENT_NODE || !isElementHidden(window.getComputedStyle(node, null)) && isVisible(node.parentNode && node.parentNode.nodeType === node.DOCUMENT_FRAGMENT_NODE ? node.parentNode.host : node.parentNode);
+};
+
+var notHiddenInput = exports.notHiddenInput = function notHiddenInput(node) {
+  return !((node.tagName === 'INPUT' || node.tagName === 'BUTTON') && (node.type === 'hidden' || node.disabled));
+};
+
+var getParents = function getParents(node) {
+  var parents = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
+
+  parents.push(node);
+  if (node.parentNode) {
+    getParents(node.parentNode, parents);
+  }
+  return parents;
+};
+
+var getCommonParent = exports.getCommonParent = function getCommonParent(nodea, nodeb) {
+  var parentsA = getParents(nodea);
+  var parentsB = getParents(nodeb);
+
+  for (var i = 0; i < parentsA.length; i += 1) {
+    var currentParent = parentsA[i];
+    if (parentsB.indexOf(currentParent) >= 0) {
+      return currentParent;
+    }
+  }
+  return false;
+};
+
+var filterFocusable = exports.filterFocusable = function filterFocusable(nodes) {
+  return (0, _array.toArray)(nodes).filter(function (node) {
+    return isVisible(node);
+  }).filter(function (node) {
+    return notHiddenInput(node);
+  });
+};
+
+var getTabbableNodes = exports.getTabbableNodes = function getTabbableNodes(topNodes, withGuards) {
+  return (0, _tabOrder.orderByTabIndex)(filterFocusable((0, _tabUtils.getFocusables)(topNodes, withGuards)), true, withGuards);
+};
+
+/**
+ * actually anything focusable
+ */
+var getAllTabbableNodes = exports.getAllTabbableNodes = function getAllTabbableNodes(topNodes) {
+  return (0, _tabOrder.orderByTabIndex)(filterFocusable((0, _tabUtils.getFocusables)(topNodes)), false);
+};
+
+var parentAutofocusables = exports.parentAutofocusables = function parentAutofocusables(topNode) {
+  return filterFocusable((0, _tabUtils.getParentAutofocusables)(topNode));
+};

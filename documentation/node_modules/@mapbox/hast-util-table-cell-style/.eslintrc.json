@@ -1,0 +1,12 @@
+{
+  "extends": "eslint:recommended",
+  "env": {
+    "node": true,
+    "es6": false,
+    "jest": true
+  },
+  "plugins": ["node"],
+  "rules": {
+    "node/no-missing-require": ["error"]
+  }
+}

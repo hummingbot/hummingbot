@@ -1,0 +1,57 @@
+{
+  "name": "react-circular-progressbar",
+  "version": "2.0.3",
+  "description": "A circular progress indicator component",
+  "author": "Kevin Qi <iqnivek@gmail.com>",
+  "main": "dist/index.js",
+  "module": "dist/index.esm.js",
+  "types": "dist/index.d.ts",
+  "style": "dist/styles.css",
+  "files": [
+    "dist"
+  ],
+  "repository": "https://github.com/kevinsqi/react-circular-progressbar.git",
+  "license": "MIT",
+  "keywords": [
+    "progressbar",
+    "react",
+    "react-component",
+    "svg"
+  ],
+  "scripts": {
+    "build": "npm-run-all clean build:css build:js",
+    "build:css": "postcss src/styles.css --use autoprefixer -d dist/ --no-map",
+    "build:js": "rollup -c",
+    "clean": "rimraf dist",
+    "format": "prettier --write 'src/**/*' 'demo/src/**/*'",
+    "prepare": "npm-run-all clean build",
+    "start": "npm-run-all --parallel start:css start:js",
+    "start:css": "postcss src/styles.css --use autoprefixer -d dist/ --no-map --watch",
+    "start:js": "rollup -c -w",
+    "test": "jest --config jest.config.json --coverage"
+  },
+  "devDependencies": {
+    "@types/enzyme": "^3.9.1",
+    "@types/enzyme-adapter-react-16": "^1.0.5",
+    "@types/jest": "^24.0.11",
+    "@types/react": "^16.8.14",
+    "autoprefixer": "^9.5.1",
+    "enzyme": "^3.9.0",
+    "enzyme-adapter-react-16": "^1.12.1",
+    "jest": "^24.7.1",
+    "npm-run-all": "^4.1.5",
+    "postcss-cli": "^6.1.2",
+    "prettier": "^1.17.0",
+    "react": "^16.8.6",
+    "react-dom": "^16.8.6",
+    "rimraf": "^2.3.4",
+    "rollup": "^1.10.1",
+    "rollup-plugin-typescript2": "^0.21.0",
+    "ts-jest": "^24.0.2",
+    "typescript": "^3.4.4"
+  },
+  "dependencies": {},
+  "peerDependencies": {
+    "react": "^0.14.0 || ^15.0.0 || ^16.0.0"
+  }
+}

@@ -1,0 +1,18 @@
+import { AnalyticsTracker, IAggregateStats, ITelemetryTagsPayload, ITelemetryOptsPayload, IDefaultTelemetryTagsPayload } from "./telemetry";
+import { Request, Response } from "express";
+export declare function trackFeatureIsUsed(name: string): void;
+export declare function trackCli(input: string | Array<string>, tags?: ITelemetryTagsPayload, opts?: ITelemetryOptsPayload): void;
+export declare function captureEvent(input: string | Array<string>, tags?: ITelemetryTagsPayload, opts?: ITelemetryOptsPayload): void;
+export declare function trackError(input: string, tags?: ITelemetryTagsPayload): void;
+export declare function trackBuildError(input: string, tags?: ITelemetryTagsPayload): void;
+export declare function setDefaultTags(tags: IDefaultTelemetryTagsPayload): void;
+export declare function decorateEvent(event: string, tags?: Record<string, unknown>): void;
+export declare function setTelemetryEnabled(enabled: boolean): void;
+export declare function startBackgroundUpdate(): void;
+export declare function isTrackingEnabled(): boolean;
+export declare function aggregateStats(data: Array<number>): IAggregateStats;
+export declare function addSiteMeasurement(event: string, obj: any): void;
+export declare function expressMiddleware(source: string): (req: Request, _res: Response, next: any) => void;
+export declare function setDefaultComponentId(componentId: string): void;
+export declare function setGatsbyCliVersion(version: string): void;
+export { AnalyticsTracker, IAggregateStats, ITelemetryTagsPayload, ITelemetryOptsPayload, IDefaultTelemetryTagsPayload, };

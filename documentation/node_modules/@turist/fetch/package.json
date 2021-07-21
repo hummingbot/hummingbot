@@ -1,0 +1,46 @@
+{
+  "name": "@turist/fetch",
+  "version": "7.1.7",
+  "description": "Opinionated `fetch` optimized for use inside microservices",
+  "license": "MIT",
+  "repository": "turist-cloud/fetch",
+  "files": [
+    "dist/"
+  ],
+  "main": "dist/index.js",
+  "scripts": {
+    "prettier": "find . -path './**/*.ts' -not -path '*/node_modules/*'  -not -path '*/dist/*' -exec sh -c 'for n; do tsfmt -r \"$n\" || exit 1; done' sh {} +",
+    "git-pre-commit": "find . -path './**/*.ts' -not -path '*/node_modules/*' -not -path '*/dist/*' -exec sh -c 'for n; do tsfmt --verify \"$n\" || exit 1; done' sh {} +",
+    "test": "jest --coverage",
+    "build": "rm -rf ./dist && ncc build src/index.ts -m -s -o dist",
+    "prepublish": "npm run build"
+  },
+  "peerDependencies": {
+    "node-fetch": "2"
+  },
+  "devDependencies": {
+    "@types/debug": "4.1.5",
+    "@types/jest": "25.1.3",
+    "@types/lru-cache": "5.1.0",
+    "@zeit/git-hooks": "0.1.4",
+    "@zeit/ncc": "0.21.1",
+    "agentkeepalive": "4.1.3",
+    "async-retry-ng": "2.0.1",
+    "debug": "4.1.1",
+    "jest": "25.1.0",
+    "lint-staged": "10.0.7",
+    "lru-cache": "5.1.1",
+    "node-fetch": "2.6.0",
+    "raw-body": "2.4.1",
+    "ts-jest": "25.2.1",
+    "typescript": "3.8.3",
+    "typescript-formatter": "7.2.2"
+  },
+  "dependencies": {
+    "@types/node-fetch": "2"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "verbose": true
+  }
+}

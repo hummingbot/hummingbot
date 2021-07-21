@@ -1,0 +1,24 @@
+{
+    "authors": "Chi Vinh Le <https://github.com/cvle>",
+    "libraryDependencies": [],
+    "moduleDependencies": [],
+    "libraryMajorVersion": 3,
+    "libraryMinorVersion": 0,
+    "libraryName": "warning",
+    "typingsPackageName": "warning",
+    "projectName": "https://github.com/BerkeleyTrue/warning",
+    "sourceRepoURL": "https://www.github.com/DefinitelyTyped/DefinitelyTyped",
+    "sourceBranch": "types-2.0",
+    "kind": "ProperModule",
+    "globals": [
+        "warning"
+    ],
+    "declaredModules": [
+        "warning"
+    ],
+    "files": [
+        "index.d.ts"
+    ],
+    "hasPackageJson": false,
+    "contentHash": "f4abd393ae060f65b1fa76c5dea60adc3206914a2cd9e10c3d128e84a3ccf4b6"
+}

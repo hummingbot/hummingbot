@@ -1,0 +1,28 @@
+{
+  "name": "after",
+  "description": "after - tiny flow control",
+  "version": "0.8.2",
+  "author": "Raynos <raynos2@gmail.com>",
+  "contributors": [
+    {
+      "name": "Raynos",
+      "email": "raynos2@gmail.com",
+      "url": "http://raynos.org"
+    }
+  ],
+  "scripts": {
+    "test": "mocha --ui tdd --reporter spec test/*.js"
+  },
+  "devDependencies": {
+    "mocha": "~1.8.1"
+  },
+  "keywords": [
+    "flowcontrol",
+    "after",
+    "flow",
+    "control",
+    "arch"
+  ],
+  "license": "MIT",
+  "repository": "git://github.com/Raynos/after.git"
+}

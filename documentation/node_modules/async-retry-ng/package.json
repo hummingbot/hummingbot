@@ -1,0 +1,59 @@
+{
+  "name": "async-retry-ng",
+  "version": "2.0.1",
+  "description": "Retrying made simple, easy and async",
+  "main": "./lib/index.js",
+  "scripts": {
+    "test": "yarn run test-lint && yarn run test-unit",
+    "test-lint": "eslint .",
+    "test-unit": "jest --testTimeout 20000",
+    "lint:staged": "lint-staged",
+    "prettier": "prettier --single-quote --write './{src,__tests__}/**/*.js'"
+  },
+  "files": [
+    "lib"
+  ],
+  "license": "MIT",
+  "repository": "turist-cloud/async-retry-ng",
+  "pre-commit": "lint:staged",
+  "lint-staged": {
+    "*.js": [
+      "eslint",
+      "prettier --write --single-quote"
+    ]
+  },
+  "eslintConfig": {
+    "plugins": [
+      "jest"
+    ],
+    "extends": [
+      "plugin:jest/recommended",
+      "airbnb",
+      "prettier"
+    ],
+    "rules": {
+      "no-param-reassign" : 0,
+      "no-plusplus": 0,
+      "no-restricted-properties": 0,
+      "no-restricted-syntax": 0,
+      "no-underscore-dangle": 0,
+      "prefer-arrow-callback": 0
+    }
+  },
+  "devDependencies": {
+    "eslint": "6.8.0",
+    "eslint-config-airbnb": "18.1.0",
+    "eslint-config-prettier": "6.10.1",
+    "eslint-plugin-import": "2.20.1",
+    "eslint-plugin-jest": "23.8.2",
+    "eslint-plugin-jsx-a11y": "6.2.3",
+    "eslint-plugin-react": "7.19.0",
+    "eslint-plugin-react-hooks": "2.5.1",
+    "jest": "25.1.0",
+    "lint-staged": "10.0.8",
+    "node-fetch": "2.6.0",
+    "pre-commit": "1.2.2",
+    "prettier": "2.0.1",
+    "then-sleep": "1.0.1"
+  }
+}

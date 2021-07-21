@@ -1,0 +1,39 @@
+{
+  "name": "simple-git",
+  "description": "Simple GIT interface for node.js",
+  "version": "1.132.0",
+  "author": "Steve King <steve@mydev.co>",
+  "contributors": [
+    {
+      "name": "Steve King",
+      "email": "steve@mydev.co"
+    }
+  ],
+  "dependencies": {
+    "debug": "^4.0.1"
+  },
+  "devDependencies": {
+    "@kwsites/test-runner": "^0.1.1",
+    "sinon": "^7.3.2"
+  },
+  "keywords": [
+    "git",
+    "source control",
+    "vcs"
+  ],
+  "license": "MIT",
+  "repository": "git://github.com/steveukx/git-js.git",
+  "main": "./src/index.js",
+  "files": [
+    "promise.*",
+    "src/",
+    "typings/"
+  ],
+  "scripts": {
+    "test": "runner test/**/test*.js ",
+    "test:unit": "runner test/unit/test*.js",
+    "test:integration": "runner test/integration/test*.js",
+    "preversion": "yarn test",
+    "postversion": "npm publish && git push && git push --tags"
+  }
+}

@@ -1,0 +1,53 @@
+version: ~> 1.0
+language: node_js
+os:
+ - linux
+import:
+  - ljharb/travis-ci:node/all.yml
+  - ljharb/travis-ci:node/pretest.yml
+  - ljharb/travis-ci:node/posttest.yml
+script:
+  - 'if [ -n "${COVERAGE-}" ]; then npm run coverage && bash <(curl -s https://codecov.io/bash) -f coverage/*.json; fi'
+matrix:
+  include:
+    - node_js: "13.7"
+      env: COVERAGE=true
+    - node_js: "12.14"
+      env: COVERAGE=true
+    - node_js: "10.18"
+      env: COVERAGE=true
+    - node_js: "8.17"
+      env: COVERAGE=true
+    - node_js: "6.17"
+      env: COVERAGE=true
+    - node_js: "4.9"
+      env: COVERAGE=true
+    - node_js: "iojs-v1.8"
+      env: COVERAGE=true
+    - node_js: "0.12"
+      env: COVERAGE=true
+    - node_js: "0.10"
+      env: COVERAGE=true
+    - node_js: "0.8"
+      env: COVERAGE=true
+  exclude:
+    - node_js: "13.7"
+      env: TEST=true
+    - node_js: "12.14"
+      env: TEST=true
+    - node_js: "10.18"
+      env: TEST=true
+    - node_js: "8.17"
+      env: TEST=true
+    - node_js: "6.17"
+      env: TEST=true
+    - node_js: "4.9"
+      env: TEST=true
+    - node_js: "iojs-v1.8"
+      env: TEST=true
+    - node_js: "0.12"
+      env: TEST=true
+    - node_js: "0.10"
+      env: TEST=true
+    - node_js: "0.8"
+      env: TEST=true

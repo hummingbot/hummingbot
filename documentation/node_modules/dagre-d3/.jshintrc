@@ -1,0 +1,13 @@
+{
+    "eqeqeq": true,
+    "newcap": true,
+    "quotmark": true,
+    "unused": true,
+    "trailing": true,
+    "laxbreak": true,
+    "node": true,
+    "expr": true,
+    "globals": {
+        "location": false
+    }
+}

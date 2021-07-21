@@ -1,0 +1,13 @@
+import { list } from '../src/shims/ReasonPervasives.shim';
+import { observerT as Wonka_types_observerT } from './Wonka_types.gen';
+import { sinkT as Wonka_types_sinkT } from './Wonka_types.gen';
+import { sourceT as Wonka_types_sourceT } from './Wonka_types.gen';
+import { subjectT as Wonka_types_subjectT } from './Wonka_types.gen';
+import { teardownT as Wonka_types_teardownT } from './Wonka_types.gen';
+export declare const fromArray: <a>(arr: a[]) => Wonka_types_sourceT<a>;
+export declare const fromList: <a>(ls: list<a>) => Wonka_types_sourceT<a>;
+export declare const fromValue: <a>(x: a) => Wonka_types_sourceT<a>;
+export declare const make: <a>(f: ((_1: Wonka_types_observerT<a>) => Wonka_types_teardownT)) => Wonka_types_sourceT<a>;
+export declare const makeSubject: <a>() => Wonka_types_subjectT<a>;
+export declare const empty: <a>(sink: Wonka_types_sinkT<a>) => void;
+export declare const never: <a>(sink: Wonka_types_sinkT<a>) => void;

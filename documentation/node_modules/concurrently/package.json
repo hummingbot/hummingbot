@@ -1,0 +1,66 @@
+{
+  "name": "concurrently",
+  "version": "5.3.0",
+  "description": "Run commands concurrently",
+  "main": "index.js",
+  "bin": {
+    "concurrently": "./bin/concurrently.js"
+  },
+  "engines": {
+    "node": ">=6.0.0"
+  },
+  "scripts": {
+    "lint": "eslint . --ignore-path .gitignore",
+    "report-coverage": "cat coverage/lcov.info | coveralls",
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kimmobrunfeldt/concurrently.git"
+  },
+  "keywords": [
+    "bash",
+    "concurrent",
+    "parallel",
+    "concurrently",
+    "command",
+    "sh"
+  ],
+  "author": "Kimmo Brunfeldt",
+  "license": "MIT",
+  "dependencies": {
+    "chalk": "^2.4.2",
+    "date-fns": "^2.0.1",
+    "lodash": "^4.17.15",
+    "read-pkg": "^4.0.1",
+    "rxjs": "^6.5.2",
+    "spawn-command": "^0.0.2-1",
+    "supports-color": "^6.1.0",
+    "tree-kill": "^1.2.2",
+    "yargs": "^13.3.0"
+  },
+  "devDependencies": {
+    "coveralls": "^3.0.4",
+    "eslint": "^5.16.0",
+    "jest": "^24.8.0",
+    "jest-create-mock-instance": "^1.1.0"
+  },
+  "files": [
+    "bin",
+    "!**/fixtures",
+    "index.js",
+    "src",
+    "!*.spec.js"
+  ],
+  "jest": {
+    "collectCoverage": true,
+    "collectCoverageFrom": [
+      "src/**/*.js"
+    ],
+    "coveragePathIgnorePatterns": [
+      "/fixtures/",
+      "/node_modules/"
+    ],
+    "testEnvironment": "node"
+  }
+}

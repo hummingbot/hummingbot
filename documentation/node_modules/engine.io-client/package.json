@@ -1,0 +1,84 @@
+{
+  "name": "engine.io-client",
+  "description": "Client for the realtime Engine",
+  "license": "MIT",
+  "version": "3.4.4",
+  "main": "lib/index.js",
+  "homepage": "https://github.com/socketio/engine.io-client",
+  "contributors": [
+    {
+      "name": "Guillermo Rauch",
+      "email": "rauchg@gmail.com"
+    },
+    {
+      "name": "Vladimir Dronnikov",
+      "email": "dronnikov@gmail.com"
+    },
+    {
+      "name": "Christoph Dorn",
+      "web": "https://github.com/cadorn"
+    },
+    {
+      "name": "Mark Mokryn",
+      "email": "mokesmokes@gmail.com"
+    }
+  ],
+  "dependencies": {
+    "component-emitter": "~1.3.0",
+    "component-inherit": "0.0.3",
+    "debug": "~3.1.0",
+    "engine.io-parser": "~2.2.0",
+    "has-cors": "1.1.0",
+    "indexof": "0.0.1",
+    "parseqs": "0.0.6",
+    "parseuri": "0.0.6",
+    "ws": "~6.1.0",
+    "xmlhttprequest-ssl": "~1.5.4",
+    "yeast": "0.1.2"
+  },
+  "devDependencies": {
+    "babel-core": "^6.24.0",
+    "babel-eslint": "4.1.7",
+    "babel-loader": "^6.4.1",
+    "babel-preset-es2015": "^6.24.0",
+    "blob": "^0.0.4",
+    "concat-stream": "^1.6.0",
+    "del": "^2.2.2",
+    "derequire": "^2.0.6",
+    "engine.io": "3.4.0",
+    "eslint-config-standard": "4.4.0",
+    "eslint-plugin-standard": "1.3.1",
+    "expect.js": "^0.3.1",
+    "express": "4.15.2",
+    "gulp": "3.9.1",
+    "gulp-eslint": "1.1.1",
+    "gulp-file": "^0.3.0",
+    "gulp-istanbul": "^1.1.1",
+    "gulp-mocha": "^4.3.0",
+    "gulp-task-listing": "1.0.1",
+    "istanbul": "^0.4.5",
+    "mocha": "^3.2.0",
+    "webpack": "1.12.12",
+    "webpack-stream": "^3.2.0",
+    "zuul": "3.11.1",
+    "zuul-builder-webpack": "^1.2.0",
+    "zuul-ngrok": "4.0.0"
+  },
+  "scripts": {
+    "test": "gulp test"
+  },
+  "browser": {
+    "ws": false,
+    "xmlhttprequest-ssl": "./lib/xmlhttprequest.js",
+    "./lib/globalThis.js": "./lib/globalThis.browser.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/socketio/engine.io-client.git"
+  },
+  "files": [
+    "index.js",
+    "lib/",
+    "engine.io.js"
+  ]
+}

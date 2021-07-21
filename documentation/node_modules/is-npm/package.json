@@ -1,0 +1,32 @@
+{
+  "name": "is-npm",
+  "version": "1.0.0",
+  "description": "Check if your code is running as an npm script",
+  "license": "MIT",
+  "repository": "sindresorhus/is-npm",
+  "author": {
+    "name": "Sindre Sorhus",
+    "email": "sindresorhus@gmail.com",
+    "url": "http://sindresorhus.com"
+  },
+  "engines": {
+    "node": ">=0.10.0"
+  },
+  "scripts": {
+    "test": "node test.js"
+  },
+  "files": [
+    "index.js"
+  ],
+  "keywords": [
+    "npm",
+    "is",
+    "check",
+    "detect",
+    "env",
+    "environment"
+  ],
+  "devDependencies": {
+    "ava": "0.0.3"
+  }
+}

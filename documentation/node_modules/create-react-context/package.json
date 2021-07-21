@@ -1,0 +1,67 @@
+{
+  "name": "create-react-context",
+  "version": "0.3.0",
+  "description": "Polyfill for the proposed React context API",
+  "main": "lib/index.js",
+  "typings": "lib/index.d.ts",
+  "repository": "https://github.com/thejameskyle/create-react-context",
+  "author": "James Kyle <me@thejameskyle.com>",
+  "license": "MIT",
+  "keywords": [
+    "react",
+    "context",
+    "contextTypes",
+    "polyfill",
+    "ponyfill"
+  ],
+  "files": [
+    "lib"
+  ],
+  "scripts": {
+    "test": "jest",
+    "flow": "flow",
+    "format": "prettier --write '**/*.{js,md,json,js.flow,d.ts}'",
+    "build": "babel src -d lib --copy-files --ignore __tests__",
+    "prepublish": "yarn build",
+    "commit": "lint-staged"
+  },
+  "dependencies": {
+    "gud": "^1.0.0",
+    "warning": "^4.0.3"
+  },
+  "peerDependencies": {
+    "prop-types": "^15.0.0",
+    "react": "^0.14.0 || ^15.0.0 || ^16.0.0"
+  },
+  "devDependencies": {
+    "babel-cli": "^6.26.0",
+    "babel-plugin-add-module-exports": "^0.2.1",
+    "babel-plugin-transform-class-properties": "^6.24.1",
+    "babel-preset-env": "^1.6.1",
+    "babel-preset-flow": "^6.23.0",
+    "babel-preset-react": "^6.24.1",
+    "enzyme": "^3.2.0",
+    "enzyme-adapter-react-16": "^1.1.0",
+    "enzyme-to-json": "^3.2.2",
+    "flow-bin": "^0.60.1",
+    "husky": "^0.14.3",
+    "jest": "^21.2.1",
+    "lint-staged": "^6.0.0",
+    "prettier": "^1.9.1",
+    "prop-types": "^15.6.0",
+    "raf": "^3.4.0",
+    "react": "^16.2.0",
+    "react-dom": "^16.2.0"
+  },
+  "lint-staged": {
+    "*.{js,md,json,js.flow,d.ts}": [
+      "prettier --write",
+      "git add"
+    ]
+  },
+  "jest": {
+    "snapshotSerializers": [
+      "enzyme-to-json/serializer"
+    ]
+  }
+}

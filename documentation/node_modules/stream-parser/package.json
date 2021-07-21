@@ -1,0 +1,22 @@
+{
+  "name": "stream-parser",
+  "version": "0.3.1",
+  "description": "Generic interruptible \"parser\" mixin for Transform & Writable streams",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha --reporter spec"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/TooTallNate/node-stream-parser.git"
+  },
+  "author": "Nathan Rajlich <nathan@tootallnate.net> (http://tootallnate.net)",
+  "license": "MIT",
+  "dependencies": {
+    "debug": "2"
+  },
+  "devDependencies": {
+    "mocha": "*",
+    "readable-stream": "1.0"
+  }
+}

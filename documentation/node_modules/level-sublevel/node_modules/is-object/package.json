@@ -1,0 +1,53 @@
+{
+  "name": "is-object",
+  "version": "0.1.2",
+  "description": "Checks whether a value is an object",
+  "keywords": [],
+  "author": "Raynos <raynos2@gmail.com>",
+  "repository": "git://github.com/Colingo/is-object.git",
+  "main": "index",
+  "homepage": "https://github.com/Colingo/is-object",
+  "contributors": [
+    {
+      "name": "Raynos"
+    }
+  ],
+  "bugs": {
+    "url": "https://github.com/Colingo/is-object/issues",
+    "email": "raynos2@gmail.com"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "tape": "~0.2.2",
+    "browserify-server": "~2.1.18",
+    "browservefy": "~0.0.7",
+    "testem": "https://github.com/raynos/testem/tarball/master"
+  },
+  "licenses": [
+    {
+      "type": "MIT",
+      "url": "http://github.com/Colingo/is-object/raw/master/LICENSE"
+    }
+  ],
+  "scripts": {
+    "test": "testem ci",
+    "build": "browserify-server --bundle=test/index.js -o test/static/bundle.js --debug",
+    "testem": "testem",
+    "example": "browservefy ./examples/simple.js --browserify='browserify-server' --live -- --debug --bundle"
+  },
+  "testling": {
+    "files": "test/index.js",
+    "browsers": [
+      "ie/8..latest",
+      "firefox/16..latest",
+      "firefox/nightly",
+      "chrome/22..latest",
+      "chrome/canary",
+      "opera/12..latest",
+      "opera/next",
+      "safari/5.1..latest",
+      "ipad/6.0..latest",
+      "iphone/6.0..latest"
+    ]
+  }
+}

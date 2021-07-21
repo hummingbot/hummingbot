@@ -1,0 +1,44 @@
+{
+  "name": "level-blobs",
+  "version": "0.1.7",
+  "description": "Save binary blobs in level and stream then back",
+  "repository": "git://github.com/mafintosh/level-blobs.git",
+  "keywords": [
+    "level",
+    "db",
+    "blobs",
+    "stream",
+    "buffer",
+    "data",
+    "store"
+  ],
+  "dependencies": {
+    "once": "^1.3.0",
+    "readable-stream": "^1.0.26-4",
+    "level-peek": "1.0.6"
+  },
+  "devDependencies": {
+    "tape": "^2.12.3",
+    "memdown": "git://github.com/maxogden/memdown",
+    "levelup": "^0.18.2"
+  },
+  "scripts": {
+    "test": "tape test/*.js"
+  },
+  "testling": {
+    "files": "test/*.js",
+    "browsers": [
+      "ie/8..latest",
+      "firefox/17..latest",
+      "firefox/nightly",
+      "chrome/22..latest",
+      "chrome/canary",
+      "opera/12..latest",
+      "opera/next",
+      "safari/5.1..latest",
+      "ipad/6.0..latest",
+      "iphone/6.0..latest",
+      "android-browser/4.2..latest"
+    ]
+  }
+}

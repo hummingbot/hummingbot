@@ -1,0 +1,68 @@
+{
+  "name": "native-url",
+  "version": "0.2.6",
+  "description": "Brings the node url api layer to whatwg-url class",
+  "source": "src/index.js",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "typings": "third_party/url.d.ts",
+  "files": [
+    "dist",
+    "third_party/url.d.ts"
+  ],
+  "unpkg": "dist/index.umd.js",
+  "jsdelivr": "dist/index.umd.js",
+  "scripts": {
+    "build": "microbundle",
+    "test:browser": "karmatic",
+    "test:node": "jest",
+    "pretest": "yarn run build",
+    "test": "jest && karmatic"
+  },
+  "author": "Janicklas Ralph",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "querystring": "^0.2.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GoogleChromeLabs/native-url.git"
+  },
+  "bugs": {
+    "url": "https://github.com/GoogleChromeLabs/native-url/issues"
+  },
+  "homepage": "https://github.com/GoogleChromeLabs/native-url#readme",
+  "keywords": [
+    "url",
+    "uri",
+    "normalization",
+    "normalisation",
+    "query",
+    "querystring",
+    "whatwg-url",
+    "parse",
+    "format",
+    "resolve",
+    "resolveObject"
+  ],
+  "devDependencies": {
+    "husky": "^3.0.5",
+    "jest": "^24.9.0",
+    "karmatic": "^1.4.0",
+    "lint-staged": "^9.2.5",
+    "microbundle": "^0.11.0",
+    "prettier": "^1.18.2",
+    "webpack": "^4.41.2"
+  },
+  "lint-staged": {
+    "{src,tests}/**/*.js": [
+      "prettier --write",
+      "git add"
+    ]
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "yarn run test && lint-staged"
+    }
+  }
+}

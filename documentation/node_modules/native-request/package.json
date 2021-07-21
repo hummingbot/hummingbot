@@ -1,0 +1,42 @@
+{
+	"name": "native-request",
+	"version": "1.0.7",
+	"author": {
+		"name": "Samuel Marchese",
+		"email": "contact@zaral.fr",
+		"url": "https://zaral.fr"
+	},
+	"bugs": {
+		"url": "https://github.com/ZaralDev/node-request/issues"
+	},
+	"description": "A simple package with no dependencies for native requests using callback",
+	"main": "index.js",
+	"keywords": [
+		"node-request",
+		"native-request",
+		"request",
+		"node-fetch",
+		"fetch",
+		"request",
+		"http",
+		"GET",
+		"get request",
+		"http.get",
+		"follow redirects",
+		"https",
+		"http-https",
+		"simple request",
+		"simple get"
+	],
+	"license": "MIT",
+	"devDependencies": {
+		"mocha": "^6.2.3"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git://github.com/ZaralDev/node-request.git"
+	},
+	"scripts": {
+		"test": "node ./node_modules/mocha/bin/mocha"
+	}
+}

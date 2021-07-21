@@ -1,0 +1,1 @@
+export declare function assertUnreachable(value: never): never;

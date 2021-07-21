@@ -1,0 +1,31 @@
+{
+  "name": "bufferutil",
+  "version": "4.0.1",
+  "description": "WebSocket buffer utils",
+  "main": "index.js",
+  "scripts": {
+    "install": "node-gyp-build",
+    "prebuild": "prebuildify --napi",
+    "test": "mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/websockets/bufferutil"
+  },
+  "keywords": [
+    "bufferutil"
+  ],
+  "author": "Einar Otto Stangvik <einaros@gmail.com> (http://2x.io)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/websockets/bufferutil/issues"
+  },
+  "homepage": "https://github.com/websockets/bufferutil",
+  "dependencies": {
+    "node-gyp-build": "~3.7.0"
+  },
+  "devDependencies": {
+    "mocha": "~5.2.0",
+    "prebuildify": "~2.10.0"
+  }
+}

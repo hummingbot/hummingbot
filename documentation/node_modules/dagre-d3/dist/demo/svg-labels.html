@@ -1,0 +1,103 @@
+<!doctype html>
+
+<meta charset="utf-8">
+<title>Dagre D3 Demo: SVG Labels</title>
+
+<link rel="stylesheet" href="demo.css">
+<script src="https://d3js.org/d3.v5.min.js" charset="utf-8"></script>
+<script src="../dagre-d3.js"></script>
+
+<h1>Dagre D3 Demo: SVG Labels</h1>
+
+<style id="css">
+    text {
+        font-weight: 300;
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serf;
+        font-size: 14px;
+    }
+
+    .node rect {
+        stroke: #999;
+        fill: #fff;
+        stroke-width: 1.5px;
+    }
+
+    .edgePath path {
+        stroke: #333;
+        stroke-width: 1.5px;
+    }
+</style>
+
+<svg id="svg-canvas" width=960 height=600></svg>
+
+<section>
+    <p>An example of adding SVG labels. This allows the user to add any svg
+        elements to the label. This allows for links to works in IE.</p>
+</section>
+
+<script id="js">
+    // Create the input graph
+    var g = new dagreD3.graphlib.Graph()
+            .setGraph({})
+            .setDefaultEdgeLabel(function() { return {}; });
+
+    // Create the SVG label to pass in
+    // Must create in SVG namespace
+    // http://stackoverflow.com/questions/7547117/add-a-new-line-in-svg-bug-cannot-see-the-line
+    // This mimics the same way string labels get added in Dagre-D3
+    svg_label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    tspan = document.createElementNS('http://www.w3.org/2000/svg','tspan');
+    tspan.setAttributeNS('http://www.w3.org/XML/1998/namespace', 'xml:space', 'preserve');
+    tspan.setAttribute('dy', '1em');
+    tspan.setAttribute('x', '1');
+    link = document.createElementNS('http://www.w3.org/2000/svg', 'a');
+    link.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', 'http://google.com/');
+    link.setAttribute('target', '_blank');
+    link.textContent = 'IE Capable link';
+    tspan.appendChild(link);
+    svg_label.appendChild(tspan);
+
+    g.setNode(0,  { label: svg_label, labelType: 'svg' });
+    g.setNode(1,  { label: "A" });
+    g.setNode(2,  { label: "B" });
+
+    g.nodes().forEach(function(v) {
+        var node = g.node(v);
+        // Round the corners of the nodes
+        node.rx = node.ry = 5;
+    });
+
+    svg_edge_label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    edge_tspan = document.createElementNS('http://www.w3.org/2000/svg','tspan');
+    edge_tspan.setAttributeNS('http://www.w3.org/XML/1998/namespace', 'xml:space', 'preserve');
+    edge_tspan.setAttribute('dy', '1em');
+    edge_tspan.setAttribute('x', '1');
+    edge_link = document.createElementNS('http://www.w3.org/2000/svg', 'a');
+    edge_link.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', 'http://google.com/');
+    edge_link.setAttribute('target', '_blank');
+    edge_link.textContent = 'IE Capable Edge link';
+    edge_tspan.appendChild(edge_link);
+    svg_edge_label.appendChild(edge_tspan);
+
+    // Set up edges, no special attributes.
+    g.setEdge(0, 1, { labelType: "svg", label: svg_edge_label });
+    g.setEdge(0, 2);
+    g.setEdge(1, 2);
+
+    // Create the renderer
+    var render = new dagreD3.render();
+
+    // Set up an SVG group so that we can translate the final graph.
+    var svg = d3.select("svg"),
+            svgGroup = svg.append("g");
+
+    // Run the renderer. This is what draws the final graph.
+    render(d3.select("svg g"), g);
+
+    // Center the graph
+    var xCenterOffset = (svg.attr("width") - g.graph().width) / 2;
+    svgGroup.attr("transform", "translate(" + xCenterOffset + ", 20)");
+    svg.attr("height", g.graph().height + 40);
+</script>
+
+<script src="demo.js"></script>

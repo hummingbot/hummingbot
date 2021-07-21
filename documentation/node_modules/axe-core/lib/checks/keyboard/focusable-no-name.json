@@ -1,0 +1,11 @@
+{
+	"id": "focusable-no-name",
+	"evaluate": "focusable-no-name.js",
+	"metadata": {
+		"impact": "serious",
+		"messages": {
+			"pass": "Element is not in tab order or has accessible text",
+			"fail": "Element is in tab order and does not have accessible text"
+		}
+	}
+}

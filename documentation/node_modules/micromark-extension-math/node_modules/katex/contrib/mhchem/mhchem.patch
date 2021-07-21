@@ -1,0 +1,235 @@
+0a1
+> /* eslint-disable */
+5a7,22
+>  *  KaTeX mhchem.js
+>  *
+>  *  This file implements a KaTeX version of mhchem version 3.3.0.
+>  *  It is adapted from MathJax/extensions/TeX/mhchem.js
+>  *  It differs from the MathJax version as follows:
+>  *    1. The interface is changed so that it can be called from KaTeX, not MathJax.
+>  *    2. \rlap and \llap are replaced with \mathrlap and \mathllap.
+>  *    3. Four lines of code are edited in order to use \raisebox instead of \raise.
+>  *    4. The reaction arrow code is simplified. All reaction arrows are rendered
+>  *       using KaTeX extensible arrows instead of building non-extensible arrows.
+>  *    5. \tripledash vertical alignment is slightly adjusted.
+>  *
+>  *    This code, as other KaTeX code, is released under the MIT license.
+>  * 
+>  * /*************************************************************
+>  *
+33a51
+> // version: "3.3.0" for MathJax and KaTeX
+35,37d52
+< MathJax.Extension["TeX/mhchem"] = {
+<   version: "3.3.0"
+< };
+39c54
+< MathJax.Hub.Register.StartupHook("TeX Jax Ready", function () {
+---
+> // Add \ce, \pu, and \tripledash to the KaTeX macros.
+41c56,58
+<   var TEX = MathJax.InputJax.TeX;
+---
+> katex.__defineMacro("\\ce", function(context) {
+>   return chemParse(context.consumeArgs(1)[0], "ce")
+> });
+43,47c60,62
+<   //
+<   //  This is the main class for handing the \ce and related commands.
+<   //  Its main method is Parse() which takes the argument to \ce and
+<   //  returns the corresponding TeX string.
+<   //
+---
+> katex.__defineMacro("\\pu", function(context) {
+>   return chemParse(context.consumeArgs(1)[0], "pu");
+> });
+49,50c64,68
+<   var CE = MathJax.Object.Subclass({
+<     string: "",   // the \ce string being parsed
+---
+> //  Needed for \bond for the ~ forms
+> //  Raise by 2.56mu, not 2mu. We're raising a hyphen-minus, U+002D, not 
+> //  a mathematical minus, U+2212. So we need that extra 0.56.
+> katex.__defineMacro("\\tripledash", "{\\vphantom{-}\\raisebox{2.56mu}{$\\mkern2mu"
+> + "\\tiny\\text{-}\\mkern1mu\\text{-}\\mkern1mu\\text{-}\\mkern2mu$}}");
+52,55c70
+<     //
+<     //  Store the string when a CE object is created
+<     //
+<     Init: function (string) { this.string = string; },
+---
+> import katex from "katex";
+57,64c72,85
+<     //
+<     //  This converts the CE string to a TeX string.
+<     //
+<     Parse: function (stateMachine) {
+<       try {
+<         return texify.go(mhchemParser.go(this.string, stateMachine));
+<       } catch (ex) {
+<         TEX.Error(ex);
+---
+>   //
+>   //  This is the main function for handing the \ce and \pu commands.
+>   //  It takes the argument to \ce or \pu and returns the corresponding TeX string.
+>   //
+> 
+>   var chemParse = function (tokens, stateMachine) {
+>     // Recreate the argument string from KaTeX's array of tokens.
+>     var str = "";
+>     var expectedLoc = tokens[tokens.length - 1].loc.start
+>     for (var i = tokens.length - 1; i >= 0; i--) {
+>       if(tokens[i].loc.start > expectedLoc) {
+>         // context.consumeArgs has eaten a space.
+>         str += " ";
+>         expectedLoc = tokens[i].loc.start;
+65a87,88
+>       str += tokens[i].text;
+>       expectedLoc += tokens[i].text.length;
+67c90,92
+<   });
+---
+>     var tex = texify.go(mhchemParser.go(str, stateMachine));
+>     return tex;
+>   };
+1405,1406c1430,1431
+<             res += "^{\\smash[t]{\\vphantom{2}}\\llap{"+(b5.b||"")+"}}";
+<             res += "_{\\vphantom{2}\\llap{\\smash[t]{"+(b5.p||"")+"}}}";
+---
+>             res += "^{\\smash[t]{\\vphantom{2}}\\mathllap{"+(b5.b||"")+"}}";
+>             res += "_{\\vphantom{2}\\mathllap{\\smash[t]{"+(b5.p||"")+"}}}";
+1508,1520c1533,1536
+<           var arrow = texify._getArrow(buf.r);
+<           if (b6.rd || b6.rq) {
+<             if (buf.r === "<=>"  ||  buf.r === "<=>>"  ||  buf.r === "<<=>"  ||  buf.r === "<-->") {
+<               // arrows that cannot stretch correctly yet, https://github.com/mathjax/MathJax/issues/1491
+<               arrow = "\\long"+arrow;
+<               if (b6.rd) { arrow = "\\overset{"+b6.rd+"}{"+arrow+"}"; }
+<               if (b6.rq) { arrow = "\\underset{\\lower7mu{"+b6.rq+"}}{"+arrow+"}"; }
+<               arrow = " {}\\mathrel{"+arrow+"}{} ";
+<             } else {
+<               if (b6.rq) { arrow += "[{"+b6.rq+"}]"; }
+<               arrow += "{"+b6.rd+"}";
+<               arrow = " {}\\mathrel{\\x"+arrow+"}{} ";
+<             }
+---
+>           var arrow = "\\x" + texify._getArrow(buf.r);
+>           if (b6.rq) { arrow += "[{" + b6.rq + "}]"; }
+>           if (b6.rd) {
+>             arrow += "{" + b6.rd + "}";
+1522c1538
+<             arrow = " {}\\mathrel{\\long"+arrow+"}{} ";
+---
+>             arrow += "{}";
+1615c1631
+<         case "<-->": return "leftrightarrows";
+---
+>         case "<-->": return "rightleftarrows";
+1618,1619c1634,1635
+<         case "<=>>": return "Rightleftharpoons";
+<         case "<<=>": return "Leftrightharpoons";
+---
+>         case "<=>>": return "rightequilibrium";
+>         case "<<=>": return "leftequilibrium";
+1634,1637c1650,1653
+<         case "~-": return "{\\rlap{\\lower.1em{-}}\\raise.1em{\\tripledash}}";
+<         case "~=": return "{\\rlap{\\lower.2em{-}}\\rlap{\\raise.2em{\\tripledash}}-}";
+<         case "~--": return "{\\rlap{\\lower.2em{-}}\\rlap{\\raise.2em{\\tripledash}}-}";
+<         case "-~-": return "{\\rlap{\\lower.2em{-}}\\rlap{\\raise.2em{-}}\\tripledash}";
+---
+>         case "~-": return "{\\mathrlap{\\raisebox{-.1em}{$-$}}\\raisebox{.1em}{$\\tripledash$}}";
+>         case "~=": return "{\\mathrlap{\\raisebox{-.2em}{$-$}}\\mathrlap{\\raisebox{.2em}{$\\tripledash$}}-}";
+>         case "~--": return "{\\mathrlap{\\raisebox{-.2em}{$-$}}\\mathrlap{\\raisebox{.2em}{$\\tripledash$}}-}";
+>         case "-~-": return "{\\mathrlap{\\raisebox{-.2em}{$-$}}\\mathrlap{\\raisebox{.2em}{$-$}}\\tripledash}";
+1680,1770d1695
+< 
+<   //
+<   // MathJax definitions
+<   //
+<   MathJax.Extension["TeX/mhchem"].CE = CE;
+< 
+<   /***************************************************************************/
+< 
+<   TEX.Definitions.Add({
+<     macros: {
+<       //
+<       //  Set up the macros for chemistry
+<       //
+<       ce: "CE",
+<       pu: "PU",
+< 
+<       //
+<       //  Make these load AMSmath package (redefined below when loaded)
+<       //
+<       xleftrightarrow:    ["Extension", "AMSmath"],
+<       xrightleftharpoons: ["Extension", "AMSmath"],
+<       xRightleftharpoons: ["Extension", "AMSmath"],
+<       xLeftrightharpoons: ["Extension", "AMSmath"],
+< 
+<       //  FIXME:  These don't work well in FF NativeMML mode
+<       longrightleftharpoons: ["Macro", "\\stackrel{\\textstyle{-}\\!\\!{\\rightharpoonup}}{\\smash{{\\leftharpoondown}\\!\\!{-}}}"],
+<       longRightleftharpoons: ["Macro", "\\stackrel{\\textstyle{-}\\!\\!{\\rightharpoonup}}{\\smash{\\leftharpoondown}}"],
+<       longLeftrightharpoons: ["Macro", "\\stackrel{\\textstyle\\vphantom{{-}}{\\rightharpoonup}}{\\smash{{\\leftharpoondown}\\!\\!{-}}}"],
+<       longleftrightarrows:   ["Macro", "\\stackrel{\\longrightarrow}{\\smash{\\longleftarrow}\\Rule{0px}{.25em}{0px}}"],
+< 
+<       //
+<       //  Needed for \bond for the ~ forms
+<       //  Not perfectly aligned when zoomed in, but on 100%
+<       //
+<       tripledash: ["Macro", "\\vphantom{-}\\raise2mu{\\kern2mu\\tiny\\text{-}\\kern1mu\\text{-}\\kern1mu\\text{-}\\kern2mu}"]
+<     },
+<   }, null, true);
+< 
+<   if (!MathJax.Extension["TeX/AMSmath"]) {
+<     TEX.Definitions.Add({
+<       macros: {
+<         xrightarrow: ["Extension", "AMSmath"],
+<         xleftarrow:  ["Extension", "AMSmath"]
+<       }
+<     }, null, true);
+<   }
+< 
+<   //
+<   //  These arrows need to wait until AMSmath is loaded
+<   //
+<   MathJax.Hub.Register.StartupHook("TeX AMSmath Ready", function () {
+<     TEX.Definitions.Add({
+<       macros: {
+<         //
+<         //  Some of these are hacks for now
+<         //
+<         xleftrightarrow:    ["xArrow", 0x2194, 6, 6],
+<         xrightleftharpoons: ["xArrow", 0x21CC, 5, 7],  // FIXME:  doesn't stretch in HTML-CSS output
+<         xRightleftharpoons: ["xArrow", 0x21CC, 5, 7],  // FIXME:  how should this be handled?
+<         xLeftrightharpoons: ["xArrow", 0x21CC, 5, 7]
+<       }
+<     }, null, true);
+<   });
+< 
+<   TEX.Parse.Augment({
+< 
+<     //
+<     //  Implements \ce and friends
+<     //
+<     CE: function (name) {
+<       var arg = this.GetArgument(name);
+<       var tex = CE(arg).Parse();
+<       this.string = tex + this.string.substr(this.i); this.i = 0;
+<     },
+< 
+<     PU: function (name) {
+<       var arg = this.GetArgument(name);
+<       var tex = CE(arg).Parse('pu');
+<       this.string = tex + this.string.substr(this.i); this.i = 0;
+<     }
+< 
+<   });
+< 
+<   //
+<   //  Indicate that the extension is ready
+<   //
+<   MathJax.Hub.Startup.signal.Post("TeX mhchem Ready");
+< 
+< });
+< 
+< MathJax.Ajax.loadComplete("[mhchem]/unpacked/mhchem.js");

@@ -1,0 +1,35 @@
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+var isRadio = function isRadio(node) {
+  return node.tagName === 'INPUT' && node.type === 'radio';
+};
+
+var findSelectedRadio = function findSelectedRadio(node, nodes) {
+  return nodes.filter(isRadio).filter(function (el) {
+    return el.name === node.name;
+  }).filter(function (el) {
+    return el.checked;
+  })[0] || node;
+};
+
+var correctNode = exports.correctNode = function correctNode(node, nodes) {
+  if (isRadio(node) && node.name) {
+    return findSelectedRadio(node, nodes);
+  }
+  return node;
+};
+
+var correctNodes = exports.correctNodes = function correctNodes(nodes) {
+  // IE11 has no Set constructor
+  var resultSet = new Set();
+  nodes.forEach(function (node) {
+    return resultSet.add(correctNode(node, nodes));
+  });
+  // using filter to support IE11
+  return nodes.filter(function (node) {
+    return resultSet.has(node);
+  });
+};

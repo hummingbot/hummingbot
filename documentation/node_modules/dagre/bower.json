@@ -1,0 +1,26 @@
+{
+  "name": "dagre",
+  "version": "0.8.5",
+  "main": [
+    "dist/dagre.core.js"
+  ],
+  "ignore": [
+    ".*",
+    "README.md",
+    "CHANGELOG.md",
+    "Makefile",
+    "browser.js",
+    "dist/dagre.js",
+    "dist/dagre.min.js",
+    "index.js",
+    "karma*",
+    "lib/**",
+    "package.json",
+    "src/**",
+    "test/**"
+  ],
+  "dependencies": {
+    "graphlib": "^2.1.8",
+    "lodash": "^4.17.15"
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "name": "remark-math",
+  "version": "4.0.0",
+  "description": "remark plugin to parse and stringify math",
+  "license": "MIT",
+  "keywords": [
+    "unified",
+    "remark",
+    "remark-plugin",
+    "plugin",
+    "mdast",
+    "markdown",
+    "math",
+    "katex",
+    "latex",
+    "tex"
+  ],
+  "repository": "https://github.com/remarkjs/remark-math/tree/main/packages/remark-math",
+  "bugs": "https://github.com/remarkjs/remark-math/issues",
+  "funding": {
+    "type": "opencollective",
+    "url": "https://opencollective.com/unified"
+  },
+  "author": "Junyoung Choi <fluke8259@gmail.com> (https://rokt33r.github.io)",
+  "contributors": [
+    "Junyoung Choi <fluke8259@gmail.com> (https://rokt33r.github.io)",
+    "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)"
+  ],
+  "files": [
+    "index.js",
+    "block.js",
+    "inline.js",
+    "util.js",
+    "types/index.d.ts"
+  ],
+  "main": "index.js",
+  "types": "types/index.d.ts",
+  "dependencies": {
+    "mdast-util-math": "^0.1.0",
+    "micromark-extension-math": "^0.1.0"
+  },
+  "scripts": {
+    "test-types": "dtslint types"
+  },
+  "xo": false
+}

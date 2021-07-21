@@ -1,0 +1,21 @@
+{
+	"id": "video-description",
+	"selector": "video",
+	"excludeHidden": false,
+	"tags": [
+		"cat.text-alternatives",
+		"wcag2aa",
+		"wcag125",
+		"section508",
+		"section508.22.b",
+		"deprecated"
+	],
+	"metadata": {
+		"description": "Ensures <video> elements have audio descriptions",
+		"help": "<video> elements must have an audio description track"
+	},
+	"enabled": false,
+	"all": [],
+	"any": [],
+	"none": ["description"]
+}

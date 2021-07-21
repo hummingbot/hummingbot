@@ -1,0 +1,34 @@
+{
+  "name": "socket.io-parser",
+  "version": "3.4.1",
+  "description": "socket.io protocol parser",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/socketio/socket.io-parser.git"
+  },
+  "files": [
+    "binary.js",
+    "index.js",
+    "is-buffer.js"
+  ],
+  "dependencies": {
+    "debug": "~4.1.0",
+    "component-emitter": "1.2.1",
+    "isarray": "2.0.1"
+  },
+  "devDependencies": {
+    "@babel/core": "~7.9.6",
+    "@babel/preset-env": "~7.9.6",
+    "babelify": "~10.0.0",
+    "benchmark": "2.1.2",
+    "expect.js": "0.3.1",
+    "mocha": "3.2.0",
+    "socket.io-browsers": "^1.0.0",
+    "zuul": "3.11.1",
+    "zuul-ngrok": "4.0.0"
+  },
+  "scripts": {
+    "test": "make test"
+  },
+  "license": "MIT"
+}

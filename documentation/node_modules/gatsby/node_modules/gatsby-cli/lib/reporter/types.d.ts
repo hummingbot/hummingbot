@@ -1,0 +1,7 @@
+export declare type CreateLogAction = any;
+export declare type ErrorMeta = {
+    id: string;
+    error?: Error;
+    context: Record<string, any>;
+    [id: string]: any;
+} | string | Error | Array<ErrorMeta>;

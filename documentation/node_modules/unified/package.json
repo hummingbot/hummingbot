@@ -1,0 +1,95 @@
+{
+  "name": "unified",
+  "version": "8.4.2",
+  "description": "Interface for processing text using syntax trees",
+  "license": "MIT",
+  "keywords": [
+    "process",
+    "parse",
+    "transform",
+    "compile",
+    "stringify",
+    "rehype",
+    "retext",
+    "remark"
+  ],
+  "homepage": "https://unifiedjs.com",
+  "repository": "unifiedjs/unified",
+  "bugs": "https://github.com/unifiedjs/unified/issues",
+  "funding": {
+    "type": "opencollective",
+    "url": "https://opencollective.com/unified"
+  },
+  "author": "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+  "contributors": [
+    "Titus Wormer <tituswormer@gmail.com> (https://wooorm.com)",
+    "Junyoung Choi <fluke8259@gmail.com>",
+    "Hernan Rajchert <hrajchert@gmail.com>",
+    "Christian Murphy <christian.murphy.42@gmail.com>",
+    "Vse Mozhet Byt <vsemozhetbyt@gmail.com>",
+    "Richard Littauer <richard.littauer@gmail.com>"
+  ],
+  "types": "types/index.d.ts",
+  "files": [
+    "types/index.d.ts",
+    "index.js",
+    "lib"
+  ],
+  "dependencies": {
+    "bail": "^1.0.0",
+    "extend": "^3.0.0",
+    "is-plain-obj": "^2.0.0",
+    "trough": "^1.0.0",
+    "vfile": "^4.0.0"
+  },
+  "devDependencies": {
+    "browserify": "^16.0.0",
+    "c8": "^6.0.0",
+    "dtslint": "^2.0.0",
+    "prettier": "^1.0.0",
+    "remark-cli": "^7.0.0",
+    "remark-preset-wooorm": "^6.0.0",
+    "tape": "^4.0.0",
+    "tinyify": "^2.0.0",
+    "xo": "^0.25.0"
+  },
+  "scripts": {
+    "format": "remark . -qfo && prettier --write \"**/{*.js,*.ts}\" && xo --fix",
+    "build-bundle": "browserify index.js -s unified -o unified.js",
+    "build-mangle": "browserify index.js -s unified -p tinyify -o unified.min.js",
+    "build": "npm run build-bundle && npm run build-mangle",
+    "test-api": "node test",
+    "test-coverage": "c8 --check-coverage --lines 100 --functions 100 --branches 100 --reporter lcov tape test",
+    "test-types": "dtslint types",
+    "test": "npm run format && npm run build && npm run test-coverage && npm run test-types"
+  },
+  "prettier": {
+    "tabWidth": 2,
+    "useTabs": false,
+    "singleQuote": true,
+    "bracketSpacing": false,
+    "semi": false,
+    "trailingComma": "none"
+  },
+  "xo": {
+    "prettier": true,
+    "esnext": false,
+    "rules": {
+      "guard-for-in": "off",
+      "unicorn/prefer-type-error": "off",
+      "unicorn/prefer-reflect-apply": "off"
+    },
+    "ignores": [
+      "unified.js"
+    ]
+  },
+  "remarkConfig": {
+    "plugins": [
+      "preset-wooorm"
+    ]
+  },
+  "collective": {
+    "type": "opencollective",
+    "url": "https://opencollective.com/unified"
+  }
+}
