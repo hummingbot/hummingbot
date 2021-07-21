@@ -1,0 +1,2 @@
+*.gif filter=lfs diff=lfs merge=lfs -text
+public/a6d8aa1eaf2d55af37a5444b9d36c2ae/opening-orders-1.gif filter=lfs diff=lfs merge=lfs -text
