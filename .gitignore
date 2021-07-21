@@ -73,3 +73,11 @@ gateway.env
 /cover/
 /coverage_html_report/
 coverage.xml
+
+# Documentation files
+/documentation/node_modules/
+/documentation/public/
+/documentation/.cache/
+/documentation/.env*
+/documentation/package.json
+/documentation/package-lock.json
