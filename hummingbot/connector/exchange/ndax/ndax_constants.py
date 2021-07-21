@@ -18,6 +18,7 @@ ORDER_BOOK_URL = f"{REST_URL}/GetL2Snapshot"
 LAST_TRADE_PRICE_URL = f"{REST_URL}/GetLevel1"
 
 # WebSocket Public Endpoints
+ACCOUNT_POSITION_EVENT_ENDPOINT_NAME = "AccountPositionEvent"
 AUTHENTICATE_USER_ENDPOINT_NAME = "AuthenticateUser"
 SUBSCRIBE_ACCOUNT_EVENTS_ENDPOINT_NAME = "SubscribeAccountEvents"
 WS_ORDER_BOOK_CHANNEL = "SubscribeLevel2"

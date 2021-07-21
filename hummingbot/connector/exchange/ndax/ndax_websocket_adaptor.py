@@ -41,6 +41,25 @@ class NdaxWebSocketAdaptor:
         self._messages_counter = previous_messages_number
         self._lock = asyncio.Lock()
 
+    @classmethod
+    def endpoint_from_raw_message(cls, raw_message: str) -> str:
+        message = ujson.loads(raw_message)
+        return cls.endpoint_from_message(message=message)
+
+    @classmethod
+    def endpoint_from_message(cls, message: Dict[str, Any]) -> str:
+        return message.get(cls._endpoint_field_name)
+
+    @classmethod
+    def payload_from_raw_message(cls, raw_message: str) -> Dict[str, Any]:
+        message = ujson.loads(raw_message)
+        return cls.payload_from_message(message=message)
+
+    @classmethod
+    def payload_from_message(cls, message: Dict[str, Any]) -> Dict[str, Any]:
+        payload = ujson.loads(message.get(cls._payload_field_name))
+        return payload
+
     async def next_message_number(self):
         async with self._lock:
             self._messages_counter += 1
@@ -76,12 +95,3 @@ class NdaxWebSocketAdaptor:
 
     async def close(self, *args, **kwars):
         return await self._websocket.close(*args, **kwars)
-
-    def endpoint_from_raw_message(self, raw_message: str) -> str:
-        message = ujson.loads(raw_message)
-        return message.get(self._endpoint_field_name)
-
-    def payload_from_raw_message(self, raw_message: str) -> Dict[str, Any]:
-        message = ujson.loads(raw_message)
-        payload = ujson.loads(message.get(self._payload_field_name))
-        return payload
