@@ -1,0 +1,237 @@
+---
+title: Advanced Configuration
+description: Info and usage on advanced configuration
+---
+
+import Callout from "../../src/components/Callout";
+
+## Fee override
+
+This feature overrides trading fees (maker and taker) from the corresponding market connector. This applies to users that have **discounted rates or VIP account with specific fees**.
+
+### How to configure fee override?
+
+Edit `conf_fee_overrides.yml` file using a text editor which is located in the `/conf` directory. Specific path or location may vary depending on the environment and how Hummingbot was installed.
+
+- Installed from source: `hummingbot/conf`
+- Installed via Docker: `hummingbot_files/hummingbot_conf`
+  - `hummingbot_files` is the default name of the parent directory. This can be different depending on the setup
+    when the instance was created.
+- Installed via Binary (Windows): `%localappdata%\hummingbot.io\Hummingbot\conf`
+- Installed via Binary (MacOS): `~/Library/Application\ Support/Hummingbot/Conf`
+
+### Fee override configuration by default
+
+```
+* Exchange trading fees, the values are in precise decimal, e.g. 0.1 for 0.1%.
+* If the value is left blank, the default value (from corresponding market connector) will be used.
+
+binance_maker_fee:
+binance_taker_fee:
+
+coinbase_pro_maker_fee:
+coinbase_pro_taker_fee:
+
+huobi_maker_fee:
+huobi_taker_fee:
+
+liquid_maker_fee:
+liquid_taker_fee:
+
+bittrex_maker_fee:
+bittrex_taker_fee:
+
+kucoin_maker_fee:
+kucoin_taker_fee:
+
+kraken_maker_fee:
+kraken_taker_fee:
+```
+
+<Callout
+  type="note"
+  body="Make sure Hummingbot is not running on background or exit Hummingbot first before editing `conf/conf_fee_overrides.yml`."
+/>
+
+## Logs and Logging
+
+As Hummingbot is an in-progress, open-access software, logs are available locally for each time an instance is run. Logs contain records of what happens when a bot is run, including the results of specified checks and behaviors as well as error tracing.
+
+### Viewing Log Configurations
+
+The way that log files are structured is contained within `conf/hummingbot_logs.yml`. For now, we request that users leave the log settings at the defaults. This makes it easier for the Hummingbot team to trace bugs and other problems that users face when logs are submitted.
+
+### Viewing Individual Log Files
+
+For users who wish to locate and submit log files, generally they are located in the `/logs` folder.
+Specific path or location may vary depending on the environment and how Hummingbot was installed.
+
+- Installed from source: `hummingbot/logs`
+- Installed via Docker: `hummingbot_files/hummingbot_logs`
+  - `hummingbot_files` is the default name of the parent directory. This can be different depending on the setup
+    when the instance was created.
+- Installed via Binary (Windows): `%localappdata%\hummingbot.io\Hummingbot\logs`
+- Installed via Binary (MacOS): `~/Library/Application\ Support/Hummingbot/Logs`
+
+### Log File Management
+
+A separate log file will now be generated daily. When a new log file is created, if there are more than 7 files,
+the oldest ones will be deleted in order to limit disk storage usage.
+The log rotation feature was added in [Hummingbot version 0.17.0](https://docs.hummingbot.io/release-notes/0.17.0/#log-file-management-data-storage).
+
+If you are looking for support in handling errors or have questions about behavior reported in logs,
+you can find ways of contacting the team or community in our [support section](/intro/support).
+
+## Setup Ethereum wallet
+
+### Why does Hummingbot need my Ethereum wallet private key?
+
+Strategies that transact on decentralized exchanges (such as [Radar Relay](/spot-connectors/radar-relay), [Bamboo Relay](/spot-connectors/bamboo-relay), and [Dolomite](/spot-connectors/dolomite)) directly interact with smart contracts on the Ethereum blockchain. Therefore, transactions must be signed and authorized, which requires your private key.
+
+Run command `connect ethereum` to connect your Ethereum wallet with Hummingbot.
+
+```
+Enter your wallet private key >>>
+```
+
+### Importing your wallet
+
+There are two ways to import your Hummingbot wallet from other wallets like Metamask and MyCrypto:
+
+1. Importing the wallet's keyfile (recommended)
+2. Importing the wallet's private key
+
+We recommend using the keyfile method over copying and pasting the private key. If your private key remains in your clipboard, there is a risk that a malicious website that you visit may utilize Javascript to access your clipboard and copy its contents.
+
+<Callout
+  type="tip"
+  body="For Metamask wallet, using a wallet that is available in your Metamask (i.e. importing a wallet from Metamask) allows you to view orders created and trades filled by Hummingbot on the decentralized exchange's website."
+/>
+
+#### Keyfile (recommended)
+
+To import your wallet using its JSON keyfile:
+
+1. Export the JSON keyfile from other wallets such as Metamask, MyCrypto, or MyEtherWallet
+2. Save the file in the `/conf` directory
+3. Rename the file to `key_file_[address].json`, where `[address]` is the public Ethereum address in the format `0xabc...def`.
+4. Start Hummingbot
+5. Run `connect` command to confirm if keys are confirmed and added for ethereum.
+
+#### Private key
+
+1. In the Hummingbot client run command `connect ethereum`
+2. Enter the private key associated with the wallet
+
+#### Keyfile (recommended)
+
+When you import a wallet with Hummingbot, a JSON file named `key_file_[address].json` is created in the `/conf` directory. This JSON keyfile contains the encrypted private key of your wallet and can be imported into other dApps.
+
+#### Private key
+
+Within the Hummingbot CLI, you can use the `export_private_key` command to display the private key associated with a wallet address. You can import your wallet to dApps like Metamask and MyCrypto using this private key as well.
+
+## Setup Ethereum Nodes
+
+You need an Ethereum node for strategies that trade on Ethereum-based decentralized exchanges, such as Radar Relay, Bamboo Relay, and Dolomite.
+
+Run command `config ethereum_rpc_url` to use your Ethereum node with Hummingbot.
+
+```
+Which Ethereum node would you like your client to connect to? >>>
+```
+
+Below, we list different ways that you can access an Ethereum node.
+
+### Option 1. Infura
+
+[Infura](https://infura.io/) provides free and the most widely used Ethereum nodes.
+
+1. Sign up for an account on infura.io
+   ![infura](/img/infura1.png)
+2. Click on **Ethereum** and **Create a project**.
+   ![infura2](/img/infura2.png)
+3. Name your project and click **Create**.
+4. In **Keys** section and under **Endpoints** you'll find your Ethereum node as shown in the highlighted area.
+   ![infura3](/img/infura3.png)
+5. The websocket address is below the Ethereum node that starts with `wss://`
+
+### Option 2. Run your own local node
+
+The most decentralized way to access an Ethereum node is to run your own node!
+
+Running your own node may require dedicated storage and compute, as well as some technical skills. These are the two most widely used Ethereum clients:
+
+- [Geth (go-ethereum)](https://github.com/ethereum/go-ethereum/wiki/Building-Ethereum)
+- [Parity](https://github.com/paritytech/parity-ethereum)
+
+<Callout
+  type="note"
+  body="These may require several hours to days to sync and may require some troubleshooting when first running."
+/>
+
+### Option 3. Dedicated blockchain hardware
+
+Get dedicated hardware for your Ethereum node. Ethereum nodes are meant to run constantly 24/7 and use up a material amount of computational resources (CPU, RAM, and storage). For more serious users, it may make sense to use dedicated hardware.
+
+#### Software
+
+- [DAppNode](https://dappnode.io/) is software that automates the installation and operation of Ethereum (as well as other blockchains) on dedicated hardware. It is easier to start and operate an Ethereum node and can run other blockchains.
+
+#### Hardware
+
+- [IntelⓇ NUC mini PC](https://www.intel.com/content/www/us/en/products/boards-kits/nuc.html): DIY, customize and configure your own hardware.
+- [Avado](https://ava.do/): purpose built hardware that is pre-loaded with DAppNode.
+
+## Advanced Database Configuration
+
+<Callout
+  type="warning"
+  body="This is a recently released experimental feature. Running any trading bots without manual supervision may incur additional risks. It is imperative that you thoroughly understand and test the strategy and parameters before deploying bots that can trade in an unattended manner."
+/>
+
+Hummingbot uses SQLite for database by default, but it may be limiting for some cases such as sharing data to external system, in some cases user may want to use their own preferred client/server RDBMS for it.
+
+Other RDBMS are supported on Hummingbot through SQLAlchemy, it has [included some widely used RDBMS dialects](https://docs.sqlalchemy.org/en/13/dialects/index.html), i.e.:
+
+- PostgreSQL
+- MySQL
+- Oracle
+- Microsoft SQL Server
+
+These dialects requires separate DBAPI driver to be installed on Hummingbot's conda environment, see [SQLAlchemy documentation](https://docs.sqlalchemy.org/en/13/dialects/index.html) for more information on appropriate DBAPI driver for each RDBMS. For example, to use PostgreSQL, `psycopg2` need to be installed. Run the following command to install it using conda:
+
+```
+conda install psycopg2
+```
+
+To configure RDBMS connection, we need to edit `conf_global.yml` in `/conf` directory.
+
+```
+- Advanced database options, currently supports SQLAlchemy's included dialects
+- Reference: https://docs.sqlalchemy.org/en/13/dialects/
+
+db_engine: sqlite
+db_host: 127.0.0.1
+db_port: '3306'
+db_username: username
+db_password: password
+db_name: dbname
+```
+
+### Configuration Parameters
+
+| Configuration Parameter | Possible Values                              |
+| ----------------------- | -------------------------------------------- |
+| db_engine               | `sqlite`,`postgres`,`mysql`,`oracle`,`mssql` |
+| db_host                 | any string e.g. `127.0.0.1`                  |
+| db_port                 | any string e.g. `3306`                       |
+| db_username             | any string e.g. `username`                   |
+| db_password             | any string e.g. `password`                   |
+| db_name                 | any string e.g. `dbname`                     |
+
+### SQLAlchemy Dialects
+
+It is also possible to connect with available SQLAlchemy's external dialects (e.g. Amazon Redshift). But the feature is not currently supported in Hummingbot due to its various DSN format, **use this at your own risk**.
+
+<small>Feature contribution by [Rupiah Token](https://rupiahtoken.com).</small>
