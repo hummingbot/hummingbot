@@ -9,6 +9,7 @@ from typing import (
 from decimal import Decimal
 import asyncio
 import aiohttp
+import copy
 import math
 import time
 import ujson
@@ -103,6 +104,7 @@ class CoinzoomExchange(ExchangeBase):
         self._trading_rules_polling_task = None
         self._last_poll_timestamp = 0
         self._throttler = Throttler(rate_limit = (8.0, 6))
+        self._real_time_balance_update = False
 
     @property
     def name(self) -> str:
@@ -688,6 +690,7 @@ class CoinzoomExchange(ExchangeBase):
                 "averagePrice": 56518.7,
             }
         """
+
         # Looks like CoinZoom might support clientOrderId eventually so leaving this here for now.
         # if order_msg.get('clientOrderId') is not None:
         #     client_order_id = order_msg["clientOrderId"]
@@ -701,30 +704,29 @@ class CoinzoomExchange(ExchangeBase):
             exchange_order_id = str(order_msg["orderId"])
         tracked_orders = list(self._in_flight_orders.values())
         track_order = [o for o in tracked_orders if exchange_order_id == o.exchange_order_id]
-        if not track_order:
-            return
-        tracked_order = track_order[0]
+        if track_order:
+            tracked_order = track_order[0]
 
-        # Estimate fee
-        order_msg["trade_fee"] = self.estimate_fee_pct(tracked_order.order_type is OrderType.LIMIT_MAKER)
-        updated = tracked_order.update_with_order_update(order_msg)
+            # Estimate fee
+            order_msg["trade_fee"] = self.estimate_fee_pct(tracked_order.order_type is OrderType.LIMIT_MAKER)
+            updated = tracked_order.update_with_order_update(order_msg)
+
+            if updated:
+                safe_ensure_future(self._trigger_order_fill(tracked_order, order_msg))
+            elif tracked_order.is_cancelled:
+                self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
+                self.stop_tracking_order(tracked_order.client_order_id)
+                self.trigger_event(MarketEvent.OrderCancelled,
+                                   OrderCancelledEvent(self.current_timestamp, tracked_order.client_order_id))
+                tracked_order.cancelled_event.set()
+            elif tracked_order.is_failure:
+                self.logger().info(f"The order {tracked_order.client_order_id} has failed according to order status API. ")
+                self.trigger_event(MarketEvent.OrderFailure,
+                                   MarketOrderFailureEvent(
+                                       self.current_timestamp, tracked_order.client_order_id, tracked_order.order_type))
+                self.stop_tracking_order(tracked_order.client_order_id)
         # Call Update balances on every message to catch order create, fill and cancel.
         safe_ensure_future(self._update_balances())
-
-        if updated:
-            safe_ensure_future(self._trigger_order_fill(tracked_order, order_msg))
-        elif tracked_order.is_cancelled:
-            self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
-            self.stop_tracking_order(tracked_order.client_order_id)
-            self.trigger_event(MarketEvent.OrderCancelled,
-                               OrderCancelledEvent(self.current_timestamp, tracked_order.client_order_id))
-            tracked_order.cancelled_event.set()
-        elif tracked_order.is_failure:
-            self.logger().info(f"The order {tracked_order.client_order_id} has failed according to order status API. ")
-            self.trigger_event(MarketEvent.OrderFailure,
-                               MarketOrderFailureEvent(
-                                   self.current_timestamp, tracked_order.client_order_id, tracked_order.order_type))
-            self.stop_tracking_order(tracked_order.client_order_id)
 
     async def _trigger_order_fill(self,
                                   tracked_order: CoinzoomInFlightOrder,
@@ -781,6 +783,8 @@ class CoinzoomExchange(ExchangeBase):
         for asset_name in asset_names_to_remove:
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
+        self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
+        self._in_flight_orders_snapshot_timestamp = self.current_timestamp
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         """
