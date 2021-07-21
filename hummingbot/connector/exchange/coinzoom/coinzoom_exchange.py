@@ -245,7 +245,7 @@ class CoinzoomExchange(ExchangeBase):
         """
         try:
             # since there is no ping endpoint, the lowest rate call is to get BTC-USD symbol
-            await self._api_request("GET", Constants.ENDPOINT['SYMBOL'])
+            await self._api_request("GET", Constants.ENDPOINT['NETWORK_CHECK'])
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -334,7 +334,8 @@ class CoinzoomExchange(ExchangeBase):
         signature to the request.
         :returns A response in json format.
         """
-        async with self._throttler.weighted_task(request_weight=1):
+        request_weight = 0 if endpoint == Constants.ENDPOINT['NETWORK_CHECK'] else 1
+        async with self._throttler.weighted_task(request_weight=request_weight):
             url = f"{Constants.REST_URL}/{endpoint}"
             shared_client = await self._http_client()
             # Turn `params` into either GET params or POST body data
