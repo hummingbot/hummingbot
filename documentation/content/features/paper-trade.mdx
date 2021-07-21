@@ -1,0 +1,106 @@
+---
+title: Paper Trade Mode
+description:
+---
+
+import Callout from "../../src/components/Callout";
+import StatusCircle from "../../src/components/StatusCircle";
+
+This feature allows users to test Hummingbot and simulate trading strategies without risking any actual assets. Enter the command `paper_trade` to enable this feature.
+
+![papertrade](img/paper_trade.gif)
+
+<Callout
+  type="note"
+  body="Exchange APIs are not required to run the bot on paper_trade for Pure Market making, Cross Exchange Market Making, and Liquidity Mining strategies. "
+/>
+
+## Enabling and Disabling
+
+Paper trading mode can be enabled and disabled from the Hummingbot client by doing `paper_trade` or `config paper_trade_enabled`.
+
+The top bar shows the status to indicate if paper trading mode is on or off.
+
+![papertrade2](img/paper_trade_mode2.png)
+
+It also shows a reminder that paper trade was enabled when doing a `status` or `history` command.
+
+![papertrade3](img/paper_trade_warning.png)
+
+<Callout
+  type="tip"
+  body="In the event that the bot is running on paper trade and you disable it, you need to `stop` and `start` the bot to apply the changes. Make sure your Exchange APIs are connected as well when going live."
+/>
+
+## Adding Paper Trade Balance
+
+By default, the paper trade account has the following tokens and balances, which you can see when you run the `balance paper` command.
+
+```
+>>>  balance paper
+Paper account balances:
+    Asset    Balance
+      DAI  1000.0000
+      ETH    10.0000
+      ONE  1000.0000
+     TUSD  1000.0000
+     USDC  1000.0000
+     USDQ  1000.0000
+     USDT  1000.0000
+     WETH    10.0000
+      ZRX  1000.0000
+```
+
+When adding balances, specify the asset and balance you want by running this command `balance paper [asset] [amount]`.
+
+For example, we want to add 0.5 BTC and check our paper account balance to confirm.
+
+```
+>>>  balance paper BTC 0.5
+Paper balance for BTC token set to 0.5
+
+>>>  balance paper
+Paper account balances:
+    Asset    Balance
+      BTC     0.5000
+      DAI  1000.0000
+      ETH    10.0000
+      ONE  1000.0000
+     TUSD  1000.0000
+     USDC  1000.0000
+     USDQ  1000.0000
+     USDT  1000.0000
+     WETH    10.0000
+      ZRX  1000.0000
+```
+
+Here is the list of our Supported Connectors that could run `paper_trade` as of version 0.38.0.
+
+| Connector                                      |                   Status                   | Description                                                                                                                                                                        |
+| :--------------------------------------------- | :----------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [AscendEx](/spot-connectors/ascend-ex)         | <StatusCircle color="yellow" font="25px"/> | Connector has one or more reported issues. Refer to our [Github page](https://github.com/CoinAlpha/hummingbot/issues?q=is%3Aopen+%22AscendEx%22+in%3Atitle) for more information   |
+| [Beaxy](/spot-connectors/beaxy)                | <StatusCircle color="green" font="25px"/>  | Connector is working properly and safe to use                                                                                                                                      |
+| [Binance](/spot-connectors/binance)            | <StatusCircle color="green" font="25px"/>  | Connector is working properly and safe to use                                                                                                                                      |
+| [Binance US](/spot-connectors/binance-us)      | <StatusCircle color="yellow" font="25px"/> | Connector has one or more reported issues. Refer to our [Github page](https://github.com/CoinAlpha/hummingbot/issues?q=is%3Aopen+%22binance+US%22+in%3Atitle) for more information |
+| [Bitfinex](/spot-connectors/bitfinex)          | <StatusCircle color="yellow" font="25px"/> | Connector has one or more reported issues. Refer to our [Github page](https://github.com/CoinAlpha/hummingbot/issues?q=is%3Aopen+%22bitfinex%22+in%3Atitle) for more information   |
+| [Bittrex Global](/spot-connectors/bittrex)     | <StatusCircle color="yellow" font="25px"/> | Connector has one or more reported issues. Refer to our [Github page](https://github.com/CoinAlpha/hummingbot/issues?q=is%3Aopen+%22bittrex%22+in%3Atitle) for more information    |
+| [Blocktane](/spot-connectors/blocktane)        | <StatusCircle color="green" font="25px"/>  | Connector is working properly and safe to use                                                                                                                                      |
+| [Coinbase Pro](/spot-connectors/coinbase)      | <StatusCircle color="green" font="25px"/>  | Connector is working properly and safe to use                                                                                                                                      |
+| [Coinzoom](/spot-connectors/coinzoom)          | <StatusCircle color="yellow" font="25px"/> | Connector is new (BETA) and may have some undiscovered issues                                                                                                                      |
+| [Crypto.com](/spot-connectors/crypto-com)      | <StatusCircle color="yellow" font="25px"/> | Connector has one or more reported issues. Refer to our [Github page](https://github.com/CoinAlpha/hummingbot/issues?q=is%3Aopen+%22crypto.com%22+in%3Atitle) for more information |
+| [Digifinex](/spot-connectors/digifinex)        | <StatusCircle color="yellow" font="25px"/> | Connector is new (BETA) and may have some undiscovered issues                                                                                                                      |
+| [dYdX](/spot-connectors/dydx)                  | <StatusCircle color="green" font="25px"/>  | Connector is working properly and safe to use                                                                                                                                      |
+| [FTX](/spot-connectors/ftx)                    | <StatusCircle color="yellow" font="25px"/> | Connector is new (BETA) and may have some undiscovered issues                                                                                                                      |
+| [HitBTC](/spot-connectors/hitbtc)              | <StatusCircle color="yellow" font="25px"/> | Connector is new (BETA) and may have some undiscovered issues                                                                                                                      |
+| [Huobi Global](/spot-connectors/huobi)         | <StatusCircle color="green" font="25px"/>  | Connector is working properly and safe to use                                                                                                                                      |
+| [Kraken](/spot-connectors/kraken)              | <StatusCircle color="green" font="25px"/>  | Connector is working properly and safe to use                                                                                                                                      |
+| [Liquid](/spot-connectors/liquid)              | <StatusCircle color="green" font="25px"/>  | Connector is working properly and safe to use                                                                                                                                      |
+| [Loopring](/spot-connectors/loopring)          | <StatusCircle color="yellow" font="25px"/> | Connector has one or more reported issues. Refer to our [Github page](https://github.com/CoinAlpha/hummingbot/issues?q=is%3Aopen+%22loopring%22+in%3Atitle) for more information   |
+| [OKEx](/spot-connectors/okex)                  | <StatusCircle color="green" font="25px"/>  | Connector is working properly and safe to use                                                                                                                                      |
+| [ProBit Global](/spot-connectors/probit)       | <StatusCircle color="yellow" font="25px"/> | Connector has one or more reported issues. Refer to our [Github page](https://github.com/CoinAlpha/hummingbot/issues?q=is%3Aopen+%22bitfinex%22+in%3Atitle) for more information   |  |
+| [ProBit Korea](/spot-connectors/probit-korea/) | <StatusCircle color="yellow" font="25px"/> | Connector has one or more reported issues. Refer to our [Github page](https://github.com/CoinAlpha/hummingbot/issues?q=is%3Aopen+%22bitfinex%22+in%3Atitle) for more information   |  |
+
+<Callout
+  type="note"
+  body="Spot exchanges that are not listed are currently broken and unusable."
+/>

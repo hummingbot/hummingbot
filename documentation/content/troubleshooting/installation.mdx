@@ -1,0 +1,92 @@
+---
+title: Installation
+description: Common errors and fixes related to installing Hummingbot
+---
+
+### Binary: Why does my anti-virus software flag Hummingbot's binary installer?
+
+This has been reported by some users starting from version 0.33 (see [GitHub issue #2680](https://github.com/CoinAlpha/hummingbot/issues/2680)).
+
+The two AV engines that give a positive reading are Gridinsoft and Cyren. They both have methods of submitting false positives:
+
+https://blog.gridinsoft.com/how-to-report-the-false-detection/ https://www.cyren.com/support/reporting-av-misclassifications
+
+We believe these are fairly generic designations that are probably triggered by the general crypto code in the `ethsnarks` module for the Loopring connector.
+
+---
+
+### Source: ModuleNotFoundError
+
+```
+ModuleNotFoundError: No module named 'hummingbot.market.market_base'
+root - ERROR - No module named
+‘hummingbot.strategy.pure_market_making.inventory_skew_single_size_sizing_delegate’
+(See log file for stack trace dump)
+```
+
+Solution 1: exit Hummingbot to compile and restart using these commands:
+
+```
+conda activate hummingbot
+./compile
+bin/hummingbot.py
+```
+
+Solution 2: make sure you have a conda section in ~/.bashrc. Run conda init if it is not there. Explanation: if you have custom PATH defined in ~/.bashrc, supplied scripts (./compile etc) may pick the wrong python binary, causing different errors.
+
+---
+
+### Source: SyntaxError invalid SyntaxError
+
+```
+File "bin/hummingbot.py", line 40
+  def detect_available_port(starting_port: int) -> int:
+                                           ^
+SyntaxError: invalid syntax
+```
+
+---
+
+### Source: conda command not found
+
+```
+$ conda
+-bash: conda: command not found
+```
+
+If you have just installed conda, close terminal and reopen a new terminal to update the command line's program registry.
+
+If you use `zshrc` or another shell other than `bash`, see install dependencies (https://docs.hummingbot.io/installation/mac/#install-from-source)
+
+---
+
+### Docker: Package 'docker.io' has no installation candidate
+
+![Hummingbot installed](/img/package-docker-io.png)
+
+Install Docker using get.docker.com script as an alternative. Install curl tool then download and run get.docker.com script.
+
+```
+apt-get install curl
+curl -sSL https://get.docker.com/ | sh
+
+```
+
+Allow docker commands without requiring sudo prefix (optional).
+
+```
+sudo usermod -a -G docker $USER
+```
+
+---
+
+### Docker: Permission denied after Docker installation
+
+```
+docker: Got permission denied while trying to connect to the Docker daemon socket at
+unix:///var/run/docker.sock: Post
+http://%2Fvar%2Frun%2Fdocker.sock/v1.39/containers/create?name=hummingbot_instance:
+dial unix /var/run/docker.sock: connect: permission denied.
+```
+
+Exit from your virtual machine and restart.
