@@ -1,0 +1,49 @@
+---
+title: Strategy
+description:
+---
+
+### Why is my bot not placing orders?
+
+Fetch your bot status by running `status` or `[Ctrl + S]`:
+
+- Are there any warnings that may prevent the bot from starting?
+- Is your `order_amount` parameter larger than the exchange minimum order size requirement?
+- If the user doesn't have enough balance to meet the set order amount, the bot will still try to create an order with a smaller order amount size provided that it still meets the exchange minimum requirement.
+- Is your `inventory_skew_enabled` parameter enabled? Since this parameter adjusts order sizes, one side may be too low or too high.
+
+---
+
+### AMM Arbitrage strategy is not working
+
+Some few important things to check:
+
+- Assets in both base and quote
+- Make sure gateway is running
+- Some ETH for gas
+- Installed Hummingbot-gateway and configured it to mainnet/testnet depending on where you are using it.
+- Connected Ethereum wallet and put in the right ethereum node corresponding to what you have put in installing your gateway.
+
+---
+
+### Why is my bot not creating orders on Perpetual Market-Making?
+
+Check if you have an open position on Binance, it'll stop creating a new set of orders until your current position is closed. To learn more about perpetual market-making, click [here](https://docs.hummingbot.io/strategies/perpetual-market-making/#position_management).
+
+---
+
+### I have my own strategy. Can I make the bot execute it?
+
+Hummingbot is an open-source application that you can create your custom scripts and build strategy. Guidelines has been created so our community can have their way to improve or add features.
+
+You can check our Discord and check our Dev-Strategies, where you can share your ideas about your strategy. This link would also help you more in Developing Strategies.
+
+We're planning to make strategy creation a lot easier this year - likely Q2/Q3
+
+---
+
+### Orders are not refreshing according to order refresh time
+
+Make sure to set your `order_refresh_tolerance_pct` to -1 if you are not using the parameter.
+
+When using the parameter `order_refresh_tolerance`, orders do not refresh according to order refresh time if it doesn't exceed the percentage (%) threshold you set under `order_refresh_tolerance_pct`.
