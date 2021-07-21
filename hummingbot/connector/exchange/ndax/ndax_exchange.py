@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 
 from decimal import Decimal
 from typing import (
@@ -19,6 +20,7 @@ from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.event.events import (
     OrderType,
 )
+from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
 
 s_decimal_NaN = Decimal("nan")
@@ -29,6 +31,9 @@ class NdaxExchange(ExchangeBase):
     Class to onnect with NDAX exchange. Provides order book pricing, user account tracking and
     trading functionality.
     """
+    SHORT_POLL_INTERVAL = 5.0
+    UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
+    LONG_POLL_INTERVAL = 120.0
 
     _logger = None
 
@@ -82,6 +87,52 @@ class NdaxExchange(ExchangeBase):
         Note that Market order type is no longer required and will not be used.
         """
         return [OrderType.MARKET, OrderType.LIMIT, OrderType.LIMIT_MAKER]
+
+    async def _update_balances(self):
+        pass
+
+    async def _update_order_status(self):
+        pass
+
+    async def _status_polling_loop(self):
+        """
+        Periodically update user balances and order status via REST API. This serves as a fallback measure for web
+        socket API updates.
+        """
+        while True:
+            try:
+                self._poll_notifier = asyncio.Event()
+                await self._poll_notifier.wait()
+                await safe_gather(
+                    self._update_balances(),
+                    self._update_order_status(),
+                )
+                self._last_poll_timestamp = self.current_timestamp
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                self.logger().error(str(e), exc_info=True)
+                self.logger().network("Unexpected error while fetching account updates.",
+                                      exc_info=True,
+                                      app_warning_msg="Could not fetch account updates from NDAX. "
+                                                      "Check API key and network connection.")
+                await asyncio.sleep(0.5)
+
+    def tick(self, timestamp: float):
+        """
+        Is called automatically by the clock for each clock tick(1 second by default).
+        It checks if a status polling task is due for execution.
+        """
+        now = time.time()
+        poll_interval = (self.SHORT_POLL_INTERVAL
+                         if now - self._user_stream_tracker.last_recv_time > 60.0
+                         else self.LONG_POLL_INTERVAL)
+        last_tick = int(self._last_timestamp / poll_interval)
+        current_tick = int(timestamp / poll_interval)
+        if current_tick > last_tick:
+            if not self._poll_notifier.is_set():
+                self._poll_notifier.set()
+        self._last_timestamp = timestamp
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
         while True:
