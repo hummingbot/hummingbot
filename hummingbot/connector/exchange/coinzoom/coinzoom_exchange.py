@@ -105,6 +105,9 @@ class CoinzoomExchange(ExchangeBase):
         self._last_poll_timestamp = 0
         self._throttler = Throttler(rate_limit = (8.0, 6))
         self._real_time_balance_update = False
+        self._update_balances_fetching = False
+        self._update_balances_queued = False
+        self._update_balances_finished = asyncio.Event()
 
     @property
     def name(self) -> str:
@@ -212,6 +215,11 @@ class CoinzoomExchange(ExchangeBase):
         # Resets timestamps for status_polling_task
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
+        self._poll_notifier = asyncio.Event()
+        # Reset balance queue
+        self._update_balances_fetching = False
+        self._update_balances_queued = False
+        self._update_balances_finished = asyncio.Event()
 
         self._order_book_tracker.stop()
         if self._status_polling_task is not None:
@@ -591,8 +599,35 @@ class CoinzoomExchange(ExchangeBase):
         """
         Calls REST API to update total and available balances.
         """
-        account_info = await self._api_request("GET", Constants.ENDPOINT["USER_BALANCES"], is_auth_required=True)
-        self._process_balance_message(account_info)
+        try:
+            # Check for in progress balance updates, queue if fetching and none already waiting, otherwise skip.
+            if self._update_balances_fetching:
+                if not self._update_balances_queued:
+                    self._update_balances_queued = True
+                    await self._update_balances_finished.wait()
+                    self._update_balances_queued = False
+                    self._update_balances_finished = asyncio.Event()
+                else:
+                    return
+            self._update_balances_fetching = True
+            account_info = await self._api_request("GET", Constants.ENDPOINT["USER_BALANCES"], is_auth_required=True)
+            self._process_balance_message(account_info)
+            self._update_balances_fetching = False
+            # Set balance update finished event if there's one waiting.
+            if self._update_balances_queued and not self._update_balances_finished.is_set():
+                self._update_balances_finished.set()
+        except Exception as e:
+            if self._update_balances_queued:
+                if self._update_balances_finished.is_set():
+                    self._update_balances_finished = asyncio.Event()
+                else:
+                    self._update_balances_finished.set()
+                self._update_balances_queued = False
+            if self._update_balances_fetching:
+                self._update_balances_fetching = False
+            warn_msg = (f"Could not fetch balance update from {Constants.EXCHANGE_NAME}")
+            self.logger().network(f"Unexpected error while fetching balance update - {str(e)}", exc_info=True,
+                                  app_warning_msg=warn_msg)
 
     async def _update_order_status(self):
         """
