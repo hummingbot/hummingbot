@@ -110,10 +110,10 @@ class NdaxAPIUserStreamDataSourceTests(TestCase):
         authentication_request = self.ws_sent_messages[0]
         subscription_request = self.ws_sent_messages[1]
         self.assertEqual(CONSTANTS.AUTHENTICATE_USER_ENDPOINT_NAME,
-                         NdaxWebSocketAdaptor(None).endpoint_from_raw_message(authentication_request))
+                         NdaxWebSocketAdaptor.endpoint_from_raw_message(authentication_request))
         self.assertEqual(CONSTANTS.SUBSCRIBE_ACCOUNT_EVENTS_ENDPOINT_NAME,
-                         NdaxWebSocketAdaptor(None).endpoint_from_raw_message(subscription_request))
-        subscription_payload = NdaxWebSocketAdaptor(None).payload_from_raw_message(subscription_request)
+                         NdaxWebSocketAdaptor.endpoint_from_raw_message(subscription_request))
+        subscription_payload = NdaxWebSocketAdaptor.payload_from_raw_message(subscription_request)
         expected_payload = {"AccountId": self.account_id,
                             "OMSId": self.oms_id}
         self.assertEqual(expected_payload, subscription_payload)
