@@ -30,11 +30,14 @@ class HummingbotLogger(PythonLogger):
     def __init__(self, name: str):
         super().__init__(name)
 
+    @staticmethod
+    def is_testing_mode() -> bool:
+        return "nose" in sys.argv or any("unittest" in arg for arg in sys.argv)
+
     def notify(self, msg: str):
         from . import INFO
         self.log(INFO, msg)
-        from os import getcwd
-        if "test" not in getcwd():
+        if not HummingbotLogger.is_testing_mode():
             from hummingbot.client.hummingbot_application import HummingbotApplication
             hummingbot_app: HummingbotApplication = HummingbotApplication.main_application()
             hummingbot_app._notify(f"({pd.Timestamp.fromtimestamp(int(time.time()))}) {msg}")
