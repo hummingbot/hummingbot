@@ -1,5 +1,8 @@
 import asyncio
 import json
+import time
+import pandas as pd
+
 from decimal import Decimal
 from unittest import TestCase
 from unittest.mock import AsyncMock, patch
@@ -11,6 +14,8 @@ from hummingbot.connector.exchange.ndax.ndax_exchange import NdaxExchange
 class NdaxExchangeTests(TestCase):
     # the level is required to receive logs from the data source loger
     level = 0
+
+    start_timestamp: float = pd.Timestamp("2021-01-01", tz="UTC").timestamp()
 
     def setUp(self) -> None:
         super().setUp()
@@ -83,6 +88,12 @@ class NdaxExchangeTests(TestCase):
     def _create_exception_and_unlock_test_with_event(self, exception):
         self.resume_test_event.set()
         raise exception
+
+    def _simulate_reset_poll_notifier(self):
+        self.exchange._poll_notifier.clear()
+
+    def _simulate_ws_message_received(self, timestamp: float):
+        self.exchange._user_stream_tracker._data_source._last_recv_time = timestamp
 
     @patch('websockets.connect', new_callable=AsyncMock)
     def test_user_event_queue_error_is_logged(self, ws_connect_mock):
@@ -172,3 +183,85 @@ class NdaxExchangeTests(TestCase):
 
         self.assertEqual(Decimal('10499.1'), self.exchange.get_balance('BTC'))
         self.assertEqual(Decimal('10499.1') - Decimal('2.1'), self.exchange.available_balances['BTC'])
+
+    def test_tick_initial_tick_successful(self):
+        start_ts: float = time.time() * 1e3
+
+        self.exchange.tick(start_ts)
+        self.assertEqual(start_ts, self.exchange._last_timestamp)
+        self.assertTrue(self.exchange._poll_notifier.is_set())
+
+    @patch("time.time")
+    def test_tick_subsequent_tick_within_short_poll_interval(self, mock_ts):
+        # Assumes user stream tracker has NOT been receiving messages, Hence SHORT_POLL_INTERVAL in use
+        start_ts: float = self.start_timestamp
+        next_tick: float = start_ts + (self.exchange.SHORT_POLL_INTERVAL - 1)
+
+        mock_ts.return_value = start_ts
+        self.exchange.tick(start_ts)
+        self.assertEqual(start_ts, self.exchange._last_timestamp)
+        self.assertTrue(self.exchange._poll_notifier.is_set())
+
+        self._simulate_reset_poll_notifier()
+
+        mock_ts.return_value = next_tick
+        self.exchange.tick(next_tick)
+        self.assertEqual(next_tick, self.exchange._last_timestamp)
+        self.assertFalse(self.exchange._poll_notifier.is_set())
+
+    @patch("time.time")
+    def test_tick_subsequent_tick_exceed_short_poll_interval(self, mock_ts):
+        # Assumes user stream tracker has NOT been receiving messages, Hence SHORT_POLL_INTERVAL in use
+        start_ts: float = self.start_timestamp
+        next_tick: float = start_ts + (self.exchange.SHORT_POLL_INTERVAL + 1)
+
+        mock_ts.return_value = start_ts
+        self.exchange.tick(start_ts)
+        self.assertEqual(start_ts, self.exchange._last_timestamp)
+        self.assertTrue(self.exchange._poll_notifier.is_set())
+
+        self._simulate_reset_poll_notifier()
+
+        mock_ts.return_value = next_tick
+        self.exchange.tick(next_tick)
+        self.assertEqual(next_tick, self.exchange._last_timestamp)
+        self.assertTrue(self.exchange._poll_notifier.is_set())
+
+    @patch("time.time")
+    def test_tick_subsequent_tick_within_long_poll_interval(self, mock_time):
+
+        start_ts: float = self.start_timestamp
+        next_tick: float = start_ts + (self.exchange.LONG_POLL_INTERVAL - 1)
+
+        mock_time.return_value = start_ts
+        self.exchange.tick(start_ts)
+        self.assertEqual(start_ts, self.exchange._last_timestamp)
+        self.assertTrue(self.exchange._poll_notifier.is_set())
+
+        # Simulate last message received 1 sec ago
+        self._simulate_ws_message_received(next_tick - 1)
+        self._simulate_reset_poll_notifier()
+
+        mock_time.return_value = next_tick
+        self.exchange.tick(next_tick)
+        self.assertEqual(next_tick, self.exchange._last_timestamp)
+        self.assertFalse(self.exchange._poll_notifier.is_set())
+
+    @patch("time.time")
+    def test_tick_subsequent_tick_exceed_long_poll_interval(self, mock_time):
+        # Assumes user stream tracker has been receiving messages, Hence LONG_POLL_INTERVAL in use
+        start_ts: float = self.start_timestamp
+        next_tick: float = start_ts + (self.exchange.LONG_POLL_INTERVAL - 1)
+
+        mock_time.return_value = start_ts
+        self.exchange.tick(start_ts)
+        self.assertEqual(start_ts, self.exchange._last_timestamp)
+        self.assertTrue(self.exchange._poll_notifier.is_set())
+
+        self._simulate_ws_message_received(start_ts)
+        self._simulate_reset_poll_notifier()
+
+        mock_time.return_value = next_tick
+        self.exchange.tick(next_tick)
+        self.assertEqual(next_tick, self.exchange._last_timestamp)
+        self.assertTrue(self.exchange._poll_notifier.is_set())
