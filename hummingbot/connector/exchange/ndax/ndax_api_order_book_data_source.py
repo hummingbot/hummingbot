@@ -4,7 +4,6 @@ import asyncio
 import logging
 import pandas as pd
 import time
-import ujson
 import websockets
 
 import hummingbot.connector.exchange.ndax.ndax_constants as CONSTANTS
@@ -220,14 +219,14 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     await ws_adapter.send_request(endpoint_name=CONSTANTS.WS_ORDER_BOOK_CHANNEL,
                                                   payload=payload)
                 async for raw_msg in ws_adapter.iter_messages():
-                    msg: Dict[str, Any] = ujson.loads(raw_msg)
-                    msg_event: str = msg["n"]
+                    payload: List[List[Any]] = NdaxWebSocketAdaptor.payload_from_raw_message(raw_msg)
+                    msg_event: str = NdaxWebSocketAdaptor.endpoint_from_raw_message(raw_msg)
 
                     if msg_event not in [CONSTANTS.WS_ORDER_BOOK_CHANNEL, CONSTANTS.WS_ORDER_BOOK_L2_UPDATE_EVENT]:
                         continue
 
                     msg_data: List[NdaxOrderBookEntry] = [NdaxOrderBookEntry(*entry)
-                                                          for entry in ujson.loads(msg["o"])]
+                                                          for entry in payload]
                     msg_timestamp: int = max([e.actionDateTime for e in msg_data])
                     msg_product_code: int = msg_data[0].productPairCode
 
