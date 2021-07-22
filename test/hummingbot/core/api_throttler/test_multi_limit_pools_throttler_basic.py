@@ -36,7 +36,8 @@ class MultiLimitPoolsThrottlerBasicUnitTests(unittest.TestCase):
     def test_flush(self):
 
         # Test: No Task Logs to flush
-        context = MultiLimitPoolsRequestContext(self.throttler._task_logs, self.rate_limits)
+        lock = asyncio.Lock()
+        context = MultiLimitPoolsRequestContext(self.throttler._task_logs, self.rate_limits, lock)
         context._flush()
 
         self.assertEqual(0, len(self.throttler._task_logs))
@@ -48,24 +49,27 @@ class MultiLimitPoolsThrottlerBasicUnitTests(unittest.TestCase):
         self.throttler._task_logs.append(task_1)
         self.assertEqual(2, len(self.throttler._task_logs))
 
-        context = MultiLimitPoolsRequestContext(self.throttler._task_logs, self.rate_limits)
+        context = MultiLimitPoolsRequestContext(self.throttler._task_logs, self.rate_limits, lock)
         context._flush()
 
     def test_within_capacity(self):
+        limits = [CallRateLimit(limit_id="A", limit=1, time_interval=5.0)]
         MultiLimitPoolsRequestContext._last_max_cap_warning_ts = 0
-        context = MultiLimitPoolsRequestContext(self.throttler._task_logs, self.rate_limits)
+        lock = asyncio.Lock()
+        context = MultiLimitPoolsRequestContext(self.throttler._task_logs, limits, lock)
         self.assertTrue(context._within_capacity())
-        task_1 = MultiLimitsTaskLog(timestamp=time.time() - 1., rate_limits=self.rate_limits)
+        task_1 = MultiLimitsTaskLog(timestamp=time.time() - 1., rate_limits=limits)
         self.throttler._task_logs.append(task_1)
-        context = MultiLimitPoolsRequestContext(self.throttler._task_logs, self.rate_limits)
+        context = MultiLimitPoolsRequestContext(self.throttler._task_logs, limits, lock)
         with self.assertLogs(logger=mlpt_logger) as log:
             self.assertFalse(context._within_capacity())
             self.assertEqual(1, len(log.output))
-            self.assertIn("A rate limit on A has almost reached. Number of calls is 1 in the last 5.0 seconds",
+            self.assertIn("API rate limit on A (1 calls per 5.0s) has almost reached. Number of calls is 1 in the last "
+                          "5.0 seconds",
                           log.output[0])
 
     def test_task_appended_after_acquire(self):
-        context = MultiLimitPoolsRequestContext(self.throttler._task_logs, rate_limits=self.rate_limits)
+        context = MultiLimitPoolsRequestContext(self.throttler._task_logs, self.rate_limits, asyncio.Lock())
         self.ev_loop.run_until_complete(context._acquire())
         self.assertEqual(1, len(self.throttler._task_logs))
 
@@ -74,7 +78,7 @@ class MultiLimitPoolsThrottlerBasicUnitTests(unittest.TestCase):
         task_1 = MultiLimitsTaskLog(timestamp=time.time(), rate_limits=limits)
         self.throttler._task_logs.append(task_1)
 
-        context = MultiLimitPoolsRequestContext(self.throttler._task_logs, limits)
+        context = MultiLimitPoolsRequestContext(self.throttler._task_logs, limits, asyncio.Lock())
         with self.assertRaises(asyncio.exceptions.TimeoutError):
             self.ev_loop.run_until_complete(
                 asyncio.wait_for(context._acquire(), 1.0)

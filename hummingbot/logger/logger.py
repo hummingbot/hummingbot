@@ -7,6 +7,7 @@ import time
 import sys
 import traceback
 from typing import Optional
+import pandas as pd
 
 from .application_warning import ApplicationWarning
 
@@ -36,7 +37,7 @@ class HummingbotLogger(PythonLogger):
         if "test" not in getcwd():
             from hummingbot.client.hummingbot_application import HummingbotApplication
             hummingbot_app: HummingbotApplication = HummingbotApplication.main_application()
-            hummingbot_app._notify(msg)
+            hummingbot_app._notify(f"({pd.Timestamp.fromtimestamp(int(time.time()))}) {msg}")
 
     def network(self, log_msg: str, app_warning_msg: Optional[str] = None, *args, **kwargs):
         from hummingbot.client.hummingbot_application import HummingbotApplication
