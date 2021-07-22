@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 import logging
 import hummingbot.connector.exchange.ndax.ndax_constants as CONSTANTS
 
@@ -111,12 +109,12 @@ class NdaxOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
 
-        # TODO: Update msg with the appropriate fields
+        # Data fields are obtained from OrderTradeEvents
         msg.update({
-            "exchange_order_id": msg.get("id"),
-            "trade_type": msg.get("side"),
-            "price": msg.get("price"),
-            "amount": msg.get("quantity"),
+            "exchange_order_id": msg.get("TradeId"),
+            "trade_type": msg.get("Side"),
+            "price": msg.get("Price"),
+            "amount": msg.get("Quantity"),
         })
 
         return NdaxOrderBookMessage(

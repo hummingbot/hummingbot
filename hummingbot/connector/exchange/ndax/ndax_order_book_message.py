@@ -72,13 +72,11 @@ class NdaxOrderBookMessage(OrderBookMessage):
         ]
 
     def __eq__(self, other) -> bool:
-        return self.type == other.type and self.timestamp == other.timestamp
+        return type(self) == type(other) and self.type == other.type and self.timestamp == other.timestamp
 
     def __lt__(self, other) -> bool:
-        if self.timestamp != other.timestamp:
-            return self.timestamp < other.timestamp
-        else:
-            """
-            If timestamp is the same, the ordering is snapshot < diff < trade
-            """
-            return self.type.value < other.type.value
+        # If timestamp is the same, the ordering is snapshot < diff < trade
+        return (self.timestamp < other.timestamp or (self.timestamp == other.timestamp and self.type.value < other.type.value))
+
+    def __hash__(self) -> int:
+        return hash((self.type, self.timestamp, self.content))

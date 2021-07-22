@@ -254,9 +254,6 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             self._raise_exception(asyncio.CancelledError)
         )
 
-        self._add_subscribe_level_2_response()
-        # self._add_orderbook_update_event()
-
         self.simulate_trading_pair_ids_initialized()
 
         with self.assertRaises(asyncio.CancelledError):

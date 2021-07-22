@@ -27,8 +27,6 @@ from hummingbot.logger.logger import HummingbotLogger
 
 
 class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
-    MESSAGE_TIMEOUT = 30.0
-    PING_TIMEOUT = 10.0
 
     _logger: Optional[HummingbotLogger] = None
     _trading_pair_id_map: Dict[str, int] = {}
@@ -68,11 +66,8 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
         """Fetches the Last Traded Price of the specified trading pairs.
 
-        Args:
-            trading_pairs (List[str]): List of trading pairs(in Hummingbot base-quote format i.e. BTC-CAD)
-
-        Returns:
-            Dict[str, float]: Dictionary of trading pairs to its last traded price in float
+        :params: List[str] trading_pairs: List of trading pairs(in Hummingbot base-quote format i.e. BTC-CAD)
+        :return: Dict[str, float]: Dictionary of the trading pairs mapped to its last traded price in float
         """
         if not len(cls._trading_pair_id_map) > 0:
             await cls.init_trading_pair_ids()
@@ -140,7 +135,8 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
                 response: List[Any] = await response.json()
                 orderbook_entries: List[NdaxOrderBookEntry] = [NdaxOrderBookEntry(*entry) for entry in response]
-                return {"data": orderbook_entries}
+                return {"data": orderbook_entries,
+                        "timestamp": max([entry.actionDateTime for entry in orderbook_entries])}
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair)
