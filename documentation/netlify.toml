@@ -1,4 +1,0 @@
-[[redirects]]
-  from = "/miner/*"
-  to = "http://miner-docs.netlify.app/:splat"
-  status = 200
