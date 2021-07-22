@@ -1,8 +1,10 @@
 import asyncio
 import time
 import unittest
+import logging
 from typing import List
 from decimal import Decimal
+from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.core.api_throttler.multi_limit_pool_throttler import (
     mlpt_logger,
     MultiLimitPoolsThrottler,
@@ -10,6 +12,8 @@ from hummingbot.core.api_throttler.multi_limit_pool_throttler import (
 )
 from hummingbot.core.api_throttler.data_types import CallRateLimit, MultiLimitsTaskLog
 from hummingbot.client.config.global_config_map import global_config_map
+
+logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 
 class MultiLimitPoolsThrottlerBasicUnitTests(unittest.TestCase):
