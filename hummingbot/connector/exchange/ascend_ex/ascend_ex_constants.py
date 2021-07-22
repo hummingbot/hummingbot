@@ -12,5 +12,5 @@ PONG_PAYLOAD = {"op": "pong"}
 REQUEST_CALL_LIMITS: Dict[str, CallRateLimit] = {
     "all_endpoints": CallRateLimit(limit_id="all_endpoints", limit=100, time_interval=1),
     "cash/order": CallRateLimit(limit_id="cash/order", limit=50, time_interval=1),
-    "order/hist": CallRateLimit(limit_id="order/hist", limit=60, time_interval=1)
+    "order/hist": CallRateLimit(limit_id="order/hist", limit=60, time_interval=60)
 }

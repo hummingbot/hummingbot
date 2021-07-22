@@ -2,12 +2,14 @@ import asyncio
 import time
 import unittest
 from typing import List
+from decimal import Decimal
 from hummingbot.core.api_throttler.multi_limit_pool_throttler import (
     mlpt_logger,
     MultiLimitPoolsThrottler,
     MultiLimitPoolsRequestContext,
 )
 from hummingbot.core.api_throttler.data_types import CallRateLimit, MultiLimitsTaskLog
+from hummingbot.client.config.global_config_map import global_config_map
 
 
 class MultiLimitPoolsThrottlerBasicUnitTests(unittest.TestCase):
@@ -17,12 +19,19 @@ class MultiLimitPoolsThrottlerBasicUnitTests(unittest.TestCase):
         super().setUpClass()
         cls.ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         cls.rate_limits: List[CallRateLimit] = [
-            CallRateLimit(limit_id="A", limit=1, time_interval=5.0)
+            CallRateLimit(limit_id="A", limit=10, time_interval=5.0)
         ]
 
     def setUp(self) -> None:
         super().setUp()
-        self.throttler = MultiLimitPoolsThrottler(rate_limit_list=self.rate_limits)
+        self.throttler = MultiLimitPoolsThrottler(rate_limits=self.rate_limits)
+
+    def test_init(self):
+        global_config_map["rate_limits_share_pct"].value = Decimal("55")
+        throttler = MultiLimitPoolsThrottler(rate_limits=self.rate_limits)
+        self.assertEqual(0.1, throttler._retry_interval)
+        self.assertEqual(1, len(throttler._rate_limits))
+        self.assertEqual(5, throttler._rate_limits[0].limit)
 
     def test_flush(self):
 
@@ -61,10 +70,11 @@ class MultiLimitPoolsThrottlerBasicUnitTests(unittest.TestCase):
         self.assertEqual(1, len(self.throttler._task_logs))
 
     def test_acquire_awaits_when_exceed_capacity(self):
-        task_1 = MultiLimitsTaskLog(timestamp=time.time(), rate_limits=self.rate_limits)
+        limits = [CallRateLimit(limit_id="A", limit=1, time_interval=5.0)]
+        task_1 = MultiLimitsTaskLog(timestamp=time.time(), rate_limits=limits)
         self.throttler._task_logs.append(task_1)
 
-        context = MultiLimitPoolsRequestContext(self.throttler._task_logs, self.rate_limits)
+        context = MultiLimitPoolsRequestContext(self.throttler._task_logs, limits)
         with self.assertRaises(asyncio.exceptions.TimeoutError):
             self.ev_loop.run_until_complete(
                 asyncio.wait_for(context._acquire(), 1.0)
