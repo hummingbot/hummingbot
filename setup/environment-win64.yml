@@ -81,7 +81,7 @@ dependencies:
     - diff-cover==5.1.2
     - distlib==0.3.0
     - dydx-python==0.11.2
-    - dydx-v3-python==1.0.0
+    - dydx-v3-python==1.0.10
     - entrypoints==0.3
     - eth-abi==2.1.1
     - eth-account==0.4.0
