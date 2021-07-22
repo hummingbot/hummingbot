@@ -10,10 +10,19 @@ class NdaxAuth():
     Auth class required by NDAX API
     """
 
-    def __init__(self, uid: str, api_key: str, secret_key: str):
+    def __init__(self, uid: str, api_key: str, secret_key: str, username: str):
         self._uid: str = uid
         self._api_key: str = api_key
         self._secret_key: str = secret_key
+        self._user_name: str = username
+
+    @property
+    def uid(self) -> str:
+        return self._uid
+
+    @property
+    def username(self) -> str:
+        return self._user_name
 
     def generate_nonce(self):
         return str(get_tracking_nonce_low_res())

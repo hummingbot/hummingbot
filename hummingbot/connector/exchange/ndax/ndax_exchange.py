@@ -1,13 +1,17 @@
+import aiohttp
 import asyncio
 import logging
 import time
+import ujson
 
 from decimal import Decimal
 from typing import (
+    Any,
     Dict,
     List,
     Optional,
     AsyncIterable,
+    Union,
 )
 
 from hummingbot.connector.exchange.ndax import ndax_constants as CONSTANTS
@@ -20,7 +24,7 @@ from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.event.events import (
     OrderType,
 )
-from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
 
 s_decimal_NaN = Decimal("nan")
@@ -47,6 +51,7 @@ class NdaxExchange(ExchangeBase):
                  uid: str,
                  api_key: str,
                  secret_key: str,
+                 username: str,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True
                  ):
@@ -60,7 +65,7 @@ class NdaxExchange(ExchangeBase):
         super().__init__()
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
-        self._auth = NdaxAuth(uid=uid, api_key=api_key, secret_key=secret_key)
+        self._auth = NdaxAuth(uid=uid, api_key=api_key, secret_key=secret_key, username=username)
         # self._order_book_tracker = ProbitOrderBookTracker(trading_pairs=trading_pairs, domain=domain)
         self._user_stream_tracker = NdaxUserStreamTracker(self._auth)
         self._ev_loop = asyncio.get_event_loop()
@@ -70,16 +75,22 @@ class NdaxExchange(ExchangeBase):
         # self._in_flight_orders = {}  # Dict[client_order_id:str, ProbitInFlightOrder]
         # self._order_not_found_records = {}  # Dict[client_order_id:str, count:int]
         # self._trading_rules = {}  # Dict[trading_pair:str, TradingRule]
-        # self._last_poll_timestamp = 0
+        self._last_poll_timestamp = 0
 
         # self._status_polling_task = None
         # self._user_stream_tracker_task = None
         # self._user_stream_event_listener_task = None
         # self._trading_rules_polling_task = None
 
+        self._account_id = None
+
     @property
     def name(self) -> str:
         return CONSTANTS.EXCHANGE_NAME
+
+    @property
+    def account_id(self) -> int:
+        return self._account_id
 
     def supported_order_types(self) -> List[OrderType]:
         """
@@ -88,8 +99,123 @@ class NdaxExchange(ExchangeBase):
         """
         return [OrderType.MARKET, OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
+    async def _http_client(self) -> aiohttp.ClientSession:
+        """
+        :returns Shared client session instance
+        """
+        if self._shared_client is None:
+            self._shared_client = aiohttp.ClientSession()
+        return self._shared_client
+
+    async def _get_account_id(self):
+        """
+        Calls REST API to retrieve Account ID
+        """
+        params = {
+            "OMSId": 0,
+            "UserId": int(self._auth.uid),
+            "UserName": self._auth.username
+        }
+
+        resp: List[int] = await self._api_request(
+            "GET",
+            path_url=CONSTANTS.USER_ACCOUNTS_PATH_URL,
+            params=params,
+            is_auth_required=True,
+        )
+
+        """
+        NOTE: Currently there is no way to determine which accountId the user intends to use.
+              The GetUserAccountInfos endpoint doesnt seem to provide anything useful either.
+              The assumption here is that the FIRST entry in the list is the accountId the user intends to use
+        """
+        return resp[0]
+
+    async def start_network(self):
+        """
+        This function is required by NetworkIterator base class and is called automatically.
+        It starts tracking order book, polling trading rules,
+        updating statuses and tracking user data.
+        """
+        # self._order_book_tracker.start()
+        # self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
+        if self._trading_required:
+            self._account_id = await self._get_account_id()[0]
+            self._status_polling_task = safe_ensure_future(self._status_polling_loop())
+            # self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
+            # self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
+
+    async def _api_request(self,
+                           method: str,
+                           path_url: str,
+                           params: Optional[Dict[str, Any]] = None,
+                           data: Optional[Dict[str, Any]] = None,
+                           is_auth_required: bool = False) -> Union[Dict[str, Any], List[Any]]:
+        """
+        Sends an aiohttp request and waits for a response.
+        :param method: The HTTP method, e.g. get or post
+        :param path_url: The path url or the API end point
+        :param is_auth_required: Whether an authentication is required, when True the function will add encrypted
+        signature to the request.
+        :returns A response in json format.
+        """
+        url = CONSTANTS.REST_URL + path_url
+        client = await self._http_client()
+
+        try:
+            if is_auth_required:
+                headers = self._auth.get_auth_headers()
+            else:
+                headers = self._auth.get_headers()
+
+            if method == "GET":
+                response = await client.get(url, headers=headers, params=params)
+            elif method == "POST":
+                response = await client.post(url, headers=headers, data=ujson.dumps(data))
+            else:
+                raise NotImplementedError(f"{method} HTTP Method not implemented. ")
+
+            parsed_response = await response.json()
+        except ValueError as e:
+            self.logger().error(f"{str(e)}")
+            raise ValueError(f"Error authenticating request {method} {url}. Error: {str(e)}")
+        except Exception as e:
+            raise IOError(f"Error parsing data from {url}. Error: {str(e)}")
+        if response.status != 200:
+            raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. "
+                          f"Message: {parsed_response} "
+                          f"Params: {params} "
+                          f"Data: {data}")
+
+        return parsed_response
+
     async def _update_balances(self):
-        pass
+        """
+        Calls REST API to update total and available balances
+        """
+        local_asset_names = set(self._account_balances.keys())
+        remote_asset_names = set()
+
+        params = {
+            "OMSId": 1,
+            "AccountId": self.account_id
+        }
+        account_positions: List[Dict[str, Any]] = await self._api_request(
+            method="GET",
+            path_url=CONSTANTS.ACCOUNT_POSITION_PATH_URL,
+            params=params,
+            is_auth_required=True
+        )
+        for position in account_positions:
+            asset_name = position["ProductSymbol"]
+            self._account_balances[asset_name] = Decimal(str(position["Amount"]))
+            self._account_available_balances[asset_name] = self._account_balances[asset_name] - Decimal(str(position["Hold"]))
+            remote_asset_names.add(asset_name)
+
+        asset_names_to_remove = local_asset_names.difference(remote_asset_names)
+        for asset_name in asset_names_to_remove:
+            del self._account_available_balances[asset_name]
+            del self._account_balances[asset_name]
 
     async def _update_order_status(self):
         pass

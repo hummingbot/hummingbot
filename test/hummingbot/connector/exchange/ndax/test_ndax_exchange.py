@@ -29,7 +29,8 @@ class NdaxExchangeTests(TestCase):
 
         self.exchange = NdaxExchange(uid='001',
                                      api_key='testAPIKey',
-                                     secret_key='testSecret')
+                                     secret_key='testSecret',
+                                     username="hbot")
 
         self.exchange.logger().setLevel(1)
         self.exchange.logger().addHandler(self)

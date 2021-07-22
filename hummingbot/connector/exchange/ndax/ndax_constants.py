@@ -12,6 +12,9 @@ WSS_URL = "wss://ndaxmarginstaging.cdnhop.net/WSGateway"
 
 REST_API_VERSON = "v3.3"
 
+ACCOUNT_POSITION_PATH_URL = "GetAccountPositions"
+USER_ACCOUNTS_PATH_URL = "GetUserAccounts"
+
 ACCOUNT_POSITION_EVENT_ENDPOINT_NAME = "AccountPositionEvent"
 AUTHENTICATE_USER_ENDPOINT_NAME = "AuthenticateUser"
 SUBSCRIBE_ACCOUNT_EVENTS_ENDPOINT_NAME = "SubscribeAccountEvents"
