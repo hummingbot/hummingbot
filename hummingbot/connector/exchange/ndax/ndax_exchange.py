@@ -52,6 +52,7 @@ class NdaxExchange(ExchangeBase):
                  api_key: str,
                  secret_key: str,
                  username: str,
+                 account_id: int = None,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True
                  ):
@@ -82,7 +83,7 @@ class NdaxExchange(ExchangeBase):
         # self._user_stream_event_listener_task = None
         # self._trading_rules_polling_task = None
 
-        self._account_id = None
+        self._account_id = account_id
 
     @property
     def name(self) -> str:
@@ -107,7 +108,7 @@ class NdaxExchange(ExchangeBase):
             self._shared_client = aiohttp.ClientSession()
         return self._shared_client
 
-    async def _get_account_id(self):
+    async def _get_account_id(self) -> int:
         """
         Calls REST API to retrieve Account ID
         """
@@ -140,7 +141,8 @@ class NdaxExchange(ExchangeBase):
         # self._order_book_tracker.start()
         # self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
-            self._account_id = await self._get_account_id()[0]
+            if not self._account_id:
+                self._account_id = await self._get_account_id()
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             # self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
             # self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
@@ -218,6 +220,7 @@ class NdaxExchange(ExchangeBase):
             del self._account_balances[asset_name]
 
     async def _update_order_status(self):
+        # Waiting on buy and sell functionality.
         pass
 
     async def _status_polling_loop(self):
