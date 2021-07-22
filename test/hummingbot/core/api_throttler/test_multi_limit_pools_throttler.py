@@ -3,11 +3,13 @@ import asyncio
 import random
 from typing import List, Dict
 import time
-
+import logging
+from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.core.api_throttler.data_types import CallRateLimit
 from hummingbot.core.api_throttler.multi_limit_pool_throttler import MultiLimitPoolsThrottler
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 
+logging.basicConfig(level=METRICS_LOG_LEVEL)
 PATH_0 = "0"
 PATH_A = "A"
 PATH_B = "B"
