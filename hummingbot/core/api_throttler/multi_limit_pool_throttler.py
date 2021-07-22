@@ -3,6 +3,7 @@ import time
 import logging
 from typing import List, Optional
 from decimal import Decimal
+import copy
 
 from hummingbot.core.api_throttler.data_types import (
     CallRateLimit,
@@ -29,12 +30,12 @@ class MultiLimitPoolsRequestContext:
             mlpt_logger = logging.getLogger(__name__)
         return mlpt_logger
 
-    _lock = asyncio.Lock()
     _last_max_cap_warning_ts: float = 0.
 
     def __init__(self,
                  task_logs: List[MultiLimitsTaskLog],
                  rate_limits: List[CallRateLimit],
+                 lock: asyncio.Lock,
                  retry_interval: Seconds = 0.1):
         """
         :param task_logs: A list of task logs
@@ -44,6 +45,7 @@ class MultiLimitPoolsRequestContext:
         self._task_logs: List[MultiLimitsTaskLog] = task_logs
         self._retry_interval: float = retry_interval
         self._rate_limits: List[CallRateLimit] = rate_limits
+        self._lock = lock
 
     def _within_capacity(self) -> bool:
         """
@@ -57,7 +59,8 @@ class MultiLimitPoolsRequestContext:
                                now - rate_limit.period_safety_margin - t.timestamp <= rate_limit.time_interval]
             if (len(same_pool_tasks) + 1) * rate_limit.weight > rate_limit.limit:
                 if self._last_max_cap_warning_ts < time.time() - MAX_CAPACITY_REACHED_WARNING_INTERVAL:
-                    msg = f"A rate limit on {rate_limit.limit_id} has almost reached. Number of calls " \
+                    msg = f"API rate limit on {rate_limit.limit_id} ({rate_limit.limit} calls per " \
+                          f"{rate_limit.time_interval}s) has almost reached. Number of calls " \
                           f"is {len(same_pool_tasks) * rate_limit.weight} in the last " \
                           f"{rate_limit.time_interval} seconds"
                     self.logger().notify(msg)
@@ -119,9 +122,10 @@ class MultiLimitPoolsThrottler:
         self._retry_interval: float = retry_interval
         limits_pct: Optional[Decimal] = global_config_map["rate_limits_share_pct"].value
         limits_pct = Decimal("1") if limits_pct is None else limits_pct / Decimal("100")
-        self._rate_limits: List[CallRateLimit] = rate_limits
+        self._rate_limits: List[CallRateLimit] = copy.deepcopy(rate_limits)
         for rate_limit in self._rate_limits:
             rate_limit.limit = int(rate_limit.limit * limits_pct)
+        self._lock = asyncio.Lock()
 
     def execute_task(self, limit_ids: List[str]) -> MultiLimitPoolsRequestContext:
         """
@@ -135,4 +139,5 @@ class MultiLimitPoolsThrottler:
             task_logs=self._task_logs,
             rate_limits=rate_limits,
             retry_interval=self._retry_interval,
+            lock=self._lock
         )
