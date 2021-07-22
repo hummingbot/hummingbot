@@ -29,6 +29,15 @@ class HummingbotLogger(PythonLogger):
     def __init__(self, name: str):
         super().__init__(name)
 
+    def notify(self, msg: str):
+        from . import INFO
+        self.log(INFO, msg)
+        from os import getcwd
+        if "test" not in getcwd():
+            from hummingbot.client.hummingbot_application import HummingbotApplication
+            hummingbot_app: HummingbotApplication = HummingbotApplication.main_application()
+            hummingbot_app._notify(msg)
+
     def network(self, log_msg: str, app_warning_msg: Optional[str] = None, *args, **kwargs):
         from hummingbot.client.hummingbot_application import HummingbotApplication
         from . import NETWORK

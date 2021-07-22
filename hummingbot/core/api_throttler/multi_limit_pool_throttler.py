@@ -1,7 +1,8 @@
 import asyncio
 import time
 import logging
-from typing import List
+from typing import List, Optional
+from decimal import Decimal
 
 from hummingbot.core.api_throttler.data_types import (
     CallRateLimit,
@@ -9,9 +10,10 @@ from hummingbot.core.api_throttler.data_types import (
     MultiLimitsTaskLog
 )
 from hummingbot.logger import HummingbotLogger
+from hummingbot.client.config.global_config_map import global_config_map
 
 mlpt_logger = None
-MAX_CAPACITY_REACHED_WARNING_INTERVAL = 10.
+MAX_CAPACITY_REACHED_WARNING_INTERVAL = 30.
 
 
 class MultiLimitPoolsRequestContext:
@@ -40,8 +42,8 @@ class MultiLimitPoolsRequestContext:
         :param retry_interval: A retry interval (wait time) between each try once the rate limit is reached
         """
         self._task_logs: List[MultiLimitsTaskLog] = task_logs
-        self._rate_limits: List[CallRateLimit] = rate_limits
         self._retry_interval: float = retry_interval
+        self._rate_limits: List[CallRateLimit] = rate_limits
 
     def _within_capacity(self) -> bool:
         """
@@ -55,9 +57,10 @@ class MultiLimitPoolsRequestContext:
                                now - rate_limit.period_safety_margin - t.timestamp <= rate_limit.time_interval]
             if (len(same_pool_tasks) + 1) * rate_limit.weight > rate_limit.limit:
                 if self._last_max_cap_warning_ts < time.time() - MAX_CAPACITY_REACHED_WARNING_INTERVAL:
-                    self.logger().warning(f"A rate limit on {rate_limit.limit_id} has almost reached. Number of calls "
-                                          f"is {len(same_pool_tasks) * rate_limit.weight} in the last "
-                                          f"{rate_limit.time_interval} seconds")
+                    msg = f"A rate limit on {rate_limit.limit_id} has almost reached. Number of calls " \
+                          f"is {len(same_pool_tasks) * rate_limit.weight} in the last " \
+                          f"{rate_limit.time_interval} seconds"
+                    self.logger().notify(msg)
                     MultiLimitPoolsRequestContext._last_max_cap_warning_ts = time.time()
                 return False
         return True
@@ -105,16 +108,20 @@ class MultiLimitPoolsThrottler:
     """
 
     def __init__(self,
-                 rate_limit_list: List[CallRateLimit],
+                 rate_limits: List[CallRateLimit],
                  retry_interval: Seconds = 0.1):
         """
-        :param rate_limit_list: A list of rate limits for the entire throttler operation
+        :param rate_limits: A list of rate limits for the entire throttler operation
         :param retry_interval: A retry interval (wait time) between each try on the async context
         """
-        self._rate_limit_list: List[CallRateLimit] = rate_limit_list
-        self._retry_interval: float = retry_interval
         # Maintains a FIFO queue of all tasks.
         self._task_logs: List[MultiLimitsTaskLog] = list()
+        self._retry_interval: float = retry_interval
+        limits_pct: Optional[Decimal] = global_config_map["rate_limits_share_pct"].value
+        limits_pct = Decimal("1") if limits_pct is None else limits_pct / Decimal("100")
+        self._rate_limits: List[CallRateLimit] = rate_limits
+        for rate_limit in self._rate_limits:
+            rate_limit.limit = int(rate_limit.limit * limits_pct)
 
     def execute_task(self, limit_ids: List[str]) -> MultiLimitPoolsRequestContext:
         """
@@ -123,7 +130,7 @@ class MultiLimitPoolsThrottler:
         :param limit_ids: A list of limit_ids for rate limits supplied during init
         :return: An async context (used with async with syntax)
         """
-        rate_limits: List[CallRateLimit] = [r for r in self._rate_limit_list if r.limit_id in limit_ids]
+        rate_limits: List[CallRateLimit] = [r for r in self._rate_limits if r.limit_id in limit_ids]
         return MultiLimitPoolsRequestContext(
             task_logs=self._task_logs,
             rate_limits=rate_limits,

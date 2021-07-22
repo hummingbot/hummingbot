@@ -27,7 +27,7 @@ class MultiLimitPoolsThrottlerTest(unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.throttler = MultiLimitPoolsThrottler(
-            rate_limit_list=list(RATE_LIMITS.values())
+            rate_limits=list(RATE_LIMITS.values())
         )
         self._req_counters: Dict[str, int] = {path: 0 for path in RATE_LIMITS}
 

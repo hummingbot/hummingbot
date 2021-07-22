@@ -553,14 +553,15 @@ class AscendExExchange(ExchangePyBase):
                                ))
         except asyncio.CancelledError:
             raise
-        except Exception as e:
+        except Exception:
             self.stop_tracking_order(order_id)
+            msg = f"Error submitting {trade_type.name} {order_type.name} order to AscendEx for " \
+                  f"{amount} {trading_pair} " \
+                  f"{price}."
             self.logger().network(
-                f"Error submitting {trade_type.name} {order_type.name} order to AscendEx for "
-                f"{amount} {trading_pair} "
-                f"{price}.",
+                msg,
                 exc_info=True,
-                app_warning_msg=str(e)
+                app_warning_msg=msg
             )
             self.trigger_event(MarketEvent.OrderFailure,
                                MarketOrderFailureEvent(self.current_timestamp, order_id, order_type))
