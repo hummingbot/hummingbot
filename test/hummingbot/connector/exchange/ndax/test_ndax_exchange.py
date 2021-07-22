@@ -4,6 +4,7 @@ import time
 import pandas as pd
 
 from decimal import Decimal
+from typing import Any, Dict, List
 from unittest import TestCase
 from unittest.mock import AsyncMock, patch
 
@@ -16,6 +17,13 @@ class NdaxExchangeTests(TestCase):
     level = 0
 
     start_timestamp: float = pd.Timestamp("2021-01-01", tz="UTC").timestamp()
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        super().setUpClass()
+        cls.base_asset = "COINALPHA"
+        cls.quote_asset = "HBOT"
+        cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
 
     def setUp(self) -> None:
         super().setUp()
@@ -82,6 +90,10 @@ class NdaxExchangeTests(TestCase):
                    "o": json.dumps(payload)}
 
         return json.dumps(message)
+
+    def _set_mock_response(self, mock_api, status: int, json_data: Any):
+        mock_api.return_value.status = status
+        mock_api.return_value.json = AsyncMock(return_value=json_data)
 
     def _add_successful_authentication_response(self):
         self.ws_incoming_messages.put_nowait(self._authentication_response(True))
@@ -266,3 +278,38 @@ class NdaxExchangeTests(TestCase):
         self.exchange.tick(next_tick)
         self.assertEqual(next_tick, self.exchange._last_timestamp)
         self.assertTrue(self.exchange._poll_notifier.is_set())
+
+    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    def test_get_account_id(self, mock_api):
+        account_id = 1
+        mock_response: List[int] = [account_id]
+        self._set_mock_response(mock_api, 200, mock_response)
+
+        task = asyncio.get_event_loop().create_task(
+            self.exchange._get_account_id()
+        )
+        resp = asyncio.get_event_loop().run_until_complete(task)
+        self.assertEqual(resp, account_id)
+
+    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    def test_update_balances(self, mock_api):
+
+        self.assertEqual(0, len(self.exchange._account_balances))
+        self.assertEqual(0, len(self.exchange._account_available_balances))
+
+        mock_response: List[Dict[str, Any]] = [
+            {
+                "ProductSymbol": self.base_asset,
+                "Amount": 10.0,
+                "Hold": 5.0
+            },
+        ]
+
+        self._set_mock_response(mock_api, 200, mock_response)
+
+        task = asyncio.get_event_loop().create_task(
+            self.exchange._update_balances()
+        )
+        asyncio.get_event_loop().run_until_complete(task)
+
+        self.assertEqual(Decimal(str(10.0)), self.exchange.get_balance(self.base_asset))
