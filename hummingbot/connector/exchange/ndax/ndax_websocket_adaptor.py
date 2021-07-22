@@ -1,9 +1,12 @@
 import asyncio
-from enum import Enum
-from typing import Dict, Any
-
 import ujson
 import websockets
+
+import hummingbot.connector.exchange.ndax.ndax_constants as CONSTANTS
+
+
+from enum import Enum
+from typing import AsyncIterable, Dict, Any
 
 
 class NdaxMessageType(Enum):
@@ -30,6 +33,9 @@ class NdaxWebSocketAdaptor:
     connection is reestablished after a communication error, and allows to keep a unique identifier for each message.
     The default previous_messages_number is 0
     """
+    MESSAGE_TIMEOUT = 30.0
+    PING_TIMEOUT = 5.0
+
     def __init__(self, websocket: websockets.WebSocketClientProtocol, previous_messages_number: int = 0):
         self._websocket = websocket
         self._messages_counter = previous_messages_number
@@ -71,6 +77,21 @@ class NdaxWebSocketAdaptor:
 
     async def recv(self):
         return await self._websocket.recv()
+
+    async def iter_messages(self) -> AsyncIterable[str]:
+        try:
+            while True:
+                msg: str = await asyncio.wait_for(self.recv(), timeout=self.MESSAGE_TIMEOUT)
+                yield msg
+        except asyncio.TimeoutError:
+            await asyncio.wait_for(
+                self.send_request(CONSTANTS.WS_PING_REQUEST, payload={}),
+                timeout=self.PING_TIMEOUT
+            )
+        except websockets.exceptions.ConnectionClosed:
+            return
+        finally:
+            await self._websocket.close()
 
     async def close(self, *args, **kwars):
         return await self._websocket.close(*args, **kwars)
