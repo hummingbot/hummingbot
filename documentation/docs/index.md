@@ -1,0 +1,40 @@
+# Hummingbot Documentation
+
+Welcome 👋 to the official documentation for Hummingbot, the open source software client that helps you build and run high-frequency trading bots on any crypto exchange.
+
+!!! warning "Warning: Beta Software"
+    Hummingbot is experimental, open source software that is still in beta, and you use it at your own risk. Please review the [Apache 2.0 license](https://github.com/CoinAlpha/hummingbot/blob/master/LICENSE).
+
+The Hummingbot ecosystem is a globally distributed community of algorithmic traders
+and developers who utilize and contribute to the open source Hummingbot codebase.
+
+## Hummingbot
+
+Hummingbot is an open source trading engine that helps you run automated, algorithmic trading strategies (**"bots"**) that can run on centralized and decentralized exchanges. Hummingbot utilizes a modular architecture that enables exchange connectors and trading strategies to be written independently.
+
+## Getting started
+
+- [Hummingbot Academy](https://hummingbot.io/academy/): Quickstart guides, FAQs, video tutorials and case studies on Hummingbot and Hummingbot Miner
+- [FAQ](/resources/faq): Learn about Hummingbot and market making as an algo trading strategy
+
+This documentation site is organized into the following sections:
+
+- [Installation](/installation/system-requirements): Learn how to install Hummingbot in various environments
+- [Operation](/operation/overview): Learn how to use Hummingbot commands and other useful configuration
+- [Connectors](/spot-connectors/overview): Learn about the various supported connectors info and configuration
+- [Strategies](/strategies/overview): Learn how to use the various supported strategies and their parameters
+
+## For advanced users and developers
+
+Hummingbot is a general source framework for crypto algorithmic trading. We welcome developers to fork the codebase for their own purposes and contribute to the community.
+
+- [Developing Connectors](/developer/overview): Learn how to build Hummingbot connectors
+- [Developing Strategies](/developer/strategies-overview): Learn how to build Hummingbot strategies
+- [Scripts](/scripts/overview): Learn how to use and customize existing Hummingbot scripts
+
+## More resources
+
+- [Hummingbot Help Center](https://hummingbot.zendesk.com/hc/en-us): Hummingbot FAQs, How-To's, Troubleshooting
+- [Github](https://github.com/coinalpha/hummingbot): Hummingbot codebase
+- [Youtube](https://www.youtube.com/channel/UCxzzdEnDRbylLMWmaMjywOA): Official Hummingbot Youtube Channel
+- [中文 wiki](https://github.com/coinalpha/hummingbot_chinese): General information about Hummingbot, translated into Mandarin Chinese
