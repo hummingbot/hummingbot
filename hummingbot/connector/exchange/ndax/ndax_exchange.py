@@ -60,6 +60,8 @@ class NdaxExchange(ExchangeBase):
         :param uid: User ID of the account
         :param api_key: The API key to connect to private NDAX APIs.
         :param secret_key: The API secret.
+        :param username: The username of the account in use.
+        :param account_id: The account ID associated with the trading account in use.
         :param trading_pairs: The market trading pairs which to track order book data.
         :param trading_required: Whether actual trading is needed.
         """
@@ -78,7 +80,7 @@ class NdaxExchange(ExchangeBase):
         # self._trading_rules = {}  # Dict[trading_pair:str, TradingRule]
         self._last_poll_timestamp = 0
 
-        # self._status_polling_task = None
+        self._status_polling_task = None
         # self._user_stream_tracker_task = None
         # self._user_stream_event_listener_task = None
         # self._trading_rules_polling_task = None
@@ -157,6 +159,8 @@ class NdaxExchange(ExchangeBase):
         Sends an aiohttp request and waits for a response.
         :param method: The HTTP method, e.g. get or post
         :param path_url: The path url or the API end point
+        :param params: The query parameters of the API request
+        :param params: The body parameters of the API request
         :param is_auth_required: Whether an authentication is required, when True the function will add encrypted
         signature to the request.
         :returns A response in json format.
