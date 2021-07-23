@@ -156,6 +156,11 @@ dependencies:
     - wrapt==1.12.0
     - yarl==1.4.2
     - zope-interface==4.7.1
+    - markdown==3.0.1
+    - mkdocs==1.0.4
+    - mkdocs-material==4.6
+    - pymdown-extensions==6.2
+    - python-markdown-math==0.6
     - git+https://github.com/CoinAlpha/python-signalr-client.git
     - https://hummingbot-python.s3-us-west-2.amazonaws.com/hummingsim-20200902-cp38-cp38-macosx_10_9_x86_64.whl
 prefix: /Users/martin_kou/anaconda3/envs/hummingbot
