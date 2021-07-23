@@ -2,8 +2,9 @@ import argparse
 from typing import (
     List,
 )
-from hummingbot.client.errors import ArgumentParserError
+from hummingbot.exceptions import ArgumentParserError
 from hummingbot.client.command.connect_command import OPTIONS as CONNECT_OPTIONS
+from hummingbot.client.config.global_config_map import global_config_map
 
 
 class ThrowingArgumentParser(argparse.ArgumentParser):
@@ -110,9 +111,11 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
                                 dest="precision", help="Level of precions for values displayed")
     history_parser.set_defaults(func=hummingbot.history)
 
-    generate_certs_parser = subparsers.add_parser("generate_certs", help="Create SSL certifications "
-                                                                         "for Gateway communication.")
-    generate_certs_parser.set_defaults(func=hummingbot.generate_certs)
+    gateway_parser = subparsers.add_parser("gateway", help="Gateway API configurations")
+    gateway_parser.add_argument("option", nargs="?", choices=("update", "list-configs", "generate_certs"), help="Gateway configuration choices")
+    gateway_parser.add_argument("key", nargs="?", default=None, help="Name of the parameter you want to change")
+    gateway_parser.add_argument("value", nargs="?", default=None, help="New value for the parameter")
+    gateway_parser.set_defaults(func=hummingbot.gateway)
 
     exit_parser = subparsers.add_parser("exit", help="Exit and cancel all outstanding orders")
     exit_parser.add_argument("-f", "--force", "--suspend", action="store_true", help="Force exit without cancelling outstanding orders",
@@ -138,6 +141,22 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
     ticker_parser.add_argument("--exchange", type=str, dest="exchange", help="The exchange of the market")
     ticker_parser.add_argument("--market", type=str, dest="market", help="The market (trading pair) of the order book")
     ticker_parser.set_defaults(func=hummingbot.ticker)
+
+    script_parser = subparsers.add_parser("script", help="Send command to running script instance")
+    script_parser.add_argument("cmd", nargs="?", default=None, help="Command")
+    script_parser.add_argument("args", nargs="*", default=None, help="Arguments")
+    script_parser.set_defaults(func=hummingbot.script_command)
+
+    # add shortcuts so they appear in command help
+    shortcuts = global_config_map.get("command_shortcuts").value
+    if shortcuts is not None:
+        for shortcut in shortcuts:
+            help_str = shortcut['help']
+            command = shortcut['command']
+            shortcut_parser = subparsers.add_parser(command, help=help_str)
+            args = shortcut['arguments']
+            for i in range(len(args)):
+                shortcut_parser.add_argument(f'${i+1}', help=args[i])
 
     rate_parser = subparsers.add_parser('rate', help="Show rate of a given trading pair")
     rate_parser.add_argument("-p", "--pair", default=None,

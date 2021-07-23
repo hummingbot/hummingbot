@@ -79,7 +79,7 @@ class UniswapConnector(ConnectorBase):
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client = None
         self._last_poll_timestamp = 0.0
-        self._last_balance_poll_timestamp = time.time()
+        self._last_balance_poll_timestamp = 0
         self._last_est_gas_cost_reported = 0
         self._in_flight_orders = {}
         self._allowances = {}
@@ -109,21 +109,23 @@ class UniswapConnector(ConnectorBase):
         """
         Initiate connector and start caching paths for trading_pairs
         """
-        try:
-            self.logger().info(f"Initializing Uniswap connector and paths for {self._trading_pairs} pairs.")
-            resp = await self._api_request("get", "eth/uniswap/start",
-                                           {"pairs": json.dumps(self._trading_pairs)})
-            status = bool(str(resp["success"]))
-            if bool(str(resp["success"])):
-                self._initiate_pool_status = status
-        except asyncio.CancelledError:
-            raise
-        except Exception as e:
-            self.logger().network(
-                f"Error initializing {self._trading_pairs} ",
-                exc_info=True,
-                app_warning_msg=str(e)
-            )
+        while True:
+            try:
+                # self.logger().info(f"Initializing Uniswap connector and paths for {self._trading_pairs} pairs.")
+                resp = await self._api_request("get", "eth/uniswap/start",
+                                               {"pairs": json.dumps(self._trading_pairs)})
+                status = bool(str(resp["success"]))
+                if status:
+                    self._initiate_pool_status = status
+                    await asyncio.sleep(60)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                self.logger().network(
+                    f"Error initializing {self._trading_pairs} ",
+                    exc_info=True,
+                    app_warning_msg=str(e)
+                )
 
     async def auto_approve(self):
         """

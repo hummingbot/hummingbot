@@ -1,33 +1,54 @@
+"""
+hummingbot.client.config.config_var defines ConfigVar. One of its parameters is a validator, a function that takes a
+string and determines whether it is valid input. This file contains many validator functions that are used by various
+hummingbot ConfigVars.
+"""
+
+from datetime import datetime
 from decimal import Decimal
 from typing import Optional
 
 
-# Validators
 def validate_exchange(value: str) -> Optional[str]:
+    """
+    Restrict valid exchanges to the exchange file names
+    """
     from hummingbot.client.settings import EXCHANGES
     if value not in EXCHANGES:
         return f"Invalid exchange, please choose value from {EXCHANGES}"
 
 
 def validate_derivative(value: str) -> Optional[str]:
+    """
+    restrict valid derivatives to the derivative file names
+    """
     from hummingbot.client.settings import DERIVATIVES
     if value not in DERIVATIVES:
         return f"Invalid derivative, please choose value from {DERIVATIVES}"
 
 
 def validate_connector(value: str) -> Optional[str]:
+    """
+    Restrict valid derivatives to the connector file names
+    """
     from hummingbot.client.settings import CONNECTOR_SETTINGS
     if value not in CONNECTOR_SETTINGS:
         return f"Invalid connector, please choose value from {CONNECTOR_SETTINGS.keys()}"
 
 
 def validate_strategy(value: str) -> Optional[str]:
+    """
+    Restrict valid derivatives to the strategy file names
+    """
     from hummingbot.client.settings import STRATEGIES
     if value not in STRATEGIES:
         return f"Invalid strategy, please choose value from {STRATEGIES}"
 
 
 def validate_decimal(value: str, min_value: Decimal = None, max_value: Decimal = None, inclusive=True) -> Optional[str]:
+    """
+    Parse a decimal value from a string. This value can also be clamped.
+    """
     try:
         decimal_value = Decimal(value)
     except Exception:
@@ -51,8 +72,10 @@ def validate_decimal(value: str, min_value: Decimal = None, max_value: Decimal =
 
 
 def validate_market_trading_pair(market: str, value: str) -> Optional[str]:
-    # Since trading pair validation and autocomplete are UI optimizations that do not impact bot performances,
-    # in case of network issues or slow wifi, this check returns true and does not prevent users from proceeding,
+    """
+    Since trading pair validation and autocomplete are UI optimizations that do not impact bot performances,
+    in case of network issues or slow wifi, this check returns true and does not prevent users from proceeding,
+    """
     from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
     trading_pair_fetcher: TradingPairFetcher = TradingPairFetcher.get_instance()
     if trading_pair_fetcher.ready:
@@ -64,12 +87,18 @@ def validate_market_trading_pair(market: str, value: str) -> Optional[str]:
 
 
 def validate_bool(value: str) -> Optional[str]:
+    """
+    Permissively interpret a string as a boolean
+    """
     valid_values = ('true', 'yes', 'y', 'false', 'no', 'n')
     if value.lower() not in valid_values:
         return f"Invalid value, please choose value from {valid_values}"
 
 
 def validate_int(value: str, min_value: int = None, max_value: int = None, inclusive=True) -> Optional[str]:
+    """
+    Parse an int value from a string. This value can also be clamped.
+    """
     try:
         int_value = int(value)
     except Exception:
@@ -90,3 +119,10 @@ def validate_int(value: str, min_value: int = None, max_value: int = None, inclu
             return f"Value must be more than {min_value}."
         elif max_value is not None and not int_value < max_value:
             return f"Value must be less than {max_value}."
+
+
+def validate_timestamp_iso_string(value: str) -> Optional[str]:
+    try:
+        datetime.fromisoformat(value)
+    except ValueError:
+        return "Incorrect date time format (expected is YYYY-MM-DD HH:MM:SS)"

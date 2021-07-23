@@ -17,6 +17,7 @@ from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.connector.exchange.kucoin.kucoin_api_order_book_data_source import KucoinAPIOrderBookDataSource
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
+from hummingbot.connector.exchange.kucoin.kucoin_auth import KucoinAuth
 from hummingbot.connector.exchange.kucoin.kucoin_order_book_message import KucoinOrderBookMessage
 from hummingbot.connector.exchange.kucoin.kucoin_active_order_tracker import KucoinActiveOrderTracker
 
@@ -31,8 +32,10 @@ class KucoinOrderBookTracker(OrderBookTracker):
         return cls._kobt_logger
 
     def __init__(self,
-                 trading_pairs: List[str]):
-        super().__init__(KucoinAPIOrderBookDataSource(trading_pairs), trading_pairs)
+                 trading_pairs: List[str],
+                 auth: KucoinAuth = None):
+        super().__init__(KucoinAPIOrderBookDataSource(trading_pairs, auth), trading_pairs)
+        self._auth = auth
         self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()
         self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()

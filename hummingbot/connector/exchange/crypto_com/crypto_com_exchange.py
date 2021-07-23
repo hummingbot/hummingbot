@@ -40,8 +40,10 @@ from hummingbot.connector.exchange.crypto_com.crypto_com_user_stream_tracker imp
 from hummingbot.connector.exchange.crypto_com.crypto_com_auth import CryptoComAuth
 from hummingbot.connector.exchange.crypto_com.crypto_com_in_flight_order import CryptoComInFlightOrder
 from hummingbot.connector.exchange.crypto_com import crypto_com_utils
-from hummingbot.connector.exchange.crypto_com import crypto_com_constants as Constants
+from hummingbot.connector.exchange.crypto_com import crypto_com_constants as CONSTANTS
 from hummingbot.core.data_type.common import OpenOrder
+from hummingbot.core.api_throttler.varied_rate_api_throttler import VariedRateThrottler
+
 ctce_logger = None
 s_decimal_NaN = Decimal("nan")
 
@@ -92,6 +94,9 @@ class CryptoComExchange(ExchangeBase):
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
         self._last_poll_timestamp = 0
+        self._throttler = VariedRateThrottler(
+            rate_limit_list=CONSTANTS.RATE_LIMITS,
+        )
 
     @property
     def name(self) -> str:
@@ -219,7 +224,7 @@ class CryptoComExchange(ExchangeBase):
         """
         try:
             # since there is no ping endpoint, the lowest rate call is to get BTC-USDT ticker
-            await self._api_request("get", "public/get-ticker?instrument_name=BTC_USDT")
+            await self._api_request("get", CONSTANTS.CHECK_NETWORK_PATH_URL)
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -252,7 +257,7 @@ class CryptoComExchange(ExchangeBase):
                 await asyncio.sleep(0.5)
 
     async def _update_trading_rules(self):
-        instruments_info = await self._api_request("get", path_url="public/get-instruments")
+        instruments_info = await self._api_request("get", path_url=CONSTANTS.GET_TRADING_RULES_PATH_URL)
         self._trading_rules.clear()
         self._trading_rules = self._format_trading_rules(instruments_info)
 
@@ -315,37 +320,38 @@ class CryptoComExchange(ExchangeBase):
         signature to the request.
         :returns A response in json format.
         """
-        url = f"{Constants.REST_URL}/{path_url}"
-        client = await self._http_client()
-        if is_auth_required:
-            request_id = crypto_com_utils.RequestId.generate_request_id()
-            data = {"params": params}
-            params = self._crypto_com_auth.generate_auth_dict(path_url, request_id,
-                                                              crypto_com_utils.get_ms_timestamp(), data)
-            headers = self._crypto_com_auth.get_headers()
-        else:
-            headers = {"Content-Type": "application/json"}
+        async with self._throttler.execute_task(path_url):
+            url = f"{CONSTANTS.REST_URL}/{path_url}"
+            client = await self._http_client()
+            if is_auth_required:
+                request_id = crypto_com_utils.RequestId.generate_request_id()
+                data = {"params": params}
+                params = self._crypto_com_auth.generate_auth_dict(path_url, request_id,
+                                                                  crypto_com_utils.get_ms_timestamp(), data)
+                headers = self._crypto_com_auth.get_headers()
+            else:
+                headers = {"Content-Type": "application/json"}
 
-        if method == "get":
-            response = await client.get(url, headers=headers)
-        elif method == "post":
-            post_json = json.dumps(params)
-            response = await client.post(url, data=post_json, headers=headers)
-        else:
-            raise NotImplementedError
+            if method == "get":
+                response = await client.get(url, headers=headers)
+            elif method == "post":
+                post_json = json.dumps(params)
+                response = await client.post(url, data=post_json, headers=headers)
+            else:
+                raise NotImplementedError
 
-        try:
-            parsed_response = json.loads(await response.text())
-        except Exception as e:
-            raise IOError(f"Error parsing data from {url}. Error: {str(e)}")
-        if response.status != 200:
-            raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. "
-                          f"Message: {parsed_response}")
-        if parsed_response["code"] != 0:
-            raise IOError(f"{url} API call failed, response: {parsed_response}")
-        # print(f"REQUEST: {method} {path_url} {params}")
-        # print(f"RESPONSE: {parsed_response}")
-        return parsed_response
+            try:
+                parsed_response = json.loads(await response.text())
+            except Exception as e:
+                raise IOError(f"Error parsing data from {url}. Error: {str(e)}")
+            if response.status != 200:
+                raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. "
+                              f"Message: {parsed_response}")
+            if parsed_response["code"] != 0:
+                raise IOError(f"{url} API call failed, response: {parsed_response}")
+            # print(f"REQUEST: {method} {path_url} {params}")
+            # print(f"RESPONSE: {parsed_response}")
+            return parsed_response
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal):
         """
@@ -449,7 +455,7 @@ class CryptoComExchange(ExchangeBase):
                                   order_type
                                   )
         try:
-            order_result = await self._api_request("post", "private/create-order", api_params, True)
+            order_result = await self._api_request("post", CONSTANTS.CREATE_ORDER_PATH_URL, api_params, True)
             exchange_order_id = str(order_result["result"]["order_id"])
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
@@ -527,7 +533,7 @@ class CryptoComExchange(ExchangeBase):
             ex_order_id = tracked_order.exchange_order_id
             await self._api_request(
                 "post",
-                "private/cancel-order",
+                CONSTANTS.CANCEL_ORDER_PATH_URL,
                 {"instrument_name": crypto_com_utils.convert_to_exchange_trading_pair(trading_pair),
                  "order_id": ex_order_id},
                 True
@@ -573,7 +579,7 @@ class CryptoComExchange(ExchangeBase):
         """
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
-        account_info = await self._api_request("post", "private/get-account-summary", {}, True)
+        account_info = await self._api_request("post", CONSTANTS.GET_ACCOUNT_SUMMARY_PATH_URL, {}, True)
         for account in account_info["result"]["accounts"]:
             asset_name = account["currency"]
             self._account_available_balances[asset_name] = Decimal(str(account["available"]))
@@ -598,7 +604,7 @@ class CryptoComExchange(ExchangeBase):
             for tracked_order in tracked_orders:
                 order_id = await tracked_order.get_exchange_order_id()
                 tasks.append(self._api_request("post",
-                                               "private/get-order-detail",
+                                               CONSTANTS.GET_ORDER_DETAIL_PATH_URL,
                                                {"order_id": order_id},
                                                True))
             self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
@@ -704,22 +710,31 @@ class CryptoComExchange(ExchangeBase):
         """
         if self._trading_pairs is None:
             raise Exception("cancel_all can only be used when trading_pairs are specified.")
+        tracked_orders: Dict[str, CryptoComInFlightOrder] = self._in_flight_orders.copy().items()
         cancellation_results = []
         try:
-            for trading_pair in self._trading_pairs:
-                await self._api_request(
-                    "post",
-                    "private/cancel-all-orders",
-                    {"instrument_name": crypto_com_utils.convert_to_exchange_trading_pair(trading_pair)},
-                    True
-                )
+            tasks = []
+
+            for _, order in tracked_orders:
+                api_params = {
+                    "instrument_name": crypto_com_utils.convert_to_exchange_trading_pair(order.trading_pair),
+                    "order_id": order.exchange_order_id,
+                }
+                tasks.append(self._api_request(method="post",
+                                               path_url=CONSTANTS.CANCEL_ORDER_PATH_URL,
+                                               params=api_params,
+                                               is_auth_required=True))
+
+            await safe_gather(*tasks)
+
             open_orders = await self.get_open_orders()
-            for cl_order_id, tracked_order in self._in_flight_orders.items():
+            for cl_order_id, tracked_order in tracked_orders:
                 open_order = [o for o in open_orders if o.client_order_id == cl_order_id]
                 if not open_order:
                     cancellation_results.append(CancellationResult(cl_order_id, True))
                     self.trigger_event(MarketEvent.OrderCancelled,
                                        OrderCancelledEvent(self.current_timestamp, cl_order_id))
+                    self.stop_tracking_order(cl_order_id)
                 else:
                     cancellation_results.append(CancellationResult(cl_order_id, False))
         except Exception:
@@ -806,7 +821,7 @@ class CryptoComExchange(ExchangeBase):
     async def get_open_orders(self) -> List[OpenOrder]:
         result = await self._api_request(
             "post",
-            "private/get-open-orders",
+            CONSTANTS.GET_OPEN_ORDERS_PATH_URL,
             {},
             True
         )
