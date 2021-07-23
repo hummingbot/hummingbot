@@ -21,14 +21,14 @@ class NdaxAuthTests(TestCase):
         return 'test_secret_key'
 
     def test_no_authentication_headers(self):
-        auth = NdaxAuth(uid=self.uid, api_key=self.api_key, secret_key=self.secret_key)
+        auth = NdaxAuth(uid=self.uid, api_key=self.api_key, secret_key=self.secret_key, username="hbot")
         headers = auth.get_headers()
 
         self.assertEqual(1, len(headers))
         self.assertEqual('application/json', headers.get('Content-Type'))
 
     def test_authentication_headers(self):
-        auth = NdaxAuth(uid=self.uid, api_key=self.api_key, secret_key=self.secret_key)
+        auth = NdaxAuth(uid=self.uid, api_key=self.api_key, secret_key=self.secret_key, username="hbot")
         nonce = '1234567890'
 
         with patch('hummingbot.connector.exchange.ndax.ndax_auth.get_tracking_nonce_low_res') as generate_nonce_mock:
@@ -48,7 +48,7 @@ class NdaxAuthTests(TestCase):
         self.assertEqual(expected_signature, headers.get('Signature'))
 
     def test_ws_auth_payload(self):
-        auth = NdaxAuth(uid=self.uid, api_key=self.api_key, secret_key=self.secret_key)
+        auth = NdaxAuth(uid=self.uid, api_key=self.api_key, secret_key=self.secret_key, username="hbot")
         nonce = '1234567890'
 
         with patch('hummingbot.connector.exchange.ndax.ndax_auth.get_tracking_nonce_low_res') as generate_nonce_mock:
