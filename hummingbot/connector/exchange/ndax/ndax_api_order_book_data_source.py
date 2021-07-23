@@ -51,7 +51,7 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
             "OMSId": 1
         }
         async with aiohttp.ClientSession() as client:
-            async with client.get(CONSTANTS.MARKETS_URL, params=params) as response:
+            async with client.get(f"{CONSTANTS.REST_URL+CONSTANTS.MARKETS_URL}", params=params) as response:
                 if response.status == 200:
                     resp_json: Dict[str, Any] = await response.json()
 
@@ -80,7 +80,7 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     "OMSId": 1,
                     "InstrumentId": cls._trading_pair_id_map[trading_pair],
                 }
-                async with client.get(f"{CONSTANTS.LAST_TRADE_PRICE_URL}", params=params) as response:
+                async with client.get(f"{CONSTANTS.REST_URL+CONSTANTS.LAST_TRADE_PRICE_URL}", params=params) as response:
                     if response.status == 200:
                         resp_json: Dict[str, Any] = await response.json()
 
@@ -101,7 +101,7 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
             params = {
                 "OMSId": 1
             }
-            async with client.get(CONSTANTS.MARKETS_URL, params=params) as response:
+            async with client.get(f"{CONSTANTS.REST_URL+CONSTANTS.MARKETS_URL}", params=params) as response:
                 if response.status == 200:
                     resp_json: Dict[str, Any] = await response.json()
                     return [f"{instrument['Product1Symbol']}-{instrument['Product2Symbol']}" for instrument in resp_json]
@@ -125,7 +125,7 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
             "Depth": 99999,
         }
         async with aiohttp.ClientSession() as client:
-            async with client.get(f"{CONSTANTS.ORDER_BOOK_URL}", params=params) as response:
+            async with client.get(f"{CONSTANTS.REST_URL+CONSTANTS.ORDER_BOOK_URL}", params=params) as response:
                 if response.status != 200:
                     raise IOError(
                         f"Error fetching OrderBook for {trading_pair} at {CONSTANTS.ORDER_BOOK_URL}. "

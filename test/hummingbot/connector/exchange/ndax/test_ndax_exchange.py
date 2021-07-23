@@ -1,6 +1,10 @@
 import asyncio
 import json
+import time
+import pandas as pd
+
 from decimal import Decimal
+from typing import Any, Dict, List
 from unittest import TestCase
 from unittest.mock import AsyncMock, patch
 
@@ -11,6 +15,15 @@ from hummingbot.connector.exchange.ndax.ndax_exchange import NdaxExchange
 class NdaxExchangeTests(TestCase):
     # the level is required to receive logs from the data source loger
     level = 0
+
+    start_timestamp: float = pd.Timestamp("2021-01-01", tz="UTC").timestamp()
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        super().setUpClass()
+        cls.base_asset = "COINALPHA"
+        cls.quote_asset = "HBOT"
+        cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
 
     def setUp(self) -> None:
         super().setUp()
@@ -24,7 +37,8 @@ class NdaxExchangeTests(TestCase):
 
         self.exchange = NdaxExchange(uid='001',
                                      api_key='testAPIKey',
-                                     secret_key='testSecret')
+                                     secret_key='testSecret',
+                                     username="hbot")
 
         self.exchange.logger().setLevel(1)
         self.exchange.logger().addHandler(self)
@@ -77,12 +91,22 @@ class NdaxExchangeTests(TestCase):
 
         return json.dumps(message)
 
+    def _set_mock_response(self, mock_api, status: int, json_data: Any):
+        mock_api.return_value.status = status
+        mock_api.return_value.json = AsyncMock(return_value=json_data)
+
     def _add_successful_authentication_response(self):
         self.ws_incoming_messages.put_nowait(self._authentication_response(True))
 
     def _create_exception_and_unlock_test_with_event(self, exception):
         self.resume_test_event.set()
         raise exception
+
+    def _simulate_reset_poll_notifier(self):
+        self.exchange._poll_notifier.clear()
+
+    def _simulate_ws_message_received(self, timestamp: float):
+        self.exchange._user_stream_tracker._data_source._last_recv_time = timestamp
 
     @patch('websockets.connect', new_callable=AsyncMock)
     def test_user_event_queue_error_is_logged(self, ws_connect_mock):
@@ -172,3 +196,120 @@ class NdaxExchangeTests(TestCase):
 
         self.assertEqual(Decimal('10499.1'), self.exchange.get_balance('BTC'))
         self.assertEqual(Decimal('10499.1') - Decimal('2.1'), self.exchange.available_balances['BTC'])
+
+    def test_tick_initial_tick_successful(self):
+        start_ts: float = time.time() * 1e3
+
+        self.exchange.tick(start_ts)
+        self.assertEqual(start_ts, self.exchange._last_timestamp)
+        self.assertTrue(self.exchange._poll_notifier.is_set())
+
+    @patch("time.time")
+    def test_tick_subsequent_tick_within_short_poll_interval(self, mock_ts):
+        # Assumes user stream tracker has NOT been receiving messages, Hence SHORT_POLL_INTERVAL in use
+        start_ts: float = self.start_timestamp
+        next_tick: float = start_ts + (self.exchange.SHORT_POLL_INTERVAL - 1)
+
+        mock_ts.return_value = start_ts
+        self.exchange.tick(start_ts)
+        self.assertEqual(start_ts, self.exchange._last_timestamp)
+        self.assertTrue(self.exchange._poll_notifier.is_set())
+
+        self._simulate_reset_poll_notifier()
+
+        mock_ts.return_value = next_tick
+        self.exchange.tick(next_tick)
+        self.assertEqual(next_tick, self.exchange._last_timestamp)
+        self.assertFalse(self.exchange._poll_notifier.is_set())
+
+    @patch("time.time")
+    def test_tick_subsequent_tick_exceed_short_poll_interval(self, mock_ts):
+        # Assumes user stream tracker has NOT been receiving messages, Hence SHORT_POLL_INTERVAL in use
+        start_ts: float = self.start_timestamp
+        next_tick: float = start_ts + (self.exchange.SHORT_POLL_INTERVAL + 1)
+
+        mock_ts.return_value = start_ts
+        self.exchange.tick(start_ts)
+        self.assertEqual(start_ts, self.exchange._last_timestamp)
+        self.assertTrue(self.exchange._poll_notifier.is_set())
+
+        self._simulate_reset_poll_notifier()
+
+        mock_ts.return_value = next_tick
+        self.exchange.tick(next_tick)
+        self.assertEqual(next_tick, self.exchange._last_timestamp)
+        self.assertTrue(self.exchange._poll_notifier.is_set())
+
+    @patch("time.time")
+    def test_tick_subsequent_tick_within_long_poll_interval(self, mock_time):
+
+        start_ts: float = self.start_timestamp
+        next_tick: float = start_ts + (self.exchange.LONG_POLL_INTERVAL - 1)
+
+        mock_time.return_value = start_ts
+        self.exchange.tick(start_ts)
+        self.assertEqual(start_ts, self.exchange._last_timestamp)
+        self.assertTrue(self.exchange._poll_notifier.is_set())
+
+        # Simulate last message received 1 sec ago
+        self._simulate_ws_message_received(next_tick - 1)
+        self._simulate_reset_poll_notifier()
+
+        mock_time.return_value = next_tick
+        self.exchange.tick(next_tick)
+        self.assertEqual(next_tick, self.exchange._last_timestamp)
+        self.assertFalse(self.exchange._poll_notifier.is_set())
+
+    @patch("time.time")
+    def test_tick_subsequent_tick_exceed_long_poll_interval(self, mock_time):
+        # Assumes user stream tracker has been receiving messages, Hence LONG_POLL_INTERVAL in use
+        start_ts: float = self.start_timestamp
+        next_tick: float = start_ts + (self.exchange.LONG_POLL_INTERVAL - 1)
+
+        mock_time.return_value = start_ts
+        self.exchange.tick(start_ts)
+        self.assertEqual(start_ts, self.exchange._last_timestamp)
+        self.assertTrue(self.exchange._poll_notifier.is_set())
+
+        self._simulate_ws_message_received(start_ts)
+        self._simulate_reset_poll_notifier()
+
+        mock_time.return_value = next_tick
+        self.exchange.tick(next_tick)
+        self.assertEqual(next_tick, self.exchange._last_timestamp)
+        self.assertTrue(self.exchange._poll_notifier.is_set())
+
+    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    def test_get_account_id(self, mock_api):
+        account_id = 1
+        mock_response: List[int] = [account_id]
+        self._set_mock_response(mock_api, 200, mock_response)
+
+        task = asyncio.get_event_loop().create_task(
+            self.exchange._get_account_id()
+        )
+        resp = asyncio.get_event_loop().run_until_complete(task)
+        self.assertEqual(resp, account_id)
+
+    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    def test_update_balances(self, mock_api):
+
+        self.assertEqual(0, len(self.exchange._account_balances))
+        self.assertEqual(0, len(self.exchange._account_available_balances))
+
+        mock_response: List[Dict[str, Any]] = [
+            {
+                "ProductSymbol": self.base_asset,
+                "Amount": 10.0,
+                "Hold": 5.0
+            },
+        ]
+
+        self._set_mock_response(mock_api, 200, mock_response)
+
+        task = asyncio.get_event_loop().create_task(
+            self.exchange._update_balances()
+        )
+        asyncio.get_event_loop().run_until_complete(task)
+
+        self.assertEqual(Decimal(str(10.0)), self.exchange.get_balance(self.base_asset))

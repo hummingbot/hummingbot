@@ -3,19 +3,24 @@
 EXCHANGE_NAME = "ndax"
 
 # Production URLs
-REST_URL = "https://api.ndax.io:8443/AP"
-WSS_URL = "wss://api.ndax.io/WSGateway"
+# REST_URL = "https://api.ndax.io:8443/AP/"
+# WSS_URL = "wss://api.ndax.io/WSGateway"
 
 # Testing URLs
-# REST_URL = "https://ndaxmarginstaging.cdnhop.net:8443/AP/"
-# WSS_URL = "wss://ndaxmarginstaging.cdnhop.net/WSGateway"
+REST_URL = "https://ndaxmarginstaging.cdnhop.net:8443/AP/"
+WSS_URL = "wss://ndaxmarginstaging.cdnhop.net/WSGateway"
 
 REST_API_VERSON = "v3.3"
 
+
 # REST API Public Endpoints
-MARKETS_URL = f"{REST_URL}/GetInstruments"
-ORDER_BOOK_URL = f"{REST_URL}/GetL2Snapshot"
-LAST_TRADE_PRICE_URL = f"{REST_URL}/GetLevel1"
+MARKETS_URL = "GetInstruments"
+ORDER_BOOK_URL = "GetL2Snapshot"
+LAST_TRADE_PRICE_URL = "GetLevel1"
+
+# REST API Private Endpoints
+ACCOUNT_POSITION_PATH_URL = "GetAccountPositions"
+USER_ACCOUNTS_PATH_URL = "GetUserAccounts"
 
 # WebSocket Public Endpoints
 ACCOUNT_POSITION_EVENT_ENDPOINT_NAME = "AccountPositionEvent"
