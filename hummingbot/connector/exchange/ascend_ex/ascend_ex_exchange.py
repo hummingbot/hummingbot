@@ -505,10 +505,10 @@ class AscendExExchange(ExchangePyBase):
             raise ValueError("Order amount must be greater than zero.")
         try:
             # TODO: check balance
-            [exchange_order_id, timestamp] = ascend_ex_utils.gen_exchange_order_id(self._account_uid, order_id)
+            timestamp = ascend_ex_utils.get_ms_timestamp()
 
             api_params = {
-                "id": exchange_order_id,
+                "id": order_id,
                 "time": timestamp,
                 "symbol": ascend_ex_utils.convert_to_exchange_trading_pair(trading_pair),
                 "orderPrice": f"{price:f}",
@@ -519,7 +519,7 @@ class AscendExExchange(ExchangePyBase):
 
             self.start_tracking_order(
                 order_id,
-                exchange_order_id,
+                None,
                 trading_pair,
                 trade_type,
                 price,
@@ -527,17 +527,18 @@ class AscendExExchange(ExchangePyBase):
                 order_type
             )
 
-            await self._api_request(
+            resp = await self._api_request(
                 method="post",
                 path_url="cash/order",
                 params=api_params,
                 is_auth_required=True,
                 force_auth_path_url="order")
+            exchange_order_id = str(resp["data"]["info"]["orderId"])
             tracked_order = self._in_flight_orders.get(order_id)
-
             if tracked_order is not None:
                 self.logger().info(f"Created {order_type.name} {trade_type.name} order {order_id} for "
                                    f"{amount} {trading_pair}.")
+                tracked_order.update_exchange_order_id(exchange_order_id)
 
             event_tag = MarketEvent.BuyOrderCreated if trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
             event_class = BuyOrderCreatedEvent if trade_type is TradeType.BUY else SellOrderCreatedEvent
@@ -744,7 +745,7 @@ class AscendExExchange(ExchangePyBase):
                 "orders": [
                     {
                         'id': ascend_ex_utils.uuid32(),
-                        "orderId": order.exchange_order_id,
+                        "orderId": await order.get_exchange_order_id(),
                         "symbol": ascend_ex_utils.convert_to_exchange_trading_pair(order.trading_pair),
                         "time": int(time.time() * 1e3)
                     }
