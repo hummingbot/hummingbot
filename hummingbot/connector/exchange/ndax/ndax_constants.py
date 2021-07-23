@@ -14,9 +14,9 @@ REST_API_VERSON = "v3.3"
 
 
 # REST API Public Endpoints
-MARKETS_URL = f"{REST_URL}/GetInstruments"
-ORDER_BOOK_URL = f"{REST_URL}/GetL2Snapshot"
-LAST_TRADE_PRICE_URL = f"{REST_URL}/GetLevel1"
+MARKETS_URL = "GetInstruments"
+ORDER_BOOK_URL = "GetL2Snapshot"
+LAST_TRADE_PRICE_URL = "GetLevel1"
 
 # REST API Private Endpoints
 ACCOUNT_POSITION_PATH_URL = "GetAccountPositions"
