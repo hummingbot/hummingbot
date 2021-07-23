@@ -100,8 +100,8 @@ dependencies:
     - deprecated==1.2.7
     - diff-cover==5.1.2
     - distlib==0.3.0
-    - dydx-python==0.11.3
-    - dydx-v3-python==1.0.8
+    - dydx-python==0.11.2
+    - dydx-v3-python==1.0.10
     - ecdsa==0.16.0
     - empyrical==0.5.5
     - entrypoints==0.3
