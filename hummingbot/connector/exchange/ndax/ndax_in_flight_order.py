@@ -32,6 +32,7 @@ class NdaxInFlightOrder(InFlightOrderBase):
             amount,
             initial_state,
         )
+        self.fee_asset = self.base_asset if self.trade_type is TradeType.BUY else self.quote_asset
         self.trade_id_set = set()
 
     @property

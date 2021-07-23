@@ -18,8 +18,30 @@ class NdaxInFlightOrderTests(TestCase):
                 "last_state": "Working",
                 "executed_amount_base": "0.5",
                 "executed_amount_quote": "15000",
-                "fee_asset": "USDT",
+                "fee_asset": "BTC",
                 "fee_paid": "0"}
+
+    def test_instance_creation(self):
+        order = NdaxInFlightOrder(client_order_id="C1",
+                                  exchange_order_id="1",
+                                  trading_pair="BTC-USDT",
+                                  order_type=OrderType.LIMIT,
+                                  trade_type=TradeType.SELL,
+                                  price=Decimal("35000"),
+                                  amount=Decimal("1.1"))
+
+        self.assertEqual("C1", order.client_order_id)
+        self.assertEqual("1", order.exchange_order_id)
+        self.assertEqual("BTC-USDT", order.trading_pair)
+        self.assertEqual(OrderType.LIMIT, order.order_type)
+        self.assertEqual(TradeType.SELL, order.trade_type)
+        self.assertEqual(Decimal("35000"), order.price)
+        self.assertEqual(Decimal("1.1"), order.amount)
+        self.assertEqual(Decimal("0"), order.executed_amount_base)
+        self.assertEqual(Decimal("0"), order.executed_amount_quote)
+        self.assertEqual(order.quote_asset, order.fee_asset)
+        self.assertEqual(Decimal("0"), order.fee_paid)
+        self.assertEqual("Working", order.last_state)
 
     def test_create_from_json(self):
         order = NdaxInFlightOrder.from_json(self._example_json())
@@ -33,7 +55,7 @@ class NdaxInFlightOrderTests(TestCase):
         self.assertEqual(Decimal("1.1"), order.amount)
         self.assertEqual(Decimal("0.5"), order.executed_amount_base)
         self.assertEqual(Decimal("15000"), order.executed_amount_quote)
-        self.assertEqual("USDT", order.fee_asset)
+        self.assertEqual(order.base_asset, order.fee_asset)
         self.assertEqual(Decimal("0"), order.fee_paid)
         self.assertEqual("Working", order.last_state)
 
