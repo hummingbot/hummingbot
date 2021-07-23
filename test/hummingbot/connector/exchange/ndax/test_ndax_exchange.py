@@ -409,7 +409,92 @@ class NdaxExchangeTests(TestCase):
         self.assertIn(payload["TradeId"], inflight_order.trade_id_set)
         self.assertEqual(Decimal(1), inflight_order.executed_amount_base)
         self.assertEqual(Decimal(35000), inflight_order.executed_amount_quote)
-        self.assertEqual(Decimal(1) * Decimal("0.02"), inflight_order.fee_paid)
+        self.assertEqual(inflight_order.executed_amount_base * Decimal("0.02"), inflight_order.fee_paid)
+
+        self.assertFalse(inflight_order.client_order_id in self.exchange.in_flight_orders)
+        self.assertTrue(self._is_logged("INFO", f"The {inflight_order.trade_type.name} order "
+                                                f"{inflight_order.client_order_id} has completed "
+                                                f"according to order status API"))
+        self.assertEqual(2, len(self.exchange.event_logs))
+        fill_event = self.exchange.event_logs[0]
+        self.assertEqual(OrderFilledEvent, type(fill_event))
+        self.assertEqual(inflight_order.client_order_id, fill_event.order_id)
+        self.assertEqual(inflight_order.trading_pair, fill_event.trading_pair)
+        self.assertEqual(inflight_order.trade_type, fill_event.trade_type)
+        self.assertEqual(inflight_order.order_type, fill_event.order_type)
+        self.assertEqual(Decimal(35000), fill_event.price)
+        self.assertEqual(Decimal(1), fill_event.amount)
+        self.assertEqual(Decimal("0.02"), fill_event.trade_fee.percent)
+        self.assertEqual(0, len(fill_event.trade_fee.flat_fees))
+        self.assertEqual("213", fill_event.exchange_trade_id)
+        buy_event = self.exchange.event_logs[1]
+        self.assertEqual(inflight_order.client_order_id, buy_event.order_id)
+        self.assertEqual(inflight_order.base_asset, buy_event.base_asset)
+        self.assertEqual(inflight_order.quote_asset, buy_event.quote_asset)
+        self.assertEqual(inflight_order.fee_asset, buy_event.fee_asset)
+        self.assertEqual(inflight_order.executed_amount_base, buy_event.base_asset_amount)
+        self.assertEqual(inflight_order.executed_amount_quote, buy_event.quote_asset_amount)
+        self.assertEqual(inflight_order.fee_paid, buy_event.fee_amount)
+        self.assertEqual(inflight_order.order_type, buy_event.order_type)
+        self.assertEqual(inflight_order.exchange_order_id, buy_event.exchange_order_id)
+
+    @patch('websockets.connect', new_callable=AsyncMock)
+    def test_trade_event_fills_and_completes_sell_in_flight_order(self, ws_connect_mock):
+        payload = {
+            "OMSId": 1,
+            "TradeId": 213,
+            "OrderId": 9848,
+            "AccountId": 4,
+            "ClientOrderId": 3,
+            "InstrumentId": 1,
+            "Side": "Sell",
+            "Quantity": 1,
+            "Price": 35000,
+            "Value": 35000,
+            "TradeTime": 635978008210426109,
+            "ContraAcctId": 3,
+            "OrderTradeRevision": 1,
+            "Direction": "NoChange"
+        }
+        message = {"m": 3,
+                   "i": 2,
+                   "n": CONSTANTS.ORDER_TRADE_EVENT_ENDPOINT_NAME,
+                   "o": json.dumps(payload)}
+
+        ws_connect_mock.return_value = self._create_ws_mock()
+
+        self.exchange.start_tracking_order(order_id="3",
+                                           exchange_order_id="9848",
+                                           trading_pair="BTC-USD",
+                                           trade_type=TradeType.SELL,
+                                           price=Decimal("35000"),
+                                           amount=Decimal("1"),
+                                           order_type=OrderType.LIMIT)
+
+        inflight_order = self.exchange.in_flight_orders["3"]
+
+        self.exchange_task = asyncio.get_event_loop().create_task(
+            self.exchange._user_stream_event_listener())
+        self.tracker_task = asyncio.get_event_loop().create_task(
+            self.exchange._user_stream_tracker.start())
+
+        # Add the authentication response for the websocket
+        self._add_successful_authentication_response()
+        self.ws_incoming_messages.put_nowait(json.dumps(message))
+
+        # Add a dummy message for the websocket to read and include in the "messages" queue
+        self.ws_incoming_messages.put_nowait(json.dumps(self._finalMessage))
+
+        # Wait until the connector finishes processing the message queue
+        asyncio.get_event_loop().run_until_complete(self.resume_test_event.wait())
+        self.resume_test_event.clear()
+
+        self.assertEqual("FullyExecuted", inflight_order.last_state)
+        self.assertIn(payload["TradeId"], inflight_order.trade_id_set)
+        self.assertEqual(Decimal(1), inflight_order.executed_amount_base)
+        self.assertEqual(Decimal(35000), inflight_order.executed_amount_quote)
+        self.assertEqual(inflight_order.executed_amount_base * inflight_order.executed_amount_quote * Decimal("0.02"),
+                         inflight_order.fee_paid)
 
         self.assertFalse(inflight_order.client_order_id in self.exchange.in_flight_orders)
         self.assertTrue(self._is_logged("INFO", f"The {inflight_order.trade_type.name} order "
