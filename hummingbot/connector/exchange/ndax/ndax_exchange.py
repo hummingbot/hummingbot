@@ -18,9 +18,11 @@ from typing import (
 from hummingbot.connector.exchange.ndax import ndax_constants as CONSTANTS
 from hummingbot.connector.exchange.ndax.ndax_auth import NdaxAuth
 from hummingbot.connector.exchange.ndax.ndax_in_flight_order import NdaxInFlightOrder
+from hummingbot.connector.exchange.ndax.ndax_order_book_tracker import NdaxOrderBookTracker
 from hummingbot.connector.exchange.ndax.ndax_user_stream_tracker import NdaxUserStreamTracker
 from hummingbot.connector.exchange.ndax.ndax_websocket_adaptor import NdaxWebSocketAdaptor
 from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.core.data_type.order_book import OrderBook
 
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
@@ -33,6 +35,7 @@ from hummingbot.core.event.events import (
     TradeFee,
     TradeType,
 )
+from hummingbot.core.network_base import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
 
@@ -78,7 +81,7 @@ class NdaxExchange(ExchangeBase):
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._auth = NdaxAuth(uid=uid, api_key=api_key, secret_key=secret_key, username=username)
-        # self._order_book_tracker = ProbitOrderBookTracker(trading_pairs=trading_pairs, domain=domain)
+        self._order_book_tracker = NdaxOrderBookTracker(trading_pairs=trading_pairs)
         self._user_stream_tracker = NdaxUserStreamTracker(self._auth)
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client = None
@@ -153,7 +156,7 @@ class NdaxExchange(ExchangeBase):
         It starts tracking order book, polling trading rules,
         updating statuses and tracking user data.
         """
-        # self._order_book_tracker.start()
+        self._order_book_tracker.start()
         # self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
             if not self._account_id:
@@ -161,6 +164,42 @@ class NdaxExchange(ExchangeBase):
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
             self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
+
+    async def stop_network(self):
+        """
+        This function is required by NetworkIterator base class and is called automatically.
+        """
+        self._order_book_tracker.stop()
+        if self._status_polling_task is not None:
+            self._status_polling_task.cancel()
+            self._status_polling_task = None
+        if self._trading_rules_polling_task is not None:
+            self._trading_rules_polling_task.cancel()
+            self._trading_rules_polling_task = None
+        if self._user_stream_tracker_task is not None:
+            self._user_stream_tracker_task.cancel()
+            self._user_stream_tracker_task = None
+        if self._user_stream_event_listener_task is not None:
+            self._user_stream_event_listener_task.cancel()
+            self._user_stream_event_listener_task = None
+
+    async def check_network(self) -> NetworkStatus:
+        """
+        This function is required by NetworkIterator base class and is called periodically to check
+        the network connection. Simply ping the network (or call any light weight public API).
+        """
+        try:
+            resp = await self._api_request(
+                method="GET",
+                path_url=CONSTANTS.WS_PING_REQUEST
+            )
+            if "msg" not in resp or resp["msg"] != "PONG":
+                raise Exception()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            return NetworkStatus.NOT_CONNECTED
+        return NetworkStatus.CONNECTED
 
     async def _api_request(self,
                            method: str,
@@ -207,6 +246,11 @@ class NdaxExchange(ExchangeBase):
                           f"Data: {data}")
 
         return parsed_response
+
+    def get_order_book(self, trading_pair: str) -> OrderBook:
+        if trading_pair not in self._order_book_tracker.order_books:
+            raise ValueError(f"No order book exists for '{trading_pair}'.")
+        return self._order_book_tracker.order_books[trading_pair]
 
     async def _update_balances(self):
         """

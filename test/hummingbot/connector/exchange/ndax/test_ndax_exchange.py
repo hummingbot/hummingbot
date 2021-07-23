@@ -10,12 +10,14 @@ from unittest.mock import AsyncMock, patch
 
 import hummingbot.connector.exchange.ndax.ndax_constants as CONSTANTS
 from hummingbot.connector.exchange.ndax.ndax_exchange import NdaxExchange
+from hummingbot.connector.exchange.ndax.ndax_order_book import NdaxOrderBook
 from hummingbot.core.event.events import (
     MarketOrderFailureEvent,
     OrderCancelledEvent,
     OrderType,
     TradeType, OrderFilledEvent,
 )
+from hummingbot.core.network_base import NetworkStatus
 
 
 class NdaxExchangeTests(TestCase):
@@ -639,3 +641,46 @@ class NdaxExchangeTests(TestCase):
         asyncio.get_event_loop().run_until_complete(task)
 
         self.assertEqual(Decimal(str(10.0)), self.exchange.get_balance(self.base_asset))
+
+    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    def test_check_network_succeeds_when_ping_replies_pong(self, mock_api):
+        mock_response = {"msg": "PONG"}
+        self._set_mock_response(mock_api, 200, mock_response)
+
+        result = asyncio.get_event_loop().run_until_complete(self.exchange.check_network())
+
+        self.assertEqual(NetworkStatus.CONNECTED, result)
+
+    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    def test_check_network_fails_when_ping_does_not_reply_pong(self, mock_api):
+        mock_response = {"msg": "NOT-PONG"}
+        self._set_mock_response(mock_api, 200, mock_response)
+
+        result = asyncio.get_event_loop().run_until_complete(self.exchange.check_network())
+        self.assertEqual(NetworkStatus.NOT_CONNECTED, result)
+
+        mock_response = {}
+        self._set_mock_response(mock_api, 200, mock_response)
+
+        result = asyncio.get_event_loop().run_until_complete(self.exchange.check_network())
+        self.assertEqual(NetworkStatus.NOT_CONNECTED, result)
+
+    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    def test_check_network_fails_when_ping_returns_error_code(self, mock_api):
+        mock_response = {"msg": "PONG"}
+        self._set_mock_response(mock_api, 404, mock_response)
+
+        result = asyncio.get_event_loop().run_until_complete(self.exchange.check_network())
+
+        self.assertEqual(NetworkStatus.NOT_CONNECTED, result)
+
+    def test_get_order_book_for_valid_trading_pair(self):
+        dummy_order_book = NdaxOrderBook()
+        self.exchange._order_book_tracker.order_books["BTC-USDT"] = dummy_order_book
+        self.assertEqual(dummy_order_book, self.exchange.get_order_book("BTC-USDT"))
+
+    def test_get_order_book_for_invalid_trading_pair_raises_error(self):
+        self.assertRaisesRegex(ValueError,
+                               "No order book exists for 'BTC-USDT'",
+                               self.exchange.get_order_book,
+                               "BTC-USDT")
