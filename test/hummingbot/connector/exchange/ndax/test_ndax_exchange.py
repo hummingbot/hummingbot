@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, patch
 
 import hummingbot.connector.exchange.ndax.ndax_constants as CONSTANTS
 from hummingbot.connector.exchange.ndax.ndax_exchange import NdaxExchange
+from hummingbot.connector.trading_rule import TradingRule
 
 
 class NdaxExchangeTests(TestCase):
@@ -313,3 +314,52 @@ class NdaxExchangeTests(TestCase):
         asyncio.get_event_loop().run_until_complete(task)
 
         self.assertEqual(Decimal(str(10.0)), self.exchange.get_balance(self.base_asset))
+
+    def test_format_trading_rules_success(self):
+        instrument_info: List[Dict[str, Any]] = [{
+            "Product1Symbol": self.base_asset,
+            "Product2Symbol": self.quote_asset,
+            "QuantityIncrement": 0.0000010000000000000000000000,
+            "MinimumQuantity": 0.0001000000000000000000000000,
+            "MinimumPrice": 15000.000000000000000000000000,
+
+        }
+        ]
+
+        result: Dict[str, TradingRule] = self.exchange._format_trading_rules(instrument_info)
+        self.assertTrue(self.trading_pair in result)
+
+    def test_format_trading_rules_failure(self):
+        # Simulate invalid API response
+        instrument_info: List[Dict[str, Any]] = [{}]
+
+        result: Dict[str, TradingRule] = self.exchange._format_trading_rules(instrument_info)
+        self.assertTrue(self.trading_pair not in result)
+        self.assertTrue(self._is_logged("ERROR", "Error parsing the trading pair rule: {}. Skipping..."))
+
+    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    def test_update_trading_rules(self, mock_api):
+        mock_response: List[Dict[str, Any]] = [
+            {
+                "Product1Symbol": self.base_asset,
+                "Product2Symbol": self.quote_asset,
+                "QuantityIncrement": 0.01,
+                "MinimumQuantity": 0.0001,
+                "MinimumPrice": 15000.0,
+
+            }
+        ]
+
+        self._set_mock_response(mock_api, 200, mock_response)
+
+        task = asyncio.get_event_loop().create_task(
+            self.exchange._update_trading_rules()
+        )
+        asyncio.get_event_loop().run_until_complete(task)
+
+        self.assertTrue(self.trading_pair in self.exchange.trading_rules)
+
+        trading_rule: TradingRule = self.exchange.trading_rules[self.trading_pair]
+        self.assertEqual(trading_rule.min_order_size, Decimal(str(mock_response[0]["MinimumQuantity"])))
+        self.assertEqual(trading_rule.min_price_increment, Decimal(str(mock_response[0]["MinimumPrice"])))
+        self.assertEqual(trading_rule.min_base_amount_increment, Decimal(str(mock_response[0]["QuantityIncrement"])))
