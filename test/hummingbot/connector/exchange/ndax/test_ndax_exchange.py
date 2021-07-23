@@ -109,6 +109,16 @@ class NdaxExchangeTests(TestCase):
     def _simulate_ws_message_received(self, timestamp: float):
         self.exchange._user_stream_tracker._data_source._last_recv_time = timestamp
 
+    def _simulate_trading_rules_initialized(self):
+        self.exchange._trading_rules = {
+            self.trading_pair: TradingRule(
+                trading_pair=self.trading_pair,
+                min_order_size=Decimal(str(0.01)),
+                min_price_increment=Decimal(str(0.0001)),
+                min_base_amount_increment=Decimal(str(15000.0)),
+            )
+        }
+
     @patch('websockets.connect', new_callable=AsyncMock)
     def test_user_event_queue_error_is_logged(self, ws_connect_mock):
         ws_connect_mock.return_value = self._create_ws_mock()

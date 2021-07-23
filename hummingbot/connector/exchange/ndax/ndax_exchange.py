@@ -14,7 +14,7 @@ from typing import (
     Union,
 )
 
-from hummingbot.connector.exchange.ndax import ndax_constants as CONSTANTS
+from hummingbot.connector.exchange.ndax import ndax_constants as CONSTANTS, ndax_utils
 from hummingbot.connector.exchange.ndax.ndax_auth import NdaxAuth
 from hummingbot.connector.exchange.ndax.ndax_message_payload import NdaxMessagePayload, NdaxAccountPositionEventPayload
 from hummingbot.connector.exchange.ndax.ndax_user_stream_tracker import NdaxUserStreamTracker
@@ -23,7 +23,12 @@ from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule import TradingRule
 
 from hummingbot.core.event.events import (
+    BuyOrderCreatedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
     OrderType,
+    SellOrderCreatedEvent,
+    TradeType,
 )
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
@@ -203,6 +208,7 @@ class NdaxExchange(ExchangeBase):
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal) -> Decimal:
         """
+        Used by quantize_order_price() in _create_order()
         Returns a price step, a minimum price increment for a given trading pair.
         """
         trading_rule = self._trading_rules[trading_pair]
@@ -210,10 +216,145 @@ class NdaxExchange(ExchangeBase):
 
     def get_order_size_quantum(self, trading_pair: str, order_size: Decimal) -> Decimal:
         """
+        Used by quantize_order_price() in _create_order()
         Returns an order amount step, a minimum amount increment for a given trading pair.
         """
         trading_rule = self._trading_rules[trading_pair]
         return Decimal(trading_rule.min_base_amount_increment)
+
+    async def _create_order(self,
+                            trade_type: TradeType,
+                            trading_pair: str,
+                            order_id: str,
+                            amount: Decimal,
+                            price: Decimal,
+                            order_type: OrderType,):
+        """
+        Calls create-order API end point to place an order, starts tracking the order and triggers order created event.
+        :param trade_type: BUY or SELL
+        :param order_id: Internal order id (also called client_order_id)
+        :param trading_pair: The market to place order
+        :param amount: The order amount (in base token value)
+        :param order_type: The order type
+        :param price: The order price
+        """
+        if not order_type.is_limit_type():
+            raise Exception(f"Unsupported order type: {order_type}")
+        trading_rule = self._trading_rules[trading_pair]
+
+        amount: Decimal = self.quantize_order_amount(trading_pair, amount)
+        price: Decimal = self.quantize_order_price(trading_pair, price)
+
+        try:
+            if amount < trading_rule.min_order_size:
+                raise ValueError(f"{trade_type.name} order amount {amount} is lower than the minimum order size "
+                                 f"{trading_rule.min_order_size}.")
+
+            order_value: Decimal = amount * price
+            if order_value < trading_rule.min_order_value:
+                raise ValueError(f"{trade_type.name} order value {order_value} is lower than the minimum order value "
+                                 f"{trading_rule.min_order_value}")
+
+            params = {
+                "InstrumentId": 1,
+                "OMSId": 1,
+                "AccountId": self.account_id,
+                "ClientOrderId": order_id,
+                "Side": 0 if trade_type == TradeType.BUY else 1,
+                "Quantity": amount,
+                "LimitPrice": price,
+            }
+
+            # self.start_tracking_order(order_id,
+            #                           None,
+            #                           trading_pair,
+            #                           trade_type,
+            #                           price,
+            #                           amount,
+            #                           order_type
+            #                           )
+
+            send_order_results = await self._api_request(
+                method="POST",
+                path_url=CONSTANTS.SEND_ORDER_PATH_URL,
+                data=params,
+                is_auth_required=True
+            )
+
+            exchange_order_id = str(send_order_results["OrderId"])
+            tracked_order = self._in_flight_orders.get(order_id)
+            if tracked_order is not None:
+                self.logger().info(f"Created {order_type.name} {trade_type.name} order {order_id} for "
+                                   f"{amount} {trading_pair}.")
+                tracked_order.update_exchange_order_id(exchange_order_id)
+
+            event_tag = MarketEvent.BuyOrderCreated if trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
+            event_class = BuyOrderCreatedEvent if trade_type is TradeType.BUY else SellOrderCreatedEvent
+            self.trigger_event(event_tag,
+                               event_class(
+                                   self.current_timestamp,
+                                   order_type,
+                                   trading_pair,
+                                   amount,
+                                   price,
+                                   order_id
+                               ))
+
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            # self.stop_tracking_order(order_id)
+            self.logger().network(
+                f"Error submitting {trade_type.name} {order_type.name} order to ProBit for "
+                f"{amount} {trading_pair} "
+                f"{price}.",
+                exc_info=True,
+                app_warning_msg=str(e)
+            )
+            self.trigger_event(MarketEvent.OrderFailure,
+                               MarketOrderFailureEvent(self.current_timestamp, order_id, order_type))
+
+    def buy(self, trading_pair: str, amount: Decimal, price: Decimal, order_type: OrderType = OrderType.MARKET,
+            **kwargs) -> str:
+        """
+        Buys an amount of base asset as specified in the trading pair. This function returns immediately.
+        To see an actual order, wait for a BuyOrderCreatedEvent.
+        :param trading_pair: The market (e.g. BTC-CAD) to buy from
+        :param amount: The amount in base token value
+        :param price: The price in which the order is to be placed at
+        :param order_type: The order type
+        :returns A new client order id
+        """
+        order_id: str = ndax_utils.get_new_client_order_id(True, trading_pair)
+        safe_ensure_future(self._create_order(trade_type=TradeType.BUY,
+                                              trading_pair=trading_pair,
+                                              order_id=order_id,
+                                              amount=amount,
+                                              price=price,
+                                              order_type=order_type,
+                                              ))
+        return order_id
+
+    def sell(self, trading_pair: str, amount: Decimal, price: Decimal, order_type: OrderType = OrderType.MARKET,
+             **kwargs) -> str:
+        """
+        Sells an amount of base asset as specified in the trading pair. This function returns immediately.
+        To see an actual order, wait for a BuyOrderCreatedEvent.
+        :param trading_pair: The market (e.g. BTC-CAD) to buy from
+        :param amount: The amount in base token value
+        :param price: The price in which the order is to be placed at
+        :param order_type: The order type
+        :returns A new client order id
+        """
+        order_id: str = ndax_utils.get_new_client_order_id(False, trading_pair)
+        safe_ensure_future(self._create_order(trade_type=TradeType.SELL,
+                                              trading_pair=trading_pair,
+                                              order_id=order_id,
+                                              amount=amount,
+                                              price=price,
+                                              order_type=order_type,
+                                              ))
+        return order_id
 
     def _format_trading_rules(self, instrument_info: List[Dict[str, Any]]) -> Dict[str, TradingRule]:
         """
