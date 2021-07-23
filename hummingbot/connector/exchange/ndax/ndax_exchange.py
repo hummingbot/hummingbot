@@ -1,28 +1,36 @@
-import aiohttp
 import asyncio
 import logging
+import math
 import time
 import ujson
 
 from decimal import Decimal
 from typing import (
     Any,
+    AsyncIterable,
     Dict,
     List,
     Optional,
-    AsyncIterable,
     Union,
 )
 
 from hummingbot.connector.exchange.ndax import ndax_constants as CONSTANTS
 from hummingbot.connector.exchange.ndax.ndax_auth import NdaxAuth
-from hummingbot.connector.exchange.ndax.ndax_message_payload import NdaxMessagePayload, NdaxAccountPositionEventPayload
+from hummingbot.connector.exchange.ndax.ndax_in_flight_order import NdaxInFlightOrder
 from hummingbot.connector.exchange.ndax.ndax_user_stream_tracker import NdaxUserStreamTracker
 from hummingbot.connector.exchange.ndax.ndax_websocket_adaptor import NdaxWebSocketAdaptor
 from hummingbot.connector.exchange_base import ExchangeBase
 
 from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
+    OrderCancelledEvent,
+    OrderFilledEvent,
     OrderType,
+    SellOrderCompletedEvent,
+    TradeFee,
+    TradeType,
 )
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
@@ -75,7 +83,7 @@ class NdaxExchange(ExchangeBase):
         self._shared_client = None
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
-        # self._in_flight_orders = {}  # Dict[client_order_id:str, ProbitInFlightOrder]
+        self._in_flight_orders = {}
         # self._order_not_found_records = {}  # Dict[client_order_id:str, count:int]
         # self._trading_rules = {}  # Dict[trading_pair:str, TradingRule]
         self._last_poll_timestamp = 0
@@ -90,6 +98,10 @@ class NdaxExchange(ExchangeBase):
     @property
     def name(self) -> str:
         return CONSTANTS.EXCHANGE_NAME
+
+    @property
+    def in_flight_orders(self) -> Dict[str, NdaxInFlightOrder]:
+        return self._in_flight_orders
 
     @property
     def account_id(self) -> int:
@@ -267,6 +279,34 @@ class NdaxExchange(ExchangeBase):
                 self._poll_notifier.set()
         self._last_timestamp = timestamp
 
+    def start_tracking_order(self,
+                             order_id: str,
+                             exchange_order_id: str,
+                             trading_pair: str,
+                             trade_type: TradeType,
+                             price: Decimal,
+                             amount: Decimal,
+                             order_type: OrderType):
+        """
+        Starts tracking an order by simply adding it into _in_flight_orders dictionary.
+        """
+        self._in_flight_orders[order_id] = NdaxInFlightOrder(
+            client_order_id=order_id,
+            exchange_order_id=exchange_order_id,
+            trading_pair=trading_pair,
+            order_type=order_type,
+            trade_type=trade_type,
+            price=price,
+            amount=amount
+        )
+
+    def stop_tracking_order(self, order_id: str):
+        """
+        Stops tracking an order by simply removing it from _in_flight_orders dictionary.
+        """
+        if order_id in self._in_flight_orders:
+            del self._in_flight_orders[order_id]
+
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
         while True:
             try:
@@ -287,32 +327,108 @@ class NdaxExchange(ExchangeBase):
         """
         async for event_message in self._iter_user_event_queue():
             try:
-                event_payload = NdaxMessagePayload.new_instance(
-                    endpoint=NdaxWebSocketAdaptor.endpoint_from_message(event_message),
-                    payload=NdaxWebSocketAdaptor.payload_from_message(event_message))
-                event_payload.process_event(connector=self)
-                # if "channel" not in event_message and event_message["channel"] not in CONSTANTS.WS_PRIVATE_CHANNELS:
-                #     continue
-                # channel = event_message["channel"]
-                #
-                # if channel == "balance":
-                #     for asset, balance_details in event_message["data"].items():
-                #         self._account_balances[asset] = Decimal(str(balance_details["total"]))
-                #         self._account_available_balances[asset] = Decimal(str(balance_details["available"]))
-                # elif channel in ["open_order"]:
-                #     for order_update in event_message["data"]:
-                #         self._process_order_message(order_update)
-                # elif channel == "trade_history":
-                #     for trade_update in event_message["data"]:
-                #         self._process_trade_message(trade_update)
+                endpoint = NdaxWebSocketAdaptor.endpoint_from_message(event_message)
+                payload = NdaxWebSocketAdaptor.payload_from_message(event_message)
 
+                if endpoint == CONSTANTS.ACCOUNT_POSITION_EVENT_ENDPOINT_NAME:
+                    self._process_account_position_event(payload)
+                elif endpoint == CONSTANTS.ORDER_STATE_EVENT_ENDPOINT_NAME:
+                    self._process_order_event_message(payload)
+                elif endpoint == CONSTANTS.ORDER_TRADE_EVENT_ENDPOINT_NAME:
+                    self._process_trade_event_message(payload)
+                else:
+                    self.logger().debug(f"Unknown event received from the connector ({event_message})")
             except asyncio.CancelledError:
                 raise
             except Exception as ex:
                 self.logger().error(f"Unexpected error in user stream listener loop ({ex})", exc_info=True)
                 await asyncio.sleep(5.0)
 
-    def process_account_position_event(self, account_position_event: NdaxAccountPositionEventPayload):
-        self._account_balances[account_position_event.product_symbol] = account_position_event.amount
-        self._account_available_balances[account_position_event.product_symbol] = (account_position_event.amount -
-                                                                                   account_position_event.on_hold)
+    def _process_account_position_event(self, account_position_event: Dict[str, Any]):
+        token = account_position_event["ProductSymbol"]
+        amount = Decimal(str(account_position_event["Amount"]))
+        on_hold = Decimal(str(account_position_event["Hold"]))
+        self._account_balances[token] = amount
+        self._account_available_balances[token] = (amount - on_hold)
+
+    def _process_order_event_message(self, order_msg: Dict[str, Any]):
+        """
+        Updates in-flight order and triggers cancellation or failure event if needed.
+        :param order_msg: The order event message payload
+        """
+        client_order_id = str(order_msg["ClientOrderId"])
+        if client_order_id in self.in_flight_orders:
+            tracked_order = self.in_flight_orders[client_order_id]
+
+            # Update order execution status
+            tracked_order.last_state = order_msg["OrderState"]
+
+            if tracked_order.is_cancelled:
+                self.logger().info(f"Successfully cancelled order {client_order_id}")
+                self.trigger_event(MarketEvent.OrderCancelled,
+                                   OrderCancelledEvent(
+                                       self.current_timestamp,
+                                       client_order_id))
+                self.stop_tracking_order(client_order_id)
+            elif tracked_order.is_failure:
+                self.logger().info(f"The market order {client_order_id} has failed according to order status event. "
+                                   f"Reason: {order_msg['ChangeReason']}")
+                self.trigger_event(MarketEvent.OrderFailure,
+                                   MarketOrderFailureEvent(
+                                       self.current_timestamp,
+                                       client_order_id,
+                                       tracked_order.order_type
+                                   ))
+                self.stop_tracking_order(client_order_id)
+
+    def _process_trade_event_message(self, order_msg: Dict[str, Any]):
+        """
+        Updates in-flight order and trigger order filled event for trade message received. Triggers order completed
+        event if the total executed amount equals to the specified order amount.
+        :param order_msg: The order event message payload
+        """
+
+        client_order_id = str(order_msg["ClientOrderId"])
+        if client_order_id in self.in_flight_orders:
+            tracked_order = self.in_flight_orders[client_order_id]
+            updated = tracked_order.update_with_trade_update(order_msg)
+
+            if updated:
+                self.trigger_event(
+                    MarketEvent.OrderFilled,
+                    OrderFilledEvent(
+                        self.current_timestamp,
+                        tracked_order.client_order_id,
+                        tracked_order.trading_pair,
+                        tracked_order.trade_type,
+                        tracked_order.order_type,
+                        Decimal(str(order_msg["Price"])),
+                        Decimal(str(order_msg["Quantity"])),
+                        # TODO get the feed by sending a GetTradesHistory API request
+                        # TradeFee(0.0, [(tracked_order.quote_asset, Decimal(str(order_msg["fee_amount"])))]),
+                        TradeFee(0.0, []),
+                        exchange_trade_id=str(order_msg["TradeId"])
+                    )
+                )
+                if (math.isclose(tracked_order.executed_amount_base, tracked_order.amount) or
+                        tracked_order.executed_amount_base >= tracked_order.amount):
+                    tracked_order.mark_as_filled()
+                    self.logger().info(f"The {tracked_order.trade_type.name} order "
+                                       f"{tracked_order.client_order_id} has completed "
+                                       f"according to order status API")
+                    event_tag = (MarketEvent.BuyOrderCompleted if tracked_order.trade_type is TradeType.BUY
+                                 else MarketEvent.SellOrderCompleted)
+                    event_class = (BuyOrderCompletedEvent if tracked_order.trade_type is TradeType.BUY
+                                   else SellOrderCompletedEvent)
+                    self.trigger_event(event_tag,
+                                       event_class(self.current_timestamp,
+                                                   tracked_order.client_order_id,
+                                                   tracked_order.base_asset,
+                                                   tracked_order.quote_asset,
+                                                   tracked_order.fee_asset,
+                                                   tracked_order.executed_amount_base,
+                                                   tracked_order.executed_amount_quote,
+                                                   tracked_order.fee_paid,
+                                                   tracked_order.order_type,
+                                                   tracked_order.exchange_order_id))
+                    self.stop_tracking_order(tracked_order.client_order_id)
