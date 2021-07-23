@@ -20,6 +20,7 @@ from hummingbot.connector.exchange.ndax.ndax_message_payload import NdaxMessageP
 from hummingbot.connector.exchange.ndax.ndax_user_stream_tracker import NdaxUserStreamTracker
 from hummingbot.connector.exchange.ndax.ndax_websocket_adaptor import NdaxWebSocketAdaptor
 from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.trading_rule import TradingRule
 
 from hummingbot.core.event.events import (
     OrderType,
@@ -37,6 +38,7 @@ class NdaxExchange(ExchangeBase):
     """
     SHORT_POLL_INTERVAL = 5.0
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
+    UPDATE_TRADING_RULES_INTERVAL = 60.0
     LONG_POLL_INTERVAL = 120.0
 
     _logger = None
@@ -77,13 +79,13 @@ class NdaxExchange(ExchangeBase):
         self._last_timestamp = 0
         # self._in_flight_orders = {}  # Dict[client_order_id:str, ProbitInFlightOrder]
         # self._order_not_found_records = {}  # Dict[client_order_id:str, count:int]
-        # self._trading_rules = {}  # Dict[trading_pair:str, TradingRule]
+        self._trading_rules = {}  # Dict[trading_pair:str, TradingRule]
         self._last_poll_timestamp = 0
 
         self._status_polling_task = None
         # self._user_stream_tracker_task = None
         # self._user_stream_event_listener_task = None
-        # self._trading_rules_polling_task = None
+        self._trading_rules_polling_task = None
 
         self._account_id = account_id
 
@@ -94,6 +96,10 @@ class NdaxExchange(ExchangeBase):
     @property
     def account_id(self) -> int:
         return self._account_id
+
+    @property
+    def trading_rules(self) -> Dict[str, TradingRule]:
+        return self._trading_rules
 
     def supported_order_types(self) -> List[OrderType]:
         """
@@ -141,7 +147,7 @@ class NdaxExchange(ExchangeBase):
         updating statuses and tracking user data.
         """
         # self._order_book_tracker.start()
-        # self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
+        self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
             if not self._account_id:
                 self._account_id = await self._get_account_id()
@@ -194,6 +200,70 @@ class NdaxExchange(ExchangeBase):
                           f"Data: {data}")
 
         return parsed_response
+
+    def get_order_price_quantum(self, trading_pair: str, price: Decimal) -> Decimal:
+        """
+        Returns a price step, a minimum price increment for a given trading pair.
+        """
+        trading_rule = self._trading_rules[trading_pair]
+        return trading_rule.min_price_increment
+
+    def get_order_size_quantum(self, trading_pair: str, order_size: Decimal) -> Decimal:
+        """
+        Returns an order amount step, a minimum amount increment for a given trading pair.
+        """
+        trading_rule = self._trading_rules[trading_pair]
+        return Decimal(trading_rule.min_base_amount_increment)
+
+    def _format_trading_rules(self, instrument_info: List[Dict[str, Any]]) -> Dict[str, TradingRule]:
+        """
+        Converts JSON API response into a local dictionary of trading rules.
+        :param instrument_info: The JSON API response.
+        :returns: A dictionary of trading pair to its respective TradingRule.
+        """
+        result = {}
+        for instrument in instrument_info:
+            try:
+                trading_pair = f"{instrument['Product1Symbol']}-{instrument['Product2Symbol']}"
+
+                result[trading_pair] = TradingRule(trading_pair=trading_pair,
+                                                   min_order_size=Decimal(str(instrument["MinimumQuantity"])),
+                                                   min_price_increment=Decimal(str(instrument["MinimumPrice"])),
+                                                   min_base_amount_increment=Decimal(str(instrument["QuantityIncrement"])),
+                                                   )
+            except Exception:
+                self.logger().error(f"Error parsing the trading pair rule: {instrument}. Skipping...",
+                                    exc_info=True)
+        return result
+
+    async def _update_trading_rules(self):
+        params = {
+            "OMSId": 1
+        }
+        instrument_info: List[Dict[str, Any]] = await self._api_request(
+            method="GET",
+            path_url=CONSTANTS.MARKETS_URL,
+            params=params
+        )
+        self._trading_rules.clear()
+        self._trading_rules = self._format_trading_rules(instrument_info)
+
+    async def _trading_rules_polling_loop(self):
+        """
+        Periodically update trading rules.
+        """
+        while True:
+            try:
+                await self._update_trading_rules()
+                await asyncio.sleep(self.UPDATE_TRADING_RULES_INTERVAL)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                self.logger().network(f"Unexpected error while fetching trading rules. Error: {str(e)}",
+                                      exc_info=True,
+                                      app_warning_msg="Could not fetch new trading rules from ProBit. "
+                                                      "Check network connection.")
+                await asyncio.sleep(0.5)
 
     async def _update_balances(self):
         """
