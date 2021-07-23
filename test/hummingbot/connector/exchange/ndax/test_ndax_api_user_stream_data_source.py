@@ -19,6 +19,7 @@ class NdaxAPIUserStreamDataSourceTests(TestCase):
         self.api_key = 'testAPIKey'
         self.secret = 'testSecret'
         self.account_id = 528
+        self.username = 'hbot'
         self.oms_id = 1
         self.log_records = []
         self.ws_sent_messages = []
@@ -27,7 +28,8 @@ class NdaxAPIUserStreamDataSourceTests(TestCase):
 
         self.data_source = NdaxAPIUserStreamDataSource(auth_assistant=NdaxAuth(uid=self.uid,
                                                                                api_key=self.api_key,
-                                                                               secret_key=self.secret))
+                                                                               secret_key=self.secret,
+                                                                               username=self.username))
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
