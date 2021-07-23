@@ -21,6 +21,7 @@ LAST_TRADE_PRICE_URL = "GetLevel1"
 # REST API Private Endpoints
 ACCOUNT_POSITION_PATH_URL = "GetAccountPositions"
 USER_ACCOUNTS_PATH_URL = "GetUserAccounts"
+SEND_ORDER_PATH_URL = "SendOrder"
 
 # WebSocket Public Endpoints
 ACCOUNT_POSITION_EVENT_ENDPOINT_NAME = "AccountPositionEvent"
