@@ -1,0 +1,17 @@
+[run]
+source_pkgs = hummingbot
+omit = hummingbot/connector/*
+dynamic_context = test_function
+branch = true
+
+[report]
+fail_under = 42
+precision = 2
+skip_empty = true
+
+[html]
+directory = coverage_html_report
+show_contexts = true
+
+[xml]
+output = coverage.xml
