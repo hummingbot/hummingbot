@@ -1,3 +1,4 @@
+import aiohttp
 import asyncio
 import logging
 import math
@@ -100,12 +101,12 @@ class NdaxExchange(ExchangeBase):
         return CONSTANTS.EXCHANGE_NAME
 
     @property
-    def in_flight_orders(self) -> Dict[str, NdaxInFlightOrder]:
-        return self._in_flight_orders
-
-    @property
     def account_id(self) -> int:
         return self._account_id
+
+    @property
+    def in_flight_orders(self) -> Dict[str, NdaxInFlightOrder]:
+        return self._in_flight_orders
 
     def supported_order_types(self) -> List[OrderType]:
         """
@@ -158,8 +159,8 @@ class NdaxExchange(ExchangeBase):
             if not self._account_id:
                 self._account_id = await self._get_account_id()
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
-            # self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
-            # self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
+            self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
+            self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
 
     async def _api_request(self,
                            method: str,
@@ -227,13 +228,42 @@ class NdaxExchange(ExchangeBase):
         for position in account_positions:
             asset_name = position["ProductSymbol"]
             self._account_balances[asset_name] = Decimal(str(position["Amount"]))
-            self._account_available_balances[asset_name] = self._account_balances[asset_name] - Decimal(str(position["Hold"]))
+            self._account_available_balances[asset_name] = self._account_balances[asset_name] - Decimal(
+                str(position["Hold"]))
             remote_asset_names.add(asset_name)
 
         asset_names_to_remove = local_asset_names.difference(remote_asset_names)
         for asset_name in asset_names_to_remove:
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
+
+    def start_tracking_order(self,
+                             order_id: str,
+                             exchange_order_id: str,
+                             trading_pair: str,
+                             trade_type: TradeType,
+                             price: Decimal,
+                             amount: Decimal,
+                             order_type: OrderType):
+        """
+        Starts tracking an order by simply adding it into _in_flight_orders dictionary.
+        """
+        self._in_flight_orders[order_id] = NdaxInFlightOrder(
+            client_order_id=order_id,
+            exchange_order_id=exchange_order_id,
+            trading_pair=trading_pair,
+            order_type=order_type,
+            trade_type=trade_type,
+            price=price,
+            amount=amount
+        )
+
+    def stop_tracking_order(self, order_id: str):
+        """
+        Stops tracking an order by simply removing it from _in_flight_orders dictionary.
+        """
+        if order_id in self._in_flight_orders:
+            del self._in_flight_orders[order_id]
 
     async def _update_order_status(self):
         # Waiting on buy and sell functionality.
@@ -279,33 +309,20 @@ class NdaxExchange(ExchangeBase):
                 self._poll_notifier.set()
         self._last_timestamp = timestamp
 
-    def start_tracking_order(self,
-                             order_id: str,
-                             exchange_order_id: str,
-                             trading_pair: str,
-                             trade_type: TradeType,
-                             price: Decimal,
-                             amount: Decimal,
-                             order_type: OrderType):
+    def get_fee(self,
+                base_currency: str,
+                quote_currency: str,
+                order_type: OrderType,
+                order_side: TradeType,
+                amount: Decimal,
+                price: Decimal = s_decimal_NaN) -> TradeFee:
         """
-        Starts tracking an order by simply adding it into _in_flight_orders dictionary.
+        To get trading fee, this function is simplified by using fee override configuration. Most parameters to this
+        function are ignore except order_type. Use OrderType.LIMIT_MAKER to specify you want trading fee for
+        maker order.
         """
-        self._in_flight_orders[order_id] = NdaxInFlightOrder(
-            client_order_id=order_id,
-            exchange_order_id=exchange_order_id,
-            trading_pair=trading_pair,
-            order_type=order_type,
-            trade_type=trade_type,
-            price=price,
-            amount=amount
-        )
-
-    def stop_tracking_order(self, order_id: str):
-        """
-        Stops tracking an order by simply removing it from _in_flight_orders dictionary.
-        """
-        if order_id in self._in_flight_orders:
-            del self._in_flight_orders[order_id]
+        is_maker = order_type is OrderType.LIMIT_MAKER
+        return TradeFee(percent=self.estimate_fee_pct(is_maker))
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
         while True:
@@ -394,6 +411,18 @@ class NdaxExchange(ExchangeBase):
             updated = tracked_order.update_with_trade_update(order_msg)
 
             if updated:
+                trade_amount = Decimal(str(order_msg["Quantity"]))
+                trade_price = Decimal(str(order_msg["Price"]))
+                trade_fee = self.get_fee(base_currency=tracked_order.base_asset,
+                                         quote_currency=tracked_order.quote_asset,
+                                         order_type=tracked_order.order_type,
+                                         order_side=tracked_order.trade_type,
+                                         amount=trade_amount,
+                                         price=trade_price)
+                amount_for_fee = (trade_amount if tracked_order.trade_type is TradeType.BUY
+                                  else trade_amount * trade_price)
+                tracked_order.fee_paid += amount_for_fee * trade_fee.percent
+
                 self.trigger_event(
                     MarketEvent.OrderFilled,
                     OrderFilledEvent(
@@ -402,11 +431,9 @@ class NdaxExchange(ExchangeBase):
                         tracked_order.trading_pair,
                         tracked_order.trade_type,
                         tracked_order.order_type,
-                        Decimal(str(order_msg["Price"])),
-                        Decimal(str(order_msg["Quantity"])),
-                        # TODO get the feed by sending a GetTradesHistory API request
-                        # TradeFee(0.0, [(tracked_order.quote_asset, Decimal(str(order_msg["fee_amount"])))]),
-                        TradeFee(0.0, []),
+                        trade_price,
+                        trade_amount,
+                        trade_fee,
                         exchange_trade_id=str(order_msg["TradeId"])
                     )
                 )
