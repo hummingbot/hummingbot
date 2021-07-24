@@ -21,6 +21,7 @@ from .trades_command import TradesCommand
 from .pnl_command import PnlCommand
 from .script_command import ScriptCommand
 from .rate_command import RateCommand
+from .previous_strategy import PreviousCommand
 
 
 __all__ = [
@@ -47,4 +48,5 @@ __all__ = [
     PnlCommand,
     ScriptCommand,
     RateCommand,
+    PreviousCommand,
 ]
