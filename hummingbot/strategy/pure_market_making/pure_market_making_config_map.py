@@ -100,6 +100,15 @@ def validate_price_floor_ceiling(value: str) -> Optional[str]:
         return "Value must be more than 0 or -1 to disable this feature."
 
 
+def validate_custom_api_update_interval(value: str) -> Optional[str]:
+    try:
+        decimal_value = float(value)
+    except Exception:
+        return f"{value} is not in float format."
+    if not decimal_value > float("0.5"):
+        return "Value must be more than 0.5 for custom api update interval."
+
+
 def on_validated_price_type(value: str):
     if value == 'inventory_cost':
         pure_market_making_config_map["inventory_price"].value = None
@@ -348,6 +357,12 @@ pure_market_making_config_map = {
                   prompt="Enter pricing API URL >>> ",
                   required_if=lambda: pure_market_making_config_map.get("price_source").value == "custom_api",
                   type_str="str"),
+    "custom_api_update_interval":
+        ConfigVar(key="custom_api_update_interval",
+                  prompt="Enter custom API update interval in second (default: 5.0, min: 0.5) >>> ",
+                  required_if=lambda: False,
+                  default=float(5),
+                  type_str="float"),
     "order_override":
         ConfigVar(key="order_override",
                   prompt=None,
