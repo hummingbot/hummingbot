@@ -382,6 +382,12 @@ perpetual_market_making_config_map = {
                   prompt="Enter pricing API URL >>> ",
                   required_if=lambda: perpetual_market_making_config_map.get("price_source").value == "custom_api",
                   type_str="str"),
+    "custom_api_update_interval":
+        ConfigVar(key="custom_api_update_interval",
+                  prompt="Enter custom API update interval in second (default: 5.0, min: 0.5) >>> ",
+                  required_if=lambda: False,
+                  default=float(5),
+                  type_str="float"),
     "order_override":
         ConfigVar(key="order_override",
                   prompt=None,
