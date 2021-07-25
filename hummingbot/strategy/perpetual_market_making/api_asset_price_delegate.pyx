@@ -3,10 +3,12 @@ from decimal import Decimal
 from hummingbot.core.event.events import PriceType
 from .asset_price_delegate cimport AssetPriceDelegate
 from hummingbot.data_feed.custom_api_data_feed import CustomAPIDataFeed, NetworkStatus
+from hummingbot.connector.exchange_base import ExchangeBase
 
 cdef class APIAssetPriceDelegate(AssetPriceDelegate):
-    def __init__(self, api_url: str, update_interval: float):
+    def __init__(self, market: ExchangeBase, api_url: str, update_interval: float):
         super().__init__()
+        self._market = market
         self._custom_api_feed = CustomAPIDataFeed(api_url=api_url, update_interval=update_interval)
         self._custom_api_feed.start()
 
@@ -23,3 +25,7 @@ cdef class APIAssetPriceDelegate(AssetPriceDelegate):
     @property
     def custom_api_feed(self) -> CustomAPIDataFeed:
         return self._custom_api_feed
+
+    @property
+    def market(self) -> ExchangeBase:
+        return self._market

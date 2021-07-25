@@ -70,7 +70,9 @@ def start(self):
             self.markets[price_source_exchange]: ExchangeBase = ext_market
             asset_price_delegate = OrderBookAssetPriceDelegate(ext_market, asset_trading_pair)
         elif price_source == "custom_api":
-            asset_price_delegate = APIAssetPriceDelegate(price_source_custom_api, custom_api_update_interval)
+            ext_market = create_paper_trade_market(exchange, [raw_trading_pair])
+            asset_price_delegate = APIAssetPriceDelegate(ext_market, price_source_custom_api,
+                                                         custom_api_update_interval)
         take_if_crossed = c_map.get("take_if_crossed").value
 
         strategy_logging_options = PerpetualMarketMakingStrategy.OPTION_LOG_ALL
