@@ -20,6 +20,7 @@ from hummingbot.client.config.config_helpers import (
 from hummingbot.client.config.security import Security
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.utils import map_df_to_str
 from hummingbot.model.inventory_cost import InventoryCost
 from hummingbot.strategy.pure_market_making import (
     PureMarketMakingStrategy
@@ -75,14 +76,14 @@ class ConfigCommand:
         columns = ["Key", "  Value"]
         data = [[cv.key, cv.value] for cv in global_config_map.values()
                 if cv.key in global_configs_to_display and not cv.is_secure]
-        df = pd.DataFrame(data=data, columns=columns)
+        df = map_df_to_str(pd.DataFrame(data=data, columns=columns))
         self._notify("\nGlobal Configurations:")
         lines = ["    " + line for line in df.to_string(index=False, max_colwidth=50).split("\n")]
         self._notify("\n".join(lines))
 
         if self.strategy_name is not None:
             data = [[cv.printable_key or cv.key, cv.value] for cv in self.strategy_config_map.values() if not cv.is_secure]
-            df = pd.DataFrame(data=data, columns=columns)
+            df = map_df_to_str(pd.DataFrame(data=data, columns=columns))
             self._notify("\nStrategy Configurations:")
             lines = ["    " + line for line in df.to_string(index=False, max_colwidth=50).split("\n")]
             self._notify("\n".join(lines))
