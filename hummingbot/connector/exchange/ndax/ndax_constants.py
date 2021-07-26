@@ -22,6 +22,7 @@ LAST_TRADE_PRICE_URL = "GetLevel1"
 ACCOUNT_POSITION_PATH_URL = "GetAccountPositions"
 USER_ACCOUNTS_PATH_URL = "GetUserAccounts"
 SEND_ORDER_PATH_URL = "SendOrder"
+CANCEL_ORDER_PATH_URL = "CancelOrder"
 
 # WebSocket Public Endpoints
 ACCOUNT_POSITION_EVENT_ENDPOINT_NAME = "AccountPositionEvent"
