@@ -119,7 +119,8 @@ class AmmArbUnitTest(unittest.TestCase):
         self.amm_2.set_balance(base_asset, 500)
         self.amm_2.set_balance(quote_asset, 500)
         self.market_info_2 = MarketTradingPairTuple(self.amm_2, trading_pair, base_asset, quote_asset)
-        self.strategy = AmmArbStrategy(
+        self.strategy = AmmArbStrategy()
+        self.strategy.init_params(
             self.market_info_1,
             self.market_info_2,
             min_profitability=Decimal("0.01"),
@@ -235,7 +236,8 @@ class AmmArbUnitTest(unittest.TestCase):
     def test_non_concurrent_orders_submission(self):
         # On non concurrent orders submission, the second leg of the arb trade has to wait for the first leg order gets
         # filled.
-        self.strategy = AmmArbStrategy(
+        self.strategy = AmmArbStrategy()
+        self.strategy.init_params(
             self.market_info_1,
             self.market_info_2,
             min_profitability=Decimal("0.01"),
@@ -296,9 +298,9 @@ class AmmArbUnitTest(unittest.TestCase):
         self.strategy._arb_proposals = [ArbProposal(first_side, second_side)]
 
         expected_status = ("  Markets:\n"
-                           "    Exchange     Market    Sell Price     Buy Price     Mid Price\n"
-                           "       onion  HBOT-USDT  100.00000000  101.00000000  100.50000000\n"
-                           "      garlic  HBOT-USDT  104.00000000  105.00000000  104.50000000\n\n"
+                           "    Exchange    Market   Sell Price    Buy Price    Mid Price\n"
+                           "       onion HBOT-USDT 100.00000000 101.00000000 100.50000000\n"
+                           "      garlic HBOT-USDT 104.00000000 105.00000000 104.50000000\n\n"
                            "  Assets:\n"
                            "      Exchange Asset  Total Balance  Available Balance\n"
                            "    0    onion  HBOT            500                500\n"

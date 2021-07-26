@@ -31,7 +31,8 @@ def start(self):
     for market in markets:
         base, quote = market.split("-")
         market_infos[market] = MarketTradingPairTuple(exchange, market, base, quote)
-    self.strategy = LiquidityMiningStrategy(
+    self.strategy = LiquidityMiningStrategy()
+    self.strategy.init_params(
         exchange=exchange,
         market_infos=market_infos,
         token=token,
