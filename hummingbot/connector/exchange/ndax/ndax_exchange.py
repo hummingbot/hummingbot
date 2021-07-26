@@ -408,6 +408,59 @@ class NdaxExchange(ExchangeBase):
                                               ))
         return order_id
 
+    async def _execute_cancel(self, trading_pair: str, order_id: str) -> str:
+        """
+        Executes order cancellation process by first calling the CancelOrder endpoint. The API response simply verifies
+        that the API request have been received by the API servers. To determine if an order is successfully cancelled,
+        we either call the GetOrderStatus/GetOpenOrders endpoint or wait for a OrderStateEvent/OrderTradeEvent from the WS.
+        :param trading_pair: The market (e.g. BTC-CAD) the order is in.
+        :param order_id: The client_order_id of the order to be cancelled.
+        """
+        try:
+            tracked_order: Optional[NdaxInFlightOrder] = self._in_flight_orders.get(order_id, None)
+            if tracked_order is None:
+                raise ValueError(f"Failed to cancel order - {order_id}. Order not being tracked.")
+            if tracked_order.exchange_order_id is None:
+                await tracked_order.get_exchange_order_id()
+            ex_order_id = tracked_order.exchange_order_id
+
+            body_params = {
+                "OMSId": 0,
+                "AccountId": self.account_id,
+                "OrderId": ex_order_id
+            }
+
+            resp = await self._api_request(
+                method="POST",
+                path_url=CONSTANTS.CANCEL_ORDER_PATH_URL,
+                data=body_params,
+                is_auth_required=True
+            )
+
+            if not resp["result"]:
+                raise ValueError(f"Error Message: {resp['errormsg']}")
+
+            return order_id
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self.logger().error(
+                f"Failed to cancel order {order_id}: {str(e)}",
+                exc_info=True,
+                app_warning_msg=f"Failed to cancel order {order_id} on NDAX. "
+                                f"Check API key and network connection."
+            )
+
+    def cancel(self, trading_pair: str, order_id: str):
+        """
+        Cancel an order. This function returns immediately.
+        An Order is only determined to be cancelled when a OrderCancelledEvent is received.
+        :param trading_pair: The market (e.g. BTC-CAD) of the order.
+        :param order_id: The client_order_id of the order to be cancelled.
+        """
+        safe_ensure_future(self._execute_cancel(trading_pair, order_id))
+        return order_id
+
     def _format_trading_rules(self, instrument_info: List[Dict[str, Any]]) -> Dict[str, TradingRule]:
         """
         Converts JSON API response into a local dictionary of trading rules.
