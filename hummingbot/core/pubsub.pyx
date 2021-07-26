@@ -65,7 +65,6 @@ cdef class PubSub:
         return self.c_get_listeners(event_tag.value)
 
     def trigger_event(self, event_tag: Enum, message: any):
-        print(f"Trigger_event type {event_tag} message {message}")
         self.c_trigger_event(event_tag.value, message)
 
     cdef c_log_exception(self, int64_t event_tag, object arg):
