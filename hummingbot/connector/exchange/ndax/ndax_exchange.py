@@ -60,19 +60,19 @@ class NdaxExchange(ExchangeBase):
         return cls._logger
 
     def __init__(self,
-                 uid: str,
-                 api_key: str,
-                 secret_key: str,
-                 username: str,
+                 ndax_uid: str,
+                 ndax_api_key: str,
+                 ndax_secret_key: str,
+                 ndax_username: str,
                  account_id: int = None,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True
                  ):
         """
-        :param uid: User ID of the account
-        :param api_key: The API key to connect to private NDAX APIs.
-        :param secret_key: The API secret.
-        :param username: The username of the account in use.
+        :param ndax_uid: User ID of the account
+        :param ndax_api_key: The API key to connect to private NDAX APIs.
+        :param ndax_secret_key: The API secret.
+        :param ndax_username: The username of the account in use.
         :param account_id: The account ID associated with the trading account in use.
         :param trading_pairs: The market trading pairs which to track order book data.
         :param trading_required: Whether actual trading is needed.
@@ -80,7 +80,7 @@ class NdaxExchange(ExchangeBase):
         super().__init__()
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
-        self._auth = NdaxAuth(uid=uid, api_key=api_key, secret_key=secret_key, username=username)
+        self._auth = NdaxAuth(uid=ndax_uid, api_key=ndax_api_key, secret_key=ndax_secret_key, username=ndax_username)
         self._order_book_tracker = NdaxOrderBookTracker(trading_pairs=trading_pairs)
         self._user_stream_tracker = NdaxUserStreamTracker(self._auth)
         self._ev_loop = asyncio.get_event_loop()
@@ -258,6 +258,11 @@ class NdaxExchange(ExchangeBase):
         """
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
+
+        # When the balances are requested by the client to test the connection, the account id will not be
+        # initialized yet
+        if not self._account_id:
+            self._account_id = await self._get_account_id()
 
         params = {
             "OMSId": 1,
