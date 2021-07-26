@@ -20,6 +20,7 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.core.event.events import OrderType
+from hummingbot.core.utils import map_df_to_str
 
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base import StrategyBase
@@ -61,45 +62,42 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             pmm_logger = logging.getLogger(__name__)
         return pmm_logger
 
-    def __init__(self,
-                 market_info: MarketTradingPairTuple,
-                 bid_spread: Decimal,
-                 ask_spread: Decimal,
-                 order_amount: Decimal,
-                 order_levels: int = 1,
-                 order_level_spread: Decimal = s_decimal_zero,
-                 order_level_amount: Decimal = s_decimal_zero,
-                 order_refresh_time: float = 30.0,
-                 max_order_age = 1800.0,
-                 order_refresh_tolerance_pct: Decimal = s_decimal_neg_one,
-                 filled_order_delay: float = 60.0,
-                 inventory_skew_enabled: bool = False,
-                 inventory_target_base_pct: Decimal = s_decimal_zero,
-                 inventory_range_multiplier: Decimal = s_decimal_zero,
-                 hanging_orders_enabled: bool = False,
-                 hanging_orders_cancel_pct: Decimal = Decimal("0.1"),
-                 order_optimization_enabled: bool = False,
-                 ask_order_optimization_depth: Decimal = s_decimal_zero,
-                 bid_order_optimization_depth: Decimal = s_decimal_zero,
-                 add_transaction_costs_to_orders: bool = False,
-                 asset_price_delegate: AssetPriceDelegate = None,
-                 inventory_cost_price_delegate: InventoryCostPriceDelegate = None,
-                 price_type: str = "mid_price",
-                 take_if_crossed: bool = False,
-                 price_ceiling: Decimal = s_decimal_neg_one,
-                 price_floor: Decimal = s_decimal_neg_one,
-                 ping_pong_enabled: bool = False,
-                 logging_options: int = OPTION_LOG_ALL,
-                 status_report_interval: float = 900,
-                 minimum_spread: Decimal = Decimal(0),
-                 hb_app_notification: bool = False,
-                 order_override: Dict[str, List[str]] = {},
-                 ):
-
+    def init_params(self,
+                    market_info: MarketTradingPairTuple,
+                    bid_spread: Decimal,
+                    ask_spread: Decimal,
+                    order_amount: Decimal,
+                    order_levels: int = 1,
+                    order_level_spread: Decimal = s_decimal_zero,
+                    order_level_amount: Decimal = s_decimal_zero,
+                    order_refresh_time: float = 30.0,
+                    max_order_age: float = 1800.0,
+                    order_refresh_tolerance_pct: Decimal = s_decimal_neg_one,
+                    filled_order_delay: float = 60.0,
+                    inventory_skew_enabled: bool = False,
+                    inventory_target_base_pct: Decimal = s_decimal_zero,
+                    inventory_range_multiplier: Decimal = s_decimal_zero,
+                    hanging_orders_enabled: bool = False,
+                    hanging_orders_cancel_pct: Decimal = Decimal("0.1"),
+                    order_optimization_enabled: bool = False,
+                    ask_order_optimization_depth: Decimal = s_decimal_zero,
+                    bid_order_optimization_depth: Decimal = s_decimal_zero,
+                    add_transaction_costs_to_orders: bool = False,
+                    asset_price_delegate: AssetPriceDelegate = None,
+                    inventory_cost_price_delegate: InventoryCostPriceDelegate = None,
+                    price_type: str = "mid_price",
+                    take_if_crossed: bool = False,
+                    price_ceiling: Decimal = s_decimal_neg_one,
+                    price_floor: Decimal = s_decimal_neg_one,
+                    ping_pong_enabled: bool = False,
+                    logging_options: int = OPTION_LOG_ALL,
+                    status_report_interval: float = 900,
+                    minimum_spread: Decimal = Decimal(0),
+                    hb_app_notification: bool = False,
+                    order_override: Dict[str, List[str]] = {},
+                    ):
         if price_ceiling != s_decimal_neg_one and price_ceiling < price_floor:
             raise ValueError("Parameter price_ceiling cannot be lower than price_floor.")
-
-        super().__init__()
         self._sb_order_tracker = PureMarketMakingOrderTracker()
         self._market_info = market_info
         self._bid_spread = bid_spread
@@ -158,6 +156,30 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     @property
     def market_info(self) -> MarketTradingPairTuple:
         return self._market_info
+
+    @property
+    def max_order_age(self) -> float:
+        return self._max_order_age
+
+    @property
+    def minimum_spread(self) -> Decimal:
+        return self._minimum_spread
+
+    @property
+    def ping_pong_enabled(self) -> bool:
+        return self._ping_pong_enabled
+
+    @property
+    def ask_order_optimization_depth(self) -> Decimal:
+        return self._ask_order_optimization_depth
+
+    @property
+    def bid_order_optimization_depth(self) -> Decimal:
+        return self._bid_order_optimization_depth
+
+    @property
+    def price_type(self) -> PriceType:
+        return self._price_type
 
     @property
     def order_refresh_tolerance_pct(self) -> Decimal:
@@ -589,13 +611,13 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         warning_lines.extend(self._ping_pong_warning_lines)
         warning_lines.extend(self.network_warning([self._market_info]))
 
-        markets_df = self.market_status_data_frame([self._market_info])
+        markets_df = map_df_to_str(self.market_status_data_frame([self._market_info]))
         lines.extend(["", "  Markets:"] + ["    " + line for line in markets_df.to_string(index=False).split("\n")])
 
-        assets_df = self.pure_mm_assets_df(not self._inventory_skew_enabled)
+        assets_df = map_df_to_str(self.pure_mm_assets_df(not self._inventory_skew_enabled))
         # append inventory skew stats.
         if self._inventory_skew_enabled:
-            inventory_skew_df = self.inventory_skew_stats_data_frame()
+            inventory_skew_df = map_df_to_str(self.inventory_skew_stats_data_frame())
             assets_df = assets_df.append(inventory_skew_df)
 
         first_col_length = max(*assets_df[0].apply(len))
@@ -605,7 +627,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
         # See if there're any open orders.
         if len(self.active_orders) > 0:
-            df = self.active_orders_df()
+            df = map_df_to_str(self.active_orders_df())
             lines.extend(["", "  Orders:"] + ["    " + line for line in df.to_string(index=False).split("\n")])
         else:
             lines.extend(["", "  No active maker orders."])
