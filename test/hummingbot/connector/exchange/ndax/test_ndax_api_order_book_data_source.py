@@ -172,6 +172,21 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(result.snapshot_uid, NdaxOrderBookEntry(*mock_response[0]).actionDateTime)
 
     @patch("aiohttp.ClientSession.get")
+    def test_get_instrument_ids(self, mock_api):
+        mock_response: List[Any] = [{
+            "Product1Symbol": self.base_asset,
+            "Product2Symbol": self.quote_asset,
+            "InstrumentId": self.instrument_id,
+        }]
+        self.set_mock_response(mock_api, 200, mock_response)
+
+        results = self.ev_loop.run_until_complete(asyncio.gather(self.data_source.get_instrument_ids()))
+        result: Dict[str, Any] = results[0]
+
+        self.assertEqual(1, self.data_source._trading_pair_id_map[self.trading_pair])
+        self.assertEqual(result[self.trading_pair], self.instrument_id)
+
+    @patch("aiohttp.ClientSession.get")
     def test_listen_for_snapshots_cancelled_when_fetching_snapshot(self, mock_api):
         mock_api.side_effect = asyncio.CancelledError
         self.simulate_trading_pair_ids_initialized()
