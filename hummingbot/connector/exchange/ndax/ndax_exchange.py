@@ -96,8 +96,8 @@ class NdaxExchange(ExchangeBase):
         self._last_poll_timestamp = 0
 
         self._status_polling_task = None
-        # self._user_stream_tracker_task = None
-        # self._user_stream_event_listener_task = None
+        self._user_stream_tracker_task = None
+        self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
 
         self._account_id = account_id
@@ -569,8 +569,75 @@ class NdaxExchange(ExchangeBase):
             del self._in_flight_orders[order_id]
 
     async def _update_order_status(self):
+        """
+        Calls REST API to get order status
+        """
         # Waiting on buy and sell functionality.
-        pass
+        tasks = []
+        if len(self._in_flight_orders) < 1:
+            return
+
+        tracked_orders: List[NdaxInFlightOrder] = list(self._in_flight_orders.values())
+        for tracked_order in tracked_orders:
+            ex_order_id = await tracked_order.get_exchange_order_id()
+            if not ex_order_id:
+                self.logger().debug(f"Tracker order {tracked_order.client_order_id} does not have an exchange id. Attempting fetch in next polling interval")
+                continue
+
+            query_params = {
+                "OmsId": 0,
+                "AccountId": self.account_id,
+                "OrderId": ex_order_id,
+            }
+
+            tasks.append(self._api_request(method="GET",
+                                           path_url=CONSTANTS.GET_ORDER_STATUS_PATH_URL,
+                                           params=query_params,
+                                           is_auth_required=True,
+                                           ))
+        self.logger().debug(f"Polling for order status updates of {len(tasks)} orders. ")
+
+        status_responses: List[List[Dict[str, Any]]] = await safe_gather(*tasks, return_exceptions=True)
+
+        # Initial parsing of responses
+        status_responses: List[Dict[str, Any]] = [resp[0]
+                                                  for resp in status_responses
+                                                  if not isinstance(resp, Exception)
+                                                  ]
+
+        min_ts: int = min([int(order_status["ReceiveTime"] // 1e3)
+                           for order_status in status_responses])
+
+        trade_history_tasks = []
+        trading_pair_ids: Dict[str, int] = self._order_book_tracker.data_source.get_instrument_ids()
+
+        for trading_pair in self._trading_pairs:
+            query_params = {
+                "OMSId": 1,
+                "AccountId": self.account_id,
+                "UserId": self._auth.uid,
+                "InstrumentId": trading_pair_ids[trading_pair],
+                "StartTimestamp": min_ts,
+                "EndTimestamp": int(time.time() * 1e3),
+            }
+            trade_history_tasks.append(self._api_request(method="GET",
+                                                         path_url=CONSTANTS.GET_TRADES_HISTORY_PATH_URL,
+                                                         params=query_params,
+                                                         is_auth_required=True))
+
+        history_resps: List[List[Dict[str, Any]]] = await safe_gather(*trade_history_tasks, return_exceptions=True)
+
+        # Initial parsing of responses. Joining all the responses
+        history_resps: List[Dict[str, Any]] = [hist_entry
+                                               for t_pair_history in history_resps
+                                               for hist_entry in t_pair_history
+                                               if not isinstance(t_pair_history, Exception)]
+
+        for trade in history_resps:
+            self._process_trade_event_message(trade)
+
+        for order_status in status_responses:
+            self._process_order_event_message(order_status)
 
     async def _status_polling_loop(self):
         """
