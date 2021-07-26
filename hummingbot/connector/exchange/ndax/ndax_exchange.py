@@ -114,6 +114,7 @@ class NdaxExchange(ExchangeBase):
     def trading_rules(self) -> Dict[str, TradingRule]:
         return self._trading_rules
 
+    @property
     def in_flight_orders(self) -> Dict[str, NdaxInFlightOrder]:
         return self._in_flight_orders
 
