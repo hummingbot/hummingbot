@@ -152,6 +152,11 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         return order_book
 
+    async def get_instrument_ids(self) -> Dict[str, Any]:
+        if not len(self._trading_pair_id_map) > 0:
+            await self.init_trading_pair_ids()
+        return self._trading_pair_id_map
+
     async def _init_websocket_connection(self) -> NdaxWebSocketAdaptor:
         """
         Initialize WebSocket client for UserStreamDataSource
