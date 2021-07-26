@@ -78,7 +78,8 @@ class CeloArbUnitTest(unittest.TestCase):
         self.market_info = MarketTradingPairTuple(self.market, self.trading_pair,
                                                   self.base_asset, self.quote_asset)
         self.logging_options: int = CeloArbStrategy.OPTION_LOG_ALL
-        self.strategy = CeloArbStrategy(
+        self.strategy = CeloArbStrategy()
+        self.strategy.init_params(
             self.market_info,
             min_profitability=Decimal("0.01"),
             order_amount=Decimal("1"),

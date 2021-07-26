@@ -74,7 +74,8 @@ def start(self):
 
         strategy_logging_options = PerpetualMarketMakingStrategy.OPTION_LOG_ALL
 
-        self.strategy = PerpetualMarketMakingStrategy(
+        self.strategy = PerpetualMarketMakingStrategy()
+        self.strategy.init_params(
             market_info=MarketTradingPairTuple(*maker_data),
             leverage=leverage,
             position_mode=position_mode,
