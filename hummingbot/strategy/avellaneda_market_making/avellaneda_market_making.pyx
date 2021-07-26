@@ -38,6 +38,7 @@ from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.order_tracker cimport OrderTracker
 from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.utils import order_age
+from hummingbot.core.utils import map_df_to_str
 
 
 NaN = float("nan")
@@ -63,39 +64,38 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             pmm_logger = logging.getLogger(__name__)
         return pmm_logger
 
-    def __init__(self,
-                 market_info: MarketTradingPairTuple,
-                 order_amount: Decimal,
-                 order_refresh_time: float = 30.0,
-                 max_order_age: float = 1800,
-                 order_refresh_tolerance_pct: Decimal = s_decimal_neg_one,
-                 order_optimization_enabled = True,
-                 filled_order_delay: float = 60.0,
-                 order_levels: int = 0,
-                 order_override: Dict[str, List[str]] = {},
-                 hanging_orders_enabled: bool = False,
-                 hanging_orders_aggregation_type: HangingOrdersAggregationType = HangingOrdersAggregationType.NO_AGGREGATION,
-                 hanging_orders_cancel_pct: Decimal = Decimal("0.1"),
-                 inventory_target_base_pct: Decimal = s_decimal_zero,
-                 add_transaction_costs_to_orders: bool = True,
-                 logging_options: int = OPTION_LOG_ALL,
-                 status_report_interval: float = 900,
-                 hb_app_notification: bool = False,
-                 parameters_based_on_spread: bool = True,
-                 min_spread: Decimal = Decimal("0.15"),
-                 max_spread: Decimal = Decimal("2"),
-                 vol_to_spread_multiplier: Decimal = Decimal("1.3"),
-                 volatility_sensibility: Decimal = Decimal("0.2"),
-                 inventory_risk_aversion: Decimal = Decimal("0.5"),
-                 order_book_depth_factor: Decimal = Decimal("0.1"),
-                 risk_factor: Decimal = Decimal("0.5"),
-                 order_amount_shape_factor: Decimal = Decimal("0.005"),
-                 closing_time: Decimal = Decimal("1"),
-                 debug_csv_path: str = '',
-                 volatility_buffer_size: int = 30,
-                 is_debug: bool = False,
-                 ):
-        super().__init__()
+    def init_params(self,
+                    market_info: MarketTradingPairTuple,
+                    order_amount: Decimal,
+                    order_refresh_time: float = 30.0,
+                    max_order_age: float = 1800,
+                    order_refresh_tolerance_pct: Decimal = s_decimal_neg_one,
+                    order_optimization_enabled = True,
+                    filled_order_delay: float = 60.0,
+                    order_levels: int = 0,
+                    order_override: Dict[str, List[str]] = {},
+                    hanging_orders_enabled: bool = False,
+                    hanging_orders_aggregation_type: HangingOrdersAggregationType = HangingOrdersAggregationType.NO_AGGREGATION,
+                    hanging_orders_cancel_pct: Decimal = Decimal("0.1"),
+                    inventory_target_base_pct: Decimal = s_decimal_zero,
+                    add_transaction_costs_to_orders: bool = True,
+                    logging_options: int = OPTION_LOG_ALL,
+                    status_report_interval: float = 900,
+                    hb_app_notification: bool = False,
+                    parameters_based_on_spread: bool = True,
+                    min_spread: Decimal = Decimal("0.15"),
+                    max_spread: Decimal = Decimal("2"),
+                    vol_to_spread_multiplier: Decimal = Decimal("1.3"),
+                    volatility_sensibility: Decimal = Decimal("0.2"),
+                    inventory_risk_aversion: Decimal = Decimal("0.5"),
+                    order_book_depth_factor: Decimal = Decimal("0.1"),
+                    risk_factor: Decimal = Decimal("0.5"),
+                    order_amount_shape_factor: Decimal = Decimal("0.005"),
+                    closing_time: Decimal = Decimal("1"),
+                    debug_csv_path: str = '',
+                    volatility_buffer_size: int = 30,
+                    is_debug: bool = False,
+                    ):
         self._sb_order_tracker = OrderTracker()
         self._market_info = market_info
         self._order_amount = order_amount
@@ -155,6 +155,14 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
     def all_markets_ready(self):
         return all([market.ready for market in self._sb_markets])
+
+    @property
+    def volatility_sensibility(self) -> Decimal:
+        return self._volatility_sensibility
+
+    @property
+    def inventory_risk_aversion(self) -> Decimal:
+        return self._inventory_risk_aversion
 
     @property
     def latest_parameter_calculation_vol(self):
@@ -501,7 +509,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         markets_df = self.market_status_data_frame([self._market_info])
         lines.extend(["", "  Markets:"] + ["    " + line for line in markets_df.to_string(index=False).split("\n")])
 
-        assets_df = self.pure_mm_assets_df(True)
+        assets_df = map_df_to_str(self.pure_mm_assets_df(True))
         first_col_length = max(*assets_df[0].apply(len))
         df_lines = assets_df.to_string(index=False, header=False,
                                        formatters={0: ("{:<" + str(first_col_length) + "}").format}).split("\n")
