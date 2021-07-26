@@ -60,19 +60,19 @@ class LimitOrderUnitTest(unittest.TestCase):
             LimitOrder(f"HBOT_{str(created)}", "A-B ", False, "A", "B", Decimal("2"), Decimal("1"), Decimal(0), created, LimitOrderStatus.CANCELED),
         ]
         df = LimitOrder.to_pandas(orders, 1.5, end_time_order_age=now_ts)
-        expect_txt = ("Order ID  Type  Price  Spread  Amount       Age Hang\n"
-                      "  HBOT_2  sell    2.5  66.67%     1.0  00:01:40  n/a\n"
-                      " ...1442  sell    2.0  33.33%     1.0  00:01:40  n/a\n"
-                      "  HBOT_1   buy    1.0  33.33%     1.5       n/a  n/a\n"
-                      " ...1442   buy    1.0  33.33%     1.0  00:01:40  n/a")
+        expect_txt = ("Order ID Type  Price Spread  Amount      Age Hang\n"
+                      "  HBOT_2 sell    2.5 66.67%     1.0 00:01:40  n/a\n"
+                      " ...1442 sell    2.0 33.33%     1.0 00:01:40  n/a\n"
+                      "  HBOT_1  buy    1.0 33.33%     1.5      n/a  n/a\n"
+                      " ...1442  buy    1.0 33.33%     1.0 00:01:40  n/a")
         self.assertEqual(expect_txt, df.to_string(index=False, max_colwidth=50))
         # Test to see if hanging orders are displayed correctly
         df = LimitOrder.to_pandas(orders, 1.5, ["HBOT_1", "HBOT_2"], end_time_order_age=now_ts)
-        expect_txt = ("Order ID  Type  Price  Spread  Amount       Age Hang\n"
-                      "  HBOT_2  sell    2.5  66.67%     1.0  00:01:40  yes\n"
-                      " ...1442  sell    2.0  33.33%     1.0  00:01:40   no\n"
-                      "  HBOT_1   buy    1.0  33.33%     1.5       n/a  yes\n"
-                      " ...1442   buy    1.0  33.33%     1.0  00:01:40   no")
+        expect_txt = ("Order ID Type  Price Spread  Amount      Age Hang\n"
+                      "  HBOT_2 sell    2.5 66.67%     1.0 00:01:40  yes\n"
+                      " ...1442 sell    2.0 33.33%     1.0 00:01:40   no\n"
+                      "  HBOT_1  buy    1.0 33.33%     1.5      n/a  yes\n"
+                      " ...1442  buy    1.0 33.33%     1.0 00:01:40   no")
         self.assertEqual(expect_txt, df.to_string(index=False, max_colwidth=50))
         # Test to see if df is created and order age is calculated
         df = LimitOrder.to_pandas(orders, 1.5, [])
