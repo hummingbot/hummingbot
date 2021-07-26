@@ -33,7 +33,6 @@ class BuildExt(build_ext):
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20210715"
     packages = [
         "hummingbot",
         "hummingbot.client",
@@ -55,27 +54,29 @@ def main():
         "hummingbot.connector.connector.terra",
         "hummingbot.connector.exchange",
         "hummingbot.connector.exchange.ascend_ex",
+        "hummingbot.connector.exchange.bamboo_relay",
+        "hummingbot.connector.exchange.beaxy",
         "hummingbot.connector.exchange.binance",
         "hummingbot.connector.exchange.bitfinex",
         "hummingbot.connector.exchange.bittrex",
-        "hummingbot.connector.exchange.bamboo_relay",
         "hummingbot.connector.exchange.coinbase_pro",
         "hummingbot.connector.exchange.coinzoom",
-        "hummingbot.connector.exchange.dydx",
-        "hummingbot.connector.exchange.huobi",
-        "hummingbot.connector.exchange.radar_relay",
-        "hummingbot.connector.exchange.kraken",
         "hummingbot.connector.exchange.crypto_com",
-        "hummingbot.connector.exchange.kucoin",
-        "hummingbot.connector.exchange.loopring",
-        "hummingbot.connector.exchange.okex",
-        "hummingbot.connector.exchange.liquid",
         "hummingbot.connector.exchange.dolomite",
+        "hummingbot.connector.exchange.dydx",
         "hummingbot.connector.exchange.eterbase",
-        "hummingbot.connector.exchange.beaxy",
-        "hummingbot.connector.exchange.hitbtc",
         "hummingbot.connector.exchange.gate_io",
+        "hummingbot.connector.exchange.hitbtc",
+        "hummingbot.connector.exchange.huobi",
         "hummingbot.connector.exchange.k2",
+        "hummingbot.connector.exchange.kraken",
+        "hummingbot.connector.exchange.kucoin",
+        "hummingbot.connector.exchange.liquid",
+        "hummingbot.connector.exchange.loopring",
+        "hummingbot.connector.exchange.ndax"
+        "hummingbot.connector.exchange.okex",
+        "hummingbot.connector.exchange.probit"
+        "hummingbot.connector.exchange.radar_relay",
         "hummingbot.connector.derivative",
         "hummingbot.connector.derivative.binance_perpetual",
         "hummingbot.model",
@@ -95,6 +96,7 @@ def main():
         "hummingbot.wallet.ethereum.watcher",
         "hummingbot.wallet.ethereum.zero_ex",
     ]
+    version = "20210715"
     package_data = {
         "hummingbot": [
             "core/cpp/*",
