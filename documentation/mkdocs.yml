@@ -94,7 +94,7 @@ nav:
       - Updating Hummingbot: installation/updating.md
     - Operation:
       - Overview: operation/overview.md
-      - User Interface: operation/user-interface.md
+      - User Interface Guide: operation/user-interface.md
       - Launch and Exit Hummingbot: operation/launch-exit.md
       - Create and Delete Password: operation/password.md
       - Connecting to Exchange: operation/connect-exchange.md
