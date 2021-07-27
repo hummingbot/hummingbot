@@ -109,7 +109,7 @@ probit_kr_api_key: null
 probit_kr_secret_key: null
 
 ndax_username: null
-ndax_user_id: null
+ndax_uid: null
 ndax_api_key: null
 ndax_secret_key: null
 

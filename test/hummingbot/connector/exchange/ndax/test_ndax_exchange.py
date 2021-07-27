@@ -1,6 +1,4 @@
 import asyncio
-
-from hummingbot.connector.exchange.ndax.ndax_in_flight_order import NdaxInFlightOrder
 import json
 import time
 import pandas as pd
@@ -12,14 +10,15 @@ from unittest.mock import AsyncMock, PropertyMock, patch
 
 import hummingbot.connector.exchange.ndax.ndax_constants as CONSTANTS
 from hummingbot.connector.exchange.ndax.ndax_exchange import NdaxExchange
+from hummingbot.connector.exchange.ndax.ndax_in_flight_order import NdaxInFlightOrder
 from hummingbot.connector.exchange.ndax.ndax_order_book import NdaxOrderBook
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.event.events import (
     MarketOrderFailureEvent,
     OrderCancelledEvent,
+    OrderFilledEvent,
     OrderType,
     TradeType,
-    OrderFilledEvent,
 )
 from hummingbot.core.network_base import NetworkStatus
 
@@ -50,12 +49,11 @@ class NdaxExchangeTests(TestCase):
         self.resume_test_event = asyncio.Event()
         self._finalMessage = 'FinalDummyMessage'
 
-        self.exchange = NdaxExchange(uid='001',
-                                     api_key='testAPIKey',
-                                     secret_key='testSecret',
-                                     username="hbot",
-                                     trading_pairs=[self.trading_pair],
-                                     )
+        self.exchange = NdaxExchange(ndax_uid='001',
+                                     ndax_api_key='testAPIKey',
+                                     ndax_secret_key='testSecret',
+                                     ndax_username="hbot",
+                                     trading_pairs=[self.trading_pair])
 
         self.exchange.logger().setLevel(1)
         self.exchange.logger().addHandler(self)
