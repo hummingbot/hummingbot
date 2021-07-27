@@ -42,6 +42,7 @@ from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
 
 s_decimal_NaN = Decimal("nan")
+s_decimal_0 = Decimal(0)
 
 
 class NdaxExchange(ExchangeBase):
@@ -138,7 +139,7 @@ class NdaxExchange(ExchangeBase):
         Calls REST API to retrieve Account ID
         """
         params = {
-            "OMSId": 0,
+            "OMSId": 1,
             "UserId": int(self._auth.uid),
             "UserName": self._auth.username
         }
@@ -277,46 +278,50 @@ class NdaxExchange(ExchangeBase):
 
     async def _create_order(self,
                             trade_type: TradeType,
-                            trading_pair: str,
                             order_id: str,
+                            trading_pair: str,
                             amount: Decimal,
-                            price: Decimal,
-                            order_type: OrderType,):
+                            price: Decimal = s_decimal_0,
+                            order_type: OrderType = OrderType.MARKET):
         """
         Calls create-order API end point to place an order, starts tracking the order and triggers order created event.
         :param trade_type: BUY or SELL
         :param order_id: Internal order id (also called client_order_id)
         :param trading_pair: The market to place order
         :param amount: The order amount (in base token value)
-        :param order_type: The order type
         :param price: The order price
+        :param order_type: The order type
         """
-        if not order_type.is_limit_type():
-            raise Exception(f"Unsupported order type: {order_type}")
-        trading_rule = self._trading_rules[trading_pair]
+        trading_rule: TradingRule = self._trading_rules[trading_pair]
 
-        amount: Decimal = self.quantize_order_amount(trading_pair, amount)
-        price: Decimal = self.quantize_order_price(trading_pair, price)
+        trading_pair_ids: Dict[str, int] = await self._order_book_tracker.data_source.get_instrument_ids()
 
         try:
+            amount: Decimal = self.quantize_order_amount(trading_pair, amount)
             if amount < trading_rule.min_order_size:
                 raise ValueError(f"{trade_type.name} order amount {amount} is lower than the minimum order size "
                                  f"{trading_rule.min_order_size}.")
 
-            order_value: Decimal = amount * price
-            if order_value < trading_rule.min_order_value:
-                raise ValueError(f"{trade_type.name} order value {order_value} is lower than the minimum order value "
-                                 f"{trading_rule.min_order_value}")
-
             params = {
-                "InstrumentId": 1,
+                "InstrumentId": trading_pair_ids[trading_pair],
                 "OMSId": 1,
                 "AccountId": self.account_id,
                 "ClientOrderId": order_id,
                 "Side": 0 if trade_type == TradeType.BUY else 1,
                 "Quantity": amount,
-                "LimitPrice": price,
             }
+
+            if order_type.is_limit_type():
+                price: Decimal = self.quantize_order_price(trading_pair, price)
+
+                params.update({
+                    "OrderType": 2,  # Limit
+                    "LimitPrice": price,
+                })
+            else:
+                params.update({
+                    "OrderType": 1  # Market
+                })
 
             self.start_tracking_order(order_id,
                                       None,
@@ -358,7 +363,7 @@ class NdaxExchange(ExchangeBase):
         except Exception as e:
             self.stop_tracking_order(order_id)
             self.logger().network(
-                f"Error submitting {trade_type.name} {order_type.name} order to ProBit for "
+                f"Error submitting {trade_type.name} {order_type.name} order to NDAX for "
                 f"{amount} {trading_pair} "
                 f"{price}.",
                 exc_info=True,
@@ -426,7 +431,7 @@ class NdaxExchange(ExchangeBase):
             ex_order_id = tracked_order.exchange_order_id
 
             body_params = {
-                "OMSId": 0,
+                "OMSId": 1,
                 "AccountId": self.account_id,
                 "OrderId": ex_order_id
             }
@@ -475,7 +480,7 @@ class NdaxExchange(ExchangeBase):
 
                 result[trading_pair] = TradingRule(trading_pair=trading_pair,
                                                    min_order_size=Decimal(str(instrument["MinimumQuantity"])),
-                                                   min_price_increment=Decimal(str(instrument["MinimumPrice"])),
+                                                   min_price_increment=Decimal(str(instrument["PriceIncrement"])),
                                                    min_base_amount_increment=Decimal(str(instrument["QuantityIncrement"])),
                                                    )
             except Exception:
@@ -508,7 +513,7 @@ class NdaxExchange(ExchangeBase):
             except Exception as e:
                 self.logger().network(f"Unexpected error while fetching trading rules. Error: {str(e)}",
                                       exc_info=True,
-                                      app_warning_msg="Could not fetch new trading rules from ProBit. "
+                                      app_warning_msg="Could not fetch new trading rules from NDAX. "
                                                       "Check network connection.")
                 await asyncio.sleep(0.5)
 
@@ -586,31 +591,34 @@ class NdaxExchange(ExchangeBase):
                 continue
 
             query_params = {
-                "OmsId": 0,
+                "OMSId": 1,
                 "AccountId": self.account_id,
-                "OrderId": ex_order_id,
+                "OrderId": int(ex_order_id),
             }
 
-            tasks.append(self._api_request(method="GET",
-                                           path_url=CONSTANTS.GET_ORDER_STATUS_PATH_URL,
-                                           params=query_params,
-                                           is_auth_required=True,
-                                           ))
+            tasks.append(
+                asyncio.create_task(self._api_request(method="GET",
+                                                      path_url=CONSTANTS.GET_ORDER_STATUS_PATH_URL,
+                                                      params=query_params,
+                                                      is_auth_required=True,
+                                                      )))
         self.logger().debug(f"Polling for order status updates of {len(tasks)} orders. ")
 
-        status_responses: List[List[Dict[str, Any]]] = await safe_gather(*tasks, return_exceptions=True)
+        raw_responses: List[Dict[str, Any]] = await safe_gather(*tasks, return_exceptions=True)
 
-        # Initial parsing of responses
-        status_responses: List[Dict[str, Any]] = [resp[0]
-                                                  for resp in status_responses
-                                                  if not isinstance(resp, Exception)
-                                                  ]
+        # Initial parsing of responses. Removes Exceptions.
+        parsed_status_responses: List[Dict[str, Any]] = []
+        for resp in raw_responses:
+            if not isinstance(resp, Exception):
+                parsed_status_responses.append(resp)
+            else:
+                self.logger().error(f"Error fetching order status. Response: {resp}")
 
         min_ts: int = min([int(order_status["ReceiveTime"] // 1e3)
-                           for order_status in status_responses])
+                           for order_status in parsed_status_responses])
 
         trade_history_tasks = []
-        trading_pair_ids: Dict[str, int] = self._order_book_tracker.data_source.get_instrument_ids()
+        trading_pair_ids: Dict[str, int] = await self._order_book_tracker.data_source.get_instrument_ids()
 
         for trading_pair in self._trading_pairs:
             query_params = {
@@ -621,23 +629,26 @@ class NdaxExchange(ExchangeBase):
                 "StartTimestamp": min_ts,
                 "EndTimestamp": int(time.time() * 1e3),
             }
-            trade_history_tasks.append(self._api_request(method="GET",
-                                                         path_url=CONSTANTS.GET_TRADES_HISTORY_PATH_URL,
-                                                         params=query_params,
-                                                         is_auth_required=True))
+            trade_history_tasks.append(
+                asyncio.create_task(self._api_request(method="GET",
+                                                      path_url=CONSTANTS.GET_TRADES_HISTORY_PATH_URL,
+                                                      params=query_params,
+                                                      is_auth_required=True)))
 
-        history_resps: List[List[Dict[str, Any]]] = await safe_gather(*trade_history_tasks, return_exceptions=True)
+        raw_responses: List[Dict[str, Any]] = await safe_gather(*trade_history_tasks, return_exceptions=True)
 
         # Initial parsing of responses. Joining all the responses
-        history_resps: List[Dict[str, Any]] = [hist_entry
-                                               for t_pair_history in history_resps
-                                               for hist_entry in t_pair_history
-                                               if not isinstance(t_pair_history, Exception)]
+        parsed_history_resps: List[Dict[str, Any]] = []
+        for resp in raw_responses:
+            if not isinstance(resp, Exception):
+                parsed_history_resps.append(resp)
+            else:
+                self.logger().error(f"Error fetching order status. Response: {resp}")
 
-        for trade in history_resps:
+        for trade in parsed_history_resps:
             self._process_trade_event_message(trade)
 
-        for order_status in status_responses:
+        for order_status in parsed_status_responses:
             self._process_order_event_message(order_status)
 
     async def _status_polling_loop(self):
