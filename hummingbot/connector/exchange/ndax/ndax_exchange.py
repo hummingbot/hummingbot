@@ -511,10 +511,10 @@ class NdaxExchange(ExchangeBase):
             except asyncio.CancelledError:
                 raise
             except Exception as e:
-                self.logger().network(f"Unexpected error while fetching trading rules. Error: {str(e)}",
-                                      exc_info=True,
-                                      app_warning_msg="Could not fetch new trading rules from NDAX. "
-                                                      "Check network connection.")
+                self.logger().error(f"Unexpected error while fetching trading rules. Error: {str(e)}",
+                                    exc_info=True,
+                                    app_warning_msg="Could not fetch new trading rules from NDAX. "
+                                    "Check network connection.")
                 await asyncio.sleep(0.5)
 
     async def _update_balances(self):
@@ -668,7 +668,7 @@ class NdaxExchange(ExchangeBase):
             except asyncio.CancelledError:
                 raise
             except Exception as e:
-                self.logger().error(str(e), exc_info=True)
+                self.logger().error(f"Unexpected error while in status polling loop. Error: {str(e)}", exc_info=True)
                 self.logger().network("Unexpected error while fetching account updates.",
                                       exc_info=True,
                                       app_warning_msg="Could not fetch account updates from NDAX. "

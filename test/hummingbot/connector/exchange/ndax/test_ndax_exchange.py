@@ -1,4 +1,5 @@
 import asyncio
+
 from hummingbot.connector.exchange.ndax.ndax_in_flight_order import NdaxInFlightOrder
 import json
 import time
@@ -7,7 +8,7 @@ import pandas as pd
 from decimal import Decimal
 from typing import Any, Dict, List
 from unittest import TestCase
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, PropertyMock, patch
 
 import hummingbot.connector.exchange.ndax.ndax_constants as CONSTANTS
 from hummingbot.connector.exchange.ndax.ndax_exchange import NdaxExchange
@@ -657,10 +658,10 @@ class NdaxExchangeTests(TestCase):
 
         self._set_mock_response(mock_api, 200, mock_response)
 
-        task = asyncio.get_event_loop().create_task(
+        self.exchange_task = asyncio.get_event_loop().create_task(
             self.exchange._update_balances()
         )
-        asyncio.get_event_loop().run_until_complete(task)
+        asyncio.get_event_loop().run_until_complete(self.exchange_task)
 
         self.assertEqual(Decimal(str(10.0)), self.exchange.get_balance(self.base_asset))
 
@@ -767,36 +768,80 @@ class NdaxExchangeTests(TestCase):
             self.trading_pair: 5
         })
 
-        task = asyncio.get_event_loop().create_task(self.exchange._update_order_status())
-        asyncio.get_event_loop().run_until_complete(task)
+        self.exchange_task = asyncio.get_event_loop().create_task(self.exchange._update_order_status())
+        asyncio.get_event_loop().run_until_complete(self.exchange_task)
         self.assertEqual(0, len(self.exchange.in_flight_orders))
 
-    @patch("hummingbot.core.utils.async_utils.safe_gather", new_callable=AsyncMock)
-    def test_status_polling_loop(self, mock_gather):
-        # mock_gather.return_value = None
+    @patch("hummingbot.connector.exchange.ndax.ndax_exchange.NdaxExchange._update_balances", new_callable=AsyncMock)
+    @patch("hummingbot.connector.exchange.ndax.ndax_exchange.NdaxExchange._update_order_status", new_callable=AsyncMock)
+    @patch("hummingbot.connector.exchange.ndax.ndax_exchange.NdaxExchange.current_timestamp", new_callable=PropertyMock)
+    def test_status_polling_loop(self, mock_ts, mock_update_order_status, mock_balances):
+        mock_balances.return_value = None
+        mock_update_order_status.return_value = None
 
-        # with self.assertRaises(asyncio.TimeoutError):
-        #     task = asyncio.get_event_loop().create_task(
-        #         self.exchange._status_polling_loop()
-        #     )
+        ts: float = time.time()
+        mock_ts.return_value = ts
+        self.exchange._current_timestamp = ts
 
-        #     asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.5))
+        with self.assertRaises(asyncio.TimeoutError):
+            self.exchange_task = asyncio.get_event_loop().create_task(
+                self.exchange._status_polling_loop()
+            )
 
-        #     self.exchange._poll_notifier.set()
+            # Add small delay to ensure an API request is "called"
+            asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.5))
+            self.exchange._poll_notifier.set()
 
-        #     asyncio.get_event_loop().run_until_complete(
-        #         asyncio.wait_for(task, 2.0))
+            asyncio.get_event_loop().run_until_complete(asyncio.wait_for(self.exchange_task, 2.0))
 
-        pass
+        self.assertEqual(ts, self.exchange._last_poll_timestamp)
 
-    def test_status_polling_loop_cancels(self):
-        pass
+    @patch("aiohttp.ClientSession.get")
+    @patch("hummingbot.connector.exchange.ndax.ndax_exchange.NdaxExchange.current_timestamp", new_callable=PropertyMock)
+    def test_status_polling_loop_cancels(self, mock_ts, mock_api):
+        mock_api.side_effect = asyncio.CancelledError
 
-    def test_status_polling_loop_exception_raised_from_update_balance(self):
-        pass
+        ts: float = time.time()
+        mock_ts.return_value = ts
+        self.exchange._current_timestamp = ts
 
-    def test_status_polling_loop_exception_raised_from_update_order_status(self):
-        pass
+        with self.assertRaises(asyncio.CancelledError):
+            self.exchange_task = asyncio.get_event_loop().create_task(
+                self.exchange._status_polling_loop()
+            )
+            # Add small delay to ensure _poll_notifier is set
+            asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.5))
+            self.exchange._poll_notifier.set()
+
+            asyncio.get_event_loop().run_until_complete(self.exchange_task)
+
+        self.assertEqual(0, self.exchange._last_poll_timestamp)
+
+    @patch("hummingbot.connector.exchange.ndax.ndax_exchange.NdaxExchange._update_balances", new_callable=AsyncMock)
+    @patch("hummingbot.connector.exchange.ndax.ndax_exchange.NdaxExchange._update_order_status", new_callable=AsyncMock)
+    @patch("hummingbot.connector.exchange.ndax.ndax_exchange.NdaxExchange.current_timestamp", new_callable=PropertyMock)
+    def test_status_polling_loop_exception_raised(self, mock_ts, mock_update_order_status, mock_balances):
+        mock_balances.side_effect = lambda: self._create_exception_and_unlock_test_with_event(
+            Exception("Dummy test error"))
+        mock_update_order_status.side_effect = lambda: self._create_exception_and_unlock_test_with_event(
+            Exception("Dummy test error"))
+
+        ts: float = time.time()
+        mock_ts.return_value = ts
+        self.exchange._current_timestamp = ts
+
+        self.exchange_task = asyncio.get_event_loop().create_task(
+            self.exchange._status_polling_loop()
+        )
+
+        # Add small delay to ensure an API request is "called"
+        asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.5))
+        self.exchange._poll_notifier.set()
+
+        asyncio.get_event_loop().run_until_complete(self.resume_test_event.wait())
+
+        self.assertEqual(0, self.exchange._last_poll_timestamp)
+        self._is_logged("ERROR", "Unexpected error while in status polling loop. Error: ")
 
     def test_format_trading_rules_success(self):
         instrument_info: List[Dict[str, Any]] = [{
@@ -847,11 +892,42 @@ class NdaxExchangeTests(TestCase):
         self.assertEqual(trading_rule.min_price_increment, Decimal(str(mock_response[0]["PriceIncrement"])))
         self.assertEqual(trading_rule.min_base_amount_increment, Decimal(str(mock_response[0]["QuantityIncrement"])))
 
-    def test_trading_rules_polling_loop_cancels(self):
-        pass
+    @patch("hummingbot.connector.exchange.ndax.ndax_exchange.NdaxExchange._update_trading_rules", new_callable=AsyncMock)
+    def test_trading_rules_polling_loop(self, mock_update):
+        # No Side Effects expected
+        mock_update.return_value = None
+        with self.assertRaises(asyncio.TimeoutError):
+            self.exchange_task = asyncio.get_event_loop().create_task(self.exchange._trading_rules_polling_loop())
 
-    def test_trading_rules_polling_loop_exception_raised(self):
-        pass
+            asyncio.get_event_loop().run_until_complete(
+                asyncio.wait_for(self.exchange_task, 1.0)
+            )
+
+    @patch("hummingbot.connector.exchange.ndax.ndax_exchange.NdaxExchange._update_trading_rules", new_callable=AsyncMock)
+    def test_trading_rules_polling_loop_cancels(self, mock_update):
+        mock_update.side_effect = asyncio.CancelledError
+
+        with self.assertRaises(asyncio.CancelledError):
+            self.exchange_task = asyncio.get_event_loop().create_task(
+                self.exchange._trading_rules_polling_loop()
+            )
+
+            asyncio.get_event_loop().run_until_complete(self.exchange_task)
+
+        self.assertEqual(0, self.exchange._last_poll_timestamp)
+
+    @patch("hummingbot.connector.exchange.ndax.ndax_exchange.NdaxExchange._update_trading_rules", new_callable=AsyncMock)
+    def test_trading_rules_polling_loop_exception_raised(self, mock_update):
+        mock_update.side_effect = lambda: self._create_exception_and_unlock_test_with_event(
+            Exception("Dummy test error"))
+
+        self.exchange_task = asyncio.get_event_loop().create_task(
+            self.exchange._trading_rules_polling_loop()
+        )
+
+        asyncio.get_event_loop().run_until_complete(self.resume_test_event.wait())
+
+        self._is_logged("ERROR", "Unexpected error while fetching trading rules. Error: ")
 
     @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
     def test_check_network_succeeds_when_ping_replies_pong(self, mock_api):
@@ -897,22 +973,29 @@ class NdaxExchangeTests(TestCase):
                                "BTC-USDT")
 
     def test_get_order_price_quantum(self):
+        # TODO
         pass
 
     def test_get_order_size_quantum(self):
+        # TODO
         pass
 
     def test_create_order(self):
+        # TODO
         pass
 
     def test_buy(self):
+        # TODO
         pass
 
     def test_sell(self):
+        # TODO
         pass
 
     def test_execute_cancel(self):
+        # TODO
         pass
 
     def test_cancel(self):
+        # TODO
         pass
