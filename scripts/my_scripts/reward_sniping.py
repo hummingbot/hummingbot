@@ -7,3 +7,273 @@
 # Implement inventory control
 # Implement trend-oriented trade bias (which side of trade should I place more order amount)
 # Explore the idea 
+
+from decimal import Decimal
+from datetime import datetime
+import time
+from hummingbot.script.script_base import ScriptBase
+from os.path import realpath, join
+import statistics
+import random
+from typing import Optional
+
+s_decimal_1 = Decimal("1")
+LOGS_PATH = realpath(join(__file__, "../../logs/"))
+SCRIPT_LOG_FILE = f"{LOGS_PATH}/logs_script.log"
+
+
+def log_to_file(file_name, message):
+    with open(file_name, "a+") as f:
+        f.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " - " + message + "\n")
+
+class RewardSniping(ScriptBase):
+    # Configure Parameters
+    ## Moving Average
+    MA_INTERVAL = 60
+    SHORT_MA_LENGTH = 5
+    LONG_MA_LENGTH = 30
+    ## Inverted Bolinger Band
+    STD_MULT = 2
+    UPPER_ORDER_AMOUNT_BOUND_PCT = 0.01
+    LOWER_ORDER_AMOUNT_BOUND_PCT = 0.01
+    ## Envelop Band
+    ENV_MULT = 2
+    UPPER_ENV_PCT = 0.005
+    LOWER_ENV_PCT = 0.005
+    ## Max and Min spreads
+    MINIMUM_SPREAD = Decimal(0.0001)
+    MAXIMUM_SPREAD = Decimal(0.004)
+    MIDPOINT_SPREAD = Decimal(0.001)
+    MAXIMUM_ORDER_LEVELS_SPREAD = Decimal(0.001)
+    ## Update frequency:
+    UPDATE_FREQUENCY = 10
+    ## Misc.
+    MINIMUM_ORDER_SIZE = 5.1
+
+    def __init__(self):
+        super().__init__()
+        # Save current settings
+        self.original_bid_spread = None
+        self.original_ask_spread = None
+        self.original_order_levels = None
+        self.original_order_level_spread = None
+        self.original_order_amount = None
+        self.original_order_refresh_time = None
+        self.original_filled_order_delay = None
+
+        # Runtime parameters
+        self.probability_upper_pct = None
+        self.probability_lower_pct = None
+        self.probability_upper_price = None
+        self.probability_lower_price = None
+        self.new_order_amount = None
+        self.new_spread = None
+        self.new_order_levels_spread = None
+        self.inner_env_upper_bound = None
+        self.inner_env_lower_bound = None
+        self.outer_env_upper_bound = None
+        self.outer_env_lower_bound = None
+        self.std_basis = None
+        self.env_basis = None
+        self.new_order_levels = None
+        self.new_buy_levels = None
+        self.new_sell_levels = None
+        self.new_filled_order_delay = None
+        self.new_order_refresh_time = None
+
+        # Update frequency flag:
+        self.last_parameters_updated = 0
+
+    def on_tick(self):
+        # First, let's keep the original parameters:
+        if self.original_bid_spread is None:
+            self.original_bid_spread = self.pmm_parameters.bid_spread
+            self.original_ask_spread = self.pmm_parameters.ask_spread
+            self.original_order_level_spread = self.pmm_parameters.order_level_spread
+            self.original_order_amount = self.pmm_parameters.order_amount
+            self.original_order_refresh_time = self.pmm_parameters.order_refresh_time
+            self.original_filled_order_delay = self.pmm_parameters.filled_order_delay
+
+        if time.time() - self.last_parameters_updated > self.UPDATE_FREQUENCY:
+            self.calculateNewOrderAmount()
+            self.calculateNewSpread()
+            self.calculateEnvelop()
+            self.applyTrendBias()
+
+            if self.new_order_amount is None:
+                self.notify("Collecting midprices for moving average ...")
+                self.pmm_parameters.order_levels = 0
+                self.last_parameters_updated = time.time()
+                return
+
+            self.pmm_parameters.order_amount = self.new_order_amount
+            self.pmm_parameters.bid_spread = self.new_spread
+            self.pmm_parameters.ask_spread = self.new_spread
+            self.pmm_parameters.order_levels = self.new_order_levels
+            self.pmm_parameters.buy_levels = self.new_buy_levels
+            self.pmm_parameters.sell_levels = self.new_sell_levels
+            self.pmm_parameters.order_level_spread = self.new_order_levels_spread
+            self.pmm_parameters.order_refresh_time = self.new_order_refresh_time
+            self.pmm_parameters.filled_order_delay = self.new_filled_order_delay
+
+            self.last_parameters_updated = time.time()
+
+        # TODO: Write data collection script
+        # TODO: Write status script
+
+    def on_status(self) -> str:
+        return self.status_msg()
+
+    def calculateNewOrderAmount(self):
+        basis = self.avg_mid_price(self.MA_INTERVAL, self.SHORT_MA_LENGTH)
+        dev = self.stdev_price(self.MA_INTERVAL, self.LONG_MA_LENGTH)
+
+        if basis is None or dev is None:
+            return
+
+        dev = dev * self.STD_MULT
+
+        upper = basis + Decimal(abs((basis + dev) - (basis * Decimal(1 + self.UPPER_ORDER_AMOUNT_BOUND_PCT))))
+        lower = basis - Decimal(abs((basis - dev) - (basis * Decimal(1 - self.LOWER_ORDER_AMOUNT_BOUND_PCT))))
+        upper_pct = abs(1 - upper / self.mid_price)
+        lower_pct = abs(1 - lower / self.mid_price)
+        price_pct = (upper_pct * 100 + lower_pct * 100) / 2
+
+        new_order_amount = self.round_by_step(Decimal(self.original_order_amount) * price_pct, self.MINIMUM_SPREAD)
+        minimum_order = Decimal(self.MINIMUM_ORDER_SIZE) / self.mid_price 
+
+        self.new_order_amount = max(new_order_amount, minimum_order)
+        self.probability_upper_pct = upper_pct
+        self.probability_lower_pct = lower_pct
+        self.probability_upper_price = upper
+        self.probability_lower_price = lower
+        self.std_basis = basis
+
+    def calculateNewSpread(self):
+        if self.probability_upper_pct is None or self.probability_lower_pct is None:
+            return
+            
+        max_spread = self.MAXIMUM_SPREAD * max(self.probability_upper_pct, self.probability_lower_pct) * 100
+        min_spread = self.MINIMUM_SPREAD
+
+        max_order_levels_spread = self.MAXIMUM_ORDER_LEVELS_SPREAD * max(self.probability_upper_pct, self.probability_lower_pct) * 100
+
+        new_spread = random.triangular(float(min_spread), float(max_spread), float(self.MIDPOINT_SPREAD))
+        new_order_levels_spread = random.triangular(float(min_spread), float(max_order_levels_spread), float(self.MIDPOINT_SPREAD))
+
+        self.new_spread = self.round_by_step(Decimal(new_spread), self.MINIMUM_SPREAD)
+        self.new_order_levels_spread = self.round_by_step(Decimal(new_order_levels_spread), self.MINIMUM_SPREAD)
+
+    def calculateEnvelop(self):
+        basis = self.avg_mid_price(self.MA_INTERVAL, self.LONG_MA_LENGTH)
+
+        if basis is None:
+            return
+
+        inner_env_upper = basis * Decimal(1 + self.UPPER_ENV_PCT) 
+        inner_env_lower = basis * Decimal(1 - self.LOWER_ENV_PCT)
+        outer_env_upper = basis * Decimal(1 + self.UPPER_ENV_PCT * self.ENV_MULT) 
+        outer_env_lower = basis * Decimal(1 - self.LOWER_ENV_PCT * self.ENV_MULT)
+
+        self.inner_env_upper_bound = inner_env_upper
+        self.inner_env_lower_bound = inner_env_lower
+        self.outer_env_upper_bound = outer_env_upper
+        self.outer_env_lower_bound = outer_env_lower
+        self.env_basis = basis
+    
+    def applyTrendBias(self):
+        order_levels = 1
+        buy_levels = 1
+        sell_levels = 1
+        new_filled_order_delay = 10
+        new_order_refresh_time = 30
+
+        if self.inner_env_upper_bound is None:
+            return
+
+        # Fast Order Fill Configuration
+        # new_filled_order_delay = 10
+        # new_order_refresh_time = 30
+
+        # Med Order Fill Configuration
+        # new_filled_order_delay = 30
+        # new_order_refresh_time = 10
+
+        # Slow Order Fill Configuration
+        # new_filled_order_delay = 60
+        # new_order_refresh_time = 1
+
+        if self.mid_price >= self.inner_env_upper_bound:
+            sell_levels = 2
+            new_filled_order_delay = 30
+            new_order_refresh_time = 10
+        if self.mid_price >= self.outer_env_upper_bound:
+            sell_levels = 3
+            new_filled_order_delay = 60
+            new_order_refresh_time = 1
+        if self.mid_price <= self.outer_env_lower_bound:
+            sell_levels = 0
+
+        if self.mid_price <= self.inner_env_lower_bound:
+            buy_levels = 2
+            new_filled_order_delay = 30
+            new_order_refresh_time = 10
+        if self.mid_price <= self.outer_env_lower_bound:
+            buy_levels = 3
+            new_filled_order_delay = 60
+            new_order_refresh_time = 1
+        if self.mid_price >= self.outer_env_upper_bound:
+            buy_levels = 0
+
+        self.new_order_levels = order_levels
+        self.new_buy_levels = buy_levels
+        self.new_sell_levels = sell_levels
+        self.new_filled_order_delay = new_filled_order_delay
+        self.new_order_refresh_time = new_order_refresh_time
+
+    # Utility Methods
+    def stdev_price(self, interval: int, length: int) -> Optional[Decimal]:
+        samples = self.take_samples(self.mid_prices, interval, length)
+        if samples is None:
+            return None
+        return statistics.pstdev(samples)
+
+    def status_msg(self):
+        # self.probability_upper_pct = None
+        # self.probability_lower_pct = None
+        # self.probability_upper_price = None
+        # self.probability_lower_price = None
+        # self.new_order_amount = None
+        # self.new_spread = None
+        # self.new_order_levels_spread = None
+        # self.inner_env_upper_bound = None
+        # self.inner_env_lower_bound = None
+        # self.outer_env_upper_bound = None
+        # self.outer_env_lower_bound = None
+        # self.std_basis = None
+        # self.env_basis = None
+        # self.new_order_levels = None
+        # self.new_buy_levels = None
+        # self.new_sell_levels = None
+        # self.new_filled_order_delay = None
+        # self.new_order_refresh_time = None
+
+        if self.new_order_amount is None:
+            return "Collecting midprices for moving average ..."
+
+        probability_msg = f"===Inverted BB===\n" \
+                        f"upper_pct: {self.probability_upper_pct:.5f} | lower_pct: {self.probability_lower_pct:.5f}\n" \
+                        f"upper_price: {self.probability_upper_price:.5f} | lower_price: {self.probability_lower_price:.5f}\n" \
+                        f"basis: {self.std_basis:.5f}\n"
+
+        envelop_msg = f"===Envelop Band===\n" \
+                        f"outer_upper: {self.outer_env_upper_bound:.5f}\ninner_upper: {self.inner_env_upper_bound:.5f}\n" \
+                        f"basis: {self.env_basis:.5f}\n" \
+                        f"inner_lower: {self.inner_env_lower_bound:.5f}\nouter_lower: {self.outer_env_lower_bound:.5f}\n"
+
+        order_msg = f"===Order Detail===\n" \
+                        f"new_order_amount: {self.new_order_amount:.5f} | new_spread: {self.new_spread:.5f} | new_order_levels_spread: {self.new_order_levels_spread:.5f}\n" \
+                        f"new_order_levels: {self.new_order_levels} | new_buy_levels: {self.new_buy_levels} | new_sell_levels: {self.new_sell_levels}\n" \
+                        f"new_filled_order_delay: {self.new_filled_order_delay} | new_order_refresh_time: {self.new_order_refresh_time}\n"
+
+        return f"\n{order_msg}{probability_msg}{envelop_msg}"
