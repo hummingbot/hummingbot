@@ -14,10 +14,8 @@ Example:
 - [How to create KuCoin API key](https://support.kucoin.plus/hc/en-us/articles/360015102174-How-to-Create-an-API)
 - [How to create Coinbase Pro API key](https://help.coinbase.com/en/pro/other-topics/api/how-do-i-create-an-api-key-for-coinbase-pro)
 
-<Callout
-  type="warning"
-  body="We recommend using only #read + trade# enabled API keys. It is not necessary to enable #withdraw#, #transfer#, or anything equivalent to retrieving assets from your wallet."
-/>
+!!! warning
+      We recommend using only **read + trade** enabled API keys. It is not necessary to enable **withdraw**, **transfer**, or anything equivalent to retrieving assets from your wallet.
 
 ## Wallets
 
@@ -28,10 +26,8 @@ Example:
 One of the reliable wallets that traders can use is a MetaMask Wallet. Metamask.io is a browser extension that lets you access Ethereum's Dapp ecosystem. The access provides you a wallet with private keys and passphrase that can store tokens in a specific network.
 (i.e Ethereum Mainnet, Ropsten Test Network, Kovan Test Network)
 
-<Callout
-  type="note"
-  body="Secure the password, private key, and passphrase of your wallet as this can no longer be accessed or changed once forgotten. It is a best practice to secure a cold wallet/offline version of the private keys."
-/>
+!!! note
+      Secure the password, private key, and passphrase of your wallet as this can no longer be accessed or changed once forgotten. It is a best practice to secure a cold wallet/offline version of the private keys.
 
 You can also use other alternatives of Metamask.io wallet. List of alternative wallets can be found [here](https://themoneymongers.com/best-erc20-token-wallets/).
 
@@ -64,10 +60,8 @@ There are two ways to import your Hummingbot wallet from other wallets like Meta
 
 We recommend using the keyfile method over copying and pasting the private key. If your private key remains in your clipboard, there is a risk that a malicious website that you visit may utilize Javascript to access your clipboard and copy its contents.
 
-<Callout
-  type="tip"
-  body="For Metamask wallet, using a wallet that is available in your Metamask (i.e. importing a wallet from Metamask) allows you to view orders created and trades filled by Hummingbot on the decentralized exchange's website."
-/>
+!!! tip
+      For Metamask wallet, using a wallet that is available in your Metamask (i.e. importing a wallet from Metamask) allows you to view orders created and trades filled by Hummingbot on the decentralized exchange's website.
 
 #### Keyfile (recommended)
 
@@ -161,10 +155,9 @@ Running your own node may require dedicated storage and compute, as well as some
 - [Geth (go-ethereum)](https://github.com/ethereum/go-ethereum/wiki/Building-Ethereum)
 - [Parity](https://github.com/paritytech/parity-ethereum)
 
-<Callout
-  type="note"
-  body="These may require several hours to days to sync and may require some troubleshooting when first running."
-/>
+!!! note
+      These may require several hours to days to sync and may require some troubleshooting when first running.
+
 
 ### Option 3. Dedicated blockchain hardware
 
@@ -181,10 +174,8 @@ Get dedicated hardware for your Ethereum node. Ethereum nodes are meant to run c
 
 ## Advanced Database Configuration
 
-<Callout
-  type="warning"
-  body="This is a recently released experimental feature. Running any trading bots without manual supervision may incur additional risks. It is imperative that you thoroughly understand and test the strategy and parameters before deploying bots that can trade in an unattended manner."
-/>
+!!! warning
+      This is a recently released experimental feature. Running any trading bots without manual supervision may incur additional risks. It is imperative that you thoroughly understand and test the strategy and parameters before deploying bots that can trade in an unattended manner.
 
 Hummingbot uses SQLite for database by default, but it may be limiting for some cases such as sharing data to external system, in some cases user may want to use their own preferred client/server RDBMS for it.
 

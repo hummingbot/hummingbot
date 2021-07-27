@@ -20,7 +20,5 @@ To reset your password, delete all files starting with `encrypted_` prefix.
 
 ![](/assets/img/encrypted_files.png)
 
-<Callout
-  type="warning"
-  body="This will disconnect your API keys from Hummingbot. You will have to re-connect your API keys."
-/>
+!!! warning
+    This will disconnect your API keys from Hummingbot. You will have to re-connect your API keys.

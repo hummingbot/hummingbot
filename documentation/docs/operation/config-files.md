@@ -21,10 +21,8 @@ These configuration files created and used by Hummingbot are saved in the `conf/
 
 The template configuration files can be found here: [Config Templates](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/templates).
 
-<Callout
-  type="warning"
-  body="Exit Hummingbot and ensure it is not running when you modify the config files. Changes will take effect the next time Hummingbot is started."
-/>
+!!! warning
+    Exit Hummingbot and ensure it is not running when you modify the config files. Changes will take effect the next time Hummingbot is started.
 
 ## Strategy-specific Files
 
@@ -45,10 +43,8 @@ Running this command will automatically create the following files in these fold
 | `conf_spot_perpetual_arbitrage_[#].yml` | Settings for the [spot perpetual arbitrage](/strategies/spot-perpetual-arb/) strategy.               |
 | `conf_avellaneda_market_making_[#].yml` | Settings for the [avellaneda market making](/strategies/avellaneda-market-making/) strategy.         |
 
-<Callout
-  type="tip"
-  body="For editing configuration files directly, once they are created, you may find it easier to edit the configuration files in the `conf/` folder. Simply open them with a text editor and make any desired modifications."
-/>
+!!! tip
+    For editing configuration files directly, once they are created, you may find it easier to edit the configuration files in the `conf/` folder. Simply open them with a text editor and make any desired modifications.
 
 ## Setup Walkthrough
 
@@ -66,11 +62,8 @@ We have developed walkthroughs for each strategy:
 - [Spot Perpetual Arbitrage](/strategies/spot-perpetual-arb/)
 - [Avellaneda Market Making](/strategies/avellaneda-market-making/)
 
-<Callout
-  type="note"
-  body="When configuring your bot, make sure you are aware of your exchange's minimum order sizes and fees, and check that your trading pair has sufficient order book and trading volumes. You can find more info about specific exchanges in the [Connectors] section."
-  link={["/spot-connectors/overview/"]}
-/>
+!!! note
+    When configuring your bot, make sure you are aware of your exchange's minimum order sizes and fees, and check that your trading pair has sufficient order book and trading volumes. You can find more info about specific exchanges in the [Connectors](/connectors) section.
 
 ## Import an existing strategy file
 
@@ -83,21 +76,18 @@ You can also skip the prompt by running `import [file_name]` command.
 
 ![](/assets/img/import-file-name.png)
 
-<Callout
-  type="tip"
-  body="Press #TAB# to scroll through the auto-complete selections."
-/>
+!!! tip
+    Press **TAB** to scroll through the auto-complete selections.
 
 ## Autofill import
 
 Choose between `start` and `config` after importing a strategy file. This will be applicable for all imported strategies.
 
-** Prompt: **
+Prompt:
 
-<Prompt
-  prompt="What to auto-fill in the prompt after each import command? (start/config)"
-  response=">>>"
-/>
+```
+What to auto-fill in the prompt after each import command? (start/config) >>>
+```
 
 **Sample usage**
 
@@ -161,10 +151,7 @@ command_shortcuts:
   output: [config bid_spread $1, config ask_spread $2, config order_refresh_time $3]
 ```
 
-<Callout
-  type="note"
-  body="Custom made commands can only be used once a strategy has been imported."
-  link={["/spot-connectors/overview/"]}
-/>
+!!! note
+    Custom made commands can only be used once a strategy has been imported.
 
 ![Custom Script Instructions](/assets/img/script-command.gif)

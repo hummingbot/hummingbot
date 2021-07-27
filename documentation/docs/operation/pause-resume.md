@@ -2,10 +2,8 @@
 
 This feature allows users to pause a running strategy using the command `exit --suspend`. This allows the bot to stop while keeping the hanging orders in the order book. To resume, run the command `start --restore`.
 
-<Callout
-  type="note"
-  body="Currently, this feature only works with pure market making strategy."
-/>
+!!! note
+    Currently, this feature only works with pure market making strategy.
 
 ## Pause
 
@@ -21,10 +19,8 @@ To resume a "paused" strategy, import the config file and run the command `start
 
 ![Resume](/assets/img/Resume.png)
 
-<Callout
-  type="note"
-  body="After running `start --restore` spreads may change once the bot brings back your orders, it will display what the current spreads of your order."
-/>
+!!! note
+    After running `start --restore` spreads may change once the bot brings back your orders, it will display what the current spreads of your order.
 
 You can see that when we use `exit --suspend` it exits the bot. When you run `start --restore` all active orders became hanging orders. Refer to the example below.
 
@@ -46,7 +42,5 @@ Orders:
 You will notice that when we use `start` it will show on the logs that orders are cancelled.
 ![](/assets/img/exit-suspend.gif)
 
-<Callout
-  type="note"
-  body="Running `start --restore` on a different configuration file wont work, You should always use the same config file where the `exit --suspend` is executed."
-/>
+!!! note
+    Running `start --restore` on a different configuration file wont work, You should always use the same config file where the `exit --suspend` is executed.

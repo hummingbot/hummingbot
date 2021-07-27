@@ -1,9 +1,7 @@
 # Performance History
 
-<Callout
-  type="info"
-  body="The screenshots shown in this document are based on testing and for illustrative purposes only."
-/>
+!!! info
+    The screenshots shown in this document are based on testing and for illustrative purposes only.
 
 ## History Command
 
@@ -26,10 +24,8 @@ Total P&L = trade P&L + fees paid
 Return % = total P&L / hold portfolio value
 ```
 
-<Callout
-  type="tip"
-  body="The Return % in the navbar at the bottom of Hummingbot client may be different from the history command output. This is because the Return % in history takes the price changes into calculation while the navbar in the bottom UI does not."
-/>
+!!! tip
+    The Return % in the navbar at the bottom of Hummingbot client may be different from the history command output. This is because the Return % in history takes the price changes into calculation while the navbar in the bottom UI does not.
 
 ## Profit & Loss
 
