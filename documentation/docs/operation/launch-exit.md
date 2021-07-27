@@ -13,10 +13,8 @@ wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installa
 chmod a+x start.sh
 ```
 
-<Callout
-  type="tip"
-  body="Run #`ls`# command from the terminal to check if the file is in your current directory."
-/>
+!!! tip
+    Run `ls` command from the terminal to check if the file is in your current directory.
 
 2. Run the following command inside the directory where the helper script is located:
 
@@ -26,10 +24,8 @@ chmod a+x start.sh
 
 ![](/assets/img/launch-via-docker.gif)
 
-<Callout
-  type="tip"
-  body="If no containers are running, follow the guide to creating a Hummingbot instance."
-/>
+!!! tip
+    If no containers are running, follow the guide to creating a Hummingbot instance.
 
 ## Launch from source
 
@@ -53,7 +49,5 @@ Running the `exit` command cancels all outstanding orders and exit the Hummingbo
 
 If you're running Hummingbot installed via binary, exiting Hummingbot by clicking the close window icon will leave your active orders open in the exchange.
 
-<Callout
-  type="tip"
-  body="You can also press the keyboard shortcut #`CTRL + C`# twice to exit."
-/>
+!!! tip
+    You can also press the keyboard shortcut `CTRL + C` twice to exit.

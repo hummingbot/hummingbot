@@ -17,10 +17,8 @@ The `status --live` command displays the real-time status of the bot.
 
 ![](/assets/img/status-live.gif)
 
-<Callout
-  type="note"
-  body="Currently, this feature works on all strategies except Liquidity Mining strategy."
-/>
+!!! note
+    Currently, this feature works on all strategies except Liquidity mining strategy.
 
 ## View market order book
 
@@ -63,23 +61,15 @@ Show all active open orders.
 | ---------------- | ------------------------------------- |
 | `--full_report`  | Show full report with size comparison |
 
-<Callout
-  type="note"
-  body="`open_orders` only works with [binance] exchange connector."
-  link={["https://www.binance.com/en/"]}
-/>
+!!! note
+    `open_orders` only works with Binance exchange connector.
 
 ## trades
 
 Show trades
 
-<Callout
-  type="note"
-  body="`trades` only works with [binance] exchange connector.
-If your desired trading pair does not show any result on your hummingbot terminal when running the `trades` command,
-you can use the following command `trades --market < Pair >`."
-  link={["https://www.binance.com/en/"]}
-/>
+!!! note
+    `trades` only works with Binance exchange connector. If your desired trading pair does not show any result on your hummingbot terminal when running the `trades` command, you can use the following command `trades --market [pair]`.
 
 ![img/trades_sample.png](/assets/img/trades_sample.png)
 
@@ -93,12 +83,8 @@ Show profit and losses
 | `--market`             | The market you want to see pnl                   |
 | `--open_order_markets` | See pnl from current open order markets          |
 
-<Callout
-  type="note"
-  body="`pnl` only works with [binance] exchange connector.
-If your desired trading pair does not show any result on your hummingbot terminal when running the `pnl` command. You can edit the `conf_global.yml` file on your hummingbot folder and add the market pair that you're trading under the `binance_market` list. You can also add it on your hummingbot terminal by using `config binance_market`"
-  link={["[https://www.binance.com/en/]"]}
-/>
+!!! note
+    `pnl` only works with Binance exchange connector. If your desired trading pair does not show any result on your hummingbot terminal when running the `pnl` command. You can edit the `conf_global.yml` file on your hummingbot folder and add the market pair that you're trading under the `binance_market` list. You can also add it on your hummingbot terminal by using `config binance_market`
 
 ![img/market_binance.png](/assets/img/market_binance.png)
 

@@ -86,7 +86,7 @@ _\* Used for text edit in input pane only._
 | CTRL + C                         | Copy    |
 | SHIFT + RMB (right-mouse button) | Paste   |
 
-To highlight, hold **SHIFT + LMB** (left mouse button) and drag across the text you want to select.
+To highlight, hold `SHIFT + LMB` (left mouse button) and drag across the text you want to select.
 
 ### macOS
 
@@ -95,18 +95,16 @@ To highlight, hold **SHIFT + LMB** (left mouse button) and drag across the text 
 | ⌘ + C          | Copy    |
 | ⌘ + V          | Paste   |
 
-<Callout
-  type="note"
-  body="To select text on macOS, you may need to enable the #Allow Mouse Reporting# option by pressing #`⌘ + R`# or selecting #View > Allow Mouse Reporting# in the menu bar."
-/>
+!!! note
+    To select text on macOS, you may need to enable the **Allow Mouse Reporting** option by pressing `⌘ + R` or selecting **View > Allow Mouse Reporting** in the menu bar.
 
 ![allowmouse](/assets/img/allow_mouse_reporting.png)
 
-Then you should be able to select text by holding **`LMB`** (left mouse button) and drag. You can also hold down **`⌥ + shift`** to select specific lines like the image below.
+Then you should be able to select text by holding `LMB` (left mouse button) and drag. You can also hold down `⌥ + shift` to select specific lines like the image below.
 
 ![highlightmacos](/assets/img/highlight_macos.png)
 
-When accessing Hummingbot on a Linux cloud server through `ssh` using a macOS terminal, hold down the **`Option ⌥`** key or **`⌥ + ⌘`** to highlight text.
+When accessing Hummingbot on a Linux cloud server through `ssh` using a macOS terminal, hold down the `Option ⌥` key or `⌥ + ⌘` to highlight text.
 
 ### Windows
 

@@ -11,7 +11,5 @@ By default, Hummingbot uses the default fees of the exchange. However, if you're
 
 ![](/assets/img/fees-override.png)
 
-<Callout
-  type="note"
-  body="Exit and restart Hummingbot for the changes to take effect."
-/>
+!!! note
+    Exit and restart Hummingbot for the changes to take effect.
