@@ -691,27 +691,20 @@ class AscendExExchange(ExchangePyBase):
         current_tick = int(self.current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
 
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
-            tracked_orders = list(self._in_flight_orders.values())
-            tasks = []
-            for tracked_order in tracked_orders:
-                order_id = await tracked_order.get_exchange_order_id()
-                tasks.append(self._api_request(
-                    method="get",
-                    path_url=f"cash/order/status?orderId={order_id}",
-                    is_auth_required=True,
-                    force_auth_path_url="order/status")
-                )
-            self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
-            responses = await safe_gather(*tasks, return_exceptions=True)
-            for response in responses:
-                if isinstance(response, Exception):
-                    raise response
-                if "data" not in response:
-                    self.logger().info(f"_update_order_status result not in resp: {response}")
-                    continue
-
-                order_data = response.get("data")
-                self._process_order_message(AscendExOrder(
+            tracked_orders: List[AscendExInFlightOrder] = list(self._in_flight_orders.values())
+            for o in tracked_orders:
+                await o.get_exchange_order_id()
+            order_ids: str = ",".join(o.exchange_order_id for o in tracked_orders)
+            resp = await self._api_request(
+                method="get",
+                path_url=f"cash/order/status?orderId={order_ids}",
+                is_auth_required=True,
+                force_auth_path_url="order/status"
+            )
+            self.logger().debug(f"Polling for order status updates of {len(order_ids)} orders.")
+            ascend_ex_orders: List[AscendExOrder] = []
+            for order_data in resp["data"]:
+                ascend_ex_orders.append(AscendExOrder(
                     order_data["symbol"],
                     order_data["price"],
                     order_data["orderQty"],
@@ -729,6 +722,11 @@ class AscendExExchange(ExchangePyBase):
                     order_data["stopPrice"],
                     order_data["execInst"]
                 ))
+            for order in ascend_ex_orders:
+                self._process_order_message(order)
+            for hbot_order in tracked_orders:
+                if hbot_order.exchange_order_id not in (o.orderId for o in ascend_ex_orders):
+                    self.logger().info(f"{hbot_order} is missing from expected response ({resp})")
 
     async def cancel_all(self, timeout_seconds: float):
         """
