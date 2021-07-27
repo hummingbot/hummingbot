@@ -43,10 +43,10 @@ class NdaxExchangeTests(TestCase):
         self.resume_test_event = asyncio.Event()
         self._finalMessage = 'FinalDummyMessage'
 
-        self.exchange = NdaxExchange(uid='001',
-                                     api_key='testAPIKey',
-                                     secret_key='testSecret',
-                                     username="hbot")
+        self.exchange = NdaxExchange(ndax_uid='001',
+                                     ndax_api_key='testAPIKey',
+                                     ndax_secret_key='testSecret',
+                                     ndax_username="hbot")
 
         self.exchange.logger().setLevel(1)
         self.exchange.logger().addHandler(self)
