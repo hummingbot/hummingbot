@@ -227,40 +227,37 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     payload: List[List[Any]] = NdaxWebSocketAdaptor.payload_from_raw_message(raw_msg)
                     msg_event: str = NdaxWebSocketAdaptor.endpoint_from_raw_message(raw_msg)
 
-                    if msg_event not in [CONSTANTS.WS_ORDER_BOOK_CHANNEL, CONSTANTS.WS_ORDER_BOOK_L2_UPDATE_EVENT]:
-                        continue
+                    if msg_event in [CONSTANTS.WS_ORDER_BOOK_CHANNEL, CONSTANTS.WS_ORDER_BOOK_L2_UPDATE_EVENT]:
+                        msg_data: List[NdaxOrderBookEntry] = [NdaxOrderBookEntry(*entry)
+                                                              for entry in payload]
+                        msg_timestamp: int = max([e.actionDateTime for e in msg_data])
+                        msg_product_code: int = msg_data[0].productPairCode
 
-                    msg_data: List[NdaxOrderBookEntry] = [NdaxOrderBookEntry(*entry)
-                                                          for entry in payload]
-                    msg_timestamp: int = max([e.actionDateTime for e in msg_data])
-                    msg_product_code: int = msg_data[0].productPairCode
+                        content = {"data": msg_data}
+                        msg_trading_pair: Optional[str] = None
 
-                    content = {"data": msg_data}
-                    msg_trading_pair: Optional[str] = None
+                        for trading_pair, instrument_id in self._trading_pair_id_map.items():
+                            if msg_product_code == instrument_id:
+                                msg_trading_pair = trading_pair
+                                break
 
-                    for trading_pair, instrument_id in self._trading_pair_id_map.items():
-                        if msg_product_code == instrument_id:
-                            msg_trading_pair = trading_pair
-                            break
+                        if msg_trading_pair:
 
-                    if not msg_trading_pair:
-                        continue
+                            metadata = {
+                                "trading_pair": msg_trading_pair,
+                                "instrument_id": msg_product_code,
+                            }
 
-                    metadata = {
-                        "trading_pair": msg_trading_pair,
-                        "instrument_id": msg_product_code,
-                    }
-
-                    if msg_event == CONSTANTS.WS_ORDER_BOOK_CHANNEL:
-                        snapshot_msg: OrderBookMessage = NdaxOrderBook.snapshot_message_from_exchange(msg=content,
+                            if msg_event == CONSTANTS.WS_ORDER_BOOK_CHANNEL:
+                                snapshot_msg: OrderBookMessage = NdaxOrderBook.snapshot_message_from_exchange(msg=content,
+                                                                                                              timestamp=msg_timestamp,
+                                                                                                              metadata=metadata)
+                                output.put_nowait(snapshot_msg)
+                            elif msg_event == CONSTANTS.WS_ORDER_BOOK_L2_UPDATE_EVENT:
+                                diff_msg: OrderBookMessage = NdaxOrderBook.diff_message_from_exchange(msg=content,
                                                                                                       timestamp=msg_timestamp,
                                                                                                       metadata=metadata)
-                        output.put_nowait(snapshot_msg)
-                    elif msg_event == CONSTANTS.WS_ORDER_BOOK_L2_UPDATE_EVENT:
-                        diff_msg: OrderBookMessage = NdaxOrderBook.diff_message_from_exchange(msg=content,
-                                                                                              timestamp=msg_timestamp,
-                                                                                              metadata=metadata)
-                        output.put_nowait(diff_msg)
+                                output.put_nowait(diff_msg)
 
             except asyncio.CancelledError:
                 raise
