@@ -95,6 +95,7 @@ nav:
     - Operation:
       - Overview: operation/index.md
       - User Interface Guide: operation/user-interface.md
+      - Commands and Shortcuts: operation/commands-shortcuts.md
       - Launch and Exit Hummingbot: operation/launch-exit.md
       - Create and Delete Password: operation/password.md
       - Connecting to Exchange: operation/connect-exchange.md
