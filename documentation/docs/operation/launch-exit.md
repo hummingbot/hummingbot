@@ -24,7 +24,7 @@ chmod a+x start.sh
 ./start.sh
 ```
 
-![](/img/launch-via-docker.gif)
+![](/assets/img/launch-via-docker.gif)
 
 <Callout
   type="tip"
@@ -45,7 +45,7 @@ conda activate hummingbot
 bin/hummingbot.py
 ```
 
-![](/img/launch-from-source.gif)
+![](/assets/img/launch-from-source.gif)
 
 ## Exit Hummingbot
 

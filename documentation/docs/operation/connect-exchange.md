@@ -23,7 +23,7 @@ Example:
 
 ### Create a Wallet in MetaMask.io
 
-![metamask](/img/metamask.png)
+![metamask](/assets/img/metamask.png)
 
 One of the reliable wallets that traders can use is a MetaMask Wallet. Metamask.io is a browser extension that lets you access Ethereum's Dapp ecosystem. The access provides you a wallet with private keys and passphrase that can store tokens in a specific network.
 (i.e Ethereum Mainnet, Ropsten Test Network, Kovan Test Network)
@@ -144,12 +144,12 @@ Below, we list different ways that you can access an Ethereum node.
 [Infura](https://infura.io/) provides free and the most widely used Ethereum nodes.
 
 1. Sign up for an account on infura.io
-   ![infura](/img/infura1.png)
+   ![infura](/assets/img/infura1.png)
 2. Click on **Ethereum** and **Create a project**.
-   ![infura2](/img/infura2.png)
+   ![infura2](/assets/img/infura2.png)
 3. Name your project and click **Create**.
 4. In **Keys** section and under **Endpoints** you'll find your Ethereum node as shown in the highlighted area.
-   ![infura3](/img/infura3.png)
+   ![infura3](/assets/img/infura3.png)
 5. The websocket address is below the Ethereum node that starts with `wss://`
 
 ### Option 2. Run your own local node
@@ -267,7 +267,7 @@ Follow the instructions below to connect to decentralized exchanges or protocol 
 
 Run the `connect` command to view the connection status. It also shows failed connections due to connectivity issues, invalid API key permissions, etc.
 
-![](/img/connection-status.png)
+![](/assets/img/connection-status.png)
 
 **Keys Added** column indicates if API keys are added to Hummingbot.
 

@@ -13,13 +13,13 @@ The `exit --suspend` command will "pause" the strategy and exit the hummingbot c
 
 This could be an advantage if you don’t want to cancel orders but want to exit the bot.
 
-![Pause](img/Pause.png)
+![Pause](/assets/img/Pause.png)
 
 ## Resume
 
 To resume a "paused" strategy, import the config file and run the command `start --restore`. It will create new sets of active orders on top of the hanging orders from when it was paused.
 
-![Resume](img/Resume.png)
+![Resume](/assets/img/Resume.png)
 
 <Callout
   type="note"
@@ -28,7 +28,7 @@ To resume a "paused" strategy, import the config file and run the command `start
 
 You can see that when we use `exit --suspend` it exits the bot. When you run `start --restore` all active orders became hanging orders. Refer to the example below.
 
-![](img/pause-and-resume.gif)
+![](/assets/img/pause-and-resume.gif)
 
 ## Important Notes
 
@@ -44,7 +44,7 @@ Orders:
 ```
 
 You will notice that when we use `start` it will show on the logs that orders are cancelled.
-![](img/exit-suspend.gif)
+![](/assets/img/exit-suspend.gif)
 
 <Callout
   type="note"

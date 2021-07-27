@@ -9,7 +9,7 @@ By default, Hummingbot uses the default fees of the exchange. However, if you're
 - Installed via Binary (Windows): `%localappdata%\hummingbot.io\Hummingbot\conf`
 - Installed via Binary (MacOS): `~/Library/Application\ Support/Hummingbot/Conf`
 
-![](/img/fees-override.png)
+![](/assets/img/fees-override.png)
 
 <Callout
   type="note"

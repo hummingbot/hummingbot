@@ -10,7 +10,7 @@ You can click the **OK** button on the welcome screen or you can press **TAB** t
 
 **Passwords are stored locally in your computer. No passwords are uploaded to any server.**
 
-![](/img/welcome.gif)
+![](/assets/img/welcome.gif)
 
 ## Deleting a password
 
@@ -18,7 +18,7 @@ Passwords and private keys are saved as encrypted files in `hummingbot_conf` (vi
 
 To reset your password, delete all files starting with `encrypted_` prefix.
 
-![](/img/encrypted_files.png)
+![](/assets/img/encrypted_files.png)
 
 <Callout
   type="warning"

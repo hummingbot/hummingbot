@@ -13,7 +13,7 @@ Trades are saved locally in a .csv file located in the `data` folder which you c
 
 Optional argument `--precision` specifies the number of decimal values.
 
-![](/img/history.png)
+![](/assets/img/history.png)
 
 This block below shows the calculation for some of the values displayed in the history output.
 
@@ -35,7 +35,7 @@ Return % = total P&L / hold portfolio value
 
 The `pnl` command shows consolidated performance for all running bots in the same Binance account. This command can be useful when participating in Liquidity Mining campaigns.
 
-![](/img/pnl-command.png)
+![](/assets/img/pnl-command.png)
 
 | Optional Argument      | Description                                      |
 | :--------------------- | :----------------------------------------------- |
