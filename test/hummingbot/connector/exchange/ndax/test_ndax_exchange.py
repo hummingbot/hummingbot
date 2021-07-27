@@ -1,4 +1,5 @@
 import asyncio
+from hummingbot.connector.exchange.ndax.ndax_in_flight_order import NdaxInFlightOrder
 import json
 import time
 import pandas as pd
@@ -38,6 +39,9 @@ class NdaxExchangeTests(TestCase):
         super().setUp()
         self.ws_sent_messages = []
         self.ws_incoming_messages = asyncio.Queue()
+
+        self.api_responses = asyncio.Queue()
+
         self.tracker_task = None
         self.exchange_task = None
         self.log_records = []
@@ -47,7 +51,9 @@ class NdaxExchangeTests(TestCase):
         self.exchange = NdaxExchange(uid='001',
                                      api_key='testAPIKey',
                                      secret_key='testSecret',
-                                     username="hbot")
+                                     username="hbot",
+                                     trading_pairs=[self.trading_pair],
+                                     )
 
         self.exchange.logger().setLevel(1)
         self.exchange.logger().addHandler(self)
@@ -68,6 +74,10 @@ class NdaxExchangeTests(TestCase):
         message = await self.ws_incoming_messages.get()
         if json.loads(message) == self._finalMessage:
             self.resume_test_event.set()
+        return message
+
+    async def _get_next_api_response(self):
+        message = await self.api_responses.get()
         return message
 
     def _create_ws_mock(self):
@@ -101,8 +111,9 @@ class NdaxExchangeTests(TestCase):
         return json.dumps(message)
 
     def _set_mock_response(self, mock_api, status: int, json_data: Any):
+        self.api_responses.put_nowait(json_data)
         mock_api.return_value.status = status
-        mock_api.return_value.json = AsyncMock(return_value=json_data)
+        mock_api.return_value.json.side_effect = self._get_next_api_response
 
     def _add_successful_authentication_response(self):
         self.ws_incoming_messages.put_nowait(self._authentication_response(True))
@@ -653,6 +664,140 @@ class NdaxExchangeTests(TestCase):
 
         self.assertEqual(Decimal(str(10.0)), self.exchange.get_balance(self.base_asset))
 
+    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    def test_update_order_status(self, mock_api):
+
+        # Simulates order being tracked
+        self.exchange._in_flight_orders.update({
+            "0": NdaxInFlightOrder("0", "2628", self.trading_pair, OrderType.LIMIT, TradeType.SELL, Decimal(str(41720.83)), Decimal("1"))
+        })
+        self.assertTrue(1, len(self.exchange.in_flight_orders))
+
+        # Add FullyExecuted GetOrderStatus API Response
+        self._set_mock_response(mock_api, 200, {
+            "Side": "Sell",
+            "OrderId": 2628,
+            "Price": 41720.830000000000000000000000,
+            "Quantity": 0.0000000000000000000000000000,
+            "DisplayQuantity": 0.0000000000000000000000000000,
+            "Instrument": 5,
+            "Account": 528,
+            "AccountName": "hbot",
+            "OrderType": "Limit",
+            "ClientOrderId": 0,
+            "OrderState": "FullyExecuted",
+            "ReceiveTime": 1627380780887,
+            "ReceiveTimeTicks": 637629775808866338,
+            "LastUpdatedTime": 1627380783860,
+            "LastUpdatedTimeTicks": 637629775838598558,
+            "OrigQuantity": 1.0000000000000000000000000000,
+            "QuantityExecuted": 1.0000000000000000000000000000,
+            "GrossValueExecuted": 41720.830000000000000000000000,
+            "ExecutableValue": 0.0000000000000000000000000000,
+            "AvgPrice": 41720.830000000000000000000000,
+            "CounterPartyId": 0,
+            "ChangeReason": "Trade",
+            "OrigOrderId": 2628,
+            "OrigClOrdId": 0,
+            "EnteredBy": 492,
+            "UserName": "hbot",
+            "IsQuote": False,
+            "InsideAsk": 41720.830000000000000000000000,
+            "InsideAskSize": 0.9329960000000000000000000000,
+            "InsideBid": 41718.340000000000000000000000,
+            "InsideBidSize": 0.0632560000000000000000000000,
+            "LastTradePrice": 41720.830000000000000000000000,
+            "RejectReason": "",
+            "IsLockedIn": False,
+            "CancelReason": "",
+            "OrderFlag": "AddedToBook, RemovedFromBook",
+            "UseMargin": False,
+            "StopPrice": 0.0000000000000000000000000000,
+            "PegPriceType": "Last",
+            "PegOffset": 0.0000000000000000000000000000,
+            "PegLimitOffset": 0.0000000000000000000000000000,
+            "IpAddress": "103.6.151.12",
+            "ClientOrderIdUuid": None,
+            "OMSId": 1
+        })
+
+        # Add TradeHistory API Response
+        self._set_mock_response(mock_api, 200, {
+            "OMSId": 1,
+            "ExecutionId": 245936,
+            "TradeId": 252851,
+            "OrderId": 2628,
+            "AccountId": 528,
+            "AccountName": "hbot",
+            "SubAccountId": 0,
+            "ClientOrderId": 0,
+            "InstrumentId": 5,
+            "Side": "Sell",
+            "OrderType": "Limit",
+            "Quantity": 1.0000000000000000000000000000,
+            "RemainingQuantity": 0.0000000000000000000000000000,
+            "Price": 41720.830000000000000000000000,
+            "Value": 41720.830000000000000000000000,
+            "CounterParty": "0",
+            "OrderTradeRevision": 1,
+            "Direction": "NoChange",
+            "IsBlockTrade": False,
+            "Fee": 834.4,
+            "FeeProductId": 5,
+            "OrderOriginator": 492,
+            "UserName": "hbot",
+            "TradeTimeMS": 1627380783859,
+            "MakerTaker": "Maker",
+            "AdapterTradeId": 0,
+            "InsideBid": 41718.340000000000000000000000,
+            "InsideBidSize": 0.0632560000000000000000000000,
+            "InsideAsk": 41720.830000000000000000000000,
+            "InsideAskSize": 0.9329960000000000000000000000,
+            "IsQuote": False,
+            "CounterPartyClientUserId": 0,
+            "NotionalProductId": 2,
+            "NotionalRate": 0.7953538608862469000000000000,
+            "NotionalValue": 480.28818328452511800486539800,
+            "NotionalHoldAmount": 0,
+            "TradeTime": 637629775838593249
+        })
+
+        # Simulate _trading_pair_id_map initialized.
+        self.exchange._order_book_tracker.data_source._trading_pair_id_map.update({
+            self.trading_pair: 5
+        })
+
+        task = asyncio.get_event_loop().create_task(self.exchange._update_order_status())
+        asyncio.get_event_loop().run_until_complete(task)
+        self.assertEqual(0, len(self.exchange.in_flight_orders))
+
+    @patch("hummingbot.core.utils.async_utils.safe_gather", new_callable=AsyncMock)
+    def test_status_polling_loop(self, mock_gather):
+        # mock_gather.return_value = None
+
+        # with self.assertRaises(asyncio.TimeoutError):
+        #     task = asyncio.get_event_loop().create_task(
+        #         self.exchange._status_polling_loop()
+        #     )
+
+        #     asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.5))
+
+        #     self.exchange._poll_notifier.set()
+
+        #     asyncio.get_event_loop().run_until_complete(
+        #         asyncio.wait_for(task, 2.0))
+
+        pass
+
+    def test_status_polling_loop_cancels(self):
+        pass
+
+    def test_status_polling_loop_exception_raised_from_update_balance(self):
+        pass
+
+    def test_status_polling_loop_exception_raised_from_update_order_status(self):
+        pass
+
     def test_format_trading_rules_success(self):
         instrument_info: List[Dict[str, Any]] = [{
             "Product1Symbol": self.base_asset,
@@ -660,7 +805,7 @@ class NdaxExchangeTests(TestCase):
             "QuantityIncrement": 0.0000010000000000000000000000,
             "MinimumQuantity": 0.0001000000000000000000000000,
             "MinimumPrice": 15000.000000000000000000000000,
-
+            "PriceIncrement": 0.0001,
         }
         ]
 
@@ -684,7 +829,7 @@ class NdaxExchangeTests(TestCase):
                 "QuantityIncrement": 0.01,
                 "MinimumQuantity": 0.0001,
                 "MinimumPrice": 15000.0,
-
+                "PriceIncrement": 0.0001,
             }
         ]
 
@@ -699,8 +844,14 @@ class NdaxExchangeTests(TestCase):
 
         trading_rule: TradingRule = self.exchange.trading_rules[self.trading_pair]
         self.assertEqual(trading_rule.min_order_size, Decimal(str(mock_response[0]["MinimumQuantity"])))
-        self.assertEqual(trading_rule.min_price_increment, Decimal(str(mock_response[0]["MinimumPrice"])))
+        self.assertEqual(trading_rule.min_price_increment, Decimal(str(mock_response[0]["PriceIncrement"])))
         self.assertEqual(trading_rule.min_base_amount_increment, Decimal(str(mock_response[0]["QuantityIncrement"])))
+
+    def test_trading_rules_polling_loop_cancels(self):
+        pass
+
+    def test_trading_rules_polling_loop_exception_raised(self):
+        pass
 
     @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
     def test_check_network_succeeds_when_ping_replies_pong(self, mock_api):
@@ -744,3 +895,24 @@ class NdaxExchangeTests(TestCase):
                                "No order book exists for 'BTC-USDT'",
                                self.exchange.get_order_book,
                                "BTC-USDT")
+
+    def test_get_order_price_quantum(self):
+        pass
+
+    def test_get_order_size_quantum(self):
+        pass
+
+    def test_create_order(self):
+        pass
+
+    def test_buy(self):
+        pass
+
+    def test_sell(self):
+        pass
+
+    def test_execute_cancel(self):
+        pass
+
+    def test_cancel(self):
+        pass
