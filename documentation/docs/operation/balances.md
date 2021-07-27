@@ -4,7 +4,7 @@
 
 Run `balance` command to check the balances of all connected wallets and exchanges.
 
-![](/img/balance-command.png)
+![](/assets/img/balance-command.png)
 
 **Allocated** column shows how much of your assets are being used when there are active orders.
 
@@ -12,7 +12,7 @@ Run `balance` command to check the balances of all connected wallets and exchang
 
 Run `balance paper` to check your paper trade account balance.
 
-![](/img/balance-paper.png)
+![](/assets/img/balance-paper.png)
 
 By default, these are the paper trade balances pre-loaded in Hummingbot. You can also enter additional assets and credits to use in paper trade mode.
 

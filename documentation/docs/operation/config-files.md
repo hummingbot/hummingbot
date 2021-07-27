@@ -6,7 +6,7 @@ Run `create` command and answer the prompts to configure your bot's behavior dep
 
 The last prompt will ask you to enter a name for the config file. You can also specify the name of your file at the beginning by running `create [file_name]` command.
 
-![](/img/create-file-name.png)
+![](/assets/img/create-file-name.png)
 
 ## Config File Templates
 
@@ -77,11 +77,11 @@ We have developed walkthroughs for each strategy:
 1. Run `import` command
 2. Enter the name of your strategy config file
 
-![](/img/import-command.png)
+![](/assets/img/import-command.png)
 
 You can also skip the prompt by running `import [file_name]` command.
 
-![](/img/import-file-name.png)
+![](/assets/img/import-file-name.png)
 
 <Callout
   type="tip"
@@ -167,4 +167,4 @@ command_shortcuts:
   link={["/spot-connectors/overview/"]}
 />
 
-![Custom Script Instructions](/img/script-command.gif)
+![Custom Script Instructions](/assets/img/script-command.gif)

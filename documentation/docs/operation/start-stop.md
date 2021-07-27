@@ -4,10 +4,10 @@
 
 After creating or importing a config file, use the `start` command to run the strategy.
 
-![](/img/start-command.gif)
+![](/assets/img/start-command.gif)
 
 ## Stop a running strategy
 
 Run `stop` command to stop the running strategy. Doing this will also cancel all active orders.
 
-![](/img/stop-command.png)
+![](/assets/img/stop-command.png)

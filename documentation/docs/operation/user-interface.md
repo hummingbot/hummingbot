@@ -1,20 +1,20 @@
 # User Interface
 
-![Hummingbot CLI](/img/userinterface-hummingbot.gif)
+![Hummingbot CLI](/assets/img/userinterface-hummingbot.gif)
 
 The CLI is divided into five panes:
 
 1. **Input pane (lower left)**: Where users enter commands
 
-![Hummingbot CLI](/img/input-pane.gif)
+![Hummingbot CLI](/assets/img/input-pane.gif)
 
 2. **Output pane (upper left)**: Prints the output of the user's commands
 
-![Hummingbot CLI](/img/output-pane.gif)
+![Hummingbot CLI](/assets/img/output-pane.gif)
 
 3. **Log pane (right)**: Log messages
 
-![Log Pane](/img/log-messages.gif)
+![Log Pane](/assets/img/log-messages.gif)
 
 4. **Top navigation bar**: Displays the status/information of the following items
 
@@ -31,7 +31,7 @@ The CLI is divided into five panes:
    - **Strategy_file:**
      - You have the option to save a strategy configuration after every bot creation, allowing you to reuse a strategy quickly with `import`command + **strategy_filename.yml**.
 
-![Top Navigation](/img/top-nav.gif)
+![Top Navigation](/assets/img/top-nav.gif)
 
 5. **Bottom navigation bar**: Displays the information of the following items
 
@@ -52,7 +52,7 @@ The CLI is divided into five panes:
    - Duration
      - Duration of the trading session
 
-![Bottom Navigation](/img/bottom-nav.gif)
+![Bottom Navigation](/assets/img/bottom-nav.gif)
 
 # Keyboard shortcuts
 
@@ -100,11 +100,11 @@ To highlight, hold **SHIFT + LMB** (left mouse button) and drag across the text 
   body="To select text on macOS, you may need to enable the #Allow Mouse Reporting# option by pressing #`⌘ + R`# or selecting #View > Allow Mouse Reporting# in the menu bar."
 />
 
-![allowmouse](/img/allow_mouse_reporting.png)
+![allowmouse](/assets/img/allow_mouse_reporting.png)
 
 Then you should be able to select text by holding **`LMB`** (left mouse button) and drag. You can also hold down **`⌥ + shift`** to select specific lines like the image below.
 
-![highlightmacos](/img/highlight_macos.png)
+![highlightmacos](/assets/img/highlight_macos.png)
 
 When accessing Hummingbot on a Linux cloud server through `ssh` using a macOS terminal, hold down the **`Option ⌥`** key or **`⌥ + ⌘`** to highlight text.
 
@@ -117,4 +117,4 @@ When accessing Hummingbot on a Linux cloud server through `ssh` using a macOS te
 
 To use this shortcut, check this box by doing a right-click on the title bar at the top of the Hummingbot window, then select **Properties**.
 
-![](/img/properties_windows.png)
+![](/assets/img/properties_windows.png)
