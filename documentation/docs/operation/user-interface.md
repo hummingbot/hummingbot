@@ -1,4 +1,4 @@
-# User Interface
+# User Interface Guide
 
 ![Hummingbot CLI](/assets/img/userinterface-hummingbot.gif)
 
