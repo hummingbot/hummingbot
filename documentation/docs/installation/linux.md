@@ -5,10 +5,8 @@ You can install Docker and/or Hummingbot by selecting **_either_** of the follow
 - **Scripts**: download and use automated install scripts.
 - **Manual**: run install commands manually.
 
-<Callout
-  type="info"
-  body="Recommended for Developers Only — Installation using Docker is more efficient for running Hummingbot. Installing from source is only recommended for developers who want to access and modify the software code."
-/>
+!!! info
+    Recommended for Developers Only — installation using Docker is more efficient for running Hummingbot. Installing from source is only recommended for developers who want to access and modify the software code.
 
 Or prepare your development environment and get started developing for Hummingbot.
 
@@ -58,10 +56,8 @@ sudo usermod -a -G docker $USER
 exit
 ```
 
-<Callout
-  type="warning"
-  body="Please restart terminal — Close and restart your terminal window to enable the correct permissions for `docker` command before proceeding to next step."
-/>
+!!! warning
+    Please restart terminal — close and restart your terminal window to enable the correct permissions for `docker` command before proceeding to next step.
 
 2. Install Hummingbot
 
@@ -199,10 +195,8 @@ sudo usermod -a -G docker $USER
 exit
 ```
 
-<Callout
-  type="warning"
-  body="Please restart terminal — Close and restart your terminal window to enable the correct permissions for `docker` command before proceeding to next step."
-/>
+!!! warning
+    Please restart terminal — close and restart your terminal window to enable the correct permissions for `docker` command before proceeding to next step.
 
 2. Install Hummingbot
 
@@ -338,10 +332,8 @@ sudo usermod -a -G docker $USER
 exit
 ```
 
-<Callout
-  type="warning"
-  body="Please restart terminal — Close and restart your terminal window to enable the correct permissions for `docker` command before proceeding to next step."
-/>
+!!! warning
+    Please restart terminal — Close and restart your terminal window to enable the correct permissions for `docker` command before proceeding to next step.
 
 2. Install Hummingbot
 
