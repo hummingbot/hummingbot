@@ -1120,35 +1120,35 @@ class NdaxExchangeTests(TestCase):
         # InFlightOrder is still 1 since we do not know exactly where did the Cancel occur.
         self.assertEqual(1, len(self.exchange.in_flight_orders))
 
+    @patch("hummingbot.client.hummingbot_application.HummingbotApplication")
     @patch("hummingbot.connector.exchange.ndax.ndax_api_order_book_data_source.NdaxAPIOrderBookDataSource.get_instrument_ids",
            new_callable=AsyncMock)
-    def test_create_order_below_min_order_size_exception_raised(self, mock_get_instrument_ids):
-        # mock_get_instrument_ids.return_value = {
-        #     self.trading_pair: 5
-        # }
+    def test_create_order_below_min_order_size_exception_raised(self, mock_get_instrument_ids, mock_main_app):
+        mock_get_instrument_ids.return_value = {
+            self.trading_pair: 5
+        }
 
-        # self._simulate_trading_rules_initialized()
+        self._simulate_trading_rules_initialized()
 
-        # order_details = [
-        #     TradeType.BUY,
-        #     str(1),
-        #     self.trading_pair,
-        #     Decimal(str(0.0000001)),
-        #     Decimal(10.0),
-        #     OrderType.LIMIT,
-        # ]
+        order_details = [
+            TradeType.BUY,
+            str(1),
+            self.trading_pair,
+            Decimal(str(0.0000001)),
+            Decimal(10.0),
+            OrderType.LIMIT,
+        ]
 
-        # self.assertEqual(0, len(self.exchange.in_flight_orders))
+        self.assertEqual(0, len(self.exchange.in_flight_orders))
 
-        # self.exchange_task = asyncio.get_event_loop().create_task(
-        #     self.exchange._create_order(*order_details)
-        # )
+        self.exchange_task = asyncio.get_event_loop().create_task(
+            self.exchange._create_order(*order_details)
+        )
 
-        # asyncio.get_event_loop().run_until_complete(self.exchange_task)
+        asyncio.get_event_loop().run_until_complete(self.exchange_task)
 
-        # self.assertEqual(0, len(self.exchange.in_flight_orders))
-        # self._is_logged("NETWORK", f"Error submitting {TradeType.BUY.name} {OrderType.LIMIT.name} order to NDAX")
-        pass
+        self.assertEqual(0, len(self.exchange.in_flight_orders))
+        self._is_logged("NETWORK", f"Error submitting {TradeType.BUY.name} {OrderType.LIMIT.name} order to NDAX")
 
     @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
     def test_execute_cancel_success(self, mock_cancel):
@@ -1234,28 +1234,30 @@ class NdaxExchangeTests(TestCase):
                 self.exchange._execute_cancel(self.trading_pair, order.client_order_id)
             )
 
+    @patch("hummingbot.client.hummingbot_application.HummingbotApplication")
     @patch("hummingbot.connector.exchange.ndax.ndax_exchange.NdaxExchange._api_request", new_callable=AsyncMock)
-    def test_execute_cancel_raises_exception(self, mock_request):
-        # order: NdaxInFlightOrder = NdaxInFlightOrder(
-        #     client_order_id="0",
-        #     exchange_order_id="123",
-        #     trading_pair=self.trading_pair,
-        #     order_type=OrderType.LIMIT,
-        #     trade_type=TradeType.BUY,
-        #     price=Decimal(10.0),
-        #     amount=Decimal(1.0))
+    def test_execute_cancel_exception_raised(self, mock_request, mock_main_app):
+        order: NdaxInFlightOrder = NdaxInFlightOrder(
+            client_order_id="0",
+            exchange_order_id="123",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal(10.0),
+            amount=Decimal(1.0))
 
-        # self.exchange._in_flight_orders.update({
-        #     order.client_order_id: order
-        # })
+        self.exchange._in_flight_orders.update({
+            order.client_order_id: order
+        })
 
-        # mock_request.side_effect = lambda: self._create_exception_and_unlock_test_with_event(
-        #     Exception("Dummy test error"))
+        mock_request.side_effect = lambda: self._create_exception_and_unlock_test_with_event(
+            Exception("Dummy test error"))
 
-        # asyncio.new_event_loop().run_until_complete(
-        #     self.exchange._execute_cancel(self.trading_pair, order.client_order_id)
-        # )
-        pass
+        asyncio.new_event_loop().run_until_complete(
+            self.exchange._execute_cancel(self.trading_pair, order.client_order_id)
+        )
+
+        self._is_logged("ERROR", f"Failed to cancel order {order.client_order_id}")
 
     def test_cancel(self):
         pass

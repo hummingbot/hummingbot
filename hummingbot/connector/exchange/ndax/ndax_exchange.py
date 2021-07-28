@@ -586,7 +586,7 @@ class NdaxExchange(ExchangeBase):
                     cancellation_results.append(CancellationResult(client_oid, False))
 
         except Exception:
-            self.logger().error(
+            self.logger().network(
                 "Failed to cancel all orders.",
                 exc_info=True,
                 app_warning_msg="Failed to cancel all orders on NDAX. Check API key and network connection."
