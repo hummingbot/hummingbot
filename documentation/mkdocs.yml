@@ -81,7 +81,7 @@ nav:
       - Mac: installation/mac.md
       - Linux: installation/linux.md
       - Raspberry Pi: installation/raspberry-pi.md
-      - Cloud Server Guide: installation/cloud-server-guide.md
+      - Cloud Servers: installation/cloud-servers.md
       - Update Hummingbot: installation/update-hummingbot.md
       - Restore Previous Version: installation/restore-previous-version.md
       - Running Multiple Bots: installation/multiple-bots.md
