@@ -25,6 +25,7 @@ SEND_ORDER_PATH_URL = "SendOrder"
 CANCEL_ORDER_PATH_URL = "CancelOrder"
 GET_ORDER_STATUS_PATH_URL = "GetOrderStatus"
 GET_TRADES_HISTORY_PATH_URL = "GetTradesHistory"
+GET_OPEN_ORDERS_PATH_URL = "GetOpenOrders"
 
 
 # WebSocket Public Endpoints

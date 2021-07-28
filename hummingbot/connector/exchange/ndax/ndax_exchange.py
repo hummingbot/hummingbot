@@ -23,7 +23,11 @@ from hummingbot.connector.exchange.ndax.ndax_user_stream_tracker import NdaxUser
 from hummingbot.connector.exchange.ndax.ndax_websocket_adaptor import NdaxWebSocketAdaptor
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.core.clock import Clock
+from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.common import OpenOrder
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
@@ -119,6 +123,58 @@ class NdaxExchange(ExchangeBase):
     def in_flight_orders(self) -> Dict[str, NdaxInFlightOrder]:
         return self._in_flight_orders
 
+    @property
+    def status_dict(self) -> Dict[str, bool]:
+        """
+        A dictionary of statuses of various exchange's components. Used to determine if the connector is ready
+        """
+        return {
+            "account_id_initialized": self.account_id,
+            "order_books_initialized": self._order_book_tracker.ready,
+            "account_balance": len(self._account_balance) > 0 if self._trading_required else True,
+            "trading_rule_initialized": len(self._trading_rules) > 0,
+            "user_stream_initialized":
+                self._user_stream_tracker.data_source.last_recv_time > 0 if self._trading_required else True,
+        }
+
+    @property
+    def ready(self) -> bool:
+        """
+        Determines if the connector is ready.
+        :return True when all statuses pass, this might take 5-10 seconds for all the connector's components and
+        services to be ready.
+        """
+        return all(self.status_dict.values())
+
+    @property
+    def limit_orders(self) -> List[LimitOrder]:
+        return [
+            in_flight_order.to_limit_order()
+            for in_flight_order in self._in_flight_orders.values()
+        ]
+
+    @property
+    def tracking_states(self) -> Dict[str, Any]:
+        """
+        :return active in-flight order in JSON format. Used to save order entries into local sqlite databse.
+        """
+        return {
+            client_oid: order.to_json()
+            for client_oid, order in self._in_flight_orders.items()
+            if not order.is_done
+        }
+
+    def restore_tracking_states(self, saved_states: Dict[str, Any]):
+        """
+        Restore in-flight orders from the saved tracking states(from local db). This is such that the connector can pick
+        up from where it left off before Hummingbot client was terminated.
+        :param saved_states: The saved tracking_states.
+        """
+        self._in_flight_orders.update({
+            client_oid: NdaxInFlightOrder.from_json(order_json)
+            for client_oid, order_json in saved_states.items()
+        })
+
     def supported_order_types(self) -> List[OrderType]:
         """
         :return: a list of OrderType supported by this connector.
@@ -157,6 +213,18 @@ class NdaxExchange(ExchangeBase):
               The assumption here is that the FIRST entry in the list is the accountId the user intends to use
         """
         return resp[0]
+
+    def start(self, clock: Clock, timestamp: float):
+        """
+        This function is called automatically by the clock.
+        """
+        super().start(clock, timestamp)
+
+    def stop(self, clock: Clock):
+        """
+        This function is called automatically by the clock.
+        """
+        super().stop(clock)
 
     async def start_network(self):
         """
@@ -426,14 +494,11 @@ class NdaxExchange(ExchangeBase):
             tracked_order: Optional[NdaxInFlightOrder] = self._in_flight_orders.get(order_id, None)
             if tracked_order is None:
                 raise ValueError(f"Failed to cancel order - {order_id}. Order not being tracked.")
-            if tracked_order.exchange_order_id is None:
-                await tracked_order.get_exchange_order_id()
-            ex_order_id = tracked_order.exchange_order_id
 
             body_params = {
                 "OMSId": 1,
                 "AccountId": self.account_id,
-                "OrderId": ex_order_id
+                "OrderId": await tracked_order.get_exchange_order_id()
             }
 
             resp = await self._api_request(
@@ -466,6 +531,68 @@ class NdaxExchange(ExchangeBase):
         """
         safe_ensure_future(self._execute_cancel(trading_pair, order_id))
         return order_id
+
+    async def get_open_orders(self) -> List[OpenOrder]:
+        query_params = {
+            "OMSId": 1,
+            "AccountId": self.account_id,
+        }
+        open_orders: List[Dict[str, Any]] = await self._api_request(method="GET",
+                                                                    path_url=CONSTANTS.GET_OPEN_ORDERS_PATH_URL,
+                                                                    params=query_params,
+                                                                    is_auth_required=True)
+
+        trading_pair_id_map: Dict[str, int] = await self._order_book_tracker.data_source.get_instrument_ids()
+        id_trading_pair_map: Dict[int, str] = {instrument_id: trading_pair
+                                               for trading_pair, instrument_id in trading_pair_id_map.items()}
+
+        return [OpenOrder(client_order_id=order["ClientOrderId"],
+                          trading_pair=id_trading_pair_map[order["Instrument"]],
+                          price=Decimal(str(order["Price"])),
+                          amount=Decimal(str(order["Quantity"])),
+                          executed_amount=Decimal(str(order["QuantityExecuted"])),
+                          status=order["OrderState"],
+                          order_type=OrderType.LIMIT if order["OrderType"] == "Limit" else OrderType.MARKET,
+                          is_buy=True if order["Side"] == "Buy" else False,
+                          time=order["LastUpdatedTime"],
+                          exchange_order_id=order["OrderId"],
+                          )
+                for order in open_orders]
+
+    async def cancel_all(self, timeout_sec: float) -> List[CancellationResult]:
+        """
+        Cancels all in-flight orders and waits for cancellation results.
+        Used by bot's top level stop and exit commands (cancelling outstanding orders on exit)
+        :param timeout_seconds: The timeout at which the operation will be canceled.
+        :returns List of CancellationResult which indicates whether each order is successfully cancelled.
+        """
+
+        # Note: NDAX's CancelOrder endpoint simply indicates if the cancel requests has been succesfully received.
+        cancellation_results = []
+        tracked_orders = self.in_flight_orders
+        try:
+            for order in tracked_orders.values():
+                self.cancel(trading_pair=order.trading_pair,
+                            order_id=order.client_order_id)
+
+            open_orders = await self.get_open_orders()
+
+            for client_oid, tracked_order in tracked_orders:
+                matched_order = [o for o in open_orders if o.client_order_id == client_oid]
+                if not matched_order:
+                    cancellation_results.append(CancellationResult(client_oid, True))
+                    self.trigger_event(MarketEvent.OrderCancelled,
+                                       OrderCancelledEvent(self.current_timestamp, client_oid))
+                else:
+                    cancellation_results.append(CancellationResult(client_oid, False))
+
+        except Exception:
+            self.logger().error(
+                "Failed to cancel all orders.",
+                exc_info=True,
+                app_warning_msg="Failed to cancel all orders on NDAX. Check API key and network connection."
+            )
+        return cancellation_results
 
     def _format_trading_rules(self, instrument_info: List[Dict[str, Any]]) -> Dict[str, TradingRule]:
         """
