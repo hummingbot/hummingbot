@@ -1,5 +1,5 @@
-from .asset_price_delegate cimport AssetPriceDelegate
 from hummingbot.data_feed.custom_api_data_feed import CustomAPIDataFeed, NetworkStatus
+from .asset_price_delegate cimport AssetPriceDelegate
 
 cdef class APIAssetPriceDelegate(AssetPriceDelegate):
     def __init__(self, api_url: str):
