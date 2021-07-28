@@ -1,56 +1,38 @@
 # Running Multiple Bots
 
-### Multiple bots via Binary
+## Multiple bots via Binary
 
 Users can run multiple bots of Hummingbot installed via binary by simply running a new instance to open a new window.
 
 ![](img/multiple_bots1.gif)
 
-### Multiple bots via Docker
+## Multiple bots via Docker
 
 Create multiple instances using `./create.sh` script. Then, use the following commands to download the create script and make it executable.
 
-### Linux
+**Linux**
 
 ```Linux
 wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh
 chmod a+x *.sh
 ```
 
-### MacOS
+**MacOS**
 
 ```MacOS
 curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh -o create.sh
 chmod a+x *.sh
 ```
 
-```Windows via Docker Toolbox
+**Windows (Docker Toolbox)**
+
+```
 cd ~
 curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh -o create.sh
 chmod a+x *.sh
 ```
 
-### Running in the background (via Docker)
-
-Press keys `Ctrl+P` then `Ctrl+Q` in sequence to detach from Docker, i.e., return to the command line. This exits out of Hummingbot without shutting down the container instance.
-
-Restart or connect to a running instance using the `./start.sh` script. Below commands download the start script and make it executable.
-
-### Linux
-
-```Linux
-wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/start.sh
-chmod a+x *.sh
-```
-
-### MacOS
-
-```MacOS
-curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/start.sh -o start.sh
-chmod a+x *.sh
-```
-
-### Multiple bots from source
+## Multiple bots from source
 
 <Callout
   type="tip"
@@ -73,7 +55,15 @@ conda activate hummingbot
 ./compile
 ```
 
-### Running in the background (from source)
+## Keep bots running in the background
+
+### Docker
+
+Press keys `Ctrl+P` then `Ctrl+Q` in sequence to detach from Docker, i.e., return to the command line. This exits out of Hummingbot without shutting down the container instance.
+
+Restart or connect to a running instance using the `./start.sh` script. Below commands download the start script and make it executable.
+
+### From source
 
 Use either `tmux` or `screen` to run multiple bots installed from source. Check out these external links how to use them.
 
