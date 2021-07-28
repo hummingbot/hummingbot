@@ -18,7 +18,8 @@ from hummingbot.core.event.events import (
     MarketOrderFailureEvent,
     OrderCancelledEvent,
     OrderType,
-    TradeType, OrderFilledEvent,
+    TradeType,
+    OrderFilledEvent,
 )
 from hummingbot.core.network_base import NetworkStatus
 
@@ -135,7 +136,7 @@ class NdaxExchangeTests(TestCase):
                 trading_pair=self.trading_pair,
                 min_order_size=Decimal(str(0.01)),
                 min_price_increment=Decimal(str(0.0001)),
-                min_base_amount_increment=Decimal(str(15000.0)),
+                min_base_amount_increment=Decimal(str(0.000001)),
             )
         }
 
@@ -972,30 +973,301 @@ class NdaxExchangeTests(TestCase):
                                self.exchange.get_order_book,
                                "BTC-USDT")
 
-    def test_get_order_price_quantum(self):
-        # TODO
-        pass
+    @patch("hummingbot.connector.exchange.ndax.ndax_exchange.NdaxExchange._create_order", new_callable=AsyncMock)
+    def test_buy(self, mock_create):
+        mock_create.side_effect = None
+        order_details = [
+            self.trading_pair,
+            Decimal(1.0),
+            Decimal(10.0),
+            OrderType.LIMIT,
+        ]
 
-    def test_get_order_size_quantum(self):
-        # TODO
-        pass
+        # Note: BUY simply returns immediately with the client order id.
+        order_id: str = self.exchange.buy(*order_details)
 
-    def test_create_order(self):
-        # TODO
-        pass
-
-    def test_buy(self):
-        # TODO
-        pass
+        # Order ID is simply a timestamp. The assertion below checks if it is created within 1 sec
+        self.assertTrue((int(time.time() * 1e3) - int(order_id)) < 1 * 1e3)
 
     def test_sell(self):
-        # TODO
+        order_details = [
+            self.trading_pair,
+            Decimal(1.0),
+            Decimal(10.0),
+            OrderType.LIMIT,
+        ]
+
+        # Note: SELL simply returns immediately with the client order id.
+        order_id: str = self.exchange.buy(*order_details)
+
+        # Order ID is simply a timestamp. The assertion below checks if it is created within 1 sec
+        self.assertTrue((int(time.time() * 1e3) - int(order_id)) < 1 * 1e3)
+
+    @patch("hummingbot.connector.exchange.ndax.ndax_api_order_book_data_source.NdaxAPIOrderBookDataSource.get_instrument_ids",
+           new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
+    def test_create_limit_order(self, mock_post, mock_get_instrument_ids):
+        mock_get_instrument_ids.return_value = {
+            self.trading_pair: 5
+        }
+
+        expected_response = {
+            "status": "Accepted",
+            "errormsg": "",
+            "OrderId": 123
+        }
+
+        self._set_mock_response(mock_post, 200, expected_response)
+
+        self._simulate_trading_rules_initialized()
+
+        order_details = [
+            TradeType.BUY,
+            str(1),
+            self.trading_pair,
+            Decimal(1.0),
+            Decimal(10.0),
+            OrderType.LIMIT,
+        ]
+
+        self.assertEqual(0, len(self.exchange.in_flight_orders))
+        asyncio.get_event_loop().run_until_complete(
+            self.exchange._create_order(*order_details)
+        )
+
+        self.assertEqual(1, len(self.exchange.in_flight_orders))
+        self._is_logged("INFO", f"Created {OrderType.LIMIT.name} {TradeType.BUY.name} order {123} for {Decimal(1.0)} {self.trading_pair}")
+
+        tracked_order: NdaxInFlightOrder = self.exchange.in_flight_orders["1"]
+        self.assertEqual(tracked_order.client_order_id, "1")
+        self.assertEqual(tracked_order.exchange_order_id, "123")
+        self.assertEqual(tracked_order.last_state, "Working")
+        self.assertEqual(tracked_order.trading_pair, self.trading_pair)
+        self.assertEqual(tracked_order.price, Decimal(10.0))
+        self.assertEqual(tracked_order.amount, Decimal(1.0))
+        self.assertEqual(tracked_order.trade_type, TradeType.BUY)
+
+    @patch("hummingbot.connector.exchange.ndax.ndax_api_order_book_data_source.NdaxAPIOrderBookDataSource.get_instrument_ids",
+           new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
+    def test_create_market_order(self, mock_post, mock_get_instrument_ids):
+        mock_get_instrument_ids.return_value = {
+            self.trading_pair: 5
+        }
+
+        expected_response = {
+            "status": "Accepted",
+            "errormsg": "",
+            "OrderId": 123
+        }
+
+        self._set_mock_response(mock_post, 200, expected_response)
+
+        self._simulate_trading_rules_initialized()
+
+        order_details = [
+            TradeType.BUY,
+            str(1),
+            self.trading_pair,
+            Decimal(1.0),
+            None,
+            OrderType.MARKET,
+        ]
+
+        self.assertEqual(0, len(self.exchange.in_flight_orders))
+        asyncio.get_event_loop().run_until_complete(
+            self.exchange._create_order(*order_details)
+        )
+
+        self.assertEqual(1, len(self.exchange.in_flight_orders))
+        self._is_logged("INFO", f"Created {OrderType.MARKET.name} {TradeType.BUY.name} order {123} for {Decimal(1.0)} {self.trading_pair}")
+
+        tracked_order: NdaxInFlightOrder = self.exchange.in_flight_orders["1"]
+        self.assertEqual(tracked_order.client_order_id, "1")
+        self.assertEqual(tracked_order.exchange_order_id, "123")
+        self.assertEqual(tracked_order.last_state, "Working")
+        self.assertEqual(tracked_order.trading_pair, self.trading_pair)
+        self.assertEqual(tracked_order.amount, Decimal(1.0))
+        self.assertEqual(tracked_order.trade_type, TradeType.BUY)
+
+    @patch("hummingbot.connector.exchange.ndax.ndax_api_order_book_data_source.NdaxAPIOrderBookDataSource.get_instrument_ids",
+           new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
+    def test_create_order_cancels(self, mock_post, mock_get_instrument_ids):
+        mock_get_instrument_ids.return_value = {
+            self.trading_pair: 5
+        }
+
+        mock_post.side_effect = asyncio.CancelledError
+
+        self._simulate_trading_rules_initialized()
+
+        order_details = [
+            TradeType.BUY,
+            str(1),
+            self.trading_pair,
+            Decimal(1.0),
+            Decimal(10.0),
+            OrderType.LIMIT,
+        ]
+
+        self.assertEqual(0, len(self.exchange.in_flight_orders))
+        with self.assertRaises(asyncio.CancelledError):
+            asyncio.get_event_loop().run_until_complete(
+                self.exchange._create_order(*order_details)
+            )
+
+        # InFlightOrder is still 1 since we do not know exactly where did the Cancel occur.
+        self.assertEqual(1, len(self.exchange.in_flight_orders))
+
+    @patch("hummingbot.connector.exchange.ndax.ndax_api_order_book_data_source.NdaxAPIOrderBookDataSource.get_instrument_ids",
+           new_callable=AsyncMock)
+    def test_create_order_below_min_order_size_exception_raised(self, mock_get_instrument_ids):
+        # mock_get_instrument_ids.return_value = {
+        #     self.trading_pair: 5
+        # }
+
+        # self._simulate_trading_rules_initialized()
+
+        # order_details = [
+        #     TradeType.BUY,
+        #     str(1),
+        #     self.trading_pair,
+        #     Decimal(str(0.0000001)),
+        #     Decimal(10.0),
+        #     OrderType.LIMIT,
+        # ]
+
+        # self.assertEqual(0, len(self.exchange.in_flight_orders))
+
+        # self.exchange_task = asyncio.get_event_loop().create_task(
+        #     self.exchange._create_order(*order_details)
+        # )
+
+        # asyncio.get_event_loop().run_until_complete(self.exchange_task)
+
+        # self.assertEqual(0, len(self.exchange.in_flight_orders))
+        # self._is_logged("NETWORK", f"Error submitting {TradeType.BUY.name} {OrderType.LIMIT.name} order to NDAX")
         pass
 
-    def test_execute_cancel(self):
-        # TODO
+    @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
+    def test_execute_cancel_success(self, mock_cancel):
+        order: NdaxInFlightOrder = NdaxInFlightOrder(
+            client_order_id="0",
+            exchange_order_id="123",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal(10.0),
+            amount=Decimal(1.0))
+
+        self.exchange._in_flight_orders.update({
+            order.client_order_id: order
+        })
+
+        mock_response = {
+            "result": True,
+            "errormsg": None,
+            "errorcode": 0,
+            "detail": None
+        }
+
+        self._set_mock_response(mock_cancel, 200, mock_response)
+
+        result = asyncio.new_event_loop().run_until_complete(
+            self.exchange._execute_cancel(self.trading_pair, order.client_order_id)
+        )
+
+        self.assertEqual(result, order.client_order_id)
+
+    @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
+    def test_execute_cancel_fail(self, mock_cancel):
+        order: NdaxInFlightOrder = NdaxInFlightOrder(
+            client_order_id="0",
+            exchange_order_id="123",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal(10.0),
+            amount=Decimal(1.0))
+
+        self.exchange._in_flight_orders.update({
+            order.client_order_id: order
+        })
+
+        # Regardless of Response, the method returns the client_order_id
+        # Actual cancellation verfication is done using WebSocket message or REST API.
+        mock_response = {
+            "result": False,
+            "errormsg": "Invalid Request",
+            "errorcode": 100,
+            "detail": None
+        }
+
+        self._set_mock_response(mock_cancel, 200, mock_response)
+
+        result = asyncio.new_event_loop().run_until_complete(
+            self.exchange._execute_cancel(self.trading_pair, order.client_order_id)
+        )
+
+        self.assertEqual(result, order.client_order_id)
+
+    @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
+    def test_execute_cancel_cancels(self, mock_cancel):
+        order: NdaxInFlightOrder = NdaxInFlightOrder(
+            client_order_id="0",
+            exchange_order_id="123",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal(10.0),
+            amount=Decimal(1.0))
+
+        self.exchange._in_flight_orders.update({
+            order.client_order_id: order
+        })
+
+        mock_cancel.side_effect = asyncio.CancelledError
+
+        with self.assertRaises(asyncio.CancelledError):
+            asyncio.new_event_loop().run_until_complete(
+                self.exchange._execute_cancel(self.trading_pair, order.client_order_id)
+            )
+
+    @patch("hummingbot.connector.exchange.ndax.ndax_exchange.NdaxExchange._api_request", new_callable=AsyncMock)
+    def test_execute_cancel_raises_exception(self, mock_request):
+        # order: NdaxInFlightOrder = NdaxInFlightOrder(
+        #     client_order_id="0",
+        #     exchange_order_id="123",
+        #     trading_pair=self.trading_pair,
+        #     order_type=OrderType.LIMIT,
+        #     trade_type=TradeType.BUY,
+        #     price=Decimal(10.0),
+        #     amount=Decimal(1.0))
+
+        # self.exchange._in_flight_orders.update({
+        #     order.client_order_id: order
+        # })
+
+        # mock_request.side_effect = lambda: self._create_exception_and_unlock_test_with_event(
+        #     Exception("Dummy test error"))
+
+        # asyncio.new_event_loop().run_until_complete(
+        #     self.exchange._execute_cancel(self.trading_pair, order.client_order_id)
+        # )
         pass
 
     def test_cancel(self):
-        # TODO
+        pass
+
+    def test_status_dict(self):
+        pass
+
+    def test_limit_orders(self):
+        pass
+
+    def test_tracking_states(self):
+        pass
+
+    def test_restore_tracking_states(self):
         pass
