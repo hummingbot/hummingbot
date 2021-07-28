@@ -80,8 +80,8 @@ nav:
       - Windows: installation/windows.md
       - Mac: installation/mac.md
       - Linux: installation/linux.md
-      - Raspberry Pi: installation/source/raspberry-pi.md
-      - Cloud Server Guide: installation/cloud-server.md
+      - Raspberry Pi: installation/raspberry-pi.md
+      - Cloud Server Guide: installation/cloud-server-guide.md
       - Update Hummingbot: installation/update-hummingbot.md
       - Restore Previous Version: installation/restore-previous-version.md
       - Running Multiple Bots: installation/multiple-bots.md

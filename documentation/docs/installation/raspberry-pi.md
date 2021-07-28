@@ -1,10 +1,4 @@
----
-title: "Raspberry Pi"
-description: Raspberry installation Guide
----
-
-import Callout from "../../src/components/Callout";
-import Prompt from "../../src/components/Prompt";
+# Raspberry Pi
 
 ## Install via Docker (BETA)
 
