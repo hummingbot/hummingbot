@@ -104,10 +104,22 @@ nav:
       - Strategy Autostart: operation/strategy-autostart.md
     - Strategies:
       - Overview: strategies/index.md
-      - Pure Market Making: strategies/pure-market-making.md
-      - Cross-Exchange Market Making: strategies/cross-exchange-market-making.md
-      - Arbitrage: strategies/arbitrage.md
-      - Celo Arbitrage: strategies/celo-arb/index.md
+      - Beginner:
+        - Arbitrage: strategies/arbitrage.md    
+        - Cross Exchange: strategies/cross-exchange-market-making.md
+        - Liquidity Mining: strategies/liquidity-mining.md
+        - Pure Market Making: strategies/pure-market-making.md
+        - TWAP: strategies/twap.md
+      - Intermediate:
+        - Advanced Market Making: strategies/advanced-market-making.md
+        - Avellaneda Market Making: strategies/avellaneda-market-making.md
+        - Perpetual Market Making: strategies/perpetual-market-making.md
+        - Spot Perpetual Arbitrage: strategies/spot-perpetual-arbitrage.md
+      - Expert:
+        - AMM Arbitrage: amm-arbitrage.md
+        - Celo Arbitrage: strategies/celo-arbitrage/index.md
+        - Uniswap v3 Liquidity Pool: uniswap-v3-lp.md
+      - Advanced Market Making: strategies/adv-market-making.md
     - Connectors:
       - Overview: connectors/index.md
       - Bamboo Relay: connectors/bamboo-relay.md
