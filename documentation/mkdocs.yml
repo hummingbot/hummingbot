@@ -82,10 +82,10 @@ nav:
       - Linux: installation/linux.md
       - Raspberry Pi: installation/raspberry-pi.md
       - Cloud Servers: installation/cloud-servers.md
+      - Hummingbot Gateway: installation/gateway.md
       - Update Hummingbot: installation/update-hummingbot.md
       - Restore Previous Version: installation/restore-previous-version.md
       - Running Multiple Bots: installation/multiple-bots.md
-      - Hummingbot Gateway: installation/gateway.md
     - Operation:
       - Overview: operation/index.md
       - User Interface Guide: operation/user-interface.md
