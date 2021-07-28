@@ -385,6 +385,7 @@ class NdaxExchange(ExchangeBase):
                 params.update({
                     "OrderType": 2,  # Limit
                     "LimitPrice": price,
+                    "TimeInForce": 1,
                 })
             else:
                 params.update({
@@ -430,15 +431,14 @@ class NdaxExchange(ExchangeBase):
             raise
         except Exception as e:
             self.stop_tracking_order(order_id)
-            self.logger().network(
-                f"Error submitting {trade_type.name} {order_type.name} order to NDAX for "
-                f"{amount} {trading_pair} "
-                f"{price}.",
-                exc_info=True,
-                app_warning_msg=str(e)
-            )
             self.trigger_event(MarketEvent.OrderFailure,
                                MarketOrderFailureEvent(self.current_timestamp, order_id, order_type))
+            self.logger().network(
+                f"Error submitting {trade_type.name} {order_type.name} order to NDAX for "
+                f"{amount} {trading_pair} {price}. Error: {str(e)}",
+                exc_info=True,
+                # app_warning_msg=f"Error submitting order to NDAX. "
+            )
 
     def buy(self, trading_pair: str, amount: Decimal, price: Decimal, order_type: OrderType = OrderType.MARKET,
             **kwargs) -> str:
@@ -501,21 +501,20 @@ class NdaxExchange(ExchangeBase):
                 "OrderId": await tracked_order.get_exchange_order_id()
             }
 
-            resp = await self._api_request(
+            # The API response simply verifies that the API request have been received by the API servers.
+            await self._api_request(
                 method="POST",
                 path_url=CONSTANTS.CANCEL_ORDER_PATH_URL,
                 data=body_params,
                 is_auth_required=True
             )
 
-            if not resp["result"]:
-                raise ValueError(f"Error Message: {resp['errormsg']}")
-
             return order_id
         except asyncio.CancelledError:
             raise
         except Exception as e:
-            self.logger().error(
+            self.logger().error(f"Failed to cancel order {order_id}: {str(e)}")
+            self.logger().network(
                 f"Failed to cancel order {order_id}: {str(e)}",
                 exc_info=True,
                 app_warning_msg=f"Failed to cancel order {order_id} on NDAX. "
