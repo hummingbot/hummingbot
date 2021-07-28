@@ -11,13 +11,11 @@ EXAMPLE_PAIR = "BTC-CAD"
 # Fees have to be expressed as percent value
 DEFAULT_FEES = [2, 2]
 
-HBOT_ORDER_ID_PREFIX = "HBOT"
-
 
 def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
     return hb_trading_pair.replace("-", "")
 
 
 def get_new_client_order_id(is_buy: bool, trading_pair: str) -> str:
-    side = "B" if is_buy else "S"
-    return f"{HBOT_ORDER_ID_PREFIX}-{side}-{trading_pair}-{get_tracking_nonce()}"
+    ts_micro_sec: int = get_tracking_nonce()
+    return f"{int(ts_micro_sec // 1e3)}"

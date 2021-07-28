@@ -374,7 +374,7 @@ class NdaxExchange(ExchangeBase):
                 "InstrumentId": trading_pair_ids[trading_pair],
                 "OMSId": 1,
                 "AccountId": self.account_id,
-                "ClientOrderId": order_id,
+                "ClientOrderId": int(order_id),
                 "Side": 0 if trade_type == TradeType.BUY else 1,
                 "Quantity": amount,
             }
@@ -437,7 +437,7 @@ class NdaxExchange(ExchangeBase):
                 f"Error submitting {trade_type.name} {order_type.name} order to NDAX for "
                 f"{amount} {trading_pair} {price}. Error: {str(e)}",
                 exc_info=True,
-                # app_warning_msg=f"Error submitting order to NDAX. "
+                app_warning_msg="Error submitting order to NDAX. "
             )
 
     def buy(self, trading_pair: str, amount: Decimal, price: Decimal, order_type: OrderType = OrderType.MARKET,
@@ -637,10 +637,10 @@ class NdaxExchange(ExchangeBase):
             except asyncio.CancelledError:
                 raise
             except Exception as e:
-                self.logger().error(f"Unexpected error while fetching trading rules. Error: {str(e)}",
-                                    exc_info=True,
-                                    app_warning_msg="Could not fetch new trading rules from NDAX. "
-                                    "Check network connection.")
+                self.logger().network(f"Unexpected error while fetching trading rules. Error: {str(e)}",
+                                      exc_info=True,
+                                      app_warning_msg="Could not fetch new trading rules from NDAX. "
+                                      "Check network connection.")
                 await asyncio.sleep(0.5)
 
     async def _update_balances(self):
