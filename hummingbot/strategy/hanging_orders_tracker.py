@@ -79,6 +79,7 @@ class HangingOrdersTracker:
         self.current_created_pairs_of_orders: List[CreatedPairOfOrders] = list()
         self.original_orders: Set[LimitOrder] = orders or set()
         self.strategy_current_hanging_orders: Set[HangingOrder] = set()
+        self.completed_hanging_orders: Set[HangingOrder] = set()
 
         self._cancel_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(self._did_cancel_order)
         self._complete_buy_order_forwarder: SourceInfoEventForwarder = SourceInfoEventForwarder(
@@ -150,8 +151,9 @@ class HangingOrdersTracker:
 
         if order:
             order_side = "BUY" if order.is_buy else "SELL"
+            self.completed_hanging_orders.add(order)
             self.strategy_current_hanging_orders.remove(order)
-            self.logger().debug(
+            self.logger().notify(
                 f"({self.trading_pair}) Hanging maker {order_side} order {order.order_id} "
                 f"({order.trading_pair} {order.amount} @ "
                 f"{order.price}) has been completely filled."
@@ -272,6 +274,9 @@ class HangingOrdersTracker:
 
     def is_order_id_in_hanging_orders(self, order_id: str) -> bool:
         return any((o.order_id == order_id for o in self.strategy_current_hanging_orders))
+
+    def is_order_id_in_completed_hanging_orders(self, order_id: str) -> bool:
+        return any((o.order_id == order_id for o in self.completed_hanging_orders))
 
     def is_hanging_order_in_strategy_active_orders(self, order: HangingOrder) -> bool:
         return any(all(order.trading_pair == o.trading_pair,
