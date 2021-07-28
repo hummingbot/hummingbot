@@ -151,7 +151,7 @@ class HangingOrdersTracker:
         if order:
             order_side = "BUY" if order.is_buy else "SELL"
             self.strategy_current_hanging_orders.remove(order)
-            self.logger().notify(
+            self.logger().debug(
                 f"({self.trading_pair}) Hanging maker {order_side} order {order.order_id} "
                 f"({order.trading_pair} {order.amount} @ "
                 f"{order.price}) has been completely filled."
@@ -176,9 +176,9 @@ class HangingOrdersTracker:
     def _process_cancel_as_part_of_renew(self, event: OrderCancelledEvent):
         renewing_order = next((order for order in self.orders_being_renewed if order.order_id == event.order_id), None)
         if renewing_order:
-            self.logger().debug(f"({self.trading_pair}) Hanging order {event.order_id} "
-                                f"has been cancelled as part of the renew process. "
-                                f"Now the replacing order will be created.")
+            self.logger().info(f"({self.trading_pair}) Hanging order {event.order_id} "
+                               f"has been cancelled as part of the renew process. "
+                               f"Now the replacing order will be created.")
             self.strategy_current_hanging_orders.remove(renewing_order)
             self.orders_being_renewed.remove(renewing_order)
             order_to_be_created = HangingOrder(None,
