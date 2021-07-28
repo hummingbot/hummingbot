@@ -74,7 +74,7 @@ class AscendExExchange(ExchangePyBase):
     API_CALL_TIMEOUT = 10.0
     SHORT_POLL_INTERVAL = 5.0
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
-    LONG_POLL_INTERVAL = 120.0
+    LONG_POLL_INTERVAL = 5.0
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -702,9 +702,16 @@ class AscendExExchange(ExchangePyBase):
                 force_auth_path_url="order/status"
             )
             self.logger().debug(f"Polling for order status updates of {len(order_ids)} orders.")
+            # The data returned from this end point can be either a list or a dict depending on number of orders
+            resp_records: List = []
+            if len(tracked_orders) == 1:
+                resp_records.append(resp["data"])
+            else:
+                resp_records = resp["data"]
+
             ascend_ex_orders: List[AscendExOrder] = []
             try:
-                for order_data in resp["data"]:
+                for order_data in resp_records:
                     ascend_ex_orders.append(AscendExOrder(
                         order_data["symbol"],
                         order_data["price"],
@@ -729,7 +736,7 @@ class AscendExExchange(ExchangePyBase):
                     if hbot_order.exchange_order_id not in (o.orderId for o in ascend_ex_orders):
                         self.logger().info(f"{hbot_order} is missing from expected response ({resp})")
             except Exception:
-                self.logger().network(
+                self.logger().info(
                     f"Unexpected error during processing order status. The Ascend Ex Response: {resp}",
                     exc_info=True
                 )
