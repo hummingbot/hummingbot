@@ -18,11 +18,11 @@ To install Hummingbot with Windows setup package:
 1. Download Setup.exe from our [download page](https://hummingbot.io/download).
 2. Double-click the `Setup.exe` hummingbot binary package to launch the installer.
 
-![Hummingbot installed](/img/windows-setup-1.png)
+![Hummingbot installed](/assets/img/windows-setup-1.png)
 
 3. Start Hummingbot in your Windows start menu.
 
-![Hummingbot installed](/img/windows-setup-2.png)
+![Hummingbot installed](/assets/img/windows-setup-2.png)
 
 #### Application Data Files
 
@@ -49,7 +49,7 @@ Hummingbot can also be installed by utilizing the built-in Windows Subsystem for
 
 Supports Windows Home, Pro, and Enterprise edition. Download the latest version of Docker Desktop .exe file via [Docker Hub](https://hub.docker.com/editions/community/docker-ce-desktop-windows/)
 
-![Docker Desktop](/img/docker_desktop_download.gif)
+![Docker Desktop](/assets/img/docker_desktop_download.gif)
 
 <Callout
   type="note"
@@ -70,7 +70,7 @@ wsl.exe --set-version Ubuntu-18.04 2
 
 3. Open Docker Desktop, Go to Settings > Resources, and then enable WSL Integration
 
-![Docker Desktop WSL enable](/img/docker_desktop_WSLenable.gif)
+![Docker Desktop WSL enable](/assets/img/docker_desktop_WSLenable.gif)
 
 4. Open `Ubuntu 18.04 LTS` and move to the next step to install HummingBot.
 
@@ -134,14 +134,14 @@ Step 1. Install required Applications
 1. Install [Git for Windows](https://git-scm.com/download/win).
 
 - During the installation of Git Bash, make sure to tick the Enable experimental support for pseudo consoles.
-  ![anaconda-path](/img/git-installation.png)
+  ![anaconda-path](/assets/img/git-installation.png)
 
 2. Install [Python for Windows](https://www.python.org/downloads/windows/).
 3. Install [Anaconda or miniconda](https://docs.conda.io/projects/conda/en/latest/user-guide/install/windows.html).
 4. Install [Visual Studio Code](https://code.visualstudio.com/download), [Visual Studio BuildTools 2019, Core Features, C++](https://visualstudio.microsoft.com/thank-you-downloading-visual-studio/?sku=BuildTools&rel=16) and [C++ redistributable 2019](https://aka.ms/vs/16/release/VC_redist.x64.exe).
 
 - During installation, make sure to add Anaconda or Miniconda to your PATH environmental variable by clicking the tick box as shown below, or you can add them [manually](https://www.geeksforgeeks.org/how-to-setup-anaconda-path-to-environment-variable/).
-  ![anaconda-path](/img/anaconda-path.png)
+  ![anaconda-path](/assets/img/anaconda-path.png)
 
 <Callout
   type="note"

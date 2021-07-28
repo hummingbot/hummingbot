@@ -27,10 +27,10 @@ The user can revert and update Hummingbot installed via Binary by following the 
 
 To install a previous Hummingbot version via binary, download the installer from https://hummingbot.io/download/ in the previous client section
 
-![](img/installer.png)
+![](/assets/img/installer.png)
 
 Users can also download an older version not listed on the website using the URL format `https://dist.hummingbot.io/[hummingbot_version]`
 
 For example:
 
-![](img/download.png)
+![](/assets/img/download.png)

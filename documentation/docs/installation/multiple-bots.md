@@ -4,7 +4,7 @@
 
 Users can run multiple bots of Hummingbot installed via binary by simply running a new instance to open a new window.
 
-![](img/multiple_bots1.gif)
+![](/assets/img/multiple_bots1.gif)
 
 ## Multiple bots via Docker
 
@@ -83,7 +83,7 @@ To exit the screen (detach), press `Ctrl+A` then `Ctrl+D` in sequence.
 
 To list all running instances, use `screen -ls`.
 
-![List Screen Instances](/img/screen.png)
+![List Screen Instances](/assets/img/screen.png)
 
 Log back into the screen by using either `screen` or `screen -r $NAME` to open a specific instance.
 

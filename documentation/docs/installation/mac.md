@@ -18,15 +18,15 @@ To install Hummingbot with macOS install package:
 1. Download Hummingbot .dmg file from our [download page](https://hummingbot.io/download).
 2. Open the downloaded .dmg file, drag and drop the application bundle into the `/Application` folder.
 
-![Drag and Drop Application Bundle](/img/macos-dmg-1.png)
+![Drag and Drop Application Bundle](/assets/img/macos-dmg-1.png)
 
 3. Launch Hummingbot just like any other installed application on your Mac. You can also add it to your Dock for easy access.
 
-![Added Hummingbot to Dock"](/img/macos-dmg-2.png)
+![Added Hummingbot to Dock"](/assets/img/macos-dmg-2.png)
 
 When you start Hummingbot for the first time, it will ask for permission to launch Terminal since it is a Terminal application. Press "OK" to allow it to open.
 
-![Granting Terminal access to Hummingbot"](/img/macos-dmg-3.png)
+![Granting Terminal access to Hummingbot"](/assets/img/macos-dmg-3.png)
 
 #### Application Data Files
 
