@@ -10,10 +10,10 @@ Hummingbot Gateway is a API server that allows Hummingbot to connect to [protoco
 1. Run the command `generate_certs` in the Hummingbot client
 2. Enter a passphrase to be used later during installation
 
-![](img/generate-certs.gif)
+![](/assets/img/generate-certs.gif)
 
 !!! note
-As this passphrase will be stored in unencrypted form in the Gateway environment, we recommend that you use a different password as the Hummingbot password, which is used to encrypt your API and private keys.
+    As this passphrase will be stored in unencrypted form in the Gateway environment, we recommend that you use a different password as the Hummingbot password, which is used to encrypt your API and private keys.
 
 ## Install Gateway via Docker
 
@@ -42,7 +42,7 @@ It downloads the scripts from GitHub, sets their correct permission and runs the
 
 3. Answer each prompt, review the summary and enter **Y** to proceed with the installation.
 
-![](img/gateway-2.gif)
+![](/assets/img/gateway-2.gif)
 
 !!! note
     When creating a Gateway instance for Ethereum protocol connectors such as [Balancer](/connectors/balancer), [Uniswap](/connectors/uniswap), and [Perpetual Finance](/protocol-connectors/perp-fi) the script picks up the settings from your global config file (`conf_global.yml`). Make sure to connect them first from the Hummingbot client before installing Gateway.
@@ -55,12 +55,12 @@ By default, Gateway will install on port `5000` which Hummingbot will connect to
 
 In case the port number used by Gateway is not set to the default value of `5000`, make sure to set the `gateway_api_port` in the Hummingbot client to match the same port number.
 
-![](img/gateway-port-5001.png)
+![](/assets/img/gateway-port-5001.png)
 
 1. Run command `config gateway_api_port` in the Hummingbot client
 2. Enter the port number indicated when Gateway was created
 
-![](img/config-gateway-api-port.gif)
+![](/assets/img/config-gateway-api-port.gif)
 
 ## ETH Gas Station
 
@@ -72,7 +72,7 @@ Users have the option to use and configure DeFI Pulse gas price as the gas estim
 1. Sign up for a free account on [DeFi Pulse Data](https://data.defipulse.com)
 2. Get your API key - once you log into DeFi Pulse Data, your API key can be found on the right side of the Dashboard. Click the copy button to copy your API Key.
 
-![](img/defipulse-2.png)
+![](/assets/img/defipulse-2.png)
 
 When setting up your Hummingbot gateway, you will be ask if you want to enable ETH Gas price. If yes,
 
@@ -80,11 +80,11 @@ When setting up your Hummingbot gateway, you will be ask if you want to enable E
 2. Enter gas level you want to use for ETH transactions
 3. Refresh time for ETH gas price look up
 
-![](img/ethgas-yes.png)
+![](/assets/img/ethgas-yes.png)
 
 If you choose not to enable ETH gas price, you would only need to set up the fixed gas price to use for ETH transactions.
 
-![](img/ethgas-no.png)
+![](/assets/img/ethgas-no.png)
 
 ## Update Gateway via Docker
 
@@ -105,7 +105,7 @@ Installation applies to Windows, Linux or macOS
 node -v
 ```
 
-![](img/gw_version.gif)
+![](/assets/img/gw_version.gif)
 
 !!! tip
     You can install [nvm] to manage and use different node versions on the same system.
@@ -138,14 +138,14 @@ cd gateway-api
 yarn install
 ```
 
-![](img/gw_yarn.gif)
+![](/assets/img/gw_yarn.gif)
 
 ```bash
 # copy sample environment
 cp .env.example .env
 ```
 
-![](img/gw_env.gif)
+![](/assets/img/gw_env.gif)
 
 - Edit `.env` file with your favorite text editor then save changes.
 - There are 3 ways to start the gateway
@@ -165,7 +165,7 @@ yarn run debug
 yarn run start
 ```
 
-![](img/gw_starting.gif)
+![](/assets/img/gw_starting.gif)
 
 ## Setting up Kovan testnet
 
@@ -173,14 +173,14 @@ This guide will help you setup gateway-api instance for Kovan testnet. This will
 
 You must have set your ETH wallet to Kovan test network, for metamask you can click the `Ethereum Mainnet` and select `Kovan Test Network`. To get test assets, you can go to https://gitter.im/kovan-testnet/faucet and login your github account. Provide your ETH wallet address.
 
-![](img/kovan-metamask.PNG)
+![](/assets/img/kovan-metamask.PNG)
 
 !!! tip
     Assets sent to your ETH wallet from kovan-testnet are not real (mainnet) ETH, has no market value, and is only useful for testing.
 
 When connecting your Hummingbot to ethereum, you need to change to `kovan` instead of mainnet for your ethreum chain, websocket and node. See example below,
 
-![](/img/gateway-kovan.jpg)
+![](/assets/img/gateway-kovan.jpg)
 
 Add the following to your `erc20_tokens_override.json` found on your Hummingbot directory under `conf` or `hummingbot_conf` folder.
 
