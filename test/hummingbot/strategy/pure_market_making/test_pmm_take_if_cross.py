@@ -17,7 +17,7 @@ from hummingbot.core.event.events import (
     TradeType
 )
 from hummingbot.strategy.pure_market_making.pure_market_making import PureMarketMakingStrategy
-from hummingbot.strategy.pure_market_making.order_book_asset_price_delegate import OrderBookAssetPriceDelegate
+from hummingbot.strategy.order_book_asset_price_delegate import OrderBookAssetPriceDelegate
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 
