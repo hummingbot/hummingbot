@@ -1,17 +1,18 @@
-# Using Hummingbot
+# Overview
 
 Hummingbot uses a command-line interface (CLI) that helps users configure and run the bot, as well as generate logs of the trades performed.
 
 Start hummingbot quickly and efficiently with these references:
 
 - [Launch and Exit Hummingbot](/operation/launch-exit)
-- [Create and Delete Password](/operationpassword)
+- [Create and Delete Password](/operation/password/)
 - [Connecting to an Exchange](/operation/connect-exchange)
 - [Checking Balances](/operation/balances)
 - [Start and Stop Strategy](/operation/start-stop)
 - [Check bot and Market Status](/operation/checking-status)
 - [Performance History](/operation/performance-history)
 - [Override Fees](/operation/override-fees)
+- [Log Files](/operation/log-files)
 
 ## Hummingbot Commands
 
@@ -44,12 +45,12 @@ Below are the available commands in the current Hummingbot release.
 
 These are the commonly used docker commands when using Hummingbot.
 
-| Command                        | Function                      |
-| ------------------------------ | ----------------------------- |
-| `docker ps -a`                 | List containers               |
-| `docker rm [container name]`   | Remove one or more containers |
-| ``docker rmi [image name]`     | Remove one or more images     |
-| `docker rm \$(docker ps -a q)` | Remove all containers         |
+| Command                       | Function                      |
+| ----------------------------- | ----------------------------- |
+| `docker ps -a`                | List containers               |
+| `docker rm [container name]`  | Remove one or more containers |
+| `docker rmi [image name]`    | Remove one or more images     |
+| `docker rm $(docker ps -a q)` | Remove all containers         |
 
 To view more docker commands, go to [Docker Command Line Reference](https://docs.docker.com/engine/reference/commandline/docker/).
 
