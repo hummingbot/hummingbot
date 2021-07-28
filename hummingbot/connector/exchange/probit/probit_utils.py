@@ -75,7 +75,7 @@ def convert_diff_message_to_order_book_row(message: OrderBookMessage) -> Tuple[L
 KEYS = {
     "probit_api_key":
         ConfigVar(key="probit_api_key",
-                  prompt="Enter your ProBit API key >>> ",
+                  prompt="Enter your ProBit Client ID >>> ",
                   required_if=using_exchange("probit"),
                   is_secure=True,
                   is_connect_key=True),
@@ -95,7 +95,7 @@ OTHER_DOMAINS_KEYS = {
     "probit_kr": {
         "probit_kr_api_key":
             ConfigVar(key="probit_kr_api_key",
-                      prompt="Enter your ProBit KR API key >>> ",
+                      prompt="Enter your ProBit KR Client ID >>> ",
                       required_if=using_exchange("probit_kr"),
                       is_secure=True,
                       is_connect_key=True),
