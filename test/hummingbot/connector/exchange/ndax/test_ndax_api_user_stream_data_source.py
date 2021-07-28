@@ -29,7 +29,7 @@ class NdaxAPIUserStreamDataSourceTests(TestCase):
         self.data_source = NdaxAPIUserStreamDataSource(auth_assistant=NdaxAuth(uid=self.uid,
                                                                                api_key=self.api_key,
                                                                                secret_key=self.secret,
-                                                                               username=self.username))
+                                                                               account_name=self.username))
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 

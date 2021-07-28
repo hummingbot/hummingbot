@@ -73,9 +73,9 @@ def main():
         "hummingbot.connector.exchange.kucoin",
         "hummingbot.connector.exchange.liquid",
         "hummingbot.connector.exchange.loopring",
-        "hummingbot.connector.exchange.ndax"
+        "hummingbot.connector.exchange.ndax",
         "hummingbot.connector.exchange.okex",
-        "hummingbot.connector.exchange.probit"
+        "hummingbot.connector.exchange.probit",
         "hummingbot.connector.exchange.radar_relay",
         "hummingbot.connector.derivative",
         "hummingbot.connector.derivative.binance_perpetual",
