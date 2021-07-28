@@ -28,15 +28,15 @@ def get_new_client_order_id(is_buy: bool, trading_pair: str) -> str:
 
 
 KEYS = {
-    "ndax_username":
-        ConfigVar(key="ndax_username",
-                  prompt="Enter your NDAX user name >>> ",
-                  required_if=using_exchange("ndax"),
-                  is_secure=False,
-                  is_connect_key=True),
     "ndax_uid":
         ConfigVar(key="ndax_uid",
                   prompt="Enter your NDAX user ID (uid) >>> ",
+                  required_if=using_exchange("ndax"),
+                  is_secure=False,
+                  is_connect_key=True),
+    "ndax_account_name":
+        ConfigVar(key="ndax_account_name",
+                  prompt="Enter the name of the account you want to use >>> ",
                   required_if=using_exchange("ndax"),
                   is_secure=False,
                   is_connect_key=True),
@@ -63,6 +63,12 @@ KEYS = {
 #         "ndax_testnet_uid":
 #             ConfigVar(key="ndax_testnet_uid",
 #                       prompt="Enter your NDAX user ID (uid) >>> ",
+#                       required_if=using_exchange("ndax"),
+#                       is_secure=False,
+#                       is_connect_key=True),
+#          "ndax_account_name":
+#             ConfigVar(key="ndax_account_name",
+#                       prompt="Enter the name of the account you want to use >>> ",
 #                       required_if=using_exchange("ndax"),
 #                       is_secure=False,
 #                       is_connect_key=True),
