@@ -34,10 +34,8 @@ chmod a+x *.sh
 
 ## Multiple bots from source
 
-<Callout
-  type="tip"
-  body="We recommend that users download and install Hummingbot separately for each instance they wish to run."
-/>
+!!! tip
+    We recommend that users download and install Hummingbot separately for each instance they wish to run.
 
 The below command downloads the Hummingbot repository from GitHub, where `$FOLDER_NAME` is the name of the separate directory.
 

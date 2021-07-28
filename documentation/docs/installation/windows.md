@@ -39,11 +39,8 @@ The Hummingbot codebase is designed and optimized for UNIX-based systems such as
 
 Hummingbot can also be installed by utilizing the built-in Windows Subsystem for Linux. However, this is only recommended for users familiar with development.
 
-<Callout
-  type="note"
-  body="Docker Toolbox has been deprecated and is no longer in active development. Please see this [link] for more info."
-  link={["https://docs.docker.com/docker-for-windows/docker-toolbox/"]}
-/>
+!!! note
+    Docker Toolbox has been deprecated and is no longer in active development. Please see this [link](https://docs.docker.com/docker-for-windows/docker-toolbox/) for more info.
 
 **Docker Desktop**
 
@@ -51,11 +48,8 @@ Supports Windows Home, Pro, and Enterprise edition. Download the latest version 
 
 ![Docker Desktop](/assets/img/docker_desktop_download.gif)
 
-<Callout
-  type="note"
-  body="Docker Desktop requires WSL 2 feature enabled. For detailed instructions, refer to the [Microsoft documentation]."
-  link={["https://docs.microsoft.com/en-us/windows/wsl/install-win10"]}
-/>
+!!! note
+    Docker Desktop requires WSL 2 feature enabled. For detailed instructions, refer to the [Microsoft documentation](https://docs.microsoft.com/en-us/windows/wsl/install-win10).
 
 1. For installation procedures, you check the link below depending on the version of your Windows operating system.
 
@@ -143,10 +137,8 @@ Step 1. Install required Applications
 - During installation, make sure to add Anaconda or Miniconda to your PATH environmental variable by clicking the tick box as shown below, or you can add them [manually](https://www.geeksforgeeks.org/how-to-setup-anaconda-path-to-environment-variable/).
   ![anaconda-path](/assets/img/anaconda-path.png)
 
-<Callout
-  type="note"
-  body="Some prerequisites are large applications and may need to restart your computer."
-/>
+!!! note
+    Some prerequisites are large applications and may need to restart your computer.
 
 Step 2. Install Hummingbot on Windows System
 

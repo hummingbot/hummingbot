@@ -34,10 +34,8 @@ The application data files (e.g., logs and config files) are located differently
 
 For the macOS .dmg distribution, the application data files are located in `~/Library/Application\ Support/Hummingbot`
 
-<Callout
-  type="tip"
-  body="For error #'cannot be opened because the developer cannot be verified'#, you can `click then open` to run the installer."
-/>
+!!! tip
+    For error **'Cannot be opened because the developer cannot be verified'**, you can `click then open` to run the installer.
 
 ## Install via Docker
 
@@ -112,10 +110,8 @@ To install Anaconda, go to [the Anaconda site](https://www.anaconda.com/distribu
 
 Afterward, open a Terminal window and try the `conda` command. If the command is valid, then Anaconda has been successfully installed, even if the graphical installer says that it failed.
 
-<Callout
-  type="warning"
-  body="If you use ZSH or another Unix shell, copy the code snippet below to your `.zshrc` or similar file. By default, Anaconda only adds it to your `.bash_profile` file. This makes the `conda` command available in your root path."
-/>
+!!! warning
+    If you use ZSH or another Unix shell, copy the code snippet below to your `.zshrc` or similar file. By default, Anaconda only adds it to your `.bash_profile` file. This makes the `conda` command available in your root path.
 
 ```
 __conda_setup="$(CONDA_REPORT_ERRORS=false '/anaconda3/bin/conda' shell.bash hook 2> /dev/null)"

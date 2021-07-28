@@ -10,10 +10,8 @@ Hummingbot is regularly updated each month (see [Release Notes](/release-notes/o
 
 Updating to the latest docker image (e.g. `coinalpha/hummingbot:latest`)
 
-<Callout
-  type="note"
-  body="Make sure to stop all the containers using the same image first  before running the `./update.sh` script."
-/>
+!!! note
+    Make sure to stop all the containers using the same image first  before running the `./update.sh` script.
 
 Scripts
 

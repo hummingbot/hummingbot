@@ -4,11 +4,8 @@
 
 ### Prerequisite
 
-<Callout
-  type="note"
-  body="This installation method is currently under testing and awaiting feedback from users. Should you run into problems or have found a fix to solve errors along the way, feel free to reach out through our[Discord] support channel."
-  link={["https://discord.com/invite/2MN3UWg"]}
-/>
+!!! note
+    This installation method is currently under testing and awaiting feedback from users. Should you run into problems or have found a fix to solve errors along the way, feel free to reach out through our [Discord](https://discord.com/invite/2MN3UWg) support channel.
 
 1. Install Docker and change permissions.
 
@@ -30,10 +27,8 @@ sudo systemctl start docker && sudo systemctl enable docker
 Exit
 ```
 
-<Callout
-  type="warning"
-  body="Restart terminal — Close and restart your terminal window to enable the correct permissions for `docker` command before proceeding."
-/>
+!!! warning
+    Restart terminal — close and restart your terminal window to enable the correct permissions for `docker` command before proceeding.
 
 4. Install Hummingbot:
 
@@ -154,10 +149,8 @@ pip install -r setup/requirements-arm.txt
 bin/hummingbot.py
 ```
 
-<Callout
-  type="warning"
-  body="#Compiling the bot from source would normally take 45 minutes or more#"
-/>
+!!! warning
+    Compiling the bot from source would normally take 45 minutes or more
 
 ## Create Hummingbot ARM image for Docker
 
@@ -173,10 +166,8 @@ docker build -t coinalpha/hummingbot:insert_name -f Dockerfile.arm .
 On this sample, we set `v036` for the name of the image. This is needed when you run `./create.sh` command
 ![](/assets/img/rpi-docker-img.png)
 
-<Callout
-  type="warning"
-  body="#Building the Hummingbot ARM image from source would normally take 45 minutes or more#"
-/>
+!!! warning
+    Building the Hummingbot ARM image from source would normally take 45 minutes or more
 
 ## Controlling remotely using VNC Viewer
 
@@ -205,11 +196,8 @@ Select the menu in the top left corner of the screen then go to **Preferences > 
 
 ![rpi](/assets/img/rpi-config.jpg)
 
-<Callout
-  type="tip"
-  body="Set a default screen resolution in `raspi-config` select: `7 Advanced Options` > `A5 Resolution` to enable VNC access to the GUI whenever you boot the Raspberry Pi without a connected monitor. For troubleshooting please visit this [link]."
-  link={["https://www.raspberrypi.org/forums/viewtopic.php?t=216737"]}
-/>
+!!! tip
+    Set a default screen resolution in `raspi-config` select: `7 Advanced Options` > `A5 Resolution` to enable VNC access to the GUI whenever you boot the Raspberry Pi without a connected monitor. For troubleshooting please visit this [link](https://www.raspberrypi.org/forums/viewtopic.php?t=216737).
 
 Setting a default resolution will avoid the following error:
 
