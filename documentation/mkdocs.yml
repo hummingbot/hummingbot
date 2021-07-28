@@ -77,21 +77,15 @@ nav:
     - Get Support: support.md
     - Installation:
       - Overview: installation/index.md
-      - Download:
-        - Windows: installation/download/windows.md
-        - macOS: installation/download/macos.md
-      - Docker:
-        - Linux: installation/docker/linux.md
-        - macOS: installation/docker/macOS.md
-        - Windows: installation/docker/windows.md
-      - Source:
-        - Linux: installation/source/linux.md
-        - macOS: installation/source/macOS.md
-        - Windows: installation/source/windows.md
-        - Raspberry Pi: installation/source/raspberry-pi.md
+      - Windows: installation/windows.md
+      - Mac: installation/mac.md
+      - Linux: installation/linux.md
+      - Raspberry Pi: installation/raspberry-pi.md
+      - Cloud Servers: installation/cloud-servers.md
       - Hummingbot Gateway: installation/gateway.md
-      - Cloud Server Guide: installation/cloud.md
-      - Updating Hummingbot: installation/updating.md
+      - Update Hummingbot: installation/update-hummingbot.md
+      - Restore Previous Version: installation/restore-previous-version.md
+      - Running Multiple Bots: installation/multiple-bots.md
     - Operation:
       - Overview: operation/index.md
       - User Interface Guide: operation/user-interface.md
