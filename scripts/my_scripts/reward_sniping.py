@@ -31,7 +31,7 @@ class RewardSniping(ScriptBase):
     ## Moving Average
     MA_INTERVAL = 60
     SHORT_MA_LENGTH = 5
-    LONG_MA_LENGTH = 30
+    LONG_MA_LENGTH = 20
     ## Inverted Bolinger Band
     STD_MULT = 2
     UPPER_ORDER_AMOUNT_BOUND_PCT = 0.01
@@ -41,10 +41,11 @@ class RewardSniping(ScriptBase):
     UPPER_ENV_PCT = 0.005
     LOWER_ENV_PCT = 0.005
     ## Max and Min spreads
-    MINIMUM_SPREAD = Decimal(0.0001)
-    MAXIMUM_SPREAD = Decimal(0.004)
-    MIDPOINT_SPREAD = Decimal(0.001)
-    MAXIMUM_ORDER_LEVELS_SPREAD = Decimal(0.001)
+    MINIMUM_SPREAD = Decimal(0.00001)
+    MAXIMUM_SPREAD = Decimal(0.003)
+    MIDPOINT_SPREAD = Decimal(0.0005)
+    MAXIMUM_ORDER_LEVELS_SPREAD = Decimal(0.0015)
+    MIDPOINT_ORDER_LEVELS_SPREAD = Decimal(0.0005)
     ## Update frequency:
     UPDATE_FREQUENCY = 10
     ## Misc.
@@ -67,7 +68,8 @@ class RewardSniping(ScriptBase):
         self.probability_upper_price = None
         self.probability_lower_price = None
         self.new_order_amount = None
-        self.new_spread = None
+        self.new_bid_spread = None
+        self.new_ask_spread = None
         self.new_order_levels_spread = None
         self.inner_env_upper_bound = None
         self.inner_env_lower_bound = None
@@ -107,8 +109,8 @@ class RewardSniping(ScriptBase):
                 return
 
             self.pmm_parameters.order_amount = self.new_order_amount
-            self.pmm_parameters.bid_spread = self.new_spread
-            self.pmm_parameters.ask_spread = self.new_spread
+            self.pmm_parameters.bid_spread = self.new_bid_spread
+            self.pmm_parameters.ask_spread = self.new_ask_spread
             self.pmm_parameters.order_levels = self.new_order_levels
             self.pmm_parameters.buy_levels = self.new_buy_levels
             self.pmm_parameters.sell_levels = self.new_sell_levels
@@ -135,8 +137,8 @@ class RewardSniping(ScriptBase):
 
         upper = basis + Decimal(abs((basis + dev) - (basis * Decimal(1 + self.UPPER_ORDER_AMOUNT_BOUND_PCT))))
         lower = basis - Decimal(abs((basis - dev) - (basis * Decimal(1 - self.LOWER_ORDER_AMOUNT_BOUND_PCT))))
-        upper_pct = abs(1 - upper / self.mid_price)
-        lower_pct = abs(1 - lower / self.mid_price)
+        upper_pct = abs(1 - upper / basis)
+        lower_pct = abs(1 - lower / basis)
         price_pct = (upper_pct * 100 + lower_pct * 100) / 2
 
         new_order_amount = self.round_by_step(Decimal(self.original_order_amount) * price_pct, self.MINIMUM_SPREAD)
@@ -152,16 +154,19 @@ class RewardSniping(ScriptBase):
     def calculateNewSpread(self):
         if self.probability_upper_pct is None or self.probability_lower_pct is None:
             return
-            
-        max_spread = self.MAXIMUM_SPREAD * max(self.probability_upper_pct, self.probability_lower_pct) * 100
+
+        max_ask_spread = self.MAXIMUM_SPREAD * self.probability_upper_pct * 100
+        max_bid_spread = self.MAXIMUM_SPREAD * self.probability_lower_pct * 100
         min_spread = self.MINIMUM_SPREAD
 
         max_order_levels_spread = self.MAXIMUM_ORDER_LEVELS_SPREAD * max(self.probability_upper_pct, self.probability_lower_pct) * 100
 
-        new_spread = random.triangular(float(min_spread), float(max_spread), float(self.MIDPOINT_SPREAD))
-        new_order_levels_spread = random.triangular(float(min_spread), float(max_order_levels_spread), float(self.MIDPOINT_SPREAD))
+        new_ask_spread = random.triangular(float(min_spread), float(max_ask_spread), float(self.MIDPOINT_SPREAD))
+        new_bid_spread = random.triangular(float(min_spread), float(max_bid_spread), float(self.MIDPOINT_SPREAD))
+        new_order_levels_spread = random.triangular(float(min_spread), float(max_order_levels_spread), float(self.MIDPOINT_ORDER_LEVELS_SPREAD))
 
-        self.new_spread = self.round_by_step(Decimal(new_spread), self.MINIMUM_SPREAD)
+        self.new_ask_spread = self.round_by_step(Decimal(new_ask_spread), self.MINIMUM_SPREAD)
+        self.new_bid_spread = self.round_by_step(Decimal(new_bid_spread), self.MINIMUM_SPREAD)
         self.new_order_levels_spread = self.round_by_step(Decimal(new_order_levels_spread), self.MINIMUM_SPREAD)
 
     def calculateEnvelop(self):
@@ -185,42 +190,42 @@ class RewardSniping(ScriptBase):
         order_levels = 1
         buy_levels = 1
         sell_levels = 1
-        new_filled_order_delay = 10
-        new_order_refresh_time = 30
+        new_filled_order_delay = 10 + 10
+        new_order_refresh_time = 30 - 10
 
         if self.inner_env_upper_bound is None:
             return
 
         # Fast Order Fill Configuration
-        # new_filled_order_delay = 10
-        # new_order_refresh_time = 30
+        # new_filled_order_delay = 10 + 10
+        # new_order_refresh_time = 30 - 10
 
         # Med Order Fill Configuration
-        # new_filled_order_delay = 30
+        # new_filled_order_delay = 30 + 10
         # new_order_refresh_time = 10
 
         # Slow Order Fill Configuration
-        # new_filled_order_delay = 60
+        # new_filled_order_delay = 60 + 10
         # new_order_refresh_time = 1
 
         if self.mid_price >= self.inner_env_upper_bound:
             sell_levels = 2
-            new_filled_order_delay = 30
+            new_filled_order_delay = 30 + 10
             new_order_refresh_time = 10
         if self.mid_price >= self.outer_env_upper_bound:
             sell_levels = 3
-            new_filled_order_delay = 60
+            new_filled_order_delay = 60 + 10
             new_order_refresh_time = 1
         if self.mid_price <= self.outer_env_lower_bound:
             sell_levels = 0
 
         if self.mid_price <= self.inner_env_lower_bound:
             buy_levels = 2
-            new_filled_order_delay = 30
+            new_filled_order_delay = 30 + 10
             new_order_refresh_time = 10
         if self.mid_price <= self.outer_env_lower_bound:
             buy_levels = 3
-            new_filled_order_delay = 60
+            new_filled_order_delay = 60 + 10
             new_order_refresh_time = 1
         if self.mid_price >= self.outer_env_upper_bound:
             buy_levels = 0
@@ -244,7 +249,8 @@ class RewardSniping(ScriptBase):
         # self.probability_upper_price = None
         # self.probability_lower_price = None
         # self.new_order_amount = None
-        # self.new_spread = None
+        # self.new_bid_spread = None
+        # self.new_ask_spread = None
         # self.new_order_levels_spread = None
         # self.inner_env_upper_bound = None
         # self.inner_env_lower_bound = None
@@ -262,7 +268,7 @@ class RewardSniping(ScriptBase):
             return "Collecting midprices for moving average ..."
 
         probability_msg = f"===Inverted BB===\n" \
-                        f"upper_pct: {self.probability_upper_pct:.5f} | lower_pct: {self.probability_lower_pct:.5f}\n" \
+                        f"upper_pct: {self.probability_upper_pct*100:.2%} | lower_pct: {self.probability_lower_pct*100:.2%}\n" \
                         f"upper_price: {self.probability_upper_price:.5f} | lower_price: {self.probability_lower_price:.5f}\n" \
                         f"basis: {self.std_basis:.5f}\n"
 
@@ -272,7 +278,8 @@ class RewardSniping(ScriptBase):
                         f"inner_lower: {self.inner_env_lower_bound:.5f}\nouter_lower: {self.outer_env_lower_bound:.5f}\n"
 
         order_msg = f"===Order Detail===\n" \
-                        f"new_order_amount: {self.new_order_amount:.5f} | new_spread: {self.new_spread:.5f} | new_order_levels_spread: {self.new_order_levels_spread:.5f}\n" \
+                        f"new_order_amount: {self.new_order_amount:.5f}\n" \
+                        f"new_ask_spread: {self.new_ask_spread:.2%} | new_bid_spread: {self.new_bid_spread:.2%} | new_order_levels_spread: {self.new_order_levels_spread:.2%}\n" \
                         f"new_order_levels: {self.new_order_levels} | new_buy_levels: {self.new_buy_levels} | new_sell_levels: {self.new_sell_levels}\n" \
                         f"new_filled_order_delay: {self.new_filled_order_delay} | new_order_refresh_time: {self.new_order_refresh_time}\n"
 
