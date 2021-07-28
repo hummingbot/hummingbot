@@ -74,7 +74,7 @@ class AscendExExchange(ExchangePyBase):
     API_CALL_TIMEOUT = 10.0
     SHORT_POLL_INTERVAL = 5.0
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
-    LONG_POLL_INTERVAL = 5.0
+    LONG_POLL_INTERVAL = 10.0
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -702,6 +702,7 @@ class AscendExExchange(ExchangePyBase):
                 force_auth_path_url="order/status"
             )
             self.logger().debug(f"Polling for order status updates of {len(order_ids)} orders.")
+            self.logger().info(f"cash/order/status?orderId={order_ids} response: {resp}")
             # The data returned from this end point can be either a list or a dict depending on number of orders
             resp_records: List = []
             if len(tracked_orders) == 1:
