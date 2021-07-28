@@ -91,7 +91,7 @@ This guide walks you through how to prepare your development environment and get
 
 Running Hummingbot on a Raspberry Pi has the same main benefit of running it on a cloud server: having a dedicated machine for Hummingbot. Raspberry Pi’s are relatively low cost, easy to set up, and, of course, don’t have the monthly charges associated with a cloud provider.
 
-![rpi](/img/rpi-hummingbot.jpg)
+![rpi](/assets/img/rpi-hummingbot.jpg)
 
 Read through our full blog post about [Deploying Hummingbot on a Raspberry Pi](https://hummingbot.io/blog/2020-07-deploying-hummingbot-on-a-raspberry-pi/).
 
@@ -171,7 +171,7 @@ docker build -t coinalpha/hummingbot:insert_name -f Dockerfile.arm .
 ```
 
 On this sample, we set `v036` for the name of the image. This is needed when you run `./create.sh` command
-![](/img/rpi-docker-img.png)
+![](/assets/img/rpi-docker-img.png)
 
 <Callout
   type="warning"
@@ -187,7 +187,7 @@ SSH and VNC features are natively built into the Raspberry Pi and can easily be 
 
 This is very convenient; after initial setup of the Raspberry Pi, you can simply unplug the monitor, keyboard and mouse, and just set the Raspberry Pi itself aside and just access it remotely going forward.
 
-![rpi](/img/rpi-ssh.jpg)
+![rpi](/assets/img/rpi-ssh.jpg)
 
 **Step 1. Enable SSH and VNC on your Raspberry Pi**
 
@@ -203,7 +203,7 @@ Under Interfacing Options, enable SSH and VNC.
 
 Select the menu in the top left corner of the screen then go to **Preferences > Raspberry Pi configuration > Interfaces** from there you will see options to enable SSH and VNC.
 
-![rpi](/img/rpi-config.jpg)
+![rpi](/assets/img/rpi-config.jpg)
 
 <Callout
   type="tip"
@@ -213,10 +213,10 @@ Select the menu in the top left corner of the screen then go to **Preferences > 
 
 Setting a default resolution will avoid the following error:
 
-![rasp](/img/rasp-no-monitor.png)
+![rasp](/assets/img/rasp-no-monitor.png)
 
 **Step 2. Get your Raspberry Pi’s IP address**
 
 Type `ifconfig` to get the IP address of your Raspberry Pi to enter into your VNC Viewer. For SSH, you can run `ssh pi@[ipaddress]`. The IP address is the `inet` address which is not the localhost IP address 127.0.0.1:
 
-![rpi](/img/rpi-private-address.jpg)
+![rpi](/assets/img/rpi-private-address.jpg)
