@@ -703,30 +703,36 @@ class AscendExExchange(ExchangePyBase):
             )
             self.logger().debug(f"Polling for order status updates of {len(order_ids)} orders.")
             ascend_ex_orders: List[AscendExOrder] = []
-            for order_data in resp["data"]:
-                ascend_ex_orders.append(AscendExOrder(
-                    order_data["symbol"],
-                    order_data["price"],
-                    order_data["orderQty"],
-                    order_data["orderType"],
-                    order_data["avgPx"],
-                    order_data["cumFee"],
-                    order_data["cumFilledQty"],
-                    order_data["errorCode"],
-                    order_data["feeAsset"],
-                    order_data["lastExecTime"],
-                    order_data["orderId"],
-                    order_data["seqNum"],
-                    order_data["side"],
-                    order_data["status"],
-                    order_data["stopPrice"],
-                    order_data["execInst"]
-                ))
-            for order in ascend_ex_orders:
-                self._process_order_message(order)
-            for hbot_order in tracked_orders:
-                if hbot_order.exchange_order_id not in (o.orderId for o in ascend_ex_orders):
-                    self.logger().info(f"{hbot_order} is missing from expected response ({resp})")
+            try:
+                for order_data in resp["data"]:
+                    ascend_ex_orders.append(AscendExOrder(
+                        order_data["symbol"],
+                        order_data["price"],
+                        order_data["orderQty"],
+                        order_data["orderType"],
+                        order_data["avgPx"],
+                        order_data["cumFee"],
+                        order_data["cumFilledQty"],
+                        order_data["errorCode"],
+                        order_data["feeAsset"],
+                        order_data["lastExecTime"],
+                        order_data["orderId"],
+                        order_data["seqNum"],
+                        order_data["side"],
+                        order_data["status"],
+                        order_data["stopPrice"],
+                        order_data["execInst"]
+                    ))
+                for order in ascend_ex_orders:
+                    self._process_order_message(order)
+                for hbot_order in tracked_orders:
+                    if hbot_order.exchange_order_id not in (o.orderId for o in ascend_ex_orders):
+                        self.logger().info(f"{hbot_order} is missing from expected response ({resp})")
+            except Exception:
+                self.logger().network(
+                    f"Unexpected error during processing order status. The Ascend Ex Response: {resp}",
+                    exc_info=True
+                )
 
     async def cancel_all(self, timeout_seconds: float):
         """
