@@ -20,7 +20,7 @@ from hummingbot.core.event.events import (
     OrderType,
     TradeType,
 )
-from hummingbot.core.network_base import NetworkStatus
+from hummingbot.core.network_iterator import NetworkStatus
 
 
 class NdaxExchangeTests(TestCase):

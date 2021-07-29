@@ -12,7 +12,7 @@ from typing import (
 )
 
 from hummingbot.connector.exchange.ndax.ndax_auth import NdaxAuth
-import hummingbot.connector.exchange.ndax.ndax_constants as CONSTANTS
+from hummingbot.connector.exchange.ndax import ndax_constants as CONSTANTS, ndax_utils
 from hummingbot.connector.exchange.ndax.ndax_websocket_adaptor import NdaxWebSocketAdaptor
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
@@ -27,13 +27,14 @@ class NdaxAPIUserStreamDataSource(UserStreamTrackerDataSource):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, auth_assistant: NdaxAuth):
+    def __init__(self, auth_assistant: NdaxAuth, domain: Optional[str] = None):
         super().__init__()
         self._websocket_client: Optional[NdaxWebSocketAdaptor] = None
         self._auth_assistant: NdaxAuth = auth_assistant
         self._last_recv_time: float = 0
         self._account_id: Optional[int] = None
         self._oms_id: Optional[int] = None
+        self._domain = domain
 
     @property
     def last_recv_time(self) -> float:
@@ -45,7 +46,7 @@ class NdaxAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
         try:
             if self._websocket_client is None:
-                ws = await websockets.connect(CONSTANTS.WSS_URL)
+                ws = await websockets.connect(ndax_utils.wss_url(self._domain))
                 self._websocket_client = NdaxWebSocketAdaptor(websocket=ws)
             return self._websocket_client
         except asyncio.CancelledError:

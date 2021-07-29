@@ -93,5 +93,5 @@ probit_kr_taker_fee:
 ndax_maker_fee:
 ndax_taker_fee:
 
-#ndax_testnet_maker_fee:
-#ndax_testnet_taker_fee:
+ndax_testnet_maker_fee:
+ndax_testnet_taker_fee:
