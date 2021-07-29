@@ -19,7 +19,7 @@ conda activate hummingbot
 ./compile
 bin/hummingbot.py
 ```
-If installation was successful, you should see the Hummingbot welcome screen.
+If the installation was successful, you should see the Hummingbot welcome screen.
 
 <!-- ![Hummingbot Welcome Screen](../../assets/img/welcome_screen.png) -->
 <img src="../../assets/img/welcome_screen.png" alt="Hummingbot Welcome Screen" width="700"/>
@@ -51,7 +51,7 @@ Run the following command to create these files.
 
 Each of these files will serve a specific purpose. Visit our [strategy repository in GitHub](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/strategy) to learn more about the file structure and naming conventions for different strategies.
 
-Lastly, we also need to create a template file in humingbot-master/Hummingbot/templates. Like the strategy files and folders, template file name also follows a convention. Let’s look at these files individually.
+Lastly, we also need to create a template file in humingbot-master/Hummingbot/templates. Like the strategy files and folders, the template file name also follows a convention. Let’s look at these files individually.
 ###Add functionality to the files
 After the files and folders are ready, we will have to add functionalities to the files. Let's visit each of them.
 
@@ -63,7 +63,7 @@ from .new_strategy import NewStrategy
 __all__ = [NewStrategy]
 ```
 
-Here, the ***\_\_all\_\_*** field is used to expose the public module i.e. NewStrategy for use.
+Here, the ***\_\_all\_\_*** field is used to expose the public module i.e. NewStrategy, for use.
 ####new_strategy_config_map.py
 The config map file prompts you to supply config values whenever you call the strategy. It lists the parameters this strategy will require. The naming convention for this file is {*strategy_name*}_config_map.py. Use the following code in your config map file.
 ```
@@ -88,7 +88,7 @@ NewStrategy_config_map ={
 ```
 The parameters in this file are mapped as key-value pairs. Each field uses a [***ConfigVar***](https://github.com/CoinAlpha/hummingbot/blob/18ca19517e2b86d72dbaf50e28f6cd709ca9132c/hummingbot/client/config/config_var.py#L20) method to accept parameters. ConfigVar is a variable that you can use to control the trading behavior of the bot. 
 
-The ***key*** parameter identifies the field while the ***prompt*** parameter lets you choose the prompt message. Additionally, you can also supply validators as parameters to ensure only accepted values are entered.
+The ***key*** parameter identifies the field, while the ***prompt*** parameter lets you choose the prompt message. Additionally, you can also supply validators as parameters to ensure only accepted values are entered.
 
 In the above example, the ***strategy*** field identifies the trading strategy - *NewStrategy*. Similarly, we have used the ***connector*** field to prompt for the name of the exchange and the ***market*** field to prompt for the pair of coins that you want to exchange.
 
@@ -111,7 +111,7 @@ def start(self):
 
     self.strategy = NewStrategy(market_info)
 ```
-In the above code, the ***connector*** variable stores the exchange name whereas the ***market*** variable stores the name of the pairs of the coins. These variables fetch the required value from the config map file, we defined in the previous step.
+In the above code, the ***connector*** variable stores the exchange name, whereas the ***market*** variable stores the name of the pairs of coins. These variables fetch the required value from the config map file, which we defined in the previous step.
 
 >If you wish to hardcode the strategy so that it only runs on a certain exchange, you can set the market variable as market = ‘market_name’
 
@@ -119,7 +119,7 @@ Similarly, the ***MarketTradingPairTuple*** object accepts the exchange name, th
 
 We have used all this information, lastly, to initialize strategy with the *NewStrategy* object.
 ####new_strategy.py 
-This file contains several functions to define the behavior of strategy. The naming convention for this file is {*strategy_name*.py}. To create your strategy file, copy the following code and and paste it into the strategy file.
+This file contains several functions to define the behavior of strategy. The naming convention for this file is {*strategy_name*.py}. To create your strategy file, copy the following code and paste it into the strategy file.
 ```
 #!/usr/bin/env python
 
@@ -188,7 +188,7 @@ You can check out the [MarketTradingPairTuple](https://github.com/CoinAlpha/humm
 
 Both [StrategyPyBase](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/strategy_py_base.pyx) class and buy_with_specific_market method derive from Strategy_base class. To learn more about other methods you can use using the class, visit [Strategy_base](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/strategy_base.pyx). 
 ####conf_NewStrategy_strategy_TEMPLATE.yml 
-We also need an additional file inside the templates folder of the HummingBot directory. This file acts as a placeholder for the parameters you will use in the strategy. First let’s navigate to the *templates* folder and create the file. Run the following commands.
+We also need an additional file inside the templates folder of the HummingBot directory. This file acts as a placeholder for the parameters you will use in the strategy. First, let’s navigate to the *templates* folder and create the file. Run the following commands.
 ```
 cd "hummingbot/templates" 
 touch conf_new_strategy_strategy_TEMPLATE.yml   
@@ -200,11 +200,11 @@ strategy: null
 connector: null
 market: null
 ```
-**Important**: The template file name structure is conf_{*strategy_name*}_stategy_TEMPLATE.yml.
+**Important**: The template filename convention is conf_{*strategy_name*}_stategy_TEMPLATE.yml.
 ##Running our strategy
-Now that we have created a new trading strategy, let’s run it in paper trading mode!
+Now that we have created a new trading strategy let’s run it in paper trading mode!
 
-First, let’s compile the code again. It’s good practice to recompile the code every time you make changes, so that any altered Cython code will be rebuilt.
+First, let’s recompile the code. It's good practice to recompile the code every time you make changes to rebuild any altered Cython code.
 ```
 cd ~/hummingbot-instance
 ./compile
@@ -224,32 +224,31 @@ Follow the steps below to use the strategy we have created.
 - Run the Hummingbot application.
 - Run the command **create** to start a new bot
 - For the option, “What is your market making strategy?”, enter **new_strategy**. 
-- For the name of exchange, we will enter **binance**.
-- Give a filename for your configuration. You can just use the default one.
+- For the name of the exchange, we will enter **binance**.
+- Give a filename for your configuration. You can use the default one.
 - Enter the command **start** to start your bot.
 - Paper trading should be enabled by default. If it is not, run the command paper_trade to enable paper trading.
 
-**Note**: You can use paper money (simulation) to test the bot and its strategy before trading real money/crypto. Paper trading should be enabled by default. If it is not, run **paper_trade** command from the UI.
+**Note**: You can use paper money (simulation) to test the bot and its strategy before trading real money/crypto. Paper trading should be enabled by default. If it is not, run the **paper_trade** command from the UI.
 
 <!--![Paper Trade Simulation](../../assets/img/hummingbot_papertrade.png)-->
 <img src="../../assets/img/hummingbot_papertrade.png" alt="Hummingbot Paper Trade" width="700"/>
 
-To see progress of your trade run **status** command at any time a trading session is on and the main UI will display your current trade position.
+To see the progress of your trade run **status** command at any time, a trading session is on and the main UI will display your current trade position.
 
 <!--![Hummingbot Status](../../assets/img/hummingbotstatus_status.png)-->
 <img src="../../assets/img/hummingbot_status.png" alt="Hummingbot Status" width="700"/>
 
 ###The Logger
-As soon as you begin trading, you can see the logger getting populated with trading activity. It shows you  information about the trading strategy including the conversion rate. To see activity in the logger, create a strategy, choose relevant options and type **start** in the command shell.
+As soon as you begin trading, you can see the logger getting populated with trading activity. It shows you  information about the trading strategy, including the conversion rate. To see activity in the logger, create a strategy, choose relevant options and type **start** in the command shell.
 
 <img src="../../assets/img/hummingbot_logger.png" alt="Hummingbot Logger" width="700"/>
 <!--![Hummingbot Logger](../../assets/img/hummingbot_logger.png)-->
 
 ##Conclusion
-Using this guide, you can create your own crypto trading bot and start trading right away. While this example only explains a basic Hummingbot strategy, it will serve as a starting point creating 
-your own complex trading strategies. To find and learn more about strategies, visit [Hummingbot’s Strategy Repository at GitHub](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/strategy). 
+Using this guide, you can create your own crypto trading bot and start trading right away. While this example only explains a basic Hummingbot strategy, it will serve as a starting point for creating your own complex trading strategies. To find and learn more about strategies, visit [Hummingbot’s Strategy Repository at GitHub](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/strategy). 
 
-Hummingbot also offers a trading simulator mode to test the bot and its strategies before starting to trade with real assets. This mode can be beneficial if you are a beginner trader or a professional trader trying out the Hummingbot.
+Hummingbot also offers a trading simulator mode to test the bot and its strategies before trading with real assets. This mode can be beneficial if you are a beginner trader or a professional trader trying out the Hummingbot.
 
 So, choose your favorite strategy and start trading with Hummingbot now.
 ##Various Functions used on Existing Strategies
