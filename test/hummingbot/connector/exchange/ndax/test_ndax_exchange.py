@@ -1259,17 +1259,140 @@ class NdaxExchangeTests(TestCase):
 
         self._is_logged("ERROR", f"Failed to cancel order {order.client_order_id}")
 
-    def test_cancel(self):
-        pass
+    @patch("hummingbot.connector.exchange.ndax.ndax_exchange.NdaxExchange._execute_cancel", new_callable=AsyncMock)
+    def test_cancel(self, mock_cancel):
+        mock_cancel.return_value = None
 
-    def test_status_dict(self):
-        pass
+        order: NdaxInFlightOrder = NdaxInFlightOrder(
+            client_order_id="0",
+            exchange_order_id="123",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal(10.0),
+            amount=Decimal(1.0))
+
+        self.exchange._in_flight_orders.update({
+            order.client_order_id: order
+        })
+
+        # Note: BUY simply returns immediately with the client order id.
+        return_val: str = self.exchange.cancel(self.trading_pair, order.client_order_id)
+
+        # Order ID is simply a timestamp. The assertion below checks if it is created within 1 sec
+        self.assertTrue(order.client_order_id, return_val)
+
+    def test_ready_trading_required_all_ready(self):
+        self.exchange._trading_required = True
+
+        # Simulate all components initialized
+        self.exchange._account_id = 1
+        self.exchange._order_book_tracker._order_books_initialized.set()
+        self.exchange._account_balances = {
+            self.base_asset: Decimal(str(10.0))
+        }
+        self._simulate_trading_rules_initialized()
+        self.exchange._user_stream_tracker.data_source._last_recv_time = 1
+
+        self.assertTrue(self.exchange.ready)
+
+    def test_ready_trading_required_not_ready(self):
+        self.exchange._trading_required = True
+
+        # Simulate all components but account_id not initialized
+        self.exchange._account_id = None
+        self.exchange._order_book_tracker._order_books_initialized.set()
+        self.exchange._account_balances = {}
+        self._simulate_trading_rules_initialized()
+        self.exchange._user_stream_tracker.data_source._last_recv_time = 0
+
+        self.assertFalse(self.exchange.ready)
+
+    def test_ready_trading_not_required_ready(self):
+        self.exchange._trading_required = False
+
+        # Simulate all components but account_id not initialized
+        self.exchange._account_id = None
+        self.exchange._order_book_tracker._order_books_initialized.set()
+        self.exchange._account_balances = {}
+        self._simulate_trading_rules_initialized()
+        self.exchange._user_stream_tracker.data_source._last_recv_time = 0
+
+        self.assertTrue(self.exchange.ready)
+
+    def test_ready_trading_not_required_not_ready(self):
+        self.exchange._trading_required = False
+        self.assertFalse(self.exchange.ready)
 
     def test_limit_orders(self):
-        pass
+        self.assertEqual(0, len(self.exchange.limit_orders))
 
-    def test_tracking_states(self):
-        pass
+        # Simulate orders being placed and tracked
+        order: NdaxInFlightOrder = NdaxInFlightOrder(
+            client_order_id="0",
+            exchange_order_id="123",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal(10.0),
+            amount=Decimal(1.0))
+
+        self.exchange._in_flight_orders.update({
+            order.client_order_id: order
+        })
+
+        self.assertEqual(1, len(self.exchange.limit_orders))
+
+    def test_tracking_states_order_not_done(self):
+        order: NdaxInFlightOrder = NdaxInFlightOrder(
+            client_order_id="0",
+            exchange_order_id="123",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal(10.0),
+            amount=Decimal(1.0))
+
+        order_json = order.to_json()
+
+        self.exchange._in_flight_orders.update({
+            order.client_order_id: order
+        })
+
+        self.assertEqual(1, len(self.exchange.tracking_states))
+        self.assertEqual(order_json, self.exchange.tracking_states[order.client_order_id])
+
+    def test_tracking_states_order_done(self):
+        order: NdaxInFlightOrder = NdaxInFlightOrder(
+            client_order_id="0",
+            exchange_order_id="123",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal(10.0),
+            amount=Decimal(1.0),
+            initial_state="FullyExecuted"
+        )
+
+        self.exchange._in_flight_orders.update({
+            order.client_order_id: order
+        })
+
+        self.assertEqual(0, len(self.exchange.tracking_states))
 
     def test_restore_tracking_states(self):
-        pass
+        order: NdaxInFlightOrder = NdaxInFlightOrder(
+            client_order_id="0",
+            exchange_order_id="123",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal(10.0),
+            amount=Decimal(1.0))
+
+        order_json = order.to_json()
+
+        self.exchange.restore_tracking_states({order.client_order_id: order_json})
+
+        self.assertEqual(1, len(self.exchange.in_flight_orders))
+        self.assertEqual(str(self.exchange.in_flight_orders[order.client_order_id]), str(order))
