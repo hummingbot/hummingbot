@@ -661,7 +661,7 @@ class NdaxExchangeTests(TestCase):
         self.assertEqual(resp, account_id)
 
     @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
-    def test_get_account_id_raises_exception_when_account_does_not_exist(self, mock_api):
+    def test_get_account_id_when_account_does_not_exist(self, mock_api):
         account_id = 1
         mock_response = [{'OMSID': '1',
                           'AccountId': str(account_id),
@@ -684,15 +684,14 @@ class NdaxExchangeTests(TestCase):
                           'Frozen': False}]
         self._set_mock_response(mock_api, 200, mock_response)
 
-        with self.assertRaises(ValueError) as exception_context:
-            task = asyncio.get_event_loop().create_task(
-                self.exchange._get_account_id()
-            )
-            asyncio.get_event_loop().run_until_complete(task)
+        task = asyncio.get_event_loop().create_task(
+            self.exchange._get_account_id()
+        )
+        resp = asyncio.get_event_loop().run_until_complete(task)
 
-        self.assertEqual(str(exception_context.exception), f"NDAX account named {self._account_name} does not exist")
         self.assertTrue(self._is_logged('ERROR', f"There is no account named {self._account_name} "
                                                  f"associated with the current NDAX user"))
+        self.assertIsNone(resp)
 
     @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
     def test_update_balances(self, mock_api):

@@ -214,9 +214,11 @@ class NdaxExchange(ExchangeBase):
         if account_info is None:
             self.logger().error(f"There is no account named {self._auth.account_name} "
                                 f"associated with the current NDAX user")
-            raise ValueError(f"NDAX account named {self._auth.account_name} does not exist")
+            acc_id = None
+        else:
+            acc_id = int(account_info.get("AccountId"))
 
-        return int(account_info.get("AccountId"))
+        return acc_id
 
     def start(self, clock: Clock, timestamp: float):
         """
