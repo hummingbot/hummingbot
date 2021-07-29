@@ -504,9 +504,7 @@ class AscendExExchange(ExchangePyBase):
         if amount <= s_decimal_0:
             raise ValueError("Order amount must be greater than zero.")
         try:
-            # TODO: check balance
             timestamp = ascend_ex_utils.get_ms_timestamp()
-
             api_params = {
                 "id": order_id,
                 "time": timestamp,
@@ -514,9 +512,9 @@ class AscendExExchange(ExchangePyBase):
                 "orderPrice": f"{price:f}",
                 "orderQty": f"{amount:f}",
                 "orderType": "limit",
-                "side": trade_type.name
+                "side": trade_type.name,
+                "respInst": "ACCEPT",
             }
-
             self.start_tracking_order(
                 order_id,
                 None,
@@ -526,7 +524,6 @@ class AscendExExchange(ExchangePyBase):
                 amount,
                 order_type
             )
-
             resp = await self._api_request(
                 method="post",
                 path_url="cash/order",
@@ -534,24 +531,18 @@ class AscendExExchange(ExchangePyBase):
                 is_auth_required=True,
                 force_auth_path_url="order")
             exchange_order_id = str(resp["data"]["info"]["orderId"])
-            tracked_order = self._in_flight_orders.get(order_id)
-            if tracked_order is not None:
-                self.logger().info(f"Created {order_type.name} {trade_type.name} order {order_id} for "
-                                   f"{amount} {trading_pair}.")
-                tracked_order.update_exchange_order_id(exchange_order_id)
+            tracked_order: AscendExInFlightOrder = self._in_flight_orders.get(order_id)
+            tracked_order.update_exchange_order_id(exchange_order_id)
+            if resp["data"]["status"] == "Ack":
+                # Ack status means the server has received the request
+                return
+            tracked_order.update_status(resp["data"]["info"]["status"])
+            if tracked_order.is_failure:
+                raise Exception(f'Failed to create an order, reason: {resp["data"]["info"]["errorCode"]}')
 
-            event_tag = MarketEvent.BuyOrderCreated if trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
-            event_class = BuyOrderCreatedEvent if trade_type is TradeType.BUY else SellOrderCreatedEvent
-            self.trigger_event(event_tag,
-                               event_class(
-                                   self.current_timestamp,
-                                   order_type,
-                                   trading_pair,
-                                   amount,
-                                   price,
-                                   order_id,
-                                   exchange_order_id=exchange_order_id
-                               ))
+            self.logger().info(f"Created {order_type.name} {trade_type.name} order {order_id} for "
+                               f"{amount} {trading_pair}.")
+            self.trigger_order_created_event(tracked_order)
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -566,6 +557,20 @@ class AscendExExchange(ExchangePyBase):
             )
             self.trigger_event(MarketEvent.OrderFailure,
                                MarketOrderFailureEvent(self.current_timestamp, order_id, order_type))
+
+    def trigger_order_created_event(self, order: AscendExInFlightOrder):
+        event_tag = MarketEvent.BuyOrderCreated if order.trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
+        event_class = BuyOrderCreatedEvent if order.trade_type is TradeType.BUY else SellOrderCreatedEvent
+        self.trigger_event(event_tag,
+                           event_class(
+                               self.current_timestamp,
+                               order.order_type,
+                               order.trading_pair,
+                               order.amount,
+                               order.price,
+                               order.client_order_id,
+                               exchange_order_id=order.exchange_order_id
+                           ))
 
     def start_tracking_order(self,
                              order_id: str,
@@ -702,14 +707,13 @@ class AscendExExchange(ExchangePyBase):
                 force_auth_path_url="order/status"
             )
             self.logger().debug(f"Polling for order status updates of {len(order_ids)} orders.")
-            self.logger().info(f"cash/order/status?orderId={order_ids} response: {resp}")
+            self.logger().debug(f"cash/order/status?orderId={order_ids} response: {resp}")
             # The data returned from this end point can be either a list or a dict depending on number of orders
             resp_records: List = []
-            if len(tracked_orders) == 1:
+            if isinstance(resp["data"], dict):
                 resp_records.append(resp["data"])
-            else:
+            elif isinstance(resp["data"], list):
                 resp_records = resp["data"]
-
             ascend_ex_orders: List[AscendExOrder] = []
             try:
                 for order_data in resp_records:
@@ -949,7 +953,12 @@ class AscendExExchange(ExchangePyBase):
         if client_order_id is None:
             return
 
-        tracked_order = self._in_flight_orders[client_order_id]
+        tracked_order: AscendExInFlightOrder = self._in_flight_orders[client_order_id]
+        # This could happen for Ack request type when placing new order, we don't know if the order is open until
+        # we get order status update
+        if tracked_order.is_locally_new and AscendExInFlightOrder.is_open_status(order_msg.status):
+            self.trigger_order_created_event(tracked_order)
+        tracked_order.update_status(order_msg.status)
 
         if tracked_order.executed_amount_base != Decimal(order_msg.cumFilledQty):
             # Update the relevant order information when there is fill event
@@ -976,9 +985,6 @@ class AscendExExchange(ExchangePyBase):
                 )
             )
 
-        # update order status
-        tracked_order.last_state = order_msg.status
-
         if tracked_order.is_cancelled:
             self.logger().info(f"Successfully cancelled order {client_order_id}.")
             self.trigger_event(MarketEvent.OrderCancelled,
@@ -989,8 +995,8 @@ class AscendExExchange(ExchangePyBase):
             tracked_order.cancelled_event.set()
             self.stop_tracking_order(client_order_id)
         elif tracked_order.is_failure:
-            self.logger().info(f"The market order {client_order_id} has failed according to order status API. "
-                               f"Reason: {ascend_ex_utils.get_api_reason(order_msg.errorCode)}")
+            self.logger().info(f"Order {client_order_id} has failed according to order status API. "
+                               f"API order response: {order_msg}")
             self.trigger_event(MarketEvent.OrderFailure,
                                MarketOrderFailureEvent(
                                    self.current_timestamp,
@@ -998,7 +1004,7 @@ class AscendExExchange(ExchangePyBase):
                                    tracked_order.order_type
                                ))
             self.stop_tracking_order(client_order_id)
-        elif tracked_order.is_done:
+        elif tracked_order.is_filled:
             event_tag = MarketEvent.BuyOrderCompleted if tracked_order.trade_type is TradeType.BUY else MarketEvent.SellOrderCompleted
             event_class = BuyOrderCompletedEvent if tracked_order.trade_type is TradeType.BUY else SellOrderCompletedEvent
             self.trigger_event(
