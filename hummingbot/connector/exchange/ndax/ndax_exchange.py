@@ -68,27 +68,28 @@ class NdaxExchange(ExchangeBase):
         return cls._logger
 
     def __init__(self,
-                 uid: str,
-                 api_key: str,
-                 secret_key: str,
-                 username: str,
-                 account_id: int = None,
+                 ndax_uid: str,
+                 ndax_api_key: str,
+                 ndax_secret_key: str,
+                 ndax_account_name: str,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True
                  ):
         """
-        :param uid: User ID of the account
-        :param api_key: The API key to connect to private NDAX APIs.
-        :param secret_key: The API secret.
-        :param username: The username of the account in use.
-        :param account_id: The account ID associated with the trading account in use.
+        :param ndax_uid: User ID of the account
+        :param ndax_api_key: The API key to connect to private NDAX APIs.
+        :param ndax_secret_key: The API secret.
+        :param ndax_account_name: The name of the account associated to the user account.
         :param trading_pairs: The market trading pairs which to track order book data.
         :param trading_required: Whether actual trading is needed.
         """
         super().__init__()
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
-        self._auth = NdaxAuth(uid=uid, api_key=api_key, secret_key=secret_key, username=username)
+        self._auth = NdaxAuth(uid=ndax_uid,
+                              api_key=ndax_api_key,
+                              secret_key=ndax_secret_key,
+                              account_name=ndax_account_name)
         self._order_book_tracker = NdaxOrderBookTracker(trading_pairs=trading_pairs)
         self._user_stream_tracker = NdaxUserStreamTracker(self._auth)
         self._ev_loop = asyncio.get_event_loop()
@@ -105,7 +106,7 @@ class NdaxExchange(ExchangeBase):
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
 
-        self._account_id = account_id
+        self._account_id = None
 
     @property
     def name(self) -> str:
@@ -197,22 +198,27 @@ class NdaxExchange(ExchangeBase):
         params = {
             "OMSId": 1,
             "UserId": int(self._auth.uid),
-            "UserName": self._auth.username
+            "UserName": self._auth.account_name
         }
 
         resp: List[int] = await self._api_request(
             "GET",
-            path_url=CONSTANTS.USER_ACCOUNTS_PATH_URL,
+            path_url=CONSTANTS.USER_ACCOUNT_INFOS_PATH_URL,
             params=params,
             is_auth_required=True,
         )
 
-        """
-        NOTE: Currently there is no way to determine which accountId the user intends to use.
-              The GetUserAccountInfos endpoint doesnt seem to provide anything useful either.
-              The assumption here is that the FIRST entry in the list is the accountId the user intends to use
-        """
-        return resp[0]
+        account_info = next((account_info for account_info in resp
+                             if account_info.get("AccountName") == self._auth.account_name),
+                            None)
+        if account_info is None:
+            self.logger().error(f"There is no account named {self._auth.account_name} "
+                                f"associated with the current NDAX user")
+            acc_id = None
+        else:
+            acc_id = int(account_info.get("AccountId"))
+
+        return acc_id
 
     def start(self, clock: Clock, timestamp: float):
         """
@@ -649,6 +655,11 @@ class NdaxExchange(ExchangeBase):
         """
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
+
+        # When the balances are requested by the client to test the connection, the account id will not be
+        # initialized yet
+        if not self._account_id:
+            self._account_id = await self._get_account_id()
 
         params = {
             "OMSId": 1,

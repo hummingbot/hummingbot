@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 22
+template_version: 23
 
 # Exchange configs
 bamboo_relay_use_coordinator: false
@@ -107,6 +107,16 @@ probit_secret_key: null
 
 probit_kr_api_key: null
 probit_kr_secret_key: null
+
+ndax_uid: null
+ndax_account_name: null
+ndax_api_key: null
+ndax_secret_key: null
+
+#ndax_testnet_user_id: null
+#ndax_testnet_account_name: null
+#ndax_testnet_api_key: null
+#ndax_testnet_secret_key: null
 
 # Ethereum wallet address: required for trading on a DEX
 ethereum_wallet: null
