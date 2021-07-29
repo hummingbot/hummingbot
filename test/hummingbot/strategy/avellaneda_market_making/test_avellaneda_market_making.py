@@ -101,7 +101,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
             )
         )
 
-        self.strategy: AvellanedaMarketMakingStrategy = AvellanedaMarketMakingStrategy(
+        self.strategy: AvellanedaMarketMakingStrategy = AvellanedaMarketMakingStrategy()
+        self.strategy.init_params(
             market_info=self.market_info,
             order_amount=self.order_amount,
             min_spread=self.min_spread,
@@ -652,7 +653,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
     def test_get_logspaced_level_spreads(self):
         # Re-initialize strategy with order_level configurations
-        self.strategy = AvellanedaMarketMakingStrategy(
+        self.strategy = AvellanedaMarketMakingStrategy()
+        self.strategy.init_params(
             market_info=self.market_info,
             order_amount=self.order_amount,
             order_levels=2,
@@ -1219,7 +1221,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.market.set_balance("HBOT", 50000)
 
         # Create a new strategy, with hanging orders enabled
-        self.strategy = AvellanedaMarketMakingStrategy(
+        self.strategy = AvellanedaMarketMakingStrategy()
+        self.strategy.init_params(
             market_info=self.market_info,
             order_amount=self.order_amount,
             min_spread=self.min_spread,
@@ -1281,7 +1284,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.market.set_balance("HBOT", 50000)
 
         # Create a new strategy, with hanging orders enabled
-        self.strategy = AvellanedaMarketMakingStrategy(
+        self.strategy = AvellanedaMarketMakingStrategy()
+        self.strategy.init_params(
             market_info=self.market_info,
             order_amount=self.order_amount,
             min_spread=self.min_spread,
