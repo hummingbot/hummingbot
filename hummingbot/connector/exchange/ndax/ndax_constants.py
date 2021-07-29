@@ -20,7 +20,7 @@ LAST_TRADE_PRICE_URL = "GetLevel1"
 
 # REST API Private Endpoints
 ACCOUNT_POSITION_PATH_URL = "GetAccountPositions"
-USER_ACCOUNTS_PATH_URL = "GetUserAccounts"
+USER_ACCOUNT_INFOS_PATH_URL = "GetUserAccountInfos"
 SEND_ORDER_PATH_URL = "SendOrder"
 CANCEL_ORDER_PATH_URL = "CancelOrder"
 GET_ORDER_STATUS_PATH_URL = "GetOrderStatus"

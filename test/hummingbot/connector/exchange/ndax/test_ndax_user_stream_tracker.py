@@ -19,7 +19,7 @@ class NdaxUserStreamTrackerTests(TestCase):
         self.tracker = NdaxUserStreamTracker(auth_assistant=NdaxAuth(uid='001',
                                                                      api_key='testAPIKey',
                                                                      secret_key='testSecret',
-                                                                     username="hbot"))
+                                                                     account_name="hbot"))
 
     def tearDown(self) -> None:
         self.listening_task and self.listening_task.cancel()

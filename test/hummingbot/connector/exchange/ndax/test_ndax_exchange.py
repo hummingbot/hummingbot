@@ -1,6 +1,4 @@
 import asyncio
-
-from hummingbot.connector.exchange.ndax.ndax_in_flight_order import NdaxInFlightOrder
 import json
 import time
 import pandas as pd
@@ -12,14 +10,15 @@ from unittest.mock import AsyncMock, PropertyMock, patch
 
 import hummingbot.connector.exchange.ndax.ndax_constants as CONSTANTS
 from hummingbot.connector.exchange.ndax.ndax_exchange import NdaxExchange
+from hummingbot.connector.exchange.ndax.ndax_in_flight_order import NdaxInFlightOrder
 from hummingbot.connector.exchange.ndax.ndax_order_book import NdaxOrderBook
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.event.events import (
     MarketOrderFailureEvent,
     OrderCancelledEvent,
+    OrderFilledEvent,
     OrderType,
     TradeType,
-    OrderFilledEvent,
 )
 from hummingbot.core.network_base import NetworkStatus
 
@@ -49,13 +48,13 @@ class NdaxExchangeTests(TestCase):
         self.log_records = []
         self.resume_test_event = asyncio.Event()
         self._finalMessage = 'FinalDummyMessage'
+        self._account_name = "hbot"
 
-        self.exchange = NdaxExchange(uid='001',
-                                     api_key='testAPIKey',
-                                     secret_key='testSecret',
-                                     username="hbot",
-                                     trading_pairs=[self.trading_pair],
-                                     )
+        self.exchange = NdaxExchange(ndax_uid='001',
+                                     ndax_api_key='testAPIKey',
+                                     ndax_secret_key='testSecret',
+                                     ndax_account_name=self._account_name,
+                                     trading_pairs=[self.trading_pair])
 
         self.exchange.logger().setLevel(1)
         self.exchange.logger().addHandler(self)
@@ -634,7 +633,25 @@ class NdaxExchangeTests(TestCase):
     @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
     def test_get_account_id(self, mock_api):
         account_id = 1
-        mock_response: List[int] = [account_id]
+        mock_response = [{'OMSID': '1',
+                          'AccountId': str(account_id),
+                          'AccountName': self._account_name,
+                          'AccountHandle': None,
+                          'FirmId': None,
+                          'FirmName': None,
+                          'AccountType': 'Asset',
+                          'FeeGroupId': '0',
+                          'ParentID': '0',
+                          'RiskType': 'Normal',
+                          'VerificationLevel': '2',
+                          'CreditTier': '0',
+                          'FeeProductType': 'BaseProduct',
+                          'FeeProduct': '0',
+                          'RefererId': '328',
+                          'LoyaltyProductId': '0',
+                          'LoyaltyEnabled': False,
+                          'PriceTier': '0',
+                          'Frozen': False}]
         self._set_mock_response(mock_api, 200, mock_response)
 
         task = asyncio.get_event_loop().create_task(
@@ -644,10 +661,46 @@ class NdaxExchangeTests(TestCase):
         self.assertEqual(resp, account_id)
 
     @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    def test_get_account_id_when_account_does_not_exist(self, mock_api):
+        account_id = 1
+        mock_response = [{'OMSID': '1',
+                          'AccountId': str(account_id),
+                          'AccountName': 'unexistent_name',
+                          'AccountHandle': None,
+                          'FirmId': None,
+                          'FirmName': None,
+                          'AccountType': 'Asset',
+                          'FeeGroupId': '0',
+                          'ParentID': '0',
+                          'RiskType': 'Normal',
+                          'VerificationLevel': '2',
+                          'CreditTier': '0',
+                          'FeeProductType': 'BaseProduct',
+                          'FeeProduct': '0',
+                          'RefererId': '328',
+                          'LoyaltyProductId': '0',
+                          'LoyaltyEnabled': False,
+                          'PriceTier': '0',
+                          'Frozen': False}]
+        self._set_mock_response(mock_api, 200, mock_response)
+
+        task = asyncio.get_event_loop().create_task(
+            self.exchange._get_account_id()
+        )
+        resp = asyncio.get_event_loop().run_until_complete(task)
+
+        self.assertTrue(self._is_logged('ERROR', f"There is no account named {self._account_name} "
+                                                 f"associated with the current NDAX user"))
+        self.assertIsNone(resp)
+
+    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
     def test_update_balances(self, mock_api):
 
         self.assertEqual(0, len(self.exchange._account_balances))
         self.assertEqual(0, len(self.exchange._account_available_balances))
+
+        # We force the account_id to avoid the account id resolution request
+        self.exchange._account_id = 1
 
         mock_response: List[Dict[str, Any]] = [
             {
