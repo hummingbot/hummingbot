@@ -129,9 +129,9 @@ class NdaxExchange(ExchangeBase):
         A dictionary of statuses of various exchange's components. Used to determine if the connector is ready
         """
         return {
-            "account_id_initialized": self.account_id,
+            "account_id_initialized": self.account_id if self._trading_required else True,
             "order_books_initialized": self._order_book_tracker.ready,
-            "account_balance": len(self._account_balance) > 0 if self._trading_required else True,
+            "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0,
             "user_stream_initialized":
                 self._user_stream_tracker.data_source.last_recv_time > 0 if self._trading_required else True,
