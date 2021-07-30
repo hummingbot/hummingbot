@@ -171,6 +171,11 @@ class NdaxExchange(ExchangeBase):
             if not order.is_done
         }
 
+    async def initialized_account_id(self) -> int:
+        if not self._account_id:
+            self._account_id = await self._get_account_id()
+        return self._account_id
+
     def restore_tracking_states(self, saved_states: Dict[str, Any]):
         """
         Restore in-flight orders from the saved tracking states(from local db). This is such that the connector can pick
@@ -247,8 +252,6 @@ class NdaxExchange(ExchangeBase):
         self._order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
-            if not self._account_id:
-                self._account_id = await self._get_account_id()
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
             self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
@@ -389,7 +392,7 @@ class NdaxExchange(ExchangeBase):
             params = {
                 "InstrumentId": trading_pair_ids[trading_pair],
                 "OMSId": 1,
-                "AccountId": self.account_id,
+                "AccountId": await self.initialized_account_id(),
                 "ClientOrderId": int(order_id),
                 "Side": 0 if trade_type == TradeType.BUY else 1,
                 "Quantity": amount,
@@ -517,7 +520,7 @@ class NdaxExchange(ExchangeBase):
 
             body_params = {
                 "OMSId": 1,
-                "AccountId": self.account_id,
+                "AccountId": await self.initialized_account_id(),
                 "OrderId": await tracked_order.get_exchange_order_id()
             }
 
@@ -554,7 +557,7 @@ class NdaxExchange(ExchangeBase):
     async def get_open_orders(self) -> List[OpenOrder]:
         query_params = {
             "OMSId": 1,
-            "AccountId": self.account_id,
+            "AccountId": await self.initialized_account_id(),
         }
         open_orders: List[Dict[str, Any]] = await self._api_request(method="GET",
                                                                     path_url=CONSTANTS.GET_OPEN_ORDERS_PATH_URL,
@@ -670,14 +673,9 @@ class NdaxExchange(ExchangeBase):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
 
-        # When the balances are requested by the client to test the connection, the account id will not be
-        # initialized yet
-        if not self._account_id:
-            self._account_id = await self._get_account_id()
-
         params = {
             "OMSId": 1,
-            "AccountId": self.account_id
+            "AccountId": await self.initialized_account_id()
         }
         account_positions: List[Dict[str, Any]] = await self._api_request(
             method="GET",
@@ -743,7 +741,7 @@ class NdaxExchange(ExchangeBase):
 
             query_params = {
                 "OMSId": 1,
-                "AccountId": self.account_id,
+                "AccountId": await self.initialized_account_id(),
                 "OrderId": int(ex_order_id),
             }
 
@@ -774,7 +772,7 @@ class NdaxExchange(ExchangeBase):
         for trading_pair in self._trading_pairs:
             query_params = {
                 "OMSId": 1,
-                "AccountId": self.account_id,
+                "AccountId": await self.initialized_account_id(),
                 "UserId": self._auth.uid,
                 "InstrumentId": trading_pair_ids[trading_pair],
                 "StartTimestamp": min_ts,
@@ -792,7 +790,10 @@ class NdaxExchange(ExchangeBase):
         parsed_history_resps: List[Dict[str, Any]] = []
         for resp in raw_responses:
             if not isinstance(resp, Exception):
-                parsed_history_resps.append(resp)
+                # When there are no results, the GetTradesHistory endpoint returns a list with an empty list inside
+                # That empty list should not be processed.
+                if len(resp) > 0:
+                    parsed_history_resps.append(resp)
             else:
                 self.logger().error(f"Error fetching order status. Response: {resp}")
 
