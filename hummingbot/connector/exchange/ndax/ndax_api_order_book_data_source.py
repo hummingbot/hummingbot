@@ -142,7 +142,7 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         "timestamp": max([entry.actionDateTime for entry in orderbook_entries])}
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
-        snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair)
+        snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair, self._domain)
         snapshot_timestamp: int = int(time.time() * 1e3)
 
         snapshot_msg: OrderBookMessage = NdaxOrderBook.snapshot_message_from_exchange(
