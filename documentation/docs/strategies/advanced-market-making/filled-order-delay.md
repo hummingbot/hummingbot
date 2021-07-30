@@ -23,13 +23,13 @@ For example, with a filled_order_delay = 300 when an order created by the bot is
 
 This helps to manage periods when prices are trending. For example, in the diagram below, in a case when prices are trending down, bid orders keep getting filled once orders are refreshed.
 
-![](/img/Filled-order-delay.png)
+![](/assets/img/Filled-order-delay.png)
 
 If this is repeated and continues to go on, the market maker could quickly end up accumulating large amounts of the asset within a matter of just a few order refresh cycles. In the example above, the trader has bought assets 5 times.
 
 By introducing a delay between filled orders and placing new orders, this spaces out orders and dampens the potential accumulation of assets, allowing for some time for price trends to stabilize.
 
-![](img/filled_order-delay-enabled.png)
+![](/assets/img/filled_order-delay-enabled.png)
 
 You can see above, since the bid order in period 1 was filled, the bot didn’t place orders in periods 2, 3, and 4. So in this downward price trend, the bot only bought twice (periods 1 and 5) whereas when filled order delay was not enabled, the bot would have bought in all five periods.
 
