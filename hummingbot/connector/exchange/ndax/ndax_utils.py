@@ -43,13 +43,13 @@ KEYS = {
         ConfigVar(key="ndax_uid",
                   prompt="Enter your NDAX user ID (uid) >>> ",
                   required_if=using_exchange("ndax"),
-                  is_secure=False,
+                  is_secure=True,
                   is_connect_key=True),
     "ndax_account_name":
         ConfigVar(key="ndax_account_name",
                   prompt="Enter the name of the account you want to use >>> ",
                   required_if=using_exchange("ndax"),
-                  is_secure=False,
+                  is_secure=True,
                   is_connect_key=True),
     "ndax_api_key":
         ConfigVar(key="ndax_api_key",
@@ -75,13 +75,13 @@ OTHER_DOMAINS_KEYS = {
             ConfigVar(key="ndax_testnet_uid",
                       prompt="Enter your NDAX user ID (uid) >>> ",
                       required_if=using_exchange("ndax_testnet"),
-                      is_secure=False,
+                      is_secure=True,
                       is_connect_key=True),
         "ndax_testnet_account_name":
             ConfigVar(key="ndax_testnet_account_name",
                       prompt="Enter the name of the account you want to use >>> ",
                       required_if=using_exchange("ndax_testnet"),
-                      is_secure=False,
+                      is_secure=True,
                       is_connect_key=True),
         "ndax_testnet_api_key":
             ConfigVar(key="ndax_testnet_api_key",

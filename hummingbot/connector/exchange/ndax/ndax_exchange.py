@@ -150,6 +150,10 @@ class NdaxExchange(ExchangeBase):
         return all(self.status_dict.values())
 
     @property
+    def order_books(self) -> Dict[str, OrderBook]:
+        self._order_book_tracker.order_books
+
+    @property
     def limit_orders(self) -> List[LimitOrder]:
         return [
             in_flight_order.to_limit_order()
