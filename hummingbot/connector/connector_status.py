@@ -28,6 +28,8 @@ connector_status = {
     'k2': 'red',
     'liquid': 'green',
     'loopring': 'yellow',
+    'ndax': 'yellow',
+    'ndax_testnet': 'yellow',
     'okex': 'yellow',
     'perpetual_finance': 'yellow',
     'probit': 'yellow',

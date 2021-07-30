@@ -186,7 +186,7 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 for trading_pair in self._trading_pairs:
-                    snapshot: Dict[str: Any] = await self.get_order_book_data(trading_pair)
+                    snapshot: Dict[str: Any] = await self.get_order_book_data(trading_pair, domain=self._domain)
                     metadata = {
                         "trading_pair": trading_pair,
                         "instrument_id": self._trading_pair_id_map.get(trading_pair, None)
