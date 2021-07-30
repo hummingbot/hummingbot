@@ -58,6 +58,7 @@ class NdaxExchangeTests(TestCase):
 
         self.exchange.logger().setLevel(1)
         self.exchange.logger().addHandler(self)
+        self.exchange._account_id = 1
 
     def tearDown(self) -> None:
         self.tracker_task and self.tracker_task.cancel()
