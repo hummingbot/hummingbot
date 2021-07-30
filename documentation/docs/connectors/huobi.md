@@ -3,7 +3,7 @@ title: Huobi Global
 description: About Huobi Global Connector
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 Huobi is a global, centralized cryptocurrency exchange started in Seychelles and has since expanded its offices to Hong Kong, Korea, Japan, and the United States. As of March 2018, Huobi processed around US \$1 billion in trades daily.
 

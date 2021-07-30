@@ -3,7 +3,7 @@ title: Binance
 description: About Binance Connector
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 Binance is a global cryptocurrency exchange that provides a platform for trading more than 100 cryptocurrencies. It is considered one of the top cryptocurrency trading platforms by volume. It also serves as a wallet for users who hold accounts on the exchange.
 

@@ -3,7 +3,7 @@ title: Binance Futures
 description: About Binance Futures Connector (USDT-M)
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 <meta charset="utf-8" />
 

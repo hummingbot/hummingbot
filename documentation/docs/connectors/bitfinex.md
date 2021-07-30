@@ -3,7 +3,7 @@ title: Bitfinex
 description: About Bitfinex Connector
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 ## About Bitfinex
 

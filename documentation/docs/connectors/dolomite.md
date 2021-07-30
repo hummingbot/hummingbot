@@ -3,7 +3,7 @@ title: Dolomite
 description: About Dolomite Connector
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 [Dolomite](https://beta.dolomite.io/exchange) is a decentralized exchange powered by the Loopring Protocol that allows you to trade dozens of ERC20 token assets securely, right from your own wallet.
 

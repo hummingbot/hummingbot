@@ -3,7 +3,7 @@ title: OKEx
 description: About OKEx Connector
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 OKEx is a world-leading cryptocurrency exchange, providing advanced financial services to traders globally by using blockchain technology.
 

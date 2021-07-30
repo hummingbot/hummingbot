@@ -3,7 +3,7 @@ title: AMM Arbitrage
 description: Learn how to use AMM arbitrage strategy
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 import Prompt from "../../src/components/Prompt";
 

@@ -2,7 +2,7 @@
 title: Terra
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 The [Terra Protocol](https://terra.money/) is the creator of the Luna Token, Terra Core, and the blockchain payment solution CHAI. The design of the Terra Protocol is based on two things: stability and adoption by e-commerce platforms.
 

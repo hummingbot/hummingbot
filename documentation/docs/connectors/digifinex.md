@@ -3,7 +3,7 @@ title: Digifinex
 description: About Digifinex connector
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 DigiFinex is the world's top 10 crypto exchange by trading volume and liquidity, offering spot, leverage, perpetual swap trading, and fiat to crypto trading. We are widely loved for being stable, secure, and easy to use
 

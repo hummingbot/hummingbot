@@ -5,7 +5,7 @@ description: Learn how to use Liquidity mining strategy
 
 import Prompt from "../../src/components/Prompt";
 
-import Callout from "../../src/components/Callout";
+
 
 **Updated as of v0.37**
 

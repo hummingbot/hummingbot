@@ -3,7 +3,7 @@ title: Avellaneda Market Making
 description: Learn how to use avellaneda market making strategies
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 import Prompt from "../../src/components/Prompt";
 

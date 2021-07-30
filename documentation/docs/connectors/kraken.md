@@ -3,7 +3,7 @@ title: Kraken
 description: About Kraken Connector
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 Kraken is a centralized exchange based in San Francisco, CA, founded in 2011. Users can trade several cryptocurrencies and various fiat currencies such as USD, CAD, EUR, GBP, CHF, and JPY.
 

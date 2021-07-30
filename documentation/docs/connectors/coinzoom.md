@@ -3,7 +3,7 @@ title: CoinZoom
 description: About CoinZoom connector
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 CoinZoom is an institutional-grade digital currency trading platform that uses the team’s vast experience in providing superb trade quality and customer-focused tools and technology to help our customers to become successful digital currency traders. CoinZoom will offer Buying, Selling, and Trading of Bitcoin, Ripple, Ethereum, and other top digital currency pairs. In addition, our decades of experience in financial technology security are equally important in safeguarding customer funds and customers' digital currency positions.
 

@@ -2,7 +2,7 @@
 title: Perpetual Finance
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 <Callout
   type="note"
