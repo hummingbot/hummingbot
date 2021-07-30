@@ -27,7 +27,7 @@ class NdaxOrderBookTracker(OrderBookTracker):
         return cls._logger
 
     def __init__(self, trading_pairs: Optional[List[str]] = None, domain: Optional[str] = None):
-        super().__init__(NdaxAPIOrderBookDataSource(trading_pairs), trading_pairs, domain)
+        super().__init__(NdaxAPIOrderBookDataSource(trading_pairs, domain), trading_pairs, domain)
 
         self._domain = domain
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
