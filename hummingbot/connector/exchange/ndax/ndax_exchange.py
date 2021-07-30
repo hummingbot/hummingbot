@@ -416,6 +416,10 @@ class NdaxExchange(ExchangeBase):
                 is_auth_required=True
             )
 
+            if send_order_results["status"] == "Rejected":
+                raise ValueError(f"Order is rejected by the API. "
+                                 f"Parameters: {params} Error Msg: {send_order_results['errormsg']}")
+
             exchange_order_id = str(send_order_results["OrderId"])
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:

@@ -1203,6 +1203,43 @@ class NdaxExchangeTests(TestCase):
         self.assertEqual(0, len(self.exchange.in_flight_orders))
         self._is_logged("NETWORK", f"Error submitting {TradeType.BUY.name} {OrderType.LIMIT.name} order to NDAX")
 
+    @patch("hummingbot.client.hummingbot_application.HummingbotApplication")
+    @patch("hummingbot.connector.exchange.ndax.ndax_api_order_book_data_source.NdaxAPIOrderBookDataSource.get_instrument_ids",
+           new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
+    def test_create_order_api_returns_error_exception_raised(self, mock_post, mock_get_instrument_ids, mock_main_app):
+        mock_get_instrument_ids.return_value = {
+            self.trading_pair: 5
+        }
+
+        expected_response = {
+            "status": "Rejected",
+            "errormsg": "Some Error Msg",
+            "OrderId": 123
+        }
+
+        self._set_mock_response(mock_post, 200, expected_response)
+
+        self._simulate_trading_rules_initialized()
+
+        order_details = [
+            TradeType.BUY,
+            str(1),
+            self.trading_pair,
+            Decimal(1.0),
+            Decimal(10.0),
+            OrderType.LIMIT,
+        ]
+
+        self.assertEqual(0, len(self.exchange.in_flight_orders))
+        asyncio.get_event_loop().run_until_complete(
+            self.exchange._create_order(*order_details)
+        )
+
+        self.assertEqual(0, len(self.exchange.in_flight_orders))
+        self._is_logged("NETWORK",
+                        f"Error submitting {TradeType.BUY.name} {OrderType.LIMIT.name} order to NDAX")
+
     @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
     def test_execute_cancel_success(self, mock_cancel):
         order: NdaxInFlightOrder = NdaxInFlightOrder(
