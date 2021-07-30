@@ -723,8 +723,9 @@ class NdaxExchangeTests(TestCase):
     def test_update_order_status(self, mock_api):
 
         # Simulates order being tracked
+        order: NdaxInFlightOrder = NdaxInFlightOrder("0", "2628", self.trading_pair, OrderType.LIMIT, TradeType.SELL, Decimal(str(41720.83)), Decimal("1"))
         self.exchange._in_flight_orders.update({
-            "0": NdaxInFlightOrder("0", "2628", self.trading_pair, OrderType.LIMIT, TradeType.SELL, Decimal(str(41720.83)), Decimal("1"))
+            order.client_order_id: order
         })
         self.assertTrue(1, len(self.exchange.in_flight_orders))
 
@@ -825,6 +826,83 @@ class NdaxExchangeTests(TestCase):
         self.exchange_task = asyncio.get_event_loop().create_task(self.exchange._update_order_status())
         asyncio.get_event_loop().run_until_complete(self.exchange_task)
         self.assertEqual(0, len(self.exchange.in_flight_orders))
+
+    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    def test_update_order_status_error_response(self, mock_api):
+
+        # Simulates order being tracked
+        order: NdaxInFlightOrder = NdaxInFlightOrder("0", "2628", self.trading_pair, OrderType.LIMIT, TradeType.SELL, Decimal(str(41720.83)), Decimal("1"))
+        self.exchange._in_flight_orders.update({
+            order.client_order_id: order
+        })
+        self.assertTrue(1, len(self.exchange.in_flight_orders))
+
+        # Add FullyExecuted GetOrderStatus API Response
+        self._set_mock_response(mock_api, 200, {
+            "Side": "Sell",
+            "OrderId": 2628,
+            "Price": 41720.830000000000000000000000,
+            "Quantity": 0.0000000000000000000000000000,
+            "DisplayQuantity": 0.0000000000000000000000000000,
+            "Instrument": 5,
+            "Account": 528,
+            "AccountName": "hbot",
+            "OrderType": "Limit",
+            "ClientOrderId": 0,
+            "OrderState": "Working",
+            "ReceiveTime": 1627380780887,
+            "ReceiveTimeTicks": 637629775808866338,
+            "LastUpdatedTime": 1627380783860,
+            "LastUpdatedTimeTicks": 637629775838598558,
+            "OrigQuantity": 1.0000000000000000000000000000,
+            "QuantityExecuted": 1.0000000000000000000000000000,
+            "GrossValueExecuted": 41720.830000000000000000000000,
+            "ExecutableValue": 0.0000000000000000000000000000,
+            "AvgPrice": 41720.830000000000000000000000,
+            "CounterPartyId": 0,
+            "ChangeReason": "Trade",
+            "OrigOrderId": 2628,
+            "OrigClOrdId": 0,
+            "EnteredBy": 492,
+            "UserName": "hbot",
+            "IsQuote": False,
+            "InsideAsk": 41720.830000000000000000000000,
+            "InsideAskSize": 0.9329960000000000000000000000,
+            "InsideBid": 41718.340000000000000000000000,
+            "InsideBidSize": 0.0632560000000000000000000000,
+            "LastTradePrice": 41720.830000000000000000000000,
+            "RejectReason": "",
+            "IsLockedIn": False,
+            "CancelReason": "",
+            "OrderFlag": "AddedToBook, RemovedFromBook",
+            "UseMargin": False,
+            "StopPrice": 0.0000000000000000000000000000,
+            "PegPriceType": "Last",
+            "PegOffset": 0.0000000000000000000000000000,
+            "PegLimitOffset": 0.0000000000000000000000000000,
+            "IpAddress": "103.6.151.12",
+            "ClientOrderIdUuid": None,
+            "OMSId": 1
+        })
+
+        # Add TradeHistory API Response
+        self._set_mock_response(mock_api, 200, {
+            "result": False,
+            "errormsg": "Invalid Request",
+            "errorcode": 100,
+            "detail": None
+        })
+
+        # Simulate _trading_pair_id_map initialized.
+        self.exchange._order_book_tracker.data_source._trading_pair_id_map.update({
+            self.trading_pair: 5
+        })
+
+        self.exchange_task = asyncio.get_event_loop().create_task(self.exchange._update_order_status())
+        asyncio.get_event_loop().run_until_complete(self.exchange_task)
+        self.assertEqual(1, len(self.exchange.in_flight_orders))
+
+        self.assertEqual(0, len(self.exchange.in_flight_orders[order.client_order_id].trade_id_set))
 
     @patch("hummingbot.connector.exchange.ndax.ndax_exchange.NdaxExchange._update_balances", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.ndax.ndax_exchange.NdaxExchange._update_order_status", new_callable=AsyncMock)
@@ -1233,8 +1311,9 @@ class NdaxExchangeTests(TestCase):
 
         self.assertEqual(result, order.client_order_id)
 
+    @patch("hummingbot.client.hummingbot_application.HummingbotApplication")
     @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
-    def test_execute_cancel_fail(self, mock_cancel):
+    def test_execute_cancel_fail(self, mock_cancel, mock_main_app):
         order: NdaxInFlightOrder = NdaxInFlightOrder(
             client_order_id="0",
             exchange_order_id="123",
@@ -1263,7 +1342,7 @@ class NdaxExchangeTests(TestCase):
             self.exchange._execute_cancel(self.trading_pair, order.client_order_id)
         )
 
-        self.assertEqual(result, order.client_order_id)
+        self.assertIsNone(result)
 
     @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
     def test_execute_cancel_cancels(self, mock_cancel):
