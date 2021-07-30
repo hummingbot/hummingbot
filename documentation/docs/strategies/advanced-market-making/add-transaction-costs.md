@@ -34,11 +34,11 @@ Below, `fee_pct` refers to the percentage maker fees per order (generally common
 
 ### Calculating the Bid Order Price
 
-![Bid price with transaction cost](/img/trans_cost_bid.png)
+![Bid price with transaction cost](/assets/img/trans_cost_bid.png)
 
 ### Calculating the Ask Order Price
 
-![Ask price with transaction cost](/img/trans_cost_ask.png)
+![Ask price with transaction cost](/assets/img/trans_cost_ask.png)
 
 ### Example - When Transaction Cost is Important
 
