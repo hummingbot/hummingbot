@@ -573,7 +573,7 @@ class NdaxExchange(ExchangeBase):
                           status=order["OrderState"],
                           order_type=OrderType.LIMIT if order["OrderType"] == "Limit" else OrderType.MARKET,
                           is_buy=True if order["Side"] == "Buy" else False,
-                          time=order["LastUpdatedTime"],
+                          time=order["ReceiveTime"],
                           exchange_order_id=order["OrderId"],
                           )
                 for order in open_orders]
@@ -582,7 +582,7 @@ class NdaxExchange(ExchangeBase):
         """
         Cancels all in-flight orders and waits for cancellation results.
         Used by bot's top level stop and exit commands (cancelling outstanding orders on exit)
-        :param timeout_seconds: The timeout at which the operation will be canceled.
+        :param timeout_sec: The timeout at which the operation will be canceled.
         :returns List of CancellationResult which indicates whether each order is successfully cancelled.
         """
 
@@ -596,7 +596,7 @@ class NdaxExchange(ExchangeBase):
 
             open_orders = await self.get_open_orders()
 
-            for client_oid, tracked_order in tracked_orders:
+            for client_oid, tracked_order in tracked_orders.items():
                 matched_order = [o for o in open_orders if o.client_order_id == client_oid]
                 if not matched_order:
                     cancellation_results.append(CancellationResult(client_oid, True))
@@ -605,9 +605,9 @@ class NdaxExchange(ExchangeBase):
                 else:
                     cancellation_results.append(CancellationResult(client_oid, False))
 
-        except Exception:
+        except Exception as ex:
             self.logger().network(
-                "Failed to cancel all orders.",
+                f"Failed to cancel all orders ({ex})",
                 exc_info=True,
                 app_warning_msg="Failed to cancel all orders on NDAX. Check API key and network connection."
             )

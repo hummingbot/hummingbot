@@ -116,6 +116,7 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         Args:
             trading_pair (str): Trading pair of the particular orderbook.
+            domain (str): The label of the variant of the connector that is being used.
 
         Returns:
             Dict[str, any]: Parsed API Response.
