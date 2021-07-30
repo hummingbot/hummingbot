@@ -774,7 +774,7 @@ class NdaxExchange(ExchangeBase):
                 "UserId": self._auth.uid,
                 "InstrumentId": trading_pair_ids[trading_pair],
                 "StartTimestamp": min_ts,
-                "EndTimestamp": int(time.time() * 1e3),
+                "EndTimestamp": int(time.time()),
             }
             trade_history_tasks.append(
                 asyncio.create_task(self._api_request(method="GET",
