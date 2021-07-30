@@ -89,13 +89,8 @@ class NdaxWebSocketAdaptor:
                         self.send_request(CONSTANTS.WS_PING_REQUEST, payload={}),
                         timeout=self.PING_TIMEOUT
                     )
-                except Exception as e:
-                    raise e
         except websockets.exceptions.ConnectionClosed:
             return
-        except Exception as e:
-            # Raises whatever Exception to the calling functions
-            raise e
         finally:
             await self.close()
 
