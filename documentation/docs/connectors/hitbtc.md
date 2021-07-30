@@ -3,7 +3,7 @@ title: HitBTC
 description: About HitBTC connector
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 HitBTC is a leading European bitcoin exchange that provides cryptocurrency trading services to institutional, merchants, and individual traders worldwide. The trading platform was founded in late 2013 and is under the operation of Ullus Corporation.
 

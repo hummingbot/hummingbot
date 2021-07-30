@@ -3,7 +3,7 @@ title: Blocktane
 description: About Blocktane connector
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 Launched in 2020, Blocktane was designed and built in partnership with Tritum and operated a high-performance digital asset exchange infrastructure designed with technology and principles from traditional financial markets to serve clients with equal confidence and quality as any other financial institution.
 

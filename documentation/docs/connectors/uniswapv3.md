@@ -2,7 +2,7 @@
 title: Uniswap v3
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 [Uniswap](https://uniswap.org/) is a protocol on Ethereum for swapping ERC20 tokens. Unlike most exchanges, which are designed to take fees, Uniswap is designed to function as a public good — a tool for the community trade tokens without platform fees or middlemen.
 

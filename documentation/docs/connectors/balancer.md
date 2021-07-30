@@ -2,7 +2,7 @@
 title: Balancer
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 Balancer is an automated portfolio manager, liquidity provider, and price sensor. In other words, a decentralized finance protocol based on Ethereum allows automatic market-making.
 

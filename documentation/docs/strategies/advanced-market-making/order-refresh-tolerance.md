@@ -3,7 +3,7 @@ title: Order Refresh Tolerance
 description: Info on order refresh tolerance
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 import Prompt from "../../src/components/Prompt";
 

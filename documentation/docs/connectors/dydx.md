@@ -3,7 +3,7 @@ title: dYdX
 description: About dYdX Exchange Connector
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 dYdX describes itself as a full-featured decentralized exchange (originating from the US) for spot and margin trading. dYdX is built on Ethereum and launched at the beginning of May 2019 with spot and margin trading on ETH-DAI. dYdX claims to offer one of the most liquid order books across decentralized exchanges.
 

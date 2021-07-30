@@ -3,7 +3,7 @@ title: Uniswap v3 Liquidity Pool Strategy
 description: Iteration 1 Uniswap v3 Strategy
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 import Prompt from "../../src/components/Prompt";
 

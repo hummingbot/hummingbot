@@ -3,7 +3,7 @@ title: Liquid
 description: About Liquid Connector
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 Liquid is a centralized exchange based in Tokyo, Japan launched by Quione in 2017. It also has offices in Singapore but is regulated and licensed by the Financial Services Agency of Japan. Over the past 12 months (as of May 2019), it has more than USD 50 billion in transactions on its exchanges.
 

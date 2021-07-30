@@ -3,7 +3,7 @@ title: Eterbase
 description: About Eterbase Connector
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 ETERBASE is the first regulation-compliant European cryptocurrency exchange, offering fast, secure trading on a clean, powerful, user interface.
 

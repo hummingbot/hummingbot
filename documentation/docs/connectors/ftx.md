@@ -3,7 +3,7 @@ title: FTX
 description: About FTX Connector
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 FTX is a cryptocurrency exchange launched in 2019. It allows users to trade contracts on crypto assets, or buy tokens representing other assets. Its team comes from Wall Street quant firms and tech companies.
 

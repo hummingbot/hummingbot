@@ -3,7 +3,7 @@ title: Celo Arbitrage
 description: Learn how to use Celo arbitrage strategies
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 import Prompt from "../../src/components/Prompt";
 

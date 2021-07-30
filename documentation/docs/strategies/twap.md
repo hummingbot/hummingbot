@@ -2,7 +2,7 @@
 title: TWAP Strategy
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 <Callout
   type="bug"

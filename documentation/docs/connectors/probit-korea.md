@@ -3,7 +3,7 @@ title: ProBit Korea
 description: About ProBit connector
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 ProBit KR Exchange is a Top 20 crypto exchange globally. We have completed over 200 rounds of IEO and have been consistently ranked Top 4 in Korea. ProBit Exchange provides unlimited trading access highlighted by nearly 1,000 trading pairs.
 

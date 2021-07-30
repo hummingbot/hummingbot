@@ -5,7 +5,7 @@ description: Learn how to use spot perpetual arbitrage strategy
 
 import Prompt from "../../src/components/Prompt";
 
-import Callout from "../../src/components/Callout";
+
 
 <Callout
   type="warning"

@@ -3,7 +3,7 @@ title: AscendEX
 description: About AscendEX connector
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 AscendEX, formerly BitMax, is a leading digital asset financial platform with a comprehensive product suite including altcoin trading for spot, margin, and futures, wallet services for over 100 cryptocurrencies, and innovative staking support for top blockchain projects.
 

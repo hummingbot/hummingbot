@@ -3,7 +3,7 @@ title: Loopring
 description: About Loopring Exchange Connector
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 Loopring is the first scalable DEX protocol built with zkRollup for Ethereum. Loopring Exchange is the first decentralized trading platform built on top of the Loopring protocol. Loopring Exchange is accessible at Loopring.io.
 

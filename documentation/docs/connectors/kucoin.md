@@ -3,7 +3,7 @@ title: KuCoin
 description: About KuCoin Connector
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 KuCoin is a centralized exchange based in Hong Kong that opened for cryptocurrency trading in September 2017. Nicknamed the "People's Exchange"​, Kucoin is claimed to be easy to use for novice investors while being in-depth enough for crypto enthusiasts.
 
