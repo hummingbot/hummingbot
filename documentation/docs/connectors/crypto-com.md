@@ -3,7 +3,7 @@ title: Crypto.com
 description: About Crypto.com Connector
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 Crypto.com was founded in 2016 on a simple belief: it’s a basic human right for everyone to control their money, data, and identity. Crypto.com serves over 3 million customers today, providing them with a powerful alternative to traditional financial services through the Crypto.com App, the Crypto.com Card, and the Crypto.com Exchange.
 
@@ -82,4 +82,4 @@ Unlike other connectors, overriding the fee calculated by Hummingbot on trades b
 
 Crypto.com connector uses the trade info, including the actual amount of fees paid. You can confirm this in the CSV file inside the `data` folder.
 
-![crypto_com](/img/crypto_com_csv.png)
+![crypto_com](/assets/img/crypto_com_csv.png)

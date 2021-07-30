@@ -3,7 +3,7 @@ title: dYdX Perpetual
 description: About dYdX Perpetual Exchange Connector
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 dYdX is a leading decentralized exchange that currently supports perpetual, margin trading, spot trading, lending, and borrowing. dYdX runs on smart contracts on the Ethereum blockchain, and allows users to trade with no intermediaries.
 

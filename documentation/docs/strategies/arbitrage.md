@@ -3,7 +3,7 @@ title: Arbitrage
 description: Learn how to use Arbitrage strategies
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 import Prompt from "../../src/components/Prompt";
 
@@ -21,7 +21,7 @@ An opportunity arises when Hummingbot can buy on one exchange at a lower price a
   <center>***Figure 1: Hummingbot completes an arbitrage trade***</center>
 </small>
 
-![Figure 1: Hummingbot completes an arbitrage trade](/img/arbitrage.png)
+![Figure 1: Hummingbot completes an arbitrage trade](/assets/img/arbitrage.png)
 
 ## Prerequisites: Inventory
 

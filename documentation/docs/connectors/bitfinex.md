@@ -3,7 +3,7 @@ title: Bitfinex
 description: About Bitfinex Connector
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 ## About Bitfinex
 
@@ -36,7 +36,7 @@ than to authorize transactions required for the operation of Hummingbot.
 
 1. Log into your Bitfinex account, click your avatar and then select **account**, after choose **API** (If you do not have an account, you will have to create one).
 
-![bitfinex1](/img/bitfinex1.png)
+![bitfinex1](/assets/img/bitfinex1.png)
 
 <Callout
   type="tip"
@@ -48,7 +48,7 @@ than to authorize transactions required for the operation of Hummingbot.
 
 2. Click on **Create NEW KEY**.
 
-![bitfinex2](/img/bitfinex2.png)
+![bitfinex2](/assets/img/bitfinex2.png)
 
 Make sure you give permissions to **Read** and **Write** and enter your 2FA code.
 
@@ -63,7 +63,7 @@ Once you pass the link in an email letter, you've created a new API Key!
 
 Your API Secret will be displayed on the screen. Make sure you store your API Secret somewhere secure and do not share it with anyone.
 
-![bitfinex3](/img/bitfinex3.png)
+![bitfinex3](/assets/img/bitfinex3.png)
 
 The API key and API secret key are required for using Hummingbot.
 

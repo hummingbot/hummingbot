@@ -3,7 +3,7 @@ title: Binance US
 description: About Binance US Connector
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 Launched in September 2019, Binance.US is a digital asset marketplace powered by matching engine and wallet technologies licensed from the world's largest cryptocurrency exchange, Binance. Operated by BAM Trading Services based in San Francisco, California, Binance.US provides a fast, secure and reliable platform to buy and sell cryptocurrencies in the United States.
 

@@ -2,7 +2,7 @@
 title: Uniswap v3
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 [Uniswap](https://uniswap.org/) is a protocol on Ethereum for swapping ERC20 tokens. Unlike most exchanges, which are designed to take fees, Uniswap is designed to function as a public good — a tool for the community trade tokens without platform fees or middlemen.
 
@@ -36,7 +36,7 @@ When creating Hummingbot Gateway, it picks up the Ethereum settings in the globa
 3. Enter Ethereum node address (starts with https://)
 4. Enter the websocket connection address of your Ethereum node (starts with wss://)
 
-![](img/connect-ethereum.gif)
+![](/assets/img/connect-ethereum.gif)
 
 ## Install Hummingbot Gateway
 

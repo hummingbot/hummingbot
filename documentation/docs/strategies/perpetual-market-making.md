@@ -3,7 +3,7 @@ title: Perpetual Market Making
 description:
 ---
 
-import Callout from "../../src/components/Callout";
+
 import Prompt from "../../src/components/Prompt";
 
 <Callout
@@ -53,30 +53,30 @@ In this document, we will explain how the strategy works by dividing it into thr
 1. Make sure to connect to an exchange supported by Perpetual Market Making strategy
    - [How to use the `connect` command to connect your API keys](/operation/connect-exchange)
 1. Run the `create` command and enter `perpetual_market_making` strategy
-   ![](/img/perp-mm-prompt-strategy.png)
+   ![](/assets/img/perp-mm-prompt-strategy.png)
 1. Enter the name of the connector and the trading pair you want to use with this strategy
 1. Enter how much leverage you want to use. Leverage allows you to open a position at a fraction of a cost. The higher the leverage, the higher the risk. Please manage accordingly.
-   ![](/img/perp-mm-prompt-leverage.png)
+   ![](/assets/img/perp-mm-prompt-leverage.png)
 1. Select a `position_mode` from either [`One-way`](#one-way-mode) or [`Hedge`](#hedge-mode) mode. These are both explained further in their respective sections below.
-   ![](/img/perp-mm-prompt-position-mode.png)
+   ![](/assets/img/perp-mm-prompt-position-mode.png)
 1. Enter the bid and ask spreads from mid-price of your limit orders (for opening a position)
-   ![](/img/perp-mm-prompt-bid-spread.png)
-   ![](/img/perp-mm-prompt-ask-spread.png)
+   ![](/assets/img/perp-mm-prompt-bid-spread.png)
+   ![](/assets/img/perp-mm-prompt-ask-spread.png)
 1. Enter how many seconds you want orders to refresh when not filled
-   ![](/img/perp-mm-prompt-order-refresh-time.png)
+   ![](/assets/img/perp-mm-prompt-order-refresh-time.png)
 1. Enter the size of orders you want to place in the `order_amount` prompt
 1. Select a `position_management` from either [`Profit_taking`](#profit-taking) or [`Trailing_stop`](#trailing-stop) value
-   ![](/img/perp-mm-prompt-position-management.png)
+   ![](/assets/img/perp-mm-prompt-position-management.png)
    - If you selected `Profit_taking`, enter the spreads of your profit taking orders to close a long or short position in `long_profit_taking_spread` `short_profit_taking_spread`
-     ![](/img/perp-mm-prompt-long-profit-taking-spread.png)
-     ![](/img/perp-mm-prompt-short-profit-taking-spread.png)
+     ![](/assets/img/perp-mm-prompt-long-profit-taking-spread.png)
+     ![](/assets/img/perp-mm-prompt-short-profit-taking-spread.png)
    - If you selected `Trailing_stop`, enter the spread when you want the bot to start trailing as `ts_activation_spread` and the exit price as `ts_callback_rate`
-     ![](/img/perp-mm-prompt-ts-activation-spread.png)
-     ![](/img/perp-mm-prompt-ts-callback-rate.png)
+     ![](/assets/img/perp-mm-prompt-ts-activation-spread.png)
+     ![](/assets/img/perp-mm-prompt-ts-callback-rate.png)
 1. Enter the spread from the entry price to close a position with a stop-loss order
-   ![](/img/perp-mm-prompt-stop-loss.png)
+   ![](/assets/img/perp-mm-prompt-stop-loss.png)
 1. Choose between limit or market order when `close_position_order_type` value for stop loss and trailing stop orders
-   ![](/img/perp-mm-prompt-close-position-order-type.png)
+   ![](/assets/img/perp-mm-prompt-close-position-order-type.png)
 1. The strategy configuration file is saved in the Hummingbot folder
    - [Where are my configuration files saved?](https://hummingbot.zendesk.com/hc/en-us/articles/900005206343-Where-is-my-config-and-log-file-)
 
@@ -90,7 +90,7 @@ If the orders are not filled when they reach `order_refresh_time`, they are canc
 
 With the exception of the `order_refresh_tolerance_pct` value, if the orders are within the tolerable change in the spread, then they are not canceled. A log message on the right pane will show “Not canceling active orders since the difference between the new order prices and current order prices is within order_refresh_tolerance_pct”.
 
-![opening-orders-1](/img/opening-orders-1.gif)
+![opening-orders-1](/assets/img/opening-orders-1.gif)
 
 ## Opening positions after a filled order event
 
@@ -148,15 +148,15 @@ Positions are closed in three different ways:
 
 The strategy includes a logic that it will not create these orders when the position's profitability is at a loss (PNL at negative value). In the sample screenshot below, you can see that we have an open long position but no profit taking orders because PNL (ROE%) is at a loss.
 
-![closing-orders-1](img/closing-orders-1.png)
+![closing-orders-1](/assets/img/closing-orders-1.png)
 
 These are the logs in Hummingbot. Notice our position was opened at 03:52 when the buy order was filled but only created a profit taking sell order after 8 minutes when our PNL went up to a positive value.
 
-![closing-orders-4](img/closing-orders-4.png)
+![closing-orders-4](/assets/img/closing-orders-4.png)
 
-![closing-orders-2](img/closing-orders-2.png)
+![closing-orders-2](/assets/img/closing-orders-2.png)
 
-![closing-orders-3](img/closing-orders-3.png)
+![closing-orders-3](/assets/img/closing-orders-3.png)
 
 ### Profit Taking
 
@@ -195,7 +195,7 @@ When the market falls to or below 11,400 the bot will create a limit or market (
 
 Price `NILL` means the exit price is not profitable based on the current peak price.
 
-![price-nill](img/price-nill.png)
+![price-nill](/assets/img/price-nill.png)
 
 ### Stop Loss
 

@@ -3,7 +3,7 @@ title: CoinZoom
 description: About CoinZoom connector
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 CoinZoom is an institutional-grade digital currency trading platform that uses the team’s vast experience in providing superb trade quality and customer-focused tools and technology to help our customers to become successful digital currency traders. CoinZoom will offer Buying, Selling, and Trading of Bitcoin, Ripple, Ethereum, and other top digital currency pairs. In addition, our decades of experience in financial technology security are equally important in safeguarding customer funds and customers' digital currency positions.
 
@@ -32,7 +32,7 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 
 1. Log in to your account at https://trade.coinzoom.com/login, then go to > API trading (If you do not have an account, you will have to create one and verify your ID.)
 
-![](/img/coinzoom-api-trading.png)
+![](/assets/img/coinzoom-api-trading.png)
 
 <Callout
   type="tip"
@@ -44,11 +44,11 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 
 2. Then click “Generate key”
 
-![](/img/coinzoom-generate-api.png)
+![](/assets/img/coinzoom-generate-api.png)
 
 3. Now that you have created an API key, connect it to Hummingbot using the `connect` command.
 
-![](/img/coinzoom-api.png)
+![](/assets/img/coinzoom-api.png)
 
 Make sure you store your Secret Key somewhere secure and do not share it with anyone. Your Secret Key will only be displayed once at the time when you create the API.
 

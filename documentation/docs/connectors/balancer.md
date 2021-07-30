@@ -2,7 +2,7 @@
 title: Balancer
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 Balancer is an automated portfolio manager, liquidity provider, and price sensor. In other words, a decentralized finance protocol based on Ethereum allows automatic market-making.
 
@@ -32,7 +32,7 @@ When creating Hummingbot Gateway, it picks up the Ethereum settings in the globa
 3. Enter Ethereum node address (starts with https://)
 4. Enter the WebSocket connection address of your Ethereum node (starts with wss://)
 
-![](img/connect-ethereum.gif)
+![](/assets/img/connect-ethereum.gif)
 
 ## Install Hummingbot Gateway
 

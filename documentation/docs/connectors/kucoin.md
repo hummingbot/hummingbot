@@ -3,7 +3,7 @@ title: KuCoin
 description: About KuCoin Connector
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 KuCoin is a centralized exchange based in Hong Kong that opened for cryptocurrency trading in September 2017. Nicknamed the "People's Exchange"​, Kucoin is claimed to be easy to use for novice investors while being in-depth enough for crypto enthusiasts.
 
@@ -40,7 +40,7 @@ This FAQ article below in their documentation shows step-by-step instructions on
   body="For API key permissions, we recommend using #general#, and #trade# enabled API keys; enabling #withdraw, transfer or the equivalent is unnecessary# for current Hummingbot strategies."
 />
 
-![](/img/kucoin_api.png)
+![](/assets/img/kucoin_api.png)
 
 ## Miscellaneous Info
 
@@ -48,7 +48,7 @@ This FAQ article below in their documentation shows step-by-step instructions on
 
 Transfer desired assets to use for trading in Kucoin and for the assets to reflect when running the `balance` command in hummingbot client.
 
-![](/img/main_to_trading.gif)
+![](/assets/img/main_to_trading.gif)
 
 ### Minimum Order Sizes
 

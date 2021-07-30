@@ -3,7 +3,7 @@ title: FTX
 description: About FTX Connector
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 FTX is a cryptocurrency exchange launched in 2019. It allows users to trade contracts on crypto assets, or buy tokens representing other assets. Its team comes from Wall Street quant firms and tech companies.
 
@@ -31,7 +31,7 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 
 You can create API keys from your FTX profile page. Under the API tab will be a `CREATE` button.
 
-![](/img/ftx-create-api.png)
+![](/assets/img/ftx-create-api.png)
 
 Consult the FTX [API Documentation](https://help.ftx.com/hc/en-us/articles/360028807171-api-docs) for more information.
 
@@ -48,13 +48,13 @@ Users can go to https://ftx.com/status to check the status of the exchange and r
 
 When creating a strategy with Hummingbot, the prompt will include a minimum order size.
 
-![](/img/ftx-min-order.png)
+![](/assets/img/ftx-min-order.png)
 
 ### Transaction Fees
 
 FTX has a tiered fee structure.
 
-![](/img/ftx-fees.png)
+![](/assets/img/ftx-fees.png)
 
 Information on trading fees can be found [here](https://help.ftx.com/hc/en-us/articles/360024479432-Fees)
 

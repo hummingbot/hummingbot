@@ -3,7 +3,7 @@ title: AscendEX
 description: About AscendEX connector
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 AscendEX, formerly BitMax, is a leading digital asset financial platform with a comprehensive product suite including altcoin trading for spot, margin, and futures, wallet services for over 100 cryptocurrencies, and innovative staking support for top blockchain projects.
 
@@ -38,11 +38,11 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
   link={["https://ascendex.com/en/help-center/articles/360053013514"]}
 />
 
-![](/img/account-ascend-ex.png)
+![](/assets/img/account-ascend-ex.png)
 
 2. Then click the new API key.
 
-![](/img/api-ascend-ex.png)
+![](/assets/img/api-ascend-ex.png)
 
 <Callout
   type="warning"

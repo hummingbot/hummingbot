@@ -3,7 +3,7 @@ title: Digifinex
 description: About Digifinex connector
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 DigiFinex is the world's top 10 crypto exchange by trading volume and liquidity, offering spot, leverage, perpetual swap trading, and fiat to crypto trading. We are widely loved for being stable, secure, and easy to use
 
@@ -38,19 +38,19 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
   ]}
 />
 
-![](/img/digifinex-account.png)
+![](/assets/img/digifinex-account.png)
 
 2. Then click on API settings.
 
-![](/img/digifinex-api-settings.png)
+![](/assets/img/digifinex-api-settings.png)
 
 3. Click on Create API.
 
-![](/img/digifinex-create-api.png)
+![](/assets/img/digifinex-create-api.png)
 
 4. Give your API key a name. Check the corresponding box in which you will trade. It will need a verification code sent to your email and a code from your Authenticator.
 
-![](/img/digifinex-api.png)
+![](/assets/img/digifinex-api.png)
 
 Make sure you store your Secret Key somewhere secure and do not share it with anyone. Your Secret Key will only be displayed once at the time when you create the API.
 

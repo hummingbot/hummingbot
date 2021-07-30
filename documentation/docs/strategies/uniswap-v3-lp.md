@@ -3,7 +3,7 @@ title: Uniswap v3 Liquidity Pool Strategy
 description: Iteration 1 Uniswap v3 Strategy
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 import Prompt from "../../src/components/Prompt";
 
@@ -13,7 +13,7 @@ Before you can use the Uniswap v3 LP Strategy in Hummingbot, you need to install
 
 The flowchart below is a guide on how to set up the installation and configuration of the strategy.
 
-![Uniswap v3 LP Strategy](/img/uniswapv3-strat-diagram.jpg)
+![Uniswap v3 LP Strategy](/assets/img/uniswapv3-strat-diagram.jpg)
 
 ### Setup Ethereum wallet and nodes
 

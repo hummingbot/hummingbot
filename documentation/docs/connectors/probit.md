@@ -3,7 +3,7 @@ title: ProBit Global
 description: About ProBit connector
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 ProBit Exchange is a Top 20 crypto exchange globally. We have completed over 200 rounds of IEO and have been consistently ranked Top 4 in Korea. ProBit Exchange provides unlimited trading access highlighted by nearly 1,000 trading pairs.
 
@@ -47,11 +47,11 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
   ]}
 />
 
-![](/img/probit.png)
+![](/assets/img/probit.png)
 
 2. Then click the new API key.
 
-![](/img/new-api.png)
+![](/assets/img/new-api.png)
 
 <Callout
   type="note"

@@ -3,7 +3,7 @@ title: Loopring
 description: About Loopring Exchange Connector
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 Loopring is the first scalable DEX protocol built with zkRollup for Ethereum. Loopring Exchange is the first decentralized trading platform built on top of the Loopring protocol. Loopring Exchange is accessible at Loopring.io.
 
@@ -51,7 +51,7 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 
 4. Sign the requested message that will be presented by your wallet extension of choice.
 
-![](/img/loopring-api.png)
+![](/assets/img/loopring-api.png)
 
 You will be presented with your account information, which will include entries for "accountId", "exchangeAddress", "privateKey", and "apiKey". These values associated with these keys correspond to the required information to connect the Loopring connector.
 

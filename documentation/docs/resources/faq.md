@@ -57,7 +57,7 @@ In addition, the prohibitively high payment demanded by pro-market makers, coupl
 
 Market making strategies work best when you have a relatively calm market, but with sufficient trading activity. What that means for pure market makers is that he would be able to get both of his bid and ask offers traded regularly; the price of his inventory doesn't change by a lot, so there's no risk of him ending up on the wrong side a trend. Thus he would be able to repeatedly capture small profits via the bid/ask spread over time.
 
-![A calm market with regular trading activity](/img/pure-mm-calm.png)
+![A calm market with regular trading activity](/assets/img/pure-mm-calm.png)
 
 In the figure above, the period between 25 Feb and 12 Mar would be an example of the ideal case. The asset price stayed within a relatively small range, and there was sufficient trading activity for a market maker's offers to be taken regularly.
 
@@ -67,7 +67,7 @@ In this scenario, the market maker needs to be sure that the trading spread he s
 
 Markets with low trading activity higher risk for pure market-making strategies. Here's an example:
 
-![A market with low trading activity](/img/pure-mm-low-volume.png)
+![A market with low trading activity](/assets/img/pure-mm-low-volume.png)
 
 There's a risk in any market with low trading activity. The market maker may need to hold onto inventory for a long time without a chance to trade it back. During that time, the prices of the traded assets may rise or drop dramatically despite seeing no or little trading activity on the exchange. This exposes the market maker to inventory risk, even after mitigating some of this risk using wider bid spreads.
 
@@ -77,7 +77,7 @@ Other strategies may be more suitable from a risk perspective in this type of ma
 
 Another common risk that market makers need to be aware of is trending markets. Here's one example:
 
-![A trending market](/img/pure-mm-trending.png)
+![A trending market](/assets/img/pure-mm-trending.png)
 
 Suppose a pure market maker sets his spreads naively in such a market, e.g. equidistant bid/ask spread. In that case, there's a risk of the market maker's bid consistently being filled as prices trend down, while at the same time the market continues to move away from the market maker's ask, decreasing the probability of sells. This would result in an accumulation of inventory at precisely the time where this would reduce inventory value, which is a "wrong-way" risk.
 
@@ -106,7 +106,7 @@ You need to run `docker ps -a` to get the list of containers available. Then you
 1. Locate the container id of the bot you want to stop
 2. Run `docker container stop ` followed by your container id
 
-![Docker Container Stop](/img/docker-container-stop.PNG)
+![Docker Container Stop](/assets/img/docker-container-stop.PNG)
 
 > ** NOTE ** : Please be advised this will force close the bot from running on Docker. This means that this does not stop the outstanding orders from the HB client. The commands `stop` and `exit` is the right way to cancel orders.
 

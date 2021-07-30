@@ -3,7 +3,7 @@ title: HitBTC
 description: About HitBTC connector
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 HitBTC is a leading European bitcoin exchange that provides cryptocurrency trading services to institutional, merchants, and individual traders worldwide. The trading platform was founded in late 2013 and is under the operation of Ullus Corporation.
 
@@ -38,25 +38,25 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
   ]}
 />
 
-![](/img/hitbtc-settings.PNG)
+![](/assets/img/hitbtc-settings.PNG)
 
-![](/img/hitbtc.PNG)
+![](/assets/img/hitbtc.PNG)
 
 2. Click on API keys and then click "New API key"
 
-![](/img/hitbtc-api.PNG)
+![](/assets/img/hitbtc-api.PNG)
 
 3. It will show that you have created your API keys. It will now display in your API keys.
 
-![](img/hitbtc-api-key.PNG)
+![](/assets/img/hitbtc-api-key.PNG)
 
-![](/img/api-hitbtc.png)
+![](/assets/img/api-hitbtc.png)
 
 4. Enable the permissions for `Order book, History, Trading balance,` and `Place/Cancel orders`. Again, 2FA code is needed for enabling permissions.
 
-![](/img/hitbtc-2fa.PNG)
+![](/assets/img/hitbtc-2fa.PNG)
 
-![](/img/hitbtc-api-permission.png)
+![](/assets/img/hitbtc-api-permission.png)
 
 5. Now that you have created an API key, connect it to Hummingbot using the `connect` command.
 
