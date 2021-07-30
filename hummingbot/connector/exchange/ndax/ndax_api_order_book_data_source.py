@@ -6,8 +6,6 @@ import pandas as pd
 import time
 import websockets
 
-import hummingbot.connector.exchange.ndax.ndax_constants as CONSTANTS
-
 from typing import (
     Any,
     Dict,
@@ -15,6 +13,7 @@ from typing import (
     Optional,
 )
 
+from hummingbot.connector.exchange.ndax import ndax_constants as CONSTANTS, ndax_utils
 from hummingbot.connector.exchange.ndax.ndax_order_book import NdaxOrderBook
 from hummingbot.connector.exchange.ndax.ndax_order_book_message import NdaxOrderBookEntry
 from hummingbot.connector.exchange.ndax.ndax_utils import convert_to_exchange_trading_pair
@@ -30,8 +29,9 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
     _logger: Optional[HummingbotLogger] = None
     _trading_pair_id_map: Dict[str, int] = {}
 
-    def __init__(self, trading_pairs: List[str]):
+    def __init__(self, trading_pairs: List[str], domain: Optional[str] = None):
         super().__init__(trading_pairs)
+        self._domain: Optional[str] = domain
         self._websocket_client: Optional[NdaxWebSocketAdaptor] = None
 
     @classmethod
@@ -41,7 +41,7 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return cls._logger
 
     @classmethod
-    async def init_trading_pair_ids(cls):
+    async def init_trading_pair_ids(cls, domain: Optional[str] = None):
         """Initialize _trading_pair_id_map class variable
         """
         cls._trading_pair_id_map.clear()
@@ -51,7 +51,8 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
             "OMSId": 1
         }
         async with aiohttp.ClientSession() as client:
-            async with client.get(f"{CONSTANTS.REST_URL+CONSTANTS.MARKETS_URL}", params=params) as response:
+            async with client.get(f"{ndax_utils.rest_api_url(domain) + CONSTANTS.MARKETS_URL}",
+                                  params=params) as response:
                 if response.status == 200:
                     resp_json: Dict[str, Any] = await response.json()
 
@@ -62,14 +63,14 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         cls._trading_pair_id_map = results
 
     @classmethod
-    async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
+    async def get_last_traded_prices(cls, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
         """Fetches the Last Traded Price of the specified trading pairs.
 
         :params: List[str] trading_pairs: List of trading pairs(in Hummingbot base-quote format i.e. BTC-CAD)
         :return: Dict[str, float]: Dictionary of the trading pairs mapped to its last traded price in float
         """
         if not len(cls._trading_pair_id_map) > 0:
-            await cls.init_trading_pair_ids()
+            await cls.init_trading_pair_ids(domain)
 
         results = {}
 
@@ -80,7 +81,8 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     "OMSId": 1,
                     "InstrumentId": cls._trading_pair_id_map[trading_pair],
                 }
-                async with client.get(f"{CONSTANTS.REST_URL+CONSTANTS.LAST_TRADE_PRICE_URL}", params=params) as response:
+                async with client.get(f"{ndax_utils.rest_api_url(domain) + CONSTANTS.LAST_TRADE_PRICE_URL}",
+                                      params=params) as response:
                     if response.status == 200:
                         resp_json: Dict[str, Any] = await response.json()
 
@@ -91,7 +93,7 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return results
 
     @staticmethod
-    async def fetch_trading_pairs() -> List[str]:
+    async def fetch_trading_pairs(domain: str = None) -> List[str]:
         """Fetches and formats all supported trading pairs.
 
         Returns:
@@ -101,14 +103,15 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
             params = {
                 "OMSId": 1
             }
-            async with client.get(f"{CONSTANTS.REST_URL+CONSTANTS.MARKETS_URL}", params=params) as response:
+            async with client.get(f"{ndax_utils.rest_api_url(domain) + CONSTANTS.MARKETS_URL}",
+                                  params=params) as response:
                 if response.status == 200:
                     resp_json: Dict[str, Any] = await response.json()
                     return [f"{instrument['Product1Symbol']}-{instrument['Product2Symbol']}" for instrument in resp_json]
                 return []
 
     @classmethod
-    async def get_order_book_data(cls, trading_pair: str) -> Dict[str, any]:
+    async def get_order_book_data(cls, trading_pair: str, domain: Optional[str] = None) -> Dict[str, any]:
         """Retrieves entire orderbook snapshot of the specified trading pair via the REST API.
 
         Args:
@@ -118,14 +121,15 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
             Dict[str, any]: Parsed API Response.
         """
         if not len(cls._trading_pair_id_map) > 0:
-            await cls.init_trading_pair_ids()
+            await cls.init_trading_pair_ids(domain)
         params = {
             "OMSId": 1,
             "InstrumentId": cls._trading_pair_id_map[trading_pair],
             "Depth": 99999,
         }
         async with aiohttp.ClientSession() as client:
-            async with client.get(f"{CONSTANTS.REST_URL+CONSTANTS.ORDER_BOOK_URL}", params=params) as response:
+            async with client.get(f"{ndax_utils.rest_api_url(domain) + CONSTANTS.ORDER_BOOK_URL}",
+                                  params=params) as response:
                 if response.status != 200:
                     raise IOError(
                         f"Error fetching OrderBook for {trading_pair} at {CONSTANTS.ORDER_BOOK_URL}. "
@@ -154,7 +158,7 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def get_instrument_ids(self) -> Dict[str, int]:
         if not len(self._trading_pair_id_map) > 0:
-            await self.init_trading_pair_ids()
+            await self.init_trading_pair_ids(self._domain)
         return self._trading_pair_id_map
 
     async def _init_websocket_connection(self) -> NdaxWebSocketAdaptor:
@@ -163,7 +167,7 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         try:
             if self._websocket_client is None:
-                ws = await websockets.connect(CONSTANTS.WSS_URL)
+                ws = await websockets.connect(ndax_utils.wss_url(self._domain))
                 self._websocket_client = NdaxWebSocketAdaptor(websocket=ws)
             return self._websocket_client
         except asyncio.CancelledError:
@@ -178,7 +182,7 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Periodically polls for orderbook snapshots using the REST API.
         """
         if not len(self._trading_pair_id_map) > 0:
-            await self.init_trading_pair_ids()
+            await self.init_trading_pair_ids(self._domain)
         while True:
             try:
                 for trading_pair in self._trading_pairs:
@@ -210,7 +214,7 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Listen for orderbook diffs using WebSocket API.
         """
         if not len(self._trading_pair_id_map) > 0:
-            await self.init_trading_pair_ids()
+            await self.init_trading_pair_ids(self._domain)
 
         while True:
             try:
