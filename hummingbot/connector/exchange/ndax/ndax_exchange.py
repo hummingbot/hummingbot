@@ -203,7 +203,7 @@ class NdaxExchange(ExchangeBase):
         """
         params = {
             "OMSId": 1,
-            "UserId": int(self._auth.uid),
+            "UserId": self._auth.uid,
             "UserName": self._auth.account_name
         }
 
@@ -327,11 +327,15 @@ class NdaxExchange(ExchangeBase):
             raise ValueError(f"Error authenticating request {method} {url}. Error: {str(e)}")
         except Exception as e:
             raise IOError(f"Error parsing data from {url}. Error: {str(e)}")
-        if response.status != 200:
-            raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. "
-                          f"Message: {parsed_response} "
-                          f"Params: {params} "
-                          f"Data: {data}")
+        if response.status != 200 or (isinstance(parsed_response, dict) and not parsed_response.get("result", True)):
+            self.logger().error(f"Error fetching data from {url}. HTTP status is {response.status}. "
+                                f"Message: {parsed_response} "
+                                f"Params: {params} "
+                                f"Data: {data}")
+            raise Exception(f"Error fetching data from {url}. HTTP status is {response.status}. "
+                            f"Message: {parsed_response} "
+                            f"Params: {params} "
+                            f"Data: {data}")
 
         return parsed_response
 
@@ -761,9 +765,6 @@ class NdaxExchange(ExchangeBase):
             else:
                 self.logger().error(f"Error fetching order status. Response: {resp}")
 
-        min_ts: int = min([int(order_status["ReceiveTime"] // 1e3)
-                           for order_status in parsed_status_responses])
-
         trade_history_tasks = []
         trading_pair_ids: Dict[str, int] = await self._order_book_tracker.data_source.get_instrument_ids()
 
@@ -773,8 +774,8 @@ class NdaxExchange(ExchangeBase):
                 "AccountId": self.account_id,
                 "UserId": self._auth.uid,
                 "InstrumentId": trading_pair_ids[trading_pair],
-                "StartTimestamp": min_ts,
-                "EndTimestamp": int(time.time() * 1e3),
+                "StartTimestamp": self._last_poll_timestamp,
+                "EndTimestamp": self.current_timestamp,
             }
             trade_history_tasks.append(
                 asyncio.create_task(self._api_request(method="GET",
@@ -787,11 +788,12 @@ class NdaxExchange(ExchangeBase):
         # Initial parsing of responses. Joining all the responses
         parsed_history_resps: List[Dict[str, Any]] = []
         for resp in raw_responses:
-            if not isinstance(resp, Exception) and resp["ClientOrderId"] in self.in_flight_orders:
+            if not isinstance(resp, Exception):
                 parsed_history_resps.append(resp)
             else:
                 self.logger().error(f"Error fetching order status. Response: {resp}")
 
+        # Trade updates must be handled before any order status updates.
         for trade in parsed_history_resps:
             self._process_trade_event_message(trade)
 
@@ -807,11 +809,12 @@ class NdaxExchange(ExchangeBase):
             try:
                 self._poll_notifier = asyncio.Event()
                 await self._poll_notifier.wait()
+                start_ts = self.current_timestamp
                 await safe_gather(
                     self._update_balances(),
                     self._update_order_status(),
                 )
-                self._last_poll_timestamp = self.current_timestamp
+                self._last_poll_timestamp = start_ts
             except asyncio.CancelledError:
                 raise
             except Exception as e:
