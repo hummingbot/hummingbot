@@ -24,12 +24,13 @@ class NdaxUserStreamTracker(UserStreamTracker):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, auth_assistant: Optional[NdaxAuth] = None):
+    def __init__(self, auth_assistant: Optional[NdaxAuth] = None, domain: Optional[str] = None):
         super().__init__()
         self._auth_assistant: NdaxAuth = auth_assistant
         self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
         self._data_source: Optional[UserStreamTrackerDataSource] = None
         self._user_stream_tracking_task: Optional[asyncio.Task] = None
+        self._domain = domain
 
     @property
     def data_source(self) -> UserStreamTrackerDataSource:
@@ -38,7 +39,7 @@ class NdaxUserStreamTracker(UserStreamTracker):
         :return: UserStreamTrackerDataSource
         """
         if not self._data_source:
-            self._data_source = NdaxAPIUserStreamDataSource(auth_assistant=self._auth_assistant)
+            self._data_source = NdaxAPIUserStreamDataSource(auth_assistant=self._auth_assistant, domain=self._domain)
         return self._data_source
 
     async def start(self):

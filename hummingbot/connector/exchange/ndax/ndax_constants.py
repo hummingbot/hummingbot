@@ -2,16 +2,12 @@
 
 EXCHANGE_NAME = "ndax"
 
-# Production URLs
-# REST_URL = "https://api.ndax.io:8443/AP/"
-# WSS_URL = "wss://api.ndax.io/WSGateway"
+REST_URLS = {"ndax_main": "https://api.ndax.io:8443/AP/",
+             "ndax_testnet": "https://ndaxmarginstaging.cdnhop.net:8443/AP/"}
+WSS_URLS = {"ndax_main": "wss://api.ndax.io/WSGateway",
+            "ndax_testnet": "wss://ndaxmarginstaging.cdnhop.net/WSGateway"}
 
-# Testing URLs
-REST_URL = "https://ndaxmarginstaging.cdnhop.net:8443/AP/"
-WSS_URL = "wss://ndaxmarginstaging.cdnhop.net/WSGateway"
-
-REST_API_VERSON = "v3.3"
-
+REST_API_VERSION = "v3.3"
 
 # REST API Public Endpoints
 MARKETS_URL = "GetInstruments"
@@ -26,7 +22,6 @@ CANCEL_ORDER_PATH_URL = "CancelOrder"
 GET_ORDER_STATUS_PATH_URL = "GetOrderStatus"
 GET_TRADES_HISTORY_PATH_URL = "GetTradesHistory"
 GET_OPEN_ORDERS_PATH_URL = "GetOpenOrders"
-
 
 # WebSocket Public Endpoints
 ACCOUNT_POSITION_EVENT_ENDPOINT_NAME = "AccountPositionEvent"

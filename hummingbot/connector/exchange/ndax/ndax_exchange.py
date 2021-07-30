@@ -41,7 +41,7 @@ from hummingbot.core.event.events import (
     TradeFee,
     TradeType,
 )
-from hummingbot.core.network_base import NetworkStatus
+from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
 
@@ -73,7 +73,8 @@ class NdaxExchange(ExchangeBase):
                  ndax_secret_key: str,
                  ndax_account_name: str,
                  trading_pairs: Optional[List[str]] = None,
-                 trading_required: bool = True
+                 trading_required: bool = True,
+                 domain: Optional[str] = None
                  ):
         """
         :param ndax_uid: User ID of the account
@@ -90,8 +91,9 @@ class NdaxExchange(ExchangeBase):
                               api_key=ndax_api_key,
                               secret_key=ndax_secret_key,
                               account_name=ndax_account_name)
-        self._order_book_tracker = NdaxOrderBookTracker(trading_pairs=trading_pairs)
-        self._user_stream_tracker = NdaxUserStreamTracker(self._auth)
+        self._order_book_tracker = NdaxOrderBookTracker(trading_pairs=trading_pairs, domain=domain)
+        self._user_stream_tracker = NdaxUserStreamTracker(self._auth, domain=domain)
+        self._domain = domain
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client = None
         self._poll_notifier = asyncio.Event()
@@ -299,7 +301,7 @@ class NdaxExchange(ExchangeBase):
         signature to the request.
         :returns A response in json format.
         """
-        url = CONSTANTS.REST_URL + path_url
+        url = ndax_utils.rest_api_url(self._domain) + path_url
         client = await self._http_client()
 
         try:
@@ -446,15 +448,15 @@ class NdaxExchange(ExchangeBase):
                 app_warning_msg="Error submitting order to NDAX. "
             )
 
-    def buy(self, trading_pair: str, amount: Decimal, price: Decimal, order_type: OrderType = OrderType.MARKET,
-            **kwargs) -> str:
+    def buy(self, trading_pair: str, amount: Decimal, order_type: OrderType = OrderType.MARKET,
+            price: Decimal = s_decimal_NaN, **kwargs) -> str:
         """
         Buys an amount of base asset as specified in the trading pair. This function returns immediately.
         To see an actual order, wait for a BuyOrderCreatedEvent.
         :param trading_pair: The market (e.g. BTC-CAD) to buy from
         :param amount: The amount in base token value
-        :param price: The price in which the order is to be placed at
         :param order_type: The order type
+        :param price: The price in which the order is to be placed at
         :returns A new client order id
         """
         order_id: str = ndax_utils.get_new_client_order_id(True, trading_pair)
@@ -467,15 +469,15 @@ class NdaxExchange(ExchangeBase):
                                               ))
         return order_id
 
-    def sell(self, trading_pair: str, amount: Decimal, price: Decimal, order_type: OrderType = OrderType.MARKET,
-             **kwargs) -> str:
+    def sell(self, trading_pair: str, amount: Decimal, order_type: OrderType = OrderType.MARKET,
+             price: Decimal = s_decimal_NaN, **kwargs) -> str:
         """
         Sells an amount of base asset as specified in the trading pair. This function returns immediately.
         To see an actual order, wait for a BuyOrderCreatedEvent.
         :param trading_pair: The market (e.g. BTC-CAD) to buy from
         :param amount: The amount in base token value
-        :param price: The price in which the order is to be placed at
         :param order_type: The order type
+        :param price: The price in which the order is to be placed at
         :returns A new client order id
         """
         order_id: str = ndax_utils.get_new_client_order_id(False, trading_pair)
