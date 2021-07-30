@@ -3,7 +3,7 @@ title: Order Optimization
 description: Info on order optimization
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 import Prompt from "../../src/components/Prompt";
 
@@ -67,7 +67,7 @@ It is recommended to disable `add_transaction_costs` (set to `False`) for this f
 
 Setting our bid and ask threshold to a very small value (0.1%) puts our orders at the top of the order book. For example, the image below shows the buy order is placed at `0.003159` and the sell order at `0.003165` with the order optimization disabled.
 
-![jump_orders_1](/img/jump_orders1.png)
+![jump_orders_1](/assets/img/jump_orders1.png)
 
 Now let's enable `order_optimization_enabled`. You'll see in the next image that the buy order is placed at `0.003150` and the sell order at `0.003174`, right just above the next best order.
 
@@ -79,7 +79,7 @@ Now let's enable `order_optimization_enabled`. You'll see in the next image that
 - bid_order_optimization_depth: 0
 ```
 
-![jump_orders_2](/img/jump_orders2.png)
+![jump_orders_2](/assets/img/jump_orders2.png)
 
 If the next best order's price changes (not your own), your existing orders will not adjust immediately. It will wait for `order_refresh_time` to cancel your existing orders and the new orders will try to jump to just above best bid or just below best ask.
 
@@ -95,7 +95,7 @@ This allows users to ignore dust orders specified in the base currency amount. A
 - bid_order_optimization_depth: 0
 ```
 
-![jump_orders_3](/img/jump_orders3.png)
+![jump_orders_3](/assets/img/jump_orders3.png)
 
 Here we configure and set `ask_order_optimization_depth` and `bid_order_optimization_depth` both to 5,000.
 
@@ -109,7 +109,7 @@ Here we configure and set `ask_order_optimization_depth` and `bid_order_optimiza
 
 Doing this ignores the first 5,000 units of orders on each side in the order book and places our orders right next to them.
 
-![jump_orders_4](/img/jump_orders4.png)
+![jump_orders_4](/assets/img/jump_orders4.png)
 
 ## Order Optimization with multiple order levels
 
@@ -125,4 +125,4 @@ Users can now use order optimization with multiple `order_levels` see the exampl
 - bid_order_optimization_depth: 0
 ```
 
-![](img/multiple_order_levels.png)
+![](/assets/img/multiple_order_levels.png)

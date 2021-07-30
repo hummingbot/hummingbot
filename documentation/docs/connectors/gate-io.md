@@ -2,7 +2,7 @@
 title: Gate.io
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 Gate.io is operated by Gate Technology Corp. Their mission is to serve the blockchain industry by providing secure and reliable products & services to consumers and companies around the world.
 
@@ -24,11 +24,11 @@ To use [Gate.io](https://www.gate.io/ref/4566709) connector for spot trading wit
   ]}
 />
 
-![](/img/gateio-api.png)
+![](/assets/img/gateio-api.png)
 
 2. Then click the new API key. Make sure to store & secure the secret key. A secret key will be displayed only once during the API creation.
 
-![](/img/gateio-account.png)
+![](/assets/img/gateio-account.png)
 
 <Callout
   type="warning"
@@ -43,7 +43,7 @@ To use [Gate.io](https://www.gate.io/ref/4566709) connector for spot trading wit
 ## Connecting to Gate.io
 
 1. Run the command `connect gate_io`
-   ![Connecting to Gate io](/img/gateio-connect.gif)
+   ![Connecting to Gate io](/assets/img/gateio-connect.gif)
 2. Enter the API and secret key generated from your Gate.io account
 3. A message will be displayed when you have successfully connected to the exchange
 

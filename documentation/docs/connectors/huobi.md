@@ -3,7 +3,7 @@ title: Huobi Global
 description: About Huobi Global Connector
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 Huobi is a global, centralized cryptocurrency exchange started in Seychelles and has since expanded its offices to Hong Kong, Korea, Japan, and the United States. As of March 2018, Huobi processed around US \$1 billion in trades daily.
 
@@ -30,11 +30,11 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 
 1. Log in to https://www.hbg.com/ or sign up for an account on [this page](https://www.hbg.com/en-us/register/?backUrl=%2Fen-us%2F) and go to **API Management** under **Account** section.
 
-![huobi1](/img/huobi-account.png)
+![huobi1](/assets/img/huobi-account.png)
 
 2. Add notes (required) and make sure the checkbox for **Trade** is selected to trade on Hummingbot.
 
-![huobi2](/img/huobi-create-api-key.png)
+![huobi2](/assets/img/huobi-create-api-key.png)
 
 <Callout
   type="warning"
@@ -48,12 +48,12 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 
 3. **Click to send** and enter the verification code sent to the registered email address.
 
-![huobi3](/img/huobi-verification-code.png)
+![huobi3](/assets/img/huobi-verification-code.png)
 
 - Your Access Key and Secret Key will only be shown to you once. So make sure to save and keep this information somewhere safe. If you lose your Secret Key, you can delete the API and create a new one. However, it will be impossible to reuse the same API.
 - Information related to your API keys such as create date, notes, permissions, bind IP address, days remaining before expiration, status is shown under **My API Key**. Click **Edit** button to change the permission setting or bind/unbind to an IP address anytime.
 
-![huobi4](/img/huobi-my-api-key.png)
+![huobi4](/assets/img/huobi-my-api-key.png)
 
 ## Miscellaneous Info
 

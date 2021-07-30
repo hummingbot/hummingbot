@@ -2,7 +2,7 @@
 title: Terra
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 The [Terra Protocol](https://terra.money/) is the creator of the Luna Token, Terra Core, and the blockchain payment solution CHAI. The design of the Terra Protocol is based on two things: stability and adoption by e-commerce platforms.
 
@@ -33,7 +33,7 @@ Source: https://medium.com/stakin/what-is-terra-money-8eb1dcb314d2
 5. Confirm your seed to complete
 6. The Terra wallet address is located at the top
 
-![](img/terra-create-wallet.gif)
+![](/assets/img/terra-create-wallet.gif)
 
 ## Connecting to Terra
 
@@ -42,11 +42,11 @@ Source: https://medium.com/stakin/what-is-terra-money-8eb1dcb314d2
   body="Before connecting your wallet address and seed, make sure to have Terra set up when you create your `gateway-instance`"
 />
 
-![](img/terra_setup.png)
+![](/assets/img/terra_setup.png)
 
 1. Run the command `connect terra` in the Hummingbot client
 2. Enter your Terra wallet address
 3. Enter your Terra wallet seed, including the spaces in between each word
 4. Create and run an `amm_arb` strategy to use the Terra connector
 
-![](img/connect-terra.gif)
+![](/assets/img/connect-terra.gif)

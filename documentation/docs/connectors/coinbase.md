@@ -3,7 +3,7 @@ title: Coinbase Pro
 description: About Coinbase Pro Connector
 ---
 
-import Callout from "../../src/components/Callout";
+
 
 Based in San Francisco, CA, Coinbase Pro is a widely-used, global cryptocurrency exchange designed for professional traders. It has a reputation for being secure and trustworthy, is [regulated in all the jurisdictions in which it operates](https://www.coinbase.com/legal/insurance), and maintains some [insurance on assets and deposits](https://www.coinbase.com/legal/insurance).
 
@@ -31,7 +31,7 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 
 1. Log into your Coinbase Pro account, click your avatar and then select **API** (If you do not have an account, you will have to create one and verify your ID).
 
-![coinbase1](/img/coinbase1.png)
+![coinbase1](/assets/img/coinbase1.png)
 
 <Callout
   type="tip"
@@ -43,7 +43,7 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 
 2. Click on **+ NEW API KEY**.
 
-![coinbase2](/img/coinbase2.png)
+![coinbase2](/assets/img/coinbase2.png)
 
 Make sure you give permissions to **View** and **Trade**, and enter your 2FA code.
 
@@ -52,17 +52,17 @@ Make sure you give permissions to **View** and **Trade**, and enter your 2FA cod
   body="We recommend using only #trade# enabled API keys; enabling #withdraw, transfer, or the equivalent is unnecessary# for current Hummingbot strategies."
 />
 
-![coinbase3](/img/coinbase3.png)
+![coinbase3](/assets/img/coinbase3.png)
 
 Once you pass the authentication, you’ve created a new API Key!
 
 Your API Secret will be displayed on the screen. Make sure you store your API Secret somewhere secure and do not share it with anyone.
 
-![coinbase4](/img/coinbase4.png)
+![coinbase4](/assets/img/coinbase4.png)
 
 When you close the API Secret screen, your API key will be shown in **My API Keys**. The code highlighted in red is your API key.
 
-![coinbase5](/img/coinbase5.png)
+![coinbase5](/assets/img/coinbase5.png)
 
 The API Key, Secret, and Passphrase are required for using Hummingbot.
 
@@ -92,7 +92,7 @@ For more information, read through their article below.
 
 All Market Orders, Limit Orders and Stop Orders placed on Coinbase Markets are subject to the minimum order size requirements listed in their [Market Information](https://pro.coinbase.com/markets) page.
 
-![coinbase6](/img/coinbase6.png)
+![coinbase6](/assets/img/coinbase6.png)
 
 ### Transaction Fees
 
