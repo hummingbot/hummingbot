@@ -17,8 +17,8 @@ class NdaxAuth():
         self._account_name: str = account_name
 
     @property
-    def uid(self) -> str:
-        return self._uid
+    def uid(self) -> int:
+        return int(self._uid)
 
     @property
     def account_name(self) -> str:
