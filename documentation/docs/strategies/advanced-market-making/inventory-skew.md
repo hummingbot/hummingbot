@@ -41,17 +41,13 @@ This expands the range of tolerable inventory level around your target base perc
 
 This function adjusts the bid and ask order amounts to limit the user's trading exposure within a defined range. This prevents the user from being over-exposed from the risks of a single side of the trade when the market keeps hitting limit orders on one side only.
 
-<Callout
-  type="note"
-  body="#Example#: You are market making for the `BTC-USDT` pair and have 0.667 BTC and 6000 USDT. At $6000 BTC price, your total portfolio value is $10,000 and the base asset (BTC) accounts for 40% of total value. If your target base percent is 50%, your buy orders will be increased and your sell orders will be decreased until you reach the target percent."
-/>
+!!! note
+    **Example:** You are market making for the `BTC-USDT` pair and have 0.667 BTC and 6000 USDT. At $6000 BTC price, your total portfolio value is $10,000 and the base asset (BTC) accounts for 40% of total value. If your target base percent is 50%, your buy orders will be increased and your sell orders will be decreased until you reach the target percent.
 
 The user specifies a target base asset percentage. Since the user's outstanding orders may change this split if they are filled, the total order size is used to define an allowable range around this target percentage. The user may expand or contract this range via a multiplier parameter.
 
-<Callout
-  type="note"
-  body="#Example#: You are market making for the `BTC-USDT` pair and the total value of your BTC/USDT inventory is 10 BTC. Your target base percent is 50% and each set of orders you place is 1 BTC (10% of your total portfolio). With `inventory_range_multiplier` of 1.00, your target range is 40% to 60%. With `inventory_range_multiplier` of 2.00, your target range is 30% to 70%.\*"
-/>
+!!! note
+    **Example:** You are market making for the `BTC-USDT` pair and the total value of your BTC/USDT inventory is 10 BTC. Your target base percent is 50% and each set of orders you place is 1 BTC (10% of your total portfolio). With `inventory_range_multiplier` of 1.00, your target range is 40% to 60%. With `inventory_range_multiplier` of 2.00, your target range is 30% to 70%.
 
 If the user's base asset value goes above the upper limit, then no bid orders would be emitted. Conversely, if the user's base asset value goes below the lower limit, then no ask orders would be emitted.
 
