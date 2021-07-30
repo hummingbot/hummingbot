@@ -1,11 +1,4 @@
----
-title: External Pricing Source Configuration
-description: Info on external pricing source configuration
----
-
-import Callout from "../../src/components/Callout";
-
-import Prompt from "../../src/components/Prompt";
+# External Pricing Source Configuration
 
 **Updated as of `v0.36.0`**
 

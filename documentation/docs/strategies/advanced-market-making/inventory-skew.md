@@ -1,11 +1,4 @@
----
-title: Inventory Skew
-description: Info on inventory skew
----
-
-import Callout from "../../src/components/Callout";
-
-import Prompt from "../../src/components/Prompt";
+# Inventory Skew
 
 **Updated as of `v0.29.0`**
 

@@ -1,11 +1,4 @@
----
-title: Adding Transaction Costs
-description: Info on adding transaction costs to prices
----
-
-import Callout from "../../src/components/Callout";
-
-import Prompt from "../../src/components/Prompt";
+# Adding Transaction Costs
 
 **Updated as of `v0.28.0`**
 
