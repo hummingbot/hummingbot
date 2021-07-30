@@ -761,6 +761,9 @@ class NdaxExchange(ExchangeBase):
             else:
                 self.logger().error(f"Error fetching order status. Response: {resp}")
 
+        min_ts: int = min([int(order_status["ReceiveTime"] // 1e3)
+                           for order_status in parsed_status_responses])
+
         trade_history_tasks = []
         trading_pair_ids: Dict[str, int] = await self._order_book_tracker.data_source.get_instrument_ids()
 
@@ -770,8 +773,8 @@ class NdaxExchange(ExchangeBase):
                 "AccountId": self.account_id,
                 "UserId": self._auth.uid,
                 "InstrumentId": trading_pair_ids[trading_pair],
-                "StartTimestamp": self._last_poll_timestamp,
-                "EndTimestamp": self.current_timestamp,
+                "StartTimestamp": min_ts,
+                "EndTimestamp": int(time.time() * 1e3),
             }
             trade_history_tasks.append(
                 asyncio.create_task(self._api_request(method="GET",
