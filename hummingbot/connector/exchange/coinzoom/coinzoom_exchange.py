@@ -18,7 +18,6 @@ from async_timeout import timeout
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.clock import Clock
-from hummingbot.core.utils.asyncio_throttle import Throttler
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.cancellation_result import CancellationResult
@@ -43,6 +42,7 @@ from hummingbot.connector.exchange.coinzoom.coinzoom_user_stream_tracker import 
 from hummingbot.connector.exchange.coinzoom.coinzoom_auth import CoinzoomAuth
 from hummingbot.connector.exchange.coinzoom.coinzoom_in_flight_order import CoinzoomInFlightOrder
 from hummingbot.connector.exchange.coinzoom.coinzoom_utils import (
+    REQUEST_THROTTLER,
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair,
     get_new_client_order_id,
@@ -103,7 +103,7 @@ class CoinzoomExchange(ExchangeBase):
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
         self._last_poll_timestamp = 0
-        self._throttler = Throttler(rate_limit = (8.0, 6))
+        self._throttler = REQUEST_THROTTLER
         self._real_time_balance_update = False
         self._update_balances_fetching = False
         self._update_balances_queued = False
