@@ -167,6 +167,9 @@ nav:
     - Scripts:
       - Overview: scripts/index.md
       - Script Base: scripts/script-base.md
+    - Resources:
+      - Frequently Asked Questions: resources/faq.md
+      - Glossary: resources/glossary.md
 
   - Developer Manual:
       - Intro: developers/index.md
