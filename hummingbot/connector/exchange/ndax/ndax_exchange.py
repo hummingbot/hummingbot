@@ -151,7 +151,7 @@ class NdaxExchange(ExchangeBase):
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
-        self._order_book_tracker.order_books
+        return self._order_book_tracker.order_books
 
     @property
     def limit_orders(self) -> List[LimitOrder]:
@@ -787,7 +787,7 @@ class NdaxExchange(ExchangeBase):
         # Initial parsing of responses. Joining all the responses
         parsed_history_resps: List[Dict[str, Any]] = []
         for resp in raw_responses:
-            if not isinstance(resp, Exception):
+            if not isinstance(resp, Exception) and resp["ClientOrderId"] in self.in_flight_orders:
                 parsed_history_resps.append(resp)
             else:
                 self.logger().error(f"Error fetching order status. Response: {resp}")

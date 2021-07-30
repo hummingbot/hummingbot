@@ -33,7 +33,7 @@ class NdaxWebSocketAdaptor:
     connection is reestablished after a communication error, and allows to keep a unique identifier for each message.
     The default previous_messages_number is 0
     """
-    MESSAGE_TIMEOUT = 30.0
+    MESSAGE_TIMEOUT = 20.0
     PING_TIMEOUT = 5.0
 
     def __init__(self, websocket: websockets.WebSocketClientProtocol, previous_messages_number: int = 0):
@@ -81,17 +81,20 @@ class NdaxWebSocketAdaptor:
     async def iter_messages(self) -> AsyncIterable[str]:
         try:
             while True:
-                msg: str = await asyncio.wait_for(self.recv(), timeout=self.MESSAGE_TIMEOUT)
-                yield msg
-        except asyncio.TimeoutError:
-            await asyncio.wait_for(
-                self.send_request(CONSTANTS.WS_PING_REQUEST, payload={}),
-                timeout=self.PING_TIMEOUT
-            )
+                try:
+                    msg: str = await asyncio.wait_for(self.recv(), timeout=self.MESSAGE_TIMEOUT)
+                    yield msg
+                except asyncio.TimeoutError:
+                    await asyncio.wait_for(
+                        self.send_request(CONSTANTS.WS_PING_REQUEST, payload={}),
+                        timeout=self.PING_TIMEOUT
+                    )
+                except Exception as e:
+                    raise e
         except websockets.exceptions.ConnectionClosed:
             return
         finally:
-            await self._websocket.close()
+            await self.close()
 
     async def close(self, *args, **kwars):
         return await self._websocket.close(*args, **kwars)
