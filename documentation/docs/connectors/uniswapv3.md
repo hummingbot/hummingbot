@@ -36,7 +36,7 @@ When creating Hummingbot Gateway, it picks up the Ethereum settings in the globa
 3. Enter Ethereum node address (starts with https://)
 4. Enter the websocket connection address of your Ethereum node (starts with wss://)
 
-![](img/connect-ethereum.gif)
+![](/assets/img/connect-ethereum.gif)
 
 ## Install Hummingbot Gateway
 

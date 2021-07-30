@@ -36,7 +36,7 @@ The article below in their documentation shows step-by-step instructions on how 
 
 Take note that for your API keys to work with Hummingbot, **set the Nonce Window to at least 10**.
 
-![kraken](/img/kraken_nonce_window.png)
+![kraken](/assets/img/kraken_nonce_window.png)
 
 <Callout
   type="warning"
@@ -45,7 +45,7 @@ Take note that for your API keys to work with Hummingbot, **set the Nonce Window
 
 Shows nonce reminder when adding API keys to Kraken.
 
-![kraken](/img/kraken_nonce.png)
+![kraken](/assets/img/kraken_nonce.png)
 
 Also, note that your account must have funds to avoid getting this error when connecting your Kraken API on Hummingbot.
 
@@ -61,7 +61,7 @@ Failed connections:                                                             
 Kraken uses asset codes in front of some pairs as a classification system. Asset codes starting with **'X'** represent cryptocurrencies, though this is no longer followed for the newest coins. Asset codes starting with **'Z'** represent fiat currencies.
 
 BTC is represented as XBT in this exchange. Therefore trading on this pair is viewed as XXBT, e.g., XXBT-USDT. However, Hummingbot uses symbol conversion so that it will be entered as `BTC-USDT`. For e.g.
-![kraken](/img/kraken_sample.png)
+![kraken](/assets/img/kraken_sample.png)
 
 This article shows the complete list of assets and their corresponding asset codes.
 

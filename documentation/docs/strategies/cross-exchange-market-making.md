@@ -26,7 +26,7 @@ The diagrams below illustrate how cross exchange market making works. The transa
   </center>
 </small>
 
-![Figure 1: Hummingbot acts as a market maker on maker exchange](/img/xemm-1.png)
+![Figure 1: Hummingbot acts as a market maker on maker exchange](/assets/img/xemm-1.png)
 
 **Buy order**: Hummingbot can sell the asset on the taker exchange for 99 (the best bid available); therefore, it places a buy order on the maker exchange at a lower value of 98.
 
@@ -39,7 +39,7 @@ The diagrams below illustrate how cross exchange market making works. The transa
   </center>
 </small>
 
-![Figure 2: Hummingbot fills an order on the maker exchanges and hedges on the taker exchange](/img/xemm-2.png)
+![Figure 2: Hummingbot fills an order on the maker exchanges and hedges on the taker exchange](/assets/img/xemm-2.png)
 
 If a buyer (_Buyer D_) fills Hummingbot's sell order on the maker exchange (_Figure 2_ ❶), Hummingbot immediately buys the asset on the taker exchange (_Figure 2_ ❷).
 

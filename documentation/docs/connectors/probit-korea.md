@@ -47,11 +47,11 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
   ]}
 />
 
-![](/img/probit-korea-account.JPG)
+![](/assets/img/probit-korea-account.JPG)
 
 2. Then click the new API key.
 
-![](/img/probit-korea-api.JPG)
+![](/assets/img/probit-korea-api.JPG)
 
 <Callout
   type="note"

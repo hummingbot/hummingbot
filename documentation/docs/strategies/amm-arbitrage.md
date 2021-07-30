@@ -11,7 +11,7 @@ import Prompt from "../../src/components/Prompt";
 
 Before you can use the AMM arbitrage strategy in Hummingbot, you need to install and configure the Gateway API server. The following flowchart shows the typical installation and configuration process for Balancer.
 
-![Balancer flowchart](/img/balancer-flowchart.png)
+![Balancer flowchart](/assets/img/balancer-flowchart.png)
 
 ### Setup Ethereum wallet and nodes
 
@@ -169,9 +169,9 @@ If you prefer to manually set your gas other than using Defipulse.
 
 - You can initially setup `rate_oracle_source` and get the rates before creating the AMM-Arbritrage strategy.
 
-![Rate Oracle Config](/img/rate-oracle-ammarb-config.png)
+![Rate Oracle Config](/assets/img/rate-oracle-ammarb-config.png)
 
-![Rate Oracle Status](/img/rate_oracle_amm_arb_status.png)
+![Rate Oracle Status](/assets/img/rate_oracle_amm_arb_status.png)
 
 ## Switch Balancer Network
 

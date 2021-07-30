@@ -72,7 +72,7 @@ The `order_level_spread` logic works the same as the order step size, but instea
 
 Let us focus on one side of the order for now: the "sell" side of the order book. Given the sample scenarios above, your active orders will show as:
 
-![orderlevels](/img/order_level_spread_amount.png)
+![orderlevels](/assets/img/order_level_spread_amount.png)
 
 ## Sample Configuration
 
@@ -87,7 +87,7 @@ Let us focus on one side of the order for now: the "sell" side of the order book
 ```
 
 Running a bot with the parameters above, the `status` command shows 3 levels of orders in the BTC-USDT trading pair:
-![Market making with 3 order levels for BTC-USDT](/img/order_level_spread_amount1-new.png)
+![Market making with 3 order levels for BTC-USDT](/assets/img/order_level_spread_amount1-new.png)
 
 You might notice that our output's actual spread is not exactly similar to the parameters we have configured for the percentage. This is because of two things:
 

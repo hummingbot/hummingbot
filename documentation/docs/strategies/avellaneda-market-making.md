@@ -308,15 +308,15 @@ An Avellaneda strategy feature that recalculates your hanging orders with aggreg
 
 `config hanging_orders_enabled`
 
-![hanging orders enabled](/img/AvellanedaHangingOrders_Enable.gif)
+![hanging orders enabled](/assets/img/AvellanedaHangingOrders_Enable.gif)
 
 `config hanging_orders_aggregation_type`
 
-![hanging orders aggregate](/img/AvellanedaHangingOrders_Aggregate.gif)
+![hanging orders aggregate](/assets/img/AvellanedaHangingOrders_Aggregate.gif)
 
 `config hanging_orders_cancel_pct`
 
-![hanging orders cancel pct](/img/AvellanedaHangingOrders_cancel_pct.gif)
+![hanging orders cancel pct](/assets/img/AvellanedaHangingOrders_cancel_pct.gif)
 
 Adjust the settings by opening the strategy config file with a text editor.
 

@@ -40,7 +40,7 @@ This FAQ article below in their documentation shows step-by-step instructions on
   body="For API key permissions, we recommend using #general#, and #trade# enabled API keys; enabling #withdraw, transfer or the equivalent is unnecessary# for current Hummingbot strategies."
 />
 
-![](/img/kucoin_api.png)
+![](/assets/img/kucoin_api.png)
 
 ## Miscellaneous Info
 
@@ -48,7 +48,7 @@ This FAQ article below in their documentation shows step-by-step instructions on
 
 Transfer desired assets to use for trading in Kucoin and for the assets to reflect when running the `balance` command in hummingbot client.
 
-![](/img/main_to_trading.gif)
+![](/assets/img/main_to_trading.gif)
 
 ### Minimum Order Sizes
 

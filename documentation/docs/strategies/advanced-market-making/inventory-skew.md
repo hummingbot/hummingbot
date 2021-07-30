@@ -71,7 +71,7 @@ The three bots below all share this base configuration:
 - inventory_skew_enabled: False
 ```
 
-![inventory skew](/img/no-inventory-skew.png)
+![inventory skew](/assets/img/no-inventory-skew.png)
 
 Without inventory skew, order amounts are always symmetrical between buy (outlined in green) and sell orders (outlined in red).
 
@@ -83,7 +83,7 @@ Without inventory skew, order amounts are always symmetrical between buy (outlin
 - inventory_range_multiplier: 1.0
 ```
 
-![inventory skew](/img/skew-with-multiplier-1.png)
+![inventory skew](/assets/img/skew-with-multiplier-1.png)
 
 Since the current inventory range of each asset is within the target range (8.7% - 91.3%), both buy and sell orders are placed. However, more buy orders will be created with larger order amounts than the sell order amounts.
 
@@ -95,7 +95,7 @@ Since the current inventory range of each asset is within the target range (8.7%
 - inventory_range_multiplier: 0.5
 ```
 
-![inventory skew](/img/skew-with-multiplier-0.5.png)
+![inventory skew](/assets/img/skew-with-multiplier-0.5.png)
 
 By decreasing the range multiplier to 0.5, the target range tightens (29.4% to 70.6%). Since the current inventory percentage (25.0% and 75%) falls off the range, only buy orders are placed until the inventory split is within range.
 
@@ -113,7 +113,7 @@ Starting with version **0.30.0**, a [limit](/release-notes/0.30.0/#-new-command-
 
 The image below shows our total balance is around \$200. To maintain a 50-50 ratio based on `inventory_target_base_pct`, the target shows a value of around \$100 for the base and quote asset.
 
-![inventory skew](/img/skew_without_limit.png)
+![inventory skew](/assets/img/skew_without_limit.png)
 
 **With balance limit**
 
@@ -132,4 +132,4 @@ The input `order_amount` in single-order mode, or its equivalent in multiple-ord
 
 The mathematics operations is as follows.
 
-![inventory skew maths](/img/inventory-skew-formula.png)
+![inventory skew maths](/assets/img/inventory-skew-formula.png)

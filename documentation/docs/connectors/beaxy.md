@@ -38,15 +38,15 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
   ]}
 />
 
-![](/img/beaxyapi.png)
+![](/assets/img/beaxyapi.png)
 
 2. Then click create an API key.
 
-![](/img/beaxyapi-key.png)
+![](/assets/img/beaxyapi-key.png)
 
 3. Give the API a name, then click create.
 
-![](img/beaxycreate.png)
+![](/assets/img/beaxycreate.png)
 
 3. Now that you have created an API key, connect it to Hummingbot using the `connect` command.
 

@@ -48,7 +48,7 @@ Here is the link for more info regarding the [OKEx upgrade to API v5](https://ww
 
 ### Minimum Order Sizes
 
-You have to check the individual trading pair for the information for the minimum order size per trading pair. See the following AAVE example: ![aave1](/img/Okex-min-order.png)
+You have to check the individual trading pair for the information for the minimum order size per trading pair. See the following AAVE example: ![aave1](/assets/img/Okex-min-order.png)
 
 ### Transaction Fees
 

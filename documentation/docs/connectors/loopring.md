@@ -51,7 +51,7 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 
 4. Sign the requested message that will be presented by your wallet extension of choice.
 
-![](/img/loopring-api.png)
+![](/assets/img/loopring-api.png)
 
 You will be presented with your account information, which will include entries for "accountId", "exchangeAddress", "privateKey", and "apiKey". These values associated with these keys correspond to the required information to connect the Loopring connector.
 

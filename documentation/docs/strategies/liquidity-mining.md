@@ -28,11 +28,11 @@ Market volatility is calculated using ATR (Average True Range) of historical mid
 
 How to calculate Average True Range of historical mid-price.
 
-![](/img/Average-true-range.png)
+![](/assets/img/Average-true-range.png)
 
 The volatility is translated to spread by multiplying it to `volatility_to_spread_multiplier`.
 
-![](/img/adjusted-spread.png)
+![](/assets/img/adjusted-spread.png)
 
 ## Pre-requisites
 
@@ -241,7 +241,7 @@ max_spread: -1.0
 max_order_age: 3600.0
 ```
 
-![](/img/lm.png)
+![](/assets/img/lm.png)
 
 These values will show after running the `status` command. `Budget`, `Markets`, `Miner`, and `Orders`.
 
@@ -287,12 +287,12 @@ volatility_to_spread_multiplier: 1.0
 
 This strategy lets you run multiple token pairs in one bot. The bot distributes the `token` balance to create three orders on both bid and ask. Ensure that your orders meet the minimum order size of the exchange for it to create orders on all pairs.
 
-![](/img/lm-status.png)
+![](/assets/img/lm-status.png)
 
 The bot will calculate the volatility based on the interval set. In this case, it is 20s. Then the `avg_volatility_period` will calculate the intervals and replace the spread if the value is higher than the current spread. The new spread also depends on the `volatility_to_spread_multiplier` in this case is set to 1.
 
-![](/img/volatility_interval.png)
+![](/assets/img/volatility_interval.png)
 
 The spread for was widened in the image below because the volatility % was higher than the spread set because of the dynamic spread adjustment on market volatility.
 
-![](/img/volatility_spread.png)
+![](/assets/img/volatility_spread.png)
