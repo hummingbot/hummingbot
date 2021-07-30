@@ -40,7 +40,7 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 
 2. Click **Account** then select **API Keys** under the site settings section.
 
-![bittrex-api-key](/img/bittrex_api_key.png)
+![bittrex-api-key](/assets/img/bittrex_api_key.png)
 
 3. Add a new key, enable **Read Info**, and **Trade**, then save to enter 2FA code.
 

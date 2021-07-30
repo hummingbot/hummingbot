@@ -38,11 +38,11 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
   link={["https://ascendex.com/en/help-center/articles/360053013514"]}
 />
 
-![](/img/account-ascend-ex.png)
+![](/assets/img/account-ascend-ex.png)
 
 2. Then click the new API key.
 
-![](/img/api-ascend-ex.png)
+![](/assets/img/api-ascend-ex.png)
 
 <Callout
   type="warning"

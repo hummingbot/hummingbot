@@ -82,4 +82,4 @@ Unlike other connectors, overriding the fee calculated by Hummingbot on trades b
 
 Crypto.com connector uses the trade info, including the actual amount of fees paid. You can confirm this in the CSV file inside the `data` folder.
 
-![crypto_com](/img/crypto_com_csv.png)
+![crypto_com](/assets/img/crypto_com_csv.png)

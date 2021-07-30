@@ -30,7 +30,7 @@ Cancels the hanging orders when their spread goes above this value. Note that no
 
 Hanging orders is a function that instructs Hummingbot to treat buys and sells of the same order as a pair. If one side gets filled, the bot keeps the other side of the pairing, creating the possibility of that side to eventually get filled:
 
-![](img/hanging-orders.png)
+![](/assets/img/hanging-orders.png)
 
 In the example above, the buy order for the first pair was filled. But since hanging orders mode was enabled, the original sell order from the first pair is not cancelled during the refresh cycle (period 2) and remains outstanding. Meanwhile, the bot continues to create new orders (see periods 2 through 5). In the example, prices changed direction and eventually at some point, the hanging sell order was filled around period 5.
 
@@ -61,13 +61,13 @@ Suppose that you are again market making for `ETH-USDT` pair. The bid and ask sp
 
 #### Market _Without_ Hanging Orders
 
-![Advanced Market With No Hang](/img/hanging_orders_example_market_adv_no_hang.png)
+![Advanced Market With No Hang](/assets/img/hanging_orders_example_market_adv_no_hang.png)
 
 In this strategy, the `hanging_orders_enabled` parameter is False. At each interval $t_i$, the order is either cancelled or filled, then refreshed with a new set of bid and ask orders (each with a 1% spread from the mid-market price). There are only two orders at a time, an ask order and a bid order. This is a great strategy as a default, however, price takers need to be willing to fill orders relatively close to your chosen spread. It may require you to tighten your spread to get more price takers to fill your orders.
 
 #### Market _With_ Hanging Orders
 
-![Advanced Market With Hanging Orders](/img/hanging_orders_example_market_adv_with_hang.png)
+![Advanced Market With Hanging Orders](/assets/img/hanging_orders_example_market_adv_with_hang.png)
 
 In this strategy, the `hanging_orders_enabled` parameter is True. We set the `hanging_orders_cancel_pct` parameter to 2% and make the assumption that an order is filled by a market-taker if the spread is within 0.55%. When a bid order is filled or canceled, unlike the default, the ask order is left open. Similarly, when a ask order is filled or cancelled, the bid order is left open. As you can see above, from $t_0$ to $t_{10}$ generally the bid orders are "hanging" until their spreads are greater than 2% from the mid-market price line (or are filled). From $t_0$ to $t_{10}$, the ask orders are being filled as they fall within 0.55% of spread to the mid-market price line. The opposite is true from $t_{10}$ to $t_{20}$, where bid orders are being filled as they fall within 0.55% of the spread to the mid-market price line and the ask orders are "hanging" until they are cancelled when their spreads are greater than 2%.
 
@@ -83,15 +83,15 @@ Let's see how this configuration works in the scenario below:
 - hanging_orders_cancel_pct: 2
 ```
 
-![hanging orders](/img/hanging_order2.png)
+![hanging orders](/assets/img/hanging_order2.png)
 
 When the buy order was completely filled, it will not cancel the sell order. After 60 seconds, Hummingbot will create a new set of buy and sell orders. The `status` output will show all active orders while indicating which orders are hanging.
 
-![hanging orders](/img/hanging_order3.png)
+![hanging orders](/assets/img/hanging_order3.png)
 
 The hanging order will stay outstanding and will be cancelled if its spread goes above 2% as specified in our `hanging_orders_cancel_pct`.
 
-![hanging orders](/img/hanging_order4.png)
+![hanging orders](/assets/img/hanging_order4.png)
 
 ## Hanging Orders with Multiple Order Levels
 

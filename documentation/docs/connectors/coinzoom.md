@@ -32,7 +32,7 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 
 1. Log in to your account at https://trade.coinzoom.com/login, then go to > API trading (If you do not have an account, you will have to create one and verify your ID.)
 
-![](/img/coinzoom-api-trading.png)
+![](/assets/img/coinzoom-api-trading.png)
 
 <Callout
   type="tip"
@@ -44,11 +44,11 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 
 2. Then click “Generate key”
 
-![](/img/coinzoom-generate-api.png)
+![](/assets/img/coinzoom-generate-api.png)
 
 3. Now that you have created an API key, connect it to Hummingbot using the `connect` command.
 
-![](/img/coinzoom-api.png)
+![](/assets/img/coinzoom-api.png)
 
 Make sure you store your Secret Key somewhere secure and do not share it with anyone. Your Secret Key will only be displayed once at the time when you create the API.
 

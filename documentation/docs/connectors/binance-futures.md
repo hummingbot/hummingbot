@@ -34,7 +34,7 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 2. Follow on-screen instructions to create your API keys.
 3. After creating the API key, click **Edit restrictions** and tick **Enable Futures** to enable future tradings on your API key.
 
-![](/img/api-restriction.jpg)
+![](/assets/img/api-restriction.jpg)
 
 > **Important:**
 
@@ -50,7 +50,7 @@ If you’d like to test without risking real funds, you can try out the Binance 
 1. Login or register for a new account at https://testnet.binancefuture.com/
 2. Under **Position and Open orders**, select **API key** tab and your Binance Futures testnet API key will be automatically generated.
 
-![](/img/testnet-api.jpg)
+![](/assets/img/testnet-api.jpg)
 
 ## Contract Specifications of Binance Perpetuals
 

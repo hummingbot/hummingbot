@@ -39,15 +39,15 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 />
 
 2. Click on **API Setting**.
-   ![binance1](/img/binance1.png)
+   ![binance1](/assets/img/binance1.png)
 
 3. Enter a key name and click on **Create New Key**.
 
-![binance2](/img/binance2.png)
+![binance2](/assets/img/binance2.png)
 
 4. Enter your 2FA code. Once you pass the authentication, Binance will send a confirmation mail to your registered email inbox. Please click “Confirm Create” to make the confirmation for the new API creation.
 
-![binance3](/img/binance3.png)
+![binance3](/assets/img/binance3.png)
 
 5. Now, you have created an API key. Please note that to trade on Binance using Hummingbot, **Enable Trading** must be selected
 
@@ -56,7 +56,7 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
   body="For API key permissions, we recommend using only #trade# enabled API keys; enabling #withdraw#, #transfer#, or the equivalent is unnecessary for current Hummingbot strategies."
 />
 
-![binance4](/img/binance4.png)
+![binance4](/assets/img/binance4.png)
 
 Make sure you store your Secret Key somewhere secure and do not share it with anyone. Your Secret Key will only be displayed once at the time when you create the API.
 

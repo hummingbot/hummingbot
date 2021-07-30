@@ -36,15 +36,15 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
   link={["https://help.blocktane.io/faq-en/getting-started/"]}
 />
 
-![](/img/blocktaneaccount-api.png)
+![](/assets/img/blocktaneaccount-api.png)
 
 2. Create a new API key
 
-![](/img/account-blocktane-api.png)
+![](/assets/img/account-blocktane-api.png)
 
 3. After clicking create new API key, enter 2FA code, and the key will be generated
 
-![](/img/api-blocktane.png)
+![](/assets/img/api-blocktane.png)
 
 Make sure you store your Secret Key somewhere secure and do not share it with anyone. Your Secret Key will only be displayed once at the time when you create the API.
 

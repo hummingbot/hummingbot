@@ -27,7 +27,7 @@ The diagram below illustrates how market making works. Hummingbot makes a market
   <center>**_Figure 1: Hummingbot makes a market on an exchange_**</center>
 </small>
 
-![Figure 1: Hummingbot makes a market on an exchange](/img/pure-mm.png)
+![Figure 1: Hummingbot makes a market on an exchange](/assets/img/pure-mm.png)
 
 ## Prerequisites
 
