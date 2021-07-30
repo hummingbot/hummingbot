@@ -1,11 +1,15 @@
-## About Bittrex Global
+---
+title: Bittrex Global
+description: About Bittrex Global Connector
+---
 
-Bittrex is a global, centralized cryptocurrency exchange based in Seattle, USA.  It was founded in 2013 and began its operations in 2014. It is an intuitive and easy to navigate exchange platform often finding its way into the top 3 US exchanges in terms of trading volume.
+import Callout from "../../src/components/Callout";
 
+Bittrex is a global, centralized cryptocurrency exchange based in Seattle, USA. It was founded in 2013 and began its operations in 2014. It is an intuitive and easy-to-navigate exchange platform, often finding its way into the top 3 US exchanges in trading volume.
 
 ## Using the Connector
 
-[Bittrex](https://international.bittrex.com/) is a centralized exchange and an API key is required in order to trade using Hummingbot.
+[Bittrex](https://international.bittrex.com/) is a centralized exchange, and an API key is required to trade using Hummingbot.
 
 ```
 Enter your Bittrex API key >>>
@@ -14,28 +18,38 @@ Enter your Bittrex secret key >>>
 
 Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
 
-!!! tip "Copying and pasting into Hummingbot"
-    See [this page](/faq/troubleshooting/#paste-items-from-clipboard-in-putty) for more instructions in our Support section.
-
+<Callout
+  type="tip"
+  body="For copying and pasting into Hummingbot, see [this page] for more instructions in our Support guide."
+  link={[
+    "https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys",
+  ]}
+/>
 
 ### Creating Bittrex API Keys
 
-1 - Log in to https://international.bittrex.com/ or create an account in [this page](https://international.bittrex.com/account/register).
+1. Log in to https://international.bittrex.com/ or create an account on [this page](https://international.bittrex.com/account/register).
 
-!!! note
-    Ensure first that 2FA is enabled to proceed with the next steps. Refer to [this page](https://bittrex.zendesk.com/hc/en-us/articles/115000198612-Two-Factor-Authentication-2FA-) for more information.
+<Callout
+  type="note"
+  body="Ensure first that 2FA is enabled to proceed with the next steps. Refer to [this page] for more information."
+  link={[
+    "https://bittrex.zendesk.com/hc/en-us/articles/115000198612-Two-Factor-Authentication-2FA-",
+  ]}
+/>
 
-2 - Click **Account** then select **API Keys** under the site settings section.
+2. Click **Account** then select **API Keys** under the site settings section.
 
-![bittrex-api-key](/assets/img/bittrex_api_key.png)
+![bittrex-api-key](/img/bittrex_api_key.png)
 
-3 - Add a new key, enable **Read Info** and **Trade** then save to enter 2FA code.
+3. Add a new key, enable **Read Info**, and **Trade**, then save to enter 2FA code.
 
-!!! warning "API key permissions"
-    We recommend using only **"trade"** enabled API keys; enabling **"withdraw", "transfer", or the equivalent** is unnecessary for current Hummingbot strategies.
+<Callout
+  type="warning"
+  body="For API key permissions, we recommend using #trade# enabled API keys; enabling #withdraw#, or the equivalent is unnecessary for current Hummingbot strategies."
+/>
 
-4 - The secret key will only be shown once. Make sure to save and keep this information somewhere safe as it can be used to recover a lost 2FA. In case of a lost security key, delete the API and create a new one. However, it will be impossible to reuse the same API.
-
+4. The secret key will only be shown once. Make sure to save and keep this information somewhere safe as it can be used to recover a lost 2FA. In case of a lost security key, delete the API and create a new one. However, it will be impossible to reuse the same API.
 
 ## Miscellaneous Info
 
@@ -66,6 +80,6 @@ https://bittrex.com/api/v1.1/public/getmarkets
 
 ### Transaction Fees
 
-Bittrex charges 0.25% in both maker and taker fees for most users. However, those who trade in high volumes can trade at discounted rates. Refer to [Fee Schedule](https://bittrex.zendesk.com/hc/en-us/articles/115000199651-What-fees-does-Bittrex-charge-/) section for more details.
+Bittrex charges 0.35% in both maker and taker fees for most users. However, those who trade in high volumes can trade at discounted rates. Refer to [Fee Schedule](https://bittrex.zendesk.com/hc/en-us/articles/115000199651-What-fees-does-Bittrex-charge-/) section for more details.
 
-Users can override the default fees by editing [`conf_fee_overrides.yml`](https://docs.hummingbot.io/advanced/fee-overrides/).
+Users can override the default fees by editing [`conf_fee_overrides.yml`](/operation/override-fees/).
