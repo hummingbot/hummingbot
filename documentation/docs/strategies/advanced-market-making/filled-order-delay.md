@@ -1,7 +1,4 @@
----
-title: Filled Order Delay
-description: Info on filled order delay
----
+# Filled Order Delay
 
 import Prompt from "../../src/components/Prompt";
 

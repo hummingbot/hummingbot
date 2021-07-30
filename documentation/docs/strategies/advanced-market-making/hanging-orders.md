@@ -1,9 +1,4 @@
----
-title: Hanging Orders
-description: Info on hanging orders
----
-
-import Prompt from "../../src/components/Prompt";
+# Hanging Orders
 
 **Updated as of `v0.28.0`**
 
