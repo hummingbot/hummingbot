@@ -104,22 +104,32 @@ nav:
       - Strategy Autostart: operation/strategy-autostart.md
     - Strategies:
       - Overview: strategies/index.md
-      - Beginner:
-        - Arbitrage: strategies/arbitrage.md    
-        - Cross Exchange: strategies/cross-exchange-market-making.md
-        - Liquidity Mining: strategies/liquidity-mining.md
-        - Pure Market Making: strategies/pure-market-making.md
-        - TWAP: strategies/twap.md
-      - Intermediate:
-        - Advanced Market Making: strategies/advanced-market-making.md
-        - Avellaneda Market Making: strategies/avellaneda-market-making.md
-        - Perpetual Market Making: strategies/perpetual-market-making.md
-        - Spot Perpetual Arbitrage: strategies/spot-perpetual-arbitrage.md
-      - Expert:
-        - AMM Arbitrage: amm-arbitrage.md
-        - Celo Arbitrage: strategies/celo-arbitrage/index.md
-        - Uniswap v3 Liquidity Pool: uniswap-v3-lp.md
-      - Advanced Market Making: strategies/adv-market-making.md
+      - Avellaneda Market Making: strategies/avellaneda-market-making.md
+      - AMM Arbitrage: amm-arbitrage.md
+      - Arbitrage: strategies/arbitrage.md
+      - Celo Arbitrage: strategies/celo-arbitrage/index.md
+      - Cross Exchange: strategies/cross-exchange-market-making.md
+      - Liquidity Mining: strategies/liquidity-mining.md
+      - Perpetual Market Making: strategies/perpetual-market-making.md
+      - Pure Market Making: strategies/pure-market-making.md
+      - Spot Perpetual Arbitrage: strategies/spot-perpetual-arbitrage.md
+      - TWAP: strategies/twap.md
+      - Uniswap v3 Liquidity Pool: uniswap-v3-lp.md
+    - Advanced Market Making: 
+      - Overview: strategies/advanced-market-making/index.md
+      - Order Levels: strategies/advanced-market-making/add-transaction-costs.md
+      - Inventory Skew: strategies/advanced-market-making/inventory-skew.md
+      - Filled Order Delay: strategies/advanced-market-making/filled-order-delay.md
+      - Hanging Orders: strategies/advanced-market-making/hanging-orders.md
+      - Minimum Spread: strategies/advanced-market-making/minimum-spread.md
+      - Order Refresh Tolerance: strategies/advanced-market-making/order-refresh-tolerance.md
+      - Price Band: strategies/advanced-market-making/price-band.md
+      - Ping Pong: strategies/advanced-market-making/ping-pong.md
+      - Order Optimization: strategies/advanced-market-making/order-optimization.md
+      - Adding Transaction Costs: strategies/advanced-market-making/add-transaction-costs.md
+      - External Pricing Source: strategies/advanced-market-making/external-price-source.md
+      - Order Override: strategies/advanced-market-making/order-override.md
+      - Max Order Age: strategies/advanced-market-making/max-order-age.md
     - Connectors:
       - Overview: connectors/index.md
       - Bamboo Relay: connectors/bamboo-relay.md
