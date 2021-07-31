@@ -10,7 +10,7 @@ class NdaxUtilsTests(TestCase):
         trading_pair = "BTC-USDT"
         self.assertEqual("BTCUSDT", utils.convert_to_exchange_trading_pair(trading_pair))
 
-    @patch('hummingbot.connector.exchange.ndax.ndax_utils.get_tracking_nonce_low_res')
+    @patch('hummingbot.connector.exchange.ndax.ndax_utils.get_tracking_nonce')
     def test_client_order_id_creation(self, nonce_provider_mock):
         nonce_provider_mock.return_value = 1000
         self.assertEqual(str(1000), utils.get_new_client_order_id(True, "BTC-USDT"))
