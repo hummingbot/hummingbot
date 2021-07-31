@@ -3,7 +3,7 @@ from typing import Optional
 from hummingbot.client.config.config_methods import using_exchange
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.connector.exchange.ndax import ndax_constants as CONSTANTS
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce_low_res
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 CENTRALIZED = True
 
@@ -24,7 +24,7 @@ def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
 
 
 def get_new_client_order_id(is_buy: bool, trading_pair: str) -> str:
-    ts_micro_sec: int = get_tracking_nonce_low_res()
+    ts_micro_sec: int = get_tracking_nonce()
     return f"{int(ts_micro_sec)}"
 
 

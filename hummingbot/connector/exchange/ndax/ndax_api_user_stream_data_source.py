@@ -6,7 +6,6 @@ import websockets
 
 from typing import (
     Any,
-    AsyncIterable,
     Dict,
     Optional,
 )
@@ -98,17 +97,6 @@ class NdaxAPIUserStreamDataSource(UserStreamTrackerDataSource):
                                 exc_info=True)
             raise
 
-    async def _inner_messages(self, ws: NdaxWebSocketAdaptor) -> AsyncIterable[str]:
-        try:
-            while True:
-                msg: str = await ws.recv()
-                self._last_recv_time = int(time.time())
-                yield msg
-        except websockets.exceptions.ConnectionClosed:
-            return
-        finally:
-            await ws.close()
-
     async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
         *required
@@ -125,7 +113,8 @@ class NdaxAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 await self._subscribe_to_events(ws)
                 self.logger().info("Successfully subscribed to user events.")
 
-                async for msg in self._inner_messages(ws):
+                async for msg in ws.iter_messages():
+                    self._last_recv_time = int(time.time())
                     output.put_nowait(ujson.loads(msg))
             except asyncio.CancelledError:
                 raise
