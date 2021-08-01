@@ -221,6 +221,11 @@ main_config_map = {
                   required_if=lambda: False,
                   type_str="json",
                   ),
+    "previous_strategy":
+        ConfigVar(key="previous_strategy",
+                  prompt=None, required_if=lambda: False,
+                  type_str="str",
+                  ),
     # Database options
     "db_engine":
         ConfigVar(key="db_engine",
