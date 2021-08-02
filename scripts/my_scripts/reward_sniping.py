@@ -54,7 +54,9 @@ class RewardSniping(ScriptBase):
     MAXIMUM_ORDER_LEVELS_SPREAD = Decimal(0.0015)
     MIDPOINT_ORDER_LEVELS_SPREAD = Decimal(0.0005)
     ## Update frequency:
-    UPDATE_FREQUENCY = 5
+    UPDATE_FREQ = 5
+    UPDATE_INV_RATIO_DELAY = 30
+    CALIBRATING_INV_FREQ = 1200
     ## Misc.
     MINIMUM_ORDER_SIZE = 1.1
     MAXIMUM_PRICE_PCT = 1.2
@@ -75,6 +77,8 @@ class RewardSniping(ScriptBase):
         self.init_base_amount = None
         self.init_quote_value = None
         self.init_total_inv_value = None
+        self.base_asset = None
+        self.quote_asset = None
 
         # Runtime parameters
         self.probability_upper_pct = None
@@ -99,6 +103,9 @@ class RewardSniping(ScriptBase):
 
         # Update frequency flag:
         self.last_parameters_updated = 0
+        self.last_inv_calibrating_started = 0
+        self.update_inv_ratio_delay = -1
+        self.is_calibrating_inventory = True
 
     def on_tick(self):
         # First, let's keep the original parameters:
@@ -110,14 +117,19 @@ class RewardSniping(ScriptBase):
             self.original_order_refresh_time = self.pmm_parameters.order_refresh_time
             self.original_filled_order_delay = self.pmm_parameters.filled_order_delay
 
-        # Second, let's keep the starting market parameters:
+        # Second, let's get the base and quote asset identifier
+        if self.base_asset is None or self.quote_asset is None:
+            self.base_asset, self.quote_asset = self.pmm_market_info.trading_pair.split("-")
+
+        # Third, let's keep the starting market parameters:
         if self.init_base_price is None:
             self.init_base_price = self.mid_price
-            self.init_base_amount = Decimal(self.all_total_balances[f"{self.pmm_market_info.exchange}"].get(self.base_asset, self.base_balance))
-            self.init_quote_value = Decimal(self.all_total_balances[f"{self.pmm_market_info.exchange}"].get(self.quote_asset, self.quote_balance))
+            self.init_base_amount = Decimal(self.all_available_balances[f"{self.pmm_market_info.exchange}"].get(self.base_asset, Decimal("0.0000")))
+            self.init_quote_value = Decimal(self.all_available_balances[f"{self.pmm_market_info.exchange}"].get(self.quote_asset, Decimal("0.0000")))
             self.init_total_inv_value = self.init_base_amount * self.init_base_price + self.init_quote_value
 
-        if time.time() - self.last_parameters_updated > self.UPDATE_FREQUENCY:
+        # Depending on market conditions, we will modify strategy parameters to optimize trades
+        if time.time() - self.last_parameters_updated > self.UPDATE_FREQ and self.is_calibrating_inventory is False:
             self.calculateNewOrderAmount()
             self.calculateNewSpread()
             self.calculateEnvelop()
@@ -141,8 +153,33 @@ class RewardSniping(ScriptBase):
 
             self.last_parameters_updated = time.time()
 
+        # After for a while, we will calibrate inventory ratio to optimize trades
+        ## First, stopping all order
+        if time.time() - self.last_inv_calibrating_started > self.CALIBRATING_INV_FREQ:
+            self.notify("Starting Inventory Calibration...")
+            self.pmm_parameters.order_levels = 0
+            self.update_inv_ratio_delay = self.UPDATE_INV_RATIO_DELAY
+            self.is_calibrating_inventory = True
+            self.last_inv_calibrating_started = time.time()
+        ## Second, apply calculation to optimize inventory ratio
+        if self.is_calibrating_inventory is True:
+            if self.update_inv_ratio_delay < 0:
+                self.notify("update_inv_ratio_delay is less than 0, resuming trading ...")
+                self.is_calibrating_inventory = False
+                self.last_inv_calibrating_started = time.time()
+                return
+
+            if self.update_inv_ratio_delay == 0:
+                self.notify("Finished stopping orders, applying inventory control...")
+                self.applyInventoryControl()
+                self.is_calibrating_inventory = False
+                self.notify(f"New target base pct: {self.pmm_parameters.inventory_target_base_pct}")
+                self.notify("Done, resuming trading...")
+            else:
+                self.notify(f"Stopping orders, {self.update_inv_ratio_delay}s left...")
+                self.update_inv_ratio_delay = self.update_inv_ratio_delay - 1
+
         # TODO: Write data collection script
-        # TODO: Write status script
 
     def on_status(self) -> str:
         return self.status_msg()
@@ -278,15 +315,15 @@ class RewardSniping(ScriptBase):
         self.new_filled_order_delay = new_filled_order_delay
         self.new_order_refresh_time = new_order_refresh_time
 
-    def applyInventoryRatioCalculation(self):
+    def applyInventoryControl(self):
         if self.init_base_price is None or self.init_base_amount is None or self.init_quote_value is None or self.init_total_inv_value is None:
             return
         
         current_price = self.mid_price
         init_current_diff = (current_price - self.init_base_price) / self.init_base_price * 100
 
-        base_balance = Decimal(self.all_total_balances[f"{self.pmm_market_info.exchange}"].get(self.base_asset, self.base_balance))
-        quote_balance = Decimal(self.all_total_balances[f"{self.pmm_market_info.exchange}"].get(self.quote_asset, self.quote_balance))
+        base_balance = Decimal(self.all_available_balances[f"{self.pmm_market_info.exchange}"].get(self.base_asset, self.init_base_amount))
+        quote_balance = Decimal(self.all_available_balances[f"{self.pmm_market_info.exchange}"].get(self.quote_asset, self.init_quote_value))
         base_inv_value = base_balance * current_price
         total_inv_value = base_inv_value + quote_balance
 
@@ -294,8 +331,6 @@ class RewardSniping(ScriptBase):
             if total_inv_value >= self.init_total_inv_value:
                 self.init_base_price = current_price
                 self.init_total_inv_value = total_inv_value
-                self.pmm_parameters.inventory_target_base_pct = Decimal(0.5)
-            else:
                 self.pmm_parameters.inventory_target_base_pct = Decimal(0.5)
             return
         
@@ -305,6 +340,9 @@ class RewardSniping(ScriptBase):
             nominal_total_value = nominal_base_value + quote_balance
             target_base_pct = nominal_base_value / nominal_total_value
             self.pmm_parameters.inventory_target_base_pct = target_base_pct
+            return
+
+        self.pmm_parameters.inventory_target_base_pct = Decimal(0.5)
 
     # Utility Methods
     def stdev_price(self, interval: int, length: int) -> Optional[Decimal]:
