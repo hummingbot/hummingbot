@@ -396,6 +396,7 @@ class NdaxExchange(ExchangeBase):
                 "ClientOrderId": int(order_id),
                 "Side": 0 if trade_type == TradeType.BUY else 1,
                 "Quantity": amount,
+                "TimeInForce": 1,  # GTC
             }
 
             if order_type.is_limit_type():
@@ -404,7 +405,6 @@ class NdaxExchange(ExchangeBase):
                 params.update({
                     "OrderType": 2,  # Limit
                     "LimitPrice": price,
-                    "TimeInForce": 1,
                 })
             else:
                 params.update({
