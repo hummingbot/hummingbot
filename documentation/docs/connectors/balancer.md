@@ -1,8 +1,5 @@
 # Balancer
 
-
-
-
 Balancer is an automated portfolio manager, liquidity provider, and price sensor. In other words, a decentralized finance protocol based on Ethereum allows automatic market-making.
 
 !!! warning
@@ -27,7 +24,7 @@ When creating Hummingbot Gateway, it picks up the Ethereum settings in the globa
 
 ![](/assets/img/connect-ethereum.gif)
 
-## Install Hummingbot Gateway
+## Install Hummingbot gateway
 
 After adding your Ethereum wallet and node in Hummingbot, follow the guide in the link below on how to install Hummingbot Gateway.
 

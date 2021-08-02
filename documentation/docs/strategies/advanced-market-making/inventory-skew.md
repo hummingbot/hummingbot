@@ -37,7 +37,7 @@ This expands the range of tolerable inventory level around your target base perc
   response=">>> "
 />
 
-## How It Works
+## How it works
 
 This function adjusts the bid and ask order amounts to limit the user's trading exposure within a defined range. This prevents the user from being over-exposed from the risks of a single side of the trade when the market keeps hitting limit orders on one side only.
 
@@ -51,7 +51,7 @@ The user specifies a target base asset percentage. Since the user's outstanding 
 
 If the user's base asset value goes above the upper limit, then no bid orders would be emitted. Conversely, if the user's base asset value goes below the lower limit, then no ask orders would be emitted.
 
-## Sample Configurations
+## Sample configurations
 
 The three bots below all share this base configuration:
 
@@ -65,7 +65,7 @@ The three bots below all share this base configuration:
 - order_level_spread: 1
 ```
 
-### No Inventory Skew
+### No inventory skew
 
 ```json
 - inventory_skew_enabled: False
@@ -75,7 +75,7 @@ The three bots below all share this base configuration:
 
 Without inventory skew, order amounts are always symmetrical between buy (outlined in green) and sell orders (outlined in red).
 
-### Inventory Skew, Multiplier = 1
+### Inventory skew, multiplier = 1
 
 ```json
 - inventory_skew_enabled: True
@@ -87,7 +87,7 @@ Without inventory skew, order amounts are always symmetrical between buy (outlin
 
 Since the current inventory range of each asset is within the target range (8.7% - 91.3%), both buy and sell orders are placed. However, more buy orders will be created with larger order amounts than the sell order amounts.
 
-### Inventory Skew, Multiplier = 0.5
+### Inventory skew, multiplier = 0.5
 
 ```json
 - inventory_skew_enabled: True
@@ -99,7 +99,7 @@ Since the current inventory range of each asset is within the target range (8.7%
 
 By decreasing the range multiplier to 0.5, the target range tightens (29.4% to 70.6%). Since the current inventory percentage (25.0% and 75%) falls off the range, only buy orders are placed until the inventory split is within range.
 
-### Inventory Skew with Balance Limit
+### Inventory skew with balance limit
 
 Starting with version **0.30.0**, a [limit](/release-notes/0.30.0/#-new-command-balance-limit) can be applied to the total balance to allocate how much the bot can access in an exchange or wallet. With inventory skew, Hummingbot will maintain a target balance with respect to the allowable asset.
 
@@ -126,7 +126,7 @@ binance:
 
 Let’s say we put a \$50 limit on both USDC and USDT which makes our total usable assets to \$100. Notice that the target amount is now at \$50 for both sides which means, inventory skew works with respect to the total balance limit.
 
-## Order Size Calculation Math
+## Order size calculation math
 
 The input `order_amount` in single-order mode, or its equivalent in multiple-order mode, is adjusted linearly by comparing the percentage of the base asset in the overall trading portfolio vs. the target base asset ratio.
 

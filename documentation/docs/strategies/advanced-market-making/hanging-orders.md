@@ -26,7 +26,7 @@ Cancels the hanging orders when their spread goes above this value. Note that no
   response=">>> "
 />
 
-## How It Works
+## How it works
 
 Hanging orders is a function that instructs Hummingbot to treat buys and sells of the same order as a pair. If one side gets filled, the bot keeps the other side of the pairing, creating the possibility of that side to eventually get filled:
 
@@ -45,9 +45,9 @@ The hanging order will be cancelled in the following conditions:
 
 Type `config hanging_orders_enabled` and `config hanging_orders_cancel_pct` to set values for these parameters.
 
-## Illustrative Examples - When Hanging Orders are Important
+## Illustrative examples - when hanging orders are important
 
-### Example 1 (Basic)
+### Example 1 (basic)
 
 Suppose you are market making for the `ETH-USDT` pair with a mid-market price of 200 USD ($t_0$). You set your bid spread and ask spread to 1%. Thus, the bid price is 198 USD and the ask price is 202 USD.
 
@@ -55,7 +55,7 @@ Now suppose that a market taker (someone taking a position in the market) thinks
 
 At the next order refresh cycle, normally Hummingbot would cancel the 198 USD bid order and create 2 new bid and ask orders. However, if `hanging_orders_enabled` is set to True, the bid order is not cancelled and stays on the order book until it is filled. Note that if an open hanging order spread exceeds the `hanging_orders_cancel_pct` parameter, the hanging order will be canceled.
 
-### Example 2 (Advanced)
+### Example 2 (advanced)
 
 Suppose that you are again market making for `ETH-USDT` pair. The bid and ask spread is set to 1%. Consider the two strategies below, the former the default and the latter with hanging orders. The white line in the center is the mid market price in USDT; The dashed lines above the mid-market price are the active ask-orders; And the dotted lines below the mid-market price are the active bid-orders.
 
@@ -73,7 +73,7 @@ In this strategy, the `hanging_orders_enabled` parameter is True. We set the `ha
 
 This strategy allows for a range of spreads between the cancel percentage parameter and when a price taker fills your order (presumably when the order price is closer to the mid-market price). It is ultimately a more flexible strategy and can capture profitable trades that are lost without hanging orders. For example, in the Sample Markets above, the purple bid order starting at $t_8$ is lost without allowing it to be a hanging order, whereas in the second chart, the bid order is filled at $t_{13}$.
 
-## Sample Configurations
+## Sample configurations
 
 Let's see how this configuration works in the scenario below:
 

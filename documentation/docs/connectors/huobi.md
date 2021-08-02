@@ -2,7 +2,7 @@
 
 Huobi is a global, centralized cryptocurrency exchange started in Seychelles and has since expanded its offices to Hong Kong, Korea, Japan, and the United States. As of March 2018, Huobi processed around US \$1 billion in trades daily.
 
-## Using the Connector
+## Using the connector
 
 Because [Huobi](https://www.hbg.com/) is a centralized exchange, you will need to generate and provide your API key to trade using Hummingbot.
 
@@ -16,7 +16,7 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 !!! tip
     For copying and pasting into Hummingbot, see [this page](https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys) for more instructions in our Support section.
 
-### Creating Huobi API Keys
+### Creating Huobi API keys
 
 1. Log in to https://www.hbg.com/ or sign up for an account on [this page](https://www.hbg.com/en-us/register/?backUrl=%2Fen-us%2F) and go to **API Management** under **Account** section.
 
@@ -41,13 +41,13 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 
 ![huobi4](/assets/img/huobi-my-api-key.png)
 
-## Miscellaneous Info
+## Miscellaneous info
 
-### Minimum Order Sizes
+### Minimum order sizes
 
 You may refer to [this page](https://huobiglobal.zendesk.com/hc/en-us/articles/900000210246-Announcement-on-Adjusting-Minimum-Order-Amount-for-Some-Trading-Pairs) for the minimum order size per trading pair.
 
-### Transaction Fees
+### Transaction fees
 
 Huobi charges 0.2% on both maker and taker for most pairs. However, Huobi VIP users can also enjoy fees at a discounted rate.
 

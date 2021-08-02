@@ -8,7 +8,7 @@ The last prompt will ask you to enter a name for the config file. You can also s
 
 ![](/assets/img/create-file-name.png)
 
-## Config File Templates
+## Config file templates
 
 These configuration files created and used by Hummingbot are saved in the `conf/` directory of your instance, which you can edit directly with a standard text editor.
 
@@ -24,7 +24,7 @@ The template configuration files can be found here: [Config Templates](https://g
 !!! warning
     Exit Hummingbot and ensure it is not running when you modify the config files. Changes will take effect the next time Hummingbot is started.
 
-## Strategy-specific Files
+## Strategy-specific files
 
 Running `create` command initializes the configuration of global and strategy-specific settings necessary to run the bot.
 
@@ -46,7 +46,7 @@ Running this command will automatically create the following files in these fold
 !!! tip
     For editing configuration files directly, once they are created, you may find it easier to edit the configuration files in the `conf/` folder. Simply open them with a text editor and make any desired modifications.
 
-## Setup Walkthrough
+## Setup walkthrough
 
 After running `create` command, you need to setup a strategy along with its parameters.
 

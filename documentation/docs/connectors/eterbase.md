@@ -17,7 +17,7 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 !!! tip
     For copying and pasting into Hummingbot, see [this page](https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys) for more instructions in our Support section.
 
-### Creating Eterbase API Keys
+### Creating Eterbase API keys
 
 1. Log into your account at [https://eterbase.exchange](https://eterbase.exchange/), then click on your account name in top right corner of the screen and select **Api Keys** from the menu (If you do not have an account, you will have to create one and verify your ID).
 
@@ -43,9 +43,9 @@ Make sure you store your Secret Key somewhere secure, and do not share it with a
 !!! tip
     If you lose your Secret Key, you can delete the API and create a new one. However, it will be impossible to reuse the same API.
 
-## Miscellaneous Info
+## Miscellaneous info
 
-### Minimum Order Sizes
+### Minimum order sizes
 
 Minimum order size varies per market. All minimum trade quantities can be found in the following public API:
 
@@ -99,7 +99,7 @@ Rule with attributes values `Qty` and `Min` denotes the minimum order size for e
 }
 ```
 
-### Transaction Fees
+### Transaction fees
 
 Eterbase charges 0.35% in both maker and taker fees for basic tier. However, users with deposited XBASE tokens can trade at discounted rates. Refer to [Eterbase Trading Fees](https://www.eterbase.com/exchange/fees/) section for more details.
 

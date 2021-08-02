@@ -1,8 +1,5 @@
 # AMM Arbitrage
 
-
-
-
 import Prompt from "../../src/components/Prompt";
 
 **Updated as of v0.33**
@@ -155,7 +152,7 @@ If you prefer to manually set your gas other than using Defipulse.
   response=">>> "
 />
 
-## Rate Oracle Integration
+## Rate oracle integration
 
 - Make sure gateway is properly running together with Hummingbot client.
 
@@ -165,7 +162,7 @@ If you prefer to manually set your gas other than using Defipulse.
 
 ![Rate Oracle Status](/assets/img/rate_oracle_amm_arb_status.png)
 
-## Switch Balancer Network
+## Switch Balancer network
 
 Two ways to switch network [Ethereum mainnet/Kovan testnet](https://docs.hummingbot.io/gateway/installation/#setting-up-kovan-testnet)
 

@@ -1,11 +1,11 @@
-## What is Hummingbot Gateway?
+## What is Hummingbot gateway?
 
 Hummingbot Gateway is a API server that allows Hummingbot to connect to [protocols](/protocol-connectors/overview/) that are used in the [amm-arb strategy](/strategies/amm-arb/) and other future strategies. This is a light web server that enables Hummingbot client to send and receive data from different blockchain protocols and provides an easier entry point for external devs to build connectors to other protocols.
 
 !!! note
     To use Gateway, you need to install Hummingbot using Docker or from source.
 
-## Create SSL Certificates
+## Create SSL certificates
 
 1. Run the command `generate_certs` in the Hummingbot client
 2. Enter a passphrase to be used later during installation
@@ -15,7 +15,7 @@ Hummingbot Gateway is a API server that allows Hummingbot to connect to [protoco
 !!! note
     As this passphrase will be stored in unencrypted form in the Gateway environment, we recommend that you use a different password as the Hummingbot password, which is used to encrypt your API and private keys.
 
-## Install Gateway via Docker
+## Install gateway via Docker
 
 1. Take note of the absolute path where your Hummingbot files are stored. You can run the command `pwd` from the terminal while inside the folder.
 2. Copy and paste the following commands to your terminal:
@@ -51,7 +51,7 @@ By default, Gateway will install on port `5000` which Hummingbot will connect to
 
 4. The file `gateway.env` is created where your Gateway settings are saved.
 
-## Configure Port Number (Optional)
+## Configure port number (optional)
 
 In case the port number used by Gateway is not set to the default value of `5000`, make sure to set the `gateway_api_port` in the Hummingbot client to match the same port number.
 
@@ -62,7 +62,7 @@ In case the port number used by Gateway is not set to the default value of `5000
 
 ![](/assets/img/config-gateway-api-port.gif)
 
-## ETH Gas Station
+## ETH gas station
 
 !!! note
     As of version 0.38.0, ethgasstation_gas_enabled has been removed from the hummingbot client and added to the parameters when setting up gateway.
@@ -86,11 +86,11 @@ If you choose not to enable ETH gas price, you would only need to set up the fix
 
 ![](/assets/img/ethgas-no.png)
 
-## Update Gateway via Docker
+## Update gateway via Docker
 
 To update the docker container, run the `update-gateway.sh` script and and follow the prompt instructions. The update script allows you to stop and delete the running instance, and update the docker image if it is not the latest. Upon completion, it will automatically execute the create-gateway.sh script to create a new Gateway container instance.
 
-## Install Gateway via source
+## Install gateway from source
 
 ### Prerequisites
 

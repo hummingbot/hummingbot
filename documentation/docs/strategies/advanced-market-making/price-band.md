@@ -1,6 +1,5 @@
 # Price Band
 
-
 import Prompt from "../../src/components/Prompt";
 
 **Updated as of `v0.27.0`**
@@ -29,7 +28,7 @@ Place only buy orders when mid price falls below this price.
   response=">>> "
 />
 
-## How It Works
+## How it works
 
 `price_ceiling` and `price_floor` are two optional parameters that you can set. By default, these parameters have a value of -1, which means that they are not used.
 
@@ -37,7 +36,7 @@ Type `config price_ceiling` and `config price_floor` to set values for these par
 
 Note that the `price_floor` cannot be greater than the `price_ceiling`.
 
-## Sample Configurations
+## Sample configurations
 
 ```json
 - order_refresh_time: 30
@@ -104,10 +103,10 @@ Orders:
        1  buy 9533.89  1.99%         0.003         0.003  00:00:01
 ```
 
-## Price Band with Order Refresh Tolerance
+## Price band with order refresh tolerance
 
 When it's time to refresh orders, the price band will take priority over the tolerable change in spreads.
 
-## Price Band with External Pricing Source
+## Price band with external pricing source
 
 If `price_source` is enabled then the mid price reference point will be the external mid price.

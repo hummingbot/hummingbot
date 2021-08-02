@@ -6,11 +6,11 @@ By default, Hummingbot uses the order book you're trading in to generate the **m
 
 With this feature, users have the option to choose a different price reference for your orders such as **last trade price**, **last own trade price**, **best bid price**, **best ask price** and **inventory cost**. Users can also use a different order book such as an external **exchange** supported by Hummingbot or a **custom API**.
 
-## How It Works
+## How it works
 
 In a situation where the calculation of maker order prices from external sources would result in the order matching any existing orders on the order book, such order will be ignored unless `take_if_crossed` parameter is enabled.
 
-## Price Source: Current Market
+## Price source: current market
 
 By default, `price_source` is set to `current_market`.
 
@@ -30,7 +30,7 @@ By default, `price_source` is set to `current_market`.
 price_source_custom_api: None
 ```
 
-## Price Source: External Market
+## Price source: external market
 
 Users can also use an external market from another exchange supported by Hummingbot as the price reference when creating orders.
 
@@ -57,7 +57,7 @@ Run `config price_type` command to change the price reference to `last_price`, `
 !!! note
     Currently, the external price source cannot be the same as the maker exchange (i.e. if the bot is trading on Binance, the `price_source_exchange` cannot be Binance)
 
-## Price Source: Custom API
+## Price source: custom API
 
 Custom API is mostly used by advanced users or developers for using a different price reference. Take note that `price_source` should be set to `custom_api` with the API URL indicated in `price_source_custom_api`.
 
@@ -90,13 +90,13 @@ Let's suppose there is **Exchange B** with an `ETH-USD` trading pair. That pair 
 
 If you believe that `ETH-USD` on Exchange B is more liquid and responds more quickly to market information than `ETH-USDT` on Exchange A, you may want to market make on Exchange A but use `ETH-USD` on Exchange B as the price source. This helps you position your orders based on where the market might go in the future.
 
-## Taking Crossed Orders
+## Taking crossed orders
 
 When using an external price source, an order may result in a crossed market. This means the order on the current exchange is placed with a price that matches an existing order in the book. Enabling `take_if_crossed` parameter allows the strategy to fill the matching maker order.
 
 In certain cases, this behavior may be desirable even if the fee is higher because of the likely future price mitigation. This feature is only available when an external price source is used. When enabled, Hummingbot uses `LIMIT` order instead of `LIMIT_MAKER` order type.
 
-## Relevant Parameters
+## Relevant parameters
 
 ## `price_source`
 

@@ -2,7 +2,7 @@
 
 Based in San Francisco, CA, Coinbase Pro is a widely-used, global cryptocurrency exchange designed for professional traders. It has a reputation for being secure and trustworthy, is [regulated in all the jurisdictions in which it operates](https://www.coinbase.com/legal/insurance), and maintains some [insurance on assets and deposits](https://www.coinbase.com/legal/insurance).
 
-## Using the Connector
+## Using the connector
 
 Because Coinbase Pro is a centralized exchange, you will need to generate and provide your API key to trade using Hummingbot.
 
@@ -17,7 +17,7 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 !!! tip
     For copying and pasting into Hummingbot, see [this page](https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys) for more instructions in our Support guide.
 
-### Creating Coinbase Pro API Keys
+### Creating Coinbase Pro API keys
 
 1. Log into your Coinbase Pro account, click your avatar and then select **API** (If you do not have an account, you will have to create one and verify your ID).
 
@@ -52,9 +52,9 @@ The API Key, Secret, and Passphrase are required for using Hummingbot.
 !!! warning
     If you lose your Secret Key, you can delete the API and create a new one. However, it will be impossible to reuse the same API.
 
-## Miscellaneous Info
+## Miscellaneous info
 
-### Trading Pair Limitations
+### Trading pair limitations
 
 Coinbase Pro has trading pair limitations in certain regions. For example, some countries have access to crypto/fiat trading pairs, while other countries can only access crypto/crypto trading pairs.
 
@@ -69,13 +69,13 @@ For more information, read through their article below.
 
 - [Locations and trading pairs](https://help.coinbase.com/en/pro/trading-and-funding/cryptocurrency-trading-pairs/locations-and-trading-pairs)
 
-### Minimum Order Sizes
+### Minimum order sizes
 
 All Market Orders, Limit Orders and Stop Orders placed on Coinbase Markets are subject to the minimum order size requirements listed in their [Market Information](https://pro.coinbase.com/markets) page.
 
 ![coinbase6](/assets/img/coinbase6.png)
 
-### Transaction Fees
+### Transaction fees
 
 Coinbase Pro charges 0.50% fees for both maker and taker orders. However, users who trade in high volumes can trade at discounted rates.
 

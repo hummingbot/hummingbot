@@ -1,6 +1,6 @@
 # Update Version
 
-## Update via Binary
+## Update via binary
 
 Uninstall Hummingbot locally from your computer, then download and install the latest version from the website https://hummingbot.io/download/
 
@@ -48,7 +48,7 @@ docker run -it \
 coinalpha/hummingbot:latest
 ```
 
-## Update from Source
+## Update from source
 
 Download the latest code from GitHub:
 

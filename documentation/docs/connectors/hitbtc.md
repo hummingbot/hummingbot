@@ -50,7 +50,7 @@ Make sure you store your Secret Key somewhere secure and do not share it with an
 !!! warning
     If you lose your Secret Key, you can delete the API and create a new one. However, it will be impossible to reuse the same API.
 
-## Miscellaneous Info
+## Miscellaneous info
 
 ### Minimum order size
 
@@ -61,7 +61,7 @@ See [this page](https://blog.hitbtc.com/system-updates-lot-size-changes/) for mo
 !!! note
     USDT is labeled as USD.
 
-### Transaction Fees
+### Transaction fees
 
 The fees for Starter and General accounts are fixed at 0.1% Maker Fee and 0.25% Taker Fee.
 

@@ -101,7 +101,7 @@ docker run -it \
 coinalpha/hummingbot:latest
 ```
 
-### Install from Source
+### Install from source
 
 _Supported versions: 16.04 LTS, 18.04 LTS, 19.04_
 
@@ -240,7 +240,7 @@ docker run -it \
 coinalpha/hummingbot:latest
 ```
 
-### Install from Source
+### Install from source
 
 _Supported version: Debian GNU/Linux 9_
 
@@ -377,7 +377,7 @@ docker run -it \
 coinalpha/hummingbot:latest
 ```
 
-### Install from Source
+### Install from source
 
 _Supported version: 7_
 
@@ -423,6 +423,6 @@ bin/hummingbot.py
 
 After installing Hummingbot from source, see [Launch Hummingbot from source](/operation/launch-exit/) for instructions on how to start and run Hummingbot from source.
 
-## Developer Notes
+## Developer notes
 
 - Additional details of the scripts can be found on [Github: Hummingbot Install with Docker](https://github.com/CoinAlpha/hummingbot/tree/development/installation/install-docker).

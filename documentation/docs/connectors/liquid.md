@@ -2,7 +2,7 @@
 
 Liquid is a centralized exchange based in Tokyo, Japan launched by Quione in 2017. It also has offices in Singapore but is regulated and licensed by the Financial Services Agency of Japan. Over the past 12 months (as of May 2019), it has more than USD 50 billion in transactions on its exchanges.
 
-## Using the Connector
+## Using the connector
 
 The connector is for [Liquid](https://www.liquid.com/) based in Singapore (i.e., not for the local Japanese Liquid exchange). Because it is a centralized exchange, you will need to generate and provide your API key to trade using Hummingbot.
 
@@ -16,7 +16,7 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 !!! tip
     For copying and pasting into Hummingbot, see [this page](https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys) for more instructions in our Support guide.
 
-### Creating Liquid API keys
+### Creating liquid API keys
 
 The article below in their website under API information shows step-by-step instructions on creating API keys in Liquid exchange.
 
@@ -25,15 +25,15 @@ The article below in their website under API information shows step-by-step inst
 !!! warning
     For API key permissions, we recommend using only #orders# enabled (read and write) API keys; enabling #withdraw, transfer or the equivalent# is unnecessary for current Hummingbot strategies.
 
-## Miscellaneous Info
+## Miscellaneous info
 
-### Exchange Status
+### Exchange status
 
 Users can go to https://status.liquid.com/ to check the status of the exchange and review past or ongoing incidents.
 
 Developers can query the current status using the API. See documentation in https://status.liquid.com/api/.
 
-### Minimum Order Sizes
+### Minimum order sizes
 
 There is no minimum order quantity for trading fiat currency. Instead, see [this page](https://help.liquid.com/en/articles/4141955-liquid-buy-faq) for minimum order sizes on crypto trading pairs.
 
@@ -64,7 +64,7 @@ The minimum order size is the value next to `minimum_order_quantity`. For exampl
 "has_memo": false
 ```
 
-### Transaction Fees
+### Transaction fees
 
 In this [blog post](https://blog.liquid.com/liquid-progressive-fee-update), Liquid announced their [new fee structure](https://www.liquid.com/fees/) that offers 0 trading fees on maker orders if a user's 30-day trading volume is less than \$10,000 and 0.30% on the taker. In addition, all users can get a 50% discount on trading fees if paid in QASH.
 

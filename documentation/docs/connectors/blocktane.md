@@ -2,7 +2,7 @@
 
 Launched in 2020, Blocktane was designed and built in partnership with Tritum and operated a high-performance digital asset exchange infrastructure designed with technology and principles from traditional financial markets to serve clients with equal confidence and quality as any other financial institution.
 
-## Using the Connector
+## Using the connector
 
 To use [Blocktane](https://blocktane.io/) connector, you will need to generate and provide your API key to trade using Hummingbot.
 
@@ -16,7 +16,7 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 !!! tip
     For copying and pasting into Hummingbot, see [this page](https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys) for more instructions in our Hummingbot Help Center.
 
-### Creating Blocktane API Keys
+### Creating Blocktane API keys
 
 1. Log in to your account at https://blocktane.io/, then click your profile > My API keys (If you do not have an account, you will have to create one and verify your ID.)
 
@@ -38,9 +38,9 @@ Make sure you store your Secret Key somewhere secure and do not share it with an
 !!! warning
     If you lose your Secret Key, you can delete the API and create a new one. However, it will be impossible to reuse the same API.
 
-## Miscellaneous Info
+## Miscellaneous info
 
-### Minimum Order Sizes
+### Minimum order sizes
 
 Each trading pair has a unique minimum order size denominated in the base currency. You can access the minimum order size for a specific token pair using Blocktane's API at the following URL:
 
@@ -67,7 +67,7 @@ Sample output:
 
 In this example, the minimum order size is 0.0001 BTC. For the most part, the smallest order size allowed is about the equivalent of \$4.
 
-### Transaction Fees
+### Transaction fees
 
 By default, trading fees are 0.15% for maker fees and 0.20% for takers on Blocktane. See the article below for more details.
 

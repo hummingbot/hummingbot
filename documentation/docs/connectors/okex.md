@@ -2,7 +2,7 @@
 
 OKEx is a world-leading cryptocurrency exchange, providing advanced financial services to traders globally by using blockchain technology.
 
-## Using the Connector
+## Using the connector
 
 Because OKEx is a centralized exchange, you will need to generate and provide your API key to trade using Hummingbot.
 
@@ -17,7 +17,7 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 !!! tip
     For copying and pasting into Hummingbot, see [this page](https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys) for more instructions in our Support guide.
 
-### Creating OKEx v5 API Keys
+### Creating OKEx v5 API keys
 
 1. Log into your account at https://www.okex.com, then select **Account>API** (If you do not have an account, you will have to create one and verify your ID).
 
@@ -30,13 +30,13 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 
 Here is the link for more info regarding the [OKEx upgrade to API v5](https://www.okex.com/academy/en/complete-guide-to-okex-api-v5-upgrade)
 
-## Miscellaneous Info
+## Miscellaneous info
 
-### Minimum Order Sizes
+### Minimum order sizes
 
 You have to check the individual trading pair for the information for the minimum order size per trading pair. See the following AAVE example: ![aave1](/assets/img/Okex-min-order.png)
 
-### Transaction Fees
+### Transaction fees
 
 By default, trading fees are 0.1% on OKEx for market makers and 0.15% for takers. Users who trade high volumes can receive more discounts on trading fees, see [OKex trading fees](https://www.okex.com/fees.html) for more details
 

@@ -5,7 +5,7 @@ import Prompt from "../../src/components/Prompt";
 !!! warning
     This experimental strategy has undergone code review, internal testing and was shipped during one of our most recent releases. As part of User Acceptance Testing, we encourage the user to report any issues and/or provide feedback with this strategy in our [Discord server](https://discord.com/invite/2MN3UWg) or [submit a bug report](https://github.com/CoinAlpha/hummingbot/issues/new?assignees=&labels=bug&template=bug_report.md&title=)
 
-## How it Works
+## How it works
 
 The Avellaneda Market Making Strategy is designed to scale inventory and keep it at a specific target that a user defines it with. To achieve this, the strategy will optimize both bid and ask spreads and their order amount to maximize profitability.
 
@@ -19,11 +19,11 @@ In expert mode, the user will need to directly define the algorithm's basic para
 
 You will need to hold a sufficient inventory of quote and or base currencies on the exchange to place orders of the exchange's minimum order size.
 
-### Minimum Order Size
+### Minimum order size
 
 When placing orders, if the order's size determined by the order price and quantity is below the exchange's minimum order size, then the orders will not be created.
 
-## Basic Parameters
+## Basic parameters
 
 We aim to teach new users the basics of market-making while enabling experienced users to exercise more control over how their bots behave. By default, when you run `create,` we ask you to enter the basic parameters needed for a market-making bot.
 
@@ -147,7 +147,7 @@ It sets a target of base asset balance in relation to a total asset allocation v
   response="50"
 />
 
-## Advanced Parameters
+## Advanced parameters
 
 These are additional parameters that you can reconfigure and use to customize the behavior of your strategy further. To change its settings, run the command `config` followed by the parameter name, e.g. `config max_order_age`.
 
@@ -291,7 +291,7 @@ order_override:
   # order_1 label can be renamed to custom labels
 ```
 
-## Hanging Orders
+## Hanging orders
 
 An Avellaneda strategy feature that recalculates your hanging orders with aggregation of volume weighted, volume time weighted, and volume distance weighted.
 
