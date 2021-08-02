@@ -95,16 +95,33 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @patch("aiohttp.ClientSession.get")
     def test_init_trading_pair_ids(self, mock_api):
-        mock_response: List[Any] = [{
-            "Product1Symbol": self.base_asset,
-            "Product2Symbol": self.quote_asset,
-            "InstrumentId": self.instrument_id,
-        }]
+        mock_response: List[Any] = [
+            {
+                "Product1Symbol": self.base_asset,
+                "Product2Symbol": self.quote_asset,
+                "InstrumentId": self.instrument_id,
+                "SessionStatus": "Running"
+            },
+            {
+                "Product1Symbol": "ANOTHER_ACTIVE",
+                "Product2Symbol": "MARKET",
+                "InstrumentId": 2,
+                "SessionStatus": "Running"
+            },
+            {
+                "Product1Symbol": "NOT_ACTIVE",
+                "Product2Symbol": "MARKET",
+                "InstrumentId": 3,
+                "SessionStatus": "Stopped"
+            }
+        ]
 
         self.set_mock_response(mock_api, 200, mock_response)
 
         self.ev_loop.run_until_complete(self.data_source.init_trading_pair_ids())
+        self.assertEqual(2, len(self.data_source._trading_pair_id_map))
         self.assertEqual(1, self.data_source._trading_pair_id_map[self.trading_pair])
+        self.assertEqual(2, self.data_source._trading_pair_id_map["ANOTHER_ACTIVE-MARKET"])
 
     @patch("aiohttp.ClientSession.get")
     def test_get_last_traded_prices(self, mock_api):

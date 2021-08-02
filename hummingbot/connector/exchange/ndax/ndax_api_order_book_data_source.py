@@ -46,7 +46,6 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         cls._trading_pair_id_map.clear()
 
-        results = {}
         params = {
             "OMSId": 1
         }
@@ -56,10 +55,11 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 if response.status == 200:
                     resp_json: Dict[str, Any] = await response.json()
 
-                    for instrument in resp_json:
-                        results.update({
-                            f"{instrument['Product1Symbol']}-{instrument['Product2Symbol']}": int(instrument["InstrumentId"])
-                        })
+                    results = {
+                        f"{instrument['Product1Symbol']}-{instrument['Product2Symbol']}": int(instrument["InstrumentId"])
+                        for instrument in resp_json
+                        if instrument["SessionStatus"] == "Running"
+                    }
         cls._trading_pair_id_map = results
 
     @classmethod
