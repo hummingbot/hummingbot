@@ -11,6 +11,7 @@
 from decimal import Decimal
 from datetime import datetime
 import time
+from types import prepare_class
 from hummingbot.script.script_base import ScriptBase
 from os.path import realpath, join
 import statistics
@@ -41,15 +42,22 @@ class RewardSniping(ScriptBase):
     UPPER_ENV_PCT = 0.005
     LOWER_ENV_PCT = 0.005
     ## Max and Min spreads
-    MINIMUM_SPREAD = Decimal(0.00001)
-    MAXIMUM_SPREAD = Decimal(0.003)
-    MIDPOINT_SPREAD = Decimal(0.0005)
+    MINIMUM_LOW_SPREAD = Decimal(0.00001)
+    MAXIMUM_LOW_SPREAD = Decimal(0.002)
+    MIDPOINT_LOW_SPREAD = Decimal(0.0005)
+
+    MINIMUM_HIGH_SPREAD = Decimal(0.01)
+    MAXIMUM_HIGH_SPREAD = Decimal(0.02)
+    MIDPOINT_HIGH_SPREAD = Decimal(0.015)
+
+    MINIMUM_ORDER_LEVELS_SPREAD = Decimal(0.00001)
     MAXIMUM_ORDER_LEVELS_SPREAD = Decimal(0.0015)
     MIDPOINT_ORDER_LEVELS_SPREAD = Decimal(0.0005)
     ## Update frequency:
-    UPDATE_FREQUENCY = 10
+    UPDATE_FREQUENCY = 5
     ## Misc.
-    MINIMUM_ORDER_SIZE = 5.1
+    MINIMUM_ORDER_SIZE = 1.1
+    MAXIMUM_PRICE_PCT = 1.2
 
     def __init__(self):
         super().__init__()
@@ -61,6 +69,12 @@ class RewardSniping(ScriptBase):
         self.original_order_amount = None
         self.original_order_refresh_time = None
         self.original_filled_order_delay = None
+        
+        # Save init market parameters
+        self.init_base_price = None
+        self.init_base_amount = None
+        self.init_quote_value = None
+        self.init_total_inv_value = None
 
         # Runtime parameters
         self.probability_upper_pct = None
@@ -95,6 +109,13 @@ class RewardSniping(ScriptBase):
             self.original_order_amount = self.pmm_parameters.order_amount
             self.original_order_refresh_time = self.pmm_parameters.order_refresh_time
             self.original_filled_order_delay = self.pmm_parameters.filled_order_delay
+
+        # Second, let's keep the starting market parameters:
+        if self.init_base_price is None:
+            self.init_base_price = self.mid_price
+            self.init_base_amount = Decimal(self.all_total_balances[f"{self.pmm_market_info.exchange}"].get(self.base_asset, self.base_balance))
+            self.init_quote_value = Decimal(self.all_total_balances[f"{self.pmm_market_info.exchange}"].get(self.quote_asset, self.quote_balance))
+            self.init_total_inv_value = self.init_base_amount * self.init_base_price + self.init_quote_value
 
         if time.time() - self.last_parameters_updated > self.UPDATE_FREQUENCY:
             self.calculateNewOrderAmount()
@@ -141,7 +162,10 @@ class RewardSniping(ScriptBase):
         lower_pct = abs(1 - lower / basis)
         price_pct = (upper_pct * 100 + lower_pct * 100) / 2
 
-        new_order_amount = self.round_by_step(Decimal(self.original_order_amount) * price_pct, self.MINIMUM_SPREAD)
+        if price_pct >= Decimal(self.MAXIMUM_PRICE_PCT):
+            price_pct = Decimal(self.MAXIMUM_PRICE_PCT)
+
+        new_order_amount = self.round_by_step(Decimal(self.original_order_amount) * price_pct, self.MINIMUM_LOW_SPREAD)
         minimum_order = Decimal(self.MINIMUM_ORDER_SIZE) / self.mid_price 
 
         self.new_order_amount = max(new_order_amount, minimum_order)
@@ -155,19 +179,37 @@ class RewardSniping(ScriptBase):
         if self.probability_upper_pct is None or self.probability_lower_pct is None:
             return
 
-        max_ask_spread = self.MAXIMUM_SPREAD * self.probability_upper_pct * 100
-        max_bid_spread = self.MAXIMUM_SPREAD * self.probability_lower_pct * 100
-        min_spread = self.MINIMUM_SPREAD
-
         max_order_levels_spread = self.MAXIMUM_ORDER_LEVELS_SPREAD * max(self.probability_upper_pct, self.probability_lower_pct) * 100
+        new_order_levels_spread = random.triangular(float(self.MINIMUM_ORDER_LEVELS_SPREAD), float(max_order_levels_spread), float(self.MIDPOINT_ORDER_LEVELS_SPREAD))
 
-        new_ask_spread = random.triangular(float(min_spread), float(max_ask_spread), float(self.MIDPOINT_SPREAD))
-        new_bid_spread = random.triangular(float(min_spread), float(max_bid_spread), float(self.MIDPOINT_SPREAD))
-        new_order_levels_spread = random.triangular(float(min_spread), float(max_order_levels_spread), float(self.MIDPOINT_ORDER_LEVELS_SPREAD))
+        # New random calculaiton:
+        # Get High random spread:
+        max_high_ask_spread = self.MAXIMUM_HIGH_SPREAD * self.probability_upper_pct * 100
+        max_high_bid_spread = self.MAXIMUM_HIGH_SPREAD * self.probability_lower_pct * 100
+        min_high_spread = self.MINIMUM_HIGH_SPREAD
+        new_high_ask_spread = random.triangular(float(min_high_spread), float(max_high_ask_spread), float(self.MIDPOINT_HIGH_SPREAD))
+        new_high_bid_spread = random.triangular(float(min_high_spread), float(max_high_bid_spread), float(self.MIDPOINT_HIGH_SPREAD))
 
-        self.new_ask_spread = self.round_by_step(Decimal(new_ask_spread), self.MINIMUM_SPREAD)
-        self.new_bid_spread = self.round_by_step(Decimal(new_bid_spread), self.MINIMUM_SPREAD)
-        self.new_order_levels_spread = self.round_by_step(Decimal(new_order_levels_spread), self.MINIMUM_SPREAD)
+        # Get low random spread:
+        max_low_ask_spread = self.MAXIMUM_LOW_SPREAD * self.probability_upper_pct * 100
+        max_low_bid_spread = self.MAXIMUM_LOW_SPREAD * self.probability_lower_pct * 100
+        min_low_spread = self.MINIMUM_LOW_SPREAD
+        new_low_ask_spread = random.triangular(float(min_low_spread), float(max_low_ask_spread), float(self.MIDPOINT_LOW_SPREAD))
+        new_low_bid_spread = random.triangular(float(min_low_spread), float(max_low_bid_spread), float(self.MIDPOINT_LOW_SPREAD))
+
+        new_ask_spread = new_low_ask_spread
+        new_bid_spread = new_low_bid_spread
+        
+        is_high_spread = random.choice([0,0,0,1,1])
+        
+        if is_high_spread == 1:
+            new_ask_spread = new_high_ask_spread
+            new_bid_spread = new_high_bid_spread
+            self.new_order_amount = self.new_order_amount * 2
+
+        self.new_ask_spread = self.round_by_step(Decimal(new_ask_spread), self.MINIMUM_LOW_SPREAD)
+        self.new_bid_spread = self.round_by_step(Decimal(new_bid_spread), self.MINIMUM_LOW_SPREAD)
+        self.new_order_levels_spread = self.round_by_step(Decimal(new_order_levels_spread), self.MINIMUM_LOW_SPREAD)
 
     def calculateEnvelop(self):
         basis = self.avg_mid_price(self.MA_INTERVAL, self.LONG_MA_LENGTH)
@@ -190,42 +232,42 @@ class RewardSniping(ScriptBase):
         order_levels = 1
         buy_levels = 1
         sell_levels = 1
-        new_filled_order_delay = 10 + 10
-        new_order_refresh_time = 30 - 10
+        new_filled_order_delay = 10 + 30
+        new_order_refresh_time = 10
 
         if self.inner_env_upper_bound is None:
             return
 
         # Fast Order Fill Configuration
-        # new_filled_order_delay = 10 + 10
-        # new_order_refresh_time = 30 - 10
-
-        # Med Order Fill Configuration
-        # new_filled_order_delay = 30 + 10
+        # new_filled_order_delay = 10 + 30
         # new_order_refresh_time = 10
 
+        # Med Order Fill Configuration
+        # new_filled_order_delay = 30 + 30
+        # new_order_refresh_time = 5
+
         # Slow Order Fill Configuration
-        # new_filled_order_delay = 60 + 10
+        # new_filled_order_delay = 60 + 30
         # new_order_refresh_time = 1
 
         if self.mid_price >= self.inner_env_upper_bound:
             sell_levels = 2
-            new_filled_order_delay = 30 + 10
-            new_order_refresh_time = 10
+            new_filled_order_delay = 30 + 30
+            new_order_refresh_time = 5
         if self.mid_price >= self.outer_env_upper_bound:
             sell_levels = 3
-            new_filled_order_delay = 60 + 10
+            new_filled_order_delay = 60 + 30
             new_order_refresh_time = 1
         if self.mid_price <= self.outer_env_lower_bound:
             sell_levels = 0
 
         if self.mid_price <= self.inner_env_lower_bound:
             buy_levels = 2
-            new_filled_order_delay = 30 + 10
-            new_order_refresh_time = 10
+            new_filled_order_delay = 30 + 30
+            new_order_refresh_time = 5
         if self.mid_price <= self.outer_env_lower_bound:
             buy_levels = 3
-            new_filled_order_delay = 60 + 10
+            new_filled_order_delay = 60 + 30
             new_order_refresh_time = 1
         if self.mid_price >= self.outer_env_upper_bound:
             buy_levels = 0
@@ -235,6 +277,34 @@ class RewardSniping(ScriptBase):
         self.new_sell_levels = sell_levels
         self.new_filled_order_delay = new_filled_order_delay
         self.new_order_refresh_time = new_order_refresh_time
+
+    def applyInventoryRatioCalculation(self):
+        if self.init_base_price is None or self.init_base_amount is None or self.init_quote_value is None or self.init_total_inv_value is None:
+            return
+        
+        current_price = self.mid_price
+        init_current_diff = (current_price - self.init_base_price) / self.init_base_price * 100
+
+        base_balance = Decimal(self.all_total_balances[f"{self.pmm_market_info.exchange}"].get(self.base_asset, self.base_balance))
+        quote_balance = Decimal(self.all_total_balances[f"{self.pmm_market_info.exchange}"].get(self.quote_asset, self.quote_balance))
+        base_inv_value = base_balance * current_price
+        total_inv_value = base_inv_value + quote_balance
+
+        if init_current_diff >= 1:
+            if total_inv_value >= self.init_total_inv_value:
+                self.init_base_price = current_price
+                self.init_total_inv_value = total_inv_value
+                self.pmm_parameters.inventory_target_base_pct = Decimal(0.5)
+            else:
+                self.pmm_parameters.inventory_target_base_pct = Decimal(0.5)
+            return
+        
+        if init_current_diff <= -1:
+            target_base_amount = (self.init_base_price / current_price) * self.init_base_amount + (self.init_quote_value - quote_balance) / current_price
+            nominal_base_value = self.init_base_price * target_base_amount
+            nominal_total_value = nominal_base_value + quote_balance
+            target_base_pct = nominal_base_value / nominal_total_value
+            self.pmm_parameters.inventory_target_base_pct = target_base_pct
 
     # Utility Methods
     def stdev_price(self, interval: int, length: int) -> Optional[Decimal]:
