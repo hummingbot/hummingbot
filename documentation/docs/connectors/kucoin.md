@@ -30,15 +30,15 @@ This FAQ article below in their documentation shows step-by-step instructions on
 
 ![](/assets/img/kucoin_api.png)
 
-## Miscellaneous Info
+## Miscellaneous info
 
-### Main Account to Trading Account
+### Main Account to trading account
 
 Transfer desired assets to use for trading in Kucoin and for the assets to reflect when running the `balance` command in hummingbot client.
 
 ![](/assets/img/main_to_trading.gif)
 
-### Minimum Order Sizes
+### Minimum order sizes
 
 Minimum order size varies per market. All minimum trade quantities can be found in the following public API:
 
@@ -66,7 +66,7 @@ The size must be greater than the `baseMinSize` for the symbol and no larger tha
 "isMarginEnabled": true
 ```
 
-### Transaction Fees
+### Transaction fees
 
 Generally, KuCoin charges 0.10% on both maker and taker, while a user can get a 20% discount on trading fees if paid in KCS. However, users who trade high volumes and own substantial amounts of KuCoin Shares can receive more discounts.
 

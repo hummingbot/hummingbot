@@ -1,11 +1,8 @@
 # Pure Market Making
 
-
-
-
 import Prompt from "../../src/components/Prompt";
 
-## How it Works
+## How it works
 
 In the pure market making strategy, Hummingbot continually posts the limit bid and ask offers on the market, and waits for other market participants ("takers") to fill their orders.
 
@@ -31,7 +28,7 @@ The diagram below illustrates how market making works. Hummingbot makes a market
 - You will need to hold a sufficient inventory of quote and/or base currencies on the exchange to place orders of the exchange's minimum order size.
 - You will also need some ETH to pay gas for transactions on a decentralized exchange (if applicable).
 
-### Minimum Order Size
+### Minimum order size
 
 When placing orders, if the size of the order determined by the order price and quantity is below the exchange's minimum order size, then the orders will not be created.
 
@@ -42,7 +39,7 @@ When placing orders, if the size of the order determined by the order price and 
 
 Only a sell order will be created, but no buy order.
 
-## Basic Parameters
+## Basic parameters
 
 We aim to teach new users the basics of market-making while enabling experienced users to exercise more control over how their bots behave. By default, when you run `create`, we ask you to enter the basic parameters needed for a market-making bot.
 

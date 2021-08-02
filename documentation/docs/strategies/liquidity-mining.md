@@ -1,9 +1,6 @@
 # Liquidity Mining Strategy
 
-
 import Prompt from "../../src/components/Prompt";
-
-
 
 **Updated as of v0.37**
 
@@ -26,7 +23,7 @@ The volatility is translated to spread by multiplying it to `volatility_to_sprea
 
 ![](/assets/img/adjusted-spread.png)
 
-## Pre-requisites
+## Prerequisites
 
 Inventory
 
@@ -36,7 +33,7 @@ Minimum order size
 
 When placing orders, if the order's size determined by the order price and quantity is below the exchange's minimum order size, orders will not be created.
 
-## Basic Parameters
+## Basic parameters
 
 The following walks through all the steps when running the `create` command.
 
@@ -109,7 +106,7 @@ It sets a target of base asset balance in relation to a total asset allocation v
   response=">>> 20"
 />
 
-## Advanced Parameters
+## Advanced parameters
 
 These are additional parameters that you can reconfigure and use to customize the behavior of your strategy further. To change its settings, run the command `config` followed by the parameter name, e.g. `config volatility_interval`.
 
@@ -235,10 +232,8 @@ max_order_age: 3600.0
 
 These values will show after running the `status` command. `Budget`, `Markets`, `Miner`, and `Orders`.
 
-<Callout
-  type="note"
-  body="`status --live` currently is not compatible with liquidity mining strategy"
-/>
+!!! note
+    `status --live` currently is not compatible with liquidity mining strategy
 
 **Budget**
 
@@ -256,7 +251,7 @@ This shows the markets are chosen, rewards for that certain campaign, rewards pe
 
 Other than the markets, this shows the side of the order created, price, current spread, order amount, order size, and the age.
 
-## Sample Configurations
+## Sample configurations
 
 Here's an example of how the liquidity mining strategy works.
 

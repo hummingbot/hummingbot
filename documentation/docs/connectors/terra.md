@@ -1,7 +1,5 @@
 # Terra
 
-
-
 The [Terra Protocol](https://terra.money/) is the creator of the Luna Token, Terra Core, and the blockchain payment solution CHAI. The design of the Terra Protocol is based on two things: stability and adoption by e-commerce platforms.
 
 It runs on a Tendermint Delegated Proof of Stake algorithm and Cosmos SDK. It is aimed at becoming a new worldwide financial infrastructure on which different DApps can be created.

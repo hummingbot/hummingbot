@@ -1,13 +1,11 @@
 # Perpetual Market Making
 
-
-
 import Prompt from "../../src/components/Prompt";
 
 !!! info
       This strategy only works with [Binance Futures](https://docs.hummingbot.io/derivative-connectors/binance-futures/), [Perpetual Finance (BETA)](https://docs.hummingbot.io/protocol-connectors/perp-fi/) & [dYdX Perpetual(BETA)](https://docs.hummingbot.io/spot-connectors/dydx/)
 
-## How It Works
+## How it works
 
 Perpetual market making allows Hummingbot users to market make on supported derivatives exchanges. In addition, position management features are introduced to configure the bot further to make managing positions easier and remove the need to interact with the derivative exchange manually.
 
@@ -138,7 +136,7 @@ These are the logs in Hummingbot. Notice our position was opened at 03:52 when t
 
 ![closing-orders-3](/assets/img/closing-orders-3.png)
 
-### Profit Taking
+### Profit taking
 
 Hummingbot creates a sell order to close a long position and a buy order to close a short position. If these orders are filled, the position is closed.
 
@@ -154,7 +152,7 @@ If the price of your filled buy order is 10,000 then it opens a long position wi
 
 If the price of your filled sell order is 10,000 it opens a short position. The bot will create a profit taking buy order at 9,900 because our `short_profit_taking_spread` is set to 1% value.
 
-### Trailing Stop
+### Trailing stop
 
 This position management allows users to maximize the profitability of a position. When an order is filled and a position is opened, it waits for PNL to reach the `ts_activation_spread` to start trailing. If this value is set to 0, the bot starts trailing immediately as soon as the order is filled.
 
@@ -177,7 +175,7 @@ Price `NILL` means the exit price is not profitable based on the current peak pr
 
 ![price-nill](/assets/img/price-nill.png)
 
-### Stop Loss
+### Stop loss
 
 If the position’s profitability (PNL) is equal to or below the `stop_loss_spread`, the bot will create a limit or market order (depending on `close_positon_order_type` value) at the current mark price to close the position.
 
@@ -197,7 +195,7 @@ If you’re running the bot or strategy on a machine with poor network connectio
 
 Using market order type helps ensure that your positions are closed at mark price but paying higher fees.
 
-## Basic Parameters
+## Basic parameters
 
 Hummingbot prompts to enter the values for these parameters when creating the strategy.
 

@@ -1,9 +1,8 @@
 # Digifinex
 
-
 DigiFinex is the world's top 10 crypto exchange by trading volume and liquidity, offering spot, leverage, perpetual swap trading, and fiat to crypto trading. We are widely loved for being stable, secure, and easy to use
 
-## Using the Connector
+## Using the connector
 
 To use [Digifinex](https://www.digifinex.com/en-ww/login) connector, you will need to generate and provide your API key to trade using Hummingbot.
 
@@ -17,7 +16,7 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 !!! tip
     For copying and pasting into Hummingbot, see [this page](https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys) for more instructions in our Hummingbot Help Center.
 
-### Creating Digifinex API Keys
+### Creating Digifinex API keys
 
 1. Log in to your account at https://www.digifinex.com/en-ww/login, then click your profile > User Center (If you do not have an account, you will have to create one and verify your ID.)
 
@@ -43,7 +42,7 @@ Make sure you store your Secret Key somewhere secure and do not share it with an
 !!! warning
     If you lose your Secret Key, you can delete the API and create a new one. However, it will be impossible to reuse the same API.
 
-## Miscellaneous Info
+## Miscellaneous info
 
 Users may experience WebSocket errors, and timeout may occur every 2 hours. In addition, there is a known server-side issue with regards to their rate limit, where users might be prematurely banned for exceeding rate limits. For more details on trading rules click [here](https://docs.digifinex.com/en-ww/v3/#digifinex-api-trading-rules).
 
@@ -75,7 +74,7 @@ Refer to the API response below as an example:
 
 You should focus on the data fields `min_volume`, which refers to the minimum order size based on base asset, and `min_amount`, which is based on quote asset.
 
-### Transaction Fees
+### Transaction fees
 
 The transaction fee for the Spot transaction is 0.2% per time. DFT holders can enjoy the discount. Become a VIP user and enjoy a lower transaction fee, with a minimum fee of 0.060%
 

@@ -2,7 +2,7 @@
 
 Bittrex is a global, centralized cryptocurrency exchange based in Seattle, USA. It was founded in 2013 and began its operations in 2014. It is an intuitive and easy-to-navigate exchange platform, often finding its way into the top 3 US exchanges in trading volume.
 
-## Using the Connector
+## Using the connector
 
 [Bittrex](https://international.bittrex.com/) is a centralized exchange, and an API key is required to trade using Hummingbot.
 
@@ -16,7 +16,7 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 !!! tip
     For copying and pasting into Hummingbot, see [this page](https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys) for more instructions in our Support guide.
 
-### Creating Bittrex API Keys
+### Creating Bittrex API keys
 
 1. Log in to https://international.bittrex.com/ or create an account on [this page](https://international.bittrex.com/account/register).
 
@@ -34,9 +34,9 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 
 4. The secret key will only be shown once. Make sure to save and keep this information somewhere safe as it can be used to recover a lost 2FA. In case of a lost security key, delete the API and create a new one. However, it will be impossible to reuse the same API.
 
-## Miscellaneous Info
+## Miscellaneous info
 
-### Minimum Order Sizes
+### Minimum order sizes
 
 Minimum order size varies per market. All minimum trade quantities can be found in the following public API:
 
@@ -61,7 +61,7 @@ https://bittrex.com/api/v1.1/public/getmarkets
 "LogoUrl": "https://bittrexblobstorage.blob.core.windows.net/public/60b380a9-5161-4afe-a8f8-dbf3a8210033.png"
 ```
 
-### Transaction Fees
+### Transaction fees
 
 Bittrex charges 0.35% in both maker and taker fees for most users. However, those who trade in high volumes can trade at discounted rates. Refer to [Fee Schedule](https://bittrex.zendesk.com/hc/en-us/articles/115000199651-What-fees-does-Bittrex-charge-/) section for more details.
 

@@ -1,9 +1,8 @@
 # Beaxy
 
-
 Beaxy is a digital asset exchange that aims to set itself apart from others in the field by offering a feature-rich platform built from the ground up with clients of every experience level in mind.
 
-## Using the Connector
+## Using the connector
 
 To use [Beaxy](https://beaxy.com/) connector, you will need to generate and provide your API key to trade using Hummingbot.
 
@@ -17,7 +16,7 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 !!! tip
     For copying and pasting into Hummingbot, see [this page](https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys) for more instructions in our Hummingbot Help Center.
 
-### Creating Beaxy API Keys
+### Creating beaxy API keys
 
 1. Log in to your account at https://beaxy.com/, then click your account then, from the drop-down, click on API management (If you do not have an account, you will have to create one and enable 2FA.).
 
@@ -41,13 +40,13 @@ Make sure you store your Secret Key somewhere secure and do not share it with an
 !!! warning
     If you lose your Secret Key, you can delete the API and create a new one. However, it will be impossible to reuse the same API.
 
-## Miscellaneous Info
+## Miscellaneous info
 
-### Minimum Order Sizes
+### Minimum order sizes
 
 See [this page](https://beaxy.com/faq/what-are-the-market-trading-rules/) for the minimum order size per trading pair.
 
-### Transaction Fees
+### Transaction fees
 
 Beaxy has a tiered fee structure that starts at a 0.25% fixed fee per trade on market takers and a 0.15% maker fee.
 

@@ -4,7 +4,7 @@ CoinZoom is an institutional-grade digital currency trading platform that uses t
 
 It was established back on March 18, 2018. a Utah-based cryptocurrency exchange announced the official launch of its exchange and CoinZoom Visa card.
 
-## Using the Connector
+## Using the connector
 
 To use [CoinZoom](https://www.coinzoom.com) connector, you will need to generate and provide your API key to trade using Hummingbot.
 
@@ -18,7 +18,7 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 !!! tip
     For copying and pasting into Hummingbot, see [this page](https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys) for more instructions in our Hummingbot Help Center.
 
-### Creating Coinzoom API Keys
+### Creating Coinzoom API keys
 
 1. Log in to your account at https://trade.coinzoom.com/login, then go to > API trading (If you do not have an account, you will have to create one and verify your ID.)
 
@@ -40,9 +40,9 @@ Make sure you store your Secret Key somewhere secure and do not share it with an
 !!! warning
     If you lose your Secret Key, you can delete the API and create a new one. However, it will be impossible to reuse the same API.
 
-## Miscellaneous Info
+## Miscellaneous info
 
-### Transaction Fees
+### Transaction fees
 
 By default, trading fees for this exchange charge a fee of 0.20% for makers and 0.26% for takers per trade.
 

@@ -1,6 +1,6 @@
 # Running Multiple Bots
 
-## Multiple bots via Binary
+## Multiple bots via binary
 
 Users can run multiple bots of Hummingbot installed via binary by simply running a new instance to open a new window.
 

@@ -1,8 +1,6 @@
 # Spot Perpetual Arbitrage
 
-
 import Prompt from "../../src/components/Prompt";
-
 
 !!! warning
     This experimental strategy has undergone code review, internal testing and was shipped during one of our most recent releases. As part of User Acceptance Testing, we encourage users to report any issues and/or provide feedback with this strategy in our [Discord server](https://discord.com/invite/2MN3UWg) or [submit a bug report](https://github.com/CoinAlpha/hummingbot/issues/new?assignees=&labels=bug&template=bug_report.md&title=)
@@ -13,7 +11,7 @@ This strategy looks at the price on the spot connector and the price on the deri
 When the spread between spot and derivative markets reaches a value above `min_divergence`, the first part of the operation will be executed, creating a buy/sell order on the spot connector, while opening an opposing long/short position on the derivative connector.
 With the position open, the bot will scan the prices on both connectors, and once the price spread between them reaches a value below `min_convergence`, the bot will close both positions.
 
-## Pre-requisites
+## Prerequisites
 
 - You will need some quote assets for orders to be opened
 
@@ -21,7 +19,7 @@ With the position open, the bot will scan the prices on both connectors, and onc
 
 - [Hummingbot Gateway](/gateway/installation/) if using Perpetual Finance connector
 
-## Basic Parameters
+## Basic parameters
 
 The following walks through all the steps when running the `create` command.
 

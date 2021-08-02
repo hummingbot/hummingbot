@@ -2,7 +2,7 @@
 
 Loopring is the first scalable DEX protocol built with zkRollup for Ethereum. Loopring Exchange is the first decentralized trading platform built on top of the Loopring protocol. Loopring Exchange is accessible at Loopring.io.
 
-## Using the Connector
+## Using the connector
 
 To use the Loopring Exchange connector to trade using Hummingbot, you will need to provide your API key, private key, and other details.
 
@@ -21,7 +21,7 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 !!! note
     Existing API keys used previously in Loopring v1 API are now invalid. Users must generate new keys from the latest version of the exchange.
 
-### Retrieving Loopring API Keys
+### Retrieving Loopring API keys
 
 1. Log into your account at https://loopring.io/ using one of the supported Wallet extensions (MetaMask, MEW Wallet, WalletConnect, Authereum, Coinbase Wallet).
 
@@ -48,13 +48,13 @@ More information about Loopring Key Management can be found on [this page](https
 !!! warning
     Currently [dydx](/spot-connectors/dydx/), [terra](/protocol-connectors/terra), and [loopring](/spot-connectors/loopring/) don't work on Binary Installers. It can only be used when running Hummingbot from source or with Docker.
 
-## Miscellaneous Info
+## Miscellaneous info
 
-### Minimum Order Sizes
+### Minimum order sizes
 
 Minimum order sizes will vary by trading pair. Typically, the minimum total value of an order must at least 0.02 ETH equivalent.
 
-### Transaction Fees
+### Transaction fees
 
 By default, trading fees are 0% for market makers and 0.20% for takers on Loopring. See the article below for more details.
 

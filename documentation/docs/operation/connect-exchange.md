@@ -19,7 +19,7 @@ Example:
 
 ## Wallets
 
-### Create a Wallet in MetaMask.io
+### Create a wallet in MetaMask.io
 
 ![metamask](/assets/img/metamask.png)
 
@@ -121,7 +121,7 @@ Successfully exported trades to logs/trade_list.csv
 
 ```
 
-## Setup Ethereum Nodes
+## Setup Ethereum nodes
 
 You need an Ethereum node for strategies that trade on Ethereum-based decentralized exchanges, such as Radar Relay, Bamboo Relay, and Dolomite.
 
@@ -172,7 +172,7 @@ Get dedicated hardware for your Ethereum node. Ethereum nodes are meant to run c
 - [IntelⓇ NUC mini PC](https://www.intel.com/content/www/us/en/products/boards-kits/nuc.html): DIY, customize and configure your own hardware.
 - [Avado](https://ava.do/): purpose built hardware that is pre-loaded with DAppNode.
 
-## Advanced Database Configuration
+## Advanced database configuration
 
 !!! warning
       This is a recently released experimental feature. Running any trading bots without manual supervision may incur additional risks. It is imperative that you thoroughly understand and test the strategy and parameters before deploying bots that can trade in an unattended manner.
@@ -206,7 +206,7 @@ db_password: password
 db_name: dbname
 ```
 
-### Configuration Parameters
+### Configuration parameters
 
 | Configuration Parameter | Possible Values                              |
 | ----------------------- | -------------------------------------------- |
@@ -217,7 +217,7 @@ db_name: dbname
 | db_password             | any string e.g. `password`                   |
 | db_name                 | any string e.g. `dbname`                     |
 
-### SQLAlchemy Dialects
+### SQLAlchemy dialects
 
 It is also possible to connect with available SQLAlchemy's external dialects (e.g. Amazon Redshift). But the feature is not currently supported in Hummingbot due to its various DSN format, **use this at your own risk**.
 

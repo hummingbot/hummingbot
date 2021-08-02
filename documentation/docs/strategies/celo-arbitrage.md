@@ -16,7 +16,7 @@ Since Celo is a blockchain protocol, in addition to the normal inventory require
 1. Similar to the **arbitrage** strategy, you will need to hold inventory of Celo tokens (i.e. Celo Gold (CELO) or cUSD) in a Celo wallet and on a **secondary** exchange), in order to be able to trade and capture price differentials (i.e. buy low on one exchange, sell high on the other).
 2. You may also need some CELO tokens in your Celo wallet in order to pay for transaction fees on the Celo blockchain.
 
-### Access to a Celo Node
+### Access to a Celo node
 
 Celo nodes allow the Hummingbot client to interact with the Celo blockchain by connecting to peers, sending transactions, and fetching chain state. Since the client just needs access to the chain and recent blocks, you can run either a Celo full node or an ultra-light node.
 
@@ -45,7 +45,7 @@ While the free `t2.micro` tier may be sufficient to run `celo-arb`, we recommend
 
 By default, AWS instances come with 8 GB of storage. We recommend that you increase storage to at least 16 GB to install the Docker version along with the Celo node.
 
-## 2. Install Docker
+## 2. Install via Docker
 
 ### Scripts
 
@@ -171,7 +171,7 @@ Enter the Celo address and password from when you created the Celo account in St
 
 You should now be connected to Celo. To check, run the `balance` command and check that the balances of CELo and cUSD match what you hold in your Celo wallet.
 
-## Configuration Parameters
+## Configuration parameters
 
 The following walks through all the steps when running `create` command. These parameters are fields in Hummingbot configuration files (located in the `/conf` folder, e.g. `conf/celo_arb_[#].yml`).
 

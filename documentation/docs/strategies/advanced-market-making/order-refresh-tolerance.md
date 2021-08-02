@@ -1,8 +1,5 @@
 # Order Refresh Tolerance
 
-
-
-
 import Prompt from "../../src/components/Prompt";
 
 **Updated as of `v0.28.0`**
@@ -20,7 +17,7 @@ The spread (from mid-price) to defer the order refresh process to the next cycle
   response=">>> 1"
 />
 
-## How It Works
+## How it works
 
 Type `config order_refresh_tolerance_pct` to set this parameter. By default, this parameter is set to `0`.
 
@@ -34,7 +31,7 @@ Note that one can set `order_refresh_tolerance_pct` to be greater than the bid a
 
 Imagine you are trading the `ETH-USDT` asset pair on an exchange with a starting mid-market price of 200 USDT ($t_0$).
 
-### Sample Market
+### Sample market
 
 ![Sample Market: ETH-USDT](/assets/img/order_refresh_tolerance_sample_market.png)
 
@@ -47,7 +44,7 @@ Imagine you are trading the `ETH-USDT` asset pair on an exchange with a starting
 - order_refresh_tolerance_pct: 1
 ```
 
-### Sample Status Output/Log
+### Sample status output/log
 
 The ask and bid spread is 2%, so your bot will place orders at the ask price of 204 and your bid price to 196 ($t_1$). This configuration creates your orders as follows.
 
@@ -115,6 +112,6 @@ current order prices is within 1.00% order_refresh_tolerance_pct
 
 Let's say that a market taker thinks the market price will decrease substantially and likes your bid spread. They then can fill your buy order at 195.02.
 
-## How Is This Parameter Helpful
+## How is this parameter helpful
 
 The default for this parameter is a tolerance of 0%. Thus, at each refresh cycle, if the spread changes _at all_, the bot will cancel the orders and place new orders at the configuration spread. Because the spread resets at every refresh cycle, this increases the likelihood that the bid and ask spread are closer to the original bid and ask spread. This reduces the risk that the spread substantially strays away from the original spread, perhaps preventing a loss. _However_, as we have seen above, the strategy can capitalize on the flexibility (tolerance) of the bid and ask spreads because price takers could be looking for some range of spreads that are unknown to you.

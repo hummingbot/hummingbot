@@ -1,13 +1,10 @@
 # Binance Futures
 
-
-
-
 <meta charset="utf-8" />
 
 Binance Futures is the fastest-growing crypto-derivative exchange by trading volume and currently offers the highest leverage of 125x margin among major crypto exchanges, making it one of the most competitive products in the market. This was made possible by our robust risk management system, which includes a sophisticated risk engine, smart liquidation model, and insurance funds that provide traders with extra protection for highly leveraged trading.
 
-## Using the Connector
+## Using the connector
 
 Like the Binance connector, you will need to generate and provide your API key to trade using Hummingbot.
 
@@ -21,7 +18,7 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 !!! tip
     For copying and pasting into Hummingbot, see [this page](https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys) for more instructions in our Hummingbot Help Center.
 
-### Creating Binance Futures API Keys
+### Creating Binance futures API keys
 
 1. Log into your account at https://www.binance.com, then select **Account**> **API Management** (If you do not have an account, you will have to create one and verify your ID).
 2. Follow on-screen instructions to create your API keys.
@@ -45,7 +42,7 @@ If you’d like to test without risking real funds, you can try out the Binance 
 
 ![](/assets/img/testnet-api.jpg)
 
-## Contract Specifications of Binance Perpetuals
+## Contract specifications of Binance perpetuals
 
 - Trading Rules: Please see [Binance future trading rules](https://www.binance.com/en/futures/trading-rules)
 - Leverage and Margin: Please see [Leverage and Margin](https://www.binance.com/en/support/faq/360033162192)

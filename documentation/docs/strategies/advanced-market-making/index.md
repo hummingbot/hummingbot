@@ -2,14 +2,14 @@
 
 These advanced parameters give you more control over how your bot behaves. Please take the time to understand how these parameters work before risking extensive capital with bots that utilize them.
 
-## How to Configure
+## How to configure
 
 There are two ways to configure these parameters:
 
 1. Run `config` to see the current strategy settings. Run command `config [parameter_name]` to reconfigure the parameter.
 2. Outside of the Hummingbot client, you can edit the strategy configuration file directly using a text editor and then import it later.
 
-## Advanced Configuration Parameters
+## Advanced configuration parameters
 
 | Feature | Parameter | Prompt | Definition |
 |---------|-----------|--------|------------|
