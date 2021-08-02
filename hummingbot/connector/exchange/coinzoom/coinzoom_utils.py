@@ -8,6 +8,7 @@ from typing import (
     Optional,
 )
 
+from hummingbot.core.utils.asyncio_throttle import Throttler
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
@@ -19,6 +20,8 @@ CENTRALIZED = True
 EXAMPLE_PAIR = "BTC-USD"
 
 DEFAULT_FEES = [0.2, 0.26]
+
+REQUEST_THROTTLER = Throttler(rate_limit = (18.0, 8.0))
 
 
 class CoinzoomAPIError(IOError):
@@ -104,27 +107,28 @@ async def api_call_with_retries(method,
                                 params: Optional[Dict[str, Any]] = None,
                                 shared_client=None,
                                 try_count: int = 0) -> Dict[str, Any]:
-    url = f"{Constants.REST_URL}/{endpoint}"
-    headers = {"Content-Type": "application/json", "User-Agent": "hummingbot"}
-    http_client = shared_client if shared_client is not None else aiohttp.ClientSession()
-    # Build request coro
-    response_coro = http_client.request(method=method.upper(), url=url, headers=headers,
-                                        params=params, timeout=Constants.API_CALL_TIMEOUT)
-    http_status, parsed_response, request_errors = await aiohttp_response_with_errors(response_coro)
-    if shared_client is None:
-        await http_client.close()
-    if request_errors or parsed_response is None:
-        if try_count < Constants.API_MAX_RETRIES:
-            try_count += 1
-            time_sleep = retry_sleep_time(try_count)
-            print(f"Error fetching data from {url}. HTTP status is {http_status}. "
-                  f"Retrying in {time_sleep:.0f}s.")
-            await asyncio.sleep(time_sleep)
-            return await api_call_with_retries(method=method, endpoint=endpoint, params=params,
-                                               shared_client=shared_client, try_count=try_count)
-        else:
-            raise CoinzoomAPIError({"error": parsed_response, "status": http_status})
-    return parsed_response
+    async with REQUEST_THROTTLER.weighted_task(request_weight=1):
+        url = f"{Constants.REST_URL}/{endpoint}"
+        headers = {"Content-Type": "application/json", "User-Agent": "hummingbot"}
+        http_client = shared_client if shared_client is not None else aiohttp.ClientSession()
+        # Build request coro
+        response_coro = http_client.request(method=method.upper(), url=url, headers=headers,
+                                            params=params, timeout=Constants.API_CALL_TIMEOUT)
+        http_status, parsed_response, request_errors = await aiohttp_response_with_errors(response_coro)
+        if shared_client is None:
+            await http_client.close()
+        if request_errors or parsed_response is None:
+            if try_count < Constants.API_MAX_RETRIES:
+                try_count += 1
+                time_sleep = retry_sleep_time(try_count)
+                print(f"Error fetching data from {url}. HTTP status is {http_status}. "
+                      f"Retrying in {time_sleep:.0f}s.")
+                await asyncio.sleep(time_sleep)
+                return await api_call_with_retries(method=method, endpoint=endpoint, params=params,
+                                                   shared_client=shared_client, try_count=try_count)
+            else:
+                raise CoinzoomAPIError({"error": parsed_response, "status": http_status})
+        return parsed_response
 
 
 KEYS = {
