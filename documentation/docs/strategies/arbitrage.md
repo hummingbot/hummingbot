@@ -1,7 +1,5 @@
----
-title: Arbitrage
-description: Learn how to use Arbitrage strategies
----
+# Arbitrage
+
 
 
 

@@ -1,7 +1,5 @@
----
-title: Perpetual Market Making
-description:
----
+# Perpetual Market Making
+
 
 
 import Prompt from "../../src/components/Prompt";

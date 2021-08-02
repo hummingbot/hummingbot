@@ -1,7 +1,5 @@
----
-title: Ping Pong
-description: Info on ping pong
----
+# Ping Pong
+
 
 import Prompt from "../../src/components/Prompt";
 

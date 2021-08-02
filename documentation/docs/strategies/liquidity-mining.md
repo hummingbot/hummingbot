@@ -1,7 +1,5 @@
----
-title: Liquidity Mining Strategy
-description: Learn how to use Liquidity mining strategy
----
+# Liquidity Mining Strategy
+
 
 import Prompt from "../../src/components/Prompt";
 
