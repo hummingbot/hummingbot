@@ -13,25 +13,15 @@ Enter your Bittrex secret key >>>
 
 Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
 
-<Callout
-  type="tip"
-  body="For copying and pasting into Hummingbot, see [this page] for more instructions in our Support guide."
-  link={[
-    "https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys",
-  ]}
-/>
+!!! tip
+    For copying and pasting into Hummingbot, see [this page](https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys) for more instructions in our Support guide.
 
 ### Creating Bittrex API Keys
 
 1. Log in to https://international.bittrex.com/ or create an account on [this page](https://international.bittrex.com/account/register).
 
-<Callout
-  type="note"
-  body="Ensure first that 2FA is enabled to proceed with the next steps. Refer to [this page] for more information."
-  link={[
-    "https://bittrex.zendesk.com/hc/en-us/articles/115000198612-Two-Factor-Authentication-2FA-",
-  ]}
-/>
+!!! note
+    Ensure first that 2FA is enabled to proceed with the next steps. Refer to [this page](https://bittrex.zendesk.com/hc/en-us/articles/115000198612-Two-Factor-Authentication-2FA-) for more information.
 
 2. Click **Account** then select **API Keys** under the site settings section.
 
@@ -39,10 +29,8 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 
 3. Add a new key, enable **Read Info**, and **Trade**, then save to enter 2FA code.
 
-<Callout
-  type="warning"
-  body="For API key permissions, we recommend using #trade# enabled API keys; enabling #withdraw#, or the equivalent is unnecessary for current Hummingbot strategies."
-/>
+!!! warning
+    For API key permissions, we recommend using #trade# enabled API keys; enabling #withdraw#, or the equivalent is unnecessary for current Hummingbot strategies.
 
 4. The secret key will only be shown once. Make sure to save and keep this information somewhere safe as it can be used to recover a lost 2FA. In case of a lost security key, delete the API and create a new one. However, it will be impossible to reuse the same API.
 

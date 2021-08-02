@@ -14,13 +14,8 @@ Enter your Eterbase Account >>>
 
 Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
 
-<Callout
-  type="tip"
-  body="For copying and pasting into Hummingbot, see [this page] for more instructions in our Support section."
-  link={[
-    "https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys",
-  ]}
-/>
+!!! tip
+    For copying and pasting into Hummingbot, see [this page](https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys) for more instructions in our Support section.
 
 ### Creating Eterbase API Keys
 
@@ -36,10 +31,8 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
    Make sure you give permissions to **View** and **Trade**<br />
    [![eterbase3](/assets/img/eterbase3.png)](/assets/img/eterbase3.png)
 
-<Callout
-  type="warning"
-  body="We recommend using only #trade# enabled API keys; enabling #withdraw, transfer, or the equivalent is unnecessary# for current Hummingbot strategies."
-/>
+!!! warning
+    We recommend using only #trade# enabled API keys; enabling #withdraw, transfer, or the equivalent is unnecessary# for current Hummingbot strategies.
 
 5. Now you have created an API key.<br />
    Copy and paste **Account Id**, **Key** and **Secret** to Hummingbot<br />
@@ -47,10 +40,8 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 
 Make sure you store your Secret Key somewhere secure, and do not share it with anyone. Your Secret Key will only be displayed once at the time when you create the API.
 
-<Callout
-  type="tip"
-  body="If you lose your Secret Key, you can delete the API and create a new one. However, it will be impossible to reuse the same API."
-/>
+!!! tip
+    If you lose your Secret Key, you can delete the API and create a new one. However, it will be impossible to reuse the same API.
 
 ## Miscellaneous Info
 

@@ -1,15 +1,7 @@
 # TWAP Strategy
 
-
-
-
-<Callout
-  type="bug"
-  body="Starting from version 0.41, we took out the existing TWAP strategy from the development branch into production. Please be advised of the [outstanding bugs] which will be fixed in future releases."
-  link={[
-    "https://github.com/CoinAlpha/hummingbot/issues?q=is%3Aissue+is%3Aopen++in%3Atitle+TWAP+label%3Abug",
-  ]}
-/>
+!!! bug
+    Starting from version 0.41, we took out the existing TWAP strategy from the development branch into production. Please be advised of the [outstanding bugs](https://github.com/CoinAlpha/hummingbot/issues?q=is%3Aissue+is%3Aopen++in%3Atitle+TWAP+label%3Abug) which will be fixed in future releases.
 
 ## Creating The Strategy
 
@@ -20,13 +12,8 @@
 4. To review your settings, run the `config` command
 5. The strategy configuration file is saved in `logs/` or `hummingbot_logs` folder depending on how you installed Hummingbot
 
-<Callout
-  type="tip"
-  body="If you already have an existing strategy config file created previously, follow the instructions on how to [import an existing strategy file]."
-  link={[
-    "https://docs.hummingbot.io/operation/config-files/#import-an-existing-strategy-file",
-  ]}
-/>
+!!! tip
+    If you already have an existing strategy config file created previously, follow the instructions on how to [import an existing strategy file](https://docs.hummingbot.io/operation/config-files/#import-an-existing-strategy-file).
 
 ## How It Works
 
@@ -42,10 +29,8 @@ This strategy allows users to continuously create either buy or sell limit order
 
 ## Sample Demo
 
-<Callout
-  type="warning"
-  body="This demo is for instructional and educational purposes only. Any parameters used are purely for demo purposes only. We are not giving any legal, tax, financial, or investment advice. Every user is responsible for their use and configuration of Hummingbot."
-/>
+!!! warning
+    This demo is for instructional and educational purposes only. Any parameters used are purely for demo purposes only. We are not giving any legal, tax, financial, or investment advice. Every user is responsible for their use and configuration of Hummingbot.
 
 <iframe
   width="733"

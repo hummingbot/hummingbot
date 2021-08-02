@@ -54,10 +54,8 @@ price_source_custom_api: None
 
 Run `config price_type` command to change the price reference to `last_price`, `last_own_trade_price`, `best_bid`, and `best_ask`. The parameter `take_if_crossed` is optional as this only allows users to take existing orders from the order book if there is an existing match.
 
-<Callout
-  type="note"
-  body="Currently, the external price source cannot be the same as the maker exchange (i.e. if the bot is trading on Binance, the `price_source_exchange` cannot be Binance)."
-/>
+!!! note
+    Currently, the external price source cannot be the same as the maker exchange (i.e. if the bot is trading on Binance, the `price_source_exchange` cannot be Binance)
 
 ## Price Source: Custom API
 

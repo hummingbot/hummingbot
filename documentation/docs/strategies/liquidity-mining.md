@@ -7,14 +7,8 @@ import Prompt from "../../src/components/Prompt";
 
 **Updated as of v0.37**
 
-<Callout
-  type="warning"
-  body="This experimental strategy has undergone code review, internal testing and was shipped during one of our most recent releases. As part of User Acceptance Testing, we encourage user to report any issues and/or provide feedback with this strategy in our [Discord server] or [submit a bug report]"
-  link={[
-    "https://discord.com/invite/2MN3UWg",
-    "https://github.com/CoinAlpha/hummingbot/issues/new?assignees=&labels=bug&template=bug_report.md&title=",
-  ]}
-/>
+!!! warning
+    This experimental strategy has undergone code review, internal testing and was shipped during one of our most recent releases. As part of User Acceptance Testing, we encourage user to report any issues and/or provide feedback with this strategy in our [Discord server](https://discord.com/invite/2MN3UWg) or [submit a bug report](https://github.com/CoinAlpha/hummingbot/issues/new?assignees=&labels=bug&template=bug_report.md&title=)
 
 ## How it works
 
@@ -68,10 +62,8 @@ Token trading pair symbols you would like to trade on the exchange.
   response=">>> ETH-USDT"
 />
 
-<Callout
-  type="note"
-  body="If participating in multiple markets, this strategy only supports trading pairs that share the same base or quote asset."
-/>
+!!! note
+    If participating in multiple markets, this strategy only supports trading pairs that share the same base or quote asset.
 
 ### `token`
 

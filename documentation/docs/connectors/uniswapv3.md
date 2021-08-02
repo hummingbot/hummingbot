@@ -1,22 +1,13 @@
 # Uniswap v3
 
-
-
-
 [Uniswap](https://uniswap.org/) is a protocol on Ethereum for swapping ERC20 tokens. Unlike most exchanges, which are designed to take fees, Uniswap is designed to function as a public good — a tool for the community trade tokens without platform fees or middlemen.
 
 Concentrated liquidity and multiple fee tiers are the new features behind Uniswap v3, giving the liquidity provider more control of risk and assets.
 
 Source: https://decrypt.co/resources/what-is-uniswap
 
-<Callout
-  type="warning"
-  body="Currently, [Uniswap] could not be used on Binary Installers since it would need a [gateway] connection for it to work. It can only be used when running Hummingbot from source or with Docker."
-  link={[
-    "/protocol-connectors/uniswap/",
-    "https://docs.hummingbot.io/gateway/installation/#what-is-hummingbot-gateway",
-  ]}
-/>
+!!! warning
+    Currently, [Uniswap](/protocol-connectors/uniswap/) could not be used on Binary Installers since it would need a [gateway](https://docs.hummingbot.io/gateway/installation/#what-is-hummingbot-gateway) connection for it to work. It can only be used when running Hummingbot from source or with Docker.
 
 ## Prerequisites
 
@@ -43,11 +34,8 @@ After adding your Ethereum wallet and node in Hummingbot, follow the guide in th
 
 - [Hummingbot Gateway Installation](/gateway/installation/)
 
-<Callout
-  type="note"
-  body="For setting up gas estimator, you can check our [ETH Gas Station] for more info"
-  link={["/gateway/installation/#eth-gas-station"]}
-/>
+!!! note
+    For setting up gas estimator, you can check our [ETH Gas Station](/gateway/installation/#eth-gas-station) for more info
 
 ## Confirm connection
 

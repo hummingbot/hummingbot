@@ -11,11 +11,8 @@ In the pure market making strategy, Hummingbot continually posts the limit bid a
 
 Users can specify how far away ("spreads") from the mid-price the bid and asks are, the order quantity, and how often prices should be updated (order cancels + new orders posted).
 
-<Callout
-  type="warning"
-  body="Please exercise caution while running this strategy and set appropriate [kill switch] rate. The current version of this strategy is intended to be a basic template that users can test and customize. Running the strategy with substantial capital without additional modifications may result in losses."
-  link={["/features/kill-switch/"]}
-/>
+!!! warning
+    Please exercise caution while running this strategy and set appropriate [kill switch](/features/kill-switch/) rate. The current version of this strategy is intended to be a basic template that users can test and customize. Running the strategy with substantial capital without additional modifications may result in losses.
 
 ## Schematic
 
@@ -127,10 +124,8 @@ Whether to alternate between buys and sells, for more information on this parame
   response=""
 />
 
-<Callout
-  type="tip"
-  body="For autocomplete inputs during configuration, when going through the command line config process, pressing `<TAB>` at a prompt will display valid available inputs."
-/>
+!!! tip
+    For autocomplete inputs during configuration, when going through the command line config process, pressing `<TAB>` at a prompt will display valid available inputs.
 
 ## ** Configure parameters on the fly **
 
@@ -145,7 +140,5 @@ Currently, only the following parameters can be reconfigured without stopping th
 - inventory_range_multiplier
 - filled_order_delay
 
-<Callout
-  type="note"
-  body="Reconfiguring of `inventory_target_base_pct` for DEX connectors is not working at the moment."
-/>
+!!! note
+    Reconfiguring of `inventory_target_base_pct` for DEX connectors is not working at the moment.

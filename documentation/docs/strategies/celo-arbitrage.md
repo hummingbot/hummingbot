@@ -1,20 +1,11 @@
 # Celo Arbitrage
 
-
-
-
 import Prompt from "../../src/components/Prompt";
 
 **Updated as of v0.28.1**
 
-<Callout
-  type="warning"
-  body="The Celo Arbitrage Strategy could not be used on Binary Installers since it would need a [gateway] connection for it to work. It can only be used when running Hummingbot from source or with Docker."
-  link={[
-    "/protocol-connectors/balancer",
-    "https://docs.hummingbot.io/gateway/installation/#what-is-hummingbot-gateway",
-  ]}
-/>
+!!! warning
+    The Celo Arbitrage Strategy could not be used on Binary Installers since it would need a [gateway](https://docs.hummingbot.io/gateway/installation/#what-is-hummingbot-gateway) connection for it to work. It can only be used when running Hummingbot from source or with Docker.
 
 ## Prerequisites
 
@@ -31,11 +22,8 @@ Celo nodes allow the Hummingbot client to interact with the Celo blockchain by c
 
 Follow the [Celo documentation](https://docs.celo.org/getting-started/mainnet/running-a-full-node-in-mainnet) to install and run a full node. Note that the node must be synced in order for the `celo-arb` strategy to run.
 
-<Callout
-  type="tip"
-  body="Ultra-light sync mode — The `celo-arb` strategy works with Celo node running in 'ultra-light' mode, which is much faster to sync. See our [Quickstart] for instructions on how to start a node in ultra-light mode."
-  link={["https://hummingbot.io/academy/celo-arb/"]}
-/>
+!!! tip
+    Ultra-light sync mode — The `celo-arb` strategy works with Celo node running in 'ultra-light' mode, which is much faster to sync. See our [Quickstart](https://hummingbot.io/academy/celo-arb/) for instructions on how to start a node in ultra-light mode.
 
 ### `celo-cli` CLI tool
 
@@ -122,11 +110,8 @@ export CELO_ACCOUNT_ADDRESS=<YOUR-ACCOUNT-ADDRESS>
 
 
 ```
-
-<Callout
-  type="note"
-  body="Make sure that you save the address and password of the new Celo account address you created. You will need it later."
-/>
+!!! note
+    Make sure that you save the address and password of the new Celo account address you created. You will need it later.
 
 Instead, run the following command to start an **ultra-light node** rather than a full node:
 

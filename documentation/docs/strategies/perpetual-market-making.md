@@ -4,15 +4,8 @@
 
 import Prompt from "../../src/components/Prompt";
 
-<Callout
-  type="info"
-  body="This strategy only works with [Binance Futures], [Perpetual Finance (BETA)] & [dYdX Perpetual(BETA)]"
-  link={[
-    "https://docs.hummingbot.io/derivative-connectors/binance-futures/",
-    "https://docs.hummingbot.io/protocol-connectors/perp-fi/",
-    "https://docs.hummingbot.io/spot-connectors/dydx/",
-  ]}
-/>
+!!! info
+      This strategy only works with [Binance Futures](https://docs.hummingbot.io/derivative-connectors/binance-futures/), [Perpetual Finance (BETA)](https://docs.hummingbot.io/protocol-connectors/perp-fi/) & [dYdX Perpetual(BETA)](https://docs.hummingbot.io/spot-connectors/dydx/)
 
 ## How It Works
 
@@ -26,25 +19,14 @@ In this document, we will explain how the strategy works by dividing it into thr
 2. [Opening positions after a filled order event](#opening-positions-after-a-filled-order-event)
 3. [Creating orders to close a position](#creating-orders-to-close-a-position)
 
-<Callout
-  type="tip"
-  body="Users can test how this strategy works without risking real funds by connecting their Binance Futures Testnet account to Hummingbot."
-  bullets={[
-    "[Create a free account with Binance Futures Testnet]",
-    "[Creating Binance Futures Testnet API Keys]",
-  ]}
-  link={[
-    "https://testnet.binancefuture.com/en/register?source=futures",
-    "https://docs.hummingbot.io/derivative-connectors/binance-futures/#creating-binance-futures-testnet-api-keys",
-  ]}
-/>
+!!! tip
+      Users can test how this strategy works without risking real funds by connecting their Binance Futures Testnet account to Hummingbot.
+      - [Create a free account with Binance Futures Testnet](https://testnet.binancefuture.com/en/register?source=futures)
+      - [Creating Binance Futures Testnet API Keys](https://docs.hummingbot.io/derivative-connectors/binance-futures/#creating-binance-futures-testnet-api-keys)
 
-<Callout
-  type="tip"
-  body="You can also watch the recording of our demo of the strategy in the link below:"
-  bullets={["[Hummingbot Live - Perpetual Market Making Demo]"]}
-  link={["https://www.youtube.com/watch?v=IclhZWtKiSA&t=2194s"]}
-/>
+!!! tip
+      You can also watch the recording of our demo of the strategy in the link below:
+      - "[Hummingbot Live - Perpetual Market Making Demo](https://www.youtube.com/watch?v=IclhZWtKiSA&t=2194s)
 
 ## Creating a basic strategy configuration
 

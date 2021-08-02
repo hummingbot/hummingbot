@@ -40,19 +40,15 @@ The incremental spread increases for subsequent order levels after the first lev
   response=">>> "
 />
 
-<Callout
-  type="warning"
-  body="Setting `order_level_spread` to a very low number may cause multiple orders to be placed on the same price level. For example, for an asset like SNM/BTC, if you set an order interval percent of 0.4 (~0.4%) because of low asset value, the price of the next order will be rounded to the nearest price supported by the exchange, which in this case might lead to multiple orders being placed at the same price level."
-/>
+!!! warning
+    Setting `order_level_spread` to a very low number may cause multiple orders to be placed on the same price level. For example, for an asset like SNM/BTC, if you set an order interval percent of 0.4 (~0.4%) because of low asset value, the price of the next order will be rounded to the nearest price supported by the exchange, which in this case might lead to multiple orders being placed at the same price level.
 
 ## How It Works
 
 Enter the value for `order_levels` to specify how many orders you want to place on each side (buy and sell).
 
-<Callout
-  type="note"
-  body="#Example#: Entering `3` places three bid and three ask orders on each side of the book, for a total of 6 orders."
-/>
+!!! note
+    **Example**: Entering `3` places three bid and three ask orders on each side of the book, for a total of 6 orders.
 
 Users can also increase or decrease the size of subsequent orders starting from the first order in increments or decrements specified in order_level_amount. This can be set to 0 if you don't want your multiple order sizes to increase Greater than 0(i.e., 0.4) to allow order sizes to increase by 0.4 after the first level Less than 0(i.e., -2) to enable order sizes to decrease by 2 after the first level.
 

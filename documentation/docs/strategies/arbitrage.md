@@ -79,10 +79,8 @@ Minimum profitability target required to execute trades.
   response=">>> "
 />
 
-<Callout
-  type="note"
-  body="While running this strategy, `min_profitability` excludes the `transaction fees` when calculating profitability from your chosen exchanges."
-/>
+!!! note
+    While running this strategy, `min_profitability` excludes the `transaction fees` when calculating profitability from your chosen exchanges.
 
 ### `use_oracle_conversion_rate`
 
@@ -100,10 +98,8 @@ You can also edit it from `config_global.yml` to change the `rate_oracle_source`
   response=">>>"
 />
 
-<Callout
-  type="tip"
-  body="For autocomplete inputs during configuration, when going through the command line config process, pressing `<TAB>` at a prompt will display valid available inputs."
-/>
+!!! tip
+    For autocomplete inputs during configuration, when going through the command line config process, pressing `<TAB>` at a prompt will display valid available inputs.
 
 ## Advanced Parameters
 

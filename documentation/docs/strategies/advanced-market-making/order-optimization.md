@@ -9,10 +9,8 @@ import Prompt from "../../src/components/Prompt";
 
 Users now have the option to automatically adjust the prices to the right, just above the top bid and just below the top ask.
 
-<Callout
-  type="note"
-  body="`order_optimization_enabled` was previously called `jump_orders_enabled`"
-/>
+!!! note
+    `order_optimization_enabled` was previously called `jump_orders_enabled`
 
 ## `order_optimization_enabled`
 

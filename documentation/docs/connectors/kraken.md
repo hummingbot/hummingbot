@@ -1,8 +1,5 @@
 # Kraken
 
-
-
-
 Kraken is a centralized exchange based in San Francisco, CA, founded in 2011. Users can trade several cryptocurrencies and various fiat currencies such as USD, CAD, EUR, GBP, CHF, and JPY.
 
 It was the first bitcoin exchange to display its market data on the [Bloomberg Terminal](https://www.investopedia.com/terms/b/bloomberg_terminal.asp), the first to pass a cryptographically verifiable proof-of-reserves audit, and one of the first exchanges to offer leveraged bitcoin margin trading.
@@ -18,13 +15,8 @@ Enter your Kraken secret key >>>
 
 Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
 
-<Callout
-  type="tip"
-  body="For copying and pasting into Hummingbot, see [this page] for more instructions in our Support guide."
-  link={[
-    "https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys",
-  ]}
-/>
+!!! tip
+    For copying and pasting into Hummingbot, see [this page](https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys) for more instructions in our Support guide.
 
 ### Creating Kraken API keys
 
@@ -36,10 +28,8 @@ Take note that for your API keys to work with Hummingbot, **set the Nonce Window
 
 ![kraken](/assets/img/kraken_nonce_window.png)
 
-<Callout
-  type="warning"
-  body="For API key permissions, we recommend using only #Orders & Trades# enabled API keys; enabling #withdraw, transfer, or the equivalent# is unnecessary for current Hummingbot strategies."
-/>
+!!! warning
+    For API key permissions, we recommend using only #Orders & Trades# enabled API keys; enabling #withdraw, transfer, or the equivalent# is unnecessary for current Hummingbot strategies.
 
 Shows nonce reminder when adding API keys to Kraken.
 

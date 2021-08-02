@@ -19,13 +19,8 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 At no point will private or API keys be shared with someone or be used in any way other
 than to authorize transactions required for the operation of Hummingbot.
 
-<Callout
-  type="tip"
-  body="For copying and pasting into Hummingbot, see [this page] for more instructions in our Support guide."
-  link={[
-    "https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys",
-  ]}
-/>
+!!! tip
+    For copying and pasting into Hummingbot, see [this page](https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys) for more instructions in our Support guide.
 
 ### Creating Bitfinex API Keys
 
@@ -33,13 +28,8 @@ than to authorize transactions required for the operation of Hummingbot.
 
 ![bitfinex1](/assets/img/bitfinex1.png)
 
-<Callout
-  type="tip"
-  body="For more secure, enable 2FA in your account. [How to enable 2FA?]"
-  link={[
-    "https://support.bitfinex.com/hc/en-us/articles/115003340249-Google-Authenticator-2FA-Setup",
-  ]}
-/>
+!!! tip
+    For more secure, enable 2FA in your account. [How to enable 2FA](https://support.bitfinex.com/hc/en-us/articles/115003340249-Google-Authenticator-2FA-Setup)?
 
 2. Click on **Create NEW KEY**.
 
@@ -49,10 +39,8 @@ Make sure you give permissions to **Read** and **Write** and enter your 2FA code
 
 Confirm your API-key request bypass the link in the email letter. You will receive a notification: _Almost Done! Please check your email to complete the creation of this new API key._
 
-<Callout
-  type="warning"
-  body="For API key permissions, we recommend using #Orders# enabled API keys; enabling #withdraw#, or the equivalent is unnecessary for current Hummingbot strategies."
-/>
+!!! warning
+    For API key permissions, we recommend using #Orders# enabled API keys; enabling #withdraw#, or the equivalent is unnecessary for current Hummingbot strategies.
 
 Once you pass the link in an email letter, you've created a new API Key!
 
@@ -62,10 +50,8 @@ Your API Secret will be displayed on the screen. Make sure you store your API Se
 
 The API key and API secret key are required for using Hummingbot.
 
-<Callout
-  type="warning"
-  body="If you lose your Secret Key, you can delete the API and create a new one. However, it will be impossible to reuse the same API."
-/>
+!!! warning
+    If you lose your Secret Key, you can delete the API and create a new one. However, it will be impossible to reuse the same API.
 
 ## Miscellaneous Info
 

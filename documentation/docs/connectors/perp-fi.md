@@ -1,26 +1,12 @@
 # Perpetual Finance
 
-
-
-<Callout
-  type="note"
-  body="This connector has undergone code review, internal testing and was shipped during one of our most recent releases. As part of User Acceptance Testing, we encourage user to report any issues with this connector to our [Discord server] or [submit a bug report]"
-  link={[
-    "https://discord.com/invite/2MN3UWg",
-    "https://github.com/CoinAlpha/hummingbot/issues/new?assignees=&labels=bug&template=bug_report.md&title=",
-  ]}
-/>
+!!! note
+    This connector has undergone code review, internal testing and was shipped during one of our most recent releases. As part of User Acceptance Testing, we encourage user to report any issues with this connector to our [Discord server](https://discord.com/invite/2MN3UWg) or [submit a bug report](https://github.com/CoinAlpha/hummingbot/issues/new?assignees=&labels=bug&template=bug_report.md&title=)
 
 Perpetual Protocol is a decentralized perpetual contract trading protocol for every asset, with a Uniswap-inspired Virtual Automated Market Makers (Virtual AMMs) and a built-in Staking Reserve, which backs and secures the Virtual AMMs.
 
-<Callout
-  type="warning"
-  body="Currently, [Perpetual Finance] could not be used on Binary Installers since it would need a [gateway] connection for it to work. It can only be used when running Hummingbot from source or with Docker."
-  link={[
-    "/protocol-connectors/perp-fi/",
-    "https://docs.hummingbot.io/gateway/installation/#what-is-hummingbot-gateway",
-  ]}
-/>
+!!! warning
+    Currently, [Perpetual Finance](/protocol-connectors/perp-fi/) could not be used on Binary Installers since it would need a [gateway](https://docs.hummingbot.io/gateway/installation/#what-is-hummingbot-gateway) connection for it to work. It can only be used when running Hummingbot from source or with Docker.
 
 ## Prerequisites
 
