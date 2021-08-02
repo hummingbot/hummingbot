@@ -1,6 +1,4 @@
----
-title: Perpetual Finance
----
+# Perpetual Finance
 
 
 

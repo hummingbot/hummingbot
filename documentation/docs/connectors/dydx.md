@@ -1,7 +1,4 @@
----
-title: dYdX
-description: About dYdX Exchange Connector
----
+# dYdX
 
 
 

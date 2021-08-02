@@ -1,9 +1,4 @@
----
-title: AscendEX
-description: About AscendEX connector
----
-
-
+# AscendEX
 
 AscendEX, formerly BitMax, is a leading digital asset financial platform with a comprehensive product suite including altcoin trading for spot, margin, and futures, wallet services for over 100 cryptocurrencies, and innovative staking support for top blockchain projects.
 
@@ -19,6 +14,9 @@ Enter your AscendEx secret API key >>>
 ```
 
 Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
+
+!!! tip
+    For copying and pasting into Hummingbot, see [this page](https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys) for more instructions in our Hummingbot Help Center
 
 <Callout
   type="tip"

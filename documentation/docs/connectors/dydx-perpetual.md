@@ -1,7 +1,4 @@
----
-title: dYdX Perpetual
-description: About dYdX Perpetual Exchange Connector
----
+# dYdX Perpetual
 
 
 

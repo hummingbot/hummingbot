@@ -1,7 +1,4 @@
----
-title: Overview
-description:
----
+# Overview
 
 import StatusCircle from "../../src/components/StatusCircle";
 

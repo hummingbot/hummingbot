@@ -1,7 +1,5 @@
----
-title: Kraken
-description: About Kraken Connector
----
+# Kraken
+
 
 
 

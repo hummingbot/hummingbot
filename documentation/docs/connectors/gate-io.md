@@ -1,8 +1,4 @@
----
-title: Gate.io
----
-
-
+# Gate.io
 
 Gate.io is operated by Gate Technology Corp. Their mission is to serve the blockchain industry by providing secure and reliable products & services to consumers and companies around the world.
 

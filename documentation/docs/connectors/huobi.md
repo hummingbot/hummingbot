@@ -1,7 +1,5 @@
----
-title: Huobi Global
-description: About Huobi Global Connector
----
+# Huobi Global
+
 
 
 

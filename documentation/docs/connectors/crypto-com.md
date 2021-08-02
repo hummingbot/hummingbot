@@ -1,7 +1,4 @@
----
-title: Crypto.com
-description: About Crypto.com Connector
----
+# Crypto.com
 
 
 

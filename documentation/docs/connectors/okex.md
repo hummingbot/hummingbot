@@ -1,7 +1,5 @@
----
-title: OKEx
-description: About OKEx Connector
----
+# OKEx
+
 
 
 

@@ -1,7 +1,5 @@
----
-title: Blocktane
-description: About Blocktane connector
----
+# Blocktane
+
 
 
 

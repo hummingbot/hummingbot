@@ -1,7 +1,5 @@
----
-title: Binance Futures
-description: About Binance Futures Connector (USDT-M)
----
+# Binance Futures
+
 
 
 

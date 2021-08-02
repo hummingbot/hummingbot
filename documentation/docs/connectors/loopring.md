@@ -1,7 +1,5 @@
----
-title: Loopring
-description: About Loopring Exchange Connector
----
+# Loopring
+
 
 
 
