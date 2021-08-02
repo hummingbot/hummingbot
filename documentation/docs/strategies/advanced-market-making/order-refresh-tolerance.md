@@ -110,10 +110,8 @@ The bot will leave these orders because they are within the order refresh tolera
 current order prices is within 1.00% order_refresh_tolerance_pct
 ```
 
-<Callout
-  type="note"
-  body="`Not enough balance for buy (sell) order .... order_amount is adjusted to` > `Not canceling active orders since the difference between new order prices and current order prices is within` is no longer shown in logs."
-/>
+!!! note
+    `Not enough balance for buy (sell) order .... order_amount is adjusted to` > `Not canceling active orders since the difference between new order prices and current order prices is within` is no longer shown in logs.
 
 Let's say that a market taker thinks the market price will decrease substantially and likes your bid spread. They then can fill your buy order at 195.02.
 

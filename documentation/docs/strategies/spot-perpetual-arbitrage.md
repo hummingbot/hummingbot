@@ -4,15 +4,8 @@
 import Prompt from "../../src/components/Prompt";
 
 
-
-<Callout
-  type="warning"
-  body="This experimental strategy has undergone code review, internal testing and was shipped during one of our most recent releases. As part of User Acceptance Testing, we encourage users to report any issues and/or provide feedback with this strategy in our [Discord server] or [submit a bug report]"
-  link={[
-    "https://discord.com/invite/2MN3UWg",
-    "https://github.com/CoinAlpha/hummingbot/issues/new?assignees=&labels=bug&template=bug_report.md&title=",
-  ]}
-/>
+!!! warning
+    This experimental strategy has undergone code review, internal testing and was shipped during one of our most recent releases. As part of User Acceptance Testing, we encourage users to report any issues and/or provide feedback with this strategy in our [Discord server](https://discord.com/invite/2MN3UWg) or [submit a bug report](https://github.com/CoinAlpha/hummingbot/issues/new?assignees=&labels=bug&template=bug_report.md&title=)
 
 ## How it works
 

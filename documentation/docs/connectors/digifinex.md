@@ -14,25 +14,15 @@ Enter your digifinex secret API key >>>
 
 Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
 
-<Callout
-  type="tip"
-  body="For copying and pasting into Hummingbot, see [this page] for more instructions in our Hummingbot Help Center."
-  link={[
-    "https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys",
-  ]}
-/>
+!!! tip
+    For copying and pasting into Hummingbot, see [this page](https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys) for more instructions in our Hummingbot Help Center.
 
 ### Creating Digifinex API Keys
 
 1. Log in to your account at https://www.digifinex.com/en-ww/login, then click your profile > User Center (If you do not have an account, you will have to create one and verify your ID.)
 
-<Callout
-  type="tip"
-  body="You must enable 2FA in your Digifinex account to create the API key. [How to enable 2FA]?"
-  link={[
-    "https://digifinex.zendesk.com/hc/en-us/signin?return_to=https%3A%2F%2Fdigifinex.zendesk.com%2Fhc%2Fen-us%2Farticles%2F360007869553--2FA-How-to-set-up-2FA",
-  ]}
-/>
+!!! tip
+    You must enable 2FA in your Digifinex account to create the API key. [How to enable 2FA](https://digifinex.zendesk.com/hc/en-us/signin?return_to=https%3A%2F%2Fdigifinex.zendesk.com%2Fhc%2Fen-us%2Farticles%2F360007869553--2FA-How-to-set-up-2FA)?
 
 ![](/assets/img/digifinex-account.png)
 
@@ -50,10 +40,8 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 
 Make sure you store your Secret Key somewhere secure and do not share it with anyone. Your Secret Key will only be displayed once at the time when you create the API.
 
-<Callout
-  type="warning"
-  body="If you lose your Secret Key, you can delete the API and create a new one. However, it will be impossible to reuse the same API."
-/>
+!!! warning
+    If you lose your Secret Key, you can delete the API and create a new one. However, it will be impossible to reuse the same API.
 
 ## Miscellaneous Info
 

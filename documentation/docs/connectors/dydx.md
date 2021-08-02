@@ -18,13 +18,8 @@ Which Ethereum node would you like your client to connect to? >>>
 
 Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
 
-<Callout
-  type="tip"
-  body="For copying and pasting into Hummingbot, see [this page] for more instructions in our Support section."
-  link={[
-    "https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys",
-  ]}
-/>
+!!! tip
+    For copying and pasting into Hummingbot, see [this page](https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys) for more instructions in our Support section.
 
 Also, note that your wallet must have funds deposited to dYdX to avoid getting this error when trying to connect dYdX on Hummingbot.
 
@@ -32,11 +27,8 @@ Also, note that your wallet must have funds deposited to dYdX to avoid getting t
 Error: DydxAPIError(status_code=400)(response={'errors': [{'name': 'AccountNotFoundError'}]})
 ```
 
-<Callout
-  type="warning"
-  body="Currently, [dydx] and [dydx-perpetual] do not work on Binary Installers. It can only be used when running Hummingbot from source or with Docker."
-  link={["/spot-connectors/dydx/", "/derivative-connectors/dydx-perpetual/"]}
-/>
+!!! warning
+    Currently, [dydx](/spot-connectors/dydx/) and [dydx-perpetual](/derivative-connectors/dydx-perpetual/) do not work on Binary Installers. It can only be used when running Hummingbot from source or with Docker.
 
 ## Miscellaneous Info
 

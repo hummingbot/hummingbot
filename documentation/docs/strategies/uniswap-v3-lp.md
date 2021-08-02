@@ -83,7 +83,5 @@ The following example shows a step-by-step on configuring the strategy.
      response=">>> "
    />
 
-<Callout
-  type="note"
-  body=" `Paper_trade` is not applicable for this strategy. Alternatively, you may set up a `kovan_testnet` to help you run some tests without risking funds."
-/>
+!!! note
+    `Paper_trade` is not applicable for this strategy. Alternatively, you may set up a `kovan_testnet` to help you run some tests without risking funds.

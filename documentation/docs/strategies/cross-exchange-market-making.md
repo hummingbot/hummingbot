@@ -1,18 +1,13 @@
 # Cross Exchange Market Making
 
-
-
-
 import Prompt from "../../src/components/Prompt";
 
 ## How It Works
 
 Cross exchange market making is described in [Strategies](overview), with a further discussion in the Hummingbot [white paper](https://hummingbot.io/hummingbot.pdf).
 
-<Callout
-  type="warning"
-  body="Updates to strategy — The cross exchange market making strategy has been updated as of v0.15.0 so that it will always place the order at the minimum profitability level. If the sell price for the specified volume on the taker exchange is 100, and you set the min_profitability as 0.01, it will place the maker buy order at 99. The top depth tolerance is also now specified by the user in base currency units. Please do not use old configuration files for running this strategy."
-/>
+!!! warning
+    Updates to strategy — The cross exchange market making strategy has been updated as of v0.15.0 so that it will always place the order at the minimum profitability level. If the sell price for the specified volume on the taker exchange is 100, and you set the min_profitability as 0.01, it will place the maker buy order at 99. The top depth tolerance is also now specified by the user in base currency units. Please do not use old configuration files for running this strategy.
 
 ### Schematic
 
@@ -156,10 +151,8 @@ You can also edit it from `config_global.yml` to change the `rate_oracle_source`
   response=">>>"
 />
 
-<Callout
-  type="tip"
-  body="For autocomplete inputs during configuration, when going through the command line config process, pressing `<TAB>` at a prompt will display valid available inputs."
-/>
+!!! tip
+    For autocomplete inputs during configuration, when going through the command line config process, pressing `<TAB>` at a prompt will display valid available inputs.
 
 ## Advanced Parameters
 

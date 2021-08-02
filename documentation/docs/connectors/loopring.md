@@ -1,8 +1,5 @@
 # Loopring
 
-
-
-
 Loopring is the first scalable DEX protocol built with zkRollup for Ethereum. Loopring Exchange is the first decentralized trading platform built on top of the Loopring protocol. Loopring Exchange is accessible at Loopring.io.
 
 ## Using the Connector
@@ -18,30 +15,18 @@ Enter your loopring api key >>>
 
 Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
 
-<Callout
-  type="tip"
-  body="For copying and pasting into Hummingbot, see [this page] for more instructions in our Support section."
-  link={[
-    "https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys",
-  ]}
-/>
+!!! tip
+    For copying and pasting into Hummingbot, see [this page](https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys) for more instructions in our Support section.
 
-<Callout
-  type="note"
-  body="Existing API keys used previously in Loopring v1 API are now invalid. Users must generate new keys from the latest version of the exchange."
-/>
+!!! note
+    Existing API keys used previously in Loopring v1 API are now invalid. Users must generate new keys from the latest version of the exchange.
 
 ### Retrieving Loopring API Keys
 
 1. Log into your account at https://loopring.io/ using one of the supported Wallet extensions (MetaMask, MEW Wallet, WalletConnect, Authereum, Coinbase Wallet).
 
-<Callout
-  type="tip"
-  body="If you have not yet created an account see [this page]."
-  link={[
-    "https://blogs.loopring.org/loopring-exchange-faq/#how-do-i-register-an-account",
-  ]}
-/>
+!!! tip
+    If you have not yet created an account see [this page](https://blogs.loopring.org/loopring-exchange-faq/#how-do-i-register-an-account).
 
 2. Click on your account's ETH address in the top right.
 
@@ -55,22 +40,13 @@ You will be presented with your account information, which will include entries 
 
 Make sure to keep this information private and do not share it with anyone. However, you can review this information at any time by clicking on **Export Account** again.
 
-<Callout
-  type="warning"
-  body="Please keep your EdDSA key pair and ApiKey strictly confidential. If you leak this information, your assets will be at risk. Loopring Exchange's UI and its API will never ask you for your EdDSA private key."
-/>
+!!! warning
+    Please keep your EdDSA key pair and ApiKey strictly confidential. If you leak this information, your assets will be at risk. Loopring Exchange's UI and its API will never ask you for your EdDSA private key.
 
 More information about Loopring Key Management can be found on [this page](https://docs3.loopring.io/en/basics/key_mgmt.html?h=key%20).
 
-<Callout
-  type="warning"
-  body="Currently [dydx], [terra], and [loopring] don't work on Binary Installers. It can only be used when running Hummingbot from source or with Docker."
-  link={[
-    "/spot-connectors/dydx/",
-    "/protocol-connectors/terra",
-    "/spot-connectors/loopring/",
-  ]}
-/>
+!!! warning
+    Currently [dydx](/spot-connectors/dydx/), [terra](/protocol-connectors/terra), and [loopring](/spot-connectors/loopring/) don't work on Binary Installers. It can only be used when running Hummingbot from source or with Docker.
 
 ## Miscellaneous Info
 

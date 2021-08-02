@@ -4,10 +4,8 @@
 
 This feature lets you take into account the transaction cost incurred on the exchange from bid and ask orders. For a bid order, it reduces the bid order price by the fee. For the ask order, it reduces the price by the fee. This allows you to consider the transaction cost to profit (or not incur a loss).
 
-<Callout
-  type="note"
-  body="This puts your order prices further away from the mid-price."
-/>
+!!! note
+    This puts your order prices further away from the mid-price.
 
 ## `add_transaction_costs`
 

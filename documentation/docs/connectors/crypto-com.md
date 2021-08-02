@@ -21,10 +21,8 @@ This help article below shows step-by-step instructions on how to create API key
 
 - [How do I create an API key?](https://exchange-docs.crypto.com/spot/index.html#introduction)
 
-<Callout
-  type="warning"
-  body="We recommend using only #trade# enabled API keys; enabling #withdraw, transfer, or the equivalent is unnecessary# for current Hummingbot strategies."
-/>
+!!! warning
+        We recommend using only #trade# enabled API keys; enabling #withdraw, transfer, or the equivalent is unnecessary# for current Hummingbot strategies.
 
 ## Miscellaneous Info
 

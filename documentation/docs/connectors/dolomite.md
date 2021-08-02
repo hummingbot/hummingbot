@@ -18,10 +18,8 @@ In addition to the above, the user must also create an account on Dolomite. As o
 1. For users **inside** the US, they must create an account from the site [https://app.dolomite.io](https://app.dolomite.io).
 2. For users **outside** the US, they simply must submit a trade. When Dolomite sees the first trade from a new wallet, it automatically creates an account for it.
 
-<Callout
-  type="note"
-  body="The 2 criteria above holds true for where Hummingbot is running. For example, if you live outside the US, but you are running Hummingbot from within the US in the cloud (IE AWS or Azure), you still must create an account. Do reach out to us if you face any problems on doing so."
-/>
+!!! note
+    The 2 criteria above holds true for where Hummingbot is running. For example, if you live outside the US, but you are running Hummingbot from within the US in the cloud (IE AWS or Azure), you still must create an account. Do reach out to us if you face any problems on doing so.
 
 For users who have little to no prior experience using a decentralized exchange, Dolomite also has a simple account system that does not require users to setup and manage their own private keys. Read more through here in [Dolomite Traditional Accounts](https://dolomite.io/support/noncustodial-accounts).
 
