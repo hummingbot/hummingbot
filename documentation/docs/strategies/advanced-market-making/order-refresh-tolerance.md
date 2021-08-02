@@ -1,7 +1,5 @@
----
-title: Order Refresh Tolerance
-description: Info on order refresh tolerance
----
+# Order Refresh Tolerance
+
 
 
 

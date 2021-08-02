@@ -1,7 +1,5 @@
----
-title: Cross Exchange Market Making
-description: Learn how to use cross exchange market making strategies
----
+# Cross Exchange Market Making
+
 
 
 

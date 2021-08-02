@@ -1,7 +1,5 @@
----
-title: Order Override
-description: Info on order override
----
+# Order Override
+
 
 This feature allows users to customize and specify how Hummingbot creates orders in terms of order levels, spread, and size.
 

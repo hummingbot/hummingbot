@@ -1,7 +1,5 @@
----
-title: Celo Arbitrage
-description: Learn how to use Celo arbitrage strategies
----
+# Celo Arbitrage
+
 
 
 

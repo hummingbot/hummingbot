@@ -1,7 +1,5 @@
----
-title: Price Band
-description: Info on price band
----
+# Price Band
+
 
 import Prompt from "../../src/components/Prompt";
 

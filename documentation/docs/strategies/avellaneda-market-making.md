@@ -1,7 +1,5 @@
----
-title: Avellaneda Market Making
-description: Learn how to use avellaneda market making strategies
----
+# Avellaneda Market Making
+
 
 
 

@@ -1,7 +1,5 @@
----
-title: Spot Perpetual Arbitrage
-description: Learn how to use spot perpetual arbitrage strategy
----
+# Spot Perpetual Arbitrage
+
 
 import Prompt from "../../src/components/Prompt";
 

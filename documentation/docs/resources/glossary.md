@@ -1,7 +1,5 @@
----
-title: Glossary
-description: A comprehensive list of important GraphQL words and acronyms
----
+# Glossary
+
 
 When you start diving into the Hummingbot ecosystem, you'll probably encounter some unfamiliar terms and phrases along the way. To help you on your journey, we've defined some of the most common trading vocabularies here in this handy cheat sheet.
 

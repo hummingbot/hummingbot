@@ -1,7 +1,5 @@
----
-title: AMM Arbitrage
-description: Learn how to use AMM arbitrage strategy
----
+# AMM Arbitrage
+
 
 
 

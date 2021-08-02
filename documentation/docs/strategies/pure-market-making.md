@@ -1,7 +1,5 @@
----
-title: Pure Market Making
-description: Learn how to use pure market making strategies
----
+# Pure Market Making
+
 
 
 

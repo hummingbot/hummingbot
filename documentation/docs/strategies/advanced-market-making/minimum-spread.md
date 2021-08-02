@@ -1,7 +1,5 @@
----
-title: Minimum Spread
-description: Info on minimum spread
----
+# Minimum Spread
+
 
 import Prompt from "../../src/components/Prompt";
 
