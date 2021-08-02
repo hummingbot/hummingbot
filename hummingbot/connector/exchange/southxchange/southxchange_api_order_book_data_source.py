@@ -6,6 +6,7 @@ import websockets
 import ujson
 import time
 import pandas as pd
+import requests
 
 from typing import Optional, List, Dict, Any, AsyncIterable
 from hummingbot.core.data_type.order_book import OrderBook
@@ -14,10 +15,11 @@ from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTr
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.southxchange.southxchange_active_order_tracker import SouthXchangeActiveOrderTracker
+# from hummingbot.connector.exchange.southxchange.southxchange_active_order_tracker_prueba import  SouthXchangeActiveOrderTracker
 from hummingbot.connector.exchange.southxchange.southxchange_order_book import SouthXchangeOrderBook
 from hummingbot.connector.exchange.southxchange.southxchange_utils import convert_from_exchange_trading_pair, convert_to_exchange_trading_pair
 from hummingbot.connector.exchange.southxchange.southxchange_constants import EXCHANGE_NAME, REST_URL, WS_URL, PONG_PAYLOAD
-
+from hummingbot.connector.exchange.southxchange.southxchange_utils import get_ms_timestamp, time_to_num, convert_bookWebSocket_to_bookApi, get_markets_enabled
 
 class SouthxchangeAPIOrderBookDataSource(OrderBookTrackerDataSource):
     MAX_RETRIES = 20
@@ -33,53 +35,75 @@ class SouthxchangeAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, trading_pairs: List[str] = None):
+    def __init__(self, trading_pairs: List[str] = None, markets_enabled: Dict[int , str] = {}):
         super().__init__(trading_pairs)
         self._trading_pairs: List[str] = trading_pairs
         self._snapshot_msg: Dict[str, any] = {}
+        self._markets_enabled: Dict[int , str] = markets_enabled
+
+    @property
+    def idMarket(self) -> int:
+        for market in self._markets_enabled:
+            x1 = self._trading_pairs[0]
+            x2 = self._markets_enabled[market]
+            if (self._trading_pairs[0] == self._markets_enabled[market]):
+                idMarket = market      
+        return idMarket
 
     @classmethod
     async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
         result = {}
-
         for trading_pair in trading_pairs:
             async with aiohttp.ClientSession() as client:
-                resp = await client.get(f"{REST_URL}/trades/{convert_to_exchange_trading_pair(trading_pair)}")
+                resp = await client.get(f"{REST_URL}trades/{convert_to_exchange_trading_pair(trading_pair)}")
                 if resp.status != 200:
                     raise IOError(
                         f"Error fetching last traded prices at {EXCHANGE_NAME}. "
                         f"HTTP status is {resp.status}."
                     )
-
                 data: List[str] = await resp.json()
-
                 if data.__len__() < 1:
-                    continue                            
-
+                    continue                           
                 # last trade is the most recent trade
                 result[trading_pair] = float(data[-1].get("Price"))
-
         return result
 
     @staticmethod
-    async def fetch_trading_pairs() -> List[str]:  
+    async def fetch_id_trading_pairs(trading_pair: str) -> int:
         async with aiohttp.ClientSession() as client:            
-            resp = await client.get(f"{REST_URL}prices")            
+            resp = await client.get(f"{REST_URL}markets")            
 
             if resp.status != 200:
                 # Do nothing if the request fails -- there will be no autocomplete for kucoin trading pairs
                 return []
 
             data: Dict[str, Dict[str, Any]] = await resp.json()
-            return [convert_from_exchange_trading_pair(item["Market"]) for item in data]
+            for item in data:
+                if (f"{item[0]}-{item[1]}") == trading_pair[0]:
+                    return item[2]
+            return 0
+
+
+    @staticmethod
+    async def fetch_trading_pairs() -> List[str]:  
+        async with aiohttp.ClientSession() as client:            
+            resp = await client.get(f"{REST_URL}markets")            
+
+            if resp.status != 200:
+                # Do nothing if the request fails -- there will be no autocomplete for kucoin trading pairs
+                return []
+
+            data: Dict[str, Dict[str, Any]] = await resp.json()
+            return [(f"{item[0]}-{item[1]}") for item in data]
 
     @staticmethod
     async def get_order_book_data(trading_pair: str) -> Dict[str, any]:
         """
+        Modify SX
         Get whole orderbook
         """
         async with aiohttp.ClientSession() as client:
-            resp = await client.get(f"{REST_URL}/depth?symbol={convert_to_exchange_trading_pair(trading_pair)}")
+            resp = await client.get(f"{REST_URL}/book/{convert_to_exchange_trading_pair(trading_pair)}")
             if resp.status != 200:
                 raise IOError(
                     f"Error fetching OrderBook for {trading_pair} at {EXCHANGE_NAME}. "
@@ -88,20 +112,18 @@ class SouthxchangeAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
             data: List[Dict[str, Any]] = await safe_gather(resp.json())
             item = data[0]
-            if item.get("code") != 0:
+            if item == "":
                 raise IOError(
                     f"Error fetching OrderBook for {trading_pair} at {EXCHANGE_NAME}. "
                     f"Error is {item.message}."
                 )
-
-            return item["data"]
+            return item
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
-        snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair)
-        snapshot_timestamp: float = snapshot.get("data").get("ts")
+        snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair)        
         snapshot_msg: OrderBookMessage = SouthXchangeOrderBook.snapshot_message_from_exchange(
-            snapshot.get("data"),
-            snapshot_timestamp,
+            snapshot,
+            get_ms_timestamp(), 
             metadata={"trading_pair": trading_pair}
         )
         order_book = self.order_book_create_function()
@@ -111,16 +133,16 @@ class SouthxchangeAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return order_book
 
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        idMarket: int = 3 # await self.fetch_id_trading_pairs(self._trading_pairs)
         while True:
             try:
                 trading_pairs = ",".join(list(
                     map(lambda trading_pair: convert_to_exchange_trading_pair(trading_pair), self._trading_pairs)
                 ))
                 payload = {
-                    "op": "sub",
-                    "ch": f"trades:{trading_pairs}"
+                    "k": "subscribe",
+                    "v": idMarket
                 }
-
                 async with websockets.connect(WS_URL) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     await ws.send(ujson.dumps(payload))
@@ -128,20 +150,23 @@ class SouthxchangeAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     async for raw_msg in self._inner_messages(ws):
                         try:
                             msg = ujson.loads(raw_msg)
-                            if (msg is None or msg.get("m") != "trades"):
+                            if (msg is None or msg.get("k") != "trade"):
                                 continue
 
-                            trading_pair: str = convert_from_exchange_trading_pair(msg.get("symbol"))
-
-                            for trade in msg.get("data"):
-                                trade_timestamp: int = trade.get("ts")
+                            # trading_pair: str = convert_from_exchange_trading_pair(msg.get("symbol"))
+                            """
+                            Modify - SouthXchange
+                            """
+                            # trading_pair2: str = "LTC2-USD2"
+                            for trade in msg.get("v"):
+                                trade_timestamp: int = time_to_num(trade.get("d"))
                                 trade_msg: OrderBookMessage = SouthXchangeOrderBook.trade_message_from_exchange(
                                     trade,
                                     trade_timestamp,
-                                    metadata={"trading_pair": trading_pair}
+                                    metadata={"trading_pair": trading_pairs}
                                 )
                                 output.put_nowait(trade_msg)
-                        except Exception:
+                        except Exception  as e:
                             raise
             except asyncio.CancelledError:
                 raise
@@ -151,16 +176,15 @@ class SouthxchangeAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                     exc_info=True)
                 await asyncio.sleep(30.0)
 
-    async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+    async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):                
         while True:
             try:
                 trading_pairs = ",".join(list(
                     map(lambda trading_pair: convert_to_exchange_trading_pair(trading_pair), self._trading_pairs)
                 ))
-                ch = f"depth:{trading_pairs}"
                 payload = {
-                    "op": "sub",
-                    "ch": ch
+                    "k": "request",
+                    "v": self.idMarket
                 }
 
                 async with websockets.connect(WS_URL) as ws:
@@ -174,27 +198,28 @@ class SouthxchangeAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                 continue
                             if msg.get("m", '') == "ping":
                                 await ws.send(ujson.dumps(dict(op="pong")))
-                            if msg.get("m", '') == "depth":
-                                msg_timestamp: int = msg.get("data").get("ts")
-                                trading_pair: str = convert_from_exchange_trading_pair(msg.get("symbol"))
+                            if msg.get("k") == "book":
+                                msg_timestamp: int = get_ms_timestamp()
+                                list_itemsBook = convert_bookWebSocket_to_bookApi(msg.get("v")[0].get("b"))
                                 order_book_message: OrderBookMessage = SouthXchangeOrderBook.diff_message_from_exchange(
-                                    msg.get("data"),
+                                    list_itemsBook,
                                     msg_timestamp,
-                                    metadata={"trading_pair": trading_pair}
+                                    metadata={"trading_pair": trading_pairs}
                                 )
                                 output.put_nowait(order_book_message)
-                        except Exception:
+                        except Exception as e:
                             raise
             except asyncio.CancelledError:
                 raise
             except Exception as e:
                 self.logger().debug(str(e))
-                self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
+                self.logger().error("Unexpected error with WebSocket connection. Retrying after 60 seconds...",
                                     exc_info=True)
-                await asyncio.sleep(30.0)
+                await asyncio.sleep(60.0)
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
+        Modify SX
         Listen for orderbook snapshots by fetching orderbook
         """
         while True:
@@ -202,10 +227,9 @@ class SouthxchangeAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 for trading_pair in self._trading_pairs:
                     try:
                         snapshot: Dict[str, any] = await self.get_order_book_data(trading_pair)
-                        snapshot_timestamp: float = snapshot.get("data").get("ts")
                         snapshot_msg: OrderBookMessage = SouthXchangeOrderBook.snapshot_message_from_exchange(
-                            snapshot.get("data"),
-                            snapshot_timestamp,
+                            snapshot, 
+                            get_ms_timestamp(),
                             metadata={"trading_pair": trading_pair}
                         )
                         output.put_nowait(snapshot_msg)
@@ -214,7 +238,7 @@ class SouthxchangeAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         await asyncio.sleep(5.0)
                     except asyncio.CancelledError:
                         raise
-                    except Exception:
+                    except Exception as e:
                         self.logger().network(
                             "Unexpected error with WebSocket connection.",
                             exc_info=True,

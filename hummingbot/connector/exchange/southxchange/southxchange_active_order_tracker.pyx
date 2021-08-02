@@ -47,7 +47,7 @@ cdef class SouthXchangeActiveOrderTracker:
 
     def get_rates_and_quantities(self, entry) -> tuple:
         # price, quantity
-        return float(entry[0]), float(entry[1])
+        return float(entry.get("Price")), float(entry.get("Amount"))
 
     cdef tuple c_convert_diff_message_to_np_arrays(self, object message):
         cdef:
@@ -105,7 +105,7 @@ cdef class SouthXchangeActiveOrderTracker:
         timestamp = message.timestamp
         content = message.content
 
-        for snapshot_orders, active_orders in [(content["bids"], self._active_bids), (content["asks"], self.active_asks)]:
+        for snapshot_orders, active_orders in [(content["BuyOrders"], self._active_bids), (content["SellOrders"], self.active_asks)]:
             for order in snapshot_orders:
                 price, amount = self.get_rates_and_quantities(order)
 

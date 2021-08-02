@@ -17,18 +17,17 @@ class SouthXchangeOrderBookMessage(OrderBookMessage):
     def __new__(
         cls,
         message_type: OrderBookMessageType,
-        content: Dict[str, any],
-        timestamp: Optional[float] = None,
+        content: Dict[str, any],        
         *args,
         **kwargs,
     ):
-        if timestamp is None:
-            if message_type is OrderBookMessageType.SNAPSHOT:
-                raise ValueError("timestamp must not be None when initializing snapshot messages.")
-            timestamp = content["timestamp"]
+        # if timestamp is None:
+        #     if message_type is OrderBookMessageType.SNAPSHOT:
+        #         raise ValueError("timestamp must not be None when initializing snapshot messages.")
+        #     timestamp = content["timestamp"]
 
         return super(SouthXchangeOrderBookMessage, cls).__new__(
-            cls, message_type, content, timestamp=timestamp, *args, **kwargs
+            cls, message_type, content, *args, **kwargs
         )
 
     @property
@@ -50,7 +49,7 @@ class SouthXchangeOrderBookMessage(OrderBookMessage):
     @property
     def asks(self) -> List[OrderBookRow]:
         results = [
-            OrderBookRow(float(ask[0]), float(ask[1]), self.update_id) for ask in self.content["asks"]
+            OrderBookRow(float(ask.get("Price")), float(ask.get("Amount")), self.update_id) for ask in self.content["SellOrders"]
         ]
         sorted(results, key=lambda a: a.price)
         return results
@@ -58,7 +57,7 @@ class SouthXchangeOrderBookMessage(OrderBookMessage):
     @property
     def bids(self) -> List[OrderBookRow]:
         results = [
-            OrderBookRow(float(bid[0]), float(bid[1]), self.update_id) for bid in self.content["bids"]
+            OrderBookRow(float(bid.get("Price")), float(bid.get("Amount")), self.update_id) for bid in self.content["BuyOrders"]
         ]
         sorted(results, key=lambda a: a.price)
         return results
