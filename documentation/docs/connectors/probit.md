@@ -1,7 +1,5 @@
----
-title: ProBit Global
-description: About ProBit connector
----
+# ProBit Global
+
 
 
 

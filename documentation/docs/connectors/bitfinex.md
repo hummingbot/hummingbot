@@ -1,9 +1,4 @@
----
-title: Bitfinex
-description: About Bitfinex Connector
----
-
-
+# Bitfinex
 
 ## About Bitfinex
 

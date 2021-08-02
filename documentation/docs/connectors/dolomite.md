@@ -1,7 +1,4 @@
----
-title: Dolomite
-description: About Dolomite Connector
----
+# Dolomite
 
 
 

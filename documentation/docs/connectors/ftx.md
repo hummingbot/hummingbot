@@ -1,7 +1,5 @@
----
-title: FTX
-description: About FTX Connector
----
+# FTX
+
 
 
 

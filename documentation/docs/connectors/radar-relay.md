@@ -1,7 +1,5 @@
----
-title: Radar Relay
-description: About Radar Relay Connector
----
+# Radar Relay
+
 
 [Radar Relay](https://radarrelay.com/) is an exchange application specializing in ERC-20 tokens that uses the [0x Protocol](https://0x.org/). Founded in 2017, it is a newer exchange that has rapidly gained users and features continuous trading with its off-chain order book.
 

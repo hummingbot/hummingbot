@@ -1,7 +1,5 @@
----
-title: Binance
-description: About Binance Connector
----
+# Binance
+
 
 
 

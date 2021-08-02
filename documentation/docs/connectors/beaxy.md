@@ -1,8 +1,4 @@
----
-title: Beaxy
-description: About Beaxy connector
----
-
+# Beaxy
 
 
 Beaxy is a digital asset exchange that aims to set itself apart from others in the field by offering a feature-rich platform built from the ground up with clients of every experience level in mind.

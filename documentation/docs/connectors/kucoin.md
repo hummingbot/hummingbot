@@ -1,7 +1,5 @@
----
-title: KuCoin
-description: About KuCoin Connector
----
+# KuCoin
+
 
 
 

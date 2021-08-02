@@ -1,8 +1,4 @@
----
-title: Coinbase Pro
-description: About Coinbase Pro Connector
----
-
+# Coinbase Pro
 
 
 Based in San Francisco, CA, Coinbase Pro is a widely-used, global cryptocurrency exchange designed for professional traders. It has a reputation for being secure and trustworthy, is [regulated in all the jurisdictions in which it operates](https://www.coinbase.com/legal/insurance), and maintains some [insurance on assets and deposits](https://www.coinbase.com/legal/insurance).

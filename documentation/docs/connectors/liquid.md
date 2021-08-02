@@ -1,7 +1,5 @@
----
-title: Liquid
-description: About Liquid Connector
----
+# Liquid
+
 
 
 

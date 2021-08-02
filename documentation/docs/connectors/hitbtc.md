@@ -1,7 +1,5 @@
----
-title: HitBTC
-description: About HitBTC connector
----
+# HitBTC
+
 
 
 

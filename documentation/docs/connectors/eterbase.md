@@ -1,9 +1,4 @@
----
-title: Eterbase
-description: About Eterbase Connector
----
-
-
+# Eterbase
 
 ETERBASE is the first regulation-compliant European cryptocurrency exchange, offering fast, secure trading on a clean, powerful, user interface.
 
