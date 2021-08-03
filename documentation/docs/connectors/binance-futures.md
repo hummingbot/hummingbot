@@ -18,7 +18,7 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 !!! tip
     For copying and pasting into Hummingbot, see [this page](https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys) for more instructions in our Hummingbot Help Center.
 
-### Creating Binance futures API keys
+### Creating Binance Futures API keys
 
 1. Log into your account at https://www.binance.com, then select **Account**> **API Management** (If you do not have an account, you will have to create one and verify your ID).
 2. Follow on-screen instructions to create your API keys.
@@ -42,7 +42,7 @@ If you’d like to test without risking real funds, you can try out the Binance 
 
 ![](/assets/img/testnet-api.jpg)
 
-## Contract specifications of Binance perpetuals
+## Contract specifications of Binance Perpetuals
 
 - Trading Rules: Please see [Binance future trading rules](https://www.binance.com/en/futures/trading-rules)
 - Leverage and Margin: Please see [Leverage and Margin](https://www.binance.com/en/support/faq/360033162192)
