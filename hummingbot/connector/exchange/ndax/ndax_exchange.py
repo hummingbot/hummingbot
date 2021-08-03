@@ -770,18 +770,18 @@ class NdaxExchange(ExchangeBase):
         trading_pair_ids: Dict[str, int] = await self._order_book_tracker.data_source.get_instrument_ids()
 
         for trading_pair in self._trading_pairs:
-            query_params = {
+            body_params = {
                 "OMSId": 1,
                 "AccountId": await self.initialized_account_id(),
                 "UserId": self._auth.uid,
                 "InstrumentId": trading_pair_ids[trading_pair],
                 "StartTimestamp": min_ts,
-                "EndTimestamp": int(time.time()),
+                "EndTimestamp": int(time.time() * 1e3),
             }
             trade_history_tasks.append(
-                asyncio.create_task(self._api_request(method="GET",
+                asyncio.create_task(self._api_request(method="POST",
                                                       path_url=CONSTANTS.GET_TRADES_HISTORY_PATH_URL,
-                                                      params=query_params,
+                                                      data=body_params,
                                                       is_auth_required=True)))
 
         raw_responses: List[Dict[str, Any]] = await safe_gather(*trade_history_tasks, return_exceptions=True)

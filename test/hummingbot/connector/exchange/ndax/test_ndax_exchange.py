@@ -720,8 +720,9 @@ class NdaxExchangeTests(TestCase):
 
         self.assertEqual(Decimal(str(10.0)), self.exchange.get_balance(self.base_asset))
 
+    @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
     @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
-    def test_update_order_status(self, mock_api):
+    def test_update_order_status(self, mock_order_status, mock_trade_history):
 
         # Simulates order being tracked
         order: NdaxInFlightOrder = NdaxInFlightOrder("0", "2628", self.trading_pair, OrderType.LIMIT, TradeType.SELL,
@@ -732,7 +733,7 @@ class NdaxExchangeTests(TestCase):
         self.assertTrue(1, len(self.exchange.in_flight_orders))
 
         # Add FullyExecuted GetOrderStatus API Response
-        self._set_mock_response(mock_api, 200, {
+        self._set_mock_response(mock_order_status, 200, {
             "Side": "Sell",
             "OrderId": 2628,
             "Price": 41720.830000000000000000000000,
@@ -780,7 +781,7 @@ class NdaxExchangeTests(TestCase):
         })
 
         # Add TradeHistory API Response
-        self._set_mock_response(mock_api, 200, {
+        self._set_mock_response(mock_trade_history, 200, {
             "OMSId": 1,
             "ExecutionId": 245936,
             "TradeId": 252851,
