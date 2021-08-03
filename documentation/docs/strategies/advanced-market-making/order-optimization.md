@@ -1,9 +1,4 @@
----
-title: Order Optimization
-description: Info on order optimization
----
-
-
+# Order Optimization
 
 import Prompt from "../../src/components/Prompt";
 
@@ -11,10 +6,8 @@ import Prompt from "../../src/components/Prompt";
 
 Users now have the option to automatically adjust the prices to the right, just above the top bid and just below the top ask.
 
-<Callout
-  type="note"
-  body="`order_optimization_enabled` was previously called `jump_orders_enabled`"
-/>
+!!! note
+    `order_optimization_enabled` was previously called `jump_orders_enabled`
 
 ## `order_optimization_enabled`
 
@@ -49,13 +42,13 @@ The depth in base asset amount to be used for finding the top bid.
   response=">>> "
 />
 
-## How It Works
+## How it works
 
 This feature works best in single order mode. Take note that this does not automatically jump your orders from the bottom to the top. Instead, if your orders are already the best in the order book (at the top) this will adjust your prices right next to the next best orders.
 
 It is recommended to disable `add_transaction_costs` (set to `False`) for this feature to work effectively. This is because adding transaction costs would affect the prices at which the orders are placed and might not be the best bid/ask.
 
-## Sample Configuration
+## Sample configuration
 
 ```json
 - bid_spread: 0.1%
@@ -83,7 +76,7 @@ Now let's enable `order_optimization_enabled`. You'll see in the next image that
 
 If the next best order's price changes (not your own), your existing orders will not adjust immediately. It will wait for `order_refresh_time` to cancel your existing orders and the new orders will try to jump to just above best bid or just below best ask.
 
-## Order Optimization Depth
+## Order optimization depth
 
 This allows users to ignore dust orders specified in the base currency amount. As shown in the example above, this is the expected behavior when enabling order optimization.
 
@@ -111,7 +104,7 @@ Doing this ignores the first 5,000 units of orders on each side in the order boo
 
 ![jump_orders_4](/assets/img/jump_orders4.png)
 
-## Order Optimization with multiple order levels
+## Order optimization with multiple order levels
 
 Users can now use order optimization with multiple `order_levels` see the example below. Order optimization is triggered, and it placed the 2nd order, which has a spread of 0.2% because of `order_level_spread`.
 

@@ -1,6 +1,6 @@
 # Windows
 
-## Install from Binary
+## Install via binary
 
 <iframe
   width="616"
@@ -24,7 +24,7 @@ To install Hummingbot with Windows setup package:
 
 ![Hummingbot installed](/assets/img/windows-setup-2.png)
 
-#### Application Data Files
+#### Application data files
 
 The application data files (e.g., logs and config files) are located differently for binary package installed Hummingbot vs. source compiled Hummingbot.
 
@@ -117,7 +117,7 @@ docker run -it \
 coinalpha/hummingbot:latest
 ```
 
-## Install from Source
+## Install from source
 
 This section walks you through how to prepare your development environment and install Hummingbot from source manually.
 

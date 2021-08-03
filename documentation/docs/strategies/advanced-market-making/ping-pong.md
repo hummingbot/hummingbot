@@ -1,7 +1,4 @@
----
-title: Ping Pong
-description: Info on ping pong
----
+# Ping Pong
 
 import Prompt from "../../src/components/Prompt";
 
@@ -20,7 +17,7 @@ Whether to alternate between buys and sells.
   response=">>> "
 />
 
-## How It Works
+## How it works
 
 The ping pong strategy tries to keep buys and sells balanced by only creating orders on the opposite side of an order that is filled. It will keep on creating orders on the opposite side of the filled order as long as `ping_pong` is set to enabled. For example:
 

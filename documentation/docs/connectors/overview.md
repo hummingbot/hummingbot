@@ -1,11 +1,8 @@
----
-title: Overview
-description:
----
+# Overview
 
 import StatusCircle from "../../src/components/StatusCircle";
 
-## What are Connectors?
+## What are connectors?
 
 Connectors are packages of code that link Hummingbot's internal trading algorithms with live information from different cryptocurrency exchanges. They interact with a given exchange's API, such as by gathering order book data and sending and cancelling trades.
 
@@ -21,7 +18,7 @@ Generally, there are two ways of getting connectors integrated into Hummingbot:
 
 If you are affiliated with the exchange and would like to discuss building and/or integrating a connector into Hummingbot, please send an email to partnerships@hummingbot.io
 
-## Spot Connector Status
+## Spot connector status
 
 Below are the status of each connector as of version 0.40.0.
 

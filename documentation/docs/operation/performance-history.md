@@ -3,7 +3,7 @@
 !!! info
     The screenshots shown in this document are based on testing and for illustrative purposes only.
 
-## History Command
+## History command
 
 The `history` command displays the current duration of total past trades, asset inventory and value, and market trading pair performance. Run `history --verbose` to see all recent trades.
 
@@ -27,7 +27,7 @@ Return % = total P&L / hold portfolio value
 !!! tip
     The Return % in the navbar at the bottom of Hummingbot client may be different from the history command output. This is because the Return % in history takes the price changes into calculation while the navbar in the bottom UI does not.
 
-## Profit & Loss
+## Profit & loss
 
 The `pnl` command shows consolidated performance for all running bots in the same Binance account. This command can be useful when participating in Liquidity Mining campaigns.
 

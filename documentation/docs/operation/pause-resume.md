@@ -26,7 +26,7 @@ You can see that when we use `exit --suspend` it exits the bot. When you run `st
 
 ![](/assets/img/pause-and-resume.gif)
 
-## Important Notes
+## Important notes
 
 Always use `start --restore` when resuming a paused strategy. Accidentally running the `start` command after importing the config file will cancel all of its dangling orders and start the strategy from a fresh state. See example below,
 

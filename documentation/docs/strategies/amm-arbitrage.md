@@ -1,9 +1,4 @@
----
-title: AMM Arbitrage
-description: Learn how to use AMM arbitrage strategy
----
-
-
+# AMM Arbitrage
 
 import Prompt from "../../src/components/Prompt";
 
@@ -24,20 +19,16 @@ Ensure you have set up the Ethereum wallet and nodes for more details:
 
 After the installation and configuration are completed, we can create the configuration for the AMM arbitrage strategy. The following example shows a step-by-step on configuring the AMM arb strategy.
 
-<Callout
-  type="note"
-  body=" `Paper_trade` is not applicable for this strategy. Alternatively, you may set up a `kovan_testnet` to help you run some tests without risking funds."
-/>
+!!! note
+    `Paper_trade` is not applicable for this strategy. Alternatively, you may set up a `kovan_testnet` to help you run some tests without risking funds.
 
 1. In Hummingbot, enter `create`.
 2. Enter `amm-arb`.
 3. Enter `balancer`.
 4. Enter the first trading pair, for example, `BAT-DAI`.
 
-<Callout
-  type="note"
-  body="Ensure the trading pair tokens are in your wallet to trade."
-/>
+!!! note
+    Ensure the trading pair tokens are in your wallet to trade.
 
 5. Enter an exchange connector, for example, `binance`.
 6. Enter the second trading pair, for example, `BAT-USDT`.
@@ -151,10 +142,8 @@ If false, the bot will wait for the first exchange order filled before submittin
 
 If you prefer to manually set your gas other than using Defipulse.
 
-<Callout
-  type="note"
-  body="If Defipulse is set for gas estimation, manual_gas_price is ignored. To use `manual gas price`, you need to disable `ethgasstation_gas_enabled`"
-/>
+!!! note
+    If Defipulse is set for gas estimation, manual_gas_price is ignored. To use `manual gas price`, you need to disable `ethgasstation_gas_enabled`
 
 ** Prompt: **
 
@@ -163,7 +152,7 @@ If you prefer to manually set your gas other than using Defipulse.
   response=">>> "
 />
 
-## Rate Oracle Integration
+## Rate oracle integration
 
 - Make sure gateway is properly running together with Hummingbot client.
 
@@ -173,7 +162,7 @@ If you prefer to manually set your gas other than using Defipulse.
 
 ![Rate Oracle Status](/assets/img/rate_oracle_amm_arb_status.png)
 
-## Switch Balancer Network
+## Switch Balancer network
 
 Two ways to switch network [Ethereum mainnet/Kovan testnet](https://docs.hummingbot.io/gateway/installation/#setting-up-kovan-testnet)
 

@@ -1,22 +1,11 @@
----
-title: Perpetual Market Making
-description:
----
-
+# Perpetual Market Making
 
 import Prompt from "../../src/components/Prompt";
 
-<Callout
-  type="info"
-  body="This strategy only works with [Binance Futures], [Perpetual Finance (BETA)] & [dYdX Perpetual(BETA)]"
-  link={[
-    "https://docs.hummingbot.io/derivative-connectors/binance-futures/",
-    "https://docs.hummingbot.io/protocol-connectors/perp-fi/",
-    "https://docs.hummingbot.io/spot-connectors/dydx/",
-  ]}
-/>
+!!! info
+      This strategy only works with [Binance Futures](https://docs.hummingbot.io/derivative-connectors/binance-futures/), [Perpetual Finance (BETA)](https://docs.hummingbot.io/protocol-connectors/perp-fi/) & [dYdX Perpetual(BETA)](https://docs.hummingbot.io/spot-connectors/dydx/)
 
-## How It Works
+## How it works
 
 Perpetual market making allows Hummingbot users to market make on supported derivatives exchanges. In addition, position management features are introduced to configure the bot further to make managing positions easier and remove the need to interact with the derivative exchange manually.
 
@@ -28,25 +17,14 @@ In this document, we will explain how the strategy works by dividing it into thr
 2. [Opening positions after a filled order event](#opening-positions-after-a-filled-order-event)
 3. [Creating orders to close a position](#creating-orders-to-close-a-position)
 
-<Callout
-  type="tip"
-  body="Users can test how this strategy works without risking real funds by connecting their Binance Futures Testnet account to Hummingbot."
-  bullets={[
-    "[Create a free account with Binance Futures Testnet]",
-    "[Creating Binance Futures Testnet API Keys]",
-  ]}
-  link={[
-    "https://testnet.binancefuture.com/en/register?source=futures",
-    "https://docs.hummingbot.io/derivative-connectors/binance-futures/#creating-binance-futures-testnet-api-keys",
-  ]}
-/>
+!!! tip
+      Users can test how this strategy works without risking real funds by connecting their Binance Futures Testnet account to Hummingbot.
+      - [Create a free account with Binance Futures Testnet](https://testnet.binancefuture.com/en/register?source=futures)
+      - [Creating Binance Futures Testnet API Keys](https://docs.hummingbot.io/derivative-connectors/binance-futures/#creating-binance-futures-testnet-api-keys)
 
-<Callout
-  type="tip"
-  body="You can also watch the recording of our demo of the strategy in the link below:"
-  bullets={["[Hummingbot Live - Perpetual Market Making Demo]"]}
-  link={["https://www.youtube.com/watch?v=IclhZWtKiSA&t=2194s"]}
-/>
+!!! tip
+      You can also watch the recording of our demo of the strategy in the link below:
+      - "[Hummingbot Live - Perpetual Market Making Demo](https://www.youtube.com/watch?v=IclhZWtKiSA&t=2194s)
 
 ## Creating a basic strategy configuration
 
@@ -158,7 +136,7 @@ These are the logs in Hummingbot. Notice our position was opened at 03:52 when t
 
 ![closing-orders-3](/assets/img/closing-orders-3.png)
 
-### Profit Taking
+### Profit taking
 
 Hummingbot creates a sell order to close a long position and a buy order to close a short position. If these orders are filled, the position is closed.
 
@@ -174,7 +152,7 @@ If the price of your filled buy order is 10,000 then it opens a long position wi
 
 If the price of your filled sell order is 10,000 it opens a short position. The bot will create a profit taking buy order at 9,900 because our `short_profit_taking_spread` is set to 1% value.
 
-### Trailing Stop
+### Trailing stop
 
 This position management allows users to maximize the profitability of a position. When an order is filled and a position is opened, it waits for PNL to reach the `ts_activation_spread` to start trailing. If this value is set to 0, the bot starts trailing immediately as soon as the order is filled.
 
@@ -197,7 +175,7 @@ Price `NILL` means the exit price is not profitable based on the current peak pr
 
 ![price-nill](/assets/img/price-nill.png)
 
-### Stop Loss
+### Stop loss
 
 If the position’s profitability (PNL) is equal to or below the `stop_loss_spread`, the bot will create a limit or market order (depending on `close_positon_order_type` value) at the current mark price to close the position.
 
@@ -217,7 +195,7 @@ If you’re running the bot or strategy on a machine with poor network connectio
 
 Using market order type helps ensure that your positions are closed at mark price but paying higher fees.
 
-## Basic Parameters
+## Basic parameters
 
 Hummingbot prompts to enter the values for these parameters when creating the strategy.
 
@@ -239,7 +217,7 @@ Hummingbot prompts to enter the values for these parameters when creating the st
 | `stop_loss_spread`           | Triggers to close a position by creating a [stop loss](#stop-loss) order when profitability % falls below this value.                                                                                        |
 | `close_position_order_type`  | The order type used (limit or market) when using trailing stop or when a stop loss is triggered. <br/><br/> Refer to [this section](#using-limit-or-market-orders-to-close-a-position) for more information. |
 
-## ** Configure parameters on the fly **
+## Configure parameters on the fly 
 
 Currently, only the following parameters can be reconfigured without stopping the bot. The changes will take effect in the next order refresh.
 
