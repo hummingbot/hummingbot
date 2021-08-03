@@ -14,7 +14,7 @@ When you sign up for our Discord, please check that the link you are accessing i
 **We will never initiate direct messages to our users.** If a random user imitating the core team or any of the community members sends you a DM don't hesitate to report it in our official Discord channel.
 
 !!! note
-    Currently, our Discord server and WeChat(Chinese) are the only officially-supported online Hummingbot community. We do not maintain any other communities on Telegram, Slack, or other applications. Please beware that any such communities (except for the official Hummingbot Discord and WeChat(Chinese)) may be scams.
+    Currently, our Discord server and WeChat (Chinese) are the only officially-supported online Hummingbot community. We do not maintain any other communities on Telegram, Slack, or other applications. Please beware that any such communities (except for the official Hummingbot Discord and WeChat may be scams.
 
 ### Github
 
