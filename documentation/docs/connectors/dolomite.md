@@ -1,13 +1,8 @@
----
-title: Dolomite
-description: About Dolomite Connector
----
-
-
+# Dolomite
 
 [Dolomite](https://beta.dolomite.io/exchange) is a decentralized exchange powered by the Loopring Protocol that allows you to trade dozens of ERC20 token assets securely, right from your own wallet.
 
-## Using the Connector
+## Using the connector
 
 Dolomite streamlines the decentralized exchange experience so that users can utilize the security and control of a DEX while enjoying the user interface simplicity of a centralized exchange.
 
@@ -21,20 +16,18 @@ In addition to the above, the user must also create an account on Dolomite. As o
 1. For users **inside** the US, they must create an account from the site [https://app.dolomite.io](https://app.dolomite.io).
 2. For users **outside** the US, they simply must submit a trade. When Dolomite sees the first trade from a new wallet, it automatically creates an account for it.
 
-<Callout
-  type="note"
-  body="The 2 criteria above holds true for where Hummingbot is running. For example, if you live outside the US, but you are running Hummingbot from within the US in the cloud (IE AWS or Azure), you still must create an account. Do reach out to us if you face any problems on doing so."
-/>
+!!! note
+    The 2 criteria above holds true for where Hummingbot is running. For example, if you live outside the US, but you are running Hummingbot from within the US in the cloud (IE AWS or Azure), you still must create an account. Do reach out to us if you face any problems on doing so.
 
 For users who have little to no prior experience using a decentralized exchange, Dolomite also has a simple account system that does not require users to setup and manage their own private keys. Read more through here in [Dolomite Traditional Accounts](https://dolomite.io/support/noncustodial-accounts).
 
-## Miscellaneous Info
+## Miscellaneous info
 
-### Minimum Order Size
+### Minimum order size
 
 The current minimum order size is $10 for takers and $40 for makers.
 
-### Transaction Fees
+### Transaction fees
 
 Dolomite has a competitive fee structure, charging 0.5% for takers and -0.1% for makers. It is the first decentralized exchange to introduce negative maker fees. Every trade that a maker places into the exchange that gets filled receives -0.1% of the value of the trade (e.g. if your maker order of $1,000 gets filled you receive a rebate of $1 in real-time).
 

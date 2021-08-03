@@ -1,22 +1,11 @@
----
-title: Liquidity Mining Strategy
-description: Learn how to use Liquidity mining strategy
----
+# Liquidity Mining Strategy
 
 import Prompt from "../../src/components/Prompt";
 
-
-
 **Updated as of v0.37**
 
-<Callout
-  type="warning"
-  body="This experimental strategy has undergone code review, internal testing and was shipped during one of our most recent releases. As part of User Acceptance Testing, we encourage user to report any issues and/or provide feedback with this strategy in our [Discord server] or [submit a bug report]"
-  link={[
-    "https://discord.com/invite/2MN3UWg",
-    "https://github.com/CoinAlpha/hummingbot/issues/new?assignees=&labels=bug&template=bug_report.md&title=",
-  ]}
-/>
+!!! warning
+    This experimental strategy has undergone code review, internal testing and was shipped during one of our most recent releases. As part of User Acceptance Testing, we encourage user to report any issues and/or provide feedback with this strategy in our [Discord server](https://discord.com/invite/2MN3UWg) or [submit a bug report](https://github.com/CoinAlpha/hummingbot/issues/new?assignees=&labels=bug&template=bug_report.md&title=)
 
 ## How it works
 
@@ -34,7 +23,7 @@ The volatility is translated to spread by multiplying it to `volatility_to_sprea
 
 ![](/assets/img/adjusted-spread.png)
 
-## Pre-requisites
+## Prerequisites
 
 Inventory
 
@@ -44,7 +33,7 @@ Minimum order size
 
 When placing orders, if the order's size determined by the order price and quantity is below the exchange's minimum order size, orders will not be created.
 
-## Basic Parameters
+## Basic parameters
 
 The following walks through all the steps when running the `create` command.
 
@@ -70,10 +59,8 @@ Token trading pair symbols you would like to trade on the exchange.
   response=">>> ETH-USDT"
 />
 
-<Callout
-  type="note"
-  body="If participating in multiple markets, this strategy only supports trading pairs that share the same base or quote asset."
-/>
+!!! note
+    If participating in multiple markets, this strategy only supports trading pairs that share the same base or quote asset.
 
 ### `token`
 
@@ -119,7 +106,7 @@ It sets a target of base asset balance in relation to a total asset allocation v
   response=">>> 20"
 />
 
-## Advanced Parameters
+## Advanced parameters
 
 These are additional parameters that you can reconfigure and use to customize the behavior of your strategy further. To change its settings, run the command `config` followed by the parameter name, e.g. `config volatility_interval`.
 
@@ -245,10 +232,8 @@ max_order_age: 3600.0
 
 These values will show after running the `status` command. `Budget`, `Markets`, `Miner`, and `Orders`.
 
-<Callout
-  type="note"
-  body="`status --live` currently is not compatible with liquidity mining strategy"
-/>
+!!! note
+    `status --live` currently is not compatible with liquidity mining strategy
 
 **Budget**
 
@@ -266,7 +251,7 @@ This shows the markets are chosen, rewards for that certain campaign, rewards pe
 
 Other than the markets, this shows the side of the order created, price, current spread, order amount, order size, and the age.
 
-## Sample Configurations
+## Sample configurations
 
 Here's an example of how the liquidity mining strategy works.
 

@@ -5,7 +5,7 @@ Hummingbot Gateway is a API server that allows Hummingbot to connect to [protoco
 !!! note
     To use Gateway, you need to install Hummingbot using Docker or from source.
 
-## Create SSL Certificates
+## Create SSL certificates
 
 1. Run the command `generate_certs` in the Hummingbot client
 2. Enter a passphrase to be used later during installation
@@ -51,7 +51,7 @@ By default, Gateway will install on port `5000` which Hummingbot will connect to
 
 4. The file `gateway.env` is created where your Gateway settings are saved.
 
-## Configure Port Number (Optional)
+## Configure port number (optional)
 
 In case the port number used by Gateway is not set to the default value of `5000`, make sure to set the `gateway_api_port` in the Hummingbot client to match the same port number.
 
@@ -90,7 +90,7 @@ If you choose not to enable ETH gas price, you would only need to set up the fix
 
 To update the docker container, run the `update-gateway.sh` script and and follow the prompt instructions. The update script allows you to stop and delete the running instance, and update the docker image if it is not the latest. Upon completion, it will automatically execute the create-gateway.sh script to create a new Gateway container instance.
 
-## Install Gateway via source
+## Install Gateway from source
 
 ### Prerequisites
 

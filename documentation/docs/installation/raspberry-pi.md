@@ -80,7 +80,7 @@ docker run -it \
 coinalpha/hummingbot:version-0.38.1-arm_beta
 ```
 
-## Install from Source
+## Install from source
 
 This guide walks you through how to prepare your development environment and get started developing for Hummingbot.
 

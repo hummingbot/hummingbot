@@ -1,13 +1,8 @@
----
-title: Arbitrage
-description: Learn how to use Arbitrage strategies
----
-
-
+# Arbitrage
 
 import Prompt from "../../src/components/Prompt";
 
-## How it Works
+## How it works
 
 Arbitrage is described in [Strategies](overview), with a further discussion in the Hummingbot [white paper](https://hummingbot.io/hummingbot.pdf).
 
@@ -28,7 +23,7 @@ An opportunity arises when Hummingbot can buy on one exchange at a lower price a
 1. Like cross-exchange market making, you will need to hold inventory on two exchanges (a **primary** and **secondary** exchange) to trade and capture price differentials (i.e., buy low on one exchange, sell high on the other).
 2. You will also need some Ethereum to pay gas for transactions on a DEX (if applicable).
 
-## Basic Parameters
+## Basic parameters
 
 The following walks through all the steps when running `create` command. These parameters are fields in Hummingbot configuration files (located in the `/conf` folder, e.g. `conf/conf_arb_[#].yml`).
 
@@ -81,10 +76,8 @@ Minimum profitability target required to execute trades.
   response=">>> "
 />
 
-<Callout
-  type="note"
-  body="While running this strategy, `min_profitability` excludes the `transaction fees` when calculating profitability from your chosen exchanges."
-/>
+!!! note
+    While running this strategy, `min_profitability` excludes the `transaction fees` when calculating profitability from your chosen exchanges.
 
 ### `use_oracle_conversion_rate`
 
@@ -102,12 +95,10 @@ You can also edit it from `config_global.yml` to change the `rate_oracle_source`
   response=">>>"
 />
 
-<Callout
-  type="tip"
-  body="For autocomplete inputs during configuration, when going through the command line config process, pressing `<TAB>` at a prompt will display valid available inputs."
-/>
+!!! tip
+    For autocomplete inputs during configuration, when going through the command line config process, pressing `<TAB>` at a prompt will display valid available inputs.
 
-## Advanced Parameters
+## Advanced parameters
 
 The following parameters are fields in Hummingbot configuration files (located in the `/conf` folder, e.g. `conf/conf_arb_[#].yml`).
 
@@ -119,7 +110,7 @@ Specifies conversion rate for secondary quote asset value to primary quote asset
 
 Specifies conversion rate for secondary quote asset value to primary quote asset value.
 
-## Exchange Rate Conversion
+## Exchange rate conversion
 
 From past versions of Hummingbot, it uses [CoinGecko](https://www.coingecko.com/en/api) and [CoinCap](https://docs.coincap.io/?version=latest) public APIs to fetch asset prices. However, this dependency caused issues for users when those APIs were unavailable. Therefore, starting on version [0.28.0](/release-notes/0.28.0/#removed-dependency-on-external-data-feeds), Hummingbot uses exchange order books to perform necessary conversions rather than data feeds.
 

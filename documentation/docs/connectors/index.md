@@ -1,12 +1,12 @@
 # Connectors
 
-## What are Connectors?
+## What are connectors?
 
 Connectors are packages of code that link Hummingbot's internal trading algorithms with live information from different cryptocurrency exchanges. They interact with a given exchange's API, such as by gathering order book data and sending and cancelling trades. See below for the list of exchanges which Hummingbot currently has connectors to.
 
 Related article : [How connectors are integrated into Hummingbot](https://hummingbot.zendesk.com/hc/en-us/articles/900004506986)
 
-## Exchange Types
+## Exchange types
 
 ### Spot
 
