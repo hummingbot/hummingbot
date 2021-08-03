@@ -14,7 +14,7 @@ Start hummingbot quickly and efficiently with these references:
 - [Override Fees](/operation/override-fees)
 - [Log Files](/operation/log-files)
 
-## Hummingbot Commands
+## Hummingbot commands
 
 Below are the available commands in the current Hummingbot release.
 
@@ -41,7 +41,7 @@ Below are the available commands in the current Hummingbot release.
 | `ticker`          | Show market ticker of current order book                      |
 | `autofill_import` | Choose between `start` and `config` when importing a strategy |
 
-## Docker Commands
+## Docker commands
 
 These are the commonly used docker commands when using Hummingbot.
 
@@ -54,7 +54,7 @@ These are the commonly used docker commands when using Hummingbot.
 
 To view more docker commands, go to [Docker Command Line Reference](https://docs.docker.com/engine/reference/commandline/docker/).
 
-## Linux Commands
+## Linux commands
 
 These are the basic commands used to navigate Linux commonly used with Hummingbot.
 

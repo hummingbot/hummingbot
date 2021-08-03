@@ -1,13 +1,8 @@
----
-title: Huobi Global
-description: About Huobi Global Connector
----
-
-
+# Huobi Global
 
 Huobi is a global, centralized cryptocurrency exchange started in Seychelles and has since expanded its offices to Hong Kong, Korea, Japan, and the United States. As of March 2018, Huobi processed around US \$1 billion in trades daily.
 
-## Using the Connector
+## Using the connector
 
 Because [Huobi](https://www.hbg.com/) is a centralized exchange, you will need to generate and provide your API key to trade using Hummingbot.
 
@@ -18,15 +13,10 @@ Enter your Huobi secret key >>>
 
 Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
 
-<Callout
-  type="tip"
-  body="For copying and pasting into Hummingbot, see [this page] for more instructions in our Support section."
-  link={[
-    "https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys",
-  ]}
-/>
+!!! tip
+    For copying and pasting into Hummingbot, see [this page](https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys) for more instructions in our Support section.
 
-### Creating Huobi API Keys
+### Creating Huobi API keys
 
 1. Log in to https://www.hbg.com/ or sign up for an account on [this page](https://www.hbg.com/en-us/register/?backUrl=%2Fen-us%2F) and go to **API Management** under **Account** section.
 
@@ -36,15 +26,11 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 
 ![huobi2](/assets/img/huobi-create-api-key.png)
 
-<Callout
-  type="warning"
-  body="We recommend using only #trade# enabled API keys; enabling #withdraw, transfer or the equivalent is unnecessary# for current Hummingbot strategies."
-/>
+!!! warning
+    We recommend using only #trade# enabled API keys; enabling #withdraw, transfer or the equivalent is unnecessary# for current Hummingbot strategies.
 
-<Callout
-  type="tip"
-  body="You will receive a notification and email when your API keys are about to expire."
-/>
+!!! tip
+    You will receive a notification and email when your API keys are about to expire.
 
 3. **Click to send** and enter the verification code sent to the registered email address.
 
@@ -55,13 +41,13 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 
 ![huobi4](/assets/img/huobi-my-api-key.png)
 
-## Miscellaneous Info
+## Miscellaneous info
 
-### Minimum Order Sizes
+### Minimum order sizes
 
 You may refer to [this page](https://huobiglobal.zendesk.com/hc/en-us/articles/900000210246-Announcement-on-Adjusting-Minimum-Order-Amount-for-Some-Trading-Pairs) for the minimum order size per trading pair.
 
-### Transaction Fees
+### Transaction fees
 
 Huobi charges 0.2% on both maker and taker for most pairs. However, Huobi VIP users can also enjoy fees at a discounted rate.
 

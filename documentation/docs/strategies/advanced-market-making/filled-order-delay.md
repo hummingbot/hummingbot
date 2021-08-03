@@ -19,7 +19,7 @@ For example, with a filled_order_delay = 300 when an order created by the bot is
   response=">>> 300"
 />
 
-## How It Works
+## How it works
 
 This helps to manage periods when prices are trending. For example, in the diagram below, in a case when prices are trending down, bid orders keep getting filled once orders are refreshed.
 

@@ -1,7 +1,5 @@
----
-title: Minimum Spread
-description: Info on minimum spread
----
+# Minimum Spread
+
 
 import Prompt from "../../src/components/Prompt";
 
@@ -20,7 +18,7 @@ If the spread of any active order falls below this param value, it will be autom
   response=">>> "
 />
 
-## How It Works
+## How it works
 
 The strategy checks the active order's spread on every tick (1 second).
 
@@ -28,7 +26,7 @@ By default, this is set to `-100`. Setting this parameter to a negative value di
 
 This only applies to active orders and does not affect hanging orders.
 
-## Sample Configuration
+## Sample configuration
 
 ```json
 - bid_spread : 0.50

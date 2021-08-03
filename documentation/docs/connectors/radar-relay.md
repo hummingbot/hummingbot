@@ -1,20 +1,17 @@
----
-title: Radar Relay
-description: About Radar Relay Connector
----
+# Radar Relay
 
 [Radar Relay](https://radarrelay.com/) is an exchange application specializing in ERC-20 tokens that uses the [0x Protocol](https://0x.org/). Founded in 2017, it is a newer exchange that has rapidly gained users and features continuous trading with its off-chain order book.
 
-## Using the Connector
+## Using the connector
 
 Because Radar Relay is a decentralized exchange, you will need an independent cryptocurrency wallet and an ethereum node in order to use Hummingbot. See below for information on how to create these:
 
 - [Creating a crypto wallet](/operation/connect-exchange/#wallets)
 - [Creating an ethereum node](/operation/connect-exchange/#setup-ethereum-nodes)
 
-## Miscellaneous Info
+## Miscellaneous info
 
-### Minimum Order Size
+### Minimum Order size
 
 Each trading pair has a unique minimum order size denominated in the _base currency_. You can access the minimum order size for a specific token pair using Radar Relay's API **(Broken Link as of June 01,2021)**, at the following URL:
 
@@ -48,6 +45,6 @@ For additional information, see [this page](https://support.radarrelay.com/en/su
 
 > > > > > > > 647191f9e2011a278bfb792cfb96f5dbd26eeec2:content/spot-connectors/radar-relay.mdx
 
-### Transaction Fees
+### Transaction fees
 
 Presently, Radar Relay does [not charge](https://support.radarrelay.com/en/support/solutions/articles/42000022033-what-are-your-fees-) trading or withdrawal fees, and the only additional cost for transactions is the gas network costs. This may change in the future as the exchange develops a larger user base.

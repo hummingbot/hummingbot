@@ -1,6 +1,6 @@
 # Mac
 
-## Install from Binary
+## Install via binary
 
 <iframe
   width="616"
@@ -28,7 +28,7 @@ When you start Hummingbot for the first time, it will ask for permission to laun
 
 ![Granting Terminal access to Hummingbot"](/assets/img/macos-dmg-3.png)
 
-#### Application Data Files
+#### Application data files
 
 The application data files (e.g., logs and config files) are located differently for binary package installed Hummingbot vs. source compiled Hummingbot.
 
@@ -88,7 +88,7 @@ docker run -it \
 coinalpha/hummingbot:latest
 ```
 
-## Install from Source
+## Install from source
 
 **Install dependencies**
 
