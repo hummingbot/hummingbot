@@ -25,7 +25,8 @@ from hummingbot.core.event.events import (
     OrderType,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    OrderCancelledEvent
+    OrderCancelledEvent,
+    MarketOrderFailureEvent
 )
 from hummingbot.model.sql_connection_manager import (
     SQLConnectionManager,
@@ -56,7 +57,7 @@ class AscendExExchangeUnitTest(unittest.TestCase):
     ]
     connector: AscendExExchange
     event_logger: EventLogger
-    trading_pair = "BTC-USDT"
+    trading_pair = "ZIL-USDT"
     base_token, quote_token = trading_pair.split("-")
     stack: contextlib.ExitStack
 
@@ -140,10 +141,20 @@ class AscendExExchangeUnitTest(unittest.TestCase):
         taker_fee = self.connector.estimate_fee_pct(False)
         self.assertAlmostEqual(taker_fee, Decimal("0.001"))
 
+    def test_create_order_failure(self):
+        price = self.connector.get_price(self.trading_pair, True) * Decimal("1.10")
+        base_bal = self.connector.get_available_balance(self.base_token)
+        amount = base_bal
+        order_id_1 = self._place_order(False, amount, OrderType.LIMIT, price, 1)
+        order_id_2 = self._place_order(False, amount, OrderType.LIMIT, price, 1)
+        order_failed_event: MarketOrderFailureEvent = self.ev_loop.run_until_complete(asyncio.wait_for(
+            self.event_logger.wait_for(MarketOrderFailureEvent), 3.0))
+        self.assertIn(order_failed_event.order_id, (order_id_1, order_id_2))
+
     def test_buy_and_sell(self):
         price = self.connector.get_price(self.trading_pair, True) * Decimal("1.05")
         price = self.connector.quantize_order_price(self.trading_pair, price)
-        amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("0.0002"))
+        amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("90"))
         quote_bal = self.connector.get_available_balance(self.quote_token)
         base_bal = self.connector.get_available_balance(self.base_token)
 
@@ -157,8 +168,8 @@ class AscendExExchangeUnitTest(unittest.TestCase):
         self.assertTrue([evt.order_type == OrderType.LIMIT for evt in trade_events])
         self.assertEqual(order_id, order_completed_event.order_id)
         self.assertEqual(amount, order_completed_event.base_asset_amount)
-        self.assertEqual("BTC", order_completed_event.base_asset)
-        self.assertEqual("USDT", order_completed_event.quote_asset)
+        self.assertEqual(self.base_token, order_completed_event.base_asset)
+        self.assertEqual(self.quote_token, order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
         self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
         self.assertGreater(order_completed_event.fee_amount, Decimal(0))
@@ -177,7 +188,7 @@ class AscendExExchangeUnitTest(unittest.TestCase):
         # Try to sell back the same amount to the exchange, and watch for completion event.
         price = self.connector.get_price(self.trading_pair, True) * Decimal("0.95")
         price = self.connector.quantize_order_price(self.trading_pair, price)
-        amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("0.0002"))
+        amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("90"))
         order_id = self._place_order(False, amount, OrderType.LIMIT, price, 2)
         order_completed_event = self.ev_loop.run_until_complete(self.event_logger.wait_for(SellOrderCompletedEvent))
         trade_events = [t for t in self.event_logger.event_log if isinstance(t, OrderFilledEvent)]
@@ -187,8 +198,8 @@ class AscendExExchangeUnitTest(unittest.TestCase):
         self.assertTrue([evt.order_type == OrderType.LIMIT for evt in trade_events])
         self.assertEqual(order_id, order_completed_event.order_id)
         self.assertEqual(amount, order_completed_event.base_asset_amount)
-        self.assertEqual("BTC", order_completed_event.base_asset)
-        self.assertEqual("USDT", order_completed_event.quote_asset)
+        self.assertEqual(self.base_token, order_completed_event.base_asset)
+        self.assertEqual(self.quote_token, order_completed_event.quote_asset)
         self.assertAlmostEqual(base_amount_traded, order_completed_event.base_asset_amount)
         self.assertAlmostEqual(quote_amount_traded, order_completed_event.quote_asset_amount)
         self.assertGreater(order_completed_event.fee_amount, Decimal(0))
@@ -204,7 +215,7 @@ class AscendExExchangeUnitTest(unittest.TestCase):
     def test_limit_makers_unfilled(self):
         price = self.connector.get_price(self.trading_pair, True) * Decimal("0.8")
         price = self.connector.quantize_order_price(self.trading_pair, price)
-        amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("0.0002"))
+        amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("90"))
         quote_bal = self.connector.get_available_balance(self.quote_token)
 
         cl_order_id = self._place_order(True, amount, OrderType.LIMIT_MAKER, price, 1)
@@ -222,7 +233,7 @@ class AscendExExchangeUnitTest(unittest.TestCase):
 
         price = self.connector.get_price(self.trading_pair, True) * Decimal("1.2")
         price = self.connector.quantize_order_price(self.trading_pair, price)
-        amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("0.0002"))
+        amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("90"))
 
         cl_order_id = self._place_order(False, amount, OrderType.LIMIT_MAKER, price, 2)
         order_created_event = self.ev_loop.run_until_complete(self.event_logger.wait_for(SellOrderCreatedEvent))
