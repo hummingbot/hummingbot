@@ -18,6 +18,11 @@ NdaxTradeEntry = namedtuple("NdaxTradeEntry", "tradeId productPairCode quantity 
 
 
 class NdaxOrderBookMessage(OrderBookMessage):
+
+    _DELETE_ACTION_TYPE = 2
+    _BUY_SIDE = 0
+    _SELL_SIDE = 1
+
     def __new__(
         cls,
         message_type: OrderBookMessageType,
@@ -56,20 +61,18 @@ class NdaxOrderBookMessage(OrderBookMessage):
     @property
     def asks(self) -> List[OrderBookRow]:
         entries: List[NdaxOrderBookEntry] = self.content["data"]
-
-        return [
-            OrderBookRow(float(entry.price), float(entry.quantity), self.update_id)
-            for entry in entries if entry.side == 1
-        ]
+        return [self._order_book_row_for_entry(entry) for entry in entries if entry.side == self._SELL_SIDE]
 
     @property
     def bids(self) -> List[OrderBookRow]:
         entries: List[NdaxOrderBookEntry] = self.content["data"]
+        return [self._order_book_row_for_entry(entry) for entry in entries if entry.side == self._BUY_SIDE]
 
-        return [
-            OrderBookRow(float(entry.price), float(entry.quantity), self.update_id)
-            for entry in entries if entry.side == 0
-        ]
+    def _order_book_row_for_entry(self, entry: NdaxOrderBookEntry) -> OrderBookRow:
+        price = float(entry.price)
+        amount = float(entry.quantity) if entry.actionType != self._DELETE_ACTION_TYPE else 0.0
+        update_id = entry.mdUpdateId
+        return OrderBookRow(price, amount, update_id)
 
     def __eq__(self, other) -> bool:
         return type(self) == type(other) and self.type == other.type and self.timestamp == other.timestamp
@@ -79,4 +82,4 @@ class NdaxOrderBookMessage(OrderBookMessage):
         return (self.timestamp < other.timestamp or (self.timestamp == other.timestamp and self.type.value < other.type.value))
 
     def __hash__(self) -> int:
-        return hash((self.type, self.timestamp, self.content))
+        return hash((self.type, self.timestamp))

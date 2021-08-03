@@ -140,7 +140,9 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 response: List[Any] = await response.json()
                 orderbook_entries: List[NdaxOrderBookEntry] = [NdaxOrderBookEntry(*entry) for entry in response]
                 return {"data": orderbook_entries,
-                        "timestamp": max([entry.actionDateTime for entry in orderbook_entries])}
+                        "timestamp": (max([entry.actionDateTime for entry in orderbook_entries])
+                                      if orderbook_entries
+                                      else int(time.time() * 1e3))}
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair, self._domain)
