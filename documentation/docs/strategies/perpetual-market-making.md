@@ -1,7 +1,5 @@
 # Perpetual Market Making
 
-import Prompt from "../../src/components/Prompt";
-
 !!! info
       This strategy only works with [Binance Futures](https://docs.hummingbot.io/derivative-connectors/binance-futures/), [Perpetual Finance (BETA)](https://docs.hummingbot.io/protocol-connectors/perp-fi/) & [dYdX Perpetual(BETA)](https://docs.hummingbot.io/spot-connectors/dydx/)
 

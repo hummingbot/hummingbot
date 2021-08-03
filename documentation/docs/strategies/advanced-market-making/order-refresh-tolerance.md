@@ -1,7 +1,5 @@
 # Order Refresh Tolerance
 
-import Prompt from "../../src/components/Prompt";
-
 **Updated as of `v0.28.0`**
 
 This feature allows you to specify a range of spreads that is "tolerable" - not canceled and left on the order books - every refresh cycle. It allows you to specify the allowed minimum percentage change in spread to adjust an order. Suppose there is movement in the mid-market price. In that case, you can create flexibility with your trading strategy to control when orders are canceled/replaced (refreshed) with a tolerance percent change to capture an additional profit (see [How Is This Parameter Helpful](#how-is-this-parameter-helpful) below).

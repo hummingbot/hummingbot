@@ -1,7 +1,5 @@
 # Order Optimization
 
-import Prompt from "../../src/components/Prompt";
-
 **Updated as of `v0.35.0`**
 
 Users now have the option to automatically adjust the prices to the right, just above the top bid and just below the top ask.

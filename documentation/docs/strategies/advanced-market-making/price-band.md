@@ -1,7 +1,5 @@
 # Price Band
 
-import Prompt from "../../src/components/Prompt";
-
 **Updated as of `v0.27.0`**
 
 This feature allows you to set a price band within which your bot places both buy and sell orders normally.
