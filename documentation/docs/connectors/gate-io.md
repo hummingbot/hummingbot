@@ -8,7 +8,7 @@ The "Gate ecosystem" consists of Gate.io, Wallet.io, HipoDeFi and Gatechain, all
 
 To use [Gate.io](https://www.gate.io/ref/4566709) connector for spot trading with Hummingbot, you need to create an acount and generate an API key.
 
-### Creating Gate io API keys
+### Creating Gate.io API keys
 
 1. Log in to your account [here](https://www.gate.io/login) go to your profile then select **API Management**. If you do not have an account, you will have to create one and verify your ID.
 

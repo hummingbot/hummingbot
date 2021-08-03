@@ -18,7 +18,7 @@ An opportunity arises when Hummingbot can buy on one exchange at a lower price a
 
 ![Figure 1: Hummingbot completes an arbitrage trade](/assets/img/arbitrage.png)
 
-## Prerequisites: inventory
+## Prerequisites: Inventory
 
 1. Like cross-exchange market making, you will need to hold inventory on two exchanges (a **primary** and **secondary** exchange) to trade and capture price differentials (i.e., buy low on one exchange, sell high on the other).
 2. You will also need some Ethereum to pay gas for transactions on a DEX (if applicable).

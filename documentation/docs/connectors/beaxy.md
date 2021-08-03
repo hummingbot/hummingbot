@@ -16,7 +16,7 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 !!! tip
     For copying and pasting into Hummingbot, see [this page](https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys) for more instructions in our Hummingbot Help Center.
 
-### Creating beaxy API keys
+### Creating Beaxy API keys
 
 1. Log in to your account at https://beaxy.com/, then click your account then, from the drop-down, click on API management (If you do not have an account, you will have to create one and enable 2FA.).
 

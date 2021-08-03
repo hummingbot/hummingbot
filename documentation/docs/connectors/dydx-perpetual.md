@@ -11,7 +11,7 @@ Currently, this connector does not work on binary installation. Install Hummingb
 - Install via Docker: [Linux](/installation/linux/#install-via-docker) | [Windows](/installation/windows/#install-via-docker) | [macOS](/installation/mac/#install-via-docker) | [Raspberry Pi](/installation/raspberry/)
 - Install from source: [Linux](/installation/linux/#install-from-source) | [Windows](/installation/windows/#install-from-source) | [macOS](/installation/mac/#install-from-source) | [Raspberry Pi](/installation/raspberry/#install-from-source)
 
-### API Credentials and stark key
+### API credentials and stark key
 
 1. Connect your Ethereum wallet to dydx Perpetual
    - [How to deposit USDC or any ERC-20 token into your L2 Perpetual account](https://help.dydx.exchange/en/articles/5108497-how-to-deposit-usdc-or-any-erc-20-token-into-your-l2-perpetual-account?utm_content=article_5108497)
