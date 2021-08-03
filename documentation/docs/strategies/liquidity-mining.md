@@ -1,7 +1,5 @@
 # Liquidity Mining Strategy
 
-import Prompt from "../../src/components/Prompt";
-
 **Updated as of v0.37**
 
 !!! warning

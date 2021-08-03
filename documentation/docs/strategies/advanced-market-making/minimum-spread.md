@@ -1,8 +1,5 @@
 # Minimum Spread
 
-
-import Prompt from "../../src/components/Prompt";
-
 **Released on version [0.28.0](/release-notes/0.28.0)**
 
 This parameter allows Hummingbot to cancel the active order right away when its spread dips below the specified value.
