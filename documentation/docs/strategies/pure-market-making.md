@@ -1,7 +1,5 @@
 # Pure Market Making
 
-import Prompt from "../../src/components/Prompt";
-
 ## How it works
 
 In the pure market making strategy, Hummingbot continually posts the limit bid and ask offers on the market, and waits for other market participants ("takers") to fill their orders.
