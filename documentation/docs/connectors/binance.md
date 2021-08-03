@@ -16,7 +16,7 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 !!! tip
     For copying and pasting into Hummingbot, see [this page](https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys) for more instructions in our Hummingbot Help Center.
 
-### Creating binance API keys
+### Creating Binance API keys
 
 1. Log into your account at https://www.binance.com, then select **Account** (If you do not have an account, you will have to create one and verify your ID).
 

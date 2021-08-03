@@ -24,7 +24,7 @@ When creating Hummingbot Gateway, it picks up the Ethereum settings in the globa
 
 ![](/assets/img/connect-ethereum.gif)
 
-## Install Hummingbot gateway
+## Install Hummingbot Gateway
 
 After adding your Ethereum wallet and node in Hummingbot, follow the guide in the link below on how to install Hummingbot Gateway.
 

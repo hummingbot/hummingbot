@@ -15,7 +15,7 @@ Perpetual Protocol is a decentralized perpetual contract trading protocol for ev
 - Some xDai asset in the wallet for gas
 - xUSDC - all trades are funded and settled in xUSDC. You can obtain xUSDC by depositing USDC and receiving the xUSDC equivalent on the Perpetual Finance exchange [here](https://perp.exchange)
 
-## Connecting to perpetual finance
+## Connecting to Perpetual Finance
 
 When creating Hummingbot Gateway, it picks up the Ethereum settings in the global config file, which we can set up in the Hummingbot client.
 
@@ -26,7 +26,7 @@ When creating Hummingbot Gateway, it picks up the Ethereum settings in the globa
 
 ![](/assets/img/connect-ethereum.gif)
 
-## Install Hummingbot gateway
+## Install Hummingbot Gateway
 
 After adding your Ethereum wallet and node in Hummingbot, follow the guide in the link below on how to install Hummingbot Gateway.
 
