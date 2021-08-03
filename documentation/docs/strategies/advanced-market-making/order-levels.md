@@ -1,7 +1,5 @@
 # Order Levels
 
-import Prompt from "../../src/components/Prompt";
-
 These parameters allow you to set multiple levels of orders on each side and gives you more fine-grained control over the spreads and sizes of each set of orders.
 
 ## `order_levels`
