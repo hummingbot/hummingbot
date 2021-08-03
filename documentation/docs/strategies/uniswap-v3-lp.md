@@ -1,7 +1,5 @@
 # Uniswap v3 Liquidity Pool Strategy
 
-import Prompt from "../../src/components/Prompt";
-
 **Updated as of v0.40**
 
 Before you can use the Uniswap v3 LP Strategy in Hummingbot, you need to install and configure the [Gateway API server](/gateway/installation).
