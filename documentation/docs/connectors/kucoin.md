@@ -1,9 +1,4 @@
----
-title: KuCoin
-description: About KuCoin Connector
----
-
-
+# KuCoin
 
 KuCoin is a centralized exchange based in Hong Kong that opened for cryptocurrency trading in September 2017. Nicknamed the "People's Exchange"​, Kucoin is claimed to be easy to use for novice investors while being in-depth enough for crypto enthusiasts.
 
@@ -21,13 +16,8 @@ Enter your KuCoin passphrase >>>
 
 Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
 
-<Callout
-  type="tip"
-  body="For copying and pasting into Hummingbot, see [this page] for more instructions in our Support section."
-  link={[
-    "https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys",
-  ]}
-/>
+!!! tip
+    For copying and pasting into Hummingbot, see [this page](https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys) for more instructions in our Support section.
 
 ### Creating KuCoin API keys
 
@@ -35,22 +25,20 @@ This FAQ article below in their documentation shows step-by-step instructions on
 
 - [How to create an API](https://kucoin.zendesk.com/hc/en-us/articles/360015102174-How-to-Create-an-API)
 
-<Callout
-  type="warning"
-  body="For API key permissions, we recommend using #general#, and #trade# enabled API keys; enabling #withdraw, transfer or the equivalent is unnecessary# for current Hummingbot strategies."
-/>
+!!! warning
+    For API key permissions, we recommend using #general#, and #trade# enabled API keys; enabling #withdraw, transfer or the equivalent is unnecessary# for current Hummingbot strategies.
 
 ![](/assets/img/kucoin_api.png)
 
-## Miscellaneous Info
+## Miscellaneous info
 
-### Main Account to Trading Account
+### Main account to trading account
 
 Transfer desired assets to use for trading in Kucoin and for the assets to reflect when running the `balance` command in hummingbot client.
 
 ![](/assets/img/main_to_trading.gif)
 
-### Minimum Order Sizes
+### Minimum order sizes
 
 Minimum order size varies per market. All minimum trade quantities can be found in the following public API:
 
@@ -78,7 +66,7 @@ The size must be greater than the `baseMinSize` for the symbol and no larger tha
 "isMarginEnabled": true
 ```
 
-### Transaction Fees
+### Transaction fees
 
 Generally, KuCoin charges 0.10% on both maker and taker, while a user can get a 20% discount on trading fees if paid in KCS. However, users who trade high volumes and own substantial amounts of KuCoin Shares can receive more discounts.
 

@@ -1,8 +1,4 @@
----
-title: Terra
----
-
-
+# Terra
 
 The [Terra Protocol](https://terra.money/) is the creator of the Luna Token, Terra Core, and the blockchain payment solution CHAI. The design of the Terra Protocol is based on two things: stability and adoption by e-commerce platforms.
 
@@ -10,14 +6,8 @@ It runs on a Tendermint Delegated Proof of Stake algorithm and Cosmos SDK. It is
 
 Source: https://medium.com/stakin/what-is-terra-money-8eb1dcb314d2
 
-<Callout
-  type="warning"
-  body="Currently, [Terra] could not be used on Binary Installers since it would need a [gateway] connection for it to work. It can only be used when running Hummingbot from source or with Docker."
-  link={[
-    "/protocol-connectors/terra",
-    "https://docs.hummingbot.io/gateway/installation/#what-is-hummingbot-gateway",
-  ]}
-/>
+!!! warning
+    Currently, [Terra](/protocol-connectors/terra) could not be used on Binary Installers since it would need a [gateway](https://docs.hummingbot.io/gateway/installation/#what-is-hummingbot-gateway) connection for it to work. It can only be used when running Hummingbot from source or with Docker.
 
 ## Prerequisites
 
@@ -37,10 +27,8 @@ Source: https://medium.com/stakin/what-is-terra-money-8eb1dcb314d2
 
 ## Connecting to Terra
 
-<Callout
-  type="note"
-  body="Before connecting your wallet address and seed, make sure to have Terra set up when you create your `gateway-instance`"
-/>
+!!! note
+    Before connecting your wallet address and seed, make sure to have Terra set up when you create your `gateway-instance`
 
 ![](/assets/img/terra_setup.png)
 

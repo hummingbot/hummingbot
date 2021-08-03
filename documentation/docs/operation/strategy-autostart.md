@@ -1,6 +1,6 @@
 # Strategy Autostart
 
-## Docker Autostart
+## Docker autostart
 
 !!! warning
     This is a recently released experimental feature. Running any trading bots without manual supervision may incur additional risks. It is imperative that you thoroughly understand and test the strategy and parameters before deploying bots that can trade in an unattended manner.
@@ -93,7 +93,7 @@ docker run -itd \ ...
 
 More information can be found in [Docker documentation](https://docs.docker.com/engine/reference/commandline/run/).
 
-## Source Autostart
+## Source autostart
 
 ### Prerequisites
 

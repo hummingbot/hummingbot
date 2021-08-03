@@ -18,7 +18,7 @@ Aims to capture price differentials between two different exchanges (buy low on 
 
 The [Hummingbot whitepaper](https://www.hummingbot.io/hummingbot.pdf) provides more details about these strategies, as well as additional ones that we are working on for future versions of Hummingbot.
 
-## For Developers
+## For developers
 
 These strategies are meant to be basic templates. We encourage users to extend these templates for their own purposes, and if they so desire, share them with the community.
 

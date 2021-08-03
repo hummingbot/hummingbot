@@ -1,9 +1,4 @@
----
-title: Uniswap v3 Liquidity Pool Strategy
-description: Iteration 1 Uniswap v3 Strategy
----
-
-
+# Uniswap v3 Liquidity Pool Strategy
 
 import Prompt from "../../src/components/Prompt";
 
@@ -22,21 +17,21 @@ Ensure you have setup the Ethereum wallet and nodes, for more details:
 - see [Setup Ethereum Wallet](https://docs.hummingbot.io/operation/connect-exchange/#setup-ethereum-wallet)
 - see [Setup Infura Node](https://docs.hummingbot.io/operation/connect-exchange/#option-1-infura). Take note of the Ethereum RPC URL to be use later for Gateway Docker settings.
 
-### Setup Gateway
+### Setup gateway
 
 You need to setup the [Gateway](/gateway/installation) to use this strategy.
 
-## Uniswap v3 LP Strategy Iteration 1 Behaviour
+## Uniswap v3 LP Strategy iteration 1 behaviour
 
 The bot will create two liquidity positions:
 
-### Buy-Side
+### Buy-side
 
 - The upper price bound of this position is as close as possible to the current market price
 - The lower price bound of this position is set by the spread defined by the user (A)
 - The amount of tokens locked on this position is the amount defined on the quote amount question (D)
 
-### Sell-Side
+### Sell-side
 
 - The lower price bound of this position is as close as possible to the current market price
 - The upper price bound of this position is set by the spread defined by the user (B)
@@ -85,7 +80,5 @@ The following example shows a step-by-step on configuring the strategy.
      response=">>> "
    />
 
-<Callout
-  type="note"
-  body=" `Paper_trade` is not applicable for this strategy. Alternatively, you may set up a `kovan_testnet` to help you run some tests without risking funds."
-/>
+!!! note
+    `Paper_trade` is not applicable for this strategy. Alternatively, you may set up a `kovan_testnet` to help you run some tests without risking funds.

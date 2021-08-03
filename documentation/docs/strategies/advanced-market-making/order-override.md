@@ -1,7 +1,5 @@
----
-title: Order Override
-description: Info on order override
----
+# Order Override
+
 
 This feature allows users to customize and specify how Hummingbot creates orders in terms of order levels, spread, and size.
 
@@ -13,7 +11,7 @@ The user provides orders to override the orders placed by the `order_amount` and
 
 No prompt
 
-## How It Works
+## How it works
 
 Since this is a feature designed for advanced users, it is not configurable from the Hummingbot client. Instead, follow the steps below to set up the `order_override` parameter:
 
@@ -25,7 +23,7 @@ Since this is a feature designed for advanced users, it is not configurable from
 
 While `order_override` is in effect, it supersedes existing values of `bid_spread`, `ask_spread`, `order_amount` and `order_levels`.
 
-## Sample Configuration
+## Sample configuration
 
 ```json
 order_override:
