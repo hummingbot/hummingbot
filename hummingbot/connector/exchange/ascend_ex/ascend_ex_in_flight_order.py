@@ -19,7 +19,7 @@ class AscendExInFlightOrder(InFlightOrderBase):
     @staticmethod
     def is_open_status(status: str) -> bool:
         # PendingNew is for stop orders
-        return status in {"New", "PendingNew", "Filled", "PartiallyFilled"}
+        return status in {"New", "PendingNew", "PartiallyFilled"}
 
     def __init__(self,
                  client_order_id: str,
