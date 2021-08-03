@@ -32,7 +32,7 @@ This FAQ article below in their documentation shows step-by-step instructions on
 
 ## Miscellaneous info
 
-### Main Account to trading account
+### Main account to trading account
 
 Transfer desired assets to use for trading in Kucoin and for the assets to reflect when running the `balance` command in hummingbot client.
 
