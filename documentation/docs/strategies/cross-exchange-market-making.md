@@ -1,7 +1,5 @@
 # Cross Exchange Market Making
 
-import Prompt from "../../src/components/Prompt";
-
 ## How it works
 
 Cross exchange market making is described in [Strategies](overview), with a further discussion in the Hummingbot [white paper](https://hummingbot.io/hummingbot.pdf).

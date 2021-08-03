@@ -1,7 +1,5 @@
 # AMM Arbitrage
 
-import Prompt from "../../src/components/Prompt";
-
 **Updated as of v0.33**
 
 Before you can use the AMM arbitrage strategy in Hummingbot, you need to install and configure the Gateway API server. The following flowchart shows the typical installation and configuration process for Balancer.

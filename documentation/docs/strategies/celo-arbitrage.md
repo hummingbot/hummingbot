@@ -1,7 +1,5 @@
 # Celo Arbitrage
 
-import Prompt from "../../src/components/Prompt";
-
 **Updated as of v0.28.1**
 
 !!! warning
