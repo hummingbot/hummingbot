@@ -763,7 +763,7 @@ class NdaxExchange(ExchangeBase):
             else:
                 self.logger().error(f"Error fetching order status. Response: {resp}")
 
-        min_ts: int = min([int(order_status["ReceiveTime"] // 1e3)
+        min_ts: int = min([int(order_status["ReceiveTime"])
                            for order_status in parsed_status_responses])
 
         trade_history_tasks = []
