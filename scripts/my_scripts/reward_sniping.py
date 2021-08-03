@@ -1,17 +1,6 @@
-# Coding plan:
-
-# Implement envelope and bolinger band to indicate fast/med/slow regions of trading paces + moving average
-# Implement trend indicator
-# Implement whale preventing methods:
-#   - Random order amount function based on trend and volatility, maybe use bolinger band + envelop band
-# Implement inventory control
-# Implement trend-oriented trade bias (which side of trade should I place more order amount)
-# Explore the idea 
-
 from decimal import Decimal
 from datetime import datetime
 import time
-from types import prepare_class
 from hummingbot.script.script_base import ScriptBase
 from os.path import realpath, join
 import statistics
@@ -43,12 +32,12 @@ class RewardSniping(ScriptBase):
     LOWER_ENV_PCT = 0.005
     ## Max and Min spreads
     MINIMUM_LOW_SPREAD = Decimal(0.00001)
-    MAXIMUM_LOW_SPREAD = Decimal(0.002)
+    MAXIMUM_LOW_SPREAD = Decimal(0.001)
     MIDPOINT_LOW_SPREAD = Decimal(0.0005)
 
-    MINIMUM_HIGH_SPREAD = Decimal(0.01)
-    MAXIMUM_HIGH_SPREAD = Decimal(0.02)
-    MIDPOINT_HIGH_SPREAD = Decimal(0.015)
+    MINIMUM_HIGH_SPREAD = Decimal(0.005)
+    MAXIMUM_HIGH_SPREAD = Decimal(0.01)
+    MIDPOINT_HIGH_SPREAD = Decimal(0.0075)
 
     MINIMUM_ORDER_LEVELS_SPREAD = Decimal(0.00001)
     MAXIMUM_ORDER_LEVELS_SPREAD = Decimal(0.0015)
@@ -58,8 +47,8 @@ class RewardSniping(ScriptBase):
     UPDATE_INV_RATIO_DELAY = 30
     CALIBRATING_INV_FREQ = 1200
     ## Misc.
-    MINIMUM_ORDER_SIZE = 1.1
-    MAXIMUM_PRICE_PCT = 1.2
+    MINIMUM_ORDER_SIZE = 5.1
+    MAXIMUM_PRICE_PCT = 1
 
     def __init__(self):
         super().__init__()
@@ -79,6 +68,12 @@ class RewardSniping(ScriptBase):
         self.init_total_inv_value = None
         self.base_asset = None
         self.quote_asset = None
+
+        # Tracking key metrics
+        self.starting_base_price = None
+        self.starting_base_amount = None
+        self.starting_quote_value = None
+        self.starting_total_inv_value = None
 
         # Runtime parameters
         self.probability_upper_pct = None
@@ -127,6 +122,13 @@ class RewardSniping(ScriptBase):
             self.init_base_amount = Decimal(self.all_available_balances[f"{self.pmm_market_info.exchange}"].get(self.base_asset, Decimal("0.0000")))
             self.init_quote_value = Decimal(self.all_available_balances[f"{self.pmm_market_info.exchange}"].get(self.quote_asset, Decimal("0.0000")))
             self.init_total_inv_value = self.init_base_amount * self.init_base_price + self.init_quote_value
+
+        # Fourth, saving starting metric for further analysis:
+        if self.starting_base_price is None:
+            self.starting_base_price = self.init_base_price
+            self.starting_base_amount = self.init_base_amount
+            self.starting_quote_value = self.init_quote_value
+            self.starting_total_inv_value = self.init_total_inv_value
 
         # Depending on market conditions, we will modify strategy parameters to optimize trades
         if time.time() - self.last_parameters_updated > self.UPDATE_FREQ and self.is_calibrating_inventory is False:
@@ -237,7 +239,7 @@ class RewardSniping(ScriptBase):
         new_ask_spread = new_low_ask_spread
         new_bid_spread = new_low_bid_spread
         
-        is_high_spread = random.choice([0,0,0,1,1])
+        is_high_spread = random.choice([0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1])
         
         if is_high_spread == 1:
             new_ask_spread = new_high_ask_spread
@@ -327,18 +329,26 @@ class RewardSniping(ScriptBase):
         base_inv_value = base_balance * current_price
         total_inv_value = base_inv_value + quote_balance
 
-        if init_current_diff >= 1:
-            if total_inv_value >= self.init_total_inv_value:
-                self.init_base_price = current_price
-                self.init_total_inv_value = total_inv_value
-                self.pmm_parameters.inventory_target_base_pct = Decimal(0.5)
+        if total_inv_value >= self.init_total_inv_value:
+            self.init_base_price = current_price
+            self.init_base_amount = base_balance
+            self.init_quote_value = quote_balance
+            self.init_total_inv_value = total_inv_value
+            self.pmm_parameters.inventory_target_base_pct = Decimal(0.5)
             return
         
-        if init_current_diff <= -1:
+        if init_current_diff <= Decimal(-0.5):
             target_base_amount = (self.init_base_price / current_price) * self.init_base_amount + (self.init_quote_value - quote_balance) / current_price
             nominal_base_value = self.init_base_price * target_base_amount
             nominal_total_value = nominal_base_value + quote_balance
             target_base_pct = nominal_base_value / nominal_total_value
+
+            if target_base_pct > Decimal(0.95):
+                target_base_pct = Decimal(0.95)
+
+            if target_base_pct < Decimal(0.05):
+                target_base_pct = Decimal(0.05)
+
             self.pmm_parameters.inventory_target_base_pct = target_base_pct
             return
 
@@ -352,26 +362,6 @@ class RewardSniping(ScriptBase):
         return statistics.pstdev(samples)
 
     def status_msg(self):
-        # self.probability_upper_pct = None
-        # self.probability_lower_pct = None
-        # self.probability_upper_price = None
-        # self.probability_lower_price = None
-        # self.new_order_amount = None
-        # self.new_bid_spread = None
-        # self.new_ask_spread = None
-        # self.new_order_levels_spread = None
-        # self.inner_env_upper_bound = None
-        # self.inner_env_lower_bound = None
-        # self.outer_env_upper_bound = None
-        # self.outer_env_lower_bound = None
-        # self.std_basis = None
-        # self.env_basis = None
-        # self.new_order_levels = None
-        # self.new_buy_levels = None
-        # self.new_sell_levels = None
-        # self.new_filled_order_delay = None
-        # self.new_order_refresh_time = None
-
         if self.new_order_amount is None:
             return "Collecting midprices for moving average ..."
 
@@ -391,4 +381,13 @@ class RewardSniping(ScriptBase):
                         f"new_order_levels: {self.new_order_levels} | new_buy_levels: {self.new_buy_levels} | new_sell_levels: {self.new_sell_levels}\n" \
                         f"new_filled_order_delay: {self.new_filled_order_delay} | new_order_refresh_time: {self.new_order_refresh_time}\n"
 
-        return f"\n{order_msg}{probability_msg}{envelop_msg}"
+        inv_msg = f"===Inventory Detail===\n" \
+                        f"starting_base_price: {self.starting_base_price:.5f} {self.quote_asset}\n" \
+                        f"starting_base_amount: {self.starting_base_amount:.5f} {self.base_asset} | starting_quote_value: {self.starting_quote_value:.5f} {self.quote_asset}\n" \
+                        f"starting_total_inv_value: {self.starting_total_inv_value:.5f} {self.quote_asset}\n" \
+                        f"======\n" \
+                        f"current_base_price: {self.init_base_price:.5f} {self.quote_asset}\n" \
+                        f"current_base_amount: {self.init_base_amount:.5f} {self.base_asset} | current_quote_value: {self.init_quote_value:.5f} {self.quote_asset}\n" \
+                        f"current_total_inv_value: {self.init_total_inv_value:.5f} {self.quote_asset}\n"
+
+        return f"\n{order_msg}{probability_msg}{envelop_msg}{inv_msg}"
