@@ -217,7 +217,7 @@ Hummingbot prompts to enter the values for these parameters when creating the st
 | `stop_loss_spread`           | Triggers to close a position by creating a [stop loss](#stop-loss) order when profitability % falls below this value.                                                                                        |
 | `close_position_order_type`  | The order type used (limit or market) when using trailing stop or when a stop loss is triggered. <br/><br/> Refer to [this section](#using-limit-or-market-orders-to-close-a-position) for more information. |
 
-## ** Configure parameters on the fly **
+## Configure parameters on the fly 
 
 Currently, only the following parameters can be reconfigured without stopping the bot. The changes will take effect in the next order refresh.
 

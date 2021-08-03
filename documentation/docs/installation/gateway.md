@@ -1,4 +1,4 @@
-## What is Hummingbot gateway?
+## What is Hummingbot Gateway?
 
 Hummingbot Gateway is a API server that allows Hummingbot to connect to [protocols](/protocol-connectors/overview/) that are used in the [amm-arb strategy](/strategies/amm-arb/) and other future strategies. This is a light web server that enables Hummingbot client to send and receive data from different blockchain protocols and provides an easier entry point for external devs to build connectors to other protocols.
 
