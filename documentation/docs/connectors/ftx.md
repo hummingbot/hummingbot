@@ -10,7 +10,7 @@ The [FTX Foundation](https://ftx.com/foundation) donates 1% of all net fees to c
 
 To use the connector, run the `connect ftx` command in the Hummingbot client.
 
-![](./img/ftx-api.png)
+![](/assets/img/ftx-api.png)
 
 Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
 

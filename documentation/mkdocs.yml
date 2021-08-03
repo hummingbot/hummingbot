@@ -105,19 +105,19 @@ nav:
     - Strategies:
       - Overview: strategies/index.md
       - Avellaneda Market Making: strategies/avellaneda-market-making.md
-      - AMM Arbitrage: amm-arbitrage.md
+      - AMM Arbitrage: strategies/amm-arbitrage.md
       - Arbitrage: strategies/arbitrage.md
-      - Celo Arbitrage: strategies/celo-arbitrage/index.md
+      - Celo Arbitrage: strategies/celo-arbitrage.md
       - Cross Exchange: strategies/cross-exchange-market-making.md
       - Liquidity Mining: strategies/liquidity-mining.md
       - Perpetual Market Making: strategies/perpetual-market-making.md
       - Pure Market Making: strategies/pure-market-making.md
       - Spot Perpetual Arbitrage: strategies/spot-perpetual-arbitrage.md
       - TWAP: strategies/twap.md
-      - Uniswap v3 Liquidity Pool: uniswap-v3-lp.md
+      - Uniswap v3 Liquidity Pool: strategies/uniswap-v3-lp.md
     - Advanced Market Making: 
       - Overview: strategies/advanced-market-making/index.md
-      - Order Levels: strategies/advanced-market-making/add-transaction-costs.md
+      - Order Levels: strategies/advanced-market-making/order-levels.md
       - Inventory Skew: strategies/advanced-market-making/inventory-skew.md
       - Filled Order Delay: strategies/advanced-market-making/filled-order-delay.md
       - Hanging Orders: strategies/advanced-market-making/hanging-orders.md
@@ -141,15 +141,18 @@ nav:
       - Binance US: connectors/binance-us.md
       - Bitfinex: connectors/bitfinex.md
       - Bittrex Global: connectors/bittrex.md
+      - Blocktane: connectors/blocktane.md
       - Coinbase Pro: connectors/coinbase.md
       - CoinZoom: connectors/coinzoom.md
       - Crypto.com : connectors/crypto-com.md
       - Digifinex: connectors/digifinex.md
       - Dolomite: connectors/dolomite.md
-      - DyDx: connectors/dydx.mc
+      - DyDx: connectors/dydx.md
       - DyDx Perpetual: connectors/dydx-perpetual.md
+      - Eterbase: connectors/eterbase.md
       - FTX: connectors/ftx.md
       - Gate.io: connectors/gate-io.md
+      - Himalaya: connectors/himalaya.md
       - HitBTC: connectors/hitbtc.md
       - Huobi Global: connectors/huobi.md
       - KuCoin: connectors/kucoin.md
