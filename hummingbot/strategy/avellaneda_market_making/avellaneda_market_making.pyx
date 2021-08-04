@@ -1107,7 +1107,8 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             return
 
         # Continue only if the order is not a hanging order
-        if not self._hanging_orders_tracker.is_order_id_in_hanging_orders(order_id):
+        if (not self._hanging_orders_tracker.is_order_id_in_hanging_orders(order_id)
+                and not self.hanging_orders_tracker.is_order_id_in_completed_hanging_orders(order_id)):
             # delay order creation by filled_order_delay (in seconds)
             self._create_timestamp = self._current_timestamp + self._filled_order_delay
             self._cancel_timestamp = min(self._cancel_timestamp, self._create_timestamp)
