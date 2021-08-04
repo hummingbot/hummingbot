@@ -15,12 +15,12 @@ Hummingbot has been successfully tested with the following specifications:
 
 ## Supported-installation environments
 
-| Platform     |                  Binary                   |                  Docker                   |                  Source                   |
-| ------------ | :---------------------------------------: | :---------------------------------------: | :---------------------------------------: |
-| Windows      | <StatusCircle color="green" font="25px"/> | <StatusCircle color="green" font="25px"/> | <StatusCircle color="green" font="25px"/> |
-| MacOS        | <StatusCircle color="green" font="25px"/> | <StatusCircle color="green" font="25px"/> | <StatusCircle color="green" font="25px"/> |
-| Linux        |                     -                     | <StatusCircle color="green" font="25px"/> | <StatusCircle color="green" font="25px"/> |
-| Raspberry Pi |                     -                     | <StatusCircle color="green" font="25px"/> | <StatusCircle color="green" font="25px"/> |
+| Platform     |                  Binary                             |                  Docker                             |                  Source                             |
+| ------------ | :-------------------------------------------------: | :-------------------------------------------------: | :-------------------------------------------------: |
+| Windows      | <span style="color:green; font-size:25px">⬤</span> | <span style="color:green; font-size:25px">⬤</span> | <span style="color:green; font-size:25px">⬤</span> |
+| MacOS        | <span style="color:green; font-size:25px">⬤</span> | <span style="color:green; font-size:25px">⬤</span> | <span style="color:green; font-size:25px">⬤</span> |
+| Linux        |                     -                               | <span style="color:green; font-size:25px">⬤</span> | <span style="color:green; font-size:25px">⬤</span> |
+| Raspberry Pi |                     -                               | <span style="color:green; font-size:25px">⬤</span> | <span style="color:green; font-size:25px">⬤</span> |
 
 ## For cloud
 

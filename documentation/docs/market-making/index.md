@@ -1,6 +1,9 @@
-# Advanced Market Making
+# Market Making Features
 
-These advanced parameters give you more control over how your bot behaves. Please take the time to understand how these parameters work before risking extensive capital with bots that utilize them.
+These features give you more control over how your market making bot behaves. Please take the time to understand how these parameters work before risking extensive capital with bots that utilize them.
+
+!!! note
+    Currently, these features are limited to certain market making strategies, such as [pure market making](/strategies/pure_market_making). In the future, we aim to standardize the most popular features as modules or add them to the strategy base class, so that they are available to all Hummingbot strategies.
 
 ## How to configure
 

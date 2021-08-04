@@ -4,47 +4,34 @@
 
 Connectors are packages of code that link Hummingbot's internal trading algorithms with live information from different cryptocurrency exchanges. They interact with a given exchange's API, such as by gathering order book data and sending and cancelling trades. See below for the list of exchanges which Hummingbot currently has connectors to.
 
-Related article : [How connectors are integrated into Hummingbot](https://hummingbot.zendesk.com/hc/en-us/articles/900004506986)
+## Connector types
 
-## Exchange types
+* **spot**: Connectors to order book exchanges that trade spot markets
+* **perp**: Connectors to order book exchanges that trade perpetual swap markets
+* **amm**: Connectors to automatic market maker (AMM) exchanges on various blockchain protocols. Trading on these exchanges requires
 
-### Spot
+For each decentralized exchange (DEX) connector, we list the underlying blockchain protocol supported by Hummingbot.
 
-Spot connectors connect to order book exchanges that trade spot markets.
+## List of connectors
 
-### Perpetual
-
-These connectors connect to order book exchanges that trade perpetual swap markets.
-
-### AMM
-
-Protocol connectors connect to automatic market maker (AMM) exchanges on various blockchain protocols.
-
-### Decentralized (DEX)
-
-DEX connectors connect to decentralized exchanges that operate on Layer 1 or Layer 2 blockchains.
-
-
-| Exchange                                                  | Type        | DEX       | Website                                      | Status                                              | Notes                                |
+| Exchange                                                  | Type        | Chain     | Website                                      | Status                                              | Notes                                |
 ------------------------------------------------------------|-------------|-----------|----------------------------------------------| --------------------------------------------------- | -------------------------------------|
 | [AscendEx](/spot-connectors/ascend-ex)                    | spot        | N/A       | [ascendex.com](https://ascendex.com/)        | <span style="color:green; font-size:25px">⬤</span> | Connector is working properly and safe to use |
-| [Balancer](/protocol-connectors/balancer)                 | protocol    | ethereum  | [balancer.fi](https://balancer.fi/)          | <span style="color:green; font-size:25px">⬤</span> | Connector is working properly and safe to use |
-| [Bamboo Relay](/spot-connectors/bamboo-relay)             | spot        | ethereum  | [bamboorelay.com](https://bamboorelay.com/)  | <span style="color:red; font-size:25px">⬤</span>   | Connector is broken and unusable. Refer to our [Github page](https://github.com/CoinAlpha/hummingbot/issues?q=is%3Aopen+%22bamboo+relay%22+in%3Atitle) page for more information |
+| [Balancer](/protocol-connectors/balancer)                 | amm         | ethereum  | [balancer.fi](https://balancer.fi/)          | <span style="color:green; font-size:25px">⬤</span> | Connector is working properly and safe to use |
 | [Beaxy](/spot-connectors/beaxy)                           | spot        | N/A       | [beaxy.com](https://beaxy.com/)              | <span style="color:green; font-size:25px">⬤</span> | Connector is working properly and safe to use | 
 | [Binance](/connectors/binance)                            | spot        | N/A       | [binance.com](https://binance.com)           | <span style="color:green; font-size:25px">⬤</span> | Connector is working properly and safe to use |
-| [Binance Futures](/derivative-connectors/binance-futures) | derivative  | N/A       | [binance.com](https://binance.com)           | <span style="color:yellow; font-size:25px">⬤</span>| Connector has one or more reported issues. Refer to our [Github page](https://github.com/CoinAlpha/hummingbot/issues?q=is%3Aopen+%22Binance+perpetual%22+in%3Atitle+) page for more information |
+| [Binance Futures](/derivative-connectors/binance-futures) | perp        | N/A       | [binance.com](https://binance.com)           | <span style="color:yellow; font-size:25px">⬤</span>| Connector has one or more reported issues. Refer to our [Github page](https://github.com/CoinAlpha/hummingbot/issues?q=is%3Aopen+%22Binance+perpetual%22+in%3Atitle+) page for more information |
 | [Binance US](/spot-connectors/binance-us)                 | spot        | N/A       | [binance.us](https://www.binance.us)         | <span style="color:yellow; font-size:25px">⬤</span>| Connector has one or more reported issues. Refer to our [Github page](https://github.com/CoinAlpha/hummingbot/issues?q=is%3Aopen+%22binance+US%22+in%3Atitle) page for more information |
 | [Bitfinex](/connectors/bitfinex)                          | spot        | N/A       | [bitfinex.com](https://bitfinex.com)         | <span style="color:yellow; font-size:25px">⬤</span> | Connector has one or more reported issues. Refer to our [Github page](https://github.com/CoinAlpha/hummingbot/issues?q=is%3Aopen+%22bitfinex%22+in%3Atitle) page for more information |
 | [Bittrex Global](/connectors/bittrex)                     | spot        | N/A       | [bittrex.com](https://bittrex.com)           | <span style="color:yellow; font-size:25px">⬤</span> | Connector has one or more reported issues. Refer to our [Github page](https://github.com/CoinAlpha/hummingbot/issues?q=is%3Aopen+%22bittrex%22+in%3Atitle) page for more information |
 | [Blocktane](/spot-connectors/blocktane)                   | spot        | N/A       | [blocktane.io](https://blocktane.io/)        | <span style="color:yellow; font-size:25px">⬤</span>| Connector has one or more reported issues. Refer to our [Github page](https://github.com/CoinAlpha/hummingbot/issues?q=is%3Aopen+%22blocktane%22+in%3Atitle+) page for more information |
-| [Celo](/strategies/celo-arb/)                             | protocol    | celo      | [celo.org](https://celo.org/)                | <span style="color:green; font-size:25px">⬤</span> | Connector is working properly and safe to use |
+| [Celo](/strategies/celo-arb/)                             | amm         | celo      | [celo.org](https://celo.org/)                | <span style="color:green; font-size:25px">⬤</span> | Connector is working properly and safe to use |
 | [Coinbase Pro](/connectors/coinbase)                      | spot        | N/A       | [pro.coinbase.com](https://pro.coinbase.com) | <span style="color:yellow; font-size:25px">⬤</span>| Connector has one or more reported issues. Refer to our [Github page](https://github.com/CoinAlpha/hummingbot/issues?q=is%3Aopen+%22Coinbase+Pro%22+in%3Atitle+) page for more information |
 | [Coinzoom](/spot-connectors/coinzoom)                     | spot        | N/A       | [coinzoom.com](https://www.coinzoom.com/)    | <span style="color:yellow; font-size:25px">⬤</span>| Connector has one or more reported issues. Refer to our [Github page](https://github.com/CoinAlpha/hummingbot/issues?q=is%3Aopen+%22coinzoom%22+in%3Atitle+) page for more information |
 | [Crypto.com](/connectors/crypto-com)                      | spot        | N/A       | [crypto.com](https://crypto.com)             | <span style="color:green; font-size:25px">⬤</span> | Connector is working properly and safe to use |
 | [Digifinex](/spot-connectors/digifinex)                   | spot        | N/A       | [digifinex.com](https://www.digifinex.com/)  | <span style="color:yellow; font-size:25px">⬤</span>| Connector has one or more reported issues. Refer to our [Github page](https://github.com/CoinAlpha/hummingbot/issues?q=is%3Aopen+%22digifinex%22+in%3Atitle+) page for more information    |
-| [Dolomite](/spot-connectors/dolomite)                     | spot        | ethereum  | [dolomite.io](https://beta.dolomite.io/)     | <span style="color:red; font-size:25px">⬤</span>   | Connector is broken and unusable. Refer to our [Github page](https://github.com/CoinAlpha/hummingbot/issues?q=is%3Aopen+%22Dolomite%22+in%3Atitle) page for more information.              |
 | [dYdX](/spot-connectors/dydx)                             | spot        | ethereum  | [dydx.exchange](https://dydx.exchange/)      | <span style="color:green; font-size:25px">⬤</span> | Connector is working properly and safe to use |
-| [dYdX Perpetual](/derivative-connectors/dydx-perpetual)   | derivative | ethereum  | [dydx.exchange](https://dydx.exchange/) | <span style="color:yellow; font-size:25px">⬤</span>| Connector has one or more reported issues. Refer to our [Github page](https://github.com/CoinAlpha/hummingbot/issues?q=is%3Aopen+%22dydx+perpetual%22+in%3Atitle+) page for more information    |
+| [dYdX Perpetual](/derivative-connectors/dydx-perpetual)   | perp        | ethereum  | [dydx.exchange](https://dydx.exchange/) | <span style="color:yellow; font-size:25px">⬤</span>| Connector has one or more reported issues. Refer to our [Github page](https://github.com/CoinAlpha/hummingbot/issues?q=is%3Aopen+%22dydx+perpetual%22+in%3Atitle+) page for more information    |
 | [FTX](/spot-connectors/ftx)                               | spot        | N/A       | [ftx.com](https://ftx.com/foundation)        | <span style="color:green; font-size:25px">⬤</span> | Connector is working properly and safe to use |
 | [Gate.io](/spot-connectors/gate-io)                       | spot        | N/A       | [gate.io](https://www.gate.io/)              | <span style="color:green; font-size:25px">⬤</span> | Connector is working properly and safe to use |
 | [HitBTC](/spot-connectors/hitbtc)                         | spot        | N/A       | [hitbtc.com](https://hitbtc.com/)            | <span style="color:green; font-size:25px">⬤</span> | Connector is working properly and safe to use |
@@ -54,10 +41,9 @@ DEX connectors connect to decentralized exchanges that operate on Layer 1 or Lay
 | [Liquid](/connectors/liquid)                              | spot        | N/A       | [liquid.com](https://liquid.com)             | <span style="color:green; font-size:25px">⬤</span> | Connector is working properly and safe to use |
 | [Loopring](/connectors/loopring)                          | spot        | ethereum  | [loopring.org](https://loopring.org)         | <span style="color:yellow; font-size:25px">⬤</span>| Connector has one or more reported issues. Refer to our [Github page](https://github.com/CoinAlpha/hummingbot/issues?q=is%3Aopen+%22loopring%22+in%3Atitle) page for more information |
 | [OKEx](/spot-connectors/okex)                             | spot        | N/A       | [okex.com](https://www.okex.com/)            | <span style="color:yellow; font-size:25px">⬤</span>| Connector has one or more reported issues. Refer to our [Github page](https://github.com/CoinAlpha/hummingbot/issues?q=is%3Aopen+%22okex%22+in%3Atitle+) page for more information         |
-| [Perpetual Finance](/protocol-connectors/perp-fi)         | protocol    | ethereum  | [perp.exchange](https://perp.exchange/)      | <span style="color:yellow; font-size:25px">⬤</span>| Connector has one or more reported issues. Refer to our [Github page](https://github.com/CoinAlpha/hummingbot/issues?q=is%3Aopen+%22perpetual+finance%22+in%3Atitle+) page for more information |
+| [Perpetual Finance](/protocol-connectors/perp-fi)         | amm, perp   | ethereum  | [perp.exchange](https://perp.exchange/)      | <span style="color:yellow; font-size:25px">⬤</span>| Connector has one or more reported issues. Refer to our [Github page](https://github.com/CoinAlpha/hummingbot/issues?q=is%3Aopen+%22perpetual+finance%22+in%3Atitle+) page for more information |
 | [ProBit Global](/spot-connectors/probit)                  | spot        | N/A       | [probit.com](https://www.probit.com/)        | <span style="color:yellow; font-size:25px">⬤</span>| Connector has one or more reported issues. Refer to our [Github page](https://github.com/CoinAlpha/hummingbot/issues?q=is%3Aopen+%22probit%22+in%3Atitle+) page for more information       |
 | [ProBit Korea](/spot-connectors/probit-korea/)            | spot        | N/A       | [probit.kr](https://www.probit.kr/en-us/)    | <span style="color:yellow; font-size:25px">⬤</span>| Connector has one or more reported issues. Refer to our [Github page](https://github.com/CoinAlpha/hummingbot/issues?q=is%3Aopen+%22probit%22+in%3Atitle+) page for more information       |
-| [Radar Relay](/spot-connectors/radar-relay)               | spot        | ethereum  | [radar.tech](https://radar.tech/)            | <span style="color:red; font-size:25px">⬤</span>   | Connector is broken and unusable. Refer to our [Github page](https://github.com/CoinAlpha/hummingbot/issues?q=is%3Aopen+%22radar+relay%22+in%3Atitle) page for more information           |
-| [Terra](/protocol-connectors/terra)                       | protocol    | terra     | [terra.money](https://www.terra.money/)      | <span style="color:green; font-size:25px">⬤</span> | Connector is working properly and safe to use |
-| [Uniswap](/protocol-connectors/uniswap)                   | protocol    | ethereum  | [uniswap.org](https://uniswap.org/)          | <span style="color:green; font-size:25px">⬤</span> | Connector is working properly and safe to use | 
-| [Uniswap v3](/protocol-connectors/uniswapv3)              | protocol    | ethereum  | [uniswap.org](https://uniswap.org/)          | <span style="color:yellow; font-size:25px">⬤</span>| Connector is new (BETA) and may have some undiscovered issues |
+| [Terra](/protocol-connectors/terra)                       | amm         | terra     | [terra.money](https://www.terra.money/)      | <span style="color:green; font-size:25px">⬤</span> | Connector is working properly and safe to use |
+| [Uniswap](/protocol-connectors/uniswap)                   | amm         | ethereum  | [uniswap.org](https://uniswap.org/)          | <span style="color:green; font-size:25px">⬤</span> | Connector is working properly and safe to use | 
+| [Uniswap v3](/protocol-connectors/uniswapv3)              | amm         | ethereum  | [uniswap.org](https://uniswap.org/)          | <span style="color:yellow; font-size:25px">⬤</span>| Connector is new (BETA) and may have some undiscovered issues |
