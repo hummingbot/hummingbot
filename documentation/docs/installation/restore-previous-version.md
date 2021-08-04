@@ -21,7 +21,7 @@ A previous version can be installed when creating a Hummingbot instance.
 - Windows/Mac/Linux: For example, enter `version-0.16.0`. The versions are listed here in [Hummingbot Tags](https://hub.docker.com/r/coinalpha/hummingbot/tags).
 - Raspberry Pi: For example, enter `dev-0.30.0-arm_beta`. The versions are listed here in [Hummingbot Tags](https://hub.docker.com/r/coinalpha/hummingbot/tags?page=1&name=arm).
 
-## Revert to a previous version via Binary
+## Revert to a previous version via binary
 
 The user can revert and update Hummingbot installed via Binary by following the steps below:
 

@@ -1,6 +1,6 @@
 # Checking Balances
 
-## Exchange and Wallet Balance
+## Exchange and wallet balance
 
 Run `balance` command to check the balances of all connected wallets and exchanges.
 
@@ -8,7 +8,7 @@ Run `balance` command to check the balances of all connected wallets and exchang
 
 **Allocated** column shows how much of your assets are being used when there are active orders.
 
-## Paper Trade Balance
+## Paper trade balance
 
 Run `balance paper` to check your paper trade account balance.
 

@@ -13,7 +13,7 @@ Hummingbot has been successfully tested with the following specifications:
 |                      | **Install from source**: 3 GB per instance                                                                                   |
 | **Network**          | A reliable internet connection is critical to keeping Hummingbot connected to exchanges.                                     |
 
-## Supported-Installation Environments
+## Supported-installation environments
 
 | Platform     |                  Binary                   |                  Docker                   |                  Source                   |
 | ------------ | :---------------------------------------: | :---------------------------------------: | :---------------------------------------: |
@@ -22,7 +22,7 @@ Hummingbot has been successfully tested with the following specifications:
 | Linux        |                     -                     | <StatusCircle color="green" font="25px"/> | <StatusCircle color="green" font="25px"/> |
 | Raspberry Pi |                     -                     | <StatusCircle color="green" font="25px"/> | <StatusCircle color="green" font="25px"/> |
 
-## For Cloud
+## For cloud
 
 For experienced and technical users, we recommend setting up a cloud instance and installing the Docker version or from source. This enables Hummingbot to run 24/7.
 
