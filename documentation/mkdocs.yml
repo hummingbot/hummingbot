@@ -74,7 +74,6 @@ markdown_extensions:
 nav:
   - General:
     - Overview: index.md
-    - Get Support: support.md
     - Installation:
       - Overview: installation/index.md
       - Windows: installation/windows.md
@@ -98,38 +97,15 @@ nav:
       - Start and Stop Strategy: operation/start-stop.md
       - Pause and Resume Strategy: operation/pause-resume.md
       - Check Bot and Market Status: operation/checking-status.md
-      - Performance History: operation/performance-history.md
-      - Override Fees: operation/override-fees.md
+      - Check Performance: operation/performance-history.md
       - Log Files: operation/log-files.md
+      - Paper Trading Mode: operation/paper-trade.md
+      - Kill Switch: operation/kill-switch.md
+      - Balance Limit: operation/balance-limit.md
+      - Override Fees: operation/override-fees.md
+      - Telegram Integration: operation/telegram.md
+      - Rate Oracle: operation/rate-oracle.md
       - Strategy Autostart: operation/strategy-autostart.md
-    - Strategies:
-      - Overview: strategies/index.md
-      - Avellaneda Market Making: strategies/avellaneda-market-making.md
-      - AMM Arbitrage: strategies/amm-arbitrage.md
-      - Arbitrage: strategies/arbitrage.md
-      - Celo Arbitrage: strategies/celo-arbitrage.md
-      - Cross Exchange: strategies/cross-exchange-market-making.md
-      - Liquidity Mining: strategies/liquidity-mining.md
-      - Perpetual Market Making: strategies/perpetual-market-making.md
-      - Pure Market Making: strategies/pure-market-making.md
-      - Spot Perpetual Arbitrage: strategies/spot-perpetual-arbitrage.md
-      - TWAP: strategies/twap.md
-      - Uniswap v3 Liquidity Pool: strategies/uniswap-v3-lp.md
-    - Advanced Market Making: 
-      - Overview: strategies/advanced-market-making/index.md
-      - Order Levels: strategies/advanced-market-making/order-levels.md
-      - Inventory Skew: strategies/advanced-market-making/inventory-skew.md
-      - Filled Order Delay: strategies/advanced-market-making/filled-order-delay.md
-      - Hanging Orders: strategies/advanced-market-making/hanging-orders.md
-      - Minimum Spread: strategies/advanced-market-making/minimum-spread.md
-      - Order Refresh Tolerance: strategies/advanced-market-making/order-refresh-tolerance.md
-      - Price Band: strategies/advanced-market-making/price-band.md
-      - Ping Pong: strategies/advanced-market-making/ping-pong.md
-      - Order Optimization: strategies/advanced-market-making/order-optimization.md
-      - Adding Transaction Costs: strategies/advanced-market-making/add-transaction-costs.md
-      - External Pricing Source: strategies/advanced-market-making/external-price-source.md
-      - Order Override: strategies/advanced-market-making/order-override.md
-      - Max Order Age: strategies/advanced-market-making/max-order-age.md
     - Connectors:
       - Overview: connectors/index.md
       - AscendEX: connectors/ascend-ex.md
@@ -147,8 +123,8 @@ nav:
       - Crypto.com : connectors/crypto-com.md
       - Digifinex: connectors/digifinex.md
       - Dolomite: connectors/dolomite.md
-      - DyDx: connectors/dydx.md
-      - DyDx Perpetual: connectors/dydx-perpetual.md
+      - dYdX: connectors/dydx.md
+      - dYdX Perpetual: connectors/dydx-perpetual.md
       - Eterbase: connectors/eterbase.md
       - FTX: connectors/ftx.md
       - Gate.io: connectors/gate-io.md
@@ -166,15 +142,46 @@ nav:
       - Radar Relay: connectors/radar-relay.md
       - Terra: connectors/terra.md
       - Uniswap: connectors/uniswap.md
-      - Uniswap v3: connectors/uniswap-v3.md
-    - Scripts:
-      - Overview: scripts/index.md
-      - Script Base: scripts/script-base.md
-    - Resources:
-      - Frequently Asked Questions: resources/faq.md
-      - Glossary: resources/glossary.md
+      - Uniswap-v3: connectors/uniswap-v3.md
+    - Strategies:
+      - Overview: strategies/index.md
+      - Market making:
+        - Pure Market Making: strategies/pure-market-making.md
+        - Liquidity Mining: strategies/liquidity-mining.md
+        - Avellaneda: strategies/avellaneda-market-making.md
+        - Cross Exchange Market Making: strategies/cross-exchange-market-making.md
+        - Perpetual Market Making: strategies/perpetual-market-making.md
+        - Uniswap-v3 LP: strategies/uniswap-v3-lp.md
+      - Arbitrage:
+        - Arbitrage: strategies/arbitrage.md
+        - Spot Perpetual Arbitrage: strategies/spot-perpetual-arbitrage.md
+        - AMM Arbitrage: strategies/amm-arbitrage.md
+        - Celo Arbitrage: strategies/celo-arbitrage.md
+      - Misc:
+        - TWAP: strategies/twap.md
+    - Market Making:
+      - Overview: market-making/index.md
+      - Order Levels: market-making/order-levels.md
+      - Filled Order Delay: market-making/filled-order-delay.md
+      - Hanging Orders: market-making/hanging-orders.md
+      - Order Refresh Tolerance: market-making/order-refresh-tolerance.md
+      - Order Optimization: market-making/order-optimization.md
+      - Inventory Skew: market-making/inventory-skew.md
+      - External Pricing Source: market-making/external-price-source.md
+      - Max Order Age: market-making/max-order-age.md
+      - Order Override: market-making/order-override.md
+      - Price Band: market-making/price-band.md
+      - Ping Pong: market-making/ping-pong.md
+      - Adding Transaction Costs: market-making/add-transaction-costs.md
+      - Minimum Spread: market-making/minimum-spread.md
+      - Scripts: market-making/scripts/index.md
+    - Support:
+      - Get Support: support/support.md
+      - Troubleshooting: support/troubleshooting.md
+      - Frequently Asked Questions: support/faq.md
+      - Glossary: support/glossary.md
 
-  - Developer Manual:
+  - Developers:
       - Intro: developers/index.md
       - Getting Started:
         - Intro: developers/gettingstarted/index.md
