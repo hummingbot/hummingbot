@@ -142,15 +142,34 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
     def test_fetch_trading_pairs(self, mock_api):
         self.simulate_trading_pair_ids_initialized()
 
-        mock_response: List[Any] = [{
-            "Product1Symbol": self.base_asset,
-            "Product2Symbol": self.quote_asset,
-        }]
+        mock_response: List[Any] = [
+            {
+                "Product1Symbol": self.base_asset,
+                "Product2Symbol": self.quote_asset,
+                "InstrumentId": self.instrument_id,
+                "SessionStatus": "Running"
+            },
+            {
+                "Product1Symbol": "ANOTHER_ACTIVE",
+                "Product2Symbol": "MARKET",
+                "InstrumentId": 2,
+                "SessionStatus": "Running"
+            },
+            {
+                "Product1Symbol": "NOT_ACTIVE",
+                "Product2Symbol": "MARKET",
+                "InstrumentId": 3,
+                "SessionStatus": "Stopped"
+            }
+        ]
+
+        self.set_mock_response(mock_api, 200, mock_response)
         self.set_mock_response(mock_api, 200, mock_response)
 
-        results = self.ev_loop.run_until_complete(asyncio.gather(self.data_source.fetch_trading_pairs()))
-        result = results[0]
-        self.assertTrue(self.trading_pair in result)
+        results: List[str] = self.ev_loop.run_until_complete(self.data_source.fetch_trading_pairs())
+        self.assertTrue(self.trading_pair in results)
+        self.assertTrue("ANOTHER_ACTIVE-MARKET" in results)
+        self.assertFalse("NOT_ACTIVE-MARKET" in results)
 
     @patch("aiohttp.ClientSession.get")
     def test_fetch_trading_pairs_with_error_status_in_response(self, mock_api):
