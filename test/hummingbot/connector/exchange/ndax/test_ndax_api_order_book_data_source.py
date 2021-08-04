@@ -360,17 +360,17 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertTrue(second_msg.type == OrderBookMessageType.DIFF)
 
     @patch("websockets.connect", new_callable=AsyncMock)
-    def test_websocket_connection_initialization_raises_cancel_exception(self, mock_ws):
+    def test_websocket_connection_creation_raises_cancel_exception(self, mock_ws):
         mock_ws.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
-            asyncio.get_event_loop().run_until_complete(self.data_source._init_websocket_connection())
+            asyncio.get_event_loop().run_until_complete(self.data_source._create_websocket_connection())
 
     @patch("websockets.connect", new_callable=AsyncMock)
-    def test_websocket_connection_initialization_raises_exception_after_loging(self, mock_ws):
+    def test_websocket_connection_creation_raises_exception_after_loging(self, mock_ws):
         mock_ws.side_effect = Exception
 
         with self.assertRaises(Exception):
-            asyncio.get_event_loop().run_until_complete(self.data_source._init_websocket_connection())
+            asyncio.get_event_loop().run_until_complete(self.data_source._create_websocket_connection())
 
         self.assertTrue(self._is_logged("NETWORK", "Unexpected error occurred during ndax WebSocket Connection ()"))
