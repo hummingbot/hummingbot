@@ -167,12 +167,14 @@ class NewStrategy(StrategyPyBase):
             # stores it. This method is derived from the MarketTradingPairTuple class.
             mid_price = self._market_info.get_mid_price() 
 
-            #The buy_with_specific_market method executes the trade for you. This     
-            #method is derived from the Strategy_base class. 
-            order_id = self.buy_with_specific_market(self._market_info,
-                                                     Decimal("0.005"),
-                                                     OrderType.LIMIT,
-                                                     mid_price)
+            # The buy_with_specific_market method executes the trade for you. This     
+            # method is derived from the Strategy_base class. 
+            order_id = self.buy_with_specific_market(
+                self._market_info,  # market_trading_pair_tuple
+                Decimal("0.005"),   # amount
+                OrderType.LIMIT,    # order_type
+                mid_price           # price
+            )
             self.logger().info(f"Submitted buy order {order_id}")
             self._bought_eth = True
 
