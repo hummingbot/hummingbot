@@ -107,7 +107,9 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                   params=params) as response:
                 if response.status == 200:
                     resp_json: Dict[str, Any] = await response.json()
-                    return [f"{instrument['Product1Symbol']}-{instrument['Product2Symbol']}" for instrument in resp_json]
+                    return [f"{instrument['Product1Symbol']}-{instrument['Product2Symbol']}"
+                            for instrument in resp_json
+                            if instrument["SessionStatus"] == "Running"]
                 return []
 
     @classmethod
