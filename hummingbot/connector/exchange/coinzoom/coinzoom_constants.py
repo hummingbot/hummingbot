@@ -17,6 +17,7 @@ class Constants:
 
     ENDPOINT = {
         # Public Endpoints
+        "NETWORK_CHECK": "instruments",
         "TICKER": "marketwatch/ticker",
         "SYMBOL": "instruments",
         "ORDER_BOOK": "marketwatch/orderbook/{trading_pair}/150/2",
