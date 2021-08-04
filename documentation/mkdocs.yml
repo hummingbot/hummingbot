@@ -104,25 +104,76 @@ nav:
       - Strategy Autostart: operation/strategy-autostart.md
     - Strategies:
       - Overview: strategies/index.md
-      - Pure Market Making: strategies/pure-market-making.md
-      - Cross-Exchange Market Making: strategies/cross-exchange-market-making.md
+      - Avellaneda Market Making: strategies/avellaneda-market-making.md
+      - AMM Arbitrage: strategies/amm-arbitrage.md
       - Arbitrage: strategies/arbitrage.md
-      - Celo Arbitrage: strategies/celo-arb/index.md
+      - Celo Arbitrage: strategies/celo-arbitrage.md
+      - Cross Exchange: strategies/cross-exchange-market-making.md
+      - Liquidity Mining: strategies/liquidity-mining.md
+      - Perpetual Market Making: strategies/perpetual-market-making.md
+      - Pure Market Making: strategies/pure-market-making.md
+      - Spot Perpetual Arbitrage: strategies/spot-perpetual-arbitrage.md
+      - TWAP: strategies/twap.md
+      - Uniswap v3 Liquidity Pool: strategies/uniswap-v3-lp.md
+    - Advanced Market Making: 
+      - Overview: strategies/advanced-market-making/index.md
+      - Order Levels: strategies/advanced-market-making/order-levels.md
+      - Inventory Skew: strategies/advanced-market-making/inventory-skew.md
+      - Filled Order Delay: strategies/advanced-market-making/filled-order-delay.md
+      - Hanging Orders: strategies/advanced-market-making/hanging-orders.md
+      - Minimum Spread: strategies/advanced-market-making/minimum-spread.md
+      - Order Refresh Tolerance: strategies/advanced-market-making/order-refresh-tolerance.md
+      - Price Band: strategies/advanced-market-making/price-band.md
+      - Ping Pong: strategies/advanced-market-making/ping-pong.md
+      - Order Optimization: strategies/advanced-market-making/order-optimization.md
+      - Adding Transaction Costs: strategies/advanced-market-making/add-transaction-costs.md
+      - External Pricing Source: strategies/advanced-market-making/external-price-source.md
+      - Order Override: strategies/advanced-market-making/order-override.md
+      - Max Order Age: strategies/advanced-market-making/max-order-age.md
     - Connectors:
       - Overview: connectors/index.md
+      - AscendEX: connectors/ascend-ex.md
+      - Balancer: connectors/balancer.md
       - Bamboo Relay: connectors/bamboo-relay.md
+      - Beaxy: connectors/beaxy.md
       - Binance: connectors/binance.md
+      - Binance Perpetual: connectors/binance-perpetual.md
+      - Binance US: connectors/binance-us.md
       - Bitfinex: connectors/bitfinex.md
       - Bittrex Global: connectors/bittrex.md
+      - Blocktane: connectors/blocktane.md
       - Coinbase Pro: connectors/coinbase.md
+      - CoinZoom: connectors/coinzoom.md
       - Crypto.com : connectors/crypto-com.md
+      - Digifinex: connectors/digifinex.md
+      - Dolomite: connectors/dolomite.md
+      - DyDx: connectors/dydx.md
+      - DyDx Perpetual: connectors/dydx-perpetual.md
+      - Eterbase: connectors/eterbase.md
+      - FTX: connectors/ftx.md
+      - Gate.io: connectors/gate-io.md
+      - Himalaya: connectors/himalaya.md
+      - HitBTC: connectors/hitbtc.md
       - Huobi Global: connectors/huobi.md
       - KuCoin: connectors/kucoin.md
       - Kraken: connectors/kraken.md
       - Liquid: connectors/liquid.md
       - Loopring: connectors/loopring.md
+      - OKEx: connectors/okex.md
+      - Perpetual Finance: connectors/perp-fi.md
+      - ProBit Global: connectors/probit.md
+      - ProBit Korea: connectors/probit-korea.md
       - Radar Relay: connectors/radar-relay.md
- 
+      - Terra: connectors/terra.md
+      - Uniswap: connectors/uniswap.md
+      - Uniswap v3: connectors/uniswap-v3.md
+    - Scripts:
+      - Overview: scripts/index.md
+      - Script Base: scripts/script-base.md
+    - Resources:
+      - Frequently Asked Questions: resources/faq.md
+      - Glossary: resources/glossary.md
+
   - Developer Manual:
       - Intro: developers/index.md
       - Getting Started:
@@ -168,6 +219,19 @@ nav:
       - Configuration: developers/config.md
   - Release Notes:
     - About Releases: release-notes/index.md
+    - 0.41.0: release-notes/0.41.0.md
+    - 0.40.0: release-notes/0.40.0.md
+    - 0.39.1: release-notes/0.39.1.md
+    - 0.39.0: release-notes/0.39.0.md
+    - 0.38.1: release-notes/0.38.1.md
+    - 0.38.0: release-notes/0.38.0.md
+    - 0.37.1: release-notes/0.37.1.md
+    - 0.37.0: release-notes/0.37.0.md
+    - 0.36.0: release-notes/0.36.0.md
+    - 0.35.0: release-notes/0.35.0.md
+    - 0.34.0: release-notes/0.34.0.md
+    - 0.33.1: release-notes/0.33.1.md
+    - 0.33.0: release-notes/0.33.0.md
     - 0.32.0: release-notes/0.32.0.md
     - 0.31.0: release-notes/0.31.0.md
     - 0.30.0: release-notes/0.30.0.md

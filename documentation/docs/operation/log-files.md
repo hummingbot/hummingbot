@@ -2,11 +2,11 @@
 
 As Hummingbot is an in-progress and open-access software, logs are stored locally in your computer each time an instance is run. While the bot is active, record of status updates, results of specified checks and behaviors, as well as error tracing is encoded in the log files.
 
-### Viewing Log Configurations
+### Viewing log configurations
 
 The way that log files are structured is contained within `conf/hummingbot_logs.yml`. For now, we request that users leave the log settings at the defaults. This makes it easier for the Hummingbot team to trace bugs and other problems that users face when logs are submitted.
 
-### Viewing Individual Log Files
+### Viewing individual log files
 
 For users who wish to locate and submit log files, generally they are located in the `/logs` folder.
 Specific path or location may vary depending on the environment and how Hummingbot was installed.
@@ -18,7 +18,7 @@ Specific path or location may vary depending on the environment and how Hummingb
 - Installed via Binary (Windows): `%localappdata%\hummingbot.io\Hummingbot\logs`
 - Installed via Binary (MacOS): `~/Library/Application\ Support/Hummingbot/Logs`
 
-### Log File Management
+### Log file management
 
 A separate log file will now be generated daily. When a new log file is created, if there are more than 7 files,
 the oldest ones will be deleted in order to limit disk storage usage.
