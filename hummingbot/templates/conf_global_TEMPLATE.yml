@@ -70,6 +70,10 @@ kucoin_passphrase: null
 kraken_api_key: null
 kraken_secret_key: null
 
+bitmart_api_key: null
+bitmart_secret_key: null
+bitmart_memo: null
+
 crypto_com_api_key: null
 crypto_com_secret_key: null
 
