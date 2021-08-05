@@ -218,7 +218,8 @@ nav:
           - Task 4 - Required Connector Configuration: developers/connectors/task4.md
           - Debug and Test: developers/connectors/debug&test.md
         - Miscellaneous: developers/connectors/miscellaneous.md
-      - Tutorial (WIP):
+      - Tutorial:
+        - How to Create a Strategy: guides/strategy.md
         - Intro: developers/tutorial/index.md
         - Perform Trade: developers/tutorial/perform-trade.md
         - Simple Trade: developers/tutorial/simple-trade.md
@@ -283,6 +284,3 @@ nav:
     - 0.3.1 (beta): release-notes/0.3.1.md
     - 0.3.0: release-notes/0.3.0.md
     - 0.2.0: release-notes/0.2.0.md
-  - Guides:
-    - Overview: guides/index.md
-    - How to Create a Strategy: guides/strategy.md
