@@ -16,6 +16,8 @@ EXAMPLE_PAIR = "ETH-USDT"
 
 DEFAULT_FEES = [0.2, 0.2]
 
+BROKER_ID = "AAc484720a"
+
 
 def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
     try:
