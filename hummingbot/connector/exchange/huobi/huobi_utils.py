@@ -74,4 +74,3 @@ KEYS = {
                   is_secure=True,
                   is_connect_key=True),
 }
-
