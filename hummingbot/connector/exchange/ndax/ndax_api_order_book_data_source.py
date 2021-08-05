@@ -1,8 +1,6 @@
-
 import aiohttp
 import asyncio
 import logging
-import pandas as pd
 import time
 import websockets
 
@@ -26,13 +24,14 @@ from hummingbot.logger.logger import HummingbotLogger
 
 class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
+    _ORDER_BOOK_SNAPSHOT_DELAY = 60 * 5
+
     _logger: Optional[HummingbotLogger] = None
     _trading_pair_id_map: Dict[str, int] = {}
 
     def __init__(self, trading_pairs: List[str], domain: Optional[str] = None):
         super().__init__(trading_pairs)
         self._domain: Optional[str] = domain
-        self._websocket_client: Optional[NdaxWebSocketAdaptor] = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -130,6 +129,7 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
             "InstrumentId": cls._trading_pair_id_map[trading_pair],
             "Depth": 99999,
         }
+
         async with aiohttp.ClientSession() as client:
             async with client.get(f"{ndax_utils.rest_api_url(domain) + CONSTANTS.ORDER_BOOK_URL}",
                                   params=params) as response:
@@ -166,15 +166,13 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
             await self.init_trading_pair_ids(self._domain)
         return self._trading_pair_id_map
 
-    async def _init_websocket_connection(self) -> NdaxWebSocketAdaptor:
+    async def _create_websocket_connection(self) -> NdaxWebSocketAdaptor:
         """
         Initialize WebSocket client for UserStreamDataSource
         """
         try:
-            if self._websocket_client is None:
-                ws = await websockets.connect(ndax_utils.wss_url(self._domain))
-                self._websocket_client = NdaxWebSocketAdaptor(websocket=ws)
-            return self._websocket_client
+            ws = await websockets.connect(ndax_utils.wss_url(self._domain))
+            return NdaxWebSocketAdaptor(websocket=ws)
         except asyncio.CancelledError:
             raise
         except Exception as ex:
@@ -203,10 +201,8 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         metadata=metadata
                     )
                     output.put_nowait(snapshot_message)
-                this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
-                next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)
-                delta: float = next_hour.timestamp() - time.time()
-                await asyncio.sleep(delta)
+
+                await asyncio.sleep(self._ORDER_BOOK_SNAPSHOT_DELAY)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -223,7 +219,7 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         while True:
             try:
-                ws_adapter: NdaxWebSocketAdaptor = await self._init_websocket_connection()
+                ws_adapter: NdaxWebSocketAdaptor = await self._create_websocket_connection()
                 for trading_pair in self._trading_pairs:
                     payload = {
                         "OMSId": 1,
@@ -277,6 +273,8 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     app_warning_msg="Unexpected error with WebSocket connection. Retrying in 30 seconds. "
                                     "Check network connection."
                 )
+                if ws_adapter:
+                    await ws_adapter.close()
                 await asyncio.sleep(30.0)
 
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
