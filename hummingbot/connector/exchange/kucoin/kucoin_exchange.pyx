@@ -652,6 +652,7 @@ cdef class KucoinExchange(ExchangeBase):
             "size": str(amount),
             "clientOid": order_id,
             "side": side,
+            "hidden": True,
             "symbol": convert_to_exchange_trading_pair(trading_pair),
             "type": order_type_str,
         }
