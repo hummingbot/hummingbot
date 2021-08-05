@@ -652,12 +652,12 @@ cdef class KucoinExchange(ExchangeBase):
             "size": str(amount),
             "clientOid": order_id,
             "side": side,
-            "hidden": True,
             "symbol": convert_to_exchange_trading_pair(trading_pair),
             "type": order_type_str,
         }
         if order_type is OrderType.LIMIT:
             params["price"] = str(price)
+            params["hidden"] = True
         elif order_type is OrderType.LIMIT_MAKER:
             params["price"] = str(price)
             params["postOnly"] = True
