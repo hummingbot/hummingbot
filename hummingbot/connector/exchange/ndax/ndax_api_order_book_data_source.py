@@ -13,21 +13,20 @@ from typing import (
 
 from hummingbot.connector.exchange.ndax import ndax_constants as CONSTANTS, ndax_utils
 from hummingbot.connector.exchange.ndax.ndax_order_book import NdaxOrderBook
-from hummingbot.connector.exchange.ndax.ndax_order_book_message import NdaxOrderBookEntry
+from hummingbot.connector.exchange.ndax.ndax_order_book_message import NdaxOrderBookEntry, NdaxOrderBookMessage
 from hummingbot.connector.exchange.ndax.ndax_utils import convert_to_exchange_trading_pair
 from hummingbot.connector.exchange.ndax.ndax_websocket_adaptor import NdaxWebSocketAdaptor
-from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.logger.logger import HummingbotLogger
 
 
 class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
-
-    _ORDER_BOOK_SNAPSHOT_DELAY = 60 * 5
+    _ORDER_BOOK_SNAPSHOT_DELAY = 60 * 60  # expressed in seconds
 
     _logger: Optional[HummingbotLogger] = None
     _trading_pair_id_map: Dict[str, int] = {}
+    _last_traded_prices: Dict[str, float] = {}
 
     def __init__(self, trading_pairs: List[str], domain: Optional[str] = None):
         super().__init__(trading_pairs)
@@ -55,11 +54,13 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     resp_json: Dict[str, Any] = await response.json()
 
                     results = {
-                        f"{instrument['Product1Symbol']}-{instrument['Product2Symbol']}": int(instrument["InstrumentId"])
+                        f"{instrument['Product1Symbol']}-{instrument['Product2Symbol']}": int(
+                            instrument["InstrumentId"])
                         for instrument in resp_json
                         if instrument["SessionStatus"] == "Running"
                     }
-        cls._trading_pair_id_map = results
+
+                    cls._trading_pair_id_map = results
 
     @classmethod
     async def get_last_traded_prices(cls, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
@@ -74,20 +75,22 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         results = {}
 
         async with aiohttp.ClientSession() as client:
-
             for trading_pair in trading_pairs:
-                params = {
-                    "OMSId": 1,
-                    "InstrumentId": cls._trading_pair_id_map[trading_pair],
-                }
-                async with client.get(f"{ndax_utils.rest_api_url(domain) + CONSTANTS.LAST_TRADE_PRICE_URL}",
-                                      params=params) as response:
-                    if response.status == 200:
-                        resp_json: Dict[str, Any] = await response.json()
+                if trading_pair in cls._last_traded_prices:
+                    results[trading_pair] = cls._last_traded_prices[trading_pair]
+                else:
+                    params = {
+                        "OMSId": 1,
+                        "InstrumentId": cls._trading_pair_id_map[trading_pair],
+                    }
+                    async with client.get(f"{ndax_utils.rest_api_url(domain) + CONSTANTS.LAST_TRADE_PRICE_URL}",
+                                          params=params) as response:
+                        if response.status == 200:
+                            resp_json: Dict[str, Any] = await response.json()
 
-                        results.update({
-                            trading_pair: float(resp_json["LastTradedPx"])
-                        })
+                            results.update({
+                                trading_pair: float(resp_json["LastTradedPx"])
+                            })
 
         return results
 
@@ -127,7 +130,7 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         params = {
             "OMSId": 1,
             "InstrumentId": cls._trading_pair_id_map[trading_pair],
-            "Depth": 99999,
+            "Depth": 200,
         }
 
         async with aiohttp.ClientSession() as client:
@@ -150,7 +153,7 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair, self._domain)
         snapshot_timestamp: int = int(time.time() * 1e3)
 
-        snapshot_msg: OrderBookMessage = NdaxOrderBook.snapshot_message_from_exchange(
+        snapshot_msg: NdaxOrderBookMessage = NdaxOrderBook.snapshot_message_from_exchange(
             msg=snapshot,
             timestamp=snapshot_timestamp,
         )
@@ -187,6 +190,7 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         if not len(self._trading_pair_id_map) > 0:
             await self.init_trading_pair_ids(self._domain)
         while True:
+            await asyncio.sleep(self._ORDER_BOOK_SNAPSHOT_DELAY)
             try:
                 for trading_pair in self._trading_pairs:
                     snapshot: Dict[str: Any] = await self.get_order_book_data(trading_pair, domain=self._domain)
@@ -195,14 +199,13 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         "instrument_id": self._trading_pair_id_map.get(trading_pair, None)
                     }
                     snapshot_timestamp: int = int(time.time() * 1e3)
-                    snapshot_message: OrderBookMessage = NdaxOrderBook.snapshot_message_from_exchange(
+                    snapshot_message: NdaxOrderBookMessage = NdaxOrderBook.snapshot_message_from_exchange(
                         msg=snapshot,
                         timestamp=snapshot_timestamp,
                         metadata=metadata
                     )
                     output.put_nowait(snapshot_message)
 
-                await asyncio.sleep(self._ORDER_BOOK_SNAPSHOT_DELAY)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -224,12 +227,12 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     payload = {
                         "OMSId": 1,
                         "Symbol": convert_to_exchange_trading_pair(trading_pair),
-                        "Depth": 99999
+                        "Depth": 200
                     }
                     await ws_adapter.send_request(endpoint_name=CONSTANTS.WS_ORDER_BOOK_CHANNEL,
                                                   payload=payload)
                 async for raw_msg in ws_adapter.iter_messages():
-                    payload: List[List[Any]] = NdaxWebSocketAdaptor.payload_from_raw_message(raw_msg)
+                    payload = NdaxWebSocketAdaptor.payload_from_raw_message(raw_msg)
                     msg_event: str = NdaxWebSocketAdaptor.endpoint_from_raw_message(raw_msg)
 
                     if msg_event in [CONSTANTS.WS_ORDER_BOOK_CHANNEL, CONSTANTS.WS_ORDER_BOOK_L2_UPDATE_EVENT]:
@@ -247,22 +250,25 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                 break
 
                         if msg_trading_pair:
-
                             metadata = {
                                 "trading_pair": msg_trading_pair,
                                 "instrument_id": msg_product_code,
                             }
 
+                            order_book_message = None
                             if msg_event == CONSTANTS.WS_ORDER_BOOK_CHANNEL:
-                                snapshot_msg: OrderBookMessage = NdaxOrderBook.snapshot_message_from_exchange(msg=content,
-                                                                                                              timestamp=msg_timestamp,
-                                                                                                              metadata=metadata)
-                                output.put_nowait(snapshot_msg)
+                                order_book_message: NdaxOrderBookMessage = NdaxOrderBook.snapshot_message_from_exchange(
+                                    msg=content,
+                                    timestamp=msg_timestamp,
+                                    metadata=metadata)
                             elif msg_event == CONSTANTS.WS_ORDER_BOOK_L2_UPDATE_EVENT:
-                                diff_msg: OrderBookMessage = NdaxOrderBook.diff_message_from_exchange(msg=content,
-                                                                                                      timestamp=msg_timestamp,
-                                                                                                      metadata=metadata)
-                                output.put_nowait(diff_msg)
+                                order_book_message: NdaxOrderBookMessage = NdaxOrderBook.diff_message_from_exchange(
+                                    msg=content,
+                                    timestamp=msg_timestamp,
+                                    metadata=metadata)
+                            self._last_traded_prices[
+                                order_book_message.trading_pair] = order_book_message.last_traded_price
+                            output.put_nowait(order_book_message)
 
             except asyncio.CancelledError:
                 raise
