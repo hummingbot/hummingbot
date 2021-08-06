@@ -80,9 +80,10 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         self.perp_connector.add_listener(MarketEvent.OrderFilled, self.order_fill_logger)
         self.perp_connector.add_listener(MarketEvent.OrderCancelled, self.cancel_order_logger)
 
-        self.strategy = SpotPerpetualArbitrageStrategy(
-            self.spot_market_info,
-            self.perp_market_info,
+        self.strategy = SpotPerpetualArbitrageStrategy()
+        self.strategy.init_params(
+            spot_market_info=self.spot_market_info,
+            derivative_market_info=self.perp_market_info,
             order_amount=Decimal("1"),
             derivative_leverage=5,
             min_divergence=Decimal("0.05"),

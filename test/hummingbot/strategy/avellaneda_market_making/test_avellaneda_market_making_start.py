@@ -79,16 +79,15 @@ class AvellanedaStartTest(unittest.TestCase):
         self.assertEqual(self.strategy.min_spread, Decimal("0.02"))
         self.assertEqual(self.strategy.max_spread, Decimal("0.03"))
         self.assertEqual(self.strategy.vol_to_spread_multiplier, Decimal("1.1"))
-        # self.assertEqual(self.strategy.volatility_sensibility, Decimal("0.022"))
-        # self.assertEqual(self.strategy.inventory_risk_aversion, Decimal("0.1"))
+        self.assertEqual(self.strategy.volatility_sensibility, Decimal("0.022"))
+        self.assertEqual(self.strategy.inventory_risk_aversion, Decimal("0.1"))
         self.assertTrue(all(c is None for c in (self.strategy.gamma, self.strategy.kappa, self.strategy.eta)))
         strategy_cmap.get("parameters_based_on_spread").value = False
         strategy_start.start(self)
         self.assertTrue(all(c is None for c in (self.strategy.min_spread, self.strategy.max_spread,
                                                 self.strategy.vol_to_spread_multiplier,
-                                                # self.strategy.inventory_risk_aversion,
-                                                # self.strategy.volatility_sensibility
-                                                )))
+                                                self.strategy.inventory_risk_aversion,
+                                                self.strategy.volatility_sensibility)))
         self.assertEqual(self.strategy.gamma, Decimal("1.11"))
         self.assertEqual(self.strategy.kappa, Decimal("2.22"))
         self.assertEqual(self.strategy.eta, Decimal("3.33"))

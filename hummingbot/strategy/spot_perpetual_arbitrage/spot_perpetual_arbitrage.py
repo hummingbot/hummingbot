@@ -45,18 +45,18 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
             spa_logger = logging.getLogger(__name__)
         return spa_logger
 
-    def __init__(self,
-                 spot_market_info: MarketTradingPairTuple,
-                 derivative_market_info: MarketTradingPairTuple,
-                 order_amount: Decimal,
-                 derivative_leverage: int,
-                 min_divergence: Decimal,
-                 min_convergence: Decimal,
-                 spot_market_slippage_buffer: Decimal = Decimal("0"),
-                 derivative_market_slippage_buffer: Decimal = Decimal("0"),
-                 maximize_funding_rate: bool = True,
-                 next_arbitrage_cycle_delay: float = 120,
-                 status_report_interval: float = 10):
+    def init_params(self,
+                    spot_market_info: MarketTradingPairTuple,
+                    derivative_market_info: MarketTradingPairTuple,
+                    order_amount: Decimal,
+                    derivative_leverage: int,
+                    min_divergence: Decimal,
+                    min_convergence: Decimal,
+                    spot_market_slippage_buffer: Decimal = Decimal("0"),
+                    derivative_market_slippage_buffer: Decimal = Decimal("0"),
+                    maximize_funding_rate: bool = True,
+                    next_arbitrage_cycle_delay: float = 120,
+                    status_report_interval: float = 10):
         """
         :param spot_market_info: The first market
         :param derivative_market_info: The second market
@@ -71,7 +71,6 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         :param maximize_funding_rate: whether to submit both arbitrage taker orders (buy and sell) simultaneously
         If false, the bot will wait for first exchange order filled before submitting the other order.
         """
-        super().__init__()
         self._spot_market_info = spot_market_info
         self._derivative_market_info = derivative_market_info
         self._min_divergence = min_divergence

@@ -352,6 +352,14 @@ main_config_map = {
                   required_if=lambda: False,
                   on_validated=global_token_symbol_on_validated,
                   default="$"),
+    "rate_limits_share_pct":
+        ConfigVar(key="rate_limits_share_pct",
+                  prompt="What percentage of API rate limits do you want to allocate to this bot instance? "
+                         "(Enter 50 to indicate 50%)  >>> ",
+                  type_str="decimal",
+                  validator=lambda v: validate_decimal(v, 1, 100, inclusive=True),
+                  required_if=lambda: False,
+                  default=Decimal("100")),
 }
 
 global_config_map = {**key_config_map, **main_config_map}
