@@ -42,12 +42,15 @@ class NdaxOrderBookMessage(OrderBookMessage):
 
     @property
     def update_id(self) -> int:
-        if self.type in [OrderBookMessageType.DIFF, OrderBookMessageType.SNAPSHOT]:
+        if self.type == OrderBookMessageType.SNAPSHOT:
             entry: NdaxOrderBookEntry = self.content["data"][0]
-            return int(entry.actionDateTime)
+            return int(entry.mdUpdateId)
+        elif self.type == OrderBookMessageType.DIFF:
+            return max([int(entry.mdUpdateId)
+                        for entry in self.content["data"]])
         elif self.type == OrderBookMessageType.TRADE:
-            entry: NdaxTradeEntry = self.content["data"][0]
-            return int(entry.tradeTime)
+            return max([int(entry.mdUpdateId)
+                        for entry in self.content["data"]])
 
     @property
     def trade_id(self) -> int:
