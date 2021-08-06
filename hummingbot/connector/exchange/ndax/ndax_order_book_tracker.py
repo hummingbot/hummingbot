@@ -9,8 +9,10 @@ from typing import Optional, Dict, List, Deque
 
 import hummingbot.connector.exchange.ndax.ndax_constants as CONSTANTS
 
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.connector.exchange.ndax.ndax_order_book_message import NdaxOrderBookMessage
 from hummingbot.connector.exchange.ndax.ndax_api_order_book_data_source import NdaxAPIOrderBookDataSource
 from hummingbot.connector.exchange.ndax.ndax_order_book import NdaxOrderBook
@@ -42,12 +44,33 @@ class NdaxOrderBookTracker(OrderBookTracker):
         self._order_book_stream_listener_task: Optional[asyncio.Task] = None
         self._order_book_trade_listener_task: Optional[asyncio.Task] = None
 
+        self._order_book_initialized_event_map: Dict[str, asyncio.Event] = {}
+
     @property
     def exchange_name(self) -> str:
         """
         Name of the current exchange
         """
         return CONSTANTS.EXCHANGE_NAME
+
+    async def _init_order_books(self):
+        """
+        Initialize order books
+        """
+        for _, trading_pair in enumerate(self._trading_pairs):
+            self._order_books[trading_pair] = OrderBook()
+            self._tracking_message_queues[trading_pair] = asyncio.Queue()
+            self._tracking_tasks[trading_pair] = safe_ensure_future(self._track_single_book(trading_pair))
+            self._order_book_initialized_event_map[trading_pair] = asyncio.Event()
+            # self.logger().info(f"Initialized order book for {trading_pair}. "
+            #                    f"{index + 1}/{len(self._trading_pairs)} completed.")
+            await asyncio.sleep(1)
+        self._order_books_initialized.set()
+
+    def num_ready_orderbooks(self) -> int:
+        return len([orderbook_ready
+                    for orderbook_ready in self._order_book_initialized_event_map.values()
+                    if orderbook_ready.is_set()])
 
     async def _track_single_book(self, trading_pair: str):
         """
@@ -98,6 +121,11 @@ class NdaxOrderBookTracker(OrderBookTracker):
                         order_book.apply_diffs(d_bids, d_asks, diff_message.update_id)
 
                     self.logger().debug(f"Processed order book snapshot for {trading_pair}.")
+                    if not self._order_book_initialized_event_map[trading_pair].is_set():
+                        self._order_book_initialized_event_map[trading_pair].set()
+                        self.logger().info(f"Initialized order book for {trading_pair}. "
+                                           f"{self.num_ready_orderbooks()}/{len(self._trading_pairs)} completed.")
+
             except asyncio.CancelledError:
                 raise
             except Exception:

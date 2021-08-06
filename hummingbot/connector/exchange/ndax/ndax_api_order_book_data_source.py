@@ -145,17 +145,14 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 response: List[Any] = await response.json()
                 orderbook_entries: List[NdaxOrderBookEntry] = [NdaxOrderBookEntry(*entry) for entry in response]
                 return {"data": orderbook_entries,
-                        "timestamp": (max([entry.actionDateTime for entry in orderbook_entries])
-                                      if orderbook_entries
-                                      else int(time.time() * 1e3))}
+                        "timestamp": int(time.time() * 1e3)}
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair, self._domain)
-        snapshot_timestamp: int = int(time.time() * 1e3)
 
         snapshot_msg: NdaxOrderBookMessage = NdaxOrderBook.snapshot_message_from_exchange(
             msg=snapshot,
-            timestamp=snapshot_timestamp,
+            timestamp=snapshot["timestamp"],
         )
         order_book = self.order_book_create_function()
 
@@ -198,10 +195,9 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         "trading_pair": trading_pair,
                         "instrument_id": self._trading_pair_id_map.get(trading_pair, None)
                     }
-                    snapshot_timestamp: int = int(time.time() * 1e3)
                     snapshot_message: NdaxOrderBookMessage = NdaxOrderBook.snapshot_message_from_exchange(
                         msg=snapshot,
-                        timestamp=snapshot_timestamp,
+                        timestamp=snapshot["timestamp"],
                         metadata=metadata
                     )
                     output.put_nowait(snapshot_message)
@@ -233,12 +229,14 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                                   payload=payload)
                 async for raw_msg in ws_adapter.iter_messages():
                     payload = NdaxWebSocketAdaptor.payload_from_raw_message(raw_msg)
+                    # with open("log_order_book_updates_2.txt", "a") as f:
+                    #     f.writelines(f"{payload}\n")
                     msg_event: str = NdaxWebSocketAdaptor.endpoint_from_raw_message(raw_msg)
 
                     if msg_event in [CONSTANTS.WS_ORDER_BOOK_CHANNEL, CONSTANTS.WS_ORDER_BOOK_L2_UPDATE_EVENT]:
                         msg_data: List[NdaxOrderBookEntry] = [NdaxOrderBookEntry(*entry)
                                                               for entry in payload]
-                        msg_timestamp: int = max([e.actionDateTime for e in msg_data])
+                        msg_timestamp: int = int(time.time() * 1e3)
                         msg_product_code: int = msg_data[0].productPairCode
 
                         content = {"data": msg_data}
