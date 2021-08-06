@@ -9,12 +9,11 @@ Follow the [Developer Getting Started](/developers/gettingstarted/) guide, which
 
 If the installation was successful, you should see the Hummingbot welcome screen afterwards:
 
-<!-- ![Hummingbot Welcome Screen](../../assets/img/welcome_screen.png) -->
-<img src="../../assets/img/welcome_screen.png" alt="Hummingbot Welcome Screen" width="700"/>
+![](/assets/img/welcome.gif)
 
 ## Create a strategy
 
-Let’s create a simple trading bot that places a limit order!
+Let’s create a simple **LimitOrder** strategy that places a limit order!
 
 ### Strategy files
 
@@ -23,15 +22,15 @@ For the purposes of this article, we assume that you have installed Hummingbot i
 cd ~/hummingbot-instance
 cd hummingbot/strategy
 ```
-In this directory, create the folder which will contain the files for our strategy:
+In this directory, create a `limit_order` folder which will contain the files for our strategy:
 ```
-mkdir new_strategy
-cd new_strategy
+mkdir limit_order
+cd limit_order
 ```
 
 Next, go into the folder and create the four files that we need for our strategy:
 ```
-touch __init__.py new_strategy_config_map.py new_strategy.py start.py
+touch __init__.py limit_order_config_map.py limit_order.py start.py
 ```
 
 Each of these files has a specific purpose and naming convention. See the [Developer Tutorial](/developers/tutorial/) to learn more about the file structure and naming conventions for different strategies. 
@@ -42,16 +41,16 @@ Let’s look at these files individually.
 
 ### `__init__.py`
 
-The **init** file exposes your strategy. Copy the following code into the file using a code editor:
+The **init** file exposes your strategy. Paste the following code into the file using a code editor:
 ```python
 # Initializing the project
-from .new_strategy import NewStrategy
-__all__ = [NewStrategy]
+from .limit_order import LimitOrder
+__all__ = [limit_order]
 ```
 
-Here, the `__all__` field is used to expose the public module `NewStrategy` for use.
+Here, the `__all__` field is used to expose the public module `LimitOrder` for use.
 
-### `new_strategy_config_map.py`
+### `limit_order_config_map.py`
 
 The **config map** file sets the user prompts to set the strategy parameters. The naming convention for this file is `{strategy_name}_config_map.py`. 
 
@@ -59,11 +58,17 @@ Use the following code in your config map file:
 ```python
 from hummingbot.client.config.config_var import ConfigVar
 
-NewStrategy_config_map ={
+# Returns a market prompt that incorporates the connector value set by the user
+def market_prompt() -> str:
+    connector = limit_order_config_map.get("connector").value
+    return f'Enter the token trading pair on {connector} >>> '
+
+# List of parameters defined by the strategy
+limit_order_config_map ={
     "strategy":
         ConfigVar(key="strategy",
                   prompt="",
-                  default="NewStrategy",
+                  default="limit_order",
     ),
     "connector":
         ConfigVar(key="connector",
@@ -72,7 +77,7 @@ NewStrategy_config_map ={
     ),
     "market": ConfigVar(
         key="market",
-        prompt="Enter a market trading_pair :",
+        prompt=market_prompt,
         prompt_on_new=True,
     ),
 }
@@ -81,18 +86,18 @@ The parameters in this file are mapped as key-value pairs. Each field uses a [Co
 
 The `key` parameter identifies the field, while the `prompt` parameter lets you choose the prompt message. If you include `prompt_on_new`, the prompt will be asked each time the user creates a new strategy. Otherwise, it will only be displayed when the user configures the parameter with `config`.
 
-In the above example, the `strategy` field identifies the trading strategy: `NewStrategy`. Similarly, we have used the `connector` field to prompt for the name of the exchange, and the `market` field to prompt for trading pair that you want to trade.
+In the above example, the `strategy` field identifies the trading strategy: `LimitOrder`. Similarly, we use `connector` field to prompt for the name of the exchange, and the `market` field to prompt for trading pair that you want to trade. Note that the prompt for `market` uses a function which uses the value for `connector` set by the user in the previous question.
 
 Additionally, you can supply validators as parameters to ensure only accepted values are entered, and you can use the `default` parameter to supply a default value to the parameters. See the [ConfigVar](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/client/config/config_var.py#L20) file for all the ways that you can set strategy parameters.
 
 ### `start.py `
 
-The **start** file initializes the configuration for a strategy. Copy the following code to get started:
+The **start** file initializes the configuration for a strategy. Paste the following code into the file:
 
 ```python
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.strategy.new_strategy import NewStrategy
-from hummingbot.strategy.new_startegy.new_strategy_config_map import new_strategy_config_map as c_map
+from hummingbot.strategy.limit_order import LimitOrder
+from hummingbot.strategy.limit_order.limit_order_config_map import limit_order_config_map as c_map
 
 def start(self):
     connector = c_map.get("connector").value.lower()
@@ -103,21 +108,18 @@ def start(self):
     market_info = MarketTradingPairTuple(self.markets[connector], market, base, quote)
     self.market_trading_pair_tuples = [market_info]
 
-    self.strategy = NewStrategy(market_info)
+    self.strategy = LimitOrder(market_info)
 ```
 
 In the above code, the `connector` variable stores the exchange name, whereas the `market` variable stores the trading pair. These variables fetch the required values from the config map file, which we defined in the previous step. 
 
 Similarly, the `MarketTradingPairTuple` object accepts the exchange name, trading pair, base asset and quote asset for as its parameters.
 
-This information allows us to initialize the `NewStrategy` object.
+This information allows us to initialize the `LimitOrder` object.
 
-!!! tip
-    To hard-code the strategy so that it only runs on a certain exchange, add a line such as `connector = 'binance'`
+### `limit_order.py`
 
-### `new_strategy.py`
-
-The **strategy** file defines its behavior. To create your strategy file, copy the following code and paste it into the strategy file:
+The **strategy** file defines its behavior. Paste the following code into the file:
 
 ```python
 #!/usr/bin/env python
@@ -125,13 +127,14 @@ The **strategy** file defines its behavior. To create your strategy file, copy t
 from decimal import Decimal
 import logging
 
+from hummingbot.core.event.events import OrderType
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
 
 hws_logger = None
 
-class NewStrategy(StrategyPyBase):
+class LimitOrder(StrategyPyBase):
     # We use StrategyPyBase to inherit the structure. We also 
     # create a logger object before adding a constructor to the class. 
     @classmethod
@@ -148,7 +151,7 @@ class NewStrategy(StrategyPyBase):
         super().__init__()
         self._market_info = market_info
         self._connector_ready = False
-        self._bought_eth = False
+        self._order_completed = False
         self.add_markets([market_info.market])
 
     # After initializing the required variables, we define the tick method. 
@@ -162,7 +165,7 @@ class NewStrategy(StrategyPyBase):
             else:
                 self.logger().warning(f"{self._market_info.market.name} is ready. Trading started")
 
-        if not self._bought_eth:
+        if not self._order_completed:
             # The get_mid_price method gets the mid price of the coin and
             # stores it. This method is derived from the MarketTradingPairTuple class.
             mid_price = self._market_info.get_mid_price() 
@@ -175,25 +178,26 @@ class NewStrategy(StrategyPyBase):
                 OrderType.LIMIT,    # order_type
                 mid_price           # price
             )
-            self.logger().info(f"Submitted buy order {order_id}")
-            self._bought_eth = True
+            self.logger().info(f"Submitted limit buy order {order_id}")
+            self._order_completed = True
 
-def did_complete_buy_order(self, order_completed_event):
-    self.logger().info("Your order has been fulfilled")
-    self.logger().info(order_completed_event)
+    # Emit a log message when the order completes
+    def did_complete_buy_order(self, order_completed_event):
+        self.logger().info(f"Your limit buy order {order_completed_event.order_id} has been executed")
+        self.logger().info(order_completed_event)
 ```
 
 Check out the [MarketTradingPairTuple](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/market_trading_pair_tuple.py) class for more methods to add to your bot.
 
 Both [StrategyPyBase](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/strategy_py_base.pyx) class and `buy_with_specific_market` method derive from the strategy base class. To learn more about other methods you can use using the class, visit [Strategy_base](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/strategy_base.pyx).
 
-### `conf_NewStrategy_strategy_TEMPLATE.yml`
+### `conf_limit_order_strategy_TEMPLATE.yml`
 
-Lastly, we also need an additional file inside the templates folder of the HummingBot directory. This file acts as a placeholder for the parameters you will use in the strategy. First, let’s navigate to the `templates` folder and create the file. Run the following commands.
+Lastly, we also need an additional file inside the templates folder, which acts as a placeholder for the strategy parameters. First, let’s navigate to the `templates` folder and create the file. Run the following commands.
 ```
 cd ~/hummingbot instance
 cd hummingbot/templates
-touch conf_new_strategy_strategy_TEMPLATE.yml   
+touch conf_limit_order_strategy_TEMPLATE.yml  
 ```
 
 Add the following code to this file:
@@ -204,7 +208,8 @@ connector: null
 market: null
 ```
 
-**Important**: The template filename convention is `conf_{strategy_name}_strategy_TEMPLATE.yml`.
+!!! note
+    The template filename convention is `conf_{strategy_name}_strategy_TEMPLATE.yml`.
 
 ## Running our strategy
 Now that we have created a new trading strategy let’s run it in paper trading mode!
@@ -227,32 +232,38 @@ Your Hummingbot UI comprises three sections:
 2. logger
 3. the input interface
 
-![Hummingbot UI](../../assets/img/hummingbot_ui.png)
+![](/assets/img/hummingbot_ui.png)
 
 ### Create the strategy
 Follow the steps below to use the strategy we have created.
 
 1. Run the command `create` to start a new bot
-2. For the option, “What is your market making strategy?”, enter `new_strategy`. 
-3. For the name of the exchange, enter `binance`
+2. For “What is your market making strategy?”, enter `limit_order`
+3. For "Enter the name of the exchange >>> ", enter `binance`
+4. For "Enter the token trading pair on binance >>> ", enter `ETH-USDT`
 4. Save the configuration file
 
 ### Apply paper trading mode
 
-Run the `paper_trade` command to enter paper trading mode. Paper trading mode lets you simulate placing orders and trades using live, real-time exchange order book data, and you don't need to add API keys to use it. You should see `paper_trading: ON` in the top navbar if you are in paper trading mode.
+Run the `paper_trade` command to enter paper trading mode. Paper trading mode lets you simulate placing orders and trades using live exchange data and mock asset balances. In addition, you don't need to add API keys to use it. 
 
-<!--![Paper Trade Simulation](../../assets/img/hummingbot_papertrade.png)-->
-<img src="../../assets/img/hummingbot_papertrade.png" alt="Hummingbot Paper Trade" width="700"/>
+![](/assets/img/paper_trade.gif)
+
+!!! tip
+    Check the top Hummingbot navbar for `paper_trading: ON` to verify that you are in paper trading mode.
 
 ### Run the strategy
 
-Run `start` to run your bot in paper trading mode.
+Run `start` to run your bot in paper trading mode. You should see the following log messages:
 
-As soon as you begin trading, you can see the logger getting populated with trading activity. It shows you  information about the trading strategy, including the conversion rate. To see activity in the logger, create a strategy, choose relevant options and type **start** in the command shell.
+![](/assets/img/limit_order_output.png)
 
-<img src="../../assets/img/hummingbot_logger.png" alt="Hummingbot Logger" width="700"/>
-<!--![Hummingbot Logger](../../assets/img/hummingbot_logger.png)-->
+You can also run the `history` command to see the results of the trade:
+
+![](/assets/img/limit_order_history.png)
 
 ## Conclusion
 
-Using this guide, you can create your own crypto trading bot and start trading right away. While this example only explains a basic Hummingbot strategy, it will serve as a starting point for creating your own complex trading strategies. To learn more about creating Hummingbot strategies, check out our [Developer Tutorial](/developers/tutorial/).
+Congratulations - you have just created your first trading bot! This bot is very simple but should provide the foundation for you to experiment further. Can you prompt the user to change the order amount or trade type, or chain a series of trades?
+
+Before you know it, you will be creating complex trading strategies combining different exchanges with Hummingbot! To learn more about creating Hummingbot strategies, check out our [Developer Tutorial](/developers/tutorial/).

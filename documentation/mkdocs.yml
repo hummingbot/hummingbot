@@ -217,7 +217,7 @@ nav:
         - Overview: developers/strategies/index.md
         - Tutorial:
           - Intro: developers/tutorial/index.md
-          - How to Create a Strategy: guides/strategy.md
+          - How to Create a Strategy: developers/tutorial/create-strategy.md
           - Perform Trade: developers/tutorial/perform-trade.md
           - Simple Trade: developers/tutorial/simple-trade.md
         - Strategy Specifications:
