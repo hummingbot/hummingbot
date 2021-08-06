@@ -75,6 +75,6 @@ class LiquidityMiningConfigMapTests(TestCase):
         self.assertEqual(liquidity_mining_config_map_module.token_validate("ETH"), "Invalid token. ETH is not one of BTC,USDT")
         self.assertEqual(liquidity_mining_config_map_module.token_validate("eth"), "Invalid token. ETH is not one of BTC,USDT")
 
-        strategy_cmap.get("markets").value = "BTC-USDT"
+        strategy_cmap.get("markets").value = "btc-usdt"
         self.assertEqual(liquidity_mining_config_map_module.token_validate("ETH"), "Invalid token. ETH is not one of BTC,USDT")
         self.assertEqual(liquidity_mining_config_map_module.token_validate("eth"), "Invalid token. ETH is not one of BTC,USDT")
