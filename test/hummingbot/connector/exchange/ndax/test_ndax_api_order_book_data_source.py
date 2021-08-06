@@ -227,7 +227,7 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         result: OrderBook = results[0]
 
         self.assertTrue(type(result) == OrderBook)
-        self.assertEqual(result.snapshot_uid, NdaxOrderBookEntry(*mock_response[0]).actionDateTime)
+        self.assertEqual(result.snapshot_uid, 0)
 
     @patch("aiohttp.ClientSession.get")
     def test_get_instrument_ids(self, mock_api):
@@ -307,7 +307,7 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(msg_queue.qsize(), 1)
 
         snapshot_msg: OrderBookMessage = msg_queue.get_nowait()
-        self.assertEqual(snapshot_msg.update_id, NdaxOrderBookEntry(*mock_response[0]).actionDateTime)
+        self.assertEqual(snapshot_msg.update_id, 0)
 
     @patch("websockets.connect", new_callable=AsyncMock)
     def test_listen_for_order_book_diffs_cancelled_when_subscribing(self, mock_ws):
