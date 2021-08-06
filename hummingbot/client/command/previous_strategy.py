@@ -39,7 +39,8 @@ class PreviousCommand:
 
         previous_strategy = ConfigVar(
             key="previous_strategy_answer",
-            prompt=f"Dou you want to import previous strategy? ({file_name}) >>> ",
+            prompt=f"Dou you want to import previous strategy? ({file_name}) (Yes/No) >>>",
+            type_str="bool",
             validator=validate_bool,
         )
 
@@ -48,7 +49,7 @@ class PreviousCommand:
             self.app.to_stop_config = False
             return
 
-        if previous_strategy.value == 'yes':
+        if previous_strategy.value:
             ImportCommand.import_command(self, file_name)
 
         # clean
