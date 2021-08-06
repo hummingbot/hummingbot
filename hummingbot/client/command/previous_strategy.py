@@ -3,12 +3,7 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.client.config.config_validators import validate_bool
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.config_helpers import (
-    # get_strategy_config_map,
     parse_cvar_value,
-    # default_strategy_file_path,
-    # save_to_yml,
-    # get_strategy_template_path,
-    # format_config_file_name,
     parse_config_default_to_text,
 )
 from .import_command import ImportCommand
@@ -30,11 +25,11 @@ class PreviousCommand:
         previous_strategy_file = global_config_map["previous_strategy"].value
 
         if previous_strategy_file is not None:
-            safe_ensure_future(self.prompt_for_configuration2(previous_strategy_file))
+            safe_ensure_future(self.prompt_for_previous_strategy(previous_strategy_file))
         else:
             self._notify("No previous strategy found.")
 
-    async def prompt_for_configuration2(
+    async def prompt_for_previous_strategy(
         self,  # type: HummingbotApplication
         file_name,
     ):
