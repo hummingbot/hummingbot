@@ -41,7 +41,7 @@ class LiquidityMiningConfigMapTests(TestCase):
     def test_token_validation(self):
         assign_config_default(strategy_cmap)
 
-        # Correct tokens        
+        # Correct tokens
         strategy_cmap.get("markets").value = "BTC-USDT"
         self.assertEqual(liquidity_mining_config_map_module.token_validate("BTC"), None)
         self.assertEqual(liquidity_mining_config_map_module.token_validate("btc"), None)
