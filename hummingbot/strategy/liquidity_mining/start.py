@@ -8,7 +8,7 @@ def start(self):
     exchange = c_map.get("exchange").value.lower()
     el_markets = list(c_map.get("markets").value.split(","))
     token = c_map.get("token").value.upper()
-    el_markets = [m.upper() for m in el_markets]
+    el_markets = [m.strip().upper() for m in el_markets]
     quote_markets = [m for m in el_markets if m.split("-")[1] == token]
     base_markets = [m for m in el_markets if m.split("-")[0] == token]
     markets = quote_markets if quote_markets else base_markets
