@@ -59,14 +59,23 @@ class NdaxOrderBookMessage(OrderBookMessage):
         return self.content["trading_pair"]
 
     @property
+    def last_traded_price(self) -> float:
+        entries: List[NdaxOrderBookEntry] = self.content["data"]
+        return float(entries[-1].lastTradePrice)
+
+    @property
     def asks(self) -> List[OrderBookRow]:
         entries: List[NdaxOrderBookEntry] = self.content["data"]
-        return [self._order_book_row_for_entry(entry) for entry in entries if entry.side == self._SELL_SIDE]
+        asks = [self._order_book_row_for_entry(entry) for entry in entries if entry.side == self._SELL_SIDE]
+        asks.sort(key=lambda row: (row.price, row.update_id))
+        return asks
 
     @property
     def bids(self) -> List[OrderBookRow]:
         entries: List[NdaxOrderBookEntry] = self.content["data"]
-        return [self._order_book_row_for_entry(entry) for entry in entries if entry.side == self._BUY_SIDE]
+        bids = [self._order_book_row_for_entry(entry) for entry in entries if entry.side == self._BUY_SIDE]
+        bids.sort(key=lambda row: (row.price, row.update_id))
+        return bids
 
     def _order_book_row_for_entry(self, entry: NdaxOrderBookEntry) -> OrderBookRow:
         price = float(entry.price)
