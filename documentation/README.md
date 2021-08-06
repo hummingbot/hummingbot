@@ -1,14 +1,18 @@
 # hummingbot-docs
 The official documentation for Hummingbot
 
+## Prequisites
+
+This site uses the `mkdocs` documentation engine, which is installed with Hummingbot. If the commands below don't work, re-install Hummingbot by running `./install` from the root directory.
+
 ## Develop
 
-Run the following command to build Markdown files into HTML and start a development server to browse the documentation:
+From the `/documentation`, directory, run the following command to build Markdown files into HTML and start a development server to browse the documentation:
 ```
 mkdocs serve
 ```
 
-Go to `http://localhost:8000`
+Afterwards, go to `http://localhost:8000` in your web browser.
 
 ## Build
 
