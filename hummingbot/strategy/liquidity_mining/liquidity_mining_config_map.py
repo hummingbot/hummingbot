@@ -34,7 +34,7 @@ def market_validate(value: str) -> Optional[str]:
         if len(tokens) != 2:
             return f"Invalid market. {market} doesn't contain exactly 2 tickers."
         for token in tokens:
-            # Check allowed ticker lengths 
+            # Check allowed ticker lengths
             if len(token.strip()) == 0:
                 return f"Invalid market. Ticker {token} has an invalid length."
             if(bool(re.search('^[a-zA-Z0-9]*$', token)) is False):
