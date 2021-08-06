@@ -30,8 +30,9 @@ class PreviousCommand:
         previous_strategy_file = global_config_map["previous_strategy"].value
 
         if previous_strategy_file is not None:
-            self._notify(f"Strategy found: {previous_strategy_file}")
             safe_ensure_future(self.prompt_for_configuration2(previous_strategy_file))
+        else:
+            self._notify("No previous strategy found.")
 
     async def prompt_for_configuration2(
         self,  # type: HummingbotApplication
@@ -82,4 +83,4 @@ class PreviousCommand:
         if err_msg is not None:
             self._notify(err_msg)
             config.value = None
-            await self.prompt_a_config2(config)
+            await self.prompt_answer(config)
