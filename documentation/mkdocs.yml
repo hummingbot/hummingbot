@@ -182,7 +182,8 @@ nav:
       - Glossary: support/glossary.md
 
   - Developers:
-      - Intro: developers/index.md
+      - Overview: developers/index.md
+      - Contribution Guidelines: developers/contributions.md
       - Getting Started:
         - Intro: developers/gettingstarted/index.md
         - Linux:
@@ -201,28 +202,29 @@ nav:
           - 1. Installing Hummingbot: developers/gettingstarted/windows/1-installing.md
           - 2. Using Hummingbot: developers/gettingstarted/windows/2-using.md
           - 3. Re-compiling Hummingbot: developers/gettingstarted/windows/3-recompiling.md
-      - Strategies:
-        - Architecture: developers/strategies/index.md
-        - Pure Market Making: developers/strategies/pure-market-making.md
-        - Cross-Exchange Market Making: developers/strategies/cross-exchange-market-making.md
-        - Arbitrage: developers/strategies/arbitrage.md
-        - TWAP: developers/strategies/twap.md
       - Connectors:
-        - Intro: developers/connectors/index.md
+        - Overview: developers/connectors/index.md
         - Architecture: developers/connectors/architecture.md
-        - Building Connectors: 
-          - Overview: developers/connectors/tutorial.md
+        - Tutorial: 
+          - Intro: developers/connectors/tutorial.md
           - Task 1 - Data Source & Order Book Tracker: developers/connectors/task1.md
           - Task 2 - User Stream Tracker : developers/connectors/task2.md
           - Task 3 - Market Connector: developers/connectors/task3.md
           - Task 4 - Required Connector Configuration: developers/connectors/task4.md
           - Debug and Test: developers/connectors/debug&test.md
         - Miscellaneous: developers/connectors/miscellaneous.md
-      - Tutorial:
-        - How to Create a Strategy: guides/strategy.md
-        - Intro: developers/tutorial/index.md
-        - Perform Trade: developers/tutorial/perform-trade.md
-        - Simple Trade: developers/tutorial/simple-trade.md
+      - Strategies:
+        - Overview: developers/strategies/index.md
+        - Tutorial:
+          - Intro: developers/tutorial/index.md
+          - How to Create a Strategy: guides/strategy.md
+          - Perform Trade: developers/tutorial/perform-trade.md
+          - Simple Trade: developers/tutorial/simple-trade.md
+        - Strategy Specifications:
+          - Pure Market Making: developers/strategies/pure-market-making.md
+          - Cross-Exchange Market Making: developers/strategies/cross-exchange-market-making.md
+          - Arbitrage: developers/strategies/arbitrage.md
+          - TWAP: developers/strategies/twap.md
       - Debug Console: developers/debug.md
       - Configuration: developers/config.md
   - Release Notes:
