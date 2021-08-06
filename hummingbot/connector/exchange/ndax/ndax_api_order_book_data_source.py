@@ -229,8 +229,6 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                                   payload=payload)
                 async for raw_msg in ws_adapter.iter_messages():
                     payload = NdaxWebSocketAdaptor.payload_from_raw_message(raw_msg)
-                    # with open("log_order_book_updates_2.txt", "a") as f:
-                    #     f.writelines(f"{payload}\n")
                     msg_event: str = NdaxWebSocketAdaptor.endpoint_from_raw_message(raw_msg)
 
                     if msg_event in [CONSTANTS.WS_ORDER_BOOK_CHANNEL, CONSTANTS.WS_ORDER_BOOK_L2_UPDATE_EVENT]:

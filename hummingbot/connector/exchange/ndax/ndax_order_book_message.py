@@ -43,14 +43,12 @@ class NdaxOrderBookMessage(OrderBookMessage):
     @property
     def update_id(self) -> int:
         if self.type == OrderBookMessageType.SNAPSHOT:
-            entry: NdaxOrderBookEntry = self.content["data"][0]
-            return int(entry.mdUpdateId)
-        elif self.type == OrderBookMessageType.DIFF:
-            return max([int(entry.mdUpdateId)
-                        for entry in self.content["data"]])
-        elif self.type == OrderBookMessageType.TRADE:
-            return max([int(entry.mdUpdateId)
-                        for entry in self.content["data"]])
+            # Assumes Snapshot Update ID to be 0
+            # Since uid of orderbook snapshots from REST API is not in sync with uid from websocket
+            return 0
+        elif self.type in [OrderBookMessageType.DIFF, OrderBookMessageType.TRADE]:
+            last_entry: NdaxOrderBookEntry = self.content["data"][-1]
+            return last_entry.mdUpdateId
 
     @property
     def trade_id(self) -> int:

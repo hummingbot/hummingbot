@@ -68,4 +68,4 @@ class NdaxOrderBookTrackerUnitTest(unittest.TestCase):
             ))
             self.ev_loop.run_until_complete(self.tracking_task)
 
-        self.assertEqual(1626788175000, self.tracker.order_books[self.trading_pair].snapshot_uid)
+        self.assertEqual(0, self.tracker.order_books[self.trading_pair].snapshot_uid)
