@@ -69,7 +69,8 @@ def start(self):
                                       HummingbotApplication.main_application().strategy_file_name.rsplit('.', 1)[0] +
                                       f"_{pd.Timestamp.now().strftime('%Y-%m-%d_%H-%M-%S')}.csv")
 
-        self.strategy = AvellanedaMarketMakingStrategy(
+        self.strategy = AvellanedaMarketMakingStrategy()
+        self.strategy.init_params(
             market_info=MarketTradingPairTuple(*maker_data),
             order_amount=order_amount,
             order_optimization_enabled=order_optimization_enabled,

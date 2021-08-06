@@ -27,13 +27,14 @@ def start(self):
     derivative_market_info = MarketTradingPairTuple(self.markets[derivative_connector], derivative_market, base_2, quote_2)
 
     self.market_trading_pair_tuples = [spot_market_info, derivative_market_info]
-    self.strategy = SpotPerpetualArbitrageStrategy(spot_market_info,
-                                                   derivative_market_info,
-                                                   order_amount,
-                                                   derivative_leverage,
-                                                   min_divergence,
-                                                   min_convergence,
-                                                   spot_market_slippage_buffer,
-                                                   derivative_market_slippage_buffer,
-                                                   maximize_funding_rate,
-                                                   next_arbitrage_cycle_delay)
+    self.strategy = SpotPerpetualArbitrageStrategy()
+    self.strategy.init_params(spot_market_info,
+                              derivative_market_info,
+                              order_amount,
+                              derivative_leverage,
+                              min_divergence,
+                              min_convergence,
+                              spot_market_slippage_buffer,
+                              derivative_market_slippage_buffer,
+                              maximize_funding_rate,
+                              next_arbitrage_cycle_delay)

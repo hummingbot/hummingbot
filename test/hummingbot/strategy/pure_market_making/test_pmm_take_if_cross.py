@@ -17,7 +17,7 @@ from hummingbot.core.event.events import (
     TradeType
 )
 from hummingbot.strategy.pure_market_making.pure_market_making import PureMarketMakingStrategy
-from hummingbot.strategy.pure_market_making.order_book_asset_price_delegate import OrderBookAssetPriceDelegate
+from hummingbot.strategy.order_book_asset_price_delegate import OrderBookAssetPriceDelegate
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 
@@ -92,7 +92,8 @@ class PureMMTakeIfCrossUnitTest(unittest.TestCase):
         self.ext_market.add_data(self.ext_data)
         self.order_book_asset_del = OrderBookAssetPriceDelegate(self.ext_market, self.trading_pair)
 
-        self.one_level_strategy = PureMarketMakingStrategy(
+        self.one_level_strategy = PureMarketMakingStrategy()
+        self.one_level_strategy.init_params(
             self.market_info,
             bid_spread=Decimal("0.01"),
             ask_spread=Decimal("0.01"),
