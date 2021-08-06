@@ -7,9 +7,8 @@ from hummingbot.client.config.config_helpers import (
     short_strategy_name,
     format_config_file_name,
     validate_strategy_file,
-    save_to_yml
+    save_previous_strategy_value
 )
-import hummingbot.client.settings as settings
 from hummingbot.client.settings import CONF_FILE_PATH, CONF_PREFIX, required_exchanges
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -33,9 +32,9 @@ class ImportCommand:
         required_exchanges.clear()
         if file_name is None:
             file_name = await self.prompt_a_file_name()
-            # save file name on variable
-            global_config_map["previous_strategy"].value = file_name
-            save_to_yml(settings.GLOBAL_CONFIG_PATH, global_config_map)
+
+        save_previous_strategy_value(file_name)
+
         if self.app.to_stop_config:
             self.app.to_stop_config = False
             return
