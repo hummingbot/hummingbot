@@ -56,6 +56,10 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
     help_parser.add_argument("command", nargs="?", default="all", help="Enter ")
     help_parser.set_defaults(func=hummingbot.help)
 
+    previous_strategy_parser = subparsers.add_parser("previous", help="Imports the last strategy used")
+    previous_strategy_parser.add_argument("option", nargs="?", choices=["Yes,No"], default=None)
+    previous_strategy_parser.set_defaults(func=hummingbot.previous_statrategy)
+
     balance_parser = subparsers.add_parser("balance", help="Display your asset balances across all connected exchanges")
     balance_parser.add_argument("option", nargs="?", choices=["limit", "paper"], default=None,
                                 help="Option for balance configuration")
