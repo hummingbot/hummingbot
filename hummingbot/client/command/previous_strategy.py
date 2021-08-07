@@ -1,4 +1,3 @@
-# import argparse
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.client.config.config_validators import validate_bool
 from hummingbot.client.config.global_config_map import global_config_map
