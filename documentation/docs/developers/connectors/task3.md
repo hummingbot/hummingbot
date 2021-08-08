@@ -1,195 +1,534 @@
-# Task 3. Market Connector
+# Task 3 — Exchange Connector & InFlightOrder
 
-The primary bulk of integrating a new exchange connector is in this section. 
+## Overview
 
-The role of the `Market` class can be broken down into placing and tracking orders. Although this might seem pretty straightforward, it does require a certain level of understanding and knowing the expected side-effect(s) of certain functions.
+In Task 3, we will be required to implement both `InFlightOrder` and `Exchange` Class. This is because the primary bulk of implementing a new exchange connector is in this task.
 
-`Market` classes place orders via `execute_buy` and `execute_sell` commands, which require the following arguments:
+### InFlightOrder Class
 
-- The order ID
-- The market symbol
-- The amount of the order
-- The type (limit or market)
-- The price, if limit order
+As seen in the [Exchange Component Overview](architecture/#exchange-component-overview), the `Exchange` class depends on the `InFlightOrder` Class.
+The `InFlightOrder` abstracts an order's details and is primarily used by the `Exchange` class to manage all active orders.
 
-The `execute_buy` and `execute_sell` methods verify that the trades would be legal given the trading rules pulled from the exchange and calculate applicable trading fees. They then must do the following:
+The **_InFlightOrder Class Diagram_**, given below, details the critical variables and functions in the `InFlightOrder` class.
 
-- Quantize the order amount to ensure that the precision is as required by the exchange
-- Create a `params` dictionary with the necessary parameters for the desired order
-- Pass the `params` to an `Auth` object to generate the signature and place the order
-- Pass the resulting order ID and status along with the details of the order to an `InFlightOrder`
+![InFlightOrderUMLDiagram](/assets/img/in-flight-order-class-diagram.svg)
 
-`InFlightOrders` are stored within a list in the `Market` class, and are Hummingbot’s internal records of orders it has placed that remain open on the market. When such orders are either filled or canceled, they are removed from the list and the relevant event completion flag is passed to the strategy module.
+Below are the functions that need to be implemented in the new `InFlightOrder` class.
 
+| Function(s)                | Input                          | Output          | Description                                                                                                             |
+| -------------------------- | ------------------------------ | --------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `is_done`                  | `None`                         | `bool`          | Returns `True` if the order state is completely filled or cancelled.                                                    |
+| `is_failure`               | `None`                         | `bool`          | Returns `True` if placing the order is unsuccesfully.                                                                   |
+| `is_cancelled`             | `None`                         | `bool`          | Returns `True` if the order state is cancelled.                                                                         |
+| `from_json`                | data: `Dict[str, Any]`         | `InFlightOrder` | Converts the order data from a JSON object to an `InFlightOrder` object.                                                |
+| `update_with_trade_update` | trade_update: `Dict[str, Any]` | `bool`          | Updates the in flight order with trade update from the REST or WebSocket API. Returns `True` if the order gets updated. |
 
-## Authentication
+### Exchange Class
 
-Placing and tracking of orders on the exchange normally requiring a form of authentication tied to every requests to ensure protected access/actions to the assets that users have on the respective exchanges. 
+The `Exchange` class is the middle-man between the strategies and the exchange API servers. It provides the necessary order book and user data to the strategies and communicates the order proposals to the exchanges.
 
-As such, it would only make sense to have a module dedicated to handling authentication.
+The functions of the `Exchange` class can be catergorized into:
 
-As briefly mentioned, the `Auth` class is responsible for creating the request parameters and/or data bodies necessary to authenticate an API request.
+[**(1) Placing Orders**](#1-placing-orders)<br/>
+[**(2) Cancelling Orders**](#2-cancelling-orders)<br/>
+[**(3) Tracking Orders & Balances**](#3-tracking-orders--balances)<br/>
+[**(4) Managing Trading Rules**](#4-managing-trading-rules)<br/>
+[**(5) Additional Functions**](#5-additional-functions)<br/>
+[**(6) Class Properties**](#6-class-properties)
 
-!!! note
-    Mainly used in the `Market` class, but may be required in the `UserStreamTrackerDataSource` to authenticate subscribing to a WebSocket connection in [`listen_for_user_stream`](../task2/#userstreamtrackerdatasource).
+Although this might seem pretty straightforward, it does require a certain level of understanding and knowing the expected side-effect(s) of certain functions.
 
-Function<div style="width:150px"/> | Input Parameter(s) | Expected Output(s)(s) | Description
----|---|---|---
-`generate_auth_dict` | http_method: `str`,<br/>url: `str`,<br/>params: `Dict[str, any]`,<br/>body: `Dict[str, any]` | `Dict[str, any]` | Generates the url and the valid signature to authenticate a particular API request.
+The **_Exchange Class Diagram_**, given below, details the critical variables and functions in the `Exchange` class.
 
-!!! tip
-    The **input parameters** and **return** value(s) can be modified accordingly to suit the exchange connectors. In most cases, the above parameters are required when creating a signature.
-
-## Market
-
-The section below will describe in detail what is required for the `Market` class to place and track orders.
-
-### Placing Orders
- 
-`execute_buy` and `execute_sell` are the crucial functions when placing orders on the exchange,. The table below will describe the task of these functions.
-
-Function<div style="width:150px"/> | Input Parameter(s) | Expected Output(s) | Description
----|---|---|---
-`execute_buy` | order_id: `str`,<br/>symbol: `str`,<br/>amount: `Decimal`,<br/>order_type: `OrderType`,<br/>price: `Optional[Decimal] = s_decimal_0`| None | Function that takes the strategy inputs, auto corrects itself with trading rules, and places a buy order by calling the `place_order` function.<br/><br/>This function also begins to track the order by calling the `c_start_tracking_order` and `c_trigger_event` function.<br/>
-`execute_sell` | order_id: `str`,<br/>symbol: `str`,<br/>amount: `Decimal`,<br/>order_type: `OrderType`,<br/>price: `Optional[Decimal] = s_decimal_0` | None | Function that takes the strategy inputs, auto corrects itself with trading rules, and places a sell order by calling the `place_order` function.
-
-!!! tip
-    The `execute_buy` and `execute_sell` methods verify that the trades would be allowed given the trading rules obtained from the exchange and calculate applicable trading fees. They then must do the following:
-    
-    - Quantize the order amount to ensure that the precision is as required by the exchange
-    - Create a `params` dictionary with the necessary parameters for the desired order
-    - Pass the `params` to an `Auth` object to generate the signature and place the order
-    - Pass the resulting order ID and status along with the details of the order to an `InFlightOrder`
-    
-    `InFlightOrders` are stored within a list in the `Market` class, and are Hummingbot’s internal records of orders it has placed that remain open on the market. When such orders are either filled or canceled, they are removed from the list and the relevant event completion flag is passed to the strategy module.
-
-Considering that placing of orders normally involves a `POST` request to a particular buy/sell order REST API endpoint. This would **require** additional parameters like :
-
-Variable(s)<div style="width:100px"/>  | Type                | Description
--------------|---------------------|-------------
-`order_id`   | `str`               | A generated, client-side order ID that will be used to identify an order by the Hummingbot client.<br/> The `order_id` is generated in the `c_buy` function.
-`symbol`     | `str`               | The trading pair string representing the market on which the order should be placed. i.e. (ZRX-ETH) <br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: Some exchanges have the trading pair symbol in `Quote-Base` format. Hummingbot requires that all trading pairs to be in `Base-Quote` format.</td></tr></tbody></table>
-`amount`     | `Decimal`           | The total value, in base currency, to buy/sell.
-`order_type` | `OrderType`         | OrderType.LIMIT, OrderType.LIMIT_MAKER or OrderType.MARKET <br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: LIMIT_MAKER should be used as market maker and LIMIT as market taker(using price to cross the orderbook) for exchanges that support LIMIT_MAKER. Otherwise, the the usual MARKET OrderType should be used as market taker and LIMIT as market taker.</td></tr></tbody></table>
-`price`      | `Optional[Decimal]` | If `order_type` is `LIMIT`, it represents the rate at which the `amount` base currency is being bought/sold at.<br/>If `order_type` is `LIMIT_MAKER`, it also represents the rate at which the `amount` base currency is being bought/sold at. However, this `OrderType` is expected to be a **post only** order(i.e should ideally be rejected by the exchange if it'll cross the market)<br/>If `order_type` is `MARKET`, this is **not** used(`price = s_decimal_0`). <br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: `s_decimal_0 = Decimal(0)` </td></tr></tbody></table>
-
-### Cancelling Orders
-
-The `execute_cancel` function is the primary function used to cancel any particular tracked order. Below is a quick overview of the `execute_cancel` function
-
-Function<div style="width:150px"/> | Input Parameter(s) | Expected Output(s) | Description
----|---|---|---
-`execute_cancel` | symbol: `str`,<br/>order_id: `str` | order_id: `str` | Function that makes API request to cancel an active order and returns the `order_id` if it has been successfully cancelled or no longer needs to be tracked.<br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: This function also stops tracking the order by calling the `c_stop_tracking_order` and `c_trigger_event` functions. </td></tr></tbody></table>
-   
-### Tracking Orders & Balances
-
-The `Market` class tracks orders in several ways:
-
-- Listening on user stream<br/>
-This is primarily done in the `_user_stream_event_listener` function. This is only done when the exchange has a WebSocket API.
-
-- Periodic status polling<br/>
-This serves as a fallback for when user stream messages are not caught by the `UserStreamTracker`. This is done by the `_status_polling_loop` 
-
-The table below details the **required** functions to implement
-
-Function<div style="width:150px"/> | Description
----|---
-`_user_stream_event_listener`| Update order statuses and/or account balances from incoming messages from the user stream.
-`_update_balances`| Pulls the REST API for the latest account balances and updates `_account_balances` and `_account_available_balances`.
-`_update_order_status`| Pulls the REST API for the latest order statuses and updates the order statuses of locally tracked orders.
-
-If the exchange doesn't provide user balance updates in real-time (web socket), you will need to set `self._real_time_balance_update = False` in the market constructor (init). 
- 
-And, you will need to take `in_flight_orders` snapshot during `_update_balances` as below:
-
-```python
-    self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
-    self._in_flight_orders_snapshot_timestamp = self._current_timestamp
-``` 
-
-This is so that the connector can use default current balance calculation (in `market_base`) for available balances.
- 
-!!! tip
-    Refer to [Order Lifecycle](../tutorial/#order-lifecycle-and-market-events) for a more detailed description on how orders are being tracked in Hummingbot.
-    
-    It is necessary that the above functions adhere to the flow as defined in the order lifecycle for the connector to work as intended.
-
-### Trading Rules
-
-Trading Rules are defined by the respective exchanges. It is crucial that Hummingbot manage and maintain the set of trading rules to ensure that there will be no issues when placing orders.
-
-A list of some common rules can be seen in [`trading_rule.pyx`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/market/trading_rule.pyx).
-
-!!! tip
-    Most exchanges have a minimum trading size. Not all rules need to be defined, however, it is essential to meet the rules as specified by the exchange.
-   
-All trading rules are stored in `self._trading_rules` in the `Market` class.
-
-The table below details the functions responsible for maintaining the `TradeRule` for each trading pair
-
-Function<div style="width:150px"/> | Input Parameter(s) | Expected Output(s) | Description
----|---|---|---
-`_trading_rules_polling_loop` | None | None | A background process that periodically polls for trading rule changes. Since trading rules tend not to change as often as account balances and order statuses, this is done less often. This function is responsible for calling `_update_trading_rules`
-`_update_trading_rules` | None | None | Gets the necessary trading rules definitions form the corresponding REST API endpoints. Calls `_format_trading_rules`; that parses and updates the `_trading_rules` variable in the `Market` class.
-`_format_trading_rules` | `List[Any]` | `List[TradingRule]` | Parses the raw JSON response into a list of [`TradingRule`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/market/trading_rule.pyx). <table><tbody><tr><td bgcolor="#ecf3ff">**Note**: This is important since exchanges might only accept certain precisions and impose a minimum trade size on the order.</td></tr></tbody></table>
-
-### Order Price/Size Quantum & Quantize Order Amount
-
-This, together with the trading rules, ensure that all orders placed by Hummingbot meet the required specifications as defined by the exchange.
+![ExchangeUMLDiagram](/assets/img/exchange-class.svg)
 
 !!! note
-    These checks are performed in `execute_buy` and `execute_sell` **before** placing an order.<br/>
-    In the event where the orders proposed by the strategies fail to meet the requirements as defined in the trading rules, the intended behaviour for the `Market` class is simply to raise an error and not place the order.<br/>
-    You may be required to add additional functions to help determine if an order meets the necessary requirements.
+    The 6 categories of functions broadly covers the necessary functions that need to be implemented in the `Exchange` class, so feel free to include other utility functions as needed.
 
-The table below details some functions responsible for this.
+### (1) Placing Orders
 
-Function<div style="width:150px"/> | Input Parameter(s) | Expected Output(s) | Description
----|---|---|---
-`c_get_order_price_quantum` | `str trading_pair`,<br/>`object price` | `Decimal` | Gets the minimum increment interval for an order price.
-`c_get_order_size_quantum` | `str trading_pair`,<br/>`object order_size` | `Decimal` | Gets the minimum increment interval for an order size (i.e. 0.01 .USD)
-`c_quantize_order_amount` | `str trading_pair`,<br/>`object amount`,<br/>`object price=s_decimal_0`| `Decimal` | Checks the current order amount against the trading rules, and corrects(i.e simple rounding) any rule violations. Returns a valid order amount in `Decimal` format.
-`c_quantize_order_price` | `str trading_pair`,<br/>`object price`,,br/>`object price=s_decimal_0`| `Decimal` | Checks the current order price against the trading rules, and corrects(i.e. simple rounding) any rule violations. Returns a valid order price in `Decimal` format.    
+The `Exchange` class places orders by either calling the [`buy()`](#buy) or [`sell()`](#sell) method.
+Both these methods first generate a client order ID for the order, which will be used locally by Hummingbot to track the orders before calling the [`_create_order()`](#async-_create_order) method.
 
-### Additional Required Function(s)
+#### `buy()`
 
-Below are a list of `required` functions for the `Market` class to be fully functional.
+The function that takes the strategy inputs generates a client order ID(used by Hummingbot for local order tracking) and places a **buy** order by calling the [`_create_order()`](#async-_create_order) function.
 
-Function<div style="width:150px"/> | Input Parameter(s) | Expected Output(s) | Description
----|---|---|---
-`name` | `None` | `str` | Returns a lower case name / id for the market. Must stay consistent with market name in global settings.
-`order_books` | `None` | `Dict[str, OrderBook` | Returns a mapping of all the order books that are being tracked. 
-`*_auth` | `None` | `*Auth` | Returns the `Auth` class of the market.
-`status_dict` | `None` | `Dict[str, bool]` | Returns a dictionary of relevant status checks. This is necessary to tell the Hummingbot client if the market has been initialized.
-`ready` | `None` | `bool` | This function calls `status_dict` and returns a boolean value that indicates if the market has been initialized and is ready for trading. 
-`limit_orders` | `None` | `List[LimitOrder]` | Returns a list of active limit orders being tracked.
-`in_flight_orders` | `None` | `Dict[str, InFlightOrderBase]` | Returns a dictionary of all in flight orders. 
-`tracking_states` | `None` | `Dict[str, any]` | Returns a mapping of tracked client order IDs to the respective `InFlightOrder`. Used by the `MarketsRecorder` class to orchestrate market classes at a high level.
-`restore_tracking_states` | `None` | `None` | Updates InFlight order statuses from API results. This is used by the `MarketRecorder` class to orchestrate market classes at a higher level.
-`start_network` | `None` | `None` | An asynchronous wrapper function used by `NetworkBase` class to handle when a single market goes online.
-`stop_network` | `None` | `None` | An asynchronous wrapper function for `_stop_network`. Used by `NetworkBase` class to handle when a single market goes offline.
-`check_network` | `None` | `NetworkStatus` | `An asynchronous function used by `NetworkBase` class to check if the market is online/offline.
-`get_order` | `client_order_id:str`| `Dict[str, Any]` | Gets status update for a particular order via rest API.<br/><br/><table><tbody><tr><td bgcolor="#ecf3ff">**Note**: You are required to retrieve the exchange order ID for the specified `client_order_id`. You can do this by calling the `get_exchange_order_id` function available in the `InFlightOrderBase`.</td></tr></tbody></table>
-`supported_order_types` | `None` | `List[OrderType]` | Returns a list of OrderType(s) supported by the exchange. Examples are: `OrderType.LIMIT`, `OrderType.LIMIT_MAKER` and `OrderType.MARKET`.
-`place_order` | `order_id:str`<br/>`symbol:str`<br/>`amount:Decimal`<br/>`is_buy:bool`<br/>`order_type:OrderType`<br/>`price:Decimal`| `Dict[str, Any]` | An asynchronous wrapper for placing orders through the REST API. Returns a JSON response from the API.
-`cancel_all` | `timeout_seconds:float`| `List[CancellationResult]` | An asynchronous function that cancels all active orders. Used by Hummingbot's top level "stop" and "exit" commands(cancelling outstanding orders on exit). Returns a `List` of [`CancellationResult`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/data_type/cancellation_result.py).<br/><br/>A `CancellationResult` is an object that indicates if an order has been successfully cancelled with a boolean variable.
-`_stop_network` | `None` | `None` | Synchronous function that handles when a single market goes offline
-`_http_client` | `None` | `aiohttp.ClientSession` | Returns a shared HTTP client session instance. <table><tbody><tr><td bgcolor="#ecf3ff">**Note**: This prevents the need to establish a new session on every API request.</td></tr></tbody></table>
-`_api_request` | `http_method:str`<br/>`path_url:str`<br/>`url:str`<br/>`data:Optional[Dict[str,Any]]`| `Dict[str, Any]` | An asynchronous wrapper function for submitting API requests to the respective exchanges. Returns the JSON response form the endpoints. Handles any initial HTTP status error codes. 
-`_update_balances` | `None` | `None` | Gets account balance updates from the corresponding REST API endpoints and updates `_account_available_balances` and `_account_balances` class variables in the `MarketBase` class.
-`_status_polling_loop` | `None` | `None` | A background process that periodically polls for any updates on the REST API. This is responsible for calling `_update_balances` and `_update_order_status`.
-`c_start` | `Clock clock`<br/>`double timestamp`| `None` | A function used by the top level Clock to orchestrate components of Hummingbot.
-`c_tick` | `double timestamp` | `None` | Used by top level Clock to orchestrate components of Hummingbot. This function is called frequently with every clock tick.
-`c_buy` | `str symbol`,<br/>`object amount`,<br/>`object order_type=OrderType.MARKET`,<br/>`object price=s_decimal_0`,<br/>`dict kwargs={}`| `str` | A synchronous wrapper function that generates a client-side order ID and schedules a **buy** order. It calls the `execute_buy` function and returns the client-side order ID.
-`c_sell` | `str symbol`,<br/>`object amount`,<br/>`object order_type=OrderType.MARKET`,<br/>`object price=s_decimal_0`,<br/>`dict kwargs={}`| `str` | A synchronous wrapper function that generates a client-side order ID and schedules a **sell** order. It calls the `execute_buy` function and returns the client-side order ID.
-`c_cancel` | `str symbol`,<br/>`str order_id` | `str` | A synchronous wrapper function that schedules an order cancellation. <table><tbody><tr><td bgcolor="#ecf3ff">**Note**: The `order_id` here refers to the client-side order ID as tracked by Hummingbot.</td></tr></tbody></table>
-`c_did_timeout_tx` | `str tracking_id` | `None` | Triggers `MarketEvent.TransactionFailure` when an Ethereum transaction has timed out.
-`c_get_fee` | `str base_currency`,<br/>`str quote_currency`,<br/>`object order_type`,<br/>`object order_side`,<br/>`object amount`,<br/>`object price` | `TradeFee` | A function that calculates the fees for a particular order. Use `estimate_fee` module to get the fee. Returns a [`TradeFee`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py) object.
-`c_get_order_book` | `str symbol` | `OrderBook` | Returns the `OrderBook` for a specific trading pair(symbol).
-`c_start_tracking_order` | `str client_order_id`,<br/>`str symbol`,<br/>`object order_type`,<br/>`object trade_type`,<br/>`object price`,<br/>`object amount` | `None` | Adds a new order to the `_in_flight_orders` class variable. This essentially begins tracking the order on the Hummingbot client. 
-`c_stop_tracking_order` | `str order_id` | `None` | Deletes an order from `_in_flight_orders` class variable. This essentially stops the Hummingbot client from tracking an order.
+**Input Parameter(s):**
+
+| Parameter(s)   | Type        | Description                                                                               |
+| -------------- | ----------- | ----------------------------------------------------------------------------------------- |
+| `trading_pair` | `str`       | Name of the trading pair symbol(in Hummingbot's format i.e. `BASE-QUOTE`)                 |
+| `price`        | `Decimal`   | Price in which the order will be placed in `Decimal`                                      |
+| `amount`       | `Decimal`   | Amount in which the order will be placed in `Decimal`                                     |
+| `order_type`   | `OrderType` | Specifies the order type of the order(i.e. `OrderType.LIMIT` and `OrderType.LIMIT_MAKER`) |
+
+**Expected Output(s):** order_id: `str`
+
+| Output(s)  | Type  | Description     |
+| ---------- | ----- | --------------- |
+| `order_id` | `str` | Client Order ID |
+
+#### `sell()`
+
+The function that takes the strategy inputs generates a client order ID(used by Hummingbot for local order tracking) and places a **sell** order by calling the [`_create_order()`](#async-_create_order) function.
+
+**Input Parameter(s):**
+
+| Parameter(s)   | Type        | Description                                                                               |
+| -------------- | ----------- | ----------------------------------------------------------------------------------------- |
+| `trading_pair` | `str`       | Name of the trading pair symbol(in Hummingbot's format i.e. `BASE-QUOTE`)                 |
+| `price`        | `Decimal`   | Price in which the order will be placed in `Decimal`                                      |
+| `amount`       | `Decimal`   | Amount in which the order will be placed in `Decimal`                                     |
+| `order_type`   | `OrderType` | Specifies the order type of the order(i.e. `OrderType.LIMIT` and `OrderType.LIMIT_MAKER`) |
+
+**Expected Output(s):**
+
+| Output(s)  | Type  | Description     |
+| ---------- | ----- | --------------- |
+| `order_id` | `str` | Client Order ID |
+
+<!-- 
+<details>
+  <summary><p style="display:inline"><strong>Input Parameter(s):</strong></p></summary>
+
+
+| Parameter(s)   | Type        | Description                                                                               |
+| -------------- | ----------- | ----------------------------------------------------------------------------------------- |
+| `trading_pair` | `str`       | Name of the trading pair symbol(in Hummingbot's format i.e. `BASE-QUOTE`)                 |
+| `price`        | `Decimal`   | Price in which the order will be placed in `Decimal`                                      |
+| `amount`       | `Decimal`   | Amount in which the order will be placed in `Decimal`                                     |
+| `order_type`   | `OrderType` | Specifies the order type of the order(i.e. `OrderType.LIMIT` and `OrderType.LIMIT_MAKER`) |
+
+</details>
+
+
+<details>
+  <summary><p style="display:inline"><strong>Expected Output(s):</strong></p></summary> 
+
+</details>
+-->
+
+
+#### **_async_** `_create_order()`
+
+This function is responsible for executing the API request to place the order on the exchange. It does the following:
+
+- Verifies that the order satisfies exchange trading rules.
+- Quantize the order amount to ensure that the precision is as required by the exchange.
+- Create a `params` dictionary with the necessary parameters for the desired order.
+- Pass the `params` to an `Auth` object to generate the request signature.
+- Begin tracking the order by calling [`start_tracking_order(...)`](#start_tracking_order).
+- Places the order by calling the [`_api_request()`](#async-_api_request) method with the relevant order parameters.
+- Upon successfully placing the order, the tracked order will be updated with the resulting **_exchange order ID_** from the API Response.
+
+!!! note
+    The tracked order is an `InFlightOrder` that is within a dictionary variable(`_in_flight_orders`) in the `Exchange` class. `InFlightOrder` are Hummingbot's internal records of orders it has placed that remain open in the exchange. When such orders are either filled or canceled, they are removed from the dictionary by calling [stop_tracking_order()](#stop_tracking_order) method, and the relevant event completion flag is passed to the strategy module.
+
+**Input Parameter(s):**
+
+| Parameter(s)   | Type                                                                                                       | Description                                                                               |
+| -------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `order_id`     | `str`                                                                                                      | ID used to track an order in Hummingbot.                                                  |
+| `trading_pair` | `str`                                                                                                      | Name of the trading pair symbol(in Hummingbot's format i.e. `BASE-QUOTE`)                 |
+| `price`        | `Decimal`                                                                                                  | Price in which the order will be placed in `Decimal`                                      |
+| `amount`       | `Decimal`                                                                                                  | Amount in which the order will be placed in `Decimal`                                     |
+| `order_type`   | [`OrderType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L61-L69) | Specifies the order type of the order(i.e. `OrderType.LIMIT` and `OrderType.LIMIT_MAKER`) |
+| `trade_type`   | [`TradeType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L61-L69) | Specifies the trade type of the order(i.e. `TradeType.BUY` and `TradeType.SELL`)          |
+
+**Expected Output(s):**
+
+| Output(s)  | Type  | Description     |
+| ---------- | ----- | --------------- |
+| `order_id` | `str` | Client Order ID |
+
+### (2) Cancelling Orders
+
+The strategy and the `exit` command cancels orders by calling [`cancel()`](#cancel) or [`cancel_all()`](#async-cancel_all) methods respectively.
+
+#### `cancel()`
+
+The function that takes in the trading pair and client order ID from the strategy as inputs and proceeds to a **cancel** the order by calling the [`_execute_cancel()`](#async-_execute_cancel) function.
+
+**Input Parameter(s):**
+
+| Parameter(s)   | Type  | Description                                                               |
+| -------------- | ----- | ------------------------------------------------------------------------- |
+| `trading_pair` | `str` | Name of the trading pair symbol(in Hummingbot's format i.e. `BASE-QUOTE`) |
+| `order_id`     | `str` | Client Order ID                                                           |
+
+**Expected Output(s):** order_id: `str`
+
+#### **_async_** `cancel_all()`
+
+The function that is primarily triggered by the `ExitCommand` that **cancels all** `InFlightOrder's being tracked by the `Exchange` class. It confirms the successful cancellation of the orders by calling the
+
+Calls the [\_api_request()](#async-_api_request) function with the relevant parameters.
+
+**Input Parameter(s):** `None`
+
+**Expected Output(s):**
+
+| Output(s)             | Type                       | Description                                                                                                                                                    |
+| --------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cancellation_result` | `List[CancellationResult]` | List of `CancellationResult`. `CancellationResult.success` is assigned `True` if the particular order(identified by Client Order ID) is successfully cancelled |
+
+!!! note
+    In some cases, where an exchange does not have a cancel all orders endpoint, the we will have to call `_execute_cancel()` for each in-flight order.
+
+#### **_async_** `_execute_cancel()`
+
+Cancels the specified in-flight order and returns the client order ID.
+
+**Input Parameter(s):**
+
+| Parameter(s)   | Type  | Description                                                               |
+| -------------- | ----- | ------------------------------------------------------------------------- |
+| `trading_pair` | `str` | Name of the trading pair symbol(in Hummingbot's format i.e. `BASE-QUOTE`) |
+| `order_id`     | `str` | Client Order ID                                                           |
+
+**Expected Output(s):**
+
+| Output(s)  | Type  | Description     |
+| ---------- | ----- | --------------- |
+| `order_id` | `str` | Client Order ID |
+
+### (3) Tracking Orders & Balances
+
+The functions listed in this section details how the connector should process and track orders and balances.
+
+#### `start_tracking_order()`
+
+Starts tracking an order by simply adding it into `_in_flight_orders` dictionary.
+
+**Input Parameter(s):**
+
+| Parameter(s)        | Type                                                                                                       | Description                                                                               |
+| ------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `order_id`          | `str`                                                                                                      | ID used to track an order in Hummingbot.                                                  |
+| `exchange_order_id` | `str`                                                                                                      | ID used to uniquely identify the order on the Exchange.                                   |
+| `trading_pair`      | `str`                                                                                                      | Name of the trading pair symbol(in Hummingbot's format i.e. `BASE-QUOTE`)                 |
+| `price`             | `Decimal`                                                                                                  | Price in which the order will be placed in `Decimal`                                      |
+| `amount`            | `Decimal`                                                                                                  | Amount in which the order will be placed in `Decimal`                                     |
+| `order_type`        | [`OrderType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L61-L69) | Specifies the order type of the order(i.e. `OrderType.LIMIT` and `OrderType.LIMIT_MAKER`) |
+| `trade_type`        | [`TradeType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L61-L69) | Specifies the trade type of the order(i.e. `TradeType.BUY` and `TradeType.SELL`)          |
+
+**Expected Output(s):** `None`
+
+!!! note
+    In most cases, the `exchange_order_id` is only provided after the place order APi request is succesfully processed by the exchange. As such, the `exchange_order_id` can be `None` initially. It can be updated later by using the [InFlightOrderBase.update_exchange_order_id()](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/in_flight_order_base.pyx#L77-L79) function.
+
+#### `stop_tracking_order()`
+
+Stops the tracking of order by simply removing it from `_in_flight_orders` dictionary.
+
+**Input Parameter(s):**
+
+| Parameter(s) | Type  | Description                              |
+| ------------ | ----- | ---------------------------------------- |
+| `order_id`   | `str` | ID used to track an order in Hummingbot. |
+
+**Expected Output(s):** `None`
+
+#### **_async_** `_user_stream_event_listener()`
+
+Wait for new messages from `_user_stream_tracker.user_stream` queue and processes them according to their message channels.
+The respective `UserStreamDataSource queues these messages`.
+
+Below are the function(s) called from within `_user_stream_event_listener()` when a message is received.
+
+| Function(s)                                              | Description                           |
+| -------------------------------------------------------- | ------------------------------------- |
+| [\_process_order_message()](#_process_order_message)     | Process user's order update messages. |
+| [\_process_trade_message()](#_process_trade_message)     | Process user's trade messages.        |
+| [\_process_balance_message()](#_process_balance_message) | Process user's balance messages.      |
+
+**Input Parameter(s):** `None`
+
+**Expected Output(s):** `None`
+
+#### `_status_polling_loop()`
+
+Periodically update user balances and order status via REST API. This serves as a fallback measure for WebSocket API updates.
+Calling of both [\_update_balances()](#_update_balances) and [\_update_order_status()](#_update_order_status) functions is determined by the `_poll_notifier` variable.
+
+`_poll_notifier` is an `asyncio.Event` object that is set in the `tick()` function.
+It is set after every `SHORT_POLL_INTERVAL` or `LONG_POLL_INTERVAL` depending on the `last_recv_time` of the `_user_stream_tracker`.
+
+**Input Parameter(s):** `None`
+
+**Expected Output(s):** `None`
+
+#### `_update_balances()`
+
+Calls the REST API to update total and available balances.
+
+**Input Parameter(s):** `None`
+
+**Expected Output(s):** `None`
+
+#### `_update_order_status()`
+
+Calls the REST API to get order/trade updates for each in-flight order.
+
+If needed, it will call either [\_process_order_message()](#_process_order_message) or [\_process_trade_message()](#_process_trade_message) or both.
+
+!!! note
+    `_process_trade_message()` must be called before `_process_order_message()` for any in-flight orders. Each partial fill should be accompanied by a call to `_process_trade_message()`. This ensures that Hummingbot captures every trade executed on an order.
+
+**Input Parameter(s):** `None`
+
+**Expected Output(s):** `None`
+
+#### `_process_order_message()`
+
+Updates the in-flight order's order status and triggers the `OrderCancelledEvent` if needed.
+
+**Input Parameter(s):**
+
+| Parameter(s) | Type             | Description                                           |
+| ------------ | ---------------- | ----------------------------------------------------- |
+| `order_msg`  | `Dict[str, Any]` | The order response from either REST or WebSocket API. |
+
+**Expected Output(s):** `None`
+
+#### `_process_trade_message()`
+
+Updates in-flight order trade information by calling the `NewInFlightOrder.update_with_trade_update()` function and triggers the `OrderFilledEvent` .
+
+It will also trigger either `BuyOrderCompletedEvent` or `SellOrderCompletedEvent` if needed.
+
+**Input Parameter(s):**
+
+| Parameter(s) | Type             | Description                                                   |
+| ------------ | ---------------- | ------------------------------------------------------------- |
+| `order_msg`  | `Dict[str, Any]` | The trade history response from either REST or WebSocket API. |
+
+**Expected Output(s):** `None`
+
+#### `_process_balance_message()`
+
+Updates the user's available and total asset balance.
+
+**Input Parameter(s):**
+
+| Parameter(s)  | Type             | Description                                                  |
+| ------------- | ---------------- | ------------------------------------------------------------ |
+| `balance_msg` | `Dict[str, Any]` | The user balance response from either REST or WebSocket API. |
+
+**Expected Output(s):** `None`
+
+### (4) Managing Trading Rules
+
+The `Exchange` is also responsible for managing the trading rules of the trading pairs since the exchange itself enforces rules.
+
+Below are the functions used to ensure that orders being placed meet the requirements and ensure that the trading rules are up to date.:
+
+#### **_async_** `_trading_rules_polling_loop()`
+
+An asynchronous task that periodically updates trading rules.
+
+Calls [`_update_trading_rules()`](#async-_update_trading_rules)
+
+**Input Parameter(s):** `None`
+
+**Expected Output(s):** `None`
+
+#### **_async_** `_update_trading_rules()`
+
+Queries the necessary API endpoint and initialize the `TradingRule` object for each trading pair being traded.
+
+Calls [\_api_request()](#async-_api_request) and subsequently [`_format_trading_rules()`](#_format_trading_rules)
+
+**Input Parameter(s):** `None`
+
+**Expected Output(s):** `None`
+
+#### `_format_trading_rules()`
+
+Converts JSON API response into a dictionary of [`TradingRule`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/trading_rule.pyx).
+
+**Input Parameter(s):**
+
+| Parameter(s)   | Type             | Description                                           |
+| -------------- | ---------------- | ----------------------------------------------------- |
+| `api_response` | `Dict[str, Any]` | The JSON API response for the exchanges trading rules |
+
+**Expected Output(s):** `None`
+
+!!! note
+    The trading rules can generally be found in the API endpoint that lists all supported trading pairs/markets.
+
+#### `get_order_price_quantum()`
+
+Returns a price step, a minimum price increment for a given trading pair.
+
+**Input Parameter(s):**
+
+| Parameter(s)   | Type      | Description                             |
+| -------------- | --------- | --------------------------------------- |
+| `trading_pair` | `str`     | Trading pair of the order being placed. |
+| `price`        | `Decimal` | Price of the order being placed.        |
+
+**Expected Output(s):**
+
+| Output(s)             | Type      | Description                                       |
+| --------------------- | --------- | ------------------------------------------------- |
+| `min_price_increment` | `Decimal` | Minimum Price increment of specified trading pair |
+
+#### `get_order_size_quantum()`
+
+Returns an order amount step, a minimum amount increment for a given trading pair.
+
+**Input Parameter(s):**
+
+| Parameter(s)   | Type      | Description                             |
+| -------------- | --------- | --------------------------------------- |
+| `trading_pair` | `str`     | Trading pair of the order being placed. |
+| `order_size`   | `Decimal` | Order size of the order being placed.   |
+
+**Expected Output(s):**
+
+| Output(s)       | Type      | Description                                                 |
+| --------------- | --------- | ----------------------------------------------------------- |
+| `min_increment` | `Decimal` | Minimum base asset size increment of specified trading pair |
+
+### (5) Additional Function(s)
+
+The list below contains the utility functions and descriptions that the `Exchange` class use.
+
+#### **_async_** `_api_request()`
+
+#### `start_network()`
+
+This function is required by the `NetworkIterator` base class and is called automatically.
+It starts tracking order books, polling trading rules, updating statuses, and tracking user data.
+
+**Input Parameter(s):** `None`
+
+**Expected Output(s):** `None`
+
+#### `stop_network()`
+
+This function is required by the `NetworkIterator` base class and is called automatically.
+It performs the necessary shut down procedure.
+
+**Input Parameter(s):** `None`
+
+**Expected Output(s):** `None`
+
+#### `check_network()`
+
+This function is required by NetworkIterator base class and is called periodically to check the network connection.
+Ping the network (or call any lightweight public API).
+
+**Input Parameter(s):** `None`
+
+**Expected Output(s):** `None`
+
+#### `get_order_book()`
+
+They are used by the `OrderBookCommand` to display the order book in the terminal.
+
+**Input Parameter(s):**
+
+| Parameter(s)   | Type  | Description                                                               |
+| -------------- | ----- | ------------------------------------------------------------------------- |
+| `trading_pair` | `str` | Trading pair used to identify the `OrderBook` from the `OrderBookTracker` |
+
+**Expected Output(s):**
+
+| Output(s)    | Type        | Description                                      |
+| ------------ | ----------- | ------------------------------------------------ |
+| `order_book` | `OrderBook` | `OrderBook` object of the specified trading pair |
+
+#### `get_open_orders()`
+
+Queries the open order endpoint and parses the response as a `List` of `OpenOrder` objects.
+
+**Input Parameter(s):** `None`
+
+**Expected Output(s):**
+
+| Output(s) | Type              | Description         |
+| --------- | ----------------- | ------------------- |
+| `orders`  | `List[OpenOrder]` | List of open orders |
+
+#### `restore_tracking_states()`
+
+Restore in-flight orders from saved tracking states; this is such that the connector can pick up on where it left off should it crash unexpectedly.
+
+The saved tracking states are stored locally as a `sqlite` file in the `/data` folder.
+
+**Input Parameter(s):**
+
+| Parameter(s)   | Type             | Description                                                                  |
+| -------------- | ---------------- | ---------------------------------------------------------------------------- |
+| `saved_states` | `Dict[str, any]` | JSON value of all the saved order states from the locally saved sqlite file. |
+
+**Expected Output(s):** `None`
+
+#### `supported_order_types()`
+
+Returns list of OrderType supported by this connector.
+
+**Input Parameter(s):** `None`
+
+**Expected Output(s):**
+
+| Output(s) | Type              | Description                                                                                           |
+| --------- | ----------------- | ----------------------------------------------------------------------------------------------------- |
+| `types`   | `List[OrderType]` | List of `OrderType`. Generally connectors would support `OrderType.LIMIT` and `OrderType.LIMIT_MAKER` |
+
+#### **_async_** `_http_client`
+
+Returns the shared `aiohttp.ClientSession` used by the connector. This HTTP client is used for all REST API requests.
+
+**Input Parameter(s):** `None`
+
+**Expected Output(s):**
+
+| Output(s) | Type                    | Description                                                    |
+| --------- | ----------------------- | -------------------------------------------------------------- |
+| `client`  | `aiohttp.ClientSession` | A HTTP client used to interact with the exchanges API servers. |
+
+#### `get_fee()`
+
+To get trading fee, this function is simplified by using a fee override configuration. Most parameters to this function are ignored except order_type.
+Use `OrderType.LIMIT_MAKER` to specify you want a trading fee for the maker order.
+
+**Input Parameter(s):**
+
+| Parameter(s)     | Type                                                                                                       | Description                                                                               |
+| ---------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `base_currency`  | `str`                                                                                                      | Base currency of the order.                                                               |
+| `quote_currency` | `str`                                                                                                      | Quote currency of the order.                                                              |
+| `price`          | `Decimal`                                                                                                  | Price in which the order will be placed in `Decimal`                                      |
+| `amount`         | `Decimal`                                                                                                  | Amount in which the order will be placed in `Decimal`                                     |
+| `order_type`     | [`OrderType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L61-L69) | Specifies the order type of the order(i.e. `OrderType.LIMIT` and `OrderType.LIMIT_MAKER`) |
+| `trade_type`     | [`TradeType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L61-L69) | Specifies the trade type of the order(i.e. `TradeType.BUY` and `TradeType.SELL`)          |
+
+**Expected Output(s):**
+
+| Output(s) | Type                                                                                                        | Description                       |
+| --------- | ----------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| `fee`     | [`TradeFee`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L257-L287) | Estimated trade fee of the order. |
+
+### (6) Class Properties
+
+Below are the property functions of the `Exchange` class.
+
+| Property Function(s) | Output                     | Description                                                                                                                       |
+| -------------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `name`               | `str`                      | Name of the exchange. Used to identify the exchange across Hummingbot.                                                            |
+| `order_books`        | `Dict[str, OrderBook]`     | Dictionary of the `OrderBook` of each active trading pair on the bot. Utilizes the `order_books` property from `OrderBookTracker` |
+| `trading_rules`      | `Dict[str, TradingRule]`   | Returns the `_trading_rule` class variable; a dictionary of the `TradingRule` of each active trading pair on the bot.             |
+| `in_flight_orders`   | `Dict[str, InFlightOrder]` | Dictionary of the all `InFlightOrder` by its client order ID.                                                                     |
+| `status_dict`        | `Dict[str, bool]`          | A dictionary of statuses of various connector's components. Used by the `ready()` property function.                              |
+| `ready`              | `bool`                     | True when all statuses pass, this might take 5-10 seconds for all the connector's components and services to be ready.            |
+| `limit_orders`       | `List[LimitOrder]`         | Returns a list of `InFlightOrder`.                                                                                                |
+| `tracking_states`    | `Dict[str, Any]`           | All `InFlightOrder` in JSON format. Used to save in sqlite db.                                                                    |
 
 ## Debugging & Testing
 
-As part of the QA process, for each tasks(Task 1 through 3) you are **required** to include the unit test cases for the code review process to begin. Refer to [Option 1: Unit Test Cases](/developers/connectors/debug&test/#option-1-unit-test-cases) to build your unit tests.
+As part of the QA process, for each task (Task 1 through 3), you are **required** to include the unit test cases for the code review process to begin. Refer to [Option 1: Unit Test Cases](/developer/debug&test/#option-1-unit-test-cases) to build your unit tests.

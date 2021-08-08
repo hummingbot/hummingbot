@@ -1,4 +1,5 @@
 # Developer Tutorial
+
 ## Introduction
 This tutorial is intended to get you familiarized with basic structure of a strategy for Hummingbot. It will guide you through the scope of creating a simple strategy that only fetches market status to building a more complex strategy that can perform trade.
 
@@ -8,12 +9,15 @@ By the end of this tutorial, you should:
 * Have a working strategy 
 * Be able to build new custom strategies from scratch
 
+## What is a strategy?
 
-## 1. Hello World Strategy
-We will start out with a simple strategy that can perform `status` command and displays the user’s token balance in a given market. This part should expose you to different parts of the Hummingbot codebase, help you understand some core classes that are frequently referred to when building strategies, and provide a starting point for developing custom strategies. 
+An algorithmic trading strategy, or "bot", is an automated process that creates/cancels orders, executes trades, and manages positions on crypto exchanges. Like a computer program, a strategy enables traders to respond automatically and continually to market conditions.
 
-#### Directory Breakdown
-Take a look at the directory for hello world strategy:
+We will start by building simple strategies that build upon one another. This should expose you to different parts of the Hummingbot codebase, help you understand some core classes that are frequently referred to when building strategies, and provide a starting point for developing custom strategies. 
+
+## Strategy folder
+
+Each strategy is contained in its own folder, with the strategy name as the folder name:
 
 * **\_\_init__.py**  
 This file allows one to expose certain variables to all modules inside the package by placing the strategy object under `__all__`  field.
@@ -26,13 +30,7 @@ This file handles prompting user for config values when the strategy is called. 
 * **start.py**  
 The `start()` function is what gets called when user calls the strategy on client side. This function should handle initialization of configs by calling `config_map`, set market names and wallets, and eventually execute the strategy.
 
-#### Important commands
-Important commands on Hummingbot client:
-
-* `status` : Renders information about the current strategy and markets. The information that you want displayed can be customized with `format_status()` function in `{strategy name}.pyx`
-* `config` : Prompts users asking for details about strategy set up (e.g. token, market name, etc). Prompts can be modified in `{strategy name}_config_map.py`
-
-#### StrategyBase class
+## StrategyBase class
 All strategies extend `StrategyBase` class. This class allows extraction of logic that would be repetitively written in all strategies otherwise. 
 
 * **Event listeners** : The client’s prompt eventually leads to changes on server with the help of event listeners. Depending on action taken by the client, corresponding event listeners are called to execute the appropriate job.
@@ -59,7 +57,8 @@ To assist in the development of custom strategies, there are many overridable fu
 * `c_did_complete_buy_order_tracker()`: called in response to an `order_completed_event`
 * `c_did_complete_sell_order_tracker()`: called in response to an `order_completed_event`
 
-#### Market class
+## Market class
+
 The `market_base` class contains overridable functions that can help get basic information about an exchange that a strategy is operating on, which can include the balance, prices, and order books for any particular asset traded on the exchange. 
 
 * `c_buy()`: called when the user wants to place a buy order
@@ -78,15 +77,24 @@ The `market_base` class contains overridable functions that can help get basic i
 
 Additionally, this strategy leverages the `Market` class’s `EventReporter` listener object, in order to check if buy/sell orders have been filled or completed, the user has enough balance to place certain orders, and if there are any order cancellations. The `EventLogger` object is also used to log the specific events when they occur. 
 
-#### Exposing new strategy to Hummingbot client
+## Configuration
+
+### Important commands
+Important commands on Hummingbot client:
+
+* `status` : Renders information about the current strategy and markets. The information that you want displayed can be customized with `format_status()` function in `{strategy name}.pyx`
+* `config` : Prompts users asking for details about strategy set up (e.g. token, market name, etc). Prompts can be modified in `{strategy name}_config_map.py`
+
+### Exposing new strategy to Hummingbot client
 Make strategy name known to the client by adding name to [hummingbot/client/settings.py](https://github.com/CoinAlpha/hummingbot/blob/development/hummingbot/client/settings.py) under `STRATEGIES` variable. There should also be a template file that contains config variables and its documentation in the [hummingbot/templates](https://github.com/CoinAlpha/hummingbot/tree/development/hummingbot/templates) directory. The naming convention for this yml file is `conf_{strategy name}_TEMPLATE`. 
 
-#### Setting question prompts for strategy parameters
+### Setting question prompts for strategy parameters
 Strategy parameters can be set in the `config_map` file. Each parameter (represented as dictionary key) is mapped to a `ConfigVar` type where developer can specify the name of the parameter, prompts that will be provided to the user, and validator that will check the values entered. 
 
-## 2. Get Order Book Strategy
+<!-- ## 2. Get Order Book Strategy
 We will extend on what we built on step 1 and add a feature that will load the order book for a market. This part will help developers understand how to read data from different data frames.
 
 #### Order book data
-This strategy extends the Hello World Strategy by loading an order book in a given market. When the command `status` is executed, the strategy fetches and enumerates the order book data (maker orders) by retrieving the `active_orders` data frame for the market that the strategy is operating on. If there are no active orders, " No active maker orders." is printed.
+This strategy extends the Hello World Strategy by loading an order book in a given market. When the command `status` is executed, the strategy fetches and enumerates the order book data (maker orders) by retrieving the `active_orders` data frame for the market that the strategy is operating on. If there are no active orders, " No active maker orders." is printed. 
+-->
 

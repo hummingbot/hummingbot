@@ -205,13 +205,13 @@ nav:
       - Connectors:
         - Overview: developers/connectors/index.md
         - Architecture: developers/connectors/architecture.md
-        - Tutorial: 
+        - Tutorial:
           - Intro: developers/connectors/tutorial.md
-          - Task 1 - Data Source & Order Book Tracker: developers/connectors/task1.md
-          - Task 2 - User Stream Tracker : developers/connectors/task2.md
-          - Task 3 - Market Connector: developers/connectors/task3.md
-          - Task 4 - Required Connector Configuration: developers/connectors/task4.md
-          - Debug and Test: developers/connectors/debug&test.md
+          - Task 1 - OrderBookTracker & Data Source: developers/connectors/task1.md
+          - Task 2 - UserStreamTracker & Authentication: developers/connectors/task2.md
+          - Task 3 - Exchange Connector & InFlightOrder: developers/connectors/task3.md
+          - Task 4 - Configuration & Additional Functions: developers/connectors/task4.md
+          - Debug and Testing: developers/connectors/debug&test.md
         - Miscellaneous: developers/connectors/miscellaneous.md
       - Strategies:
         - Overview: developers/strategies/index.md
