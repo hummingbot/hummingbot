@@ -1,63 +1,67 @@
-# Task 4. Required Connector Configuration
+# Task 4 — Configuration & Additional Functions
 
-This section explains the required steps for connector in order to work with Hummingbot.
+This section explains the configuration for the required file, functions, and other optional settings to integrate your connector with Hummingbot.
 
-To do so:
+## Configuration
 
-1. In `setup.py`, add your new connector package in `packages` variable as shown:
-```python
-    packages = [
-        "hummingbot",
-        .
-        .
-        "hummingbot.connector.exchange.kucoin",
-        "hummingbot.connector.exchange.[new_connector]",
-``` 
-2. Add the following **required** members and functions in the new connector's utils file. Directory: `hummingbot/connector/[connector type]/[connector name]/[connector name]_utils.py`
-
-Function<div style="width:200px"/> | Type | Description
----|---|---
-`CENTRALIZED` | `bool` | Return `True` if connector is for a decentralized exchange, otherwise return false.
-`EXAMPLE_PAIR` | `str` | Gives an example of a supported trading pair on the exchange in [BASE]-[QUOTE] format.
-`DEFAULT_FEES` | `List[Decimal]` | Return a list with the first index as the default maker fee and the second index as default taker fee.
-`KEYS` | `Dict[str, ConfigVar]` | Return a dictionary containing required keys for connecting to the exchange.
-
-
-### Sample Code — `[connector name]_utils_.py` 
+In `setup.py`, include the new connector package into the `packages` list as shown:
 
 ```python
-from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.config.config_methods import using_exchange
-
-CENTRALIZED = True  # True for centralized exchange and false for decentralized exchange
-
-EXAMPLE_PAIR = "ZRX-ETH"  # Example of supported pair on exchange
-
-DEFAULT_FEES = [0.1, 0.1]  # [maker fee, taker fee]
-
-KEYS = {
-    "[connector name]_api_key":
-        ConfigVar(key="[connector name]_api_key",
-                  prompt="Enter your Binance API key >>> ",
-                  required_if=using_exchange("[connector name]"),
-                  is_secure=True,
-                  is_connect_key=True),
-    "[connector name]_api_secret":
-        ConfigVar(key="[connector name]_api_secret",
-                  prompt="Enter your Binance API secret >>> ",
-                  required_if=using_exchange("[connector name]"),
-                  is_secure=True,
-                  is_connect_key=True),
-    ...
-}
+packages = [
+   "hummingbot",
+   .
+   .
+   "hummingbot.connector.exchange.xyz",
+   "hummingbot.connector.exchange.[new_connector]",
+]
 ```
 
-!!! note
-    If the exchange does not provide trading pairs in `[Base]-[Quote]` format, the following functions needs to be implemented in addition to the previous functions:
+In `hummingbot/templates/conf_global_TEMPLATE.yml`, add entries with `null` value for each key in your utils KEYS.
+  You will also need to increment `template_version` by one. For example:
 
-Function<div style="width:200px"/> | Input Parameter(s) | Expected Output(s) | Description
----|---|---|---
-`convert_from_exchange_trading_pair` | exchange_trading_pair: `str` | `str` | Converts the exchange's trading pair to `[Base]-[Quote]` formats and return the output.
-`convert_to_exchange_trading_pair` | hb_trading_pair: `str` | `str` | Converts HB's `[Base]-[Quote]` trading pair format to the exchange's trading pair format and return the output.
+```python
+template_version: [+1]
 
+[new_connector]_api_key: null
+[new_connector]_secret_key: null
+```
 
+In `hummingbot/templates/conf_fee_overrides_TEMPLATE.yml`, add maker and taker fee entries (use fee_amount when your FEE_TYPE is FlatFee).
+  You will also need to increment `template_version` by one. For example:
+
+```python
+template_version: [+1]
+
+[new_connector]_maker_fee:
+[new_connector]_taker_fee:
+```
+
+## Additional Utility Functions
+
+### (Optional) API Request Throttler
+
+### (Optional) Add members for Ethereum type connector
+
+| Member                           | Type   | Description                                                                                                                     |
+| -------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| `USE_ETHEREUM_WALLET`            | `bool` | `True` if connector requires user's Ethereum wallet, which the user can set it up using `connect` command.                      |
+| `FEE_TYPE`                       | `str`  | Set this to FlatFee if the trading fee is fixed flat fee per transaction, the `DEFAULT_FEES` will then be in the flat fee unit. |
+| `FEE_TOKEN`                      | `str`  | Token name in FlatFee fee type, i.e. `ETH`.                                                                                     |
+
+### (Optional) Add other API domains
+
+This is only relevant if:
+
+- Exchange supports different domains by changing API URLs domains, i.e. `binance.com` & `binance.us` or `probit.com` & `probit.kr`
+- Exchange supports a `testnet` environment.
+
+| Member                           | Type                              | Description                                                                                                                                                      |
+| -------------------------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `OTHER_DOMAINS`                  | `List[str]`                       | A list of other domain connector names, will appear to users as new connectors they can choose.                                                                  |
+| `OTHER_DOMAINS_PARAMETER`        | `Dict[str, str]`                  | A dictionary of additional `domain` parameter for each `OTHER_DOMAIN`, this parameter (string) is passed in during connector, and order book tracker `__init__`. |
+| `OTHER_DOMAINS_EXAMPLE_PAIR`     | `Dict[str, str]`                  | An example of a supported trading pair for each domain.                                                                                                          |
+| `OTHER_DOMAINS_DEFAULT_FEES`     | `Dict[str, List[Decimal]]`        | A dictionary of default trading fees \[maker fee and taker fee] for each domain.                                                                                 |
+| `OTHER_DOMAINS_KEYS`             | `Dict[str, Dict[str, ConfigVar]]` | A dictionary of required keys for each domain.                                                                                                                   |
+
+!!! warning
+    If domain settings are used, ensure your connector uses the `domain` parameter to update base API URLs and set the exchange name correctly. Refer to `Binance` connector on how to achieve this.

@@ -1,17 +1,14 @@
-# Introduction - Connectors
+# Connectors - Overview
 
 ## What are connectors?
 
-Exchange connectors are modules that allow Hummingbot to connect to an exchange.  Connecting to an exchange requires constant retrieval of live exchange/order book data as well as handling interactions with the exchange.
+Exchange connectors are modules that allow Hummingbot to connect to an exchange. This requires constant retrieval of live exchange/order book data and handling interactions with the exchange.
 
 ## Examples / templates
 
-There are [existing connectors](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/market) (each folder contained here is a different exchange connector) that can serve as a template for creating a new exchange connector.
+There are [existing connectors](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/connector). Note that each folder contained here marks different exchange connector types. These should serve as a template for creating a new exchange connector.
 
 Building a new exchange connector requires conforming to the template code to the new exchange's APIs, identifying and handling any differences in functions/behaviors, and testing the new exchange connector on that exchange.
-
-!!! note "Recommendation"
-    For new developers building a connector, we recommend to use Crypto.com as a template to start understanding the functions and behaviors.
 
 The following list some examples/templates that you can refer to when building the connector:
 
@@ -20,21 +17,22 @@ The following list some examples/templates that you can refer to when building t
 - [Coinbase Pro](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/connector/exchange/coinbase_pro) 
 - [Huobi](hhttps://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/connector/exchange/huobi)
 - [Bittrex](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/connector/exchange/bittrex)
-- Ethereum DEX (0x open order book): [Radar Relay](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/connector/exchange/radar_relay)
-- Ethereum DEX (0x open order book w/coordinator support): [Bamboo Relay](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/connector/exchange/radar_relay)
 
 ## Exchange connector requirements
-1. A set of exchange connector files as listed [above](#exchange-connector-files).
-2. Unit tests (see [existing unit tests](https://github.com/CoinAlpha/hummingbot/tree/master/test/connector/exchange/crypto_com)):
 
-    1. Exchange market test ([example](https://github.com/CoinAlpha/hummingbot/blob/master/test/connector/exchange/crypto_com/test_crypto_com_exchange.py))
-    2. Order book tracker ([example](https://github.com/CoinAlpha/hummingbot/blob/master/test/connector/exchange/crypto_com/test_crypto_com_order_book_tracker.py))
-    3. User stream tracker ([example](https://github.com/CoinAlpha/hummingbot/blob/master/test/connector/exchange/crypto_com/test_crypto_com_user_stream_tracker.py))
+1. A complete set of exchange connector files as listed [above](https://docs.hummingbot.io/spot-connectors/overview/).
+2. Unit tests (see existing unit tests [here](https://github.com/CoinAlpha/hummingbot/tree/master/test/connector) or [here](https://github.com/CoinAlpha/hummingbot/tree/master/test/integration)):
+  - Exchange market test ([example](https://github.com/CoinAlpha/hummingbot/tree/master/test/connector/exchange/crypto_com/test_crypto_com_exchange.py))
+  - Order book tracker ([example](https://github.com/CoinAlpha/hummingbot/tree/master/test/connector/exchange/crypto_com/test_crypto_com_order_book_tracker.py))
+  - User stream tracker ([example](https://github.com/CoinAlpha/hummingbot/tree/master/test/connector/exchange/crypto_com/test_crypto_com_user_stream_tracker.py))
+  - User authentication module ([example](https://github.com/CoinAlpha/hummingbot/tree/master/test/connector/exchange/crypto_com/test_crypto_com_auth.py))
+3. Documentation:
+  - Code commenting (particularly for any code that is materially different from the templates/examples)
+  - Any specific instructions for the use of that exchange connector ([example](https://docs.hummingbot.io/spot-connectors/binance/))
 
 3. Documentation:
-
-    - Code commenting (particularly for any code that is materially different from the templates/examples)
-    - Any specific instructions for the use of that exchange connector ([example](https://docs.hummingbot.io/connectors/binance/))
+  - Code commenting (particularly for any code that is materially different from the templates/examples)
+  - Any specific instructions for the use of that exchange connector ([example](https://docs.hummingbot.io/connectors/binance/))
 
 ## Requirements for community-developed connectors
 
