@@ -42,7 +42,7 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 | <img src="assets/kucoin-logo.jpg" alt="KuCoin" width="90" /> | kucoin | [KuCoin](https://www.kucoin.com/) | 1 | [API](https://docs.kucoin.com/#general) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 | <img src="assets/kraken-logo.jpg" alt="Kraken" width="90" /> | kraken | [Kraken](https://www.kraken.com/) | 1 | [API](https://www.kraken.com/features/api) |![GREEN](https://via.placeholder.com/15/008000/?text=+) |
 | <img src="assets/liquid-logo.jpg" alt="Liquid" width="90" /> | liquid | [Liquid](https://www.liquid.com/) | 2 | [API](https://developers.liquid.com/) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
-| <img src="assets/ndax-logo.svg" alt="NDAX" width="90" /> | ndax | [NDAX](https://ndax.io/) | 1 | [API](https://ndaxlo.github.io/API/) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
+| <img src="assets/ndax-logo.jpg" alt="NDAX" width="90" /> | ndax | [NDAX](https://ndax.io/) | 1 | [API](https://ndaxlo.github.io/API/) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 | <img src="assets/okex-logo.jpg" alt="OKEx" width="90" /> | okex | [OKEx](https://www.okex.com/) | 3 | [API](https://www.okex.com/docs/en/) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 | <img src="assets/probit-logo.jpg" alt="Probit Global" width="90" /> | probit | [Probit Global](https://www.probit.com/en-us/) | 1 | [API](https://docs-en.probit.com/docs) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 | <img src="assets/probit_kr-logo.jpg" alt="Probit Korea" width="90" /> | probit_kr | [Probit Korea](https://www.probit.kr/en-us/) | 1 | [API](https://docs-en.probit.com/docs) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
@@ -63,7 +63,7 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 ## Supported protocol exchanges
 | logo | id | name | ver | doc| status |
 |:---:|:---:|:---:|:---:|:---:|:--:|
-| <img src="assets/celo-logo.jpg" alt="Celo" width="90" /> | celo | [Celo](https://terra.money/) | * | [SDK](https://celo.org/developers) | ![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
+| <img src="assets/celo-logo.jpg" alt="Celo" width="90" /> | celo | [Celo](https://celo.org/) | * | [SDK](https://celo.org/developers) | ![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 | <img src="assets/balancer-logo.jpg" alt="Balancer" width="90" /> | balancer | [Balancer](https://balancer.finance/) | * | [SDK](https://docs.balancer.finance/) | ![GREEN](https://via.placeholder.com/15/008000/?text=+) |
 | <img src="assets/perpetual_protocol-logo.jpg" alt="Perpetual Protocol" width="90" /> | perpetual_finance | [Perpetual Protocol](https://perp.fi/) | * | [SDK](https://docs.perp.fi/) | ![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 | <img src="assets/terra-logo.jpg" alt="Terra" width="90" /> | terra | [Terra](https://terra.money/) | * | [SDK](https://docs.terra.money/) | ![GREEN](https://via.placeholder.com/15/008000/?text=+) |
