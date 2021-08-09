@@ -435,3 +435,13 @@ class RangePositionRemovedEvent:
 class RangePositionFailureEvent:
     timestamp: float
     hb_id: str
+
+
+class LimitOrderStatus(Enum):
+    UNKNOWN = 0
+    NEW = 1
+    OPEN = 2
+    CANCELING = 3
+    CANCELED = 4
+    COMPLETED = 5
+    FAILED = 6
