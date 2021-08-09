@@ -6,7 +6,6 @@ from typing import (
     List,
     Optional,
     Any,
-    AsyncIterable,
 )
 from decimal import Decimal
 import asyncio
@@ -42,7 +41,7 @@ from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.exchange.southxchange.southxchange_order_book_tracker import SouthxchangeOrderBookTracker
 from hummingbot.connector.exchange.southxchange.southxchange_user_stream_tracker import SouthxchangeUserStreamTracker
 from hummingbot.connector.exchange.southxchange.southxchange_auth import SouthXchangeAuth
-# from hummingbot.connector.exchange.southxchange.southxchange_in_flight_order import AscendExInFlightOrder
+from hummingbot.connector.exchange.southxchange.southxchange_in_flight_order import SouthXchangeInFlightOrder
 from hummingbot.connector.exchange.southxchange import  southxchange_utils
 from hummingbot.connector.exchange.southxchange.southxchange_constants import EXCHANGE_NAME, REST_URL
 from hummingbot.core.data_type.common import OpenOrder
@@ -116,7 +115,7 @@ class SouthxchangeExchange(ExchangePyBase):
         self._shared_client = None
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
-        self._in_flight_orders = {}  # Dict[client_order_id:str, AscendExInFlightOrder]
+        self._in_flight_orders = {}  # Dict[client_order_id:str, SouthXchangeInFlightOrder]
         self._order_not_found_records = {}  # Dict[client_order_id:str, count:int]
         self._trading_rules = {}  # Dict[trading_pair:str, SouthXchangeTradingRule]
         self._status_polling_task = None
@@ -139,9 +138,9 @@ class SouthxchangeExchange(ExchangePyBase):
     def trading_rules(self) -> Dict[str, SouthXchangeTradingRule]:
         return self._trading_rules
 
-    # @property
-    # def in_flight_orders(self) -> Dict[str, AscendExInFlightOrder]:
-    #     return self._in_flight_orders
+    @property
+    def in_flight_orders(self) -> Dict[str, SouthXchangeInFlightOrder]:
+        return self._in_flight_orders
 
     @property
     def status_dict(self) -> Dict[str, bool]:
@@ -443,7 +442,7 @@ class SouthxchangeExchange(ExchangePyBase):
 
         if is_auth_required:
             url = f"{REST_URL}/{path_url}"
-            headers = self._southxchange_auth.get_auth_headers()
+            headers = self._southxchange_auth.get_auth_headers(url, params)
         else:
             url = f"{REST_URL}{path_url}"
             headers = self._southxchange_auth.get_headers()
@@ -614,49 +613,70 @@ class SouthxchangeExchange(ExchangePyBase):
             self.trigger_event(MarketEvent.OrderFailure,
                                MarketOrderFailureEvent(self.current_timestamp, order_id, order_type))
 
-    # def stop_tracking_order(self, order_id: str):
-    #     """
-    #     Stops tracking an order by simply removing it from _in_flight_orders dictionary.
-    #     """
-    #     if order_id in self._in_flight_orders:
-    #         del self._in_flight_orders[order_id]
 
-    # async def _execute_cancel(self, trading_pair: str, order_id: str) -> str:
-    #     """
-    #     Executes order cancellation process by first calling cancel-order API. The API result doesn't confirm whether
-    #     the cancellation is successful, it simply states it receives the request.
-    #     :param trading_pair: The market trading pair
-    #     :param order_id: The internal order id
-    #     order.last_state to change to CANCELED
-    #     """
-    #     try:
-    #         tracked_order = self._in_flight_orders.get(order_id)
-    #         if tracked_order is None:
-    #             raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
-    #         if tracked_order.exchange_order_id is None:
-    #             await tracked_order.get_exchange_order_id()
-    #         ex_order_id = tracked_order.exchange_order_id
+    def start_tracking_order(self,
+        order_id: str,
+        exchange_order_id: str,
+        trading_pair: str,
+        trade_type: TradeType,
+        price: Decimal,
+        amount: Decimal,
+        order_type: OrderType):
+        """
+        Starts tracking an order by simply adding it into _in_flight_orders dictionary.
+        """
+        self._in_flight_orders[order_id] = SouthXchangeInFlightOrder(
+            client_order_id=order_id,
+            exchange_order_id=exchange_order_id,
+            trading_pair=trading_pair,
+            order_type=order_type,
+            trade_type=trade_type,
+            price=price,
+            amount=amount
+        )
 
-    #         api_params = {
-    #             "symbol": southxchange_utils.convert_to_exchange_trading_pair(trading_pair),
-    #             "orderId": ex_order_id,
-    #             "time": southxchange_utils.get_ms_timestamp()
-    #         }
-    #         await self._api_request(
-    #             method="delete",
-    #             path_url="cash/order",
-    #             params=api_params,
-    #             is_auth_required=True,
-    #             force_auth_path_url="order"
-    #         )
 
-    #         return order_id
-    #     except asyncio.CancelledError:
-    #         raise
-    #     except Exception as e:
-    #         if str(e).find("Order not found") != -1:
-    #             self.stop_tracking_order(order_id)
-    #             return
+    def stop_tracking_order(self, order_id: str):
+        """
+        Stops tracking an order by simply removing it from _in_flight_orders dictionary.
+        """
+        if order_id in self._in_flight_orders:
+            del self._in_flight_orders[order_id]
+
+    async def _execute_cancel(self, trading_pair: str, order_id: str) -> str:
+        """
+        Executes order cancellation process by first calling cancel-order API. The API result doesn't confirm whether
+        the cancellation is successful, it simply states it receives the request.
+        :param trading_pair: The market trading pair
+        :param order_id: The internal order id
+        order.last_state to change to CANCELED
+        """
+        try:
+            tracked_order = self._in_flight_orders.get(order_id)
+            if tracked_order is None:
+                raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
+            if tracked_order.exchange_order_id is None:
+                await tracked_order.get_exchange_order_id()
+            ex_order_id = tracked_order.exchange_order_id
+
+            api_params = {
+                "orderCode": ex_order_id,
+            }
+            await self._api_request(
+                method="post",
+                path_url="/cancelOrder",
+                params=api_params,
+                is_auth_required=True,
+                force_auth_path_url="order"
+            )
+
+            return order_id
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            if str(e).find("Order not found") != -1:
+                self.stop_tracking_order(order_id)
+                return
 
     #         self.logger().network(
     #             f"Failed to cancel order {order_id}: {str(e)}",
