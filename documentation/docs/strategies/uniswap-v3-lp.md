@@ -1,7 +1,5 @@
 # Uniswap v3 Liquidity Pool Strategy
 
-import Prompt from "../../src/components/Prompt";
-
 **Updated as of v0.40**
 
 Before you can use the Uniswap v3 LP Strategy in Hummingbot, you need to install and configure the [Gateway API server](/gateway/installation).
@@ -44,41 +42,46 @@ The following example shows a step-by-step on configuring the strategy.
 1. In Hummingbot, enter `create`.
 
 2. Enter `uniswap_v3_lp`.
+```json
+What is your market making strategy?
+>>> uniswap_v3_lp
+```
 
-   <Prompt
-     prompt="What is your market making strategy?"
-     response=">>> uniswap_v3_lp"
-   />
+3. 
+```json
+Enter the pair you would like to provide liquidity to (e.g. WETH-DAI)
+>>> WETH-DAI
+```
 
-3. <Prompt
-     prompt="Enter the pair you would like to provide liquidity to (e.g. WETH-DAI)"
-     response=">>> WETH-DAI"
-   />
+4. 
+```json
+On which fee tier do you want to provide liquidity on? (LOW/MEDIUM/HIGH)
+>>> Medium
+```
 
-4. <Prompt
-     prompt="On which fee tier do you want to provide liquidity on? (LOW/MEDIUM/HIGH)"
-     response=">>> Medium"
-   />
+5. 
+```json
+How wide apart(in percentage) do you want the lower price to be from the upper price for buy position? (Enter 1 to indicate 1%)
+>>>
+```
 
-5. <Prompt
-     prompt="How wide apart(in percentage) do you want the lower price to be from the upper price for buy position? (Enter 1 to indicate 1%)"
-     response=">>> "
-   />
+6. 
+```json
+How wide apart(in percentage) do you want the lower price to be from the upper price for sell position? (Enter 1 to indicate 1%)
+>>>
+```
 
-6. <Prompt
-     prompt="How wide apart(in percentage) do you want the lower price to be from the upper price for sell position? (Enter 1 to indicate 1%)"
-     response=">>> "
-   />
+7. 
+```json
+How much of your base token do you want to use?
+>>>
+```
 
-7. <Prompt
-     prompt="How much of your base token do you want to use?"
-     response=">>> "
-   />
-
-8. <Prompt
-     prompt="How much of your quote token do you want to use?"
-     response=">>> "
-   />
+8. 
+```json
+How much of your quote token do you want to use?
+>>>
+```
 
 !!! note
     `Paper_trade` is not applicable for this strategy. Alternatively, you may set up a `kovan_testnet` to help you run some tests without risking funds.

@@ -1,7 +1,5 @@
 # Filled Order Delay
 
-import Prompt from "../../src/components/Prompt";
-
 By default, Hummingbot places orders as soon as there are no active orders; i.e., Hummingbot immediately places a new order to replace a filled order. If there is a sustained movement in the market in any one direction for some time, there is a risk of continued trading in that direction: For example, continuing to buy and accumulate base tokens in the case of a prolonged downward move or continuing to sell in the case of a prolonged upward move.
 
 The `filled_order_delay` parameter allows for a delay when placing a new order in the event of an order being filled, which will help mitigate the above scenarios.
@@ -14,10 +12,10 @@ For example, with a filled_order_delay = 300 when an order created by the bot is
 
 ** Prompt: **
 
-<Prompt
-  prompt="How long do you want to wait before placing the next order if your order gets filled (in seconds)?"
-  response=">>> 300"
-/>
+```json
+How long do you want to wait before placing the next order if your order gets filled (in seconds)?
+>>> 300
+```
 
 ## How it works
 

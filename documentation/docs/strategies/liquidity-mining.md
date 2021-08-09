@@ -1,7 +1,5 @@
 # Liquidity Mining Strategy
 
-import Prompt from "../../src/components/Prompt";
-
 **Updated as of v0.37**
 
 !!! warning
@@ -43,10 +41,10 @@ The exchange where the bot will create and place orders.
 
 ** Prompt: **
 
-<Prompt
-  prompt="Enter the spot connector to use for liquidity mining? "
-  response=">>> binance"
-/>
+```json
+Enter the spot connector to use for liquidity mining?
+>>> binance
+```
 
 ### `markets`
 
@@ -54,10 +52,10 @@ Token trading pair symbols you would like to trade on the exchange.
 
 ** Prompt: **
 
-<Prompt
-  prompt="Enter a list of markets (comma separated, e.g. LTC-USDT,ETH-USDT) "
-  response=">>> ETH-USDT"
-/>
+```json
+Enter a list of markets (comma separated, e.g. LTC-USDT,ETH-USDT)
+>>> ETH-USDT
+```
 
 !!! note
     If participating in multiple markets, this strategy only supports trading pairs that share the same base or quote asset.
@@ -68,10 +66,10 @@ Choose between the base and quote asset wherein you want to provide liquidity. A
 
 ** Prompt: **
 
-<Prompt
-  prompt="What asset (base or quote) do you want to use to provide liquidity? "
-  response=">>> ETH"
-/>
+```json
+What asset (base or quote) do you want to use to provide liquidity? 
+>>> ETH
+```
 
 ### `order_amount`
 
@@ -79,10 +77,10 @@ The order amount for the limit bid and ask orders. Ensure you have enough balanc
 
 ** Prompt: **
 
-<Prompt
-  prompt="What is the size of each order (in ETH amount)? "
-  response=">>> 0.008"
-/>
+```json
+What is the size of each order (in ETH amount)?
+>>> 0.008
+```
 
 ### `spread`
 
@@ -90,10 +88,10 @@ The strategy will place the order on a certain % away from the current mid-price
 
 ** Prompt: **
 
-<Prompt
-  prompt="How far away from the mid-price do you want to place bid and ask orders? (Enter 1 to indicate 1%) "
-  response=">>> 1"
-/>
+```json
+How far away from the mid-price do you want to place bid and ask orders? (Enter 1 to indicate 1%)
+>>> 1
+```
 
 ### `target_base_pct`
 
@@ -101,10 +99,10 @@ It sets a target of base asset balance in relation to a total asset allocation v
 
 ** Prompt: **
 
-<Prompt
-  prompt="For each pair, what is your target base asset percentage? (Enter 20 to indicate 20%) "
-  response=">>> 20"
-/>
+```json
+For each pair, what is your target base asset percentage? (Enter 20 to indicate 20%)
+>>> 20
+```
 
 ## Advanced parameters
 
@@ -118,10 +116,10 @@ Value in seconds of the orders’ duration before canceling and creating new set
 
 ** Prompt: **
 
-<Prompt
-  prompt="How often do you want to cancel and replace bids and asks (in seconds)? "
-  response=">>> 10"
-/>
+```json
+How often do you want to cancel and replace bids and asks (in seconds)?
+>>> 10
+```
 
 ### `order_refresh_tolerance_pct`
 
@@ -129,10 +127,10 @@ Determines the tolerance threshold in the percentage of the order price before r
 
 ** Prompt: **
 
-<Prompt
-  prompt="Enter the percent change in price needed to refresh orders at each cycle (Enter 1 to indicate 1%) "
-  response=">>> 0.2"
-/>
+```json
+Enter the percent change in price needed to refresh orders at each cycle (Enter 1 to indicate 1%)
+>>> 0.2
+```
 
 ### `inventory_skew_enabled`
 
@@ -140,10 +138,10 @@ Allows you to enable and disable the `target_base_pct`. By default, this paramet
 
 ** Prompt: **
 
-<Prompt
-  prompt="Would you like to enable inventory skew? (Yes/No) "
-  response=">>> Yes"
-/>
+```json
+Would you like to enable inventory skew? (Yes/No)
+>>> Yes
+```
 
 ### `inventory_range_multiplier`
 
@@ -151,10 +149,10 @@ This parameter expands the range of tolerable inventory levels on your target ba
 
 ** Prompt: **
 
-<Prompt
-  prompt="What is your tolerable range of inventory around the target, expressed in multiples of your total order size?"
-  response=">>> 1"
-/>
+```json
+What is your tolerable range of inventory around the target, expressed in multiples of your total order size?
+>>> 1
+```
 
 ### `volatility_interval`
 
@@ -162,10 +160,10 @@ The interval, in seconds, in which to pick historical data from mid-price to cal
 
 ** Prompt: **
 
-<Prompt
-  prompt="What is an interval, in second, in which to pick historical mid price data from to calculate market volatility? "
-  response=">>> 300"
-/>
+```json
+What is an interval, in second, in which to pick historical mid price data from to calculate market volatility?
+>>> 300
+```
 
 ### `avg_volatility_period`
 
@@ -173,10 +171,10 @@ The number of intervals based on `volatility_interval` to calculate the average 
 
 ** Prompt: **
 
-<Prompt
-  prompt="How many interval does it take to calculate average market volatility? "
-  response=">>> 10"
-/>
+```json
+How many interval does it take to calculate average market volatility?
+>>> 10
+```
 
 ### `volatility_to_spread_multiplier`
 
@@ -184,10 +182,10 @@ This expands the average spread depending on the value set. The predefined value
 
 ** Prompt: **
 
-<Prompt
-  prompt="Enter a multiplier used to convert average volatility to spread (enter 1 for 1 to 1 conversion) "
-  response=">>> 1"
-/>
+```json
+Enter a multiplier used to convert average volatility to spread (enter 1 for 1 to 1 conversion)
+>>> 1
+```
 
 ### `max_spread`
 
@@ -195,10 +193,10 @@ Sets the maximum spread for your orders. Spreads will not go higher than the val
 
 ** Prompt: **
 
-<Prompt
-  prompt="What is the maximum spread? (Enter 1 to indicate 1% or -1 to ignore this setting)"
-  response=">>> 1"
-/>
+```json
+What is the maximum spread? (Enter 1 to indicate 1% or -1 to ignore this setting)
+>>> 1
+```
 
 ### `max_order_age`
 
@@ -206,10 +204,10 @@ Allows you to set a maximum lifespan of your orders (in seconds) at which the or
 
 ** Prompt: **
 
-<Prompt
-  prompt="What is the maximum life time of your orders (in seconds)?"
-  response=">>> 3600"
-/>
+```json
+What is the maximum life time of your orders (in seconds)?
+>>> 3600
+```
 
 ```json
 exchange: binance

@@ -1,7 +1,5 @@
 # Pure Market Making
 
-import Prompt from "../../src/components/Prompt";
-
 ## How it works
 
 In the pure market making strategy, Hummingbot continually posts the limit bid and ask offers on the market, and waits for other market participants ("takers") to fill their orders.
@@ -53,7 +51,10 @@ The exchange where the bot will place bid and ask orders.
 
 ** Prompt: **
 
-<Prompt prompt="Enter your maker spot connector" response=">>> binance" />
+```json
+Enter your maker spot connector
+>>> binance
+```
 
 ### `market`
 
@@ -61,10 +62,10 @@ Token trading pair symbol you would like to trade on the exchange.
 
 ** Prompt: **
 
-<Prompt
-  prompt="Enter the token trading pair you would like to trade on the exchange"
-  response=">>> BTC-USDT"
-/>
+```json
+Enter the token trading pair you would like to trade on the exchange
+>>> BTC-USDT
+```
 
 ### `bid_spread`
 
@@ -72,10 +73,10 @@ The strategy will place the buy (bid) order on a certain % away from the mid-pri
 
 ** Prompt: **
 
-<Prompt
-  prompt="How far away from the mid price do you want to place the first bid order?"
-  response=">>> 2"
-/>
+```json
+How far away from the mid price do you want to place the first bid order?
+>>> 2
+```
 
 ### `ask_spread`
 
@@ -83,10 +84,10 @@ The strategy will place the sell (ask) order on a certain % away from the mid-pr
 
 ** Prompt: **
 
-<Prompt
-  prompt="How far away from the mid price do you want to place the first ask order?"
-  response=">>> 3"
-/>
+```json
+How far away from the mid price do you want to place the first ask order?
+>>> 3
+```
 
 ### `order_refresh_time`
 
@@ -94,10 +95,10 @@ An amount in seconds, which is the duration for the placed limit orders. The lim
 
 ** Prompt: **
 
-<Prompt
-  prompt="How often do you want to cancel and replace bids and asks (in seconds)?"
-  response=">>> 10"
-/>
+```json
+How often do you want to cancel and replace bids and asks (in seconds)?
+>>> 10
+```
 
 ### `order_amount`
 
@@ -105,10 +106,10 @@ The order amount for the limit bid and ask orders. Ensure you have enough quote 
 
 ** Prompt: **
 
-<Prompt
-  prompt="What is the amount of [base_asset] per order? (minimum [min_amount])"
-  response=""
-/>
+```json
+What is the amount of [base_asset] per order? (minimum [min_amount])
+>>>
+```
 
 ### `ping_pong_enabled`
 
@@ -116,10 +117,10 @@ Whether to alternate between buys and sells, for more information on this parame
 
 ** Prompt: **
 
-<Prompt
-  prompt="Would you like to use the ping pong feature and alternate between buy and sell orders after fills?"
-  response=""
-/>
+```json
+Would you like to use the ping pong feature and alternate between buy and sell orders after fills?
+>>>
+```
 
 !!! tip
     For autocomplete inputs during configuration, when going through the command line config process, pressing `<TAB>` at a prompt will display valid available inputs.

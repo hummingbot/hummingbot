@@ -1,7 +1,5 @@
 # Order Optimization
 
-import Prompt from "../../src/components/Prompt";
-
 **Updated as of `v0.35.0`**
 
 Users now have the option to automatically adjust the prices to the right, just above the top bid and just below the top ask.
@@ -15,10 +13,10 @@ Allows your bid and ask order prices to be adjusted based on the current top bid
 
 ** Prompt: **
 
-<Prompt
-  prompt="Do you want to enable best bid ask jumping? (Yes/No)"
-  response=">>> Yes"
-/>
+```json
+Do you want to enable best bid ask jumping? (Yes/No)
+>>> Yes
+```
 
 ## `ask_order_optimization_depth`
 
@@ -26,10 +24,10 @@ The depth in base asset amount to be used for finding top ask.
 
 ** Prompt: **
 
-<Prompt
-  prompt="How deep do you want to go into the order book for calculating the top ask, ignoring dust orders on the top (expressed in base asset amount)?"
-  response=">>> "
-/>
+```json
+How deep do you want to go into the order book for calculating the top ask, ignoring dust orders on the top (expressed in base asset amount)?
+>>>
+```
 
 ## `bid_order_optimization_depth`
 
@@ -37,10 +35,10 @@ The depth in base asset amount to be used for finding the top bid.
 
 ** Prompt: **
 
-<Prompt
-  prompt="How deep do you want to go into the order book for calculating the top bid, ignoring dust orders on the top (expressed in base asset amount)?"
-  response=">>> "
-/>
+```json
+How deep do you want to go into the order book for calculating the top bid, ignoring dust orders on the top (expressed in base asset amount)?
+>>>
+```
 
 ## How it works
 

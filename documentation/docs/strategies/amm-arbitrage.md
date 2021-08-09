@@ -1,7 +1,5 @@
 # AMM Arbitrage
 
-import Prompt from "../../src/components/Prompt";
-
 **Updated as of v0.33**
 
 Before you can use the AMM arbitrage strategy in Hummingbot, you need to install and configure the Gateway API server. The following flowchart shows the typical installation and configuration process for Balancer.
@@ -44,10 +42,10 @@ Enter the first exchange/AMM you would like to trade on.
 
 ** Prompt: **
 
-<Prompt
-  prompt="Enter your first spot connector (Exchange/AMM)"
-  response=">>> "
-/>
+```json 
+Enter your first spot connector (Exchange/AMM)
+>>> 
+```
 
 ### `market_1`
 
@@ -55,10 +53,10 @@ Enter the first token trading pair for the secondary exchange.
 
 ** Prompt: **
 
-<Prompt
-  prompt="Enter the token trading pair you would like to trade on balancer (e.g. WETH-DAI)"
-  response=">>> WETH-DAI"
-/>
+```json
+Enter the token trading pair you would like to trade on balancer (e.g. WETH-DAI)
+>>> WETH-DAI
+```
 
 ### `connector 2`
 
@@ -66,10 +64,10 @@ Enter the secondary exchange/AMM you would like to trade on.
 
 ** Prompt: **
 
-<Prompt
-  prompt="Enter your second spot connector (Exchange/AMM)"
-  response=">>> "
-/>
+```json
+Enter your second spot connector (Exchange/AMM)
+>>>
+```
 
 ### `market_2`
 
@@ -77,10 +75,10 @@ Enter the second token trading pair for the secondary exchange.
 
 ** Prompt: **
 
-<Prompt
-  prompt="Enter the token trading pair you would like to trade on balancer (e.g. ZRX-ETH)"
-  response=">>> ZRX-ETH"
-/>
+```json
+Enter the token trading pair you would like to trade on balancer (e.g. ZRX-ETH)
+>>> ZRX-ETH
+```
 
 ### `order_amount`
 
@@ -88,10 +86,10 @@ The order amount for the bid order of the base asset for the first trading pair.
 
 ** Prompt: **
 
-<Prompt
-  prompt="What is the amount of [first trading pair base asset] per order?"
-  response=">>> "
-/>
+```json
+What is the amount of [first trading pair base asset] per order?
+>>>
+```
 
 ### `min_profitability`
 
@@ -99,10 +97,10 @@ Minimum profitability target required to execute trades.
 
 ** Prompt: **
 
-<Prompt
-  prompt="What is the minimum profitability for you to make a trade? (Enter 1 to indicate 1%) >>>"
-  response=">>> 3"
-/>
+```json
+What is the minimum profitability for you to make a trade? (Enter 1 to indicate 1%) >>>
+>>> 3
+```
 
 ### `market_1_slippage_buffer`
 
@@ -110,10 +108,10 @@ Percent buffer added to the market 1 exchange price to account for price movemen
 
 ** Prompt: **
 
-<Prompt
-  prompt="How much buffer do you want to add to the price to account for slippage for orders on the first market (Enter 1 to indicate 1%) >>>"
-  response=">>> 3"
-/>
+```json
+How much buffer do you want to add to the price to account for slippage for orders on the first market (Enter 1 to indicate 1%) >>>
+>>> 3
+```
 
 ### `market_2_slippage_buffer`
 
@@ -121,10 +119,10 @@ Percent buffer added to the market two exchange price to account for price movem
 
 ** Prompt: **
 
-<Prompt
-  prompt="How much buffer do you want to add to the price to account for slippage for orders on the second market (Enter 1 to indicate 1%) >>>"
-  response=">>> 3"
-/>
+```json
+How much buffer do you want to add to the price to account for slippage for orders on the second market (Enter 1 to indicate 1%) >>>
+>>> 3
+```
 
 ### `concurrent_orders_submission`
 
@@ -133,10 +131,10 @@ If false, the bot will wait for the first exchange order filled before submittin
 
 ** Prompt: **
 
-<Prompt
-  prompt="Do you want to submit both arb orders concurrently (Yes/No)? If no, the bot will wait for the first connector order filled before submitting the other order >>>"
-  response=">>> Yes"
-/>
+```json
+Do you want to submit both arb orders concurrently (Yes/No)? If no, the bot will wait for the first connector order filled before submitting the other order >>>
+>>> Yes
+```
 
 ### `manual_gas_price`
 
@@ -147,10 +145,10 @@ If you prefer to manually set your gas other than using Defipulse.
 
 ** Prompt: **
 
-<Prompt
-  prompt="Enter fixed gas price (in Gwei) you want to use for Ethereum transactions"
-  response=">>> "
-/>
+```json
+Enter fixed gas price (in Gwei) you want to use for Ethereum transactions
+>>>
+```
 
 ## Rate oracle integration
 

@@ -12,10 +12,10 @@ Whether to alternate between buys and sells.
 
 ** Prompt: **
 
-<Prompt
-  prompt="Would you like to use the ping pong feature and alternate between buy and sell orders after fills?"
-  response=">>> "
-/>
+```json
+Would you like to use the ping pong feature and alternate between buy and sell orders after fills?
+>>>
+```
 
 ## How it works
 

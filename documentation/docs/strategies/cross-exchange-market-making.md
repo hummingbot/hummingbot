@@ -81,7 +81,10 @@ The exchange where the bot will place maker orders.
 
 ** Prompt: **
 
-<Prompt prompt="Enter your maker spot connector" response="" />
+```json
+Enter your maker spot connector
+>>>
+```
 
 ### `taker_market`
 
@@ -89,7 +92,10 @@ The exchange where the bot will place taker orders.
 
 ** Prompt: **
 
-<Prompt prompt="Enter your taker spot connector" response="" />
+```json
+Enter your taker spot connector
+>>>
+```
 
 ### `maker_market_trading_pair`
 
@@ -97,10 +103,10 @@ Trading pair for the maker exchange.
 
 ** Prompt: **
 
-<Prompt
-  prompt="Enter the token trading pair you would like to trade on maker market: [maker_market]"
-  response=""
-/>
+```json
+Enter the token trading pair you would like to trade on maker market: [maker_market]
+>>>
+```
 
 ### `taker_market_trading_pair`
 
@@ -108,10 +114,10 @@ Trading pair for the taker exchange.
 
 ** Prompt: **
 
-<Prompt
-  prompt="Enter the token trading pair you would like to trade on taker market: [taker_market]"
-  response=""
-/>
+```json
+Enter the token trading pair you would like to trade on taker market: [taker_market]
+>>>
+```
 
 ### `min_profitability`
 
@@ -119,10 +125,10 @@ Minimum required profitability for Hummingbot to place an order on the maker exc
 
 ** Prompt: **
 
-<Prompt
-  prompt="What is the minimum profitability for you to make a trade?"
-  response=""
-/>
+```json
+What is the minimum profitability for you to make a trade?
+>>>
+```
 
 ### `order_amount`
 
@@ -130,10 +136,10 @@ An amount expressed in base currency of maximum allowable order size.
 
 ** Prompt: **
 
-<Prompt
-  prompt="What is the amount of [base_asset] per order? (minimum [min_amount])"
-  response=""
-/>
+```json
+What is the amount of [base_asset] per order? (minimum [min_amount])
+>>>
+```
 
 ### `use_oracle_conversion_rate`
 
@@ -146,10 +152,10 @@ You can also edit it from `config_global.yml` to change the `rate_oracle_source`
 
 ** Prompt: **
 
-<Prompt
-  prompt="Do you want to use rate oracle on unmatched trading pairs? (Yes/No)"
-  response=">>>"
-/>
+```json
+Do you want to use rate oracle on unmatched trading pairs? (Yes/No)
+>>>
+```
 
 !!! tip
     For autocomplete inputs during configuration, when going through the command line config process, pressing `<TAB>` at a prompt will display valid available inputs.

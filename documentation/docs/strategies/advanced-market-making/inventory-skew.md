@@ -10,10 +10,10 @@ Allows the user to set and maintain a target inventory split between base and qu
 
 ** Prompt: **
 
-<Prompt
-  prompt="Would you like to enable inventory skew? (Yes/No)"
-  response=">>> Yes"
-/>
+```json
+Would you like to enable inventory skew? (Yes/No)
+>>> Yes
+```
 
 ## `inventory_target_base_pct`
 
@@ -21,10 +21,10 @@ Target amount held of the base asset, expressed as a percentage of the total bas
 
 ** Prompt: **
 
-<Prompt
-  prompt="On [exchange], you have [base_asset_balance] and [quote_asset_balance]. By market value, your current inventory split is [base_%_ratio] and [quote_%_ratio]. Would you like to keep this ratio?"
-  response=">>> Yes"
-/>
+```json
+On [exchange], you have [base_asset_balance] and [quote_asset_balance]. By market value, your current inventory split is [base_%_ratio] and [quote_%_ratio]. Would you like to keep this ratio?
+>>> Yes
+```
 
 ## `inventory_range_multiplier`
 
@@ -32,10 +32,10 @@ This expands the range of tolerable inventory level around your target base perc
 
 ** Prompt: **
 
-<Prompt
-  prompt="What is your tolerable range of inventory around the target, expressed in multiples of your total order size?"
-  response=">>> "
-/>
+```json
+What is your tolerable range of inventory around the target, expressed in multiples of your total order size?
+>>>
+```
 
 ## How it works
 
