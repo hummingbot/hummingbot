@@ -9,7 +9,6 @@ from typing import Optional, Dict, List, Deque
 
 import hummingbot.connector.exchange.ndax.ndax_constants as CONSTANTS
 
-from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -58,7 +57,7 @@ class NdaxOrderBookTracker(OrderBookTracker):
         Initialize order books
         """
         for _, trading_pair in enumerate(self._trading_pairs):
-            self._order_books[trading_pair] = OrderBook()
+            self._order_books[trading_pair] = self._data_source.order_book_create_function()
             self._tracking_message_queues[trading_pair] = asyncio.Queue()
             self._tracking_tasks[trading_pair] = safe_ensure_future(self._track_single_book(trading_pair))
             await asyncio.sleep(1)
