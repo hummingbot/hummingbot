@@ -42,12 +42,13 @@ class NdaxOrderBookMessage(OrderBookMessage):
 
     @property
     def update_id(self) -> int:
-        if self.type in [OrderBookMessageType.DIFF, OrderBookMessageType.SNAPSHOT]:
-            entry: NdaxOrderBookEntry = self.content["data"][0]
-            return int(entry.actionDateTime)
-        elif self.type == OrderBookMessageType.TRADE:
-            entry: NdaxTradeEntry = self.content["data"][0]
-            return int(entry.tradeTime)
+        if self.type == OrderBookMessageType.SNAPSHOT:
+            # Assumes Snapshot Update ID to be 0
+            # Since uid of orderbook snapshots from REST API is not in sync with uid from websocket
+            return 0
+        elif self.type in [OrderBookMessageType.DIFF, OrderBookMessageType.TRADE]:
+            last_entry: NdaxOrderBookEntry = self.content["data"][-1]
+            return last_entry.mdUpdateId
 
     @property
     def trade_id(self) -> int:
@@ -59,14 +60,23 @@ class NdaxOrderBookMessage(OrderBookMessage):
         return self.content["trading_pair"]
 
     @property
+    def last_traded_price(self) -> float:
+        entries: List[NdaxOrderBookEntry] = self.content["data"]
+        return float(entries[-1].lastTradePrice)
+
+    @property
     def asks(self) -> List[OrderBookRow]:
         entries: List[NdaxOrderBookEntry] = self.content["data"]
-        return [self._order_book_row_for_entry(entry) for entry in entries if entry.side == self._SELL_SIDE]
+        asks = [self._order_book_row_for_entry(entry) for entry in entries if entry.side == self._SELL_SIDE]
+        asks.sort(key=lambda row: (row.price, row.update_id))
+        return asks
 
     @property
     def bids(self) -> List[OrderBookRow]:
         entries: List[NdaxOrderBookEntry] = self.content["data"]
-        return [self._order_book_row_for_entry(entry) for entry in entries if entry.side == self._BUY_SIDE]
+        bids = [self._order_book_row_for_entry(entry) for entry in entries if entry.side == self._BUY_SIDE]
+        bids.sort(key=lambda row: (row.price, row.update_id))
+        return bids
 
     def _order_book_row_for_entry(self, entry: NdaxOrderBookEntry) -> OrderBookRow:
         price = float(entry.price)

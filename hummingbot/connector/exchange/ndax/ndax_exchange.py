@@ -324,7 +324,12 @@ class NdaxExchange(ExchangeBase):
             else:
                 raise NotImplementedError(f"{method} HTTP Method not implemented. ")
 
+            data = await response.text()
+            if data == CONSTANTS.API_LIMIT_REACHED_ERROR_MESSAGE:
+                raise Exception(f"The exchange API request limit has been reached (original error '{data}')")
+
             parsed_response = await response.json()
+
         except ValueError as e:
             self.logger().error(f"{str(e)}")
             raise ValueError(f"Error authenticating request {method} {url}. Error: {str(e)}")
@@ -789,10 +794,7 @@ class NdaxExchange(ExchangeBase):
         parsed_history_resps: List[Dict[str, Any]] = []
         for resp in raw_responses:
             if not isinstance(resp, Exception):
-                # When there are no results, the GetTradesHistory endpoint returns a list with an empty list inside
-                # That empty list should not be processed.
-                if len(resp) > 0:
-                    parsed_history_resps.append(resp)
+                parsed_history_resps.extend(resp)
             else:
                 self.logger().error(f"Error fetching order status. Response: {resp}")
 

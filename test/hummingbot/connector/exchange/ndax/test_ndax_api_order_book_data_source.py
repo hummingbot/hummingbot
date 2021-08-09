@@ -1,5 +1,7 @@
 import unittest
 import asyncio
+from collections import deque
+
 import ujson
 
 import hummingbot.connector.exchange.ndax.ndax_constants as CONSTANTS
@@ -225,7 +227,7 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         result: OrderBook = results[0]
 
         self.assertTrue(type(result) == OrderBook)
-        self.assertEqual(result.snapshot_uid, NdaxOrderBookEntry(*mock_response[0]).actionDateTime)
+        self.assertEqual(result.snapshot_uid, 0)
 
     @patch("aiohttp.ClientSession.get")
     def test_get_instrument_ids(self, mock_api):
@@ -242,8 +244,9 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(1, self.data_source._trading_pair_id_map[self.trading_pair])
         self.assertEqual(result[self.trading_pair], self.instrument_id)
 
+    @patch("asyncio.sleep", new_callable=AsyncMock)
     @patch("aiohttp.ClientSession.get")
-    def test_listen_for_snapshots_cancelled_when_fetching_snapshot(self, mock_api):
+    def test_listen_for_snapshots_cancelled_when_fetching_snapshot(self, mock_api, mock_sleep):
         mock_api.side_effect = asyncio.CancelledError
         self.simulate_trading_pair_ids_initialized()
 
@@ -256,26 +259,35 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.assertEqual(msg_queue.qsize(), 0)
 
+    @patch("asyncio.sleep", new_callable=AsyncMock)
     @patch("aiohttp.ClientSession.get")
-    def test_listen_for_snapshots_logs_exception_when_fetching_snapshot(self, mock_api):
+    def test_listen_for_snapshots_logs_exception_when_fetching_snapshot(self, mock_api, mock_sleep):
+        # the queue and the division by zero error are used just to synchronize the test
+        sync_queue = deque()
+        sync_queue.append(1)
+
         self.simulate_trading_pair_ids_initialized()
 
         mock_api.side_effect = Exception
+        mock_sleep.side_effect = lambda delay: 1 / 0 if len(sync_queue) == 0 else sync_queue.pop()
 
         msg_queue: asyncio.Queue = asyncio.Queue()
-        with self.assertRaises(asyncio.TimeoutError):
-            self.listening_task = self.ev_loop.create_task(asyncio.wait_for(
-                self.data_source.listen_for_order_book_snapshots(self.ev_loop, msg_queue),
-                2.0
-            ))
+        with self.assertRaises(ZeroDivisionError):
+            self.listening_task = self.ev_loop.create_task(
+                self.data_source.listen_for_order_book_snapshots(self.ev_loop, msg_queue))
             self.ev_loop.run_until_complete(self.listening_task)
 
         self.assertEqual(msg_queue.qsize(), 0)
         self.assertTrue(self._is_logged("ERROR",
                                         "Unexpected error occured listening for orderbook snapshots. Retrying in 5 secs..."))
 
+    @patch("asyncio.sleep", new_callable=AsyncMock)
     @patch("aiohttp.ClientSession.get")
-    def test_listen_for_snapshots_successful(self, mock_api):
+    def test_listen_for_snapshots_successful(self, mock_api, mock_sleep):
+        # the queue and the division by zero error are used just to synchronize the test
+        sync_queue = deque()
+        sync_queue.append(1)
+
         mock_response: List[List[Any]] = [
             # mdUpdateId, accountId, actionDateTime, actionType, lastTradePrice, orderId, price, productPairCode, quantity, side
             [93617617, 1, 1626788175416, 0, 37800.0, 1, 37750.0, 1, 0.015, 0],
@@ -284,18 +296,18 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.set_mock_response(mock_api, 200, mock_response)
         self.simulate_trading_pair_ids_initialized()
 
+        mock_sleep.side_effect = lambda delay: 1 / 0 if len(sync_queue) == 0 else sync_queue.pop()
+
         msg_queue: asyncio.Queue = asyncio.Queue()
-        with self.assertRaises(asyncio.TimeoutError):
-            self.listening_task = self.ev_loop.create_task(asyncio.wait_for(
-                self.data_source.listen_for_order_book_snapshots(self.ev_loop, msg_queue),
-                2.0
-            ))
+        with self.assertRaises(ZeroDivisionError):
+            self.listening_task = self.ev_loop.create_task(
+                self.data_source.listen_for_order_book_snapshots(self.ev_loop, msg_queue))
             self.ev_loop.run_until_complete(self.listening_task)
 
         self.assertEqual(msg_queue.qsize(), 1)
 
         snapshot_msg: OrderBookMessage = msg_queue.get_nowait()
-        self.assertEqual(snapshot_msg.update_id, NdaxOrderBookEntry(*mock_response[0]).actionDateTime)
+        self.assertEqual(snapshot_msg.update_id, 0)
 
     @patch("websockets.connect", new_callable=AsyncMock)
     def test_listen_for_order_book_diffs_cancelled_when_subscribing(self, mock_ws):
