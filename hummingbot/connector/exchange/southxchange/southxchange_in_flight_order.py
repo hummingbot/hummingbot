@@ -1,5 +1,5 @@
 from decimal import Decimal
-from hummingbot.connector.exchange.southxchange.southxchange_utils import get_exchange_trading_pair_from_currencies
+from hummingbot.connector.exchange.southxchange.southxchange_utils import convert_from_exchange_trading_pair, get_exchange_trading_pair_from_currencies
 from typing import (
     Any,
     Dict,
@@ -57,7 +57,11 @@ class SouthXchangeInFlightOrder(InFlightOrderBase):
         retval = SouthXchangeInFlightOrder(
             "",
             data["Code"],
-            get_exchange_trading_pair_from_currencies(data["ListingCurrency"], data["ReferenceCurrency"]),
+            convert_from_exchange_trading_pair(
+                get_exchange_trading_pair_from_currencies(
+                    data["ListingCurrency"], data["ReferenceCurrency"]
+                )
+            ),
             OrderType.MARKET,
             getattr(TradeType, str(data["Type"]).upper()),
             Decimal(data["LimitPrice"]),
