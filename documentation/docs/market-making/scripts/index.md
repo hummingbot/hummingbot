@@ -53,7 +53,7 @@ Provides you a base template to start using the scripts functions.
 
 ## Script base class
 
-See [this article](/scripts/script-base) for a description of the methods in the Script Base class.
+See [this article](script-base) for a description of the methods in the Script Base class.
 
 
 ## Updating your scripts

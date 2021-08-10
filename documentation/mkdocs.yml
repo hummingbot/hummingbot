@@ -175,6 +175,7 @@ nav:
       - Adding Transaction Costs: market-making/add-transaction-costs.md
       - Minimum Spread: market-making/minimum-spread.md
       - Scripts: market-making/scripts/index.md
+      - Script Base Class: market-making/scripts/script-base.md
     - Support:
       - Get Support: support/support.md
       - Troubleshooting: support/troubleshooting.md
