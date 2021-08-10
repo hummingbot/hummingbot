@@ -42,7 +42,7 @@ from hummingbot.connector.exchange.crypto_com.crypto_com_in_flight_order import 
 from hummingbot.connector.exchange.crypto_com import crypto_com_utils
 from hummingbot.connector.exchange.crypto_com import crypto_com_constants as CONSTANTS
 from hummingbot.core.data_type.common import OpenOrder
-from hummingbot.core.api_throttler.varied_rate_api_throttler import VariedRateThrottler
+# from hummingbot.core.api_throttler.varied_rate_api_throttler import VariedRateThrottler
 
 ctce_logger = None
 s_decimal_NaN = Decimal("nan")
@@ -94,9 +94,9 @@ class CryptoComExchange(ExchangeBase):
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
         self._last_poll_timestamp = 0
-        self._throttler = VariedRateThrottler(
-            rate_limit_list=CONSTANTS.RATE_LIMITS,
-        )
+        # self._throttler = VariedRateThrottler(
+        #     rate_limit_list=CONSTANTS.RATE_LIMITS,
+        # )
 
     @property
     def name(self) -> str:
@@ -320,38 +320,36 @@ class CryptoComExchange(ExchangeBase):
         signature to the request.
         :returns A response in json format.
         """
-        async with self._throttler.execute_task(path_url):
-            url = f"{CONSTANTS.REST_URL}/{path_url}"
-            client = await self._http_client()
-            if is_auth_required:
-                request_id = crypto_com_utils.RequestId.generate_request_id()
-                data = {"params": params}
-                params = self._crypto_com_auth.generate_auth_dict(path_url, request_id,
-                                                                  crypto_com_utils.get_ms_timestamp(), data)
-                headers = self._crypto_com_auth.get_headers()
-            else:
-                headers = {"Content-Type": "application/json"}
+        # async with self._throttler.execute_task(path_url):
+        url = f"{CONSTANTS.REST_URL}/{path_url}"
+        client = await self._http_client()
+        if is_auth_required:
+            request_id = crypto_com_utils.RequestId.generate_request_id()
+            data = {"params": params}
+            params = self._crypto_com_auth.generate_auth_dict(path_url, request_id,
+                                                              crypto_com_utils.get_ms_timestamp(), data)
+            headers = self._crypto_com_auth.get_headers()
+        else:
+            headers = {"Content-Type": "application/json"}
 
-            if method == "get":
-                response = await client.get(url, headers=headers)
-            elif method == "post":
-                post_json = json.dumps(params)
-                response = await client.post(url, data=post_json, headers=headers)
-            else:
-                raise NotImplementedError
+        if method == "get":
+            response = await client.get(url, headers=headers)
+        elif method == "post":
+            post_json = json.dumps(params)
+            response = await client.post(url, data=post_json, headers=headers)
+        else:
+            raise NotImplementedError
 
-            try:
-                parsed_response = json.loads(await response.text())
-            except Exception as e:
-                raise IOError(f"Error parsing data from {url}. Error: {str(e)}")
-            if response.status != 200:
-                raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. "
-                              f"Message: {parsed_response}")
-            if parsed_response["code"] != 0:
-                raise IOError(f"{url} API call failed, response: {parsed_response}")
-            # print(f"REQUEST: {method} {path_url} {params}")
-            # print(f"RESPONSE: {parsed_response}")
-            return parsed_response
+        try:
+            parsed_response = json.loads(await response.text())
+        except Exception as e:
+            raise IOError(f"Error parsing data from {url}. Error: {str(e)}")
+        if response.status != 200:
+            raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. "
+                          f"Message: {parsed_response}")
+        if parsed_response["code"] != 0:
+            raise IOError(f"{url} API call failed, response: {parsed_response}")
+        return parsed_response
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal):
         """
