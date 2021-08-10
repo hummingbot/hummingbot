@@ -26,11 +26,15 @@ fi
 
 # Ask the user for the hummingobt data folder location
 prompt_hummingbot_data_path () {
-read -p "   Enter the full location path where your Hummingbot files are located (example: /Users/hbot/hummingbot_files) >>> " FOLDER
+read -p "   Enter the location where your Hummingbot files are located (example: /Users/hbot/hummingbot_files) >>> " FOLDER
 if [ "$FOLDER" == "" ]
 then
   prompt_hummingbot_data_path
 else
+  if ! [[ "$FOLDER" == *"$HOME"* ]]; then
+    FOLDER=$PWD/$FOLDER
+  fi
+
   if [ ! -d "$FOLDER" ]; then
     echo "‼️  Directory not found in ${FOLDER}"
     prompt_hummingbot_data_path
