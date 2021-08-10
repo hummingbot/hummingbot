@@ -10,10 +10,10 @@ Place only sell orders when mid price goes above this price.
 
 ** Prompt: **
 
-<Prompt
-  prompt="Enter the price point above which only sell orders will be placed"
-  response=">>> "
-/>
+```json
+Enter the price point above which only sell orders will be placed
+>>>
+```
 
 ## `price_floor`
 
@@ -21,10 +21,10 @@ Place only buy orders when mid price falls below this price.
 
 ** Prompt: **
 
-<Prompt
-  prompt="Enter the price below which only buy orders will be placed"
-  response=">>> "
-/>
+```json
+Enter the price below which only buy orders will be placed
+>>>
+```
 
 ## How it works
 

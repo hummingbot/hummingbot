@@ -27,10 +27,10 @@ Enter an exchange you would like to trade on.
 
 ** Prompt: **
 
-<Prompt
-  prompt="Enter a spot connector (Exchange/AMM) "
-  response=">>> binance"
-/>
+```json
+Enter a spot connector (Exchange/AMM)
+>>> binance
+```
 
 ### `spot_market`
 
@@ -38,10 +38,10 @@ Enter the token trading pair for the spot exchange.
 
 ** Prompt: **
 
-<Prompt
-  prompt="Enter the token trading pair you would like  to trade on binance (e.g ETH-USDT) "
-  response=">>> ETH-USDT"
-/>
+```json
+Enter the token trading pair you would like  to trade on binance (e.g ETH-USDT)
+>>> ETH-USDT
+```
 
 ### `derivative_connector`
 
@@ -49,10 +49,10 @@ Enter the derivative exchange you would like to trade on.
 
 ** Prompt: **
 
-<Prompt
-  prompt="Enter a derivative name (Exchange/AMM) "
-  response=">>> binance_perpetuals"
-/>
+```json
+Enter a derivative name (Exchange/AMM)
+>>> binance_perpetuals
+```
 
 ### `derivative_market`
 
@@ -60,10 +60,10 @@ Enter the token trading pair for the derivative exchange.
 
 ** Prompt: **
 
-<Prompt
-  prompt="Enter the token trading pair you would like  to trade on binance_futures (e.g ETH-USDC) "
-  response=">>> ETH-USDC"
-/>
+```json
+Enter the token trading pair you would like  to trade on binance_futures (e.g ETH-USDC)
+>>> ETH-USDC
+```
 
 ### `order_amount`
 
@@ -71,7 +71,10 @@ The order amount for both the orders. Ensure you have enough balance on quote to
 
 ** Prompt: **
 
-<Prompt prompt="What is the amount of ETH per order? " response=">>> " />
+```json
+What is the amount of ETH per order?
+>>>
+```
 
 ### `derivative_leverage`
 
@@ -79,10 +82,10 @@ Enter the leverage you would like to use.
 
 ** Prompt: **
 
-<Prompt
-  prompt="How much leverage would you like to use on the derivative exchange? (Enter 1 to indicate 1x) "
-  response=">>> 1"
-/>
+```json
+How much leverage would you like to use on the derivative exchange? (Enter 1 to indicate 1x)
+>>> 1
+```
 
 ### `min_divergence`
 
@@ -90,10 +93,10 @@ The spread required for the first part of the arbitrage to be executed.
 
 ** Prompt: **
 
-<Prompt
-  prompt="What is the minimum spread between the spot and derivative market price before starting an arbitrage? (Enter 1 to indicate 1%)"
-  response=">>> 1"
-/>
+```json
+What is the minimum spread between the spot and derivative market price before starting an arbitrage? (Enter 1 to indicate 1%)
+>>> 1
+```
 
 ### `min_convergence`
 
@@ -101,10 +104,10 @@ The spread required for the second part of the arbitrage to be executed.
 
 ** Prompt: **
 
-<Prompt
-  prompt="What is the minimum spread between the spot and derivative market price before closing an existing arbitrage? (Enter 1 to indicate 1%)"
-  response=">>> 0.01"
-/>
+```json
+What is the minimum spread between the spot and derivative market price before closing an existing arbitrage? (Enter 1 to indicate 1%)
+>>> 0.01
+```
 
 ### `maximum_funding_rate`
 
@@ -112,10 +115,10 @@ If set to True, the strategy will not execute second arbitrage during the fundin
 
 ** Prompt: **
 
-<Prompt
-  prompt="Would you like to take advantage of the funding rate on the derivative exchange, even if min convergence is reached during funding time? (True/False)"
-  response=">>> False"
-/>
+```json
+Would you like to take advantage of the funding rate on the derivative exchange, even if min convergence is reached during funding time? (True/False)
+>>> False
+```
 
 ### `spot_market_slippage_buffer`
 
@@ -123,10 +126,10 @@ Percent buffer added to the spot exchange price to account for price movement be
 
 ** Prompt: **
 
-<Prompt
-  prompt="How much buffer do you want to add to the price to account for slippage for orders on the spot market (Enter 1 for 1%)?"
-  response=">>> 0.05"
-/>
+```json
+How much buffer do you want to add to the price to account for slippage for orders on the spot market (Enter 1 for 1%)?
+>>> 0.05
+```
 
 ### `derivative_market_slippage_buffer`
 
@@ -134,7 +137,7 @@ Percent buffer added to the derivative exchange price to account for price movem
 
 ** Prompt: **
 
-<Prompt
-  prompt="How much buffer do you want to add to the price to account for slippage for orders on the derivative market (Enter 1 for 1%)?"
-  response=">>> 0.05"
-/>
+```json
+How much buffer do you want to add to the price to account for slippage for orders on the derivative market (Enter 1 for 1%)?
+>>> 0.05
+```

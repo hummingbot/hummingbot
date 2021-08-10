@@ -10,10 +10,10 @@ If the spread of any active order falls below this param value, it will be autom
 
 ** Prompt: **
 
-<Prompt
-  prompt="At what minimum spread should the bot automatically cancel orders?"
-  response=">>> "
-/>
+```json
+At what minimum spread should the bot automatically cancel orders?
+>>>
+```
 
 ## How it works
 

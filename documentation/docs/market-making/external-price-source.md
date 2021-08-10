@@ -104,10 +104,10 @@ Determines which market to be used as price reference when creating orders.
 
 ** Prompt: **
 
-<Prompt
-  prompt="Which price source to use? (current_market/external_market/custom_api)"
-  response=">>> current_market"
-/>
+```json
+Which price source to use? (current_market/external_market/custom_api)
+>>> current_market
+```
 
 ## `price_type`
 
@@ -115,10 +115,10 @@ Price type to be used as price reference when creating orders.
 
 ** Prompt: **
 
-<Prompt
-  prompt="Which price type to use? (mid_price/last_price/last_own_trade_price/best_bid/best_ask/inventory_cost)"
-  response=">>> mid_price"
-/>
+```json
+Which price type to use? (mid_price/last_price/last_own_trade_price/best_bid/best_ask/inventory_cost)
+>>> mid_price
+```
 
 **`mid_price`**
 
@@ -181,7 +181,10 @@ Name of exchange to be used for external pricing source.
 
 ** Prompt: **
 
-<Prompt prompt="Enter external price source exchange name" response=">>> " />
+```json
+Enter external price source exchange name
+>>>
+```
 
 ## `price_source_market`
 
@@ -189,10 +192,10 @@ The trading pair for the price source exchange.
 
 ** Prompt: **
 
-<Prompt
-  prompt="Enter the token pair on [price_source_exchange]"
-  response=">>> "
-/>
+```json
+Enter the token pair on [price_source_exchange]
+>>>
+```
 
 ## `take_if_crossed`
 
@@ -200,10 +203,10 @@ Take order if they cross orderbook when external price source is enabled.
 
 ** Prompt: **
 
-<Prompt
-  prompt="Do you want to take the best order if orders cross the orderbook? (Yes/No)"
-  response=">>> Yes"
-/>
+```json
+Do you want to take the best order if orders cross the orderbook? (Yes/No)
+>>> Yes
+```
 
 ## `price_source_custom_api`
 
@@ -211,4 +214,7 @@ An external API that returns price.
 
 ** Prompt: **
 
-<Prompt prompt="Enter pricing API URL" response=">>> " />
+```json
+Enter pricing API URL
+>>>
+```

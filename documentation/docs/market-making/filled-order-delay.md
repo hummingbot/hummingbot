@@ -12,10 +12,10 @@ For example, with a filled_order_delay = 300 when an order created by the bot is
 
 ** Prompt: **
 
-<Prompt
-  prompt="How long do you want to wait before placing the next order if your order gets filled (in seconds)?"
-  response=">>> 300"
-/>
+```json
+How long do you want to wait before placing the next order if your order gets filled (in seconds)?
+>>> 300
+```
 
 ## How it works
 
