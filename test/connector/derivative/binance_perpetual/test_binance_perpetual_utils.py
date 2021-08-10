@@ -1,5 +1,4 @@
 import unittest
-
 import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils as utils
 
 
