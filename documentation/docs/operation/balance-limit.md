@@ -45,32 +45,32 @@ binance
 
 Create pure market making strategy, run `config` to view the whole configuration.
 
-![config](img/config1.png)
+![config ](/assets/img/config1.png)
 
 Run `balance limit binance ETH 0.0513` to set the balance limit to 0.0513 ETH. Run `balance limit binance USDT 30` to set the balance limit to 30 USDT. Both ETH and USDT value is equivalent to \$30.
 
-![run balance](img/run_balance.png)
+![run balance ](/assets/img/run_balance.png)
 
 Each order is 0.0188 equivalent to \$11.20
 
-![order amount](img/order_amount.png)
+![order amount ](/assets/img/order_amount.png)
 
 Sell order gets filled. USDT available balance is now 30.1657
 
-![sell filled](img/sell_filled.png)
+![sell filled ](/assets/img/sell_filled.png)
 
 Another sell order gets filled, the available balance now shows 41.2069. Plus the open buy order, the "usable" balance on USDT is now at around \$52.
 
-![sell filled2](img/sell_filled2.png)
+![sell filled2 ](/assets/img/sell_filled2.png)
 
 After the two sell orders gets filled the remaining available balance in ETH is 0.0137 equivalent to \$8.17. It means that after the next `order_refresh_time` it won't create sell order because the minimum order amount is \$11.
 
-![buy order](img/buy_order.png)
+![buy order ](/assets/img/buy_order.png)
 
-![buy order1](img/buy_order1.png)
+![buy order1 ](/assets/img/buy_order1.png)
 
 Same process as the scenario above. After the two buy orders gets filled the remaining available balance in USDT is 7.5317 equivalent to \$7.53. It means that after the next `order_refresh_time` it won't create buy order because the minimum order amount is \$11.
 
-![buy order buy](img/buy_order_buy.png)
+![buy order buy ](/assets/img/buy_order_buy.png)
 
-![buy order buy1](img/buy_order_buy1.png)
+![buy order buy1 ](/assets/img/buy_order_buy1.png)

@@ -57,7 +57,7 @@ The conversion also shows up during the `status` command for the `liquidity_mini
 
 The conversion shows up when using the `pnl` command.
 
-![](img/oracle-pnl.png)
+![ ](/assets/img/oracle-pnl.png)
 
 The conversion also shows up when running the `trades` command.
 

@@ -110,11 +110,11 @@ From the above example, for the Return% is -3.075/-35.89 = -9.76%
 
 The **Return %** (bottom navbar) matches the calculated return on **History** after the last trade, see following screenshot:
 
-![](img/same_return.png)
+![ ](/assets/img/same_return.png)
 
 If the trading pair price moves, the **History** changes but **Return %** retains the calculated return based on the last price, see following screenshot:
 
-![](img/price_changes.png)
+![ ](/assets/img/price_changes.png)
 
 ## Profit & loss
 
