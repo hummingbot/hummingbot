@@ -77,13 +77,13 @@ class ProbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                   params={"market_id": trading_pair}) as response:
                 if response.status != 200:
                     raise IOError(
-                        f"Error fetching OrderBook for {trading_pair} at {CONSTANTS.ORDER_BOOK_PATH_URL.format(domain)}. "
+                        f"Error fetching OrderBook for {trading_pair} at {CONSTANTS.ORDER_BOOK_URL.format(domain)}. "
                         f"HTTP {response.status}. Response: {await response.json()}"
                     )
                 return await response.json()
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
-        snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair)
+        snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair, domain=self._domain)
         snapshot_timestamp: int = int(time.time() * 1e3)
         snapshot_msg: OrderBookMessage = ProbitOrderBook.snapshot_message_from_exchange(
             snapshot,
@@ -218,7 +218,7 @@ class ProbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
             try:
                 for trading_pair in self._trading_pairs:
                     try:
-                        snapshot: Dict[str, any] = await self.get_order_book_data(trading_pair)
+                        snapshot: Dict[str, any] = await self.get_order_book_data(trading_pair, domain=self._domain)
                         snapshot_timestamp: int = int(time.time() * 1e3)
                         snapshot_msg: OrderBookMessage = ProbitOrderBook.snapshot_message_from_exchange(
                             msg=snapshot,

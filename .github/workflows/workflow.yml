@@ -2,9 +2,9 @@ name: ci
 
 on:
   push:
-    branches: [ master, development, 'refactor/unit_tests**' ]
+    branches: [master, development, 'refactor/unit_tests**', 'epic/**']
   pull_request:
-    branches: [ master, development, refactor/unit_tests ]
+    branches: [master, development, 'refactor/unit_tests**', 'epic/**']
     types: [ready_for_review, opened, synchronize, reopened]
 
 jobs:
@@ -120,7 +120,7 @@ jobs:
           git fetch --all -q
           git checkout -b $GITHUB_SHA
           coverage xml
-          diff-cover --compare-branch=origin/$GITHUB_BASE_REF --fail-under=50 coverage.xml
+          diff-cover --compare-branch=origin/$GITHUB_BASE_REF --fail-under=66 coverage.xml
 
       # Notify results to discord
       - uses: actions/setup-ruby@v1
