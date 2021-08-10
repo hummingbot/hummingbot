@@ -2,7 +2,7 @@
 ###       Perpetual market making strategy config         ###
 ########################################################
 
-template_version: 4
+template_version: 5
 strategy: null
 
 # derivative and token parameters.
@@ -119,6 +119,9 @@ price_source_market: null
 
 # An external api that returns price (for custom_api pricing source).
 price_source_custom_api: null
+
+# An interval time in second to update the price from custom api (for custom_api pricing source).
+custom_api_update_interval: null
 
 #Take order if they cross order book when external price source is enabled
 take_if_crossed: null
