@@ -1,6 +1,6 @@
 This feature allows users to test Hummingbot and simulate trading strategies without risking any actual assets. Enter the command `paper_trade` to enable this feature.
 
-![papertrade](img/paper_trade.gif)
+![papertrade ](/assets/img/paper_trade.gif)
 
 !!! note
     Exchange APIs are not required to run the bot on paper_trade for Pure Market making, Cross Market Making and Liquidity Mining strategies.
@@ -11,11 +11,11 @@ Paper trading mode can be enabled and disabled from the Hummingbot client by doi
 
 The top bar shows the status to indicate if paper trading mode is on or off.
 
-![papertrade2](img/paper_trade_mode2.png)
+![papertrade2 ](/assets/img/paper_trade_mode2.png)
 
 Also shows a reminder that paper trade was enabled when doing a `status` or `history` command.
 
-![papertrade3](img/paper_trade_warning.png)
+![papertrade3 ](/assets/img/paper_trade_warning.png)
 
 !!! tip
 In the event that the bot is running on paper trade and you disable it, you need to `stop` and `start` the bot to apply the changes. Make sure your Exchange APIs are connected as well when going live.
