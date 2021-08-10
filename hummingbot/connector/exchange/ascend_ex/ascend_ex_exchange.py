@@ -43,7 +43,7 @@ from hummingbot.connector.exchange.ascend_ex.ascend_ex_in_flight_order import As
 from hummingbot.connector.exchange.ascend_ex import ascend_ex_utils
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_constants import EXCHANGE_NAME, REST_URL, REQUEST_CALL_LIMITS
 from hummingbot.core.data_type.common import OpenOrder
-from hummingbot.core.api_throttler.multi_limit_pool_throttler import MultiLimitPoolsThrottler
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 ctce_logger = None
 s_decimal_NaN = Decimal("nan")
 s_decimal_0 = Decimal("0")
@@ -114,7 +114,7 @@ class AscendExExchange(ExchangePyBase):
         self._last_poll_timestamp = 0
         self._account_group = None  # required in order to make post requests
         self._account_uid = None  # required in order to produce deterministic order ids
-        self._throttler: MultiLimitPoolsThrottler = MultiLimitPoolsThrottler(list(REQUEST_CALL_LIMITS.values()))
+        self._throttler: AsyncThrottler = AsyncThrottler(list(REQUEST_CALL_LIMITS.values()))
 
     @property
     def name(self) -> str:
