@@ -31,7 +31,10 @@ The exchange where the bot will place the bid and ask orders.
 
 ** Prompt: **
 
-<Prompt prompt="Enter your maker spot connector" response=">>> binance" />
+```json
+Enter your maker spot connector
+>>> binance
+```
 
 ### `market`
 
@@ -39,10 +42,10 @@ Token trading pair symbol you would like to trade on the exchange.
 
 ** Prompt: **
 
-<Prompt
-  prompt="Enter the token trading pair you would like to trade on the exchange"
-  response=">>> BTC-USDT"
-/>
+```json
+Enter the token trading pair you would like to trade on the exchange
+>>> BTC-USDT
+```
 
 ### `order_amount`
 
@@ -50,10 +53,10 @@ The order amount for the limit bid and ask orders. Ensure you have enough quote 
 
 ** Prompt: **
 
-<Prompt
-  prompt="What is the amount of [base_asset] per order? (minimum [min_amount])"
-  response=""
-/>
+```json
+What is the amount of [base_asset] per order? (minimum [min_amount])
+>>>
+```
 
 ### `parameters_based_on_spread`
 
@@ -61,10 +64,10 @@ The parameter acts as a toggle between beginner (parameters_based_on_spread=True
 
 ** Prompt: **
 
-<Prompt
-  prompt="Do you want to automate Avellaneda-Stoikov parameters based on min/max spread?"
-  response="True"
-/>
+```json
+Do you want to automate Avellaneda-Stoikov parameters based on min/max spread?
+>>> True
+```
 
 ### `min_spread`
 
@@ -72,10 +75,10 @@ The minimum spread related to the mid-price allowed by the user for bid/ask orde
 
 ** Prompt: **
 
-<Prompt
-  prompt="Enter the minimum spread allowed from mid-price in percentage (Enter 1 to indicate 1%)"
-  response=""
-/>
+```json
+Enter the minimum spread allowed from mid-price in percentage (Enter 1 to indicate 1%)
+>>>
+```
 
 ### `max_spread`
 
@@ -83,10 +86,10 @@ The maximum spread related to the mid price allowed by user for bid/ask orders
 
 ** Prompt: **
 
-<Prompt
-  prompt="Enter the maximum spread allowed from mid-price in percentage (Enter 1 to indicate 1%)"
-  response=""
-/>
+```json
+Enter the maximum spread allowed from mid-price in percentage (Enter 1 to indicate 1%)
+>>>
+```
 
 ### `vol_to_spread_multiplier`
 
@@ -94,10 +97,10 @@ The maximum spread related to the mid price allowed by user for bid/ask orders
 
 ** Prompt: **
 
-<Prompt
-  prompt="Enter the Volatility threshold multiplier: (If market volatility multiplied by this value is above maximum spread, it will increase the maximum spread value)"
-  response=""
-/>
+```json
+Enter the Volatility threshold multiplier: (If market volatility multiplied by this value is above maximum spread, it will increase the maximum spread value)
+>>>
+```
 
 ### `volatility_sensibility`
 
@@ -107,10 +110,10 @@ You can visit this introduction and detailed information on this parameter from 
 
 ** Prompt: **
 
-<Prompt
-  prompt="Enter volatility change threshold to trigger parameter recalculation"
-  response="20"
-/>
+```json
+Enter volatility change threshold to trigger parameter recalculation
+>>> 20
+```
 
 ### `inventory_risk_aversion`
 
@@ -118,10 +121,10 @@ Inventory Risk Aversion is a quantity between 0 and 1 to measure the compromise 
 
 ** Prompt: **
 
-<Prompt
-  prompt="Enter Inventory risk aversion between 0 and 1: (For values close to 0.999 spreads will be more skewed to meet the inventory target, while close to 0.001 spreads will be close to symmetrical, increasing profitability but also increasing inventory risk)"
-  response=""
-/>
+```json
+Enter Inventory risk aversion between 0 and 1: (For values close to 0.999 spreads will be more skewed to meet the inventory target, while close to 0.001 spreads will be close to symmetrical, increasing profitability but also increasing inventory risk)
+>>>
+```
 
 ### `order_refresh_time`
 
@@ -129,10 +132,10 @@ An amount in seconds, which is the duration for the placed limit orders. The lim
 
 ** Prompt: **
 
-<Prompt
-  prompt="How often do you want to cancel and replace bids and asks (in seconds)?"
-  response=""
-/>
+```json
+How often do you want to cancel and replace bids and asks (in seconds)?
+>>>
+```
 
 ### `inventory_target_base_pct`
 
@@ -140,10 +143,10 @@ It sets a target of base asset balance in relation to a total asset allocation v
 
 ** Prompt: **
 
-<Prompt
-  prompt="What is your inventory target for base asset? Enter 50 for 50%?"
-  response="50"
-/>
+```json
+What is your inventory target for base asset? Enter 50 for 50%?
+>>> 50
+```
 
 ## Advanced parameters
 
@@ -157,7 +160,10 @@ This parameter denoted by the letter kappa is directly proportional to the order
 
 ** Prompt: **
 
-<Prompt prompt="Enter order book depth factor (k)" response=">>>" />
+```json
+Enter order book depth factor (k)
+>>>
+```
 
 ### `risk_factor`
 
@@ -165,7 +171,10 @@ This parameter, denoted by the letter gamma, is related to the aggressiveness wh
 
 ** Prompt: **
 
-<Prompt prompt="Enter risk factor (y)" response=">>>" />
+```json
+Enter risk factor (y)
+>>>
+```
 
 ### `order_amount_shape_factor`
 
@@ -173,7 +182,10 @@ This parameter denoted in the letter eta is related to the aggressiveness when s
 
 ** Prompt: **
 
-<Prompt prompt="Enter order amount shape factor (n)" response=">>>" />
+```json
+Enter order amount shape factor (n)
+>>>
+```
 
 ### `closing_time`
 
@@ -181,10 +193,10 @@ This parameter will be the limit time (measure in days) for this “trading cycl
 
 ** Prompt: **
 
-<Prompt
-  prompt="Enter operational closing time (T). (How long will each trading cycle last in days or fractions of day)"
-  response=">>>"
-/>
+```json
+Enter operational closing time (T). (How long will each trading cycle last in days or fractions of day)
+>>>
+```
 
 ### `order_optimization_enabled`
 
@@ -192,10 +204,10 @@ Allows your bid and ask order prices to be adjusted based on the current top bid
 
 ** Prompt: **
 
-<Prompt
-  prompt="Do you want to enable best bid ask jumping? (Yes/No)"
-  response=">>>"
-/>
+```json
+Do you want to enable best bid ask jumping? (Yes/No)
+>>>
+```
 
 ### `max_order_age`
 
@@ -203,10 +215,10 @@ The `max_order_age` parameter allows you to set a specific duration when resetti
 
 ** Prompt: **
 
-<Prompt
-  prompt="How long do you want to cancel and replace bids and asks with the same price (in seconds)?"
-  response=">>>"
-/>
+```json
+How long do you want to cancel and replace bids and asks with the same price (in seconds)?
+>>>
+```
 
 ### `order_refresh_tolerance_pct`
 
@@ -216,10 +228,10 @@ To know more about this parameter you can visit this [link](https://docs.humming
 
 ** Prompt: **
 
-<Prompt
-  prompt="Enter the percent change in price needed to refresh orders at each cycle"
-  response=">>> 1"
-/>
+```json
+Enter the percent change in price needed to refresh orders at each cycle
+>>> 1
+```
 
 ### `filled_order_delay`
 
@@ -229,10 +241,10 @@ For example, with a filled_order_delay = 300 when an order created by the bot is
 
 ** Prompt: **
 
-<Prompt
-  prompt="How long do you want to wait before placing the next order if your order gets filled (in seconds)?"
-  response=">>>"
-/>
+```json
+How long do you want to wait before placing the next order if your order gets filled (in seconds)?
+>>>
+```
 
 ### `add_transaction_costs`
 
@@ -240,10 +252,10 @@ Whether to enable adding transaction costs to order price calculation.
 
 ** Prompt: **
 
-<Prompt
-  prompt="Do you want to add transaction costs automatically to order prices? (Yes/No)"
-  response=">>>"
-/>
+```json
+Do you want to add transaction costs automatically to order prices? (Yes/No)
+>>>
+```
 
 ### `volatility_buffer_size`
 
@@ -251,10 +263,10 @@ The number of ticks used as a sample size for volatility calculation.
 
 ** Prompt: **
 
-<Prompt
-  prompt="Enter amount of ticks that will be stored to calculate volatility"
-  response=">>>"
-/>
+```json
+Enter amount of ticks that will be stored to calculate volatility
+>>>
+```
 
 ### `order_levels`
 
@@ -264,10 +276,10 @@ For example, if `order_levels = 2` , it will place **2 Buy Orders & 2 Sell Order
 
 ** Prompt: **
 
-<Prompt
-  prompt="How many orders do you want to place on both sides?"
-  response=">>>"
-/>
+```json
+How many orders do you want to place on both sides?
+>>>
+```
 
 ### `order_override`
 

@@ -8,10 +8,10 @@ The number of order levels to place for each side of the order book.
 
 ** Prompt: **
 
-<Prompt
-  prompt="How many orders do you want to place on both sides?"
-  response=">>> "
-/>
+```json
+How many orders do you want to place on both sides?
+>>>
+```
 
 ## `order_level_amount`
 
@@ -19,10 +19,10 @@ The size can either increase (if set to a value greater than zero) or decrease (
 
 ** Prompt: **
 
-<Prompt
-  prompt="How much do you want to increase or decrease the order size for each additional order?"
-  response=">>> "
-/>
+```json
+How much do you want to increase or decrease the order size for each additional order?
+>>>
+```
 
 ## `order_level_spread`
 
@@ -30,10 +30,10 @@ The incremental spread increases for subsequent order levels after the first lev
 
 ** Prompt: **
 
-<Prompt
-  prompt="Enter the price increments (as percentage) for subsequent orders?"
-  response=">>> "
-/>
+```json
+Enter the price increments (as percentage) for subsequent orders?
+>>>
+```
 
 !!! warning
     Setting `order_level_spread` to a very low number may cause multiple orders to be placed on the same price level. For example, for an asset like SNM/BTC, if you set an order interval percent of 0.4 (~0.4%) because of low asset value, the price of the next order will be rounded to the nearest price supported by the exchange, which in this case might lead to multiple orders being placed at the same price level.

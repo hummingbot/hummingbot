@@ -179,7 +179,10 @@ Enter another exchange you would like to trade on.
 
 ** Prompt: **
 
-<Prompt prompt="Enter your secondary exchange name" response=">>> " />
+```json
+Enter your secondary exchange name
+>>>
+```
 
 ### `secondary_market_trading_pair`
 
@@ -187,10 +190,10 @@ Enter the token trading pair for the secondary exchange.
 
 ** Prompt: **
 
-<Prompt
-  prompt="Enter the token trading pair you would like to trade on [secondary_market]"
-  response=">>>"
-/>
+```json
+Enter the token trading pair you would like to trade on [secondary_market]
+>>>
+```
 
 ### `min_profitability`
 
@@ -198,10 +201,10 @@ Minimum profitability target required to execute trades.
 
 ** Prompt: **
 
-<Prompt
-  prompt="What is the minimum profitability for you to make a trade?"
-  response=">>> "
-/>
+```json
+What is the minimum profitability for you to make a trade?
+>>>
+```
 
 ### `order_amount`
 
@@ -209,10 +212,10 @@ Order amount for each leg of the arbitrage trade.
 
 ** Prompt: **
 
-<Prompt
-  prompt="What is the amount of [base_asset] per order?"
-  response=">>> "
-/>
+```json
+What is the amount of [base_asset] per order?
+>>>
+```
 
 ### `celo_slippage_buffer`
 
@@ -220,7 +223,7 @@ Percent buffer added to the Celo exchange price to account for price movement be
 
 ** Prompt: **
 
-<Prompt
-  prompt="How much buffer do you want to add to the Celo price to account for slippage (Enter 1 for 1%)?"
-  response=">>> 1"
-/>
+```json
+How much buffer do you want to add to the Celo price to account for slippage (Enter 1 for 1%)?
+>>> 1
+```
