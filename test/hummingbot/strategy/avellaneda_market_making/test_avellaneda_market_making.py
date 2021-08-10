@@ -56,6 +56,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        super().setUpClass()
         cls.trading_pair: str = "COINALPHA-HBOT"
         cls.base_asset, cls.quote_asset = cls.trading_pair.split("-")
         cls.initial_mid_price: int = 100
@@ -77,6 +78,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         cls.ira: Decimal = Decimal("0.8")
 
     def setUp(self):
+        super().setUp()
         self.market: BacktestMarket = BacktestMarket()
         self.market_info: MarketTradingPairTuple = MarketTradingPairTuple(
             self.market, self.trading_pair, *self.trading_pair.split("-")
@@ -99,7 +101,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
             )
         )
 
-        self.strategy: AvellanedaMarketMakingStrategy = AvellanedaMarketMakingStrategy(
+        self.strategy: AvellanedaMarketMakingStrategy = AvellanedaMarketMakingStrategy()
+        self.strategy.init_params(
             market_info=self.market_info,
             order_amount=self.order_amount,
             min_spread=self.min_spread,
@@ -120,6 +123,10 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.clock.add_iterator(self.strategy)
         self.strategy.start(self.clock, self.start_timestamp)
         self.clock.backtest_til(self.start_timestamp)
+
+    def tearDown(self) -> None:
+        self.strategy.stop(self.clock)
+        super().tearDown()
 
     @staticmethod
     def simulate_low_volatility(strategy: AvellanedaMarketMakingStrategy):
@@ -646,7 +653,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
     def test_get_logspaced_level_spreads(self):
         # Re-initialize strategy with order_level configurations
-        self.strategy = AvellanedaMarketMakingStrategy(
+        self.strategy = AvellanedaMarketMakingStrategy()
+        self.strategy.init_params(
             market_info=self.market_info,
             order_amount=self.order_amount,
             order_levels=2,
@@ -1171,41 +1179,6 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         self.assertEqual(0, len(self.strategy.active_orders))
 
-    def test_aged_order_refresh(self):
-        limit_buy_order: LimitOrder = LimitOrder(client_order_id="test",
-                                                 trading_pair=self.trading_pair,
-                                                 is_buy=True,
-                                                 base_currency=self.trading_pair.split("-")[0],
-                                                 quote_currency=self.trading_pair.split("-")[1],
-                                                 price=Decimal("99"),
-                                                 quantity=self.order_amount)
-        limit_sell_order: LimitOrder = LimitOrder(client_order_id="test",
-                                                  trading_pair=self.trading_pair,
-                                                  is_buy=False,
-                                                  base_currency=self.trading_pair.split("-")[0],
-                                                  quote_currency=self.trading_pair.split("-")[1],
-                                                  price=Decimal("101"),
-                                                  quantity=self.order_amount)
-        self.simulate_place_limit_order(self.strategy, self.market_info, limit_buy_order)
-        self.simulate_place_limit_order(self.strategy, self.market_info, limit_sell_order)
-        self.assertEqual(2, len(self.strategy.active_orders))
-
-        # Case (1) Order's age < max_order_age
-        expected_proposal: Proposal = Proposal([], [])
-        refreshed_proposal: Proposal = self.strategy.aged_order_refresh()
-
-        self.assertEqual(str(expected_proposal), str(refreshed_proposal))
-
-        # Case (2) Order's age > max_order_age
-        self.strategy.max_order_age = 0
-        expected_proposal: Proposal = Proposal(
-            [PriceSize(limit_buy_order.price, limit_buy_order.quantity)],
-            [PriceSize(limit_sell_order.price, limit_sell_order.quantity)]
-        )
-
-        refreshed_proposal: Proposal = self.strategy.aged_order_refresh()
-        self.assertEqual(str(expected_proposal), str(refreshed_proposal))
-
     def test_to_create_orders(self):
         # Simulate order being placed. Placing an order updates create_timestamp = next_cycle
         limit_buy_order: LimitOrder = LimitOrder(client_order_id="test",
@@ -1248,7 +1221,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.market.set_balance("HBOT", 50000)
 
         # Create a new strategy, with hanging orders enabled
-        self.strategy = AvellanedaMarketMakingStrategy(
+        self.strategy = AvellanedaMarketMakingStrategy()
+        self.strategy.init_params(
             market_info=self.market_info,
             order_amount=self.order_amount,
             min_spread=self.min_spread,
@@ -1310,7 +1284,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.market.set_balance("HBOT", 50000)
 
         # Create a new strategy, with hanging orders enabled
-        self.strategy = AvellanedaMarketMakingStrategy(
+        self.strategy = AvellanedaMarketMakingStrategy()
+        self.strategy.init_params(
             market_info=self.market_info,
             order_amount=self.order_amount,
             min_spread=self.min_spread,

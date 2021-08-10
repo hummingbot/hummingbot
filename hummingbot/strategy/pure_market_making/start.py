@@ -5,10 +5,10 @@ from typing import (
 
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+from hummingbot.strategy.order_book_asset_price_delegate import OrderBookAssetPriceDelegate
+from hummingbot.strategy.api_asset_price_delegate import APIAssetPriceDelegate
 from hummingbot.strategy.pure_market_making import (
     PureMarketMakingStrategy,
-    OrderBookAssetPriceDelegate,
-    APIAssetPriceDelegate,
     InventoryCostPriceDelegate,
 )
 from hummingbot.strategy.pure_market_making.pure_market_making_config_map import pure_market_making_config_map as c_map
@@ -75,8 +75,8 @@ def start(self):
         take_if_crossed = c_map.get("take_if_crossed").value
 
         strategy_logging_options = PureMarketMakingStrategy.OPTION_LOG_ALL
-
-        self.strategy = PureMarketMakingStrategy(
+        self.strategy = PureMarketMakingStrategy()
+        self.strategy.init_params(
             market_info=MarketTradingPairTuple(*maker_data),
             bid_spread=bid_spread,
             ask_spread=ask_spread,
@@ -90,7 +90,7 @@ def start(self):
             filled_order_delay=filled_order_delay,
             hanging_orders_enabled=hanging_orders_enabled,
             order_refresh_time=order_refresh_time,
-            max_order_age = max_order_age,
+            max_order_age=max_order_age,
             order_optimization_enabled=order_optimization_enabled,
             ask_order_optimization_depth=ask_order_optimization_depth,
             bid_order_optimization_depth=bid_order_optimization_depth,
