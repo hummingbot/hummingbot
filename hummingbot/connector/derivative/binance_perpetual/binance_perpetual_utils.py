@@ -13,27 +13,32 @@ EXAMPLE_PAIR = "BTC-USDT"
 
 DEFAULT_FEES = [0.02, 0.04]
 
-
-RE_4_LETTERS_QUOTE = re.compile(r"^(\w{3,})(USDT|USDC|USDS|TUSD|BUSD|IDRT|BKRW|BIDR)$")
+SPECIAL_PAIRS = re.compile(r"^(BAT|BNB|HNT|ONT|OXT|USDT|VET)(USD)$")
+RE_4_LETTERS_QUOTE = re.compile(r"^(\w{2,})(BIDR|BKRW|BUSD|BVND|IDRT|TUSD|USDC|USDS|USDT)$")
 RE_3_LETTERS_QUOTE = re.compile(r"^(\w+)(\w{3})$")
 
 
-# Helper Functions ---
 def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
     try:
-        m = RE_4_LETTERS_QUOTE.match(trading_pair)
+        m = SPECIAL_PAIRS.match(trading_pair)
+        if m is None:
+            m = RE_4_LETTERS_QUOTE.match(trading_pair)
         if m is None:
             m = RE_3_LETTERS_QUOTE.match(trading_pair)
         return m.group(1), m.group(2)
-    except Exception as e:
-        raise e
+    # Exceptions are now logged as warnings in trading pair fetcher
+    except Exception:
+        return None
 
 
 def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
-    if split_trading_pair(exchange_trading_pair) is None:
-        return None
-    base_asset, quote_asset = split_trading_pair(exchange_trading_pair)
-    return f"{base_asset}-{quote_asset}"
+    result = None
+    splitted_pair = split_trading_pair(exchange_trading_pair)
+    if splitted_pair is not None:
+        # Binance does not split BASEQUOTE (BTCUSDT)
+        base_asset, quote_asset = splitted_pair
+        result = f"{base_asset}-{quote_asset}"
+    return result
 
 
 def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
