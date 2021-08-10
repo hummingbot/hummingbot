@@ -145,7 +145,7 @@ nav:
       - Uniswap-v3: connectors/uniswap-v3.md
     - Strategies:
       - Overview: strategies/index.md
-      - Market making:
+      - Market Making:
         - Pure Market Making: strategies/pure-market-making.md
         - Liquidity Mining: strategies/liquidity-mining.md
         - Avellaneda: strategies/avellaneda-market-making.md
