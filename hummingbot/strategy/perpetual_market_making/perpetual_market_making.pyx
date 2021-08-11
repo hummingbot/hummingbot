@@ -658,7 +658,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
                 old_exit_orders =[
                     o for o in active_orders
                     if (
-                        (o.price != price or o.size != size)
+                        (o.price != price or o.quantity != size)
                         and o.client_order_id in self._exit_orders
                         and ((position.amount < 0 and o.is_buy) or (position.amount > 0 and not o.is_buy))
                     )
