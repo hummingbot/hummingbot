@@ -15,23 +15,24 @@ class RateLimit:
                  limit: int,
                  time_interval: float,
                  weight: int = 1,
+                 linked_limits: List[str] = [],
                  ):
         """
-        :param limit_id: A unique identifier for this RateLimit object, this is usually an API request path
+        :param limit_id: A unique identifier for this RateLimit object, this is usually an API request path url
         :param limit: A total number of calls * weight permitted within time_interval period
         :param time_interval: The time interval
-        :param weight: The weight (in integer) of each call
-        :param period_safety_margin: An extra safety margin, in seconds, to make sure calls are within the limit,
-        if not supplied this is 5% of the limit
+        :param weight: The weight (in integer) of each call. Defaults to 1
+        :param pools: The API pools associated with this API request. Defaults to an empty list
         """
         self.limit_id = limit_id
         self.limit = limit
         self.time_interval = time_interval
         self.weight = weight
+        self.linked_limits = linked_limits
 
     def __repr__(self):
         return f"limit_id: {self.limit_id}, limit: {self.limit}, time interval: {self.time_interval}, " \
-               f"weight: {self.weight}"
+               f"weight: {self.weight}, pools: {self.pools}, is_pool: {self.is_pool}"
 
 
 @dataclass

@@ -41,7 +41,7 @@ class AsyncThrottlerBase(ABC):
             rate_limit.limit = int(Decimal(str(rate_limit.limit)) * self.limits_pct)
 
         # Dictionary of path_url to RateLimit
-        self._limit_id_to_limit_map: Dict[str, RateLimit] = {
+        self._id_to_limit_map: Dict[str, RateLimit] = {
             limit.limit_id: limit
             for limit in self._rate_limits
         }
@@ -55,6 +55,18 @@ class AsyncThrottlerBase(ABC):
 
         # Shared asyncio.Lock instance to prevent multiple async ContextManager from accessing the _task_logs variable
         self._lock = asyncio.Lock()
+
+    def get_relevant_limits(self, limit_id: str) -> List[RateLimit]:
+        rate_limit: Optional[RateLimit] = self._id_to_limit_map.get(limit_id, None)
+
+        relevant_rate_limits: List[RateLimit] = [rate_limit]
+        for limit in rate_limit.linked_limits:
+            if limit in self._id_to_limit_map:
+                relevant_rate_limits.append(
+                    self._id_to_limit_map[limit]
+                )
+
+        return relevant_rate_limits
 
     @abstractmethod
     def execute_task(self, limit_ids: List[str]) -> AsyncRequestContextBase:
