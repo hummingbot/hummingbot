@@ -2,14 +2,7 @@
 
 ## Install via binary
 
-<iframe
-  width="616"
-  height="347"
-  src="https://www.youtube.com/embed/9TsZ_xjExXs"
-  frameborder="0"
-  allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
-  allowfullscreen
-></iframe>
+<iframe width="616" height="347" src="https://www.youtube.com/embed/9TsZ_xjExXs" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
 The Windows setup package is the easiest way for Windows users to set up and run Hummingbot. Windows setup packages are released with every Hummingbot release starting from v0.18.
 
