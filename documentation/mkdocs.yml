@@ -136,6 +136,7 @@ nav:
       - Kraken: connectors/kraken.md
       - Liquid: connectors/liquid.md
       - Loopring: connectors/loopring.md
+      - NDAX: connectors/ndax.md
       - OKEx: connectors/okex.md
       - Perpetual Finance: connectors/perp-fi.md
       - ProBit Global: connectors/probit.md
