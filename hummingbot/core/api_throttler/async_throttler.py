@@ -1,17 +1,10 @@
 import time
 
-from typing import (
-    List,
-)
-
 from hummingbot.core.api_throttler.async_request_context_base import (
     AsyncRequestContextBase,
     MAX_CAPACITY_REACHED_WARNING_INTERVAL,
 )
 from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
-from hummingbot.core.api_throttler.data_types import (
-    RateLimit,
-)
 
 
 class AsyncRequestContext(AsyncRequestContextBase):
@@ -56,19 +49,16 @@ class AsyncThrottler(AsyncThrottlerBase):
         this (whether it belongs to Pool 0 or Pool 1) will have to wait for new capacity (some of the Task A flushed out).
     """
 
-    def execute_task(self, limit_ids: List[str]) -> AsyncRequestContext:
+    def execute_task(self, limit_id: str) -> AsyncRequestContext:
         """
         Creates an async context where code within the context (a task) can be run only when all rate
         limits have capacity for the new task.
-        :param limit_ids: A list of limit_ids for rate limits supplied during init
+        :param limit_id: the limit_id associated with the APi request
         :return: An async context (used with async with syntax)
         """
-        rate_limits: List[RateLimit] = [limit
-                                        for limit in self._rate_limits
-                                        if limit.limit_id in limit_ids]
         return AsyncRequestContext(
             task_logs=self._task_logs,
-            rate_limits=rate_limits,
+            rate_limits=self.get_relevant_limits(limit_id=limit_id),
             lock=self._lock,
             safety_margin_pct=self._safety_margin_pct,
             retry_interval=self._retry_interval,

@@ -41,7 +41,7 @@ from hummingbot.connector.exchange.ascend_ex.ascend_ex_user_stream_tracker impor
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_in_flight_order import AscendExInFlightOrder
 from hummingbot.connector.exchange.ascend_ex import ascend_ex_utils
-from hummingbot.connector.exchange.ascend_ex.ascend_ex_constants import EXCHANGE_NAME, REST_URL, REQUEST_CALL_LIMITS
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_constants import EXCHANGE_NAME, REST_URL, API_LIMITS
 from hummingbot.core.data_type.common import OpenOrder
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 ctce_logger = None
@@ -114,7 +114,7 @@ class AscendExExchange(ExchangePyBase):
         self._last_poll_timestamp = 0
         self._account_group = None  # required in order to make post requests
         self._account_uid = None  # required in order to produce deterministic order ids
-        self._throttler: AsyncThrottler = AsyncThrottler(list(REQUEST_CALL_LIMITS.values()))
+        self._throttler: AsyncThrottler = AsyncThrottler(API_LIMITS)
 
     @property
     def name(self) -> str:
@@ -366,10 +366,7 @@ class AscendExExchange(ExchangePyBase):
         signature to the request.
         :returns A response in json format.
         """
-        api_limit_pools = [REQUEST_CALL_LIMITS["all_endpoints"].limit_id]
-        if path_url in REQUEST_CALL_LIMITS:
-            api_limit_pools.append(path_url)
-        async with self._throttler.execute_task(limit_ids=api_limit_pools):
+        async with self._throttler.execute_task(limit_id=path_url):
             url = None
             headers = None
 

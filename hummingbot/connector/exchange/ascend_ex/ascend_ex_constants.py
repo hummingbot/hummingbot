@@ -1,5 +1,5 @@
 # A single source of truth for constant variables related to the exchange
-from typing import Dict
+from typing import Dict, List
 from hummingbot.core.api_throttler.data_types import RateLimit
 
 EXCHANGE_NAME = "ascend_ex"
@@ -14,3 +14,9 @@ REQUEST_CALL_LIMITS: Dict[str, RateLimit] = {
     "cash/order": RateLimit(limit_id="cash/order", limit=50, time_interval=1),
     "order/hist": RateLimit(limit_id="order/hist", limit=60, time_interval=60)
 }
+
+API_LIMITS: List[RateLimit] = [
+    RateLimit(limit_id="ALL", limit=100, time_interval=1),
+    RateLimit(limit_id="cash/order", limit=50, time_interval=1, linked_limits=["ALL"]),
+    RateLimit(limit_id="order/hist", limit=60, time_interval=60, linked_limits=["ALL"])
+]
