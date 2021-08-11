@@ -10,10 +10,10 @@ The spread (from mid-price) to defer the order refresh process to the next cycle
 
 ** Prompt: **
 
-<Prompt
-  prompt="Enter the percent change in price needed to refresh orders at each cycle"
-  response=">>> 1"
-/>
+```json
+Enter the percent change in price needed to refresh orders at each cycle
+>>> 1
+```
 
 ## How it works
 
