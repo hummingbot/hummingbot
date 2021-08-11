@@ -32,14 +32,7 @@ This strategy allows users to continuously create either buy or sell limit order
 !!! warning
     This demo is for instructional and educational purposes only. Any parameters used are purely for demo purposes only. We are not giving any legal, tax, financial, or investment advice. Every user is responsible for their use and configuration of Hummingbot.
 
-<iframe
-  width="733"
-  height="474"
-  src="https://www.loom.com/embed/8b36e590272c479fa0ccf69b011433e1"
-  frameborder="0"
-  allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
-  allowfullscreen
-></iframe>
+<iframe width="733" height="474" src="https://www.loom.com/embed/8b36e590272c479fa0ccf69b011433e1" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
 ## Basic parameters
 
