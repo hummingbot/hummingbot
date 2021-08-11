@@ -10,10 +10,10 @@ When enabled, the orders on the side opposite to the filled orders remains activ
 
 ** Prompt: **
 
-<Prompt
-  prompt="Do you want to enable hanging orders? (Yes/No)"
-  response=">>> Yes"
-/>
+```json
+Do you want to enable hanging orders? (Yes/No)
+>>> Yes
+```
 
 ## `hanging_orders_cancel_pct`
 
@@ -21,10 +21,10 @@ Cancels the hanging orders when their spread goes above this value. Note that no
 
 ** Prompt: **
 
-<Prompt
-  prompt="At what spread percentage (from mid price) will hanging orders be canceled?"
-  response=">>> "
-/>
+```json
+At what spread percentage (from mid price) will hanging orders be canceled?
+>>>
+```
 
 ## How it works
 

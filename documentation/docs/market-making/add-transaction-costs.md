@@ -13,10 +13,10 @@ Whether to enable adding transaction costs to order price calculation.
 
 ** Prompt: **
 
-<Prompt
-  prompt="Do you want to add transaction costs automatically to order prices? (Yes/No)"
-  response=">>> Yes"
-/>
+```json
+Do you want to add transaction costs automatically to order prices? (Yes/No)
+>>> Yes
+```
 
 ## How it works
 

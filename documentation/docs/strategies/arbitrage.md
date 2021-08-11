@@ -31,7 +31,10 @@ Enter an exchange you would like to trade on.
 
 ** Prompt: **
 
-<Prompt prompt="Enter your primary spot connector" response=">>> binance" />
+```json
+Enter your primary spot connector
+>>> binance
+```
 
 ### `secondary_market`
 
@@ -39,7 +42,10 @@ Enter another exchange you would like to trade on.
 
 ** Prompt: **
 
-<Prompt prompt="Enter your secondary spot connector" response=">>> kucoin" />
+```json
+Enter your secondary spot connector
+>>> kucoin
+```
 
 ### `primary_market_trading_pair`
 
@@ -47,10 +53,10 @@ Enter the token trading pair for the primary exchange.
 
 ** Prompt: **
 
-<Prompt
-  prompt="Enter the token trading pair you would like to trade on [primary_market]"
-  response=">>> "
-/>
+```json
+Enter the token trading pair you would like to trade on [primary_market]
+>>>
+```
 
 ### `secondary_market_trading_pair`
 
@@ -58,10 +64,10 @@ Enter the token trading pair for the secondary exchange.
 
 ** Prompt: **
 
-<Prompt
-  prompt="Enter the token trading pair you would like to trade on [secondary_market]"
-  response=">>> "
-/>
+```json
+Enter the token trading pair you would like to trade on [secondary_market]
+>>>
+```
 
 ### `min_profitability`
 
@@ -69,10 +75,10 @@ Minimum profitability target required to execute trades.
 
 ** Prompt: **
 
-<Prompt
-  prompt="What is the minimum profitability for you to make a trade?"
-  response=">>> "
-/>
+```json
+What is the minimum profitability for you to make a trade?
+>>>
+```
 
 !!! note
     While running this strategy, `min_profitability` excludes the `transaction fees` when calculating profitability from your chosen exchanges.
@@ -88,10 +94,10 @@ You can also edit it from `config_global.yml` to change the `rate_oracle_source`
 
 ** Prompt: **
 
-<Prompt
-  prompt="Do you want to use rate oracle on unmatched trading pairs? (Yes/No)"
-  response=">>>"
-/>
+```json
+Do you want to use rate oracle on unmatched trading pairs? (Yes/No)
+>>>
+```
 
 !!! tip
     For autocomplete inputs during configuration, when going through the command line config process, pressing `<TAB>` at a prompt will display valid available inputs.
