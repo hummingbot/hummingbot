@@ -26,7 +26,7 @@ Your account name and UID can be found in the settings page of your NDAX account
 ![](/assets/img/ndax-api-keys-1.png)
 3. Select **Allow Trading** permission
 4. Click **Generate**
-![](/assets/img/ndax-api-keys-2/png)
+![](/assets/img/ndax-api-keys-2.png)
 5. Your secret key will be displayed only once. Copy this key and save it somewhere safe
 6. The API key is listed in the API keys section
 ![](/assets/img/ndax-api-keys-3.png)
