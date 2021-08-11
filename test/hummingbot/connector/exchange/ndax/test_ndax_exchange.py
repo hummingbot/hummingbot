@@ -112,10 +112,11 @@ class NdaxExchangeTests(TestCase):
 
         return json.dumps(message)
 
-    def _set_mock_response(self, mock_api, status: int, json_data: Any):
+    def _set_mock_response(self, mock_api, status: int, json_data: Any, text_data: str = ""):
         self.api_responses.put_nowait(json_data)
         mock_api.return_value.status = status
         mock_api.return_value.json.side_effect = self._get_next_api_response
+        mock_api.return_value.text = AsyncMock(return_value=text_data)
 
     def _add_successful_authentication_response(self):
         self.ws_incoming_messages.put_nowait(self._authentication_response(True))
@@ -781,7 +782,7 @@ class NdaxExchangeTests(TestCase):
         })
 
         # Add TradeHistory API Response
-        self._set_mock_response(mock_trade_history, 200, {
+        self._set_mock_response(mock_trade_history, 200, [{
             "OMSId": 1,
             "ExecutionId": 245936,
             "TradeId": 252851,
@@ -819,7 +820,7 @@ class NdaxExchangeTests(TestCase):
             "NotionalValue": 480.28818328452511800486539800,
             "NotionalHoldAmount": 0,
             "TradeTime": 637629775838593249
-        })
+        }])
 
         # Simulate _trading_pair_id_map initialized.
         self.exchange._order_book_tracker.data_source._trading_pair_id_map.update({
@@ -1652,3 +1653,15 @@ class NdaxExchangeTests(TestCase):
 
         self.assertEqual(1, len(self.exchange.in_flight_orders))
         self.assertEqual(str(self.exchange.in_flight_orders[order.client_order_id]), str(order))
+
+    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    def test_rest_api_limit_reached_error(self, mock_get_request):
+        self._set_mock_response(mock_get_request, 200, {}, CONSTANTS.API_LIMIT_REACHED_ERROR_MESSAGE)
+
+        with self.assertRaises(IOError) as exception_context:
+            asyncio.new_event_loop().run_until_complete(
+                self.exchange._api_request("GET", "/path")
+            )
+
+        self.assertTrue("Error: The exchange API request limit has been reached (original error 'TOO MANY REQUESTS')"
+                        in f"{exception_context.exception}")
