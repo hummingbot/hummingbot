@@ -106,6 +106,7 @@ nav:
       - Telegram Integration: operation/telegram.md
       - Rate Oracle: operation/rate-oracle.md
       - Strategy Autostart: operation/strategy-autostart.md
+      - Rate Limits Share Pct: operation/rate-limits-share-pct.md
     - Connectors:
       - Overview: connectors/index.md
       - AscendEX: connectors/ascend-ex.md
