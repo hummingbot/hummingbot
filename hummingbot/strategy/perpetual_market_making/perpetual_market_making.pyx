@@ -628,8 +628,8 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
             ExchangeBase market = self._market_info.market
             list active_orders = self.active_orders
             list unwanted_exit_orders = [o for o in active_orders if o.client_order_id not in self._exit_orders]
-            ask_price = market.get_price(self.trading_pair, False)
-            bid_price = market.get_price(self.trading_pair, True)
+            ask_price = market.get_price(self.trading_pair, True)
+            bid_price = market.get_price(self.trading_pair, False)
             list buys = []
             list sells = []
 
