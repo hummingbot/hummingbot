@@ -32,7 +32,6 @@ from hummingbot.strategy.data_types import (
     PriceSize)
 from hummingbot.strategy.hanging_orders_tracker import (
     CreatedPairOfOrders,
-    HangingOrdersAggregationType,
     HangingOrdersTracker)
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.order_tracker cimport OrderTracker
@@ -75,7 +74,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     order_levels: int = 0,
                     order_override: Dict[str, List[str]] = {},
                     hanging_orders_enabled: bool = False,
-                    hanging_orders_aggregation_type: HangingOrdersAggregationType = HangingOrdersAggregationType.NO_AGGREGATION,
                     hanging_orders_cancel_pct: Decimal = Decimal("0.1"),
                     inventory_target_base_pct: Decimal = s_decimal_zero,
                     add_transaction_costs_to_orders: bool = True,
@@ -111,7 +109,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._hb_app_notification = hb_app_notification
         self._hanging_orders_enabled = hanging_orders_enabled
         self._hanging_orders_tracker = HangingOrdersTracker(self,
-                                                            hanging_orders_aggregation_type,
                                                             hanging_orders_cancel_pct)
 
         self._cancel_timestamp = 0
@@ -426,7 +423,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         total_in_quote = base_value + quote_balance
         base_ratio = base_value / total_in_quote if total_in_quote > 0 else 0
         quote_ratio = quote_balance / total_in_quote if total_in_quote > 0 else 0
-        data=[
+        data = [
             ["", base_asset, quote_asset],
             ["Total Balance", round(base_balance, 4), round(quote_balance, 4)],
             ["Available Balance", round(available_base_balance, 4), round(available_quote_balance, 4)],
@@ -457,11 +454,11 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 else:
                     level = no_sells - lvl_sell
                     lvl_sell += 1
-            spread = 0 if price == 0 else abs(order.price - price)/price
+            spread = 0 if price == 0 else abs(order.price - price) / price
             age = "n/a"
             # // indicates order is a paper order so 'n/a'. For real orders, calculate age.
             if "//" not in order.client_order_id:
-                age = pd.Timestamp(int(time.time()) - int(order.client_order_id[-16:])/1e6,
+                age = pd.Timestamp(int(time.time()) - int(order.client_order_id[-16:]) / 1e6,
                                    unit='s').strftime('%H:%M:%S')
             amount_orig = self._order_amount
             if is_hanging_order:
@@ -621,7 +618,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 if self._is_debug:
                     self.dump_debug_variables()
             else:
-                self._ticks_to_be_ready-=1
+                self._ticks_to_be_ready -= 1
                 if self._ticks_to_be_ready % 5 == 0:
                     self.logger().info(f"Calculating volatility... {self._ticks_to_be_ready} seconds to start trading")
         finally:
@@ -670,7 +667,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 vol = Decimal(str(self._latest_parameter_calculation_vol))
             else:
                 # Default value at start time if price has no activity
-                vol = Decimal(str(self.c_get_spread()/2))
+                vol = Decimal(str(self.c_get_spread() / 2))
         return vol
 
     cdef c_calculate_reserved_price_and_optimal_spread(self):
@@ -763,17 +760,17 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             # If q or vol are close to 0, gamma will -> Inf. Is this desirable?
             max_possible_gamma = min(
                                     (max_spread - min_spread) / (2 * abs(q) * (vol ** 2)),
-                                    (max_spread * (2-self._inventory_risk_aversion) /
+                                    (max_spread * (2 - self._inventory_risk_aversion) /
                                      self._inventory_risk_aversion + min_spread) / (vol ** 2))
             self._gamma = self._inventory_risk_aversion * max_possible_gamma
 
             # KAPPA
             # Want the maximum possible spread but with restrictions to avoid negative kappa or division by 0
-            max_spread_around_reserved_price = max_spread * (2-self._inventory_risk_aversion) + min_spread * self._inventory_risk_aversion
-            if (max_spread_around_reserved_price * self._gamma - (vol * self._gamma) **2) <= s_decimal_zero:
+            max_spread_around_reserved_price = max_spread * (2 - self._inventory_risk_aversion) + min_spread * self._inventory_risk_aversion
+            if (max_spread_around_reserved_price * self._gamma - (vol * self._gamma) ** 2) <= s_decimal_zero:
                 self._kappa = Decimal('1e100')  # Cap to kappa -> Infinity
             else:
-                self._kappa = self._gamma / (Decimal.exp((max_spread_around_reserved_price * self._gamma - (vol * self._gamma) **2) / 2) - 1)
+                self._kappa = self._gamma / (Decimal.exp((max_spread_around_reserved_price * self._gamma - (vol * self._gamma) ** 2) / 2) - 1)
 
             # ETA
             # Want order_amount to be 10% of the original number if q is in the opposite extreme from target inventory
@@ -1141,7 +1138,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         proposal_prices = sorted(proposal_prices)
         for current, proposal in zip(current_prices, proposal_prices):
             # if spread diff is more than the tolerance or order quantities are different, return false.
-            if abs(proposal - current)/current > self._order_refresh_tolerance_pct:
+            if abs(proposal - current) / current > self._order_refresh_tolerance_pct:
                 return False
         return True
 
