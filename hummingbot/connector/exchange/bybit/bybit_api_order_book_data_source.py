@@ -20,10 +20,7 @@ from hummingbot.logger import HummingbotLogger
 
 
 class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
-    # MAX_RETRIES = 20
-    # MESSAGE_TIMEOUT = 30.0
-    # PING_TIMEOUT = 10.0
-    # SNAPSHOT_TIMEOUT = 10.0
+    _ORDER_BOOK_SNAPSHOT_DELAY = 60 * 60
 
     _logger: Optional[HummingbotLogger] = None
     _trading_pair_symbol_map: Dict[str, Dict[str, str]] = {}
@@ -117,21 +114,32 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         symbols_map = await BybitAPIOrderBookDataSource.trading_pair_symbol_map(domain=domain)
         return list(symbols_map.values())
 
-    # @staticmethod
-    # async def get_order_book_data(trading_pair: str, domain: str = "com") -> Dict[str, any]:
-    #     """
-    #     Get whole orderbook
-    #     """
-    #     async with aiohttp.ClientSession() as client:
-    #         async with client.get(url=f"{CONSTANTS.ORDER_BOOK_URL.format(domain)}",
-    #                               params={"market_id": trading_pair}) as response:
-    #             if response.status != 200:
-    #                 raise IOError(
-    #                     f"Error fetching OrderBook for {trading_pair} at {CONSTANTS.ORDER_BOOK_URL.format(domain)}. "
-    #                     f"HTTP {response.status}. Response: {await response.json()}"
-    #                 )
-    #             return await response.json()
-    #
+    async def _get_order_book_data(self, trading_pair: str) -> Dict[str, any]:
+        """Retrieves entire orderbook snapshot of the specified trading pair via the REST API.
+        :param trading_pair: Trading pair of the particular orderbook.
+        :return: Parsed API Response as a Json dictionary
+        """
+        symbol_map = await self.trading_pair_symbol_map(self._domain)
+        symbols = [symbol for symbol, pair in symbol_map.items() if pair == trading_pair]
+
+        if symbols:
+            symbol = symbols[0]
+        else:
+            raise ValueError(f"There is no symbol mapping for trading pair {trading_pair}")
+
+        params = {"symbol": symbol}
+
+        url = bybit_utils.rest_api_url_for_endpoint(endpoint=CONSTANTS.ORDER_BOOK_ENDPOINT, domain=self._domain)
+        async with self._session.get(url, params=params) as response:
+            status = response.status
+            if status != 200:
+                raise IOError(
+                    f"Error fetching OrderBook for {trading_pair} at {CONSTANTS.ORDER_BOOK_ENDPOINT}. "
+                    f"HTTP {status}. Response: {await response.json()}"
+                )
+
+            response = await response.json()
+            return response
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         pass
@@ -257,44 +265,35 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self.logger().error(f"Unexpected error ({ex})", exc_info=True)
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
-        pass
-    #     """
-    #     Listen for orderbook snapshots by fetching orderbook
-    #     """
-    #     while True:
-    #         try:
-    #             for trading_pair in self._trading_pairs:
-    #                 try:
-    #                     snapshot: Dict[str, any] = await self.get_order_book_data(trading_pair, domain=self._domain)
-    #                     snapshot_timestamp: int = int(time.time() * 1e3)
-    #                     snapshot_msg: OrderBookMessage = ProbitOrderBook.snapshot_message_from_exchange(
-    #                         msg=snapshot,
-    #                         timestamp=snapshot_timestamp,
-    #                         metadata={"market_id": trading_pair}  # Manually insert trading_pair here since API response does include trading pair
-    #                     )
-    #                     output.put_nowait(snapshot_msg)
-    #                     self.logger().debug(f"Saved order book snapshot for {trading_pair}")
-    #                     # Be careful not to go above API rate limits.
-    #                     await asyncio.sleep(5.0)
-    #                 except asyncio.CancelledError:
-    #                     raise
-    #                 except Exception:
-    #                     self.logger().network(
-    #                         "Unexpected error with WebSocket connection.",
-    #                         exc_info=True,
-    #                         app_warning_msg="Unexpected error with WebSocket connection. Retrying in 5 seconds. "
-    #                                         "Check network connection."
-    #                     )
-    #                     await asyncio.sleep(5.0)
-    #             this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
-    #             next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)
-    #             delta: float = next_hour.timestamp() - time.time()
-    #             await asyncio.sleep(delta)
-    #         except asyncio.CancelledError:
-    #             raise
-    #         except Exception:
-    #             self.logger().error("Unexpected error.", exc_info=True)
-    #             await asyncio.sleep(5.0)
+        """
+        Periodically polls for orderbook snapshots using the REST API.
+        """
+        await asyncio.sleep(self._ORDER_BOOK_SNAPSHOT_DELAY)
+
+        while True:
+            await asyncio.sleep(self._ORDER_BOOK_SNAPSHOT_DELAY)
+            try:
+                for trading_pair in self._trading_pairs:
+                    response: Dict[str: Any] = await self._get_order_book_data(trading_pair)
+                    metadata = {
+                        "trading_pair": trading_pair,
+                        "data": response["result"],
+                        "timestamp_e6": int(float(response["time_now"]) * 1e6)
+                    }
+                    snapshot_message = BybitOrderBook.snapshot_message_from_exchange(
+                        msg=response,
+                        timestamp=float(response["time_now"]),
+                        metadata=metadata
+                    )
+                    output.put_nowait(snapshot_message)
+                await asyncio.sleep(self._ORDER_BOOK_SNAPSHOT_DELAY)
+            except asyncio.CancelledError:
+                raise
+            except Exception as ex:
+                self.logger().error("Unexpected error occurred listening for orderbook snapshots."
+                                    f" Retrying in 5 secs. ({ex})",
+                                    exc_info=True)
+                await asyncio.sleep(5.0)
 
     async def listen_for_instruments_info(self, ev_loop: asyncio.BaseEventLoop):
         """

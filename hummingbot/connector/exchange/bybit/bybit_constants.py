@@ -14,7 +14,7 @@ LATEST_SYMBOL_INFORMATION_ENDPOINT = "/public/tickers"
 QUERY_SYMBOL_ENDPOINT = "/public/symbols"
 
 # REST API Private Endpoints
-
+ORDER_BOOK_ENDPOINT = "/public/orderBook/L2"
 
 # WebSocket Public Endpoints
 WS_PING_REQUEST = "ping"
