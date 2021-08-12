@@ -142,7 +142,24 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return response
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
-        pass
+        snapshot: Dict[str, Any] = await self._get_order_book_data(trading_pair)
+        metadata = {
+            "trading_pair": trading_pair,
+            "data": snapshot["result"],
+            "timestamp_e6": int(float(snapshot["time_now"]) * 1e6)
+        }
+
+        snapshot_msg = BybitOrderBook.snapshot_message_from_exchange(
+            msg=snapshot,
+            timestamp=float(snapshot["time_now"]),
+            metadata=metadata
+        )
+        order_book = self.order_book_create_function()
+
+        bids, asks = snapshot_msg.bids, snapshot_msg.asks
+        order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
+
+        return order_book
 
     #     snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair, domain=self._domain)
     #     snapshot_timestamp: int = int(time.time() * 1e3)
@@ -295,7 +312,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                     exc_info=True)
                 await asyncio.sleep(5.0)
 
-    async def listen_for_instruments_info(self, ev_loop: asyncio.BaseEventLoop):
+    async def listen_for_instruments_info(self):
         """
         Listen for instruments information events received through the websocket channel to update last traded price
         """
