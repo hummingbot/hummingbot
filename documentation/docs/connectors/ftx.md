@@ -26,7 +26,7 @@ You can create API keys from your FTX profile page. Under the API tab will be a 
 Consult the FTX [API Documentation](https://help.ftx.com/hc/en-us/articles/360028807171-api-docs) for more information.
 
 !!! warning
-    For API key permissions, we recommend using only #orders# enabled (read and write) API keys; enabling #withdraw, transfer, or the equivalent# is unnecessary for current Hummingbot strategies.
+    For API key permissions, we recommend using only `orders` enabled (read and write) API keys; enabling `withdraw`, `transfer`, or `the equivalent is unnecessary` for current Hummingbot strategies.
 
 ### Exchange status
 

@@ -18,7 +18,7 @@ Ensure you have set up the Ethereum wallet and nodes for more details:
 After the installation and configuration are completed, we can create the configuration for the AMM arbitrage strategy. The following example shows a step-by-step on configuring the AMM arb strategy.
 
 !!! note
-    `Paper_trade` is not applicable for this strategy. Alternatively, you may set up a `kovan_testnet` to help you run some tests without risking funds.
+    `paper_trade` is not applicable for this strategy. Alternatively, you may set up a `kovan_testnet` to help you run some tests without risking funds.
 
 1. In Hummingbot, enter `create`.
 2. Enter `amm-arb`.
