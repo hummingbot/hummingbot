@@ -40,7 +40,7 @@ Make sure you give permissions to **Read** and **Write** and enter your 2FA code
 Confirm your API-key request bypass the link in the email letter. You will receive a notification: _Almost Done! Please check your email to complete the creation of this new API key._
 
 !!! warning
-    For API key permissions, we recommend using #Orders# enabled API keys; enabling #withdraw#, or the equivalent is unnecessary for current Hummingbot strategies.
+    For API key permissions, we recommend using `Orders` enabled API keys; enabling `withdraw`, or `the equivalent is unnecessary` for current Hummingbot strategies.
 
 Once you pass the link in an email letter, you've created a new API Key!
 

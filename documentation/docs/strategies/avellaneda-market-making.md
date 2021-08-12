@@ -148,7 +148,7 @@ What is your inventory target for base asset? Enter 50 for 50%?
 >>> 50
 ```
 
-## Advanced parameters
+## **Advanced parameters**
 
 These are additional parameters that you can reconfigure and use to customize the behavior of your strategy further. To change its settings, run the command `config` followed by the parameter name, e.g. `config max_order_age`.
 
