@@ -5,6 +5,7 @@ from unittest.mock import patch, AsyncMock, PropertyMock
 
 from hummingbot.connector.exchange.bybit import bybit_constants as CONSTANTS
 from hummingbot.connector.exchange.bybit.bybit_api_order_book_data_source import BybitAPIOrderBookDataSource
+from hummingbot.core.data_type.order_book_message import OrderBookMessage
 
 
 class AsyncContextMock(AsyncMock):
@@ -30,11 +31,16 @@ class BybitAPIOrderBookDataSourceTests(TestCase):
         self.log_records = []
         self.ws_sent_messages = []
         self.ws_incoming_messages = asyncio.Queue()
+        self.listening_task = None
 
         self.data_source = BybitAPIOrderBookDataSource([self.trading_pair])
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
         self.data_source._trading_pair_symbol_map = {}
+
+    def tearDown(self) -> None:
+        self.listening_task and self.listening_task.cancel()
+        super().tearDown()
 
     def handle(self, record):
         self.log_records.append(record)
@@ -656,3 +662,111 @@ class BybitAPIOrderBookDataSourceTests(TestCase):
             pass
 
         self.assertTrue(self._is_logged("ERROR", "Unexpected error ('topic')"))
+
+    @patch("asyncio.sleep", new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.get")
+    def test_listen_for_snapshots_successful(self, mock_get, mock_sleep):
+        # the queue and the division by zero error are used just to synchronize the test
+        sync_queue = deque()
+        sync_queue.append(1)
+
+        BybitAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSD": "BTC-USDT"}}
+
+        self._configure_mock_api(mock_get)
+        mock_response = {
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": [
+                {
+                    "symbol": "BTCUSDT",
+                    "price": "9487",
+                    "size": 336241,
+                    "side": "Buy"
+                },
+                {
+                    "symbol": "BTCUSDT",
+                    "price": "9487.5",
+                    "size": 522147,
+                    "side": "Sell"
+                }
+            ],
+            "time_now": "1567108756.834357"
+        }
+        self.api_responses_status.append(200)
+        self.api_responses_json.put_nowait(mock_response)
+
+        mock_sleep.side_effect = lambda delay: 1 / 0 if len(sync_queue) == 0 else sync_queue.pop()
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+        with self.assertRaises(ZeroDivisionError):
+            self.listening_task = asyncio.get_event_loop().create_task(
+                self.data_source.listen_for_order_book_snapshots(asyncio.get_event_loop(), msg_queue))
+            asyncio.get_event_loop().run_until_complete(self.listening_task)
+
+        self.assertEqual(1, msg_queue.qsize())
+
+        snapshot_msg: OrderBookMessage = msg_queue.get_nowait()
+        self.assertEqual(1567108756834357, snapshot_msg.update_id)
+        self.assertEqual(self.trading_pair, snapshot_msg.trading_pair)
+        self.assertEqual(9487, snapshot_msg.bids[0].price)
+        self.assertEqual(9487.5, snapshot_msg.asks[0].price)
+
+    @patch("asyncio.sleep", new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.get")
+    def test_listen_for_snapshots_for_unknown_pair_fails(self, mock_get, mock_sleep):
+        # the queue and the division by zero error are used just to synchronize the test
+        sync_queue = deque()
+        sync_queue.append(1)
+
+        BybitAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"UNKNOWN": "UNK-NOWN"}}
+
+        self._configure_mock_api(mock_get)
+        mock_response = {}
+        self.api_responses_status.append(200)
+        self.api_responses_json.put_nowait(mock_response)
+
+        mock_sleep.side_effect = lambda delay: 1 / 0 if len(sync_queue) == 0 else sync_queue.pop()
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+        with self.assertRaises(ZeroDivisionError):
+            self.listening_task = asyncio.get_event_loop().create_task(
+                self.data_source.listen_for_order_book_snapshots(asyncio.get_event_loop(), msg_queue))
+            asyncio.get_event_loop().run_until_complete(self.listening_task)
+
+        self.assertEqual(0, msg_queue.qsize())
+
+        self.assertTrue(self._is_logged("ERROR",
+                                        "Unexpected error occurred listening for orderbook snapshots."
+                                        " Retrying in 5 secs. (There is no symbol mapping for trading pair BTC-USDT)"))
+
+    @patch("asyncio.sleep", new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.get")
+    def test_listen_for_snapshots_fails_when_api_request_fails(self, mock_get, mock_sleep):
+        # the queue and the division by zero error are used just to synchronize the test
+        sync_queue = deque()
+        sync_queue.append(1)
+        sync_queue.append(2)
+
+        BybitAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
+
+        self._configure_mock_api(mock_get)
+        mock_response = {}
+        self.api_responses_status.append(405)
+        self.api_responses_json.put_nowait(mock_response)
+
+        mock_sleep.side_effect = lambda delay: 1 / 0 if len(sync_queue) == 0 else sync_queue.pop()
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+        with self.assertRaises(ZeroDivisionError):
+            self.listening_task = asyncio.get_event_loop().create_task(
+                self.data_source.listen_for_order_book_snapshots(asyncio.get_event_loop(), msg_queue))
+            asyncio.get_event_loop().run_until_complete(self.listening_task)
+
+        self.assertEqual(0, msg_queue.qsize())
+
+        self.assertTrue(self._is_logged("ERROR",
+                                        "Unexpected error occurred listening for orderbook snapshots."
+                                        f" Retrying in 5 secs. (Error fetching OrderBook for {self.trading_pair} "
+                                        f"at {CONSTANTS.ORDER_BOOK_ENDPOINT}. HTTP 405. Response: {dict()})"))
