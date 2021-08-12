@@ -64,7 +64,6 @@ class RateLimit:
         :param limit: A total number of calls * weight permitted within time_interval period
         :param time_interval: The time interval
         :param weight: The weight (in integer) of each call. Defaults to 1
-        :param pools: The API pools associated with this API request. Defaults to an empty list
         """
         self.limit_id = limit_id
         self.limit = limit
@@ -74,7 +73,7 @@ class RateLimit:
 
     def __repr__(self):
         return f"limit_id: {self.limit_id}, limit: {self.limit}, time interval: {self.time_interval}, " \
-               f"weight: {self.weight}, pools: {self.pools}, is_pool: {self.is_pool}"
+               f"weight: {self.weight}, linked_limits: {self.linked_limits}"
 
 
 @dataclass

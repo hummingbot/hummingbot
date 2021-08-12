@@ -13,7 +13,7 @@ from hummingbot.core.api_throttler.data_types import (
 )
 from hummingbot.logger.logger import HummingbotLogger
 
-mlpt_logger = None
+arc_logger = None
 MAX_CAPACITY_REACHED_WARNING_INTERVAL = 30.0
 
 
@@ -27,10 +27,10 @@ class AsyncRequestContextBase(ABC):
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        global mlpt_logger
-        if mlpt_logger is None:
-            mlpt_logger = logging.getLogger(__name__)
-        return mlpt_logger
+        global arc_logger
+        if arc_logger is None:
+            arc_logger = logging.getLogger(__name__)
+        return arc_logger
 
     def __init__(self,
                  task_logs: List[TaskLog],
@@ -78,6 +78,7 @@ class AsyncRequestContextBase(ABC):
 
         task = TaskLog(timestamp=time.time(), rate_limits=self._rate_limits)
         self._task_logs.append(task)
+        pass
 
     async def __aenter__(self):
         async with self._lock:
