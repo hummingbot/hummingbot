@@ -60,7 +60,7 @@ prompt_folder () {
    if [ "$FOLDER" == "" ]
    then
      FOLDER=$PWD/$DEFAULT_FOLDER
-   elif ! [[ "$FOLDER" == *"$HOME"* ]]; then
+   elif [[ ${FOLDER::1} != "/" ]]; then
      FOLDER=$PWD/$FOLDER
    fi
    # Store folder names into an array

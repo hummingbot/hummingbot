@@ -31,7 +31,7 @@ read -p "   Enter a folder name where your Hummingbot files will be saved (defau
 if [ "$FOLDER" == "" ]
 then
   FOLDER=$PWD/$DEFAULT_FOLDER
-elif ! [[ "$FOLDER" == *"$HOME"* ]]; then
+elif [[ ${FOLDER::1} != "/" ]]; then
   FOLDER=$PWD/$FOLDER
 fi
 echo
