@@ -31,7 +31,7 @@ if [ "$FOLDER" == "" ]
 then
   prompt_hummingbot_data_path
 else
-  if ! [[ "$FOLDER" == *"$HOME"* ]]; then
+  if [[ ${FOLDER::1} != "/" ]]; then
     FOLDER=$PWD/$FOLDER
   fi
 
