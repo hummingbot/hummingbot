@@ -548,11 +548,11 @@ class BybitAPIOrderBookDataSourceTests(TestCase):
 
         self.assertTrue(self._is_logged("ERROR", "Unexpected error ('topic')"))
 
-    def test_listen_for_instruments_info_snapshot_event(self, ):
+    def test_listen_for_instruments_info_snapshot_event(self):
         BybitAPIOrderBookDataSource._last_traded_prices = {None: {"BTC-USD": 0.0}}
 
         task = asyncio.get_event_loop().create_task(
-            self.data_source.listen_for_instruments_info(ev_loop=asyncio.get_event_loop()))
+            self.data_source.listen_for_instruments_info())
 
         # Add trade event message be processed
         data_source_queue = self.data_source._messages_queues[CONSTANTS.WS_INSTRUMENTS_INFO_TOPIC]
@@ -588,7 +588,7 @@ class BybitAPIOrderBookDataSourceTests(TestCase):
         BybitAPIOrderBookDataSource._last_traded_prices = {None: {"BTC-USD": 0.0}}
 
         task = asyncio.get_event_loop().create_task(
-            self.data_source.listen_for_instruments_info(ev_loop=asyncio.get_event_loop()))
+            self.data_source.listen_for_instruments_info())
 
         # Add trade event message be processed
         data_source_queue = self.data_source._messages_queues[CONSTANTS.WS_INSTRUMENTS_INFO_TOPIC]
@@ -635,7 +635,7 @@ class BybitAPIOrderBookDataSourceTests(TestCase):
 
     def test_listen_for_instruments_info_raises_cancel_exceptions(self):
         task = asyncio.get_event_loop().create_task(
-            self.data_source.listen_for_instruments_info(ev_loop=asyncio.get_event_loop()))
+            self.data_source.listen_for_instruments_info())
 
         with self.assertRaises(asyncio.CancelledError):
             task.cancel()
@@ -645,7 +645,7 @@ class BybitAPIOrderBookDataSourceTests(TestCase):
         BybitAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSD": "BTC-USD"}}
 
         task = asyncio.get_event_loop().create_task(
-            self.data_source.listen_for_instruments_info(ev_loop=asyncio.get_event_loop()))
+            self.data_source.listen_for_instruments_info())
 
         # Add trade event message be processed
         data_source_queue = self.data_source._messages_queues[CONSTANTS.WS_INSTRUMENTS_INFO_TOPIC]
@@ -669,6 +669,7 @@ class BybitAPIOrderBookDataSourceTests(TestCase):
         # the queue and the division by zero error are used just to synchronize the test
         sync_queue = deque()
         sync_queue.append(1)
+        sync_queue.append(2)
 
         BybitAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSD": "BTC-USDT"}}
 
@@ -719,6 +720,7 @@ class BybitAPIOrderBookDataSourceTests(TestCase):
         # the queue and the division by zero error are used just to synchronize the test
         sync_queue = deque()
         sync_queue.append(1)
+        sync_queue.append(2)
 
         BybitAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"UNKNOWN": "UNK-NOWN"}}
 
