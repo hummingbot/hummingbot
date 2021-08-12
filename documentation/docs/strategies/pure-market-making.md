@@ -125,7 +125,7 @@ Would you like to use the ping pong feature and alternate between buy and sell o
 !!! tip
     For autocomplete inputs during configuration, when going through the command line config process, pressing `<TAB>` at a prompt will display valid available inputs.
 
-## ** Configure parameters on the fly **
+## **Configure parameters on the fly**
 
 Currently, only the following parameters can be reconfigured without stopping the bot. The changes will take effect in the next order refresh.
 

@@ -37,7 +37,7 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 5. Now, you have created an API key. Please note that to trade on Binance using Hummingbot, **Enable Trading** must be selected
 
 !!! warning
-    For API key permissions, we recommend using only #trade# enabled API keys; enabling #withdraw#, #transfer#, or the equivalent is unnecessary for current Hummingbot strategies.
+    For API key permissions, we recommend using only `trade` enabled API keys; enabling `withdraw`, `transfer`, or `the equivalent is unnecessary` for current Hummingbot strategies.
 
 ![binance4](/assets/img/binance4.png)
 

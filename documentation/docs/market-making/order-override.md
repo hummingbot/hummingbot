@@ -7,9 +7,6 @@ This feature allows users to customize and specify how Hummingbot creates orders
 
 The user provides orders to override the orders placed by the `order_amount` and `order_level` parameters directly.
 
-** Prompt: **
-
-No prompt
 
 ## How it works
 
