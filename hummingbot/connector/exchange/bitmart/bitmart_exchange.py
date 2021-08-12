@@ -42,7 +42,6 @@ from hummingbot.connector.exchange.bitmart.bitmart_in_flight_order import Bitmar
 from hummingbot.connector.exchange.bitmart import bitmart_utils
 from hummingbot.connector.exchange.bitmart import bitmart_constants as CONSTANTS
 from hummingbot.core.data_type.common import OpenOrder
-from hummingbot.core.api_throttler.varied_rate_api_throttler import VariedRateThrottler
 
 ctce_logger = None
 s_decimal_NaN = Decimal("nan")
@@ -50,7 +49,7 @@ s_decimal_NaN = Decimal("nan")
 
 class BitmartExchange(ExchangeBase):
     """
-    BitmartExchange connects with Crypto.com exchange and provides order book pricing, user account tracking and
+    BitmartExchange connects with BitMart exchange and provides order book pricing, user account tracking and
     trading functionality.
     """
     API_CALL_TIMEOUT = 10.0
@@ -74,7 +73,7 @@ class BitmartExchange(ExchangeBase):
                  trading_required: bool = True
                  ):
         """
-        :param bitmart_api_key: The API key to connect to private Crypto.com APIs.
+        :param bitmart_api_key: The API key to connect to private BitMart APIs.
         :param bitmart_secret_key: The API secret.
         :param trading_pairs: The market trading pairs which to track order book data.
         :param trading_required: Whether actual trading is needed.
@@ -96,9 +95,6 @@ class BitmartExchange(ExchangeBase):
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
         self._last_poll_timestamp = 0
-        self._throttler = VariedRateThrottler(
-            rate_limit_list=CONSTANTS.RATE_LIMITS,
-        )
 
     @property
     def name(self) -> str:
@@ -225,7 +221,6 @@ class BitmartExchange(ExchangeBase):
         the network connection. Simply ping the network (or call any light weight public API).
         """
         try:
-            # since there is no ping endpoint, the lowest rate call is to get service status
             await self._api_request("get", CONSTANTS.CHECK_NETWORK_PATH_URL)
         except asyncio.CancelledError:
             raise
@@ -254,7 +249,7 @@ class BitmartExchange(ExchangeBase):
             except Exception as e:
                 self.logger().network(f"Unexpected error while fetching trading rules. Error: {str(e)}",
                                       exc_info=True,
-                                      app_warning_msg="Could not fetch new trading rules from Crypto.com. "
+                                      app_warning_msg="Could not fetch new trading rules from BitMart. "
                                                       "Check network connection.")
                 await asyncio.sleep(0.5)
 
@@ -298,7 +293,7 @@ class BitmartExchange(ExchangeBase):
         for rule in symbols_details["data"]["symbols"]:
             try:
                 trading_pair = bitmart_utils.convert_from_exchange_trading_pair(rule["symbol"])
-                price_decimals = Decimal(str(rule["price_min_precision"]))
+                price_decimals = Decimal(str(rule["price_max_precision"]))
                 # E.g. a price decimal of 2 means 0.01 incremental.
                 price_step = Decimal("1") / Decimal(str(math.pow(10, price_decimals)))
                 result[trading_pair] = TradingRule(trading_pair=trading_pair,
@@ -324,32 +319,31 @@ class BitmartExchange(ExchangeBase):
         :param auth_type: Type of Authorization header to send in request, from {"SIGNED", "KEYED", None}
         :returns A response in json format.
         """
-        async with self._throttler.execute_task(path_url):
-            url = f"{CONSTANTS.REST_URL}/{path_url}"
-            client = await self._http_client()
+        url = f"{CONSTANTS.REST_URL}/{path_url}"
+        client = await self._http_client()
 
-            headers = self._bitmart_auth.get_headers(bitmart_utils.get_ms_timestamp(), params, auth_type)
+        headers = self._bitmart_auth.get_headers(bitmart_utils.get_ms_timestamp(), params, auth_type)
 
-            if method == "get":
-                response = await client.get(url, params=params, headers=headers)
-            elif method == "post":
-                post_json = json.dumps(params)
-                response = await client.post(url, data=post_json, headers=headers)
-            else:
-                raise NotImplementedError
+        if method == "get":
+            response = await client.get(url, params=params, headers=headers)
+        elif method == "post":
+            post_json = json.dumps(params)
+            response = await client.post(url, data=post_json, headers=headers)
+        else:
+            raise NotImplementedError
 
-            try:
-                parsed_response = await response.json()
-            except Exception as e:
-                raise IOError(f"Error parsing data from {url}. Error: {str(e)}")
-            if response.status != 200:
-                raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. "
-                              f"Message: {parsed_response}")
-            if int(parsed_response["code"]) != 1000:
-                raise IOError(f"{url} API call failed, error message: {parsed_response['message']}")
-            # print(f"REQUEST: {method} {path_url} {params}")
-            # print(f"RESPONSE: {parsed_response}")
-            return parsed_response
+        try:
+            parsed_response = await response.json()
+        except Exception as e:
+            raise IOError(f"Error parsing data from {url}. Error: {str(e)}")
+        if response.status != 200:
+            raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. "
+                          f"Message: {parsed_response}")
+        if int(parsed_response["code"]) != 1000:
+            raise IOError(f"{url} API call failed, error message: {parsed_response['message']}")
+        # print(f"REQUEST: {method} {path_url} {params}")
+        # print(f"RESPONSE: {parsed_response}")
+        return parsed_response
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal):
         """
@@ -569,7 +563,7 @@ class BitmartExchange(ExchangeBase):
                 self.logger().error(str(e), exc_info=True)
                 self.logger().network("Unexpected error while fetching account updates.",
                                       exc_info=True,
-                                      app_warning_msg="Could not fetch account updates from Crypto.com. "
+                                      app_warning_msg="Could not fetch account updates from BitMart. "
                                                       "Check API key and network connection.")
                 await asyncio.sleep(0.5)
 

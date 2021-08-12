@@ -123,10 +123,7 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 async with websockets.connect(uri=CONSTANTS.WSS_URL) as ws:
-
-                    first_msg: Dict[str, Any] = {}  # dictionary to check if a message from a trading pair in trade channel is first
-                    for trading_pair in self._trading_pairs:
-                        first_msg[trading_pair] = True
+                    ws: websockets.WebSocketClientProtocol = ws
 
                     for trading_pair in self._trading_pairs:
                         params: Dict[str, Any] = {
@@ -134,6 +131,7 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             "args": [f"spot/trade:{bitmart_utils.convert_to_exchange_trading_pair(trading_pair)}"]
                         }
                         await ws.send(ujson.dumps(params))
+
                     async for raw_msg in self._inner_messages(ws):
                         messages = ujson.loads(raw_msg)
                         if messages is None:
@@ -145,16 +143,12 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         for msg in messages["data"]:        # data is a list
                             msg_timestamp: float = float(msg["s_t"] * 1000)
                             t_pair = bitmart_utils.convert_from_exchange_trading_pair(msg["symbol"])
-                            if first_msg[t_pair]:
-                                # First response from websocket is all trades until now, ignoring first message.
-                                first_msg[t_pair] = False
-                                continue
-                            else:
-                                trade_msg: OrderBookMessage = BitmartOrderBook.trade_message_from_exchange(
-                                    msg=msg,
-                                    timestamp=msg_timestamp,
-                                    metadata={"trading_pair": t_pair})
-                                output.put_nowait(trade_msg)
+
+                            trade_msg: OrderBookMessage = BitmartOrderBook.trade_message_from_exchange(
+                                msg=msg,
+                                timestamp=msg_timestamp,
+                                metadata={"trading_pair": t_pair})
+                            output.put_nowait(trade_msg)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -165,16 +159,12 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
-        Listen for orderbook diffs using websocket book channel
+        Listen for orderbook diffs using websocket book channel(all messages are snapshots)
         """
         while True:
             try:
                 async with websockets.connect(uri=CONSTANTS.WSS_URL) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
-
-                    first_msg: Dict[str, Any] = {}  # dictionary to check if a message from a trading pair in depth400 channel is first
-                    for trading_pair in self._trading_pairs:
-                        first_msg[trading_pair] = True
 
                     for trading_pair in self._trading_pairs:
                         params: Dict[str, Any] = {
@@ -182,6 +172,7 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             "args": [f"spot/depth400:{bitmart_utils.convert_to_exchange_trading_pair(trading_pair)}"]
                         }
                         await ws.send(ujson.dumps(params))
+
                     async for raw_msg in self._inner_messages(ws):
                         messages = ujson.loads(raw_msg)
                         if messages is None:
@@ -193,22 +184,13 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         for msg in messages["data"]:        # data is a list
                             msg_timestamp: float = float(msg["ms_t"])
                             t_pair = bitmart_utils.convert_from_exchange_trading_pair(msg["symbol"])
-                            if first_msg[t_pair]:
-                                # First response from websocket is a snapshot.
-                                snapshot_msg: OrderBookMessage = BitmartOrderBook.snapshot_message_from_exchange(
-                                    msg=msg,
-                                    timestamp=msg_timestamp,
-                                    metadata={"trading_pair": t_pair}
-                                )
-                                first_msg[t_pair] = False
-                                output.put_nowait(snapshot_msg)
-                            else:
-                                diff_msg: OrderBookMessage = BitmartOrderBook.diff_message_from_exchange(
-                                    msg=msg,
-                                    timestamp=msg_timestamp,
-                                    metadata={"trading_pair": t_pair}
-                                )
-                                output.put_nowait(diff_msg)
+
+                            snapshot_msg: OrderBookMessage = BitmartOrderBook.snapshot_message_from_exchange(
+                                msg=msg,
+                                timestamp=msg_timestamp,
+                                metadata={"trading_pair": t_pair}
+                            )
+                            output.put_nowait(snapshot_msg)
             except asyncio.CancelledError:
                 raise
             except Exception:
