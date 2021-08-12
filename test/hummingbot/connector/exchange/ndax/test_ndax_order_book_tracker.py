@@ -6,6 +6,7 @@ import asyncio
 
 import hummingbot.connector.exchange.ndax.ndax_constants as CONSTANTS
 
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.connector.exchange.ndax.ndax_order_book import NdaxOrderBook
 from hummingbot.connector.exchange.ndax.ndax_order_book_message import NdaxOrderBookEntry, NdaxOrderBookMessage
 from hummingbot.connector.exchange.ndax.ndax_order_book_tracker import NdaxOrderBookTracker
@@ -35,6 +36,9 @@ class NdaxOrderBookTrackerUnitTest(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.tracking_task and self.tracking_task.cancel()
+        if len(self.tracker._tracking_tasks) > 0:
+            for task in self.tracker._tracking_tasks.values():
+                task.cancel()
         super().tearDown()
 
     def simulate_queue_order_book_messages(self, message: NdaxOrderBookMessage):
@@ -69,3 +73,23 @@ class NdaxOrderBookTrackerUnitTest(unittest.TestCase):
             self.ev_loop.run_until_complete(self.tracking_task)
 
         self.assertEqual(0, self.tracker.order_books[self.trading_pair].snapshot_uid)
+
+    def test_init_order_books(self):
+        self.tracker._order_books_initialized.clear()
+        self.tracker._tracking_message_queues.clear()
+        self.tracker._tracking_tasks.clear()
+        self.tracker._order_books.clear()
+
+        self.assertEqual(0, len(self.tracker.order_books))
+        self.assertEqual(0, len(self.tracker._tracking_message_queues))
+        self.assertEqual(0, len(self.tracker._tracking_tasks))
+        self.assertFalse(self.tracker._order_books_initialized.is_set())
+
+        init_order_books_task = self.ev_loop.create_task(
+            self.tracker._init_order_books()
+        )
+
+        self.ev_loop.run_until_complete(init_order_books_task)
+
+        self.assertIsInstance(self.tracker.order_books[self.trading_pair], OrderBook)
+        self.assertTrue(self.tracker._order_books_initialized.is_set())
