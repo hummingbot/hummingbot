@@ -161,33 +161,6 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         return order_book
 
-    #     snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair, domain=self._domain)
-    #     snapshot_timestamp: int = int(time.time() * 1e3)
-    #     snapshot_msg: OrderBookMessage = ProbitOrderBook.snapshot_message_from_exchange(
-    #         snapshot,
-    #         snapshot_timestamp,
-    #         metadata={"trading_pair": trading_pair}
-    #     )
-    #     order_book = self.order_book_create_function()
-    #     bids, asks = probit_utils.convert_snapshot_message_to_order_book_row(snapshot_msg)
-    #     order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
-    #     return order_book
-    #
-    # async def _inner_messages(self,
-    #                           ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
-    #     try:
-    #         while True:
-    #             msg: str = await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)
-    #             yield msg
-    #     except asyncio.TimeoutError:
-    #         pong_waiter = await ws.ping()
-    #         await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
-    #     except websockets.exceptions.ConnectionClosed:
-    #         return
-    #     finally:
-    #         await ws.close()
-    #
-
     async def listen_for_subscriptions(self):
         """
         Subscribe to all required events and start the listening cycle.

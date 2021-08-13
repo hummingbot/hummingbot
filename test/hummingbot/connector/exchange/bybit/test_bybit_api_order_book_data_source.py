@@ -293,11 +293,30 @@ class BybitAPIOrderBookDataSourceTests(TestCase):
     def test_listen_for_subscriptions_raises_cancel_exceptions(self, ws_connect_mock):
         ws_connect_mock.return_value = self._create_ws_mock()
 
-        task = asyncio.get_event_loop().create_task(self.data_source.listen_for_subscriptions())
+        self.listening_task = asyncio.get_event_loop().create_task(self.data_source.listen_for_subscriptions())
 
         with self.assertRaises(asyncio.CancelledError):
-            task.cancel()
-            asyncio.get_event_loop().run_until_complete(task)
+            self.listening_task.cancel()
+            asyncio.get_event_loop().run_until_complete(self.listening_task)
+
+    @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
+    def test_listen_for_subscriptions_raises_cancel_exception_when_canceled_during_ws_connection(self, ws_connect_mock):
+        ws_connect_mock.side_effect = asyncio.CancelledError()
+
+        self.listening_task = asyncio.get_event_loop().create_task(self.data_source.listen_for_subscriptions())
+
+        with self.assertRaises(asyncio.CancelledError):
+            asyncio.get_event_loop().run_until_complete(self.listening_task)
+
+    @patch("hummingbot.client.hummingbot_application.HummingbotApplication")
+    @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
+    def test_listen_for_subscriptions_ws_connection_exception_details_are_logged(self, ws_connect_mock, hb_app_mock):
+        ws_connect_mock.side_effect = Exception()
+
+        self.listening_task = asyncio.get_event_loop().create_task(self.data_source.listen_for_subscriptions())
+        asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.5))
+
+        self.assertTrue(self._is_logged("NETWORK", "Unexpected error occurred during bybit WebSocket Connection ()"))
 
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication")
     @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
@@ -310,13 +329,13 @@ class BybitAPIOrderBookDataSourceTests(TestCase):
         websocket_mock.close.side_effect = lambda: sync_queue.put_nowait(1)
         ws_connect_mock.return_value = websocket_mock
 
-        task = asyncio.get_event_loop().create_task(self.data_source.listen_for_subscriptions())
+        self.listening_task = asyncio.get_event_loop().create_task(self.data_source.listen_for_subscriptions())
         # Block the test until the subscription function advances
         asyncio.get_event_loop().run_until_complete(sync_queue.get())
 
         try:
-            task.cancel()
-            asyncio.get_event_loop().run_until_complete(task)
+            self.listening_task.cancel()
+            asyncio.get_event_loop().run_until_complete(self.listening_task)
         except asyncio.CancelledError:
             # The exception will happen when cancelling the task
             pass
@@ -773,3 +792,56 @@ class BybitAPIOrderBookDataSourceTests(TestCase):
                                         "Unexpected error occurred listening for orderbook snapshots."
                                         f" Retrying in 5 secs. (Error fetching OrderBook for {self.trading_pair} "
                                         f"at {CONSTANTS.ORDER_BOOK_ENDPOINT}. HTTP 405. Response: {dict()})"))
+
+    def test_listen_for_snapshots_raises_cancel_exceptions(self):
+        trades_queue = asyncio.Queue()
+        task = asyncio.get_event_loop().create_task(
+            self.data_source.listen_for_order_book_diffs(ev_loop=asyncio.get_event_loop(), output=trades_queue))
+
+        with self.assertRaises(asyncio.CancelledError):
+            task.cancel()
+            asyncio.get_event_loop().run_until_complete(task)
+
+    @patch("aiohttp.ClientSession.get")
+    def test_get_new_order_book(self, mock_get):
+        BybitAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSD": "BTC-USDT"}}
+
+        self._configure_mock_api(mock_get)
+        mock_response = {
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": [
+                {
+                    "symbol": "BTCUSDT",
+                    "price": "9487",
+                    "size": 336241,
+                    "side": "Buy"
+                },
+                {
+                    "symbol": "BTCUSDT",
+                    "price": "9487.5",
+                    "size": 522147,
+                    "side": "Sell"
+                }
+            ],
+            "time_now": "1567108756.834357"
+        }
+        self.api_responses_status.append(200)
+        self.api_responses_json.put_nowait(mock_response)
+
+        self.listening_task = asyncio.get_event_loop().create_task(
+            self.data_source.get_new_order_book(self.trading_pair))
+        order_book = asyncio.get_event_loop().run_until_complete(self.listening_task)
+        bids = list(order_book.bid_entries())
+        asks = list(order_book.ask_entries())
+
+        self.assertEqual(1, len(bids))
+        self.assertEqual(9487.0, bids[0].price)
+        self.assertEqual(336241, bids[0].amount)
+        self.assertEqual(1567108756834357, bids[0].update_id)
+        self.assertEqual(1, len(asks))
+        self.assertEqual(9487.5, asks[0].price)
+        self.assertEqual(522147, asks[0].amount)
+        self.assertEqual(1567108756834357, asks[0].update_id)
