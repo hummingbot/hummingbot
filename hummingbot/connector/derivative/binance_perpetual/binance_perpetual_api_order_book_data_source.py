@@ -89,16 +89,17 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 async with client.get(EXCHANGE_INFO_URL.format(BASE_URL), timeout=10) as response:
                     if response.status == 200:
                         data = await response.json()
-                        # fetch d["pair"] for binance perpetual
-                        raw_trading_pairs = [d["pair"] for d in data["symbols"] if d["status"] == "TRADING"]
-                        trading_pair_targets = [
-                            f"{d['baseAsset']}-{d['quoteAsset']}" for d in data["symbols"] if d["status"] == "TRADING"
-                        ]
+                        raw_trading_pairs = [d["symbol"] for d in data["symbols"] if d["status"] == "TRADING"]
                         trading_pair_list: List[str] = []
-                        for raw_trading_pair, pair_target in zip(raw_trading_pairs, trading_pair_targets):
-                            trading_pair = convert_from_exchange_trading_pair(raw_trading_pair)
-                            if trading_pair is not None and trading_pair == pair_target:
-                                trading_pair_list.append(trading_pair)
+                        for raw_trading_pair in raw_trading_pairs:
+                            try:
+                                trading_pair = convert_from_exchange_trading_pair(raw_trading_pair)
+                                if trading_pair is not None:
+                                    trading_pair_list.append(trading_pair)
+                                else:
+                                    continue
+                            except Exception:
+                                pass
                         return trading_pair_list
         except Exception:
             pass
