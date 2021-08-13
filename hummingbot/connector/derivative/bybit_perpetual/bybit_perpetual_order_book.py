@@ -27,11 +27,11 @@ class BybitPerpetualOrderBook(OrderBook):
         return cls._logger
 
     @classmethod
-    def _bids_and_asks_from_entries(cls, entries: List[Dict[str, Any]], predetermined_amount: Optional[Decimal] = None):
+    def _bids_and_asks_from_entries(cls, entries: List[Dict[str, Any]]):
         bids = []
         asks = []
         for entry in entries:
-            amount = Decimal(entry["size"] if predetermined_amount is None else predetermined_amount)
+            amount = Decimal(entry["size"]) if "size" in entry else Decimal("0")
             entry_data = [Decimal(entry["price"]), amount]
             if entry["side"].upper() == TradeType.SELL.name:
                 asks.append(entry_data)
@@ -99,21 +99,13 @@ class BybitPerpetualOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
 
-        asks = []
-        bids = []
+        all_entries = []
 
-        bids_to_delete, asks_to_delete = cls._bids_and_asks_from_entries(entries=msg["data"]["delete"],
-                                                                         predetermined_amount=Decimal("0"))
-        bids.extend(bids_to_delete)
-        asks.extend(asks_to_delete)
+        all_entries.extend(msg["data"]["delete"])
+        all_entries.extend(msg["data"]["update"])
+        all_entries.extend(msg["data"]["insert"])
 
-        bids_to_update, asks_to_update = cls._bids_and_asks_from_entries(entries=msg["data"]["update"])
-        bids.extend(bids_to_update)
-        asks.extend(asks_to_update)
-
-        bids_to_insert, asks_to_insert = cls._bids_and_asks_from_entries(entries=msg["data"]["insert"])
-        bids.extend(bids_to_insert)
-        asks.extend(asks_to_insert)
+        bids, asks = cls._bids_and_asks_from_entries(all_entries)
 
         bids.sort(key=lambda entry_data: entry_data[0])
         asks.sort(key=lambda entry_data: entry_data[0])
