@@ -59,7 +59,9 @@ prompt_folder () {
    read -p "   Enter the destination folder for $instance (default = \"$DEFAULT_FOLDER\") >>> " FOLDER
    if [ "$FOLDER" == "" ]
    then
-     FOLDER=$DEFAULT_FOLDER
+     FOLDER=$PWD/$DEFAULT_FOLDER
+   elif [[ ${FOLDER::1} != "/" ]]; then
+     FOLDER=$PWD/$FOLDER
    fi
    # Store folder names into an array
    FOLDERS+=($FOLDER)
@@ -103,11 +105,11 @@ execute_docker () {
    docker run -itd --log-opt max-size=10m --log-opt max-file=5 \
    --network host \
    --name ${INSTANCES[$j]} \
-   --mount "type=bind,source=$(pwd)/${FOLDERS[$j]}/hummingbot_conf,destination=/conf/" \
-   --mount "type=bind,source=$(pwd)/${FOLDERS[$j]}/hummingbot_logs,destination=/logs/" \
-   --mount "type=bind,source=$(pwd)/${FOLDERS[$j]}/hummingbot_data,destination=/data/" \
-   --mount "type=bind,source=$(pwd)/${FOLDERS[$j]}/hummingbot_scripts,destination=/scripts/" \
-   --mount "type=bind,source=$(pwd)/${FOLDERS[$j]}/hummingbot_certs,destination=/certs/" \
+   --mount "type=bind,source=${FOLDERS[$j]}/hummingbot_conf,destination=/conf/" \
+   --mount "type=bind,source=${FOLDERS[$j]}/hummingbot_logs,destination=/logs/" \
+   --mount "type=bind,source=${FOLDERS[$j]}/hummingbot_data,destination=/data/" \
+   --mount "type=bind,source=${FOLDERS[$j]}/hummingbot_scripts,destination=/scripts/" \
+   --mount "type=bind,source=${FOLDERS[$j]}/hummingbot_certs,destination=/certs/" \
    coinalpha/hummingbot:$TAG
    j=$[$j+1]
  done
