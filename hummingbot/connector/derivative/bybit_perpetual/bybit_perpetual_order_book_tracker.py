@@ -5,7 +5,7 @@ from typing import List, Optional
 
 import aiohttp
 
-from hummingbot.connector.exchange.bybit.bybit_api_order_book_data_source import BybitAPIOrderBookDataSource
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source import BybitPerpetualAPIOrderBookDataSource
 from hummingbot.core.data_type.order_book import OrderBook
 
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
@@ -13,7 +13,7 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
 
 
-class BybitOrderBookTracker(OrderBookTracker):
+class BybitPerpetualOrderBookTracker(OrderBookTracker):
     _logger: Optional[HummingbotLogger] = None
 
     @classmethod
@@ -26,7 +26,7 @@ class BybitOrderBookTracker(OrderBookTracker):
                  session: aiohttp.ClientSession,
                  trading_pairs: Optional[List[str]] = None,
                  domain: Optional[str] = None):
-        super().__init__(BybitAPIOrderBookDataSource(trading_pairs, domain, session), trading_pairs, domain)
+        super().__init__(BybitPerpetualAPIOrderBookDataSource(trading_pairs, domain, session), trading_pairs, domain)
 
         self._order_book_event_listener_task: Optional[asyncio.Task] = None
         self._order_book_instruments_info_listener_task: Optional[asyncio.Task] = None

@@ -2,11 +2,11 @@ from typing import Optional
 
 from hummingbot.client.config.config_methods import using_exchange
 from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.connector.exchange.bybit import bybit_constants as CONSTANTS
+from hummingbot.connector.derivative.bybit_perpetual import bybit_perpetual_constants as CONSTANTS
 
 CENTRALIZED = True
 
-EXAMPLE_PAIR = "BTC-CAD"
+EXAMPLE_PAIR = "BTC-USD"
 
 # Bybit fees: https://help.bybit.com/hc/en-us/articles/360039261154
 # Fees have to be expressed as percent value

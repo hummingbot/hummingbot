@@ -10,16 +10,16 @@ from typing import (
     Optional, Any,
 )
 
-from hummingbot.connector.exchange.bybit import bybit_constants as CONSTANTS, bybit_utils
+from hummingbot.connector.derivative.bybit_perpetual import bybit_perpetual_constants as CONSTANTS, bybit_perpetual_utils
 from hummingbot.core.data_type.order_book import OrderBook, OrderBookMessage
 
-from hummingbot.connector.exchange.bybit.bybit_order_book import BybitOrderBook
-from hummingbot.connector.exchange.bybit.bybit_websocket_adaptor import BybitWebSocketAdaptor
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_order_book import BybitPerpetualOrderBook
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_websocket_adaptor import BybitPerpetualWebSocketAdaptor
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 
 
-class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
+class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
     _ORDER_BOOK_SNAPSHOT_DELAY = 60 * 60
 
     _logger: Optional[HummingbotLogger] = None
@@ -41,13 +41,13 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._session = session or aiohttp.ClientSession()
         self._messages_queues: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
 
-    async def _create_websocket_connection(self) -> BybitWebSocketAdaptor:
+    async def _create_websocket_connection(self) -> BybitPerpetualWebSocketAdaptor:
         """
         Initialize WebSocket client for UserStreamDataSource
         """
         try:
-            ws = await self._session.ws_connect(bybit_utils.wss_url(self._domain))
-            return BybitWebSocketAdaptor(websocket=ws)
+            ws = await self._session.ws_connect(bybit_perpetual_utils.wss_url(self._domain))
+            return BybitPerpetualWebSocketAdaptor(websocket=ws)
         except asyncio.CancelledError:
             raise
         except Exception as ex:
@@ -61,7 +61,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         cls._trading_pair_symbol_map[domain] = {}
 
-        endpoint_url = bybit_utils.rest_api_url_for_endpoint(CONSTANTS.QUERY_SYMBOL_ENDPOINT, domain)
+        endpoint_url = bybit_perpetual_utils.rest_api_url_for_endpoint(CONSTANTS.QUERY_SYMBOL_ENDPOINT, domain)
 
         async with aiohttp.ClientSession() as client:
             async with client.get(endpoint_url, params={}) as response:
@@ -97,7 +97,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def _get_last_traded_prices_from_exchange(cls, trading_pairs, domain):
         result = {}
         trading_pair_symbol_map = await cls.trading_pair_symbol_map(domain=domain)
-        endpoint_url = bybit_utils.rest_api_url_for_endpoint(CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT, domain)
+        endpoint_url = bybit_perpetual_utils.rest_api_url_for_endpoint(CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT, domain)
         async with aiohttp.ClientSession() as client:
             async with client.get(endpoint_url) as response:
                 if response.status == 200:
@@ -111,7 +111,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @staticmethod
     async def fetch_trading_pairs(domain: Optional[str] = None) -> List[str]:
-        symbols_map = await BybitAPIOrderBookDataSource.trading_pair_symbol_map(domain=domain)
+        symbols_map = await BybitPerpetualAPIOrderBookDataSource.trading_pair_symbol_map(domain=domain)
         return list(symbols_map.values())
 
     async def _get_order_book_data(self, trading_pair: str) -> Dict[str, any]:
@@ -129,7 +129,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         params = {"symbol": symbol}
 
-        url = bybit_utils.rest_api_url_for_endpoint(endpoint=CONSTANTS.ORDER_BOOK_ENDPOINT, domain=self._domain)
+        url = bybit_perpetual_utils.rest_api_url_for_endpoint(endpoint=CONSTANTS.ORDER_BOOK_ENDPOINT, domain=self._domain)
         async with self._session.get(url, params=params) as response:
             status = response.status
             if status != 200:
@@ -149,7 +149,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
             "timestamp_e6": int(float(snapshot["time_now"]) * 1e6)
         }
 
-        snapshot_msg = BybitOrderBook.snapshot_message_from_exchange(
+        snapshot_msg = BybitPerpetualOrderBook.snapshot_message_from_exchange(
             msg=snapshot,
             timestamp=float(snapshot["time_now"]),
             metadata=metadata
@@ -168,7 +168,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         while True:
             try:
-                ws_adaptor: BybitWebSocketAdaptor = await self._create_websocket_connection()
+                ws_adaptor: BybitPerpetualWebSocketAdaptor = await self._create_websocket_connection()
                 symbols_and_pairs_map = await self.trading_pair_symbol_map(self._domain)
                 symbols = [symbol for symbol, pair in symbols_and_pairs_map.items() if pair in self._trading_pairs]
 
@@ -212,7 +212,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
             try:
                 trade_message = await self._messages_queues[CONSTANTS.WS_TRADES_TOPIC].get()
                 for trade_entry in trade_message["data"]:
-                    trade_msg: OrderBookMessage = BybitOrderBook.trade_message_from_exchange(
+                    trade_msg: OrderBookMessage = BybitPerpetualOrderBook.trade_message_from_exchange(
                         msg=trade_entry,
                         timestamp=trade_entry["trade_time_ms"] * 1e-3,
                         metadata={"trading_pair": symbol_map[trade_entry["symbol"]]})
@@ -237,14 +237,14 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 event_type = order_book_message["type"]
 
                 if event_type == "snapshot":
-                    snapshot_msg: OrderBookMessage = BybitOrderBook.snapshot_message_from_exchange(
+                    snapshot_msg: OrderBookMessage = BybitPerpetualOrderBook.snapshot_message_from_exchange(
                         msg=order_book_message,
                         timestamp=order_book_message["timestamp_e6"] * 1e-6,
                         metadata={"trading_pair": trading_pair})
                     output.put_nowait(snapshot_msg)
 
                 if event_type == "delta":
-                    diff_msg: OrderBookMessage = BybitOrderBook.diff_message_from_exchange(
+                    diff_msg: OrderBookMessage = BybitPerpetualOrderBook.diff_message_from_exchange(
                         msg=order_book_message,
                         timestamp=order_book_message["timestamp_e6"] * 1e-6,
                         metadata={"trading_pair": trading_pair})
@@ -270,7 +270,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         "data": response["result"],
                         "timestamp_e6": int(float(response["time_now"]) * 1e6)
                     }
-                    snapshot_message = BybitOrderBook.snapshot_message_from_exchange(
+                    snapshot_message = BybitPerpetualOrderBook.snapshot_message_from_exchange(
                         msg=response,
                         timestamp=float(response["time_now"]),
                         metadata=metadata

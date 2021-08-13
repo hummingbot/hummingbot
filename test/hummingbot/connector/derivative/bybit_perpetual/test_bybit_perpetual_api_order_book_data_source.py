@@ -3,8 +3,8 @@ from collections import deque
 from unittest import TestCase
 from unittest.mock import patch, AsyncMock, PropertyMock
 
-from hummingbot.connector.exchange.bybit import bybit_constants as CONSTANTS
-from hummingbot.connector.exchange.bybit.bybit_api_order_book_data_source import BybitAPIOrderBookDataSource
+from hummingbot.connector.derivative.bybit_perpetual import bybit_perpetual_constants as CONSTANTS
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source import BybitPerpetualAPIOrderBookDataSource
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 
 
@@ -16,7 +16,7 @@ class AsyncContextMock(AsyncMock):
         return
 
 
-class BybitAPIOrderBookDataSourceTests(TestCase):
+class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
     # logging.Level required to receive logs from the data source logger
     level = 0
 
@@ -33,7 +33,7 @@ class BybitAPIOrderBookDataSourceTests(TestCase):
         self.ws_incoming_messages = asyncio.Queue()
         self.listening_task = None
 
-        self.data_source = BybitAPIOrderBookDataSource([self.trading_pair])
+        self.data_source = BybitPerpetualAPIOrderBookDataSource([self.trading_pair])
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
         self.data_source._trading_pair_symbol_map = {}
@@ -74,7 +74,7 @@ class BybitAPIOrderBookDataSourceTests(TestCase):
 
     @patch("aiohttp.ClientSession.get")
     def test_get_trading_pair_symbols(self, mock_get):
-        BybitAPIOrderBookDataSource._trading_pair_symbol_map = {}
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {}
         self._configure_mock_api(mock_get)
         mock_response = {
             "ret_code": 0,
@@ -215,7 +215,7 @@ class BybitAPIOrderBookDataSourceTests(TestCase):
 
     @patch("aiohttp.ClientSession.get")
     def test_get_last_traded_prices_requests_rest_api_price_when_subscription_price_not_available(self, mock_get):
-        BybitAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
 
         self._configure_mock_api(mock_get)
         mock_response = {
@@ -265,7 +265,7 @@ class BybitAPIOrderBookDataSourceTests(TestCase):
 
     @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
     def test_listen_for_subscriptions_registers_to_orders_trades_and_instruments(self, ws_connect_mock):
-        BybitAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
         ws_connect_mock.return_value = self._create_ws_mock()
 
         task = asyncio.get_event_loop().create_task(self.data_source.listen_for_subscriptions())
@@ -324,7 +324,7 @@ class BybitAPIOrderBookDataSourceTests(TestCase):
     def test_listen_for_subscriptions_logs_exceptions_details(self, ws_connect_mock, hb_app_mock):
         sync_queue = asyncio.Queue()
 
-        BybitAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
         websocket_mock = self._create_ws_mock()
         websocket_mock.receive_json.side_effect = Exception()
         websocket_mock.close.side_effect = lambda: sync_queue.put_nowait(1)
@@ -344,7 +344,7 @@ class BybitAPIOrderBookDataSourceTests(TestCase):
         self.assertTrue(self._is_logged("NETWORK", "Unexpected error with WebSocket connection ()"))
 
     def test_listen_for_trades(self, ):
-        BybitAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
 
         trades_queue = asyncio.Queue()
 
@@ -399,7 +399,7 @@ class BybitAPIOrderBookDataSourceTests(TestCase):
             asyncio.get_event_loop().run_until_complete(task)
 
     def test_listen_for_trades_logs_exception_details(self, ):
-        BybitAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
 
         trades_queue = asyncio.Queue()
 
@@ -433,7 +433,7 @@ class BybitAPIOrderBookDataSourceTests(TestCase):
         self.assertTrue(self._is_logged("ERROR", "Unexpected error ('data')"))
 
     def test_listen_for_order_book_snapshot_event(self, ):
-        BybitAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSD": "BTC-USD"}}
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSD": "BTC-USD"}}
 
         order_book_messages = asyncio.Queue()
 
@@ -475,7 +475,7 @@ class BybitAPIOrderBookDataSourceTests(TestCase):
         self.assertEqual(46380.0, order_book_message.asks[0].price)
 
     def test_listen_for_order_book_diff_event(self, ):
-        BybitAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSD": "BTC-USD"}}
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSD": "BTC-USD"}}
 
         order_book_messages = asyncio.Queue()
 
@@ -536,7 +536,7 @@ class BybitAPIOrderBookDataSourceTests(TestCase):
             asyncio.get_event_loop().run_until_complete(task)
 
     def test_listen_for_order_book_diff_logs_exception_details(self, ):
-        BybitAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSD": "BTC-USD"}}
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSD": "BTC-USD"}}
 
         order_book_messages = asyncio.Queue()
 
@@ -570,7 +570,7 @@ class BybitAPIOrderBookDataSourceTests(TestCase):
         self.assertTrue(self._is_logged("ERROR", "Unexpected error ('topic')"))
 
     def test_listen_for_instruments_info_snapshot_event(self):
-        BybitAPIOrderBookDataSource._last_traded_prices = {None: {"BTC-USD": 0.0}}
+        BybitPerpetualAPIOrderBookDataSource._last_traded_prices = {None: {"BTC-USD": 0.0}}
 
         task = asyncio.get_event_loop().create_task(
             self.data_source.listen_for_instruments_info())
@@ -593,7 +593,7 @@ class BybitAPIOrderBookDataSourceTests(TestCase):
         # Lock the test to let the async task run
         asyncio.get_event_loop().run_until_complete(asyncio.sleep(1))
         last_traded_prices = asyncio.get_event_loop().run_until_complete(
-            BybitAPIOrderBookDataSource.get_last_traded_prices(["BTC-USD"]))
+            BybitPerpetualAPIOrderBookDataSource.get_last_traded_prices(["BTC-USD"]))
 
         try:
             task.cancel()
@@ -605,8 +605,8 @@ class BybitAPIOrderBookDataSourceTests(TestCase):
         self.assertEqual(46355.0, last_traded_prices["BTC-USD"])
 
     def test_listen_for_instruments_info_delta_event(self, ):
-        BybitAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSD": "BTC-USD"}}
-        BybitAPIOrderBookDataSource._last_traded_prices = {None: {"BTC-USD": 0.0}}
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSD": "BTC-USD"}}
+        BybitPerpetualAPIOrderBookDataSource._last_traded_prices = {None: {"BTC-USD": 0.0}}
 
         task = asyncio.get_event_loop().create_task(
             self.data_source.listen_for_instruments_info())
@@ -643,7 +643,7 @@ class BybitAPIOrderBookDataSourceTests(TestCase):
         # Lock the test to let the async task run
         asyncio.get_event_loop().run_until_complete(asyncio.sleep(1))
         last_traded_prices = asyncio.get_event_loop().run_until_complete(
-            BybitAPIOrderBookDataSource.get_last_traded_prices(["BTC-USD"]))
+            BybitPerpetualAPIOrderBookDataSource.get_last_traded_prices(["BTC-USD"]))
 
         try:
             task.cancel()
@@ -663,7 +663,7 @@ class BybitAPIOrderBookDataSourceTests(TestCase):
             asyncio.get_event_loop().run_until_complete(task)
 
     def test_listen_for_instruments_info_logs_exception_details(self, ):
-        BybitAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSD": "BTC-USD"}}
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSD": "BTC-USD"}}
 
         task = asyncio.get_event_loop().create_task(
             self.data_source.listen_for_instruments_info())
@@ -692,7 +692,7 @@ class BybitAPIOrderBookDataSourceTests(TestCase):
         sync_queue.append(1)
         sync_queue.append(2)
 
-        BybitAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSD": "BTC-USDT"}}
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSD": "BTC-USDT"}}
 
         self._configure_mock_api(mock_get)
         mock_response = {
@@ -743,7 +743,7 @@ class BybitAPIOrderBookDataSourceTests(TestCase):
         sync_queue.append(1)
         sync_queue.append(2)
 
-        BybitAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"UNKNOWN": "UNK-NOWN"}}
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"UNKNOWN": "UNK-NOWN"}}
 
         self._configure_mock_api(mock_get)
         mock_response = {}
@@ -772,7 +772,7 @@ class BybitAPIOrderBookDataSourceTests(TestCase):
         sync_queue.append(1)
         sync_queue.append(2)
 
-        BybitAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
 
         self._configure_mock_api(mock_get)
         mock_response = {}
@@ -805,7 +805,7 @@ class BybitAPIOrderBookDataSourceTests(TestCase):
 
     @patch("aiohttp.ClientSession.get")
     def test_get_new_order_book(self, mock_get):
-        BybitAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSD": "BTC-USDT"}}
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSD": "BTC-USDT"}}
 
         self._configure_mock_api(mock_get)
         mock_response = {

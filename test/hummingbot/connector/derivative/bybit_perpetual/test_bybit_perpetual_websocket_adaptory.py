@@ -2,10 +2,10 @@ import asyncio
 from unittest import TestCase
 from unittest.mock import AsyncMock
 
-from hummingbot.connector.exchange.bybit.bybit_websocket_adaptor import BybitWebSocketAdaptor
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_websocket_adaptor import BybitPerpetualWebSocketAdaptor
 
 
-class BybitWebSocketAdaptorTests(TestCase):
+class BybitPerpetualWebSocketAdaptorTests(TestCase):
 
     def _raise_asyncio_timeout_exception(self):
         raise asyncio.TimeoutError()
@@ -19,7 +19,7 @@ class BybitWebSocketAdaptorTests(TestCase):
         ws = AsyncMock()
         ws.send_json.side_effect = lambda sent_message: sent_messages.append(sent_message)
 
-        adaptor = BybitWebSocketAdaptor(websocket=ws)
+        adaptor = BybitPerpetualWebSocketAdaptor(websocket=ws)
         payload = {"TestElement1": "Value1", "TestElement2": "Value2"}
         asyncio.get_event_loop().run_until_complete(adaptor.send_request(payload=payload))
 
@@ -31,7 +31,7 @@ class BybitWebSocketAdaptorTests(TestCase):
     def test_close(self):
         ws = AsyncMock()
 
-        adaptor = BybitWebSocketAdaptor(websocket=ws)
+        adaptor = BybitPerpetualWebSocketAdaptor(websocket=ws)
         asyncio.get_event_loop().run_until_complete(adaptor.close())
 
         self.assertEquals(1, ws.close.await_count)
@@ -41,7 +41,7 @@ class BybitWebSocketAdaptorTests(TestCase):
         ws = AsyncMock()
         ws.send_json.side_effect = lambda sent_message: sent_messages.append(sent_message)
 
-        adaptor = BybitWebSocketAdaptor(websocket=ws)
+        adaptor = BybitPerpetualWebSocketAdaptor(websocket=ws)
         asyncio.get_event_loop().run_until_complete(adaptor.subscribe_to_order_book(["BTCUSD", "ETHUSD"]))
 
         self.assertEqual(1, len(sent_messages))
@@ -55,7 +55,7 @@ class BybitWebSocketAdaptorTests(TestCase):
         ws = AsyncMock()
         ws.send_json.side_effect = lambda sent_message: sent_messages.append(sent_message)
 
-        adaptor = BybitWebSocketAdaptor(websocket=ws)
+        adaptor = BybitPerpetualWebSocketAdaptor(websocket=ws)
         asyncio.get_event_loop().run_until_complete(adaptor.subscribe_to_order_book())
 
         self.assertEqual(1, len(sent_messages))
@@ -69,7 +69,7 @@ class BybitWebSocketAdaptorTests(TestCase):
         ws = AsyncMock()
         ws.send_json.side_effect = lambda sent_message: sent_messages.append(sent_message)
 
-        adaptor = BybitWebSocketAdaptor(websocket=ws)
+        adaptor = BybitPerpetualWebSocketAdaptor(websocket=ws)
         asyncio.get_event_loop().run_until_complete(adaptor.subscribe_to_trades(["BTCUSD", "ETHUSD"]))
 
         self.assertEqual(1, len(sent_messages))
@@ -83,7 +83,7 @@ class BybitWebSocketAdaptorTests(TestCase):
         ws = AsyncMock()
         ws.send_json.side_effect = lambda sent_message: sent_messages.append(sent_message)
 
-        adaptor = BybitWebSocketAdaptor(websocket=ws)
+        adaptor = BybitPerpetualWebSocketAdaptor(websocket=ws)
         asyncio.get_event_loop().run_until_complete(adaptor.subscribe_to_trades())
 
         self.assertEqual(1, len(sent_messages))
@@ -97,7 +97,7 @@ class BybitWebSocketAdaptorTests(TestCase):
         ws = AsyncMock()
         ws.send_json.side_effect = lambda sent_message: sent_messages.append(sent_message)
 
-        adaptor = BybitWebSocketAdaptor(websocket=ws)
+        adaptor = BybitPerpetualWebSocketAdaptor(websocket=ws)
         asyncio.get_event_loop().run_until_complete(adaptor.subscribe_to_instruments_info(["BTCUSD", "ETHUSD"]))
 
         self.assertEqual(1, len(sent_messages))
@@ -111,7 +111,7 @@ class BybitWebSocketAdaptorTests(TestCase):
         ws = AsyncMock()
         ws.send_json.side_effect = lambda sent_message: sent_messages.append(sent_message)
 
-        adaptor = BybitWebSocketAdaptor(websocket=ws)
+        adaptor = BybitPerpetualWebSocketAdaptor(websocket=ws)
         asyncio.get_event_loop().run_until_complete(adaptor.subscribe_to_instruments_info())
 
         self.assertEqual(1, len(sent_messages))
@@ -129,7 +129,7 @@ class BybitWebSocketAdaptorTests(TestCase):
                                                        if sent_messages.empty()
                                                        else messages_to_receive.get())
 
-        adaptor = BybitWebSocketAdaptor(websocket=ws)
+        adaptor = BybitPerpetualWebSocketAdaptor(websocket=ws)
         task = asyncio.get_event_loop().create_task(self._iterate_messages(adaptor))
 
         messages_to_receive.put_nowait({"topic": "dummyMessage"})

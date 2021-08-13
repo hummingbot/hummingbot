@@ -1,7 +1,7 @@
 import logging
 from decimal import Decimal
 
-import hummingbot.connector.exchange.bybit.bybit_constants as CONSTANTS
+import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_constants as CONSTANTS
 
 from sqlalchemy.engine import RowProxy
 from typing import (
@@ -17,7 +17,7 @@ from hummingbot.core.data_type.order_book_message import (
 )
 
 
-class BybitOrderBook(OrderBook):
+class BybitPerpetualOrderBook(OrderBook):
     _logger = None
 
     @classmethod
