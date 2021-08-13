@@ -2,7 +2,7 @@
 ###       Avellaneda market making strategy config    ###
 ########################################################
 
-template_version: 4
+template_version: 5
 strategy: null
 
 # Exchange and token parameters.
