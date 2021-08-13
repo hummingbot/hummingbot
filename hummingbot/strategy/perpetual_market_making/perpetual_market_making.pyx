@@ -654,7 +654,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
                 take_profit_price = position.entry_price * (Decimal("1") + profit_spread) if position.amount > 0 \
                     else position.entry_price * (Decimal("1") - profit_spread)
                 price = market.c_quantize_order_price(self.trading_pair, take_profit_price)
-                size = position.amount
+                size = market.c_quantize_order_amount(self.trading_pair, position.amount)
                 old_exit_orders =[
                     o for o in active_orders
                     if (
