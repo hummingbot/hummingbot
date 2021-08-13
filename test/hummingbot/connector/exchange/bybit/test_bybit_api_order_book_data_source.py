@@ -74,6 +74,7 @@ class BybitAPIOrderBookDataSourceTests(TestCase):
 
     @patch("aiohttp.ClientSession.get")
     def test_get_trading_pair_symbols(self, mock_get):
+        BybitAPIOrderBookDataSource._trading_pair_symbol_map = {}
         self._configure_mock_api(mock_get)
         mock_response = {
             "ret_code": 0,
