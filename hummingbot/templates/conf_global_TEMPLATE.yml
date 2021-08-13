@@ -118,6 +118,12 @@ ndax_testnet_account_name: null
 ndax_testnet_api_key: null
 ndax_testnet_secret_key: null
 
+bybit_api_key: null
+bybit_secret_key: null
+
+bybit_testnet_api_key: null
+bybit_testnet_secret_key: null
+
 # Ethereum wallet address: required for trading on a DEX
 ethereum_wallet: null
 ethereum_rpc_url: null
