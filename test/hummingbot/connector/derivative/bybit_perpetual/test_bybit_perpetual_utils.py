@@ -1,9 +1,9 @@
 from unittest import TestCase
 
-from hummingbot.connector.exchange.bybit import bybit_constants as CONSTANTS, bybit_utils as utils
+from hummingbot.connector.derivative.bybit_perpetual import bybit_perpetual_constants as CONSTANTS, bybit_perpetual_utils as utils
 
 
-class BybitUtilsTests(TestCase):
+class BybitPerpetualUtilsTests(TestCase):
 
     def test_trading_pair_convertion(self):
         trading_pair = "BTC-USDT"

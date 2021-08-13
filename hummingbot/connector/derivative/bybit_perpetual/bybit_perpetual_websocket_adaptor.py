@@ -2,10 +2,10 @@ import aiohttp
 import asyncio
 from typing import AsyncIterable, Dict, Any, Optional, List
 
-import hummingbot.connector.exchange.bybit.bybit_constants as CONSTANTS
+import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_constants as CONSTANTS
 
 
-class BybitWebSocketAdaptor:
+class BybitPerpetualWebSocketAdaptor:
 
     _operation_field_name = "op"
     _payload_field_name = "args"

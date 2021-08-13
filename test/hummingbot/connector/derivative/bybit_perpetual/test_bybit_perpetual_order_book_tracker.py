@@ -4,14 +4,14 @@ import aiohttp
 from unittest import TestCase
 from unittest.mock import AsyncMock
 
-from hummingbot.connector.exchange.bybit.bybit_order_book_tracker import BybitOrderBookTracker
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_order_book_tracker import BybitPerpetualOrderBookTracker
 
 
-class BybitOrderBookTrackerTests(TestCase):
+class BybitPerpetualOrderBookTrackerTests(TestCase):
 
     def setUp(self) -> None:
         self.mock_data_source = AsyncMock()
-        self.tracker = BybitOrderBookTracker(aiohttp.ClientSession(), ["BTC-USDT"])
+        self.tracker = BybitPerpetualOrderBookTracker(aiohttp.ClientSession(), ["BTC-USDT"])
         self.tracker._data_source = self.mock_data_source
 
     def test_tracker_listens_to_subscriptions_and_process_instruments_updates_when_starting(self):

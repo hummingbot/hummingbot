@@ -1,11 +1,11 @@
 from unittest import TestCase
 
-from hummingbot.connector.exchange.bybit.bybit_order_book import BybitOrderBook
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_order_book import BybitPerpetualOrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 from hummingbot.core.event.events import TradeType
 
 
-class BybitOrderBookTests(TestCase):
+class BybitPerpetualOrderBookTests(TestCase):
 
     def test_trade_message_from_exchange(self):
         json_message = {'trade_time_ms': 1628618168965,
@@ -19,7 +19,7 @@ class BybitOrderBookTests(TestCase):
                         'cross_seq': 8926514939}
         extra_metadata = {"trading_pair": "BTC=USDT"}
 
-        message = BybitOrderBook.trade_message_from_exchange(msg=json_message, timestamp=1000, metadata=extra_metadata)
+        message = BybitPerpetualOrderBook.trade_message_from_exchange(msg=json_message, timestamp=1000, metadata=extra_metadata)
 
         self.assertEqual(OrderBookMessageType.TRADE, message.type)
         self.assertEqual(-1, message.update_id)
@@ -61,7 +61,7 @@ class BybitOrderBookTests(TestCase):
                         'timestamp_e6': 1628618166211259}
         extra_metadata = {"trading_pair": "BTC=USD"}
 
-        message = BybitOrderBook.snapshot_message_from_exchange(msg=json_message, timestamp=1000, metadata=extra_metadata)
+        message = BybitPerpetualOrderBook.snapshot_message_from_exchange(msg=json_message, timestamp=1000, metadata=extra_metadata)
 
         self.assertEqual(OrderBookMessageType.SNAPSHOT, message.type)
         self.assertEqual(json_message["timestamp_e6"], message.update_id)
@@ -120,7 +120,7 @@ class BybitOrderBookTests(TestCase):
                         'timestamp_e6': 1628685006311131}
         extra_metadata = {"trading_pair": "BTC=USD"}
 
-        message = BybitOrderBook.diff_message_from_exchange(msg=json_message, timestamp=1000, metadata=extra_metadata)
+        message = BybitPerpetualOrderBook.diff_message_from_exchange(msg=json_message, timestamp=1000, metadata=extra_metadata)
 
         self.assertEqual(OrderBookMessageType.DIFF, message.type)
         self.assertEqual(json_message["timestamp_e6"], message.update_id)
