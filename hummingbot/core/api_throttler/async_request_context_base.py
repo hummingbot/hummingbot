@@ -78,7 +78,6 @@ class AsyncRequestContextBase(ABC):
 
         task = TaskLog(timestamp=time.time(), rate_limits=self._rate_limits)
         self._task_logs.append(task)
-        pass
 
     async def __aenter__(self):
         async with self._lock:
