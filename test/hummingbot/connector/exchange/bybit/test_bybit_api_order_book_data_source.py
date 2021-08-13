@@ -299,8 +299,9 @@ class BybitAPIOrderBookDataSourceTests(TestCase):
             task.cancel()
             asyncio.get_event_loop().run_until_complete(task)
 
+    @patch("hummingbot.client.hummingbot_application.HummingbotApplication")
     @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
-    def test_listen_for_subscriptions_logs_exceptions_details(self, ws_connect_mock):
+    def test_listen_for_subscriptions_logs_exceptions_details(self, ws_connect_mock, hb_app_mock):
         sync_queue = asyncio.Queue()
 
         BybitAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
