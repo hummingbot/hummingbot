@@ -4,7 +4,6 @@ import time
 import unittest
 
 from decimal import Decimal
-
 from typing import (
     Dict,
     List,
@@ -12,7 +11,6 @@ from typing import (
 
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.api_throttler.async_throttler import AsyncRequestContext, AsyncThrottler
-from hummingbot.core.api_throttler.async_request_context_base import arc_logger
 from hummingbot.core.api_throttler.data_types import RateLimit, TaskLog
 
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
@@ -41,7 +39,7 @@ class AsyncThrottlerUnitTests(unittest.TestCase):
         self._req_counters: Dict[str, int] = {limit.limit_id: 0 for limit in self.rate_limits}
 
     def tearDown(self) -> None:
-        global_config_map["rate_limits_share_pct"].value = 0
+        global_config_map["rate_limits_share_pct"].value = None
         super().tearDown()
 
     async def execute_requests(self, no_request: int, limit_id: str, throttler: AsyncThrottler):
@@ -102,19 +100,13 @@ class AsyncThrottlerUnitTests(unittest.TestCase):
         self.assertEqual(1, len(self.throttler._task_logs))
 
     def test_within_capacity_returns_false(self):
-        self.throttler._task_logs.append(TaskLog(timestamp=1.0, rate_limits=self.rate_limits))
+        self.throttler._task_logs.append(TaskLog(timestamp=time.time(), rate_limits=self.rate_limits))
 
         context = AsyncRequestContext(task_logs=self.throttler._task_logs,
                                       rate_limits=self.rate_limits,
                                       lock=asyncio.Lock(),
                                       safety_margin_pct=self.throttler._safety_margin_pct)
-
-        with self.assertLogs(logger=arc_logger) as log:
-            self.assertFalse(context.within_capacity())
-            self.assertEqual(1, len(log.output))
-            self.assertIn("API rate limit on TEST (1 calls per 5.0s) has almost reached. Number of calls is 1 in the last "
-                          "5.0 seconds",
-                          log.output[0])
+        self.assertFalse(context.within_capacity())
 
     def test_within_capacity_returns_true(self):
         lock = asyncio.Lock()
