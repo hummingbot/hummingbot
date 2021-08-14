@@ -67,6 +67,8 @@ async def get_active_campaigns(exchange: str, trading_pairs: List[str] = []) -> 
         resp = await client.get(url)
         resp_json = await resp.json()
     for campaign_retval in resp_json:
+        if type(campaign_retval) != dict:
+            continue
         for market in campaign_retval["markets"]:
             if market["exchange_name"] != exchange:
                 continue
