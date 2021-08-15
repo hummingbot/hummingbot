@@ -6,7 +6,7 @@ Uninstall Hummingbot locally from your computer, then download and install the l
 
 ## Update via Docker
 
-Hummingbot is regularly updated each month (see [Release Notes](/release-notes/overview)) and recommends users to periodically update their installations to get the latest version of the software.
+Hummingbot is regularly updated each month (see [Release Notes](/release-notes/)) and recommends users to periodically update their installations to get the latest version of the software.
 
 Updating to the latest docker image (e.g. `coinalpha/hummingbot:latest`)
 

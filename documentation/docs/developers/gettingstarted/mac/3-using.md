@@ -25,15 +25,15 @@ For more information on creating or importing an Ethereum wallet, see [Ethereum 
 ### Ethereum Node (DEX only)
 **Why this is needed**: When you run a trading bot on a Ethereum-based decentralized exchange, your wallet sends signed transactions to the blockchain via an Ethereum node.
 
-For more information, see [Ethereum node](/installation/node/).
+For more information, see [Ethereum node](/operation/connect-exchange/#ethereum-node).
 
 ## 2. Using Hummingbot
 
 ### Relevant User Manual Links
 
-- [Using the Client](/operation/client)
-- [Configuring Hummingbot](/operation/configuration)
-- [Running Trading Bots](/operation/running-bots)
+- [Using the Client](/operation/)
+- [Configuring Hummingbot](/operation/config-files/)
+- [Running Trading Bots](/installation/multiple-bots/)
 
 ---
 # Next: [Re-compiling Hummingbot for a Code Change](/developers/gettingstarted/mac/4-recompiling)

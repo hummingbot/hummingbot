@@ -6,7 +6,7 @@ In Task 3, we will be required to implement both `InFlightOrder` and `Exchange` 
 
 ### InFlightOrder Class
 
-As seen in the [Exchange Component Overview](architecture/#exchange-component-overview), the `Exchange` class depends on the `InFlightOrder` Class.
+As seen in the [Exchange Component Overview](/developers/connectors/architecture/#exchange-component-overview), the `Exchange` class depends on the `InFlightOrder` Class.
 The `InFlightOrder` abstracts an order's details and is primarily used by the `Exchange` class to manage all active orders.
 
 The **_InFlightOrder Class Diagram_**, given below, details the critical variables and functions in the `InFlightOrder` class.
