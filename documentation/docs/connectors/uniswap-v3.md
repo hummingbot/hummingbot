@@ -7,7 +7,7 @@ Concentrated liquidity and multiple fee tiers are the new features behind Uniswa
 Source: https://decrypt.co/resources/what-is-uniswap
 
 !!! warning
-    Currently, [Uniswap](/protocol-connectors/uniswap/) could not be used on Binary Installers since it would need a [gateway](https://docs.hummingbot.io/gateway/installation/#what-is-hummingbot-gateway) connection for it to work. It can only be used when running Hummingbot from source or with Docker.
+    Currently, [Uniswap](/connectors/uniswap/) could not be used on Binary Installers since it would need a [gateway](https://docs.hummingbot.io/gateway/installation/#what-is-hummingbot-gateway) connection for it to work. It can only be used when running Hummingbot from source or with Docker.
 
 ## Prerequisites
 
