@@ -53,7 +53,9 @@ chmod a+x *.sh
 
 # 4) Pull Hummingbot ARM image when asked what version to use
 Enter Hummingbot version: [ latest/development ] ( default = 'latest' )
->> version-0.38.1-arm_beta
+>> version-0.42.0-arm_beta
+
+Latest arm version can be found here (filter list by "arm") - https://hub.docker.com/r/coinalpha/hummingbot/tags?page=1&ordering=last_updated&name=arm
 
 ```
 
@@ -77,8 +79,9 @@ docker run -it \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_data,destination=/data/" \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_scripts,destination=/scripts/" \
-coinalpha/hummingbot:version-0.38.1-arm_beta
+coinalpha/hummingbot:**version-0.42.0-arm_beta**
 ```
+Latest arm version can be found here (filter list by "arm") - https://hub.docker.com/r/coinalpha/hummingbot/tags?page=1&ordering=last_updated&name=arm
 
 ## Install from source
 
