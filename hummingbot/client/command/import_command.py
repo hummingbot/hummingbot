@@ -33,7 +33,8 @@ class ImportCommand:
         if file_name is None:
             file_name = await self.prompt_a_file_name()
 
-        save_previous_strategy_value(file_name)
+        if file_name is not None:
+            save_previous_strategy_value(file_name)
 
         if self.app.to_stop_config:
             self.app.to_stop_config = False
