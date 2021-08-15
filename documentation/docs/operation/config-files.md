@@ -38,9 +38,9 @@ Running this command will automatically create the following files in these fold
 | `conf_liquidity_mining_[#].yml`         | Settings for the [liquidity mining](/strategies/liquidity-mining/) strategy.                         |
 | `conf_perpetual_market_making_#.yml`    | Settings for the [perpetual market making](/strategies/perpetual-market-making) strategy.            |
 | `conf_arb_[#].yml`                      | Settings for the [arbitrage](/strategies/arbitrage/) strategy.                                       |
-| `conf_celo_arb_[#].yml`                 | Settings for the [celo arbitrage](/strategies/celo-arb/) strategy.                                   |
-| `conf_amm_arb_[#].yml`                  | Settings for the [amm arbitrage](/strategies/amm-arb/) strategy.                                     |
-| `conf_spot_perpetual_arbitrage_[#].yml` | Settings for the [spot perpetual arbitrage](/strategies/spot-perpetual-arb/) strategy.               |
+| `conf_celo_arb_[#].yml`                 | Settings for the [celo arbitrage](/strategies/celo-arbitrage/) strategy.                                   |
+| `conf_amm_arb_[#].yml`                  | Settings for the [amm arbitrage](/strategies/amm-arbitrage/) strategy.                                     |
+| `conf_spot_perpetual_arbitrage_[#].yml` | Settings for the [spot perpetual arbitrage](/strategies/spot-perpetual-arbitrage/) strategy.         |
 | `conf_avellaneda_market_making_[#].yml` | Settings for the [avellaneda market making](/strategies/avellaneda-market-making/) strategy.         |
 
 !!! tip
@@ -56,10 +56,10 @@ We have developed walkthroughs for each strategy:
 - [Cross-exchange market making](/strategies/cross-exchange-market-making)
 - [Perpetual Market Making](/strategies/perpetual-market-making)
 - [Arbitrage](/strategies/arbitrage)
-- [Celo Arbitrage](/strategies/celo-arb/)
-- [AMM Arbitrage](/strategies/amm-arb/)
+- [Celo Arbitrage](/strategies/celo-arbitrage/)
+- [AMM Arbitrage](/strategies/amm-arbitrage/)
 - [Liquidity Mining](/strategies/liquidity-mining/)
-- [Spot Perpetual Arbitrage](/strategies/spot-perpetual-arb/)
+- [Spot Perpetual Arbitrage](/strategies/spot-perpetual-arbitrage/)
 - [Avellaneda Market Making](/strategies/avellaneda-market-making/)
 
 !!! note
