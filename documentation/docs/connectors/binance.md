@@ -62,4 +62,4 @@ Users can override the default fees by editing [`conf_fee_overrides.yml`](/opera
 
 You can use an API key from a [Binance sub-account](https://medium.com/binanceexchange/binance-introduces-sub-account-support-d7bf2f95e28c) just like you do for a regular Binance account. Please ensure that you use the **sub-account API key** and not the master account API key.
 
-If you are participating in [Liquidity Mining](https://docs.hummingbot.io/miner), please also use the **sub-account read-only API key** when you sign up.
+If you are participating in [Liquidity Mining](https://support.hummingbot.io/hc/en-us/articles/4402940445465-Liquidity-Mining-Explained), please also use the **sub-account read-only API key** when you sign up.

@@ -26,7 +26,7 @@ Error: DydxAPIError(status_code=400)(response={'errors': [{'name': 'AccountNotFo
 ```
 
 !!! warning
-    Currently, [dydx](/spot-connectors/dydx/) and [dydx-perpetual](/derivative-connectors/dydx-perpetual/) do not work on Binary Installers. It can only be used when running Hummingbot from source or with Docker.
+    Currently, [dydx](/connectors/dydx/) and [dydx-perpetual](/connectors/dydx-perpetual/) do not work on Binary Installers. It can only be used when running Hummingbot from source or with Docker.
 
 ## Miscellaneous info
 
