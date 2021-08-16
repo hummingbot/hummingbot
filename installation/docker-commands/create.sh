@@ -30,7 +30,9 @@ fi
 read -p "   Enter a folder name where your Hummingbot files will be saved (default = \"$DEFAULT_FOLDER\") >>> " FOLDER
 if [ "$FOLDER" == "" ]
 then
-  FOLDER=$DEFAULT_FOLDER
+  FOLDER=$PWD/$DEFAULT_FOLDER
+elif [[ ${FOLDER::1} != "/" ]]; then
+  FOLDER=$PWD/$FOLDER
 fi
 echo
 echo "ℹ️  Confirm below if the instance and its folders are correct:"
@@ -38,7 +40,7 @@ echo
 printf "%30s %5s\n" "Instance name:" "$INSTANCE_NAME"
 printf "%30s %5s\n" "Version:" "coinalpha/hummingbot:$TAG"
 echo
-printf "%30s %5s\n" "Main folder path:" "$PWD/$FOLDER"
+printf "%30s %5s\n" "Main folder path:" "$FOLDER"
 printf "%30s %5s\n" "Config files:" "├── $FOLDER/hummingbot_conf"
 printf "%30s %5s\n" "Log files:" "├── $FOLDER/hummingbot_logs"
 printf "%30s %5s\n" "Trade and data files:" "├── $FOLDER/hummingbot_data"
@@ -73,11 +75,11 @@ create_instance () {
  docker run -it --log-opt max-size=10m --log-opt max-file=5 \
  --name $INSTANCE_NAME \
  --network host \
- --mount "type=bind,source=$(pwd)/$FOLDER/hummingbot_conf,destination=/conf/" \
- --mount "type=bind,source=$(pwd)/$FOLDER/hummingbot_logs,destination=/logs/" \
- --mount "type=bind,source=$(pwd)/$FOLDER/hummingbot_data,destination=/data/" \
- --mount "type=bind,source=$(pwd)/$FOLDER/hummingbot_scripts,destination=/scripts/" \
- --mount "type=bind,source=$(pwd)/$FOLDER/hummingbot_certs,destination=/certs/" \
+ --mount "type=bind,source=$FOLDER/hummingbot_conf,destination=/conf/" \
+ --mount "type=bind,source=$FOLDER/hummingbot_logs,destination=/logs/" \
+ --mount "type=bind,source=$FOLDER/hummingbot_data,destination=/data/" \
+ --mount "type=bind,source=$FOLDER/hummingbot_scripts,destination=/scripts/" \
+ --mount "type=bind,source=$FOLDER/hummingbot_certs,destination=/certs/" \
  coinalpha/hummingbot:$TAG
 }
 
