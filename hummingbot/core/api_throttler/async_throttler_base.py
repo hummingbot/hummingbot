@@ -1,5 +1,6 @@
 import asyncio
 import copy
+import math
 
 from abc import ABC, abstractmethod
 from decimal import Decimal
@@ -38,7 +39,8 @@ class AsyncThrottlerBase(ABC):
         # If configured, users can define the percentage of rate limits to allocate to the throttler.
         self.limits_pct: Optional[Decimal] = Decimal("1") if limits_pct_conf is None else limits_pct_conf / Decimal("100")
         for rate_limit in self._rate_limits:
-            rate_limit.limit = max(Decimal("1"), Decimal(str(rate_limit.limit)) * self.limits_pct)
+            rate_limit.limit = max(Decimal("1"),
+                                   math.floor(Decimal(str(rate_limit.limit)) * self.limits_pct))
 
         # Dictionary of path_url to RateLimit
         self._id_to_limit_map: Dict[str, RateLimit] = {

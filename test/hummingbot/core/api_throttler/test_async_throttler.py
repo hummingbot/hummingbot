@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import math
 import time
 import unittest
 
@@ -57,13 +58,17 @@ class AsyncThrottlerUnitTests(unittest.TestCase):
 
         rate_share_pct: Decimal = Decimal("55")
         global_config_map["rate_limits_share_pct"].value = rate_share_pct
-        expected_limit = Decimal("1") * Decimal("55") / Decimal("100")
 
-        throttler = AsyncThrottler(rate_limits=self.rate_limits)
+        rate_limits = self.rate_limits.copy()
+        rate_limits.append(RateLimit(limit_id="ANOTHER_TEST", limit=10, time_interval=5))
+        expected_limit = math.floor(Decimal("10") * rate_share_pct / Decimal("100"))
+
+        throttler = AsyncThrottler(rate_limits=rate_limits)
         self.assertEqual(0.1, throttler._retry_interval)
-        self.assertEqual(2, len(throttler._rate_limits))
-        self.assertEqual(expected_limit, throttler._id_to_limit_map[TEST_POLL_ID].limit)
-        self.assertEqual(expected_limit, throttler._id_to_limit_map[TEST_PATH_URL].limit)
+        self.assertEqual(3, len(throttler._rate_limits))
+        self.assertEqual(Decimal("1"), throttler._id_to_limit_map[TEST_POLL_ID].limit)
+        self.assertEqual(Decimal("1"), throttler._id_to_limit_map[TEST_PATH_URL].limit)
+        self.assertEqual(expected_limit, throttler._id_to_limit_map["ANOTHER_TEST"].limit)
 
     def test_get_relevant_limits(self):
         self.assertEqual(2, len(self.throttler._rate_limits))
