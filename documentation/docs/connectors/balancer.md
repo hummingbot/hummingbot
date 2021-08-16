@@ -28,8 +28,8 @@ When creating Hummingbot Gateway, it picks up the Ethereum settings in the globa
 
 After adding your Ethereum wallet and node in Hummingbot, follow the guide in the link below on how to install Hummingbot Gateway.
 
-- [Hummingbot Gateway Installation](/gateway/installation/)
+- [Hummingbot Gateway Installation](/installation/gateway/)
 
 !!! note
-    For setting up gas estimator, you can check our [ETH Gas Station](/gateway/installation/#eth-gas-station) for more info
+    For setting up gas estimator, you can check our [ETH Gas Station](/installation/gateway/#eth-gas-station) for more info
 
