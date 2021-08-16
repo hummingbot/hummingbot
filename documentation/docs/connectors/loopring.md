@@ -16,7 +16,7 @@ Enter your loopring api key >>>
 Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
 
 !!! tip
-    For copying and pasting into Hummingbot, see [this page](https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys) for more instructions in our Support section.
+    For copying and pasting into Hummingbot, see [this page](/operation/user-interface/#keyboard-shortcuts).
 
 !!! note
     Existing API keys used previously in Loopring v1 API are now invalid. Users must generate new keys from the latest version of the exchange.
