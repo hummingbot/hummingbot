@@ -583,7 +583,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                         position = self.get_position(trading_pair, side)
                         if position is not None:
                             amount = Decimal(asset["pa"])
-                            if amount == 0:
+                            if amount == Decimal("0"):
                                 pos_key = self.position_key(trading_pair, side)
                                 del self._account_positions[pos_key]
                             else:
@@ -1056,10 +1056,12 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                     signature = hmac.new(secret, query.encode("utf-8"), hashlib.sha256).hexdigest()
                     query += f"&signature={signature}"
 
-                async with aiohttp.request(
+                async with aiohttp.ClientSession() as session:
+                    response = await session.request(
                         method=method.value,
                         url=self._base_url + path + "?" + query,
-                        headers={"X-MBX-APIKEY": self._api_key}) as response:
+                        headers={"X-MBX-APIKEY": self._api_key}
+                    )
                     if response.status != 200:
                         error_response = await response.json()
                         if return_err:
