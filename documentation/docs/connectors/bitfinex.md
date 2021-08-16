@@ -20,7 +20,7 @@ At no point will private or API keys be shared with someone or be used in any wa
 than to authorize transactions required for the operation of Hummingbot.
 
 !!! tip
-    For copying and pasting into Hummingbot, see [this page](https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys) for more instructions in our Support guide.
+    For copying and pasting into Hummingbot, see [this page](/operation/user-interface/#keyboard-shortcuts).
 
 ### Creating Bitfinex API keys
 

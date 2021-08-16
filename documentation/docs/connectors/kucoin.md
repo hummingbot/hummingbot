@@ -16,8 +16,8 @@ Enter your KuCoin passphrase >>>
 
 Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
 
-### Learn more about keyboard shortcuts
-Learn more instructions about copying and pasting into Hummingbot in this [page](https://docs.hummingbot.io/operation/user-interface/#keyboard-shortcuts).
+!!! tip
+    For copying and pasting into Hummingbot, see [this page](/operation/user-interface/#keyboard-shortcuts).
 
 ### Creating KuCoin API keys
 
