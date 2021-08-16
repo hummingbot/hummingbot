@@ -39,8 +39,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         )
 
         self._set_mock_response(mock_api=mocked_get, status=200, json_data={"serverTime": self.start_timestamp})
-        self.ev_loop.run_until_complete(
-            self._await_all_api_responses_delivered())
+        self.ev_loop.run_until_complete(self._await_all_api_responses_delivered())
 
     async def _get_next_api_response(self):
         message = await self.api_responses.get()
@@ -249,8 +248,6 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.ev_loop.run_until_complete(self._await_all_api_responses_delivered())
 
         self.assertEqual(len(self.exchange.account_positions), 1)
-        pos = list(self.exchange.account_positions.values())[0]
-        self.assertEqual(pos.amount, 1)
 
         account_update = self._get_account_update_ws_event_single_position_dict()
         account_update["a"]["P"][0]["pa"] = 0
