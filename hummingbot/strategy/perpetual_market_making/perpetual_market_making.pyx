@@ -1271,5 +1271,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
             return PriceType.LastTrade
         elif price_type_str == 'last_own_trade_price':
             return PriceType.LastOwnTrade
+        elif price_type_str == "custom":
+            return PriceType.Custom
         else:
             raise ValueError(f"Unrecognized price type string {price_type_str}.")
