@@ -1,6 +1,5 @@
 import logging
 from decimal import Decimal
-from enum import Enum
 from typing import Dict, List, Set, Tuple, Union
 
 from hummingbot.connector.connector_base import ConnectorBase
@@ -18,13 +17,6 @@ from hummingbot.strategy.utils import order_age
 
 s_decimal_zero = Decimal(0)
 sb_logger = None
-
-
-class HangingOrdersAggregationType(Enum):
-    NO_AGGREGATION = 0
-    VOLUME_WEIGHTED = 1
-    VOLUME_TIME_WEIGHTED = 2
-    VOLUME_DISTANCE_WEIGHTED = 3
 
 
 class CreatedPairOfOrders:
@@ -50,12 +42,6 @@ class CreatedPairOfOrders:
 
 
 class HangingOrdersTracker:
-    AGGREGATION_METHODS = {
-        HangingOrdersAggregationType.NO_AGGREGATION: "_get_equivalent_orders_no_aggregation",
-        HangingOrdersAggregationType.VOLUME_WEIGHTED: "_get_equivalent_order_volume_weighted",
-        HangingOrdersAggregationType.VOLUME_TIME_WEIGHTED: "_get_equivalent_order_volume_and_age_weighted",
-        HangingOrdersAggregationType.VOLUME_DISTANCE_WEIGHTED: "_get_equivalent_order_volume_and_distance_weighted"
-    }
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -66,12 +52,10 @@ class HangingOrdersTracker:
 
     def __init__(self,
                  strategy: StrategyBase,
-                 aggregation_method: HangingOrdersAggregationType = None,
                  hanging_orders_cancel_pct=None,
                  orders: Dict[str, HangingOrder] = None,
                  trading_pair: str = None):
         self.strategy: StrategyBase = strategy
-        self.aggregation_method: HangingOrdersAggregationType = aggregation_method or HangingOrdersAggregationType.NO_AGGREGATION
         self._hanging_orders_cancel_pct: Decimal = hanging_orders_cancel_pct or Decimal("0.1")
         self.trading_pair: str = trading_pair or self.strategy.trading_pair
         self.orders_being_renewed: Set[HangingOrder] = set()
@@ -114,11 +98,11 @@ class HangingOrdersTracker:
         if order_to_be_removed:
             self.strategy_current_hanging_orders.remove(order_to_be_removed)
             self.logger().notify(f"({self.trading_pair}) Hanging order {event.order_id} cancelled.")
-        if self.aggregation_method == HangingOrdersAggregationType.NO_AGGREGATION:
-            limit_order_to_be_removed = next((order for order in self.original_orders
-                                              if order.client_order_id == event.order_id), None)
-            if limit_order_to_be_removed:
-                self.remove_order(limit_order_to_be_removed)
+
+        limit_order_to_be_removed = next((order for order in self.original_orders
+                                          if order.client_order_id == event.order_id), None)
+        if limit_order_to_be_removed:
+            self.remove_order(limit_order_to_be_removed)
 
     def _did_complete_buy_order(self,
                                 event_tag: int,
@@ -158,18 +142,11 @@ class HangingOrdersTracker:
                 f"({order.trading_pair} {order.amount} @ "
                 f"{order.price}) has been completely filled."
             )
-            if self.aggregation_method == HangingOrdersAggregationType.NO_AGGREGATION:
-                limit_order_to_be_removed = next((original_order for original_order in self.original_orders
-                                                  if original_order.client_order_id == order.order_id), None)
-                if limit_order_to_be_removed:
-                    self.remove_order(limit_order_to_be_removed)
-            else:
-                # For any aggregation other than no_aggregation, the hanging order is the equivalent to all original
-                # hanging orders of the same type (buy/sell)
-                if order.is_buy:
-                    self.remove_all_buys()
-                else:
-                    self.remove_all_sells()
+
+            limit_order_to_be_removed = next((original_order for original_order in self.original_orders
+                                              if original_order.client_order_id == order.order_id), None)
+            if limit_order_to_be_removed:
+                self.remove_order(limit_order_to_be_removed)
 
     def process_tick(self):
         self.remove_orders_far_from_price()
@@ -253,19 +230,11 @@ class HangingOrdersTracker:
                     f"Hanging order passed max_distance from price={self._hanging_orders_cancel_pct * 100}% {order}. Removing...")
                 orders_to_be_removed.add(order)
 
-        if self.aggregation_method == HangingOrdersAggregationType.NO_AGGREGATION:
-            self._cancel_multiple_orders_in_strategy([order.client_order_id for order in orders_to_be_removed])
-        else:
-            for order in orders_to_be_removed:
-                self.remove_order(order)
-
-    def set_aggregation_method(self, aggregation_method: HangingOrdersAggregationType):
-        self.aggregation_method = aggregation_method
+        self._cancel_multiple_orders_in_strategy([order.client_order_id for order in orders_to_be_removed])
 
     def _get_equivalent_orders(self) -> Set[HangingOrder]:
         if self.original_orders:
-            return getattr(self, self.AGGREGATION_METHODS.get(self.aggregation_method),
-                           self._get_equivalent_orders_no_aggregation)(self.original_orders)
+            return self._get_equivalent_orders_no_aggregation(self.original_orders)
         return set()
 
     @property
@@ -374,25 +343,6 @@ class HangingOrdersTracker:
             if quantized_amount > 0:
                 result.add(HangingOrder(None, self.trading_pair, False, quantized_price, quantized_amount))
         return frozenset(result)
-
-    def _get_equivalent_order_volume_weighted(self, orders: Set[LimitOrder]):
-        return self._obtain_equivalent_weighted_order(orders, lambda o: Decimal("1"))
-
-    def _get_equivalent_order_volume_and_age_weighted(self, orders: Set[LimitOrder]):
-        max_order_age = getattr(self.strategy, "max_order_age", None)
-        if max_order_age:
-            return self._obtain_equivalent_weighted_order(orders,
-                                                          lambda o: Decimal.exp(-Decimal(
-                                                              str(self._limit_order_age(o) /
-                                                                  max_order_age))))
-        return frozenset()
-
-    def _get_equivalent_order_volume_and_distance_weighted(self, orders: Set[LimitOrder]):
-        current_price = self.strategy.get_price()
-        return self._obtain_equivalent_weighted_order(orders,
-                                                      lambda o: Decimal.exp(
-                                                          -Decimal(str(abs(o.price - current_price) / current_price)) /
-                                                          self._hanging_orders_cancel_pct))
 
     def add_current_pairs_of_proposal_orders_executed_by_strategy(self, pair: CreatedPairOfOrders):
         self.current_created_pairs_of_orders.append(pair)
