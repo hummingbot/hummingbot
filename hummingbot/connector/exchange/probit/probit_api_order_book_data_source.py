@@ -42,7 +42,6 @@ class ProbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         super().__init__(trading_pairs)
         self._domain = domain
         self._trading_pairs: List[str] = trading_pairs
-        self._snapshot_msg: Dict[str, any] = {}
 
     @classmethod
     async def get_last_traded_prices(cls, trading_pairs: List[str], domain: str = "com") -> Dict[str, float]:
@@ -102,23 +101,11 @@ class ProbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 msg: str = await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)
                 yield msg
         except asyncio.TimeoutError:
-            pong_waiter = await ws.ping()
-            await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
+            await asyncio.wait_for(ws.ping(), timeout=self.PING_TIMEOUT)
         except websockets.exceptions.ConnectionClosed:
             return
         finally:
             await ws.close()
-
-    async def listen_for_order_book_diffs_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
-        # TODO: Combine both trades and order_book_diffs
-        # params: Dict[str, Any] = {
-        #                     "channel": "marketdata",
-        #                     "filter": ["order_books","recent_trades"],
-        #                     "interval": 100,
-        #                     "market_id": trading_pair,
-        #                     "type": "subscribe"
-        #                 }
-        pass
 
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
