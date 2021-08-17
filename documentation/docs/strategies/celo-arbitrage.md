@@ -3,7 +3,7 @@
 **Updated as of v0.28.1**
 
 !!! warning
-    The Celo Arbitrage Strategy could not be used on Binary Installers since it would need a [gateway](https://docs.hummingbot.io/gateway/installation/#what-is-hummingbot-gateway) connection for it to work. It can only be used when running Hummingbot from source or with Docker.
+    The Celo Arbitrage Strategy could not be used on Binary Installers since it would need a [gateway](/installation/gateway/#what-is-hummingbot-gateway) connection for it to work. It can only be used when running Hummingbot from source or with Docker.
 
 ## Prerequisites
 

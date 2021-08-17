@@ -6,7 +6,7 @@
 Perpetual Protocol is a decentralized perpetual contract trading protocol for every asset, with a Uniswap-inspired Virtual Automated Market Makers (Virtual AMMs) and a built-in Staking Reserve, which backs and secures the Virtual AMMs.
 
 !!! warning
-    Currently, [Perpetual Finance](/connectors/perp-fi/) could not be used on Binary Installers since it would need a [gateway](https://docs.hummingbot.io/gateway/installation/#what-is-hummingbot-gateway) connection for it to work. It can only be used when running Hummingbot from source or with Docker.
+    Currently, [Perpetual Finance](/connectors/perp-fi/) could not be used on Binary Installers since it would need a [gateway](/installation/gateway/#what-is-hummingbot-gateway) connection for it to work. It can only be used when running Hummingbot from source or with Docker.
 
 ## Prerequisites
 
@@ -30,4 +30,4 @@ When creating Hummingbot Gateway, it picks up the Ethereum settings in the globa
 
 After adding your Ethereum wallet and node in Hummingbot, follow the guide in the link below on how to install Hummingbot Gateway.
 
-- [Hummingbot Gateway Installation](/gateway/installation/)
+- [Hummingbot Gateway Installation](/installation/gateway/)
