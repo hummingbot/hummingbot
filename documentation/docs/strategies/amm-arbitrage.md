@@ -162,7 +162,7 @@ Enter fixed gas price (in Gwei) you want to use for Ethereum transactions
 
 ## Switch Balancer network
 
-Two ways to switch network [Ethereum mainnet/Kovan testnet](https://docs.hummingbot.io/gateway/installation/#setting-up-kovan-testnet)
+Two ways to switch network [Ethereum mainnet/Kovan testnet](/installation/gateway/#setting-up-kovan-testnet)
 
 1. Delete the Gateway docker container and re-run the `create-gateway.sh` script.
 2. Use the `update-gateway.sh` script to update the docker image and follow the prompt instructions.
