@@ -20,7 +20,7 @@ For more information on how to get the API keys for each exchange, please see th
 
 **Why this is needed**: In order to earn rewards from Liquidity Bounties, you need an Ethereum wallet. In addition, you'll need to import an Ethereum wallet when you run a trading bot on an Ethereum-based decentralized exchange.
 
-For more information on creating or importing an Ethereum wallet, see [Ethereum wallet](/advanced/wallet).
+For more information on creating or importing an Ethereum wallet, see [Ethereum wallet](/operation/connect-exchange/#setup-ethereum-wallet).
 
 ### Ethereum Node (DEX only)
 **Why this is needed**: When you run a trading bot on a Ethereum-based decentralized exchange, your wallet sends signed transactions to the blockchain via an Ethereum node.

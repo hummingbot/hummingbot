@@ -9,7 +9,7 @@ Below is a summary of frequently asked questions regarding Hummingbot. If you ha
 
 ### Why are you making Hummingbot available to the general public rather than just running it in-house?
 
-We make money by administering [Liquidity Mining](https://docs.hummingbot.io/miner) programs, which allow token projects to source liquidity from a decentralized network rather than from a single firm. Hummingbot is a free tool that anyone can use to participate in liquidity mining.
+We make money by administering [Liquidity Mining](https://support.hummingbot.io/hc/en-us) programs, which allow token projects to source liquidity from a decentralized network rather than from a single firm. Hummingbot is a free tool that anyone can use to participate in liquidity mining.
 
 ### Why are you making Hummingbot open source?
 
