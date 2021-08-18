@@ -21,7 +21,7 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 1. Log into your account at https://www.binance.us, then select **Account>API Management** (If you do not have an account, you will have to create one and verify your ID).
 2. Follow on-screen instructions to create your API keys
    > **Important:**
-   - For API key permissions, we recommend using only **"trade"** enabled API keys; enabling **"withdraw", "transfer", or the equivalent is unnecessary** for current Hummingbot strategies.
+   - For API key permissions, we recommend using only `trade` enabled API keys; enabling `withdraw`, `transfer`, or `the equivalent is unnecessary` for current Hummingbot strategies.
    - Make sure you store your Secret Key somewhere secure and do not share it with anyone. Your Secret Key will only be displayed once at the time when you create the API.
    - If you lose your Secret Key, you can delete the API and create a new one. However, it will be impossible to reuse the same API.
 
