@@ -346,9 +346,19 @@ cdef class StrategyBase(TimeIterator):
     # <editor-fold desc="+ Market event interfaces">
     # ----------------------------------------------------------------------------------------------------------
     cdef c_did_create_buy_order(self, object order_created_event):
+        """
+        In the case of asynchronous order creation on the exchange's server, this event is NOT triggered 
+        upon submission of the order request to the server - it is only triggered once the server has sent 
+        the acknowledgment that the order is successfully created.
+        """
         pass
 
     cdef c_did_create_sell_order(self, object order_created_event):
+        """
+        In the case of asynchronous order creation on the exchange's server, this event is NOT triggered 
+        upon submission of the order request to the server - it is only triggered once the server has sent 
+        the acknowledgment that the order is successfully created.
+        """
         pass
 
     cdef c_did_fill_order(self, object order_filled_event):
