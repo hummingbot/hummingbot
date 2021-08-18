@@ -29,9 +29,10 @@ class APIRequestContextBaseUnitTests(unittest.TestCase):
         super().setUpClass()
 
         cls.ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
-        cls.rate_limit: RateLimit = RateLimit(limit=1.0,
+        cls.rate_limit: RateLimit = RateLimit(limit_id=TEST_PATH_URL,
+                                              limit=1.0,
                                               time_interval=5.0,
-                                              path_url=TEST_PATH_URL)
+                                              )
 
     def setUp(self) -> None:
         super().setUp()
@@ -51,8 +52,8 @@ class APIRequestContextBaseUnitTests(unittest.TestCase):
         self.assertEqual(0, len(self.throttler._path_task_logs_map[TEST_PATH_URL]))
 
         # Test: Test that TaskLogs are being flushed accordingly.
-        task_0 = TaskLog(timestamp=1.0, path_url=TEST_PATH_URL)
-        task_1 = TaskLog(timestamp=time.time() + 60, path_url=TEST_PATH_URL)
+        task_0 = TaskLog(timestamp=1.0, rate_limits=[TEST_PATH_URL])
+        task_1 = TaskLog(timestamp=time.time() + 60, rate_limits=[TEST_PATH_URL])
         self.throttler._path_task_logs_map[TEST_PATH_URL].append(task_0)
         self.throttler._path_task_logs_map[TEST_PATH_URL].append(task_1)
         self.assertEqual(2, len(self.throttler._path_task_logs_map[TEST_PATH_URL]))
@@ -80,7 +81,7 @@ class APIRequestContextBaseUnitTests(unittest.TestCase):
 
     def test_acquire_awaits_when_exceed_capacity(self):
         # Test 1: Test acquire() awaiting when NOT within_capacity
-        task = TaskLog(timestamp=time.time(), path_url=TEST_PATH_URL)
+        task = TaskLog(timestamp=time.time(), rate_limits=[TEST_PATH_URL])
         self.throttler._path_task_logs_map[TEST_PATH_URL].append(task)
 
         context = MockAPIRequestContext(self.throttler._path_task_logs_map[TEST_PATH_URL], rate_limit=self.rate_limit)
