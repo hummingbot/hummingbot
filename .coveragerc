@@ -39,7 +39,7 @@ dynamic_context = test_function
 branch = true
 
 [report]
-fail_under = 42
+fail_under = 50
 precision = 2
 skip_empty = true
 
