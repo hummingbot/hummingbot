@@ -29,7 +29,7 @@ Take note that for your API keys to work with Hummingbot, **set the Nonce Window
 ![kraken](/assets/img/kraken_nonce_window.png)
 
 !!! warning
-    For API key permissions, we recommend using only #Orders & Trades# enabled API keys; enabling #withdraw, transfer, or the equivalent# is unnecessary for current Hummingbot strategies.
+    For API key permissions, we recommend using only `Orders & Trades` enabled API keys; enabling `withdraw`, `transfer`, or `the equivalent is unnecessary` for current Hummingbot strategies.
 
 Shows nonce reminder when adding API keys to Kraken.
 
