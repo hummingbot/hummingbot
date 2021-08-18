@@ -2,26 +2,24 @@
 
 ## Install via Docker (BETA)
 
-### Prerequisite
+### Prerequisites
 
 !!! note
     This installation method is currently under testing and awaiting feedback from users. Should you run into problems or have found a fix to solve errors along the way, feel free to reach out through our [Discord](https://discord.com/invite/2MN3UWg) support channel.
 
-1. Install Docker and change permissions.
+**Install Docker and change permissions**
 
 ```
 curl -fsSL https://get.docker.com -o get-docker.sh
 sudo sh get-docker.sh
 sudo usermod -a -G docker $USER
 ```
-
-2. Start and automate docker.
+**Start and automate Docker**
 
 ```
 sudo systemctl start docker && sudo systemctl enable docker
 ```
-
-3. Exit terminal/shell to refresh shell.
+**Exit terminal/shell to refresh shell**
 
 ```
 Exit
@@ -30,16 +28,18 @@ Exit
 !!! warning
     Restart terminal — close and restart your terminal window to enable the correct permissions for `docker` command before proceeding.
 
-4. Install Hummingbot:
+**Install Hummingbot**
+
+The Latest ARM version can be found here (filter list by "arm") - https://hub.docker.com/r/coinalpha/hummingbot/tags?page=1&ordering=last_updated&name=arm
 
 You can install Hummingbot with **_either_** of the following options:
 
 - **Scripts**: download and use automated install scripts.
 - **Manual**: run install commands manually.
 
-Scripts
+### Scripts
 
-```Scripts
+```bash
 # 1) Download Hummingbot install, start, and update script
 wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/create.sh
 wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/docker-commands/start.sh
@@ -53,13 +53,12 @@ chmod a+x *.sh
 
 # 4) Pull Hummingbot ARM image when asked what version to use
 Enter Hummingbot version: [ latest/development ] ( default = 'latest' )
->> version-0.38.1-arm_beta
-
+>> version-0.42.0-arm_beta
 ```
 
-Manual
+### Manual
 
-```Manual
+```bash
 # 1) Create folder for your new instance
 mkdir hummingbot_files
 
@@ -77,7 +76,7 @@ docker run -it \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_data,destination=/data/" \
 --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_scripts,destination=/scripts/" \
-coinalpha/hummingbot:version-0.38.1-arm_beta
+coinalpha/hummingbot:version-0.42.0-arm_beta
 ```
 
 ## Install from source
@@ -107,7 +106,7 @@ Raspberry Pi has an easy to follow [guide](https://www.raspberrypi.org/documenta
 Insert your SD card into the Raspberry Pi and plug in the power source.
 From there, the first launch options will be prompted.
 
-** Install Hummingbot dependencies **
+**Install Hummingbot dependencies**
 
 Open the Raspberry Pi terminal. In the top left corner of the desktop, there is a shortcut that opens the terminal.
 
@@ -149,9 +148,6 @@ pip install -r setup/requirements-arm.txt
 bin/hummingbot.py
 ```
 
-!!! warning
-    Compiling the bot from source would normally take 45 minutes or more
-
 ## Create Hummingbot ARM image for Docker
 
 This guide would help you build your own Hummingbot ARM image when there is a new release. Please be advised that for every new release, you would need to [install from source](#install-from-source) first and follow the steps provided in order to create an image that you can use for your RaspberryPi docker.
@@ -180,7 +176,7 @@ This is very convenient; after initial setup of the Raspberry Pi, you can simply
 
 ![rpi](/assets/img/rpi-ssh.jpg)
 
-**Step 1. Enable SSH and VNC on your Raspberry Pi**
+### Enable SSH and VNC on your Raspberry Pi
 
 - Option 1: Terminal using raspi-config
 
@@ -203,7 +199,7 @@ Setting a default resolution will avoid the following error:
 
 ![rasp](/assets/img/rasp-no-monitor.png)
 
-**Step 2. Get your Raspberry Pi’s IP address**
+### Get your Raspberry Pi’s IP address
 
 Type `ifconfig` to get the IP address of your Raspberry Pi to enter into your VNC Viewer. For SSH, you can run `ssh pi@[ipaddress]`. The IP address is the `inet` address which is not the localhost IP address 127.0.0.1:
 
