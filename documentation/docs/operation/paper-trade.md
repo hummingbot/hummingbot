@@ -62,15 +62,3 @@ Paper account balances:
       ZRX  1000.0000
 ```
 
-Here is the list of our Supported Connectors that could run `paper_trade` as of version 0.38.0:
-* AscendEx
-* Binance
-* Binance US
-* Bitfinex
-* Bittrex Global
-* Coinbase Pro
-* Huobi Global
-* Kraken
-* KuCoin
-* Liquid
-* OKEx

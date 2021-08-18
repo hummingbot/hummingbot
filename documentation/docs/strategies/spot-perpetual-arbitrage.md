@@ -15,7 +15,7 @@ With the position open, the bot will scan the prices on both connectors, and onc
 
 - Some xDai for gas when using Perpetual Finance connector. See this [link](https://bridge.xdaichain.com/) for more info.
 
-- [Hummingbot Gateway](/gateway/installation/) if using Perpetual Finance connector
+- [Hummingbot Gateway](/installation/gateway/) if using Perpetual Finance connector
 
 ## Basic parameters
 
