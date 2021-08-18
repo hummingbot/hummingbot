@@ -121,6 +121,6 @@ Where
 `CONFIG_FILE_NAME` is the strategy config file name  
 `CONFIG_PASSWORD` is the config password
 
-- More information on strategy can be found in [Strategy](/strategies/overview).
+- More information on strategy can be found in [Strategy](/strategies/).
 - More information on configuration file name can be found in [Configuring Hummingbot](/operation/config-files).
 - More information on password can be found in [Create a secure password](/operation/password).
