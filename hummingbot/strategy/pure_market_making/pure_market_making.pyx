@@ -1292,5 +1292,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             return PriceType.LastOwnTrade
         elif price_type_str == 'inventory_cost':
             return PriceType.InventoryCost
+        elif price_type_str == "custom":
+            return PriceType.Custom
         else:
             raise ValueError(f"Unrecognized price type string {price_type_str}.")
