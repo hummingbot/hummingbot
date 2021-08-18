@@ -27,7 +27,7 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 ![huobi2](/assets/img/huobi-create-api-key.png)
 
 !!! warning
-    We recommend using only #trade# enabled API keys; enabling #withdraw, transfer or the equivalent is unnecessary# for current Hummingbot strategies.
+    We recommend using only `trade` enabled API keys; enabling `withdraw`, `transfer` or `the equivalent is unnecessary` for current Hummingbot strategies.
 
 !!! tip
     You will receive a notification and email when your API keys are about to expire.

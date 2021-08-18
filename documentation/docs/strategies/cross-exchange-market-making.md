@@ -34,7 +34,7 @@ The diagrams below illustrate how cross exchange market making works. The transa
 
 If a buyer (_Buyer D_) fills Hummingbot's sell order on the maker exchange (_Figure 2_ ❶), Hummingbot immediately buys the asset on the taker exchange (_Figure 2_ ❷).
 
-The end result: Hummingbot has sold the same asset at $102 (❶) and purchased it for $101 (❷), for a profit of \$1.
+The end result: Hummingbot has sold the same asset at $102 (❶) and purchased it for $101 (❷), for a profit of $1.
 
 ## Prerequisites
 
