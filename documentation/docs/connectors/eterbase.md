@@ -32,7 +32,7 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
    [![eterbase3](/assets/img/eterbase3.png)](/assets/img/eterbase3.png)
 
 !!! warning
-    We recommend using only #trade# enabled API keys; enabling #withdraw, transfer, or the equivalent is unnecessary# for current Hummingbot strategies.
+    We recommend using only `trade` enabled API keys; enabling `withdraw`, `transfer`, or `the equivalent is unnecessary` for current Hummingbot strategies.
 
 5. Now you have created an API key.<br />
    Copy and paste **Account Id**, **Key** and **Secret** to Hummingbot<br />
