@@ -121,6 +121,7 @@ Step 1. Install required Applications
 1. Install [Git for Windows](https://git-scm.com/download/win).
 
 - During the installation of Git Bash, make sure to tick the Enable experimental support for pseudo consoles.
+
   ![anaconda-path](/assets/img/git-installation.png)
 
 2. Install [Python for Windows](https://www.python.org/downloads/windows/).

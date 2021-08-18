@@ -18,7 +18,7 @@ The `status --live` command displays the real-time status of the bot.
 ![](/assets/img/status-live.gif)
 
 !!! note
-    Currently, this feature works on all strategies except Liquidity mining strategy.
+    Currently, this feature works on all strategies except `liquidity mining` strategy.
 
 ## View market order book
 
