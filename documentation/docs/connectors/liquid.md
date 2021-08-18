@@ -23,7 +23,7 @@ The article below in their website under API information shows step-by-step inst
 - [How to create API tokens](https://help.liquid.com/en/articles/2285018-how-to-create-api-tokens)
 
 !!! warning
-    For API key permissions, we recommend using only #orders# enabled (read and write) API keys; enabling #withdraw, transfer or the equivalent# is unnecessary for current Hummingbot strategies.
+    For API key permissions, we recommend using only `orders` enabled (read and write) API keys; enabling `withdraw`, `transfer` or `the equivalent is unnecessary` for current Hummingbot strategies.
 
 ## Miscellaneous info
 
