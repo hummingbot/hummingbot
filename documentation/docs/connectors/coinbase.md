@@ -33,7 +33,7 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 Make sure you give permissions to **View** and **Trade**, and enter your 2FA code.
 
 !!! warning
-    We recommend using only #trade# enabled API keys; enabling #withdraw, transfer, or the equivalent is unnecessary# for current Hummingbot strategies.
+    We recommend using only `trade` enabled API keys; enabling `withdraw`, `transfer`, or `the equivalent is unnecessary` for current Hummingbot strategies.
 
 ![coinbase3](/assets/img/coinbase3.png)
 

@@ -26,7 +26,7 @@ This FAQ article below in their documentation shows step-by-step instructions on
 - [How to create an API](https://kucoin.zendesk.com/hc/en-us/articles/360015102174-How-to-Create-an-API)
 
 !!! warning
-    For API key permissions, we recommend using #general#, and #trade# enabled API keys; enabling #withdraw, transfer or the equivalent is unnecessary# for current Hummingbot strategies.
+    For API key permissions, we recommend using `general`, and `trade` enabled API keys; enabling `withdraw`,`transfer` or `the equivalent is unnecessary` for current Hummingbot strategies.
 
 ![](/assets/img/kucoin_api.png)
 
