@@ -139,7 +139,7 @@ How often do you want to cancel and replace bids and asks (in seconds)?
 
 ### `inventory_target_base_pct`
 
-It sets a target of base asset balance in relation to a total asset allocation value (in percentage value). It works the same as the pure market making strategy's [inventory_skew](/strategies/inventory-skew/) feature in order to achieve this target.
+It sets a target of base asset balance in relation to a total asset allocation value (in percentage value). It works the same as the pure market making strategy's [inventory_skew](/market-making/inventory-skew/) feature in order to achieve this target.
 
 ** Prompt: **
 
@@ -224,7 +224,7 @@ How long do you want to cancel and replace bids and asks with the same price (in
 
 The spread (from mid-price) to defer the order refresh process to the next cycle.
 
-To know more about this parameter you can visit this [link](https://docs.hummingbot.io/strategies/order-refresh-tolerance/#gatsby-focus-wrapper)
+To know more about this parameter you can visit this [link](/market-making/order-refresh-tolerance/)
 
 ** Prompt: **
 
