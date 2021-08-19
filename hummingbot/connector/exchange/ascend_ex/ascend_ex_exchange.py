@@ -366,7 +366,7 @@ class AscendExExchange(ExchangePyBase):
     async def _api_request(self,
                            method: str,
                            path_url: str,
-                           params: Dict[str, Any] = {},
+                           params: Optional[Dict[str, Any]] = None,
                            is_auth_required: bool = False,
                            force_auth_path_url: Optional[str] = None
                            ) -> Dict[str, Any]:
@@ -378,55 +378,59 @@ class AscendExExchange(ExchangePyBase):
         signature to the request.
         :returns A response in json format.
         """
-        async with self._throttler.execute_task(path_url):
-            if is_auth_required:
-                if (self._account_group) is None:
-                    await self._update_account_data()
+        params = params or {}
+        if is_auth_required:
+            if self._account_group is None:
+                await self._update_account_data()
 
-                url = f"{ascend_ex_utils.get_rest_url_private(self._account_group)}/{path_url}"
-                headers = {
-                    **self._ascend_ex_auth.get_headers(),
-                    **self._ascend_ex_auth.get_auth_headers(
-                        path_url if force_auth_path_url is None else force_auth_path_url
-                    ),
-                }
-            else:
-                url = f"{REST_URL}/{path_url}"
-                headers = self._ascend_ex_auth.get_headers()
+            url = f"{ascend_ex_utils.get_rest_url_private(self._account_group)}/{path_url}"
+            headers = {
+                **self._ascend_ex_auth.get_headers(),
+                **self._ascend_ex_auth.get_auth_headers(
+                    path_url if force_auth_path_url is None else force_auth_path_url
+                ),
+            }
+        else:
+            url = f"{REST_URL}/{path_url}"
+            headers = self._ascend_ex_auth.get_headers()
 
-            client = await self._http_client()
-            if method == "get":
+        client = await self._http_client()
+        if method == "get":
+            async with self._throttler.execute_task(path_url):
                 response = await client.get(
                     url,
-                    headers=headers
+                    headers=headers,
+                    data=json.dumps(params),
                 )
-            elif method == "post":
+        elif method == "post":
+            async with self._throttler.execute_task(path_url):
                 response = await client.post(
                     url,
                     headers=headers,
                     data=json.dumps(params)
                 )
-            elif method == "delete":
+        elif method == "delete":
+            async with self._throttler.execute_task(path_url):
                 response = await client.delete(
                     url,
                     headers=headers,
                     data=json.dumps(params)
                 )
-            else:
-                raise NotImplementedError
+        else:
+            raise NotImplementedError
 
-            resp_text = await response.text()
-            if response.status != 200:
-                raise IOError(f"Error calling {url}. HTTP status is {response.status}. "
-                              f"Message: {resp_text}")
-            try:
-                parsed_response = json.loads(resp_text)
-            except Exception as e:
-                raise IOError(f"Error calling {url}. Error: {str(e)}")
-            if parsed_response["code"] != 0:
-                raise IOError(f"{url} API call failed, response: {parsed_response}")
+        resp_text = await response.text()
+        if response.status != 200:
+            raise IOError(f"Error calling {url}. HTTP status is {response.status}. "
+                          f"Message: {resp_text}")
+        try:
+            parsed_response = json.loads(resp_text)
+        except Exception as e:
+            raise IOError(f"Error calling {url}. Error: {str(e)}")
+        if parsed_response["code"] != 0:
+            raise IOError(f"{url} API call failed, response: {parsed_response}")
 
-            return parsed_response
+        return parsed_response
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal):
         """
