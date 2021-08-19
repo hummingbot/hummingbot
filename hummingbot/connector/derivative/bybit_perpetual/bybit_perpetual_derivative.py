@@ -15,7 +15,8 @@ from typing import (
 )
 
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_auth import BybitPerpetualAuth
-from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source import BybitPerpetualAPIOrderBookDataSource
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source import \
+    BybitPerpetualAPIOrderBookDataSource
 from hummingbot.connector.exchange_base import ExchangeBase
 
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_in_flight_order import BybitPerpetualInFlightOrder
@@ -35,16 +36,15 @@ from hummingbot.core.event.events import (
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
 
-
 s_decimal_NaN = Decimal("nan")
 s_decimal_0 = Decimal(0)
 
 
 class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
-
     _logger = None
 
     _DEFAULT_TIME_IN_FORCE = "GoodTillCancel"
+    UPDATE_TRADING_RULES_INTERVAL = 60
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -74,11 +74,17 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             trading_pairs=trading_pairs,
             domain=domain)
         # self._user_stream_tracker = BybitPerpetualUserStreamTracker(self._auth, domain=domain)
+
         self._in_flight_orders = {}
+        self._trading_rules = {}
 
         # Tasks
         self._funding_info_polling_task = None
         self._funding_fee_polling_task = None
+
+    @property
+    def trading_rules(self) -> Dict[str, TradingRule]:
+        return self._trading_rules
 
     @property
     def in_flight_orders(self) -> Dict[str, BybitPerpetualInFlightOrder]:
@@ -154,32 +160,29 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         """
         url = bybit_utils.rest_api_url_for_endpoint(path_url, self._domain)
         client = await self._aiohttp_client()
-        try:
-            if method == "GET":
-                if is_auth_required:
-                    params = self._auth.extend_params_with_authentication_info(params=params)
-                response = await client.get(url=url,
-                                            headers=self._auth.get_headers(),
-                                            params=params,
-                                            )
-            elif method == "POST":
-                if is_auth_required:
-                    params = self._auth.extend_params_with_authentication_info(params=body)
-                response = await client.post(url=url,
-                                             headers=self._auth.get_headers(),
-                                             data=ujson.dumps(params)
-                                             )
-            else:
-                raise NotImplementedError(f"{method} HTTP Method not implemented. ")
 
-            parsed_response: Dict[str, Any] = await response.json()
-
-        except Exception as e:
-            self.logger().error(f"Error submitting {path_url} request. Error: {e}",
-                                exc_info=True)
+        if method == "GET":
+            if is_auth_required:
+                params = self._auth.extend_params_with_authentication_info(params=params)
+            response = await client.get(url=url,
+                                        headers=self._auth.get_headers(),
+                                        params=params,
+                                        )
+        elif method == "POST":
+            if is_auth_required:
+                params = self._auth.extend_params_with_authentication_info(params=body)
+            response = await client.post(url=url,
+                                         headers=self._auth.get_headers(),
+                                         data=ujson.dumps(params)
+                                         )
+        else:
+            raise NotImplementedError(f"{method} HTTP Method not implemented. ")
 
         response_status = response.status
-        if response_status != 200 or (isinstance(parsed_response, dict) and not parsed_response.get("result", True)):
+        parsed_response: Dict[str, Any] = await response.json()
+
+        if response_status != 200 or (
+                isinstance(parsed_response, dict) and not parsed_response.get("result", True)):
             self.logger().error(f"Error fetching data from {url}. HTTP status is {response_status}. "
                                 f"Message: {parsed_response} "
                                 f"Params: {params} "
@@ -188,6 +191,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                             f"Message: {parsed_response} "
                             f"Params: {params} "
                             f"Data: {body}")
+
         return parsed_response
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal) -> Decimal:
@@ -381,6 +385,55 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                               ))
         return order_id
 
+    def _format_trading_rules(self, instrument_info: List[Dict[str, Any]]) -> Dict[str, TradingRule]:
+        """
+        Converts JSON API response into a local dictionary of trading rules.
+        :param instrument_info: The JSON API response.
+        :returns: A dictionary of trading pair to its respective TradingRule.
+        """
+        trading_rules = {}
+        for instrument in instrument_info:
+            try:
+                trading_pair = f"{instrument['base_currency']}-{instrument['quote_currency']}"
+                trading_rules[trading_pair] = TradingRule(
+                    trading_pair=trading_pair,
+                    min_order_size=Decimal(str(instrument["lot_size_filter"]["min_trading_qty"])),
+                    max_order_size=Decimal(str(instrument["lot_size_filter"]["max_trading_qty"])),
+                    min_price_increment=Decimal(str(instrument["price_filter"]["tick_size"])),
+                    min_base_amount_increment=Decimal(str(instrument["lot_size_filter"]["qty_step"])),
+                )
+            except Exception:
+                self.logger().error(f"Error parsing the trading pair rule: {instrument}. Skipping...",
+                                    exc_info=True)
+        return trading_rules
+
+    async def _update_trading_rules(self):
+        params = {}
+        symbols_response: Dict[str, Any] = await self._api_request(
+            method="GET",
+            path_url=CONSTANTS.QUERY_SYMBOL_ENDPOINT,
+            params=params
+        )
+        self._trading_rules.clear()
+        self._trading_rules = self._format_trading_rules(symbols_response["result"])
+
+    async def _trading_rules_polling_loop(self):
+        """
+        Periodically update trading rules.
+        """
+        while True:
+            try:
+                await self._update_trading_rules()
+                await asyncio.sleep(self.UPDATE_TRADING_RULES_INTERVAL)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                self.logger().network(f"Unexpected error while fetching trading rules. Error: {str(e)}",
+                                      exc_info=True,
+                                      app_warning_msg="Could not fetch new trading rules from Bybit Perpetual. "
+                                                      "Check network connection.")
+                await asyncio.sleep(0.5)
+
     async def _funding_info_polling_loop(self):
         """
         Retrieves funding information periodically. Tends to only update every set interval(i.e. 8hrs).
@@ -405,7 +458,8 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                         index_price=Decimal(str(resp["index_price"])),
                         mark_price=Decimal(str(resp["mark_price"])),
                         next_funding_utc_timestamp=resp["next_funding_time"],
-                        rate=Decimal(str(resp["funding_rate"]))  # TODO: Confirm whether to use funding_rate or predicted_funding_rate
+                        rate=Decimal(str(resp["funding_rate"]))
+                        # TODO: Confirm whether to use funding_rate or predicted_funding_rate
                     )
 
             except asyncio.CancelledError:
