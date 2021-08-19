@@ -7,7 +7,7 @@ Concentrated liquidity and multiple fee tiers are the new features behind Uniswa
 Source: https://decrypt.co/resources/what-is-uniswap
 
 !!! warning
-    Currently, [Uniswap](/protocol-connectors/uniswap/) could not be used on Binary Installers since it would need a [gateway](https://docs.hummingbot.io/gateway/installation/#what-is-hummingbot-gateway) connection for it to work. It can only be used when running Hummingbot from source or with Docker.
+    Currently, [Uniswap](/connectors/uniswap/) could not be used on Binary Installers since it would need a [gateway](/installation/gateway) connection for it to work. It can only be used when running Hummingbot from source or with Docker.
 
 ## Prerequisites
 
@@ -32,16 +32,16 @@ When creating Hummingbot Gateway, it picks up the Ethereum settings in the globa
 
 After adding your Ethereum wallet and node in Hummingbot, follow the guide in the link below on how to install Hummingbot Gateway.
 
-- [Hummingbot Gateway Installation](/gateway/installation/)
+- [Hummingbot Gateway Installation](/installation/gateway)
 
 !!! note
-    For setting up gas estimator, you can check our [ETH Gas Station](/gateway/installation/#eth-gas-station) for more info
+    For setting up gas estimator, you can check our [ETH Gas Station](/installation/gateway/#eth-gas-station) for more info
 
 ## Confirm connection
 
 Check the connection of Uniswap v3 and gateway.
 
-[Open and access gateway](/gateway/installation/#install-gateway-via-source) **global_conf.yml** with a text editor.
+[Open and access gateway](/installation/gateway/#install-gateway-from-source) **global_conf.yml** with a text editor.
 
 Make sure the value of the connections for Uniswap v3 below are open and ended with double quotation marks (**""**) in your **global_conf.yml**.
 
