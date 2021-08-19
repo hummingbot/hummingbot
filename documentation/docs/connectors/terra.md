@@ -7,11 +7,11 @@ It runs on a Tendermint Delegated Proof of Stake algorithm and Cosmos SDK. It is
 Source: https://medium.com/stakin/what-is-terra-money-8eb1dcb314d2
 
 !!! warning
-    Currently, [Terra](/protocol-connectors/terra) could not be used on Binary Installers since it would need a [gateway](https://docs.hummingbot.io/gateway/installation/#what-is-hummingbot-gateway) connection for it to work. It can only be used when running Hummingbot from source or with Docker.
+    Currently, [Terra](/connectors/terra) could not be used on Binary Installers since it would need a [gateway](/installation/gateway) connection for it to work. It can only be used when running Hummingbot from source or with Docker.
 
 ## Prerequisites
 
-- Hummingbot Gateway (see [installation guide](/gateway/installation/))
+- Hummingbot Gateway (see [installation guide](/installation/gateway))
 - Terra wallet
 
 ## Creating a Terra wallet
