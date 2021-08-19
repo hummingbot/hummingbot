@@ -1,12 +1,12 @@
 import asyncio
+from enum import Enum
+from typing import AsyncIterable, Dict, Any
+
 import ujson
 import websockets
 
 import hummingbot.connector.exchange.ndax.ndax_constants as CONSTANTS
-
-
-from enum import Enum
-from typing import AsyncIterable, Dict, Any
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 
 class NdaxMessageType(Enum):
@@ -40,6 +40,7 @@ class NdaxWebSocketAdaptor:
         self._websocket = websocket
         self._messages_counter = previous_messages_number
         self._lock = asyncio.Lock()
+        self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
 
     @classmethod
     def endpoint_from_raw_message(cls, raw_message: str) -> str:
@@ -73,7 +74,8 @@ class NdaxWebSocketAdaptor:
                    self._endpoint_field_name: endpoint_name,
                    self._payload_field_name: ujson.dumps(payload)}
 
-        await self._websocket.send(ujson.dumps(message))
+        async with self._throttler.execute_task(endpoint_name):
+            await self._websocket.send(ujson.dumps(message))
 
     async def recv(self):
         return await self._websocket.recv()
