@@ -43,7 +43,7 @@ Example:
 
 ### Why does Hummingbot need my Ethereum wallet private key?
 
-Strategies that transact on decentralized exchanges (such as [Radar Relay](/spot-connectors/radar-relay), [Bamboo Relay](/spot-connectors/bamboo-relay), and [Dolomite](/spot-connectors/dolomite)) directly interact with smart contracts on the Ethereum blockchain. Therefore, transactions must be signed and authorized, which requires your private key.
+Strategies that transact on decentralized exchanges (such as [Radar Relay](/connectors/radar-relay), [Bamboo Relay](/connectors/bamboo-relay), and [Dolomite](/connectors/dolomite)) directly interact with smart contracts on the Ethereum blockchain. Therefore, transactions must be signed and authorized, which requires your private key.
 
 Run command `connect ethereum` to connect your Ethereum wallet with Hummingbot.
 
@@ -264,4 +264,4 @@ Run the `connect` command to view the connection status. It also shows failed co
 
 **Keys Confirmed** column shows the status if Hummingbot has successfully connected to the exchange or protocol.
 
-**Connector Status** column is an indicator if there are known issues with the connector or working correctly. More info in [Spot Connector Status](/spot-connectors/overview) and [Protocol Connector Status](/protocol-connectors/overview).
+**Connector Status** column is an indicator if there are known issues with the connector or working correctly. More info in [Connector Status](/connectors/#list-of-connectors/)
