@@ -40,7 +40,7 @@ class NdaxWebSocketAdaptor:
         self._websocket = websocket
         self._messages_counter = previous_messages_number
         self._lock = asyncio.Lock()
-        self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        self._throttler = AsyncThrottler(CONSTANTS.WS_RATE_LIMITS)
 
     @classmethod
     def endpoint_from_raw_message(cls, raw_message: str) -> str:

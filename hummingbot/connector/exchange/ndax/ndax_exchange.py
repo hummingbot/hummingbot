@@ -111,7 +111,7 @@ class NdaxExchange(ExchangeBase):
 
         self._account_id = None
 
-        self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        self._throttler = AsyncThrottler(CONSTANTS.HTTP_RATE_LIMITS)
 
     @property
     def name(self) -> str:
@@ -285,7 +285,7 @@ class NdaxExchange(ExchangeBase):
         try:
             resp = await self._api_request(
                 method="GET",
-                path_url=CONSTANTS.WS_PING_REQUEST
+                path_url=CONSTANTS.PING_PATH_URL,
             )
             if "msg" not in resp or resp["msg"] != "PONG":
                 raise Exception()
