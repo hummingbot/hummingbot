@@ -4,6 +4,7 @@ from unittest import TestCase
 from unittest.mock import AsyncMock
 
 from hummingbot.connector.exchange.ndax.ndax_websocket_adaptor import NdaxWebSocketAdaptor
+from hummingbot.connector.exchange.ndax import ndax_constants as CONSTANTS
 
 
 class NdaxWebSocketAdaptorTests(TestCase):
@@ -15,11 +16,11 @@ class NdaxWebSocketAdaptorTests(TestCase):
 
         adaptor = NdaxWebSocketAdaptor(websocket=ws)
         payload = {}
-        asyncio.get_event_loop().run_until_complete(adaptor.send_request(endpoint_name='TestEndpoint1',
+        asyncio.get_event_loop().run_until_complete(adaptor.send_request(endpoint_name=CONSTANTS.WS_PING_REQUEST,
                                                                          payload=payload))
-        asyncio.get_event_loop().run_until_complete(adaptor.send_request(endpoint_name='TestEndpoint2',
+        asyncio.get_event_loop().run_until_complete(adaptor.send_request(endpoint_name=CONSTANTS.WS_PING_REQUEST,
                                                                          payload=payload))
-        asyncio.get_event_loop().run_until_complete(adaptor.send_request(endpoint_name='TestEndpoint3',
+        asyncio.get_event_loop().run_until_complete(adaptor.send_request(endpoint_name=CONSTANTS.WS_ORDER_BOOK_CHANNEL,
                                                                          payload=payload))
         self.assertEqual(3, len(sent_messages))
 
@@ -37,7 +38,7 @@ class NdaxWebSocketAdaptorTests(TestCase):
 
         adaptor = NdaxWebSocketAdaptor(websocket=ws)
         payload = {"TestElement1": "Value1", "TestElement2": "Value2"}
-        asyncio.get_event_loop().run_until_complete(adaptor.send_request(endpoint_name='TestEndpoint',
+        asyncio.get_event_loop().run_until_complete(adaptor.send_request(endpoint_name=CONSTANTS.WS_PING_REQUEST,
                                                                          payload=payload))
 
         self.assertEqual(1, len(sent_messages))
@@ -45,7 +46,7 @@ class NdaxWebSocketAdaptorTests(TestCase):
 
         self.assertEqual(0, message.get('m'))
         self.assertEqual(1, message.get('i'))
-        self.assertEqual('TestEndpoint', message.get('n'))
+        self.assertEqual(CONSTANTS.WS_PING_REQUEST, message.get('n'))
         message_payload = json.loads(message.get('o'))
         self.assertEqual(payload, message_payload)
 
