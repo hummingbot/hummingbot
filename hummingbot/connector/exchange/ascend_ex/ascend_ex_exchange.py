@@ -41,9 +41,21 @@ from hummingbot.connector.exchange.ascend_ex.ascend_ex_user_stream_tracker impor
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_in_flight_order import AscendExInFlightOrder
 from hummingbot.connector.exchange.ascend_ex import ascend_ex_utils
-from hummingbot.connector.exchange.ascend_ex.ascend_ex_constants import EXCHANGE_NAME, REST_URL, REQUEST_CALL_LIMITS
+from hummingbot.connector.exchange.ascend_ex.ascend_ex_constants import (
+    EXCHANGE_NAME,
+    REST_URL,
+    RATE_LIMITS,
+    ORDER_PATH_URL,
+    BALANCE_PATH_URL,
+    ORDER_BATCH_PATH_URL,
+    ORDER_OPEN_PATH_URL,
+    TICKER_PATH_URL,
+    PRODUCTS_PATH_URL,
+    ORDER_STATUS_PATH_URL,
+)
 from hummingbot.core.data_type.common import OpenOrder
-from hummingbot.core.api_throttler.multi_limit_pool_throttler import MultiLimitPoolsThrottler
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+
 ctce_logger = None
 s_decimal_NaN = Decimal("nan")
 s_decimal_0 = Decimal("0")
@@ -114,7 +126,7 @@ class AscendExExchange(ExchangePyBase):
         self._last_poll_timestamp = 0
         self._account_group = None  # required in order to make post requests
         self._account_uid = None  # required in order to produce deterministic order ids
-        self._throttler: MultiLimitPoolsThrottler = MultiLimitPoolsThrottler(list(REQUEST_CALL_LIMITS.values()))
+        self._throttler = AsyncThrottler(rate_limits=RATE_LIMITS)
 
     @property
     def name(self) -> str:
@@ -248,7 +260,7 @@ class AscendExExchange(ExchangePyBase):
             # since there is no ping endpoint, the lowest rate call is to get BTC-USDT ticker
             await self._api_request(
                 method="get",
-                path_url="ticker")
+                path_url=TICKER_PATH_URL)
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -283,7 +295,7 @@ class AscendExExchange(ExchangePyBase):
     async def _update_trading_rules(self):
         instruments_info = await self._api_request(
             method="get",
-            path_url="products")
+            path_url=PRODUCTS_PATH_URL)
         self._trading_rules.clear()
         self._trading_rules = self._format_trading_rules(instruments_info)
 
@@ -366,13 +378,7 @@ class AscendExExchange(ExchangePyBase):
         signature to the request.
         :returns A response in json format.
         """
-        api_limit_pools = [REQUEST_CALL_LIMITS["all_endpoints"].limit_id]
-        if path_url in REQUEST_CALL_LIMITS:
-            api_limit_pools.append(path_url)
-        async with self._throttler.execute_task(limit_ids=api_limit_pools):
-            url = None
-            headers = None
-
+        async with self._throttler.execute_task(path_url):
             if is_auth_required:
                 if (self._account_group) is None:
                     await self._update_account_data()
@@ -526,7 +532,7 @@ class AscendExExchange(ExchangePyBase):
             )
             resp = await self._api_request(
                 method="post",
-                path_url="cash/order",
+                path_url=ORDER_PATH_URL,
                 params=api_params,
                 is_auth_required=True,
                 force_auth_path_url="order")
@@ -623,7 +629,7 @@ class AscendExExchange(ExchangePyBase):
             }
             await self._api_request(
                 method="delete",
-                path_url="cash/order",
+                path_url=ORDER_PATH_URL,
                 params=api_params,
                 is_auth_required=True,
                 force_auth_path_url="order"
@@ -675,7 +681,7 @@ class AscendExExchange(ExchangePyBase):
         """
         response = await self._api_request(
             method="get",
-            path_url="cash/balance",
+            path_url=BALANCE_PATH_URL,
             is_auth_required=True,
             force_auth_path_url="balance")
         balances = list(map(
@@ -700,9 +706,11 @@ class AscendExExchange(ExchangePyBase):
             for o in tracked_orders:
                 await o.get_exchange_order_id()
             order_ids: str = ",".join(o.exchange_order_id for o in tracked_orders)
+            params = {"orderId": order_ids}
             resp = await self._api_request(
                 method="get",
-                path_url=f"cash/order/status?orderId={order_ids}",
+                path_url=ORDER_STATUS_PATH_URL,
+                params=params,
                 is_auth_required=True,
                 force_auth_path_url="order/status"
             )
@@ -771,7 +779,7 @@ class AscendExExchange(ExchangePyBase):
 
             await self._api_request(
                 method="delete",
-                path_url="cash/order/batch",
+                path_url=ORDER_BATCH_PATH_URL,
                 params=api_params,
                 is_auth_required=True,
                 force_auth_path_url="order/batch"
@@ -901,7 +909,7 @@ class AscendExExchange(ExchangePyBase):
     async def get_open_orders(self) -> List[OpenOrder]:
         result = await self._api_request(
             method="get",
-            path_url="cash/order/open",
+            path_url=ORDER_OPEN_PATH_URL,
             is_auth_required=True,
             force_auth_path_url="order/open"
         )
