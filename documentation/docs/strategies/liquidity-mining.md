@@ -95,7 +95,7 @@ How far away from the mid-price do you want to place bid and ask orders? (Enter 
 
 ### `target_base_pct`
 
-It sets a target of base asset balance in relation to a total asset allocation value (in percentage value). It works the same as the pure market making strategy's [`inventory_skew`](/strategies/inventory-skew/) feature in order to achieve this target. This parameter can be disabled by entering `config inventory_skew_enabled` then set it to `No`.
+It sets a target of base asset balance in relation to a total asset allocation value (in percentage value). It works the same as the pure market making strategy's [`inventory_skew`](/market-making/inventory-skew/) feature in order to achieve this target. This parameter can be disabled by entering `config inventory_skew_enabled` then set it to `No`.
 
 ** Prompt: **
 
@@ -200,7 +200,7 @@ What is the maximum spread? (Enter 1 to indicate 1% or -1 to ignore this setting
 
 ### `max_order_age`
 
-Allows you to set a maximum lifespan of your orders (in seconds) at which the orders will certainly get canceled and recreated. Click [here](/strategies/max-order-age/) to learn more about this parameter.
+Allows you to set a maximum lifespan of your orders (in seconds) at which the orders will certainly get canceled and recreated. Click [here](/market-making/max-order-age/) to learn more about this parameter.
 
 ** Prompt: **
 

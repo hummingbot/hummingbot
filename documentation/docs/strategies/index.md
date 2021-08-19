@@ -40,15 +40,15 @@ Aims to capture price differentials between two different exchanges (buy low on 
 
 ### [AMM Arbitrage](./amm-arbitrage)
 
-AMM-arb lets you exploit the differences between AMMs like [Balancer](/protocol-connectors/balancer/) and order book exchanges like Binance. Extending the celo-arb strategy released a few months ago, amm-arb uses a new, simpler design that works with any AMM protocol, on both Ethereum and non-Ethereum chain. You can take a look on our supported [Protocol Connectors](/protocol-connectors/overview/) for this strategy
+AMM-arb lets you exploit the differences between AMMs like [Balancer](/connectors/balancer/) and order book exchanges like Binance. Extending the celo-arb strategy released a few months ago, amm-arb uses a new, simpler design that works with any AMM protocol, on both Ethereum and non-Ethereum chain. You can take a look on our supported [Protocol Connectors](/connectors/overview/) for this strategy
 
-### [Celo Arbitrage](./celo-arb)
+### [Celo Arbitrage](./celo-arbitrage)
 
 The celo-arb strategy is a special case of the normal arbitrage strategy that arbitrages between the automated market maker (AMM) exchange on the Celo blockchain and other markets supported by Hummingbot. This strategy allows users to earn arbitrage profits while contributing to the stability of the Celo cUSD price peg. For more information, please see this [blog post](https://hummingbot.io/blog/2020-06-celo-arbitrage/).
 
 ### [Spot Perpetual Arbitrage](./spot-perpetual-arbitrage)
 
-The Spot Perpetual Arbitrage strategy lets you arbitrage between [Exchange connectors](/exchange-connectors/overview/) and derivatives connectors like [Binance Futures](/exchange-connectors/binance-futures/) and [Perpetual Finance](/protocol-connectors/perp-fi/). This strategy looks at the price on the spot connector and the price on the derivative connector. Then it calculates the spread between the two connectors.
+The Spot Perpetual Arbitrage strategy lets you arbitrage between [Exchange connectors](/connectors/#connector-types) and derivatives connectors like [Binance Futures](/connectors/binance-perpetual/#binance-futures) and [Perpetual Finance](/connectors/perp-fi/). This strategy looks at the price on the spot connector and the price on the derivative connector. Then it calculates the spread between the two connectors.
 
 ## Misc
 

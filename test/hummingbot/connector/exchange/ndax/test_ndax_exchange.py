@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, PropertyMock, patch
 
 import hummingbot.connector.exchange.ndax.ndax_constants as CONSTANTS
 from hummingbot.connector.exchange.ndax.ndax_exchange import NdaxExchange
-from hummingbot.connector.exchange.ndax.ndax_in_flight_order import NdaxInFlightOrder
+from hummingbot.connector.exchange.ndax.ndax_in_flight_order import NdaxInFlightOrder, WORKING_LOCAL_STATUS
 from hummingbot.connector.exchange.ndax.ndax_order_book import NdaxOrderBook
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.event.events import (
@@ -726,8 +726,16 @@ class NdaxExchangeTests(TestCase):
     def test_update_order_status(self, mock_order_status, mock_trade_history):
 
         # Simulates order being tracked
-        order: NdaxInFlightOrder = NdaxInFlightOrder("0", "2628", self.trading_pair, OrderType.LIMIT, TradeType.SELL,
-                                                     Decimal(str(41720.83)), Decimal("1"))
+        order: NdaxInFlightOrder = NdaxInFlightOrder(
+            "0",
+            "2628",
+            self.trading_pair,
+            OrderType.LIMIT,
+            TradeType.SELL,
+            Decimal(str(41720.83)),
+            Decimal("1"),
+            "Working",
+        )
         self.exchange._in_flight_orders.update({
             order.client_order_id: order
         })
@@ -1182,7 +1190,7 @@ class NdaxExchangeTests(TestCase):
         tracked_order: NdaxInFlightOrder = self.exchange.in_flight_orders["1"]
         self.assertEqual(tracked_order.client_order_id, "1")
         self.assertEqual(tracked_order.exchange_order_id, "123")
-        self.assertEqual(tracked_order.last_state, "Working")
+        self.assertEqual(tracked_order.last_state, WORKING_LOCAL_STATUS)
         self.assertEqual(tracked_order.trading_pair, self.trading_pair)
         self.assertEqual(tracked_order.price, Decimal(10.0))
         self.assertEqual(tracked_order.amount, Decimal(1.0))
@@ -1228,10 +1236,58 @@ class NdaxExchangeTests(TestCase):
         tracked_order: NdaxInFlightOrder = self.exchange.in_flight_orders["1"]
         self.assertEqual(tracked_order.client_order_id, "1")
         self.assertEqual(tracked_order.exchange_order_id, "123")
-        self.assertEqual(tracked_order.last_state, "Working")
+        self.assertEqual(tracked_order.last_state, WORKING_LOCAL_STATUS)
         self.assertEqual(tracked_order.trading_pair, self.trading_pair)
         self.assertEqual(tracked_order.amount, Decimal(1.0))
         self.assertEqual(tracked_order.trade_type, TradeType.BUY)
+
+    @patch('websockets.connect', new_callable=AsyncMock)
+    def test_detect_created_order_server_acknowledgement(self, ws_connect_mock):
+        self.exchange.start_tracking_order(
+            order_id="3",
+            exchange_order_id="9849",
+            trading_pair="BTC-USD",
+            trade_type=TradeType.SELL,
+            price=Decimal("35000"),
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+        )
+
+        payload = {
+            "Side": "Sell",
+            "OrderId": 9849,
+            "Price": 35000,
+            "Quantity": 1,
+            "Instrument": 1,
+            "Account": 4,
+            "OrderType": "Limit",
+            "ClientOrderId": 3,
+            "OrderState": "Working",
+            "ReceiveTime": 0,
+            "OrigQuantity": 1,
+            "QuantityExecuted": 0,
+            "AvgPrice": 0,
+            "ChangeReason": "NewInputAccepted"
+        }
+        message = {
+            "m": 3,
+            "i": 2,
+            "n": CONSTANTS.ORDER_STATE_EVENT_ENDPOINT_NAME,
+            "o": json.dumps(payload),
+        }
+        ws_connect_mock.return_value = self._create_ws_mock()
+        self.exchange_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
+        self.tracker_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_tracker.start())
+        self._add_successful_authentication_response()
+        self.ws_incoming_messages.put_nowait(json.dumps(message))
+        self.ws_incoming_messages.put_nowait(json.dumps(self._finalMessage))
+
+        asyncio.get_event_loop().run_until_complete(self.resume_test_event.wait())
+        self.resume_test_event.clear()
+
+        self.assertEqual(1, len(self.exchange.in_flight_orders))
+        tracked_order: NdaxInFlightOrder = self.exchange.in_flight_orders["3"]
+        self.assertEqual(tracked_order.last_state, "Working")
 
     @patch(
         "hummingbot.connector.exchange.ndax.ndax_api_order_book_data_source.NdaxAPIOrderBookDataSource.get_instrument_ids",

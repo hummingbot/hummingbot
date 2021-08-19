@@ -1,4 +1,4 @@
-Automatically stops the bot when it reaches a certain performance threshold, which can be either positive or negative. This feature uses the same performance calculation methodology as the [history](/operation/command-ref#history) command.
+Automatically stops the bot when it reaches a certain performance threshold, which can be either positive or negative. This feature uses the same performance calculation methodology as the [history](/operation/performance-history/#history-command) command.
 
 ```
 Would you like to enable the kill switch? (Yes/No) >>>
