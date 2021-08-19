@@ -27,7 +27,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.api_responses_json: asyncio.Queue = asyncio.Queue()
         self.api_responses_status = deque()
         self.log_records = []
-        self.listening_task = None
+        self.async_task = None
 
         self.connector = BybitPerpetualDerivative(bybit_perpetual_api_key='testApiKey',
                                                   bybit_perpetual_secret_key='testSecretKey',
@@ -40,7 +40,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.connector.add_listener(MarketEvent.OrderFailure, self.market_order_failure_logger)
 
     def tearDown(self) -> None:
-        self.listening_task and self.listening_task.cancel()
+        self.async_task and self.async_task.cancel()
         super().tearDown()
 
     def handle(self, record):
@@ -58,12 +58,12 @@ class BybitPerpetualDerivativeTests(TestCase):
         json = await self.api_responses_json.get()
         return json
 
-    def _handle_http_request(self, url, headers, data):
+    def _handle_http_request(self, url, headers, params=None, data=None):
         response = AsyncMock()
         type(response).status = PropertyMock(side_effect=self._get_next_api_response_status)
         response.json.side_effect = self._get_next_api_response_json
-
-        self.api_requests_data.put_nowait((url, headers, data))
+        components = params if params else data
+        self.api_requests_data.put_nowait((url, headers, components))
         return response
 
     def _configure_mock_api(self, mock_api: AsyncMock):
@@ -166,6 +166,62 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertEqual(10, in_flight_order.leverage)
         self.assertEqual(PositionAction.OPEN.name, in_flight_order.position)
 
+    @patch("hummingbot.client.hummingbot_application.HummingbotApplication")
+    @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
+    def test_create_buy_order_fails_when_amount_smaller_than_minimum(self, post_mock, app_mock):
+        self._configure_mock_api(post_mock)
+        self._simulate_trading_rules_initialized()
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
+
+        self.connector.set_leverage(self.trading_pair, 10)
+
+        new_order_id = self.connector.buy(trading_pair=self.trading_pair,
+                                          amount=Decimal("0.0001"),
+                                          order_type=OrderType.LIMIT,
+                                          price=Decimal("46000"),
+                                          position_action=PositionAction.OPEN)
+
+        self.api_responses_status.append(200)
+        self.api_responses_json.put_nowait({
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {
+                "user_id": 1,
+                "order_id": "335fd977-e5a5-4781-b6d0-c772d5bfb95b",
+                "symbol": "BTCUSD",
+                "side": "Buy",
+                "order_type": "Limit",
+                "price": 8800,
+                "qty": 1,
+                "time_in_force": "GoodTillCancel",
+                "order_status": "Created",
+                "last_exec_time": 0,
+                "last_exec_price": 0,
+                "leaves_qty": 1,
+                "cum_exec_qty": 0,
+                "cum_exec_value": 0,
+                "cum_exec_fee": 0,
+                "reject_reason": "",
+                "order_link_id": "",
+                "created_at": "2019-11-30T11:03:43.452Z",
+                "updated_at": "2019-11-30T11:03:43.455Z"
+            },
+            "time_now": "1575111823.458705",
+            "rate_limit_status": 98,
+            "rate_limit_reset_ms": 1580885703683,
+            "rate_limit": 100
+        })
+
+        asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.5))
+
+        self.assertNotIn(new_order_id, self.connector.in_flight_orders)
+        self.assertTrue(self._is_logged("NETWORK",
+                                        "Error submitting BUY LIMIT order to Bybit Perpetual for 0.000100"
+                                        " BTC-USDT 46000. Error: BUY order amount 0.000100 is lower than the"
+                                        " minimum order size 0.01."))
+
     def test_create_order_with_invalid_position_action_raises_value_error(self):
         self._simulate_trading_rules_initialized()
         BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
@@ -226,6 +282,25 @@ class BybitPerpetualDerivativeTests(TestCase):
         failure_events = self.market_order_failure_logger.event_log
         self.assertEqual(1, len(failure_events))
         self.assertEqual(new_order_id, failure_events[0].order_id)
+
+    @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
+    def test_create_order_raises_cancelled_errors(self, post_mock):
+        post_mock.side_effect = asyncio.CancelledError()
+        self._simulate_trading_rules_initialized()
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
+
+        self.connector.set_leverage(self.trading_pair, 10)
+
+        with self.assertRaises(asyncio.CancelledError):
+            asyncio.get_event_loop().run_until_complete(
+                self.connector._create_order(
+                    trade_type=TradeType.BUY,
+                    order_id="C1",
+                    trading_pair=self.trading_pair,
+                    amount=Decimal("1"),
+                    order_type=OrderType.LIMIT,
+                    price=Decimal("46000"),
+                    position_action=PositionAction.OPEN))
 
     @patch('hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils.get_tracking_nonce')
     @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
@@ -300,3 +375,144 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertEqual(TradeType.SELL, in_flight_order.trade_type)
         self.assertEqual(10, in_flight_order.leverage)
         self.assertEqual(PositionAction.OPEN.name, in_flight_order.position)
+
+    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    def test_update_trading_rules_with_polling_loop(self, get_mock):
+        self._configure_mock_api(get_mock)
+
+        self.async_task = asyncio.get_event_loop().create_task(self.connector._trading_rules_polling_loop())
+
+        self.api_responses_status.append(200)
+        self.api_responses_json.put_nowait({
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": [
+                {
+                    "name": "BTCUSD",
+                    "alias": "BTCUSD",
+                    "status": "Trading",
+                    "base_currency": "BTC",
+                    "quote_currency": "USD",
+                    "price_scale": 2,
+                    "taker_fee": "0.00075",
+                    "maker_fee": "-0.00025",
+                    "leverage_filter": {
+                        "min_leverage": 1,
+                        "max_leverage": 100,
+                        "leverage_step": "0.01"
+                    },
+                    "price_filter": {
+                        "min_price": "0.5",
+                        "max_price": "999999.5",
+                        "tick_size": "0.5"
+                    },
+                    "lot_size_filter": {
+                        "max_trading_qty": 1000000,
+                        "min_trading_qty": 1,
+                        "qty_step": 1
+                    }
+                },
+                {
+                    "name": "BTCUSDT",
+                    "alias": "BTCUSDT",
+                    "status": "Trading",
+                    "base_currency": "BTC",
+                    "quote_currency": "USDT",
+                    "price_scale": 2,
+                    "taker_fee": "0.00075",
+                    "maker_fee": "-0.00025",
+                    "leverage_filter": {
+                        "min_leverage": 1,
+                        "max_leverage": 100,
+                        "leverage_step": "0.01"
+                    },
+                    "price_filter": {
+                        "min_price": "0.4",
+                        "max_price": "999999.5",
+                        "tick_size": "0.4"
+                    },
+                    "lot_size_filter": {
+                        "max_trading_qty": 100,
+                        "min_trading_qty": 0.001,
+                        "qty_step": 0.001
+                    }
+                }
+            ],
+            "time_now": "1615801223.589808"
+        })
+
+        asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.5))
+
+        self.assertIn("BTC-USD", self.connector.trading_rules)
+        trading_rule = self.connector.trading_rules["BTC-USD"]
+        self.assertEqual("BTC-USD", trading_rule.trading_pair)
+        self.assertEqual(Decimal(1), trading_rule.min_order_size)
+        self.assertEqual(Decimal(1000000), trading_rule.max_order_size)
+        self.assertEqual(Decimal("0.5"), trading_rule.min_price_increment)
+        self.assertEqual(Decimal(1), trading_rule.min_base_amount_increment)
+        self.assertTrue(trading_rule.supports_limit_orders)
+        self.assertTrue(trading_rule.supports_market_orders)
+
+        self.assertIn("BTC-USDT", self.connector.trading_rules)
+        trading_rule = self.connector.trading_rules["BTC-USDT"]
+        self.assertEqual("BTC-USDT", trading_rule.trading_pair)
+        self.assertEqual(Decimal("0.001"), trading_rule.min_order_size)
+        self.assertEqual(Decimal(100), trading_rule.max_order_size)
+        self.assertEqual(Decimal("0.4"), trading_rule.min_price_increment)
+        self.assertEqual(Decimal("0.001"), trading_rule.min_base_amount_increment)
+        self.assertTrue(trading_rule.supports_limit_orders)
+        self.assertTrue(trading_rule.supports_market_orders)
+
+    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    def test_update_trading_rules_logs_rule_parsing_error(self, get_mock):
+        self._configure_mock_api(get_mock)
+
+        self.async_task = asyncio.get_event_loop().create_task(self.connector._trading_rules_polling_loop())
+
+        self.api_responses_status.append(200)
+        symbol_info = {
+            "name": "BTCUSD",
+            "alias": "BTCUSD",
+            "status": "Trading",
+            "base_currency": "BTC",
+            "quote_currency": "USD",
+            "price_scale": 2,
+            "taker_fee": "0.00075",
+            "maker_fee": "-0.00025",
+            "leverage_filter": {
+                "min_leverage": 1,
+                "max_leverage": 100,
+                "leverage_step": "0.01"
+            }
+        }
+        self.api_responses_json.put_nowait({
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": [symbol_info],
+            "time_now": "1615801223.589808"
+        })
+
+        asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.5))
+
+        self.assertTrue(self._is_logged("ERROR", f"Error parsing the trading pair rule: {symbol_info}. Skipping..."))
+
+    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    def test_update_trading_rules_polling_loop_raises_cancelled_error(self, get_mock):
+        get_mock.side_effect = asyncio.CancelledError()
+
+        with self.assertRaises(asyncio.CancelledError):
+            asyncio.get_event_loop().run_until_complete(self.connector._trading_rules_polling_loop())
+
+    @patch("hummingbot.client.hummingbot_application.HummingbotApplication")
+    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    def test_update_trading_rules_polling_loop_logs_errors(self, get_mock, app_mock):
+        get_mock.side_effect = Exception("Test Error")
+
+        self.async_task = asyncio.get_event_loop().create_task(self.connector._trading_rules_polling_loop())
+        asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.5))
+
+        self.assertTrue(self._is_logged("NETWORK", "Unexpected error while fetching trading rules. Error: Test Error"))
