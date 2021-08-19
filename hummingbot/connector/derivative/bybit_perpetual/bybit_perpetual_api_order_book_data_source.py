@@ -38,15 +38,21 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         super().__init__(trading_pairs)
         self._domain = domain
         self._trading_pairs: List[str] = trading_pairs
-        self._session = session or aiohttp.ClientSession()
         self._messages_queues: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
+        self._session = session
+
+    async def _get_session(self):
+        if not self._session:
+            self._session = aiohttp.ClientSession()
+        return self._session
 
     async def _create_websocket_connection(self) -> BybitPerpetualWebSocketAdaptor:
         """
         Initialize WebSocket client for UserStreamDataSource
         """
         try:
-            ws = await self._session.ws_connect(bybit_perpetual_utils.wss_url(self._domain))
+            session = await self._get_session()
+            ws = await session.ws_connect(bybit_perpetual_utils.wss_url(self._domain))
             return BybitPerpetualWebSocketAdaptor(websocket=ws)
         except asyncio.CancelledError:
             raise
@@ -130,7 +136,8 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         params = {"symbol": symbol}
 
         url = bybit_perpetual_utils.rest_api_url_for_endpoint(endpoint=CONSTANTS.ORDER_BOOK_ENDPOINT, domain=self._domain)
-        async with self._session.get(url, params=params) as response:
+        session = await self._get_session()
+        async with session.get(url, params=params) as response:
             status = response.status
             if status != 200:
                 raise IOError(
