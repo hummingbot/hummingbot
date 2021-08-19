@@ -6,7 +6,7 @@ In Task 3, we will be required to implement both `InFlightOrder` and `Exchange` 
 
 ### InFlightOrder Class
 
-As seen in the [Exchange Component Overview](architecture/#exchange-component-overview), the `Exchange` class depends on the `InFlightOrder` Class.
+As seen in the [Exchange Component Overview](/developers/connectors/architecture/#exchange-component-overview), the `Exchange` class depends on the `InFlightOrder` Class.
 The `InFlightOrder` abstracts an order's details and is primarily used by the `Exchange` class to manage all active orders.
 
 The **_InFlightOrder Class Diagram_**, given below, details the critical variables and functions in the `InFlightOrder` class.
@@ -31,7 +31,7 @@ The functions of the `Exchange` class can be catergorized into:
 
 [**(1) Placing Orders**](#1-placing-orders)<br/>
 [**(2) Cancelling Orders**](#2-cancelling-orders)<br/>
-[**(3) Tracking Orders & Balances**](#3-tracking-orders--balances)<br/>
+[**(3) Tracking Orders & Balances**](#3-tracking-orders-balances)<br/>
 [**(4) Managing Trading Rules**](#4-managing-trading-rules)<br/>
 [**(5) Additional Functions**](#5-additional-functions)<br/>
 [**(6) Class Properties**](#6-class-properties)
@@ -531,4 +531,4 @@ Below are the property functions of the `Exchange` class.
 
 ## Debugging & Testing
 
-As part of the QA process, for each task (Task 1 through 3), you are **required** to include the unit test cases for the code review process to begin. Refer to [Option 1: Unit Test Cases](/developer/debug&test/#option-1-unit-test-cases) to build your unit tests.
+As part of the QA process, for each task (Task 1 through 3), you are **required** to include the unit test cases for the code review process to begin. Refer to [Option 1: Unit Test Cases](/developers/connectors/debug&test/#option-1-unit-test-cases) to build your unit tests.

@@ -9,7 +9,7 @@ Below is a summary of frequently asked questions regarding Hummingbot. If you ha
 
 ### Why are you making Hummingbot available to the general public rather than just running it in-house?
 
-We make money by administering [Liquidity Mining](https://docs.hummingbot.io/miner) programs, which allow token projects to source liquidity from a decentralized network rather than from a single firm. Hummingbot is a free tool that anyone can use to participate in liquidity mining.
+We make money by administering [Liquidity Mining](https://support.hummingbot.io/hc/en-us) programs, which allow token projects to source liquidity from a decentralized network rather than from a single firm. Hummingbot is a free tool that anyone can use to participate in liquidity mining.
 
 ### Why are you making Hummingbot open source?
 
@@ -17,7 +17,7 @@ We make money by administering [Liquidity Mining](https://docs.hummingbot.io/min
 
 ### How much cryptocurrency do I need to get started?
 
-There is no minimum amount of assets to use Hummingbot, but users should pay heed to exchange-specific minimum order sizes. We include links to the exchange's minimum order size page. This can be found in our [spot connectors](/spot-connectors/overview/) documentation.
+There is no minimum amount of assets to use Hummingbot, but users should pay heed to exchange-specific minimum order sizes. We include links to the exchange's minimum order size page. This can be found in our [spot connectors](/connectors/) documentation.
 
 ### Are my private keys and API keys secure?
 
@@ -35,9 +35,7 @@ Transactions from Hummingbot are normal transactions conducted on exchanges; the
 
 Hummingbot has a vast majority of Centralized and Decentralized exchanges to choose from, and You can do different strategies with different connectors. To learn more about the exchanges that Hummingbot supports, refer to the following links,
 
-- [Hummingbot Spot Connectors](/spot-connectors/overview/)
-- [Hummingbot Derivatives Connectors](/derivative-connectors/overview/)
-- [Hummingbot Protocol Connectors](/protocol-connectors/overview/)
+- [Hummingbot Connectors](/connectors/)
 
 ### What is market-making?
 

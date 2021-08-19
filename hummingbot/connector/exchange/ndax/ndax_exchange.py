@@ -443,18 +443,6 @@ class NdaxExchange(ExchangeBase):
                                    f"{amount} {trading_pair}.")
                 tracked_order.update_exchange_order_id(exchange_order_id)
 
-            event_tag = MarketEvent.BuyOrderCreated if trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
-            event_class = BuyOrderCreatedEvent if trade_type is TradeType.BUY else SellOrderCreatedEvent
-            self.trigger_event(event_tag,
-                               event_class(
-                                   self.current_timestamp,
-                                   order_type,
-                                   trading_pair,
-                                   amount,
-                                   price,
-                                   order_id
-                               ))
-
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -467,6 +455,20 @@ class NdaxExchange(ExchangeBase):
                 exc_info=True,
                 app_warning_msg="Error submitting order to NDAX. "
             )
+
+    def trigger_order_created_event(self, order: NdaxInFlightOrder):
+        event_tag = MarketEvent.BuyOrderCreated if order.trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
+        event_class = BuyOrderCreatedEvent if order.trade_type is TradeType.BUY else SellOrderCreatedEvent
+        self.trigger_event(event_tag,
+                           event_class(
+                               self.current_timestamp,
+                               order.order_type,
+                               order.trading_pair,
+                               order.amount,
+                               order.price,
+                               order.client_order_id,
+                               exchange_order_id=order.exchange_order_id
+                           ))
 
     def buy(self, trading_pair: str, amount: Decimal, order_type: OrderType = OrderType.MARKET,
             price: Decimal = s_decimal_NaN, **kwargs) -> str:
@@ -733,15 +735,18 @@ class NdaxExchange(ExchangeBase):
         Calls REST API to get order status
         """
         # Waiting on buy and sell functionality.
-        tasks = []
-        if len(self._in_flight_orders) < 1:
+        active_orders: List[NdaxInFlightOrder] = [
+            o for o in self._in_flight_orders.values()
+            if not o.is_locally_working
+        ]
+        if len(active_orders) == 0:
             return
 
-        tracked_orders: List[NdaxInFlightOrder] = list(self._in_flight_orders.values())
-        for tracked_order in tracked_orders:
-            ex_order_id = await tracked_order.get_exchange_order_id()
+        tasks = []
+        for active_order in active_orders:
+            ex_order_id = await active_order.get_exchange_order_id()
             if not ex_order_id:
-                self.logger().debug(f"Tracker order {tracked_order.client_order_id} does not have an exchange id. Attempting fetch in next polling interval")
+                self.logger().debug(f"Tracker order {active_order.client_order_id} does not have an exchange id. Attempting fetch in next polling interval")
                 continue
 
             query_params = {
@@ -767,6 +772,9 @@ class NdaxExchange(ExchangeBase):
                 parsed_status_responses.append(resp)
             else:
                 self.logger().error(f"Error fetching order status. Response: {resp}")
+
+        if len(parsed_status_responses) == 0:
+            return
 
         min_ts: int = min([int(order_status["ReceiveTime"])
                            for order_status in parsed_status_responses])
@@ -796,7 +804,7 @@ class NdaxExchange(ExchangeBase):
             if not isinstance(resp, Exception):
                 parsed_history_resps.extend(resp)
             else:
-                self.logger().error(f"Error fetching order status. Response: {resp}")
+                self.logger().error(f"Error fetching trades history. Response: {resp}")
 
         # Trade updates must be handled before any order status updates.
         for trade in parsed_history_resps:
@@ -913,11 +921,14 @@ class NdaxExchange(ExchangeBase):
         client_order_id = str(order_msg["ClientOrderId"])
         if client_order_id in self.in_flight_orders:
             tracked_order = self.in_flight_orders[client_order_id]
+            was_locally_working = tracked_order.is_locally_working
 
             # Update order execution status
             tracked_order.last_state = order_msg["OrderState"]
 
-            if tracked_order.is_cancelled:
+            if was_locally_working and tracked_order.is_working:
+                self.trigger_order_created_event(tracked_order)
+            elif tracked_order.is_cancelled:
                 self.logger().info(f"Successfully cancelled order {client_order_id}")
                 self.trigger_event(MarketEvent.OrderCancelled,
                                    OrderCancelledEvent(
