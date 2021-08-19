@@ -28,8 +28,18 @@ class BybitPerpetualOrderBookTracker(OrderBookTracker):
                  domain: Optional[str] = None):
         super().__init__(BybitPerpetualAPIOrderBookDataSource(trading_pairs, domain, session), trading_pairs, domain)
 
+        self._domain = domain
         self._order_book_event_listener_task: Optional[asyncio.Task] = None
         self._order_book_instruments_info_listener_task: Optional[asyncio.Task] = None
+
+    async def trading_pair_symbol(self, trading_pair: str) -> str:
+        trading_pairs_map = await BybitPerpetualAPIOrderBookDataSource.trading_pair_symbol_map(self._domain)
+        symbols = [symbol for symbol, map_trading_pair in trading_pairs_map.items() if trading_pair == map_trading_pair]
+        if symbols:
+            symbol = symbols[0]
+        else:
+            raise ValueError(f"The symbol representing trading pair {trading_pair} could not be found")
+        return symbol
 
     def start(self):
         super().start()
