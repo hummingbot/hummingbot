@@ -1716,7 +1716,7 @@ class NdaxExchangeTests(TestCase):
 
         with self.assertRaises(IOError) as exception_context:
             asyncio.new_event_loop().run_until_complete(
-                self.exchange._api_request("GET", "/path")
+                self.exchange._api_request("GET", CONSTANTS.MARKETS_URL)
             )
 
         self.assertTrue("Error: The exchange API request limit has been reached (original error 'TOO MANY REQUESTS')"

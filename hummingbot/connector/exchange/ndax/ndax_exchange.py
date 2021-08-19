@@ -44,6 +44,7 @@ from hummingbot.core.event.events import (
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 s_decimal_NaN = Decimal("nan")
 s_decimal_0 = Decimal(0)
@@ -109,6 +110,8 @@ class NdaxExchange(ExchangeBase):
         self._trading_rules_polling_task = None
 
         self._account_id = None
+
+        self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
 
     @property
     def name(self) -> str:
@@ -318,9 +321,11 @@ class NdaxExchange(ExchangeBase):
                 headers = self._auth.get_headers()
 
             if method == "GET":
-                response = await client.get(url, headers=headers, params=params)
+                async with self._throttler.execute_task(path_url):
+                    response = await client.get(url, headers=headers, params=params)
             elif method == "POST":
-                response = await client.post(url, headers=headers, data=ujson.dumps(data))
+                async with self._throttler.execute_task(path_url):
+                    response = await client.post(url, headers=headers, data=ujson.dumps(data))
             else:
                 raise NotImplementedError(f"{method} HTTP Method not implemented. ")
 
