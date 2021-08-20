@@ -1,3 +1,5 @@
+import time
+
 import aiohttp
 import asyncio
 import logging
@@ -24,6 +26,10 @@ from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_order_book_
     BybitPerpetualOrderBookTracker
 from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.connector.trading_rule import TradingRule
+
+from hummingbot.core.data_type.order_book import OrderBook
+
+from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.event.events import (
     FundingInfo,
     MarketEvent,
@@ -31,7 +37,7 @@ from hummingbot.core.event.events import (
     OrderType,
     PositionAction,
     PositionMode,
-    TradeType,
+    TradeType, TradeFee,
 )
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
@@ -80,7 +86,15 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
         # Tasks
         self._funding_info_polling_task = None
-        self._funding_fee_polling_task = None
+        self._user_funding_fee_polling_task = None
+        self._status_polling_task = None
+        self._user_stream_tracker_task = None
+        self._user_stream_event_listener_task = None
+        self._trading_rules_polling_task = None
+
+    @property
+    def name(self) -> str:
+        return CONSTANTS.EXCHANGE_NAME
 
     @property
     def trading_rules(self) -> Dict[str, TradingRule]:
@@ -89,6 +103,62 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
     @property
     def in_flight_orders(self) -> Dict[str, BybitPerpetualInFlightOrder]:
         return self._in_flight_orders
+
+    @property
+    def status_dict(self) -> Dict[str, bool]:
+        """
+        A dictionary of statuses of various exchange's components. Used to determine if the connector is ready
+        """
+        return {
+            "order_books_initialized": self._order_book_tracker.ready,
+            "account_balance": not self._trading_required or len(self._account_balances) > 0,
+            "trading_rule_initialized": len(self._trading_rules) > 0,
+            # "user_stream_initialized":
+            #     not self._trading_required or self._user_stream_tracker.data_source.last_recv_time > 0,
+            "funding_info": len(self._funding_info) > 0
+        }
+
+    @property
+    def ready(self) -> bool:
+        """
+        Determines if the connector is ready.
+        :return True when all statuses pass, this might take 5-10 seconds for all the connector's components and
+        services to be ready.
+        """
+        return all(self.status_dict.values())
+
+    @property
+    def order_books(self) -> Dict[str, OrderBook]:
+        return self._order_book_tracker.order_books
+
+    @property
+    def limit_orders(self) -> List[LimitOrder]:
+        return [
+            in_flight_order.to_limit_order()
+            for in_flight_order in self._in_flight_orders.values()
+        ]
+
+    @property
+    def tracking_states(self) -> Dict[str, Any]:
+        """
+        :return: active in-flight order in JSON format. Used to save order entries into local sqlite database.
+        """
+        return {
+            client_oid: order.to_json()
+            for client_oid, order in self._in_flight_orders.items()
+            if not order.is_done
+        }
+
+    def restore_tracking_states(self, saved_states: Dict[str, Any]):
+        """
+        Restore in-flight orders from the saved tracking states(from local db). This is such that the connector can pick
+        up from where it left off before Hummingbot client was terminated.
+        :param saved_states: The saved tracking_states.
+        """
+        self._in_flight_orders.update({
+            client_oid: BybitPerpetualInFlightOrder.from_json(order_json)
+            for client_oid, order_json in saved_states.items()
+        })
 
     async def _aiohttp_client(self) -> aiohttp.ClientSession:
         """
@@ -108,7 +178,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             # self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
-            self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
+            # self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
             self._user_funding_fee_polling_task = safe_ensure_future(self._user_funding_fee_polling_loop())
 
     async def stop_network(self):
@@ -469,6 +539,37 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
         failed_cancellations = [CancellationResult(oid, False) for oid in order_id_set]
         return successful_cancellations + failed_cancellations
+
+    def tick(self, timestamp: float):
+        """
+        Is called automatically by the clock for each clock tick(1 second by default).
+        It checks if a status polling task is due for execution.
+        """
+        now = time.time()
+        poll_interval = (self.SHORT_POLL_INTERVAL
+                         if now - self._user_stream_tracker.last_recv_time > 60.0
+                         else self.LONG_POLL_INTERVAL)
+        last_tick = int(self._last_timestamp / poll_interval)
+        current_tick = int(timestamp / poll_interval)
+        if current_tick > last_tick:
+            if not self._poll_notifier.is_set():
+                self._poll_notifier.set()
+        self._last_timestamp = timestamp
+
+    def get_fee(self,
+                base_currency: str,
+                quote_currency: str,
+                order_type: OrderType,
+                order_side: TradeType,
+                amount: Decimal,
+                price: Decimal = s_decimal_NaN) -> TradeFee:
+        """
+        To get trading fee, this function is simplified by using fee override configuration. Most parameters to this
+        function are ignore except order_type. Use OrderType.LIMIT_MAKER to specify you want trading fee for
+        maker order.
+        """
+        is_maker = order_type is OrderType.LIMIT
+        return TradeFee(percent=self.estimate_fee_pct(is_maker))
 
     def _format_trading_rules(self, instrument_info: List[Dict[str, Any]]) -> Dict[str, TradingRule]:
         """
