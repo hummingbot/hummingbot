@@ -17,6 +17,8 @@ from hummingbot.connector.exchange.ndax.ndax_api_order_book_data_source import N
 
 from hummingbot.connector.exchange.ndax.ndax_order_book_message import NdaxOrderBookEntry, NdaxOrderBookMessage
 from hummingbot.core.data_type.order_book import OrderBook
+
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 
 
@@ -41,7 +43,8 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.ws_incoming_messages = asyncio.Queue()
         self.listening_task = None
 
-        self.data_source = NdaxAPIOrderBookDataSource([self.trading_pair])
+        self.throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
+        self.data_source = NdaxAPIOrderBookDataSource([self.trading_pair], self.throttler)
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 

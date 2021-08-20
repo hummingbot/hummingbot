@@ -92,8 +92,9 @@ class NdaxExchange(ExchangeBase):
                               api_key=ndax_api_key,
                               secret_key=ndax_secret_key,
                               account_name=ndax_account_name)
-        self._order_book_tracker = NdaxOrderBookTracker(trading_pairs=trading_pairs, domain=domain)
-        self._user_stream_tracker = NdaxUserStreamTracker(self._auth, domain=domain)
+        self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        self._order_book_tracker = NdaxOrderBookTracker(self._throttler, trading_pairs=trading_pairs, domain=domain)
+        self._user_stream_tracker = NdaxUserStreamTracker(self._throttler, self._auth, domain=domain)
         self._domain = domain
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client = None
@@ -110,8 +111,6 @@ class NdaxExchange(ExchangeBase):
         self._trading_rules_polling_task = None
 
         self._account_id = None
-
-        self._throttler = AsyncThrottler(CONSTANTS.HTTP_RATE_LIMITS)
 
     @property
     def name(self) -> str:
@@ -286,6 +285,7 @@ class NdaxExchange(ExchangeBase):
             resp = await self._api_request(
                 method="GET",
                 path_url=CONSTANTS.PING_PATH_URL,
+                limit_id=CONSTANTS.HTTP_PING_ID,
             )
             if "msg" not in resp or resp["msg"] != "PONG":
                 raise Exception()
@@ -300,7 +300,8 @@ class NdaxExchange(ExchangeBase):
                            path_url: str,
                            params: Optional[Dict[str, Any]] = None,
                            data: Optional[Dict[str, Any]] = None,
-                           is_auth_required: bool = False) -> Union[Dict[str, Any], List[Any]]:
+                           is_auth_required: bool = False,
+                           limit_id: Optional[str] = None) -> Union[Dict[str, Any], List[Any]]:
         """
         Sends an aiohttp request and waits for a response.
         :param method: The HTTP method, e.g. get or post
@@ -309,6 +310,7 @@ class NdaxExchange(ExchangeBase):
         :param params: The body parameters of the API request
         :param is_auth_required: Whether an authentication is required, when True the function will add encrypted
         signature to the request.
+        :param limit_id: The id used for the API throttler. If not supplied, the `path_url` is used instead.
         :returns A response in json format.
         """
         url = ndax_utils.rest_api_url(self._domain) + path_url
@@ -320,11 +322,12 @@ class NdaxExchange(ExchangeBase):
             else:
                 headers = self._auth.get_headers()
 
+            limit_id = limit_id or path_url
             if method == "GET":
-                async with self._throttler.execute_task(path_url):
+                async with self._throttler.execute_task(limit_id):
                     response = await client.get(url, headers=headers, params=params)
             elif method == "POST":
-                async with self._throttler.execute_task(path_url):
+                async with self._throttler.execute_task(limit_id):
                     response = await client.post(url, headers=headers, data=ujson.dumps(data))
             else:
                 raise NotImplementedError(f"{method} HTTP Method not implemented. ")
