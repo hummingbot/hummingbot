@@ -9,6 +9,7 @@ import hummingbot.connector.exchange.ascend_ex.ascend_ex_constants as constants
 from collections import defaultdict, deque
 from typing import Optional, Dict, List, Deque
 
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_order_book_message import AscendExOrderBookMessage
@@ -27,8 +28,8 @@ class AscendExOrderBookTracker(OrderBookTracker):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, trading_pairs: Optional[List[str]] = None,):
-        super().__init__(AscendExAPIOrderBookDataSource(trading_pairs), trading_pairs)
+    def __init__(self, throttler: AsyncThrottler, trading_pairs: Optional[List[str]] = None,):
+        super().__init__(AscendExAPIOrderBookDataSource(throttler, trading_pairs), trading_pairs)
 
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
