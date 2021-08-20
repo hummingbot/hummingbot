@@ -14,6 +14,7 @@ from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.connector.exchange.ndax.ndax_order_book_message import NdaxOrderBookMessage
 from hummingbot.connector.exchange.ndax.ndax_api_order_book_data_source import NdaxAPIOrderBookDataSource
 from hummingbot.connector.exchange.ndax.ndax_order_book import NdaxOrderBook
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
 
 
@@ -50,6 +51,20 @@ class NdaxOrderBookTracker(OrderBookTracker):
         Name of the current exchange
         """
         return CONSTANTS.EXCHANGE_NAME
+
+    async def _init_order_books(self):
+        """
+        Initialize order books.
+
+        NDAX delivers an order book snapshot upon connection with the websocket. To reduce the stress on
+        the HTTP endpoints, applying the order book snapshot has been delayed until that message is
+        received in _track_single_book. Setting of the _order_books_initialized event is delayed until then as well.
+        """
+        for _, trading_pair in enumerate(self._trading_pairs):
+            self._order_books[trading_pair] = self._data_source.order_book_create_function()
+            self._tracking_message_queues[trading_pair] = asyncio.Queue()
+            self._tracking_tasks[trading_pair] = safe_ensure_future(self._track_single_book(trading_pair))
+            await asyncio.sleep(1)
 
     async def _track_single_book(self, trading_pair: str):
         """
@@ -94,7 +109,7 @@ class NdaxOrderBookTracker(OrderBookTracker):
                     order_book.apply_snapshot(s_bids, s_asks, message.update_id)
 
                     if order_book.last_diff_uid == 0:
-                        self._order_books_initialized_counter += 1
+                        self._order_book_initialized()
                         self.logger().info(f"Initialized order book for {trading_pair}. "
                                            f"{self._order_books_initialized_counter}/{len(self._trading_pairs)} completed.")
 
@@ -117,3 +132,8 @@ class NdaxOrderBookTracker(OrderBookTracker):
                     app_warning_msg="Unexpected error processing order book messages. Retrying after 5 seconds."
                 )
                 await asyncio.sleep(5.0)
+
+    def _order_book_initialized(self):
+        self._order_books_initialized_counter += 1
+        if self._order_books_initialized_counter == len(self._order_books):
+            self._order_books_initialized.set()
