@@ -11,6 +11,8 @@ from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_derivative 
 from hummingbot.connector.trading_rule import TradingRule
 
 from hummingbot.core.event.event_logger import EventLogger
+
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_in_flight_order import BybitPerpetualInFlightOrder
 from hummingbot.core.event.events import OrderType, PositionAction, TradeType, MarketEvent
 
 
@@ -516,3 +518,287 @@ class BybitPerpetualDerivativeTests(TestCase):
         asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.5))
 
         self.assertTrue(self._is_logged("NETWORK", "Unexpected error while fetching trading rules. Error: Test Error"))
+
+    @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
+    def test_cancel_tracked_order(self, post_mock):
+        self._configure_mock_api(post_mock)
+
+        self._simulate_trading_rules_initialized()
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
+
+        self.connector.start_tracking_order(
+            order_id="O1",
+            exchange_order_id="EO1",
+            trading_pair=self.trading_pair,
+            trading_type=TradeType.BUY,
+            price=Decimal(44000),
+            amount=Decimal(1),
+            order_type=OrderType.LIMIT,
+            leverage=10,
+            position=PositionAction.OPEN.name
+        )
+
+        cancelled_order_id = self.connector.cancel(trading_pair=self.trading_pair, order_id="O1")
+
+        self.api_responses_status.append(200)
+        self.api_responses_json.put_nowait({
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {
+                "user_id": 1,
+                "order_id": "EO1",
+                "symbol": "BTCUSDT",
+                "side": "Buy",
+                "order_type": "Limit",
+                "price": 44000,
+                "qty": 1,
+                "time_in_force": "GoodTillCancel",
+                "order_status": "New",
+                "last_exec_time": 0,
+                "last_exec_price": 0,
+                "leaves_qty": 1,
+                "cum_exec_qty": 0,
+                "cum_exec_value": 0,
+                "cum_exec_fee": 0,
+                "reject_reason": "",
+                "order_link_id": "O1",
+                "created_at": "2019-11-30T11:17:18.396Z",
+                "updated_at": "2019-11-30T11:18:01.811Z"
+            },
+            "time_now": "1575112681.814760",
+            "rate_limit_status": 98,
+            "rate_limit_reset_ms": 1580885703683,
+            "rate_limit": 100
+        })
+
+        request_url, request_headers, request_data = asyncio.get_event_loop().run_until_complete(
+            self.api_requests_data.get())
+
+        cancel_json = json.loads(request_data)
+
+        self.assertEqual("BTCUSDT", cancel_json["symbol"])
+        self.assertEqual("EO1", cancel_json["order_id"])
+        self.assertEqual(cancelled_order_id, cancel_json["order_link_id"])
+
+    @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
+    def test_cancel_tracked_order_logs_error_notified_in_the_response(self, post_mock):
+        self._configure_mock_api(post_mock)
+
+        self._simulate_trading_rules_initialized()
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
+
+        self.connector.start_tracking_order(
+            order_id="O1",
+            exchange_order_id="EO1",
+            trading_pair=self.trading_pair,
+            trading_type=TradeType.BUY,
+            price=Decimal(44000),
+            amount=Decimal(1),
+            order_type=OrderType.LIMIT,
+            leverage=10,
+            position=PositionAction.OPEN.name
+        )
+
+        self.connector.cancel(trading_pair=self.trading_pair, order_id="O1")
+
+        self.api_responses_status.append(200)
+        self.api_responses_json.put_nowait({
+            "ret_code": 1001,
+            "ret_msg": "Test error description",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {
+                "user_id": 1,
+                "order_id": "EO1",
+                "symbol": "BTCUSDT",
+                "side": "Buy",
+                "order_type": "Limit",
+                "price": 44000,
+                "qty": 1,
+                "time_in_force": "GoodTillCancel",
+                "order_status": "New",
+                "last_exec_time": 0,
+                "last_exec_price": 0,
+                "leaves_qty": 1,
+                "cum_exec_qty": 0,
+                "cum_exec_value": 0,
+                "cum_exec_fee": 0,
+                "reject_reason": "",
+                "order_link_id": "O1",
+                "created_at": "2019-11-30T11:17:18.396Z",
+                "updated_at": "2019-11-30T11:18:01.811Z"
+            },
+            "time_now": "1575112681.814760",
+            "rate_limit_status": 98,
+            "rate_limit_reset_ms": 1580885703683,
+            "rate_limit": 100
+        })
+
+        asyncio.get_event_loop().run_until_complete(self.api_requests_data.get())
+
+        self.assertTrue(self._is_logged(
+            "ERROR",
+            "Failed to cancel order O1:"
+            " Bybit Perpetual encountered a problem cancelling the order (1001 - Test error description)"))
+
+    @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
+    def test_cancel_tracked_order_logs_error_when_cancelling_non_tracked_order(self, post_mock):
+        self._configure_mock_api(post_mock)
+
+        self._simulate_trading_rules_initialized()
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
+
+        self.connector.cancel(trading_pair=self.trading_pair, order_id="O1")
+        asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.4))
+
+        self.assertTrue(self._is_logged(
+            "ERROR",
+            "Failed to cancel order O1: Order O1 is not being tracked"))
+
+    @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
+    def test_cancel_tracked_order_raises_cancelled(self, post_mock):
+        post_mock.side_effect = asyncio.CancelledError()
+
+        self._simulate_trading_rules_initialized()
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
+
+        self.connector.start_tracking_order(
+            order_id="O1",
+            exchange_order_id="EO1",
+            trading_pair=self.trading_pair,
+            trading_type=TradeType.BUY,
+            price=Decimal(44000),
+            amount=Decimal(1),
+            order_type=OrderType.LIMIT,
+            leverage=10,
+            position=PositionAction.OPEN.name
+        )
+
+        with self.assertRaises(asyncio.CancelledError):
+            asyncio.get_event_loop().run_until_complete(
+                self.connector._execute_cancel(trading_pair=self.trading_pair, order_id="O1"))
+
+    @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
+    def test_cancel_all_in_flight_orders(self, post_mock):
+        self._configure_mock_api(post_mock)
+
+        self._simulate_trading_rules_initialized()
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
+
+        self.connector._in_flight_orders["O1"] = BybitPerpetualInFlightOrder(
+            client_order_id="O1",
+            exchange_order_id="EO1",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal(44000),
+            amount=Decimal(1),
+            order_type=OrderType.LIMIT,
+            leverage=10,
+            position=PositionAction.OPEN.name)
+        self.connector._in_flight_orders["O2"] = BybitPerpetualInFlightOrder(
+            client_order_id="O2",
+            exchange_order_id="EO2",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal(44000),
+            amount=Decimal(1),
+            order_type=OrderType.LIMIT,
+            leverage=10,
+            position=PositionAction.OPEN.name,
+            initial_state="New")
+        # Add also an order already done, that should not be cancelled
+        self.connector._in_flight_orders["O3"] = BybitPerpetualInFlightOrder(
+            client_order_id="O3",
+            exchange_order_id="EO3",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal(44000),
+            amount=Decimal(1),
+            order_type=OrderType.LIMIT,
+            leverage=10,
+            position=PositionAction.OPEN.name,
+            initial_state="Filled")
+
+        # Emulate first cancellation happening without problems
+        self.api_responses_status.append(200)
+        self.api_responses_json.put_nowait({
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {
+                "user_id": 1,
+                "order_id": "EO1",
+                "symbol": "BTCUSDT",
+                "side": "Buy",
+                "order_type": "Limit",
+                "price": 44000,
+                "qty": 1,
+                "time_in_force": "GoodTillCancel",
+                "order_status": "New",
+                "last_exec_time": 0,
+                "last_exec_price": 0,
+                "leaves_qty": 1,
+                "cum_exec_qty": 0,
+                "cum_exec_value": 0,
+                "cum_exec_fee": 0,
+                "reject_reason": "",
+                "order_link_id": "O1",
+                "created_at": "2019-11-30T11:17:18.396Z",
+                "updated_at": "2019-11-30T11:18:01.811Z"
+            },
+            "time_now": "1575112681.814760",
+            "rate_limit_status": 98,
+            "rate_limit_reset_ms": 1580885703683,
+            "rate_limit": 100
+        })
+        # Emulate second cancellation failing
+        self.api_responses_status.append(200)
+        self.api_responses_json.put_nowait({
+            "ret_code": 1001,
+            "ret_msg": "Test error description",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {},
+            "time_now": "1575112681.814760",
+            "rate_limit_status": 98,
+            "rate_limit_reset_ms": 1580885703683,
+            "rate_limit": 100
+        })
+
+        cancellation_results = asyncio.get_event_loop().run_until_complete(self.connector.cancel_all(timeout_seconds=2))
+
+        self.assertEqual(2, len(cancellation_results))
+        self.assertTrue(any(map(lambda result: result.order_id == "O1" and result.success, cancellation_results)))
+        self.assertTrue(any(map(lambda result: result.order_id == "O2" and not result.success, cancellation_results)))
+
+    @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
+    def test_cancel_all_logs_warning_when_process_times_out(self, post_mock):
+        self._configure_mock_api(post_mock)
+
+        self._simulate_trading_rules_initialized()
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
+
+        self.connector._in_flight_orders["O1"] = BybitPerpetualInFlightOrder(
+            client_order_id="O1",
+            exchange_order_id="EO1",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal(44000),
+            amount=Decimal(1),
+            order_type=OrderType.LIMIT,
+            leverage=10,
+            position=PositionAction.OPEN.name)
+
+        # We don't register any API response for the process to time out
+        self.api_responses_status.append(200)
+
+        cancellation_results = asyncio.get_event_loop().run_until_complete(
+            self.connector.cancel_all(timeout_seconds=0.1))
+
+        self.assertTrue(self._is_logged("WARNING", "Cancellation of all active orders for Bybit Perpetual connector"
+                                                   " stopped after max wait time"))
+        self.assertEqual(1, len(cancellation_results))
+        self.assertTrue(cancellation_results[0].order_id == "O1" and not cancellation_results[0].success)
