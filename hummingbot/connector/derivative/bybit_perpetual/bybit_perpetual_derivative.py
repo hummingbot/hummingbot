@@ -17,7 +17,7 @@ from typing import (
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_auth import BybitPerpetualAuth
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source import \
     BybitPerpetualAPIOrderBookDataSource
-from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.exchange_base import ExchangeBase, CancellationResult
 
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_in_flight_order import BybitPerpetualInFlightOrder
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_order_book_tracker import \
@@ -33,7 +33,7 @@ from hummingbot.core.event.events import (
     PositionMode,
     TradeType,
 )
-from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
 
 s_decimal_NaN = Decimal("nan")
@@ -384,6 +384,91 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                               position_action=kwargs["position_action"]
                                               ))
         return order_id
+
+    async def _execute_cancel(self, trading_pair: str, order_id: str) -> str:
+        """
+        Executes order cancellation process by first calling the CancelOrder endpoint. The API response simply verifies
+        that the API request have been received by the API servers. To determine if an order is successfully cancelled,
+        we either call the GetOrderStatus/GetOpenOrders endpoint or wait for a OrderStateEvent/OrderTradeEvent from the WS.
+        :param trading_pair: The market (e.g. BTC-CAD) the order is in.
+        :param order_id: The client_order_id of the order to be cancelled.
+        """
+        try:
+            tracked_order: Optional[BybitPerpetualInFlightOrder] = self._in_flight_orders.get(order_id, None)
+            if tracked_order is None:
+                raise ValueError(f"Order {order_id} is not being tracked")
+
+            body_params = {
+                "symbol": await self._trading_pair_symbol(trading_pair),
+                "order_link_id": tracked_order.client_order_id
+            }
+            if tracked_order.exchange_order_id:
+                body_params["order_id"] = tracked_order.exchange_order_id
+
+            # The API response simply verifies that the API request have been received by the API servers.
+            response = await self._api_request(
+                method="POST",
+                path_url=CONSTANTS.CANCEL_ACTIVE_ORDER_ENDPOINT,
+                body=body_params,
+                is_auth_required=True
+            )
+
+            if response["ret_code"] != 0:
+                raise IOError(f"Bybit Perpetual encountered a problem cancelling the order"
+                              f" ({response['ret_code']} - {response['ret_msg']})")
+
+            return order_id
+
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self.logger().error(f"Failed to cancel order {order_id}: {str(e)}")
+            self.logger().network(
+                f"Failed to cancel order {order_id}: {str(e)}",
+                exc_info=True,
+                app_warning_msg=f"Failed to cancel order {order_id} on NDAX. "
+                                f"Check API key and network connection."
+            )
+
+    def cancel(self, trading_pair: str, order_id: str):
+        """
+        Cancel an order. This function returns immediately.
+        An Order is only determined to be cancelled when a OrderCancelledEvent is received.
+        :param trading_pair: The market (e.g. BTC-CAD) of the order.
+        :param order_id: The client_order_id of the order to be cancelled.
+        """
+        safe_ensure_future(self._execute_cancel(trading_pair, order_id))
+        return order_id
+
+    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
+        """
+        Async function that cancels all active orders.
+        Used by bot's top level stop and exit commands (cancelling outstanding orders on exit)
+        :returns: List of CancellationResult which indicates whether each order is successfully cancelled.
+        """
+        tasks = []
+        order_id_set = set()
+        for order in self._in_flight_orders.values():
+            if not order.is_done:
+                order_id_set.add(order.client_order_id)
+                tasks.append(asyncio.get_event_loop().create_task(
+                    self._execute_cancel(order.trading_pair, order.client_order_id)))
+        successful_cancellations = []
+
+        try:
+            results = await asyncio.wait_for(
+                asyncio.shield(safe_gather(*tasks, return_exceptions=True)),
+                timeout_seconds)
+            for result in results:
+                if result is not None:
+                    order_id_set.remove(result)
+                    successful_cancellations.append(CancellationResult(result, True))
+        except asyncio.TimeoutError:
+            self.logger().warning("Cancellation of all active orders for Bybit Perpetual connector"
+                                  " stopped after max wait time")
+
+        failed_cancellations = [CancellationResult(oid, False) for oid in order_id_set]
+        return successful_cancellations + failed_cancellations
 
     def _format_trading_rules(self, instrument_info: List[Dict[str, Any]]) -> Dict[str, TradingRule]:
         """

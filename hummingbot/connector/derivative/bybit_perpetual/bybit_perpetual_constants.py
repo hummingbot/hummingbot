@@ -17,6 +17,7 @@ ORDER_BOOK_ENDPOINT = "/public/orderBook/L2"
 # REST API Private Endpoints
 GET_FUNDING_FEE_PATH_URL = "/private/linear/funding/prev-funding"
 PLACE_ACTIVE_ORDER_ENDPOINT = "/private/order/create"
+CANCEL_ACTIVE_ORDER_ENDPOINT = "/private/order/cancel"
 
 # WebSocket Public Endpoints
 WS_PING_REQUEST = "ping"
