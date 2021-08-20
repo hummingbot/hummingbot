@@ -1,5 +1,6 @@
 import asyncio
 import json
+import time
 from collections import deque
 from decimal import Decimal
 from unittest import TestCase
@@ -13,7 +14,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.event.event_logger import EventLogger
 
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_in_flight_order import BybitPerpetualInFlightOrder
-from hummingbot.core.event.events import OrderType, PositionAction, TradeType, MarketEvent
+from hummingbot.core.event.events import OrderType, PositionAction, TradeType, MarketEvent, FundingInfo
 
 
 class BybitPerpetualDerivativeTests(TestCase):
@@ -802,3 +803,140 @@ class BybitPerpetualDerivativeTests(TestCase):
                                                    " stopped after max wait time"))
         self.assertEqual(1, len(cancellation_results))
         self.assertTrue(cancellation_results[0].order_id == "O1" and not cancellation_results[0].success)
+
+    def test_fee_estimation(self):
+        fee = self.connector.get_fee(base_currency="BCT", quote_currency="USDT", order_type=OrderType.LIMIT,
+                                     order_side=TradeType.BUY, amount=Decimal(1), price=Decimal(45000))
+        self.assertEqual(Decimal("0"), fee.percent)
+
+        fee = self.connector.get_fee(base_currency="BCT", quote_currency="USDT", order_type=OrderType.MARKET,
+                                     order_side=TradeType.BUY, amount=Decimal(1), price=Decimal(45000))
+        self.assertEqual(Decimal("0.00075"), fee.percent)
+
+    def test_connector_ready_status(self):
+        self.assertFalse(self.connector.ready)
+
+        self._simulate_trading_rules_initialized()
+        self.connector._order_book_tracker._order_books_initialized.set()
+        self.connector._account_balances["USDT"] = Decimal(10000)
+        self.connector._funding_info[self.trading_pair] = FundingInfo(
+            trading_pair=self.trading_pair,
+            index_price=Decimal(1),
+            mark_price=Decimal(1),
+            next_funding_utc_timestamp=time.time(),
+            rate=Decimal(1))
+
+        self.assertTrue(self.connector.ready)
+
+    def test_connector_ready_status_when_trading_not_required(self):
+        local_connector = BybitPerpetualDerivative(bybit_perpetual_api_key='testApiKey',
+                                                   bybit_perpetual_secret_key='testSecretKey',
+                                                   trading_pairs=[self.trading_pair],
+                                                   trading_required=False)
+
+        self.assertFalse(local_connector.ready)
+
+        local_connector._order_book_tracker._order_books_initialized.set()
+        local_connector._funding_info[self.trading_pair] = FundingInfo(
+            trading_pair=self.trading_pair,
+            index_price=Decimal(1),
+            mark_price=Decimal(1),
+            next_funding_utc_timestamp=time.time(),
+            rate=Decimal(1))
+        local_connector._trading_rules = {
+            self.trading_pair: TradingRule(
+                trading_pair=self.trading_pair,
+                min_order_size=Decimal(str(0.01)),
+                min_price_increment=Decimal(str(0.0001)),
+                min_base_amount_increment=Decimal(str(0.000001)),
+            )
+        }
+
+        self.assertTrue(local_connector.ready)
+
+    def test_limit_orders(self):
+        self.connector._in_flight_orders["O1"] = BybitPerpetualInFlightOrder(
+            client_order_id="O1",
+            exchange_order_id="EO1",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal(44000),
+            amount=Decimal(1),
+            order_type=OrderType.LIMIT,
+            leverage=10,
+            position=PositionAction.OPEN.name)
+        self.connector._in_flight_orders["O2"] = BybitPerpetualInFlightOrder(
+            client_order_id="O2",
+            exchange_order_id="EO2",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.SELL,
+            price=Decimal(44000),
+            amount=Decimal(1),
+            order_type=OrderType.MARKET,
+            leverage=10,
+            position=PositionAction.OPEN.name,
+            initial_state="New")
+
+        limit_orders = self.connector.limit_orders
+
+        self.assertEqual(2, len(limit_orders))
+        self.assertEqual("O1", limit_orders[0].client_order_id)
+        self.assertEqual("O2", limit_orders[1].client_order_id)
+
+    def test_generate_tracking_states(self):
+        self.connector._in_flight_orders["O1"] = BybitPerpetualInFlightOrder(
+            client_order_id="O1",
+            exchange_order_id="EO1",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal(44000),
+            amount=Decimal(1),
+            order_type=OrderType.LIMIT,
+            leverage=10,
+            position=PositionAction.OPEN.name)
+        self.connector._in_flight_orders["O2"] = BybitPerpetualInFlightOrder(
+            client_order_id="O2",
+            exchange_order_id="EO2",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.SELL,
+            price=Decimal(44000),
+            amount=Decimal(1),
+            order_type=OrderType.MARKET,
+            leverage=10,
+            position=PositionAction.OPEN.name,
+            initial_state="New")
+
+        tracking_states = self.connector.tracking_states
+
+        expected_first_order_json = {'client_order_id': 'O1', 'exchange_order_id': 'EO1', 'trading_pair': 'BTC-USDT',
+                                     'order_type': 'LIMIT', 'trade_type': 'BUY', 'price': '44000', 'amount': '1',
+                                     'executed_amount_base': '0', 'executed_amount_quote': '0', 'fee_asset': 'USDT',
+                                     'fee_paid': '0', 'last_state': 'Created', 'leverage': '10', 'position': 'OPEN'}
+        expected_second_order_json = {'client_order_id': 'O2', 'exchange_order_id': 'EO2', 'trading_pair': 'BTC-USDT',
+                                      'order_type': 'MARKET', 'trade_type': 'SELL', 'price': '44000', 'amount': '1',
+                                      'executed_amount_base': '0', 'executed_amount_quote': '0', 'fee_asset': 'USDT',
+                                      'fee_paid': '0', 'last_state': 'New', 'leverage': '10', 'position': 'OPEN'}
+        self.assertEqual(2, len(tracking_states))
+        self.assertEqual(expected_first_order_json, tracking_states["O1"])
+        self.assertEqual(expected_second_order_json, tracking_states["O2"])
+
+    def test_restore_tracking_states(self):
+        order = BybitPerpetualInFlightOrder(
+            client_order_id="O1",
+            exchange_order_id="EO1",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal(44000),
+            amount=Decimal(1),
+            order_type=OrderType.LIMIT,
+            leverage=10,
+            position=PositionAction.OPEN.name)
+        order_json = {'client_order_id': 'O1', 'exchange_order_id': 'EO1', 'trading_pair': 'BTC-USDT',
+                      'order_type': 'LIMIT', 'trade_type': 'BUY', 'price': '44000', 'amount': '1',
+                      'executed_amount_base': '0', 'executed_amount_quote': '0', 'fee_asset': 'USDT',
+                      'fee_paid': '0', 'last_state': 'Created', 'leverage': '10', 'position': 'OPEN'}
+
+        self.connector.restore_tracking_states({order.client_order_id: order_json})
+
+        self.assertIn(order.client_order_id, self.connector.in_flight_orders)
+        self.assertEqual(order_json, self.connector.in_flight_orders[order.client_order_id].to_json())
