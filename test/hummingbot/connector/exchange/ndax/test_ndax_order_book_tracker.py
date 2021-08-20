@@ -10,6 +10,7 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.connector.exchange.ndax.ndax_order_book import NdaxOrderBook
 from hummingbot.connector.exchange.ndax.ndax_order_book_message import NdaxOrderBookEntry, NdaxOrderBookMessage
 from hummingbot.connector.exchange.ndax.ndax_order_book_tracker import NdaxOrderBookTracker
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 
 class NdaxOrderBookTrackerUnitTest(unittest.TestCase):
@@ -26,7 +27,8 @@ class NdaxOrderBookTrackerUnitTest(unittest.TestCase):
 
     def setUp(self) -> None:
         super().setUp()
-        self.tracker: NdaxOrderBookTracker = NdaxOrderBookTracker([self.trading_pair])
+        throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        self.tracker: NdaxOrderBookTracker = NdaxOrderBookTracker(throttler, [self.trading_pair])
         self.tracking_task = None
 
         # Simulate start()
