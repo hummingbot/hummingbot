@@ -367,6 +367,7 @@ class AscendExExchange(ExchangePyBase):
                            method: str,
                            path_url: str,
                            params: Optional[Dict[str, Any]] = None,
+                           data: Optional[Dict[str, Any]] = None,
                            is_auth_required: bool = False,
                            force_auth_path_url: Optional[str] = None
                            ) -> Dict[str, Any]:
@@ -378,13 +379,18 @@ class AscendExExchange(ExchangePyBase):
         signature to the request.
         :returns A response in json format.
         """
-        params = params or {}
+        kwargs = {}
+        if params:
+            kwargs["params"] = params
+        if data:
+            kwargs["data"] = json.dumps(data)
+
         if is_auth_required:
             if self._account_group is None:
                 await self._update_account_data()
 
             url = f"{ascend_ex_utils.get_rest_url_private(self._account_group)}/{path_url}"
-            headers = {
+            kwargs["headers"] = {
                 **self._ascend_ex_auth.get_headers(),
                 **self._ascend_ex_auth.get_auth_headers(
                     path_url if force_auth_path_url is None else force_auth_path_url
@@ -392,30 +398,18 @@ class AscendExExchange(ExchangePyBase):
             }
         else:
             url = f"{REST_URL}/{path_url}"
-            headers = self._ascend_ex_auth.get_headers()
+            kwargs["headers"] = self._ascend_ex_auth.get_headers()
 
         client = await self._http_client()
         if method == "get":
             async with self._throttler.execute_task(path_url):
-                response = await client.get(
-                    url,
-                    headers=headers,
-                    data=json.dumps(params),
-                )
+                response = await client.get(url, **kwargs)
         elif method == "post":
             async with self._throttler.execute_task(path_url):
-                response = await client.post(
-                    url,
-                    headers=headers,
-                    data=json.dumps(params)
-                )
+                response = await client.post(url, **kwargs)
         elif method == "delete":
             async with self._throttler.execute_task(path_url):
-                response = await client.delete(
-                    url,
-                    headers=headers,
-                    data=json.dumps(params)
-                )
+                response = await client.delete(url, **kwargs)
         else:
             raise NotImplementedError
 
@@ -522,7 +516,7 @@ class AscendExExchange(ExchangePyBase):
                 "orderPrice": f"{price:f}",
                 "orderQty": f"{amount:f}",
                 "orderType": "limit",
-                "side": trade_type.name,
+                "side": "buy" if trade_type == TradeType.BUY else "sell",
                 "respInst": "ACCEPT",
             }
             self.start_tracking_order(
@@ -537,7 +531,7 @@ class AscendExExchange(ExchangePyBase):
             resp = await self._api_request(
                 method="post",
                 path_url=ORDER_PATH_URL,
-                params=api_params,
+                data=api_params,
                 is_auth_required=True,
                 force_auth_path_url="order")
             exchange_order_id = str(resp["data"]["info"]["orderId"])
@@ -634,7 +628,7 @@ class AscendExExchange(ExchangePyBase):
             await self._api_request(
                 method="delete",
                 path_url=ORDER_PATH_URL,
-                params=api_params,
+                data=api_params,
                 is_auth_required=True,
                 force_auth_path_url="order"
             )
@@ -784,7 +778,7 @@ class AscendExExchange(ExchangePyBase):
             await self._api_request(
                 method="delete",
                 path_url=ORDER_BATCH_PATH_URL,
-                params=api_params,
+                data=api_params,
                 is_auth_required=True,
                 force_auth_path_url="order/batch"
             )
