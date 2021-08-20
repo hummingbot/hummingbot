@@ -31,7 +31,7 @@ class NdaxOrderBookTracker(OrderBookTracker):
     def __init__(
         self, throttler: AsyncThrottler, trading_pairs: Optional[List[str]] = None, domain: Optional[str] = None
     ):
-        super().__init__(NdaxAPIOrderBookDataSource(trading_pairs, throttler, domain), trading_pairs, domain)
+        super().__init__(NdaxAPIOrderBookDataSource(throttler, trading_pairs, domain), trading_pairs, domain)
 
         self._domain = domain
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
