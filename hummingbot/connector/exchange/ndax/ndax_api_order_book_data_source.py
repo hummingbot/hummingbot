@@ -31,7 +31,7 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
     _last_traded_prices: Dict[str, float] = {}
 
     def __init__(
-        self, trading_pairs: List[str], throttler: AsyncThrottler, domain: Optional[str] = None
+        self, throttler: AsyncThrottler, trading_pairs: List[str], domain: Optional[str] = None
     ):
         super().__init__(trading_pairs)
         self._throttler = throttler

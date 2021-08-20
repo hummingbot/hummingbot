@@ -44,7 +44,7 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.listening_task = None
 
         self.throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
-        self.data_source = NdaxAPIOrderBookDataSource([self.trading_pair], self.throttler)
+        self.data_source = NdaxAPIOrderBookDataSource(self.throttler, [self.trading_pair])
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
