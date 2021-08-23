@@ -16,12 +16,12 @@ class AsyncioThrottleTest(unittest.TestCase):
 
     def test_tasks_complete_without_delay_when_throttle_below_rate_limit(self):
         tasks = [self.task(1, 5), self.task(3, 5), self.task(3, 5), self.task(4, 4)]
-        with patch('hummingbot.core.utils.asyncio_throttle.asyncio.sleep') as sleep_patch:
+        with patch('asyncio.sleep') as sleep_patch:
             self.loop.run_until_complete(asyncio.gather(*tasks))
         self.assertEqual(sleep_patch.call_count, 0)
 
     def test_tasks_complete_with_delay_when_throttle_above_rate_limit(self):
         tasks = [self.task(1, 5), self.task(3, 5), self.task(3, 5), self.task(4, 6)]
-        with patch('hummingbot.core.utils.asyncio_throttle.asyncio.sleep') as sleep_patch:
+        with patch('asyncio.sleep') as sleep_patch:
             self.loop.run_until_complete(asyncio.gather(*tasks))
         self.assertGreater(sleep_patch.call_count, 0)
