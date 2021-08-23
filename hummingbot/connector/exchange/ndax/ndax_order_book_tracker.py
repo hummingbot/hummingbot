@@ -29,7 +29,10 @@ class NdaxOrderBookTracker(OrderBookTracker):
         return cls._logger
 
     def __init__(
-        self, throttler: AsyncThrottler, trading_pairs: Optional[List[str]] = None, domain: Optional[str] = None
+        self,
+        throttler: Optional[AsyncThrottler] = None,
+        trading_pairs: Optional[List[str]] = None,
+        domain: Optional[str] = None,
     ):
         super().__init__(NdaxAPIOrderBookDataSource(throttler, trading_pairs, domain), trading_pairs, domain)
 
