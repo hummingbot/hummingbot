@@ -60,6 +60,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         # Tasks
         self._funding_info_polling_task = None
         self._funding_fee_polling_task = None
+        self._user_funding_fee_polling_task = None
 
     async def _aiohttp_client(self) -> aiohttp.ClientSession:
         """
@@ -101,7 +102,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         Called automatically by the run/run_til() functions in the Clock class. Each tick interval is 1 second by default.
         This function checks if the relevant polling task(s) is dued for execution
         """
-        super().tick()
+        super().tick(timestamp)
         # now = time.time()
         # poll_interval = (self.SHORT_POLL_INTERVAL
         #                  if now - self._user_stream_tracker.last_recv_time > 60.0
