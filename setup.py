@@ -33,7 +33,7 @@ class BuildExt(build_ext):
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20210806"
+    version = "20210811"
     packages = [
         "hummingbot",
         "hummingbot.client",
@@ -97,7 +97,6 @@ def main():
         "hummingbot.wallet.ethereum.watcher",
         "hummingbot.wallet.ethereum.zero_ex",
     ]
-    version = "20210715"
     package_data = {
         "hummingbot": [
             "core/cpp/*",

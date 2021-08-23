@@ -14,7 +14,7 @@ Enter your Binance secret key >>>
 Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
 
 !!! tip
-    For copying and pasting into Hummingbot, see [this page](https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys) for more instructions in our Hummingbot Help Center.
+    For copying and pasting into Hummingbot, see [this page](/operation/user-interface/#keyboard-shortcuts).
 
 ### Creating Binance API keys
 
@@ -37,7 +37,7 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 5. Now, you have created an API key. Please note that to trade on Binance using Hummingbot, **Enable Trading** must be selected
 
 !!! warning
-    For API key permissions, we recommend using only #trade# enabled API keys; enabling #withdraw#, #transfer#, or the equivalent is unnecessary for current Hummingbot strategies.
+    For API key permissions, we recommend using only `trade` enabled API keys; enabling `withdraw`, `transfer`, or `the equivalent is unnecessary` for current Hummingbot strategies.
 
 ![binance4](/assets/img/binance4.png)
 
@@ -62,4 +62,4 @@ Users can override the default fees by editing [`conf_fee_overrides.yml`](/opera
 
 You can use an API key from a [Binance sub-account](https://medium.com/binanceexchange/binance-introduces-sub-account-support-d7bf2f95e28c) just like you do for a regular Binance account. Please ensure that you use the **sub-account API key** and not the master account API key.
 
-If you are participating in [Liquidity Mining](https://docs.hummingbot.io/miner), please also use the **sub-account read-only API key** when you sign up.
+If you are participating in [Liquidity Mining](https://support.hummingbot.io/hc/en-us/articles/4402940445465-Liquidity-Mining-Explained), please also use the **sub-account read-only API key** when you sign up.
