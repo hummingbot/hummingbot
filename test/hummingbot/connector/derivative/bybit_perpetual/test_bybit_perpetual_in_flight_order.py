@@ -106,9 +106,31 @@ class BybitPerpetualInFlightOrderTests(TestCase):
             order.last_state = status
             self.assertFalse(order.is_cancelled)
 
-        for status in ["Canceled"]:
+        for status in ["Cancelled"]:
             order.last_state = status
             self.assertTrue(order.is_cancelled)
+
+    def test_is_created(self):
+        order = BybitPerpetualInFlightOrder.from_json(self._example_json())
+
+        for status in ["New", "PartiallyFilled", "Filled", "Rejected", "PendingCancel", "Cancelled"]:
+            order.last_state = status
+            self.assertFalse(order.is_created)
+
+        for status in ["Created"]:
+            order.last_state = status
+            self.assertTrue(order.is_created)
+
+    def test_is_new(self):
+        order = BybitPerpetualInFlightOrder.from_json(self._example_json())
+
+        for status in ["Created", "PartiallyFilled", "Filled", "Rejected", "PendingCancel", "Cancelled"]:
+            order.last_state = status
+            self.assertFalse(order.is_new)
+
+        for status in ["New"]:
+            order.last_state = status
+            self.assertTrue(order.is_new)
 
     def test_mark_as_filled(self):
         order = BybitPerpetualInFlightOrder.from_json(self._example_json())
