@@ -46,7 +46,7 @@ class PureMarketMakingStartTest(unittest.TestCase):
         c_map.get("add_transaction_costs").value = False
         c_map.get("price_source").value = "external_market"
         c_map.get("price_type").value = "best_bid"
-        c_map.get("price_source_exchange").value = "bamboo_relay"
+        c_map.get("price_source_exchange").value = "ascend_ex"
         c_map.get("price_source_market").value = "ETH-DAI"
         c_map.get("price_source_custom_api").value = "localhost.test"
         c_map.get("order_refresh_tolerance_pct").value = Decimal("2")
