@@ -14,7 +14,7 @@ Enter your Liquid secret key >>>
 Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
 
 !!! tip
-    For copying and pasting into Hummingbot, see [this page](https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys) for more instructions in our Support guide.
+    For copying and pasting into Hummingbot, see [this page](/operation/user-interface/#keyboard-shortcuts).
 
 ### Creating Liquid API keys
 
@@ -23,7 +23,7 @@ The article below in their website under API information shows step-by-step inst
 - [How to create API tokens](https://help.liquid.com/en/articles/2285018-how-to-create-api-tokens)
 
 !!! warning
-    For API key permissions, we recommend using only #orders# enabled (read and write) API keys; enabling #withdraw, transfer or the equivalent# is unnecessary for current Hummingbot strategies.
+    For API key permissions, we recommend using only `orders` enabled (read and write) API keys; enabling `withdraw`, `transfer` or `the equivalent is unnecessary` for current Hummingbot strategies.
 
 ## Miscellaneous info
 
