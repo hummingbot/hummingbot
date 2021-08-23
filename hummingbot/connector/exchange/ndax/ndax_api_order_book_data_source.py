@@ -199,7 +199,7 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         try:
             ws = await websockets.connect(ndax_utils.wss_url(self._domain))
-            return NdaxWebSocketAdaptor(self._throttler, websocket=ws)
+            return NdaxWebSocketAdaptor(throttler=self._throttler, websocket=ws)
         except asyncio.CancelledError:
             raise
         except Exception as ex:
