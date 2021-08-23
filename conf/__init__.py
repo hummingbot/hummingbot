@@ -41,8 +41,6 @@ mock_api_enabled = os.getenv("MOCK_API_ENABLED")
 # ALL TEST KEYS
 for key in connector_keys().keys():
     locals()[key] = os.getenv(key.upper())
-ascend_ex_api_key = "fi6fUtqXn5xcDMbliyOu3Q2UYd5lmn7b"
-ascend_ex_secret_key = "IxMbAUS7ra9TN9ZdD23mkJ6TzFynCvAA4fqNdMGqQsULt38EWn6TX4y9eu2RHm84"
 
 """
 # AscendEX Tests
