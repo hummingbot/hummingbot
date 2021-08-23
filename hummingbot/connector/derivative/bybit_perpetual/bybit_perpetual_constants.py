@@ -17,6 +17,7 @@ QUERY_SYMBOL_ENDPOINT = "/public/symbols"
 ORDER_BOOK_ENDPOINT = "/public/orderBook/L2"
 GET_FUNDING_FEE_PATH_URL = "/private/linear/funding/prev-funding"
 SET_LEVERAGE_PATH_URL = "/private/position/leverage/save"
+GET_LAST_FUNDING_RATE = "/private/funding/prev-funding"
 
 # WebSocket Public Endpoints
 WS_PING_REQUEST = "ping"
