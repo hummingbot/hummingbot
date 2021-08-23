@@ -20,9 +20,10 @@ from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.core.event.events import (
     FundingInfo,
+    FundingPaymentCompletedEvent,
     PositionMode,
 )
-from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
 
 
@@ -50,6 +51,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._trading_required = trading_required
         self._domain = domain
         self._shared_client = None
+        self._funding_fee_poll_notifier = asyncio.Event()
 
         # Tasks
         self._funding_info_polling_task = None
@@ -78,6 +80,33 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         if self._user_funding_fee_polling_task is not None:
             self._user_funding_fee_polling_task.cancel()
             self._user_funding_fee_polling_task = None
+
+    def get_next_funding_timestamp(self) -> float:
+        # On ByBit Perpetuals, funding occurs every 8 hours at 00:00UTC, 08:00UTC and 16:00UTC.
+        # Reference: https://help.bybit.com/hc/en-us/articles/360039261134-Funding-fee-calculation
+        int_ts = int(self.current_timestamp)
+        eight_hours = 8 * 60 * 60
+        mod = int_ts % eight_hours
+        return float(int_ts - mod + eight_hours)
+
+    def tick(self, timestamp: float):
+        """
+        Called automatically by the run/run_til() functions in the Clock class. Each tick interval is 1 second by default.
+        This function checks if the relevant polling task(s) is dued for execution
+        """
+        super().tick()
+        # now = time.time()
+        # poll_interval = (self.SHORT_POLL_INTERVAL
+        #                  if now - self._user_stream_tracker.last_recv_time > 60.0
+        #                  else self.LONG_POLL_INTERVAL)
+        # last_tick = int(self._last_timestamp / poll_interval)
+        # current_tick = int(timestamp / poll_interval)
+        # if current_tick > last_tick:
+        #     if not self._poll_notifier.is_set():
+        #         self._poll_notifier.set()
+        if self.current_timestamp >= self.get_next_funding_timestamp():
+            if not self._funding_fee_poll_notifier.is_set():
+                self._funding_fee_poll_notifier.set()
 
     async def _api_request(self,
                            method: str,
@@ -166,11 +195,60 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 self.logger().error(f"Unexpected error updating funding info. Error: {e}. Retrying in 10 seconds... ",
                                     exc_info=True)
 
+    async def _fetch_funding_fee(self, trading_pair: str) -> bool:
+        trading_pair_symbol_map: Dict[str, str] = await OrderBookDataSource.trading_pair_symbol_map(self._domain)
+        if trading_pair not in trading_pair_symbol_map:
+            self.logger().error(f"Unable to fetch funding fee for {trading_pair}. Trading pair not supported.")
+            return False
+
+        params = {
+            "symbol": trading_pair_symbol_map[trading_pair]
+        }
+        raw_response: Dict[str, Any] = await self._api_request(method="GET",
+                                                               path_url=CONSTANTS.GET_LAST_FUNDING_RATE,
+                                                               params=params,
+                                                               is_auth_required=True)
+        data: Dict[str, Any] = raw_response["result"]
+
+        funding_rate: Decimal = Decimal(str(data["funding_rate"]))
+        position_size: Decimal = Decimal(str(data["size"]))
+        payment: Decimal = funding_rate * position_size
+        action: str = "paid" if payment < Decimal("0") else "received"
+        if payment != Decimal("0"):
+            self.logger().info(f"Funding payment of {payment} {action} on {trading_pair} market.")
+            self.trigger_event(self.MARKET_FUNDING_PAYMENT_COMPLETED_EVENT_TAG,
+                               FundingPaymentCompletedEvent(timestamp=data["exec_timestamp"],
+                                                            market=self.name,
+                                                            funding_rate=funding_rate,
+                                                            trading_pair=trading_pair,
+                                                            amount=payment))
+
+        return True
+
     async def _user_funding_fee_polling_loop(self):
         """
         Retrieve User Funding Fee every Funding Time(every 8hrs). Trigger FundingPaymentCompleted event as required.
         """
-        pass
+        while True:
+            try:
+                await self._funding_fee_poll_notifier.wait()
+
+                tasks = []
+                for trading_pair in self._trading_pairs:
+                    tasks.append(
+                        asyncio.create_task(self._fetch_funding_fee(trading_pair))
+                    )
+                # Only when all tasks is successful would the event notifier be resetted
+                responses: List[bool] = await safe_gather(*tasks, return_exceptions=True)
+                if all(responses):
+                    self._funding_fee_poll_notifier = asyncio.Event()
+
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                self.logger().error(f"Unexpected error whilst retrieving funding payments. "
+                                    f"Error: {e} ",
+                                    exc_info=True)
 
     async def _set_leverage(self, trading_pair: str, leverage: int = 1):
         trading_pair_symbol_map: Dict[str, str] = await OrderBookDataSource.trading_pair_symbol_map(self._domain)
