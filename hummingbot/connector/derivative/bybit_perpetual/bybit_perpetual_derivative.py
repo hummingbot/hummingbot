@@ -15,7 +15,7 @@ from typing import (
 )
 
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_auth import BybitPerpetualAuth
-from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source import BybitPerpetualAPIOrderBookDataSource
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source import BybitPerpetualAPIOrderBookDataSource as OrderBookDataSource
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.core.event.events import (
@@ -142,11 +142,11 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             try:
                 # TODO: Confirm the appropriate time interval
                 for trading_pair in self._trading_pairs:
-                    if trading_pair not in BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map:
+                    if trading_pair not in OrderBookDataSource._trading_pair_symbol_map:
                         self.logger().error(f"Trading pair {trading_pair} not supported.")
                         raise ValueError(f"Trading pair {trading_pair} not supported.")
                     params = {
-                        "symbol": BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map[trading_pair]
+                        "symbol": OrderBookDataSource._trading_pair_symbol_map[trading_pair]
                     }
                     resp = await self._api_request(method="GET",
                                                    path_url=CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT,
@@ -157,7 +157,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                         index_price=Decimal(str(resp["index_price"])),
                         mark_price=Decimal(str(resp["mark_price"])),
                         next_funding_utc_timestamp=resp["next_funding_time"],
-                        rate=Decimal(str(resp["funding_rate"]))  # TODO: Confirm whether to use funding_rate or predicted_funding_rate
+                        rate=Decimal(str(resp["predicted_funding_rate"]))
                     )
 
             except asyncio.CancelledError:
@@ -171,3 +171,26 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         Retrieve User Funding Fee every Funding Time(every 8hrs). Trigger FundingPaymentCompleted event as required.
         """
         pass
+
+    async def _set_leverage(self, trading_pair: str, leverage: int = 1):
+        trading_pair_symbol_map: Dict[str, str] = await OrderBookDataSource.trading_pair_symbol_map(self._domain)
+        if trading_pair not in trading_pair_symbol_map:
+            self.logger().error(f"Unable to set leverage for {trading_pair}. Trading pair not supported.")
+            return
+        body_params = {
+            "symbol": trading_pair_symbol_map,
+            "leverage": leverage
+        }
+        resp = await self._api_request(method="POST",
+                                       path_url=CONSTANTS.SET_LEVERAGE_PATH_URL,
+                                       body=body_params,
+                                       is_auth_required=True)
+
+        if resp["ret_msg"] == "ok":
+            self._leverage[trading_pair] = leverage
+            self.logger().info(f"Leverage Successfully set to {leverage} for {trading_pair}.")
+        else:
+            self.logger().error("Unable to set leverage.")
+
+    def set_leverage(self, trading_pair: str, leverage: int):
+        safe_ensure_future(self._set_leverage(trading_pair=trading_pair, leverage=leverage))
