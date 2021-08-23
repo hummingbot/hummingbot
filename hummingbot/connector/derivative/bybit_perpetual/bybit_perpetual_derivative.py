@@ -1,6 +1,7 @@
 import aiohttp
 import asyncio
 import logging
+import time
 import ujson
 
 import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils as bybit_utils
@@ -102,8 +103,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         Called automatically by the run/run_til() functions in the Clock class. Each tick interval is 1 second by default.
         This function checks if the relevant polling task(s) is dued for execution
         """
-        super().tick(timestamp)
-        # now = time.time()
+        now = time.time()
         # poll_interval = (self.SHORT_POLL_INTERVAL
         #                  if now - self._user_stream_tracker.last_recv_time > 60.0
         #                  else self.LONG_POLL_INTERVAL)
@@ -112,7 +112,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         # if current_tick > last_tick:
         #     if not self._poll_notifier.is_set():
         #         self._poll_notifier.set()
-        if self.current_timestamp >= self.get_next_funding_timestamp():
+        if now >= self.get_next_funding_timestamp():
             if not self._funding_fee_poll_notifier.is_set():
                 self._funding_fee_poll_notifier.set()
 
