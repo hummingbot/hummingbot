@@ -196,34 +196,39 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                     exc_info=True)
 
     async def _fetch_funding_fee(self, trading_pair: str) -> bool:
-        trading_pair_symbol_map: Dict[str, str] = await OrderBookDataSource.trading_pair_symbol_map(self._domain)
-        if trading_pair not in trading_pair_symbol_map:
-            self.logger().error(f"Unable to fetch funding fee for {trading_pair}. Trading pair not supported.")
+        try:
+            trading_pair_symbol_map: Dict[str, str] = await OrderBookDataSource.trading_pair_symbol_map(self._domain)
+            if trading_pair not in trading_pair_symbol_map:
+                self.logger().error(f"Unable to fetch funding fee for {trading_pair}. Trading pair not supported.")
+                return False
+
+            params = {
+                "symbol": trading_pair_symbol_map[trading_pair]
+            }
+            raw_response: Dict[str, Any] = await self._api_request(method="GET",
+                                                                   path_url=CONSTANTS.GET_LAST_FUNDING_RATE,
+                                                                   params=params,
+                                                                   is_auth_required=True)
+            data: Dict[str, Any] = raw_response["result"]
+
+            funding_rate: Decimal = Decimal(str(data["funding_rate"]))
+            position_size: Decimal = Decimal(str(data["size"]))
+            payment: Decimal = funding_rate * position_size
+            action: str = "paid" if payment < Decimal("0") else "received"
+            if payment != Decimal("0"):
+                self.logger().info(f"Funding payment of {payment} {action} on {trading_pair} market.")
+                self.trigger_event(self.MARKET_FUNDING_PAYMENT_COMPLETED_EVENT_TAG,
+                                   FundingPaymentCompletedEvent(timestamp=data["exec_timestamp"],
+                                                                market=self.name,
+                                                                funding_rate=funding_rate,
+                                                                trading_pair=trading_pair,
+                                                                amount=payment))
+
+            return True
+        except Exception as e:
+            self.logger().error(f"Unexpected error occurred fetching funding fee for {trading_pair}. Error: {e}",
+                                exc_info=True)
             return False
-
-        params = {
-            "symbol": trading_pair_symbol_map[trading_pair]
-        }
-        raw_response: Dict[str, Any] = await self._api_request(method="GET",
-                                                               path_url=CONSTANTS.GET_LAST_FUNDING_RATE,
-                                                               params=params,
-                                                               is_auth_required=True)
-        data: Dict[str, Any] = raw_response["result"]
-
-        funding_rate: Decimal = Decimal(str(data["funding_rate"]))
-        position_size: Decimal = Decimal(str(data["size"]))
-        payment: Decimal = funding_rate * position_size
-        action: str = "paid" if payment < Decimal("0") else "received"
-        if payment != Decimal("0"):
-            self.logger().info(f"Funding payment of {payment} {action} on {trading_pair} market.")
-            self.trigger_event(self.MARKET_FUNDING_PAYMENT_COMPLETED_EVENT_TAG,
-                               FundingPaymentCompletedEvent(timestamp=data["exec_timestamp"],
-                                                            market=self.name,
-                                                            funding_rate=funding_rate,
-                                                            trading_pair=trading_pair,
-                                                            amount=payment))
-
-        return True
 
     async def _user_funding_fee_polling_loop(self):
         """
@@ -239,7 +244,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                         asyncio.create_task(self._fetch_funding_fee(trading_pair))
                     )
                 # Only when all tasks is successful would the event notifier be resetted
-                responses: List[bool] = await safe_gather(*tasks, return_exceptions=True)
+                responses: List[bool] = await safe_gather(*tasks)
                 if all(responses):
                     self._funding_fee_poll_notifier = asyncio.Event()
 
