@@ -54,7 +54,8 @@ Arbitrage opportunities are always limited in size - as you buy higher and highe
 
 Another thing the arbitrage strategy takes into account is the transaction fee of the markets. Some markets has a fixed or semi-fixed fee for every trade, s.t. you'd need a certain minimum order size for the arbitrage before it would make any profit. The arbitrage strategy would try to take that into account and calculate the correct order size that produces the most profits.
 
-Finally, the arbitrage strategy will look at the balance of assets availble for trading in both the left and right markets - the arbitrage order size cannot exceed the amount of assets that can be traded.
+Finally, the arbitrage strategy will look at the balance of assets 
+available for trading in both the left and right markets - the arbitrage order size cannot exceed the amount of assets that can be traded.
 
 The optimal arbitrage size calculation logic can be found in the functions `c_find_best_profitable_amount()` and `c_find_profitable_arbitrage_orders()` inside [arbitrage.pyx](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/arbitrage/arbitrage.pyx).
 
