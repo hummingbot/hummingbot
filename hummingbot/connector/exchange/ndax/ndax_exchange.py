@@ -93,8 +93,12 @@ class NdaxExchange(ExchangeBase):
                               secret_key=ndax_secret_key,
                               account_name=ndax_account_name)
         self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
-        self._order_book_tracker = NdaxOrderBookTracker(self._throttler, trading_pairs=trading_pairs, domain=domain)
-        self._user_stream_tracker = NdaxUserStreamTracker(self._throttler, self._auth, domain=domain)
+        self._order_book_tracker = NdaxOrderBookTracker(
+            throttler=self._throttler, trading_pairs=trading_pairs, domain=domain
+        )
+        self._user_stream_tracker = NdaxUserStreamTracker(
+            throttler=self._throttler, auth_assistant=self._auth, domain=domain
+        )
         self._domain = domain
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client = None

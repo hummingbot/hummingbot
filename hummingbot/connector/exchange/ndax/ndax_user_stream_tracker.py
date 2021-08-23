@@ -44,7 +44,7 @@ class NdaxUserStreamTracker(UserStreamTracker):
         """
         if not self._data_source:
             self._data_source = NdaxAPIUserStreamDataSource(
-                self._throttler, auth_assistant=self._auth_assistant, domain=self._domain
+                throttler=self._throttler, auth_assistant=self._auth_assistant, domain=self._domain
             )
         return self._data_source
 
