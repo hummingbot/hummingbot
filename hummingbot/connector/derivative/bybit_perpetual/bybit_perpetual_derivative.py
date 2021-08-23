@@ -37,7 +37,7 @@ from hummingbot.core.event.events import (
     OrderType,
     PositionAction,
     PositionMode,
-    TradeType, TradeFee,
+    TradeType, TradeFee, OrderCancelledEvent, BuyOrderCreatedEvent, SellOrderCreatedEvent,
 )
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
@@ -455,6 +455,22 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                               ))
         return order_id
 
+    def trigger_order_created_event(self, order: BybitPerpetualInFlightOrder):
+        event_tag = MarketEvent.BuyOrderCreated if order.trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
+        event_class = BuyOrderCreatedEvent if order.trade_type is TradeType.BUY else SellOrderCreatedEvent
+        self.trigger_event(event_tag,
+                           event_class(
+                               self.current_timestamp,
+                               order.order_type,
+                               order.trading_pair,
+                               order.amount,
+                               order.price,
+                               order.client_order_id,
+                               exchange_order_id=order.exchange_order_id,
+                               leverage=self._leverage[order.trading_pair],
+                               position=order.position
+                           ))
+
     async def _execute_cancel(self, trading_pair: str, order_id: str) -> str:
         """
         Executes order cancellation process by first calling the CancelOrder endpoint. The API response simply verifies
@@ -619,6 +635,132 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                       app_warning_msg="Could not fetch new trading rules from Bybit Perpetual. "
                                                       "Check network connection.")
                 await asyncio.sleep(0.5)
+
+    async def _update_balances(self):
+        """
+        Calls REST API to update total and available balances
+        """
+        local_asset_names = set(self._account_balances.keys())
+        remote_asset_names = set()
+
+        params = {}
+        account_positions: Dict[str, Dict[str, Any]] = await self._api_request(
+            method="GET",
+            path_url=CONSTANTS.GET_WALLET_BALANCE_ENDPOINT,
+            params=params,
+            is_auth_required=True
+        )
+
+        for asset_name, balance_json in account_positions["result"].items():
+            self._account_balances[asset_name] = Decimal(str(balance_json["wallet_balance"]))
+            self._account_available_balances[asset_name] = Decimal(str(balance_json["available_balance"]))
+            remote_asset_names.add(asset_name)
+
+        asset_names_to_remove = local_asset_names.difference(remote_asset_names)
+        for asset_name in asset_names_to_remove:
+            del self._account_available_balances[asset_name]
+            del self._account_balances[asset_name]
+
+    async def _update_order_status(self):
+        """
+        Calls REST API to get order status
+        """
+
+        active_orders: List[BybitPerpetualInFlightOrder] = [
+            o for o in self._in_flight_orders.values()
+            if not o.is_created
+        ]
+
+        tasks = []
+        for active_order in active_orders:
+            query_params = {
+                "symbol": await self._trading_pair_symbol(active_order.trading_pair),
+                "order_link_id": active_order.client_order_id
+            }
+            if active_order.exchange_order_id is not None:
+                query_params["order_id"] = active_order.exchange_order_id
+
+            tasks.append(
+                asyncio.create_task(self._api_request(method="GET",
+                                                      path_url=CONSTANTS.QUERY_ACTIVE_ORDER_ENDPOINT,
+                                                      params=query_params,
+                                                      is_auth_required=True,
+                                                      )))
+        self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
+
+        raw_responses: List[Dict[str, Any]] = await safe_gather(*tasks, return_exceptions=True)
+
+        # Initial parsing of responses. Removes Exceptions.
+        parsed_status_responses: List[Dict[str, Any]] = []
+        for resp in raw_responses:
+            if not isinstance(resp, Exception):
+                parsed_status_responses.append(resp["result"])
+            else:
+                self.logger().error(f"Error fetching order status. Response: {resp}")
+
+        for order_status in parsed_status_responses:
+            self._process_order_event_message(order_status)
+
+    async def _status_polling_loop(self):
+        """
+        Periodically update user balances and order status via REST API. This serves as a fallback measure for web
+        socket API updates.
+        """
+        while True:
+            try:
+                self._poll_notifier = asyncio.Event()
+                await self._poll_notifier.wait()
+                start_ts = self.current_timestamp
+                await safe_gather(
+                    self._update_balances(),
+                    # self._update_positions(),
+                    self._update_order_status(),
+                    self._update_trade_history(),
+                )
+                self._last_poll_timestamp = start_ts
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                self.logger().error(f"Unexpected error while in status polling loop. Error: {str(e)}", exc_info=True)
+                self.logger().network("Unexpected error while fetching account updates.",
+                                      exc_info=True,
+                                      app_warning_msg="Could not fetch account updates from Bybit Perpetual. "
+                                                      "Check API key and network connection.")
+                await asyncio.sleep(0.5)
+
+    def _process_order_event_message(self, order_msg: Dict[str, Any]):
+        """
+        Updates in-flight order and triggers cancellation or failure event if needed.
+        :param order_msg: The order event message payload
+        """
+        client_order_id = str(order_msg["order_link_id"])
+
+        if client_order_id in self.in_flight_orders:
+            tracked_order = self.in_flight_orders[client_order_id]
+            was_created = tracked_order.is_created
+
+            # Update order execution status
+            tracked_order.last_state = order_msg["order_status"]
+
+            if was_created and tracked_order.is_new:
+                self.trigger_order_created_event(tracked_order)
+            elif tracked_order.is_cancelled:
+                self.logger().info(f"Successfully cancelled order {client_order_id}")
+                self.trigger_event(MarketEvent.OrderCancelled,
+                                   OrderCancelledEvent(
+                                       self.current_timestamp,
+                                       client_order_id))
+                self.stop_tracking_order(client_order_id)
+            elif tracked_order.is_failure:
+                self.logger().info(f"The market order {client_order_id} has failed according to order status event. "
+                                   f"Reason: {order_msg['reject_reason']}")
+                self.trigger_event(MarketEvent.OrderFailure,
+                                   MarketOrderFailureEvent(
+                                       self.current_timestamp,
+                                       client_order_id,
+                                       tracked_order.order_type
+                                   ))
+                self.stop_tracking_order(client_order_id)
 
     async def _funding_info_polling_loop(self):
         """

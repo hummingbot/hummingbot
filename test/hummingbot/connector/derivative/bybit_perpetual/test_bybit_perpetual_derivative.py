@@ -39,8 +39,14 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.connector.logger().setLevel(1)
         self.connector.logger().addHandler(self)
 
-        self.market_order_failure_logger: EventLogger = EventLogger()
-        self.connector.add_listener(MarketEvent.OrderFailure, self.market_order_failure_logger)
+        self.buy_order_created_logger: EventLogger = EventLogger()
+        self.sell_order_created_logger: EventLogger = EventLogger()
+        self.order_cancelled_logger: EventLogger = EventLogger()
+        self.order_failure_logger: EventLogger = EventLogger()
+        self.connector.add_listener(MarketEvent.BuyOrderCreated, self.buy_order_created_logger)
+        self.connector.add_listener(MarketEvent.SellOrderCreated, self.sell_order_created_logger)
+        self.connector.add_listener(MarketEvent.OrderCancelled, self.order_cancelled_logger)
+        self.connector.add_listener(MarketEvent.OrderFailure, self.order_failure_logger)
 
     def tearDown(self) -> None:
         self.async_task and self.async_task.cancel()
@@ -282,7 +288,7 @@ class BybitPerpetualDerivativeTests(TestCase):
                                  " Error: Order is rejected by the API. Parameters:")
                             in record.getMessage()
                             for record in self.log_records))
-        failure_events = self.market_order_failure_logger.event_log
+        failure_events = self.order_failure_logger.event_log
         self.assertEqual(1, len(failure_events))
         self.assertEqual(new_order_id, failure_events[0].order_id)
 
@@ -940,3 +946,380 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         self.assertIn(order.client_order_id, self.connector.in_flight_orders)
         self.assertEqual(order_json, self.connector.in_flight_orders[order.client_order_id].to_json())
+
+    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    def test_update_balances(self, get_mock):
+        self._configure_mock_api(get_mock)
+
+        self.connector._account_balances["HBOT"] = Decimal(1000)
+        self.connector._account_balances["USDT"] = Decimal(100000)
+        self.connector._account_available_balances["HBOT"] = Decimal(1000)
+        self.connector._account_available_balances["USDT"] = Decimal(0)
+
+        # Emulate first cancellation happening without problems
+        self.api_responses_status.append(200)
+        self.api_responses_json.put_nowait({
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {
+                "BTC": {
+                    "equity": 1002,
+                    "available_balance": 999.99987471,
+                    "used_margin": 0.00012529,
+                    "order_margin": 0.00012529,
+                    "position_margin": 0,
+                    "occ_closing_fee": 0,
+                    "occ_funding_fee": 0,
+                    "wallet_balance": 1000,
+                    "realised_pnl": 0,
+                    "unrealised_pnl": 2,
+                    "cum_realised_pnl": 0,
+                    "given_cash": 0,
+                    "service_cash": 0
+                },
+                "USDT": {
+                    "equity": 80000,
+                    "available_balance": 30500,
+                    "used_margin": 49500,
+                    "order_margin": 49500,
+                    "position_margin": 0,
+                    "occ_closing_fee": 0,
+                    "occ_funding_fee": 0,
+                    "wallet_balance": 80000,
+                    "realised_pnl": 0,
+                    "unrealised_pnl": 0,
+                    "cum_realised_pnl": 0,
+                    "given_cash": 0,
+                    "service_cash": 0
+                }
+            },
+            "time_now": "1578284274.816029",
+            "rate_limit_status": 98,
+            "rate_limit_reset_ms": 1580885703683,
+            "rate_limit": 100
+        })
+
+        asyncio.get_event_loop().run_until_complete(self.connector._update_balances())
+
+        balances = self.connector.get_all_balances()
+        available_balances = self.connector.available_balances
+        self.assertEqual(2, len(balances))
+        self.assertEqual(2, len(available_balances))
+        self.assertNotIn("HBOT", balances)
+        self.assertNotIn("HBOT", available_balances)
+        self.assertEqual(Decimal(1000), balances["BTC"])
+        self.assertEqual(Decimal("999.99987471"), available_balances["BTC"])
+        self.assertEqual(Decimal(80000), balances["USDT"])
+        self.assertEqual(Decimal(30500), available_balances["USDT"])
+
+    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    def test_update_order_status_without_created_in_server_in_flight_order_does_not_execute_status_request(self,
+                                                                                                           get_mock):
+        self._configure_mock_api(get_mock)
+
+        self._simulate_trading_rules_initialized()
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
+
+        self.connector._in_flight_orders["O1"] = BybitPerpetualInFlightOrder(
+            client_order_id="O1",
+            exchange_order_id="EO1",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal(44000),
+            amount=Decimal(1),
+            order_type=OrderType.LIMIT,
+            leverage=10,
+            position=PositionAction.OPEN.name)
+
+        # We don't register any API response for the process to time out
+
+        asyncio.get_event_loop().run_until_complete(self.connector._update_order_status())
+
+        self.assertTrue(self._is_logged("DEBUG", "Polling for order status updates of 0 orders."))
+
+    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    def test_update_order_status_for_cancellation(self, get_mock):
+        self._configure_mock_api(get_mock)
+
+        self._simulate_trading_rules_initialized()
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
+
+        self.connector._in_flight_orders["O1"] = BybitPerpetualInFlightOrder(
+            client_order_id="O1",
+            exchange_order_id="EO1",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal(44000),
+            amount=Decimal(1),
+            order_type=OrderType.LIMIT,
+            leverage=10,
+            position=PositionAction.OPEN.name,
+            initial_state="New")
+
+        # Emulate first cancellation happening without problems
+        self.api_responses_status.append(200)
+        self.api_responses_json.put_nowait({
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {
+                "user_id": 106958,
+                "symbol": "BTCUSDT",
+                "side": "Buy",
+                "order_type": "Limit",
+                "price": "44000",
+                "qty": 1,
+                "time_in_force": "PostOnly",
+                "order_status": "Cancelled",
+                "ext_fields": {
+                    "o_req_num": -68948112492,
+                    "xreq_type": "x_create"
+                },
+                "last_exec_time": "1596304897.847944",
+                "last_exec_price": "43900",
+                "leaves_qty": 0,
+                "leaves_value": "0",
+                "cum_exec_qty": 1,
+                "cum_exec_value": "0.00008505",
+                "cum_exec_fee": "-0.00000002",
+                "reject_reason": "",
+                "cancel_type": "",
+                "order_link_id": "O1",
+                "created_at": "2020-08-01T18:00:26Z",
+                "updated_at": "2020-08-01T18:01:37Z",
+                "order_id": "EO1"
+            },
+            "time_now": "1597171013.867068",
+            "rate_limit_status": 599,
+            "rate_limit_reset_ms": 1597171013861,
+            "rate_limit": 600
+        })
+
+        asyncio.get_event_loop().run_until_complete(self.connector._update_order_status())
+        request_url, request_headers, request_data = asyncio.get_event_loop().run_until_complete(
+            self.api_requests_data.get())
+
+        self.assertEqual("BTCUSDT", request_data["symbol"])
+        self.assertEqual("EO1", request_data["order_id"])
+        self.assertEqual("O1", request_data["order_link_id"])
+        self.assertEqual(0, len(self.connector.in_flight_orders))
+        self.assertTrue(self._is_logged("INFO", "Successfully cancelled order O1"))
+        cancellation_events = self.order_cancelled_logger.event_log
+        self.assertEqual(1, len(cancellation_events))
+        self.assertEqual("O1", cancellation_events[0].order_id)
+
+    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    def test_update_order_status_for_rejection(self, get_mock):
+        self._configure_mock_api(get_mock)
+
+        self._simulate_trading_rules_initialized()
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
+
+        self.connector._in_flight_orders["O1"] = BybitPerpetualInFlightOrder(
+            client_order_id="O1",
+            exchange_order_id="EO1",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal(44000),
+            amount=Decimal(1),
+            order_type=OrderType.LIMIT,
+            leverage=10,
+            position=PositionAction.OPEN.name,
+            initial_state="New")
+
+        # Emulate first cancellation happening without problems
+        self.api_responses_status.append(200)
+        self.api_responses_json.put_nowait({
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {
+                "user_id": 106958,
+                "symbol": "BTCUSDT",
+                "side": "Buy",
+                "order_type": "Limit",
+                "price": "44000",
+                "qty": 1,
+                "time_in_force": "PostOnly",
+                "order_status": "Rejected",
+                "ext_fields": {
+                    "o_req_num": -68948112492,
+                    "xreq_type": "x_create"
+                },
+                "last_exec_time": "1596304897.847944",
+                "last_exec_price": "43900",
+                "leaves_qty": 0,
+                "leaves_value": "0",
+                "cum_exec_qty": 1,
+                "cum_exec_value": "0.00008505",
+                "cum_exec_fee": "-0.00000002",
+                "reject_reason": "Out of limits",
+                "cancel_type": "",
+                "order_link_id": "O1",
+                "created_at": "2020-08-01T18:00:26Z",
+                "updated_at": "2020-08-01T18:01:37Z",
+                "order_id": "EO1"
+            },
+            "time_now": "1597171013.867068",
+            "rate_limit_status": 599,
+            "rate_limit_reset_ms": 1597171013861,
+            "rate_limit": 600
+        })
+
+        asyncio.get_event_loop().run_until_complete(self.connector._update_order_status())
+        request_url, request_headers, request_data = asyncio.get_event_loop().run_until_complete(
+            self.api_requests_data.get())
+
+        self.assertEqual("BTCUSDT", request_data["symbol"])
+        self.assertEqual("EO1", request_data["order_id"])
+        self.assertEqual("O1", request_data["order_link_id"])
+        self.assertEqual(0, len(self.connector.in_flight_orders))
+        self.assertTrue(self._is_logged("INFO", "The market order O1 has failed according to order status event. "
+                                                "Reason: Out of limits"))
+        failure_events = self.order_failure_logger.event_log
+        self.assertEqual(1, len(failure_events))
+        self.assertEqual("O1", failure_events[0].order_id)
+
+    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    def test_update_order_status_logs_errors_during_status_request(self, get_mock):
+        self._configure_mock_api(get_mock)
+
+        self._simulate_trading_rules_initialized()
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
+
+        self.connector._in_flight_orders["O1"] = BybitPerpetualInFlightOrder(
+            client_order_id="O1",
+            exchange_order_id="EO1",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal(44000),
+            amount=Decimal(1),
+            order_type=OrderType.LIMIT,
+            leverage=10,
+            position=PositionAction.OPEN.name,
+            initial_state="New")
+
+        self.api_responses_status.append(405)
+        self.api_responses_json.put_nowait({
+            "ret_code": 1001,
+            "ret_msg": "Error",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {},
+            "time_now": "1597171013.867068",
+            "rate_limit_status": 599,
+            "rate_limit_reset_ms": 1597171013861,
+            "rate_limit": 600
+        })
+
+        asyncio.get_event_loop().run_until_complete(self.connector._update_order_status())
+
+        self.assertTrue(any(record.levelname == "ERROR"
+                            and ("Error fetching order status. Response: Error fetching data from"
+                                 " https://api.bybit.com/v2/private/order. HTTP status is 405. Message:")
+                            in record.getMessage()
+                            for record in self.log_records))
+
+    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    def test_process_order_event_message_for_creation_confirmation(self, get_mock):
+        self._configure_mock_api(get_mock)
+
+        self._simulate_trading_rules_initialized()
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
+        self.connector.set_leverage(self.trading_pair, 10)
+
+        self.connector._in_flight_orders["O1"] = BybitPerpetualInFlightOrder(
+            client_order_id="O1",
+            exchange_order_id="EO1",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal(44000),
+            amount=Decimal(1),
+            order_type=OrderType.LIMIT,
+            leverage=10,
+            position=PositionAction.OPEN.name,
+            initial_state="Created")
+
+        status_request_result = {
+            "user_id": 106958,
+            "symbol": "BTCUSDT",
+            "side": "Buy",
+            "order_type": "Limit",
+            "price": "44000",
+            "qty": 1,
+            "time_in_force": "PostOnly",
+            "order_status": "New",
+            "ext_fields": {
+                "o_req_num": -68948112492,
+                "xreq_type": "x_create"
+            },
+            "last_exec_time": "1596304897.847944",
+            "last_exec_price": "43900",
+            "leaves_qty": 0,
+            "leaves_value": "0",
+            "cum_exec_qty": 1,
+            "cum_exec_value": "0.00008505",
+            "cum_exec_fee": "-0.00000002",
+            "reject_reason": "Out of limits",
+            "cancel_type": "",
+            "order_link_id": "O1",
+            "created_at": "2020-08-01T18:00:26Z",
+            "updated_at": "2020-08-01T18:01:37Z",
+            "order_id": "EO1"}
+
+        self.connector._process_order_event_message(status_request_result)
+
+        self.assertTrue(self.connector.in_flight_orders["O1"].is_new)
+        buy_events = self.buy_order_created_logger.event_log
+        self.assertEqual(1, len(buy_events))
+        self.assertEqual("O1", buy_events[0].order_id)
+
+        self.connector._in_flight_orders["O2"] = BybitPerpetualInFlightOrder(
+            client_order_id="O2",
+            exchange_order_id="EO2",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.SELL,
+            price=Decimal(44000),
+            amount=Decimal(1),
+            order_type=OrderType.LIMIT,
+            leverage=10,
+            position=PositionAction.OPEN.name,
+            initial_state="Created")
+
+        status_request_result = {
+            "user_id": 106958,
+            "symbol": "BTCUSDT",
+            "side": "Sell",
+            "order_type": "Limit",
+            "price": "44000",
+            "qty": 1,
+            "time_in_force": "PostOnly",
+            "order_status": "New",
+            "ext_fields": {
+                "o_req_num": -68948112492,
+                "xreq_type": "x_create"
+            },
+            "last_exec_time": "1596304897.847944",
+            "last_exec_price": "43900",
+            "leaves_qty": 0,
+            "leaves_value": "0",
+            "cum_exec_qty": 1,
+            "cum_exec_value": "0.00008505",
+            "cum_exec_fee": "-0.00000002",
+            "reject_reason": "Out of limits",
+            "cancel_type": "",
+            "order_link_id": "O2",
+            "created_at": "2020-08-01T18:00:26Z",
+            "updated_at": "2020-08-01T18:01:37Z",
+            "order_id": "EO2"}
+
+        self.connector._process_order_event_message(status_request_result)
+
+        self.assertTrue(self.connector.in_flight_orders["O2"].is_new)
+        sell_events = self.sell_order_created_logger.event_log
+        self.assertEqual(1, len(sell_events))
+        self.assertEqual("O2", sell_events[0].order_id)

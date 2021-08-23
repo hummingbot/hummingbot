@@ -13,11 +13,13 @@ REST_API_VERSION = "v2"
 LATEST_SYMBOL_INFORMATION_ENDPOINT = "/public/tickers"
 QUERY_SYMBOL_ENDPOINT = "/public/symbols"
 ORDER_BOOK_ENDPOINT = "/public/orderBook/L2"
+GET_WALLET_BALANCE_ENDPOINT = "/private/wallet/balance"
 
 # REST API Private Endpoints
 GET_FUNDING_FEE_PATH_URL = "/private/linear/funding/prev-funding"
 PLACE_ACTIVE_ORDER_ENDPOINT = "/private/order/create"
 CANCEL_ACTIVE_ORDER_ENDPOINT = "/private/order/cancel"
+QUERY_ACTIVE_ORDER_ENDPOINT = "/private/order"
 
 # WebSocket Public Endpoints
 WS_PING_REQUEST = "ping"
