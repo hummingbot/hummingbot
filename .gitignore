@@ -63,13 +63,38 @@ debug.log
 # Documentation build dir
 /documentation/site/
 
-# Gateway API files
-/certs
-*.pem
+# Cert files
 gateway.env
+/certs
+/gateway/certs/
+*.pem
 
 # Coverage
 .coverage
 /cover/
 /coverage_html_report/
 coverage.xml
+
+# Gateway-V2 repo
+# configuration files
+/gateway/conf/*
+# except the example conf/global_conf.yml.example
+!/gateway/conf/global_conf.yml.example
+
+# node installs
+/gateway/node_modules/
+
+# debug logs
+/gateway/npm-debug.log
+
+# distribution files
+/gateway/dist/
+
+# misc
+/gateway/logs/
+/gateway/package-lock.json
+*.srl
+*.key
+*.crt
+*.log
+*.lock
