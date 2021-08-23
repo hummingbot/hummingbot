@@ -35,9 +35,9 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, throttler: AsyncThrottler, trading_pairs: List[str] = None):
+    def __init__(self, throttler: Optional[AsyncThrottler] = None, trading_pairs: List[str] = None):
         super().__init__(trading_pairs)
-        self._throttler = throttler
+        self._throttler = throttler or self._get_throttler_instance()
         self._trading_pairs: List[str] = trading_pairs
         self._snapshot_msg: Dict[str, any] = {}
 
