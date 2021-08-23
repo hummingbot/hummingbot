@@ -88,7 +88,6 @@ class ThrottlerContextManager:
         while True:
             self.flush()
             current_capacity: int = self._rate_limit - sum(weight for (ts, weight) in self._task_logs)
-            print(f"capacity: {current_capacity}")
             if current_capacity - self._request_weight > 0:
                 break
             await asyncio.sleep(self._retry_interval)
