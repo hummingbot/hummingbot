@@ -43,6 +43,10 @@ for key in connector_keys().keys():
     locals()[key] = os.getenv(key.upper())
 
 """
+# AscendEX Tests
+ascend_ex_api_key = os.getenv("ASCEND_EX_KEY")
+ascend_ex_secret_key = os.getenv("ASCEND_EX_SECRET")
+
 # Binance Tests
 binance_api_key = os.getenv("BINANCE_API_KEY")
 binance_api_secret = os.getenv("BINANCE_API_SECRET")
