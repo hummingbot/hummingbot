@@ -21,7 +21,6 @@ from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.core.event.events import (
-    FundingInfo,
     FundingPaymentCompletedEvent,
     MarketEvent,
     PositionMode,
@@ -50,6 +49,8 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True,
                  domain: Optional[str] = None):
+        ExchangeBase.__init__(self)
+        PerpetualTrading.__init__(self)
         self._auth: BybitPerpetualAuth = BybitPerpetualAuth(api_key=bybit_perpetual_api_key,
                                                             secret_key=bybit_perpetual_secret_key)
         self._trading_pairs = trading_pairs
@@ -76,7 +77,6 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         return [PositionMode.ONEWAY, PositionMode.HEDGE]
 
     async def start_network(self):
-        self._funding_info_polling_task = safe_ensure_future(self._funding_info_polling_loop())
         if self._trading_required:
             self._user_funding_fee_polling_task = safe_ensure_future(self._user_funding_fee_polling_loop())
 
@@ -153,7 +153,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             self.logger().error(f"Error submitting {path_url} request. Error: {e}",
                                 exc_info=True)
 
-        if response.status != 200 or (isinstance(parsed_response, dict) and not parsed_response.get("result", True)):
+        if response.status != 200:
             self.logger().error(f"Error fetching data from {url}. HTTP status is {response.status}. "
                                 f"Message: {parsed_response} "
                                 f"Params: {params} "
@@ -163,39 +163,6 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                             f"Params: {params} "
                             f"Data: {body}")
         return parsed_response
-
-    async def _funding_info_polling_loop(self):
-        """
-        Retrieves funding information periodically. Tends to only update every set interval(i.e. 8hrs).
-        Updates _funding_info variable.
-        """
-        while True:
-            try:
-                # TODO: Confirm the appropriate time interval
-                for trading_pair in self._trading_pairs:
-                    if trading_pair not in OrderBookDataSource._trading_pair_symbol_map:
-                        self.logger().error(f"Trading pair {trading_pair} not supported.")
-                        raise ValueError(f"Trading pair {trading_pair} not supported.")
-                    params = {
-                        "symbol": OrderBookDataSource._trading_pair_symbol_map[trading_pair]
-                    }
-                    resp = await self._api_request(method="GET",
-                                                   path_url=CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT,
-                                                   params=params)
-
-                    self._funding_info[trading_pair] = FundingInfo(
-                        trading_pair=trading_pair,
-                        index_price=Decimal(str(resp["index_price"])),
-                        mark_price=Decimal(str(resp["mark_price"])),
-                        next_funding_utc_timestamp=resp["next_funding_time"],
-                        rate=Decimal(str(resp["predicted_funding_rate"]))
-                    )
-
-            except asyncio.CancelledError:
-                raise
-            except Exception as e:
-                self.logger().error(f"Unexpected error updating funding info. Error: {e}. Retrying in 10 seconds... ",
-                                    exc_info=True)
 
     async def _fetch_funding_fee(self, trading_pair: str) -> bool:
         try:
@@ -315,24 +282,25 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 self._status_poll_notifier = asyncio.Event()
 
     async def _set_leverage(self, trading_pair: str, leverage: int = 1):
-        trading_pair_symbol_map: Dict[str, str] = await OrderBookDataSource.trading_pair_symbol_map(self._domain)
-        if trading_pair not in trading_pair_symbol_map:
+        ex_trading_pair = bybit_utils.convert_to_exchange_trading_pair(trading_pair)
+        symbol_trading_pair_map: Dict[str, str] = await OrderBookDataSource.trading_pair_symbol_map(self._domain)
+        if ex_trading_pair not in symbol_trading_pair_map:
             self.logger().error(f"Unable to set leverage for {trading_pair}. Trading pair not supported.")
             return
         body_params = {
-            "symbol": trading_pair_symbol_map,
+            "symbol": ex_trading_pair,
             "leverage": leverage
         }
-        resp = await self._api_request(method="POST",
-                                       path_url=CONSTANTS.SET_LEVERAGE_PATH_URL,
-                                       body=body_params,
-                                       is_auth_required=True)
+        resp: Dict[str, Any] = await self._api_request(method="POST",
+                                                       path_url=CONSTANTS.SET_LEVERAGE_PATH_URL,
+                                                       body=body_params,
+                                                       is_auth_required=True)
 
         if resp["ret_msg"] == "ok":
             self._leverage[trading_pair] = leverage
             self.logger().info(f"Leverage Successfully set to {leverage} for {trading_pair}.")
         else:
-            self.logger().error("Unable to set leverage.")
+            self.logger().error(f"Unable to set leverage for {trading_pair}. Leverage: {leverage}")
 
     def set_leverage(self, trading_pair: str, leverage: int):
         safe_ensure_future(self._set_leverage(trading_pair=trading_pair, leverage=leverage))
