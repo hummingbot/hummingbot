@@ -12,7 +12,6 @@ from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
-from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.connector.exchange.ndax.ndax_order_book_message import NdaxOrderBookMessage
 from hummingbot.connector.exchange.ndax.ndax_api_order_book_data_source import NdaxAPIOrderBookDataSource
 from hummingbot.connector.exchange.ndax.ndax_order_book import NdaxOrderBook
@@ -57,17 +56,6 @@ class NdaxOrderBookTracker(OrderBookTracker):
         Name of the current exchange
         """
         return CONSTANTS.EXCHANGE_NAME
-
-    async def _init_order_books(self):
-        """
-        Initialize order books
-        """
-        for _, trading_pair in enumerate(self._trading_pairs):
-            self._order_books[trading_pair] = self._data_source.order_book_create_function()
-            self._tracking_message_queues[trading_pair] = asyncio.Queue()
-            self._tracking_tasks[trading_pair] = safe_ensure_future(self._track_single_book(trading_pair))
-            await asyncio.sleep(1)
-        self._order_books_initialized.set()
 
     async def _track_single_book(self, trading_pair: str):
         """
