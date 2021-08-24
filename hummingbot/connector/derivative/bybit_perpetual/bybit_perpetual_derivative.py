@@ -1,3 +1,4 @@
+import math
 import time
 
 import aiohttp
@@ -37,7 +38,8 @@ from hummingbot.core.event.events import (
     OrderType,
     PositionAction,
     PositionMode,
-    TradeType, TradeFee, OrderCancelledEvent, BuyOrderCreatedEvent, SellOrderCreatedEvent,
+    TradeType, TradeFee, OrderCancelledEvent, BuyOrderCreatedEvent, SellOrderCreatedEvent, OrderFilledEvent,
+    BuyOrderCompletedEvent, SellOrderCompletedEvent,
 )
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
@@ -83,6 +85,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
         self._in_flight_orders = {}
         self._trading_rules = {}
+        self._last_trade_history_timestamp = None
 
         # Tasks
         self._funding_info_polling_task = None
@@ -701,6 +704,41 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         for order_status in parsed_status_responses:
             self._process_order_event_message(order_status)
 
+    async def _update_trade_history(self):
+        """
+        Calls REST API to get trade history (order fills)
+        """
+
+        trade_history_tasks = []
+
+        for trading_pair in self._trading_pairs:
+            body_params = {
+                "symbol": await self._trading_pair_symbol(trading_pair),
+                "limit": 200,
+            }
+            if self._last_trade_history_timestamp:
+                body_params["start_time"] = int(self._last_trade_history_timestamp * 1e3)
+
+            trade_history_tasks.append(
+                asyncio.create_task(self._api_request(method="GET",
+                                                      path_url=CONSTANTS.USER_TRADE_RECORDS_ENDPOINT,
+                                                      params=body_params,
+                                                      is_auth_required=True)))
+
+        raw_responses: List[Dict[str, Any]] = await safe_gather(*trade_history_tasks, return_exceptions=True)
+
+        # Initial parsing of responses. Joining all the responses
+        parsed_history_resps: List[Dict[str, Any]] = []
+        for resp in raw_responses:
+            if not isinstance(resp, Exception):
+                parsed_history_resps.extend(resp["result"]["trade_list"])
+            else:
+                self.logger().error(f"Error fetching trades history. Response: {resp}")
+
+        # Trade updates must be handled before any order status updates.
+        for trade in parsed_history_resps:
+            self._process_trade_event_message(trade)
+
     async def _status_polling_loop(self):
         """
         Periodically update user balances and order status via REST API. This serves as a fallback measure for web
@@ -761,6 +799,57 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                        tracked_order.order_type
                                    ))
                 self.stop_tracking_order(client_order_id)
+
+    def _process_trade_event_message(self, trade_msg: Dict[str, Any]):
+        """
+        Updates in-flight order and trigger order filled event for trade message received. Triggers order completed
+        event if the total executed amount equals to the specified order amount.
+        :param order_msg: The trade event message payload
+        """
+
+        client_order_id = str(trade_msg["order_id"])
+        if client_order_id in self.in_flight_orders:
+            tracked_order = self.in_flight_orders[client_order_id]
+            updated = tracked_order.update_with_trade_update(trade_msg)
+
+            if updated:
+
+                self.trigger_event(
+                    MarketEvent.OrderFilled,
+                    OrderFilledEvent(
+                        self.current_timestamp,
+                        tracked_order.client_order_id,
+                        tracked_order.trading_pair,
+                        tracked_order.trade_type,
+                        tracked_order.order_type,
+                        Decimal(trade_msg["order_price"]),
+                        Decimal(trade_msg["order_qty"]),
+                        TradeFee(percent=Decimal(trade_msg["fee_rate"])),
+                        exchange_trade_id=str(trade_msg["order_id"])
+                    )
+                )
+                if (math.isclose(tracked_order.executed_amount_base, tracked_order.amount) or
+                        tracked_order.executed_amount_base >= tracked_order.amount):
+                    tracked_order.mark_as_filled()
+                    self.logger().info(f"The {tracked_order.trade_type.name} order "
+                                       f"{tracked_order.client_order_id} has completed "
+                                       f"according to order status API")
+                    event_tag = (MarketEvent.BuyOrderCompleted if tracked_order.trade_type is TradeType.BUY
+                                 else MarketEvent.SellOrderCompleted)
+                    event_class = (BuyOrderCompletedEvent if tracked_order.trade_type is TradeType.BUY
+                                   else SellOrderCompletedEvent)
+                    self.trigger_event(event_tag,
+                                       event_class(self.current_timestamp,
+                                                   tracked_order.client_order_id,
+                                                   tracked_order.base_asset,
+                                                   tracked_order.quote_asset,
+                                                   tracked_order.fee_asset,
+                                                   tracked_order.executed_amount_base,
+                                                   tracked_order.executed_amount_quote,
+                                                   tracked_order.fee_paid,
+                                                   tracked_order.order_type,
+                                                   tracked_order.exchange_order_id))
+                    self.stop_tracking_order(tracked_order.client_order_id)
 
     async def _funding_info_polling_loop(self):
         """
