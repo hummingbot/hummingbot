@@ -33,7 +33,6 @@ class BybitPerpetualAuth():
         Generates authentication headers required by ProBit
         :return: a dictionary of auth headers
         """
-
         return {
             "Content-Type": 'application/json',
         }
