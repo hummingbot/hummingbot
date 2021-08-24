@@ -17,10 +17,16 @@ GET_WALLET_BALANCE_ENDPOINT = "/private/wallet/balance"
 
 # REST API Private Endpoints
 GET_FUNDING_FEE_PATH_URL = "/private/linear/funding/prev-funding"
+SET_LEVERAGE_PATH_URL = "/private/position/leverage/save"
+GET_LAST_FUNDING_RATE_PATH_URL = "/private/funding/prev-funding"
+GET_POSITIONS_PATH_URL = "/private/position/list"
 PLACE_ACTIVE_ORDER_ENDPOINT = "/private/order/create"
 CANCEL_ACTIVE_ORDER_ENDPOINT = "/private/order/cancel"
 QUERY_ACTIVE_ORDER_ENDPOINT = "/private/order"
 USER_TRADE_RECORDS_ENDPOINT = "/private/execution/list"
+
+# Funding Settlement Time Span
+FUNDING_SETTLEMENT_DURATION = (5, 5)  # seconds before snapshot, seconds after snapshot
 
 # WebSocket Public Endpoints
 WS_PING_REQUEST = "ping"

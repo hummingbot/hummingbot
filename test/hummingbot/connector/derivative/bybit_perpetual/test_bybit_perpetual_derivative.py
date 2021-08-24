@@ -1,5 +1,6 @@
 import asyncio
 import json
+import pandas as pd
 import time
 from collections import deque
 from decimal import Decimal
@@ -14,7 +15,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.event.event_logger import EventLogger
 
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_in_flight_order import BybitPerpetualInFlightOrder
-from hummingbot.core.event.events import OrderType, PositionAction, TradeType, MarketEvent, FundingInfo
+from hummingbot.core.event.events import OrderType, PositionAction, TradeType, MarketEvent, FundingInfo, PositionMode
 
 
 class BybitPerpetualDerivativeTests(TestCase):
@@ -25,6 +26,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.base_asset = "BTC"
         self.quote_asset = "USDT"
         self.trading_pair = f"{self.base_asset}-{self.quote_asset}"
+        self.ex_trading_pair = f"{self.base_asset}{self.quote_asset}"
 
         self.api_requests_data = asyncio.Queue()
         self.api_responses_json: asyncio.Queue = asyncio.Queue()
@@ -34,10 +36,14 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         self.connector = BybitPerpetualDerivative(bybit_perpetual_api_key='testApiKey',
                                                   bybit_perpetual_secret_key='testSecretKey',
-                                                  trading_pairs=[self.trading_pair])
+                                                  trading_pairs=[self.trading_pair],
+                                                  domain="bybit_perpetual_testnet")
 
         self.connector.logger().setLevel(1)
         self.connector.logger().addHandler(self)
+
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {
+            "bybit_perpetual_testnet": {self.ex_trading_pair: self.trading_pair}}
 
         self.buy_order_created_logger: EventLogger = EventLogger()
         self.sell_order_created_logger: EventLogger = EventLogger()
@@ -107,9 +113,8 @@ class BybitPerpetualDerivativeTests(TestCase):
         nonce_provider_mock.return_value = 1000
         self._configure_mock_api(post_mock)
         self._simulate_trading_rules_initialized()
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
 
-        self.connector.set_leverage(self.trading_pair, 10)
+        self.connector._leverage[self.trading_pair] = 10
 
         new_order_id = self.connector.buy(trading_pair=self.trading_pair,
                                           amount=Decimal("1"),
@@ -180,9 +185,8 @@ class BybitPerpetualDerivativeTests(TestCase):
     def test_create_buy_order_fails_when_amount_smaller_than_minimum(self, post_mock, app_mock):
         self._configure_mock_api(post_mock)
         self._simulate_trading_rules_initialized()
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
 
-        self.connector.set_leverage(self.trading_pair, 10)
+        self.connector._leverage[self.trading_pair] = 10
 
         new_order_id = self.connector.buy(trading_pair=self.trading_pair,
                                           amount=Decimal("0.0001"),
@@ -233,9 +237,8 @@ class BybitPerpetualDerivativeTests(TestCase):
 
     def test_create_order_with_invalid_position_action_raises_value_error(self):
         self._simulate_trading_rules_initialized()
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
 
-        self.connector.set_leverage(self.trading_pair, 10)
+        self.connector._leverage[self.trading_pair] = 10
 
         with self.assertRaises(ValueError) as exception_context:
             asyncio.get_event_loop().run_until_complete(
@@ -256,9 +259,8 @@ class BybitPerpetualDerivativeTests(TestCase):
     def test_create_order_fails_and_logs_when_api_response_has_erroneous_return_code(self, post_mock, app_mock):
         self._configure_mock_api(post_mock)
         self._simulate_trading_rules_initialized()
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
 
-        self.connector.set_leverage(self.trading_pair, 10)
+        self.connector._leverage[self.trading_pair] = 10
 
         new_order_id = self.connector.buy(trading_pair=self.trading_pair,
                                           amount=Decimal("1"),
@@ -296,9 +298,8 @@ class BybitPerpetualDerivativeTests(TestCase):
     def test_create_order_raises_cancelled_errors(self, post_mock):
         post_mock.side_effect = asyncio.CancelledError()
         self._simulate_trading_rules_initialized()
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
 
-        self.connector.set_leverage(self.trading_pair, 10)
+        self.connector._leverage[self.trading_pair] = 10
 
         with self.assertRaises(asyncio.CancelledError):
             asyncio.get_event_loop().run_until_complete(
@@ -317,9 +318,8 @@ class BybitPerpetualDerivativeTests(TestCase):
         nonce_provider_mock.return_value = 1000
         self._configure_mock_api(post_mock)
         self._simulate_trading_rules_initialized()
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
 
-        self.connector.set_leverage(self.trading_pair, 10)
+        self.connector._leverage[self.trading_pair] = 10
 
         new_order_id = self.connector.sell(trading_pair=self.trading_pair,
                                            amount=Decimal("1"),
@@ -531,7 +531,6 @@ class BybitPerpetualDerivativeTests(TestCase):
         self._configure_mock_api(post_mock)
 
         self._simulate_trading_rules_initialized()
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
 
         self.connector.start_tracking_order(
             order_id="O1",
@@ -594,7 +593,6 @@ class BybitPerpetualDerivativeTests(TestCase):
         self._configure_mock_api(post_mock)
 
         self._simulate_trading_rules_initialized()
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
 
         self.connector.start_tracking_order(
             order_id="O1",
@@ -655,7 +653,6 @@ class BybitPerpetualDerivativeTests(TestCase):
         self._configure_mock_api(post_mock)
 
         self._simulate_trading_rules_initialized()
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
 
         self.connector.cancel(trading_pair=self.trading_pair, order_id="O1")
         asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.4))
@@ -669,7 +666,6 @@ class BybitPerpetualDerivativeTests(TestCase):
         post_mock.side_effect = asyncio.CancelledError()
 
         self._simulate_trading_rules_initialized()
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
 
         self.connector.start_tracking_order(
             order_id="O1",
@@ -692,7 +688,6 @@ class BybitPerpetualDerivativeTests(TestCase):
         self._configure_mock_api(post_mock)
 
         self._simulate_trading_rules_initialized()
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
 
         self.connector._in_flight_orders["O1"] = BybitPerpetualInFlightOrder(
             client_order_id="O1",
@@ -786,7 +781,6 @@ class BybitPerpetualDerivativeTests(TestCase):
         self._configure_mock_api(post_mock)
 
         self._simulate_trading_rules_initialized()
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
 
         self.connector._in_flight_orders["O1"] = BybitPerpetualInFlightOrder(
             client_order_id="O1",
@@ -1020,7 +1014,6 @@ class BybitPerpetualDerivativeTests(TestCase):
         self._configure_mock_api(get_mock)
 
         self._simulate_trading_rules_initialized()
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
 
         self.connector._in_flight_orders["O1"] = BybitPerpetualInFlightOrder(
             client_order_id="O1",
@@ -1044,7 +1037,6 @@ class BybitPerpetualDerivativeTests(TestCase):
         self._configure_mock_api(get_mock)
 
         self._simulate_trading_rules_initialized()
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
 
         self.connector._in_flight_orders["O1"] = BybitPerpetualInFlightOrder(
             client_order_id="O1",
@@ -1116,7 +1108,6 @@ class BybitPerpetualDerivativeTests(TestCase):
         self._configure_mock_api(get_mock)
 
         self._simulate_trading_rules_initialized()
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
 
         self.connector._in_flight_orders["O1"] = BybitPerpetualInFlightOrder(
             client_order_id="O1",
@@ -1189,7 +1180,6 @@ class BybitPerpetualDerivativeTests(TestCase):
         self._configure_mock_api(get_mock)
 
         self._simulate_trading_rules_initialized()
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
 
         self.connector._in_flight_orders["O1"] = BybitPerpetualInFlightOrder(
             client_order_id="O1",
@@ -1220,7 +1210,7 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         self.assertTrue(any(record.levelname == "ERROR"
                             and ("Error fetching order status. Response: Error fetching data from"
-                                 " https://api.bybit.com/v2/private/order. HTTP status is 405. Message:")
+                                 " https://api-testnet.bybit.com/v2/private/order. HTTP status is 405. Message:")
                             in record.getMessage()
                             for record in self.log_records))
 
@@ -1229,8 +1219,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         self._configure_mock_api(get_mock)
 
         self._simulate_trading_rules_initialized()
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
-        self.connector.set_leverage(self.trading_pair, 10)
+        self.connector._leverage[self.trading_pair] = 10
 
         self.connector._in_flight_orders["O1"] = BybitPerpetualInFlightOrder(
             client_order_id="O1",
@@ -1323,3 +1312,271 @@ class BybitPerpetualDerivativeTests(TestCase):
         sell_events = self.sell_order_created_logger.event_log
         self.assertEqual(1, len(sell_events))
         self.assertEqual("O2", sell_events[0].order_id)
+
+    def test_supported_position_modes(self):
+        expected_result = [PositionMode.ONEWAY, PositionMode.HEDGE]
+        self.assertEqual(expected_result, self.connector.supported_position_modes())
+
+    @patch("hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils.get_next_funding_timestamp")
+    def test_tick_funding_fee_poll_notifier_set(self, mock_time):
+        mock_time.return_value = pd.Timestamp("2021-08-21-01:00:00", tz="UTC").timestamp()
+
+        self.assertFalse(self.connector._funding_fee_poll_notifier.is_set())
+        self.connector.tick(int(time.time()))
+        self.assertTrue(self.connector._funding_fee_poll_notifier.is_set())
+
+    def test_fetch_funding_fee_unsupported_trading_pair(self):
+        self.connector_task = asyncio.get_event_loop().create_task(
+            self.connector._fetch_funding_fee("UNSUPPORTED-PAIR")
+        )
+        result = asyncio.get_event_loop().run_until_complete(self.connector_task)
+        self.assertFalse(result)
+        self.assertTrue(
+            self._is_logged("ERROR", "Unable to fetch funding fee for UNSUPPORTED-PAIR. Trading pair not supported.")
+        )
+
+    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    def test_fetch_funding_fee_supported_trading_pair_receive_funding(self, mock_request):
+        self._configure_mock_api(mock_request)
+
+        # Test 2: Support trading pair. Payment > Decimal("0")
+        self.api_responses_status.append(200)
+        self.api_responses_json.put_nowait({
+            "ret_code": 0,
+            "ret_msg": "ok",
+            "ext_code": "",
+            "result": {
+                "symbol": self.ex_trading_pair,
+                "side": "Buy",
+                "size": 1,
+                "funding_rate": 0.0001,
+                "exec_fee": 0.00000002,
+                "exec_timestamp": 1575907200
+            },
+            "ext_info": None,
+            "time_now": "1577446900.717204",
+            "rate_limit_status": 119,
+            "rate_limit_reset_ms": 1577446900724,
+            "rate_limit": 120
+        })
+
+        self.connector_task = asyncio.get_event_loop().create_task(
+            self.connector._fetch_funding_fee(self.trading_pair)
+        )
+        result = asyncio.get_event_loop().run_until_complete(self.connector_task)
+        self.assertTrue(result)
+        self.assertTrue("INFO", f"Funding payment of 0.0001 received on {self.trading_pair} market.")
+
+    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    def test_fetch_funding_fee_supported_trading_pair_paid_funding(self, mock_request):
+        self._configure_mock_api(mock_request)
+
+        self.api_responses_status.append(200)
+        self.api_responses_json.put_nowait({
+            "ret_code": 0,
+            "ret_msg": "error",
+            "ext_code": "",
+            "result": {
+                "symbol": self.ex_trading_pair,
+                "side": "Buy",
+                "size": 1,
+                "funding_rate": -0.0001,
+                "exec_fee": 0.00000002,
+                "exec_timestamp": 1575907200
+            },
+            "ext_info": None,
+            "time_now": "1577446900.717204",
+            "rate_limit_status": 119,
+            "rate_limit_reset_ms": 1577446900724,
+            "rate_limit": 120
+        })
+
+        self.connector_task = asyncio.get_event_loop().create_task(
+            self.connector._fetch_funding_fee(self.trading_pair)
+        )
+        result = asyncio.get_event_loop().run_until_complete(self.connector_task)
+        self.assertTrue(result)
+        self.assertTrue(self._is_logged('INFO', f"Funding payment of -0.0001 paid on {self.trading_pair} market."))
+
+    def test_set_leverage_unsupported_trading_pair(self):
+        self.connector_task = asyncio.get_event_loop().create_task(
+            self.connector._set_leverage("UNSUPPORTED-PAIR")
+        )
+        asyncio.get_event_loop().run_until_complete(self.connector_task)
+        self.assertTrue(
+            self._is_logged("ERROR", "Unable to set leverage for UNSUPPORTED-PAIR. Trading pair not supported.")
+        )
+
+    @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
+    def test_set_leverage_not_ok(self, mock_request):
+        self._configure_mock_api(mock_request)
+
+        new_leverage: int = 0
+
+        self.api_responses_status.append(200)
+        self.api_responses_json.put_nowait({
+            "ret_code": 0,
+            "ret_msg": "",
+            "ext_code": "20031",
+            "result": new_leverage,
+            "ext_info": None,
+            "time_now": "1577477968.175013",
+            "rate_limit_status": 74,
+            "rate_limit_reset_ms": 1577477968183,
+            "rate_limit": 75
+        })
+
+        self.connector_task = asyncio.get_event_loop().create_task(
+            self.connector._set_leverage(self.trading_pair, new_leverage)
+        )
+        asyncio.get_event_loop().run_until_complete(self.connector_task)
+        self.assertTrue(
+            self._is_logged('ERROR', f"Unable to set leverage for {self.trading_pair}. Leverage: {new_leverage}"))
+
+    @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
+    def test_set_leverage_ok(self, mock_request):
+        self._configure_mock_api(mock_request)
+        new_leverage: int = 2
+
+        self.api_responses_status.append(200)
+        self.api_responses_json.put_nowait({
+            "ret_code": 0,
+            "ret_msg": "ok",
+            "ext_code": "",
+            "result": new_leverage,
+            "ext_info": None,
+            "time_now": "1577477968.175013",
+            "rate_limit_status": 74,
+            "rate_limit_reset_ms": 1577477968183,
+            "rate_limit": 75
+        })
+
+        self.connector_task = asyncio.get_event_loop().create_task(
+            self.connector._set_leverage(self.trading_pair, new_leverage)
+        )
+        asyncio.get_event_loop().run_until_complete(self.connector_task)
+        self.assertTrue(
+            self._is_logged('INFO', f"Leverage Successfully set to {new_leverage} for {self.trading_pair}."))
+
+    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    def test_update_positions(self, mock_request):
+        self._configure_mock_api(mock_request)
+
+        self.api_responses_status.append(200)
+        self.api_responses_json.put_nowait({
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": [
+                {
+                    "is_valid": True,
+                    "data": {
+                        "id": 0,
+                        "position_idx": 0,
+                        "mode": 0,
+                        "user_id": 118921,
+                        "risk_id": 1,
+                        "symbol": self.trading_pair,
+                        "side": "Buy",
+                        "size": 10,
+                        "position_value": "0.00076448",
+                        "entry_price": "13080.78694014",
+                        "is_isolated": False,
+                        "auto_add_margin": 1,
+                        "leverage": "100",
+                        "effective_leverage": "0.01",
+                        "position_margin": "0.40111704",
+                        "liq_price": "25",
+                        "bust_price": "25",
+                        "occ_closing_fee": "0.0003",
+                        "occ_funding_fee": "0",
+                        "take_profit": "0",
+                        "stop_loss": "0",
+                        "trailing_stop": "0",
+                        "position_status": "Normal",
+                        "deleverage_indicator": 1,
+                        "oc_calc_data": "{\"blq\":0,\"slq\":0,\"bmp\":0,\"smp\":0,\"fq\":-10,\"bv2c\":0.0115075,\"sv2c\":0.0114925}",
+                        "order_margin": "0",
+                        "wallet_balance": "0.40141704",
+                        "realised_pnl": "-0.00000008",
+                        "unrealised_pnl": 0.00003797,
+                        "cum_realised_pnl": "-0.090626",
+                        "cross_seq": 764786721,
+                        "position_seq": 581513847,
+                        "created_at": "2020-08-10T07:04:32Z",
+                        "updated_at": "2020-11-02T00:00:11.943371457Z",
+                        "tp_sl_mode": "Partial"
+                    }
+                },
+            ],
+            "time_now": "1604302124.031104",
+            "rate_limit_status": 118,
+            "rate_limit_reset_ms": 1604302124020,
+            "rate_limit": 120
+        })
+
+        self.connector_task = asyncio.get_event_loop().create_task(
+            self.connector._update_positions())
+        asyncio.get_event_loop().run_until_complete(self.connector_task)
+        self.assertEqual(1, len(self.connector._account_positions))
+
+        self.api_responses_status.append(200)
+        self.api_responses_json.put_nowait({
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": [
+                {
+                    "is_valid": True,
+                    "data": {
+                        "id": 0,
+                        "position_idx": 0,
+                        "mode": 0,
+                        "user_id": 118921,
+                        "risk_id": 1,
+                        "symbol": self.trading_pair,
+                        "side": "Buy",
+                        "size": 0,
+                        "position_value": "0.00076448",
+                        "entry_price": "13080.78694014",
+                        "is_isolated": False,
+                        "auto_add_margin": 1,
+                        "leverage": "100",
+                        "effective_leverage": "0.01",
+                        "position_margin": "0.40111704",
+                        "liq_price": "25",
+                        "bust_price": "25",
+                        "occ_closing_fee": "0.0003",
+                        "occ_funding_fee": "0",
+                        "take_profit": "0",
+                        "stop_loss": "0",
+                        "trailing_stop": "0",
+                        "position_status": "Normal",
+                        "deleverage_indicator": 1,
+                        "oc_calc_data": "{\"blq\":0,\"slq\":0,\"bmp\":0,\"smp\":0,\"fq\":-10,\"bv2c\":0.0115075,\"sv2c\":0.0114925}",
+                        "order_margin": "0",
+                        "wallet_balance": "0.40141704",
+                        "realised_pnl": "-0.00000008",
+                        "unrealised_pnl": 0.00003797,
+                        "cum_realised_pnl": "-0.090626",
+                        "cross_seq": 764786721,
+                        "position_seq": 581513847,
+                        "created_at": "2020-08-10T07:04:32Z",
+                        "updated_at": "2020-11-02T00:00:11.943371457Z",
+                        "tp_sl_mode": "Partial"
+                    }
+                },
+            ],
+            "time_now": "1604302130",
+            "rate_limit_status": 118,
+            "rate_limit_reset_ms": 1604302124030,
+            "rate_limit": 120
+        })
+
+        self.connector_task = asyncio.get_event_loop().create_task(
+            self.connector._update_positions()
+        )
+        asyncio.get_event_loop().run_until_complete(self.connector_task)
+        self.assertEqual(0, len(self.connector._account_positions))

@@ -41,9 +41,10 @@ from hummingbot.connector.exchange.ascend_ex.ascend_ex_user_stream_tracker impor
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_in_flight_order import AscendExInFlightOrder
 from hummingbot.connector.exchange.ascend_ex import ascend_ex_utils
-from hummingbot.connector.exchange.ascend_ex.ascend_ex_constants import EXCHANGE_NAME, REST_URL, REQUEST_CALL_LIMITS
+from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS
 from hummingbot.core.data_type.common import OpenOrder
-from hummingbot.core.api_throttler.multi_limit_pool_throttler import MultiLimitPoolsThrottler
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+
 ctce_logger = None
 s_decimal_NaN = Decimal("nan")
 s_decimal_0 = Decimal("0")
@@ -98,9 +99,10 @@ class AscendExExchange(ExchangePyBase):
         super().__init__()
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
+        self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        self._order_book_tracker = AscendExOrderBookTracker(self._throttler, trading_pairs=trading_pairs)
         self._ascend_ex_auth = AscendExAuth(ascend_ex_api_key, ascend_ex_secret_key)
-        self._order_book_tracker = AscendExOrderBookTracker(trading_pairs=trading_pairs)
-        self._user_stream_tracker = AscendExUserStreamTracker(self._ascend_ex_auth, trading_pairs)
+        self._user_stream_tracker = AscendExUserStreamTracker(self._throttler, self._ascend_ex_auth, trading_pairs)
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client = None
         self._poll_notifier = asyncio.Event()
@@ -114,11 +116,11 @@ class AscendExExchange(ExchangePyBase):
         self._last_poll_timestamp = 0
         self._account_group = None  # required in order to make post requests
         self._account_uid = None  # required in order to produce deterministic order ids
-        self._throttler: MultiLimitPoolsThrottler = MultiLimitPoolsThrottler(list(REQUEST_CALL_LIMITS.values()))
+        self._throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
 
     @property
     def name(self) -> str:
-        return EXCHANGE_NAME
+        return CONSTANTS.EXCHANGE_NAME
 
     @property
     def order_books(self) -> Dict[str, OrderBook]:
@@ -248,7 +250,7 @@ class AscendExExchange(ExchangePyBase):
             # since there is no ping endpoint, the lowest rate call is to get BTC-USDT ticker
             await self._api_request(
                 method="get",
-                path_url="ticker")
+                path_url=CONSTANTS.TICKER_PATH_URL)
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -283,7 +285,7 @@ class AscendExExchange(ExchangePyBase):
     async def _update_trading_rules(self):
         instruments_info = await self._api_request(
             method="get",
-            path_url="products")
+            path_url=CONSTANTS.PRODUCTS_PATH_URL)
         self._trading_rules.clear()
         self._trading_rules = self._format_trading_rules(instruments_info)
 
@@ -335,7 +337,7 @@ class AscendExExchange(ExchangePyBase):
             **self._ascend_ex_auth.get_headers(),
             **self._ascend_ex_auth.get_auth_headers("info"),
         }
-        url = f"{REST_URL}/info"
+        url = f"{CONSTANTS.REST_URL}/info"
         response = await aiohttp.ClientSession().get(url, headers=headers)
 
         try:
@@ -354,7 +356,8 @@ class AscendExExchange(ExchangePyBase):
     async def _api_request(self,
                            method: str,
                            path_url: str,
-                           params: Dict[str, Any] = {},
+                           params: Optional[Dict[str, Any]] = None,
+                           data: Optional[Dict[str, Any]] = None,
                            is_auth_required: bool = False,
                            force_auth_path_url: Optional[str] = None
                            ) -> Dict[str, Any]:
@@ -366,61 +369,52 @@ class AscendExExchange(ExchangePyBase):
         signature to the request.
         :returns A response in json format.
         """
-        api_limit_pools = [REQUEST_CALL_LIMITS["all_endpoints"].limit_id]
-        if path_url in REQUEST_CALL_LIMITS:
-            api_limit_pools.append(path_url)
-        async with self._throttler.execute_task(limit_ids=api_limit_pools):
-            url = None
-            headers = None
+        kwargs = {}
+        if params:
+            kwargs["params"] = params
+        if data:
+            kwargs["data"] = json.dumps(data)
 
-            if is_auth_required:
-                if (self._account_group) is None:
-                    await self._update_account_data()
+        if is_auth_required:
+            if self._account_group is None:
+                await self._update_account_data()
 
-                url = f"{ascend_ex_utils.get_rest_url_private(self._account_group)}/{path_url}"
-                headers = {
-                    **self._ascend_ex_auth.get_headers(),
-                    **self._ascend_ex_auth.get_auth_headers(
-                        path_url if force_auth_path_url is None else force_auth_path_url
-                    ),
-                }
-            else:
-                url = f"{REST_URL}/{path_url}"
-                headers = self._ascend_ex_auth.get_headers()
+            url = f"{ascend_ex_utils.get_rest_url_private(self._account_group)}/{path_url}"
+            kwargs["headers"] = {
+                **self._ascend_ex_auth.get_headers(),
+                **self._ascend_ex_auth.get_auth_headers(
+                    path_url if force_auth_path_url is None else force_auth_path_url
+                ),
+            }
+        else:
+            url = f"{CONSTANTS.REST_URL}/{path_url}"
+            kwargs["headers"] = self._ascend_ex_auth.get_headers()
 
-            client = await self._http_client()
-            if method == "get":
-                response = await client.get(
-                    url,
-                    headers=headers
-                )
-            elif method == "post":
-                response = await client.post(
-                    url,
-                    headers=headers,
-                    data=json.dumps(params)
-                )
-            elif method == "delete":
-                response = await client.delete(
-                    url,
-                    headers=headers,
-                    data=json.dumps(params)
-                )
-            else:
-                raise NotImplementedError
+        client = await self._http_client()
+        if method == "get":
+            async with self._throttler.execute_task(path_url):
+                response = await client.get(url, **kwargs)
+        elif method == "post":
+            async with self._throttler.execute_task(path_url):
+                response = await client.post(url, **kwargs)
+        elif method == "delete":
+            async with self._throttler.execute_task(path_url):
+                response = await client.delete(url, **kwargs)
+        else:
+            raise NotImplementedError
 
-            resp_text = await response.text()
-            if response.status != 200:
-                raise IOError(f"Error calling {url}. HTTP status is {response.status}. "
-                              f"Message: {resp_text}")
-            try:
-                parsed_response = json.loads(resp_text)
-            except Exception as e:
-                raise IOError(f"Error calling {url}. Error: {str(e)}")
-            if parsed_response["code"] != 0:
-                raise IOError(f"{url} API call failed, response: {parsed_response}")
+        resp_text = await response.text()
+        if response.status != 200:
+            raise IOError(f"Error calling {url}. HTTP status is {response.status}. "
+                          f"Message: {resp_text}")
+        try:
+            parsed_response = json.loads(resp_text)
+        except Exception as e:
+            raise IOError(f"Error calling {url}. Error: {str(e)}")
+        if parsed_response["code"] != 0:
+            raise IOError(f"{url} API call failed, response: {parsed_response}")
 
-            return parsed_response
+        return parsed_response
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal):
         """
@@ -512,7 +506,7 @@ class AscendExExchange(ExchangePyBase):
                 "orderPrice": f"{price:f}",
                 "orderQty": f"{amount:f}",
                 "orderType": "limit",
-                "side": trade_type.name,
+                "side": "buy" if trade_type == TradeType.BUY else "sell",
                 "respInst": "ACCEPT",
             }
             self.start_tracking_order(
@@ -526,8 +520,8 @@ class AscendExExchange(ExchangePyBase):
             )
             resp = await self._api_request(
                 method="post",
-                path_url="cash/order",
-                params=api_params,
+                path_url=CONSTANTS.ORDER_PATH_URL,
+                data=api_params,
                 is_auth_required=True,
                 force_auth_path_url="order")
             exchange_order_id = str(resp["data"]["info"]["orderId"])
@@ -623,8 +617,8 @@ class AscendExExchange(ExchangePyBase):
             }
             await self._api_request(
                 method="delete",
-                path_url="cash/order",
-                params=api_params,
+                path_url=CONSTANTS.ORDER_PATH_URL,
+                data=api_params,
                 is_auth_required=True,
                 force_auth_path_url="order"
             )
@@ -675,7 +669,7 @@ class AscendExExchange(ExchangePyBase):
         """
         response = await self._api_request(
             method="get",
-            path_url="cash/balance",
+            path_url=CONSTANTS.BALANCE_PATH_URL,
             is_auth_required=True,
             force_auth_path_url="balance")
         balances = list(map(
@@ -700,9 +694,11 @@ class AscendExExchange(ExchangePyBase):
             for o in tracked_orders:
                 await o.get_exchange_order_id()
             order_ids: str = ",".join(o.exchange_order_id for o in tracked_orders)
+            params = {"orderId": order_ids}
             resp = await self._api_request(
                 method="get",
-                path_url=f"cash/order/status?orderId={order_ids}",
+                path_url=CONSTANTS.ORDER_STATUS_PATH_URL,
+                params=params,
                 is_auth_required=True,
                 force_auth_path_url="order/status"
             )
@@ -771,8 +767,8 @@ class AscendExExchange(ExchangePyBase):
 
             await self._api_request(
                 method="delete",
-                path_url="cash/order/batch",
-                params=api_params,
+                path_url=CONSTANTS.ORDER_BATCH_PATH_URL,
+                data=api_params,
                 is_auth_required=True,
                 force_auth_path_url="order/batch"
             )
@@ -901,7 +897,7 @@ class AscendExExchange(ExchangePyBase):
     async def get_open_orders(self) -> List[OpenOrder]:
         result = await self._api_request(
             method="get",
-            path_url="cash/order/open",
+            path_url=CONSTANTS.ORDER_OPEN_PATH_URL,
             is_auth_required=True,
             force_auth_path_url="order/open"
         )
