@@ -25,7 +25,6 @@ class BybitPerpetualUserStreamTracker(UserStreamTracker):
 
     def __init__(self, auth_assistant: BybitPerpetualAuth, domain: str, session: aiohttp.ClientSession):
         super().__init__()
-        self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
         self._data_source: Optional[UserStreamTrackerDataSource] = None
         self._user_stream_tracking_task: Optional[asyncio.Task] = None
 
@@ -45,6 +44,6 @@ class BybitPerpetualUserStreamTracker(UserStreamTracker):
 
     async def start(self):
         self._user_stream_tracking_task = safe_ensure_future(
-            self.data_source.listen_for_user_stream(self._ev_loop, self._user_stream)
+            self.data_source.listen_for_user_stream(self._user_stream)
         )
         await safe_gather(self._user_stream_tracking_task)

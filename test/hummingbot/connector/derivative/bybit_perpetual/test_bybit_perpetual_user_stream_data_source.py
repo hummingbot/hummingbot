@@ -46,7 +46,6 @@ class BybitPerpetualUserStreamDataSourceTests(TestCase):
     def _create_ws_mock(self):
         ws = AsyncMock()
         ws.send_json.side_effect = lambda sent_message: self.ws_sent_messages.append(sent_message)
-        ws.receive_str.side_effect = self._get_next_received_message
         ws.receive_json.side_effect = self._get_next_received_message
         return ws
 
@@ -58,7 +57,7 @@ class BybitPerpetualUserStreamDataSourceTests(TestCase):
                    "conn_id": "testConnectionID",
                    "request": request}
 
-        return json.dumps(message)
+        return message
 
     def _subscription_response(self, subscribed: bool, subscription: str) -> str:
         request = {"op": "subscribe",
@@ -68,7 +67,7 @@ class BybitPerpetualUserStreamDataSourceTests(TestCase):
                    "conn_id": "testConnectionID",
                    "request": request}
 
-        return json.dumps(message)
+        return message
 
     def _add_successful_authentication_response(self):
         self.ws_incoming_messages.put_nowait(self._authentication_response(True))
@@ -92,8 +91,7 @@ class BybitPerpetualUserStreamDataSourceTests(TestCase):
         initial_last_recv_time = self.data_source.last_recv_time
 
         self.listening_task = asyncio.get_event_loop().create_task(
-            self.data_source.listen_for_user_stream(asyncio.get_event_loop(),
-                                                    messages))
+            self.data_source.listen_for_user_stream(messages))
         # Add the authentication response for the websocket
         self._add_successful_authentication_response()
         self._add_successful_subscription_response(CONSTANTS.WS_SUBSCRIPTION_POSITIONS_ENDPOINT_NAME)
@@ -149,8 +147,7 @@ class BybitPerpetualUserStreamDataSourceTests(TestCase):
         ws_connect_mock.return_value.close.side_effect = lambda: self._raise_exception(Exception)
 
         self.listening_task = asyncio.get_event_loop().create_task(
-            self.data_source.listen_for_user_stream(asyncio.get_event_loop(),
-                                                    messages))
+            self.data_source.listen_for_user_stream(messages))
         # Add the authentication response for the websocket
         self._add_unsuccessful_authentication_response()
 
@@ -172,8 +169,7 @@ class BybitPerpetualUserStreamDataSourceTests(TestCase):
 
         with self.assertRaises(asyncio.CancelledError):
             self.listening_task = asyncio.get_event_loop().create_task(
-                self.data_source.listen_for_user_stream(asyncio.get_event_loop(),
-                                                        messages))
+                self.data_source.listen_for_user_stream(messages))
             asyncio.get_event_loop().run_until_complete(self.listening_task)
 
     @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
@@ -187,8 +183,7 @@ class BybitPerpetualUserStreamDataSourceTests(TestCase):
 
         with self.assertRaises(asyncio.CancelledError):
             self.listening_task = asyncio.get_event_loop().create_task(
-                self.data_source.listen_for_user_stream(asyncio.get_event_loop(),
-                                                        messages))
+                self.data_source.listen_for_user_stream(messages))
             asyncio.get_event_loop().run_until_complete(self.listening_task)
 
     @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
@@ -202,8 +197,7 @@ class BybitPerpetualUserStreamDataSourceTests(TestCase):
 
         with self.assertRaises(asyncio.CancelledError):
             self.listening_task = asyncio.get_event_loop().create_task(
-                self.data_source.listen_for_user_stream(asyncio.get_event_loop(),
-                                                        messages))
+                self.data_source.listen_for_user_stream(messages))
             # Add the authentication response for the websocket
             self._add_successful_authentication_response()
             asyncio.get_event_loop().run_until_complete(self.listening_task)
@@ -219,8 +213,7 @@ class BybitPerpetualUserStreamDataSourceTests(TestCase):
 
         with self.assertRaises(asyncio.CancelledError):
             self.listening_task = asyncio.get_event_loop().create_task(
-                self.data_source.listen_for_user_stream(asyncio.get_event_loop(),
-                                                        messages))
+                self.data_source.listen_for_user_stream(messages))
             # Add the authentication response for the websocket
             self._add_successful_authentication_response()
             asyncio.get_event_loop().run_until_complete(self.listening_task)
@@ -236,8 +229,7 @@ class BybitPerpetualUserStreamDataSourceTests(TestCase):
 
         with self.assertRaises(asyncio.CancelledError):
             self.listening_task = asyncio.get_event_loop().create_task(
-                self.data_source.listen_for_user_stream(asyncio.get_event_loop(),
-                                                        messages))
+                self.data_source.listen_for_user_stream(messages))
             # Add the authentication response for the websocket
             self._add_successful_authentication_response()
             asyncio.get_event_loop().run_until_complete(self.listening_task)
@@ -264,8 +256,7 @@ class BybitPerpetualUserStreamDataSourceTests(TestCase):
 
         try:
             self.listening_task = asyncio.get_event_loop().create_task(
-                self.data_source.listen_for_user_stream(asyncio.get_event_loop(),
-                                                        messages))
+                self.data_source.listen_for_user_stream(messages))
             asyncio.get_event_loop().run_until_complete(self.listening_task)
         except Exception:
             pass
@@ -287,8 +278,7 @@ class BybitPerpetualUserStreamDataSourceTests(TestCase):
 
         try:
             self.listening_task = asyncio.get_event_loop().create_task(
-                self.data_source.listen_for_user_stream(asyncio.get_event_loop(),
-                                                        messages))
+                self.data_source.listen_for_user_stream(messages))
             # Add the authentication response for the websocket
             self._add_successful_authentication_response()
             asyncio.get_event_loop().run_until_complete(self.listening_task)
@@ -312,8 +302,7 @@ class BybitPerpetualUserStreamDataSourceTests(TestCase):
 
         try:
             self.listening_task = asyncio.get_event_loop().create_task(
-                self.data_source.listen_for_user_stream(asyncio.get_event_loop(),
-                                                        messages))
+                self.data_source.listen_for_user_stream(messages))
             # Add the authentication response for the websocket
             self._add_successful_authentication_response()
             asyncio.get_event_loop().run_until_complete(self.listening_task)
@@ -337,8 +326,7 @@ class BybitPerpetualUserStreamDataSourceTests(TestCase):
 
         try:
             self.listening_task = asyncio.get_event_loop().create_task(
-                self.data_source.listen_for_user_stream(asyncio.get_event_loop(),
-                                                        messages))
+                self.data_source.listen_for_user_stream(messages))
             # Add the authentication response for the websocket
             self._add_successful_authentication_response()
             asyncio.get_event_loop().run_until_complete(self.listening_task)
