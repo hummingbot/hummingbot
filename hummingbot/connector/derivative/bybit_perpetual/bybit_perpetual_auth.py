@@ -6,7 +6,7 @@ from typing import Dict, Any
 
 class BybitPerpetualAuth():
     """
-    Auth class required by Bybit API
+    Auth class required by Bybit Perpetual API
     """
 
     def __init__(self, api_key: str, secret_key: str):
