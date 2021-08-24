@@ -15,6 +15,13 @@ QUERY_SYMBOL_ENDPOINT = "/public/symbols"
 
 # REST API Private Endpoints
 ORDER_BOOK_ENDPOINT = "/public/orderBook/L2"
+GET_FUNDING_FEE_PATH_URL = "/private/linear/funding/prev-funding"
+SET_LEVERAGE_PATH_URL = "/private/position/leverage/save"
+GET_LAST_FUNDING_RATE_PATH_URL = "/private/funding/prev-funding"
+GET_POSITIONS_PATH_URL = "/private/position/list"
+
+# Funding Settlement Time Span
+FUNDING_SETTLEMENT_DURATION = (5, 5)  # seconds before snapshot, seconds after snapshot
 
 # WebSocket Public Endpoints
 WS_PING_REQUEST = "ping"

@@ -32,6 +32,15 @@ def wss_url(connector_variant_label: Optional[str]) -> str:
     return CONSTANTS.WSS_URLS.get(variant)
 
 
+def get_next_funding_timestamp(current_timestamp: float) -> float:
+    # On ByBit Perpetuals, funding occurs every 8 hours at 00:00UTC, 08:00UTC and 16:00UTC.
+    # Reference: https://help.bybit.com/hc/en-us/articles/360039261134-Funding-fee-calculation
+    int_ts = int(current_timestamp)
+    eight_hours = 8 * 60 * 60
+    mod = int_ts % eight_hours
+    return float(int_ts - mod + eight_hours)
+
+
 KEYS = {
     "bybit_api_key":
         ConfigVar(key="bybit_api_key",
