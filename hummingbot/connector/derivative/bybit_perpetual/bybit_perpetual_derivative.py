@@ -1,0 +1,308 @@
+import aiohttp
+import asyncio
+import logging
+import time
+import ujson
+
+import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils as bybit_utils
+import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_constants as CONSTANTS
+
+from decimal import Decimal
+from typing import (
+    Any,
+    Dict,
+    List,
+    Optional,
+)
+
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_auth import BybitPerpetualAuth
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source import BybitPerpetualAPIOrderBookDataSource as OrderBookDataSource
+from hummingbot.connector.derivative.position import Position
+from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.perpetual_trading import PerpetualTrading
+from hummingbot.core.event.events import (
+    FundingPaymentCompletedEvent,
+    MarketEvent,
+    PositionMode,
+    PositionSide,
+)
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.logger import HummingbotLogger
+
+
+bbpd_logger = None
+s_decimal_0 = Decimal(0)
+
+
+class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
+
+    @classmethod
+    def logger(cls) -> HummingbotLogger:
+        global bbpd_logger
+        if bbpd_logger is None:
+            bbpd_logger = logging.getLogger(__name__)
+        return bbpd_logger
+
+    def __init__(self,
+                 bybit_perpetual_api_key: str = None,
+                 bybit_perpetual_secret_key: str = None,
+                 trading_pairs: Optional[List[str]] = None,
+                 trading_required: bool = True,
+                 domain: Optional[str] = None):
+        ExchangeBase.__init__(self)
+        PerpetualTrading.__init__(self)
+        self._auth: BybitPerpetualAuth = BybitPerpetualAuth(api_key=bybit_perpetual_api_key,
+                                                            secret_key=bybit_perpetual_secret_key)
+        self._trading_pairs = trading_pairs
+        self._trading_required = trading_required
+        self._domain = domain
+        self._shared_client = None
+        self._status_poll_notifier = asyncio.Event()
+        self._funding_fee_poll_notifier = asyncio.Event()
+
+        # Tasks
+        self._funding_info_polling_task = None
+        self._funding_fee_polling_task = None
+        self._user_funding_fee_polling_task = None
+
+    async def _aiohttp_client(self) -> aiohttp.ClientSession:
+        """
+        :returns Shared aiohttp Client session
+        """
+        if self._shared_client is None:
+            self._shared_client = aiohttp.ClientSession()
+        return self._shared_client
+
+    def supported_position_modes(self) -> List[PositionMode]:
+        return [PositionMode.ONEWAY, PositionMode.HEDGE]
+
+    async def start_network(self):
+        if self._trading_required:
+            self._user_funding_fee_polling_task = safe_ensure_future(self._user_funding_fee_polling_loop())
+
+    async def stop_network(self):
+        self._status_poll_notifier = asyncio.Event()
+        self._funding_fee_poll_notifier = asyncio.Event()
+
+        if self._funding_info_polling_task is not None:
+            self._funding_info_polling_task.cancel()
+            self._funding_info_polling_task = None
+        if self._user_funding_fee_polling_task is not None:
+            self._user_funding_fee_polling_task.cancel()
+            self._user_funding_fee_polling_task = None
+
+    def tick(self, timestamp: float):
+        """
+        Called automatically by the run/run_til() functions in the Clock class. Each tick interval is 1 second by default.
+        This function checks if the relevant polling task(s) is dued for execution
+        """
+        now: float = time.time()
+        # poll_interval = (self.SHORT_POLL_INTERVAL
+        #                  if now - self._user_stream_tracker.last_recv_time > 60.0
+        #                  else self.LONG_POLL_INTERVAL)
+        # last_tick = int(self._last_timestamp / poll_interval)
+        # current_tick = int(timestamp / poll_interval)
+        # if current_tick > last_tick:
+        #     if not self._poll_notifier.is_set():
+        #         self._poll_notifier.set()
+
+        if now >= bybit_utils.get_next_funding_timestamp(now) + CONSTANTS.FUNDING_SETTLEMENT_DURATION[1]:
+            if not self._funding_fee_poll_notifier.is_set():
+                self._funding_fee_poll_notifier.set()
+
+    async def _api_request(self,
+                           method: str,
+                           path_url: str,
+                           params: Optional[Dict[str, Any]] = {},
+                           body: Optional[Dict[str, Any]] = {},
+                           is_auth_required: bool = False,
+                           ):
+        """
+        Sends an aiohttp request and waits for a response.
+        :param method: The HTTP method, e.g. get or post
+        :param path_url: The path url or the API end point
+        :param params: The query parameters of the API request
+        :param body: The body parameters of the API request
+        :param is_auth_required: Whether an authentication is required, when True the function will add encrypted
+        signature to the request.
+        :returns A response in json format.
+        """
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self._domain)
+        client = await self._aiohttp_client()
+        try:
+            if method == "GET":
+                if is_auth_required:
+                    params = self._auth.extend_params_with_authentication_info(params=params)
+                response = await client.get(url=url,
+                                            headers=self._auth.get_headers(),
+                                            params=params,
+                                            )
+            elif method == "POST":
+                if is_auth_required:
+                    params = self._auth.extend_params_with_authentication_info(params=body)
+                response = await client.post(url=url,
+                                             headers=self._auth.get_headers(),
+                                             data=ujson.dumps(params)
+                                             )
+            else:
+                raise NotImplementedError(f"{method} HTTP Method not implemented. ")
+
+            parsed_response: Dict[str, Any] = await response.json()
+
+        except Exception as e:
+            self.logger().error(f"Error submitting {path_url} request. Error: {e}",
+                                exc_info=True)
+
+        # Checks HTTP Status and checks if "result" field is in the response.
+        if response.status != 200 or "result" not in parsed_response:
+            self.logger().error(f"Error fetching data from {url}. HTTP status is {response.status}. "
+                                f"Message: {parsed_response} "
+                                f"Params: {params} "
+                                f"Data: {body}")
+            raise Exception(f"Error fetching data from {url}. HTTP status is {response.status}. "
+                            f"Message: {parsed_response} "
+                            f"Params: {params} "
+                            f"Data: {body}")
+        return parsed_response
+
+    async def _fetch_funding_fee(self, trading_pair: str) -> bool:
+        try:
+            ex_trading_pair = bybit_utils.convert_to_exchange_trading_pair(trading_pair)
+            symbol_trading_pair_map: Dict[str, str] = await OrderBookDataSource.trading_pair_symbol_map(self._domain)
+            if ex_trading_pair not in symbol_trading_pair_map:
+                self.logger().error(f"Unable to fetch funding fee for {trading_pair}. Trading pair not supported.")
+                return False
+
+            params = {
+                "symbol": ex_trading_pair
+            }
+            raw_response: Dict[str, Any] = await self._api_request(method="GET",
+                                                                   path_url=CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL,
+                                                                   params=params,
+                                                                   is_auth_required=True)
+            data: Dict[str, Any] = raw_response["result"]
+
+            funding_rate: Decimal = Decimal(str(data["funding_rate"]))
+            position_size: Decimal = Decimal(str(data["size"]))
+            payment: Decimal = funding_rate * position_size
+            action: str = "paid" if payment < s_decimal_0 else "received"
+            if payment != s_decimal_0:
+                self.logger().info(f"Funding payment of {payment} {action} on {trading_pair} market.")
+                self.trigger_event(MarketEvent.FundingPaymentCompleted,
+                                   FundingPaymentCompletedEvent(timestamp=int(data["exec_timestamp"] * 1e3),
+                                                                market=self.name,
+                                                                funding_rate=funding_rate,
+                                                                trading_pair=trading_pair,
+                                                                amount=payment))
+
+            return True
+        except Exception as e:
+            self.logger().error(f"Unexpected error occurred fetching funding fee for {trading_pair}. Error: {e}",
+                                exc_info=True)
+            return False
+
+    async def _user_funding_fee_polling_loop(self):
+        """
+        Retrieve User Funding Fee every Funding Time(every 8hrs). Trigger FundingPaymentCompleted event as required.
+        """
+        while True:
+            try:
+                await self._funding_fee_poll_notifier.wait()
+
+                tasks = []
+                for trading_pair in self._trading_pairs:
+                    tasks.append(
+                        asyncio.create_task(self._fetch_funding_fee(trading_pair))
+                    )
+                # Only when all tasks is successful would the event notifier be resetted
+                responses: List[bool] = await safe_gather(*tasks)
+                if all(responses):
+                    self._funding_fee_poll_notifier = asyncio.Event()
+
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                self.logger().error(f"Unexpected error whilst retrieving funding payments. "
+                                    f"Error: {e} ",
+                                    exc_info=True)
+
+    async def _update_positions(self):
+        """
+        Retrieves all positions using the REST API.
+        """
+        symbol_trading_pair_map: Dict[str, str] = await OrderBookDataSource.trading_pair_symbol_map(self._domain)
+
+        raw_response = await self._api_request(method="GET",
+                                               path_url=CONSTANTS.GET_POSITIONS_PATH_URL,
+                                               is_auth_required=True)
+
+        result: List[Dict[str, Any]] = raw_response["result"]
+
+        for position in result:
+            if not position["is_valid"] or "data" not in position:
+                self.logger().error(f"Received an invalid position entry. Position: {position}")
+                continue
+            data = position["data"]
+            ex_trading_pair = data.get("symbol")
+            hb_trading_pair = symbol_trading_pair_map.get(ex_trading_pair)
+            position_side = PositionSide.LONG if data.get("side") == "buy" else PositionSide.SHORT
+            unrealized_pnl = Decimal(str(data.get("unrealised_pnl")))
+            entry_price = Decimal(str(data.get("entry_price")))
+            amount = Decimal(str(data.get("size")))
+            leverage = Decimal(str(data.get("effective_leverage")))
+            pos_key = self.position_key(hb_trading_pair, position_side)
+            if amount != s_decimal_0:
+                self._account_positions[pos_key] = Position(
+                    trading_pair=hb_trading_pair,
+                    position_side=position_side,
+                    unrealized_pnl=unrealized_pnl,
+                    entry_price=entry_price,
+                    amount=amount,
+                    leverage=leverage,
+                )
+            else:
+                if pos_key in self._account_positions:
+                    del self._account_positions[pos_key]
+
+    async def _status_polling_loop(self):
+        while True:
+            try:
+                await self._status_poll_notifier.wait()
+                await safe_gather(
+                    # self._update_balances(),
+                    self._update_positions()
+                )
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                self.logger().network(f"Unexpected error while fetching account updates. Error: {e}",
+                                      exc_info=True,
+                                      app_warning_msg=f"Could not fetch account updates from {CONSTANTS.EXCHANGE_NAME} Perpetuals. "
+                                      )
+                await asyncio.sleep(0.5)
+            finally:
+                self._status_poll_notifier = asyncio.Event()
+
+    async def _set_leverage(self, trading_pair: str, leverage: int = 1):
+        ex_trading_pair = bybit_utils.convert_to_exchange_trading_pair(trading_pair)
+        symbol_trading_pair_map: Dict[str, str] = await OrderBookDataSource.trading_pair_symbol_map(self._domain)
+        if ex_trading_pair not in symbol_trading_pair_map:
+            self.logger().error(f"Unable to set leverage for {trading_pair}. Trading pair not supported.")
+            return
+        body_params = {
+            "symbol": ex_trading_pair,
+            "leverage": leverage
+        }
+        resp: Dict[str, Any] = await self._api_request(method="POST",
+                                                       path_url=CONSTANTS.SET_LEVERAGE_PATH_URL,
+                                                       body=body_params,
+                                                       is_auth_required=True)
+
+        if resp["ret_msg"] == "ok":
+            self._leverage[trading_pair] = leverage
+            self.logger().info(f"Leverage Successfully set to {leverage} for {trading_pair}.")
+        else:
+            self.logger().error(f"Unable to set leverage for {trading_pair}. Leverage: {leverage}")
+
+    def set_leverage(self, trading_pair: str, leverage: int):
+        safe_ensure_future(self._set_leverage(trading_pair=trading_pair, leverage=leverage))
