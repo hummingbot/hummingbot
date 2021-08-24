@@ -226,3 +226,130 @@ class BybitPerpetualDerivativeUnitTests(unittest.TestCase):
         )
         self.ev_loop.run_until_complete(self.connector_task)
         self.assertTrue(self._is_logged('INFO', f"Leverage Successfully set to {new_leverage} for {self.trading_pair}."))
+
+    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    @patch("hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source.BybitPerpetualAPIOrderBookDataSource.trading_pair_symbol_map", new_callable=AsyncMock)
+    def test_update_positions(self, mock_symbol_map, mock_request):
+        mock_symbol_map.return_value = {
+            self.ex_trading_pair: self.trading_pair
+        }
+
+        self._set_mock_response(mock_request, 200,
+                                {
+                                    "ret_code": 0,
+                                    "ret_msg": "OK",
+                                    "ext_code": "",
+                                    "ext_info": "",
+                                    "result": [
+                                        {
+                                            "is_valid": True,
+                                            "data": {
+                                                "id": 0,
+                                                "position_idx": 0,
+                                                "mode": 0,
+                                                "user_id": 118921,
+                                                "risk_id": 1,
+                                                "symbol": self.trading_pair,
+                                                "side": "Buy",
+                                                "size": 10,
+                                                "position_value": "0.00076448",
+                                                "entry_price": "13080.78694014",
+                                                "is_isolated": False,
+                                                "auto_add_margin": 1,
+                                                "leverage": "100",
+                                                "effective_leverage": "0.01",
+                                                "position_margin": "0.40111704",
+                                                "liq_price": "25",
+                                                "bust_price": "25",
+                                                "occ_closing_fee": "0.0003",
+                                                "occ_funding_fee": "0",
+                                                "take_profit": "0",
+                                                "stop_loss": "0",
+                                                "trailing_stop": "0",
+                                                "position_status": "Normal",
+                                                "deleverage_indicator": 1,
+                                                "oc_calc_data": "{\"blq\":0,\"slq\":0,\"bmp\":0,\"smp\":0,\"fq\":-10,\"bv2c\":0.0115075,\"sv2c\":0.0114925}",
+                                                "order_margin": "0",
+                                                "wallet_balance": "0.40141704",
+                                                "realised_pnl": "-0.00000008",
+                                                "unrealised_pnl": 0.00003797,
+                                                "cum_realised_pnl": "-0.090626",
+                                                "cross_seq": 764786721,
+                                                "position_seq": 581513847,
+                                                "created_at": "2020-08-10T07:04:32Z",
+                                                "updated_at": "2020-11-02T00:00:11.943371457Z",
+                                                "tp_sl_mode": "Partial"
+                                            }
+                                        },
+                                    ],
+                                    "time_now": "1604302124.031104",
+                                    "rate_limit_status": 118,
+                                    "rate_limit_reset_ms": 1604302124020,
+                                    "rate_limit": 120
+                                })
+
+        self.connector_task = self.ev_loop.create_task(
+            self.connector._update_positions()
+        )
+        self.ev_loop.run_until_complete(self.connector_task)
+        self.assertEqual(1, len(self.connector._account_positions))
+
+        self._set_mock_response(mock_request, 200,
+                                {
+                                    "ret_code": 0,
+                                    "ret_msg": "OK",
+                                    "ext_code": "",
+                                    "ext_info": "",
+                                    "result": [
+                                        {
+                                            "is_valid": True,
+                                            "data": {
+                                                "id": 0,
+                                                "position_idx": 0,
+                                                "mode": 0,
+                                                "user_id": 118921,
+                                                "risk_id": 1,
+                                                "symbol": self.trading_pair,
+                                                "side": "Buy",
+                                                "size": 0,
+                                                "position_value": "0.00076448",
+                                                "entry_price": "13080.78694014",
+                                                "is_isolated": False,
+                                                "auto_add_margin": 1,
+                                                "leverage": "100",
+                                                "effective_leverage": "0.01",
+                                                "position_margin": "0.40111704",
+                                                "liq_price": "25",
+                                                "bust_price": "25",
+                                                "occ_closing_fee": "0.0003",
+                                                "occ_funding_fee": "0",
+                                                "take_profit": "0",
+                                                "stop_loss": "0",
+                                                "trailing_stop": "0",
+                                                "position_status": "Normal",
+                                                "deleverage_indicator": 1,
+                                                "oc_calc_data": "{\"blq\":0,\"slq\":0,\"bmp\":0,\"smp\":0,\"fq\":-10,\"bv2c\":0.0115075,\"sv2c\":0.0114925}",
+                                                "order_margin": "0",
+                                                "wallet_balance": "0.40141704",
+                                                "realised_pnl": "-0.00000008",
+                                                "unrealised_pnl": 0.00003797,
+                                                "cum_realised_pnl": "-0.090626",
+                                                "cross_seq": 764786721,
+                                                "position_seq": 581513847,
+                                                "created_at": "2020-08-10T07:04:32Z",
+                                                "updated_at": "2020-11-02T00:00:11.943371457Z",
+                                                "tp_sl_mode": "Partial"
+                                            }
+                                        },
+                                    ],
+                                    "time_now": "1604302130",
+                                    "rate_limit_status": 118,
+                                    "rate_limit_reset_ms": 1604302124030,
+                                    "rate_limit": 120
+                                })
+
+        self.connector_task = self.ev_loop.create_task(
+            self.connector._update_positions()
+        )
+        self.ev_loop.run_until_complete(self.connector_task)
+        self.assertEqual(0, len(self.connector._account_positions))
