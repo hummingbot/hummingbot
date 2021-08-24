@@ -113,8 +113,8 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
     async def _api_request(self,
                            method: str,
                            path_url: str,
-                           params: Optional[Dict[str, Any]] = None,
-                           body: Optional[Dict[str, Any]] = None,
+                           params: Optional[Dict[str, Any]] = {},
+                           body: Optional[Dict[str, Any]] = {},
                            is_auth_required: bool = False,
                            ):
         """
@@ -239,16 +239,17 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         result: List[Dict[str, Any]] = raw_response["result"]
 
         for position in result:
-            if not position["is_valid"]:
+            if not position["is_valid"] or "data" not in position:
                 self.logger().error(f"Received an invalid position entry. Position: {position}")
                 continue
-            ex_trading_pair = position.get("symbol")
+            data = position["data"]
+            ex_trading_pair = data.get("symbol")
             hb_trading_pair = symbol_trading_pair_map.get(ex_trading_pair)
-            position_side = PositionSide.LONG if position.get("side") == "buy" else PositionSide.SHORT
-            unrealized_pnl = Decimal(str(position.get("unrealised_pnl")))
-            entry_price = Decimal(str(position.get("entry_price")))
-            amount = Decimal(str(position.get("size")))
-            leverage = Decimal(str(position.get("effective_leverage")))
+            position_side = PositionSide.LONG if data.get("side") == "buy" else PositionSide.SHORT
+            unrealized_pnl = Decimal(str(data.get("unrealised_pnl")))
+            entry_price = Decimal(str(data.get("entry_price")))
+            amount = Decimal(str(data.get("size")))
+            leverage = Decimal(str(data.get("effective_leverage")))
             pos_key = self.position_key(hb_trading_pair, position_side)
             if amount != s_decimal_0:
                 self._account_positions[pos_key] = Position(
