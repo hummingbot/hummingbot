@@ -23,6 +23,7 @@ from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.core.event.events import (
     FundingInfo,
     FundingPaymentCompletedEvent,
+    MarketEvent,
     PositionMode,
     PositionSide,
 )
@@ -90,20 +91,12 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             self._user_funding_fee_polling_task.cancel()
             self._user_funding_fee_polling_task = None
 
-    def get_next_funding_timestamp(self) -> float:
-        # On ByBit Perpetuals, funding occurs every 8 hours at 00:00UTC, 08:00UTC and 16:00UTC.
-        # Reference: https://help.bybit.com/hc/en-us/articles/360039261134-Funding-fee-calculation
-        int_ts = int(self.current_timestamp)
-        eight_hours = 8 * 60 * 60
-        mod = int_ts % eight_hours
-        return float(int_ts - mod + eight_hours)
-
     def tick(self, timestamp: float):
         """
         Called automatically by the run/run_til() functions in the Clock class. Each tick interval is 1 second by default.
         This function checks if the relevant polling task(s) is dued for execution
         """
-        now = time.time()
+        now: float = time.time()
         # poll_interval = (self.SHORT_POLL_INTERVAL
         #                  if now - self._user_stream_tracker.last_recv_time > 60.0
         #                  else self.LONG_POLL_INTERVAL)
@@ -112,7 +105,8 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         # if current_tick > last_tick:
         #     if not self._poll_notifier.is_set():
         #         self._poll_notifier.set()
-        if now >= self.get_next_funding_timestamp():
+
+        if now >= bybit_utils.get_next_funding_timestamp(now) + CONSTANTS.FUNDING_SETTLEMENT_DURATION[1]:
             if not self._funding_fee_poll_notifier.is_set():
                 self._funding_fee_poll_notifier.set()
 
@@ -205,13 +199,14 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
     async def _fetch_funding_fee(self, trading_pair: str) -> bool:
         try:
-            trading_pair_symbol_map: Dict[str, str] = await OrderBookDataSource.trading_pair_symbol_map(self._domain)
-            if trading_pair not in trading_pair_symbol_map:
+            ex_trading_pair = bybit_utils.convert_to_exchange_trading_pair(trading_pair)
+            symbol_trading_pair_map: Dict[str, str] = await OrderBookDataSource.trading_pair_symbol_map(self._domain)
+            if ex_trading_pair not in symbol_trading_pair_map:
                 self.logger().error(f"Unable to fetch funding fee for {trading_pair}. Trading pair not supported.")
                 return False
 
             params = {
-                "symbol": trading_pair_symbol_map[trading_pair]
+                "symbol": ex_trading_pair
             }
             raw_response: Dict[str, Any] = await self._api_request(method="GET",
                                                                    path_url=CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL,
@@ -225,7 +220,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             action: str = "paid" if payment < s_decimal_0 else "received"
             if payment != s_decimal_0:
                 self.logger().info(f"Funding payment of {payment} {action} on {trading_pair} market.")
-                self.trigger_event(self.MARKET_FUNDING_PAYMENT_COMPLETED_EVENT_TAG,
+                self.trigger_event(MarketEvent.FundingPaymentCompleted,
                                    FundingPaymentCompletedEvent(timestamp=int(data["exec_timestamp"] * 1e3),
                                                                 market=self.name,
                                                                 funding_rate=funding_rate,
@@ -264,11 +259,10 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                     exc_info=True)
 
     async def _update_positions(self):
-        trading_pair_symbol_map: Dict[str, str] = await OrderBookDataSource.trading_pair_symbol_map(self._domain)
-        symbol_trading_pair_map: Dict[str, str] = {
-            symbol: trading_pair
-            for trading_pair, symbol in trading_pair_symbol_map.items()
-        }
+        """
+        Retrieves all positions using the REST API.
+        """
+        symbol_trading_pair_map: Dict[str, str] = await OrderBookDataSource.trading_pair_symbol_map(self._domain)
 
         raw_response = await self._api_request(method="GET",
                                                path_url=CONSTANTS.GET_POSITIONS_PATH_URL,
