@@ -16,7 +16,7 @@ Enter your loopring api key >>>
 Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
 
 !!! tip
-    For copying and pasting into Hummingbot, see [this page](https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys) for more instructions in our Support section.
+    For copying and pasting into Hummingbot, see [this page](/operation/user-interface/#keyboard-shortcuts).
 
 !!! note
     Existing API keys used previously in Loopring v1 API are now invalid. Users must generate new keys from the latest version of the exchange.
@@ -46,7 +46,7 @@ Make sure to keep this information private and do not share it with anyone. Howe
 More information about Loopring Key Management can be found on [this page](https://docs3.loopring.io/en/basics/key_mgmt.html?h=key%20).
 
 !!! warning
-    Currently [dydx](/spot-connectors/dydx/), [terra](/protocol-connectors/terra), and [loopring](/spot-connectors/loopring/) don't work on Binary Installers. It can only be used when running Hummingbot from source or with Docker.
+    Currently [dydx](/connectors/dydx/), [terra](/connectors/terra), and [loopring](/connectors/loopring/) don't work on Binary Installers. It can only be used when running Hummingbot from source or with Docker.
 
 ## Miscellaneous info
 

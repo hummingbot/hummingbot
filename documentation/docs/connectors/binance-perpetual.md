@@ -16,7 +16,7 @@ Enter your Binance Perpetual API secret >>>
 Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
 
 !!! tip
-    For copying and pasting into Hummingbot, see [this page](https://hummingbot.zendesk.com/hc/en-us/articles/900004871203-Copy-and-paste-your-API-keys) for more instructions in our Hummingbot Help Center.
+    For copying and pasting into Hummingbot, see [this page](/operation/user-interface/#keyboard-shortcuts).
 
 ### Creating Binance Futures API keys
 
@@ -29,7 +29,7 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 > **Important:**
 
 - If you don't see **Enable Futures** under your API key permissions, you need to open a Futures account by simply going to **Derivatives** > **USDT features** > **Open account**
-- For API key permissions, we recommend using only **"trade"** enabled API keys for **Enable Futures** checkbox; enabling **"withdraw", "transfer", or the equivalent is unnecessary** for current Hummingbot strategies.
+- For API key permissions, we recommend using only `trade` enabled API keys for `Enable Futures` checkbox; enabling `withdraw`, `transfer`, or `the equivalent is unnecessary` for current Hummingbot strategies.
 - Make sure you store your Secret Key somewhere secure and do not share it with anyone. Your Secret Key will only be displayed once at the time when you create the API.
 - If you lose your Secret Key, you can delete the API and create a new one. However, it will be impossible to reuse the same API.
 
