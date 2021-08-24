@@ -153,7 +153,8 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             self.logger().error(f"Error submitting {path_url} request. Error: {e}",
                                 exc_info=True)
 
-        if response.status != 200:
+        # Checks HTTP Status and checks if "result" field is in the response.
+        if response.status != 200 or "result" not in parsed_response:
             self.logger().error(f"Error fetching data from {url}. HTTP status is {response.status}. "
                                 f"Message: {parsed_response} "
                                 f"Params: {params} "
