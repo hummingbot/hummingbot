@@ -7,7 +7,7 @@ Also, unlike most exchanges, which match buyers and sellers to determine prices 
 Source: https://decrypt.co/resources/what-is-uniswap
 
 !!! warning
-    Currently, [Uniswap](/protocol-connectors/uniswap/) could not be used on Binary Installers since it would need a [gateway](https://docs.hummingbot.io/gateway/installation/#what-is-hummingbot-gateway) connection for it to work. It can only be used when running Hummingbot from source or with Docker.
+    Currently, [Uniswap](/connectors/uniswap/) could not be used on Binary Installers since it would need a [gateway](/installation/gateway) connection for it to work. It can only be used when running Hummingbot from source or with Docker.
 
 ## Prerequisites
 
@@ -32,7 +32,7 @@ When creating Hummingbot Gateway, it picks up the Ethereum settings in the globa
 
 After adding your Ethereum wallet and node in Hummingbot, follow the guide in the link below on how to install Hummingbot Gateway.
 
-- [Hummingbot Gateway Installation](/gateway/installation/)
+- [Hummingbot Gateway Installation](/installation/gateway)
 
 !!! note
-    For setting up gas estimator, you can check our [ETH Gas Station](/gateway/installation/#eth-gas-station) for more info
+    For setting up gas estimator, you can check our [ETH Gas Station](/installation/gateway/#eth-gas-station) for more info

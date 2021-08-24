@@ -2,7 +2,7 @@
 
 ## How it works
 
-Arbitrage is described in [Strategies](overview), with a further discussion in the Hummingbot [white paper](https://hummingbot.io/hummingbot.pdf).
+Arbitrage is described in [Strategies](/strategies/#arbitrage_1), with a further discussion in the Hummingbot [white paper](https://hummingbot.io/hummingbot.pdf).
 
 ### Schematic
 
