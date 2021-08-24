@@ -96,7 +96,7 @@ class BybitPerpetualUserStreamDataSourceTests(TestCase):
         self._add_successful_authentication_response()
         self._add_successful_subscription_response(CONSTANTS.WS_SUBSCRIPTION_POSITIONS_ENDPOINT_NAME)
         self._add_successful_subscription_response(CONSTANTS.WS_SUBSCRIPTION_ORDERS_ENDPOINT_NAME)
-        self._add_successful_subscription_response(CONSTANTS.WS_SUBSCRIPTION_STOP_ORDERS_ENDPOINT_NAME)
+        self._add_successful_subscription_response(CONSTANTS.WS_SUBSCRIPTION_EXECUTIONS_ENDPOINT_NAME)
 
         # Add a dummy message for the websocket to read and include in the "messages" queue
         self.ws_incoming_messages.put_nowait(json.dumps('dummyMessage'))
@@ -111,7 +111,7 @@ class BybitPerpetualUserStreamDataSourceTests(TestCase):
         authentication_request = self.ws_sent_messages[0]
         subscription_postions_request = self.ws_sent_messages[1]
         subscription_orders_request = self.ws_sent_messages[2]
-        subscription_stoporders_request = self.ws_sent_messages[3]
+        subscription_executions_request = self.ws_sent_messages[3]
 
         self.assertEqual(CONSTANTS.WS_AUTHENTICATE_USER_ENDPOINT_NAME,
                          BybitPerpetualWebSocketAdaptor.endpoint_from_message(authentication_request))
@@ -119,8 +119,8 @@ class BybitPerpetualUserStreamDataSourceTests(TestCase):
                          BybitPerpetualWebSocketAdaptor.endpoint_from_message(subscription_postions_request))
         self.assertEqual(CONSTANTS.WS_SUBSCRIPTION_ORDERS_ENDPOINT_NAME,
                          BybitPerpetualWebSocketAdaptor.endpoint_from_message(subscription_orders_request))
-        self.assertEqual(CONSTANTS.WS_SUBSCRIPTION_STOP_ORDERS_ENDPOINT_NAME,
-                         BybitPerpetualWebSocketAdaptor.endpoint_from_message(subscription_stoporders_request))
+        self.assertEqual(CONSTANTS.WS_SUBSCRIPTION_EXECUTIONS_ENDPOINT_NAME,
+                         BybitPerpetualWebSocketAdaptor.endpoint_from_message(subscription_executions_request))
 
         subscription_positions_payload = BybitPerpetualWebSocketAdaptor.payload_from_message(subscription_postions_request)
         expected_payload = {"op": "subscribe",
@@ -132,10 +132,10 @@ class BybitPerpetualUserStreamDataSourceTests(TestCase):
                             "args": ["order"]}
         self.assertEqual(expected_payload, subscription_orders_payload)
 
-        subscription_stoporders_payload = BybitPerpetualWebSocketAdaptor.payload_from_message(subscription_stoporders_request)
+        subscription_executions_payload = BybitPerpetualWebSocketAdaptor.payload_from_message(subscription_executions_request)
         expected_payload = {"op": "subscribe",
-                            "args": ["stop_order"]}
-        self.assertEqual(expected_payload, subscription_stoporders_payload)
+                            "args": ["execution"]}
+        self.assertEqual(expected_payload, subscription_executions_payload)
 
         self.assertGreater(self.data_source.last_recv_time, initial_last_recv_time)
 
@@ -219,12 +219,12 @@ class BybitPerpetualUserStreamDataSourceTests(TestCase):
             asyncio.get_event_loop().run_until_complete(self.listening_task)
 
     @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
-    def test_listening_process_canceled_when_cancel_exception_during_stoporders_subscription(self, ws_connect_mock):
+    def test_listening_process_canceled_when_cancel_exception_during_executions_subscription(self, ws_connect_mock):
         messages = asyncio.Queue()
         ws_connect_mock.return_value = self._create_ws_mock()
         ws_connect_mock.return_value.send_json.side_effect = lambda sent_message: (
             self._raise_exception(asyncio.CancelledError)
-            if CONSTANTS.WS_SUBSCRIPTION_STOP_ORDERS_ENDPOINT_NAME in sent_message["args"]
+            if CONSTANTS.WS_SUBSCRIPTION_EXECUTIONS_ENDPOINT_NAME in sent_message["args"]
             else self.ws_sent_messages.append(sent_message))
 
         with self.assertRaises(asyncio.CancelledError):
@@ -314,12 +314,12 @@ class BybitPerpetualUserStreamDataSourceTests(TestCase):
                                         "Unexpected error with Bybit Perpetual WebSocket connection. Retrying in 30 seconds. ()"))
 
     @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
-    def test_listening_process_logs_exception_during_stop_orders_subscription(self, ws_connect_mock):
+    def test_listening_process_logs_exception_during_executions_subscription(self, ws_connect_mock):
         messages = asyncio.Queue()
         ws_connect_mock.return_value = self._create_ws_mock()
         ws_connect_mock.return_value.send_json.side_effect = lambda sent_message: (
             self._raise_exception(Exception)
-            if CONSTANTS.WS_SUBSCRIPTION_STOP_ORDERS_ENDPOINT_NAME in sent_message["args"]
+            if CONSTANTS.WS_SUBSCRIPTION_EXECUTIONS_ENDPOINT_NAME in sent_message["args"]
             else self.ws_sent_messages.append(sent_message))
         # Make the close function raise an exception to finish the execution
         ws_connect_mock.return_value.close.side_effect = lambda: self._raise_exception(Exception)
