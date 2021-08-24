@@ -1,6 +1,6 @@
 # A single source of truth for constant variables related to the exchange
 
-EXCHANGE_NAME = "bybit"
+EXCHANGE_NAME = "bybit perpetual"
 
 REST_URLS = {"bybit_main": "https://api.bybit.com/",
              "bybit_testnet": "https://api-testnet.bybit.com/"}
@@ -29,4 +29,7 @@ WS_ORDER_BOOK_EVENTS_TOPIC = "orderBook_200.100ms"
 WS_TRADES_TOPIC = "trade"
 WS_INSTRUMENTS_INFO_TOPIC = "instrument_info.100ms"
 
-# WebSocket Message Events
+WS_AUTHENTICATE_USER_ENDPOINT_NAME = "auth"
+WS_SUBSCRIPTION_POSITIONS_ENDPOINT_NAME = "position"
+WS_SUBSCRIPTION_ORDERS_ENDPOINT_NAME = "order"
+WS_SUBSCRIPTION_EXECUTIONS_ENDPOINT_NAME = "execution"
