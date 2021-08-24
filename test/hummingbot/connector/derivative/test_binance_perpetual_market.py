@@ -20,8 +20,8 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.symbol = f"{cls.base_asset}{cls.quote_asset}"
 
-    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
-    def setUp(self, mocked_get) -> None:
+    @patch("hummingbot.connector.exchange.binance.binance_time.BinanceTime.start")
+    def setUp(self, mocked_binance_time_start) -> None:
         super().setUp()
         self.ev_loop = asyncio.get_event_loop()
 
@@ -37,9 +37,6 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
             binance_perpetual_api_secret="testSecret",
             trading_pairs=[self.trading_pair],
         )
-
-        self._set_mock_response(mock_api=mocked_get, status=200, json_data={"serverTime": self.start_timestamp})
-        self.ev_loop.run_until_complete(self._await_all_api_responses_delivered())
 
     async def _get_next_api_response(self):
         message = await self.api_responses.get()
