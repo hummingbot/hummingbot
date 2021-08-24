@@ -1,3 +1,5 @@
+import pandas as pd
+
 from unittest import TestCase
 
 from hummingbot.connector.derivative.bybit_perpetual import bybit_perpetual_constants as CONSTANTS, bybit_perpetual_utils as utils
@@ -28,3 +30,19 @@ class BybitPerpetualUtilsTests(TestCase):
 
         url = utils.wss_url("bybit_testnet")
         self.assertEqual(CONSTANTS.WSS_URLS.get("bybit_testnet"), url)
+
+    def test_get_next_funding_timestamp(self):
+        # Simulate 01:00 UTC
+        timestamp = pd.Timestamp("2021-08-21-01:00:00", tz="UTC").timestamp()
+        expected_ts = pd.Timestamp("2021-08-21-08:00:00", tz="UTC").timestamp()
+        self.assertEqual(expected_ts, utils.get_next_funding_timestamp(timestamp))
+
+        # Simulate 09:00 UTC
+        timestamp = pd.Timestamp("2021-08-21-09:00:00", tz="UTC").timestamp()
+        expected_ts = pd.Timestamp("2021-08-21-16:00:00", tz="UTC").timestamp()
+        self.assertEqual(expected_ts, utils.get_next_funding_timestamp(timestamp))
+
+        # Simulate 17:00 UTC
+        timestamp = pd.Timestamp("2021-08-21-17:00:00", tz="UTC").timestamp()
+        expected_ts = pd.Timestamp("2021-08-22-00:00:00", tz="UTC").timestamp()
+        self.assertEqual(expected_ts, utils.get_next_funding_timestamp(timestamp))
