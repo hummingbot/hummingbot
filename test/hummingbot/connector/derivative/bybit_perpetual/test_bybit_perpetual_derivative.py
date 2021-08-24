@@ -83,7 +83,6 @@ class BybitPerpetualDerivativeUnitTests(unittest.TestCase):
             self.ex_trading_pair: self.trading_pair
         }
 
-        # Test 1: Unsupported trading pair
         self.connector_task = self.ev_loop.create_task(
             self.connector._fetch_funding_fee("UNSUPPORTED-PAIR")
         )
@@ -159,3 +158,71 @@ class BybitPerpetualDerivativeUnitTests(unittest.TestCase):
         result = self.ev_loop.run_until_complete(self.connector_task)
         self.assertTrue(result)
         self.assertTrue(self._is_logged('INFO', "Funding payment of -0.0001 paid on COINALPHA-HBOT market."))
+
+    @patch("hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source.BybitPerpetualAPIOrderBookDataSource.trading_pair_symbol_map", new_callable=AsyncMock)
+    def test_set_leverage_unsupported_trading_pair(self, mock_symbol_map):
+        mock_symbol_map.return_value = {
+            self.ex_trading_pair: self.trading_pair
+        }
+
+        self.connector_task = self.ev_loop.create_task(
+            self.connector._set_leverage("UNSUPPORTED-PAIR")
+        )
+        self.ev_loop.run_until_complete(self.connector_task)
+        self.assertTrue(
+            self._is_logged("ERROR", "Unable to set leverage for UNSUPPORTED-PAIR. Trading pair not supported.")
+        )
+
+    @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
+    @patch("hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source.BybitPerpetualAPIOrderBookDataSource.trading_pair_symbol_map", new_callable=AsyncMock)
+    def test_set_leverage_not_ok(self, mock_symbol_map, mock_request):
+        mock_symbol_map.return_value = {
+            self.ex_trading_pair: self.trading_pair
+        }
+
+        new_leverage: int = 0
+
+        self._set_mock_response(mock_request, 200, {
+            "ret_code": 0,
+            "ret_msg": "",
+            "ext_code": "20031",
+            "result": "",
+            "ext_info": None,
+            "time_now": "1577477968.175013",
+            "rate_limit_status": 74,
+            "rate_limit_reset_ms": 1577477968183,
+            "rate_limit": 75
+        })
+
+        self.connector_task = self.ev_loop.create_task(
+            self.connector._set_leverage(self.trading_pair, new_leverage)
+        )
+        self.ev_loop.run_until_complete(self.connector_task)
+        self.assertTrue(self._is_logged('ERROR', f"Unable to set leverage for {self.trading_pair}. Leverage: {new_leverage}"))
+
+    @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
+    @patch("hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source.BybitPerpetualAPIOrderBookDataSource.trading_pair_symbol_map", new_callable=AsyncMock)
+    def test_set_leverage_ok(self, mock_symbol_map, mock_request):
+        mock_symbol_map.return_value = {
+            self.ex_trading_pair: self.trading_pair
+        }
+
+        new_leverage: int = 2
+
+        self._set_mock_response(mock_request, 200, {
+            "ret_code": 0,
+            "ret_msg": "ok",
+            "ext_code": "",
+            "result": new_leverage,
+            "ext_info": None,
+            "time_now": "1577477968.175013",
+            "rate_limit_status": 74,
+            "rate_limit_reset_ms": 1577477968183,
+            "rate_limit": 75
+        })
+
+        self.connector_task = self.ev_loop.create_task(
+            self.connector._set_leverage(self.trading_pair, new_leverage)
+        )
+        self.ev_loop.run_until_complete(self.connector_task)
+        self.assertTrue(self._is_logged('INFO', f"Leverage Successfully set to {new_leverage} for {self.trading_pair}."))
