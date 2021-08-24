@@ -88,9 +88,9 @@ class BybitPerpetualWebSocketAdaptor:
                                 self._payload_field_name: [f"{CONSTANTS.WS_SUBSCRIPTION_ORDERS_ENDPOINT_NAME}"]}
         await self.send_request(subscription_message)
 
-    async def subscribe_to_stop_orders(self):
+    async def subscribe_to_executions(self):
         subscription_message = {self._operation_field_name: self._subscription_operation,
-                                self._payload_field_name: [f"{CONSTANTS.WS_SUBSCRIPTION_STOP_ORDERS_ENDPOINT_NAME}"]}
+                                self._payload_field_name: [f"{CONSTANTS.WS_SUBSCRIPTION_EXECUTIONS_ENDPOINT_NAME}"]}
         await self.send_request(subscription_message)
 
     async def receive_str(self, *args, **kwars):

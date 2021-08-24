@@ -79,7 +79,7 @@ class BybitPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         try:
             await ws.subscribe_to_positions()
             await ws.subscribe_to_orders()
-            await ws.subscribe_to_stop_orders()
+            await ws.subscribe_to_executions()
         except asyncio.CancelledError:
             raise
         except Exception as ex:
