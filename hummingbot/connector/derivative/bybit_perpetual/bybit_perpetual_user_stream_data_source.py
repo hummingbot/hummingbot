@@ -56,15 +56,13 @@ class BybitPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         """
         Authenticates user to websocket
         """
-        self.logger().info("_authenticate")
         try:
             auth_payload: Dict[str, Any] = self._auth_assistant.get_ws_auth_payload()
             await ws.authenticate(auth_payload)
-            auth_resp = await ws.receive_str()
-            auth_payload: Dict[str, Any] = ws.payload_from_raw_message(auth_resp)
+            auth_resp = await ws.receive_json()
 
-            if auth_payload["success"] is not True or not auth_payload["request"] or not auth_payload["request"]["op"] or auth_payload["request"]["op"] != "auth":
-                self.logger().error(f"Response: {auth_payload}", exc_info=True)
+            if auth_resp["success"] is not True or not auth_resp["request"] or not auth_resp["request"]["op"] or auth_resp["request"]["op"] != "auth":
+                self.logger().error(f"Response: {auth_resp}", exc_info=True)
                 raise Exception("Could not authenticate websocket connection with Bybit Perpetual")
 
         except asyncio.CancelledError:
@@ -82,22 +80,6 @@ class BybitPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
             await ws.subscribe_to_positions()
             await ws.subscribe_to_orders()
             await ws.subscribe_to_stop_orders()
-
-            auth_resp = await ws.receive_str()
-            auth_payload: Dict[str, Any] = ws.payload_from_raw_message(auth_resp)
-            if auth_payload["success"] is not True:
-                raise Exception(auth_payload)
-
-            auth_resp = await ws.receive_str()
-            auth_payload: Dict[str, Any] = ws.payload_from_raw_message(auth_resp)
-            if auth_payload["success"] is not True:
-                raise Exception(auth_payload)
-
-            auth_resp = await ws.receive_str()
-            auth_payload: Dict[str, Any] = ws.payload_from_raw_message(auth_resp)
-            if auth_payload["success"] is not True:
-                raise Exception(auth_payload)
-
         except asyncio.CancelledError:
             raise
         except Exception as ex:
@@ -105,11 +87,10 @@ class BybitPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                                 exc_info=True)
             raise
 
-    async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+    async def listen_for_user_stream(self, output: asyncio.Queue):
         """
         *required
         Subscribe to user stream via web socket, and keep the connection open for incoming messages
-        :param ev_loop: ev_loop to execute this function in
         :param output: an async queue where the incoming messages are stored
         """
         while True:
