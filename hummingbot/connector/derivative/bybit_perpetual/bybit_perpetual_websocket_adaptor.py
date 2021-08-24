@@ -1,5 +1,6 @@
 import aiohttp
 import asyncio
+import ujson
 from typing import AsyncIterable, Dict, Any, Optional, List
 
 import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_constants as CONSTANTS
@@ -9,6 +10,7 @@ class BybitPerpetualWebSocketAdaptor:
 
     _operation_field_name = "op"
     _payload_field_name = "args"
+    _authentication_operation = "auth"
     _subscription_operation = "subscribe"
 
     """
@@ -22,6 +24,27 @@ class BybitPerpetualWebSocketAdaptor:
     def __init__(self, websocket: aiohttp.ClientWebSocketResponse):
         self._websocket = websocket
 
+    @classmethod
+    def endpoint_from_raw_message(cls, raw_message: str) -> str:
+        message = ujson.loads(raw_message)
+        return cls.endpoint_from_message(message=message)
+
+    @classmethod
+    def endpoint_from_message(cls, message: Dict[str, Any]) -> str:
+        if message[cls._operation_field_name] is cls._subscription_operation:
+            return message[cls._payload_field_name][0]
+        else:
+            return message[cls._operation_field_name]
+
+    @classmethod
+    def payload_from_raw_message(cls, raw_message: str) -> Dict[str, Any]:
+        message = ujson.loads(raw_message)
+        return message
+
+    @classmethod
+    def payload_from_message(cls, message: str) -> Dict[str, Any]:
+        return message
+
     async def send_request(self, payload: Dict[str, Any]):
         await self._websocket.send_json(payload)
 
@@ -31,6 +54,11 @@ class BybitPerpetualWebSocketAdaptor:
         else:
             symbol_filter = "*"
         return symbol_filter
+
+    async def authenticate(self, payload: Dict[str, Any]):
+        authentication_message = {self._operation_field_name: self._authentication_operation,
+                                  self._payload_field_name: payload}
+        await self.send_request(authentication_message)
 
     async def subscribe_to_order_book(self, symbols: Optional[List[str]] = None):
         symbol_filter = self._symbols_filter(symbols)
@@ -49,6 +77,24 @@ class BybitPerpetualWebSocketAdaptor:
         subscription_message = {self._operation_field_name: self._subscription_operation,
                                 self._payload_field_name: [f"{CONSTANTS.WS_INSTRUMENTS_INFO_TOPIC}.{symbol_filter}"]}
         await self.send_request(subscription_message)
+
+    async def subscribe_to_positions(self):
+        subscription_message = {self._operation_field_name: self._subscription_operation,
+                                self._payload_field_name: [f"{CONSTANTS.WS_SUBSCRIPTION_POSITIONS_ENDPOINT_NAME}"]}
+        await self.send_request(subscription_message)
+
+    async def subscribe_to_orders(self):
+        subscription_message = {self._operation_field_name: self._subscription_operation,
+                                self._payload_field_name: [f"{CONSTANTS.WS_SUBSCRIPTION_ORDERS_ENDPOINT_NAME}"]}
+        await self.send_request(subscription_message)
+
+    async def subscribe_to_stop_orders(self):
+        subscription_message = {self._operation_field_name: self._subscription_operation,
+                                self._payload_field_name: [f"{CONSTANTS.WS_SUBSCRIPTION_STOP_ORDERS_ENDPOINT_NAME}"]}
+        await self.send_request(subscription_message)
+
+    async def receive_str(self, *args, **kwars):
+        return await self._websocket.receive_str(*args, **kwars)
 
     async def receive_json(self, *args, **kwars):
         return await self._websocket.receive_json(*args, **kwars)
