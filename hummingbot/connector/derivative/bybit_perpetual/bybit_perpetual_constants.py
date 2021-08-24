@@ -20,6 +20,9 @@ SET_LEVERAGE_PATH_URL = "/private/position/leverage/save"
 GET_LAST_FUNDING_RATE_PATH_URL = "/private/funding/prev-funding"
 GET_POSITIONS_PATH_URL = "/private/position/list"
 
+# Funding Settlement Time Span
+FUNDING_SETTLEMENT_DURATION = (5, 5)  # seconds before snapshot, seconds after snapshot
+
 # WebSocket Public Endpoints
 WS_PING_REQUEST = "ping"
 WS_ORDER_BOOK_EVENTS_TOPIC = "orderBook_200.100ms"
