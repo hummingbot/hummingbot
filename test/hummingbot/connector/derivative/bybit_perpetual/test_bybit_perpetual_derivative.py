@@ -186,7 +186,7 @@ class BybitPerpetualDerivativeUnitTests(unittest.TestCase):
             "ret_code": 0,
             "ret_msg": "",
             "ext_code": "20031",
-            "result": "",
+            "result": new_leverage,
             "ext_info": None,
             "time_now": "1577477968.175013",
             "rate_limit_status": 74,
