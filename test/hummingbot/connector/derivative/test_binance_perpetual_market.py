@@ -21,8 +21,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         cls.symbol = f"{cls.base_asset}{cls.quote_asset}"
 
     @patch("hummingbot.connector.exchange.binance.binance_time.BinanceTime.start")
-    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
-    def setUp(self, mocked_get, mocked_binance_time_start) -> None:
+    def setUp(self, mocked_binance_time_start) -> None:
         super().setUp()
         self.ev_loop = asyncio.get_event_loop()
 
