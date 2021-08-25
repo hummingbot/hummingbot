@@ -505,7 +505,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             self.logger().network(
                 f"Failed to cancel order {order_id}: {str(e)}",
                 exc_info=True,
-                app_warning_msg=f"Failed to cancel order {order_id} on NDAX. "
+                app_warning_msg=f"Failed to cancel order {order_id} on Bybit Perpetual. "
                                 f"Check API key and network connection."
             )
 
