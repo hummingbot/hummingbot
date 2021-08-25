@@ -47,12 +47,16 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         self.buy_order_created_logger: EventLogger = EventLogger()
         self.sell_order_created_logger: EventLogger = EventLogger()
+        self.buy_order_completed_logger: EventLogger = EventLogger()
         self.order_cancelled_logger: EventLogger = EventLogger()
         self.order_failure_logger: EventLogger = EventLogger()
+        self.order_filled_logger: EventLogger = EventLogger()
         self.connector.add_listener(MarketEvent.BuyOrderCreated, self.buy_order_created_logger)
         self.connector.add_listener(MarketEvent.SellOrderCreated, self.sell_order_created_logger)
+        self.connector.add_listener(MarketEvent.BuyOrderCompleted, self.buy_order_completed_logger)
         self.connector.add_listener(MarketEvent.OrderCancelled, self.order_cancelled_logger)
         self.connector.add_listener(MarketEvent.OrderFailure, self.order_failure_logger)
+        self.connector.add_listener(MarketEvent.OrderFilled, self.order_filled_logger)
 
     def tearDown(self) -> None:
         self.async_task and self.async_task.cancel()
@@ -1312,6 +1316,252 @@ class BybitPerpetualDerivativeTests(TestCase):
         sell_events = self.sell_order_created_logger.event_log
         self.assertEqual(1, len(sell_events))
         self.assertEqual("O2", sell_events[0].order_id)
+
+    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    def test_update_trade_history_for_not_existent_order_does_not_fail(self, get_mock):
+        self._configure_mock_api(get_mock)
+        self._simulate_trading_rules_initialized()
+
+        order = BybitPerpetualInFlightOrder(
+            client_order_id="O1",
+            exchange_order_id="EO1",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal(44000),
+            amount=Decimal(1),
+            order_type=OrderType.LIMIT,
+            leverage=10,
+            position=PositionAction.OPEN.name)
+        self.connector._in_flight_orders["O1"] = order
+
+        # Trade update for not existent order
+        self.api_responses_status.append(200)
+        self.api_responses_json.put_nowait({
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {
+                "order_id": "Abandoned!!",
+                "trade_list": [
+                    {
+                        "closed_size": 0,
+                        "cross_seq": 277136382,
+                        "exec_fee": "0.0000001",
+                        "exec_id": "256e5ef8-abfe-5772-971b-f944e15e0d68",
+                        "exec_price": "8178.5",
+                        "exec_qty": 1,
+                        "exec_time": "1571676941.70682",
+                        "exec_type": "Trade",
+                        "exec_value": "0.00012227",
+                        "fee_rate": "0.00075",
+                        "last_liquidity_ind": "RemovedLiquidity",
+                        "leaves_qty": 0,
+                        "nth_fill": 2,
+                        "order_id": "7ad50cb1-9ad0-4f74-804b-d82a516e1029",
+                        "order_link_id": "",
+                        "order_price": "8178",
+                        "order_qty": 1,
+                        "order_type": "Market",
+                        "side": "Buy",
+                        "symbol": "BTCUSD",
+                        "user_id": 1,
+                        "trade_time_ms": 1577480599000
+                    }
+                ]
+            },
+            "time_now": "1577483699.281488",
+            "rate_limit_status": 118,
+            "rate_limit_reset_ms": 1577483699244737,
+            "rate_limit": 120
+        })
+
+        asyncio.get_event_loop().run_until_complete(self.connector._update_trade_history())
+
+        self.assertEqual(Decimal(0), order.executed_amount_base)
+        self.assertEqual(Decimal(0), order.executed_amount_quote)
+
+    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    def test_update_trade_history_with_partial_fill_and_complete_fill(self, get_mock):
+        self._configure_mock_api(get_mock)
+        self._simulate_trading_rules_initialized()
+
+        order = BybitPerpetualInFlightOrder(
+            client_order_id="O1",
+            exchange_order_id="EO1",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal(44000),
+            amount=Decimal(1),
+            order_type=OrderType.LIMIT,
+            leverage=10,
+            position=PositionAction.OPEN.name)
+        self.connector._in_flight_orders["O1"] = order
+
+        # First trade, with partial fill
+        self.api_responses_status.append(200)
+        self.api_responses_json.put_nowait({
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {
+                "order_id": "Abandoned!!",
+                "trade_list": [
+                    {
+                        "closed_size": 0,
+                        "cross_seq": 277136382,
+                        "exec_fee": "0.0000001",
+                        "exec_id": "256e5ef8-abfe-5772-971b-f944e15e0d68",
+                        "exec_price": "44000",
+                        "exec_qty": 0.8,
+                        "exec_time": "1571676941.70682",
+                        "exec_type": "Trade",
+                        "exec_value": "35200",
+                        "fee_rate": "0.00075",
+                        "last_liquidity_ind": "RemovedLiquidity",
+                        "leaves_qty": 0.2,
+                        "nth_fill": 2,
+                        "order_id": "EO1",
+                        "order_link_id": "O1",
+                        "order_price": "44000",
+                        "order_qty": 1,
+                        "order_type": "Market",
+                        "side": "Buy",
+                        "symbol": "BTCUSDT",
+                        "user_id": 1,
+                        "trade_time_ms": 1577480599000
+                    }
+                ]
+            },
+            "time_now": "1577483699.281488",
+            "rate_limit_status": 118,
+            "rate_limit_reset_ms": 1577483699244737,
+            "rate_limit": 120
+        })
+
+        asyncio.get_event_loop().run_until_complete(self.connector._update_trade_history())
+        request_url, request_headers, request_data = asyncio.get_event_loop().run_until_complete(
+            self.api_requests_data.get())
+
+        self.assertNotIn("start_time", request_data)
+        self.assertEqual(Decimal("0.8"), order.executed_amount_base)
+        self.assertEqual(Decimal(35200), order.executed_amount_quote)
+        order_filled_events = self.order_filled_logger.event_log
+        self.assertEqual(order.client_order_id, order_filled_events[0].order_id)
+        self.assertEqual(order.trading_pair, order_filled_events[0].trading_pair)
+        self.assertEqual(order.trade_type, order_filled_events[0].trade_type)
+        self.assertEqual(order.order_type, order_filled_events[0].order_type)
+        self.assertEqual(Decimal(44000), order_filled_events[0].price)
+        self.assertEqual(Decimal(0.8), order_filled_events[0].amount)
+        self.assertEqual("256e5ef8-abfe-5772-971b-f944e15e0d68", order_filled_events[0].exchange_trade_id)
+
+        # Second trade, completes the fill
+        self.api_responses_status.append(200)
+        self.api_responses_json.put_nowait({
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {
+                "order_id": "Abandoned!!",
+                "trade_list": [
+                    {
+                        "closed_size": 0,
+                        "cross_seq": 277136382,
+                        "exec_fee": "0.0000001",
+                        "exec_id": "256e5ef8-abfe-5772-971b-f944e15e0d69",
+                        "exec_price": "44000",
+                        "exec_qty": 0.2,
+                        "exec_time": "1571676942.70682",
+                        "exec_type": "Trade",
+                        "exec_value": "7800",
+                        "fee_rate": "0.00075",
+                        "last_liquidity_ind": "RemovedLiquidity",
+                        "leaves_qty": 0,
+                        "nth_fill": 2,
+                        "order_id": "EO1",
+                        "order_link_id": "O1",
+                        "order_price": "44000",
+                        "order_qty": 1,
+                        "order_type": "Market",
+                        "side": "Buy",
+                        "symbol": "BTCUSDT",
+                        "user_id": 1,
+                        "trade_time_ms": 1577480599000
+                    }
+                ]
+            },
+            "time_now": "1577483799.281488",
+            "rate_limit_status": 118,
+            "rate_limit_reset_ms": 1577483699244737,
+            "rate_limit": 120
+        })
+
+        asyncio.get_event_loop().run_until_complete(self.connector._update_trade_history())
+        request_url, request_headers, request_data = asyncio.get_event_loop().run_until_complete(
+            self.api_requests_data.get())
+
+        self.assertEqual(1577483699000, request_data["start_time"])
+        self.assertEqual(Decimal(1), order.executed_amount_base)
+        self.assertEqual(Decimal(44000), order.executed_amount_quote)
+        order_filled_events = self.order_filled_logger.event_log
+        self.assertEqual(order.client_order_id, order_filled_events[1].order_id)
+        self.assertEqual(order.trading_pair, order_filled_events[1].trading_pair)
+        self.assertEqual(order.trade_type, order_filled_events[1].trade_type)
+        self.assertEqual(order.order_type, order_filled_events[1].order_type)
+        self.assertEqual(Decimal(44000), order_filled_events[1].price)
+        self.assertEqual(Decimal(0.2), order_filled_events[1].amount)
+        self.assertEqual("256e5ef8-abfe-5772-971b-f944e15e0d69", order_filled_events[1].exchange_trade_id)
+
+        self.assertTrue(self._is_logged("INFO", "The BUY order O1 has completed according to order status API"))
+        order_completed_events = self.buy_order_completed_logger.event_log
+        self.assertEqual(order.client_order_id, order_completed_events[0].order_id)
+        self.assertEqual(order.base_asset, order_completed_events[0].base_asset)
+        self.assertEqual(order.quote_asset, order_completed_events[0].quote_asset)
+        self.assertEqual(order.quote_asset, order_completed_events[0].fee_asset)
+        self.assertEqual(order.order_type, order_completed_events[0].order_type)
+        self.assertEqual(Decimal(44000), order_completed_events[0].quote_asset_amount)
+        self.assertEqual(Decimal(1), order_completed_events[0].base_asset_amount)
+        self.assertEqual(order.exchange_order_id, order_completed_events[0].exchange_order_id)
+
+    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    def test_update_trade_history_when_api_call_raises_exception(self, get_mock):
+        self._configure_mock_api(get_mock)
+        self._simulate_trading_rules_initialized()
+
+        order = BybitPerpetualInFlightOrder(
+            client_order_id="O1",
+            exchange_order_id="EO1",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal(44000),
+            amount=Decimal(1),
+            order_type=OrderType.LIMIT,
+            leverage=10,
+            position=PositionAction.OPEN.name)
+        self.connector._in_flight_orders["O1"] = order
+
+        self.api_responses_status.append(405)
+        self.api_responses_json.put_nowait({
+            "ret_code": 1001,
+            "ret_msg": "Error",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {},
+            "time_now": "1597171013.867068",
+            "rate_limit_status": 599,
+            "rate_limit_reset_ms": 1597171013861,
+            "rate_limit": 600
+        })
+
+        asyncio.get_event_loop().run_until_complete(self.connector._update_trade_history())
+
+        self.assertTrue(any(record.levelname == "ERROR"
+                            and ("Error fetching trades history. Response: Error fetching data from"
+                                 " https://api-testnet.bybit.com/v2/private/execution/list. HTTP status is 405. Message:")
+                            in record.getMessage()
+                            for record in self.log_records))
 
     def test_supported_position_modes(self):
         expected_result = [PositionMode.ONEWAY, PositionMode.HEDGE]

@@ -241,7 +241,7 @@ class BybitPerpetualUserStreamDataSourceTests(TestCase):
         with self.assertRaises(Exception):
             self.listening_task = asyncio.get_event_loop().create_task(self.data_source._create_websocket_connection())
             asyncio.get_event_loop().run_until_complete(self.listening_task)
-        self.assertTrue(self._is_logged("NETWORK", "Unexpected error occurred during bybit perpetual WebSocket Connection ()"))
+        self.assertTrue(self._is_logged("NETWORK", "Unexpected error occurred during bybit_perpetual WebSocket Connection ()"))
 
     @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
     def test_listening_process_logs_exception_details_during_authentication(self, ws_connect_mock):
@@ -285,7 +285,7 @@ class BybitPerpetualUserStreamDataSourceTests(TestCase):
         except Exception:
             pass
 
-        self.assertTrue(self._is_logged("ERROR", "Error occurred subscribing to bybit perpetual private channels ()"))
+        self.assertTrue(self._is_logged("ERROR", "Error occurred subscribing to bybit_perpetual private channels ()"))
         self.assertTrue(self._is_logged("ERROR",
                                         "Unexpected error with Bybit Perpetual WebSocket connection. Retrying in 30 seconds. ()"))
 
@@ -309,7 +309,7 @@ class BybitPerpetualUserStreamDataSourceTests(TestCase):
         except Exception:
             pass
 
-        self.assertTrue(self._is_logged("ERROR", "Error occurred subscribing to bybit perpetual private channels ()"))
+        self.assertTrue(self._is_logged("ERROR", "Error occurred subscribing to bybit_perpetual private channels ()"))
         self.assertTrue(self._is_logged("ERROR",
                                         "Unexpected error with Bybit Perpetual WebSocket connection. Retrying in 30 seconds. ()"))
 
@@ -333,6 +333,6 @@ class BybitPerpetualUserStreamDataSourceTests(TestCase):
         except Exception:
             pass
 
-        self.assertTrue(self._is_logged("ERROR", "Error occurred subscribing to bybit perpetual private channels ()"))
+        self.assertTrue(self._is_logged("ERROR", "Error occurred subscribing to bybit_perpetual private channels ()"))
         self.assertTrue(self._is_logged("ERROR",
                                         "Unexpected error with Bybit Perpetual WebSocket connection. Retrying in 30 seconds. ()"))

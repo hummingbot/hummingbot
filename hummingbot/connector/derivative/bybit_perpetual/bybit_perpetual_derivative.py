@@ -716,7 +716,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 "limit": 200,
             }
             if self._last_trade_history_timestamp:
-                body_params["start_time"] = int(self._last_trade_history_timestamp * 1e3)
+                body_params["start_time"] = int(int(self._last_trade_history_timestamp) * 1e3)
 
             trade_history_tasks.append(
                 asyncio.create_task(self._api_request(method="GET",
@@ -730,6 +730,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         parsed_history_resps: List[Dict[str, Any]] = []
         for resp in raw_responses:
             if not isinstance(resp, Exception):
+                self._last_trade_history_timestamp = float(resp["time_now"])
                 parsed_history_resps.extend(resp["result"]["trade_list"])
             else:
                 self.logger().error(f"Error fetching trades history. Response: {resp}")
@@ -806,7 +807,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         :param order_msg: The trade event message payload
         """
 
-        client_order_id = str(trade_msg["order_id"])
+        client_order_id = str(trade_msg["order_link_id"])
         if client_order_id in self.in_flight_orders:
             tracked_order = self.in_flight_orders[client_order_id]
             updated = tracked_order.update_with_trade_update(trade_msg)
@@ -821,10 +822,10 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                         tracked_order.trading_pair,
                         tracked_order.trade_type,
                         tracked_order.order_type,
-                        Decimal(trade_msg["order_price"]),
-                        Decimal(trade_msg["order_qty"]),
+                        Decimal(trade_msg["exec_price"]) if "exec_price" in trade_msg else Decimal(trade_msg["price"]),
+                        Decimal(trade_msg["exec_qty"]),
                         TradeFee(percent=Decimal(trade_msg["fee_rate"])),
-                        exchange_trade_id=str(trade_msg["order_id"])
+                        exchange_trade_id=str(trade_msg["exec_id"])
                     )
                 )
                 if (math.isclose(tracked_order.executed_amount_base, tracked_order.amount) or
