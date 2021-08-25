@@ -30,7 +30,6 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
-    FundingInfo,
     FundingPaymentCompletedEvent,
     MarketEvent,
     MarketOrderFailureEvent,
@@ -97,7 +96,6 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._last_trade_history_timestamp = None
 
         # Tasks
-        self._funding_info_polling_task = None
         self._funding_fee_polling_task = None
         self._user_funding_fee_polling_task = None
         self._status_polling_task = None
@@ -187,7 +185,6 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
     async def start_network(self):
         self._order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
-        self._funding_info_polling_task = safe_ensure_future(self._funding_info_polling_loop())
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             # self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
@@ -211,9 +208,6 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         if self._user_stream_event_listener_task is not None:
             self._user_stream_event_listener_task.cancel()
             self._user_stream_event_listener_task = None
-        if self._funding_info_polling_task is not None:
-            self._funding_info_polling_task.cancel()
-            self._funding_info_polling_task = None
         if self._user_funding_fee_polling_task is not None:
             self._user_funding_fee_polling_task.cancel()
             self._user_funding_fee_polling_task = None
@@ -379,7 +373,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
             send_order_results = await self._api_request(
                 method="POST",
-                path_url=CONSTANTS.PLACE_ACTIVE_ORDER_ENDPOINT,
+                path_url=CONSTANTS.PLACE_ACTIVE_ORDER_PATH_URL,
                 body=params,
                 is_auth_required=True
             )
@@ -493,7 +487,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             # The API response simply verifies that the API request have been received by the API servers.
             response = await self._api_request(
                 method="POST",
-                path_url=CONSTANTS.CANCEL_ACTIVE_ORDER_ENDPOINT,
+                path_url=CONSTANTS.CANCEL_ACTIVE_ORDER_PATH_URL,
                 body=body_params,
                 is_auth_required=True
             )
@@ -648,7 +642,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         params = {}
         account_positions: Dict[str, Dict[str, Any]] = await self._api_request(
             method="GET",
-            path_url=CONSTANTS.GET_WALLET_BALANCE_ENDPOINT,
+            path_url=CONSTANTS.GET_WALLET_BALANCE_PATH_URL,
             params=params,
             is_auth_required=True
         )
@@ -684,7 +678,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
             tasks.append(
                 asyncio.create_task(self._api_request(method="GET",
-                                                      path_url=CONSTANTS.QUERY_ACTIVE_ORDER_ENDPOINT,
+                                                      path_url=CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL,
                                                       params=query_params,
                                                       is_auth_required=True,
                                                       )))
@@ -720,7 +714,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
             trade_history_tasks.append(
                 asyncio.create_task(self._api_request(method="GET",
-                                                      path_url=CONSTANTS.USER_TRADE_RECORDS_ENDPOINT,
+                                                      path_url=CONSTANTS.USER_TRADE_RECORDS_PATH_URL,
                                                       params=body_params,
                                                       is_auth_required=True)))
 
@@ -850,40 +844,6 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                                    tracked_order.order_type,
                                                    tracked_order.exchange_order_id))
                     self.stop_tracking_order(tracked_order.client_order_id)
-
-    async def _funding_info_polling_loop(self):
-        """
-        Retrieves funding information periodically. Tends to only update every set interval(i.e. 8hrs).
-        Updates _funding_info variable.
-        """
-        while True:
-            try:
-                # TODO: Confirm the appropriate time interval
-                for trading_pair in self._trading_pairs:
-                    if trading_pair not in OrderBookDataSource._trading_pair_symbol_map:
-                        self.logger().error(f"Trading pair {trading_pair} not supported.")
-                        raise ValueError(f"Trading pair {trading_pair} not supported.")
-                    params = {
-                        "symbol": OrderBookDataSource._trading_pair_symbol_map[trading_pair]
-                    }
-                    resp = await self._api_request(method="GET",
-                                                   path_url=CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT,
-                                                   params=params)
-
-                    self._funding_info[trading_pair] = FundingInfo(
-                        trading_pair=trading_pair,
-                        index_price=Decimal(str(resp["index_price"])),
-                        mark_price=Decimal(str(resp["mark_price"])),
-                        next_funding_utc_timestamp=resp["next_funding_time"],
-                        rate=Decimal(str(resp["funding_rate"]))
-                        # TODO: Confirm whether to use funding_rate or predicted_funding_rate
-                    )
-
-            except asyncio.CancelledError:
-                raise
-            except Exception as e:
-                self.logger().error(f"Unexpected error updating funding info. Error: {e}. Retrying in 10 seconds... ",
-                                    exc_info=True)
 
     async def _fetch_funding_fee(self, trading_pair: str) -> bool:
         try:
