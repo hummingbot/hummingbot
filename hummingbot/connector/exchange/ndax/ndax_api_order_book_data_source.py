@@ -255,8 +255,9 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         "Symbol": convert_to_exchange_trading_pair(trading_pair),
                         "Depth": 200
                     }
-                    await ws_adapter.send_request(endpoint_name=CONSTANTS.WS_ORDER_BOOK_CHANNEL,
-                                                  payload=payload)
+                    async with self._throttler.execute_task(CONSTANTS.WS_ORDER_BOOK_CHANNEL):
+                        await ws_adapter.send_request(endpoint_name=CONSTANTS.WS_ORDER_BOOK_CHANNEL,
+                                                      payload=payload)
                 async for raw_msg in ws_adapter.iter_messages():
                     payload = NdaxWebSocketAdaptor.payload_from_raw_message(raw_msg)
                     msg_event: str = NdaxWebSocketAdaptor.endpoint_from_raw_message(raw_msg)
