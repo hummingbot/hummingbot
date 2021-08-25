@@ -165,9 +165,32 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         return order_book
 
+    async def _get_funding_info_from_exchange(self, trading_pair: str, domain: str) -> FundingInfo:
+        symbol_trading_pair_map = await self.trading_pair_symbol_map(domain)
+        params = {
+            "symbol": symbol_trading_pair_map[bybit_perpetual_utils.convert_to_exchange_trading_pair(trading_pair)]
+        }
+        funding_info = None
+        async with self._session as client:
+            async with client.get(url=CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT, params=params) as response:
+                if response.status == 200:
+                    resp_json = await response.json()
+
+                    symbol_info: Dict[str, Any] = resp_json["result"][0]  # Endpoint returns a List even though 1 entry is returned
+                    funding_info = FundingInfo(trading_pair=trading_pair,
+                                               index_price=Decimal(str(symbol_info["index_price"])),
+                                               mark_price=Decimal(str(symbol_info["mark_price"])),
+                                               next_funding_utc_timestamp=int(pd.Timestamp(symbol_info["next_funding_time"]).timestamp()),
+                                               rate=Decimal(str(symbol_info["predicted_funding_rate"])))  # Note: Absence of _e6 suffix for REST API response
+        return funding_info
+
     async def get_funding_info(self, trading_pair: str) -> FundingInfo:
         async with self._funding_info_async_lock:
-            return self._funding_info[trading_pair]
+            if trading_pair not in self._funding_info:
+                funding_info = await self._get_funding_info_from_exchange(trading_pair, self._domain)
+            else:
+                funding_info = self._funding_info[trading_pair]
+            return funding_info
 
     async def listen_for_subscriptions(self):
         """
