@@ -333,16 +333,14 @@ class BitmartExchange(ExchangeBase):
             raise NotImplementedError
 
         try:
-            parsed_response = await response.json()
+            parsed_response = json.loads(await response.text())
         except Exception as e:
             raise IOError(f"Error parsing data from {url}. Error: {str(e)}")
         if response.status != 200:
-            raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. "
-                          f"Message: {parsed_response}")
+            raise IOError(f"Error calling {url}. HTTP status is {response.status}. "
+                          f"Message: {parsed_response['message']}")
         if int(parsed_response["code"]) != 1000:
             raise IOError(f"{url} API call failed, error message: {parsed_response['message']}")
-        # print(f"REQUEST: {method} {path_url} {params}")
-        # print(f"RESPONSE: {parsed_response}")
         return parsed_response
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal):
