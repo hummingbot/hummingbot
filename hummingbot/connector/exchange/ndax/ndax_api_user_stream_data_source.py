@@ -63,7 +63,8 @@ class NdaxAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
         try:
             auth_payload: Dict[str, Any] = self._auth_assistant.get_ws_auth_payload()
-            await ws.send_request(CONSTANTS.AUTHENTICATE_USER_ENDPOINT_NAME, auth_payload)
+            async with self._throttler.execute_task(CONSTANTS.AUTHENTICATE_USER_ENDPOINT_NAME):
+                await ws.send_request(CONSTANTS.AUTHENTICATE_USER_ENDPOINT_NAME, auth_payload)
             auth_resp = await ws.recv()
             auth_payload: Dict[str, Any] = ws.payload_from_raw_message(auth_resp)
 
@@ -90,7 +91,8 @@ class NdaxAPIUserStreamDataSource(UserStreamTrackerDataSource):
         payload = {"AccountId": self._account_id,
                    "OMSId": self._oms_id}
         try:
-            await ws.send_request(CONSTANTS.SUBSCRIBE_ACCOUNT_EVENTS_ENDPOINT_NAME, payload)
+            async with self._throttler.execute_task(CONSTANTS.SUBSCRIBE_ACCOUNT_EVENTS_ENDPOINT_NAME):
+                await ws.send_request(CONSTANTS.SUBSCRIBE_ACCOUNT_EVENTS_ENDPOINT_NAME, payload)
 
         except asyncio.CancelledError:
             raise

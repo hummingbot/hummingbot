@@ -105,6 +105,7 @@ class NdaxExchange(ExchangeBase):
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
         self._in_flight_orders = {}
+        self._order_futures = {}
         # self._order_not_found_records = {}  # Dict[client_order_id:str, count:int]
         self._trading_rules = {}  # Dict[trading_pair:str, TradingRule]
         self._last_poll_timestamp = 0
@@ -443,6 +444,7 @@ class NdaxExchange(ExchangeBase):
                 data=params,
                 is_auth_required=True
             )
+            del self._order_futures[order_id]
 
             if send_order_results["status"] == "Rejected":
                 raise ValueError(f"Order is rejected by the API. "
@@ -494,13 +496,12 @@ class NdaxExchange(ExchangeBase):
         :returns A new client order id
         """
         order_id: str = ndax_utils.get_new_client_order_id(True, trading_pair)
-        safe_ensure_future(self._create_order(trade_type=TradeType.BUY,
-                                              trading_pair=trading_pair,
-                                              order_id=order_id,
-                                              amount=amount,
-                                              price=price,
-                                              order_type=order_type,
-                                              ))
+        self._order_futures[order_id] = safe_ensure_future(self._create_order(trade_type=TradeType.BUY,
+                                                           trading_pair=trading_pair,
+                                                           order_id=order_id,
+                                                           amount=amount,
+                                                           price=price,
+                                                           order_type=order_type,))
         return order_id
 
     def sell(self, trading_pair: str, amount: Decimal, order_type: OrderType = OrderType.MARKET,
@@ -515,20 +516,18 @@ class NdaxExchange(ExchangeBase):
         :returns A new client order id
         """
         order_id: str = ndax_utils.get_new_client_order_id(False, trading_pair)
-        safe_ensure_future(self._create_order(trade_type=TradeType.SELL,
-                                              trading_pair=trading_pair,
-                                              order_id=order_id,
-                                              amount=amount,
-                                              price=price,
-                                              order_type=order_type,
-                                              ))
+        self._order_futures[order_id] = safe_ensure_future(self._create_order(trade_type=TradeType.SELL,
+                                                                              trading_pair=trading_pair,
+                                                                              order_id=order_id,
+                                                                              amount=amount,
+                                                                              price=price,
+                                                                              order_type=order_type,))
         return order_id
 
     async def _execute_cancel(self, trading_pair: str, order_id: str) -> str:
         """
-        Executes order cancellation process by first calling the CancelOrder endpoint. The API response simply verifies
-        that the API request have been received by the API servers. To determine if an order is successfully cancelled,
-        we either call the GetOrderStatus/GetOpenOrders endpoint or wait for a OrderStateEvent/OrderTradeEvent from the WS.
+        To determine if an order is successfully cancelled, we either call the
+        GetOrderStatus/GetOpenOrders endpoint or wait for a OrderStateEvent/OrderTradeEvent from the WS.
         :param trading_pair: The market (e.g. BTC-CAD) the order is in.
         :param order_id: The client_order_id of the order to be cancelled.
         """
@@ -537,19 +536,10 @@ class NdaxExchange(ExchangeBase):
             if tracked_order is None:
                 raise ValueError(f"Failed to cancel order - {order_id}. Order not being tracked.")
 
-            body_params = {
-                "OMSId": 1,
-                "AccountId": await self.initialized_account_id(),
-                "OrderId": await tracked_order.get_exchange_order_id()
-            }
-
-            # The API response simply verifies that the API request have been received by the API servers.
-            await self._api_request(
-                method="POST",
-                path_url=CONSTANTS.CANCEL_ORDER_PATH_URL,
-                data=body_params,
-                is_auth_required=True
-            )
+            if order_id in self._order_futures:
+                await self._execute_order_future_cancel(tracked_order)
+            else:
+                await self._execute_api_cancel(tracked_order)
 
             return order_id
         except asyncio.CancelledError:
@@ -562,6 +552,31 @@ class NdaxExchange(ExchangeBase):
                 app_warning_msg=f"Failed to cancel order {order_id} on NDAX. "
                                 f"Check API key and network connection."
             )
+
+    async def _execute_order_future_cancel(self, tracked_order: NdaxInFlightOrder):
+        client_order_id = tracked_order.client_order_id
+        self.logger().warning(f"Cancelling rate-limited order creation request for order {client_order_id}.")
+        order_future = self._order_futures.pop(client_order_id)
+        order_future.cancel()
+        self.trigger_event(MarketEvent.OrderCancelled,
+                           OrderCancelledEvent(
+                               self.current_timestamp,
+                               client_order_id))
+        self.stop_tracking_order(client_order_id)
+
+    async def _execute_api_cancel(self, tracked_order: NdaxInFlightOrder):
+        body_params = {
+            "OMSId": 1,
+            "AccountId": await self.initialized_account_id(),
+            "OrderId": await tracked_order.get_exchange_order_id()
+        }
+
+        await self._api_request(
+            method="POST",
+            path_url=CONSTANTS.CANCEL_ORDER_PATH_URL,
+            data=body_params,
+            is_auth_required=True
+        )
 
     def cancel(self, trading_pair: str, order_id: str):
         """
