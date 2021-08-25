@@ -13,6 +13,7 @@ from typing import (
     List,
     Optional,
     Union,
+    Callable,
 )
 
 from hummingbot.connector.exchange.ndax import ndax_constants as CONSTANTS, ndax_utils
@@ -306,7 +307,8 @@ class NdaxExchange(ExchangeBase):
                            params: Optional[Dict[str, Any]] = None,
                            data: Optional[Dict[str, Any]] = None,
                            is_auth_required: bool = False,
-                           limit_id: Optional[str] = None) -> Union[Dict[str, Any], List[Any]]:
+                           limit_id: Optional[str] = None,
+                           on_rate_limit_lock_capture: Optional[Callable] = None) -> Union[Dict[str, Any], List[Any]]:
         """
         Sends an aiohttp request and waits for a response.
         :param method: The HTTP method, e.g. get or post
@@ -316,10 +318,13 @@ class NdaxExchange(ExchangeBase):
         :param is_auth_required: Whether an authentication is required, when True the function will add encrypted
         signature to the request.
         :param limit_id: The id used for the API throttler. If not supplied, the `path_url` is used instead.
+        :param on_rate_limit_lock_capture: A function to call once the throttler lock is captured.
         :returns A response in json format.
         """
         url = ndax_utils.rest_api_url(self._domain) + path_url
         client = await self._http_client()
+
+        on_rate_limit_lock_capture = on_rate_limit_lock_capture or (lambda: None)
 
         try:
             if is_auth_required:
@@ -330,9 +335,11 @@ class NdaxExchange(ExchangeBase):
             limit_id = limit_id or path_url
             if method == "GET":
                 async with self._throttler.execute_task(limit_id):
+                    on_rate_limit_lock_capture()
                     response = await client.get(url, headers=headers, params=params)
             elif method == "POST":
                 async with self._throttler.execute_task(limit_id):
+                    on_rate_limit_lock_capture()
                     response = await client.post(url, headers=headers, data=ujson.dumps(data))
             else:
                 raise NotImplementedError(f"{method} HTTP Method not implemented. ")
@@ -442,9 +449,9 @@ class NdaxExchange(ExchangeBase):
                 method="POST",
                 path_url=CONSTANTS.SEND_ORDER_PATH_URL,
                 data=params,
-                is_auth_required=True
+                is_auth_required=True,
+                on_rate_limit_lock_capture=lambda: self._order_futures.__delitem__(order_id),
             )
-            del self._order_futures[order_id]
 
             if send_order_results["status"] == "Rejected":
                 raise ValueError(f"Order is rejected by the API. "

@@ -1325,10 +1325,9 @@ class NdaxExchangeTests(TestCase):
         ]
 
         self.assertEqual(0, len(self.exchange.in_flight_orders))
+        future = self._simulate_create_order(*order_details)
         with self.assertRaises(asyncio.CancelledError):
-            asyncio.get_event_loop().run_until_complete(
-                self.exchange._create_order(*order_details)
-            )
+            asyncio.get_event_loop().run_until_complete(future)
 
         # InFlightOrder is still 1 since we do not know exactly where did the Cancel occur.
         self.assertEqual(1, len(self.exchange.in_flight_orders))
