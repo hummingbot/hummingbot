@@ -11,7 +11,7 @@ from hummingbot.core.event.events import (
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 
 
-class XataInFlightOrder(InFlightOrderBase):
+class ConveyorInFlightOrder(InFlightOrderBase):
     def __init__(self,
                  client_order_id: str,
                  exchange_order_id: Optional[str],
@@ -41,7 +41,7 @@ class XataInFlightOrder(InFlightOrderBase):
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
-        retval = XataInFlightOrder(
+        retval = ConveyorInFlightOrder(
             client_order_id=data["client_order_id"],
             exchange_order_id=data["exchange_order_id"],
             trading_pair=data["trading_pair"],

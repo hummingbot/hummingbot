@@ -28,7 +28,7 @@ from hummingbot.core.event.events import (
     TradeFee
 )
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.connector.connector.xata.xata_in_flight_order import XataInFlightOrder
+from hummingbot.connector.connector.conveyor.conveyor_in_flight_order import ConveyorInFlightOrder
 from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.utils.ethereum import check_transaction_exceptions, fetch_trading_pairs
@@ -40,9 +40,9 @@ s_decimal_NaN = Decimal("nan")
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 
-class XataConnector(ConnectorBase):
+class ConveyorConnector(ConnectorBase):
     """
-    XataConnector connects with xata gateway APIs and provides pricing, user account tracking and trading
+    ConveyorConnector connects with conveyor gateway APIs and provides pricing, user account tracking and trading
     functionality.
     """
     API_CALL_TIMEOUT = 10.0
@@ -92,7 +92,7 @@ class XataConnector(ConnectorBase):
 
     @property
     def name(self):
-        return "xata"
+        return "conveyor"
 
     @staticmethod
     async def fetch_trading_pairs() -> List[str]:
@@ -111,7 +111,7 @@ class XataConnector(ConnectorBase):
         """
         while True:
             try:
-                resp = await self._api_request("get", "eth/xata/start",
+                resp = await self._api_request("get", "eth/conveyor/start",
                                                {"pairs": json.dumps(self._trading_pairs)})
                 status = bool(str(resp["success"]))
                 if status:
@@ -128,40 +128,41 @@ class XataConnector(ConnectorBase):
 
     async def auto_approve(self):
         """
-        Automatically approves xata contract as a spender for token in trading pairs.
+        Automatically approves conveyor contract as a spender for token in trading pairs.
         It first checks if there are any already approved amount (allowance)
         """
         self.logger().info("Checking for allowances...")
         self._allowances = await self.get_allowances()
         for token, amount in self._allowances.items():
             if amount <= s_decimal_0:
-                amount_approved = await self.approve_xata_spender(token)
+                amount_approved = await self.approve_conveyor_spender(token)
                 if amount_approved > 0:
                     self._allowances[token] = amount_approved
                     await asyncio.sleep(2)
                 else:
                     break
 
-    async def approve_xata_spender(self, token_symbol: str) -> Decimal:
+    async def approve_conveyor_spender(self, token_symbol: str) -> Decimal:
         """
-        Approves xata contract as a spender for a token.
+        Approves conveyor contract as a spender for a token.
         :param token_symbol: token to approve.
         """
         resp = await self._api_request("post",
                                        "eth/approve",
                                        {"token": token_symbol,
+                                        "amount": 10000000,
                                         "connector": self.name})
         amount_approved = Decimal(str(resp["amount"]))
         if amount_approved > 0:
-            self.logger().info(f"Approved Xata spender contract for {token_symbol}.")
+            self.logger().info(f"Approved Conveyor spender contract for {token_symbol}.")
         else:
-            self.logger().info(f"Xata spender contract approval failed on {token_symbol}.")
+            self.logger().info(f"Conveyor spender contract approval failed on {token_symbol}.")
         return amount_approved
 
     async def get_allowances(self) -> Dict[str, Decimal]:
         """
         Retrieves allowances for token in trading_pairs
-        :return: A dictionary of token and its allowance (how much Xata can spend).
+        :return: A dictionary of token and its allowance (how much Conveyor can spend).
         """
         ret_val = {}
         resp = await self._api_request("post", "eth/allowances",
@@ -185,7 +186,7 @@ class XataConnector(ConnectorBase):
             base, quote = trading_pair.split("-")
             side = "buy" if is_buy else "sell"
             resp = await self._api_request("post",
-                                           "eth/xata/price",
+                                           "eth/conveyor/price",
                                            {"base": base,
                                             "quote": quote,
                                             "side": side.upper(),
@@ -213,14 +214,16 @@ class XataConnector(ConnectorBase):
                     "gas_cost": gas_cost,
                     "price": price
                 }
-                exceptions = check_transaction_exceptions(account_standing)
+                # exceptions = check_transaction_exceptions(account_standing)
+                # temporary disable the check, we only need the allowence check 
+                exceptions = []
                 for index in range(len(exceptions)):
                     self.logger().info(f"Warning! [{index+1}/{len(exceptions)}] {side} order - {exceptions[index]}")
 
                 if price is not None and len(exceptions) == 0:
                     # TODO standardize quote price object to include price, fee, token, is fee part of quote.
-                    fee_overrides_config_map["xata_maker_fee_amount"].value = Decimal(str(gas_cost))
-                    fee_overrides_config_map["xata_taker_fee_amount"].value = Decimal(str(gas_cost))
+                    fee_overrides_config_map["conveyor_maker_fee_amount"].value = Decimal(str(gas_cost))
+                    fee_overrides_config_map["conveyor_taker_fee_amount"].value = Decimal(str(gas_cost))
                     return Decimal(str(price))
         except asyncio.CancelledError:
             raise
@@ -298,7 +301,7 @@ class XataConnector(ConnectorBase):
                       "limitPrice": str(price),
                       }
         try:
-            order_result = await self._api_request("post", "eth/xata/trade", api_params)
+            order_result = await self._api_request("post", "eth/conveyor/trade", api_params)
             hash = order_result.get("txHash")
             gas_price = order_result.get("gasPrice")
             gas_limit = order_result.get("gasLimit")
@@ -327,7 +330,7 @@ class XataConnector(ConnectorBase):
         except Exception as e:
             self.stop_tracking_order(order_id)
             self.logger().network(
-                f"Error submitting {trade_type.name} order to Xata for "
+                f"Error submitting {trade_type.name} order to Conveyor for "
                 f"{amount} {trading_pair} "
                 f"{price}.",
                 exc_info=True,
@@ -347,7 +350,7 @@ class XataConnector(ConnectorBase):
         """
         Starts tracking an order by simply adding it into _in_flight_orders dictionary.
         """
-        self._in_flight_orders[order_id] = XataInFlightOrder(
+        self._in_flight_orders[order_id] = ConveyorInFlightOrder(
             client_order_id=order_id,
             exchange_order_id=exchange_order_id,
             trading_pair=trading_pair,
@@ -524,6 +527,12 @@ class XataConnector(ConnectorBase):
         """
         last_tick = self._last_balance_poll_timestamp
         current_tick = self.current_timestamp
+        # if global_config_map.get("paper_trade_enabled").value:
+        #     paper_trade_account_balance = global_config_map.get("paper_trade_account_balance").value
+        #     for asset, balance in paper_trade_account_balance.items():
+        #         self._account_available_balances[asset] = Decimal(str(balance))
+        #         self._account_balances[asset] = Decimal(str(balance))
+
         if not on_interval or (current_tick - last_tick) > self.UPDATE_BALANCE_INTERVAL:
             self._last_balance_poll_timestamp = current_tick
             local_asset_names = set(self._account_balances.keys())
@@ -597,5 +606,5 @@ class XataConnector(ConnectorBase):
         return []
 
     @property
-    def in_flight_orders(self) -> Dict[str, XataInFlightOrder]:
+    def in_flight_orders(self) -> Dict[str, ConveyorInFlightOrder]:
         return self._in_flight_orders
