@@ -3,7 +3,8 @@ from decimal import Decimal
 from typing import (
     Any,
     Dict,
-    Optional, List
+    List,
+    Optional,
 )
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.event.events import (
