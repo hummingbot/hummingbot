@@ -19,8 +19,10 @@ from hummingbot.core.event.events import (
     OrderFilledEvent,
     OrderType,
     TradeType,
+    MarketEvent,
 )
 from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
 class NdaxExchangeTests(TestCase):
@@ -140,6 +142,19 @@ class NdaxExchangeTests(TestCase):
                 min_base_amount_increment=Decimal(str(0.000001)),
             )
         }
+
+    def _simulate_create_order(self,
+                               trade_type: TradeType,
+                               order_id: str,
+                               trading_pair: str,
+                               amount: Decimal,
+                               price: Decimal = Decimal("0"),
+                               order_type: OrderType = OrderType.MARKET):
+        future = safe_ensure_future(
+            self.exchange._create_order(trade_type, order_id, trading_pair, amount, price, order_type)
+        )
+        self.exchange._order_futures[order_id] = future
+        return future
 
     @patch('websockets.connect', new_callable=AsyncMock)
     def test_user_event_queue_error_is_logged(self, ws_connect_mock):
@@ -1179,9 +1194,8 @@ class NdaxExchangeTests(TestCase):
         ]
 
         self.assertEqual(0, len(self.exchange.in_flight_orders))
-        asyncio.get_event_loop().run_until_complete(
-            self.exchange._create_order(*order_details)
-        )
+        future = self._simulate_create_order(*order_details)
+        asyncio.get_event_loop().run_until_complete(future)
 
         self.assertEqual(1, len(self.exchange.in_flight_orders))
         self._is_logged("INFO",
@@ -1225,9 +1239,8 @@ class NdaxExchangeTests(TestCase):
         ]
 
         self.assertEqual(0, len(self.exchange.in_flight_orders))
-        asyncio.get_event_loop().run_until_complete(
-            self.exchange._create_order(*order_details)
-        )
+        future = self._simulate_create_order(*order_details)
+        asyncio.get_event_loop().run_until_complete(future)
 
         self.assertEqual(1, len(self.exchange.in_flight_orders))
         self._is_logged("INFO",
@@ -1594,6 +1607,29 @@ class NdaxExchangeTests(TestCase):
 
         # Order ID is simply a timestamp. The assertion below checks if it is created within 1 sec
         self.assertTrue(order.client_order_id, return_val)
+
+    @patch("hummingbot.connector.exchange.ndax.ndax_exchange.NdaxExchange.trigger_event")
+    def test_cancel_rate_limited_order(self, mocked_trigger_event):
+        order_id = str(1)
+        order_details = [
+            TradeType.BUY,
+            order_id,
+            self.trading_pair,
+            Decimal(1.0),
+            None,
+            OrderType.MARKET,
+        ]
+        self._simulate_create_order(*order_details)
+        self.exchange.start_tracking_order(
+            order_id, None, self.trading_pair, TradeType.BUY, Decimal(10.0), Decimal(1.0), OrderType.LIMIT
+        )
+        asyncio.new_event_loop().run_until_complete(
+            self.exchange._execute_cancel(self.trading_pair, order_id)
+        )
+
+        mocked_trigger_event.assert_called()
+        self.assertEqual(MarketEvent.OrderCancelled, mocked_trigger_event.call_args.args[0])
+        self.assertTrue(order_id not in self.exchange.in_flight_orders)
 
     def test_ready_trading_required_all_ready(self):
         self.exchange._trading_required = True
