@@ -687,8 +687,9 @@ class BybitPerpetualDerivativeTests(TestCase):
             asyncio.get_event_loop().run_until_complete(
                 self.connector._execute_cancel(trading_pair=self.trading_pair, order_id="O1"))
 
+    @patch("hummingbot.client.hummingbot_application.HummingbotApplication")
     @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
-    def test_cancel_all_in_flight_orders(self, post_mock):
+    def test_cancel_all_in_flight_orders(self, post_mock, app_mock):
         self._configure_mock_api(post_mock)
 
         self._simulate_trading_rules_initialized()
