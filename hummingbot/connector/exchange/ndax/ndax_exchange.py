@@ -731,7 +731,7 @@ class NdaxExchange(ExchangeBase):
 
     def start_tracking_order(self,
                              order_id: str,
-                             exchange_order_id: str,
+                             exchange_order_id: Optional[str],
                              trading_pair: str,
                              trade_type: TradeType,
                              price: Decimal,
