@@ -87,7 +87,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._auth: BybitPerpetualAuth = BybitPerpetualAuth(api_key=bybit_perpetual_api_key,
                                                             secret_key=bybit_perpetual_secret_key)
         self._order_book_tracker = BybitPerpetualOrderBookTracker(
-            session=asyncio.get_event_loop().run_until_complete(self._aiohttp_client()),
+            session=self._aiohttp_client(),
             trading_pairs=trading_pairs,
             domain=domain)
         # self._user_stream_tracker = BybitPerpetualUserStreamTracker(self._auth, domain=domain)
@@ -172,7 +172,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             for client_oid, order_json in saved_states.items()
         })
 
-    async def _aiohttp_client(self) -> aiohttp.ClientSession:
+    def _aiohttp_client(self) -> aiohttp.ClientSession:
         """
         :returns Shared aiohttp Client session
         """
@@ -239,7 +239,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         signature to the request.
         :returns A response in json format.
         """
-        client = await self._aiohttp_client()
+        client = self._aiohttp_client()
 
         if method == "GET":
             if is_auth_required:
