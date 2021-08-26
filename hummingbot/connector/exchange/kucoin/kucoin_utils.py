@@ -14,6 +14,7 @@ DEFAULT_FEES = [0.1, 0.1]
 # Certain asset tokens is different from its name as per displayed on Kucoin Exchange
 ASSET_TO_NAME_MAPPING = {  # token: name
     "WAX": "WAXP",
+    "BCHSV": "BSV",
 }
 
 NAME_TO_ASSET_MAPPING = {  # name: token

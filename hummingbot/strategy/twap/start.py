@@ -1,8 +1,13 @@
+from datetime import datetime
+import math
 from typing import (
     List,
     Tuple,
 )
 
+from hummingbot.strategy.conditional_execution_state import (
+    RunAlwaysExecutionState,
+    RunInTimeSpanExecutionState)
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.twap import (
     TwapTradeStrategy
@@ -15,7 +20,7 @@ def start(self):
         order_step_size = twap_config_map.get("order_step_size").value
         trade_side = twap_config_map.get("trade_side").value
         target_asset_amount = twap_config_map.get("target_asset_amount").value
-        order_delay_time = twap_config_map.get("order_delay_time").value
+        is_time_span_execution = twap_config_map.get("is_time_span_execution").value
         exchange = twap_config_map.get("connector").value.lower()
         raw_market_trading_pair = twap_config_map.get("trading_pair").value
         order_price = twap_config_map.get("order_price").value
@@ -38,12 +43,26 @@ def start(self):
 
         is_buy = trade_side == "buy"
 
+        if is_time_span_execution:
+            start_datetime_string = twap_config_map.get("start_datetime").value
+            end_datetime_string = twap_config_map.get("end_datetime").value
+            start_time = datetime.fromisoformat(start_datetime_string)
+            end_time = datetime.fromisoformat(end_datetime_string)
+            orders_number = math.ceil(target_asset_amount / order_step_size)
+
+            order_delay_time = math.floor((end_time - start_time).seconds / orders_number)
+            execution_state = RunInTimeSpanExecutionState(start_timestamp=start_time, end_timestamp=end_time)
+        else:
+            order_delay_time = twap_config_map.get("order_delay_time").value
+            execution_state = RunAlwaysExecutionState()
+
         self.strategy = TwapTradeStrategy(market_infos=[MarketTradingPairTuple(*maker_data)],
                                           is_buy=is_buy,
                                           target_asset_amount=target_asset_amount,
                                           order_step_size=order_step_size,
                                           order_price=order_price,
                                           order_delay_time=order_delay_time,
+                                          execution_state=execution_state,
                                           cancel_order_wait_time=cancel_order_wait_time)
     except Exception as e:
         self._notify(str(e))

@@ -37,9 +37,10 @@ from .data_types import (
 )
 from .perpetual_market_making_order_tracker import PerpetualMarketMakingOrderTracker
 
-from .asset_price_delegate cimport AssetPriceDelegate
-from .asset_price_delegate import AssetPriceDelegate
-from .order_book_asset_price_delegate cimport OrderBookAssetPriceDelegate
+from hummingbot.strategy.asset_price_delegate cimport AssetPriceDelegate
+from hummingbot.strategy.asset_price_delegate import AssetPriceDelegate
+from hummingbot.strategy.order_book_asset_price_delegate cimport OrderBookAssetPriceDelegate
+from hummingbot.core.utils import map_df_to_str
 
 
 NaN = float("nan")
@@ -64,49 +65,48 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
             pmm_logger = logging.getLogger(__name__)
         return pmm_logger
 
-    def __init__(self,
-                 market_info: MarketTradingPairTuple,
-                 leverage: int,
-                 position_mode: str,
-                 bid_spread: Decimal,
-                 ask_spread: Decimal,
-                 order_amount: Decimal,
-                 position_management: str,
-                 long_profit_taking_spread: Decimal,
-                 short_profit_taking_spread: Decimal,
-                 ts_activation_spread: Decimal,
-                 ts_callback_rate: Decimal,
-                 stop_loss_spread: Decimal,
-                 close_position_order_type: str,
-                 order_levels: int = 1,
-                 order_level_spread: Decimal = s_decimal_zero,
-                 order_level_amount: Decimal = s_decimal_zero,
-                 order_refresh_time: float = 30.0,
-                 order_refresh_tolerance_pct: Decimal = s_decimal_neg_one,
-                 filled_order_delay: float = 60.0,
-                 hanging_orders_enabled: bool = False,
-                 hanging_orders_cancel_pct: Decimal = Decimal("0.1"),
-                 order_optimization_enabled: bool = False,
-                 ask_order_optimization_depth: Decimal = s_decimal_zero,
-                 bid_order_optimization_depth: Decimal = s_decimal_zero,
-                 add_transaction_costs_to_orders: bool = False,
-                 asset_price_delegate: AssetPriceDelegate = None,
-                 price_type: str = "mid_price",
-                 take_if_crossed: bool = False,
-                 price_ceiling: Decimal = s_decimal_neg_one,
-                 price_floor: Decimal = s_decimal_neg_one,
-                 ping_pong_enabled: bool = False,
-                 logging_options: int = OPTION_LOG_ALL,
-                 status_report_interval: float = 900,
-                 minimum_spread: Decimal = Decimal(0),
-                 hb_app_notification: bool = False,
-                 order_override: Dict[str, List[str]] = {},
-                 ):
+    def init_params(self,
+                    market_info: MarketTradingPairTuple,
+                    leverage: int,
+                    position_mode: str,
+                    bid_spread: Decimal,
+                    ask_spread: Decimal,
+                    order_amount: Decimal,
+                    position_management: str,
+                    long_profit_taking_spread: Decimal,
+                    short_profit_taking_spread: Decimal,
+                    ts_activation_spread: Decimal,
+                    ts_callback_rate: Decimal,
+                    stop_loss_spread: Decimal,
+                    close_position_order_type: str,
+                    order_levels: int = 1,
+                    order_level_spread: Decimal = s_decimal_zero,
+                    order_level_amount: Decimal = s_decimal_zero,
+                    order_refresh_time: float = 30.0,
+                    order_refresh_tolerance_pct: Decimal = s_decimal_neg_one,
+                    filled_order_delay: float = 60.0,
+                    hanging_orders_enabled: bool = False,
+                    hanging_orders_cancel_pct: Decimal = Decimal("0.1"),
+                    order_optimization_enabled: bool = False,
+                    ask_order_optimization_depth: Decimal = s_decimal_zero,
+                    bid_order_optimization_depth: Decimal = s_decimal_zero,
+                    add_transaction_costs_to_orders: bool = False,
+                    asset_price_delegate: AssetPriceDelegate = None,
+                    price_type: str = "mid_price",
+                    take_if_crossed: bool = False,
+                    price_ceiling: Decimal = s_decimal_neg_one,
+                    price_floor: Decimal = s_decimal_neg_one,
+                    ping_pong_enabled: bool = False,
+                    logging_options: int = OPTION_LOG_ALL,
+                    status_report_interval: float = 900,
+                    minimum_spread: Decimal = Decimal(0),
+                    hb_app_notification: bool = False,
+                    order_override: Dict[str, List[str]] = {},
+                    ):
 
         if price_ceiling != s_decimal_neg_one and price_ceiling < price_floor:
             raise ValueError("Parameter price_ceiling cannot be lower than price_floor.")
 
-        super().__init__()
         self._sb_order_tracker = PerpetualMarketMakingOrderTracker()
         self._market_info = market_info
         self._leverage = leverage
@@ -362,7 +362,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
 
     @property
     def active_positions(self) -> List[LimitOrder]:
-        return self._market_info.market._account_positions
+        return self._market_info.market.account_positions
 
     @property
     def active_buys(self) -> List[LimitOrder]:
@@ -392,10 +392,6 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
     @asset_price_delegate.setter
     def asset_price_delegate(self, value):
         self._asset_price_delegate = value
-
-    @property
-    def order_tracker(self):
-        return self._sb_order_tracker
 
     def perpetual_mm_assets_df(self, to_show_current_pct: bool) -> pd.DataFrame:
         market, trading_pair, base_asset, quote_asset = self._market_info
@@ -502,7 +498,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
         markets_df = self.market_status_data_frame([self._market_info])
         lines.extend(["", "  Markets:"] + ["    " + line for line in markets_df.to_string(index=False).split("\n")])
 
-        assets_df = self.perpetual_mm_assets_df(False)
+        assets_df = map_df_to_str(self.perpetual_mm_assets_df(False))
 
         first_col_length = max(*assets_df[0].apply(len))
         df_lines = assets_df.to_string(index=False, header=False,
@@ -615,7 +611,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
         if self._position_management == "Profit_taking":
             self._close_order_type = OrderType.LIMIT
             proposals = self.c_profit_taking_feature(mode, session_positions)
-        else:
+        else:  # trailing stop
             self._close_order_type = self._close_position_order_type
             proposals = self.c_trailing_stop_feature(mode, session_positions)
         if proposals is not None:
@@ -632,8 +628,8 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
             ExchangeBase market = self._market_info.market
             list active_orders = self.active_orders
             list unwanted_exit_orders = [o for o in active_orders if o.client_order_id not in self._exit_orders]
-            ask_price = market.get_price(self.trading_pair, False)
-            bid_price = market.get_price(self.trading_pair, True)
+            ask_price = market.get_price(self.trading_pair, True)
+            bid_price = market.get_price(self.trading_pair, False)
             list buys = []
             list sells = []
 
@@ -658,8 +654,15 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
                 take_profit_price = position.entry_price * (Decimal("1") + profit_spread) if position.amount > 0 \
                     else position.entry_price * (Decimal("1") - profit_spread)
                 price = market.c_quantize_order_price(self.trading_pair, take_profit_price)
-                old_exit_orders = [o for o in active_orders if (o.price != price and position.amount < 0 and o.client_order_id in self._exit_orders and o.is_buy)
-                                   or (o.price != price and position.amount > 0 and o.client_order_id in self._exit_orders and not o.is_buy)]
+                size = market.c_quantize_order_amount(self.trading_pair, position.amount)
+                old_exit_orders =[
+                    o for o in active_orders
+                    if (
+                        (o.price != price or o.quantity != size)
+                        and o.client_order_id in self._exit_orders
+                        and ((position.amount < 0 and o.is_buy) or (position.amount > 0 and not o.is_buy))
+                    )
+                ]
                 for old_order in old_exit_orders:
                     self.c_cancel_order(self._market_info, old_order.client_order_id)
                     self.logger().info(f"Initiated cancellation of previous take profit order {old_order.client_order_id} in favour of new take profit order.")
@@ -689,7 +692,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
         if mode == PositionMode.ONEWAY:
             # in one-way mode, only one active position is expected per time
             if len(active_positions) > 1:
-                self.logger().info(f"Kindly ensure you do not interract with the exchange through other platforms and restart this strategy.")
+                self.logger().info(f"Kindly ensure you do not interact with the exchange through other platforms and restart this strategy.")
             else:
                 # Cancel open order that could potentially close position and affect trailing stop functionality
                 unwanted_exit_orders = [o for o in active_orders if o.client_order_id not in self._exit_orders]
@@ -1268,5 +1271,7 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
             return PriceType.LastTrade
         elif price_type_str == 'last_own_trade_price':
             return PriceType.LastOwnTrade
+        elif price_type_str == "custom":
+            return PriceType.Custom
         else:
             raise ValueError(f"Unrecognized price type string {price_type_str}.")

@@ -7,7 +7,6 @@ from hummingbot import data_path
 import os.path
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.strategy.hanging_orders_tracker import HangingOrdersAggregationType
 from hummingbot.strategy.avellaneda_market_making import (
     AvellanedaMarketMakingStrategy,
 )
@@ -31,11 +30,7 @@ def start(self):
         order_levels = c_map.get("order_levels").value
         order_override = c_map.get("order_override").value
         hanging_orders_enabled = c_map.get("hanging_orders_enabled").value
-        if hanging_orders_enabled:
-            hanging_orders_aggregation_type = getattr(HangingOrdersAggregationType,
-                                                      c_map.get("hanging_orders_aggregation_type").value.upper())
-        else:
-            hanging_orders_aggregation_type = HangingOrdersAggregationType.NO_AGGREGATION
+
         hanging_orders_cancel_pct = c_map.get("hanging_orders_cancel_pct").value / Decimal('100')
         add_transaction_costs_to_orders = c_map.get("add_transaction_costs").value
 
@@ -68,7 +63,8 @@ def start(self):
                                       HummingbotApplication.main_application().strategy_file_name.rsplit('.', 1)[0] +
                                       f"_{pd.Timestamp.now().strftime('%Y-%m-%d_%H-%M-%S')}.csv")
 
-        self.strategy = AvellanedaMarketMakingStrategy(
+        self.strategy = AvellanedaMarketMakingStrategy()
+        self.strategy.init_params(
             market_info=MarketTradingPairTuple(*maker_data),
             order_amount=order_amount,
             order_optimization_enabled=order_optimization_enabled,
@@ -80,7 +76,6 @@ def start(self):
             order_levels=order_levels,
             order_override=order_override,
             hanging_orders_enabled=hanging_orders_enabled,
-            hanging_orders_aggregation_type=hanging_orders_aggregation_type,
             hanging_orders_cancel_pct=hanging_orders_cancel_pct,
             add_transaction_costs_to_orders=add_transaction_costs_to_orders,
             logging_options=strategy_logging_options,
