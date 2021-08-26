@@ -66,7 +66,7 @@ Fetches order book snapshot for a particular trading pair from the exchange REST
 ### `get_new_order_book`
 
 Create a new `OrderBook` instance and populate its `bids` and `asks` by applying the order_book snapshot to the order book.
-This might involve calling `convert_snapshot_message_to_order_book_row()` from the utils script file to parse the raw API repsonse from the exchange.
+This might involve calling `convert_snapshot_message_to_order_book_row()` from the utils script file to parse the raw API response from the exchange.
 
 **Input Parameter:** trading_pair: `str` <br/>
 **Expected Output(s):** `OrderBook`

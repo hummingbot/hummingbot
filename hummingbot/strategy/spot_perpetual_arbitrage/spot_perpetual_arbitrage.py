@@ -128,7 +128,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
     @property
     def deriv_position(self) -> List[Position]:
         return [s for s in self._derivative_market_info.market.account_positions.values() if
-                s.trading_pair == self._derivative_market_info.trading_pair]
+                s.trading_pair == self._derivative_market_info.trading_pair and s.amount != s_decimal_zero]
 
     def tick(self, timestamp: float):
         """
