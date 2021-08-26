@@ -89,10 +89,11 @@ class UniswapV3Connector(UniswapConnector):
                 for key, value in saved_states["orders"].items()
             })
         if saved_states.get("positions", False):
-            self._in_flight_positions.update({
-                key: UniswapV3InFlightPosition.from_json(value)
-                for key, value in saved_states["positions"].items()
-            })
+            for key, value in saved_states["positions"].items():
+                self._in_flight_positions.update({
+                    key: UniswapV3InFlightPosition.from_json(value)
+                })
+                self.logger().info(f"Position with id: {value.token_id} restored.")
 
     @property
     def tracking_states(self) -> Dict[str, any]:
@@ -300,16 +301,27 @@ class UniswapV3Connector(UniswapConnector):
                 if not isinstance(update_result, Exception) and len(update_result.get("position", {})) > 0:
                     tracked_item.lower_price = Decimal(update_result["position"].get("lowerPrice", "0"))
                     tracked_item.upper_price = Decimal(update_result["position"].get("upperPrice", "0"))
-                    if tracked_item.trading_pair.split("-")[0] == update_result["position"]["token0"]:
-                        tracked_item.current_base_amount = Decimal(update_result["position"].get("amount0", "0"))
-                        tracked_item.current_quote_amount = Decimal(update_result["position"].get("amount1", "0"))
-                        tracked_item.unclaimed_base_amount = Decimal(update_result["position"].get("unclaimedToken0", "0"))
-                        tracked_item.unclaimed_quote_amount = Decimal(update_result["position"].get("unclaimedToken1", "0"))
+                    amount0 = Decimal(update_result["position"].get("amount0", "0"))
+                    amount1 = Decimal(update_result["position"].get("amount1", "0"))
+                    unclaimedToken0 = Decimal(update_result["position"].get("unclaimedToken0", "0"))
+                    unclaimedToken1 = Decimal(update_result["position"].get("unclaimedToken1", "0"))
+                    if amount0 == amount1 == unclaimedToken0 == unclaimedToken1 == s_decimal_0:
+                        self.logger().info(f"Position with id: {tracked_item.token_id} closed")
+                        self.trigger_event(MarketEvent.RangePositionRemoved,
+                                           RangePositionRemovedEvent(self.current_timestamp, tracked_item.hb_id,
+                                                                     tracked_item.token_id))
+                        self.stop_tracking_position(tracked_item.hb_id)
                     else:
-                        tracked_item.current_base_amount = Decimal(update_result["position"].get("amount1", "0"))
-                        tracked_item.current_quote_amount = Decimal(update_result["position"].get("amount0", "0"))
-                        tracked_item.unclaimed_base_amount = Decimal(update_result["position"].get("unclaimedToken1", "0"))
-                        tracked_item.unclaimed_quote_amount = Decimal(update_result["position"].get("unclaimedToken0", "0"))
+                        if tracked_item.trading_pair.split("-")[0] == update_result["position"]["token0"]:
+                            tracked_item.current_base_amount = amount0
+                            tracked_item.current_quote_amount = amount1
+                            tracked_item.unclaimed_base_amount = unclaimedToken0
+                            tracked_item.unclaimed_quote_amount = unclaimedToken1
+                        else:
+                            tracked_item.current_base_amount = amount1
+                            tracked_item.current_quote_amount = amount0
+                            tracked_item.unclaimed_base_amount = unclaimedToken1
+                            tracked_item.unclaimed_quote_amount = unclaimedToken0
 
     def add_position(self,
                      trading_pair: str,
