@@ -8,6 +8,7 @@ import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_constants
 
 class BybitPerpetualWebSocketAdaptor:
 
+    _topic_field_name = "topic"
     _operation_field_name = "op"
     _payload_field_name = "args"
     _authentication_operation = "auth"
@@ -31,10 +32,13 @@ class BybitPerpetualWebSocketAdaptor:
 
     @classmethod
     def endpoint_from_message(cls, message: Dict[str, Any]) -> str:
-        if message[cls._operation_field_name] is cls._subscription_operation:
-            return message[cls._payload_field_name][0]
-        else:
-            return message[cls._operation_field_name]
+        if cls._operation_field_name in message.keys():
+            if message[cls._operation_field_name] is cls._subscription_operation:
+                return message[cls._payload_field_name][0]
+            else:
+                return message[cls._operation_field_name]
+        if cls._topic_field_name in message.keys():
+            return message[cls._topic_field_name]
 
     @classmethod
     def payload_from_raw_message(cls, raw_message: str) -> Dict[str, Any]:
@@ -43,7 +47,7 @@ class BybitPerpetualWebSocketAdaptor:
 
     @classmethod
     def payload_from_message(cls, message: str) -> Dict[str, Any]:
-        return message
+        return message["data"]
 
     async def send_request(self, payload: Dict[str, Any]):
         await self._websocket.send_json(payload)
