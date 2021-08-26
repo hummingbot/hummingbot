@@ -1215,7 +1215,8 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         self.assertTrue(any(record.levelname == "ERROR"
                             and ("Error fetching order status. Response: Error fetching data from"
-                                 " https://api-testnet.bybit.com/v2/private/order. HTTP status is 405. Message:")
+                                 " https://api-testnet.bybit.com/private/linear/order/search. "
+                                 "HTTP status is 405. Message:")
                             in record.getMessage()
                             for record in self.log_records))
 
@@ -1560,7 +1561,8 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         self.assertTrue(any(record.levelname == "ERROR"
                             and ("Error fetching trades history. Response: Error fetching data from"
-                                 " https://api-testnet.bybit.com/v2/private/execution/list. HTTP status is 405. Message:")
+                                 " https://api-testnet.bybit.com/private/linear/trade/execution/list. "
+                                 "HTTP status is 405. Message:")
                             in record.getMessage()
                             for record in self.log_records))
 

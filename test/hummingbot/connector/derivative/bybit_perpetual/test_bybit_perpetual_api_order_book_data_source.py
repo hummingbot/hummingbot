@@ -887,7 +887,8 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
         self.assertTrue(self._is_logged("ERROR",
                                         "Unexpected error occurred listening for orderbook snapshots."
                                         f" Retrying in 5 secs. (Error fetching OrderBook for {self.trading_pair} "
-                                        f"at {CONSTANTS.ORDER_BOOK_ENDPOINT}. HTTP 405. Response: {dict()})"))
+                                        "at https://api.bybit.com/v2/public/orderBook/L2. "
+                                        f"HTTP 405. Response: {dict()})"))
 
     def test_listen_for_snapshots_raises_cancel_exceptions(self):
         trades_queue = asyncio.Queue()

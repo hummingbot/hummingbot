@@ -10,20 +10,41 @@ WSS_URLS = {"bybit_perpetual_main": "wss://stream.bybit.com/realtime",
 REST_API_VERSION = "v2"
 
 # REST API Public Endpoints
-LATEST_SYMBOL_INFORMATION_ENDPOINT = "/public/tickers"
-QUERY_SYMBOL_ENDPOINT = "/public/symbols"
-ORDER_BOOK_ENDPOINT = "/public/orderBook/L2"
+LATEST_SYMBOL_INFORMATION_ENDPOINT = {
+    "linear": f"{REST_API_VERSION}/public/tickers",
+    "non_linear": f"{REST_API_VERSION}/public/tickers"}
+QUERY_SYMBOL_ENDPOINT = {
+    "linear": f"{REST_API_VERSION}/public/symbols",
+    "non_linear": f"{REST_API_VERSION}/public/symbols"}
+ORDER_BOOK_ENDPOINT = {
+    "linear": f"{REST_API_VERSION}/public/orderBook/L2",
+    "non_linear": f"{REST_API_VERSION}/public/orderBook/L2"}
 
 # REST API Private Endpoints
-GET_FUNDING_FEE_PATH_URL = "/private/linear/funding/prev-funding"
-SET_LEVERAGE_PATH_URL = "/private/position/leverage/save"
-GET_LAST_FUNDING_RATE_PATH_URL = "/private/funding/prev-funding"
-GET_POSITIONS_PATH_URL = "/private/position/list"
-PLACE_ACTIVE_ORDER_PATH_URL = "/private/order/create"
-CANCEL_ACTIVE_ORDER_PATH_URL = "/private/order/cancel"
-QUERY_ACTIVE_ORDER_PATH_URL = "/private/order"
-USER_TRADE_RECORDS_PATH_URL = "/private/execution/list"
-GET_WALLET_BALANCE_PATH_URL = "/private/wallet/balance"
+SET_LEVERAGE_PATH_URL = {
+    "linear": "private/linear/position/set-leverage",
+    "non_linear": f"{REST_API_VERSION}/private/position/leverage/save"}
+GET_LAST_FUNDING_RATE_PATH_URL = {
+    "linear": "private/linear/funding/prev-funding",
+    "non_linear": f"{REST_API_VERSION}/private/funding/prev-funding"}
+GET_POSITIONS_PATH_URL = {
+    "linear": "private/linear/position/list",
+    "non_linear": f"{REST_API_VERSION}/private/position/list"}
+PLACE_ACTIVE_ORDER_PATH_URL = {
+    "linear": "private/linear/order/create",
+    "non_linear": f"{REST_API_VERSION}/private/order/create"}
+CANCEL_ACTIVE_ORDER_PATH_URL = {
+    "linear": "private/linear/order/cancel",
+    "non_linear": f"{REST_API_VERSION}/private/order/cancel"}
+QUERY_ACTIVE_ORDER_PATH_URL = {
+    "linear": "private/linear/order/search",
+    "non_linear": f"{REST_API_VERSION}/private/order"}
+USER_TRADE_RECORDS_PATH_URL = {
+    "linear": "private/linear/trade/execution/list",
+    "non_linear": f"{REST_API_VERSION}/private/execution/list"}
+GET_WALLET_BALANCE_PATH_URL = {
+    "linear": f"{REST_API_VERSION}/private/wallet/balance",
+    "non_linear": f"{REST_API_VERSION}/private/wallet/balance"}
 
 # Funding Settlement Time Span
 FUNDING_SETTLEMENT_DURATION = (5, 5)  # seconds before snapshot, seconds after snapshot
