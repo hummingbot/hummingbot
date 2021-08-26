@@ -17,7 +17,7 @@ Ensure you have setup the Ethereum wallet and nodes, for more details:
 
 ### Setup gateway
 
-You need to setup the [Gateway](/gateway/installation) to use this strategy.
+You need to setup the [Gateway](/installation/gateway/) to use this strategy.
 
 ## Uniswap v3 LP Strategy iteration 1 behaviour
 
