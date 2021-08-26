@@ -1,6 +1,6 @@
 # Overview
 
-If you have installed Hummingbot succesfully, you should see a welcome screen like the one below:
+If you have installed Hummingbot successfully, you should see a welcome screen like the one below:
 ![](/assets/img/welcome.png)
 
 Hummingbot features a command-line interface (CLI) that helps you building and run trading bots without coding skills.

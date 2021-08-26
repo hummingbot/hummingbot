@@ -35,7 +35,7 @@ What is your default display token symbol? (e.g. $, €)
 !!! tip Changing oracle sources
     If you happen to `start` the bot and produce the error `Oracle rate is not available`, or ff the `rate_oracle_source` fails to show any price reference on your pair, you may change the `oracle_source` by running `config rate_oracle_source` and switch between Binance or Coingecko.
 
-![](/img/oracle-error.png)
+![](/assets/img/oracle-error.png)
 
 ## How it works
 
@@ -47,13 +47,13 @@ Refer to the example below:
 
 Change the default setting in `conf_global.yml` to GBP (Great Britain Pound). The conversion will show up when you run `balance` command.
 
-![](/img/rate-oracle-global-config.png)
+![](/assets/img/rate-oracle-global-config.png)
 
-![](/img/rate-oracle-balance.png)
+![](/assets/img/rate-oracle-balance.png)
 
 The conversion also shows up during the `status` command for the `liquidity_mining` strategy. Under the `Miner` section.
 
-![](/img/oracle-status.png)
+![](/assets/img/oracle-status.png)
 
 The conversion shows up when using the `pnl` command.
 
@@ -61,8 +61,8 @@ The conversion shows up when using the `pnl` command.
 
 The conversion also shows up when running the `trades` command.
 
-![](/img/oracle-trades.png)
+![](/assets/img/oracle-trades.png)
 
 The conversion also works with the `open_orders` command.
 
-![](/img/oracle-open-orders.png)
+![](/assets/img/oracle-open-orders.png)
