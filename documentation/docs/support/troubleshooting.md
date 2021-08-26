@@ -51,7 +51,7 @@ If you use `zshrc` or another shell other than `bash`, see install dependencies 
 
 ### Docker: Package 'docker.io' has no installation candidate
 
-![Hummingbot installed](/img/package-docker-io.png)
+![Hummingbot installed](/assets/img/package-docker-io.png)
 
 Install Docker using get.docker.com script as an alternative. Install curl tool then download and run get.docker.com script.
 
@@ -179,7 +179,7 @@ This error occurs when Kraken account currently has no funds on the exchange. Fu
 
 ### Error after running generate_certs command
 
-![Hummingbot installed](/img/running-logs.png)
+![Hummingbot installed](/assets/img/running-log.png)
 
 Add permission to the cert folder or to your hummingbot instance folder: `sudo chmod a+rw <[instance_folder]` or `[certs_folder]>/\*`
 
