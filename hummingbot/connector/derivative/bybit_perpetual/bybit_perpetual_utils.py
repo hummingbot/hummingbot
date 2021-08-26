@@ -11,7 +11,7 @@ EXAMPLE_PAIR = "BTC-USD"
 
 # Bybit fees: https://help.bybit.com/hc/en-us/articles/360039261154
 # Fees have to be expressed as percent value
-DEFAULT_FEES = [0, 0.075]
+DEFAULT_FEES = [-0.025, 0.075]
 
 
 # USE_ETHEREUM_WALLET not required because default value is false
@@ -70,8 +70,8 @@ KEYS = {
 
 OTHER_DOMAINS = ["bybit_perpetual_testnet"]
 OTHER_DOMAINS_PARAMETER = {"bybit_perpetual_testnet": "bybit_perpetual_testnet"}
-OTHER_DOMAINS_EXAMPLE_PAIR = {"bybit_perpetual_testnet": "BTC-USD"}
-OTHER_DOMAINS_DEFAULT_FEES = {"bybit_perpetual_testnet": [0, 0.1]}
+OTHER_DOMAINS_EXAMPLE_PAIR = {"bybit_perpetual_testnet": "BTC-USDT"}
+OTHER_DOMAINS_DEFAULT_FEES = {"bybit_perpetual_testnet": [-0.025, 0.075]}
 OTHER_DOMAINS_KEYS = {
     "bybit_perpetual_testnet": {
         "bybit_perpetual_testnet_api_key":

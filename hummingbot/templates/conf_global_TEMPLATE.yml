@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 23
+template_version: 24
 
 # Exchange configs
 bamboo_relay_use_coordinator: false
@@ -117,12 +117,6 @@ ndax_testnet_uid: null
 ndax_testnet_account_name: null
 ndax_testnet_api_key: null
 ndax_testnet_secret_key: null
-
-# bybit_api_key: null
-# bybit_secret_key: null
-
-# bybit_testnet_api_key: null
-# bybit_testnet_secret_key: null
 
 bybit_perpetual_api_key: null
 bybit_perpetual_secret_key: null
