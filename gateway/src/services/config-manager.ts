@@ -49,7 +49,7 @@ export namespace ConfigManager {
     );
   }
 
-  export const configFilePath: string = './src/gateway-config.yml';
+  export const configFilePath: string = './conf/gateway-config.yml';
   export let config: Config;
   reloadConfig();
 
