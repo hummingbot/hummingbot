@@ -812,7 +812,7 @@ class BybitPerpetualDerivativeTests(TestCase):
     def test_fee_estimation(self):
         fee = self.connector.get_fee(base_currency="BCT", quote_currency="USDT", order_type=OrderType.LIMIT,
                                      order_side=TradeType.BUY, amount=Decimal(1), price=Decimal(45000))
-        self.assertEqual(Decimal("0"), fee.percent)
+        self.assertEqual(Decimal("-0.00025"), fee.percent)
 
         fee = self.connector.get_fee(base_currency="BCT", quote_currency="USDT", order_type=OrderType.MARKET,
                                      order_side=TradeType.BUY, amount=Decimal(1), price=Decimal(45000))
