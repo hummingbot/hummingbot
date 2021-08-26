@@ -2,7 +2,9 @@ import { ConfigManager } from './config-manager';
 import winston from 'winston';
 import DailyRotateFile from 'winston-daily-rotate-file';
 import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
 import appRoot from 'app-root-path';
+dayjs.extend(utc);
 
 export const getLocalDate = () => {
   const gmtOffset = ConfigManager.config.GMT_OFFSET;
