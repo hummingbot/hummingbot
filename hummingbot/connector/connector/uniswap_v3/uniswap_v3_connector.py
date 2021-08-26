@@ -306,7 +306,7 @@ class UniswapV3Connector(UniswapConnector):
                     unclaimedToken0 = Decimal(update_result["position"].get("unclaimedToken0", "0"))
                     unclaimedToken1 = Decimal(update_result["position"].get("unclaimedToken1", "0"))
                     if amount0 == amount1 == unclaimedToken0 == unclaimedToken1 == s_decimal_0:
-                        self.logger().info(f"Position with id: {tracked_item.token_id} closed")
+                        self.logger().info(f"Detected that position with id: {tracked_item.token_id} is closed.")
                         self.trigger_event(MarketEvent.RangePositionRemoved,
                                            RangePositionRemovedEvent(self.current_timestamp, tracked_item.hb_id,
                                                                      tracked_item.token_id))
