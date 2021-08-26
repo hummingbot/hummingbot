@@ -95,3 +95,6 @@ ndax_taker_fee:
 
 ndax_testnet_maker_fee:
 ndax_testnet_taker_fee:
+
+bybit_perpetual_maker_fee:
+bybit_perpetual_taker_fee:

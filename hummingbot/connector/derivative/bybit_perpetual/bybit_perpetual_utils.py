@@ -56,13 +56,13 @@ def get_next_funding_timestamp(current_timestamp: float) -> float:
 KEYS = {
     "bybit_perpetual_api_key":
         ConfigVar(key="bybit_perpetual_api_key",
-                  prompt="Enter your Bybit API key >>> ",
+                  prompt="Enter your Bybit Perpetual API key >>> ",
                   required_if=using_exchange("bybit_perpetual"),
                   is_secure=True,
                   is_connect_key=True),
     "bybit_perpetual_secret_key":
         ConfigVar(key="bybit_perpetual_secret_key",
-                  prompt="Enter your Bybit secret key >>> ",
+                  prompt="Enter your Bybit Perpetual secret key >>> ",
                   required_if=using_exchange("bybit_perpetual"),
                   is_secure=True,
                   is_connect_key=True),
@@ -70,19 +70,19 @@ KEYS = {
 
 OTHER_DOMAINS = ["bybit_perpetual_testnet"]
 OTHER_DOMAINS_PARAMETER = {"bybit_perpetual_testnet": "bybit_perpetual_testnet"}
-OTHER_DOMAINS_EXAMPLE_PAIR = {"bybit_perpetual_testnet": "BTC-USDT"}
-OTHER_DOMAINS_DEFAULT_FEES = {"bybit_perpetual_testnet": [0, 0.075]}
+OTHER_DOMAINS_EXAMPLE_PAIR = {"bybit_perpetual_testnet": "BTC-USD"}
+OTHER_DOMAINS_DEFAULT_FEES = {"bybit_perpetual_testnet": [0, 0.1]}
 OTHER_DOMAINS_KEYS = {
     "bybit_perpetual_testnet": {
         "bybit_perpetual_testnet_api_key":
             ConfigVar(key="bybit_perpetual_testnet_api_key",
-                      prompt="Enter your Bybit API key >>> ",
+                      prompt="Enter your Bybit Perpetual Testnet API key >>> ",
                       required_if=using_exchange("bybit_perpetual_testnet"),
                       is_secure=True,
                       is_connect_key=True),
         "bybit_perpetual_testnet_secret_key":
-            ConfigVar(key="bybit_testnet_secret_key",
-                      prompt="Enter your Bybit secret key >>> ",
+            ConfigVar(key="bybit_perpetual_testnet_secret_key",
+                      prompt="Enter your Bybit Perpetual Testnet secret key >>> ",
                       required_if=using_exchange("bybit_perpetual_testnet"),
                       is_secure=True,
                       is_connect_key=True),
