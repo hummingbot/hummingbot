@@ -11,7 +11,8 @@ from typing import (
     Optional, Any,
 )
 
-from hummingbot.connector.derivative.bybit_perpetual import bybit_perpetual_constants as CONSTANTS, bybit_perpetual_utils
+from hummingbot.connector.derivative.bybit_perpetual import bybit_perpetual_constants as CONSTANTS, \
+    bybit_perpetual_utils
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_order_book import BybitPerpetualOrderBook
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_websocket_adaptor import BybitPerpetualWebSocketAdaptor
 from hummingbot.core.data_type.funding_info import FundingInfo
@@ -39,18 +40,24 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         super().__init__(trading_pairs)
         self._domain = domain
         self._trading_pairs: List[str] = trading_pairs
-        self._session = session or aiohttp.ClientSession()
         self._messages_queues: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
+        self._session = session
         self._funding_info: Dict[str, FundingInfo] = {}
 
         self._funding_info_async_lock: asyncio.Lock = asyncio.Lock()
+
+    async def _get_session(self):
+        if not self._session:
+            self._session = aiohttp.ClientSession()
+        return self._session
 
     async def _create_websocket_connection(self) -> BybitPerpetualWebSocketAdaptor:
         """
         Initialize WebSocket client for UserStreamDataSource
         """
         try:
-            ws = await self._session.ws_connect(bybit_perpetual_utils.wss_url(self._domain))
+            session = await self._get_session()
+            ws = await session.ws_connect(bybit_perpetual_utils.wss_url(self._domain))
             return BybitPerpetualWebSocketAdaptor(websocket=ws)
         except asyncio.CancelledError:
             raise
@@ -65,7 +72,9 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         cls._trading_pair_symbol_map[domain] = {}
 
-        endpoint_url = bybit_perpetual_utils.rest_api_url_for_endpoint(CONSTANTS.QUERY_SYMBOL_ENDPOINT, domain)
+        endpoint_url = bybit_perpetual_utils.rest_api_url_for_endpoint(
+            endpoint=CONSTANTS.QUERY_SYMBOL_ENDPOINT,
+            domain=domain)
 
         async with aiohttp.ClientSession() as client:
             async with client.get(endpoint_url, params={}) as response:
@@ -101,7 +110,9 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def _get_last_traded_prices_from_exchange(cls, trading_pairs, domain):
         result = {}
         trading_pair_symbol_map = await cls.trading_pair_symbol_map(domain=domain)
-        endpoint_url = bybit_perpetual_utils.rest_api_url_for_endpoint(CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT, domain)
+        endpoint_url = bybit_perpetual_utils.rest_api_url_for_endpoint(
+            CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT,
+            domain)
         async with aiohttp.ClientSession() as client:
             async with client.get(endpoint_url) as response:
                 if response.status == 200:
@@ -133,12 +144,15 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         params = {"symbol": symbol}
 
-        url = bybit_perpetual_utils.rest_api_url_for_endpoint(endpoint=CONSTANTS.ORDER_BOOK_ENDPOINT, domain=self._domain)
-        async with self._session.get(url, params=params) as response:
+        url = bybit_perpetual_utils.rest_api_url_for_endpoint(
+            endpoint=CONSTANTS.ORDER_BOOK_ENDPOINT,
+            domain=self._domain)
+        session = await self._get_session()
+        async with session.get(url, params=params) as response:
             status = response.status
             if status != 200:
                 raise IOError(
-                    f"Error fetching OrderBook for {trading_pair} at {CONSTANTS.ORDER_BOOK_ENDPOINT}. "
+                    f"Error fetching OrderBook for {trading_pair} at {url}. "
                     f"HTTP {status}. Response: {await response.json()}"
                 )
 
@@ -178,8 +192,13 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
             "symbol": symbol
         }
         funding_info = None
-        async with self._session as client:
-            async with client.get(url=CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT, params=params) as response:
+        url = bybit_perpetual_utils.rest_api_url_for_endpoint(
+            endpoint=CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT,
+            domain=self._domain,
+            trading_pair=trading_pair)
+        session = await self._get_session()
+        async with session as client:
+            async with client.get(url=url, params=params) as response:
                 if response.status == 200:
                     resp_json = await response.json()
 

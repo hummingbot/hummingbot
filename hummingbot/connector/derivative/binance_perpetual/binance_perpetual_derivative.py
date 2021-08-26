@@ -324,7 +324,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             price: object = s_decimal_NaN, **kwargs) -> str:
 
         t_pair: str = trading_pair
-        order_id: str = get_client_order_id("sell", t_pair)
+        order_id: str = get_client_order_id("buy", t_pair)
         safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, kwargs["position_action"], price))
         return order_id
 
