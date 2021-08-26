@@ -81,12 +81,7 @@ export class Ethereum extends EthereumBase {
     decimals: number
   ): Promise<TokenValue> {
     // instantiate a contract and pass in provider for read-only access
-    let contract;
-    if (tokenAddress === MKR_ADDRESS) {
-      contract = new Contract(tokenAddress, abi.MKRAbi, this.provider);
-    } else {
-      contract = new Contract(tokenAddress, abi.ERC20Abi, this.provider);
-    }
+    const contract = this.getContract(tokenAddress);
 
     try {
       logger.info(
@@ -114,12 +109,8 @@ export class Ethereum extends EthereumBase {
     decimals: number
   ): Promise<TokenValue> {
     // instantiate a contract and pass in provider for read-only access
-    let contract;
-    if (tokenAddress === MKR_ADDRESS) {
-      contract = new Contract(tokenAddress, abi.MKRAbi, this.provider);
-    } else {
-      contract = new Contract(tokenAddress, abi.ERC20Abi, this.provider);
-    }
+    const contract = this.getContract(tokenAddress);
+
     try {
       logger.info(
         'Requesting spender ' +
@@ -138,6 +129,12 @@ export class Ethereum extends EthereumBase {
     }
   }
 
+  getContract(tokenAddress: string) {
+    return tokenAddress === MKR_ADDRESS
+      ? new Contract(tokenAddress, abi.MKRAbi, this.provider)
+      : new Contract(tokenAddress, abi.ERC20Abi, this.provider);
+  }
+
   // override approveERC20
   async approveERC20(
     wallet: Wallet,
@@ -147,12 +144,7 @@ export class Ethereum extends EthereumBase {
   ): Promise<boolean> {
     try {
       // instantiate a contract and pass in wallet, which act on behalf of that signer
-      let contract;
-      if (tokenAddress === MKR_ADDRESS) {
-        contract = new Contract(tokenAddress, abi.MKRAbi, wallet);
-      } else {
-        contract = new Contract(tokenAddress, abi.ERC20Abi, wallet);
-      }
+      const contract = this.getContract(tokenAddress);
 
       logger.info(
         'Calling approve method called for spender ' +
@@ -177,16 +169,8 @@ export class Ethereum extends EthereumBase {
   }
 
   getTokenBySymbol(tokenSymbol: string): Token | undefined {
-    const symbol = tokenSymbol.toUpperCase();
-
-    let tokenContractAddress = undefined;
-    for (var i = 0; i < this.tokenList.length; i++) {
-      const token: Token = this.tokenList[i];
-      if (token.symbol === symbol) {
-        tokenContractAddress = token;
-        break;
-      }
-    }
-    return tokenContractAddress;
+    return this.tokenList.find(
+      (token: Token) => token.symbol === tokenSymbol.toUpperCase()
+    );
   }
 }
