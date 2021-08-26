@@ -64,44 +64,29 @@ export class Uniswap {
     tokenInAmount: BigNumber
   ): Promise<ExpectedTrade | string> {
     const tokenIn = this.tokenList[tokenInAddress];
-    if (tokenIn) {
-      const tokenOut = this.tokenList[tokenOutAddress];
-      if (tokenOut) {
-        const tokenInAmount_ = new TokenAmount(
-          tokenIn,
-          tokenInAmount.toString()
-        );
-
-        logger.info(
-          `Fetching pair data for ${tokenIn.address}-${tokenOut.address}.`
-        );
-        const pair = await Fetcher.fetchPairData(tokenIn, tokenOut);
-        const trades = Trade.bestTradeExactIn(
-          [pair],
-          tokenInAmount_,
-          tokenOut,
-          {
-            maxHops: 1,
-          }
-        );
-
-        if (trades.length > 0) {
-          logger.info(
-            `Best trade for ${tokenIn.address}-${tokenOut.address}: ${trades[0]}`
-          );
-          const expectedAmount = trades[0].minimumAmountOut(
-            ConfigManager.config.UNISWAP_ALLOWED_SLIPPAGE
-          );
-          return { trade: trades[0], expectedAmount };
-        } else {
-          return `priceSwapIn: no trade pair found for ${tokenInAddress} to ${tokenOutAddress}.`;
-        }
-      } else {
-        return `priceSwapIn: tokenOutAddress ${tokenOutAddress} not found in tokenList.`;
-      }
-    } else {
+    if (!tokenIn)
       return `priceSwapIn: tokenInAddress ${tokenInAddress} not found in tokenList.`;
-    }
+    const tokenOut = this.tokenList[tokenOutAddress];
+    if (!tokenOut)
+      return `priceSwapIn: tokenOutAddress ${tokenOutAddress} not found in tokenList.`;
+
+    const tokenInAmount_ = new TokenAmount(tokenIn, tokenInAmount.toString());
+    logger.info(
+      `Fetching pair data for ${tokenIn.address}-${tokenOut.address}.`
+    );
+    const pair = await Fetcher.fetchPairData(tokenIn, tokenOut);
+    const trades = Trade.bestTradeExactIn([pair], tokenInAmount_, tokenOut, {
+      maxHops: 1,
+    });
+    if (!trades || trades.length === 0)
+      return `priceSwapIn: no trade pair found for ${tokenInAddress} to ${tokenOutAddress}.`;
+    logger.info(
+      `Best trade for ${tokenIn.address}-${tokenOut.address}: ${trades[0]}`
+    );
+    const expectedAmount = trades[0].minimumAmountOut(
+      ConfigManager.config.UNISWAP_ALLOWED_SLIPPAGE
+    );
+    return { trade: trades[0], expectedAmount };
   }
 
   async priceSwapOut(
@@ -110,43 +95,32 @@ export class Uniswap {
     tokenOutAmount: BigNumber
   ): Promise<ExpectedTrade | string> {
     const tokenIn = this.tokenList[tokenInAddress];
-    if (tokenIn) {
-      const tokenOut = this.tokenList[tokenOutAddress];
-      if (tokenOut) {
-        const tokenOutAmount_ = new TokenAmount(
-          tokenOut,
-          tokenOutAmount.toString()
-        );
-
-        logger.info(
-          `Fetching pair data for ${tokenIn.address}-${tokenOut.address}.`
-        );
-        const pair = await Fetcher.fetchPairData(tokenIn, tokenOut);
-        const trades = Trade.bestTradeExactOut(
-          [pair],
-          tokenIn,
-          tokenOutAmount_,
-          {
-            maxHops: 1,
-          }
-        );
-        if (trades.length > 0) {
-          logger.info(
-            `Best trade for ${tokenIn.address}-${tokenOut.address}: ${trades[0]}`
-          );
-          const expectedAmount = trades[0].maximumAmountIn(
-            ConfigManager.config.UNISWAP_ALLOWED_SLIPPAGE
-          );
-          return { trade: trades[0], expectedAmount };
-        } else {
-          return `priceSwapOut: no trade pair found for ${tokenInAddress} to ${tokenOutAddress}.`;
-        }
-      } else {
-        return `priceSwapOut: tokenOutAddress ${tokenOutAddress} not found in tokenList.`;
-      }
-    } else {
+    if (!tokenIn)
       return `priceSwapOut: tokenInAddress ${tokenInAddress} not found in tokenList.`;
-    }
+    const tokenOut = this.tokenList[tokenOutAddress];
+    if (!tokenOut)
+      return `priceSwapOut: tokenOutAddress ${tokenOutAddress} not found in tokenList.`;
+    const tokenOutAmount_ = new TokenAmount(
+      tokenOut,
+      tokenOutAmount.toString()
+    );
+
+    logger.info(
+      `Fetching pair data for ${tokenIn.address}-${tokenOut.address}.`
+    );
+    const pair = await Fetcher.fetchPairData(tokenIn, tokenOut);
+    const trades = Trade.bestTradeExactOut([pair], tokenIn, tokenOutAmount_, {
+      maxHops: 1,
+    });
+    if (!trades || trades.length === 0)
+      return `priceSwapOut: no trade pair found for ${tokenInAddress} to ${tokenOutAddress}.`;
+    logger.info(
+      `Best trade for ${tokenIn.address}-${tokenOut.address}: ${trades[0]}`
+    );
+    const expectedAmount = trades[0].maximumAmountIn(
+      ConfigManager.config.UNISWAP_ALLOWED_SLIPPAGE
+    );
+    return { trade: trades[0], expectedAmount };
   }
 
   // given a wallet and a Uniswap trade, try to execute it on the Ethereum block chain.
