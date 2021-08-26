@@ -172,7 +172,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             for client_oid, order_json in saved_states.items()
         })
 
-    def _aiohttp_client(self) -> aiohttp.ClientSession:
+    async def _aiohttp_client(self) -> aiohttp.ClientSession:
         """
         :returns Shared aiohttp Client session
         """
@@ -239,7 +239,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         signature to the request.
         :returns A response in json format.
         """
-        client = self._aiohttp_client()
+        client = await self._aiohttp_client()
 
         if method == "GET":
             if is_auth_required:
