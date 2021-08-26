@@ -2,9 +2,9 @@ name: ci
 
 on:
   push:
-    branches: [ master, development, 'refactor/unit_tests**' ]
+    branches: [master, development, 'refactor/unit_tests**', 'epic/**']
   pull_request:
-    branches: [ master, development, refactor/unit_tests ]
+    branches: [master, development, 'refactor/unit_tests**', 'epic/**']
     types: [ready_for_review, opened, synchronize, reopened]
 
 jobs:
@@ -103,14 +103,14 @@ jobs:
         run: |
           source /usr/share/miniconda/etc/profile.d/conda.sh
           conda activate hummingbot
-          coverage run -m nose test.hummingbot
+          make test
       - name: Check and report global coverage
         if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
         shell: bash
         run: |
           source /usr/share/miniconda/etc/profile.d/conda.sh
           conda activate hummingbot
-          coverage report
+          make report_coverage
       - name: Validate coverage for the changes
         if: github.event_name == 'pull_request' && (steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true')
         shell: bash
@@ -120,7 +120,7 @@ jobs:
           git fetch --all -q
           git checkout -b $GITHUB_SHA
           coverage xml
-          diff-cover --compare-branch=origin/$GITHUB_BASE_REF --fail-under=50 coverage.xml
+          diff-cover --compare-branch=origin/$GITHUB_BASE_REF --fail-under=75 coverage.xml
 
       # Notify results to discord
       - uses: actions/setup-ruby@v1

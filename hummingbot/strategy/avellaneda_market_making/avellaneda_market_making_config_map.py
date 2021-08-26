@@ -21,8 +21,6 @@ from hummingbot.client.config.config_helpers import (
 )
 from typing import Optional
 
-from hummingbot.strategy.hanging_orders_tracker import HangingOrdersAggregationType
-
 
 def maker_trading_pair_prompt():
     exchange = avellaneda_market_making_config_map.get("exchange").value
@@ -149,14 +147,15 @@ avellaneda_market_making_config_map = {
     "vol_to_spread_multiplier":
         ConfigVar(key="vol_to_spread_multiplier",
                   prompt="Enter the Volatility threshold multiplier: "
-                         "(If market volatility multiplied by this value is above the minimum spread, it will increase the minimum and maximum spread value) >>>",
+                         "(If market volatility multiplied by this value is above the minimum spread, "
+                         "it will increase the minimum and maximum spread value) >>> ",
                   type_str="decimal",
                   required_if=lambda: avellaneda_market_making_config_map.get("parameters_based_on_spread").value,
                   validator=lambda v: validate_decimal(v, 0, 10, inclusive=True),
                   prompt_on_new=True),
     "volatility_sensibility":
         ConfigVar(key="volatility_sensibility",
-                  prompt="Enter volatility change threshold to trigger parameter recalculation>>> ",
+                  prompt="Enter volatility change threshold to trigger parameter recalculation >>> ",
                   type_str="decimal",
                   validator=lambda v: validate_decimal(v, 0, 100, inclusive=True),
                   default=20),
@@ -164,7 +163,7 @@ avellaneda_market_making_config_map = {
         ConfigVar(key="inventory_risk_aversion",
                   prompt="Enter Inventory risk aversion between 0 and 1: (For values close to 0.999 spreads will be more "
                          "skewed to meet the inventory target, while close to 0.001 spreads will be close to symmetrical, "
-                         "increasing profitability but also increasing inventory risk)>>>",
+                         "increasing profitability but also increasing inventory risk) >>>",
                   type_str="decimal",
                   required_if=lambda: avellaneda_market_making_config_map.get("parameters_based_on_spread").value,
                   validator=lambda v: validate_decimal(v, 0, 1, inclusive=False),
@@ -247,7 +246,7 @@ avellaneda_market_making_config_map = {
                   validator=validate_bool),
     "volatility_buffer_size":
         ConfigVar(key="volatility_buffer_size",
-                  prompt="Enter amount of ticks that will be stored to calculate volatility>>> ",
+                  prompt="Enter amount of ticks that will be stored to calculate volatility >>> ",
                   type_str="int",
                   validator=lambda v: validate_decimal(v, 5, 600),
                   default=60),
@@ -269,13 +268,6 @@ avellaneda_market_making_config_map = {
                   type_str="bool",
                   default=False,
                   validator=validate_bool),
-    "hanging_orders_aggregation_type":
-        ConfigVar(key="hanging_orders_aggregation_type",
-                  prompt="What kind of aggregation for the hanging orders? (no_aggregation/volume_weighted/volume_time_weighted/volume_distance_weighted) >>> ",
-                  type_str="str",
-                  default="no_aggregation",
-                  validator=lambda v: "Invalid option" if v.upper() not in [s.name for s in HangingOrdersAggregationType] else None,
-                  required_if=lambda: avellaneda_market_making_config_map.get("hanging_orders_enabled").value),
     "hanging_orders_cancel_pct":
         ConfigVar(key="hanging_orders_cancel_pct",
                   prompt="At what spread percentage (from mid price) will hanging orders be canceled? "
