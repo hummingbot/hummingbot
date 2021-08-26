@@ -1,13 +1,7 @@
-import aiohttp
-import asyncio
 import logging
 import math
 import time
-import ujson
-
-import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils as bybit_utils
-import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_constants as CONSTANTS
-
+import asyncio
 from decimal import Decimal
 from typing import (
     Any,
@@ -16,6 +10,11 @@ from typing import (
     Optional,
 )
 
+import ujson
+import aiohttp
+
+import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils as bybit_utils
+import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_constants as CONSTANTS
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_auth import BybitPerpetualAuth
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source import \
     BybitPerpetualAPIOrderBookDataSource as OrderBookDataSource
@@ -28,6 +27,7 @@ from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
@@ -84,10 +84,12 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._status_poll_notifier = asyncio.Event()
         self._funding_fee_poll_notifier = asyncio.Event()
 
+        self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         self._auth: BybitPerpetualAuth = BybitPerpetualAuth(api_key=bybit_perpetual_api_key,
                                                             secret_key=bybit_perpetual_secret_key)
         self._order_book_tracker = BybitPerpetualOrderBookTracker(
             session=asyncio.get_event_loop().run_until_complete(self._aiohttp_client()),
+            throttler=self._throttler,
             trading_pairs=trading_pairs,
             domain=domain)
         # self._user_stream_tracker = BybitPerpetualUserStreamTracker(self._auth, domain=domain)
@@ -225,9 +227,10 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
     async def _api_request(self,
                            method: str,
                            path_url: str,
-                           params: Optional[Dict[str, Any]] = {},
-                           body: Optional[Dict[str, Any]] = {},
+                           params: Optional[Dict[str, Any]] = None,
+                           body: Optional[Dict[str, Any]] = None,
                            is_auth_required: bool = False,
+                           limit_id: Optional[str] = None,
                            ):
         """
         Sends an aiohttp request and waits for a response.
@@ -237,24 +240,30 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         :param body: The body parameters of the API request
         :param is_auth_required: Whether an authentication is required, when True the function will add encrypted
         signature to the request.
+        :param limit_id: The id used for the API throttler. If not supplied, the `path_url` is used instead.
         :returns A response in json format.
         """
+        params = params or {}
+        body = body or {}
         client = await self._aiohttp_client()
+        limit_id = limit_id or path_url
 
         if method == "GET":
             if is_auth_required:
                 params = self._auth.extend_params_with_authentication_info(params=params)
-            response = await client.get(url=path_url,
-                                        headers=self._auth.get_headers(),
-                                        params=params,
-                                        )
+            async with self._throttler.execute_task(limit_id):
+                response = await client.get(url=path_url,
+                                            headers=self._auth.get_headers(),
+                                            params=params,
+                                            )
         elif method == "POST":
             if is_auth_required:
                 params = self._auth.extend_params_with_authentication_info(params=body)
-            response = await client.post(url=path_url,
-                                         headers=self._auth.get_headers(),
-                                         data=ujson.dumps(params)
-                                         )
+            async with self._throttler.execute_task(limit_id):
+                response = await client.post(url=path_url,
+                                             headers=self._auth.get_headers(),
+                                             data=ujson.dumps(params)
+                                             )
         else:
             raise NotImplementedError(f"{method} HTTP Method not implemented. ")
 
@@ -618,7 +627,8 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             path_url=bybit_utils.rest_api_url_for_endpoint(
                 endpoint=CONSTANTS.QUERY_SYMBOL_ENDPOINT,
                 domain=self._domain),
-            params=params
+            params=params,
+            limit_id=CONSTANTS.QUERY_SYMBOL_ENDPOINT_GET_LIMIT_ID,
         )
         self._trading_rules.clear()
         self._trading_rules = self._format_trading_rules(symbols_response["result"])

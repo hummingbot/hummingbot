@@ -13,7 +13,7 @@ class BybitPerpetualOrderBookTrackerTests(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.mock_data_source = AsyncMock()
-        self.tracker = BybitPerpetualOrderBookTracker(AsyncMock(), ["BTC-USDT"])
+        self.tracker = BybitPerpetualOrderBookTracker(AsyncMock(), trading_pairs=["BTC-USDT"])
         self.tracker._data_source = self.mock_data_source
 
     def tearDown(self) -> None:

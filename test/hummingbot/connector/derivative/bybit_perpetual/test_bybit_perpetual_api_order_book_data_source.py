@@ -37,7 +37,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
         self.ws_incoming_messages = asyncio.Queue()
         self.listening_task = None
 
-        self.data_source = BybitPerpetualAPIOrderBookDataSource([self.trading_pair])
+        self.data_source = BybitPerpetualAPIOrderBookDataSource(trading_pairs=[self.trading_pair])
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
         self.data_source._trading_pair_symbol_map = {}

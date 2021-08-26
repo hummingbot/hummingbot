@@ -8,6 +8,7 @@ import aiohttp
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source import BybitPerpetualAPIOrderBookDataSource
 from hummingbot.core.data_type.order_book import OrderBook
 
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
@@ -24,9 +25,10 @@ class BybitPerpetualOrderBookTracker(OrderBookTracker):
 
     def __init__(self,
                  session: aiohttp.ClientSession,
+                 throttler: Optional[AsyncThrottler] = None,
                  trading_pairs: Optional[List[str]] = None,
                  domain: Optional[str] = None):
-        super().__init__(BybitPerpetualAPIOrderBookDataSource(trading_pairs, domain, session), trading_pairs, domain)
+        super().__init__(BybitPerpetualAPIOrderBookDataSource(throttler, trading_pairs, domain, session), trading_pairs, domain)
 
         self._domain = domain
         self._order_book_event_listener_task: Optional[asyncio.Task] = None
