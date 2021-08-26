@@ -573,7 +573,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
 
         self.assertTrue(self._is_logged("ERROR", "Unexpected error ('topic')"))
 
-    def test_listen_for_instruments_info_snapshot_event(self):
+    def test_listen_for_instruments_info_snapshot_event_trading_info_does_not_exist(self):
         BybitPerpetualAPIOrderBookDataSource._last_traded_prices = {None: {"BTC-USD": 0.0}}
 
         task = asyncio.get_event_loop().create_task(
@@ -748,6 +748,75 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
         self.assertEqual(Decimal('50131.34'), funding_info.index_price)
         self.assertEqual((Decimal('-347') * Decimal(1e-6)), funding_info.rate)
         self.assertEqual(int(pd.Timestamp('2021-08-23T16:00:00Z', tz="UTC").timestamp()), funding_info.next_funding_utc_timestamp)
+
+    @patch("aiohttp.ClientSession.get")
+    def test_listen_for_instruments_info_delta_event_trading_info_does_not_exist(self, mock_get):
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSD": "BTC-USD"}}
+
+        self._configure_mock_api(mock_get)
+        mock_response = {
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": [
+                # Truncated Response
+                {
+                    "symbol": "BTCUSD",
+                    "mark_price": "50000",
+                    "index_price": "50000",
+                    "funding_rate": "-15",
+                    "predicted_funding_rate": "-15",
+                    "next_funding_time": "2021-08-23T08:00:00Z",
+                }
+            ],
+            "time_now": "1577484619.817968"
+        }
+        self.api_responses_status.append(200)
+        self.api_responses_json.put_nowait(mock_response)
+
+        task = asyncio.get_event_loop().create_task(
+            self.data_source.listen_for_instruments_info())
+
+        # Add message queue to be processed
+        data_source_queue = self.data_source._messages_queues[CONSTANTS.WS_INSTRUMENTS_INFO_TOPIC]
+
+        # Update message with updated predicted_funding_rate
+        data_source_queue.put_nowait({'topic': 'instrument_info.100ms.BTCUSD',
+                                      'type': 'delta',
+                                      'data': {
+                                          'update': [
+                                              {
+                                                  'id': 1,
+                                                  'symbol': 'BTCUSD',
+                                                  'predicted_funding_rate_e6': '-347',
+                                                  'cross_seq': '7085522375',
+                                                  'created_at': '1970-01-01T00:00:00.000Z',
+                                                  'updated_at': '2021-08-23T07:58:07.000Z'
+                                              }
+                                          ]
+                                      },
+                                      'cross_seq': '7085522444',
+                                      'timestamp_e6': '1629705487804991'
+                                      }
+                                     )
+
+        # Lock the test to let the async task run
+        asyncio.get_event_loop().run_until_complete(asyncio.sleep(1))
+        funding_info = asyncio.get_event_loop().run_until_complete(
+            self.data_source.get_funding_info("BTC-USD"))
+        try:
+            task.cancel()
+            asyncio.get_event_loop().run_until_complete(task)
+        except asyncio.CancelledError:
+            # The exception will happen when cancelling the task
+            pass
+
+        self.assertEqual(Decimal('50000'), funding_info.mark_price)
+        self.assertEqual(Decimal('50000'), funding_info.index_price)
+        # Note: Only funding rate is updated.
+        self.assertEqual((Decimal('-347') * Decimal(1e-6)), funding_info.rate)
+        self.assertEqual(int(pd.Timestamp('2021-08-23T08:00:00Z', tz="UTC").timestamp()), funding_info.next_funding_utc_timestamp)
 
     def test_listen_for_instruments_info_raises_cancel_exceptions(self):
         task = asyncio.get_event_loop().create_task(
