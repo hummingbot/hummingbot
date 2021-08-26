@@ -795,8 +795,9 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                        client_order_id))
                 self.stop_tracking_order(client_order_id)
             elif tracked_order.is_failure:
+                reason = order_msg["reject_reason"] if "reject_reason" in order_msg else "unknown"
                 self.logger().info(f"The market order {client_order_id} has failed according to order status event. "
-                                   f"Reason: {order_msg['reject_reason']}")
+                                   f"Reason: {reason}")
                 self.trigger_event(MarketEvent.OrderFailure,
                                    MarketOrderFailureEvent(
                                        self.current_timestamp,
