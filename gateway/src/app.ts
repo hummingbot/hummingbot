@@ -24,7 +24,11 @@ app.use('/eth/uniswap', UniswapRoutes.router);
 
 // a simple route to test that the server is running
 app.get('/', (_req: Request, res: Response) => {
-    res.status(200).json({message: 'ok'});
+  res.status(200).json({ message: 'ok' });
+});
+
+app.get('/config', (_req: Request, res: Response<ConfigManager.Config, {}>) => {
+  res.status(200).json(ConfigManager.config);
 });
 
 interface ConfigUpdateRequest {
@@ -75,7 +79,7 @@ app.post(
       await stopGateway();
       await startGateway();
 
-        res.status(200).json({message: 'The config has been updated'});
+      res.status(200).json({ message: 'The config has been updated' });
     }
   )
 );

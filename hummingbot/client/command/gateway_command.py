@@ -180,26 +180,15 @@ class GatewayCommand:
         host = global_config_map['gateway_api_host'].value
         port = global_config_map['gateway_api_port'].value
         try:
-            resp = await self.get_gateway_connections()
-            print('gateway v2 response')
-            print(resp)
-            status = resp["status"]
-            if status:
-                config = resp["config"]
-                self._notify(f"\nGateway Configurations ({host}:{port}):")
-                self._notify("\nCore parameters:")
-                columns = ["Parameter", "  Value"]
-                core_data = data = [[key, config['CORE'][key]] for key in sorted(config['CORE'])]
-                core_df = pd.DataFrame(data=core_data, columns=columns)
-                lines = ["    " + line for line in core_df.to_string(index=False, max_colwidth=50).split("\n")]
-                self._notify("\n".join(lines))
-                self._notify("\nOther parameters:")
-                data = [[key, config[key]] for key in sorted(config) if key not in ['CORE']]
-                df = pd.DataFrame(data=data, columns=columns)
-                lines = ["    " + line for line in df.to_string(index=False, max_colwidth=50).split("\n")]
-                self._notify("\n".join(lines))
-            else:
-                self._notify("\nError: Invalid return result")
+            config = await self.get_gateway_connections()
+            self._notify(f"\nGateway Configurations ({host}:{port}):")
+            self._notify("\nCore parameters:")
+            columns = ["Parameter", "  Value"]
+            data = [[key, config[key]] for key in sorted(config) if key not in ['CORE']]
+            df = pd.DataFrame(data=data, columns=columns)
+            lines = ["    " + line for line in df.to_string(index=False, max_colwidth=50).split("\n")]
+            self._notify("\n".join(lines))
+
         except asyncio.CancelledError:
             raise
         except Exception as e:
