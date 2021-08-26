@@ -24,8 +24,23 @@ class GatewayCommand:
             safe_ensure_future(self.show_gateway_connections())
         elif option == "update":
             safe_ensure_future(self.update_gateway(key, value))
-        elif option == "generate_certs":
+        elif option == "generate-certs":
             safe_ensure_future(self._generate_certs())
+        elif option == "test-connection":
+            safe_ensure_future(self._test_connection())
+
+    async def _test_connection(self):
+        # test that the gateway is running
+        try:
+            resp = await self._api_request("get", "", {})
+        except Exception as e:
+            self._notify("\nUnable to ping gateway.")
+            raise e
+
+        if resp['message'] == 'ok':
+            self._notify("\nSuccesfully pinged gateway.")
+        else:
+            self._notify("\nUnable to ping gateway.")
 
     async def _generate_certs(self,  # type: HummingbotApplication
                               ):
@@ -159,13 +174,15 @@ class GatewayCommand:
                 self._notify("\nError: Configrations update failed")"""
 
     async def get_gateway_connections(self):
-        return await self._api_request("get", "api", {})
+        return await self._api_request("get", "config", {})
 
     async def _show_gateway_connections(self):
         host = global_config_map['gateway_api_host'].value
         port = global_config_map['gateway_api_port'].value
         try:
             resp = await self.get_gateway_connections()
+            print('gateway v2 response')
+            print(resp)
             status = resp["status"]
             if status:
                 config = resp["config"]
