@@ -14,4 +14,4 @@ class PreviousCommandUnitTest(unittest.TestCase):
     def test_message_prompt(self, hummingbotApplication):
         safe_ensure_future(PreviousCommand.previous_statrategy(hummingbotApplication, option=""))
         hummingbotApplication._notify.assert_called()
-        self.assertTrue(True)
+        hummingbotApplication._notify.assert_called_with('No previous strategy found.')
