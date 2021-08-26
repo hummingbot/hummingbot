@@ -321,7 +321,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
         self.listening_task = asyncio.get_event_loop().create_task(self.data_source.listen_for_subscriptions())
         asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.5))
 
-        self.assertTrue(self._is_logged("NETWORK", "Unexpected error occurred during bybit perpetual WebSocket Connection ()"))
+        self.assertTrue(self._is_logged("NETWORK", "Unexpected error occurred during bybit_perpetual WebSocket Connection ()"))
 
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication")
     @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
@@ -956,7 +956,8 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
         self.assertTrue(self._is_logged("ERROR",
                                         "Unexpected error occurred listening for orderbook snapshots."
                                         f" Retrying in 5 secs. (Error fetching OrderBook for {self.trading_pair} "
-                                        f"at {CONSTANTS.ORDER_BOOK_ENDPOINT}. HTTP 405. Response: {dict()})"))
+                                        "at https://api.bybit.com/v2/public/orderBook/L2. "
+                                        f"HTTP 405. Response: {dict()})"))
 
     def test_listen_for_snapshots_raises_cancel_exceptions(self):
         trades_queue = asyncio.Queue()
