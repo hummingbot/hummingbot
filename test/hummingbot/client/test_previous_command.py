@@ -11,7 +11,7 @@ from unittest.mock import patch
 class PreviousCommandUnitTest(unittest.TestCase):
 
     @patch.object(HummingbotApplication, '_notify')
-    def test_message_prompt(self, hummingbotApplication):
+    def test_no_previous_strategy_found(self, hummingbotApplication):
         safe_ensure_future(PreviousCommand.previous_statrategy(hummingbotApplication, option=""))
         hummingbotApplication._notify.assert_called()
         hummingbotApplication._notify.assert_called_with('No previous strategy found.')
