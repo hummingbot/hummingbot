@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Dict
 
 from hummingbot.client.config.config_methods import using_exchange
 from hummingbot.client.config.config_var import ConfigVar
@@ -27,9 +27,16 @@ def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
     return hb_trading_pair.replace("-", "")
 
 
-def rest_api_url_for_endpoint(endpoint: str, domain: Optional[str]) -> str:
+def rest_api_url_for_endpoint(endpoint: Dict[str, str],
+                              domain: Optional[str] = None,
+                              trading_pair: Optional[str] = None) -> str:
     variant = domain if domain else "bybit_perpetual_main"
-    return CONSTANTS.REST_URLS.get(variant) + CONSTANTS.REST_API_VERSION + endpoint
+    if trading_pair:
+        _, quote_asset = trading_pair.split("-")
+        market = "linear" if quote_asset == "USDT" else "non_linear"
+    else:
+        market = "non_linear"
+    return CONSTANTS.REST_URLS.get(variant) + endpoint[market]
 
 
 def wss_url(connector_variant_label: Optional[str]) -> str:

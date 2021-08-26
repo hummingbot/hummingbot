@@ -17,7 +17,8 @@ from typing import (
 )
 
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_auth import BybitPerpetualAuth
-from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source import BybitPerpetualAPIOrderBookDataSource as OrderBookDataSource
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source import \
+    BybitPerpetualAPIOrderBookDataSource as OrderBookDataSource
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_in_flight_order import BybitPerpetualInFlightOrder
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_order_book_tracker import \
     BybitPerpetualOrderBookTracker
@@ -238,20 +239,19 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         signature to the request.
         :returns A response in json format.
         """
-        url = bybit_utils.rest_api_url_for_endpoint(path_url, self._domain)
         client = await self._aiohttp_client()
 
         if method == "GET":
             if is_auth_required:
                 params = self._auth.extend_params_with_authentication_info(params=params)
-            response = await client.get(url=url,
+            response = await client.get(url=path_url,
                                         headers=self._auth.get_headers(),
                                         params=params,
                                         )
         elif method == "POST":
             if is_auth_required:
                 params = self._auth.extend_params_with_authentication_info(params=body)
-            response = await client.post(url=url,
+            response = await client.post(url=path_url,
                                          headers=self._auth.get_headers(),
                                          data=ujson.dumps(params)
                                          )
@@ -263,11 +263,11 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
         # Checks HTTP Status and checks if "result" field is in the response.
         if response_status != 200 or "result" not in parsed_response:
-            self.logger().error(f"Error fetching data from {url}. HTTP status is {response_status}. "
+            self.logger().error(f"Error fetching data from {path_url}. HTTP status is {response_status}. "
                                 f"Message: {parsed_response} "
                                 f"Params: {params} "
                                 f"Data: {body}")
-            raise Exception(f"Error fetching data from {url}. HTTP status is {response_status}. "
+            raise Exception(f"Error fetching data from {path_url}. HTTP status is {response_status}. "
                             f"Message: {parsed_response} "
                             f"Params: {params} "
                             f"Data: {body}")
@@ -373,7 +373,10 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
             send_order_results = await self._api_request(
                 method="POST",
-                path_url=CONSTANTS.PLACE_ACTIVE_ORDER_PATH_URL,
+                path_url=bybit_utils.rest_api_url_for_endpoint(
+                    endpoint=CONSTANTS.PLACE_ACTIVE_ORDER_PATH_URL,
+                    domain=self._domain,
+                    trading_pair=trading_pair),
                 body=params,
                 is_auth_required=True
             )
@@ -487,7 +490,10 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             # The API response simply verifies that the API request have been received by the API servers.
             response = await self._api_request(
                 method="POST",
-                path_url=CONSTANTS.CANCEL_ACTIVE_ORDER_PATH_URL,
+                path_url=bybit_utils.rest_api_url_for_endpoint(
+                    endpoint=CONSTANTS.CANCEL_ACTIVE_ORDER_PATH_URL,
+                    domain=self._domain,
+                    trading_pair=trading_pair),
                 body=body_params,
                 is_auth_required=True
             )
@@ -609,7 +615,9 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         params = {}
         symbols_response: Dict[str, Any] = await self._api_request(
             method="GET",
-            path_url=CONSTANTS.QUERY_SYMBOL_ENDPOINT,
+            path_url=bybit_utils.rest_api_url_for_endpoint(
+                endpoint=CONSTANTS.QUERY_SYMBOL_ENDPOINT,
+                domain=self._domain),
             params=params
         )
         self._trading_rules.clear()
@@ -642,7 +650,9 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         params = {}
         account_positions: Dict[str, Dict[str, Any]] = await self._api_request(
             method="GET",
-            path_url=CONSTANTS.GET_WALLET_BALANCE_PATH_URL,
+            path_url=bybit_utils.rest_api_url_for_endpoint(
+                endpoint=CONSTANTS.GET_WALLET_BALANCE_PATH_URL,
+                domain=self._domain),
             params=params,
             is_auth_required=True
         )
@@ -677,11 +687,15 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 query_params["order_id"] = active_order.exchange_order_id
 
             tasks.append(
-                asyncio.create_task(self._api_request(method="GET",
-                                                      path_url=CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL,
-                                                      params=query_params,
-                                                      is_auth_required=True,
-                                                      )))
+                asyncio.create_task(self._api_request(
+                    method="GET",
+                    path_url=bybit_utils.rest_api_url_for_endpoint(
+                        endpoint=CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL,
+                        domain=self._domain,
+                        trading_pair=active_order.trading_pair),
+                    params=query_params,
+                    is_auth_required=True,
+                )))
         self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
 
         raw_responses: List[Dict[str, Any]] = await safe_gather(*tasks, return_exceptions=True)
@@ -713,10 +727,14 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 body_params["start_time"] = int(int(self._last_trade_history_timestamp) * 1e3)
 
             trade_history_tasks.append(
-                asyncio.create_task(self._api_request(method="GET",
-                                                      path_url=CONSTANTS.USER_TRADE_RECORDS_PATH_URL,
-                                                      params=body_params,
-                                                      is_auth_required=True)))
+                asyncio.create_task(self._api_request(
+                    method="GET",
+                    path_url=bybit_utils.rest_api_url_for_endpoint(
+                        endpoint=CONSTANTS.USER_TRADE_RECORDS_PATH_URL,
+                        domain=self._domain,
+                        trading_pair=trading_pair),
+                    params=body_params,
+                    is_auth_required=True)))
 
         raw_responses: List[Dict[str, Any]] = await safe_gather(*trade_history_tasks, return_exceptions=True)
 
@@ -856,10 +874,14 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             params = {
                 "symbol": ex_trading_pair
             }
-            raw_response: Dict[str, Any] = await self._api_request(method="GET",
-                                                                   path_url=CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL,
-                                                                   params=params,
-                                                                   is_auth_required=True)
+            raw_response: Dict[str, Any] = await self._api_request(
+                method="GET",
+                path_url=bybit_utils.rest_api_url_for_endpoint(
+                    endpoint=CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL,
+                    domain=self._domain,
+                    trading_pair=trading_pair),
+                params=params,
+                is_auth_required=True)
             data: Dict[str, Any] = raw_response["result"]
 
             funding_rate: Decimal = Decimal(str(data["funding_rate"]))
@@ -912,9 +934,13 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         """
         symbol_trading_pair_map: Dict[str, str] = await OrderBookDataSource.trading_pair_symbol_map(self._domain)
 
-        raw_response = await self._api_request(method="GET",
-                                               path_url=CONSTANTS.GET_POSITIONS_PATH_URL,
-                                               is_auth_required=True)
+        raw_response = await self._api_request(
+            method="GET",
+            path_url=bybit_utils.rest_api_url_for_endpoint(
+                endpoint=CONSTANTS.GET_POSITIONS_PATH_URL,
+                domain=self._domain,
+                trading_pair=self._trading_pairs[0]),
+            is_auth_required=True)
 
         result: List[Dict[str, Any]] = raw_response["result"]
 
@@ -954,10 +980,14 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             "symbol": ex_trading_pair,
             "leverage": leverage
         }
-        resp: Dict[str, Any] = await self._api_request(method="POST",
-                                                       path_url=CONSTANTS.SET_LEVERAGE_PATH_URL,
-                                                       body=body_params,
-                                                       is_auth_required=True)
+        resp: Dict[str, Any] = await self._api_request(
+            method="POST",
+            path_url=bybit_utils.rest_api_url_for_endpoint(
+                endpoint=CONSTANTS.SET_LEVERAGE_PATH_URL,
+                domain=self._domain,
+                trading_pair=trading_pair),
+            body=body_params,
+            is_auth_required=True)
 
         if resp["ret_msg"] == "ok":
             self._leverage[trading_pair] = leverage
