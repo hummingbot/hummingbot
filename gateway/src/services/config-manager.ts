@@ -3,7 +3,7 @@ import yaml from 'js-yaml';
 import { Percent } from '@uniswap/sdk';
 
 export namespace ConfigManager {
-  interface Config {
+  export interface Config {
     APPNAME: string;
     PORT: number;
     IP_WHITELIST: string[];
