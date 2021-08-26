@@ -1,10 +1,14 @@
 import asyncio
+import pandas as pd
+
 from collections import deque
+from decimal import Decimal
 from unittest import TestCase
 from unittest.mock import patch, AsyncMock, PropertyMock
 
 from hummingbot.connector.derivative.bybit_perpetual import bybit_perpetual_constants as CONSTANTS
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source import BybitPerpetualAPIOrderBookDataSource
+from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 
 
@@ -579,14 +583,20 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
         data_source_queue = self.data_source._messages_queues[CONSTANTS.WS_INSTRUMENTS_INFO_TOPIC]
         data_source_queue.put_nowait({'topic': 'instrument_info.100ms.BTCUSD',
                                       'type': 'snapshot',
-                                      'data': {'id': 1,
-                                               'symbol': 'BTCUSD',
-                                               'last_price_e4': 463550000,
-                                               'last_price': '46355.00',
-                                               'bid1_price_e4': 463545000,
-                                               'bid1_price': '46354.50',
-                                               'ask1_price_e4': 463550000,
-                                               'ask1_price': '46355.00'},
+                                      'data': {
+                                          'id': 1,
+                                          'symbol': 'BTCUSD',
+                                          'last_price_e4': 463550000,
+                                          'last_price': '46355.00',
+                                          'bid1_price_e4': 463545000,
+                                          'bid1_price': '46354.50',
+                                          'ask1_price_e4': 463550000,
+                                          'ask1_price': '46355.00',
+                                          'mark_price': 50147.03,
+                                          'index_price': 50147.08,
+                                          'predicted_funding_rate_e6': -15,
+                                          'next_funding_time': '2021-08-23T08:00:00Z',
+                                      },
                                       'cross_seq': 8946315343,
                                       'timestamp_e6': 1628711274147854})
 
@@ -594,6 +604,8 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
         asyncio.get_event_loop().run_until_complete(asyncio.sleep(1))
         last_traded_prices = asyncio.get_event_loop().run_until_complete(
             BybitPerpetualAPIOrderBookDataSource.get_last_traded_prices(["BTC-USD"]))
+        funding_info = asyncio.get_event_loop().run_until_complete(
+            self.data_source.get_funding_info("BTC-USD"))
 
         try:
             task.cancel()
@@ -603,10 +615,23 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
             pass
 
         self.assertEqual(46355.0, last_traded_prices["BTC-USD"])
+        self.assertEqual(Decimal('50147.03'), funding_info.mark_price)
+        self.assertEqual(Decimal('50147.08'), funding_info.index_price)
+        self.assertEqual((Decimal('-15') * Decimal(1e-6)), funding_info.rate)
+        self.assertEqual(int(pd.Timestamp('2021-08-23T08:00:00Z', tz="UTC").timestamp()), funding_info.next_funding_utc_timestamp)
 
-    def test_listen_for_instruments_info_delta_event(self, ):
+    def test_listen_for_instruments_info_delta_event(self):
         BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSD": "BTC-USD"}}
         BybitPerpetualAPIOrderBookDataSource._last_traded_prices = {None: {"BTC-USD": 0.0}}
+        self.data_source._funding_info = {
+            "BTC-USD": FundingInfo(
+                trading_pair="BTC-USD",
+                index_price=Decimal("50000"),
+                mark_price=Decimal("50000"),
+                next_funding_utc_timestamp=int(pd.Timestamp('2021-08-23T08:00:00Z', tz="UTC").timestamp()),
+                rate=(Decimal('-15') * Decimal(1e-6)),
+            )
+        }
 
         task = asyncio.get_event_loop().create_task(
             self.data_source.listen_for_instruments_info())
@@ -639,12 +664,78 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
                                           'insert': []},
                                       'cross_seq': 8946315838,
                                       'timestamp_e6': 1628711277743874})
+        # Update message with updated predicted_funding_rate
+        data_source_queue.put_nowait({'topic': 'instrument_info.100ms.BTCUSD',
+                                      'type': 'delta',
+                                      'data': {
+                                          'update': [
+                                              {
+                                                  'id': 1,
+                                                  'symbol': 'BTCUSD',
+                                                  'predicted_funding_rate_e6': '-347',
+                                                  'cross_seq': '7085522375',
+                                                  'created_at': '1970-01-01T00:00:00.000Z',
+                                                  'updated_at': '2021-08-23T07:58:07.000Z'
+                                              }
+                                          ]
+                                      },
+                                      'cross_seq': '7085522444',
+                                      'timestamp_e6': '1629705487804991'
+                                      }
+                                     )
+        # Update message with updated index and mark price
+        data_source_queue.put_nowait({'topic': 'instrument_info.100ms.BTCUSD',
+                                      'type': 'delta',
+                                      'data': {
+                                          'update': [
+                                              {
+                                                  'id': 1,
+                                                  'symbol': 'BTCUSD',
+                                                  'mark_price_e4': '501353600',
+                                                  'mark_price': '50135.36',
+                                                  'index_price_e4': '501303500',
+                                                  'index_price': '50130.35',
+                                                  'cross_seq': '7085530086',
+                                                  'created_at': '1970-01-01T00:00:00.000Z',
+                                                  'updated_at': '2021-08-23T07:59:58.000Z'
+                                              }
+                                          ]
+                                      },
+                                      'cross_seq': '7085530240',
+                                      'timestamp_e6': '1629705601304084'
+                                      })
+        # Update message with updated index and next_funding_timestamp
+        data_source_queue.put_nowait({'topic': 'instrument_info.100ms.BTCUSD',
+                                      'type': 'delta',
+                                      'data': {
+                                          'update': [
+                                              {
+                                                  'id': 1,
+                                                  'symbol': 'BTCUSD',
+                                                  'index_price_e4': '501313400',
+                                                  'index_price': '50131.34',
+                                                  'total_turnover_e8': '-8861738985507851616',
+                                                  'turnover_24h_e8': '277455604387899960',
+                                                  'total_volume_e8': '1458835785899924',
+                                                  'volume_24h_e8': '5640266599999',
+                                                  'cross_seq': '7085530253',
+                                                  'created_at': '1970-01-01T00:00:00.000Z',
+                                                  'updated_at': '2021-08-23T08:00:01.000Z',
+                                                  'next_funding_time': '2021-08-23T16:00:00Z',
+                                                  'count_down_hour': '8'
+                                              }
+                                          ]
+                                      },
+                                      'cross_seq': '7085530254',
+                                      'timestamp_e6': '1629705602003689'
+                                      })
 
         # Lock the test to let the async task run
         asyncio.get_event_loop().run_until_complete(asyncio.sleep(1))
         last_traded_prices = asyncio.get_event_loop().run_until_complete(
             BybitPerpetualAPIOrderBookDataSource.get_last_traded_prices(["BTC-USD"]))
-
+        funding_info = asyncio.get_event_loop().run_until_complete(
+            self.data_source.get_funding_info("BTC-USD"))
         try:
             task.cancel()
             asyncio.get_event_loop().run_until_complete(task)
@@ -653,6 +744,10 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
             pass
 
         self.assertEqual(46354.5, last_traded_prices["BTC-USD"])
+        self.assertEqual(Decimal('50135.36'), funding_info.mark_price)
+        self.assertEqual(Decimal('50131.34'), funding_info.index_price)
+        self.assertEqual((Decimal('-347') * Decimal(1e-6)), funding_info.rate)
+        self.assertEqual(int(pd.Timestamp('2021-08-23T16:00:00Z', tz="UTC").timestamp()), funding_info.next_funding_utc_timestamp)
 
     def test_listen_for_instruments_info_raises_cancel_exceptions(self):
         task = asyncio.get_event_loop().create_task(
@@ -846,3 +941,64 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
         self.assertEqual(9487.5, asks[0].price)
         self.assertEqual(522147, asks[0].amount)
         self.assertEqual(1567108756834357, asks[0].update_id)
+
+    def test_get_funding_info_trading_pair_exist(self):
+        self.data_source._funding_info = {
+            "BTC-USD": FundingInfo(
+                trading_pair="BTC-USD",
+                index_price=Decimal("50000"),
+                mark_price=Decimal("50000"),
+                next_funding_utc_timestamp=int(pd.Timestamp('2021-08-23T08:00:00Z', tz="UTC").timestamp()),
+                rate=(Decimal('-15') * Decimal(1e-6)),
+            )
+        }
+        task = asyncio.get_event_loop().create_task(
+            self.data_source.get_funding_info("BTC-USD"))
+
+        funding_info = asyncio.get_event_loop().run_until_complete(task)
+
+        try:
+            task.cancel()
+            asyncio.get_event_loop().run_until_complete(task)
+        except asyncio.CancelledError:
+            # The exception will happen when cancelling the task
+            pass
+
+        self.assertEqual(Decimal('50000'), funding_info.mark_price)
+        self.assertEqual(Decimal('50000'), funding_info.index_price)
+        self.assertEqual((Decimal('-15') * Decimal(1e-6)), funding_info.rate)
+        self.assertEqual(int(pd.Timestamp('2021-08-23T08:00:00Z', tz="UTC").timestamp()), funding_info.next_funding_utc_timestamp)
+
+    @patch("aiohttp.ClientSession.get")
+    def test_get_funding_info_trading_pair_does_not_exist(self, mock_get):
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSD": "BTC-USD"}}
+        self._configure_mock_api(mock_get)
+        mock_response = {
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": [
+                # Truncated Response
+                {
+                    "symbol": "BTCUSD",
+                    "mark_price": "50000",
+                    "index_price": "50000",
+                    "funding_rate": "-15",
+                    "predicted_funding_rate": "-15",
+                    "next_funding_time": "2021-08-23T08:00:00Z",
+                }
+            ],
+            "time_now": "1577484619.817968"
+        }
+        self.api_responses_status.append(200)
+        self.api_responses_json.put_nowait(mock_response)
+
+        funding_info = asyncio.get_event_loop().run_until_complete(
+            self.data_source.get_funding_info("BTC-USD")
+        )
+
+        self.assertEqual(Decimal('50000'), funding_info.mark_price)
+        self.assertEqual(Decimal('50000'), funding_info.index_price)
+        self.assertEqual(Decimal('-15'), funding_info.rate)
+        self.assertEqual(int(pd.Timestamp('2021-08-23T08:00:00Z', tz="UTC").timestamp()), funding_info.next_funding_utc_timestamp)
