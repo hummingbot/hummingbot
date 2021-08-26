@@ -31,12 +31,23 @@ def rest_api_url_for_endpoint(endpoint: Dict[str, str],
                               domain: Optional[str] = None,
                               trading_pair: Optional[str] = None) -> str:
     variant = domain if domain else "bybit_perpetual_main"
+    market = _rest_api_market_for_endpoint(trading_pair)
+    return CONSTANTS.REST_URLS.get(variant) + endpoint[market]
+
+
+def rest_api_limit_id_for_endpoint(endpoint: Dict[str, str],
+                                   trading_pair: Optional[str] = None) -> str:
+    market = _rest_api_market_for_endpoint(trading_pair)
+    return endpoint[market]
+
+
+def _rest_api_market_for_endpoint(trading_pair: Optional[str] = None) -> str:
     if trading_pair:
         _, quote_asset = trading_pair.split("-")
         market = "linear" if quote_asset == "USDT" else "non_linear"
     else:
         market = "non_linear"
-    return CONSTANTS.REST_URLS.get(variant) + endpoint[market]
+    return market
 
 
 def wss_url(connector_variant_label: Optional[str]) -> str:
