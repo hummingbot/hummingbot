@@ -348,7 +348,9 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 "symbol": await self._trading_pair_symbol(trading_pair),
                 "qty": amount,
                 "time_in_force": self._DEFAULT_TIME_IN_FORCE,
+                "close_on_trigger": False,
                 "order_link_id": order_id,
+                "reduce_only": False,
             }
 
             if order_type.is_limit_type():
@@ -990,7 +992,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             body=body_params,
             is_auth_required=True)
 
-        if resp["ret_msg"] == "ok":
+        if resp["ret_code"] == 0 or (resp["ret_code"] == 34036 and resp["ret_msg"] == "leverage not modified"):
             self._leverage[trading_pair] = leverage
             self.logger().info(f"Leverage Successfully set to {leverage} for {trading_pair}.")
         else:

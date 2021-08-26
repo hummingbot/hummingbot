@@ -1668,7 +1668,7 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         self.api_responses_status.append(200)
         self.api_responses_json.put_nowait({
-            "ret_code": 0,
+            "ret_code": 1001,
             "ret_msg": "",
             "ext_code": "20031",
             "result": new_leverage,
