@@ -88,7 +88,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._status_poll_notifier = asyncio.Event()
         self._funding_fee_poll_notifier = asyncio.Event()
 
-        rate_limits = CONSTANTS.build_rate_limits(self._trading_pairs)
+        rate_limits = bybit_utils.build_rate_limits(self._trading_pairs)
         self._throttler = AsyncThrottler(rate_limits)
         self._auth: BybitPerpetualAuth = BybitPerpetualAuth(api_key=bybit_perpetual_api_key,
                                                             secret_key=bybit_perpetual_secret_key)

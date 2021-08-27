@@ -11,6 +11,7 @@ from typing import (
     Optional, Any,
 )
 
+import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils as bybit_utils
 from hummingbot.connector.derivative.bybit_perpetual import bybit_perpetual_constants as CONSTANTS, \
     bybit_perpetual_utils
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_order_book import BybitPerpetualOrderBook
@@ -429,6 +430,6 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @classmethod
     def _get_throttler_instance(cls, trading_pairs: List[str] = None) -> AsyncThrottler:
-        rate_limits = CONSTANTS.build_rate_limits(trading_pairs)
+        rate_limits = bybit_utils.build_rate_limits(trading_pairs)
         throttler = AsyncThrottler(rate_limits)
         return throttler
