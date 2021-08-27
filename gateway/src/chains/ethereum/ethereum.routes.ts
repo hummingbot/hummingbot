@@ -36,6 +36,66 @@ export namespace EthereumRoutes {
     })
   );
 
+  interface EthereumAllowancesRequest {
+    privateKey: string; // the users private Ethereum key
+    tokenSymbols: string[]; // a list of token symbol
+  }
+
+  interface EthereumAllowancesResponse {
+    network: string;
+    timestamp: number;
+    latency: number;
+    balances: Record<string, string>; // the balance should be a string encoded number
+  }
+
+  router.post(
+    '/allowances',
+    async (
+      req: Request<{}, {}, EthereumAllowancesRequest>,
+      res: Response<EthereumAllowancesResponse | string, {}>
+    ) => {
+      const initTime = Date.now();
+      const wallet = ethereum.getWallet(req.body.privateKey);
+
+      const tokens: Record<string, Token> = {};
+
+      for (var i = 0; i < req.body.tokenSymbols.length; i++) {
+        const symbol = req.body.tokenSymbols[i];
+        const token = ethereum.getTokenBySymbol(symbol);
+        if (!token) {
+          continue;
+        }
+
+        tokens[symbol] = token;
+      }
+
+      await Promise.all(
+        Object.keys(tokenList).map(async (symbol) => {
+          try {
+            approvals[symbol] = await ethereumService.getERC20Allowance(
+              wallet,
+              req.body.spender,
+              tokenList[symbol].address,
+              tokenList[symbol].decimals
+            );
+          } catch (err) {
+            logger.error(err);
+            // this helps preserve the expected behavior
+            approvals[symbol] = 'invalid ENS name';
+          }
+        })
+      );
+
+      res.status(200).json({
+        network: config.networkName,
+        timestamp: initTime,
+        latency: latency(initTime, Date.now()),
+        spender: spender,
+        approvals: approvals,
+      });
+    }
+  );
+
   interface EthereumBalanceRequest {
     privateKey: string; // the users private Ethereum key
     tokenSymbols: string[]; // a list of token symbol
