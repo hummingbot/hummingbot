@@ -87,7 +87,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._auth: BybitPerpetualAuth = BybitPerpetualAuth(api_key=bybit_perpetual_api_key,
                                                             secret_key=bybit_perpetual_secret_key)
         self._order_book_tracker = BybitPerpetualOrderBookTracker(
-            session=self._aiohttp_client(),
+            session=safe_gather(self._aiohttp_client()),
             trading_pairs=trading_pairs,
             domain=domain)
         # self._user_stream_tracker = BybitPerpetualUserStreamTracker(self._auth, domain=domain)
