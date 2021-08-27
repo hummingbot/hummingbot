@@ -1,6 +1,5 @@
 import aiohttp
 import asyncio
-import ujson
 from typing import AsyncIterable, Dict, Any, Optional, List
 
 import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_constants as CONSTANTS
@@ -8,6 +7,7 @@ import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_constants
 
 class BybitPerpetualWebSocketAdaptor:
 
+    _topic_field_name = "topic"
     _operation_field_name = "op"
     _payload_field_name = "args"
     _authentication_operation = "auth"
@@ -25,24 +25,21 @@ class BybitPerpetualWebSocketAdaptor:
         self._websocket = websocket
 
     @classmethod
-    def endpoint_from_raw_message(cls, raw_message: str) -> str:
-        message = ujson.loads(raw_message)
-        return cls.endpoint_from_message(message=message)
-
-    @classmethod
     def endpoint_from_message(cls, message: Dict[str, Any]) -> str:
-        if message[cls._operation_field_name] is cls._subscription_operation:
-            return message[cls._payload_field_name][0]
-        else:
-            return message[cls._operation_field_name]
+        if not isinstance(message, dict):
+            return message
+        if cls._operation_field_name in message.keys():
+            if message[cls._operation_field_name] is cls._subscription_operation:
+                return message[cls._payload_field_name][0]
+            else:
+                return message[cls._operation_field_name]
+        if cls._topic_field_name in message.keys():
+            return message[cls._topic_field_name]
 
     @classmethod
-    def payload_from_raw_message(cls, raw_message: str) -> Dict[str, Any]:
-        message = ujson.loads(raw_message)
-        return message
-
-    @classmethod
-    def payload_from_message(cls, message: str) -> Dict[str, Any]:
+    def payload_from_message(cls, message: Dict[str, Any]) -> List[Dict[str, Any]]:
+        if "data" in message:
+            return message["data"]
         return message
 
     async def send_request(self, payload: Dict[str, Any]):
