@@ -4,6 +4,7 @@ from typing import (
     Dict,
     Optional,
 )
+import asyncio
 
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.core.event.events import (
@@ -23,7 +24,8 @@ class NdaxInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
-                 initial_state: str = WORKING_LOCAL_STATUS):
+                 initial_state: str = WORKING_LOCAL_STATUS,
+                 order_creation_future: Optional[asyncio.Future] = None):
         super().__init__(
             client_order_id,
             exchange_order_id,
@@ -34,6 +36,7 @@ class NdaxInFlightOrder(InFlightOrderBase):
             amount,
             initial_state,
         )
+        self.order_creation_future = order_creation_future
         self.fee_asset = self.base_asset if self.trade_type is TradeType.BUY else self.quote_asset
         self.trade_id_set = set()
 
