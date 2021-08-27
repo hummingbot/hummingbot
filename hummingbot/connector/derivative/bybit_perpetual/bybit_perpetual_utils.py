@@ -1,14 +1,41 @@
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 
 from hummingbot.client.config.config_methods import using_exchange
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.connector.derivative.bybit_perpetual import bybit_perpetual_constants as CONSTANTS
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_constants import (
+    NON_LINEAR_GET_LIMIT_ID,
+    GET_RATE,
+    NON_LINEAR_POST_LIMIT_ID,
+    POST_RATE,
+    LINEAR_GET_LIMIT_ID,
+    LINEAR_POST_LIMIT_ID,
+    LATEST_SYMBOL_INFORMATION_ENDPOINT,
+    QUERY_SYMBOL_ENDPOINT,
+    ORDER_BOOK_ENDPOINT,
+    NON_LINEAR_PRIVATE_BUCKET_100_LIMIT_ID,
+    NON_LINEAR_PRIVATE_BUCKET_600_LIMIT_ID,
+    NON_LINEAR_PRIVATE_BUCKET_75_LIMIT_ID,
+    NON_LINEAR_PRIVATE_BUCKET_120_A_LIMIT_ID,
+    NON_LINEAR_PRIVATE_BUCKET_120_B_LIMIT_ID,
+    SET_LEVERAGE_PATH_URL,
+    GET_LAST_FUNDING_RATE_PATH_URL,
+    GET_POSITIONS_PATH_URL,
+    PLACE_ACTIVE_ORDER_PATH_URL,
+    CANCEL_ACTIVE_ORDER_PATH_URL,
+    QUERY_ACTIVE_ORDER_PATH_URL,
+    USER_TRADE_RECORDS_PATH_URL,
+    LINEAR_PRIVATE_BUCKET_100_LIMIT_ID,
+    LINEAR_PRIVATE_BUCKET_600_LIMIT_ID,
+    LINEAR_PRIVATE_BUCKET_75_LIMIT_ID,
+    LINEAR_PRIVATE_BUCKET_120_A_LIMIT_ID,
+    GET_WALLET_BALANCE_PATH_URL, LINEAR_MARKET, NON_LINEAR_MARKET,
+)
+from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 CENTRALIZED = True
 
-NON_LINEAR_MARKET = "non_linear"
-LINEAR_MARKET = "linear"
 EXAMPLE_PAIR = "BTC-USD"
 
 # Bybit fees: https://help.bybit.com/hc/en-us/articles/360039261154
@@ -119,3 +146,275 @@ OTHER_DOMAINS_KEYS = {
                       is_connect_key=True),
     }
 }
+
+
+def build_rate_limits(trading_pairs: Optional[List[str]] = None) -> List[RateLimit]:
+    trading_pairs = trading_pairs or []
+    rate_limits = []
+
+    rate_limits.extend(_build_global_rate_limits())
+    rate_limits.extend(_build_public_rate_limits(trading_pairs))
+    rate_limits.extend(_build_private_rate_limits(trading_pairs))
+
+    return rate_limits
+
+
+def _build_private_general_rate_limits() -> List[RateLimit]:
+    rate_limits = [
+        RateLimit(
+            limit_id=GET_WALLET_BALANCE_PATH_URL[NON_LINEAR_MARKET],  # same for linear and non-linear
+            limit=120,
+            time_interval=60,
+            linked_limits=[NON_LINEAR_GET_LIMIT_ID, NON_LINEAR_PRIVATE_BUCKET_120_A_LIMIT_ID],
+        ),
+    ]
+    return rate_limits
+
+
+def _build_global_rate_limits() -> List[RateLimit]:
+    rate_limits = [
+        RateLimit(limit_id=NON_LINEAR_GET_LIMIT_ID, limit=GET_RATE, time_interval=1),
+        RateLimit(limit_id=NON_LINEAR_POST_LIMIT_ID, limit=POST_RATE, time_interval=1),
+        RateLimit(limit_id=LINEAR_GET_LIMIT_ID, limit=GET_RATE, time_interval=1),
+        RateLimit(limit_id=LINEAR_POST_LIMIT_ID, limit=POST_RATE, time_interval=1),
+    ]
+    return rate_limits
+
+
+def _build_public_rate_limits(trading_pairs: List[str]) -> List[RateLimit]:
+    rate_limits = []
+
+    rate_limits.extend(_build_public_pair_specific_rate_limits(trading_pairs))
+    rate_limits.extend(_build_public_general_rate_limits())
+
+    return rate_limits
+
+
+def _build_public_pair_specific_rate_limits(trading_pairs: List[str]) -> List[RateLimit]:
+    rate_limits = []
+
+    for trading_pair in trading_pairs:
+        limit_id = get_pair_specific_limit_id(
+            base_limit_id=LATEST_SYMBOL_INFORMATION_ENDPOINT[NON_LINEAR_MARKET],  # same for linear and non-linear
+            trading_pair=trading_pair,
+        )
+        rate_limits.append(
+            RateLimit(
+                limit_id=limit_id,
+                limit=GET_RATE,
+                time_interval=1,
+                linked_limits=[NON_LINEAR_GET_LIMIT_ID],
+            )
+        )
+
+    return rate_limits
+
+
+def _build_public_general_rate_limits():
+    public_rate_limits = [
+        RateLimit(
+            limit_id=LATEST_SYMBOL_INFORMATION_ENDPOINT[NON_LINEAR_MARKET],  # same for linear and non-linear
+            limit=GET_RATE,
+            time_interval=1,
+            linked_limits=[NON_LINEAR_GET_LIMIT_ID],
+        ),
+        RateLimit(
+            limit_id=QUERY_SYMBOL_ENDPOINT[NON_LINEAR_MARKET],  # same for linear and non-linear
+            limit=GET_RATE,
+            time_interval=1,
+            linked_limits=[NON_LINEAR_GET_LIMIT_ID],
+        ),
+        RateLimit(
+            limit_id=ORDER_BOOK_ENDPOINT[NON_LINEAR_MARKET],  # same for linear and non-linear
+            limit=GET_RATE,
+            time_interval=1,
+            linked_limits=[NON_LINEAR_GET_LIMIT_ID],
+        ),
+    ]
+    return public_rate_limits
+
+
+def _build_private_rate_limits(trading_pairs: List[str]) -> List[RateLimit]:
+    rate_limits = []
+
+    rate_limits.extend(_build_private_pair_specific_rate_limits(trading_pairs))
+    rate_limits.extend(_build_private_general_rate_limits())
+
+    return rate_limits
+
+
+def _build_private_pair_specific_rate_limits(trading_pairs: List[str]) -> List[RateLimit]:
+    rate_limits = []
+
+    for trading_pair in trading_pairs:
+        market = get_rest_api_market_for_endpoint(trading_pair)
+        if market == NON_LINEAR_MARKET:
+            rate_limits.extend(_build_private_pair_specific_non_linear_rate_limits(trading_pair))
+        else:
+            rate_limits.extend(_build_private_pair_specific_linear_rate_limits(trading_pair))
+
+    return rate_limits
+
+
+def _build_private_pair_specific_non_linear_rate_limits(trading_pair: str) -> List[RateLimit]:
+    pair_specific_non_linear_private_bucket_100_limit_id = get_pair_specific_limit_id(
+        base_limit_id=NON_LINEAR_PRIVATE_BUCKET_100_LIMIT_ID, trading_pair=trading_pair
+    )
+    pair_specific_non_linear_private_bucket_600_limit_id = get_pair_specific_limit_id(
+        base_limit_id=NON_LINEAR_PRIVATE_BUCKET_600_LIMIT_ID, trading_pair=trading_pair
+    )
+    pair_specific_non_linear_private_bucket_75_limit_id = get_pair_specific_limit_id(
+        base_limit_id=NON_LINEAR_PRIVATE_BUCKET_75_LIMIT_ID, trading_pair=trading_pair
+    )
+    pair_specific_non_linear_private_bucket_120_a_limit_id = get_pair_specific_limit_id(
+        base_limit_id=NON_LINEAR_PRIVATE_BUCKET_120_A_LIMIT_ID, trading_pair=trading_pair
+    )
+    pair_specific_non_linear_private_bucket_120_b_limit_id = get_pair_specific_limit_id(
+        base_limit_id=NON_LINEAR_PRIVATE_BUCKET_120_B_LIMIT_ID, trading_pair=trading_pair
+    )
+
+    rate_limits = [
+        RateLimit(limit_id=pair_specific_non_linear_private_bucket_100_limit_id, limit=100, time_interval=60),
+        RateLimit(limit_id=pair_specific_non_linear_private_bucket_600_limit_id, limit=600, time_interval=60),
+        RateLimit(limit_id=pair_specific_non_linear_private_bucket_75_limit_id, limit=75, time_interval=60),
+        RateLimit(limit_id=pair_specific_non_linear_private_bucket_120_a_limit_id, limit=120, time_interval=60),
+        RateLimit(limit_id=pair_specific_non_linear_private_bucket_120_b_limit_id, limit=120, time_interval=60),
+        RateLimit(
+            limit_id=get_pair_specific_limit_id(
+                base_limit_id=SET_LEVERAGE_PATH_URL[NON_LINEAR_MARKET], trading_pair=trading_pair
+            ),
+            limit=75,
+            time_interval=60,
+            linked_limits=[NON_LINEAR_POST_LIMIT_ID, pair_specific_non_linear_private_bucket_75_limit_id],
+        ),
+        RateLimit(
+            limit_id=get_pair_specific_limit_id(
+                base_limit_id=GET_LAST_FUNDING_RATE_PATH_URL[NON_LINEAR_MARKET], trading_pair=trading_pair
+            ),
+            limit=120,
+            time_interval=60,
+            linked_limits=[NON_LINEAR_GET_LIMIT_ID, pair_specific_non_linear_private_bucket_120_b_limit_id],
+        ),
+        RateLimit(
+            limit_id=get_pair_specific_limit_id(
+                base_limit_id=GET_POSITIONS_PATH_URL[NON_LINEAR_MARKET], trading_pair=trading_pair
+            ),
+            limit=120,
+            time_interval=60,
+            linked_limits=[NON_LINEAR_GET_LIMIT_ID, pair_specific_non_linear_private_bucket_120_a_limit_id],
+        ),
+        RateLimit(
+            limit_id=get_pair_specific_limit_id(
+                base_limit_id=PLACE_ACTIVE_ORDER_PATH_URL[NON_LINEAR_MARKET], trading_pair=trading_pair
+            ),
+            limit=100,
+            time_interval=60,
+            linked_limits=[NON_LINEAR_POST_LIMIT_ID, pair_specific_non_linear_private_bucket_100_limit_id],
+        ),
+        RateLimit(
+            limit_id=get_pair_specific_limit_id(
+                base_limit_id=CANCEL_ACTIVE_ORDER_PATH_URL[NON_LINEAR_MARKET], trading_pair=trading_pair
+            ),
+            limit=100,
+            time_interval=60,
+            linked_limits=[NON_LINEAR_POST_LIMIT_ID, pair_specific_non_linear_private_bucket_100_limit_id],
+        ),
+        RateLimit(
+            limit_id=get_pair_specific_limit_id(
+                base_limit_id=QUERY_ACTIVE_ORDER_PATH_URL[NON_LINEAR_MARKET], trading_pair=trading_pair
+            ),
+            limit=600,
+            time_interval=60,
+            linked_limits=[NON_LINEAR_GET_LIMIT_ID, pair_specific_non_linear_private_bucket_600_limit_id],
+        ),
+        RateLimit(
+            limit_id=get_pair_specific_limit_id(
+                base_limit_id=USER_TRADE_RECORDS_PATH_URL[NON_LINEAR_MARKET], trading_pair=trading_pair
+            ),
+            limit=120,
+            time_interval=60,
+            linked_limits=[NON_LINEAR_GET_LIMIT_ID],
+        ),
+    ]
+
+    return rate_limits
+
+
+def _build_private_pair_specific_linear_rate_limits(trading_pair: str) -> List[RateLimit]:
+    pair_specific_linear_private_bucket_100_limit_id = get_pair_specific_limit_id(
+        base_limit_id=LINEAR_PRIVATE_BUCKET_100_LIMIT_ID, trading_pair=trading_pair
+    )
+    pair_specific_linear_private_bucket_600_limit_id = get_pair_specific_limit_id(
+        base_limit_id=LINEAR_PRIVATE_BUCKET_600_LIMIT_ID, trading_pair=trading_pair
+    )
+    pair_specific_linear_private_bucket_75_limit_id = get_pair_specific_limit_id(
+        base_limit_id=LINEAR_PRIVATE_BUCKET_75_LIMIT_ID, trading_pair=trading_pair
+    )
+    pair_specific_linear_private_bucket_120_a_limit_id = get_pair_specific_limit_id(
+        base_limit_id=LINEAR_PRIVATE_BUCKET_120_A_LIMIT_ID, trading_pair=trading_pair
+    )
+
+    rate_limits = [
+        RateLimit(limit_id=pair_specific_linear_private_bucket_100_limit_id, limit=100, time_interval=60),
+        RateLimit(limit_id=pair_specific_linear_private_bucket_600_limit_id, limit=600, time_interval=60),
+        RateLimit(limit_id=pair_specific_linear_private_bucket_75_limit_id, limit=75, time_interval=60),
+        RateLimit(limit_id=pair_specific_linear_private_bucket_120_a_limit_id, limit=120, time_interval=60),
+        RateLimit(
+            limit_id=get_pair_specific_limit_id(
+                base_limit_id=SET_LEVERAGE_PATH_URL[LINEAR_MARKET], trading_pair=trading_pair
+            ),
+            limit=75,
+            time_interval=60,
+            linked_limits=[LINEAR_POST_LIMIT_ID, pair_specific_linear_private_bucket_75_limit_id],
+        ),
+        RateLimit(
+            limit_id=get_pair_specific_limit_id(
+                base_limit_id=GET_LAST_FUNDING_RATE_PATH_URL[LINEAR_MARKET], trading_pair=trading_pair
+            ),
+            limit=120,
+            time_interval=60,
+            linked_limits=[LINEAR_GET_LIMIT_ID, pair_specific_linear_private_bucket_120_a_limit_id],
+        ),
+        RateLimit(
+            limit_id=get_pair_specific_limit_id(
+                base_limit_id=GET_POSITIONS_PATH_URL[LINEAR_MARKET], trading_pair=trading_pair
+            ),
+            limit=120,
+            time_interval=60,
+            linked_limits=[LINEAR_GET_LIMIT_ID, pair_specific_linear_private_bucket_120_a_limit_id],
+        ),
+        RateLimit(
+            limit_id=get_pair_specific_limit_id(
+                base_limit_id=PLACE_ACTIVE_ORDER_PATH_URL[LINEAR_MARKET], trading_pair=trading_pair
+            ),
+            limit=100,
+            time_interval=60,
+            linked_limits=[LINEAR_POST_LIMIT_ID, pair_specific_linear_private_bucket_100_limit_id],
+        ),
+        RateLimit(
+            limit_id=get_pair_specific_limit_id(
+                base_limit_id=CANCEL_ACTIVE_ORDER_PATH_URL[LINEAR_MARKET], trading_pair=trading_pair
+            ),
+            limit=100,
+            time_interval=60,
+            linked_limits=[LINEAR_POST_LIMIT_ID, pair_specific_linear_private_bucket_100_limit_id],
+        ),
+        RateLimit(
+            limit_id=get_pair_specific_limit_id(
+                base_limit_id=QUERY_ACTIVE_ORDER_PATH_URL[LINEAR_MARKET], trading_pair=trading_pair
+            ),
+            limit=600,
+            time_interval=60,
+            linked_limits=[LINEAR_GET_LIMIT_ID, pair_specific_linear_private_bucket_600_limit_id],
+        ),
+        RateLimit(
+            limit_id=get_pair_specific_limit_id(
+                base_limit_id=USER_TRADE_RECORDS_PATH_URL[LINEAR_MARKET], trading_pair=trading_pair
+            ),
+            limit=120,
+            time_interval=60,
+            linked_limits=[LINEAR_GET_LIMIT_ID, pair_specific_linear_private_bucket_120_a_limit_id],
+        ),
+    ]
+
+    return rate_limits
