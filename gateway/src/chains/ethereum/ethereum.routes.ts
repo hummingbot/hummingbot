@@ -54,50 +54,51 @@ export namespace EthereumRoutes {
   }
 
   router.post(
-      '/allowances',
-      asyncHandler(
-    async (
-      req: Request<{}, {}, EthereumAllowancesRequest>,
-      res: Response<EthereumAllowancesResponse | string, {}>
-    ) => {
-      const initTime = Date.now();
-      const wallet = ethereum.getWallet(req.body.privateKey);
+    '/allowances',
+    asyncHandler(
+      async (
+        req: Request<{}, {}, EthereumAllowancesRequest>,
+        res: Response<EthereumAllowancesResponse | string, {}>
+      ) => {
+        const initTime = Date.now();
+        const wallet = ethereum.getWallet(req.body.privateKey);
 
-      const tokens: Record<string, Token> = {};
+        const tokens: Record<string, Token> = {};
 
-      for (var i = 0; i < req.body.tokenSymbols.length; i++) {
-        const symbol = req.body.tokenSymbols[i];
-        const token = ethereum.getTokenBySymbol(symbol);
-        if (!token) {
-          continue;
+        for (var i = 0; i < req.body.tokenSymbols.length; i++) {
+          const symbol = req.body.tokenSymbols[i];
+          const token = ethereum.getTokenBySymbol(symbol);
+          if (!token) {
+            continue;
+          }
+
+          tokens[symbol] = token;
         }
 
-        tokens[symbol] = token;
-      }
-
         let approvals: Record<string, string> = {};
-      await Promise.all(
-        Object.keys(tokens).map(async (symbol) => {
-          approvals[symbol] = tokenValueToString(
-            await ethereum.getERC20Allowance(
-              wallet,
-              req.body.spender,
-              tokens[symbol].address,
-              tokens[symbol].decimals
-            )
-          );
-        })
-      );
+        await Promise.all(
+          Object.keys(tokens).map(async (symbol) => {
+            approvals[symbol] = tokenValueToString(
+              await ethereum.getERC20Allowance(
+                wallet,
+                req.body.spender,
+                tokens[symbol].address,
+                tokens[symbol].decimals
+              )
+            );
+          })
+        );
 
-      res.status(200).json({
-        network: ConfigManager.config.ETHEREUM_CHAIN,
-        timestamp: initTime,
-        latency: latency(initTime, Date.now()),
-        spender: req.body.spender,
-        approvals: approvals,
-      });
-    }
-      ));
+        res.status(200).json({
+          network: ConfigManager.config.ETHEREUM_CHAIN,
+          timestamp: initTime,
+          latency: latency(initTime, Date.now()),
+          spender: req.body.spender,
+          approvals: approvals,
+        });
+      }
+    )
+  );
 
   interface EthereumBalanceRequest {
     privateKey: string; // the users private Ethereum key
