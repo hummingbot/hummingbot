@@ -1,3 +1,5 @@
+import copy
+
 import aiohttp
 import asyncio
 import logging
@@ -81,6 +83,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._domain = domain
         self._shared_client = None
         self._last_timestamp = 0
+        self._real_time_balance_update = False
         self._status_poll_notifier = asyncio.Event()
         self._funding_fee_poll_notifier = asyncio.Event()
 
@@ -664,15 +667,16 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
+        self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
+        self._in_flight_orders_snapshot_timestamp = self.current_timestamp
+
     async def _update_order_status(self):
         """
         Calls REST API to get order status
         """
 
         active_orders: List[BybitPerpetualInFlightOrder] = [
-            o for o in self._in_flight_orders.values()
-            if not o.is_created
-        ]
+            o for o in self._in_flight_orders.values()]
 
         tasks = []
         for active_order in active_orders:

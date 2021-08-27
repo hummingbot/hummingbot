@@ -1014,30 +1014,6 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertEqual(Decimal(30500), available_balances["USDT"])
 
     @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
-    def test_update_order_status_without_created_in_server_in_flight_order_does_not_execute_status_request(self,
-                                                                                                           get_mock):
-        self._configure_mock_api(get_mock)
-
-        self._simulate_trading_rules_initialized()
-
-        self.connector._in_flight_orders["O1"] = BybitPerpetualInFlightOrder(
-            client_order_id="O1",
-            exchange_order_id="EO1",
-            trading_pair=self.trading_pair,
-            trade_type=TradeType.BUY,
-            price=Decimal(44000),
-            amount=Decimal(1),
-            order_type=OrderType.LIMIT,
-            leverage=10,
-            position=PositionAction.OPEN.name)
-
-        # We don't register any API response for the process to time out
-
-        asyncio.get_event_loop().run_until_complete(self.connector._update_order_status())
-
-        self.assertTrue(self._is_logged("DEBUG", "Polling for order status updates of 0 orders."))
-
-    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
     def test_update_order_status_for_cancellation(self, get_mock):
         self._configure_mock_api(get_mock)
 
