@@ -11,7 +11,7 @@ EXAMPLE_PAIR = "BTC-USD"
 
 # Bybit fees: https://help.bybit.com/hc/en-us/articles/360039261154
 # Fees have to be expressed as percent value
-DEFAULT_FEES = [0, 0.075]
+DEFAULT_FEES = [-0.025, 0.075]
 
 
 # USE_ETHEREUM_WALLET not required because default value is false
@@ -27,16 +27,27 @@ def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
     return hb_trading_pair.replace("-", "")
 
 
-def rest_api_url_for_endpoint(endpoint: Dict[str, str],
-                              domain: Optional[str] = None,
-                              trading_pair: Optional[str] = None) -> str:
-    variant = domain if domain else "bybit_perpetual_main"
-    if trading_pair:
-        _, quote_asset = trading_pair.split("-")
-        market = "linear" if quote_asset == "USDT" else "non_linear"
+def is_linear_perpetual(trading_pair: str) -> bool:
+    """
+    Returns True if trading_pair is in USDT(Linear) Perpetual
+    """
+    _, quote_asset = trading_pair.split("-")
+    return quote_asset == "USDT"
+
+
+def rest_api_path_for_endpoint(endpoint: Dict[str, str],
+                               trading_pair: Optional[str] = None) -> str:
+    if trading_pair and is_linear_perpetual(trading_pair):
+        market = "linear"
     else:
         market = "non_linear"
-    return CONSTANTS.REST_URLS.get(variant) + endpoint[market]
+
+    return endpoint[market]
+
+
+def rest_api_url_for_endpoint(endpoint: str, domain: Optional[str] = None) -> str:
+    variant = domain if domain else "bybit_perpetual_main"
+    return CONSTANTS.REST_URLS.get(variant) + endpoint
 
 
 def wss_url(connector_variant_label: Optional[str]) -> str:
@@ -56,13 +67,13 @@ def get_next_funding_timestamp(current_timestamp: float) -> float:
 KEYS = {
     "bybit_perpetual_api_key":
         ConfigVar(key="bybit_perpetual_api_key",
-                  prompt="Enter your Bybit API key >>> ",
+                  prompt="Enter your Bybit Perpetual API key >>> ",
                   required_if=using_exchange("bybit_perpetual"),
                   is_secure=True,
                   is_connect_key=True),
     "bybit_perpetual_secret_key":
         ConfigVar(key="bybit_perpetual_secret_key",
-                  prompt="Enter your Bybit secret key >>> ",
+                  prompt="Enter your Bybit Perpetual secret key >>> ",
                   required_if=using_exchange("bybit_perpetual"),
                   is_secure=True,
                   is_connect_key=True),
@@ -71,18 +82,18 @@ KEYS = {
 OTHER_DOMAINS = ["bybit_perpetual_testnet"]
 OTHER_DOMAINS_PARAMETER = {"bybit_perpetual_testnet": "bybit_perpetual_testnet"}
 OTHER_DOMAINS_EXAMPLE_PAIR = {"bybit_perpetual_testnet": "BTC-USDT"}
-OTHER_DOMAINS_DEFAULT_FEES = {"bybit_perpetual_testnet": [0, 0.075]}
+OTHER_DOMAINS_DEFAULT_FEES = {"bybit_perpetual_testnet": [-0.025, 0.075]}
 OTHER_DOMAINS_KEYS = {
     "bybit_perpetual_testnet": {
         "bybit_perpetual_testnet_api_key":
             ConfigVar(key="bybit_perpetual_testnet_api_key",
-                      prompt="Enter your Bybit API key >>> ",
+                      prompt="Enter your Bybit Perpetual Testnet API key >>> ",
                       required_if=using_exchange("bybit_perpetual_testnet"),
                       is_secure=True,
                       is_connect_key=True),
         "bybit_perpetual_testnet_secret_key":
-            ConfigVar(key="bybit_testnet_secret_key",
-                      prompt="Enter your Bybit secret key >>> ",
+            ConfigVar(key="bybit_perpetual_testnet_secret_key",
+                      prompt="Enter your Bybit Perpetual Testnet secret key >>> ",
                       required_if=using_exchange("bybit_perpetual_testnet"),
                       is_secure=True,
                       is_connect_key=True),
