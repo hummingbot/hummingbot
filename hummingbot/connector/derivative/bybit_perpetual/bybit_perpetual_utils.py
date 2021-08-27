@@ -35,16 +35,19 @@ def is_linear_perpetual(trading_pair: str) -> bool:
     return quote_asset == "USDT"
 
 
-def rest_api_url_for_endpoint(endpoint: Dict[str, str],
-                              domain: Optional[str] = None,
-                              trading_pair: Optional[str] = None) -> str:
-    variant = domain if domain else "bybit_perpetual_main"
-    if trading_pair:
-        _, quote_asset = trading_pair.split("-")
-        market = "linear" if quote_asset == "USDT" else "non_linear"
+def rest_api_path_for_endpoint(endpoint: Dict[str, str],
+                               trading_pair: Optional[str] = None) -> str:
+    if trading_pair and is_linear_perpetual(trading_pair):
+        market = "linear"
     else:
         market = "non_linear"
-    return CONSTANTS.REST_URLS.get(variant) + endpoint[market]
+
+    return endpoint[market]
+
+
+def rest_api_url_for_endpoint(endpoint: str, domain: Optional[str] = None) -> str:
+    variant = domain if domain else "bybit_perpetual_main"
+    return CONSTANTS.REST_URLS.get(variant) + endpoint
 
 
 def wss_url(connector_variant_label: Optional[str]) -> str:
