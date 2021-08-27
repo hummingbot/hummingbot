@@ -454,8 +454,8 @@ class UniswapConnector(ConnectorBase):
 
     async def check_network(self) -> NetworkStatus:
         try:
-            response = await self._api_request("get", "api")
-            if response["status"] != "ok":
+            response = await self._api_request("get", "")
+            if response["message"] != "ok":
                 raise Exception(f"Error connecting to Gateway API. HTTP status is {response.status}.")
         except asyncio.CancelledError:
             raise

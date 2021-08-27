@@ -6,7 +6,10 @@ import { HttpException, asyncHandler } from '../../../services/error-handler';
 import { BigNumber } from 'ethers';
 import { latency } from '../../../services/base';
 import { ethers } from 'ethers';
-import { CurrencyAmount, Price, Trade } from '@uniswap/sdk';
+import { Trade } from '@uniswap/sdk';
+
+const swapMoreThanMaxPriceError = 'Price too high';
+const swapLessThanMaxPriceError = 'Price too low';
 
 export namespace UniswapRoutes {
   export const router = Router();
@@ -37,9 +40,9 @@ export namespace UniswapRoutes {
     latency: number;
     base: string;
     quote: string;
-    amount: BigNumber;
-    expectedAmount: CurrencyAmount;
-    tradePrice: Price;
+    amount: string;
+    expectedAmount: string;
+    tradePrice: string;
     gasPrice: number;
     gasLimit: number;
     gasCost: number;
@@ -95,9 +98,9 @@ export namespace UniswapRoutes {
                 latency: latency(initTime, Date.now()),
                 base: baseToken.address,
                 quote: quoteToken.address,
-                amount: amount,
-                expectedAmount: expectedAmount,
-                tradePrice: tradePrice,
+                amount: amount.toString(),
+                expectedAmount: expectedAmount.toSignificant(8),
+                tradePrice: tradePrice.toSignificant(8),
                 gasPrice: gasPrice,
                 gasLimit: gasLimit,
                 gasCost: gasPrice * gasLimit,
@@ -127,6 +130,7 @@ export namespace UniswapRoutes {
     amount: BigNumber;
     privateKey: string;
     side: Side;
+    limitPrice?: BigNumber;
   }
 
   interface UniswapTradeResponse {
@@ -135,14 +139,19 @@ export namespace UniswapRoutes {
     latency: number;
     base: string;
     quote: string;
-    amount: BigNumber;
-    expectedIn?: CurrencyAmount;
-    expectedOut?: CurrencyAmount;
-    price: Price;
+    amount: string;
+    expectedIn?: string;
+    expectedOut?: string;
+    price: string;
     gasPrice: number;
     gasLimit: number;
     gasCost: number;
     txHash: string | undefined;
+  }
+
+  interface UniswapTradeErrorResponse {
+    error: string;
+    message: string;
   }
 
   router.post(
@@ -150,9 +159,12 @@ export namespace UniswapRoutes {
     asyncHandler(
       async (
         req: Request<{}, {}, UniswapTradeRequest>,
-        res: Response<UniswapTradeResponse, {}>
+        res: Response<UniswapTradeResponse | UniswapTradeErrorResponse, {}>
       ) => {
         const initTime = Date.now();
+
+        const limitPrice = req.body.limitPrice;
+
         const wallet = new ethers.Wallet(req.body.privateKey, eth.provider);
 
         const baseToken = eth.getTokenBySymbol(req.body.base);
@@ -181,49 +193,63 @@ export namespace UniswapRoutes {
             } else {
               const gasPrice = eth.getGasPrice();
               const gasLimit = ConfigManager.config.UNISWAP_GAS_LIMIT;
+
               if (req.body.side === 'BUY') {
                 const price = result.trade.executionPrice.invert();
-
-                const tx = await uniswap.executeTrade(
-                  wallet,
-                  result.trade,
-                  gasPrice
-                );
-                res.status(200).json({
-                  network: ConfigManager.config.ETHEREUM_CHAIN,
-                  timestamp: initTime,
-                  latency: latency(initTime, Date.now()),
-                  base: baseToken.address,
-                  quote: quoteToken.address,
-                  amount: req.body.amount,
-                  expectedIn: result.expectedAmount,
-                  price: price,
-                  gasPrice: gasPrice,
-                  gasLimit: gasLimit,
-                  gasCost: gasPrice * gasLimit,
-                  txHash: tx.hash,
-                });
+                  if (!limitPrice || price.toFixed(8) <= limitPrice.toString()) {
+                  const tx = await uniswap.executeTrade(
+                    wallet,
+                    result.trade,
+                    gasPrice
+                  );
+                  res.status(200).json({
+                    network: ConfigManager.config.ETHEREUM_CHAIN,
+                    timestamp: initTime,
+                    latency: latency(initTime, Date.now()),
+                    base: baseToken.address,
+                    quote: quoteToken.address,
+                    amount: req.body.amount.toString(),
+                    expectedIn: result.expectedAmount.toSignificant(8),
+                    price: price.toSignificant(8),
+                    gasPrice: gasPrice,
+                    gasLimit: gasLimit,
+                    gasCost: gasPrice * gasLimit,
+                    txHash: tx.hash,
+                  });
+                } else {
+                  res.status(500).json({
+                    error: swapMoreThanMaxPriceError,
+                    message: `Swap price ${price} exceeds limitPrice ${limitPrice}`,
+                  });
+                }
               } else {
                 const price = result.trade.executionPrice;
-                const tx = await uniswap.executeTrade(
-                  wallet,
-                  result.trade,
-                  gasPrice
-                );
-                res.status(200).json({
-                  network: ConfigManager.config.ETHEREUM_CHAIN,
-                  timestamp: initTime,
-                  latency: latency(initTime, Date.now()),
-                  base: baseToken.address,
-                  quote: quoteToken.address,
-                  amount: req.body.amount,
-                  expectedOut: result.expectedAmount,
-                  price: price,
-                  gasPrice: gasPrice,
-                  gasLimit,
-                  gasCost: gasPrice * gasLimit,
-                  txHash: tx.hash,
-                });
+                  if (!limitPrice || price.toFixed(8) <= limitPrice.toString()) {
+                  const tx = await uniswap.executeTrade(
+                    wallet,
+                    result.trade,
+                    gasPrice
+                  );
+                  res.status(200).json({
+                    network: ConfigManager.config.ETHEREUM_CHAIN,
+                    timestamp: initTime,
+                    latency: latency(initTime, Date.now()),
+                    base: baseToken.address,
+                    quote: quoteToken.address,
+                    amount: req.body.amount.toString(),
+                    expectedOut: result.expectedAmount.toSignificant(8),
+                    price: price.toSignificant(8),
+                    gasPrice: gasPrice,
+                    gasLimit,
+                    gasCost: gasPrice * gasLimit,
+                    txHash: tx.hash,
+                  });
+                } else {
+                  res.status(500).json({
+                    error: swapLessThanMaxPriceError,
+                    message: `Swap price ${price} lower than limitPrice ${limitPrice}`,
+                  });
+                }
               }
             }
           } else {
