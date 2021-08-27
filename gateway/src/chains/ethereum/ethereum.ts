@@ -83,22 +83,16 @@ export class Ethereum extends EthereumBase {
     // instantiate a contract and pass in provider for read-only access
     const contract = this.getContract(tokenAddress);
 
-    try {
-      logger.info(
-        'Requesting balance for owner ' +
-          wallet.address +
-          ' for token ' +
-          tokenAddress +
-          '.'
-      );
-      const balance = await contract.balanceOf(wallet.address);
-      logger.info(balance);
-      return { value: balance, decimals: decimals };
-    } catch (err) {
-      throw new Error(
-        err.reason || `Error balance lookup for token address ${tokenAddress}`
-      );
-    }
+    logger.info(
+      'Requesting balance for owner ' +
+        wallet.address +
+        ' for token ' +
+        tokenAddress +
+        '.'
+    );
+    const balance = await contract.balanceOf(wallet.address);
+    logger.info(balance);
+    return { value: balance, decimals: decimals };
   }
 
   // override getERC20Allowance
@@ -111,22 +105,18 @@ export class Ethereum extends EthereumBase {
     // instantiate a contract and pass in provider for read-only access
     const contract = this.getContract(tokenAddress);
 
-    try {
-      logger.info(
-        'Requesting spender ' +
-          spender +
-          ' allowance for owner ' +
-          wallet.address +
-          ' for token ' +
-          tokenAddress +
-          '.'
-      );
-      const allowance = await contract.allowance(wallet.address, spender);
-      logger.info(allowance);
-      return { value: allowance, decimals: decimals };
-    } catch (err) {
-      throw new Error(err.reason || 'error allowance lookup');
-    }
+    logger.info(
+      'Requesting spender ' +
+        spender +
+        ' allowance for owner ' +
+        wallet.address +
+        ' for token ' +
+        tokenAddress +
+        '.'
+    );
+    const allowance = await contract.allowance(wallet.address, spender);
+    logger.info(allowance);
+    return { value: allowance, decimals: decimals };
   }
 
   getContract(tokenAddress: string) {
@@ -142,30 +132,26 @@ export class Ethereum extends EthereumBase {
     tokenAddress: string,
     amount: BigNumber
   ): Promise<boolean> {
-    try {
-      // instantiate a contract and pass in wallet, which act on behalf of that signer
-      const contract = this.getContract(tokenAddress);
+    // instantiate a contract and pass in wallet, which act on behalf of that signer
+    const contract = this.getContract(tokenAddress);
 
-      logger.info(
-        'Calling approve method called for spender ' +
-          spender +
-          ' requesting allowance ' +
-          amount.toString() +
-          ' from owner ' +
-          wallet.address +
-          ' on token ' +
-          tokenAddress +
-          '.'
-      );
-      const response = await contract.approve(spender, amount, {
-        gasPrice: this.gasPrice * 1e9,
-        gasLimit: 100000,
-      });
-      logger.info(response);
-      return response;
-    } catch (err) {
-      throw new Error(err.reason || 'error approval');
-    }
+    logger.info(
+      'Calling approve method called for spender ' +
+        spender +
+        ' requesting allowance ' +
+        amount.toString() +
+        ' from owner ' +
+        wallet.address +
+        ' on token ' +
+        tokenAddress +
+        '.'
+    );
+    const response = await contract.approve(spender, amount, {
+      gasPrice: this.gasPrice * 1e9,
+      gasLimit: 100000,
+    });
+    logger.info(response);
+    return response;
   }
 
   getTokenBySymbol(tokenSymbol: string): Token | undefined {
