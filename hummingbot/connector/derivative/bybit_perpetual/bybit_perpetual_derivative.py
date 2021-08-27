@@ -800,7 +800,6 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         """
         async for event_message in self._iter_user_event_queue():
             try:
-                print(event_message)
                 endpoint = BybitPerpetualWebSocketAdaptor.endpoint_from_message(event_message)
                 payload = BybitPerpetualWebSocketAdaptor.payload_from_message(event_message)
 

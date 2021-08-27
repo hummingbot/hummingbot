@@ -1846,7 +1846,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertEqual(0, len(self.connector._account_positions))
 
     @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
-    def test_listening_process_receives_updates(self, ws_connect_mock):
+    def test_listening_process_receives_updates_position(self, ws_connect_mock):
         ws_connect_mock.return_value = self._create_ws_mock()
 
         self.async_task = asyncio.get_event_loop().create_task(
@@ -1863,7 +1863,7 @@ class BybitPerpetualDerivativeTests(TestCase):
             "data": [
                 {
                     "user_id": 1,
-                    "symbol": "BTCUSD",
+                    "symbol": "BTCUSDT",
                     "size": 11,
                     "side": "Sell",
                     "position_value": "0.00159252",
@@ -1893,34 +1893,42 @@ class BybitPerpetualDerivativeTests(TestCase):
             ]
         })
 
-        self.ws_incoming_messages.put_nowait({
-            "topic": "execution",
-            "data": [
-                {
-                    "symbol": "BTCUSD",
-                    "side": "Buy",
-                    "order_id": "xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c418",
-                    "exec_id": "xxxxxxxx-xxxx-xxxx-8b66-c3d2fcd352f6",
-                    "order_link_id": "",
-                    "price": "8300",
-                    "order_qty": 1,
-                    "exec_type": "Trade",
-                    "exec_qty": 1,
-                    "exec_fee": "0.00000009",
-                    "leaves_qty": 0,
-                    "is_maker": False,
-                    "trade_time": "2020-01-14T14:07:23.629Z"
-                }
-            ]
-        })
+        # Add a dummy message for the websocket to read and include in the "messages" queue
+        self.ws_incoming_messages.put_nowait(self._finalMessage)
+
+        # Wait until the connector finishes processing the message queue
+        asyncio.get_event_loop().run_until_complete(self.resume_test_event.wait())
+        self.resume_test_event.clear()
+
+        for key in self.connector._account_positions:
+            position = self.connector._account_positions[key]
+            self.assertEqual(position.position_side, PositionSide.SHORT)
+            self.assertEqual(position.amount, 11)
+            self.assertEqual(position.leverage, 1)
+            self.assertEqual(position.entry_price, Decimal('6907.291588174717'))
+
+    @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
+    def test_listening_process_receives_updates_order(self, ws_connect_mock):
+        ws_connect_mock.return_value = self._create_ws_mock()
+
+        self.async_task = asyncio.get_event_loop().create_task(
+            self.connector._user_stream_event_listener())
+        self.tracker_task = asyncio.get_event_loop().create_task(
+            self.connector._user_stream_tracker.start())
+
+        # Prepare inflight order
+        self.connector.start_tracking_order("xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c418", "xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c418", "BTC-USDT", "Sell", "8579.5", 1, "Market", 1, "")
+
+        # Add the authentication response for the websocket
+        self._add_successful_authentication_response()
 
         self.ws_incoming_messages.put_nowait({
             "topic": "order",
             "data": [
                 {
                     "order_id": "xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c418",
-                    "order_link_id": "",
-                    "symbol": "BTCUSD",
+                    "order_link_id": "xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c418",
+                    "symbol": "BTCUSDT",
                     "side": "Sell",
                     "order_type": "Market",
                     "price": "8579.5",
@@ -1928,7 +1936,7 @@ class BybitPerpetualDerivativeTests(TestCase):
                     "time_in_force": "ImmediateOrCancel",
                     "create_type": "CreateByClosing",
                     "cancel_type": "",
-                    "order_status": "Filled",
+                    "order_status": "Cancelled",
                     "leaves_qty": 0,
                     "cum_exec_qty": 1,
                     "cum_exec_value": "0.00011655",
@@ -1952,9 +1960,49 @@ class BybitPerpetualDerivativeTests(TestCase):
         asyncio.get_event_loop().run_until_complete(self.resume_test_event.wait())
         self.resume_test_event.clear()
 
-        for key in self.connector._account_positions:
-            position = self.connector._account_positions[key]
-            self.assertEqual(position.position_side, PositionSide.SHORT)
-            self.assertEqual(position.amount, 11)
-            self.assertEqual(position.leverage, 1)
-            self.assertEqual(position.entry_price, Decimal('6907.291588174717'))
+        self.assertTrue(self._is_logged('INFO', 'Successfully cancelled order xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c418'))
+
+    @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
+    def test_listening_process_receives_updates_execution(self, ws_connect_mock):
+        ws_connect_mock.return_value = self._create_ws_mock()
+
+        self.async_task = asyncio.get_event_loop().create_task(
+            self.connector._user_stream_event_listener())
+        self.tracker_task = asyncio.get_event_loop().create_task(
+            self.connector._user_stream_tracker.start())
+
+        # Prepare inflight order
+        self.connector.start_tracking_order("xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c419", "xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c419", "BTC-USDT", "Buy", "8300", 1, "Market", 1, "")
+
+        # Add the authentication response for the websocket
+        self._add_successful_authentication_response()
+
+        self.ws_incoming_messages.put_nowait({
+            "topic": "execution",
+            "data": [
+                {
+                    "symbol": "BTCUSDT",
+                    "side": "Buy",
+                    "order_id": "xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c419",
+                    "exec_id": "xxxxxxxx-xxxx-xxxx-8b66-c3d2fcd352f6",
+                    "order_link_id": "xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c419",
+                    "price": "8300",
+                    "order_qty": 1,
+                    "exec_type": "Trade",
+                    "exec_qty": 1,
+                    "exec_fee": "0.00000009",
+                    "leaves_qty": 0,
+                    "is_maker": False,
+                    "trade_time": "2020-01-14T14:07:23.629Z"
+                }
+            ]
+        })
+
+        # Add a dummy message for the websocket to read and include in the "messages" queue
+        self.ws_incoming_messages.put_nowait(self._finalMessage)
+
+        # Wait until the connector finishes processing the message queue
+        asyncio.get_event_loop().run_until_complete(self.resume_test_event.wait())
+        self.resume_test_event.clear()
+
+        self.assertTrue("xxxxxxxx-xxxx-xxxx-8b66-c3d2fcd352f6" in self.connector.in_flight_orders["xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c419"].trade_id_set)
