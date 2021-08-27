@@ -1,6 +1,5 @@
 import aiohttp
 import asyncio
-import ujson
 from typing import AsyncIterable, Dict, Any, Optional, List
 
 import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_constants as CONSTANTS
@@ -26,11 +25,6 @@ class BybitPerpetualWebSocketAdaptor:
         self._websocket = websocket
 
     @classmethod
-    def endpoint_from_raw_message(cls, raw_message: str) -> str:
-        message = ujson.loads(raw_message)
-        return cls.endpoint_from_message(message=message)
-
-    @classmethod
     def endpoint_from_message(cls, message: Dict[str, Any]) -> str:
         if not isinstance(message, dict):
             return message
@@ -43,12 +37,7 @@ class BybitPerpetualWebSocketAdaptor:
             return message[cls._topic_field_name]
 
     @classmethod
-    def payload_from_raw_message(cls, raw_message: str) -> Dict[str, Any]:
-        message = ujson.loads(raw_message)
-        return message
-
-    @classmethod
-    def payload_from_message(cls, message: str) -> Dict[str, Any]:
+    def payload_from_message(cls, message: Dict[str, Any]) -> List[Dict[str, Any]]:
         if "data" in message:
             return message["data"]
         return message
