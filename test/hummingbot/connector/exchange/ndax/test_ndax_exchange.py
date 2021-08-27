@@ -153,7 +153,10 @@ class NdaxExchangeTests(TestCase):
         future = safe_ensure_future(
             self.exchange._create_order(trade_type, order_id, trading_pair, amount, price, order_type)
         )
-        self.exchange._order_futures[order_id] = future
+        order = self.exchange.start_tracking_order(
+            order_id, None, self.trading_pair, TradeType.BUY, Decimal(10.0), Decimal(1.0), OrderType.LIMIT
+        )
+        order.order_creation_future = future
         return future
 
     @patch('websockets.connect', new_callable=AsyncMock)
@@ -1619,9 +1622,6 @@ class NdaxExchangeTests(TestCase):
             OrderType.MARKET,
         ]
         self._simulate_create_order(*order_details)
-        self.exchange.start_tracking_order(
-            order_id, None, self.trading_pair, TradeType.BUY, Decimal(10.0), Decimal(1.0), OrderType.LIMIT
-        )
         asyncio.new_event_loop().run_until_complete(
             self.exchange._execute_cancel(self.trading_pair, order_id)
         )
