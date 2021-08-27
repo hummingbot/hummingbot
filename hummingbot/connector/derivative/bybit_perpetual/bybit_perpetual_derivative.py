@@ -571,7 +571,6 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         poll_interval = (self.SHORT_POLL_INTERVAL
                          if now - self._user_stream_tracker.last_recv_time > 60.0
                          else self.LONG_POLL_INTERVAL)
-        # poll_interval = self.SHORT_POLL_INTERVAL
         last_tick = int(self._last_timestamp / poll_interval)
         current_tick = int(timestamp / poll_interval)
         if current_tick > last_tick:
@@ -836,20 +835,14 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         unrealized_pnl = position_value - (amount * entry_price * leverage)
         pos_key = self.position_key(hb_trading_pair, position_side)
         if amount != s_decimal_0:
-            if pos_key in self._account_positions:
-                # Update
-                self._account_positions[pos_key].unrealized_pnl = unrealized_pnl
-                self._account_positions[pos_key].amount = amount
-            else:
-                # New
-                self._account_positions[pos_key] = Position(
-                    trading_pair=hb_trading_pair,
-                    position_side=position_side,
-                    unrealized_pnl=unrealized_pnl,
-                    entry_price=entry_price,
-                    amount=amount,
-                    leverage=leverage,
-                )
+            self._account_positions[pos_key] = Position(
+                trading_pair=hb_trading_pair,
+                position_side=position_side,
+                unrealized_pnl=unrealized_pnl,
+                entry_price=entry_price,
+                amount=amount,
+                leverage=leverage,
+            )
         else:
             if pos_key in self._account_positions:
                 del self._account_positions[pos_key]
@@ -913,7 +906,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                         tracked_order.order_type,
                         Decimal(trade_msg["exec_price"]) if "exec_price" in trade_msg else Decimal(trade_msg["price"]),
                         Decimal(trade_msg["exec_qty"]),
-                        TradeFee(percent=Decimal(trade_msg["fee_rate"])) if "fee_rate" in trade_msg else TradeFee(percent=Decimal(trade_msg["exec_fee"])),
+                        TradeFee(Decimal(0), [tracked_order.fee_asset, Decimal(trade_msg["exec_fee"])]),
                         exchange_trade_id=str(trade_msg["exec_id"])
                     )
                 )
