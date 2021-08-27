@@ -55,6 +55,7 @@ uniswap_v3_lp_config_map = {
         type_str="bool",
         prompt="Do you want to use price volatility from the pool to adjust spread for positions? (Yes/No) >>> ",
         prompt_on_new=False,
+        default=False,
         validator=validate_bool,
     ),
     "volatility_period": ConfigVar(
