@@ -972,7 +972,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
 
     @patch("aiohttp.ClientSession.get")
     def test_get_funding_info_trading_pair_does_not_exist(self, mock_get):
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSD": "BTC-USD"}}
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
         self._configure_mock_api(mock_get)
         mock_response = {
             "ret_code": 0,
@@ -982,7 +982,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
             "result": [
                 # Truncated Response
                 {
-                    "symbol": "BTCUSD",
+                    "symbol": "BTCUSDT",
                     "mark_price": "50000",
                     "index_price": "50000",
                     "funding_rate": "-15",
@@ -996,7 +996,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
         self.api_responses_json.put_nowait(mock_response)
 
         funding_info = asyncio.get_event_loop().run_until_complete(
-            self.data_source.get_funding_info("BTC-USD")
+            self.data_source.get_funding_info("BTC-USDT")
         )
 
         self.assertEqual(Decimal('50000'), funding_info.mark_price)

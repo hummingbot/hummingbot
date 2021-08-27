@@ -84,7 +84,8 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._status_poll_notifier = asyncio.Event()
         self._funding_fee_poll_notifier = asyncio.Event()
 
-        self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        rate_limits = CONSTANTS.build_rate_limits(self._trading_pairs)
+        self._throttler = AsyncThrottler(rate_limits)
         self._auth: BybitPerpetualAuth = BybitPerpetualAuth(api_key=bybit_perpetual_api_key,
                                                             secret_key=bybit_perpetual_secret_key)
         self._order_book_tracker = BybitPerpetualOrderBookTracker(
@@ -248,8 +249,8 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         body = body or {}
         client = await self._aiohttp_client()
         if limit_id is None:
-            limit_id = bybit_utils.rest_api_limit_id_for_endpoint(
-                endpoint=CONSTANTS.PLACE_ACTIVE_ORDER_PATH_URL,
+            limit_id = bybit_utils.get_rest_api_limit_id_for_endpoint(
+                endpoint=endpoint,
                 trading_pair=trading_pair,
             )
         endpoint = bybit_utils.rest_api_url_for_endpoint(
