@@ -4,9 +4,12 @@ import { Ethereum } from './ethereum';
 import { EthereumConfig } from './ethereum.config';
 import { ConfigManager } from '../../services/config-manager';
 import { Token } from '../../services/ethereum-base';
-import { tokenValueToString } from '../../services/base';
 import { HttpException, asyncHandler } from '../../services/error-handler';
-import { latency, bigNumberWithDecimalToStr } from '../../services/base';
+import {
+  latency,
+  bigNumberWithDecimalToStr,
+  tokenValueToString,
+} from '../../services/base';
 import ethers from 'ethers';
 
 export namespace EthereumRoutes {
@@ -38,6 +41,7 @@ export namespace EthereumRoutes {
 
   interface EthereumAllowancesRequest {
     privateKey: string; // the users private Ethereum key
+    spender: string; // the spender address for whom approvals are checked
     tokenSymbols: string[]; // a list of token symbol
   }
 
@@ -45,11 +49,13 @@ export namespace EthereumRoutes {
     network: string;
     timestamp: number;
     latency: number;
-    balances: Record<string, string>; // the balance should be a string encoded number
+    spender: string;
+    approvals: Record<string, string>;
   }
 
   router.post(
-    '/allowances',
+      '/allowances',
+      asyncHandler(
     async (
       req: Request<{}, {}, EthereumAllowancesRequest>,
       res: Response<EthereumAllowancesResponse | string, {}>
@@ -69,32 +75,29 @@ export namespace EthereumRoutes {
         tokens[symbol] = token;
       }
 
+        let approvals: Record<string, string> = {};
       await Promise.all(
-        Object.keys(tokenList).map(async (symbol) => {
-          try {
-            approvals[symbol] = await ethereumService.getERC20Allowance(
+        Object.keys(tokens).map(async (symbol) => {
+          approvals[symbol] = tokenValueToString(
+            await ethereum.getERC20Allowance(
               wallet,
               req.body.spender,
-              tokenList[symbol].address,
-              tokenList[symbol].decimals
-            );
-          } catch (err) {
-            logger.error(err);
-            // this helps preserve the expected behavior
-            approvals[symbol] = 'invalid ENS name';
-          }
+              tokens[symbol].address,
+              tokens[symbol].decimals
+            )
+          );
         })
       );
 
       res.status(200).json({
-        network: config.networkName,
+        network: ConfigManager.config.ETHEREUM_CHAIN,
         timestamp: initTime,
         latency: latency(initTime, Date.now()),
-        spender: spender,
+        spender: req.body.spender,
         approvals: approvals,
       });
     }
-  );
+      ));
 
   interface EthereumBalanceRequest {
     privateKey: string; // the users private Ethereum key
