@@ -18,24 +18,30 @@ class BybitPerpetualUtilsTests(TestCase):
         trading_pair = "BTC-USDT"
         self.assertEqual("BTCUSDT", utils.convert_to_exchange_trading_pair(trading_pair))
 
-    def test_rest_api_url(self):
+    def test_rest_api_path_for_endpoint(self):
         endpoint = {"linear": "/testEndpoint/linear",
                     "non_linear": "/testEndpoint/non_linear"}
 
-        url = utils.rest_api_url_for_endpoint(endpoint=endpoint, domain=None)
-        self.assertEqual(CONSTANTS.REST_URLS.get("bybit_perpetual_main") + "/testEndpoint/non_linear", url)
+        api_path = utils.rest_api_path_for_endpoint(endpoint=endpoint)
+        self.assertEqual("/testEndpoint/non_linear", api_path)
 
-        url = utils.rest_api_url_for_endpoint(endpoint=endpoint, domain=None, trading_pair="BTC-USD")
-        self.assertEqual(CONSTANTS.REST_URLS.get("bybit_perpetual_main") + "/testEndpoint/non_linear", url)
+        api_path = utils.rest_api_path_for_endpoint(endpoint=endpoint, trading_pair="BTC-USD")
+        self.assertEqual("/testEndpoint/non_linear", api_path)
 
-        url = utils.rest_api_url_for_endpoint(endpoint=endpoint, domain=None, trading_pair="BTC-USDT")
-        self.assertEqual(CONSTANTS.REST_URLS.get("bybit_perpetual_main") + "/testEndpoint/linear", url)
+        api_path = utils.rest_api_path_for_endpoint(endpoint=endpoint, trading_pair="BTC-USDT")
+        self.assertEqual("/testEndpoint/linear", api_path)
+
+    def test_rest_api_url(self):
+        endpoint = "/testEndpoint"
+
+        url = utils.rest_api_url_for_endpoint(endpoint=endpoint, domain=None, )
+        self.assertEqual(CONSTANTS.REST_URLS.get("bybit_perpetual_main") + "/testEndpoint", url)
 
         url = utils.rest_api_url_for_endpoint(endpoint=endpoint, domain="bybit_perpetual_main")
-        self.assertEqual(CONSTANTS.REST_URLS.get("bybit_perpetual_main") + "/testEndpoint/non_linear", url)
+        self.assertEqual(CONSTANTS.REST_URLS.get("bybit_perpetual_main") + "/testEndpoint", url)
 
         url = utils.rest_api_url_for_endpoint(endpoint=endpoint, domain="bybit_perpetual_testnet")
-        self.assertEqual(CONSTANTS.REST_URLS.get("bybit_perpetual_testnet") + "/testEndpoint/non_linear", url)
+        self.assertEqual(CONSTANTS.REST_URLS.get("bybit_perpetual_testnet") + "/testEndpoint", url)
 
     def test_wss_url(self):
         url = utils.wss_url(None)
