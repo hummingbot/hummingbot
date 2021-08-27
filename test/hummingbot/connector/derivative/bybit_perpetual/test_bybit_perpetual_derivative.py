@@ -823,6 +823,7 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         self._simulate_trading_rules_initialized()
         self.connector._order_book_tracker._order_books_initialized.set()
+        self.connector._user_stream_tracker.data_source._last_recv_time = 1
         self.connector._account_balances["USDT"] = Decimal(10000)
         self.connector._funding_info[self.trading_pair] = FundingInfo(
             trading_pair=self.trading_pair,
