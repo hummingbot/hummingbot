@@ -6,7 +6,6 @@ from typing import List, Optional
 import aiohttp
 
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source import BybitPerpetualAPIOrderBookDataSource
-from hummingbot.core.data_type.order_book import OrderBook
 
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -55,6 +54,3 @@ class BybitPerpetualOrderBookTracker(OrderBookTracker):
             self._order_book_instruments_info_listener_task.cancel()
             self._order_book_instruments_info_listener_task = None
         super().stop()
-
-    async def _initial_order_book_for_trading_pair(self, trading_pair: str) -> OrderBook:
-        return self._data_source.order_book_create_function()
