@@ -6,6 +6,7 @@ from collections import deque
 from decimal import Decimal
 from unittest import TestCase
 from unittest.mock import AsyncMock, patch, PropertyMock
+from typing import Optional
 
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source import \
     BybitPerpetualAPIOrderBookDataSource
@@ -15,7 +16,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.event.event_logger import EventLogger
 
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_in_flight_order import BybitPerpetualInFlightOrder
-from hummingbot.core.event.events import OrderType, PositionAction, TradeType, MarketEvent, FundingInfo, PositionMode
+from hummingbot.core.event.events import OrderType, PositionAction, PositionSide, TradeType, MarketEvent, FundingInfo, PositionMode
 
 
 class BybitPerpetualDerivativeTests(TestCase):
@@ -32,7 +33,12 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.api_responses_json: asyncio.Queue = asyncio.Queue()
         self.api_responses_status = deque()
         self.log_records = []
+        self.resume_test_event = asyncio.Event()
+        self._finalMessage = 'FinalDummyMessage'
         self.async_task = None
+
+        self.ws_sent_messages = []
+        self.ws_incoming_messages = asyncio.Queue()
 
         self.connector = BybitPerpetualDerivative(bybit_perpetual_api_key='testApiKey',
                                                   bybit_perpetual_secret_key='testSecretKey',
@@ -97,6 +103,34 @@ class BybitPerpetualDerivativeTests(TestCase):
                 min_base_amount_increment=Decimal(str(0.000001)),
             )
         }
+
+    async def _get_next_received_message(self, timeout: Optional[int] = None):
+        message = await self.ws_incoming_messages.get()
+        if message == self._finalMessage:
+            self.resume_test_event.set()
+        return message
+
+    def _create_ws_mock(self):
+        ws = AsyncMock()
+        ws.send_json.side_effect = lambda sent_message: self.ws_sent_messages.append(sent_message)
+        ws.receive_json.side_effect = self._get_next_received_message
+        return ws
+
+    def _authentication_response(self, authenticated: bool) -> str:
+        request = {"op": "auth",
+                   "args": ['testAPIKey', 'testExpires', 'testSignature']}
+        message = {"success": authenticated,
+                   "ret_msg": "",
+                   "conn_id": "testConnectionID",
+                   "request": request}
+
+        return message
+
+    def _add_successful_authentication_response(self):
+        self.ws_incoming_messages.put_nowait(self._authentication_response(True))
+
+    def _add_unsuccessful_authentication_response(self):
+        self.ws_incoming_messages.put_nowait(self._authentication_response(False))
 
     def test_supported_order_types(self):
         self.assertEqual(2, len(self.connector.supported_order_types()))
@@ -1810,3 +1844,117 @@ class BybitPerpetualDerivativeTests(TestCase):
         )
         asyncio.get_event_loop().run_until_complete(self.connector_task)
         self.assertEqual(0, len(self.connector._account_positions))
+
+    @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
+    def test_listening_process_receives_updates(self, ws_connect_mock):
+        ws_connect_mock.return_value = self._create_ws_mock()
+
+        self.async_task = asyncio.get_event_loop().create_task(
+            self.connector._user_stream_event_listener())
+        self.tracker_task = asyncio.get_event_loop().create_task(
+            self.connector._user_stream_tracker.start())
+
+        # Add the authentication response for the websocket
+        self._add_successful_authentication_response()
+
+        self.ws_incoming_messages.put_nowait({
+            "topic": "position",
+            "action": "update",
+            "data": [
+                {
+                    "user_id": 1,
+                    "symbol": "BTCUSD",
+                    "size": 11,
+                    "side": "Sell",
+                    "position_value": "0.00159252",
+                    "entry_price": "6907.291588174717",
+                    "liq_price": "7100.234",
+                    "bust_price": "7088.1234",
+                    "leverage": "1",
+                    "order_margin": "1",
+                    "position_margin": "1",
+                    "available_balance": "2",
+                    "take_profit": "0",
+                    "tp_trigger_by": "LastPrice",
+                    "stop_loss": "0",
+                    "sl_trigger_by": "",
+                    "realised_pnl": "0.10",
+                    "trailing_stop": "0",
+                    "trailing_active": "0",
+                    "wallet_balance": "4.12",
+                    "risk_id": 1,
+                    "occ_closing_fee": "0.1",
+                    "occ_funding_fee": "0.1",
+                    "auto_add_margin": 0,
+                    "cum_realised_pnl": "0.12",
+                    "position_status": "Normal",
+                    "position_seq": 14
+                }
+            ]
+        })
+
+        self.ws_incoming_messages.put_nowait({
+            "topic": "execution",
+            "data": [
+                {
+                    "symbol": "BTCUSD",
+                    "side": "Buy",
+                    "order_id": "xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c418",
+                    "exec_id": "xxxxxxxx-xxxx-xxxx-8b66-c3d2fcd352f6",
+                    "order_link_id": "",
+                    "price": "8300",
+                    "order_qty": 1,
+                    "exec_type": "Trade",
+                    "exec_qty": 1,
+                    "exec_fee": "0.00000009",
+                    "leaves_qty": 0,
+                    "is_maker": False,
+                    "trade_time": "2020-01-14T14:07:23.629Z"
+                }
+            ]
+        })
+
+        self.ws_incoming_messages.put_nowait({
+            "topic": "order",
+            "data": [
+                {
+                    "order_id": "xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c418",
+                    "order_link_id": "",
+                    "symbol": "BTCUSD",
+                    "side": "Sell",
+                    "order_type": "Market",
+                    "price": "8579.5",
+                    "qty": 1,
+                    "time_in_force": "ImmediateOrCancel",
+                    "create_type": "CreateByClosing",
+                    "cancel_type": "",
+                    "order_status": "Filled",
+                    "leaves_qty": 0,
+                    "cum_exec_qty": 1,
+                    "cum_exec_value": "0.00011655",
+                    "cum_exec_fee": "0.00000009",
+                    "timestamp": "2020-01-14T14:09:31.778Z",
+                    "take_profit": "0",
+                    "stop_loss": "0",
+                    "trailing_stop": "0",
+                    "trailing_active": "0",
+                    "last_exec_price": "8580",
+                    "reduce_only": False,
+                    "close_on_trigger": False
+                }
+            ]
+        })
+
+        # Add a dummy message for the websocket to read and include in the "messages" queue
+        self.ws_incoming_messages.put_nowait(self._finalMessage)
+
+        # Wait until the connector finishes processing the message queue
+        asyncio.get_event_loop().run_until_complete(self.resume_test_event.wait())
+        self.resume_test_event.clear()
+
+        for key in self.connector._account_positions:
+            position = self.connector._account_positions[key]
+            self.assertEqual(position.position_side, PositionSide.SHORT)
+            self.assertEqual(position.amount, 11)
+            self.assertEqual(position.leverage, 1)
+            self.assertEqual(position.entry_price, Decimal('6907.291588174717'))

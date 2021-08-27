@@ -800,12 +800,14 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         """
         async for event_message in self._iter_user_event_queue():
             try:
+                print(event_message)
                 endpoint = BybitPerpetualWebSocketAdaptor.endpoint_from_message(event_message)
                 payload = BybitPerpetualWebSocketAdaptor.payload_from_message(event_message)
 
                 if endpoint == CONSTANTS.WS_SUBSCRIPTION_POSITIONS_ENDPOINT_NAME:
                     for position_msg in payload:
-                        self._process_account_position_event(position_msg)
+                        symbol_trading_pair_map: Dict[str, str] = await OrderBookDataSource.trading_pair_symbol_map(self._domain)
+                        self._process_account_position_event(position_msg, symbol_trading_pair_map)
                 elif endpoint == CONSTANTS.WS_SUBSCRIPTION_ORDERS_ENDPOINT_NAME:
                     for order_msg in payload:
                         self._process_order_event_message(order_msg)
@@ -820,25 +822,35 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 self.logger().error(f"Unexpected error in user stream listener loop ({ex})", exc_info=True)
                 await asyncio.sleep(5.0)
 
-    def _process_account_position_event(self, position_msg: Dict[str, Any]):
+    def _process_account_position_event(self, position_msg: Dict[str, Any], symbol_trading_pair_map: Dict[str, str]):
         """
         Updates position
         :param account_position_event: The position event message payload
         """
-        symbol_trading_pair_map: Dict[str, str] = asyncio.get_event_loop().run_until_complete(OrderBookDataSource.trading_pair_symbol_map(self._domain))
         ex_trading_pair = position_msg.get("symbol")
         hb_trading_pair = symbol_trading_pair_map.get(ex_trading_pair)
         position_side = PositionSide.LONG if position_msg.get("side") == "buy" else PositionSide.SHORT
         position_value = Decimal(str(position_msg.get("position_value")))
         entry_price = Decimal(str(position_msg.get("entry_price")))
         amount = Decimal(str(position_msg.get("size")))
-        leverage = Decimal(str(position_msg.get("effective_leverage")))
+        leverage = Decimal(str(position_msg.get("leverage")))
         unrealized_pnl = position_value - (amount * entry_price * leverage)
         pos_key = self.position_key(hb_trading_pair, position_side)
         if amount != s_decimal_0:
-            # Update
-            self._account_positions[pos_key].unrealized_pnl = unrealized_pnl
-            self._account_positions[pos_key].amount = amount
+            if pos_key in self._account_positions:
+                # Update
+                self._account_positions[pos_key].unrealized_pnl = unrealized_pnl
+                self._account_positions[pos_key].amount = amount
+            else:
+                # New
+                self._account_positions[pos_key] = Position(
+                    trading_pair=hb_trading_pair,
+                    position_side=position_side,
+                    unrealized_pnl=unrealized_pnl,
+                    entry_price=entry_price,
+                    amount=amount,
+                    leverage=leverage,
+                )
         else:
             if pos_key in self._account_positions:
                 del self._account_positions[pos_key]
