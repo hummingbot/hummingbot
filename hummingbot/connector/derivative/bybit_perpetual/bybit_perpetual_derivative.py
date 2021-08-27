@@ -826,7 +826,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         Updates position
         :param account_position_event: The position event message payload
         """
-        symbol_trading_pair_map: Dict[str, str] = await OrderBookDataSource.trading_pair_symbol_map(self._domain)
+        symbol_trading_pair_map: Dict[str, str] = asyncio.get_event_loop().run_until_complete(OrderBookDataSource.trading_pair_symbol_map(self._domain))
         ex_trading_pair = position_msg.get("symbol")
         hb_trading_pair = symbol_trading_pair_map.get(ex_trading_pair)
         position_side = PositionSide.LONG if position_msg.get("side") == "buy" else PositionSide.SHORT
