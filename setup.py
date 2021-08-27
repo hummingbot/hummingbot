@@ -80,6 +80,7 @@ def main():
         "hummingbot.connector.exchange.radar_relay",
         "hummingbot.connector.derivative",
         "hummingbot.connector.derivative.binance_perpetual",
+        "hummingbot.connector.derivative.bybit_perpetual",
         "hummingbot.model",
         "hummingbot.script",
         "hummingbot.strategy",
