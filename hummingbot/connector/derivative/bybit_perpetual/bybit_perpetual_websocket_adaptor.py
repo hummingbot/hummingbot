@@ -32,6 +32,8 @@ class BybitPerpetualWebSocketAdaptor:
 
     @classmethod
     def endpoint_from_message(cls, message: Dict[str, Any]) -> str:
+        if not isinstance(message, dict):
+            return message
         if cls._operation_field_name in message.keys():
             if message[cls._operation_field_name] is cls._subscription_operation:
                 return message[cls._payload_field_name][0]
@@ -47,7 +49,9 @@ class BybitPerpetualWebSocketAdaptor:
 
     @classmethod
     def payload_from_message(cls, message: str) -> Dict[str, Any]:
-        return message["data"]
+        if "data" in message:
+            return message["data"]
+        return message
 
     async def send_request(self, payload: Dict[str, Any]):
         await self._websocket.send_json(payload)
