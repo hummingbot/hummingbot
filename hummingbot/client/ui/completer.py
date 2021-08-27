@@ -49,7 +49,7 @@ class HummingbotCompleter(Completer):
         self._export_completer = WordCompleter(["keys", "trades"], ignore_case=True)
         self._balance_completer = WordCompleter(["limit", "paper"], ignore_case=True)
         self._history_completer = WordCompleter(["--days", "--verbose", "--precision"], ignore_case=True)
-        self._gateway_completer = WordCompleter(["generate_certs", "list-configs", "update"], ignore_case=True)
+        self._gateway_completer = WordCompleter(["generate-certs", "list-configs", "test-connection", "update"], ignore_case=True)
         self._strategy_completer = WordCompleter(STRATEGIES, ignore_case=True)
         self._py_file_completer = WordCompleter(file_name_list(SCRIPTS_PATH, "py"))
         self._rate_oracle_completer = WordCompleter([r.name for r in RateOracleSource], ignore_case=True)

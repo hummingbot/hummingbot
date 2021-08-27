@@ -3,7 +3,8 @@ import yaml from 'js-yaml';
 import { Percent } from '@uniswap/sdk';
 
 export namespace ConfigManager {
-  interface Config {
+  export interface Config {
+    VERSION: number;
     APPNAME: string;
     PORT: number;
     IP_WHITELIST: string[];
@@ -28,6 +29,7 @@ export namespace ConfigManager {
 
   export function validateConfig(o: any): o is Config {
     return (
+      'VERSION' in o &&
       'APPNAME' in o &&
       'PORT' in o &&
       'IP_WHITELIST' in o &&
@@ -49,11 +51,12 @@ export namespace ConfigManager {
     );
   }
 
-  export const configFilePath: string = './src/gateway-config.yml';
+  export const configFilePath: string = './conf/gateway-config.yml';
   export let config: Config;
   reloadConfig();
 
-  // after reloading the config, all services should be restarted
+  // after reloading the config, all services should be restarted, the dev is
+  // responsible for making sure that this is true.
   export function reloadConfig(): void {
     let x = yaml.load(fs.readFileSync(configFilePath, 'utf8'));
     if (typeof x === 'object' && validateConfig(x)) {
@@ -61,6 +64,12 @@ export namespace ConfigManager {
     } else {
       throw new Error(
         configFilePath + ' does not conform to the expected YAML structure.'
+      );
+    }
+
+    if (x.VERSION != 1) {
+      throw new Error(
+        `${configFilePath} has an unexpected version: ${x.VERSION}. Gateway currently only supports version 1.`
       );
     }
   }

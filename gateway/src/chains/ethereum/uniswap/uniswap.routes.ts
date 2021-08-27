@@ -182,8 +182,7 @@ export namespace UniswapRoutes {
               const gasPrice = eth.getGasPrice();
               const gasLimit = ConfigManager.config.UNISWAP_GAS_LIMIT;
               if (req.body.side === 'BUY') {
-                const price = result.trade.executionPrice
-                  .invert();
+                const price = result.trade.executionPrice.invert();
 
                 const tx = await uniswap.executeTrade(
                   wallet,
