@@ -27,6 +27,14 @@ def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
     return hb_trading_pair.replace("-", "")
 
 
+def is_linear_perpetual(trading_pair: str) -> bool:
+    """
+    Returns True if trading_pair is in USDT(Linear) Perpetual
+    """
+    _, quote_asset = trading_pair.split("-")
+    return quote_asset == "USDT"
+
+
 def rest_api_url_for_endpoint(endpoint: Dict[str, str],
                               domain: Optional[str] = None,
                               trading_pair: Optional[str] = None) -> str:
