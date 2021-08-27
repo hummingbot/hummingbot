@@ -4,6 +4,7 @@ import { Percent } from '@uniswap/sdk';
 
 export namespace ConfigManager {
   export interface Config {
+    VERSION: number;
     APPNAME: string;
     PORT: number;
     IP_WHITELIST: string[];
@@ -28,6 +29,7 @@ export namespace ConfigManager {
 
   export function validateConfig(o: any): o is Config {
     return (
+      'VERSION' in o &&
       'APPNAME' in o &&
       'PORT' in o &&
       'IP_WHITELIST' in o &&
@@ -61,6 +63,12 @@ export namespace ConfigManager {
     } else {
       throw new Error(
         configFilePath + ' does not conform to the expected YAML structure.'
+      );
+    }
+
+    if (x.VERSION != 1) {
+      throw new Error(
+        `${configFilePath} has an unexpected version: ${x.VERSION}. Gateway currently only supports version 1.`
       );
     }
   }
