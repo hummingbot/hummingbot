@@ -1,7 +1,15 @@
+import copy
+
+import aiohttp
+import asyncio
 import logging
 import math
 import time
-import asyncio
+import ujson
+
+import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils as bybit_utils
+import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_constants as CONSTANTS
+
 from decimal import Decimal
 from typing import (
     Any,
@@ -10,11 +18,6 @@ from typing import (
     Optional,
 )
 
-import ujson
-import aiohttp
-
-import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils as bybit_utils
-import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_constants as CONSTANTS
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_auth import BybitPerpetualAuth
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source import \
     BybitPerpetualAPIOrderBookDataSource as OrderBookDataSource
@@ -81,6 +84,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._domain = domain
         self._shared_client = None
         self._last_timestamp = 0
+        self._real_time_balance_update = False
         self._status_poll_notifier = asyncio.Event()
         self._funding_fee_poll_notifier = asyncio.Event()
 
@@ -89,7 +93,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._auth: BybitPerpetualAuth = BybitPerpetualAuth(api_key=bybit_perpetual_api_key,
                                                             secret_key=bybit_perpetual_secret_key)
         self._order_book_tracker = BybitPerpetualOrderBookTracker(
-            session=asyncio.get_event_loop().run_until_complete(self._aiohttp_client()),
+            session=safe_gather(self._aiohttp_client()),
             throttler=self._throttler,
             trading_pairs=trading_pairs,
             domain=domain)
@@ -237,7 +241,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         """
         Sends an aiohttp request and waits for a response.
         :param method: The HTTP method, e.g. get or post
-        :param endpoint: The path url or the API end point
+        :param endpoint: API end point
         :param params: The query parameters of the API request
         :param body: The body parameters of the API request
         :param is_auth_required: Whether an authentication is required, when True the function will add encrypted
@@ -253,17 +257,17 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 endpoint=endpoint,
                 trading_pair=trading_pair,
             )
-        endpoint = bybit_utils.rest_api_url_for_endpoint(
-            endpoint=endpoint,
+        path_url = bybit_utils.rest_api_path_for_endpoint(endpoint, trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(
+            endpoint=path_url,
             domain=self._domain,
-            trading_pair=trading_pair,
         )
 
         if method == "GET":
             if is_auth_required:
                 params = self._auth.extend_params_with_authentication_info(params=params)
             async with self._throttler.execute_task(limit_id):
-                response = await client.get(url=endpoint,
+                response = await client.get(url=url,
                                             headers=self._auth.get_headers(),
                                             params=params,
                                             )
@@ -271,7 +275,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             if is_auth_required:
                 params = self._auth.extend_params_with_authentication_info(params=body)
             async with self._throttler.execute_task(limit_id):
-                response = await client.post(url=endpoint,
+                response = await client.post(url=url,
                                              headers=self._auth.get_headers(),
                                              data=ujson.dumps(params)
                                              )
@@ -283,11 +287,11 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
         # Checks HTTP Status and checks if "result" field is in the response.
         if response_status != 200 or "result" not in parsed_response:
-            self.logger().error(f"Error fetching data from {endpoint}. HTTP status is {response_status}. "
+            self.logger().error(f"Error fetching data from {url}. HTTP status is {response_status}. "
                                 f"Message: {parsed_response} "
                                 f"Params: {params} "
                                 f"Data: {body}")
-            raise Exception(f"Error fetching data from {endpoint}. HTTP status is {response_status}. "
+            raise Exception(f"Error fetching data from {url}. HTTP status is {response_status}. "
                             f"Message: {parsed_response} "
                             f"Params: {params} "
                             f"Data: {body}")
@@ -312,8 +316,18 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         trading_rule = self._trading_rules[trading_pair]
         return Decimal(trading_rule.min_base_amount_increment)
 
-    def start_tracking_order(self, order_id: str, exchange_order_id: str, trading_pair: str, trading_type: object,
-                             price: object, amount: object, order_type: object, leverage: int, position: str):
+    def start_tracking_order(
+        self,
+        order_id: str,
+        exchange_order_id: Optional[str],
+        trading_pair: str,
+        trading_type: object,
+        price: object,
+        amount: object,
+        order_type: object,
+        leverage: int,
+        position: str,
+    ):
         self._in_flight_orders[order_id] = BybitPerpetualInFlightOrder(
             client_order_id=order_id,
             exchange_order_id=exchange_order_id,
@@ -367,7 +381,9 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 "symbol": await self._trading_pair_symbol(trading_pair),
                 "qty": amount,
                 "time_in_force": self._DEFAULT_TIME_IN_FORCE,
+                "close_on_trigger": False,
                 "order_link_id": order_id,
+                "reduce_only": False,
             }
 
             if order_type.is_limit_type():
@@ -679,15 +695,16 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
+        self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
+        self._in_flight_orders_snapshot_timestamp = self.current_timestamp
+
     async def _update_order_status(self):
         """
         Calls REST API to get order status
         """
 
         active_orders: List[BybitPerpetualInFlightOrder] = [
-            o for o in self._in_flight_orders.values()
-            if not o.is_created
-        ]
+            o for o in self._in_flight_orders.values()]
 
         tasks = []
         for active_order in active_orders:
@@ -810,8 +827,9 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                        client_order_id))
                 self.stop_tracking_order(client_order_id)
             elif tracked_order.is_failure:
+                reason = order_msg["reject_reason"] if "reject_reason" in order_msg else "unknown"
                 self.logger().info(f"The market order {client_order_id} has failed according to order status event. "
-                                   f"Reason: {order_msg['reject_reason']}")
+                                   f"Reason: {reason}")
                 self.trigger_event(MarketEvent.OrderFailure,
                                    MarketOrderFailureEvent(
                                        self.current_timestamp,
@@ -959,7 +977,8 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             unrealized_pnl = Decimal(str(data.get("unrealised_pnl")))
             entry_price = Decimal(str(data.get("entry_price")))
             amount = Decimal(str(data.get("size")))
-            leverage = Decimal(str(data.get("effective_leverage")))
+            leverage = Decimal(str(data.get("leverage"))) if bybit_utils.is_linear_perpetual(hb_trading_pair) \
+                else Decimal(str(data.get("effective_leverage")))
             pos_key = self.position_key(hb_trading_pair, position_side)
             if amount != s_decimal_0:
                 self._account_positions[pos_key] = Position(
@@ -980,10 +999,19 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         if ex_trading_pair not in symbol_trading_pair_map:
             self.logger().error(f"Unable to set leverage for {trading_pair}. Trading pair not supported.")
             return
-        body_params = {
-            "symbol": ex_trading_pair,
-            "leverage": leverage
-        }
+
+        if bybit_utils.is_linear_perpetual(trading_pair):
+            body_params = {
+                "symbol": ex_trading_pair,
+                "buy_leverage": leverage,
+                "sell_leverage": leverage
+            }
+        else:
+            body_params = {
+                "symbol": ex_trading_pair,
+                "leverage": leverage
+            }
+
         resp: Dict[str, Any] = await self._api_request(
             method="POST",
             endpoint=CONSTANTS.SET_LEVERAGE_PATH_URL,
@@ -991,7 +1019,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             body=body_params,
             is_auth_required=True)
 
-        if resp["ret_msg"] == "ok":
+        if resp["ret_code"] == 0 or (resp["ret_code"] == 34036 and resp["ret_msg"] == "leverage not modified"):
             self._leverage[trading_pair] = leverage
             self.logger().info(f"Leverage Successfully set to {leverage} for {trading_pair}.")
         else:

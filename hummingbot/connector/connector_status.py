@@ -11,6 +11,8 @@ connector_status = {
     'bitfinex': 'yellow',
     'bittrex': 'yellow',
     'blocktane': 'yellow',
+    'bybit_perpetual': 'yellow',
+    'bybit_perpetual_testnet': 'yellow',
     'celo': 'yellow',
     'coinbase_pro': 'yellow',
     'coinzoom': 'green',

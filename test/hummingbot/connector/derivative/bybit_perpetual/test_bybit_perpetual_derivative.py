@@ -812,7 +812,7 @@ class BybitPerpetualDerivativeTests(TestCase):
     def test_fee_estimation(self):
         fee = self.connector.get_fee(base_currency="BCT", quote_currency="USDT", order_type=OrderType.LIMIT,
                                      order_side=TradeType.BUY, amount=Decimal(1), price=Decimal(45000))
-        self.assertEqual(Decimal("0"), fee.percent)
+        self.assertEqual(Decimal("-0.00025"), fee.percent)
 
         fee = self.connector.get_fee(base_currency="BCT", quote_currency="USDT", order_type=OrderType.MARKET,
                                      order_side=TradeType.BUY, amount=Decimal(1), price=Decimal(45000))
@@ -1012,30 +1012,6 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertEqual(Decimal("999.99987471"), available_balances["BTC"])
         self.assertEqual(Decimal(80000), balances["USDT"])
         self.assertEqual(Decimal(30500), available_balances["USDT"])
-
-    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
-    def test_update_order_status_without_created_in_server_in_flight_order_does_not_execute_status_request(self,
-                                                                                                           get_mock):
-        self._configure_mock_api(get_mock)
-
-        self._simulate_trading_rules_initialized()
-
-        self.connector._in_flight_orders["O1"] = BybitPerpetualInFlightOrder(
-            client_order_id="O1",
-            exchange_order_id="EO1",
-            trading_pair=self.trading_pair,
-            trade_type=TradeType.BUY,
-            price=Decimal(44000),
-            amount=Decimal(1),
-            order_type=OrderType.LIMIT,
-            leverage=10,
-            position=PositionAction.OPEN.name)
-
-        # We don't register any API response for the process to time out
-
-        asyncio.get_event_loop().run_until_complete(self.connector._update_order_status())
-
-        self.assertTrue(self._is_logged("DEBUG", "Polling for order status updates of 0 orders."))
 
     @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
     def test_update_order_status_for_cancellation(self, get_mock):
@@ -1668,7 +1644,7 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         self.api_responses_status.append(200)
         self.api_responses_json.put_nowait({
-            "ret_code": 0,
+            "ret_code": 1001,
             "ret_msg": "",
             "ext_code": "20031",
             "result": new_leverage,
@@ -1730,7 +1706,7 @@ class BybitPerpetualDerivativeTests(TestCase):
                         "mode": 0,
                         "user_id": 118921,
                         "risk_id": 1,
-                        "symbol": self.trading_pair,
+                        "symbol": self.ex_trading_pair,
                         "side": "Buy",
                         "size": 10,
                         "position_value": "0.00076448",
@@ -1789,7 +1765,7 @@ class BybitPerpetualDerivativeTests(TestCase):
                         "mode": 0,
                         "user_id": 118921,
                         "risk_id": 1,
-                        "symbol": self.trading_pair,
+                        "symbol": self.ex_trading_pair,
                         "side": "Buy",
                         "size": 0,
                         "position_value": "0.00076448",
