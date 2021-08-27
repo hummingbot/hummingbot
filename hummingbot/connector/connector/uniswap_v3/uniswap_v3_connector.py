@@ -93,7 +93,7 @@ class UniswapV3Connector(UniswapConnector):
                 self._in_flight_positions.update({
                     key: UniswapV3InFlightPosition.from_json(value)
                 })
-                self.logger().info(f"Position with id: {value.token_id} restored.")
+                self.logger().info(f"Position with id: {value['token_id']} restored.")
 
     @property
     def tracking_states(self) -> Dict[str, any]:
@@ -307,10 +307,21 @@ class UniswapV3Connector(UniswapConnector):
                     unclaimedToken1 = Decimal(update_result["position"].get("unclaimedToken1", "0"))
                     if amount0 == amount1 == unclaimedToken0 == unclaimedToken1 == s_decimal_0:
                         self.logger().info(f"Detected that position with id: {tracked_item.token_id} is closed.")
+                        tracked_item.last_status = UniswapV3PositionStatus.REMOVED  # this will prevent it from being restored on next import
+                        self.trigger_event(MarketEvent.RangePositionUpdated,
+                                           RangePositionUpdatedEvent(self.current_timestamp,
+                                                                     tracked_item.hb_id,
+                                                                     tracked_item.last_tx_hash,
+                                                                     tracked_item.token_id,
+                                                                     tracked_item.base_amount,
+                                                                     tracked_item.quote_amount,
+                                                                     tracked_item.last_status.name
+                                                                     ))
                         self.trigger_event(MarketEvent.RangePositionRemoved,
                                            RangePositionRemovedEvent(self.current_timestamp, tracked_item.hb_id,
                                                                      tracked_item.token_id))
                         self.stop_tracking_position(tracked_item.hb_id)
+
                     else:
                         if tracked_item.trading_pair.split("-")[0] == update_result["position"]["token0"]:
                             tracked_item.current_base_amount = amount0
