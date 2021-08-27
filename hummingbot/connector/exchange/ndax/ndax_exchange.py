@@ -13,12 +13,13 @@ from typing import (
     List,
     Optional,
     Union,
-    Callable,
 )
 
 from hummingbot.connector.exchange.ndax import ndax_constants as CONSTANTS, ndax_utils
 from hummingbot.connector.exchange.ndax.ndax_auth import NdaxAuth
-from hummingbot.connector.exchange.ndax.ndax_in_flight_order import NdaxInFlightOrder
+from hummingbot.connector.exchange.ndax.ndax_in_flight_order import (
+    NdaxInFlightOrder, NdaxInFlightOrderNotCreated
+)
 from hummingbot.connector.exchange.ndax.ndax_order_book_tracker import NdaxOrderBookTracker
 from hummingbot.connector.exchange.ndax.ndax_user_stream_tracker import NdaxUserStreamTracker
 from hummingbot.connector.exchange.ndax.ndax_websocket_adaptor import NdaxWebSocketAdaptor
@@ -306,8 +307,7 @@ class NdaxExchange(ExchangeBase):
                            params: Optional[Dict[str, Any]] = None,
                            data: Optional[Dict[str, Any]] = None,
                            is_auth_required: bool = False,
-                           limit_id: Optional[str] = None,
-                           on_rate_limit_lock_capture: Optional[Callable] = None) -> Union[Dict[str, Any], List[Any]]:
+                           limit_id: Optional[str] = None) -> Union[Dict[str, Any], List[Any]]:
         """
         Sends an aiohttp request and waits for a response.
         :param method: The HTTP method, e.g. get or post
@@ -317,13 +317,10 @@ class NdaxExchange(ExchangeBase):
         :param is_auth_required: Whether an authentication is required, when True the function will add encrypted
         signature to the request.
         :param limit_id: The id used for the API throttler. If not supplied, the `path_url` is used instead.
-        :param on_rate_limit_lock_capture: A function to call once the throttler lock is captured.
         :returns A response in json format.
         """
         url = ndax_utils.rest_api_url(self._domain) + path_url
         client = await self._http_client()
-
-        on_rate_limit_lock_capture = on_rate_limit_lock_capture or (lambda: None)
 
         try:
             if is_auth_required:
@@ -334,11 +331,9 @@ class NdaxExchange(ExchangeBase):
             limit_id = limit_id or path_url
             if method == "GET":
                 async with self._throttler.execute_task(limit_id):
-                    on_rate_limit_lock_capture()
                     response = await client.get(url, headers=headers, params=params)
             elif method == "POST":
                 async with self._throttler.execute_task(limit_id):
-                    on_rate_limit_lock_capture()
                     response = await client.post(url, headers=headers, data=ujson.dumps(data))
             else:
                 raise NotImplementedError(f"{method} HTTP Method not implemented. ")
@@ -435,26 +430,21 @@ class NdaxExchange(ExchangeBase):
                     "OrderType": 1  # Market
                 })
 
-            in_flight_order = self.start_tracking_order(
-                order_id,
-                exchange_order_id=None,
-                trading_pair=trading_pair,
-                trade_type=trade_type,
-                price=price,
-                amount=amount,
-                order_type=order_type,
-            )
+            self.start_tracking_order(order_id,
+                                      None,
+                                      trading_pair,
+                                      trade_type,
+                                      price,
+                                      amount,
+                                      order_type
+                                      )
 
-            in_flight_order.order_creation_future = safe_ensure_future(
-                self._api_request(
-                    method="POST",
-                    path_url=CONSTANTS.SEND_ORDER_PATH_URL,
-                    data=params,
-                    is_auth_required=True,
-                    on_rate_limit_lock_capture=lambda: in_flight_order.__setattr__("order_creation_future", None),
-                )
+            send_order_results = await self._api_request(
+                method="POST",
+                path_url=CONSTANTS.SEND_ORDER_PATH_URL,
+                data=params,
+                is_auth_required=True
             )
-            send_order_results = await in_flight_order.order_creation_future
 
             if send_order_results["status"] == "Rejected":
                 raise ValueError(f"Order is rejected by the API. "
@@ -511,7 +501,8 @@ class NdaxExchange(ExchangeBase):
                                               order_id=order_id,
                                               amount=amount,
                                               price=price,
-                                              order_type=order_type,))
+                                              order_type=order_type,
+                                              ))
         return order_id
 
     def sell(self, trading_pair: str, amount: Decimal, order_type: OrderType = OrderType.MARKET,
@@ -531,7 +522,8 @@ class NdaxExchange(ExchangeBase):
                                               order_id=order_id,
                                               amount=amount,
                                               price=price,
-                                              order_type=order_type,))
+                                              order_type=order_type,
+                                              ))
         return order_id
 
     async def _execute_cancel(self, trading_pair: str, order_id: str) -> str:
@@ -545,14 +537,30 @@ class NdaxExchange(ExchangeBase):
             tracked_order: Optional[NdaxInFlightOrder] = self._in_flight_orders.get(order_id, None)
             if tracked_order is None:
                 raise ValueError(f"Failed to cancel order - {order_id}. Order not being tracked.")
+            if tracked_order.is_locally_working:
+                raise NdaxInFlightOrderNotCreated(
+                    f"Failed to cancel order - {order_id}. Order not yet created."
+                    f" This is most likely due to rate-limiting."
+                )
 
-            if tracked_order.order_creation_future is not None:
-                await self._execute_order_future_cancel(tracked_order)
-            else:
-                await self._execute_api_cancel(tracked_order)
+            body_params = {
+                "OMSId": 1,
+                "AccountId": await self.initialized_account_id(),
+                "OrderId": await tracked_order.get_exchange_order_id()
+            }
+
+            # The API response simply verifies that the API request have been received by the API servers.
+            await self._api_request(
+                method="POST",
+                path_url=CONSTANTS.CANCEL_ORDER_PATH_URL,
+                data=body_params,
+                is_auth_required=True
+            )
 
             return order_id
         except asyncio.CancelledError:
+            raise
+        except NdaxInFlightOrderNotCreated:
             raise
         except Exception as e:
             self.logger().error(f"Failed to cancel order {order_id}: {str(e)}")
@@ -562,32 +570,6 @@ class NdaxExchange(ExchangeBase):
                 app_warning_msg=f"Failed to cancel order {order_id} on NDAX. "
                                 f"Check API key and network connection."
             )
-
-    async def _execute_order_future_cancel(self, tracked_order: NdaxInFlightOrder):
-        client_order_id = tracked_order.client_order_id
-        self.logger().warning(f"Cancelling rate-limited order creation request for order {client_order_id}.")
-        order_future = tracked_order.order_creation_future
-        tracked_order.order_creation_future = None
-        order_future.cancel()
-        self.trigger_event(MarketEvent.OrderCancelled,
-                           OrderCancelledEvent(
-                               self.current_timestamp,
-                               client_order_id))
-        self.stop_tracking_order(client_order_id)
-
-    async def _execute_api_cancel(self, tracked_order: NdaxInFlightOrder):
-        body_params = {
-            "OMSId": 1,
-            "AccountId": await self.initialized_account_id(),
-            "OrderId": await tracked_order.get_exchange_order_id()
-        }
-
-        await self._api_request(
-            method="POST",
-            path_url=CONSTANTS.CANCEL_ORDER_PATH_URL,
-            data=body_params,
-            is_auth_required=True
-        )
 
     def cancel(self, trading_pair: str, order_id: str):
         """
@@ -747,11 +729,11 @@ class NdaxExchange(ExchangeBase):
                              trade_type: TradeType,
                              price: Decimal,
                              amount: Decimal,
-                             order_type: OrderType) -> NdaxInFlightOrder:
+                             order_type: OrderType):
         """
         Starts tracking an order by simply adding it into _in_flight_orders dictionary.
         """
-        in_flight_order = NdaxInFlightOrder(
+        self._in_flight_orders[order_id] = NdaxInFlightOrder(
             client_order_id=order_id,
             exchange_order_id=exchange_order_id,
             trading_pair=trading_pair,
@@ -760,8 +742,6 @@ class NdaxExchange(ExchangeBase):
             price=price,
             amount=amount
         )
-        self._in_flight_orders[order_id] = in_flight_order
-        return in_flight_order
 
     def stop_tracking_order(self, order_id: str):
         """
