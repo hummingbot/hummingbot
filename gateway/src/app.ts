@@ -58,7 +58,7 @@ app.post(
 
       for (const [k, v] of Object.entries(req.body)) {
         // this prevents the client from accidentally turning off HTTPS
-        if (k != 'UNSAFE_DEV_MODE_WITH_HTTP' && k in config) {
+        if (k != 'UNSAFE_DEV_MODE_WITH_HTTP' && k != 'VERSION' && k in config) {
           (config as any)[k] = v;
         }
       }

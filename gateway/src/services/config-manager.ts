@@ -55,7 +55,8 @@ export namespace ConfigManager {
   export let config: Config;
   reloadConfig();
 
-  // after reloading the config, all services should be restarted
+  // after reloading the config, all services should be restarted, the dev is
+  // responsible for making sure that this is true.
   export function reloadConfig(): void {
     let x = yaml.load(fs.readFileSync(configFilePath, 'utf8'));
     if (typeof x === 'object' && validateConfig(x)) {

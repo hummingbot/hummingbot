@@ -117,9 +117,8 @@ class GatewayCommand:
 
         try:
             config = await self.get_gateway_connections()
-            core_keys = [key for key in sorted(config["config"]['CORE'])]
-            other_keys = [key for key in sorted(config["config"]) if key not in ["CORE"]]
-            all_keys = core_keys + other_keys
+            all_keys = sorted(config)
+
         except Exception:
             self._notify("Gateway-api is not accessible. "
                          "Ensure gateway is up and running on the address and port specified in the global config.")
@@ -143,7 +142,7 @@ class GatewayCommand:
         if key and value:
             settings = {key: value.lower()}
             try:
-                await self._api_request("post", "api/update", settings)
+                await self._api_request("post", "config/update", settings)
             except Exception:
                 # silently ignore exception due to gateway restarting
                 pass
@@ -184,7 +183,7 @@ class GatewayCommand:
             self._notify(f"\nGateway Configurations ({host}:{port}):")
             self._notify("\nCore parameters:")
             columns = ["Parameter", "  Value"]
-            data = [[key, config[key]] for key in sorted(config) if key not in ['CORE']]
+            data = [[key, config[key]] for key in sorted(config)]
             df = pd.DataFrame(data=data, columns=columns)
             lines = ["    " + line for line in df.to_string(index=False, max_colwidth=50).split("\n")]
             self._notify("\n".join(lines))
