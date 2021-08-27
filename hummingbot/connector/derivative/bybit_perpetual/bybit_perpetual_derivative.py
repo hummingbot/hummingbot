@@ -955,7 +955,8 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             unrealized_pnl = Decimal(str(data.get("unrealised_pnl")))
             entry_price = Decimal(str(data.get("entry_price")))
             amount = Decimal(str(data.get("size")))
-            leverage = Decimal(str(data.get("effective_leverage")))
+            leverage = Decimal(str(data.get("leverage"))) if bybit_utils.is_linear_perpetual(hb_trading_pair) \
+                else Decimal(str(data.get("effective_leverage")))
             pos_key = self.position_key(hb_trading_pair, position_side)
             if amount != s_decimal_0:
                 self._account_positions[pos_key] = Position(
@@ -976,10 +977,19 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         if ex_trading_pair not in symbol_trading_pair_map:
             self.logger().error(f"Unable to set leverage for {trading_pair}. Trading pair not supported.")
             return
-        body_params = {
-            "symbol": ex_trading_pair,
-            "leverage": leverage
-        }
+
+        if bybit_utils.is_linear_perpetual(trading_pair):
+            body_params = {
+                "symbol": ex_trading_pair,
+                "buy_leverage": leverage,
+                "sell_leverage": leverage
+            }
+        else:
+            body_params = {
+                "symbol": ex_trading_pair,
+                "leverage": leverage
+            }
+
         resp: Dict[str, Any] = await self._api_request(
             method="POST",
             path_url=bybit_utils.rest_api_url_for_endpoint(
