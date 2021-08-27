@@ -51,13 +51,13 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
             self._session = aiohttp.ClientSession()
         return self._session
 
-    async def _create_websocket_connection(self) -> BybitPerpetualWebSocketAdaptor:
+    async def _create_websocket_connection(self, url: str) -> BybitPerpetualWebSocketAdaptor:
         """
         Initialize WebSocket client for UserStreamDataSource
         """
         try:
             session = await self._get_session()
-            ws = await session.ws_connect(bybit_perpetual_utils.wss_url(self._domain))
+            ws = await session.ws_connect(url)
             return BybitPerpetualWebSocketAdaptor(websocket=ws)
         except asyncio.CancelledError:
             raise
@@ -221,16 +221,18 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
             self._funding_info[trading_pair] = await self._get_funding_info_from_exchange(trading_pair)
         return self._funding_info[trading_pair]
 
-    async def listen_for_subscriptions(self):
+    async def _listen_for_subscriptions_on_url(self, url: str, trading_pairs: List[str]):
         """
         Subscribe to all required events and start the listening cycle.
+        :param url: the wss url to connect to
+        :param trading_pairs: the trading pairs for which the function should listen events
         """
 
         while True:
             try:
-                ws_adaptor: BybitPerpetualWebSocketAdaptor = await self._create_websocket_connection()
+                ws_adaptor: BybitPerpetualWebSocketAdaptor = await self._create_websocket_connection(url)
                 symbols_and_pairs_map = await self.trading_pair_symbol_map(self._domain)
-                symbols = [symbol for symbol, pair in symbols_and_pairs_map.items() if pair in self._trading_pairs]
+                symbols = [symbol for symbol, pair in symbols_and_pairs_map.items() if pair in trading_pairs]
 
                 await ws_adaptor.subscribe_to_order_book(symbols)
                 await ws_adaptor.subscribe_to_trades(symbols)
@@ -240,27 +242,60 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     if "success" in json_message:
                         if json_message["success"]:
                             self.logger().info(
-                                f"Successful subscription to the topic {json_message['request']['args']}")
+                                f"Successful subscription to the topic {json_message['request']['args']} on {url}")
                         else:
-                            self.logger().error("There was an error subscribing to the topic "
-                                                f"{json_message['request']['args']} ({json_message['ret_msg']})")
+                            self.logger().error(
+                                "There was an error subscribing to the topic "
+                                f"{json_message['request']['args']} ({json_message['ret_msg']}) on {url}")
                     else:
                         topic = json_message["topic"]
                         topic = ".".join(topic.split(".")[:-1])
-                        self._messages_queues.get(topic).put_nowait(json_message)
+                        await self._messages_queues[topic].put(json_message)
 
             except asyncio.CancelledError:
                 raise
             except Exception as ex:
                 self.logger().network(
-                    f"Unexpected error with WebSocket connection ({ex})",
+                    f"Unexpected error with WebSocket connection on {url} ({ex})",
                     exc_info=True,
-                    app_warning_msg="Unexpected error with WebSocket connection. Retrying in 30 seconds. "
+                    app_warning_msg="Unexpected error with WebSocket connection on. Retrying in 30 seconds. "
                                     "Check network connection."
                 )
                 if ws_adaptor:
                     await ws_adaptor.close()
                 await asyncio.sleep(30.0)
+
+    async def listen_for_subscriptions(self):
+        """
+        Subscribe to all required events and start the listening cycle.
+        """
+        tasks_future = None
+        try:
+            tasks = []
+            linear_trading_pairs = []
+            non_linear_trading_pairs = []
+            for trading_pair in self._trading_pairs:
+                if bybit_perpetual_utils.is_linear_perpetual(trading_pair):
+                    linear_trading_pairs.append(trading_pair)
+                else:
+                    non_linear_trading_pairs.append(trading_pair)
+
+            if linear_trading_pairs:
+                tasks.append(self._listen_for_subscriptions_on_url(
+                    url=bybit_perpetual_utils.wss_linear_public_url(self._domain),
+                    trading_pairs=linear_trading_pairs))
+            if non_linear_trading_pairs:
+                tasks.append(self._listen_for_subscriptions_on_url(
+                    url=bybit_perpetual_utils.wss_non_linear_public_url(self._domain),
+                    trading_pairs=non_linear_trading_pairs))
+
+            if tasks:
+                tasks_future = asyncio.gather(*tasks)
+                await tasks_future
+
+        except asyncio.CancelledError:
+            tasks_future and tasks_future.cancel()
+            raise
 
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
