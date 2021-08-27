@@ -11,11 +11,13 @@ from typing import (
     Optional, Any,
 )
 
-from hummingbot.connector.derivative.bybit_perpetual import bybit_perpetual_constants as CONSTANTS, \
-    bybit_perpetual_utils
+from hummingbot.connector.derivative.bybit_perpetual import (
+    bybit_perpetual_constants as CONSTANTS, bybit_perpetual_utils
+)
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_order_book import BybitPerpetualOrderBook
-from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_websocket_adaptor import \
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_websocket_adaptor import (
     BybitPerpetualWebSocketAdaptor
+)
 from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.order_book import OrderBook, OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -45,24 +47,18 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._throttler = throttler or self._get_throttler_instance(trading_pairs)
         self._domain = domain
         self._trading_pairs: List[str] = trading_pairs
+        self._session = session or aiohttp.ClientSession()
         self._messages_queues: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
-        self._session = session
         self._funding_info: Dict[str, FundingInfo] = {}
 
         self._funding_info_async_lock: asyncio.Lock = asyncio.Lock()
-
-    async def _get_session(self):
-        if not self._session:
-            self._session = aiohttp.ClientSession()
-        return self._session
 
     async def _create_websocket_connection(self) -> BybitPerpetualWebSocketAdaptor:
         """
         Initialize WebSocket client for UserStreamDataSource
         """
         try:
-            session = await self._get_session()
-            ws = await session.ws_connect(bybit_perpetual_utils.wss_url(self._domain))
+            ws = await self._session.ws_connect(bybit_perpetual_utils.wss_url(self._domain))
             return BybitPerpetualWebSocketAdaptor(websocket=ws)
         except asyncio.CancelledError:
             raise
@@ -195,39 +191,46 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         return order_book
 
-    async def _get_funding_info_from_exchange(self, trading_pair: str, domain: str) -> FundingInfo:
-        symbol_trading_pair_map = await self.trading_pair_symbol_map(domain)
+    async def _get_funding_info_from_exchange(self, trading_pair: str) -> FundingInfo:
+        symbol_map = await self.trading_pair_symbol_map(self._domain)
+        symbols = [symbol for symbol, pair in symbol_map.items() if trading_pair == pair]
+
+        if symbols:
+            symbol = symbols[0]
+        else:
+            raise ValueError(f"There is no symbol mapping for trading pair {trading_pair}")
+
         params = {
-            "symbol": symbol_trading_pair_map[bybit_perpetual_utils.convert_to_exchange_trading_pair(trading_pair)]
+            "symbol": symbol
         }
         funding_info = None
         endpoint = CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT
-        url = bybit_perpetual_utils.rest_api_url_for_endpoint(endpoint, domain, trading_pair)
+        url = bybit_perpetual_utils.rest_api_url_for_endpoint(endpoint, trading_pair)
         limit_id = bybit_perpetual_utils.get_rest_api_limit_id_for_endpoint(endpoint, trading_pair)
-        session = await self._get_session()
-        async with session as client:
+        async with self._session as client:
             async with self._throttler.execute_task(limit_id):
                 async with client.get(url=url, params=params) as response:
                     if response.status == 200:
                         resp_json = await response.json()
-                        symbol_info: Dict[str, Any] = resp_json["result"][
-                            0]  # Endpoint returns a List even though 1 entry is returned
+                        symbol_info: Dict[str, Any] = (
+                            resp_json["result"][0]
+                        )  # Endpoint returns a List even though 1 entry is returned
                         funding_info = FundingInfo(
                             trading_pair=trading_pair,
                             index_price=Decimal(str(symbol_info["index_price"])),
                             mark_price=Decimal(str(symbol_info["mark_price"])),
                             next_funding_utc_timestamp=int(
                                 pd.Timestamp(symbol_info["next_funding_time"]).timestamp()),
-                            rate=Decimal(str(symbol_info["predicted_funding_rate"])))  # Note: Absence of _e6 suffix for REST API response
+                            rate=Decimal(str(symbol_info["predicted_funding_rate"])))  # Note: no _e6 suffix for resp
         return funding_info
 
     async def get_funding_info(self, trading_pair: str) -> FundingInfo:
-        async with self._funding_info_async_lock:
-            if trading_pair not in self._funding_info:
-                funding_info = await self._get_funding_info_from_exchange(trading_pair, self._domain)
-            else:
-                funding_info = self._funding_info[trading_pair]
-            return funding_info
+        """
+        Returns the FundingInfo of the specified trading pair. If it does not exist, it will query the REST API.
+        """
+        if trading_pair not in self._funding_info:
+            self._funding_info[trading_pair] = await self._get_funding_info_from_exchange(trading_pair)
+        return self._funding_info[trading_pair]
 
     async def listen_for_subscriptions(self):
         """
@@ -379,29 +382,25 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
                     # Updates funding info for the relevant domain and trading_pair
                     async with self._funding_info_async_lock:
-                        if trading_pair not in self._funding_info:
-                            current_funding_info = FundingInfo(trading_pair=trading_pair,
-                                                               index_price=Decimal(str(entry["index_price"])),
-                                                               mark_price=Decimal(str(entry["mark_price"])),
-                                                               next_funding_utc_timestamp=int(
-                                                                   pd.Timestamp(str(entry["next_funding_time"]),
-                                                                                tz="UTC").timestamp()),
-                                                               rate=Decimal(
-                                                                   str(entry["predicted_funding_rate_e6"])) * Decimal(
-                                                                   1e-6),
-                                                               )
+                        if event_type == "snapshot":
+                            # Snapshot messages have all the data fields required to construct a new FundingInfo.
+                            current_funding_info: FundingInfo = FundingInfo(trading_pair=trading_pair,
+                                                                            index_price=Decimal(str(entry["index_price"])),
+                                                                            mark_price=Decimal(str(entry["mark_price"])),
+                                                                            next_funding_utc_timestamp=int(pd.Timestamp(str(entry["next_funding_time"]), tz="UTC").timestamp()),
+                                                                            rate=Decimal(str(entry["predicted_funding_rate_e6"])) * Decimal(1e-6),
+                                                                            )
                         else:
-                            current_funding_info: FundingInfo = self._funding_info[trading_pair]
+                            # Delta messages do not necessarily have all the data required.
+                            current_funding_info: FundingInfo = await self.get_funding_info(trading_pair)
                             if "index_price" in entry:
                                 current_funding_info.index_price = Decimal(str(entry["index_price"]))
                             if "mark_price" in entry:
                                 current_funding_info.mark_price = Decimal(str(entry["mark_price"]))
                             if "next_funding_time" in entry:
-                                current_funding_info.next_funding_utc_timestamp = int(
-                                    pd.Timestamp(str(entry["next_funding_time"]), tz="UTC").timestamp())
+                                current_funding_info.next_funding_utc_timestamp = int(pd.Timestamp(str(entry["next_funding_time"]), tz="UTC").timestamp())
                             if "predicted_funding_rate_e6" in entry:
-                                current_funding_info.rate = Decimal(str(entry["predicted_funding_rate_e6"])) * Decimal(
-                                    1e-6)
+                                current_funding_info.rate = Decimal(str(entry["predicted_funding_rate_e6"])) * Decimal(1e-6)
                         self._funding_info[trading_pair] = current_funding_info
 
             except asyncio.CancelledError:
