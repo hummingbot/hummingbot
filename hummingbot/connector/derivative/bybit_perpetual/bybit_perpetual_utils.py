@@ -7,6 +7,8 @@ from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 CENTRALIZED = True
 
+NON_LINEAR_MARKET = "non_linear"
+LINEAR_MARKET = "linear"
 EXAMPLE_PAIR = "BTC-USD"
 
 # Bybit fees: https://help.bybit.com/hc/en-us/articles/360039261154
@@ -31,23 +33,31 @@ def rest_api_url_for_endpoint(endpoint: Dict[str, str],
                               domain: Optional[str] = None,
                               trading_pair: Optional[str] = None) -> str:
     variant = domain if domain else "bybit_perpetual_main"
-    market = _rest_api_market_for_endpoint(trading_pair)
+    market = get_rest_api_market_for_endpoint(trading_pair)
     return CONSTANTS.REST_URLS.get(variant) + endpoint[market]
 
 
-def rest_api_limit_id_for_endpoint(endpoint: Dict[str, str],
-                                   trading_pair: Optional[str] = None) -> str:
-    market = _rest_api_market_for_endpoint(trading_pair)
-    return endpoint[market]
+def get_rest_api_limit_id_for_endpoint(endpoint: Dict[str, str],
+                                       trading_pair: Optional[str] = None) -> str:
+    market = get_rest_api_market_for_endpoint(trading_pair)
+    limit_id = endpoint[market]
+    if trading_pair is not None:
+        limit_id = get_pair_specific_limit_id(limit_id, trading_pair)
+    return limit_id
 
 
-def _rest_api_market_for_endpoint(trading_pair: Optional[str] = None) -> str:
+def get_rest_api_market_for_endpoint(trading_pair: Optional[str] = None) -> str:
     if trading_pair:
         _, quote_asset = trading_pair.split("-")
-        market = "linear" if quote_asset == "USDT" else "non_linear"
+        market = LINEAR_MARKET if quote_asset == "USDT" else NON_LINEAR_MARKET
     else:
-        market = "non_linear"
+        market = NON_LINEAR_MARKET
     return market
+
+
+def get_pair_specific_limit_id(base_limit_id: str, trading_pair: str) -> str:
+    limit_id = f"{base_limit_id}-{trading_pair}"
+    return limit_id
 
 
 def wss_url(connector_variant_label: Optional[str]) -> str:

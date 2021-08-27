@@ -42,7 +42,7 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                  domain: Optional[str] = None,
                  session: Optional[aiohttp.ClientSession] = None):
         super().__init__(trading_pairs)
-        self._throttler = throttler or self._get_throttler_instance()
+        self._throttler = throttler or self._get_throttler_instance(trading_pairs)
         self._domain = domain
         self._trading_pairs: List[str] = trading_pairs
         self._messages_queues: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
@@ -77,13 +77,13 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         cls._trading_pair_symbol_map[domain] = {}
 
-        endpoint_url = bybit_perpetual_utils.rest_api_url_for_endpoint(
-            endpoint=CONSTANTS.QUERY_SYMBOL_ENDPOINT,
-            domain=domain)
+        endpoint = CONSTANTS.QUERY_SYMBOL_ENDPOINT
+        endpoint_url = bybit_perpetual_utils.rest_api_url_for_endpoint(endpoint, domain)
+        limit_id = bybit_perpetual_utils.get_rest_api_limit_id_for_endpoint(endpoint)
         throttler = throttler or cls._get_throttler_instance()
 
         async with aiohttp.ClientSession() as client:
-            async with throttler.execute_task(CONSTANTS.QUERY_SYMBOL_ENDPOINT_GET_LIMIT_ID):
+            async with throttler.execute_task(limit_id):
                 async with client.get(endpoint_url, params={}) as response:
                     if response.status == 200:
                         resp_json: Dict[str, Any] = await response.json()
@@ -123,12 +123,12 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
     ):
         result = {}
         trading_pair_symbol_map = await cls.trading_pair_symbol_map(domain=domain)
-        endpoint_url = bybit_perpetual_utils.rest_api_url_for_endpoint(
-            CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT,
-            domain)
-        throttler = throttler or cls._get_throttler_instance()
+        endpoint = CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT
+        endpoint_url = bybit_perpetual_utils.rest_api_url_for_endpoint(endpoint, domain)
+        limit_id = bybit_perpetual_utils.get_rest_api_limit_id_for_endpoint(endpoint)
+        throttler = throttler or cls._get_throttler_instance(trading_pairs)
         async with aiohttp.ClientSession() as client:
-            async with throttler.execute_task(CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT_GET_LIMIT_ID):
+            async with throttler.execute_task(limit_id):
                 async with client.get(endpoint_url) as response:
                     if response.status == 200:
                         resp_json = await response.json()
@@ -159,16 +159,16 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         params = {"symbol": symbol}
 
-        url = bybit_perpetual_utils.rest_api_url_for_endpoint(
-            endpoint=CONSTANTS.ORDER_BOOK_ENDPOINT,
-            domain=self._domain)
+        endpoint = CONSTANTS.ORDER_BOOK_ENDPOINT
+        endpoint_url = bybit_perpetual_utils.rest_api_url_for_endpoint(endpoint, self._domain)
+        limit_id = bybit_perpetual_utils.get_rest_api_limit_id_for_endpoint(endpoint)
         session = await self._get_session()
-        async with self._throttler.execute_task(CONSTANTS.ORDER_BOOK_ENDPOINT_GET_LIMIT_ID):
-            async with session.get(url, params=params) as response:
+        async with self._throttler.execute_task(limit_id):
+            async with session.get(endpoint_url, params=params) as response:
                 status = response.status
                 if status != 200:
                     raise IOError(
-                        f"Error fetching OrderBook for {trading_pair} at {url}. "
+                        f"Error fetching OrderBook for {trading_pair} at {endpoint_url}. "
                         f"HTTP {status}. Response: {await response.json()}"
                     )
 
@@ -201,13 +201,12 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
             "symbol": symbol_trading_pair_map[bybit_perpetual_utils.convert_to_exchange_trading_pair(trading_pair)]
         }
         funding_info = None
-        url = bybit_perpetual_utils.rest_api_url_for_endpoint(
-            endpoint=CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT,
-            domain=self._domain,
-            trading_pair=trading_pair)
+        endpoint = CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT
+        url = bybit_perpetual_utils.rest_api_url_for_endpoint(endpoint, domain, trading_pair)
+        limit_id = bybit_perpetual_utils.get_rest_api_limit_id_for_endpoint(endpoint, trading_pair)
         session = await self._get_session()
         async with session as client:
-            async with self._throttler.execute_task(CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT_GET_LIMIT_ID):
+            async with self._throttler.execute_task(limit_id):
                 async with client.get(url=url, params=params) as response:
                     if response.status == 200:
                         resp_json = await response.json()
@@ -411,6 +410,7 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self.logger().error(f"Unexpected error ({ex})", exc_info=True)
 
     @classmethod
-    def _get_throttler_instance(cls) -> AsyncThrottler:
-        throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+    def _get_throttler_instance(cls, trading_pairs: List[str] = None) -> AsyncThrottler:
+        rate_limits = CONSTANTS.build_rate_limits(trading_pairs)
+        throttler = AsyncThrottler(rate_limits)
         return throttler
