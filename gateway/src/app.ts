@@ -24,7 +24,11 @@ app.use('/eth/uniswap', UniswapRoutes.router);
 
 // a simple route to test that the server is running
 app.get('/', (_req: Request, res: Response) => {
-  res.send('ok');
+  res.status(200).json({ message: 'ok' });
+});
+
+app.get('/config', (_req: Request, res: Response<ConfigManager.Config, {}>) => {
+  res.status(200).json(ConfigManager.config);
 });
 
 interface ConfigUpdateRequest {
@@ -54,7 +58,7 @@ app.post(
 
       for (const [k, v] of Object.entries(req.body)) {
         // this prevents the client from accidentally turning off HTTPS
-        if (k != 'UNSAFE_DEV_MODE_WITH_HTTP' && k in config) {
+        if (k != 'UNSAFE_DEV_MODE_WITH_HTTP' && k != 'VERSION' && k in config) {
           (config as any)[k] = v;
         }
       }
@@ -75,7 +79,7 @@ app.post(
       await stopGateway();
       await startGateway();
 
-      res.send('The config has been updated');
+      res.status(200).json({ message: 'The config has been updated' });
     }
   )
 );
