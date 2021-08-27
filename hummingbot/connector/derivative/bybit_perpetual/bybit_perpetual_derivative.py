@@ -571,7 +571,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         poll_interval = (self.SHORT_POLL_INTERVAL
                          if now - self._user_stream_tracker.last_recv_time > 60.0
                          else self.LONG_POLL_INTERVAL)
-        poll_interval = self.SHORT_POLL_INTERVAL
+        # poll_interval = self.SHORT_POLL_INTERVAL
         last_tick = int(self._last_timestamp / poll_interval)
         current_tick = int(timestamp / poll_interval)
         if current_tick > last_tick:
