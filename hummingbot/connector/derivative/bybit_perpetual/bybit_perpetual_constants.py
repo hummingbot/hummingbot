@@ -24,7 +24,10 @@ QUERY_SYMBOL_ENDPOINT = {
 ORDER_BOOK_ENDPOINT = {
     "linear": f"{REST_API_VERSION}/public/orderBook/L2",
     "non_linear": f"{REST_API_VERSION}/public/orderBook/L2"}
-
+SERVER_TIME_PATH_URL = {
+    "linear": f"{REST_API_VERSION}/public/time",
+    "non_linear": f"{REST_API_VERSION}/public/time"
+}
 # REST API Private Endpoints
 SET_LEVERAGE_PATH_URL = {
     "linear": "private/linear/position/set-leverage",

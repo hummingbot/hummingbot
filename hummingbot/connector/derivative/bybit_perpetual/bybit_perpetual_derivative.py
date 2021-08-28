@@ -51,6 +51,7 @@ from hummingbot.core.event.events import (
     TradeFee,
     TradeType,
 )
+from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
 
@@ -94,7 +95,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._auth: BybitPerpetualAuth = BybitPerpetualAuth(api_key=bybit_perpetual_api_key,
                                                             secret_key=bybit_perpetual_secret_key)
         self._order_book_tracker = BybitPerpetualOrderBookTracker(
-            session=safe_gather(self._aiohttp_client()),
+            session=self._aiohttp_client(),
             trading_pairs=trading_pairs,
             domain=domain)
         self._user_stream_tracker = BybitPerpetualUserStreamTracker(self._auth, domain=domain)
@@ -178,7 +179,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             for client_oid, order_json in saved_states.items()
         })
 
-    async def _aiohttp_client(self) -> aiohttp.ClientSession:
+    def _aiohttp_client(self) -> aiohttp.ClientSession:
         """
         :returns Shared aiohttp Client session
         """
@@ -219,6 +220,23 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             self._user_funding_fee_polling_task.cancel()
             self._user_funding_fee_polling_task = None
 
+    async def check_network(self) -> NetworkStatus:
+        """
+        This function is required by NetworkIterator base class and is called periodically to check
+        the network connection. Simply ping the network (or call any light weight public API).
+        """
+        try:
+            resp = await self._api_request(
+                method="GET",
+                path_url=bybit_utils.rest_api_path_for_endpoint(endpoint=CONSTANTS.SERVER_TIME_PATH_URL))
+            if "ret_code" not in resp or resp["ret_code"] != 0:
+                raise Exception()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            return NetworkStatus.NOT_CONNECTED
+        return NetworkStatus.CONNECTED
+
     def supported_order_types(self) -> List[OrderType]:
         """
         :return a list of OrderType supported by this connector
@@ -246,7 +264,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         :returns A response in json format.
         """
         url = bybit_utils.rest_api_url_for_endpoint(path_url, self._domain)
-        client = await self._aiohttp_client()
+        client = self._aiohttp_client()
 
         if method == "GET":
             if is_auth_required:
@@ -744,7 +762,11 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         for resp in raw_responses:
             if not isinstance(resp, Exception):
                 self._last_trade_history_timestamp = float(resp["time_now"])
-                parsed_history_resps.extend(resp["result"]["trade_list"])
+                trade_entries = (resp["result"]["trade_list"]
+                                 if "trade_list" in resp["result"]
+                                 else resp["result"]["data"])
+                if trade_entries:
+                    parsed_history_resps.extend(trade_entries)
             else:
                 self.logger().error(f"Error fetching trades history. Response: {resp}")
 

@@ -56,11 +56,12 @@ class BybitPerpetualOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
 
-        bids, asks = cls._bids_and_asks_from_entries(msg["data"])
+        entries = msg["data"]["order_book"] if "order_book" in msg["data"] else msg["data"]
+        bids, asks = cls._bids_and_asks_from_entries(entries)
 
         msg.update({"asks": asks,
                     "bids": bids,
-                    "update_id": msg["timestamp_e6"]})
+                    "update_id": int(msg["timestamp_e6"])})
 
         return OrderBookMessage(
             message_type=OrderBookMessageType.SNAPSHOT,
@@ -112,7 +113,7 @@ class BybitPerpetualOrderBook(OrderBook):
 
         msg.update({"asks": asks,
                     "bids": bids,
-                    "update_id": msg["timestamp_e6"]})
+                    "update_id": int(msg["timestamp_e6"])})
 
         return OrderBookMessage(
             message_type=OrderBookMessageType.DIFF,

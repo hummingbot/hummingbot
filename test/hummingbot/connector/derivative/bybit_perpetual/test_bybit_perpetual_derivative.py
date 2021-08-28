@@ -16,7 +16,9 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.event.event_logger import EventLogger
 
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_in_flight_order import BybitPerpetualInFlightOrder
-from hummingbot.core.event.events import OrderType, PositionAction, PositionSide, TradeType, MarketEvent, FundingInfo, PositionMode
+from hummingbot.core.event.events import OrderType, PositionAction, PositionSide, TradeType, MarketEvent, FundingInfo, \
+    PositionMode
+from hummingbot.core.network_iterator import NetworkStatus
 
 
 class BybitPerpetualDerivativeTests(TestCase):
@@ -1577,6 +1579,59 @@ class BybitPerpetualDerivativeTests(TestCase):
                             in record.getMessage()
                             for record in self.log_records))
 
+    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    def test_check_network_succeeds_when_server_time_response_is_ok(self, get_mock):
+        self._configure_mock_api(get_mock)
+
+        self.api_responses_status.append(200)
+        self.api_responses_json.put_nowait({
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {},
+            "time_now": "1577444332.192859"
+        })
+
+        result = asyncio.get_event_loop().run_until_complete(self.connector.check_network())
+
+        self.assertEqual(NetworkStatus.CONNECTED, result)
+
+    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    def test_check_network_fails_when_server_time_response_is_not_ok(self, get_mock):
+        self._configure_mock_api(get_mock)
+
+        self.api_responses_status.append(200)
+        self.api_responses_json.put_nowait({
+            "ret_code": 1001,
+            "ret_msg": "Not OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {},
+            "time_now": "1577444332.192859"
+        })
+
+        result = asyncio.get_event_loop().run_until_complete(self.connector.check_network())
+        self.assertEqual(NetworkStatus.NOT_CONNECTED, result)
+
+    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    def test_check_network_fails_when_server_time_returns_error_code(self, get_mock):
+        self._configure_mock_api(get_mock)
+
+        self.api_responses_status.append(405)
+        self.api_responses_json.put_nowait({
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {},
+            "time_now": "1577444332.192859"
+        })
+
+        result = asyncio.get_event_loop().run_until_complete(self.connector.check_network())
+
+        self.assertEqual(NetworkStatus.NOT_CONNECTED, result)
+
     def test_supported_position_modes(self):
         expected_result = [PositionMode.ONEWAY, PositionMode.HEDGE]
         self.assertEqual(expected_result, self.connector.supported_position_modes())
@@ -1917,7 +1972,9 @@ class BybitPerpetualDerivativeTests(TestCase):
             self.connector._user_stream_tracker.start())
 
         # Prepare inflight order
-        self.connector.start_tracking_order("xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c418", "xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c418", "BTC-USDT", "Sell", "8579.5", 1, "Market", 1, "")
+        self.connector.start_tracking_order("xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c418",
+                                            "xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c418", "BTC-USDT", "Sell", "8579.5", 1,
+                                            "Market", 1, "")
 
         # Add the authentication response for the websocket
         self._add_successful_authentication_response()
@@ -1972,7 +2029,9 @@ class BybitPerpetualDerivativeTests(TestCase):
             self.connector._user_stream_tracker.start())
 
         # Prepare inflight order
-        self.connector.start_tracking_order("xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c419", "xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c419", "BTC-USDT", "Buy", "8300", 1, "Market", 1, "")
+        self.connector.start_tracking_order("xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c419",
+                                            "xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c419", "BTC-USDT", "Buy", "8300", 1,
+                                            "Market", 1, "")
 
         # Add the authentication response for the websocket
         self._add_successful_authentication_response()
@@ -2005,4 +2064,5 @@ class BybitPerpetualDerivativeTests(TestCase):
         asyncio.get_event_loop().run_until_complete(self.resume_test_event.wait())
         self.resume_test_event.clear()
 
-        self.assertTrue("xxxxxxxx-xxxx-xxxx-8b66-c3d2fcd352f6" in self.connector.in_flight_orders["xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c419"].trade_id_set)
+        self.assertTrue("xxxxxxxx-xxxx-xxxx-8b66-c3d2fcd352f6" in self.connector.in_flight_orders[
+            "xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c419"].trade_id_set)
