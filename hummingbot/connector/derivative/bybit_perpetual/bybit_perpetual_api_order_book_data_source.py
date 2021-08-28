@@ -14,7 +14,8 @@ from typing import (
 from hummingbot.connector.derivative.bybit_perpetual import bybit_perpetual_constants as CONSTANTS, \
     bybit_perpetual_utils
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_order_book import BybitPerpetualOrderBook
-from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_websocket_adaptor import BybitPerpetualWebSocketAdaptor
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_websocket_adaptor import \
+    BybitPerpetualWebSocketAdaptor
 from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.order_book import OrderBook, OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -119,8 +120,8 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     resp_json = await response.json()
                     if "result" in resp_json:
                         for token_pair_info in resp_json["result"]:
-                            token_pair = trading_pair_symbol_map[token_pair_info["symbol"]]
-                            if token_pair in trading_pairs:
+                            token_pair = trading_pair_symbol_map.get(token_pair_info["symbol"], None)
+                            if token_pair and token_pair in trading_pairs:
                                 result[token_pair] = float(token_pair_info["last_price"])
         return result
 
@@ -205,12 +206,14 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 if response.status == 200:
                     resp_json = await response.json()
 
-                    symbol_info: Dict[str, Any] = resp_json["result"][0]  # Endpoint returns a List even though 1 entry is returned
-                    funding_info = FundingInfo(trading_pair=trading_pair,
-                                               index_price=Decimal(str(symbol_info["index_price"])),
-                                               mark_price=Decimal(str(symbol_info["mark_price"])),
-                                               next_funding_utc_timestamp=int(pd.Timestamp(symbol_info["next_funding_time"]).timestamp()),
-                                               rate=Decimal(str(symbol_info["predicted_funding_rate"])))  # Note: Absence of _e6 suffix from REST API response
+                    symbol_info: Dict[str, Any] = resp_json["result"][
+                        0]  # Endpoint returns a List even though 1 entry is returned
+                    funding_info = FundingInfo(
+                        trading_pair=trading_pair,
+                        index_price=Decimal(str(symbol_info["index_price"])),
+                        mark_price=Decimal(str(symbol_info["mark_price"])),
+                        next_funding_utc_timestamp=int(pd.Timestamp(symbol_info["next_funding_time"]).timestamp()),
+                        rate=Decimal(str(symbol_info["predicted_funding_rate"])))  # Note: Absence of _e6 suffix from REST API response
         return funding_info
 
     async def get_funding_info(self, trading_pair: str) -> FundingInfo:
@@ -334,14 +337,14 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 if event_type == "snapshot":
                     snapshot_msg: OrderBookMessage = BybitPerpetualOrderBook.snapshot_message_from_exchange(
                         msg=order_book_message,
-                        timestamp=order_book_message["timestamp_e6"] * 1e-6,
+                        timestamp=int(order_book_message["timestamp_e6"]) * 1e-6,
                         metadata={"trading_pair": trading_pair})
                     output.put_nowait(snapshot_msg)
 
                 if event_type == "delta":
                     diff_msg: OrderBookMessage = BybitPerpetualOrderBook.diff_message_from_exchange(
                         msg=order_book_message,
-                        timestamp=order_book_message["timestamp_e6"] * 1e-6,
+                        timestamp=int(order_book_message["timestamp_e6"]) * 1e-6,
                         metadata={"trading_pair": trading_pair})
                     output.put_nowait(diff_msg)
             except asyncio.CancelledError:
@@ -408,12 +411,14 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     async with self._funding_info_async_lock:
                         if event_type == "snapshot":
                             # Snapshot messages have all the data fields required to construct a new FundingInfo.
-                            current_funding_info: FundingInfo = FundingInfo(trading_pair=trading_pair,
-                                                                            index_price=Decimal(str(entry["index_price"])),
-                                                                            mark_price=Decimal(str(entry["mark_price"])),
-                                                                            next_funding_utc_timestamp=int(pd.Timestamp(str(entry["next_funding_time"]), tz="UTC").timestamp()),
-                                                                            rate=Decimal(str(entry["predicted_funding_rate_e6"])) * Decimal(1e-6),
-                                                                            )
+                            current_funding_info: FundingInfo = FundingInfo(
+                                trading_pair=trading_pair,
+                                index_price=Decimal(str(entry["index_price"])),
+                                mark_price=Decimal(str(entry["mark_price"])),
+                                next_funding_utc_timestamp=int(pd.Timestamp(
+                                    str(entry["next_funding_time"]),
+                                    tz="UTC").timestamp()),
+                                rate=Decimal(str(entry["predicted_funding_rate_e6"])) * Decimal(1e-6))
                         else:
                             # Delta messages do not necessarily have all the data required.
                             current_funding_info: FundingInfo = await self.get_funding_info(trading_pair)
@@ -422,9 +427,11 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             if "mark_price" in entry:
                                 current_funding_info.mark_price = Decimal(str(entry["mark_price"]))
                             if "next_funding_time" in entry:
-                                current_funding_info.next_funding_utc_timestamp = int(pd.Timestamp(str(entry["next_funding_time"]), tz="UTC").timestamp())
+                                current_funding_info.next_funding_utc_timestamp = int(
+                                    pd.Timestamp(str(entry["next_funding_time"]), tz="UTC").timestamp())
                             if "predicted_funding_rate_e6" in entry:
-                                current_funding_info.rate = Decimal(str(entry["predicted_funding_rate_e6"])) * Decimal(1e-6)
+                                current_funding_info.rate = Decimal(str(entry["predicted_funding_rate_e6"])) * Decimal(
+                                    1e-6)
                         self._funding_info[trading_pair] = current_funding_info
 
             except asyncio.CancelledError:

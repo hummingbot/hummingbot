@@ -462,7 +462,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
                                            'side': 'Sell',
                                            'size': 89041}],
                                       'cross_seq': 8945092523,
-                                      'timestamp_e6': 1628703196211205})
+                                      'timestamp_e6': "1628703196211205"})
 
         # Lock the test to let the async task run
         order_book_message = asyncio.get_event_loop().run_until_complete(order_book_messages.get())
