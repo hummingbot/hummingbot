@@ -47,6 +47,9 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         self._funding_info_async_lock: asyncio.Lock = asyncio.Lock()
 
+    def is_funding_info_initialized(self) -> bool:
+        return len(self._funding_info) > 0
+
     async def _get_session(self):
         if not self._session:
             self._session = aiohttp.ClientSession()
@@ -312,7 +315,7 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 for trade_entry in trade_message["data"]:
                     trade_msg: OrderBookMessage = BybitPerpetualOrderBook.trade_message_from_exchange(
                         msg=trade_entry,
-                        timestamp=trade_entry["trade_time_ms"] * 1e-3,
+                        timestamp=int(trade_entry["trade_time_ms"]) * 1e-3,
                         metadata={"trading_pair": symbol_map[trade_entry["symbol"]]})
                     output.put_nowait(trade_msg)
             except asyncio.CancelledError:
@@ -405,7 +408,7 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
                 for entry in entries:
                     if "last_price_e4" in entry:
-                        self._last_traded_prices[self._domain][trading_pair] = entry["last_price_e4"] * 1e-4
+                        self._last_traded_prices[self._domain][trading_pair] = int(entry["last_price_e4"]) * 1e-4
 
                     # Updates funding info for the relevant domain and trading_pair
                     async with self._funding_info_async_lock:

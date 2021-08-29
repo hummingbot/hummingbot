@@ -134,7 +134,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             "account_balance": not self._trading_required or len(self._account_balances) > 0,
             "trading_rule_initialized": len(self._trading_rules) > 0,
             "user_stream_initialized": not self._trading_required or self._user_stream_tracker.data_source.last_recv_time > 0,
-            "funding_info": len(self._funding_info) > 0
+            "funding_info": self._order_book_tracker.is_funding_info_initialized()
         }
 
     @property
@@ -316,6 +316,11 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         """
         trading_rule = self._trading_rules[trading_pair]
         return Decimal(trading_rule.min_base_amount_increment)
+
+    def get_order_book(self, trading_pair: str) -> OrderBook:
+        if trading_pair not in self._order_book_tracker.order_books:
+            raise ValueError(f"No order book exists for '{trading_pair}'.")
+        return self._order_book_tracker.order_books[trading_pair]
 
     def start_tracking_order(self, order_id: str, exchange_order_id: str, trading_pair: str, trading_type: object,
                              price: object, amount: object, order_type: object, leverage: int, position: str):
@@ -1025,20 +1030,34 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         """
         symbol_trading_pair_map: Dict[str, str] = await OrderBookDataSource.trading_pair_symbol_map(self._domain)
 
-        raw_response = await self._api_request(
-            method="GET",
-            path_url=bybit_utils.rest_api_path_for_endpoint(
-                endpoint=CONSTANTS.GET_POSITIONS_PATH_URL,
-                trading_pair=self._trading_pairs[0]),
-            is_auth_required=True)
+        position_tasks = []
 
-        result: List[Dict[str, Any]] = raw_response["result"]
+        for trading_pair in self._trading_pairs:
+            body_params = {"symbol": await self._trading_pair_symbol(trading_pair)}
+            position_tasks.append(
+                asyncio.create_task(self._api_request(
+                    method="GET",
+                    path_url=bybit_utils.rest_api_path_for_endpoint(
+                        endpoint=CONSTANTS.GET_POSITIONS_PATH_URL,
+                        trading_pair=trading_pair),
+                    params=body_params,
+                    is_auth_required=True)))
 
-        for position in result:
-            if not position["is_valid"] or "data" not in position:
-                self.logger().error(f"Received an invalid position entry. Position: {position}")
-                continue
-            data = position["data"]
+        raw_responses: List[Dict[str, Any]] = await safe_gather(*position_tasks, return_exceptions=True)
+
+        # Initial parsing of responses. Joining all the responses
+        parsed_resps: List[Dict[str, Any]] = []
+        for resp in raw_responses:
+            if not isinstance(resp, Exception):
+                result = resp["result"]
+                if result:
+                    trade_entries = result if isinstance(result, list) else [result]
+                    parsed_resps.extend(trade_entries)
+            else:
+                self.logger().error(f"Error fetching trades history. Response: {resp}")
+
+        for position in parsed_resps:
+            data = position
             ex_trading_pair = data.get("symbol")
             hb_trading_pair = symbol_trading_pair_map.get(ex_trading_pair)
             position_side = PositionSide.LONG if data.get("side") == "buy" else PositionSide.SHORT

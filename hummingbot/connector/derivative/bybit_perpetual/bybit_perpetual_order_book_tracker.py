@@ -40,6 +40,9 @@ class BybitPerpetualOrderBookTracker(OrderBookTracker):
             raise ValueError(f"The symbol representing trading pair {trading_pair} could not be found")
         return symbol
 
+    def is_funding_info_initialized(self) -> bool:
+        return self._data_source.is_funding_info_initialized()
+
     def start(self):
         super().start()
         self._order_book_event_listener_task = safe_ensure_future(self._data_source.listen_for_subscriptions())
