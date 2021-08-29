@@ -24,8 +24,23 @@ class GatewayCommand:
             safe_ensure_future(self.show_gateway_connections())
         elif option == "update":
             safe_ensure_future(self.update_gateway(key, value))
-        elif option == "generate_certs":
+        elif option == "generate-certs":
             safe_ensure_future(self._generate_certs())
+        elif option == "test-connection":
+            safe_ensure_future(self._test_connection())
+
+    async def _test_connection(self):
+        # test that the gateway is running
+        try:
+            resp = await self._api_request("get", "", {})
+        except Exception as e:
+            self._notify("\nUnable to ping gateway.")
+            raise e
+
+        if resp['message'] == 'ok':
+            self._notify("\nSuccesfully pinged gateway.")
+        else:
+            self._notify("\nUnable to ping gateway.")
 
     async def _generate_certs(self,  # type: HummingbotApplication
                               ):
@@ -102,9 +117,8 @@ class GatewayCommand:
 
         try:
             config = await self.get_gateway_connections()
-            core_keys = [key for key in sorted(config["config"]['CORE'])]
-            other_keys = [key for key in sorted(config["config"]) if key not in ["CORE"]]
-            all_keys = core_keys + other_keys
+            all_keys = sorted(config)
+
         except Exception:
             self._notify("Gateway-api is not accessible. "
                          "Ensure gateway is up and running on the address and port specified in the global config.")
@@ -128,7 +142,7 @@ class GatewayCommand:
         if key and value:
             settings = {key: value.lower()}
             try:
-                await self._api_request("post", "api/update", settings)
+                await self._api_request("post", "config/update", settings)
             except Exception:
                 # silently ignore exception due to gateway restarting
                 pass
@@ -159,30 +173,21 @@ class GatewayCommand:
                 self._notify("\nError: Configrations update failed")"""
 
     async def get_gateway_connections(self):
-        return await self._api_request("get", "api", {})
+        return await self._api_request("get", "config", {})
 
     async def _show_gateway_connections(self):
         host = global_config_map['gateway_api_host'].value
         port = global_config_map['gateway_api_port'].value
         try:
-            resp = await self.get_gateway_connections()
-            status = resp["status"]
-            if status:
-                config = resp["config"]
-                self._notify(f"\nGateway Configurations ({host}:{port}):")
-                self._notify("\nCore parameters:")
-                columns = ["Parameter", "  Value"]
-                core_data = data = [[key, config['CORE'][key]] for key in sorted(config['CORE'])]
-                core_df = pd.DataFrame(data=core_data, columns=columns)
-                lines = ["    " + line for line in core_df.to_string(index=False, max_colwidth=50).split("\n")]
-                self._notify("\n".join(lines))
-                self._notify("\nOther parameters:")
-                data = [[key, config[key]] for key in sorted(config) if key not in ['CORE']]
-                df = pd.DataFrame(data=data, columns=columns)
-                lines = ["    " + line for line in df.to_string(index=False, max_colwidth=50).split("\n")]
-                self._notify("\n".join(lines))
-            else:
-                self._notify("\nError: Invalid return result")
+            config = await self.get_gateway_connections()
+            self._notify(f"\nGateway Configurations ({host}:{port}):")
+            self._notify("\nCore parameters:")
+            columns = ["Parameter", "  Value"]
+            data = [[key, config[key]] for key in sorted(config)]
+            df = pd.DataFrame(data=data, columns=columns)
+            lines = ["    " + line for line in df.to_string(index=False, max_colwidth=50).split("\n")]
+            self._notify("\n".join(lines))
+
         except asyncio.CancelledError:
             raise
         except Exception as e:

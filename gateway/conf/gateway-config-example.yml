@@ -1,4 +1,6 @@
+VERSION: 1
 APPNAME: 'Hummingbot Gateway API'
+
 PORT: 5000
 
 IP_WHITELIST: []
