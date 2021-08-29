@@ -6,6 +6,7 @@ import { EthereumBase, Token } from '../../services/ethereum-base';
 import { ConfigManager } from '../../services/config-manager';
 import { EthereumConfig } from './ethereum.config';
 import { TokenValue } from '../../services/base';
+import { Provider } from '@ethersproject/abstract-provider';
 
 // MKR does not match the ERC20 perfectly so we need to use a separate ABI.
 const MKR_ADDRESS = '0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2';
@@ -81,7 +82,7 @@ export class Ethereum extends EthereumBase {
     decimals: number
   ): Promise<TokenValue> {
     // instantiate a contract and pass in provider for read-only access
-    const contract = this.getContract(tokenAddress);
+    const contract = this.getContract(tokenAddress, this.provider);
 
     logger.info(
       'Requesting balance for owner ' +
@@ -103,7 +104,7 @@ export class Ethereum extends EthereumBase {
     decimals: number
   ): Promise<TokenValue> {
     // instantiate a contract and pass in provider for read-only access
-    const contract = this.getContract(tokenAddress);
+    const contract = this.getContract(tokenAddress, this.provider);
 
     logger.info(
       'Requesting spender ' +
@@ -119,10 +120,10 @@ export class Ethereum extends EthereumBase {
     return { value: allowance, decimals: decimals };
   }
 
-  getContract(tokenAddress: string) {
+  getContract(tokenAddress: string, signerOrProvider?: Wallet | Provider) {
     return tokenAddress === MKR_ADDRESS
-      ? new Contract(tokenAddress, abi.MKRAbi, this.provider)
-      : new Contract(tokenAddress, abi.ERC20Abi, this.provider);
+      ? new Contract(tokenAddress, abi.MKRAbi, signerOrProvider)
+      : new Contract(tokenAddress, abi.ERC20Abi, signerOrProvider);
   }
 
   // override approveERC20
@@ -133,7 +134,7 @@ export class Ethereum extends EthereumBase {
     amount: BigNumber
   ): Promise<boolean> {
     // instantiate a contract and pass in wallet, which act on behalf of that signer
-    const contract = this.getContract(tokenAddress);
+    const contract = this.getContract(tokenAddress, wallet);
 
     logger.info(
       'Calling approve method called for spender ' +
