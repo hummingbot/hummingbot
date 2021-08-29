@@ -4,6 +4,22 @@ All notable changes to gateway should be added to this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.9] - 2021-08-27
+
+### Added
+
+- `/config` returns current config values.
+
+### Changed
+
+- `/` and `/config/update` return JSON responses.
+
+- Added a version number to the config file.
+
+- Cleaned up extraneous options in package.json.
+
+- Make unit tests work and they no longer run the scripts.
+
 ## [0.1.8] - 2021-08-18
 
 ### Added
