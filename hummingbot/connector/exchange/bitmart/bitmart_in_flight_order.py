@@ -10,6 +10,7 @@ from hummingbot.core.event.events import (
     TradeType
 )
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
+from hummingbot.connector.exchange.bitmart import bitmart_utils
 
 
 class BitmartInFlightOrder(InFlightOrderBase):
@@ -79,21 +80,40 @@ class BitmartInFlightOrder(InFlightOrderBase):
         retval.last_state = data["last_state"]
         return retval
 
-    def update_with_trade_update(self, trade_update: Dict[str, Any]) -> bool:
+    def update_with_trade_update_rest(self, trade_update: Dict[str, Any]) -> bool:
         """
-        Updates the in flight order with trade update (from private/get-order-detail end point)
+        Updates the in flight order with trade update (from trade message REST API)
         return: True if the order gets updated otherwise False
         """
-        trade_id = str(trade_update["detail_id"])
-        # trade_update["orderId"] is type int
-        if str(trade_update["order_id"]) != self.exchange_order_id or trade_id in self.trade_id_set:
-            # trade already recorded
-            return False
+        if Decimal(trade_update["filled_size"]) <= self.executed_amount_base:
+            return (0, 0, "")
+        trade_id = f'rest_{str(bitmart_utils.get_ms_timestamp())}'
         self.trade_id_set.add(trade_id)
-        self.executed_amount_base += Decimal(str(trade_update["size"]))
-        self.fee_paid += Decimal(str(trade_update["fees"]))
-        self.executed_amount_quote += (Decimal(str(trade_update["price_avg"])) *
-                                       Decimal(str(trade_update["size"])))
-        if not self.fee_asset:
-            self.fee_asset = trade_update["fee_coin_name"]
-        return True
+
+        executed_amount_base = Decimal(trade_update["filled_size"])
+        executed_amount_quote = Decimal(trade_update["filled_notional"])
+        delta_trade_amount = executed_amount_base - self.executed_amount_base
+        self.executed_amount_base = executed_amount_base
+        delta_trade_price = (executed_amount_quote - self.executed_amount_quote) / delta_trade_amount
+        self.executed_amount_quote = executed_amount_quote
+
+        return (delta_trade_amount, delta_trade_price, trade_id)
+
+    def update_with_order_update_ws(self, trade_update: Dict[str, Any]) -> bool:
+        """
+        Updates the in flight order with trade update (from order message WebSocket API)
+        return: True if the order gets updated otherwise False
+        """
+        if trade_update["last_fill_count"] == '0' or Decimal(trade_update["filled_size"]) <= self.executed_amount_base:
+            return (0, 0, "")
+        trade_id = f'ws_{str(trade_update["last_fill_time"])}'
+        self.trade_id_set.add(trade_id)
+
+        executed_amount_base = Decimal(trade_update["filled_size"])
+        executed_amount_quote = Decimal(trade_update["filled_notional"])
+        delta_trade_amount = executed_amount_base - self.executed_amount_base
+        self.executed_amount_base = executed_amount_base
+        delta_trade_price = (executed_amount_quote - self.executed_amount_quote) / delta_trade_amount
+        self.executed_amount_quote = executed_amount_quote
+
+        return (delta_trade_amount, delta_trade_price, trade_id)
