@@ -54,10 +54,10 @@ class BitmartExchange(ExchangeBase):
     trading functionality.
     """
     API_CALL_TIMEOUT = 10.0
-    SHORT_POLL_INTERVAL = 5.0
+    SHORT_POLL_INTERVAL = 1.0
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
     UPDATE_TRADE_STATUS_MIN_INTERVAL = 10.0
-    LONG_POLL_INTERVAL = 120.0
+    LONG_POLL_INTERVAL = 1.0
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
