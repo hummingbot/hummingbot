@@ -1,0 +1,24 @@
+########################################################
+###       Hello world strategy config               ###
+########################################################
+
+template_version: 4
+strategy: null
+
+# The following configuations are only required for the
+# hedge strategy
+
+# Exchange and market and asset parameters
+maker_exchange: null
+maker_markets: null
+taker_exchange: null
+taker_markets: null
+hedge_asset: null
+hedge_ratio: null
+leverage: null
+hedge_interval: null
+minimum_trade: null
+
+
+# For more detailed information, see:
+# https://docs.hummingbot.io/strategies/simple-trade/#configuration-parameters
