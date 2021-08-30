@@ -1,12 +1,12 @@
 import asyncio
+from enum import Enum
+from typing import AsyncIterable, Dict, Any, Optional
+
 import ujson
 import websockets
 
 import hummingbot.connector.exchange.ndax.ndax_constants as CONSTANTS
-
-
-from enum import Enum
-from typing import AsyncIterable, Dict, Any
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 
 class NdaxMessageType(Enum):
@@ -36,10 +36,16 @@ class NdaxWebSocketAdaptor:
     MESSAGE_TIMEOUT = 20.0
     PING_TIMEOUT = 5.0
 
-    def __init__(self, websocket: websockets.WebSocketClientProtocol, previous_messages_number: int = 0):
+    def __init__(
+        self,
+        throttler: AsyncThrottler,
+        websocket: websockets.WebSocketClientProtocol,
+        previous_messages_number: int = 0,
+    ):
         self._websocket = websocket
         self._messages_counter = previous_messages_number
         self._lock = asyncio.Lock()
+        self._throttler = throttler
 
     @classmethod
     def endpoint_from_raw_message(cls, raw_message: str) -> str:
@@ -66,14 +72,16 @@ class NdaxWebSocketAdaptor:
             next_number = self._messages_counter
         return next_number
 
-    async def send_request(self, endpoint_name: str, payload: Dict[str, Any]):
+    async def send_request(self, endpoint_name: str, payload: Dict[str, Any], limit_id: Optional[str] = None):
         message_number = await self.next_message_number()
         message = {self._message_type_field_name: NdaxMessageType.REQUEST_TYPE.value,
                    self._message_number_field_name: message_number,
                    self._endpoint_field_name: endpoint_name,
                    self._payload_field_name: ujson.dumps(payload)}
 
-        await self._websocket.send(ujson.dumps(message))
+        limit_id = limit_id or endpoint_name
+        async with self._throttler.execute_task(limit_id):
+            await self._websocket.send(ujson.dumps(message))
 
     async def recv(self):
         return await self._websocket.recv()
@@ -86,7 +94,7 @@ class NdaxWebSocketAdaptor:
                     yield msg
                 except asyncio.TimeoutError:
                     await asyncio.wait_for(
-                        self.send_request(CONSTANTS.WS_PING_REQUEST, payload={}),
+                        self.send_request(CONSTANTS.WS_PING_REQUEST, payload={}, limit_id=CONSTANTS.WS_PING_ID),
                         timeout=self.PING_TIMEOUT
                     )
         except websockets.exceptions.ConnectionClosed:
