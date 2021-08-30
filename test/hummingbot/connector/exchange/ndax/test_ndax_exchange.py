@@ -10,7 +10,9 @@ from unittest.mock import AsyncMock, PropertyMock, patch
 
 import hummingbot.connector.exchange.ndax.ndax_constants as CONSTANTS
 from hummingbot.connector.exchange.ndax.ndax_exchange import NdaxExchange
-from hummingbot.connector.exchange.ndax.ndax_in_flight_order import NdaxInFlightOrder, WORKING_LOCAL_STATUS
+from hummingbot.connector.exchange.ndax.ndax_in_flight_order import (
+    NdaxInFlightOrder, WORKING_LOCAL_STATUS, NdaxInFlightOrderNotCreated
+)
 from hummingbot.connector.exchange.ndax.ndax_order_book import NdaxOrderBook
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.event.events import (
@@ -21,6 +23,7 @@ from hummingbot.core.event.events import (
     TradeType,
 )
 from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
 class NdaxExchangeTests(TestCase):
@@ -140,6 +143,21 @@ class NdaxExchangeTests(TestCase):
                 min_base_amount_increment=Decimal(str(0.000001)),
             )
         }
+
+    def _simulate_create_order(self,
+                               trade_type: TradeType,
+                               order_id: str,
+                               trading_pair: str,
+                               amount: Decimal,
+                               price: Decimal = Decimal("0"),
+                               order_type: OrderType = OrderType.MARKET):
+        future = safe_ensure_future(
+            self.exchange._create_order(trade_type, order_id, trading_pair, amount, price, order_type)
+        )
+        self.exchange.start_tracking_order(
+            order_id, None, self.trading_pair, TradeType.BUY, Decimal(10.0), Decimal(1.0), OrderType.LIMIT
+        )
+        return future
 
     @patch('websockets.connect', new_callable=AsyncMock)
     def test_user_event_queue_error_is_logged(self, ws_connect_mock):
@@ -1179,9 +1197,8 @@ class NdaxExchangeTests(TestCase):
         ]
 
         self.assertEqual(0, len(self.exchange.in_flight_orders))
-        asyncio.get_event_loop().run_until_complete(
-            self.exchange._create_order(*order_details)
-        )
+        future = self._simulate_create_order(*order_details)
+        asyncio.get_event_loop().run_until_complete(future)
 
         self.assertEqual(1, len(self.exchange.in_flight_orders))
         self._is_logged("INFO",
@@ -1225,9 +1242,8 @@ class NdaxExchangeTests(TestCase):
         ]
 
         self.assertEqual(0, len(self.exchange.in_flight_orders))
-        asyncio.get_event_loop().run_until_complete(
-            self.exchange._create_order(*order_details)
-        )
+        future = self._simulate_create_order(*order_details)
+        asyncio.get_event_loop().run_until_complete(future)
 
         self.assertEqual(1, len(self.exchange.in_flight_orders))
         self._is_logged("INFO",
@@ -1312,10 +1328,9 @@ class NdaxExchangeTests(TestCase):
         ]
 
         self.assertEqual(0, len(self.exchange.in_flight_orders))
+        future = self._simulate_create_order(*order_details)
         with self.assertRaises(asyncio.CancelledError):
-            asyncio.get_event_loop().run_until_complete(
-                self.exchange._create_order(*order_details)
-            )
+            asyncio.get_event_loop().run_until_complete(future)
 
         # InFlightOrder is still 1 since we do not know exactly where did the Cancel occur.
         self.assertEqual(1, len(self.exchange.in_flight_orders))
@@ -1398,7 +1413,9 @@ class NdaxExchangeTests(TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             price=Decimal(10.0),
-            amount=Decimal(1.0))
+            amount=Decimal(1.0),
+            initial_state="Working",
+        )
 
         self.exchange._in_flight_orders.update({
             order.client_order_id: order
@@ -1502,7 +1519,9 @@ class NdaxExchangeTests(TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             price=Decimal(10.0),
-            amount=Decimal(1.0))
+            amount=Decimal(1.0),
+            initial_state="Working",
+        )
 
         self.exchange._in_flight_orders.update({
             order.client_order_id: order
@@ -1534,7 +1553,9 @@ class NdaxExchangeTests(TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             price=Decimal(10.0),
-            amount=Decimal(1.0))
+            amount=Decimal(1.0),
+            initial_state="Working",
+        )
 
         self.exchange._in_flight_orders.update({
             order.client_order_id: order
@@ -1557,7 +1578,9 @@ class NdaxExchangeTests(TestCase):
             order_type=OrderType.LIMIT,
             trade_type=TradeType.BUY,
             price=Decimal(10.0),
-            amount=Decimal(1.0))
+            amount=Decimal(1.0),
+            initial_state="Working",
+        )
 
         self.exchange._in_flight_orders.update({
             order.client_order_id: order
@@ -1594,6 +1617,22 @@ class NdaxExchangeTests(TestCase):
 
         # Order ID is simply a timestamp. The assertion below checks if it is created within 1 sec
         self.assertTrue(order.client_order_id, return_val)
+
+    def test_cancel_rate_limited_order(self):
+        order_id = str(1)
+        order_details = [
+            TradeType.BUY,
+            order_id,
+            self.trading_pair,
+            Decimal(1.0),
+            None,
+            OrderType.MARKET,
+        ]
+        self._simulate_create_order(*order_details)
+        with self.assertRaises(NdaxInFlightOrderNotCreated):
+            asyncio.new_event_loop().run_until_complete(
+                self.exchange._execute_cancel(self.trading_pair, order_id)
+            )
 
     def test_ready_trading_required_all_ready(self):
         self.exchange._trading_required = True
@@ -1716,7 +1755,7 @@ class NdaxExchangeTests(TestCase):
 
         with self.assertRaises(IOError) as exception_context:
             asyncio.new_event_loop().run_until_complete(
-                self.exchange._api_request("GET", "/path")
+                self.exchange._api_request("GET", CONSTANTS.MARKETS_URL)
             )
 
         self.assertTrue("Error: The exchange API request limit has been reached (original error 'TOO MANY REQUESTS')"
