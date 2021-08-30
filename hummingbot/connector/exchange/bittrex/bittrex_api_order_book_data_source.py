@@ -115,13 +115,14 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     self.logger().debug(f"Got trade message {decoded}.")
 
                     # Processes snapshot messages
-                    trades: Dict[str, any] = decoded
-                    for trade in trades["results"]["deltas"]:
-                        trade_msg: OrderBookMessage = BittrexOrderBook.trade_message_from_exchange(
-                            trade, metadata={"trading_pair": trades["results"]["marketSymbol"],
-                                             "sequence": trades["results"]["sequence"]}, timestamp=trades["nonce"]
-                        )
-                        output.put_nowait(trade_msg)
+                    if decoded["type"] == "trade":
+                        trades: Dict[str, any] = decoded
+                        for trade in trades["results"]["deltas"]:
+                            trade_msg: OrderBookMessage = BittrexOrderBook.trade_message_from_exchange(
+                                trade, metadata={"trading_pair": trades["results"]["marketSymbol"],
+                                                 "sequence": trades["results"]["sequence"]}, timestamp=trades["nonce"]
+                            )
+                            output.put_nowait(trade_msg)
 
             except Exception:
                 self.logger().error("Unexpected error when listening on socket stream.", exc_info=True)
@@ -141,12 +142,13 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     self.logger().debug(f"Got order book diff {decoded}.")
 
                     # Processes diff messages
-                    diff: Dict[str, any] = decoded
-                    diff_timestamp = diff["nonce"]
-                    diff_msg: OrderBookMessage = BittrexOrderBook.diff_message_from_exchange(
-                        diff["results"], diff_timestamp
-                    )
-                    output.put_nowait(diff_msg)
+                    if decoded["type"] == "delta":
+                        diff: Dict[str, any] = decoded
+                        diff_timestamp = diff["nonce"]
+                        diff_msg: OrderBookMessage = BittrexOrderBook.diff_message_from_exchange(
+                            diff["results"], diff_timestamp
+                        )
+                        output.put_nowait(diff_msg)
 
             except Exception:
                 self.logger().error("Unexpected error when listening on socket stream.", exc_info=True)
