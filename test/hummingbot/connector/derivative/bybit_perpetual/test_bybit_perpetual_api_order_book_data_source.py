@@ -112,6 +112,31 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
                     }
                 },
                 {
+                    "name": "BTCUSD",
+                    "alias": "BTCUSD",
+                    "status": "Trading",
+                    "base_currency": "BTC",
+                    "quote_currency": "USD",
+                    "price_scale": 2,
+                    "taker_fee": "0.00075",
+                    "maker_fee": "-0.00025",
+                    "leverage_filter": {
+                        "min_leverage": 1,
+                        "max_leverage": 100,
+                        "leverage_step": "0.01"
+                    },
+                    "price_filter": {
+                        "min_price": "0.5",
+                        "max_price": "999999.5",
+                        "tick_size": "0.5"
+                    },
+                    "lot_size_filter": {
+                        "max_trading_qty": 1000000,
+                        "min_trading_qty": 1,
+                        "qty_step": 1
+                    }
+                },
+                {
                     "name": "BTCUSDT",
                     "alias": "BTCUSDT",
                     "status": "Trading",
@@ -205,7 +230,32 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
                         "min_trading_qty": 0.001,
                         "qty_step": 0.001
                     }
-                }
+                },
+                {
+                    "name": "BTCUSD",
+                    "alias": "BTCUSD",
+                    "status": "Trading",
+                    "base_currency": "BTC",
+                    "quote_currency": "USD",
+                    "price_scale": 2,
+                    "taker_fee": "0.00075",
+                    "maker_fee": "-0.00025",
+                    "leverage_filter": {
+                        "min_leverage": 1,
+                        "max_leverage": 100,
+                        "leverage_step": "0.01"
+                    },
+                    "price_filter": {
+                        "min_price": "0.5",
+                        "max_price": "999999.5",
+                        "tick_size": "0.5"
+                    },
+                    "lot_size_filter": {
+                        "max_trading_qty": 1000000,
+                        "min_trading_qty": 1,
+                        "qty_step": 1
+                    }
+                },
             ],
             "time_now": "1615801223.589808"
         }
