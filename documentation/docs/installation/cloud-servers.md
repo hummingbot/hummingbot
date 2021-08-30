@@ -13,7 +13,7 @@ As of **version 0.28.0** installing Docker takes up around 500 MB of storage spa
 These instances are pre-loaded with system files that takes up around 1.2 GB so we recommend having at least **8 GB of storage space** in your cloud server.
 
 !!! note "Exception for celo-arb strategy"
-      Running a [Celo Arbitrage](/strategies/celo-arb/) strategy requires a minimum of `t2.medium` AWS instance type for improved performance.
+      Running a [Celo Arbitrage](/strategies/celo-arbitrage/) strategy requires a minimum of `t2.medium` AWS instance type for improved performance.
 
 Below, we show you how to set up a new Virtual Machine Instance on each major cloud platform.
 
@@ -80,4 +80,4 @@ Below, we show you how to set up a new Virtual Machine Instance on each major cl
 - [Connect to a Linux-based VM](https://docs.microsoft.com/en-us/azure/marketplace/partner-center-portal/create-azure-vm-technical-asset#connect-to-a-linux-based-vm)
 
 ---
-# Next: [Install Hummingbot for Linux](/installation/docker/linux)
+# Next: [Install Hummingbot for Linux](/installation/linux/)

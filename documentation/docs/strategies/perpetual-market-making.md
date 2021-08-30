@@ -1,7 +1,7 @@
 # Perpetual Market Making
 
 !!! info
-      This strategy only works with [Binance Futures](https://docs.hummingbot.io/derivative-connectors/binance-futures/), [Perpetual Finance (BETA)](https://docs.hummingbot.io/protocol-connectors/perp-fi/) & [dYdX Perpetual(BETA)](https://docs.hummingbot.io/spot-connectors/dydx/)
+      This strategy only works with [Binance Futures](/connectors/binance-perpetual/), [Perpetual Finance (BETA)](/connectors/perp-fi/) & [dYdX Perpetual(BETA)](/connectors/dydx-perpetual/)
 
 ## How it works
 
@@ -18,7 +18,7 @@ In this document, we will explain how the strategy works by dividing it into thr
 !!! tip
       Users can test how this strategy works without risking real funds by connecting their Binance Futures Testnet account to Hummingbot.
       - [Create a free account with Binance Futures Testnet](https://testnet.binancefuture.com/en/register?source=futures)
-      - [Creating Binance Futures Testnet API Keys](https://docs.hummingbot.io/derivative-connectors/binance-futures/#creating-binance-futures-testnet-api-keys)
+      - [Creating Binance Futures Testnet API Keys](https://docs.hummingbot.io/connectors/binance-perpetual/#creating-binance-futures-testnet-api-keys)
 
 !!! tip
       You can also watch the recording of our demo of the strategy in the link below:
@@ -175,7 +175,7 @@ Price `NILL` means the exit price is not profitable based on the current peak pr
 
 ### Stop loss
 
-If the position’s profitability (PNL) is equal to or below the `stop_loss_spread`, the bot will create a limit or market order (depending on `close_positon_order_type` value) at the current mark price to close the position.
+If the position’s profitability (PNL) is equal to or below the `stop_loss_spread`, the bot will create a limit or market order (depending on `close_position_order_type` value) at the current mark price to close the position.
 
 If there are outstanding limit orders, they are cancelled and replaced with a stop loss order.
 

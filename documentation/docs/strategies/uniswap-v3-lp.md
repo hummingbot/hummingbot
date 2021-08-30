@@ -2,7 +2,7 @@
 
 **Updated as of v0.40**
 
-Before you can use the Uniswap v3 LP Strategy in Hummingbot, you need to install and configure the [Gateway API server](/gateway/installation).
+Before you can use the Uniswap v3 LP Strategy in Hummingbot, you need to install and configure the [Gateway API server](/installation/gateway/).
 
 The flowchart below is a guide on how to set up the installation and configuration of the strategy.
 
@@ -17,7 +17,7 @@ Ensure you have setup the Ethereum wallet and nodes, for more details:
 
 ### Setup gateway
 
-You need to setup the [Gateway](/gateway/installation) to use this strategy.
+You need to setup the [Gateway](/installation/gateway/) to use this strategy.
 
 ## Uniswap v3 LP Strategy iteration 1 behaviour
 

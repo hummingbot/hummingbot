@@ -578,12 +578,19 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
 
                     # update position
                     for asset in update_data.get("P", []):
-                        position = self.get_position(asset['s'], PositionSide[asset['ps']])
+                        trading_pair = asset["s"]
+                        side = PositionSide[asset['ps']]
+                        position = self.get_position(trading_pair, side)
                         if position is not None:
-                            position.update_position(position_side=PositionSide[asset["ps"]],
-                                                     unrealized_pnl = Decimal(asset["up"]),
-                                                     entry_price = Decimal(asset["ep"]),
-                                                     amount = Decimal(asset["pa"]))
+                            amount = Decimal(asset["pa"])
+                            if amount == Decimal("0"):
+                                pos_key = self.position_key(trading_pair, side)
+                                del self._account_positions[pos_key]
+                            else:
+                                position.update_position(position_side=PositionSide[asset["ps"]],
+                                                         unrealized_pnl = Decimal(asset["up"]),
+                                                         entry_price = Decimal(asset["ep"]),
+                                                         amount = Decimal(asset["pa"]))
                         else:
                             await self._update_positions()
                 elif event_type == "MARGIN_CALL":
@@ -800,8 +807,9 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             entry_price = Decimal(position.get("entryPrice"))
             amount = Decimal(position.get("positionAmt"))
             leverage = Decimal(position.get("leverage"))
+            pos_key = self.position_key(trading_pair, position_side)
             if amount != 0:
-                self._account_positions[self.position_key(trading_pair, position_side)] = Position(
+                self._account_positions[pos_key] = Position(
                     trading_pair=convert_from_exchange_trading_pair(trading_pair),
                     position_side=position_side,
                     unrealized_pnl=unrealized_pnl,
@@ -810,8 +818,8 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                     leverage=leverage
                 )
             else:
-                if (trading_pair + position_side.name) in self._account_positions:
-                    del self._account_positions[trading_pair + position_side.name]
+                if pos_key in self._account_positions:
+                    del self._account_positions[pos_key]
 
     async def _update_order_fills_from_trades(self):
         last_tick = int(self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
@@ -1048,10 +1056,12 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                     signature = hmac.new(secret, query.encode("utf-8"), hashlib.sha256).hexdigest()
                     query += f"&signature={signature}"
 
-                async with aiohttp.request(
+                async with aiohttp.ClientSession() as session:
+                    response = await session.request(
                         method=method.value,
                         url=self._base_url + path + "?" + query,
-                        headers={"X-MBX-APIKEY": self._api_key}) as response:
+                        headers={"X-MBX-APIKEY": self._api_key}
+                    )
                     if response.status != 200:
                         error_response = await response.json()
                         if return_err:

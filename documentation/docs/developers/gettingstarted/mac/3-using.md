@@ -20,20 +20,20 @@ For more information on how to get the API keys for each exchange, please see th
 
 **Why this is needed**: In order to earn rewards from Liquidity Bounties, you need an Ethereum wallet. In addition, you'll need to import an Ethereum wallet when you run a trading bot on an Ethereum-based decentralized exchange.
 
-For more information on creating or importing an Ethereum wallet, see [Ethereum wallet](/advanced/wallet).
+For more information on creating or importing an Ethereum wallet, see [Ethereum wallet](/operation/connect-exchange/#setup-ethereum-wallet).
 
 ### Ethereum Node (DEX only)
 **Why this is needed**: When you run a trading bot on a Ethereum-based decentralized exchange, your wallet sends signed transactions to the blockchain via an Ethereum node.
 
-For more information, see [Ethereum node](/installation/node/).
+For more information, see [Ethereum node](/operation/connect-exchange/#ethereum-node).
 
 ## 2. Using Hummingbot
 
 ### Relevant User Manual Links
 
-- [Using the Client](/operation/client)
-- [Configuring Hummingbot](/operation/configuration)
-- [Running Trading Bots](/operation/running-bots)
+- [Using the Client](/operation/)
+- [Configuring Hummingbot](/operation/config-files/)
+- [Running Trading Bots](/installation/multiple-bots/)
 
 ---
 # Next: [Re-compiling Hummingbot for a Code Change](/developers/gettingstarted/mac/4-recompiling)

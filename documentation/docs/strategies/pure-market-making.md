@@ -7,7 +7,7 @@ In the pure market making strategy, Hummingbot continually posts the limit bid a
 Users can specify how far away ("spreads") from the mid-price the bid and asks are, the order quantity, and how often prices should be updated (order cancels + new orders posted).
 
 !!! warning
-    Please exercise caution while running this strategy and set appropriate [kill switch](/features/kill-switch/) rate. The current version of this strategy is intended to be a basic template that users can test and customize. Running the strategy with substantial capital without additional modifications may result in losses.
+    Please exercise caution while running this strategy and set appropriate [kill switch](/operation/kill-switch/) rate. The current version of this strategy is intended to be a basic template that users can test and customize. Running the strategy with substantial capital without additional modifications may result in losses.
 
 ## Schematic
 
@@ -41,7 +41,7 @@ Only a sell order will be created, but no buy order.
 
 We aim to teach new users the basics of market-making while enabling experienced users to exercise more control over how their bots behave. By default, when you run `create`, we ask you to enter the basic parameters needed for a market-making bot.
 
-See [Advanced Market Making](/strategies/adv-market-making) for more information about the advanced parameters and how to use them.
+See [Advanced Market Making](/market-making/#advanced-configuration-parameters) for more information about the advanced parameters and how to use them.
 
 The following parameters are fields in Hummingbot configuration files located in the `/conf` folder (e.g. `conf_pure_mm_[#].yml`).
 
@@ -113,7 +113,7 @@ What is the amount of [base_asset] per order? (minimum [min_amount])
 
 ### `ping_pong_enabled`
 
-Whether to alternate between buys and sells, for more information on this parameter, click this [link](https://docs.hummingbot.io/strategies/ping-pong/).
+Whether to alternate between buys and sells, for more information on this parameter, click this [link](/market-making/ping-pong/).
 
 ** Prompt: **
 
@@ -125,7 +125,7 @@ Would you like to use the ping pong feature and alternate between buy and sell o
 !!! tip
     For autocomplete inputs during configuration, when going through the command line config process, pressing `<TAB>` at a prompt will display valid available inputs.
 
-## ** Configure parameters on the fly **
+## **Configure parameters on the fly**
 
 Currently, only the following parameters can be reconfigured without stopping the bot. The changes will take effect in the next order refresh.
 

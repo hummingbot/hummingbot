@@ -2,7 +2,7 @@
 
 ## How it works
 
-Cross exchange market making is described in [Strategies](overview), with a further discussion in the Hummingbot [white paper](https://hummingbot.io/hummingbot.pdf).
+Cross exchange market making is described in [Strategies](/strategies/#cross-exchange-market-making), with a further discussion in the Hummingbot [white paper](https://hummingbot.io/hummingbot.pdf).
 
 !!! warning
     Updates to strategy — The cross exchange market making strategy has been updated as of v0.15.0 so that it will always place the order at the minimum profitability level. If the sell price for the specified volume on the taker exchange is 100, and you set the min_profitability as 0.01, it will place the maker buy order at 99. The top depth tolerance is also now specified by the user in base currency units. Please do not use old configuration files for running this strategy.
@@ -34,7 +34,7 @@ The diagrams below illustrate how cross exchange market making works. The transa
 
 If a buyer (_Buyer D_) fills Hummingbot's sell order on the maker exchange (_Figure 2_ ❶), Hummingbot immediately buys the asset on the taker exchange (_Figure 2_ ❷).
 
-The end result: Hummingbot has sold the same asset at $102 (❶) and purchased it for $101 (❷), for a profit of \$1.
+The end result: Hummingbot has sold the same asset at $102 (❶) and purchased it for $101 (❷), for a profit of $1.
 
 ## Prerequisites
 
@@ -49,7 +49,7 @@ Initially, we assume that the maker exchange is an Ethereum-based decentralized 
 
 When placing orders on the maker market and filling orders on the taker market, the order amount should meet the exchange's minimum order size and minimum trade size.
 
-You can find more information about this for each [Exchange Connectors](https://docs.hummingbot.io/spot-connectors/overview/) under the Miscellaneous section.
+You can find more information about this for each [Exchange Connectors](/connectors/#list-of-connectors) under the Miscellaneous section.
 
 ### Adjusting orders and maker price calculations
 
