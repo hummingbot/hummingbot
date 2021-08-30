@@ -345,7 +345,9 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
             # The exception will happen when cancelling the task
             pass
 
-        self.assertTrue(self._is_logged("NETWORK", "Unexpected error with WebSocket connection ()"))
+        self.assertTrue(
+            self._is_logged("NETWORK",
+                            "Unexpected error with WebSocket connection on wss://stream.bybit.com/realtime_public ()"))
 
     def test_listen_for_trades(self, ):
         BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
@@ -460,7 +462,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
                                            'side': 'Sell',
                                            'size': 89041}],
                                       'cross_seq': 8945092523,
-                                      'timestamp_e6': 1628703196211205})
+                                      'timestamp_e6': "1628703196211205"})
 
         # Lock the test to let the async task run
         order_book_message = asyncio.get_event_loop().run_until_complete(order_book_messages.get())

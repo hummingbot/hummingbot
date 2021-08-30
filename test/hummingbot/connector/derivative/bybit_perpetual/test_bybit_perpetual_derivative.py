@@ -16,7 +16,10 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.event.event_logger import EventLogger
 
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_in_flight_order import BybitPerpetualInFlightOrder
-from hummingbot.core.event.events import OrderType, PositionAction, PositionSide, TradeType, MarketEvent, FundingInfo, PositionMode
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_order_book import BybitPerpetualOrderBook
+from hummingbot.core.event.events import OrderType, PositionAction, PositionSide, TradeType, MarketEvent, FundingInfo, \
+    PositionMode
+from hummingbot.core.network_iterator import NetworkStatus
 
 
 class BybitPerpetualDerivativeTests(TestCase):
@@ -859,7 +862,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.connector._order_book_tracker._order_books_initialized.set()
         self.connector._user_stream_tracker.data_source._last_recv_time = 1
         self.connector._account_balances["USDT"] = Decimal(10000)
-        self.connector._funding_info[self.trading_pair] = FundingInfo(
+        self.connector._order_book_tracker._data_source._funding_info[self.trading_pair] = FundingInfo(
             trading_pair=self.trading_pair,
             index_price=Decimal(1),
             mark_price=Decimal(1),
@@ -877,7 +880,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertFalse(local_connector.ready)
 
         local_connector._order_book_tracker._order_books_initialized.set()
-        local_connector._funding_info[self.trading_pair] = FundingInfo(
+        local_connector._order_book_tracker._data_source._funding_info[self.trading_pair] = FundingInfo(
             trading_pair=self.trading_pair,
             index_price=Decimal(1),
             mark_price=Decimal(1),
@@ -1577,6 +1580,70 @@ class BybitPerpetualDerivativeTests(TestCase):
                             in record.getMessage()
                             for record in self.log_records))
 
+    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    def test_check_network_succeeds_when_server_time_response_is_ok(self, get_mock):
+        self._configure_mock_api(get_mock)
+
+        self.api_responses_status.append(200)
+        self.api_responses_json.put_nowait({
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {},
+            "time_now": "1577444332.192859"
+        })
+
+        result = asyncio.get_event_loop().run_until_complete(self.connector.check_network())
+
+        self.assertEqual(NetworkStatus.CONNECTED, result)
+
+    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    def test_check_network_fails_when_server_time_response_is_not_ok(self, get_mock):
+        self._configure_mock_api(get_mock)
+
+        self.api_responses_status.append(200)
+        self.api_responses_json.put_nowait({
+            "ret_code": 1001,
+            "ret_msg": "Not OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {},
+            "time_now": "1577444332.192859"
+        })
+
+        result = asyncio.get_event_loop().run_until_complete(self.connector.check_network())
+        self.assertEqual(NetworkStatus.NOT_CONNECTED, result)
+
+    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    def test_check_network_fails_when_server_time_returns_error_code(self, get_mock):
+        self._configure_mock_api(get_mock)
+
+        self.api_responses_status.append(405)
+        self.api_responses_json.put_nowait({
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {},
+            "time_now": "1577444332.192859"
+        })
+
+        result = asyncio.get_event_loop().run_until_complete(self.connector.check_network())
+
+        self.assertEqual(NetworkStatus.NOT_CONNECTED, result)
+
+    def test_get_order_book_for_valid_trading_pair(self):
+        dummy_order_book = BybitPerpetualOrderBook()
+        self.connector._order_book_tracker.order_books["BTC-USDT"] = dummy_order_book
+        self.assertEqual(dummy_order_book, self.connector.get_order_book("BTC-USDT"))
+
+    def test_get_order_book_for_invalid_trading_pair_raises_error(self):
+        self.assertRaisesRegex(ValueError,
+                               "No order book exists for 'BTC-USDT'",
+                               self.connector.get_order_book,
+                               "BTC-USDT")
+
     def test_supported_position_modes(self):
         expected_result = [PositionMode.ONEWAY, PositionMode.HEDGE]
         self.assertEqual(expected_result, self.connector.supported_position_modes())
@@ -1734,49 +1801,34 @@ class BybitPerpetualDerivativeTests(TestCase):
             "ext_info": "",
             "result": [
                 {
-                    "is_valid": True,
-                    "data": {
-                        "id": 0,
-                        "position_idx": 0,
-                        "mode": 0,
-                        "user_id": 118921,
-                        "risk_id": 1,
-                        "symbol": self.ex_trading_pair,
-                        "side": "Buy",
-                        "size": 10,
-                        "position_value": "0.00076448",
-                        "entry_price": "13080.78694014",
-                        "is_isolated": False,
-                        "auto_add_margin": 1,
-                        "leverage": "100",
-                        "effective_leverage": "0.01",
-                        "position_margin": "0.40111704",
-                        "liq_price": "25",
-                        "bust_price": "25",
-                        "occ_closing_fee": "0.0003",
-                        "occ_funding_fee": "0",
-                        "take_profit": "0",
-                        "stop_loss": "0",
-                        "trailing_stop": "0",
-                        "position_status": "Normal",
-                        "deleverage_indicator": 1,
-                        "oc_calc_data": "{\"blq\":0,\"slq\":0,\"bmp\":0,\"smp\":0,\"fq\":-10,\"bv2c\":0.0115075,\"sv2c\":0.0114925}",
-                        "order_margin": "0",
-                        "wallet_balance": "0.40141704",
-                        "realised_pnl": "-0.00000008",
-                        "unrealised_pnl": 0.00003797,
-                        "cum_realised_pnl": "-0.090626",
-                        "cross_seq": 764786721,
-                        "position_seq": 581513847,
-                        "created_at": "2020-08-10T07:04:32Z",
-                        "updated_at": "2020-11-02T00:00:11.943371457Z",
-                        "tp_sl_mode": "Partial"
-                    }
-                },
+                    "user_id": 100004,
+                    "symbol": self.ex_trading_pair,
+                    "side": "Buy",
+                    "size": 10,
+                    "position_value": "0.00076448",
+                    "entry_price": "13080.78694014",
+                    "liq_price": "25",
+                    "bust_price": "25",
+                    "leverage": 100,
+                    "is_isolated": False,
+                    "auto_add_margin": 1,
+                    "position_margin": "0.40111704",
+                    "occ_closing_fee": "0.0003",
+                    "realised_pnl": 0,
+                    "cum_realised_pnl": 0,
+                    "free_qty": 30,
+                    "tp_sl_mode": "Full",
+                    "unrealised_pnl": 0.00003797,
+                    "deleverage_indicator": 0,
+                    "risk_id": 1,
+                    "stop_loss": 0,
+                    "take_profit": 0,
+                    "trailing_stop": 0
+                }
             ],
-            "time_now": "1604302124.031104",
-            "rate_limit_status": 118,
-            "rate_limit_reset_ms": 1604302124020,
+            "time_now": "1577480599.097287",
+            "rate_limit_status": 119,
+            "rate_limit_reset_ms": 1580885703683,
             "rate_limit": 120
         })
 
@@ -1793,49 +1845,34 @@ class BybitPerpetualDerivativeTests(TestCase):
             "ext_info": "",
             "result": [
                 {
-                    "is_valid": True,
-                    "data": {
-                        "id": 0,
-                        "position_idx": 0,
-                        "mode": 0,
-                        "user_id": 118921,
-                        "risk_id": 1,
-                        "symbol": self.ex_trading_pair,
-                        "side": "Buy",
-                        "size": 0,
-                        "position_value": "0.00076448",
-                        "entry_price": "13080.78694014",
-                        "is_isolated": False,
-                        "auto_add_margin": 1,
-                        "leverage": "100",
-                        "effective_leverage": "0.01",
-                        "position_margin": "0.40111704",
-                        "liq_price": "25",
-                        "bust_price": "25",
-                        "occ_closing_fee": "0.0003",
-                        "occ_funding_fee": "0",
-                        "take_profit": "0",
-                        "stop_loss": "0",
-                        "trailing_stop": "0",
-                        "position_status": "Normal",
-                        "deleverage_indicator": 1,
-                        "oc_calc_data": "{\"blq\":0,\"slq\":0,\"bmp\":0,\"smp\":0,\"fq\":-10,\"bv2c\":0.0115075,\"sv2c\":0.0114925}",
-                        "order_margin": "0",
-                        "wallet_balance": "0.40141704",
-                        "realised_pnl": "-0.00000008",
-                        "unrealised_pnl": 0.00003797,
-                        "cum_realised_pnl": "-0.090626",
-                        "cross_seq": 764786721,
-                        "position_seq": 581513847,
-                        "created_at": "2020-08-10T07:04:32Z",
-                        "updated_at": "2020-11-02T00:00:11.943371457Z",
-                        "tp_sl_mode": "Partial"
-                    }
-                },
+                    "user_id": 100004,
+                    "symbol": self.ex_trading_pair,
+                    "side": "Buy",
+                    "size": 0,
+                    "position_value": "0.00076448",
+                    "entry_price": "13080.78694014",
+                    "liq_price": "25",
+                    "bust_price": "25",
+                    "leverage": 100,
+                    "is_isolated": False,
+                    "auto_add_margin": 1,
+                    "position_margin": "0.40111704",
+                    "occ_closing_fee": "0.0003",
+                    "realised_pnl": 0,
+                    "cum_realised_pnl": 0,
+                    "free_qty": 30,
+                    "tp_sl_mode": "Full",
+                    "unrealised_pnl": 0.00003797,
+                    "deleverage_indicator": 0,
+                    "risk_id": 1,
+                    "stop_loss": 0,
+                    "take_profit": 0,
+                    "trailing_stop": 0
+                }
             ],
-            "time_now": "1604302130",
-            "rate_limit_status": 118,
-            "rate_limit_reset_ms": 1604302124030,
+            "time_now": "1577480599.097287",
+            "rate_limit_status": 119,
+            "rate_limit_reset_ms": 1580885703683,
             "rate_limit": 120
         })
 
@@ -1917,7 +1954,9 @@ class BybitPerpetualDerivativeTests(TestCase):
             self.connector._user_stream_tracker.start())
 
         # Prepare inflight order
-        self.connector.start_tracking_order("xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c418", "xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c418", "BTC-USDT", "Sell", "8579.5", 1, "Market", 1, "")
+        self.connector.start_tracking_order("xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c418",
+                                            "xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c418", "BTC-USDT", "Sell", "8579.5", 1,
+                                            "Market", 1, "")
 
         # Add the authentication response for the websocket
         self._add_successful_authentication_response()
@@ -1972,7 +2011,9 @@ class BybitPerpetualDerivativeTests(TestCase):
             self.connector._user_stream_tracker.start())
 
         # Prepare inflight order
-        self.connector.start_tracking_order("xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c419", "xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c419", "BTC-USDT", "Buy", "8300", 1, "Market", 1, "")
+        self.connector.start_tracking_order("xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c419",
+                                            "xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c419", "BTC-USDT", "Buy", "8300", 1,
+                                            "Market", 1, "")
 
         # Add the authentication response for the websocket
         self._add_successful_authentication_response()
@@ -2005,4 +2046,5 @@ class BybitPerpetualDerivativeTests(TestCase):
         asyncio.get_event_loop().run_until_complete(self.resume_test_event.wait())
         self.resume_test_event.clear()
 
-        self.assertTrue("xxxxxxxx-xxxx-xxxx-8b66-c3d2fcd352f6" in self.connector.in_flight_orders["xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c419"].trade_id_set)
+        self.assertTrue("xxxxxxxx-xxxx-xxxx-8b66-c3d2fcd352f6" in self.connector.in_flight_orders[
+            "xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c419"].trade_id_set)

@@ -43,15 +43,45 @@ class BybitPerpetualUtilsTests(TestCase):
         url = utils.rest_api_url_for_endpoint(endpoint=endpoint, domain="bybit_perpetual_testnet")
         self.assertEqual(CONSTANTS.REST_URLS.get("bybit_perpetual_testnet") + "/testEndpoint", url)
 
-    def test_wss_url(self):
-        url = utils.wss_url(None)
-        self.assertEqual(CONSTANTS.WSS_URLS.get("bybit_perpetual_main"), url)
+    def test_wss_linear_public_url(self):
+        url = utils.wss_linear_public_url(None)
+        self.assertEqual(CONSTANTS.WSS_LINEAR_PUBLIC_URLS.get("bybit_perpetual_main"), url)
 
-        url = utils.wss_url("bybit_perpetual_main")
-        self.assertEqual(CONSTANTS.WSS_URLS.get("bybit_perpetual_main"), url)
+        url = utils.wss_linear_public_url("bybit_perpetual_main")
+        self.assertEqual(CONSTANTS.WSS_LINEAR_PUBLIC_URLS.get("bybit_perpetual_main"), url)
 
-        url = utils.wss_url("bybit_perpetual_testnet")
-        self.assertEqual(CONSTANTS.WSS_URLS.get("bybit_perpetual_testnet"), url)
+        url = utils.wss_linear_public_url("bybit_perpetual_testnet")
+        self.assertEqual(CONSTANTS.WSS_LINEAR_PUBLIC_URLS.get("bybit_perpetual_testnet"), url)
+
+    def test_wss_linear_private_url(self):
+        url = utils.wss_linear_private_url(None)
+        self.assertEqual(CONSTANTS.WSS_LINEAR_PRIVATE_URLS.get("bybit_perpetual_main"), url)
+
+        url = utils.wss_linear_private_url("bybit_perpetual_main")
+        self.assertEqual(CONSTANTS.WSS_LINEAR_PRIVATE_URLS.get("bybit_perpetual_main"), url)
+
+        url = utils.wss_linear_private_url("bybit_perpetual_testnet")
+        self.assertEqual(CONSTANTS.WSS_LINEAR_PRIVATE_URLS.get("bybit_perpetual_testnet"), url)
+
+    def test_wss_non_linear_public_url(self):
+        url = utils.wss_non_linear_public_url(None)
+        self.assertEqual(CONSTANTS.WSS_NON_LINEAR_PUBLIC_URLS.get("bybit_perpetual_main"), url)
+
+        url = utils.wss_non_linear_public_url("bybit_perpetual_main")
+        self.assertEqual(CONSTANTS.WSS_NON_LINEAR_PUBLIC_URLS.get("bybit_perpetual_main"), url)
+
+        url = utils.wss_non_linear_public_url("bybit_perpetual_testnet")
+        self.assertEqual(CONSTANTS.WSS_NON_LINEAR_PUBLIC_URLS.get("bybit_perpetual_testnet"), url)
+
+    def test_wss_non_linear_private_url(self):
+        url = utils.wss_non_linear_private_url(None)
+        self.assertEqual(CONSTANTS.WSS_NON_LINEAR_PRIVATE_URLS.get("bybit_perpetual_main"), url)
+
+        url = utils.wss_non_linear_private_url("bybit_perpetual_main")
+        self.assertEqual(CONSTANTS.WSS_NON_LINEAR_PRIVATE_URLS.get("bybit_perpetual_main"), url)
+
+        url = utils.wss_non_linear_private_url("bybit_perpetual_testnet")
+        self.assertEqual(CONSTANTS.WSS_NON_LINEAR_PRIVATE_URLS.get("bybit_perpetual_testnet"), url)
 
     def test_get_next_funding_timestamp(self):
         # Simulate 01:00 UTC
