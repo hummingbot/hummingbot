@@ -1,4 +1,5 @@
 import copy
+from hummingbot.core.data_type.funding_info import FundingInfo
 
 import aiohttp
 import asyncio
@@ -1115,3 +1116,8 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
     def set_leverage(self, trading_pair: str, leverage: int):
         safe_ensure_future(self._set_leverage(trading_pair=trading_pair, leverage=leverage))
+
+    def get_funding_info(self, trading_pair: str) -> Optional[FundingInfo]:
+        return asyncio.get_event_loop().run_until_complete(
+            self._order_book_tracker.data_source.get_funding_info(trading_pair)
+        )
