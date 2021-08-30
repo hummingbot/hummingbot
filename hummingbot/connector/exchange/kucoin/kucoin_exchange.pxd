@@ -13,6 +13,7 @@ cdef class KucoinExchange(ExchangeBase):
         dict _in_flight_orders
         double _last_poll_timestamp
         double _last_timestamp
+        object _throttler
         object _poll_notifier
         double _poll_interval
         object _shared_client
