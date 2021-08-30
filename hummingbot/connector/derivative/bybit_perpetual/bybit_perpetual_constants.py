@@ -4,8 +4,13 @@ EXCHANGE_NAME = "bybit_perpetual"
 
 REST_URLS = {"bybit_perpetual_main": "https://api.bybit.com/",
              "bybit_perpetual_testnet": "https://api-testnet.bybit.com/"}
-WSS_URLS = {"bybit_perpetual_main": "wss://stream.bybit.com/realtime",
-            "bybit_perpetual_testnet": "wss://stream-testnet.bybit.com/realtime"}
+WSS_NON_LINEAR_PUBLIC_URLS = {"bybit_perpetual_main": "wss://stream.bybit.com/realtime",
+                              "bybit_perpetual_testnet": "wss://stream-testnet.bybit.com/realtime"}
+WSS_NON_LINEAR_PRIVATE_URLS = WSS_NON_LINEAR_PUBLIC_URLS
+WSS_LINEAR_PUBLIC_URLS = {"bybit_perpetual_main": "wss://stream.bybit.com/realtime_public",
+                          "bybit_perpetual_testnet": "wss://stream-testnet.bybit.com/realtime_public"}
+WSS_LINEAR_PRIVATE_URLS = {"bybit_perpetual_main": "wss://stream.bybit.com/realtime_private",
+                           "bybit_perpetual_testnet": "wss://stream-testnet.bybit.com/realtime_private"}
 
 REST_API_VERSION = "v2"
 
@@ -19,7 +24,10 @@ QUERY_SYMBOL_ENDPOINT = {
 ORDER_BOOK_ENDPOINT = {
     "linear": f"{REST_API_VERSION}/public/orderBook/L2",
     "non_linear": f"{REST_API_VERSION}/public/orderBook/L2"}
-
+SERVER_TIME_PATH_URL = {
+    "linear": f"{REST_API_VERSION}/public/time",
+    "non_linear": f"{REST_API_VERSION}/public/time"
+}
 # REST API Private Endpoints
 SET_LEVERAGE_PATH_URL = {
     "linear": "private/linear/position/set-leverage",
