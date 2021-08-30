@@ -1,5 +1,6 @@
 import aiohttp
 import asyncio
+import copy
 import logging
 import pandas as pd
 
@@ -45,6 +46,10 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._funding_info: Dict[str, FundingInfo] = {}
 
         self._funding_info_async_lock: asyncio.Lock = asyncio.Lock()
+
+    @property
+    def funding_info(self) -> Dict[str, FundingInfo]:
+        return copy.deepcopy(self._funding_info)
 
     async def _get_session(self):
         if not self._session:

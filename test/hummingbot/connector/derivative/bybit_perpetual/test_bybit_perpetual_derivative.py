@@ -859,7 +859,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.connector._order_book_tracker._order_books_initialized.set()
         self.connector._user_stream_tracker.data_source._last_recv_time = 1
         self.connector._account_balances["USDT"] = Decimal(10000)
-        self.connector._funding_info[self.trading_pair] = FundingInfo(
+        self.connector._order_book_tracker.data_source._funding_info[self.trading_pair] = FundingInfo(
             trading_pair=self.trading_pair,
             index_price=Decimal(1),
             mark_price=Decimal(1),
@@ -877,7 +877,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertFalse(local_connector.ready)
 
         local_connector._order_book_tracker._order_books_initialized.set()
-        local_connector._funding_info[self.trading_pair] = FundingInfo(
+        local_connector._order_book_tracker.data_source._funding_info[self.trading_pair] = FundingInfo(
             trading_pair=self.trading_pair,
             index_price=Decimal(1),
             mark_price=Decimal(1),
@@ -2006,3 +2006,23 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.resume_test_event.clear()
 
         self.assertTrue("xxxxxxxx-xxxx-xxxx-8b66-c3d2fcd352f6" in self.connector.in_flight_orders["xxxxxxxx-xxxx-xxxx-9a8f-4a973eb5c419"].trade_id_set)
+
+    def test_get_funding_info_trading_pair_exist(self):
+        expected_funding_info: FundingInfo = FundingInfo(
+            trading_pair="BTC-USD",
+            index_price=Decimal("50000"),
+            mark_price=Decimal("50000"),
+            next_funding_utc_timestamp=int(pd.Timestamp('2021-08-23T08:00:00Z', tz="UTC").timestamp()),
+            rate=(Decimal('-15') * Decimal(1e-6)),
+        )
+        self.connector._order_book_tracker.data_source._funding_info = {
+            "BTC-USD": expected_funding_info
+        }
+
+        result = self.connector.get_funding_info("BTC-USD")
+
+        self.assertEqual(expected_funding_info.trading_pair, result.trading_pair)
+        self.assertEqual(expected_funding_info.index_price, result.index_price)
+        self.assertEqual(expected_funding_info.mark_price, result.mark_price)
+        self.assertEqual(expected_funding_info.next_funding_utc_timestamp, result.next_funding_utc_timestamp)
+        self.assertEqual(expected_funding_info.rate, result.rate)
