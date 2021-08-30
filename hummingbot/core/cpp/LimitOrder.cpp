@@ -8,6 +8,9 @@ LimitOrder::LimitOrder() {
     this->quoteCurrency = "";
     this->price = NULL;
     this->quantity = NULL;
+    this->filledQuantity = NULL;
+    this->creationTimestamp = 0.0;
+    this->status = 0;
 }
 
 LimitOrder::LimitOrder(std::string clientOrderID,
@@ -16,7 +19,8 @@ LimitOrder::LimitOrder(std::string clientOrderID,
                        std::string baseCurrency,
                        std::string quoteCurrency,
                        PyObject *price,
-                       PyObject *quantity) {
+                       PyObject *quantity
+                       ) {
     this->clientOrderID = clientOrderID;
     this->tradingPair = tradingPair;
     this->isBuy = isBuy;
@@ -24,8 +28,37 @@ LimitOrder::LimitOrder(std::string clientOrderID,
     this->quoteCurrency = quoteCurrency;
     this->price = price;
     this->quantity = quantity;
+    this->filledQuantity = NULL;
+    this->creationTimestamp = 0.0;
+    this->status = 0;
     Py_XINCREF(price);
     Py_XINCREF(quantity);
+}
+
+LimitOrder::LimitOrder(std::string clientOrderID,
+                       std::string tradingPair,
+                       bool isBuy,
+                       std::string baseCurrency,
+                       std::string quoteCurrency,
+                       PyObject *price,
+                       PyObject *quantity,
+                       PyObject *filledQuantity,
+                       long creationTimestamp,
+                       short int status
+                       ) {
+    this->clientOrderID = clientOrderID;
+    this->tradingPair = tradingPair;
+    this->isBuy = isBuy;
+    this->baseCurrency = baseCurrency;
+    this->quoteCurrency = quoteCurrency;
+    this->price = price;
+    this->quantity = quantity;
+    this->filledQuantity = filledQuantity;
+    this->creationTimestamp = creationTimestamp;
+    this->status = status;
+    Py_XINCREF(price);
+    Py_XINCREF(quantity);
+    Py_XINCREF(filledQuantity);
 }
 
 LimitOrder::LimitOrder(const LimitOrder &other) {
@@ -36,15 +69,21 @@ LimitOrder::LimitOrder(const LimitOrder &other) {
     this->quoteCurrency = other.quoteCurrency;
     this->price = other.price;
     this->quantity = other.quantity;
+    this->filledQuantity = other.filledQuantity;
+    this->creationTimestamp = other.creationTimestamp;
+    this->status = other.status;
     Py_XINCREF(this->price);
     Py_XINCREF(this->quantity);
+    Py_XINCREF(this->filledQuantity);
 }
 
 LimitOrder::~LimitOrder() {
     Py_XDECREF(this->price);
     Py_XDECREF(this->quantity);
+    Py_XDECREF(this->filledQuantity);
     this->price = NULL;
     this->quantity = NULL;
+    this->filledQuantity = NULL;
 }
 
 LimitOrder &LimitOrder::operator=(const LimitOrder &other) {
@@ -55,8 +94,12 @@ LimitOrder &LimitOrder::operator=(const LimitOrder &other) {
     this->quoteCurrency = other.quoteCurrency;
     this->price = other.price;
     this->quantity = other.quantity;
+    this->filledQuantity = other.filledQuantity;
+    this->creationTimestamp = other.creationTimestamp;
+    this->status = other.status;
     Py_XINCREF(this->price);
     Py_XINCREF(this->quantity);
+    Py_XINCREF(this->filledQuantity);
 
     return *this;
 }
@@ -96,4 +139,16 @@ PyObject *LimitOrder::getPrice() const {
 
 PyObject *LimitOrder::getQuantity() const {
     return this->quantity;
+}
+
+PyObject *LimitOrder::getFilledQuantity() const {
+    return this->filledQuantity;
+}
+
+long LimitOrder::getCreationTimestamp() const{
+    return this->creationTimestamp;
+}
+
+short int LimitOrder::getStatus() const{
+    return this->status;
 }

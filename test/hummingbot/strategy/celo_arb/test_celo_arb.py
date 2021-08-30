@@ -160,7 +160,7 @@ class CeloArbUnitTest(unittest.TestCase):
         self.assertAlmostEqual(celo_sell_trade.profit, Decimal("-0.00688298918"))
 
     def test_profitable_celo_sell_trade(self):
-        order_amount = 1
+        order_amount = Decimal("1")
         self.strategy.order_amount = order_amount
         trade_profits = get_trade_profits(self.market, self.trading_pair, order_amount)
         celo_sell_trade = [t for t in trade_profits if not t.is_celo_buy][0]
@@ -176,7 +176,7 @@ class CeloArbUnitTest(unittest.TestCase):
         self.assertEqual(self.strategy.celo_orders[0].amount, order_amount)
 
     def test_profitable_celo_buy_trade(self):
-        order_amount = 2
+        order_amount = Decimal("2")
         self.strategy.order_amount = order_amount
         trade_profits = get_trade_profits(self.market, self.trading_pair, order_amount)
         celo_buy_trade = [t for t in trade_profits if t.is_celo_buy][0]
@@ -192,7 +192,7 @@ class CeloArbUnitTest(unittest.TestCase):
         self.assertEqual(self.strategy.celo_orders[0].amount, order_amount)
 
     def test_profitable_but_insufficient_balance(self):
-        order_amount = 2
+        order_amount = Decimal("2")
         trade_profits = get_trade_profits(self.market, self.trading_pair, order_amount)
         celo_buy_trade = [t for t in trade_profits if t.is_celo_buy][0]
         self.assertTrue(celo_buy_trade.profit > self.strategy.min_profitability)
