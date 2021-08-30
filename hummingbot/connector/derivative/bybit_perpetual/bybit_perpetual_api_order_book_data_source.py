@@ -264,7 +264,7 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self.logger().network(
                     f"Unexpected error with WebSocket connection on {url} ({ex})",
                     exc_info=True,
-                    app_warning_msg="Unexpected error with WebSocket connection on. Retrying in 30 seconds. "
+                    app_warning_msg="Unexpected error with WebSocket connectionß. Retrying in 30 seconds. "
                                     "Check network connection."
                 )
                 if ws_adaptor:
