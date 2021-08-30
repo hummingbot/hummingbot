@@ -93,7 +93,8 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         instrument["name"]: f"{instrument['base_currency']}-{instrument['quote_currency']}"
                         for instrument in resp_json["result"]
                         if (instrument["status"] == "Trading"
-                            and instrument["name"] == f"{instrument['base_currency']}{instrument['quote_currency']}")
+                            and instrument["name"] == f"{instrument['base_currency']}{instrument['quote_currency']}"
+                            and bybit_perpetual_utils.is_linear_perpetual(f"{instrument['base_currency']}-{instrument['quote_currency']}"))
                     }
 
     @classmethod
