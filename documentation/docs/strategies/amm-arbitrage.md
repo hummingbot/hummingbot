@@ -18,7 +18,7 @@ Ensure you have set up the Ethereum wallet and nodes for more details:
 After the installation and configuration are completed, we can create the configuration for the AMM arbitrage strategy. The following example shows a step-by-step on configuring the AMM arb strategy.
 
 !!! note
-    `Paper_trade` is not applicable for this strategy. Alternatively, you may set up a `kovan_testnet` to help you run some tests without risking funds.
+    `paper_trade` is not applicable for this strategy. Alternatively, you may set up a `kovan_testnet` to help you run some tests without risking funds.
 
 1. In Hummingbot, enter `create`.
 2. Enter `amm-arb`.
@@ -162,7 +162,7 @@ Enter fixed gas price (in Gwei) you want to use for Ethereum transactions
 
 ## Switch Balancer network
 
-Two ways to switch network [Ethereum mainnet/Kovan testnet](https://docs.hummingbot.io/gateway/installation/#setting-up-kovan-testnet)
+Two ways to switch network [Ethereum mainnet/Kovan testnet](/installation/gateway/#setting-up-kovan-testnet)
 
 1. Delete the Gateway docker container and re-run the `create-gateway.sh` script.
 2. Use the `update-gateway.sh` script to update the docker image and follow the prompt instructions.

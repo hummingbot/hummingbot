@@ -11,6 +11,12 @@ from hummingbot.core.event.events import (
     TradeType
 )
 
+WORKING_LOCAL_STATUS = "WorkingLocal"
+
+
+class NdaxInFlightOrderNotCreated(Exception):
+    pass
+
 
 class NdaxInFlightOrder(InFlightOrderBase):
     def __init__(self,
@@ -21,7 +27,7 @@ class NdaxInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
-                 initial_state: str = "Working"):
+                 initial_state: str = WORKING_LOCAL_STATUS):
         super().__init__(
             client_order_id,
             exchange_order_id,
@@ -34,6 +40,14 @@ class NdaxInFlightOrder(InFlightOrderBase):
         )
         self.fee_asset = self.base_asset if self.trade_type is TradeType.BUY else self.quote_asset
         self.trade_id_set = set()
+
+    @property
+    def is_locally_working(self) -> bool:
+        return self.last_state in {WORKING_LOCAL_STATUS}
+
+    @property
+    def is_working(self) -> bool:
+        return self.last_state in {"Working"}
 
     @property
     def is_done(self) -> bool:

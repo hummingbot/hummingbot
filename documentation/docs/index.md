@@ -22,7 +22,7 @@ This documentation site is organized into the following sections:
 - [Connectors](/connectors): Connectors to different exchanges
 - [Strategies](/strategies): How to use Hummingbot strategies
 - [Market Making](/market-making): Parameters specific to market making strategies
-- [Support](/support): Get help using Hummingbot
+- [Support](/support/support): Get help using Hummingbot
 
 ## For Developers
 

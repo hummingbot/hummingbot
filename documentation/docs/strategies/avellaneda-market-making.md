@@ -139,7 +139,7 @@ How often do you want to cancel and replace bids and asks (in seconds)?
 
 ### `inventory_target_base_pct`
 
-It sets a target of base asset balance in relation to a total asset allocation value (in percentage value). It works the same as the pure market making strategy's [inventory_skew](/strategies/inventory-skew/) feature in order to achieve this target.
+It sets a target of base asset balance in relation to a total asset allocation value (in percentage value). It works the same as the pure market making strategy's [inventory_skew](/market-making/inventory-skew/) feature in order to achieve this target.
 
 ** Prompt: **
 
@@ -148,7 +148,7 @@ What is your inventory target for base asset? Enter 50 for 50%?
 >>> 50
 ```
 
-## Advanced parameters
+## **Advanced parameters**
 
 These are additional parameters that you can reconfigure and use to customize the behavior of your strategy further. To change its settings, run the command `config` followed by the parameter name, e.g. `config max_order_age`.
 
@@ -224,7 +224,7 @@ How long do you want to cancel and replace bids and asks with the same price (in
 
 The spread (from mid-price) to defer the order refresh process to the next cycle.
 
-To know more about this parameter you can visit this [link](https://docs.hummingbot.io/strategies/order-refresh-tolerance/#gatsby-focus-wrapper)
+To know more about this parameter you can visit this [link](/market-making/order-refresh-tolerance/)
 
 ** Prompt: **
 
@@ -303,15 +303,9 @@ order_override:
 
 ## Hanging orders
 
-An Avellaneda strategy feature that recalculates your hanging orders with aggregation of volume weighted, volume time weighted, and volume distance weighted.
-
 `config hanging_orders_enabled`
 
 ![hanging orders enabled](/assets/img/AvellanedaHangingOrders_Enable.gif)
-
-`config hanging_orders_aggregation_type`
-
-![hanging orders aggregate](/assets/img/AvellanedaHangingOrders_Aggregate.gif)
 
 `config hanging_orders_cancel_pct`
 
@@ -323,11 +317,6 @@ Adjust the settings by opening the strategy config file with a text editor.
 # Whether to stop cancellations of orders on the other side (of the order book),
 # when one side is filled (hanging orders feature) (true/false).
 hanging_orders_enabled: true
-
-# Select way of aggregating hanging orders. Whether if leaving them as they are or calculating a resulting hanging order
-# default = no_aggregation, volume_weighted, volume_time_weighted, volume_distance_weighted
-
-hanging_orders_aggregation_type: volume_weighted
 
 # Spread (from mid price, in percentage) hanging orders will be canceled (Enter 1 to indicate 1%)
 hanging_orders_cancel_pct: .5

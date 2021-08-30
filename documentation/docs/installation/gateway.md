@@ -1,16 +1,16 @@
 ## What is Hummingbot Gateway?
 
-Hummingbot Gateway is a API server that allows Hummingbot to connect to [protocols](/protocol-connectors/overview/) that are used in the [amm-arb strategy](/strategies/amm-arb/) and other future strategies. This is a light web server that enables Hummingbot client to send and receive data from different blockchain protocols and provides an easier entry point for external devs to build connectors to other protocols.
+Hummingbot Gateway is a API server that allows Hummingbot to connect to [protocols](/connectors/) that are used in the [amm-arb strategy](/strategies/amm-arbitrage/) and other future strategies. This is a light web server that enables Hummingbot client to send and receive data from different blockchain protocols and provides an easier entry point for external devs to build connectors to other protocols.
 
 !!! note
     To use Gateway, you need to install Hummingbot using Docker or from source.
 
 ## Create SSL certificates
 
-1. Run the command `generate_certs` in the Hummingbot client
+1. Run the command `gateway generate_certs` in the Hummingbot client
 2. Enter a passphrase to be used later during installation
 
-![](/assets/img/generate-certs.gif)
+![](/assets/img/generate_certs.gif)
 
 !!! note
     As this passphrase will be stored in unencrypted form in the Gateway environment, we recommend that you use a different password as the Hummingbot password, which is used to encrypt your API and private keys.
@@ -45,7 +45,7 @@ It downloads the scripts from GitHub, sets their correct permission and runs the
 ![](/assets/img/gateway-2.gif)
 
 !!! note
-    When creating a Gateway instance for Ethereum protocol connectors such as [Balancer](/connectors/balancer), [Uniswap](/connectors/uniswap), and [Perpetual Finance](/protocol-connectors/perp-fi) the script picks up the settings from your global config file (`conf_global.yml`). Make sure to connect them first from the Hummingbot client before installing Gateway.
+    When creating a Gateway instance for Ethereum protocol connectors such as [Balancer](/connectors/balancer), [Uniswap](/connectors/uniswap), and [Perpetual Finance](/connectors/perp-fi/) the script picks up the settings from your global config file (`conf_global.yml`). Make sure to connect them first from the Hummingbot client before installing Gateway.
 
 By default, Gateway will install on port `5000` which Hummingbot will connect to. If the default port is not available, Gateway will find the next port number.
 

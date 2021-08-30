@@ -17,7 +17,9 @@ from typing import (
 
 from hummingbot.connector.exchange.ndax import ndax_constants as CONSTANTS, ndax_utils
 from hummingbot.connector.exchange.ndax.ndax_auth import NdaxAuth
-from hummingbot.connector.exchange.ndax.ndax_in_flight_order import NdaxInFlightOrder
+from hummingbot.connector.exchange.ndax.ndax_in_flight_order import (
+    NdaxInFlightOrder, NdaxInFlightOrderNotCreated
+)
 from hummingbot.connector.exchange.ndax.ndax_order_book_tracker import NdaxOrderBookTracker
 from hummingbot.connector.exchange.ndax.ndax_user_stream_tracker import NdaxUserStreamTracker
 from hummingbot.connector.exchange.ndax.ndax_websocket_adaptor import NdaxWebSocketAdaptor
@@ -44,6 +46,7 @@ from hummingbot.core.event.events import (
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 s_decimal_NaN = Decimal("nan")
 s_decimal_0 = Decimal(0)
@@ -91,8 +94,13 @@ class NdaxExchange(ExchangeBase):
                               api_key=ndax_api_key,
                               secret_key=ndax_secret_key,
                               account_name=ndax_account_name)
-        self._order_book_tracker = NdaxOrderBookTracker(trading_pairs=trading_pairs, domain=domain)
-        self._user_stream_tracker = NdaxUserStreamTracker(self._auth, domain=domain)
+        self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        self._order_book_tracker = NdaxOrderBookTracker(
+            throttler=self._throttler, trading_pairs=trading_pairs, domain=domain
+        )
+        self._user_stream_tracker = NdaxUserStreamTracker(
+            throttler=self._throttler, auth_assistant=self._auth, domain=domain
+        )
         self._domain = domain
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client = None
@@ -282,7 +290,8 @@ class NdaxExchange(ExchangeBase):
         try:
             resp = await self._api_request(
                 method="GET",
-                path_url=CONSTANTS.WS_PING_REQUEST
+                path_url=CONSTANTS.PING_PATH_URL,
+                limit_id=CONSTANTS.HTTP_PING_ID,
             )
             if "msg" not in resp or resp["msg"] != "PONG":
                 raise Exception()
@@ -297,7 +306,8 @@ class NdaxExchange(ExchangeBase):
                            path_url: str,
                            params: Optional[Dict[str, Any]] = None,
                            data: Optional[Dict[str, Any]] = None,
-                           is_auth_required: bool = False) -> Union[Dict[str, Any], List[Any]]:
+                           is_auth_required: bool = False,
+                           limit_id: Optional[str] = None) -> Union[Dict[str, Any], List[Any]]:
         """
         Sends an aiohttp request and waits for a response.
         :param method: The HTTP method, e.g. get or post
@@ -306,6 +316,7 @@ class NdaxExchange(ExchangeBase):
         :param params: The body parameters of the API request
         :param is_auth_required: Whether an authentication is required, when True the function will add encrypted
         signature to the request.
+        :param limit_id: The id used for the API throttler. If not supplied, the `path_url` is used instead.
         :returns A response in json format.
         """
         url = ndax_utils.rest_api_url(self._domain) + path_url
@@ -317,10 +328,13 @@ class NdaxExchange(ExchangeBase):
             else:
                 headers = self._auth.get_headers()
 
+            limit_id = limit_id or path_url
             if method == "GET":
-                response = await client.get(url, headers=headers, params=params)
+                async with self._throttler.execute_task(limit_id):
+                    response = await client.get(url, headers=headers, params=params)
             elif method == "POST":
-                response = await client.post(url, headers=headers, data=ujson.dumps(data))
+                async with self._throttler.execute_task(limit_id):
+                    response = await client.post(url, headers=headers, data=ujson.dumps(data))
             else:
                 raise NotImplementedError(f"{method} HTTP Method not implemented. ")
 
@@ -443,18 +457,6 @@ class NdaxExchange(ExchangeBase):
                                    f"{amount} {trading_pair}.")
                 tracked_order.update_exchange_order_id(exchange_order_id)
 
-            event_tag = MarketEvent.BuyOrderCreated if trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
-            event_class = BuyOrderCreatedEvent if trade_type is TradeType.BUY else SellOrderCreatedEvent
-            self.trigger_event(event_tag,
-                               event_class(
-                                   self.current_timestamp,
-                                   order_type,
-                                   trading_pair,
-                                   amount,
-                                   price,
-                                   order_id
-                               ))
-
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -467,6 +469,20 @@ class NdaxExchange(ExchangeBase):
                 exc_info=True,
                 app_warning_msg="Error submitting order to NDAX. "
             )
+
+    def trigger_order_created_event(self, order: NdaxInFlightOrder):
+        event_tag = MarketEvent.BuyOrderCreated if order.trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
+        event_class = BuyOrderCreatedEvent if order.trade_type is TradeType.BUY else SellOrderCreatedEvent
+        self.trigger_event(event_tag,
+                           event_class(
+                               self.current_timestamp,
+                               order.order_type,
+                               order.trading_pair,
+                               order.amount,
+                               order.price,
+                               order.client_order_id,
+                               exchange_order_id=order.exchange_order_id
+                           ))
 
     def buy(self, trading_pair: str, amount: Decimal, order_type: OrderType = OrderType.MARKET,
             price: Decimal = s_decimal_NaN, **kwargs) -> str:
@@ -512,9 +528,8 @@ class NdaxExchange(ExchangeBase):
 
     async def _execute_cancel(self, trading_pair: str, order_id: str) -> str:
         """
-        Executes order cancellation process by first calling the CancelOrder endpoint. The API response simply verifies
-        that the API request have been received by the API servers. To determine if an order is successfully cancelled,
-        we either call the GetOrderStatus/GetOpenOrders endpoint or wait for a OrderStateEvent/OrderTradeEvent from the WS.
+        To determine if an order is successfully cancelled, we either call the
+        GetOrderStatus/GetOpenOrders endpoint or wait for a OrderStateEvent/OrderTradeEvent from the WS.
         :param trading_pair: The market (e.g. BTC-CAD) the order is in.
         :param order_id: The client_order_id of the order to be cancelled.
         """
@@ -522,6 +537,11 @@ class NdaxExchange(ExchangeBase):
             tracked_order: Optional[NdaxInFlightOrder] = self._in_flight_orders.get(order_id, None)
             if tracked_order is None:
                 raise ValueError(f"Failed to cancel order - {order_id}. Order not being tracked.")
+            if tracked_order.is_locally_working:
+                raise NdaxInFlightOrderNotCreated(
+                    f"Failed to cancel order - {order_id}. Order not yet created."
+                    f" This is most likely due to rate-limiting."
+                )
 
             body_params = {
                 "OMSId": 1,
@@ -539,6 +559,8 @@ class NdaxExchange(ExchangeBase):
 
             return order_id
         except asyncio.CancelledError:
+            raise
+        except NdaxInFlightOrderNotCreated:
             raise
         except Exception as e:
             self.logger().error(f"Failed to cancel order {order_id}: {str(e)}")
@@ -702,7 +724,7 @@ class NdaxExchange(ExchangeBase):
 
     def start_tracking_order(self,
                              order_id: str,
-                             exchange_order_id: str,
+                             exchange_order_id: Optional[str],
                              trading_pair: str,
                              trade_type: TradeType,
                              price: Decimal,
@@ -733,15 +755,18 @@ class NdaxExchange(ExchangeBase):
         Calls REST API to get order status
         """
         # Waiting on buy and sell functionality.
-        tasks = []
-        if len(self._in_flight_orders) < 1:
+        active_orders: List[NdaxInFlightOrder] = [
+            o for o in self._in_flight_orders.values()
+            if not o.is_locally_working
+        ]
+        if len(active_orders) == 0:
             return
 
-        tracked_orders: List[NdaxInFlightOrder] = list(self._in_flight_orders.values())
-        for tracked_order in tracked_orders:
-            ex_order_id = await tracked_order.get_exchange_order_id()
+        tasks = []
+        for active_order in active_orders:
+            ex_order_id = await active_order.get_exchange_order_id()
             if not ex_order_id:
-                self.logger().debug(f"Tracker order {tracked_order.client_order_id} does not have an exchange id. Attempting fetch in next polling interval")
+                self.logger().debug(f"Tracker order {active_order.client_order_id} does not have an exchange id. Attempting fetch in next polling interval")
                 continue
 
             query_params = {
@@ -767,6 +792,9 @@ class NdaxExchange(ExchangeBase):
                 parsed_status_responses.append(resp)
             else:
                 self.logger().error(f"Error fetching order status. Response: {resp}")
+
+        if len(parsed_status_responses) == 0:
+            return
 
         min_ts: int = min([int(order_status["ReceiveTime"])
                            for order_status in parsed_status_responses])
@@ -796,7 +824,7 @@ class NdaxExchange(ExchangeBase):
             if not isinstance(resp, Exception):
                 parsed_history_resps.extend(resp)
             else:
-                self.logger().error(f"Error fetching order status. Response: {resp}")
+                self.logger().error(f"Error fetching trades history. Response: {resp}")
 
         # Trade updates must be handled before any order status updates.
         for trade in parsed_history_resps:
@@ -913,11 +941,14 @@ class NdaxExchange(ExchangeBase):
         client_order_id = str(order_msg["ClientOrderId"])
         if client_order_id in self.in_flight_orders:
             tracked_order = self.in_flight_orders[client_order_id]
+            was_locally_working = tracked_order.is_locally_working
 
             # Update order execution status
             tracked_order.last_state = order_msg["OrderState"]
 
-            if tracked_order.is_cancelled:
+            if was_locally_working and tracked_order.is_working:
+                self.trigger_order_created_event(tracked_order)
+            elif tracked_order.is_cancelled:
                 self.logger().info(f"Successfully cancelled order {client_order_id}")
                 self.trigger_event(MarketEvent.OrderCancelled,
                                    OrderCancelledEvent(
