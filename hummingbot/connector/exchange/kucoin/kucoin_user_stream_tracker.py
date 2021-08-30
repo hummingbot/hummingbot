@@ -5,6 +5,8 @@ import logging
 from typing import (
     Optional
 )
+
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
@@ -27,8 +29,10 @@ class KucoinUserStreamTracker(UserStreamTracker):
         return cls._kust_logger
 
     def __init__(self,
+                 throttler: AsyncThrottler,
                  kucoin_auth: Optional[KucoinAuth] = None):
         super().__init__()
+        self._throttler = throttler
         self._kucoin_client: KucoinAuth = kucoin_auth
         self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
         self._data_source: Optional[UserStreamTrackerDataSource] = None
@@ -37,7 +41,7 @@ class KucoinUserStreamTracker(UserStreamTracker):
     @property
     def data_source(self) -> UserStreamTrackerDataSource:
         if not self._data_source:
-            self._data_source = KucoinAPIUserStreamDataSource(kucoin_auth=self._kucoin_client)
+            self._data_source = KucoinAPIUserStreamDataSource(self._throttler, kucoin_auth=self._kucoin_client)
         return self._data_source
 
     @property

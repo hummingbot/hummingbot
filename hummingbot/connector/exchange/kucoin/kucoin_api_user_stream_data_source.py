@@ -12,12 +12,11 @@ from typing import (
 import ujson
 import websockets
 
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.connector.exchange.kucoin.kucoin_auth import KucoinAuth
 from hummingbot.logger import HummingbotLogger
-
-KUCOIN_API_ENDPOINT = "https://api.kucoin.com"
-KUCOIN_USER_STREAM_ENDPOINT = "/api/v1/bullet-private"
+from hummingbot.connector.exchange.kucoin import kucoin_constants as CONSTANTS
 
 KUCOIN_PRIVATE_TOPICS = [
     "/spotMarket/tradeOrders",
@@ -37,7 +36,8 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
             cls._kausds_logger = logging.getLogger(__name__)
         return cls._kausds_logger
 
-    def __init__(self, kucoin_auth: KucoinAuth):
+    def __init__(self, throttler: AsyncThrottler, kucoin_auth: KucoinAuth):
+        self._throttler = throttler
         self._current_listen_key = None
         self._current_endpoint = None
         super().__init__()
@@ -50,13 +50,15 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def get_listen_key(self):
         async with aiohttp.ClientSession() as client:
-            header = self._kucoin_auth.add_auth_to_params("POST", KUCOIN_USER_STREAM_ENDPOINT)
-            async with client.post(f"{KUCOIN_API_ENDPOINT}{KUCOIN_USER_STREAM_ENDPOINT}", headers=header) as response:
-                response: aiohttp.ClientResponse = response
-                if response.status != 200:
-                    raise IOError(f"Error fetching Kucoin user stream listen key. HTTP status is {response.status}.")
-                data: Dict[str, str] = await response.json()
-                return data
+            url = CONSTANTS.BASE_PATH_URL + CONSTANTS.PRIVATE_WS_DATA_PATH_URL
+            header = self._kucoin_auth.add_auth_to_params("POST", CONSTANTS.PRIVATE_WS_DATA_PATH_URL)
+            async with self._throttler.execute_task(CONSTANTS.PRIVATE_WS_DATA_PATH_URL):
+                async with client.post(url, headers=header) as response:
+                    response: aiohttp.ClientResponse = response
+                    if response.status != 200:
+                        raise IOError(f"Error fetching Kucoin user stream listen key. HTTP status is {response.status}.")
+                    data: Dict[str, str] = await response.json()
+                    return data
 
     async def _subscribe_topic(self, ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
         try:
@@ -67,7 +69,8 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     "topic": topic,
                     "privateChannel": True,
                     "response": True}
-                await ws.send(ujson.dumps(subscribe_request))
+                async with self._throttler.execute_task(CONSTANTS.WS_REQUEST_LIMIT_ID):
+                    await ws.send(ujson.dumps(subscribe_request))
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -77,8 +80,8 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
         stream_url: str = f"{self._current_endpoint}?token={self._current_listen_key}&acceptUserMessage=true"
         self.logger().info(f"Connecting to {stream_url}.")
 
-        # Create the WS connection.
-        return websockets.connect(stream_url, ping_interval=40, ping_timeout=self.PING_TIMEOUT)
+        async with self._throttler.execute_task(CONSTANTS.WS_CONNECTION_LIMIT_ID):
+            return websockets.connect(stream_url, ping_interval=40, ping_timeout=self.PING_TIMEOUT)
 
     async def _inner_messages(self, ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
         try:
