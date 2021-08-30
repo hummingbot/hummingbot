@@ -42,7 +42,6 @@ class BybitPerpetualAuth():
     def extend_params_with_authentication_info(self, params: Dict[str, Any]):
         params["timestamp"] = self.get_expiration_timestamp()
         params["api_key"] = self._api_key
-        params["recv_window"] = 10000
         key_value_elements = []
         for key, value in sorted(params.items()):
             converted_value = float(value) if type(value) is Decimal else value
