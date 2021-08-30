@@ -378,21 +378,22 @@ cdef class KucoinExchange(ExchangeBase):
         client = await self._http_client()
         if is_auth_required:
             if is_partner_required:
-                headers = self._kucoin_auth.add_auth_to_params(method, path_url, params, partner_header=True)
+                headers = self._kucoin_auth.add_auth_to_params(method, path_url, data, partner_header=True)
             else:
-                headers = self._kucoin_auth.add_auth_to_params(method, path_url, params)
+                headers = self._kucoin_auth.add_auth_to_params(method, path_url, data)
         else:
             headers = {"Content-Type": "application/json"}
-        post_json = json.dumps(params)
         limit_id = limit_id or path_url
+        if data is not None:
+            data = json.dumps(data)
 
         if method == "get":
             async with self._throttler.execute_task(limit_id):
-                self.logger().debug(f"get url: {url} ------ headers: {headers}")
-                response = await client.get(url, headers=headers)
+                response = await client.get(url, params=params, data=data, headers=headers)
+                self.logger().info(f"url: {response.url}")
         elif method == "post":
             async with self._throttler.execute_task(limit_id):
-                response = await client.post(url, data=post_json, headers=headers)
+                response = await client.post(url, params=params, data=data, headers=headers)
         elif method == "delete":
             async with self._throttler.execute_task(limit_id):
                 response = await client.delete(url, headers=headers)
@@ -415,10 +416,10 @@ cdef class KucoinExchange(ExchangeBase):
             set local_asset_names = set(self._account_balances.keys())
             set remote_asset_names = set()
 
-        params = {"type": "trade"}
-        data = await self._api_request("get", path_url=path_url, params=params, is_auth_required=True)
+        data = {"type": "trade"}  # this GET request requires that arguments be submitted as data
+        response = await self._api_request("get", path_url=path_url, data=data, is_auth_required=True)
         if data:
-            for balance_entry in data["data"]:
+            for balance_entry in response["data"]:
                 asset_name = convert_asset_from_exchange(balance_entry["currency"])
                 self._account_available_balances[asset_name] = Decimal(balance_entry["available"])
                 self._account_balances[asset_name] = Decimal(balance_entry["balance"])
@@ -646,10 +647,10 @@ cdef class KucoinExchange(ExchangeBase):
                           is_buy: bool,
                           order_type: OrderType,
                           price: Decimal) -> str:
-        path_url = "/api/v1/orders"
+        path_url = CONSTANTS.ORDERS_PATH_URL
         side = "buy" if is_buy else "sell"
         order_type_str = "limit"
-        params = {
+        data = {
             "size": str(amount),
             "clientOid": order_id,
             "side": side,
@@ -657,18 +658,18 @@ cdef class KucoinExchange(ExchangeBase):
             "type": order_type_str,
         }
         if order_type is OrderType.LIMIT:
-            params["price"] = str(price)
+            data["price"] = str(price)
         elif order_type is OrderType.LIMIT_MAKER:
-            params["price"] = str(price)
-            params["postOnly"] = True
+            data["price"] = str(price)
+            data["postOnly"] = True
         async with self._throttler.execute_task(CONSTANTS.POST_ORDER_LIMIT_ID):
             exchange_order_id = await self._api_request(
                 "post",
                 path_url=path_url,
-                params=params,
-                data=params,
+                data=data,
                 is_auth_required=True,
                 is_partner_required=True,
+                limit_id=CONSTANTS.POST_ORDER_LIMIT_ID,
             )
         return str(exchange_order_id["data"]["orderId"])
 
