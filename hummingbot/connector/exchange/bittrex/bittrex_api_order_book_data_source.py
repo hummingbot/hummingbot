@@ -10,8 +10,6 @@ from zlib import decompress, MAX_WBITS
 import pandas as pd
 import signalr_aio
 import ujson
-from signalr_aio import Connection
-from signalr_aio.hubs import Hub
 from async_timeout import timeout
 
 from hummingbot.core.data_type.order_book import OrderBook
@@ -49,8 +47,6 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     def __init__(self, trading_pairs: List[str]):
         super().__init__(trading_pairs)
-        self._websocket_connection: Optional[Connection] = None
-        self._websocket_hub: Optional[Hub] = None
         self._snapshot_msg: Dict[str, any] = {}
 
     @classmethod
@@ -78,24 +74,6 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
             order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
             return order_book
-
-    async def websocket_connection(self) -> (signalr_aio.Connection, signalr_aio.hubs.Hub):
-        if self._websocket_connection and self._websocket_hub:
-            return self._websocket_connection, self._websocket_hub
-
-        self._websocket_connection = signalr_aio.Connection(BITTREX_WS_FEED, session=None)
-        self._websocket_hub = self._websocket_connection.register_hub("c3")
-
-        trading_pairs = self._trading_pairs
-        for trading_pair in trading_pairs:
-            self._websocket_hub.server.invoke("Subscribe", [f"orderbook_{trading_pair}_25"])
-            self._websocket_hub.server.invoke("Subscribe", [f"trade_{trading_pair}"])
-            self.logger().info(f"Subscribed to {trading_pair} deltas")
-
-        self._websocket_connection.start()
-        self.logger().info("Websocket connection started...")
-
-        return self._websocket_connection, self._websocket_hub
 
     @staticmethod
     async def fetch_trading_pairs() -> List[str]:
@@ -125,14 +103,16 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             data["sequence"] = response.headers["sequence"]
             return data
 
-    async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+    async def listen_for_trades(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
         # Trade messages are received as Orderbook Deltas and handled by listen_for_order_book_stream()
-        # passa
         while True:
-            connection, hub = await self.websocket_connection()
+            subscription_names = [f"trade_{trading_pair}" for trading_pair in self._trading_pairs]
+            connection = await self._build_websocket_connection(subscription_names)
             try:
-                async for raw_message in self._socket_stream():
+                async for raw_message in self._checked_socket_stream(connection):
                     decoded: Dict[str, Any] = self._transform_raw_message(raw_message)
+
+                    self.logger().debug(f"Got trade message {decoded}.")
 
                     # Processes snapshot messages
                     if decoded["type"] == "trade":
@@ -148,16 +128,18 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self.logger().error("Unexpected error when listening on socket stream.", exc_info=True)
             finally:
                 connection.close()
-                self._websocket_connection = self._websocket_hub = None
 
-    async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+    async def listen_for_order_book_diffs(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
         # Orderbooks Deltas and Snapshots are handled by listen_for_order_book_stream()
         # pass
         while True:
-            connection, hub = await self.websocket_connection()
+            subscription_names = [f"orderbook_{trading_pair}_25" for trading_pair in self._trading_pairs]
+            connection = await self._build_websocket_connection(subscription_names)
             try:
-                async for raw_message in self._socket_stream():
+                async for raw_message in self._checked_socket_stream(connection):
                     decoded: Dict[str, Any] = self._transform_raw_message(raw_message)
+
+                    self.logger().debug(f"Got order book diff {decoded}.")
 
                     # Processes diff messages
                     if decoded["type"] == "delta":
@@ -172,19 +154,32 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self.logger().error("Unexpected error when listening on socket stream.", exc_info=True)
             finally:
                 connection.close()
-                self._websocket_connection = self._websocket_hub = None
 
-    async def _socket_stream(self) -> AsyncIterable[str]:
+    async def _build_websocket_connection(
+        self, subscription_names: List[str]
+    ) -> signalr_aio.Connection:
+        websocket_connection = signalr_aio.Connection(BITTREX_WS_FEED, session=None)
+        websocket_hub = websocket_connection.register_hub("c3")
+
+        websocket_hub.server.invoke("Subscribe", subscription_names)
+        self.logger().info(f"Subscribed to {subscription_names}.")
+
+        websocket_connection.start()
+        self.logger().info("Websocket connection started...")
+
+        return websocket_connection
+
+    async def _checked_socket_stream(self, connection: signalr_aio.Connection) -> AsyncIterable[str]:
         try:
             while True:
                 async with timeout(MESSAGE_TIMEOUT):  # Timeouts if not receiving any messages for 10 seconds(ping)
-                    conn: signalr_aio.Connection = (await self.websocket_connection())[0]
-                    yield await conn.msg_queue.get()
+                    msg = await connection.msg_queue.get()
+                    yield msg
         except asyncio.TimeoutError:
-            self.logger().warning("Message recv() timed out. Going to reconnect...")
-            return
+            self.logger().warning("Message queue get() timed out. Going to reconnect...")
 
-    def _transform_raw_message(self, msg) -> Dict[str, Any]:
+    @staticmethod
+    def _transform_raw_message(msg) -> Dict[str, Any]:
         def _decode_message(raw_message: bytes) -> Dict[str, Any]:
             try:
                 decoded_msg: bytes = decompress(b64decode(raw_message, validate=True), -MAX_WBITS)
