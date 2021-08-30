@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, patch
 from hummingbot.connector.exchange.ndax.ndax_auth import NdaxAuth
 import hummingbot.connector.exchange.ndax.ndax_constants as CONSTANTS
 from hummingbot.connector.exchange.ndax.ndax_user_stream_tracker import NdaxUserStreamTracker
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 
 class NdaxUserStreamTrackerTests(TestCase):
@@ -16,10 +17,12 @@ class NdaxUserStreamTrackerTests(TestCase):
         self.ws_incoming_messages = asyncio.Queue()
         self.listening_task = None
 
-        self.tracker = NdaxUserStreamTracker(auth_assistant=NdaxAuth(uid='001',
-                                                                     api_key='testAPIKey',
-                                                                     secret_key='testSecret',
-                                                                     account_name="hbot"))
+        throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        auth_assistant = NdaxAuth(uid='001',
+                                  api_key='testAPIKey',
+                                  secret_key='testSecret',
+                                  account_name="hbot")
+        self.tracker = NdaxUserStreamTracker(throttler, auth_assistant)
 
     def tearDown(self) -> None:
         self.listening_task and self.listening_task.cancel()

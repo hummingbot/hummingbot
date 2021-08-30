@@ -14,6 +14,10 @@ from hummingbot.core.event.events import (
 WORKING_LOCAL_STATUS = "WorkingLocal"
 
 
+class NdaxInFlightOrderNotCreated(Exception):
+    pass
+
+
 class NdaxInFlightOrder(InFlightOrderBase):
     def __init__(self,
                  client_order_id: str,
