@@ -218,6 +218,7 @@ nav:
         - Miscellaneous: developers/connectors/miscellaneous.md
       - Strategies:
         - Overview: developers/strategies/index.md
+        - Events.py: developers/strategies/events.md
         - Tutorial:
           - Intro: developers/tutorial/index.md
           - How to Create a Strategy: developers/tutorial/create-strategy.md
