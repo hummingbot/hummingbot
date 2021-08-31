@@ -109,42 +109,44 @@ nav:
       - Rate Limits Share Pct: operation/rate-limits-share-pct.md
     - Connectors:
       - Overview: connectors/index.md
-      - AscendEX: connectors/ascend-ex.md
-      - Balancer: connectors/balancer.md
-      - Bamboo Relay: connectors/bamboo-relay.md
-      - Beaxy: connectors/beaxy.md
-      - Binance: connectors/binance.md
-      - Binance Perpetual: connectors/binance-perpetual.md
-      - Binance US: connectors/binance-us.md
-      - Bitfinex: connectors/bitfinex.md
-      - Bittrex Global: connectors/bittrex.md
-      - Blocktane: connectors/blocktane.md
-      - Coinbase Pro: connectors/coinbase.md
-      - CoinZoom: connectors/coinzoom.md
-      - Crypto.com : connectors/crypto-com.md
-      - Digifinex: connectors/digifinex.md
-      - Dolomite: connectors/dolomite.md
-      - dYdX: connectors/dydx.md
-      - dYdX Perpetual: connectors/dydx-perpetual.md
-      - Eterbase: connectors/eterbase.md
-      - FTX: connectors/ftx.md
-      - Gate.io: connectors/gate-io.md
-      - Himalaya: connectors/himalaya.md
-      - HitBTC: connectors/hitbtc.md
-      - Huobi Global: connectors/huobi.md
-      - KuCoin: connectors/kucoin.md
-      - Kraken: connectors/kraken.md
-      - Liquid: connectors/liquid.md
-      - Loopring: connectors/loopring.md
-      - NDAX: connectors/ndax.md
-      - OKEx: connectors/okex.md
-      - Perpetual Finance: connectors/perp-fi.md
-      - ProBit Global: connectors/probit.md
-      - ProBit Korea: connectors/probit-korea.md
-      - Radar Relay: connectors/radar-relay.md
-      - Terra: connectors/terra.md
-      - Uniswap: connectors/uniswap.md
-      - Uniswap-v3: connectors/uniswap-v3.md
+      - Core:
+        - AscendEX: connectors/core/ascend-ex.md
+        - Balancer: connectors/core/balancer.md
+        - Binance: connectors/core/binance.md
+        - Binance Perpetual: connectors/core/binance-perpetual.md
+        - Binance US: connectors/core/binance-us.md
+        - Bitfinex: connectors/core/bitfinex.md
+        - FTX: connectors/core/ftx.md
+        - Gate.io: connectors/core/gate-io.md
+        - Huobi Global: connectors/core/huobi.md
+        - Kraken: connectors/core/kraken.md
+        - KuCoin: connectors/core/kucoin.md
+        - Uniswap: connectors/core/uniswap.md
+        - Uniswap-v3: connectors/core/uniswap-v3.md
+      - Community:
+        - Bamboo Relay: connectors/community/bamboo-relay.md
+        - Beaxy: connectors/community/beaxy.md
+        - Bittrex Global: connectors/community/bittrex.md
+        - Blocktane: connectors/community/blocktane.md
+        - Coinbase Pro: connectors/community/coinbase.md
+        - CoinZoom: connectors/community/coinzoom.md
+        - Crypto.com : connectors/community/crypto-com.md
+        - Digifinex: connectors/community/digifinex.md
+        - Dolomite: connectors/community/dolomite.md
+        - dYdX: connectors/community/dydx.md
+        - dYdX Perpetual: connectors/community/dydx-perpetual.md
+        - Eterbase: connectors/community/eterbase.md
+        - Himalaya: connectors/community/himalaya.md
+        - HitBTC: connectors/community/hitbtc.md
+        - Liquid: connectors/community/liquid.md
+        - Loopring: connectors/community/loopring.md
+        - NDAX: connectors/community/ndax.md
+        - OKEx: connectors/community/okex.md
+        - Perpetual Finance: connectors/community/perp-fi.md
+        - ProBit Global: connectors/community/probit.md
+        - ProBit Korea: connectors/community/probit-korea.md
+        - Radar Relay: connectors/community/radar-relay.md
+        - Terra: connectors/community/terra.md
     - Strategies:
       - Overview: strategies/index.md
       - Market Making:
