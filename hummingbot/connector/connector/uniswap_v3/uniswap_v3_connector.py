@@ -609,8 +609,8 @@ class UniswapV3Connector(UniswapConnector):
                                        "eth/approve",
                                        {"token": token_symbol,
                                         "connector": spender})
-        amount_approved = Decimal(str(resp["amount"]))
-        if amount_approved > 0:
+        amount_approved = Decimal(str(resp.get("amount", "0")))
+        if amount_approved > s_decimal_0:
             self.logger().info(f"Approved Uniswap {spender} contract for {token_symbol}.")
         else:
             self.logger().info(f"Uniswap spender contract approval failed on {token_symbol}.")
