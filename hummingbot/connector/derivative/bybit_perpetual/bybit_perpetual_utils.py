@@ -69,9 +69,26 @@ def get_rest_api_limit_id_for_endpoint(endpoint: Dict[str, str],
     return limit_id
 
 
-def wss_url(connector_variant_label: Optional[str]) -> str:
+def _wss_url(endpoint: Dict[str, str], connector_variant_label: Optional[str]) -> str:
     variant = connector_variant_label if connector_variant_label else "bybit_perpetual_main"
-    return CONSTANTS.WSS_URLS.get(variant)
+    return endpoint.get(variant)
+    return endpoint.get(variant)
+
+
+def wss_linear_public_url(connector_variant_label: Optional[str]) -> str:
+    return _wss_url(CONSTANTS.WSS_LINEAR_PUBLIC_URLS, connector_variant_label)
+
+
+def wss_linear_private_url(connector_variant_label: Optional[str]) -> str:
+    return _wss_url(CONSTANTS.WSS_LINEAR_PRIVATE_URLS, connector_variant_label)
+
+
+def wss_non_linear_public_url(connector_variant_label: Optional[str]) -> str:
+    return _wss_url(CONSTANTS.WSS_NON_LINEAR_PUBLIC_URLS, connector_variant_label)
+
+
+def wss_non_linear_private_url(connector_variant_label: Optional[str]) -> str:
+    return _wss_url(CONSTANTS.WSS_NON_LINEAR_PRIVATE_URLS, connector_variant_label)
 
 
 def get_next_funding_timestamp(current_timestamp: float) -> float:
