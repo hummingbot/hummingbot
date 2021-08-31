@@ -219,6 +219,12 @@ def _build_public_general_rate_limits():
             time_interval=1,
             linked_limits=[CONSTANTS.NON_LINEAR_GET_LIMIT_ID],
         ),
+        RateLimit(  # same for linear and non-linear
+            limit_id=CONSTANTS.SERVER_TIME_PATH_URL[CONSTANTS.NON_LINEAR_MARKET],
+            limit=CONSTANTS.GET_RATE,
+            time_interval=1,
+            linked_limits=[CONSTANTS.NON_LINEAR_GET_LIMIT_ID],
+        )
     ]
     return public_rate_limits
 
