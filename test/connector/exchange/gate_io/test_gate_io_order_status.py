@@ -11,7 +11,7 @@ from typing import Dict, Any
 from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
 from hummingbot.connector.exchange.gate_io.gate_io_utils import aiohttp_response_with_errors
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-from hummingbot.connector.exchange.gate_io.gate_io_constants import Constants
+from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 
 sys.path.insert(0, realpath(join(__file__, "../../../../../")))
 logging.basicConfig(level=METRICS_LOG_LEVEL)
@@ -28,14 +28,13 @@ class TestAuth(unittest.TestCase):
         cls.trading_pair = os.getenv("TEST_TRADING_PAIR")
 
     async def fetch_order_status(self) -> Dict[Any, Any]:
-        endpoint = Constants.ENDPOINT['ORDER_STATUS'].format(id=self.exchange_order_id)
+        endpoint = CONSTANTS.ORDER_STATUS_PATH_URL.format(id=self.exchange_order_id)
         params = {'currency_pair': self.trading_pair}
         http_client = aiohttp.ClientSession()
-        headers = self.auth.get_headers("GET", f"{Constants.REST_URL_AUTH}/{endpoint}", params)
-        http_status, response, request_errors = await aiohttp_response_with_errors(http_client.request(method='GET',
-                                                                                                       url=f"{Constants.REST_URL}/{endpoint}",
-                                                                                                       headers=headers,
-                                                                                                       params=params))
+        headers = self.auth.get_headers("GET", f"{CONSTANTS.REST_URL_AUTH}/{endpoint}", params)
+        http_status, response, request_errors = await aiohttp_response_with_errors(
+            http_client.request(method='GET', url=f"{CONSTANTS.REST_URL}/{endpoint}", headers=headers, params=params)
+        )
         await http_client.close()
         return response
 
