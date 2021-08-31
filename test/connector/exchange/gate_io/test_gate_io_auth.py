@@ -12,7 +12,7 @@ from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
 from hummingbot.connector.exchange.gate_io.gate_io_utils import aiohttp_response_with_errors
 from hummingbot.connector.exchange.gate_io.gate_io_websocket import GateIoWebsocket
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-from hummingbot.connector.exchange.gate_io.gate_io_constants import Constants
+from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 
 sys.path.insert(0, realpath(join(__file__, "../../../../../")))
 logging.basicConfig(level=METRICS_LOG_LEVEL)
@@ -27,15 +27,15 @@ class TestAuth(unittest.TestCase):
         cls.auth = GateIoAuth(api_key, secret_key)
 
     async def rest_auth(self) -> Dict[Any, Any]:
-        endpoint = Constants.ENDPOINT['USER_BALANCES']
-        headers = self.auth.get_headers("GET", f"{Constants.REST_URL_AUTH}/{endpoint}", None)
+        endpoint = CONSTANTS.USER_BALANCES_PATH_URL
+        headers = self.auth.get_headers("GET", f"{CONSTANTS.REST_URL_AUTH}/{endpoint}", None)
         http_client = aiohttp.ClientSession()
-        response = await http_client.get(f"{Constants.REST_URL}/{endpoint}", headers=headers)
+        response = await http_client.get(f"{CONSTANTS.REST_URL}/{endpoint}", headers=headers)
         await http_client.close()
         return await response.json()
 
     async def rest_auth_post(self) -> Dict[Any, Any]:
-        endpoint = Constants.ENDPOINT['ORDER_CREATE']
+        endpoint = CONSTANTS.ORDER_CREATE_PATH_URL
         http_client = aiohttp.ClientSession()
         order_params = ujson.dumps({
             'currency_pair': 'ETH_BTC',
@@ -44,17 +44,19 @@ class TestAuth(unittest.TestCase):
             'amount': '0.00000001',
             'price': '0.0000001',
         })
-        headers = self.auth.get_headers("POST", f"{Constants.REST_URL_AUTH}/{endpoint}", order_params)
-        http_status, response, request_errors = await aiohttp_response_with_errors(http_client.request(method='POST',
-                                                                                                       url=f"{Constants.REST_URL}/{endpoint}",
-                                                                                                       headers=headers, data=order_params))
+        headers = self.auth.get_headers("POST", f"{CONSTANTS.REST_URL_AUTH}/{endpoint}", order_params)
+        http_status, response, request_errors = await aiohttp_response_with_errors(
+            http_client.request(
+                method='POST', url=f"{CONSTANTS.REST_URL}/{endpoint}", headers=headers, data=order_params
+            )
+        )
         await http_client.close()
         return response
 
     async def ws_auth(self) -> Dict[Any, Any]:
         ws = GateIoWebsocket(self.auth)
         await ws.connect()
-        await ws.subscribe(Constants.WS_SUB["USER_BALANCE"])
+        await ws.subscribe(CONSTANTS.USER_BALANCE_ENDPOINT_NAME)
         async for response in ws.on_message():
             if ws.is_subscribed:
                 return True

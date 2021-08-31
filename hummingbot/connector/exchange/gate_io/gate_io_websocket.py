@@ -4,7 +4,7 @@ import logging
 import websockets
 import json
 import time
-from hummingbot.connector.exchange.gate_io.gate_io_constants import Constants
+from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 
 
 from typing import (
@@ -25,7 +25,7 @@ from hummingbot.connector.exchange.gate_io.gate_io_utils import (
 # ToDo: We should eventually remove this class, and instantiate web socket connection normally (see Binance for example)
 
 
-class GateIoWebsocket():
+class GateIoWebsocket:
     _logger: Optional[HummingbotLogger] = None
 
     @classmethod
@@ -38,7 +38,7 @@ class GateIoWebsocket():
                  auth: Optional[GateIoAuth] = None):
         self._auth: Optional[GateIoAuth] = auth
         self._isPrivate = True if self._auth is not None else False
-        self._WS_URL = Constants.WS_URL
+        self._WS_URL = CONSTANTS.WS_URL
         self._client: Optional[websockets.WebSocketClientProtocol] = None
         self._is_subscribed = False
 
@@ -64,7 +64,7 @@ class GateIoWebsocket():
         try:
             while True:
                 try:
-                    raw_msg_str: str = await asyncio.wait_for(self._client.recv(), timeout=Constants.MESSAGE_TIMEOUT)
+                    raw_msg_str: str = await asyncio.wait_for(self._client.recv(), timeout=CONSTANTS.MESSAGE_TIMEOUT)
                     try:
                         msg = json.loads(raw_msg_str)
 
@@ -88,7 +88,7 @@ class GateIoWebsocket():
                     except ValueError:
                         continue
                 except asyncio.TimeoutError:
-                    await asyncio.wait_for(self._client.ping(), timeout=Constants.PING_TIMEOUT)
+                    await asyncio.wait_for(self._client.ping(), timeout=CONSTANTS.PING_TIMEOUT)
         except asyncio.TimeoutError:
             self.logger().warning("WebSocket ping timed out. Going to reconnect...")
             return
