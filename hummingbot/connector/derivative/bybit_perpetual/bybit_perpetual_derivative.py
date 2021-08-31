@@ -13,6 +13,7 @@ import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_constants
 from decimal import Decimal
 from typing import (
     Any,
+    AsyncIterable,
     Dict,
     List,
     Optional,
@@ -24,6 +25,9 @@ from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_b
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_in_flight_order import BybitPerpetualInFlightOrder
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_order_book_tracker import \
     BybitPerpetualOrderBookTracker
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_user_stream_tracker import \
+    BybitPerpetualUserStreamTracker
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_websocket_adaptor import BybitPerpetualWebSocketAdaptor
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.exchange_base import CancellationResult, ExchangeBase
 from hummingbot.connector.perpetual_trading import PerpetualTrading
@@ -97,7 +101,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             throttler=self._throttler,
             trading_pairs=trading_pairs,
             domain=domain)
-        # self._user_stream_tracker = BybitPerpetualUserStreamTracker(self._auth, domain=domain)
+        self._user_stream_tracker = BybitPerpetualUserStreamTracker(self._auth, domain=domain)
 
         self._in_flight_orders = {}
         self._trading_rules = {}
@@ -132,8 +136,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             "order_books_initialized": self._order_book_tracker.ready,
             "account_balance": not self._trading_required or len(self._account_balances) > 0,
             "trading_rule_initialized": len(self._trading_rules) > 0,
-            # "user_stream_initialized":
-            #     not self._trading_required or self._user_stream_tracker.data_source.last_recv_time > 0,
+            "user_stream_initialized": not self._trading_required or self._user_stream_tracker.data_source.last_recv_time > 0,
             "funding_info": len(self._funding_info) > 0
         }
 
@@ -195,8 +198,8 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
-            # self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
-            # self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
+            self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
+            self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
             self._user_funding_fee_polling_task = safe_ensure_future(self._user_funding_fee_polling_loop())
 
     async def stop_network(self):
@@ -593,10 +596,9 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         It checks if a status polling task is due for execution.
         """
         now = time.time()
-        """poll_interval = (self.SHORT_POLL_INTERVAL
+        poll_interval = (self.SHORT_POLL_INTERVAL
                          if now - self._user_stream_tracker.last_recv_time > 60.0
-                         else self.LONG_POLL_INTERVAL)"""
-        poll_interval = self.SHORT_POLL_INTERVAL
+                         else self.LONG_POLL_INTERVAL)
         last_tick = int(self._last_timestamp / poll_interval)
         current_tick = int(timestamp / poll_interval)
         if current_tick > last_tick:
@@ -803,6 +805,74 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                                       "Check API key and network connection.")
                 await asyncio.sleep(0.5)
 
+    async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
+        while True:
+            try:
+                yield await self._user_stream_tracker.user_stream.get()
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().network(
+                    "Unknown error. Retrying after 1 seconds.",
+                    exc_info=True,
+                    app_warning_msg="Could not fetch user events from NDAX. Check API key and network connection."
+                )
+                await asyncio.sleep(1.0)
+
+    async def _user_stream_event_listener(self):
+        """
+        Listens to message in _user_stream_tracker.user_stream queue.
+        """
+        async for event_message in self._iter_user_event_queue():
+            try:
+                endpoint = BybitPerpetualWebSocketAdaptor.endpoint_from_message(event_message)
+                payload = BybitPerpetualWebSocketAdaptor.payload_from_message(event_message)
+
+                if endpoint == CONSTANTS.WS_SUBSCRIPTION_POSITIONS_ENDPOINT_NAME:
+                    for position_msg in payload:
+                        symbol_trading_pair_map: Dict[str, str] = await OrderBookDataSource.trading_pair_symbol_map(self._domain)
+                        self._process_account_position_event(position_msg, symbol_trading_pair_map)
+                elif endpoint == CONSTANTS.WS_SUBSCRIPTION_ORDERS_ENDPOINT_NAME:
+                    for order_msg in payload:
+                        self._process_order_event_message(order_msg)
+                elif endpoint == CONSTANTS.WS_SUBSCRIPTION_EXECUTIONS_ENDPOINT_NAME:
+                    for trade_msg in payload:
+                        self._process_trade_event_message(trade_msg)
+                else:
+                    self.logger().debug(f"Unknown event received from the connector ({event_message})")
+            except asyncio.CancelledError:
+                raise
+            except Exception as ex:
+                self.logger().error(f"Unexpected error in user stream listener loop ({ex})", exc_info=True)
+                await asyncio.sleep(5.0)
+
+    def _process_account_position_event(self, position_msg: Dict[str, Any], symbol_trading_pair_map: Dict[str, str]):
+        """
+        Updates position
+        :param account_position_event: The position event message payload
+        """
+        ex_trading_pair = position_msg.get("symbol")
+        hb_trading_pair = symbol_trading_pair_map.get(ex_trading_pair)
+        position_side = PositionSide.LONG if position_msg.get("side") == "buy" else PositionSide.SHORT
+        position_value = Decimal(str(position_msg.get("position_value")))
+        entry_price = Decimal(str(position_msg.get("entry_price")))
+        amount = Decimal(str(position_msg.get("size")))
+        leverage = Decimal(str(position_msg.get("leverage")))
+        unrealized_pnl = position_value - (amount * entry_price * leverage)
+        pos_key = self.position_key(hb_trading_pair, position_side)
+        if amount != s_decimal_0:
+            self._account_positions[pos_key] = Position(
+                trading_pair=hb_trading_pair,
+                position_side=position_side,
+                unrealized_pnl=unrealized_pnl,
+                entry_price=entry_price,
+                amount=amount,
+                leverage=leverage,
+            )
+        else:
+            if pos_key in self._account_positions:
+                del self._account_positions[pos_key]
+
     def _process_order_event_message(self, order_msg: Dict[str, Any]):
         """
         Updates in-flight order and triggers cancellation or failure event if needed.
@@ -862,7 +932,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                         tracked_order.order_type,
                         Decimal(trade_msg["exec_price"]) if "exec_price" in trade_msg else Decimal(trade_msg["price"]),
                         Decimal(trade_msg["exec_qty"]),
-                        TradeFee(percent=Decimal(trade_msg["fee_rate"])),
+                        TradeFee(Decimal(0), [tracked_order.fee_asset, Decimal(trade_msg["exec_fee"])]),
                         exchange_trade_id=str(trade_msg["exec_id"])
                     )
                 )
