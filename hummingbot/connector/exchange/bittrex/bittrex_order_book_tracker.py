@@ -16,6 +16,7 @@ from typing import (
 )
 
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.connector.exchange.bittrex.bittrex_active_order_tracker import BittrexActiveOrderTracker
@@ -44,11 +45,22 @@ class BittrexOrderBookTracker(OrderBookTracker):
         self._order_books: Dict[str, BittrexOrderBook] = {}
         self._saved_message_queues: Dict[str, Deque[BittrexOrderBookMessage]] = defaultdict(lambda: deque(maxlen=1000))
         self._active_order_trackers: Dict[str, BittrexActiveOrderTracker] = defaultdict(BittrexActiveOrderTracker)
-        self._order_book_stream_listener_task: Optional[asyncio.Task] = None
+
+        self._order_book_event_listener_task: Optional[asyncio.Task] = None
 
     @property
     def exchange_name(self) -> str:
         return "bittrex"
+
+    def start(self):
+        super().start()
+        self._order_book_event_listener_task = safe_ensure_future(self._data_source.listen_for_subscriptions())
+
+    def stop(self):
+        super().stop()
+        if self._order_book_event_listener_task is not None:
+            self._order_book_event_listener_task.cancel()
+            self._order_book_event_listener_task = None
 
     async def _refresh_tracking_tasks(self):
         """

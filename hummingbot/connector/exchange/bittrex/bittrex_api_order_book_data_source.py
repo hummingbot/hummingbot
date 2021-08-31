@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+from collections import defaultdict
+
 import aiohttp
 import asyncio
 import logging
@@ -48,6 +50,7 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def __init__(self, trading_pairs: List[str]):
         super().__init__(trading_pairs)
         self._snapshot_msg: Dict[str, any] = {}
+        self._message_queues: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
 
     @classmethod
     async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
@@ -103,71 +106,70 @@ class BittrexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             data["sequence"] = response.headers["sequence"]
             return data
 
-    async def listen_for_trades(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
-        # Trade messages are received as Orderbook Deltas and handled by listen_for_order_book_stream()
+    async def listen_for_subscriptions(self):
         while True:
-            subscription_names = [f"trade_{trading_pair}" for trading_pair in self._trading_pairs]
-            connection = await self._build_websocket_connection(subscription_names)
+            ws = None
             try:
-                async for raw_message in self._checked_socket_stream(connection):
+                ws = await self._build_websocket_connection()
+                async for raw_message in self._checked_socket_stream(ws):
                     decoded: Dict[str, Any] = self._transform_raw_message(raw_message)
+                    self.logger().debug(f"Got ws message {decoded}.")
+                    topic = decoded["type"]
+                    if topic in ["delta", "trade"]:
+                        self._message_queues[topic].put_nowait(decoded)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                self.logger().network(
+                    f"Unexpected error with websocket connection ({e}).",
+                    exc_info=True,
+                    app_warning_msg="Unexcpected error with WebSocket connection. Retrying in 30 seconds."
+                                    " Check network connection."
+                )
+                if ws is not None:
+                    ws.close()
+                await asyncio.sleep(30)
 
-                    self.logger().debug(f"Got trade message {decoded}.")
-
-                    # Processes snapshot messages
-                    if decoded["type"] == "trade":
-                        trades: Dict[str, any] = decoded
-                        for trade in trades["results"]["deltas"]:
-                            trade_msg: OrderBookMessage = BittrexOrderBook.trade_message_from_exchange(
-                                trade, metadata={"trading_pair": trades["results"]["marketSymbol"],
-                                                 "sequence": trades["results"]["sequence"]}, timestamp=trades["nonce"]
-                            )
-                            output.put_nowait(trade_msg)
-
-            except Exception:
-                self.logger().error("Unexpected error when listening on socket stream.", exc_info=True)
-            finally:
-                connection.close()
-
-    async def listen_for_order_book_diffs(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
-        # Orderbooks Deltas and Snapshots are handled by listen_for_order_book_stream()
-        # pass
-        while True:
-            subscription_names = [f"orderbook_{trading_pair}_25" for trading_pair in self._trading_pairs]
-            connection = await self._build_websocket_connection(subscription_names)
-            try:
-                async for raw_message in self._checked_socket_stream(connection):
-                    decoded: Dict[str, Any] = self._transform_raw_message(raw_message)
-
-                    self.logger().debug(f"Got order book diff {decoded}.")
-
-                    # Processes diff messages
-                    if decoded["type"] == "delta":
-                        diff: Dict[str, any] = decoded
-                        diff_timestamp = diff["nonce"]
-                        diff_msg: OrderBookMessage = BittrexOrderBook.diff_message_from_exchange(
-                            diff["results"], diff_timestamp
-                        )
-                        output.put_nowait(diff_msg)
-
-            except Exception:
-                self.logger().error("Unexpected error when listening on socket stream.", exc_info=True)
-            finally:
-                connection.close()
-
-    async def _build_websocket_connection(
-        self, subscription_names: List[str]
-    ) -> signalr_aio.Connection:
+    async def _build_websocket_connection(self) -> signalr_aio.Connection:
         websocket_connection = signalr_aio.Connection(BITTREX_WS_FEED, session=None)
         websocket_hub = websocket_connection.register_hub("c3")
 
+        subscription_names = [f"trade_{trading_pair}" for trading_pair in self._trading_pairs]
+        subscription_names.extend([f"orderbook_{trading_pair}_25" for trading_pair in self._trading_pairs])
         websocket_hub.server.invoke("Subscribe", subscription_names)
-        self.logger().info(f"Subscribed to {subscription_names}.")
+        self.logger().info(f"Subscribed to {self._trading_pairs} deltas")
 
         websocket_connection.start()
         self.logger().info("Websocket connection started...")
 
         return websocket_connection
+
+    async def listen_for_trades(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
+        msg_queue = self._message_queues["trade"]
+        while True:
+            try:
+                trades = await msg_queue.get()
+                for trade in trades["results"]["deltas"]:
+                    trade_msg: OrderBookMessage = BittrexOrderBook.trade_message_from_exchange(
+                        trade, metadata={"trading_pair": trades["results"]["marketSymbol"],
+                                         "sequence": trades["results"]["sequence"]}, timestamp=trades["nonce"]
+                    )
+                    output.put_nowait(trade_msg)
+            except Exception:
+                self.logger().error("Unexpected error when listening on socket stream.", exc_info=True)
+
+    async def listen_for_order_book_diffs(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
+        msg_queue = self._message_queues["delta"]
+        while True:
+            try:
+                diff = await msg_queue.get()
+                diff_timestamp = diff["nonce"]
+                diff_msg: OrderBookMessage = BittrexOrderBook.diff_message_from_exchange(
+                    diff["results"], diff_timestamp
+                )
+                output.put_nowait(diff_msg)
+            except Exception:
+                self.logger().error("Unexpected error when listening on socket stream.", exc_info=True)
 
     async def _checked_socket_stream(self, connection: signalr_aio.Connection) -> AsyncIterable[str]:
         try:
