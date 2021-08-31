@@ -55,6 +55,13 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def is_funding_info_initialized(self) -> bool:
         return len(self._funding_info) > 0
 
+    async def _sleep(self, delay):
+        """
+        This function is added only to facilitate the creation of unit tests
+        The intention is to mock this function if sleeps should be avoided, instead of mocking asyncio.sleep
+        """
+        await asyncio.sleep(delay)
+
     async def _get_session(self):
         if not self._session:
             self._session = aiohttp.ClientSession()
@@ -275,7 +282,7 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 )
                 if ws_adaptor:
                     await ws_adaptor.close()
-                await asyncio.sleep(30.0)
+                await self._sleep(30.0)
 
     async def listen_for_subscriptions(self):
         """
@@ -365,10 +372,10 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         Periodically polls for orderbook snapshots using the REST API.
         """
-        await asyncio.sleep(self._ORDER_BOOK_SNAPSHOT_DELAY)
+        await self._sleep(self._ORDER_BOOK_SNAPSHOT_DELAY)
 
         while True:
-            await asyncio.sleep(self._ORDER_BOOK_SNAPSHOT_DELAY)
+            await self._sleep(self._ORDER_BOOK_SNAPSHOT_DELAY)
             try:
                 for trading_pair in self._trading_pairs:
                     response: Dict[str: Any] = await self._get_order_book_data(trading_pair)
@@ -383,14 +390,14 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         metadata=metadata
                     )
                     output.put_nowait(snapshot_message)
-                await asyncio.sleep(self._ORDER_BOOK_SNAPSHOT_DELAY)
+                await self._sleep(self._ORDER_BOOK_SNAPSHOT_DELAY)
             except asyncio.CancelledError:
                 raise
             except Exception as ex:
                 self.logger().error("Unexpected error occurred listening for orderbook snapshots."
                                     f" Retrying in 5 secs. ({ex})",
                                     exc_info=True)
-                await asyncio.sleep(5.0)
+                await self._sleep(5.0)
 
     async def listen_for_instruments_info(self):
         """
