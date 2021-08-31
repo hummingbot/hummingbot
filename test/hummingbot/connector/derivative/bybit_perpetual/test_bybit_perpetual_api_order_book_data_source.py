@@ -112,6 +112,31 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
                     }
                 },
                 {
+                    "name": "BTCUSD",
+                    "alias": "BTCUSD",
+                    "status": "Trading",
+                    "base_currency": "BTC",
+                    "quote_currency": "USD",
+                    "price_scale": 2,
+                    "taker_fee": "0.00075",
+                    "maker_fee": "-0.00025",
+                    "leverage_filter": {
+                        "min_leverage": 1,
+                        "max_leverage": 100,
+                        "leverage_step": "0.01"
+                    },
+                    "price_filter": {
+                        "min_price": "0.5",
+                        "max_price": "999999.5",
+                        "tick_size": "0.5"
+                    },
+                    "lot_size_filter": {
+                        "max_trading_qty": 1000000,
+                        "min_trading_qty": 1,
+                        "qty_step": 1
+                    }
+                },
+                {
                     "name": "BTCUSDT",
                     "alias": "BTCUSDT",
                     "status": "Trading",
@@ -205,7 +230,32 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
                         "min_trading_qty": 0.001,
                         "qty_step": 0.001
                     }
-                }
+                },
+                {
+                    "name": "BTCUSD",
+                    "alias": "BTCUSD",
+                    "status": "Trading",
+                    "base_currency": "BTC",
+                    "quote_currency": "USD",
+                    "price_scale": 2,
+                    "taker_fee": "0.00075",
+                    "maker_fee": "-0.00025",
+                    "leverage_filter": {
+                        "min_leverage": 1,
+                        "max_leverage": 100,
+                        "leverage_step": "0.01"
+                    },
+                    "price_filter": {
+                        "min_price": "0.5",
+                        "max_price": "999999.5",
+                        "tick_size": "0.5"
+                    },
+                    "lot_size_filter": {
+                        "max_trading_qty": 1000000,
+                        "min_trading_qty": 1,
+                        "qty_step": 1
+                    }
+                },
             ],
             "time_now": "1615801223.589808"
         }
@@ -345,7 +395,9 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
             # The exception will happen when cancelling the task
             pass
 
-        self.assertTrue(self._is_logged("NETWORK", "Unexpected error with WebSocket connection ()"))
+        self.assertTrue(
+            self._is_logged("NETWORK",
+                            "Unexpected error with WebSocket connection on wss://stream.bybit.com/realtime_public ()"))
 
     def test_listen_for_trades(self, ):
         BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
@@ -460,7 +512,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
                                            'side': 'Sell',
                                            'size': 89041}],
                                       'cross_seq': 8945092523,
-                                      'timestamp_e6': 1628703196211205})
+                                      'timestamp_e6': "1628703196211205"})
 
         # Lock the test to let the async task run
         order_book_message = asyncio.get_event_loop().run_until_complete(order_book_messages.get())
@@ -1072,3 +1124,25 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
         self.assertEqual(Decimal('50000'), funding_info.index_price)
         self.assertEqual(Decimal('-15'), funding_info.rate)
         self.assertEqual(int(pd.Timestamp('2021-08-23T08:00:00Z', tz="UTC").timestamp()), funding_info.next_funding_utc_timestamp)
+
+    def test_funding_info_property(self):
+        self.assertEqual(0, len(self.data_source.funding_info))
+
+        expected_funding_info: FundingInfo = FundingInfo(
+            trading_pair="BTC-USD",
+            index_price=Decimal("50000"),
+            mark_price=Decimal("50000"),
+            next_funding_utc_timestamp=int(pd.Timestamp('2021-08-23T08:00:00Z', tz="UTC").timestamp()),
+            rate=(Decimal('-15') * Decimal(1e-6)),
+        )
+
+        self.data_source._funding_info = {
+            "BTC-USD": expected_funding_info
+        }
+
+        self.assertEqual(1, len(self.data_source.funding_info))
+        self.assertEqual(expected_funding_info.trading_pair, self.data_source.funding_info["BTC-USD"].trading_pair)
+        self.assertEqual(expected_funding_info.index_price, self.data_source.funding_info["BTC-USD"].index_price)
+        self.assertEqual(expected_funding_info.mark_price, self.data_source.funding_info["BTC-USD"].mark_price)
+        self.assertEqual(expected_funding_info.next_funding_utc_timestamp, self.data_source.funding_info["BTC-USD"].next_funding_utc_timestamp)
+        self.assertEqual(expected_funding_info.rate, self.data_source.funding_info["BTC-USD"].rate)

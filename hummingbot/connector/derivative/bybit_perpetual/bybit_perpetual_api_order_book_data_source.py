@@ -1,5 +1,6 @@
 import aiohttp
 import asyncio
+import copy
 import logging
 import pandas as pd
 
@@ -15,9 +16,8 @@ import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils as 
 from hummingbot.connector.derivative.bybit_perpetual import bybit_perpetual_constants as CONSTANTS, \
     bybit_perpetual_utils
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_order_book import BybitPerpetualOrderBook
-from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_websocket_adaptor import (
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_websocket_adaptor import \
     BybitPerpetualWebSocketAdaptor
-)
 from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.order_book import OrderBook, OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -53,18 +53,25 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         self._funding_info_async_lock: asyncio.Lock = asyncio.Lock()
 
+    @property
+    def funding_info(self) -> Dict[str, FundingInfo]:
+        return copy.deepcopy(self._funding_info)
+
+    def is_funding_info_initialized(self) -> bool:
+        return len(self._funding_info) > 0
+
     async def _get_session(self):
         if not self._session:
             self._session = aiohttp.ClientSession()
         return self._session
 
-    async def _create_websocket_connection(self) -> BybitPerpetualWebSocketAdaptor:
+    async def _create_websocket_connection(self, url: str) -> BybitPerpetualWebSocketAdaptor:
         """
         Initialize WebSocket client for UserStreamDataSource
         """
         try:
             session = await self._get_session()
-            ws = await session.ws_connect(bybit_perpetual_utils.wss_url(self._domain))
+            ws = await session.ws_connect(url)
             return BybitPerpetualWebSocketAdaptor(websocket=ws)
         except asyncio.CancelledError:
             raise
@@ -91,12 +98,13 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     if response.status == 200:
                         resp_json: Dict[str, Any] = await response.json()
 
-                        cls._trading_pair_symbol_map[domain] = {
-                            instrument["name"]: f"{instrument['base_currency']}-{instrument['quote_currency']}"
-                            for instrument in resp_json["result"]
-                            if (instrument["status"] == "Trading"
-                                and instrument["name"] == f"{instrument['base_currency']}{instrument['quote_currency']}")
-                        }
+                    cls._trading_pair_symbol_map[domain] = {
+                        instrument["name"]: f"{instrument['base_currency']}-{instrument['quote_currency']}"
+                        for instrument in resp_json["result"]
+                        if (instrument["status"] == "Trading"
+                            and instrument["name"] == f"{instrument['base_currency']}{instrument['quote_currency']}"
+                            and bybit_perpetual_utils.is_linear_perpetual(f"{instrument['base_currency']}-{instrument['quote_currency']}"))
+                    }
 
     @classmethod
     async def trading_pair_symbol_map(cls, domain: Optional[str] = None):
@@ -136,8 +144,8 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         resp_json = await response.json()
                         if "result" in resp_json:
                             for token_pair_info in resp_json["result"]:
-                                token_pair = trading_pair_symbol_map[token_pair_info["symbol"]]
-                                if token_pair in trading_pairs:
+                                token_pair = trading_pair_symbol_map.get(token_pair_info["symbol"])
+                                if token_pair is not None and token_pair in trading_pairs:
                                     result[token_pair] = float(token_pair_info["last_price"])
         return result
 
@@ -225,8 +233,8 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         resp_json = await response.json()
 
                         symbol_info: Dict[str, Any] = (
-                            resp_json["result"][0]
-                        )  # Endpoint returns a List even though 1 entry is returned
+                            resp_json["result"][0]  # Endpoint returns a List even though 1 entry is returned
+                        )
                         funding_info = FundingInfo(
                             trading_pair=trading_pair,
                             index_price=Decimal(str(symbol_info["index_price"])),
@@ -244,16 +252,18 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
             self._funding_info[trading_pair] = await self._get_funding_info_from_exchange(trading_pair)
         return self._funding_info[trading_pair]
 
-    async def listen_for_subscriptions(self):
+    async def _listen_for_subscriptions_on_url(self, url: str, trading_pairs: List[str]):
         """
         Subscribe to all required events and start the listening cycle.
+        :param url: the wss url to connect to
+        :param trading_pairs: the trading pairs for which the function should listen events
         """
 
         while True:
             try:
-                ws_adaptor: BybitPerpetualWebSocketAdaptor = await self._create_websocket_connection()
+                ws_adaptor: BybitPerpetualWebSocketAdaptor = await self._create_websocket_connection(url)
                 symbols_and_pairs_map = await self.trading_pair_symbol_map(self._domain)
-                symbols = [symbol for symbol, pair in symbols_and_pairs_map.items() if pair in self._trading_pairs]
+                symbols = [symbol for symbol, pair in symbols_and_pairs_map.items() if pair in trading_pairs]
 
                 await ws_adaptor.subscribe_to_order_book(symbols)
                 await ws_adaptor.subscribe_to_trades(symbols)
@@ -263,27 +273,60 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     if "success" in json_message:
                         if json_message["success"]:
                             self.logger().info(
-                                f"Successful subscription to the topic {json_message['request']['args']}")
+                                f"Successful subscription to the topic {json_message['request']['args']} on {url}")
                         else:
-                            self.logger().error("There was an error subscribing to the topic "
-                                                f"{json_message['request']['args']} ({json_message['ret_msg']})")
+                            self.logger().error(
+                                "There was an error subscribing to the topic "
+                                f"{json_message['request']['args']} ({json_message['ret_msg']}) on {url}")
                     else:
                         topic = json_message["topic"]
                         topic = ".".join(topic.split(".")[:-1])
-                        self._messages_queues.get(topic).put_nowait(json_message)
+                        await self._messages_queues[topic].put(json_message)
 
             except asyncio.CancelledError:
                 raise
             except Exception as ex:
                 self.logger().network(
-                    f"Unexpected error with WebSocket connection ({ex})",
+                    f"Unexpected error with WebSocket connection on {url} ({ex})",
                     exc_info=True,
-                    app_warning_msg="Unexpected error with WebSocket connection. Retrying in 30 seconds. "
+                    app_warning_msg="Unexpected error with WebSocket connectionß. Retrying in 30 seconds. "
                                     "Check network connection."
                 )
                 if ws_adaptor:
                     await ws_adaptor.close()
                 await asyncio.sleep(30.0)
+
+    async def listen_for_subscriptions(self):
+        """
+        Subscribe to all required events and start the listening cycle.
+        """
+        tasks_future = None
+        try:
+            tasks = []
+            linear_trading_pairs = []
+            non_linear_trading_pairs = []
+            for trading_pair in self._trading_pairs:
+                if bybit_perpetual_utils.is_linear_perpetual(trading_pair):
+                    linear_trading_pairs.append(trading_pair)
+                else:
+                    non_linear_trading_pairs.append(trading_pair)
+
+            if linear_trading_pairs:
+                tasks.append(self._listen_for_subscriptions_on_url(
+                    url=bybit_perpetual_utils.wss_linear_public_url(self._domain),
+                    trading_pairs=linear_trading_pairs))
+            if non_linear_trading_pairs:
+                tasks.append(self._listen_for_subscriptions_on_url(
+                    url=bybit_perpetual_utils.wss_non_linear_public_url(self._domain),
+                    trading_pairs=non_linear_trading_pairs))
+
+            if tasks:
+                tasks_future = asyncio.gather(*tasks)
+                await tasks_future
+
+        except asyncio.CancelledError:
+            tasks_future and tasks_future.cancel()
+            raise
 
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
@@ -297,7 +340,7 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 for trade_entry in trade_message["data"]:
                     trade_msg: OrderBookMessage = BybitPerpetualOrderBook.trade_message_from_exchange(
                         msg=trade_entry,
-                        timestamp=trade_entry["trade_time_ms"] * 1e-3,
+                        timestamp=int(trade_entry["trade_time_ms"]) * 1e-3,
                         metadata={"trading_pair": symbol_map[trade_entry["symbol"]]})
                     output.put_nowait(trade_msg)
             except asyncio.CancelledError:
@@ -322,14 +365,14 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 if event_type == "snapshot":
                     snapshot_msg: OrderBookMessage = BybitPerpetualOrderBook.snapshot_message_from_exchange(
                         msg=order_book_message,
-                        timestamp=order_book_message["timestamp_e6"] * 1e-6,
+                        timestamp=int(order_book_message["timestamp_e6"]) * 1e-6,
                         metadata={"trading_pair": trading_pair})
                     output.put_nowait(snapshot_msg)
 
                 if event_type == "delta":
                     diff_msg: OrderBookMessage = BybitPerpetualOrderBook.diff_message_from_exchange(
                         msg=order_book_message,
-                        timestamp=order_book_message["timestamp_e6"] * 1e-6,
+                        timestamp=int(order_book_message["timestamp_e6"]) * 1e-6,
                         metadata={"trading_pair": trading_pair})
                     output.put_nowait(diff_msg)
             except asyncio.CancelledError:
@@ -390,22 +433,20 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
                 for entry in entries:
                     if "last_price_e4" in entry:
-                        self._last_traded_prices[self._domain][trading_pair] = entry["last_price_e4"] * 1e-4
+                        self._last_traded_prices[self._domain][trading_pair] = int(entry["last_price_e4"]) * 1e-4
 
                     # Updates funding info for the relevant domain and trading_pair
                     async with self._funding_info_async_lock:
                         if event_type == "snapshot":
                             # Snapshot messages have all the data fields required to construct a new FundingInfo.
-                            next_funding_utc_timestamp = (
-                                int(pd.Timestamp(str(entry["next_funding_time"]), tz="UTC").timestamp())
-                            )
                             current_funding_info: FundingInfo = FundingInfo(
                                 trading_pair=trading_pair,
                                 index_price=Decimal(str(entry["index_price"])),
                                 mark_price=Decimal(str(entry["mark_price"])),
-                                next_funding_utc_timestamp=next_funding_utc_timestamp,
-                                rate=Decimal(str(entry["predicted_funding_rate_e6"])) * Decimal(1e-6),
-                            )
+                                next_funding_utc_timestamp=int(pd.Timestamp(
+                                    str(entry["next_funding_time"]),
+                                    tz="UTC").timestamp()),
+                                rate=Decimal(str(entry["predicted_funding_rate_e6"])) * Decimal(1e-6))
                         else:
                             # Delta messages do not necessarily have all the data required.
                             current_funding_info: FundingInfo = await self.get_funding_info(trading_pair)
@@ -414,9 +455,8 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             if "mark_price" in entry:
                                 current_funding_info.mark_price = Decimal(str(entry["mark_price"]))
                             if "next_funding_time" in entry:
-                                current_funding_info.next_funding_utc_timestamp = (
-                                    int(pd.Timestamp(str(entry["next_funding_time"]), tz="UTC").timestamp())
-                                )
+                                current_funding_info.next_funding_utc_timestamp = int(
+                                    pd.Timestamp(str(entry["next_funding_time"]), tz="UTC").timestamp())
                             if "predicted_funding_rate_e6" in entry:
                                 current_funding_info.rate = (
                                     Decimal(str(entry["predicted_funding_rate_e6"])) * Decimal(1e-6)

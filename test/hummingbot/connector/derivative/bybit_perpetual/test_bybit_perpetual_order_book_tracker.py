@@ -32,8 +32,6 @@ class BybitPerpetualOrderBookTrackerTests(TestCase):
         self.assertIsNone(self.tracker._order_book_event_listener_task)
         self.assertIsNone(self.tracker._order_book_instruments_info_listener_task)
 
-        self.assertTrue(self.mock_data_source.order_book_create_function.called)
-
     def test_trading_pair_symbol(self):
         BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
 

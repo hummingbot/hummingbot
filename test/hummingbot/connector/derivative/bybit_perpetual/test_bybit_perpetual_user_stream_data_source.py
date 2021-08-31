@@ -91,7 +91,7 @@ class BybitPerpetualUserStreamDataSourceTests(TestCase):
         initial_last_recv_time = self.data_source.last_recv_time
 
         self.listening_task = asyncio.get_event_loop().create_task(
-            self.data_source.listen_for_user_stream(messages))
+            self.data_source._listen_for_user_stream_on_url("test_url", messages))
         # Add the authentication response for the websocket
         self._add_successful_authentication_response()
         self._add_successful_subscription_response(CONSTANTS.WS_SUBSCRIPTION_POSITIONS_ENDPOINT_NAME)
@@ -109,20 +109,20 @@ class BybitPerpetualUserStreamDataSourceTests(TestCase):
 
         self.assertEqual(4, len(self.ws_sent_messages))
         authentication_request = self.ws_sent_messages[0]
-        subscription_postions_request = self.ws_sent_messages[1]
+        subscription_positions_request = self.ws_sent_messages[1]
         subscription_orders_request = self.ws_sent_messages[2]
         subscription_executions_request = self.ws_sent_messages[3]
 
         self.assertEqual(CONSTANTS.WS_AUTHENTICATE_USER_ENDPOINT_NAME,
                          BybitPerpetualWebSocketAdaptor.endpoint_from_message(authentication_request))
         self.assertEqual(CONSTANTS.WS_SUBSCRIPTION_POSITIONS_ENDPOINT_NAME,
-                         BybitPerpetualWebSocketAdaptor.endpoint_from_message(subscription_postions_request))
+                         BybitPerpetualWebSocketAdaptor.endpoint_from_message(subscription_positions_request))
         self.assertEqual(CONSTANTS.WS_SUBSCRIPTION_ORDERS_ENDPOINT_NAME,
                          BybitPerpetualWebSocketAdaptor.endpoint_from_message(subscription_orders_request))
         self.assertEqual(CONSTANTS.WS_SUBSCRIPTION_EXECUTIONS_ENDPOINT_NAME,
                          BybitPerpetualWebSocketAdaptor.endpoint_from_message(subscription_executions_request))
 
-        subscription_positions_payload = BybitPerpetualWebSocketAdaptor.payload_from_message(subscription_postions_request)
+        subscription_positions_payload = BybitPerpetualWebSocketAdaptor.payload_from_message(subscription_positions_request)
         expected_payload = {"op": "subscribe",
                             "args": ["position"]}
         self.assertEqual(expected_payload, subscription_positions_payload)
@@ -159,7 +159,8 @@ class BybitPerpetualUserStreamDataSourceTests(TestCase):
         self.assertTrue(self._is_logged("ERROR", "Error occurred when authenticating to user stream "
                                                  "(Could not authenticate websocket connection with Bybit Perpetual)"))
         self.assertTrue(self._is_logged("ERROR",
-                                        "Unexpected error with Bybit Perpetual WebSocket connection. Retrying in 30 seconds. "
+                                        "Unexpected error with Bybit Perpetual WebSocket connection on"
+                                        " wss://stream.bybit.com/realtime_private. Retrying in 30 seconds. "
                                         "(Could not authenticate websocket connection with Bybit Perpetual)"))
 
     @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
@@ -239,9 +240,13 @@ class BybitPerpetualUserStreamDataSourceTests(TestCase):
         ws_connect_mock.side_effect = Exception
 
         with self.assertRaises(Exception):
-            self.listening_task = asyncio.get_event_loop().create_task(self.data_source._create_websocket_connection())
+            self.listening_task = asyncio.get_event_loop().create_task(
+                self.data_source._create_websocket_connection("test_url"))
             asyncio.get_event_loop().run_until_complete(self.listening_task)
-        self.assertTrue(self._is_logged("NETWORK", "Unexpected error occurred during bybit_perpetual WebSocket Connection ()"))
+        self.assertTrue(
+            self._is_logged(
+                "NETWORK",
+                "Unexpected error occurred during bybit_perpetual WebSocket Connection on test_url ()"))
 
     @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
     def test_listening_process_logs_exception_details_during_authentication(self, ws_connect_mock):
@@ -263,7 +268,8 @@ class BybitPerpetualUserStreamDataSourceTests(TestCase):
 
         self.assertTrue(self._is_logged("ERROR", "Error occurred when authenticating to user stream ()"))
         self.assertTrue(self._is_logged("ERROR",
-                                        "Unexpected error with Bybit Perpetual WebSocket connection. Retrying in 30 seconds. ()"))
+                                        "Unexpected error with Bybit Perpetual WebSocket connection on"
+                                        " wss://stream.bybit.com/realtime_private. Retrying in 30 seconds. ()"))
 
     @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
     def test_listening_process_logs_exception_during_positions_subscription(self, ws_connect_mock):
@@ -287,7 +293,8 @@ class BybitPerpetualUserStreamDataSourceTests(TestCase):
 
         self.assertTrue(self._is_logged("ERROR", "Error occurred subscribing to bybit_perpetual private channels ()"))
         self.assertTrue(self._is_logged("ERROR",
-                                        "Unexpected error with Bybit Perpetual WebSocket connection. Retrying in 30 seconds. ()"))
+                                        "Unexpected error with Bybit Perpetual WebSocket connection on"
+                                        " wss://stream.bybit.com/realtime_private. Retrying in 30 seconds. ()"))
 
     @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
     def test_listening_process_logs_exception_during_orders_subscription(self, ws_connect_mock):
@@ -311,7 +318,8 @@ class BybitPerpetualUserStreamDataSourceTests(TestCase):
 
         self.assertTrue(self._is_logged("ERROR", "Error occurred subscribing to bybit_perpetual private channels ()"))
         self.assertTrue(self._is_logged("ERROR",
-                                        "Unexpected error with Bybit Perpetual WebSocket connection. Retrying in 30 seconds. ()"))
+                                        "Unexpected error with Bybit Perpetual WebSocket connection on"
+                                        " wss://stream.bybit.com/realtime_private. Retrying in 30 seconds. ()"))
 
     @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
     def test_listening_process_logs_exception_during_executions_subscription(self, ws_connect_mock):
@@ -334,5 +342,7 @@ class BybitPerpetualUserStreamDataSourceTests(TestCase):
             pass
 
         self.assertTrue(self._is_logged("ERROR", "Error occurred subscribing to bybit_perpetual private channels ()"))
-        self.assertTrue(self._is_logged("ERROR",
-                                        "Unexpected error with Bybit Perpetual WebSocket connection. Retrying in 30 seconds. ()"))
+        self.assertTrue(
+            self._is_logged("ERROR",
+                            "Unexpected error with Bybit Perpetual WebSocket connection on"
+                            " wss://stream.bybit.com/realtime_private. Retrying in 30 seconds. ()"))
