@@ -7,6 +7,7 @@ from hummingbot.connector.exchange.ndax.ndax_api_user_stream_data_source import 
 from hummingbot.connector.exchange.ndax.ndax_auth import NdaxAuth
 import hummingbot.connector.exchange.ndax.ndax_constants as CONSTANTS
 from hummingbot.connector.exchange.ndax.ndax_websocket_adaptor import NdaxWebSocketAdaptor
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 
 class NdaxAPIUserStreamDataSourceTests(TestCase):
@@ -26,10 +27,12 @@ class NdaxAPIUserStreamDataSourceTests(TestCase):
         self.ws_incoming_messages = asyncio.Queue()
         self.listening_task = None
 
-        self.data_source = NdaxAPIUserStreamDataSource(auth_assistant=NdaxAuth(uid=self.uid,
-                                                                               api_key=self.api_key,
-                                                                               secret_key=self.secret,
-                                                                               account_name=self.username))
+        throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        auth_assistant = NdaxAuth(uid=self.uid,
+                                  api_key=self.api_key,
+                                  secret_key=self.secret,
+                                  account_name=self.username)
+        self.data_source = NdaxAPIUserStreamDataSource(throttler, auth_assistant)
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 

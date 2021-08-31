@@ -25,7 +25,7 @@ class RateLimit:
         """
         :param limit_id: A unique identifier for this RateLimit object, this is usually an API request path url
         :param limit: A total number of calls * weight permitted within time_interval period
-        :param time_interval: The time interval
+        :param time_interval: The time interval in seconds
         :param weight: The weight (in integer) of each call. Defaults to 1
         """
         self.limit_id = limit_id
