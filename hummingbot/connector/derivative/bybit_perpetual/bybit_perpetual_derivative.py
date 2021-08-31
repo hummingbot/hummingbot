@@ -233,7 +233,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         try:
             resp = await self._api_request(
                 method="GET",
-                path_url=bybit_utils.rest_api_path_for_endpoint(endpoint=CONSTANTS.SERVER_TIME_PATH_URL))
+                endpoint=CONSTANTS.SERVER_TIME_PATH_URL)
             if "ret_code" not in resp or resp["ret_code"] != 0:
                 raise Exception()
         except asyncio.CancelledError:
