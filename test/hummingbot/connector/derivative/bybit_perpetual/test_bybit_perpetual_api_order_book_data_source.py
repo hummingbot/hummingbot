@@ -37,7 +37,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
         self.ws_incoming_messages = asyncio.Queue()
         self.listening_task = None
 
-        self.data_source = BybitPerpetualAPIOrderBookDataSource([self.trading_pair])
+        self.data_source = BybitPerpetualAPIOrderBookDataSource(trading_pairs=[self.trading_pair])
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
         self.data_source._trading_pair_symbol_map = {}
@@ -626,18 +626,18 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
         self.assertTrue(self._is_logged("ERROR", "Unexpected error ('topic')"))
 
     def test_listen_for_instruments_info_snapshot_event_trading_info_does_not_exist(self):
-        BybitPerpetualAPIOrderBookDataSource._last_traded_prices = {None: {"BTC-USD": 0.0}}
+        BybitPerpetualAPIOrderBookDataSource._last_traded_prices = {None: {"BTC-USDT": 0.0}}
 
         task = asyncio.get_event_loop().create_task(
             self.data_source.listen_for_instruments_info())
 
         # Add trade event message be processed
         data_source_queue = self.data_source._messages_queues[CONSTANTS.WS_INSTRUMENTS_INFO_TOPIC]
-        data_source_queue.put_nowait({'topic': 'instrument_info.100ms.BTCUSD',
+        data_source_queue.put_nowait({'topic': 'instrument_info.100ms.BTCUSDT',
                                       'type': 'snapshot',
                                       'data': {
                                           'id': 1,
-                                          'symbol': 'BTCUSD',
+                                          'symbol': 'BTCUSDT',
                                           'last_price_e4': 463550000,
                                           'last_price': '46355.00',
                                           'bid1_price_e4': 463545000,
@@ -655,9 +655,9 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
         # Lock the test to let the async task run
         asyncio.get_event_loop().run_until_complete(asyncio.sleep(1))
         last_traded_prices = asyncio.get_event_loop().run_until_complete(
-            BybitPerpetualAPIOrderBookDataSource.get_last_traded_prices(["BTC-USD"]))
+            BybitPerpetualAPIOrderBookDataSource.get_last_traded_prices(["BTC-USDT"]))
         funding_info = asyncio.get_event_loop().run_until_complete(
-            self.data_source.get_funding_info("BTC-USD"))
+            self.data_source.get_funding_info("BTC-USDT"))
 
         try:
             task.cancel()
@@ -666,7 +666,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
             # The exception will happen when cancelling the task
             pass
 
-        self.assertEqual(46355.0, last_traded_prices["BTC-USD"])
+        self.assertEqual(46355.0, last_traded_prices["BTC-USDT"])
         self.assertEqual(Decimal('50147.03'), funding_info.mark_price)
         self.assertEqual(Decimal('50147.08'), funding_info.index_price)
         self.assertEqual((Decimal('-15') * Decimal(1e-6)), funding_info.rate)
@@ -803,7 +803,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
 
     @patch("aiohttp.ClientSession.get")
     def test_listen_for_instruments_info_delta_event_trading_info_does_not_exist(self, mock_get):
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSD": "BTC-USD"}}
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
 
         self._configure_mock_api(mock_get)
         mock_response = {
@@ -814,7 +814,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
             "result": [
                 # Truncated Response
                 {
-                    "symbol": "BTCUSD",
+                    "symbol": "BTCUSDT",
                     "mark_price": "50000",
                     "index_price": "50000",
                     "funding_rate": "-15",
@@ -834,13 +834,13 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
         data_source_queue = self.data_source._messages_queues[CONSTANTS.WS_INSTRUMENTS_INFO_TOPIC]
 
         # Update message with updated predicted_funding_rate
-        data_source_queue.put_nowait({'topic': 'instrument_info.100ms.BTCUSD',
+        data_source_queue.put_nowait({'topic': 'instrument_info.100ms.BTCUSDT',
                                       'type': 'delta',
                                       'data': {
                                           'update': [
                                               {
                                                   'id': 1,
-                                                  'symbol': 'BTCUSD',
+                                                  'symbol': 'BTCUSDT',
                                                   'predicted_funding_rate_e6': '-347',
                                                   'cross_seq': '7085522375',
                                                   'created_at': '1970-01-01T00:00:00.000Z',
@@ -856,7 +856,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
         # Lock the test to let the async task run
         asyncio.get_event_loop().run_until_complete(asyncio.sleep(1))
         funding_info = asyncio.get_event_loop().run_until_complete(
-            self.data_source.get_funding_info("BTC-USD"))
+            self.data_source.get_funding_info("BTC-USDT"))
         try:
             task.cancel()
             asyncio.get_event_loop().run_until_complete(task)
@@ -879,7 +879,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
             asyncio.get_event_loop().run_until_complete(task)
 
     def test_listen_for_instruments_info_logs_exception_details(self, ):
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSD": "BTC-USD"}}
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
 
         task = asyncio.get_event_loop().create_task(
             self.data_source.listen_for_instruments_info())
@@ -1093,7 +1093,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
 
     @patch("aiohttp.ClientSession.get")
     def test_get_funding_info_trading_pair_does_not_exist(self, mock_get):
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSD": "BTC-USD"}}
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
         self._configure_mock_api(mock_get)
         mock_response = {
             "ret_code": 0,
@@ -1103,7 +1103,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
             "result": [
                 # Truncated Response
                 {
-                    "symbol": "BTCUSD",
+                    "symbol": "BTCUSDT",
                     "mark_price": "50000",
                     "index_price": "50000",
                     "funding_rate": "-15",
@@ -1117,7 +1117,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
         self.api_responses_json.put_nowait(mock_response)
 
         funding_info = asyncio.get_event_loop().run_until_complete(
-            self.data_source.get_funding_info("BTC-USD")
+            self.data_source.get_funding_info("BTC-USDT")
         )
 
         self.assertEqual(Decimal('50000'), funding_info.mark_price)

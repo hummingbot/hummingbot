@@ -12,6 +12,7 @@ from typing import (
     Optional, Any,
 )
 
+import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils as bybit_utils
 from hummingbot.connector.derivative.bybit_perpetual import bybit_perpetual_constants as CONSTANTS, \
     bybit_perpetual_utils
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_order_book import BybitPerpetualOrderBook
@@ -21,6 +22,7 @@ from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.order_book import OrderBook, OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.logger import HummingbotLogger
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 
 class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
@@ -36,10 +38,13 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, trading_pairs: List[str] = None,
+    def __init__(self,
+                 throttler: Optional[AsyncThrottler] = None,
+                 trading_pairs: List[str] = None,
                  domain: Optional[str] = None,
                  session: Optional[aiohttp.ClientSession] = None):
         super().__init__(trading_pairs)
+        self._throttler = throttler or self._get_throttler_instance(trading_pairs)
         self._domain = domain
         self._trading_pairs: List[str] = trading_pairs
         self._messages_queues: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
@@ -76,18 +81,22 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
             raise
 
     @classmethod
-    async def init_trading_pair_symbols(cls, domain: Optional[str] = None):
+    async def init_trading_pair_symbols(cls, domain: Optional[str] = None, throttler: Optional[AsyncThrottler] = None):
         """Initialize _trading_pair_symbol_map class variable
         """
         cls._trading_pair_symbol_map[domain] = {}
 
-        api_path = bybit_perpetual_utils.rest_api_path_for_endpoint(endpoint=CONSTANTS.QUERY_SYMBOL_ENDPOINT)
+        endpoint = CONSTANTS.QUERY_SYMBOL_ENDPOINT
+        api_path = bybit_perpetual_utils.rest_api_path_for_endpoint(endpoint=endpoint)
         endpoint_url = bybit_perpetual_utils.rest_api_url_for_endpoint(endpoint=api_path, domain=domain)
+        limit_id = bybit_perpetual_utils.get_rest_api_limit_id_for_endpoint(endpoint)
+        throttler = throttler or cls._get_throttler_instance()
 
         async with aiohttp.ClientSession() as client:
-            async with client.get(endpoint_url, params={}) as response:
-                if response.status == 200:
-                    resp_json: Dict[str, Any] = await response.json()
+            async with throttler.execute_task(limit_id):
+                async with client.get(endpoint_url, params={}) as response:
+                    if response.status == 200:
+                        resp_json: Dict[str, Any] = await response.json()
 
                     cls._trading_pair_symbol_map[domain] = {
                         instrument["name"]: f"{instrument['base_currency']}-{instrument['quote_currency']}"
@@ -105,33 +114,39 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return cls._trading_pair_symbol_map[domain]
 
     @classmethod
-    async def get_last_traded_prices(cls, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
+    async def get_last_traded_prices(
+        cls, trading_pairs: List[str], domain: Optional[str] = None, throttler: Optional[AsyncThrottler] = None
+    ) -> Dict[str, float]:
         if (domain in cls._last_traded_prices
                 and all(trading_pair in cls._last_traded_prices[domain]
                         for trading_pair
                         in trading_pairs)):
             result = {trading_pair: cls._last_traded_prices[domain][trading_pair] for trading_pair in trading_pairs}
         else:
-            result = await cls._get_last_traded_prices_from_exchange(trading_pairs, domain)
+            result = await cls._get_last_traded_prices_from_exchange(trading_pairs, domain, throttler)
         return result
 
     @classmethod
-    async def _get_last_traded_prices_from_exchange(cls, trading_pairs, domain):
+    async def _get_last_traded_prices_from_exchange(
+        cls, trading_pairs: List[str], domain: Optional[str] = None, throttler: Optional[AsyncThrottler] = None
+    ):
         result = {}
         trading_pair_symbol_map = await cls.trading_pair_symbol_map(domain=domain)
-        api_path = bybit_perpetual_utils.rest_api_path_for_endpoint(
-            endpoint=CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT)
+        endpoint = CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT
+        api_path = bybit_perpetual_utils.rest_api_path_for_endpoint(endpoint)
         endpoint_url = bybit_perpetual_utils.rest_api_url_for_endpoint(endpoint=api_path, domain=domain)
-
+        limit_id = bybit_perpetual_utils.get_rest_api_limit_id_for_endpoint(endpoint)
+        throttler = throttler or cls._get_throttler_instance(trading_pairs)
         async with aiohttp.ClientSession() as client:
-            async with client.get(endpoint_url) as response:
-                if response.status == 200:
-                    resp_json = await response.json()
-                    if "result" in resp_json:
-                        for token_pair_info in resp_json["result"]:
-                            token_pair = trading_pair_symbol_map.get(token_pair_info["symbol"], None)
-                            if token_pair and token_pair in trading_pairs:
-                                result[token_pair] = float(token_pair_info["last_price"])
+            async with throttler.execute_task(limit_id):
+                async with client.get(endpoint_url) as response:
+                    if response.status == 200:
+                        resp_json = await response.json()
+                        if "result" in resp_json:
+                            for token_pair_info in resp_json["result"]:
+                                token_pair = trading_pair_symbol_map.get(token_pair_info["symbol"])
+                                if token_pair is not None and token_pair in trading_pairs:
+                                    result[token_pair] = float(token_pair_info["last_price"])
         return result
 
     @staticmethod
@@ -154,22 +169,23 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         params = {"symbol": symbol}
 
-        api_path = bybit_perpetual_utils.rest_api_path_for_endpoint(
-            endpoint=CONSTANTS.ORDER_BOOK_ENDPOINT,
-            trading_pair=trading_pair)
+        endpoint = CONSTANTS.ORDER_BOOK_ENDPOINT
+        api_path = bybit_perpetual_utils.rest_api_path_for_endpoint(endpoint, trading_pair)
         url = bybit_perpetual_utils.rest_api_url_for_endpoint(endpoint=api_path, domain=self._domain)
+        limit_id = bybit_perpetual_utils.get_rest_api_limit_id_for_endpoint(endpoint)
 
         session = await self._get_session()
-        async with session.get(url, params=params) as response:
-            status = response.status
-            if status != 200:
-                raise IOError(
-                    f"Error fetching OrderBook for {trading_pair} at {url}. "
-                    f"HTTP {status}. Response: {await response.json()}"
-                )
+        async with self._throttler.execute_task(limit_id):
+            async with session.get(url, params=params) as response:
+                status = response.status
+                if status != 200:
+                    raise IOError(
+                        f"Error fetching OrderBook for {trading_pair} at {url}. "
+                        f"HTTP {status}. Response: {await response.json()}"
+                    )
 
-            response = await response.json()
-            return response
+                response = await response.json()
+                return response
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         snapshot: Dict[str, Any] = await self._get_order_book_data(trading_pair)
@@ -204,25 +220,28 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
             "symbol": symbol
         }
         funding_info = None
-        api_path = bybit_perpetual_utils.rest_api_path_for_endpoint(
-            endpoint=CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT,
-            trading_pair=trading_pair)
+        endpoint = CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT
+        api_path = bybit_perpetual_utils.rest_api_path_for_endpoint(endpoint, trading_pair)
         url = bybit_perpetual_utils.rest_api_url_for_endpoint(endpoint=api_path, domain=self._domain)
+        limit_id = bybit_perpetual_utils.get_rest_api_limit_id_for_endpoint(endpoint, trading_pair)
 
         session = await self._get_session()
         async with session as client:
-            async with client.get(url=url, params=params) as response:
-                if response.status == 200:
-                    resp_json = await response.json()
+            async with self._throttler.execute_task(limit_id):
+                async with client.get(url=url, params=params) as response:
+                    if response.status == 200:
+                        resp_json = await response.json()
 
-                    symbol_info: Dict[str, Any] = resp_json["result"][
-                        0]  # Endpoint returns a List even though 1 entry is returned
-                    funding_info = FundingInfo(
-                        trading_pair=trading_pair,
-                        index_price=Decimal(str(symbol_info["index_price"])),
-                        mark_price=Decimal(str(symbol_info["mark_price"])),
-                        next_funding_utc_timestamp=int(pd.Timestamp(symbol_info["next_funding_time"]).timestamp()),
-                        rate=Decimal(str(symbol_info["predicted_funding_rate"])))  # Note: Absence of _e6 suffix from REST API response
+                        symbol_info: Dict[str, Any] = (
+                            resp_json["result"][0]  # Endpoint returns a List even though 1 entry is returned
+                        )
+                        funding_info = FundingInfo(
+                            trading_pair=trading_pair,
+                            index_price=Decimal(str(symbol_info["index_price"])),
+                            mark_price=Decimal(str(symbol_info["mark_price"])),
+                            next_funding_utc_timestamp=int(pd.Timestamp(symbol_info["next_funding_time"]).timestamp()),
+                            rate=Decimal(str(symbol_info["predicted_funding_rate"])),  # Note: no _e6 suffix from resp
+                        )
         return funding_info
 
     async def get_funding_info(self, trading_pair: str) -> FundingInfo:
@@ -439,11 +458,18 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                 current_funding_info.next_funding_utc_timestamp = int(
                                     pd.Timestamp(str(entry["next_funding_time"]), tz="UTC").timestamp())
                             if "predicted_funding_rate_e6" in entry:
-                                current_funding_info.rate = Decimal(str(entry["predicted_funding_rate_e6"])) * Decimal(
-                                    1e-6)
+                                current_funding_info.rate = (
+                                    Decimal(str(entry["predicted_funding_rate_e6"])) * Decimal(1e-6)
+                                )
                         self._funding_info[trading_pair] = current_funding_info
 
             except asyncio.CancelledError:
                 raise
             except Exception as ex:
                 self.logger().error(f"Unexpected error ({ex})", exc_info=True)
+
+    @classmethod
+    def _get_throttler_instance(cls, trading_pairs: List[str] = None) -> AsyncThrottler:
+        rate_limits = bybit_utils.build_rate_limits(trading_pairs)
+        throttler = AsyncThrottler(rate_limits)
+        return throttler
