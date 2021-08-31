@@ -622,17 +622,17 @@ class UniswapV3Connector(UniswapConnector):
         :return: A dictionary of token and its allowance (how much Uniswap can spend).
         """
         ret_val = {}
-        router_allowances = await self._api_request("post", "eth/allowances",
+        """router_allowances = await self._api_request("post", "eth/allowances",
                                                     {"tokenList": "[" + (",".join(['"' + t + '"' for t in self._tokens])) + "]",
-                                                     "connector": "uniswapV3Router"})
+                                                     "connector": "uniswapV3Router"})"""
         nft_allowances = await self._api_request("post", "eth/allowances",
                                                  {"tokenList": "[" + (",".join(['"' + t + '"' for t in self._tokens])) + "]",
                                                   "connector": "uniswapV3NFTManager"})
-        for token, amount in router_allowances["approvals"].items():
+        """for token, amount in router_allowances["approvals"].items():
             try:
                 ret_val["R" + token] = Decimal(str(amount))
             except Exception:
-                ret_val["R" + token] = s_decimal_0
+                ret_val["R" + token] = s_decimal_0"""
         for token, amount in nft_allowances["approvals"].items():
             try:
                 ret_val["N" + token] = Decimal(str(amount))
@@ -644,7 +644,7 @@ class UniswapV3Connector(UniswapConnector):
         """
         Checks if all tokens have allowance (an amount approved)
         """
-        return len(self._allowances.values()) == (len(self._tokens) * 2) and \
+        return len(self._allowances.values()) == len(self._tokens) and \
             all(amount > s_decimal_0 for amount in self._allowances.values())
 
     async def _create_order(self,
