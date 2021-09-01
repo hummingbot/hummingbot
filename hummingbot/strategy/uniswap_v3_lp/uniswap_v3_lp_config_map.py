@@ -26,7 +26,7 @@ def market_on_validated(value: str) -> None:
 def market_prompt() -> str:
     connector = "uniswap_v3"
     example = EXAMPLE_PAIRS.get(connector)
-    return "Enter the pair you would like to provide liquidity to {}>>> ".format(
+    return "Enter the trading pair you would like to provide liquidity on {}>>> ".format(
         f" (e.g. {example}) " if example else "")
 
 
@@ -53,7 +53,7 @@ uniswap_v3_lp_config_map = {
     "use_volatility": ConfigVar(
         key="use_volatility",
         type_str="bool",
-        prompt="Do you want to use price volatility from the pool to adjust spread for positions? (Yes/No) >>> ",
+        prompt="Do you want to use price volatility to adjust spreads? (Yes/No) >>> ",
         prompt_on_new=False,
         default=False,
         validator=validate_bool,
@@ -70,41 +70,41 @@ uniswap_v3_lp_config_map = {
     "volatility_factor": ConfigVar(
         key="volatility_factor",
         type_str="decimal",
-        prompt="Enter volatility factor >>> ",
+        prompt="Enter the multiplier applied to price volatility >>> ",
         required_if=lambda: uniswap_v3_lp_config_map.get("use_volatility").value,
         validator=lambda v: validate_decimal(v, Decimal("0"), inclusive=False),
         default=Decimal("1"),
         prompt_on_new=False
     ),
-    "buy_position_price_spread": ConfigVar(
-        key="buy_position_price_spread",
-        prompt="How wide apart(in percentage) do you want the lower price to be from the upper price for the BUY position?(Enter 1 to indicate 1%)  >>> ",
+    "buy_spread": ConfigVar(
+        key="buy_spread",
+        prompt="How far away from the mid price do you want to place the buy position? (Enter 1 to indicate 1%)  >>> ",
         type_str="decimal",
         validator=lambda v: validate_decimal(v, Decimal("0"), inclusive=False),
         default=Decimal("1"),
         prompt_on_new=True),
-    "sell_position_price_spread": ConfigVar(
-        key="sell_position_price_spread",
-        prompt="How wide apart (in percentage) do you want the upper price to be from the lower price for the SELL position? (Enter 1 to indicate 1%) >>> ",
+    "sell_spread": ConfigVar(
+        key="sell_spread",
+        prompt="How far away from the mid price do you want to place the sell position? (Enter 1 to indicate 1%) >>> ",
         type_str="decimal",
         validator=lambda v: validate_decimal(v, Decimal("0"), inclusive=False),
         default=Decimal("1"),
         prompt_on_new=True),
     "base_token_amount": ConfigVar(
         key="base_token_amount",
-        prompt="How much of your base token do you want to use? >>>",
+        prompt="How much of your base token do you want to use for the buy position? >>>",
         prompt_on_new=True,
         validator=lambda v: validate_decimal(v, Decimal("0"), inclusive=False),
         type_str="decimal"),
     "quote_token_amount": ConfigVar(
         key="quote_token_amount",
-        prompt="How much of your quote token do you want to use? >>>",
+        prompt="How much of your quote token do you want to use for the sell position? >>>",
         prompt_on_new=True,
         validator=lambda v: validate_decimal(v, Decimal("0"), inclusive=False),
         type_str="decimal"),
     "min_profitability": ConfigVar(
         key="min_profitability",
-        prompt="What minimum profit do you want each position to have before they can be adjusted? (Enter 1 to indicate 1%) >>>",
+        prompt="What is the minimum profitability for each position is be adjusted? (Enter 1 to indicate 1%) >>>",
         prompt_on_new=False,
         validator=lambda v: validate_decimal(v, Decimal("0"), inclusive=False),
         default=Decimal("1"),
