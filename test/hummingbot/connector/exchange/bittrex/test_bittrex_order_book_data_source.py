@@ -70,10 +70,9 @@ class BittrexOrderBookDataSourceTest(unittest.TestCase):
         )
         transform_raw_message_mock.side_effect = lambda arg: json.loads(arg)
         self.ws_incoming_messages.put_nowait(json.dumps(self._finalMessage))  # to resume test event
-        self.ev_loop.create_task(
-            self.ob_data_source.listen_for_trades(self.ev_loop, self.output_queue)
-        )
-        self.ev_loop.run_until_complete(self.resume_test_event.wait())
+        self.ev_loop.create_task(self.ob_data_source.listen_for_subscriptions())
+        self.ev_loop.create_task(self.ob_data_source.listen_for_trades(self.ev_loop, self.output_queue))
+        self.ev_loop.run_until_complete(asyncio.wait([self.resume_test_event.wait()], timeout=1))
 
         queued_msg = self.output_queue.get_nowait()
         self.assertEquals(queued_msg.trading_pair, self.trading_pair)
@@ -112,10 +111,9 @@ class BittrexOrderBookDataSourceTest(unittest.TestCase):
         )
         transform_raw_message_mock.side_effect = lambda arg: json.loads(arg)
         self.ws_incoming_messages.put_nowait(json.dumps(self._finalMessage))  # to resume test event
-        self.ev_loop.create_task(
-            self.ob_data_source.listen_for_order_book_diffs(self.ev_loop, self.output_queue)
-        )
-        self.ev_loop.run_until_complete(self.resume_test_event.wait())
+        self.ev_loop.create_task(self.ob_data_source.listen_for_subscriptions())
+        self.ev_loop.create_task(self.ob_data_source.listen_for_order_book_diffs(self.ev_loop, self.output_queue))
+        self.ev_loop.run_until_complete(asyncio.wait([self.resume_test_event.wait()], timeout=1))
 
         queued_msg = self.output_queue.get_nowait()
         self.assertEquals(queued_msg.trading_pair, self.trading_pair)
