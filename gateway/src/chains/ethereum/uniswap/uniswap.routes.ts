@@ -10,8 +10,9 @@ import { CurrencyAmount, Price, Trade } from '@uniswap/sdk';
 
 export namespace UniswapRoutes {
   export const router = Router();
-  let uniswap = new Uniswap();
-  let eth = new Ethereum();
+  const uniswap = new Uniswap();
+  const eth = new Ethereum();
+  eth.init(); // we are missing a try/catch and a definition on what to do on an error
 
   router.get('/', async (_req: Request, res: Response) => {
     res.status(200).json({
@@ -23,7 +24,6 @@ export namespace UniswapRoutes {
   });
 
   type Side = 'BUY' | 'SELL';
-
   interface UniswapPriceRequest {
     quote: string;
     base: string;
@@ -156,87 +156,70 @@ export namespace UniswapRoutes {
         const wallet = new ethers.Wallet(req.body.privateKey, eth.provider);
 
         const baseToken = eth.getTokenBySymbol(req.body.base);
-
-        if (baseToken) {
-          const quoteToken = eth.getTokenBySymbol(req.body.quote);
-          if (quoteToken) {
-            const result: ExpectedTrade | string =
-              req.body.side === 'BUY'
-                ? await uniswap.priceSwapOut(
-                    quoteToken.address, // tokenIn is quote asset
-                    baseToken.address, // tokenOut is base asset
-                    req.body.amount
-                  )
-                : await uniswap.priceSwapIn(
-                    baseToken.address, // tokenIn is base asset
-                    quoteToken.address, // tokenOut is quote asset
-                    req.body.amount
-                  );
-
-            if (typeof result === 'string') {
-              throw new HttpException(
-                500,
-                'Uniswap trade query failed: ' + result
-              );
-            } else {
-              const gasPrice = eth.getGasPrice();
-              const gasLimit = ConfigManager.config.UNISWAP_GAS_LIMIT;
-              if (req.body.side === 'BUY') {
-                const price = result.trade.executionPrice.invert();
-
-                const tx = await uniswap.executeTrade(
-                  wallet,
-                  result.trade,
-                  gasPrice
-                );
-                res.status(200).json({
-                  network: ConfigManager.config.ETHEREUM_CHAIN,
-                  timestamp: initTime,
-                  latency: latency(initTime, Date.now()),
-                  base: baseToken.address,
-                  quote: quoteToken.address,
-                  amount: req.body.amount,
-                  expectedIn: result.expectedAmount,
-                  price: price,
-                  gasPrice: gasPrice,
-                  gasLimit: gasLimit,
-                  gasCost: gasPrice * gasLimit,
-                  txHash: tx.hash,
-                });
-              } else {
-                const price = result.trade.executionPrice;
-                const tx = await uniswap.executeTrade(
-                  wallet,
-                  result.trade,
-                  gasPrice
-                );
-                res.status(200).json({
-                  network: ConfigManager.config.ETHEREUM_CHAIN,
-                  timestamp: initTime,
-                  latency: latency(initTime, Date.now()),
-                  base: baseToken.address,
-                  quote: quoteToken.address,
-                  amount: req.body.amount,
-                  expectedOut: result.expectedAmount,
-                  price: price,
-                  gasPrice: gasPrice,
-                  gasLimit,
-                  gasCost: gasPrice * gasLimit,
-                  txHash: tx.hash,
-                });
-              }
-            }
-          } else {
-            throw new HttpException(
-              500,
-              'Unrecognized quote token symbol: ' + req.body.quote
-            );
-          }
-        } else {
+        if (!baseToken)
           throw new HttpException(
             500,
             'Unrecognized base token symbol: ' + req.body.base
           );
+        const quoteToken = eth.getTokenBySymbol(req.body.quote);
+        if (!quoteToken)
+          throw new HttpException(
+            500,
+            'Unrecognized quote token symbol: ' + req.body.quote
+          );
+        const result: ExpectedTrade | string =
+          req.body.side === 'BUY'
+            ? await uniswap.priceSwapOut(
+                quoteToken.address, // tokenIn is quote asset
+                baseToken.address, // tokenOut is base asset
+                req.body.amount
+              )
+            : await uniswap.priceSwapIn(
+                baseToken.address, // tokenIn is base asset
+                quoteToken.address, // tokenOut is quote asset
+                req.body.amount
+              );
+
+        if (typeof result === 'string')
+          throw new HttpException(500, 'Uniswap trade query failed: ' + result);
+
+        const gasPrice = eth.getGasPrice();
+        const gasLimit = ConfigManager.config.UNISWAP_GAS_LIMIT;
+        if (req.body.side === 'BUY') {
+          const price = result.trade.executionPrice.invert();
+
+          const tx = await uniswap.executeTrade(wallet, result.trade, gasPrice);
+          return res.status(200).json({
+            network: ConfigManager.config.ETHEREUM_CHAIN,
+            timestamp: initTime,
+            latency: latency(initTime, Date.now()),
+            base: baseToken.address,
+            quote: quoteToken.address,
+            amount: req.body.amount,
+            expectedIn: result.expectedAmount,
+            price: price,
+            gasPrice: gasPrice,
+            gasLimit: gasLimit,
+            gasCost: gasPrice * gasLimit,
+            txHash: tx.hash,
+          });
+        } else {
+          const price = result.trade.executionPrice;
+          const tx = await uniswap.executeTrade(wallet, result.trade, gasPrice);
+          return res.status(200).json({
+            network: ConfigManager.config.ETHEREUM_CHAIN,
+            timestamp: initTime,
+            latency: latency(initTime, Date.now()),
+            base: baseToken.address,
+            quote: quoteToken.address,
+            amount: req.body.amount,
+            expectedOut: result.expectedAmount,
+            price: price,
+            gasPrice: gasPrice,
+            gasLimit,
+            gasCost: gasPrice * gasLimit,
+            txHash: tx.hash,
+          });
         }
       }
     )

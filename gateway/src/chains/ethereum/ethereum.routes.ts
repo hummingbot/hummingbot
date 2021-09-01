@@ -11,6 +11,7 @@ import { approve } from './ethereum.controllers';
 export namespace EthereumRoutes {
   export const router = Router();
   let ethereum = new Ethereum();
+  ethereum.init(); // we are missing a try/catch and a definition on what to do on an error
 
   export const reload = (): void => {
     ethereum = new Ethereum();

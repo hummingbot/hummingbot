@@ -1,4 +1,3 @@
-import bodyParser from 'body-parser';
 import express from 'express';
 import { Server } from 'http';
 import { Request, Response, NextFunction } from 'express';
@@ -13,10 +12,10 @@ export const app = express();
 let server: Server;
 
 // parse body for application/json
-app.use(bodyParser.json());
+app.use(express.json());
 
 // parse url for application/x-www-form-urlencoded
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true }));
 
 // mount sub routers
 app.use('/eth', EthereumRoutes.router);
@@ -105,5 +104,5 @@ export const startGateway = async () => {
 };
 
 const stopGateway = async () => {
-  await server.close();
+  return server.close();
 };
