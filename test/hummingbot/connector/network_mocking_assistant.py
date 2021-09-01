@@ -9,6 +9,7 @@ class NetworkMockingAssistant:
     def __init__(self):
         super().__init__()
 
+        self._response_text_queues = defaultdict(asyncio.Queue)
         self._response_json_queues = defaultdict(asyncio.Queue)
         self._response_status_queues = defaultdict(deque)
         self._sent_http_requests = defaultdict(asyncio.Queue)
@@ -34,11 +35,15 @@ class NetworkMockingAssistant:
     async def _get_next_api_response_json(self, http_mock):
         return await self._response_json_queues[http_mock].get()
 
+    async def _get_next_api_response_text(self, http_mock):
+        return await self._response_text_queues[http_mock].get()
+
     def _handle_http_request(self, http_mock, url, headers=None, params=None, data=None):
         response = AsyncMock()
         type(response).status = PropertyMock(side_effect=functools.partial(
             self._get_next_api_response_status, http_mock))
         response.json.side_effect = self.async_partial(self._get_next_api_response_json, http_mock)
+        response.text.side_effect = self.async_partial(self._get_next_api_response_text, http_mock)
         response.__aenter__.return_value = response
 
         components = params if params else data
@@ -49,9 +54,12 @@ class NetworkMockingAssistant:
     def configure_http_request_mock(self, http_request_mock):
         http_request_mock.side_effect = functools.partial(self._handle_http_request, http_request_mock)
 
-    def add_http_response(self, http_request_mock, response_status, response_json):
+    def add_http_response(self, http_request_mock, response_status, response_json=None, response_text=None):
         self._response_status_queues[http_request_mock].append(response_status)
-        self._response_json_queues[http_request_mock].put_nowait(response_json)
+        if response_json is not None:
+            self._response_json_queues[http_request_mock].put_nowait(response_json)
+        if response_text is not None:
+            self._response_text_queues[http_request_mock].put_nowait(response_text)
 
     async def next_sent_request_data(self, http_request_mock):
         return await self._sent_http_requests[http_request_mock].get()
