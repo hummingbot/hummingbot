@@ -376,7 +376,7 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.listening_task = self.ev_loop.create_task(
             self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue))
         try:
-            self.ev_loop.run_until_complete(asyncio.wait_for(msg_queue.get(), timeout=1))
+            self.ev_loop.run_until_complete(asyncio.wait_for(msg_queue.get(), timeout=2))
         except asyncio.TimeoutError:
             pass
 
