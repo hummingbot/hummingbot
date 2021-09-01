@@ -78,14 +78,14 @@ uniswap_v3_lp_config_map = {
     ),
     "buy_position_price_spread": ConfigVar(
         key="buy_position_price_spread",
-        prompt="How wide apart(in percentage) do you want the lower price to be from the upper price for buy position?(Enter 1 to indicate 1%)  >>> ",
+        prompt="How wide apart(in percentage) do you want the lower price to be from the upper price for the BUY position?(Enter 1 to indicate 1%)  >>> ",
         type_str="decimal",
         validator=lambda v: validate_decimal(v, Decimal("0"), inclusive=False),
         default=Decimal("1"),
         prompt_on_new=True),
     "sell_position_price_spread": ConfigVar(
         key="sell_position_price_spread",
-        prompt="How wide apart(in percentage) do you want the lower price to be from the upper price for sell position? (Enter 1 to indicate 1%) >>> ",
+        prompt="How wide apart (in percentage) do you want the upper price to be from the lower price for the SELL position? (Enter 1 to indicate 1%) >>> ",
         type_str="decimal",
         validator=lambda v: validate_decimal(v, Decimal("0"), inclusive=False),
         default=Decimal("1"),

@@ -38,17 +38,50 @@ This strategy creates and maintains Uniswap positions as the market price change
 
 ## Specification
 
-!!! tip "To Do"
-    Match description and images below to [the strategy file](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/uniswap_v3_lp/uniswap_v3_lp.py). Each tick, the strategy 1) determines if the connector if ready, 2) calculates volatility if it is used, and 3) generates new positions if `total_position_range` has widened based on price movements
+On each tick, the strategy:
+1) Determines if the connector is ready,
+2) Creates the initial *BUY* and *SELL* positions, if there isn't any 
+3) Creates a new liquidity position if the pool price moved above the `upper_bound` OR below the `lower_bound` values.
 
 **Prompts:**
 
-- Enter the trading pair and fee tier of the pool
-- Top price bound (in %) relative to market price (`sell_position_price_spread`)
-- Lower price bound (in %) relative to market price (`buy_position_price_spread`)
-- Base token amount to add (`base_token_amount`)
-- Quote token amount to add (`quote_token_amount`)
-- Bot will calculate `top_bound_price` and `lower_bound_price` based on the current `market_price` and the spreads entered by the user
+`Enter the pair you would like to provide liquidity to`: 
+> Defines the Liquidity pool asset pair (`market`)
+> 
+> **Note:** The order or the assets matters to properly identify the correct pool. Make sure to check https://info.uniswap.org/#/ for the correct asset order
+
+`On wich fee tier do you want to provide liquidity on? (LOW/MEDIUM/HIGH)`
+> Defines the trading fee of the pool you want to provide liquidity (`fee_tier`). Fee tiers are:
+>  
+> LOW = 0.05%
+> MEDIUM = 0.30%
+> HIGH = 1.00%
+> 
+> **Note:** Each fee tier is a different uniswap pool 
+
+`How wide apart (in percentage) do you want the lower price to be from the upper price for the BUY position?`
+> Defines `buy_position_price_spread`
+> 
+> The value is used to calculate the lower price bound:
+> `lower_price = (1 - buy_spread) * last_price`
+
+`How wide apart (in percentage) do you want the upper price to be from the lower price for the SELL position?`
+> Defines `sell_position_price_spread`
+> 
+> The value is used to calculate the upper price bound:
+> `upper_price = (1 + sell_spread) * last_price`
+
+`How much of the base token do you want to use?`
+> Defines `base_token_amount`
+> 
+> This is the amount of tokens that will be added to the SELL positions
+
+`How much of the quote token do you want to use?`
+> Defines `quote_token_amount`
+> 
+> This is the amount of tokens that will be added to the BUY positions
+
+## Strategy Logic
 
 **Starting the strategy**
 
@@ -56,40 +89,48 @@ This strategy creates and maintains Uniswap positions as the market price change
 - The bot will look for information about the pool, and if it is a valid pool
   - If the pool doesn't exist, warn the user and stop the strategy
 - If the pool is valid, the bot will create two starting positions:
-  1. The sell position with:
+  1. The SELL position with:
       - Amount of tokens added to the position = `base_token_amount`
-      - Top price bound = `top_bound_price`
-      - Lower price bound = current market price
+      - Top price bound = `upper_price`
+      - Lower price bound = `last_price`
   2. The buy position with:
       - Amount of tokens added to the position = `quote_token_amount`
-      - Top price bound = current market price
-      - Lower price bound = `lower_bound_price`
+      - Top price bound = `last_price`
+      - Lower price bound = `lower_price`
 
 ![image.png](/assets/img/uniswap-v3-1.png)
 
 **As the strategy is running**
 
-The bot will monitor the current price of the pool, with two possible conditions to trigger a new position creation:
+Every tick, the bot will monitor the current price of the pool (`last_price`), with two possible conditions to trigger a new position creation:
 
-1. Price goes above `top_bound_price`
-```python
-if market_price > top_price_bound
-  new_position_top_price = market_price + (market_price * top_bound_spread)
-  new_position_lower_price = market_price
-  new_position_size = base_token_amount
-  create_new_position(new_position_top_price, new_position_lower_price, new_position_size)
-  top_bound_price = new_position_top_price // The new upper bound becomes the upper bound of the new position
-```
-![image.png](/assets/img/uniswap-v3-1.png)
+1. Price goes above `upper_price`
 
+ - A new SELL liquidity position will be created, using the following values:
 
-2. Price goes below `lower_bound_price`
-```python
-if market_price < lower_bound_price
-  new_position_top_price = market_price
-  new_position_lower_price = market_price - (market_price * lower_bound_spread)
-  new_position_size = base_token_amount
-  create_new_position(new_position_top_price, new_position_lower_price, new_position_size)
-  lower_bound_price = new_position_lower_price // The new lower bound becomes the upper bound of the new position
-```
-![image.png](/assets/img/uniswap-v3-1.png)
+    - Amount of tokens of the new position = `base_token_amount`
+    - New position upper price = `(1 + sell_spread) * last_price`
+    - New position lower price = `last_price`
+ - The `upper_price` value will be redefined 
+    - `upper_price = (1 + sell_spread) * last_price`
+ - The `lower_price` value won't be changed
+
+![image.png](/assets/img/uniswap-v3-2.png)
+
+2. Price goes below `lower_price`
+
+ - A new BUY liquidity position will be created, using the following values:
+
+    - Amount of tokens of the new position = `quote_token_amount`
+    - New position upper price = `last_price`
+    - New position lower price = `(1 - buy_spread) * last_price`
+ - The `lower_price` value will be redefined 
+    - `lower_price = (1 - buy_spread) * last_price`
+ - The `upper_price` value won't be changed
+
+![image.png](/assets/img/uniswap-v3-3.png)
+
+**Important Notes**
+
+- The strategy WILL NOT remove existing liquidity positions. The user must do it manually through the Uniswap front-end (https://app.uniswap.org/#/pool)
+- The `status` command will show what is the current profit of each position, using the `quote` asset as reference
