@@ -54,7 +54,8 @@ uniswap_v3_lp_config_map = {
         key="use_volatility",
         type_str="bool",
         prompt="Do you want to use price volatility from the pool to adjust spread for positions? (Yes/No) >>> ",
-        prompt_on_new=True,
+        prompt_on_new=False,
+        default=False,
         validator=validate_bool,
     ),
     "volatility_period": ConfigVar(
@@ -64,7 +65,7 @@ uniswap_v3_lp_config_map = {
         required_if=lambda: uniswap_v3_lp_config_map.get("use_volatility").value,
         validator=lambda v: validate_int(v, 1),
         default=1,
-        prompt_on_new=True
+        prompt_on_new=False
     ),
     "volatility_factor": ConfigVar(
         key="volatility_factor",
@@ -73,7 +74,7 @@ uniswap_v3_lp_config_map = {
         required_if=lambda: uniswap_v3_lp_config_map.get("use_volatility").value,
         validator=lambda v: validate_decimal(v, Decimal("0"), inclusive=False),
         default=Decimal("1"),
-        prompt_on_new=True
+        prompt_on_new=False
     ),
     "buy_position_price_spread": ConfigVar(
         key="buy_position_price_spread",
