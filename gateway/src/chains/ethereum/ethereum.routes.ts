@@ -1,4 +1,4 @@
-import { constants, Wallet } from 'ethers';
+import { Wallet, providers } from 'ethers';
 import { NextFunction, Router, Request, Response } from 'express';
 import { Ethereum } from './ethereum';
 import { EthereumConfig } from './ethereum.config';
@@ -6,9 +6,8 @@ import { ConfigManager } from '../../services/config-manager';
 import { Token } from '../../services/ethereum-base';
 import { tokenValueToString } from '../../services/base';
 import { HttpException, asyncHandler } from '../../services/error-handler';
-import { latency, bigNumberWithDecimalToStr } from '../../services/base';
-import ethers from 'ethers';
-
+import { latency } from '../../services/base';
+import { approve } from './ethereum.controllers';
 export namespace EthereumRoutes {
   export const router = Router();
   let ethereum = new Ethereum();
@@ -128,51 +127,14 @@ export namespace EthereumRoutes {
         req: Request<{}, {}, EthereumApproveRequest>,
         res: Response<EthereumApproveResponse | string, {}>
       ) => {
-        const initTime = Date.now();
-        const spender: string = req.body.spender;
-
-        let wallet: Wallet;
+        const { spender, privateKey, token, amount } = req.body;
+        let result;
         try {
-          wallet = ethereum.getWallet(req.body.privateKey);
+          result = await approve(spender, privateKey, token, amount);
         } catch (err) {
-          throw new HttpException(500, 'Error getting wallet ' + err);
+          throw new HttpException(500, err.message);
         }
-
-        const token = ethereum.getTokenBySymbol(req.body.token);
-
-        if (!token) {
-          throw new HttpException(
-            500,
-            `Token "${req.body.token}" is not supported`
-          );
-        }
-
-        let amount = constants.MaxUint256;
-        if (req.body.amount) {
-          amount = ethers.utils.parseUnits(req.body.amount, token.decimals);
-        }
-        // call approve function
-        let approval;
-        try {
-          approval = await ethereum.approveERC20(
-            wallet,
-            spender,
-            token.address,
-            amount
-          );
-        } catch (err) {
-          approval = JSON.stringify(err);
-        }
-
-        res.status(200).json({
-          network: ConfigManager.config.ETHEREUM_CHAIN,
-          timestamp: initTime,
-          latency: latency(initTime, Date.now()),
-          tokenAddress: token.address,
-          spender: spender,
-          amount: bigNumberWithDecimalToStr(amount, token.decimals),
-          approval: approval,
-        });
+        return res.status(200).json(result);
       }
     )
   );
@@ -187,7 +149,7 @@ export namespace EthereumRoutes {
     latency: number;
     txHash: string;
     confirmed: boolean;
-    receipt: ethers.providers.TransactionReceipt | null;
+    receipt: providers.TransactionReceipt | null;
   }
 
   router.post(
