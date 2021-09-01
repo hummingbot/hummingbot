@@ -15,7 +15,7 @@ from typing import (
 
 from hummingbot.connector.exchange.ndax.ndax_api_order_book_data_source import NdaxAPIOrderBookDataSource
 
-from hummingbot.connector.exchange.ndax.ndax_order_book_message import NdaxOrderBookEntry, NdaxOrderBookMessage
+from hummingbot.connector.exchange.ndax.ndax_order_book_message import NdaxOrderBookEntry
 from hummingbot.core.data_type.order_book import OrderBook
 
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
@@ -357,6 +357,28 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.assertEqual(msg_queue.qsize(), 0)
 
+    @patch("hummingbot.connector.exchange.ndax.ndax_api_order_book_data_source.NdaxAPIOrderBookDataSource._sleep",
+           new_callable=AsyncMock)
+    @patch("websockets.connect", new_callable=AsyncMock)
+    def test_listen_for_order_book_diffs_logs_exception(self, mock_ws, _):
+        msg_queue: asyncio.Queue = asyncio.Queue()
+        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
+
+        incomplete_resp = {
+            "m": 1,
+            "i": 2,
+        }
+
+        self.mocking_assistant.add_websocket_text_message(mock_ws.return_value, ujson.dumps(incomplete_resp))
+        self.mocking_assistant.add_websocket_text_message(mock_ws.return_value, self._orderbook_update_event())
+
+        self.simulate_trading_pair_ids_initialized()
+        self.listening_task = self.ev_loop.create_task(
+            self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue))
+        self.ev_loop.run_until_complete(msg_queue.get())
+
+        self.assertTrue(self._is_logged("NETWORK", "Unexpected error with WebSocket connection."))
+
     @patch("websockets.connect", new_callable=AsyncMock)
     def test_listen_for_order_book_diffs_successful(self, mock_ws):
         msg_queue: asyncio.Queue = asyncio.Queue()
@@ -367,17 +389,13 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.simulate_trading_pair_ids_initialized()
 
-        with self.assertRaises(asyncio.TimeoutError):
-            self.listening_task = self.ev_loop.create_task(asyncio.wait_for(
-                self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue),
-                1.0
-            ))
-            self.ev_loop.run_until_complete(self.listening_task)
+        self.listening_task = self.ev_loop.create_task(
+            self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue))
 
-        self.assertGreater(msg_queue.qsize(), 0)
-        first_msg: NdaxOrderBookMessage = msg_queue.get_nowait()
+        first_msg = self.ev_loop.run_until_complete(msg_queue.get())
+        second_msg = self.ev_loop.run_until_complete(msg_queue.get())
+
         self.assertTrue(first_msg.type == OrderBookMessageType.SNAPSHOT)
-        second_msg: NdaxOrderBookMessage = msg_queue.get_nowait()
         self.assertTrue(second_msg.type == OrderBookMessageType.DIFF)
 
     @patch("websockets.connect", new_callable=AsyncMock)
