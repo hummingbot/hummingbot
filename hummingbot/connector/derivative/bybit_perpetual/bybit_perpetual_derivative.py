@@ -35,6 +35,7 @@ from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
@@ -93,10 +94,13 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._status_poll_notifier = asyncio.Event()
         self._funding_fee_poll_notifier = asyncio.Event()
 
+        rate_limits = bybit_utils.build_rate_limits(self._trading_pairs)
+        self._throttler = AsyncThrottler(rate_limits)
         self._auth: BybitPerpetualAuth = BybitPerpetualAuth(api_key=bybit_perpetual_api_key,
                                                             secret_key=bybit_perpetual_secret_key)
         self._order_book_tracker = BybitPerpetualOrderBookTracker(
             session=self._aiohttp_client(),
+            throttler=self._throttler,
             trading_pairs=trading_pairs,
             domain=domain)
         self._user_stream_tracker = BybitPerpetualUserStreamTracker(self._auth, domain=domain)
@@ -229,7 +233,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         try:
             resp = await self._api_request(
                 method="GET",
-                path_url=bybit_utils.rest_api_path_for_endpoint(endpoint=CONSTANTS.SERVER_TIME_PATH_URL))
+                endpoint=CONSTANTS.SERVER_TIME_PATH_URL)
             if "ret_code" not in resp or resp["ret_code"] != 0:
                 raise Exception()
         except asyncio.CancelledError:
@@ -249,38 +253,51 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
     async def _api_request(self,
                            method: str,
-                           path_url: str,
-                           params: Optional[Dict[str, Any]] = {},
-                           body: Optional[Dict[str, Any]] = {},
+                           endpoint: Dict[str, str],
+                           trading_pair: Optional[str] = None,
+                           params: Optional[Dict[str, Any]] = None,
+                           body: Optional[Dict[str, Any]] = None,
                            is_auth_required: bool = False,
+                           limit_id: Optional[str] = None,
                            ):
         """
         Sends an aiohttp request and waits for a response.
         :param method: The HTTP method, e.g. get or post
-        :param path_url: The path url or the API end point
+        :param endpoint: API end point
         :param params: The query parameters of the API request
         :param body: The body parameters of the API request
         :param is_auth_required: Whether an authentication is required, when True the function will add encrypted
         signature to the request.
+        :param limit_id: The id used for the API throttler. If not supplied, the `path_url` is used instead.
         :returns A response in json format.
         """
+        params = params or {}
+        body = body or {}
+        if limit_id is None:
+            limit_id = bybit_utils.get_rest_api_limit_id_for_endpoint(
+                endpoint=endpoint,
+                trading_pair=trading_pair,
+            )
+        path_url = bybit_utils.rest_api_path_for_endpoint(endpoint, trading_pair)
         url = bybit_utils.rest_api_url_for_endpoint(path_url, self._domain)
         client = self._aiohttp_client()
 
         if method == "GET":
             if is_auth_required:
                 params = self._auth.extend_params_with_authentication_info(params=params)
-            response = await client.get(url=url,
-                                        headers=self._auth.get_headers(),
-                                        params=params,
-                                        )
+            async with self._throttler.execute_task(limit_id):
+                response = await client.get(url=url,
+                                            headers=self._auth.get_headers(),
+                                            params=params,
+                                            )
         elif method == "POST":
             if is_auth_required:
                 params = self._auth.extend_params_with_authentication_info(params=body)
-            response = await client.post(url=url,
-                                         headers=self._auth.get_headers(),
-                                         data=ujson.dumps(params)
-                                         )
+            async with self._throttler.execute_task(limit_id):
+                response = await client.post(url=url,
+                                             headers=self._auth.get_headers(),
+                                             data=ujson.dumps(params)
+                                             )
         else:
             raise NotImplementedError(f"{method} HTTP Method not implemented. ")
 
@@ -323,8 +340,18 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             raise ValueError(f"No order book exists for '{trading_pair}'.")
         return self._order_book_tracker.order_books[trading_pair]
 
-    def start_tracking_order(self, order_id: str, exchange_order_id: str, trading_pair: str, trading_type: object,
-                             price: object, amount: object, order_type: object, leverage: int, position: str):
+    def start_tracking_order(
+        self,
+        order_id: str,
+        exchange_order_id: Optional[str],
+        trading_pair: str,
+        trading_type: object,
+        price: object,
+        amount: object,
+        order_type: object,
+        leverage: int,
+        position: str,
+    ):
         self._in_flight_orders[order_id] = BybitPerpetualInFlightOrder(
             client_order_id=order_id,
             exchange_order_id=exchange_order_id,
@@ -406,11 +433,10 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
             send_order_results = await self._api_request(
                 method="POST",
-                path_url=bybit_utils.rest_api_path_for_endpoint(
-                    endpoint=CONSTANTS.PLACE_ACTIVE_ORDER_PATH_URL,
-                    trading_pair=trading_pair),
+                endpoint=CONSTANTS.PLACE_ACTIVE_ORDER_PATH_URL,
+                trading_pair=trading_pair,
                 body=params,
-                is_auth_required=True
+                is_auth_required=True,
             )
 
             if send_order_results["ret_code"] != 0:
@@ -522,11 +548,10 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             # The API response simply verifies that the API request have been received by the API servers.
             response = await self._api_request(
                 method="POST",
-                path_url=bybit_utils.rest_api_path_for_endpoint(
-                    endpoint=CONSTANTS.CANCEL_ACTIVE_ORDER_PATH_URL,
-                    trading_pair=trading_pair),
+                endpoint=CONSTANTS.CANCEL_ACTIVE_ORDER_PATH_URL,
+                trading_pair=trading_pair,
                 body=body_params,
-                is_auth_required=True
+                is_auth_required=True,
             )
 
             if response["ret_code"] != 0:
@@ -645,8 +670,8 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         params = {}
         symbols_response: Dict[str, Any] = await self._api_request(
             method="GET",
-            path_url=bybit_utils.rest_api_path_for_endpoint(endpoint=CONSTANTS.QUERY_SYMBOL_ENDPOINT),
-            params=params
+            endpoint=CONSTANTS.QUERY_SYMBOL_ENDPOINT,
+            params=params,
         )
         self._trading_rules.clear()
         self._trading_rules = self._format_trading_rules(symbols_response["result"])
@@ -678,9 +703,9 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         params = {}
         account_positions: Dict[str, Dict[str, Any]] = await self._api_request(
             method="GET",
-            path_url=bybit_utils.rest_api_path_for_endpoint(endpoint=CONSTANTS.GET_WALLET_BALANCE_PATH_URL),
+            endpoint=CONSTANTS.GET_WALLET_BALANCE_PATH_URL,
             params=params,
-            is_auth_required=True
+            is_auth_required=True,
         )
 
         for asset_name, balance_json in account_positions["result"].items():
@@ -716,9 +741,8 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             tasks.append(
                 asyncio.create_task(self._api_request(
                     method="GET",
-                    path_url=bybit_utils.rest_api_path_for_endpoint(
-                        endpoint=CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL,
-                        trading_pair=active_order.trading_pair),
+                    endpoint=CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL,
+                    trading_pair=active_order.trading_pair,
                     params=query_params,
                     is_auth_required=True,
                 )))
@@ -755,9 +779,8 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             trade_history_tasks.append(
                 asyncio.create_task(self._api_request(
                     method="GET",
-                    path_url=bybit_utils.rest_api_path_for_endpoint(
-                        endpoint=CONSTANTS.USER_TRADE_RECORDS_PATH_URL,
-                        trading_pair=trading_pair),
+                    endpoint=CONSTANTS.USER_TRADE_RECORDS_PATH_URL,
+                    trading_pair=trading_pair,
                     params=body_params,
                     is_auth_required=True)))
 
@@ -974,9 +997,8 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             }
             raw_response: Dict[str, Any] = await self._api_request(
                 method="GET",
-                path_url=bybit_utils.rest_api_path_for_endpoint(
-                    endpoint=CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL,
-                    trading_pair=trading_pair),
+                endpoint=CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL,
+                trading_pair=trading_pair,
                 params=params,
                 is_auth_required=True)
             data: Dict[str, Any] = raw_response["result"]
@@ -1038,9 +1060,8 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             position_tasks.append(
                 asyncio.create_task(self._api_request(
                     method="GET",
-                    path_url=bybit_utils.rest_api_path_for_endpoint(
-                        endpoint=CONSTANTS.GET_POSITIONS_PATH_URL,
-                        trading_pair=trading_pair),
+                    endpoint=CONSTANTS.GET_POSITIONS_PATH_URL,
+                    trading_pair=self._trading_pairs[0],
                     params=body_params,
                     is_auth_required=True)))
 
@@ -1102,9 +1123,8 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
         resp: Dict[str, Any] = await self._api_request(
             method="POST",
-            path_url=bybit_utils.rest_api_path_for_endpoint(
-                endpoint=CONSTANTS.SET_LEVERAGE_PATH_URL,
-                trading_pair=trading_pair),
+            endpoint=CONSTANTS.SET_LEVERAGE_PATH_URL,
+            trading_pair=trading_pair,
             body=body_params,
             is_auth_required=True)
 
