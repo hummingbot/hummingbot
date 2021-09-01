@@ -57,7 +57,7 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
     async def get_listen_key(self):
         async with aiohttp.ClientSession() as client:
             async with self._throttler.execute_task(limit_id=CONSTANTS.BINANCE_USER_STREAM_PATH_URL):
-                url = binance_utils.rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_PATH_URL, domain=self._domain)
+                url = binance_utils.private_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_PATH_URL, domain=self._domain)
                 async with client.post(url=url,
                                        headers={"X-MBX-APIKEY": self._binance_client.API_KEY}) as response:
                     response: aiohttp.ClientResponse = response
@@ -69,7 +69,7 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
     async def ping_listen_key(self, listen_key: str) -> bool:
         async with aiohttp.ClientSession() as client:
             async with self._throttler.execute_task(limit_id=CONSTANTS.BINANCE_USER_STREAM_PATH_URL):
-                url = binance_utils.rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_PATH_URL, domain=self._domain)
+                url = binance_utils.private_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_PATH_URL, domain=self._domain)
                 async with client.put(url=url,
                                       headers={"X-MBX-APIKEY": self._binance_client.API_KEY},
                                       params={"listenKey": listen_key}) as response:
