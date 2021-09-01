@@ -7,6 +7,7 @@ from unittest.mock import patch, AsyncMock
 import pandas as pd
 
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative import BinancePerpetualDerivative
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
@@ -37,6 +38,8 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
             binance_perpetual_api_secret="testSecret",
             trading_pairs=[self.trading_pair],
         )
+
+        self.mocking_assistant = NetworkMockingAssistant()
 
     async def _get_next_api_response(self):
         message = await self.api_responses.get()
@@ -120,7 +123,9 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
     @patch("aiohttp.ClientSession.request", new_callable=AsyncMock)
     def test_existing_account_position_detected_on_positions_update(self, req_mock):
         positions = self._get_position_risk_api_endpoint_single_position_list()
-        self._set_mock_response(req_mock, status=200, json_data=positions)
+        self.mocking_assistant.configure_http_request_mock(req_mock)
+        self.mocking_assistant.add_http_response(req_mock, 200, positions)
+
         task = self.ev_loop.create_task(self.exchange._update_positions())
         self.ev_loop.run_until_complete(task)
 
@@ -131,7 +136,8 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
     @patch("aiohttp.ClientSession.request", new_callable=AsyncMock)
     def test_account_position_updated_on_positions_update(self, req_mock):
         positions = self._get_position_risk_api_endpoint_single_position_list()
-        self._set_mock_response(req_mock, status=200, json_data=positions)
+        self.mocking_assistant.configure_http_request_mock(req_mock)
+        self.mocking_assistant.add_http_response(req_mock, 200, positions)
         task = self.ev_loop.create_task(self.exchange._update_positions())
         self.ev_loop.run_until_complete(task)
 
@@ -140,7 +146,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(pos.amount, 1)
 
         positions[0]["positionAmt"] = "2"
-        self._set_mock_response(req_mock, status=200, json_data=positions)
+        self.mocking_assistant.add_http_response(req_mock, 200, positions)
         task = self.ev_loop.create_task(self.exchange._update_positions())
         self.ev_loop.run_until_complete(task)
 
@@ -149,14 +155,15 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
     @patch("aiohttp.ClientSession.request", new_callable=AsyncMock)
     def test_new_account_position_detected_on_positions_update(self, req_mock):
-        self._set_mock_response(req_mock, status=200, json_data=[])
+        self.mocking_assistant.configure_http_request_mock(req_mock)
+        self.mocking_assistant.add_http_response(req_mock, 200, [])
         task = self.ev_loop.create_task(self.exchange._update_positions())
         self.ev_loop.run_until_complete(task)
 
         self.assertEqual(len(self.exchange.account_positions), 0)
 
         positions = self._get_position_risk_api_endpoint_single_position_list()
-        self._set_mock_response(req_mock, status=200, json_data=positions)
+        self.mocking_assistant.add_http_response(req_mock, 200, positions)
         task = self.ev_loop.create_task(self.exchange._update_positions())
         self.ev_loop.run_until_complete(task)
 
@@ -165,14 +172,15 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
     @patch("aiohttp.ClientSession.request", new_callable=AsyncMock)
     def test_closed_account_position_removed_on_positions_update(self, req_mock):
         positions = self._get_position_risk_api_endpoint_single_position_list()
-        self._set_mock_response(req_mock, status=200, json_data=positions)
+        self.mocking_assistant.configure_http_request_mock(req_mock)
+        self.mocking_assistant.add_http_response(req_mock, 200, positions)
         task = self.ev_loop.create_task(self.exchange._update_positions())
         self.ev_loop.run_until_complete(task)
 
         self.assertEqual(len(self.exchange.account_positions), 1)
 
         positions[0]["positionAmt"] = "0"
-        self._set_mock_response(req_mock, status=200, json_data=positions)
+        self.mocking_assistant.add_http_response(req_mock, 200, positions)
         task = self.ev_loop.create_task(self.exchange._update_positions())
         self.ev_loop.run_until_complete(task)
 
@@ -182,21 +190,23 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
     @patch("websockets.connect", new_callable=AsyncMock)
     @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
     def test_new_account_position_detected_on_stream_event(self, post_mock, ws_connect_mock, req_mock):
-        self._set_mock_response(post_mock, status=200, json_data={"listenKey": "someListenKey"})
-        ws_connect_mock.return_value = self._create_ws_mock()
+        self.mocking_assistant.configure_http_request_mock(post_mock)
+        self.mocking_assistant.add_http_response(post_mock, 200, {"listenKey": "someListenKey"})
+
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         self.ev_loop.create_task(self.exchange._user_stream_tracker.start())
-        self.ev_loop.run_until_complete(self._await_all_api_responses_delivered())
 
         self.assertEqual(len(self.exchange.account_positions), 0)
 
         account_update = self._get_account_update_ws_event_single_position_dict()
-        self.ws_incoming_messages.put_nowait(json.dumps(account_update))
-        self.ws_incoming_messages.put_nowait(json.dumps(self._finalMessage))  # to resume test event
+        self.mocking_assistant.add_websocket_text_message(ws_connect_mock.return_value, json.dumps(account_update))
+
         positions = self._get_position_risk_api_endpoint_single_position_list()
-        self._set_mock_response(req_mock, status=200, json_data=positions)
+        self.mocking_assistant.configure_http_request_mock(req_mock)
+        self.mocking_assistant.add_http_response(req_mock, 200, positions)
 
         self.ev_loop.create_task(self.exchange._user_stream_event_listener())
-        self.ev_loop.run_until_complete(self.resume_test_event.wait())
+        asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.3))
 
         self.assertEqual(len(self.exchange.account_positions), 1)
 
@@ -205,12 +215,14 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
     @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
     def test_account_position_updated_on_stream_event(self, post_mock, ws_connect_mock, req_mock):
         positions = self._get_position_risk_api_endpoint_single_position_list()
-        self._set_mock_response(req_mock, status=200, json_data=positions)
+        self.mocking_assistant.configure_http_request_mock(req_mock)
+        self.mocking_assistant.add_http_response(req_mock, 200, positions)
         task = self.ev_loop.create_task(self.exchange._update_positions())
         self.ev_loop.run_until_complete(task)
 
-        self._set_mock_response(post_mock, status=200, json_data={"listenKey": "someListenKey"})
-        ws_connect_mock.return_value = self._create_ws_mock()
+        self.mocking_assistant.configure_http_request_mock(post_mock)
+        self.mocking_assistant.add_http_response(post_mock, 200, {"listenKey": "someListenKey"})
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         self.ev_loop.create_task(self.exchange._user_stream_tracker.start())
         self.ev_loop.run_until_complete(self._await_all_api_responses_delivered())
 
@@ -220,11 +232,10 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         account_update = self._get_account_update_ws_event_single_position_dict()
         account_update["a"]["P"][0]["pa"] = 2
-        self.ws_incoming_messages.put_nowait(json.dumps(account_update))
-        self.ws_incoming_messages.put_nowait(json.dumps(self._finalMessage))  # to resume test event
+        self.mocking_assistant.add_websocket_text_message(ws_connect_mock.return_value, json.dumps(account_update))
 
         self.ev_loop.create_task(self.exchange._user_stream_event_listener())
-        self.ev_loop.run_until_complete(self.resume_test_event.wait())
+        self.ev_loop.run_until_complete(asyncio.sleep(0.3))
 
         self.assertEqual(len(self.exchange.account_positions), 1)
         pos = list(self.exchange.account_positions.values())[0]
@@ -235,12 +246,14 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
     @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
     def test_closed_account_position_removed_on_stream_event(self, post_mock, ws_connect_mock, req_mock):
         positions = self._get_position_risk_api_endpoint_single_position_list()
-        self._set_mock_response(req_mock, status=200, json_data=positions)
+        self.mocking_assistant.configure_http_request_mock(req_mock)
+        self.mocking_assistant.add_http_response(req_mock, 200, positions)
         task = self.ev_loop.create_task(self.exchange._update_positions())
         self.ev_loop.run_until_complete(task)
 
-        self._set_mock_response(post_mock, status=200, json_data={"listenKey": "someListenKey"})
-        ws_connect_mock.return_value = self._create_ws_mock()
+        self.mocking_assistant.configure_http_request_mock(post_mock)
+        self.mocking_assistant.add_http_response(post_mock, 200, {"listenKey": "someListenKey"})
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         self.ev_loop.create_task(self.exchange._user_stream_tracker.start())
         self.ev_loop.run_until_complete(self._await_all_api_responses_delivered())
 
@@ -248,10 +261,9 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         account_update = self._get_account_update_ws_event_single_position_dict()
         account_update["a"]["P"][0]["pa"] = 0
-        self.ws_incoming_messages.put_nowait(json.dumps(account_update))
-        self.ws_incoming_messages.put_nowait(json.dumps(self._finalMessage))  # to resume test event
+        self.mocking_assistant.add_websocket_text_message(ws_connect_mock.return_value, json.dumps(account_update))
 
         self.ev_loop.create_task(self.exchange._user_stream_event_listener())
-        self.ev_loop.run_until_complete(self.resume_test_event.wait())
+        self.ev_loop.run_until_complete(asyncio.sleep(0.3))
 
         self.assertEqual(len(self.exchange.account_positions), 0)
