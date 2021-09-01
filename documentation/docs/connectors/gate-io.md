@@ -21,6 +21,7 @@ To use [Gate.io](https://www.gate.io/ref/4566709) connector for spot trading wit
 
 ![](/assets/img/gateio-account.png)
 
+
 !!! warning
     For API key permissions, we recommend using `trade` and `view` enabled API keys; enabling `transfer,` `or the equivalent is unnecessary `for current Hummingbot strategies.
 
