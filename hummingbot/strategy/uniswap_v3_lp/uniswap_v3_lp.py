@@ -32,8 +32,8 @@ class UniswapV3LpStrategy(StrategyPyBase):
                  use_volatility: bool,
                  volatility_period: int,
                  volatility_factor: Decimal,
-                 buy_position_price_spread: Decimal,
-                 sell_position_price_spread: Decimal,
+                 buy_spread: Decimal,
+                 sell_spread: Decimal,
                  base_token_amount: Decimal,
                  quote_token_amount: Decimal,
                  min_profitability: Decimal,
@@ -44,8 +44,8 @@ class UniswapV3LpStrategy(StrategyPyBase):
         self._use_volatility = use_volatility
         self._volatility_period = volatility_period
         self._volatility_factor = volatility_factor
-        self._buy_position_price_spread = buy_position_price_spread
-        self._sell_position_price_spread = sell_position_price_spread
+        self._buy_spread = buy_spread
+        self._sell_spread = sell_spread
         self._base_token_amount = base_token_amount
         self._quote_token_amount = quote_token_amount
         self._min_profitability = min_profitability
@@ -261,11 +261,11 @@ class UniswapV3LpStrategy(StrategyPyBase):
         """
         volatility = self.calculate_volatility() if self._use_volatility else s_decimal_0
         if is_buy:
-            buy_spread = volatility if volatility != s_decimal_0 else self._buy_position_price_spread
+            buy_spread = volatility if volatility != s_decimal_0 else self._buy_spread
             upper_price = self._last_price
             lower_price = max(s_decimal_0, (Decimal("1") - buy_spread) * self._last_price)
         else:
-            sell_spread = volatility if volatility != s_decimal_0 else self._sell_position_price_spread
+            sell_spread = volatility if volatility != s_decimal_0 else self._sell_spread
             lower_price = self._last_price
             upper_price = (Decimal("1") + sell_spread) * self._last_price
         return [lower_price, upper_price]

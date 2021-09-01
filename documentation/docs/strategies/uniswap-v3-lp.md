@@ -18,119 +18,68 @@ This strategy creates and maintains Uniswap positions as the market price change
 
 | Parameter                    | Type        | Default     | Prompt New? | Prompt                                                 |
 |------------------------------|-------------|-------------|-------------|--------------------------------------------------------|
-| `market`                     | string      |             | True        | Enter the pair you would like to provide liquidity to  |
+| `market`                     | string      |             | True        | Enter the trading pair you would like to provide liquidity on [connector]|
 | `fee_tier`                   | string      |             | True        | On which fee tier do you want to provide liquidity on? (LOW/MEDIUM/HIGH)|
-| `buy_position_price_spread`  | decimal     |  1.00       | True        | How wide apart(in percentage) do you want the lower price to be from the upper price for buy position?(Enter 1 to indicate 1%)|
-| `sell_position_price_spread` | decimal     |  1.00       | True        | How wide apart(in percentage) do you want the lower price to be from the upper price for sell position? (Enter 1 to indicate 1%)|
-| `base_token_amount`          | decimal     |             | True        | How much of your base token do you want to use?        |
-| `quote_token_amount`         | decimal     |             | True        | How much of your quote token do you want to use?       |
-| `min_profitability`          | decimal     |             | True        | What minimum profit do you want each position to have before they can be adjusted? (Enter 1 to indicate 1%)|
-| `use_volatility`             | bool        |  False      | False       | Do you want to use price volatility from the pool to adjust spread for positions? (Yes/No)| 
-| `volatility_period`          | int         |  1          | False       | Enter how long (in hours) do you want to use for price volatility calculation|
-| `volatility_factor`          | decimal     |  1.00       | False       | Enter volatility factor                                |
+| `buy_spread`                 | decimal     |  1.00       | True        | How far away from the mid price do you want to place the buy position? (Enter 1 to indicate 1%)|
+| `sell_spread`                | decimal     |  1.00       | True        | How far away from the mid price do you want to place the sell position? (Enter 1 to indicate 1%)|
+| `base_token_amount`          | decimal     |             | True        | How much of your base token do you want to use for the buy position? |
+| `quote_token_amount`         | decimal     |             | True        | How much of your quote token do you want to use for the sell position? |
+| `min_profitability`          | decimal     |             | True        | What is the minimum profitability for each position is be adjusted? (Enter 1 to indicate 1%)|
+| `use_volatility`             | bool        |  False      | False       | Do you want to use price volatility to adjust spreads? (Yes/No)| 
+| `volatility_period`          | int         |  1          | False       | Enter how long (in hours) do you want to use for price volatility calculation |
+| `volatility_factor`          | decimal     |  1.00       | False       | Enter the multiplier applied to price volatility |
 
 ## Prerequisites
 
 - [Gateway API server](/installation/gateway/)
 - [Ethereum Wallet](/operation/connect-exchange/#setup-ethereum-wallet)
-- [Infura Node](/operation/connect-exchange/#option-1-infura)
-
 
 ## Specification
 
-On each tick, the strategy:
-1) Determines if the connector is ready,
-2) Creates the initial *BUY* and *SELL* positions, if there isn't any 
-3) Creates a new liquidity position if the pool price moved above the `upper_bound` OR below the `lower_bound` values.
+### Starting
 
-**Prompts:**
-
-`Enter the pair you would like to provide liquidity to`: 
-> Defines the Liquidity pool asset pair (`market`)
-> 
-> **Note:** The order or the assets matters to properly identify the correct pool. Make sure to check https://info.uniswap.org/#/ for the correct asset order
-
-`On wich fee tier do you want to provide liquidity on? (LOW/MEDIUM/HIGH)`
-> Defines the trading fee of the pool you want to provide liquidity (`fee_tier`). Fee tiers are:
->  
-> LOW = 0.05%
-> MEDIUM = 0.30%
-> HIGH = 1.00%
-> 
-> **Note:** Each fee tier is a different uniswap pool 
-
-`How wide apart (in percentage) do you want the lower price to be from the upper price for the BUY position?`
-> Defines `buy_position_price_spread`
-> 
-> The value is used to calculate the lower price bound:
-> `lower_price = (1 - buy_spread) * last_price`
-
-`How wide apart (in percentage) do you want the upper price to be from the lower price for the SELL position?`
-> Defines `sell_position_price_spread`
-> 
-> The value is used to calculate the upper price bound:
-> `upper_price = (1 + sell_spread) * last_price`
-
-`How much of the base token do you want to use?`
-> Defines `base_token_amount`
-> 
-> This is the amount of tokens that will be added to the SELL positions
-
-`How much of the quote token do you want to use?`
-> Defines `quote_token_amount`
-> 
-> This is the amount of tokens that will be added to the BUY positions
-
-## Strategy Logic
-
-**Starting the strategy**
-
-- Enter `start`
-- The bot will look for information about the pool, and if it is a valid pool
-  - If the pool doesn't exist, warn the user and stop the strategy
-- If the pool is valid, the bot will create two starting positions:
-  1. The SELL position with:
-      - Amount of tokens added to the position = `base_token_amount`
-      - Top price bound = `upper_price`
-      - Lower price bound = `last_price`
-  2. The buy position with:
-      - Amount of tokens added to the position = `quote_token_amount`
-      - Top price bound = `last_price`
-      - Lower price bound = `lower_price`
+1. The bot will look for information about the pool, and if it is a valid pool. If the pool doesn't exist, warn the user and stop the strategy
+3. Fetch the current mid price of the pool (`last_price`)
+3. If `use_volatility` is True, the bot will calculate the price volatility used to widen spreads
+4. If the pool is valid, the bot will create two starting positions:
+    - The SELL position with:
+        - Amount of tokens added to the position = `base_token_amount`
+        - `upper_price` = `(1 + sell_spread) * last_price` 
+        - `lower_price` = `last_price`
+    - The BUY position with:
+        - Amount of tokens added to the position = `quote_token_amount`
+        - `upper_price` = `last_price`
+        - `lower_price` = `(1 - buy_spread) * last_price`
 
 ![image.png](/assets/img/uniswap-v3-1.png)
 
-**As the strategy is running**
+The bot maintains a variable `total_position_range` that defines the total price range, comprised of `upper_price` and `lower_price`, where the bot is providing liquidity.
 
-Every tick, the bot will monitor the current price of the pool (`last_price`), with two possible conditions to trigger a new position creation:
+### Running
 
-1. Price goes above `upper_price`
+Each tick, the bot monitors the pool mid price (`last_price`) and compare it to the bounds of `total_position_range`. It will adjust the position under the following scenarios:
 
- - A new SELL liquidity position will be created, using the following values:
+**`last_price` is higher than `upper_price` of `total_position_range`**
 
+1. Create a new SELL liquidity position, using the following values:
     - Amount of tokens of the new position = `base_token_amount`
-    - New position upper price = `(1 + sell_spread) * last_price`
-    - New position lower price = `last_price`
- - The `upper_price` value will be redefined 
-    - `upper_price = (1 + sell_spread) * last_price`
- - The `lower_price` value won't be changed
+    - Top price bound = `(1 + sell_spread) * last_price`
+    - Lower price bound = `last_price`
+2. Update `total_position_range`: `upper_price = (1 + sell_spread) * last_price`
 
 ![image.png](/assets/img/uniswap-v3-2.png)
 
-2. Price goes below `lower_price`
+**`last_price` is lower than `lower_price` of `total_position_range`**
 
- - A new BUY liquidity position will be created, using the following values:
-
+1. Create a new BUY liquidity position, using the following values:
     - Amount of tokens of the new position = `quote_token_amount`
     - New position upper price = `last_price`
     - New position lower price = `(1 - buy_spread) * last_price`
- - The `lower_price` value will be redefined 
-    - `lower_price = (1 - buy_spread) * last_price`
- - The `upper_price` value won't be changed
+2. Update `total_position_range`: `lower_price = (1 - buy_spread) * last_price`
 
 ![image.png](/assets/img/uniswap-v3-3.png)
 
-**Important Notes**
+## Important Notes
 
-- The strategy WILL NOT remove existing liquidity positions. The user must do it manually through the Uniswap front-end (https://app.uniswap.org/#/pool)
-- The `status` command will show what is the current profit of each position, using the `quote` asset as reference
+- Currently, the strategy does not remove existing positions. The user should do it manually through the Uniswap interace (https://app.uniswap.org/#/pool).
+- The `status` command shows the current profitability of each position, using the `quote` asset as reference
