@@ -9,7 +9,7 @@ import { logger, updateLoggerToStdout } from './services/logger';
 import { addHttps } from './https';
 import { asyncHandler } from './services/error-handler';
 
-const app = express();
+export const app = express();
 let server: Server;
 
 // parse body for application/json

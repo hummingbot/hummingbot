@@ -13,6 +13,7 @@
     "dev": "nodemon src/index.ts",
     "dev:debug": "nodemon --inspect src/index.ts",
     "start": "nodemon dist/index.js",
+    "test": "jest --verbose false ./test-scripts/ethereum.controllers.test.ts",
     "test:unit": "jest --verbose ./test/",
     "test:cov": "jest --coverage ./test/",
     "test:scripts": "jest --verbose ./test-scripts/"
@@ -43,6 +44,7 @@
     "@types/js-yaml": "^4.0.2",
     "@types/mathjs": "^9.4.2",
     "@types/node": "^15.12.4",
+    "@types/supertest": "^2.0.11",
     "@typescript-eslint/eslint-plugin": "^4.26.1",
     "@typescript-eslint/parser": "^4.26.1",
     "eslint": "^7.25.0",
@@ -53,13 +55,29 @@
     "eslint-plugin-prettier": "^3.4.0",
     "eslint-plugin-promise": "^5.1.0",
     "eslint-plugin-standard": "^4.0.1",
-    "jest": "^27.0.6",
+    "jest": "^27.1.0",
     "jest-extended": "^0.11.5",
     "nodemon": "^2.0.4",
     "prettier": "^2.3.0",
     "rimraf": "^3.0.2",
-    "ts-jest": "^27.0.3",
+    "supertest": "^6.1.6",
+    "ts-jest": "^27.0.5",
     "ts-node": "^10.0.0",
     "typescript": "^4.3.2"
+  },
+  "jest": {
+    "moduleFileExtensions": [
+      "ts",
+      "tsx",
+      "js"
+    ],
+    "transform": {
+      "^.+\\.(ts|tsx)$": "ts-jest"
+    },
+    "globals": {
+      "ts-jest": {
+        "tsConfigFile": "tsconfig.json"
+      }
+    }
   }
 }

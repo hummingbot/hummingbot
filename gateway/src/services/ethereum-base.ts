@@ -45,27 +45,6 @@ export class EthereumBase {
     })();
   }
 
-  reload(
-    chainID: number,
-    rpcUrl: string,
-    tokenListSource: string,
-    tokenListType: TokenListType,
-    gasPriceConstant: number
-  ): void {
-    this._provider = new providers.JsonRpcProvider(rpcUrl);
-    this.chainID = chainID;
-    this.rpcUrl = rpcUrl;
-    this.gasPriceConstant = gasPriceConstant;
-    (async () => {
-      this.tokenList = await this.getTokenList(tokenListSource, tokenListType);
-      for (var i = 0; i < this.tokenList.length; i++) {
-        const token: Token = this.tokenList[i];
-        this.tokenMap[token.symbol] = token;
-      }
-      this._ready = true;
-    })();
-  }
-
   ready(): boolean {
     return this._ready;
   }
@@ -172,15 +151,11 @@ export class EthereumBase {
     tokenAddress: string,
     amount: BigNumber
   ): Promise<boolean> {
-    try {
-      // instantiate a contract and pass in wallet, which act on behalf of that signer
-      const contract = new Contract(tokenAddress, abi.ERC20Abi, wallet);
-      return await contract.approve(spender, amount, {
-        gasPrice: this.gasPriceConstant * 1e9,
-        gasLimit: 100000,
-      });
-    } catch (err) {
-      throw new Error(err.reason || 'error approval');
-    }
+    // instantiate a contract and pass in wallet, which act on behalf of that signer
+    const contract = new Contract(tokenAddress, abi.ERC20Abi, wallet);
+    return contract.approve(spender, amount, {
+      gasPrice: this.gasPriceConstant * 1e9,
+      gasLimit: 100000,
+    });
   }
 }
