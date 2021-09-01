@@ -10,7 +10,7 @@ repo_url: 'https://github.com/coinalpha/hummingbot'
 edit_uri: 'blob/master/documentation/docs/'
 
 # Copyright
-copyright: 'Copyright &copy; 2020 CoinAlpha, Inc.'
+copyright: 'Copyright &copy; 2021 CoinAlpha, Inc.'
 
 # Configuration
 theme:
