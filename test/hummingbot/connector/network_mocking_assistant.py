@@ -38,7 +38,7 @@ class NetworkMockingAssistant:
     async def _get_next_api_response_text(self, http_mock):
         return await self._response_text_queues[http_mock].get()
 
-    def _handle_http_request(self, http_mock, url, headers=None, params=None, data=None):
+    def _handle_http_request(self, http_mock, url, headers=None, params=None, data=None, *args, **kwargs):
         response = AsyncMock()
         type(response).status = PropertyMock(side_effect=functools.partial(
             self._get_next_api_response_status, http_mock))
