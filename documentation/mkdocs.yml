@@ -219,10 +219,11 @@ nav:
       - Strategies:
         - Overview: developers/strategies/index.md
         - Tutorial:
-          - Intro: developers/tutorial/index.md
-          - How to Create a Strategy: developers/tutorial/create-strategy.md
-          - Perform Trade: developers/tutorial/perform-trade.md
-          - Simple Trade: developers/tutorial/simple-trade.md
+          - Overview: developers/strategies/tutorial/index.md
+          - Key Concepts: developers/strategies/tutorial/key-concepts.md
+          - Get Started: developers/strategies/tutorial/create-strategy.md
+          - Display Status: developers/strategies/tutorial/status.md
+          - Access Order Book Data: developers/strategies/tutorial/order-book.md
         - Strategy Specifications:
           - Pure Market Making: developers/strategies/pure-market-making.md
           - Cross-Exchange Market Making: developers/strategies/cross-exchange-market-making.md
