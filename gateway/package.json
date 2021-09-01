@@ -29,6 +29,7 @@
     "app-root-path": "^3.0.0",
     "axios": "^0.21.1",
     "body-parser": "^1.19.0",
+    "dayjs": "^1.10.6",
     "ethers": "^5.4.1",
     "express": "^4.17.1",
     "express-ipfilter": "^1.2.0",

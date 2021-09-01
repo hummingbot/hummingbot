@@ -6,6 +6,7 @@ import { EthereumBase, Token } from '../../services/ethereum-base';
 import { ConfigManager } from '../../services/config-manager';
 import { EthereumConfig } from './ethereum.config';
 import { TokenValue } from '../../services/base';
+import { Provider } from '@ethersproject/abstract-provider';
 
 // MKR does not match the ERC20 perfectly so we need to use a separate ABI.
 const MKR_ADDRESS = '0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2';
@@ -81,29 +82,18 @@ export class Ethereum extends EthereumBase {
     decimals: number
   ): Promise<TokenValue> {
     // instantiate a contract and pass in provider for read-only access
-    let contract;
-    if (tokenAddress === MKR_ADDRESS) {
-      contract = new Contract(tokenAddress, abi.MKRAbi, this.provider);
-    } else {
-      contract = new Contract(tokenAddress, abi.ERC20Abi, this.provider);
-    }
+    const contract = this.getContract(tokenAddress, this.provider);
 
-    try {
-      logger.info(
-        'Requesting balance for owner ' +
-          wallet.address +
-          ' for token ' +
-          tokenAddress +
-          '.'
-      );
-      const balance = await contract.balanceOf(wallet.address);
-      logger.info(balance);
-      return { value: balance, decimals: decimals };
-    } catch (err) {
-      throw new Error(
-        err.reason || `Error balance lookup for token address ${tokenAddress}`
-      );
-    }
+    logger.info(
+      'Requesting balance for owner ' +
+        wallet.address +
+        ' for token ' +
+        tokenAddress +
+        '.'
+    );
+    const balance = await contract.balanceOf(wallet.address);
+    logger.info(balance);
+    return { value: balance, decimals: decimals };
   }
 
   // override getERC20Allowance
@@ -114,28 +104,26 @@ export class Ethereum extends EthereumBase {
     decimals: number
   ): Promise<TokenValue> {
     // instantiate a contract and pass in provider for read-only access
-    let contract;
-    if (tokenAddress === MKR_ADDRESS) {
-      contract = new Contract(tokenAddress, abi.MKRAbi, this.provider);
-    } else {
-      contract = new Contract(tokenAddress, abi.ERC20Abi, this.provider);
-    }
-    try {
-      logger.info(
-        'Requesting spender ' +
-          spender +
-          ' allowance for owner ' +
-          wallet.address +
-          ' for token ' +
-          tokenAddress +
-          '.'
-      );
-      const allowance = await contract.allowance(wallet.address, spender);
-      logger.info(allowance);
-      return { value: allowance, decimals: decimals };
-    } catch (err) {
-      throw new Error(err.reason || 'error allowance lookup');
-    }
+    const contract = this.getContract(tokenAddress, this.provider);
+
+    logger.info(
+      'Requesting spender ' +
+        spender +
+        ' allowance for owner ' +
+        wallet.address +
+        ' for token ' +
+        tokenAddress +
+        '.'
+    );
+    const allowance = await contract.allowance(wallet.address, spender);
+    logger.info(allowance);
+    return { value: allowance, decimals: decimals };
+  }
+
+  getContract(tokenAddress: string, signerOrProvider?: Wallet | Provider) {
+    return tokenAddress === MKR_ADDRESS
+      ? new Contract(tokenAddress, abi.MKRAbi, signerOrProvider)
+      : new Contract(tokenAddress, abi.ERC20Abi, signerOrProvider);
   }
 
   // override approveERC20
@@ -145,48 +133,31 @@ export class Ethereum extends EthereumBase {
     tokenAddress: string,
     amount: BigNumber
   ): Promise<boolean> {
-    try {
-      // instantiate a contract and pass in wallet, which act on behalf of that signer
-      let contract;
-      if (tokenAddress === MKR_ADDRESS) {
-        contract = new Contract(tokenAddress, abi.MKRAbi, wallet);
-      } else {
-        contract = new Contract(tokenAddress, abi.ERC20Abi, wallet);
-      }
+    // instantiate a contract and pass in wallet, which act on behalf of that signer
+    const contract = this.getContract(tokenAddress, wallet);
 
-      logger.info(
-        'Calling approve method called for spender ' +
-          spender +
-          ' requesting allowance ' +
-          amount.toString() +
-          ' from owner ' +
-          wallet.address +
-          ' on token ' +
-          tokenAddress +
-          '.'
-      );
-      const response = await contract.approve(spender, amount, {
-        gasPrice: this.gasPrice * 1e9,
-        gasLimit: 100000,
-      });
-      logger.info(response);
-      return response;
-    } catch (err) {
-      throw new Error(err.reason || 'error approval');
-    }
+    logger.info(
+      'Calling approve method called for spender ' +
+        spender +
+        ' requesting allowance ' +
+        amount.toString() +
+        ' from owner ' +
+        wallet.address +
+        ' on token ' +
+        tokenAddress +
+        '.'
+    );
+    const response = await contract.approve(spender, amount, {
+      gasPrice: this.gasPrice * 1e9,
+      gasLimit: 100000,
+    });
+    logger.info(response);
+    return response;
   }
 
   getTokenBySymbol(tokenSymbol: string): Token | undefined {
-    const symbol = tokenSymbol.toUpperCase();
-
-    let tokenContractAddress = undefined;
-    for (var i = 0; i < this.tokenList.length; i++) {
-      const token: Token = this.tokenList[i];
-      if (token.symbol === symbol) {
-        tokenContractAddress = token;
-        break;
-      }
-    }
-    return tokenContractAddress;
+    return this.tokenList.find(
+      (token: Token) => token.symbol === tokenSymbol.toUpperCase()
+    );
   }
 }
