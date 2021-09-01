@@ -2,6 +2,7 @@
 
 import asyncio
 from collections import deque, defaultdict
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 import logging
 import time
 from typing import (
@@ -29,9 +30,10 @@ class BinanceOrderBookTracker(OrderBookTracker):
 
     def __init__(self,
                  trading_pairs: Optional[List[str]] = None,
-                 domain: str = "com"):
+                 domain: str = "com",
+                 throttler: Optional[AsyncThrottler] = None):
         super().__init__(
-            data_source=BinanceAPIOrderBookDataSource(trading_pairs=trading_pairs, domain=domain),
+            data_source=BinanceAPIOrderBookDataSource(trading_pairs=trading_pairs, domain=domain, throttler=throttler),
             trading_pairs=trading_pairs,
             domain=domain
         )
