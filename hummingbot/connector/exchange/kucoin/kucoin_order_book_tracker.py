@@ -33,7 +33,7 @@ class KucoinOrderBookTracker(OrderBookTracker):
         return cls._kobt_logger
 
     def __init__(self,
-                 throttler: Optional[AsyncThrottler] = None,
+                 throttler: AsyncThrottler,
                  trading_pairs: Optional[List[str]] = None,
                  auth: Optional[KucoinAuth] = None):
         super().__init__(KucoinAPIOrderBookDataSource(throttler, trading_pairs, auth), trading_pairs)
