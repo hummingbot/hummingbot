@@ -315,6 +315,7 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                     "Check network connection."
                 )
                 if ws_adapter:
+                    print(f"*** Going to wait for we.close() ({ws_adapter.close}")
                     await ws_adapter.close()
                 print("*** Before sleep")
                 await self._sleep(30.0)
