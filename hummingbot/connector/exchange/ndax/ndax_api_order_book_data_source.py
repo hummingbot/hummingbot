@@ -268,7 +268,6 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 async for raw_msg in ws_adapter.iter_messages():
                     payload = NdaxWebSocketAdaptor.payload_from_raw_message(raw_msg)
                     msg_event: str = NdaxWebSocketAdaptor.endpoint_from_raw_message(raw_msg)
-
                     if msg_event in [CONSTANTS.WS_ORDER_BOOK_CHANNEL, CONSTANTS.WS_ORDER_BOOK_L2_UPDATE_EVENT]:
                         msg_data: List[NdaxOrderBookEntry] = [NdaxOrderBookEntry(*entry)
                                                               for entry in payload]
@@ -302,7 +301,7 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                     metadata=metadata)
                             self._last_traded_prices[
                                 order_book_message.trading_pair] = order_book_message.last_traded_price
-                            output.put_nowait(order_book_message)
+                            await output.put(order_book_message)
 
             except asyncio.CancelledError:
                 raise
