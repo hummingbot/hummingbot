@@ -7,7 +7,6 @@ from collections import Awaitable
 from decimal import Decimal
 from functools import partial
 from typing import Dict
-from unittest.mock import patch
 
 from aioresponses import aioresponses
 from hummingbot.connector.exchange.kucoin.kucoin_exchange import KucoinExchange, KUCOIN_ROOT_API
@@ -216,16 +215,17 @@ class TestKucoinExchange(unittest.TestCase):
         def callback(*args, **kwargs):
             called.set()
 
-        mock_api.delete(regex_url, callback=callback)
+        exchange_id = "someId"
+        resp = self.get_cancel_response(exchange_id=exchange_id)
+        mock_api.delete(regex_url, body=json.dumps(resp), callback=callback)
 
         order_id = "internalId"
-        self.exchange.in_flight_orders[order_id] = self.get_in_flight_order_mock(order_id, exchange_id="someId")
+        self.exchange.in_flight_orders[order_id] = self.get_in_flight_order_mock(order_id, exchange_id=exchange_id)
         self.async_run_with_timeout(coroutine=self.exchange.execute_cancel(self.trading_pair, order_id))
 
         self.assertTrue(called.is_set())
 
     @aioresponses()
-    @patch("hummingbot.client.hummingbot_application.HummingbotApplication")
     def test_cancel_all(self, mock_api, _):
         url = KUCOIN_ROOT_API + CONSTANTS.ORDERS_PATH_URL
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
