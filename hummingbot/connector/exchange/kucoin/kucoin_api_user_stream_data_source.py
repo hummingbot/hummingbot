@@ -115,7 +115,6 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 self.logger().error("Unexpected error while maintaining the user event listen key. Retrying after "
                                     "5 seconds...", exc_info=False)
                 self._current_listen_key = None
-                print(ws is None)
                 if ws is not None:
                     await ws.close()
                 await asyncio.sleep(5)

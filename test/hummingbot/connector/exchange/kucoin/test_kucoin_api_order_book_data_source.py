@@ -131,7 +131,7 @@ class TestKucoinAPIOrderBookDataSource(KucoinTestProviders, unittest.TestCase):
         super().setUp()
         self.throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         self.auth = KucoinAuth(self.api_key, self.api_passphrase, self.api_secret_key)
-        self.ob_tracker = KucoinAPIOrderBookDataSource(self.throttler, [self.trading_pair], self.auth)
+        self.ob_data_source = KucoinAPIOrderBookDataSource(self.throttler, [self.trading_pair], self.auth)
 
     @staticmethod
     def get_snapshot_mock() -> Dict:
@@ -226,7 +226,7 @@ class TestKucoinAPIOrderBookDataSource(KucoinTestProviders, unittest.TestCase):
 
         client = self.ev_loop.run_until_complete(aiohttp.ClientSession().__aenter__())
         ret = self.async_run_with_timeout(
-            coroutine=self.ob_tracker.get_snapshot(client, self.trading_pair, self.auth, self.throttler)
+            coroutine=self.ob_data_source.get_snapshot(client, self.trading_pair, self.auth, self.throttler)
         )
         self.ev_loop.run_until_complete(client.__aexit__(None, None, None))
 
@@ -239,6 +239,6 @@ class TestKucoinAPIOrderBookDataSource(KucoinTestProviders, unittest.TestCase):
         resp = self.get_snapshot_mock()
         mock_api.get(regex_url, body=json.dumps(resp))
 
-        ret = self.async_run_with_timeout(coroutine=self.ob_tracker.get_new_order_book(self.trading_pair))
+        ret = self.async_run_with_timeout(coroutine=self.ob_data_source.get_new_order_book(self.trading_pair))
 
         self.assertTrue(isinstance(ret, OrderBook))

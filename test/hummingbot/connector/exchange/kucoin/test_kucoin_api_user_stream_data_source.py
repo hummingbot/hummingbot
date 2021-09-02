@@ -100,14 +100,16 @@ class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
         url = CONSTANTS.BASE_PATH_URL + CONSTANTS.PRIVATE_WS_DATA_PATH_URL
         resp = self.get_listen_key_mock()
         mock_api.post(url, body=json.dumps(resp))
+        raised_event = asyncio.Event()
 
         async def raise_exception():
-            raise Exception
+            raised_event.set()
+            raise IOError
 
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         ws_connect_mock.return_value.recv.side_effect = raise_exception
 
-        with self.assertRaises(Exception):
-            self.async_run_with_timeout(self.data_source.listen_for_user_stream(self.ev_loop, asyncio.Queue()))
+        self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, asyncio.Queue()))
+        self.async_run_with_timeout(coroutine=raised_event.wait())
 
         ws_connect_mock.return_value.close.assert_called()
