@@ -33,7 +33,9 @@ class HummingbotLogger(PythonLogger):
 
     @staticmethod
     def is_testing_mode() -> bool:
-        return any(arg in TESTING_TOOLS for arg in sys.argv)
+        return any(tools in arg
+                   for tools in TESTING_TOOLS
+                   for arg in sys.argv)
 
     def notify(self, msg: str):
         from . import INFO
