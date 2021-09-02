@@ -10,7 +10,7 @@ from hummingbot.connector.derivative.bybit_perpetual import bybit_perpetual_cons
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source import BybitPerpetualAPIOrderBookDataSource
 from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
-from test.hummingbot.connector.network_mock_assistant import NetworkMockingAssistant
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):

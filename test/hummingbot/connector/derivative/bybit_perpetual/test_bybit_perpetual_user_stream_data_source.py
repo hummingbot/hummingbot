@@ -7,7 +7,7 @@ from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_user_stream
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_auth import BybitPerpetualAuth
 import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_constants as CONSTANTS
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_websocket_adaptor import BybitPerpetualWebSocketAdaptor
-from test.hummingbot.connector.network_mock_assistant import NetworkMockingAssistant
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class BybitPerpetualUserStreamDataSourceTests(TestCase):
