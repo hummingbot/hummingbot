@@ -90,7 +90,7 @@ class TestKucoinExchange(unittest.TestCase):
         }
         return exchange_rules
 
-    def get_in_flight_order_mock(self, order_id, exchange_id) -> KucoinInFlightOrder:
+    def get_in_flight_order_mock(self, order_id: str, exchange_id: str) -> KucoinInFlightOrder:
         order = KucoinInFlightOrder(
             client_order_id=order_id,
             exchange_order_id=exchange_id,
@@ -101,6 +101,16 @@ class TestKucoinExchange(unittest.TestCase):
             amount=Decimal("1"),
         )
         return order
+
+    @staticmethod
+    def get_cancel_response(exchange_id: str) -> Dict:
+        cancel_response = {
+            "code": "200000",
+            "data": {
+                "cancelledOrderIds": [exchange_id],
+            }
+        }
+        return cancel_response
 
     @aioresponses()
     def test_check_network_success(self, mock_api):
@@ -223,13 +233,17 @@ class TestKucoinExchange(unittest.TestCase):
         def callback(ev, *args, **kwargs):
             ev.set()
 
-        mock_api.delete(regex_url, callback=partial(callback, called1))
-        mock_api.delete(regex_url, callback=partial(callback, called2))
-
         order_id1 = "internalId1"
         order_id2 = "internalId2"
-        self.exchange.in_flight_orders[order_id1] = self.get_in_flight_order_mock(order_id1, exchange_id="someId1")
-        self.exchange.in_flight_orders[order_id2] = self.get_in_flight_order_mock(order_id2, exchange_id="someId2")
+        exchange_id1 = "someId1"
+        exchange_id2 = "someId2"
+        resp1 = self.get_cancel_response(exchange_id1)
+        resp2 = self.get_cancel_response(exchange_id2)
+        mock_api.delete(regex_url, body=json.dumps(resp1), callback=partial(callback, called1))
+        mock_api.delete(regex_url, body=json.dumps(resp2), callback=partial(callback, called2))
+
+        self.exchange.in_flight_orders[order_id1] = self.get_in_flight_order_mock(order_id1, exchange_id=exchange_id1)
+        self.exchange.in_flight_orders[order_id2] = self.get_in_flight_order_mock(order_id2, exchange_id=exchange_id2)
         self.async_run_with_timeout(coroutine=self.exchange.cancel_all(timeout_seconds=1))
 
         self.assertTrue(called1.is_set())
