@@ -21,10 +21,10 @@ volatility_period: null
 volatility_factor: null
 
 # The spread between lower price to the upper price for buy position
-buy_position_price_spread: null
+buy_spread: null
 
 # The spread between lower price to the upper price for sell position
-sell_position_price_spread: null
+sell_spread: null
 
 # The base amount of token (liquidity) provided to the pool
 base_token_amount: null

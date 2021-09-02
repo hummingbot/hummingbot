@@ -24,6 +24,7 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class NdaxExchangeTests(TestCase):
@@ -41,16 +42,11 @@ class NdaxExchangeTests(TestCase):
 
     def setUp(self) -> None:
         super().setUp()
-        self.ws_sent_messages = []
-        self.ws_incoming_messages = asyncio.Queue()
-
-        self.api_responses = asyncio.Queue()
 
         self.tracker_task = None
         self.exchange_task = None
         self.log_records = []
         self.resume_test_event = asyncio.Event()
-        self._finalMessage = 'FinalDummyMessage'
         self._account_name = "hbot"
 
         self.exchange = NdaxExchange(ndax_uid='001',
@@ -63,6 +59,8 @@ class NdaxExchangeTests(TestCase):
         self.exchange.logger().addHandler(self)
         self.exchange._account_id = 1
 
+        self.mocking_assistant = NetworkMockingAssistant()
+
     def tearDown(self) -> None:
         self.tracker_task and self.tracker_task.cancel()
         self.exchange_task and self.exchange_task.cancel()
@@ -74,22 +72,6 @@ class NdaxExchangeTests(TestCase):
     def _is_logged(self, log_level: str, message: str) -> bool:
         return any(record.levelname == log_level and record.getMessage() == message
                    for record in self.log_records)
-
-    async def _get_next_received_message(self):
-        message = await self.ws_incoming_messages.get()
-        if json.loads(message) == self._finalMessage:
-            self.resume_test_event.set()
-        return message
-
-    async def _get_next_api_response(self):
-        message = await self.api_responses.get()
-        return message
-
-    def _create_ws_mock(self):
-        ws = AsyncMock()
-        ws.send.side_effect = lambda sent_message: self.ws_sent_messages.append(sent_message)
-        ws.recv.side_effect = self._get_next_received_message
-        return ws
 
     def _authentication_response(self, authenticated: bool) -> str:
         user = {"UserId": 492,
@@ -114,15 +96,6 @@ class NdaxExchangeTests(TestCase):
                    "o": json.dumps(payload)}
 
         return json.dumps(message)
-
-    def _set_mock_response(self, mock_api, status: int, json_data: Any, text_data: str = ""):
-        self.api_responses.put_nowait(json_data)
-        mock_api.return_value.status = status
-        mock_api.return_value.json.side_effect = self._get_next_api_response
-        mock_api.return_value.text = AsyncMock(return_value=text_data)
-
-    def _add_successful_authentication_response(self):
-        self.ws_incoming_messages.put_nowait(self._authentication_response(True))
 
     def _create_exception_and_unlock_test_with_event(self, exception):
         self.resume_test_event.set()
@@ -161,12 +134,14 @@ class NdaxExchangeTests(TestCase):
 
     @patch('websockets.connect', new_callable=AsyncMock)
     def test_user_event_queue_error_is_logged(self, ws_connect_mock):
-        ws_connect_mock.return_value = self._create_ws_mock()
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         self.exchange_task = asyncio.get_event_loop().create_task(
             self.exchange._user_stream_event_listener())
         # Add the authentication response for the websocket
-        self._add_successful_authentication_response()
+        self.mocking_assistant.add_websocket_text_message(
+            ws_connect_mock.return_value,
+            self._authentication_response(True))
 
         dummy_user_stream = AsyncMock()
         dummy_user_stream.get.side_effect = lambda: self._create_exception_and_unlock_test_with_event(
@@ -174,7 +149,7 @@ class NdaxExchangeTests(TestCase):
         self.exchange._user_stream_tracker._user_stream = dummy_user_stream
 
         # Add a dummy message for the websocket to read and include in the "messages" queue
-        self.ws_incoming_messages.put_nowait(json.dumps('dummyMessage'))
+        self.mocking_assistant.add_websocket_text_message(ws_connect_mock, json.dumps('dummyMessage'))
         asyncio.get_event_loop().run_until_complete(self.resume_test_event.wait())
         self.resume_test_event.clear()
 
@@ -188,58 +163,39 @@ class NdaxExchangeTests(TestCase):
 
         self.assertTrue(self._is_logged('NETWORK', "Unknown error. Retrying after 1 seconds."))
 
-    @patch('websockets.connect', new_callable=AsyncMock)
-    def test_user_event_queue_notifies_cancellations(self, ws_connect_mock):
-        ws_connect_mock.return_value = self._create_ws_mock()
-
+    def test_user_event_queue_notifies_cancellations(self):
         self.tracker_task = asyncio.get_event_loop().create_task(
             self.exchange._user_stream_event_listener())
-        # Add the authentication response for the websocket
-        self._add_successful_authentication_response()
 
         dummy_user_stream = AsyncMock()
         dummy_user_stream.get.side_effect = lambda: self._create_exception_and_unlock_test_with_event(
             asyncio.CancelledError())
         self.exchange._user_stream_tracker._user_stream = dummy_user_stream
 
-        # Add a dummy message for the websocket to read and include in the "messages" queue
-        self.ws_incoming_messages.put_nowait(json.dumps('dummyMessage'))
-        asyncio.get_event_loop().run_until_complete(self.resume_test_event.wait())
-        self.resume_test_event.clear()
+        # Yield processor for the exchange to process the new message
+        asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.3))
 
         with self.assertRaises(asyncio.CancelledError):
             asyncio.get_event_loop().run_until_complete(self.tracker_task)
 
-    @patch('websockets.connect', new_callable=AsyncMock)
-    def test_exchange_logs_unknown_event_message(self, ws_connect_mock):
+    def test_exchange_logs_unknown_event_message(self):
         payload = {}
         message = {"m": 3,
                    "i": 99,
                    "n": 'UnknownEndpoint',
                    "o": json.dumps(payload)}
 
-        ws_connect_mock.return_value = self._create_ws_mock()
-
         self.exchange_task = asyncio.get_event_loop().create_task(
             self.exchange._user_stream_event_listener())
-        self.tracker_task = asyncio.get_event_loop().create_task(
-            self.exchange._user_stream_tracker.start())
 
-        # Add the authentication response for the websocket
-        self._add_successful_authentication_response()
-        self.ws_incoming_messages.put_nowait(json.dumps(message))
+        self.exchange._user_stream_tracker.user_stream.put_nowait(message)
 
-        # Add a dummy message for the websocket to read and include in the "messages" queue
-        self.ws_incoming_messages.put_nowait(json.dumps(self._finalMessage))
-
-        # Wait until the connector finishes processing the message queue
-        asyncio.get_event_loop().run_until_complete(self.resume_test_event.wait())
-        self.resume_test_event.clear()
+        # Yield processor for the exchange to process the new message
+        asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.3))
 
         self.assertTrue(self._is_logged('DEBUG', f"Unknown event received from the connector ({message})"))
 
-    @patch('websockets.connect', new_callable=AsyncMock)
-    def test_account_position_event_updates_account_balances(self, ws_connect_mock):
+    def test_account_position_event_updates_account_balances(self):
         payload = {"OMSId": 1,
                    "AccountId": 5,
                    "ProductSymbol": "BTC",
@@ -255,29 +211,17 @@ class NdaxExchangeTests(TestCase):
                    "n": CONSTANTS.ACCOUNT_POSITION_EVENT_ENDPOINT_NAME,
                    "o": json.dumps(payload)}
 
-        ws_connect_mock.return_value = self._create_ws_mock()
-
         self.exchange_task = asyncio.get_event_loop().create_task(
             self.exchange._user_stream_event_listener())
-        self.tracker_task = asyncio.get_event_loop().create_task(
-            self.exchange._user_stream_tracker.start())
 
-        # Add the authentication response for the websocket
-        self._add_successful_authentication_response()
-        self.ws_incoming_messages.put_nowait(json.dumps(message))
-
-        # Add a dummy message for the websocket to read and include in the "messages" queue
-        self.ws_incoming_messages.put_nowait(json.dumps(self._finalMessage))
-
-        # Wait until the connector finishes processing the message queue
-        asyncio.get_event_loop().run_until_complete(self.resume_test_event.wait())
-        self.resume_test_event.clear()
+        self.exchange._user_stream_tracker.user_stream.put_nowait(message)
+        # Yield processor for the exchange to process the new message
+        asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.3))
 
         self.assertEqual(Decimal('10499.1'), self.exchange.get_balance('BTC'))
         self.assertEqual(Decimal('10499.1') - Decimal('2.1'), self.exchange.available_balances['BTC'])
 
-    @patch('websockets.connect', new_callable=AsyncMock)
-    def test_order_event_with_cancel_status_cancels_in_flight_order(self, ws_connect_mock):
+    def test_order_event_with_cancel_status_cancels_in_flight_order(self):
         payload = {
             "Side": "Sell",
             "OrderId": 9849,
@@ -299,8 +243,6 @@ class NdaxExchangeTests(TestCase):
                    "n": CONSTANTS.ORDER_STATE_EVENT_ENDPOINT_NAME,
                    "o": json.dumps(payload)}
 
-        ws_connect_mock.return_value = self._create_ws_mock()
-
         self.exchange.start_tracking_order(order_id="3",
                                            exchange_order_id="9849",
                                            trading_pair="BTC-USD",
@@ -313,19 +255,10 @@ class NdaxExchangeTests(TestCase):
 
         self.exchange_task = asyncio.get_event_loop().create_task(
             self.exchange._user_stream_event_listener())
-        self.tracker_task = asyncio.get_event_loop().create_task(
-            self.exchange._user_stream_tracker.start())
 
-        # Add the authentication response for the websocket
-        self._add_successful_authentication_response()
-        self.ws_incoming_messages.put_nowait(json.dumps(message))
-
-        # Add a dummy message for the websocket to read and include in the "messages" queue
-        self.ws_incoming_messages.put_nowait(json.dumps(self._finalMessage))
-
-        # Wait until the connector finishes processing the message queue
-        asyncio.get_event_loop().run_until_complete(self.resume_test_event.wait())
-        self.resume_test_event.clear()
+        self.exchange._user_stream_tracker.user_stream.put_nowait(message)
+        # Yield processor for the exchange to process the new message
+        asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.3))
 
         self.assertEqual("Canceled", inflight_order.last_state)
         self.assertTrue(inflight_order.is_cancelled)
@@ -336,8 +269,7 @@ class NdaxExchangeTests(TestCase):
         self.assertEqual(OrderCancelledEvent, type(cancel_event))
         self.assertEqual(inflight_order.client_order_id, cancel_event.order_id)
 
-    @patch('websockets.connect', new_callable=AsyncMock)
-    def test_order_event_with_rejected_status_makes_in_flight_order_fail(self, ws_connect_mock):
+    def test_order_event_with_rejected_status_makes_in_flight_order_fail(self):
         payload = {
             "Side": "Sell",
             "OrderId": 9849,
@@ -359,8 +291,6 @@ class NdaxExchangeTests(TestCase):
                    "n": CONSTANTS.ORDER_STATE_EVENT_ENDPOINT_NAME,
                    "o": json.dumps(payload)}
 
-        ws_connect_mock.return_value = self._create_ws_mock()
-
         self.exchange.start_tracking_order(order_id="3",
                                            exchange_order_id="9849",
                                            trading_pair="BTC-USD",
@@ -373,19 +303,10 @@ class NdaxExchangeTests(TestCase):
 
         self.exchange_task = asyncio.get_event_loop().create_task(
             self.exchange._user_stream_event_listener())
-        self.tracker_task = asyncio.get_event_loop().create_task(
-            self.exchange._user_stream_tracker.start())
 
-        # Add the authentication response for the websocket
-        self._add_successful_authentication_response()
-        self.ws_incoming_messages.put_nowait(json.dumps(message))
-
-        # Add a dummy message for the websocket to read and include in the "messages" queue
-        self.ws_incoming_messages.put_nowait(json.dumps(self._finalMessage))
-
-        # Wait until the connector finishes processing the message queue
-        asyncio.get_event_loop().run_until_complete(self.resume_test_event.wait())
-        self.resume_test_event.clear()
+        self.exchange._user_stream_tracker.user_stream.put_nowait(message)
+        # Yield processor for the exchange to process the new message
+        asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.3))
 
         self.assertEqual("Rejected", inflight_order.last_state)
         self.assertTrue(inflight_order.is_failure)
@@ -399,8 +320,7 @@ class NdaxExchangeTests(TestCase):
         self.assertEqual(MarketOrderFailureEvent, type(failure_event))
         self.assertEqual(inflight_order.client_order_id, failure_event.order_id)
 
-    @patch('websockets.connect', new_callable=AsyncMock)
-    def test_trade_event_fills_and_completes_buy_in_flight_order(self, ws_connect_mock):
+    def test_trade_event_fills_and_completes_buy_in_flight_order(self):
         payload = {
             "OMSId": 1,
             "TradeId": 213,
@@ -422,8 +342,6 @@ class NdaxExchangeTests(TestCase):
                    "n": CONSTANTS.ORDER_TRADE_EVENT_ENDPOINT_NAME,
                    "o": json.dumps(payload)}
 
-        ws_connect_mock.return_value = self._create_ws_mock()
-
         self.exchange.start_tracking_order(order_id="3",
                                            exchange_order_id="9848",
                                            trading_pair="BTC-USD",
@@ -436,19 +354,10 @@ class NdaxExchangeTests(TestCase):
 
         self.exchange_task = asyncio.get_event_loop().create_task(
             self.exchange._user_stream_event_listener())
-        self.tracker_task = asyncio.get_event_loop().create_task(
-            self.exchange._user_stream_tracker.start())
 
-        # Add the authentication response for the websocket
-        self._add_successful_authentication_response()
-        self.ws_incoming_messages.put_nowait(json.dumps(message))
-
-        # Add a dummy message for the websocket to read and include in the "messages" queue
-        self.ws_incoming_messages.put_nowait(json.dumps(self._finalMessage))
-
-        # Wait until the connector finishes processing the message queue
-        asyncio.get_event_loop().run_until_complete(self.resume_test_event.wait())
-        self.resume_test_event.clear()
+        self.exchange._user_stream_tracker.user_stream.put_nowait(message)
+        # Yield processor for the exchange to process the new message
+        asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.3))
 
         self.assertEqual("FullyExecuted", inflight_order.last_state)
         self.assertIn(payload["TradeId"], inflight_order.trade_id_set)
@@ -483,8 +392,7 @@ class NdaxExchangeTests(TestCase):
         self.assertEqual(inflight_order.order_type, buy_event.order_type)
         self.assertEqual(inflight_order.exchange_order_id, buy_event.exchange_order_id)
 
-    @patch('websockets.connect', new_callable=AsyncMock)
-    def test_trade_event_fills_and_completes_sell_in_flight_order(self, ws_connect_mock):
+    def test_trade_event_fills_and_completes_sell_in_flight_order(self):
         payload = {
             "OMSId": 1,
             "TradeId": 213,
@@ -506,8 +414,6 @@ class NdaxExchangeTests(TestCase):
                    "n": CONSTANTS.ORDER_TRADE_EVENT_ENDPOINT_NAME,
                    "o": json.dumps(payload)}
 
-        ws_connect_mock.return_value = self._create_ws_mock()
-
         self.exchange.start_tracking_order(order_id="3",
                                            exchange_order_id="9848",
                                            trading_pair="BTC-USD",
@@ -520,19 +426,10 @@ class NdaxExchangeTests(TestCase):
 
         self.exchange_task = asyncio.get_event_loop().create_task(
             self.exchange._user_stream_event_listener())
-        self.tracker_task = asyncio.get_event_loop().create_task(
-            self.exchange._user_stream_tracker.start())
 
-        # Add the authentication response for the websocket
-        self._add_successful_authentication_response()
-        self.ws_incoming_messages.put_nowait(json.dumps(message))
-
-        # Add a dummy message for the websocket to read and include in the "messages" queue
-        self.ws_incoming_messages.put_nowait(json.dumps(self._finalMessage))
-
-        # Wait until the connector finishes processing the message queue
-        asyncio.get_event_loop().run_until_complete(self.resume_test_event.wait())
-        self.resume_test_event.clear()
+        self.exchange._user_stream_tracker.user_stream.put_nowait(message)
+        # Yield processor for the exchange to process the new message
+        asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.3))
 
         self.assertEqual("FullyExecuted", inflight_order.last_state)
         self.assertIn(payload["TradeId"], inflight_order.trade_id_set)
@@ -672,7 +569,8 @@ class NdaxExchangeTests(TestCase):
                           'LoyaltyEnabled': False,
                           'PriceTier': '0',
                           'Frozen': False}]
-        self._set_mock_response(mock_api, 200, mock_response)
+        self.mocking_assistant.configure_http_request_mock(mock_api)
+        self.mocking_assistant.add_http_response(mock_api, 200, mock_response, "")
 
         task = asyncio.get_event_loop().create_task(
             self.exchange._get_account_id()
@@ -702,7 +600,8 @@ class NdaxExchangeTests(TestCase):
                           'LoyaltyEnabled': False,
                           'PriceTier': '0',
                           'Frozen': False}]
-        self._set_mock_response(mock_api, 200, mock_response)
+        self.mocking_assistant.configure_http_request_mock(mock_api)
+        self.mocking_assistant.add_http_response(mock_api, 200, mock_response, "")
 
         task = asyncio.get_event_loop().create_task(
             self.exchange._get_account_id()
@@ -715,7 +614,6 @@ class NdaxExchangeTests(TestCase):
 
     @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
     def test_update_balances(self, mock_api):
-
         self.assertEqual(0, len(self.exchange._account_balances))
         self.assertEqual(0, len(self.exchange._account_available_balances))
 
@@ -730,7 +628,8 @@ class NdaxExchangeTests(TestCase):
             },
         ]
 
-        self._set_mock_response(mock_api, 200, mock_response)
+        self.mocking_assistant.configure_http_request_mock(mock_api)
+        self.mocking_assistant.add_http_response(mock_api, 200, mock_response, "")
 
         self.exchange_task = asyncio.get_event_loop().create_task(
             self.exchange._update_balances()
@@ -760,93 +659,103 @@ class NdaxExchangeTests(TestCase):
         self.assertTrue(1, len(self.exchange.in_flight_orders))
 
         # Add FullyExecuted GetOrderStatus API Response
-        self._set_mock_response(mock_order_status, 200, {
-            "Side": "Sell",
-            "OrderId": 2628,
-            "Price": 41720.830000000000000000000000,
-            "Quantity": 0.0000000000000000000000000000,
-            "DisplayQuantity": 0.0000000000000000000000000000,
-            "Instrument": 5,
-            "Account": 528,
-            "AccountName": "hbot",
-            "OrderType": "Limit",
-            "ClientOrderId": 0,
-            "OrderState": "FullyExecuted",
-            "ReceiveTime": 1627380780887,
-            "ReceiveTimeTicks": 637629775808866338,
-            "LastUpdatedTime": 1627380783860,
-            "LastUpdatedTimeTicks": 637629775838598558,
-            "OrigQuantity": 1.0000000000000000000000000000,
-            "QuantityExecuted": 1.0000000000000000000000000000,
-            "GrossValueExecuted": 41720.830000000000000000000000,
-            "ExecutableValue": 0.0000000000000000000000000000,
-            "AvgPrice": 41720.830000000000000000000000,
-            "CounterPartyId": 0,
-            "ChangeReason": "Trade",
-            "OrigOrderId": 2628,
-            "OrigClOrdId": 0,
-            "EnteredBy": 492,
-            "UserName": "hbot",
-            "IsQuote": False,
-            "InsideAsk": 41720.830000000000000000000000,
-            "InsideAskSize": 0.9329960000000000000000000000,
-            "InsideBid": 41718.340000000000000000000000,
-            "InsideBidSize": 0.0632560000000000000000000000,
-            "LastTradePrice": 41720.830000000000000000000000,
-            "RejectReason": "",
-            "IsLockedIn": False,
-            "CancelReason": "",
-            "OrderFlag": "AddedToBook, RemovedFromBook",
-            "UseMargin": False,
-            "StopPrice": 0.0000000000000000000000000000,
-            "PegPriceType": "Last",
-            "PegOffset": 0.0000000000000000000000000000,
-            "PegLimitOffset": 0.0000000000000000000000000000,
-            "IpAddress": "103.6.151.12",
-            "ClientOrderIdUuid": None,
-            "OMSId": 1
-        })
+        self.mocking_assistant.configure_http_request_mock(mock_order_status)
+        self.mocking_assistant.add_http_response(
+            mock_order_status,
+            200,
+            {
+                "Side": "Sell",
+                "OrderId": 2628,
+                "Price": 41720.830000000000000000000000,
+                "Quantity": 0.0000000000000000000000000000,
+                "DisplayQuantity": 0.0000000000000000000000000000,
+                "Instrument": 5,
+                "Account": 528,
+                "AccountName": "hbot",
+                "OrderType": "Limit",
+                "ClientOrderId": 0,
+                "OrderState": "FullyExecuted",
+                "ReceiveTime": 1627380780887,
+                "ReceiveTimeTicks": 637629775808866338,
+                "LastUpdatedTime": 1627380783860,
+                "LastUpdatedTimeTicks": 637629775838598558,
+                "OrigQuantity": 1.0000000000000000000000000000,
+                "QuantityExecuted": 1.0000000000000000000000000000,
+                "GrossValueExecuted": 41720.830000000000000000000000,
+                "ExecutableValue": 0.0000000000000000000000000000,
+                "AvgPrice": 41720.830000000000000000000000,
+                "CounterPartyId": 0,
+                "ChangeReason": "Trade",
+                "OrigOrderId": 2628,
+                "OrigClOrdId": 0,
+                "EnteredBy": 492,
+                "UserName": "hbot",
+                "IsQuote": False,
+                "InsideAsk": 41720.830000000000000000000000,
+                "InsideAskSize": 0.9329960000000000000000000000,
+                "InsideBid": 41718.340000000000000000000000,
+                "InsideBidSize": 0.0632560000000000000000000000,
+                "LastTradePrice": 41720.830000000000000000000000,
+                "RejectReason": "",
+                "IsLockedIn": False,
+                "CancelReason": "",
+                "OrderFlag": "AddedToBook, RemovedFromBook",
+                "UseMargin": False,
+                "StopPrice": 0.0000000000000000000000000000,
+                "PegPriceType": "Last",
+                "PegOffset": 0.0000000000000000000000000000,
+                "PegLimitOffset": 0.0000000000000000000000000000,
+                "IpAddress": "103.6.151.12",
+                "ClientOrderIdUuid": None,
+                "OMSId": 1
+            },
+            "")
 
         # Add TradeHistory API Response
-        self._set_mock_response(mock_trade_history, 200, [{
-            "OMSId": 1,
-            "ExecutionId": 245936,
-            "TradeId": 252851,
-            "OrderId": 2628,
-            "AccountId": 528,
-            "AccountName": "hbot",
-            "SubAccountId": 0,
-            "ClientOrderId": 0,
-            "InstrumentId": 5,
-            "Side": "Sell",
-            "OrderType": "Limit",
-            "Quantity": 1.0000000000000000000000000000,
-            "RemainingQuantity": 0.0000000000000000000000000000,
-            "Price": 41720.830000000000000000000000,
-            "Value": 41720.830000000000000000000000,
-            "CounterParty": "0",
-            "OrderTradeRevision": 1,
-            "Direction": "NoChange",
-            "IsBlockTrade": False,
-            "Fee": 834.4,
-            "FeeProductId": 5,
-            "OrderOriginator": 492,
-            "UserName": "hbot",
-            "TradeTimeMS": 1627380783859,
-            "MakerTaker": "Maker",
-            "AdapterTradeId": 0,
-            "InsideBid": 41718.340000000000000000000000,
-            "InsideBidSize": 0.0632560000000000000000000000,
-            "InsideAsk": 41720.830000000000000000000000,
-            "InsideAskSize": 0.9329960000000000000000000000,
-            "IsQuote": False,
-            "CounterPartyClientUserId": 0,
-            "NotionalProductId": 2,
-            "NotionalRate": 0.7953538608862469000000000000,
-            "NotionalValue": 480.28818328452511800486539800,
-            "NotionalHoldAmount": 0,
-            "TradeTime": 637629775838593249
-        }])
+        self.mocking_assistant.configure_http_request_mock(mock_trade_history)
+        self.mocking_assistant.add_http_response(
+            mock_trade_history,
+            200,
+            [{
+                "OMSId": 1,
+                "ExecutionId": 245936,
+                "TradeId": 252851,
+                "OrderId": 2628,
+                "AccountId": 528,
+                "AccountName": "hbot",
+                "SubAccountId": 0,
+                "ClientOrderId": 0,
+                "InstrumentId": 5,
+                "Side": "Sell",
+                "OrderType": "Limit",
+                "Quantity": 1.0000000000000000000000000000,
+                "RemainingQuantity": 0.0000000000000000000000000000,
+                "Price": 41720.830000000000000000000000,
+                "Value": 41720.830000000000000000000000,
+                "CounterParty": "0",
+                "OrderTradeRevision": 1,
+                "Direction": "NoChange",
+                "IsBlockTrade": False,
+                "Fee": 834.4,
+                "FeeProductId": 5,
+                "OrderOriginator": 492,
+                "UserName": "hbot",
+                "TradeTimeMS": 1627380783859,
+                "MakerTaker": "Maker",
+                "AdapterTradeId": 0,
+                "InsideBid": 41718.340000000000000000000000,
+                "InsideBidSize": 0.0632560000000000000000000000,
+                "InsideAsk": 41720.830000000000000000000000,
+                "InsideAskSize": 0.9329960000000000000000000000,
+                "IsQuote": False,
+                "CounterPartyClientUserId": 0,
+                "NotionalProductId": 2,
+                "NotionalRate": 0.7953538608862469000000000000,
+                "NotionalValue": 480.28818328452511800486539800,
+                "NotionalHoldAmount": 0,
+                "TradeTime": 637629775838593249
+            }],
+            "")
 
         # Simulate _trading_pair_id_map initialized.
         self.exchange._order_book_tracker.data_source._trading_pair_id_map.update({
@@ -869,60 +778,69 @@ class NdaxExchangeTests(TestCase):
         self.assertTrue(1, len(self.exchange.in_flight_orders))
 
         # Add FullyExecuted GetOrderStatus API Response
-        self._set_mock_response(mock_api, 200, {
-            "Side": "Sell",
-            "OrderId": 2628,
-            "Price": 41720.830000000000000000000000,
-            "Quantity": 0.0000000000000000000000000000,
-            "DisplayQuantity": 0.0000000000000000000000000000,
-            "Instrument": 5,
-            "Account": 528,
-            "AccountName": "hbot",
-            "OrderType": "Limit",
-            "ClientOrderId": 0,
-            "OrderState": "Working",
-            "ReceiveTime": 1627380780887,
-            "ReceiveTimeTicks": 637629775808866338,
-            "LastUpdatedTime": 1627380783860,
-            "LastUpdatedTimeTicks": 637629775838598558,
-            "OrigQuantity": 1.0000000000000000000000000000,
-            "QuantityExecuted": 1.0000000000000000000000000000,
-            "GrossValueExecuted": 41720.830000000000000000000000,
-            "ExecutableValue": 0.0000000000000000000000000000,
-            "AvgPrice": 41720.830000000000000000000000,
-            "CounterPartyId": 0,
-            "ChangeReason": "Trade",
-            "OrigOrderId": 2628,
-            "OrigClOrdId": 0,
-            "EnteredBy": 492,
-            "UserName": "hbot",
-            "IsQuote": False,
-            "InsideAsk": 41720.830000000000000000000000,
-            "InsideAskSize": 0.9329960000000000000000000000,
-            "InsideBid": 41718.340000000000000000000000,
-            "InsideBidSize": 0.0632560000000000000000000000,
-            "LastTradePrice": 41720.830000000000000000000000,
-            "RejectReason": "",
-            "IsLockedIn": False,
-            "CancelReason": "",
-            "OrderFlag": "AddedToBook, RemovedFromBook",
-            "UseMargin": False,
-            "StopPrice": 0.0000000000000000000000000000,
-            "PegPriceType": "Last",
-            "PegOffset": 0.0000000000000000000000000000,
-            "PegLimitOffset": 0.0000000000000000000000000000,
-            "IpAddress": "103.6.151.12",
-            "ClientOrderIdUuid": None,
-            "OMSId": 1
-        })
+        self.mocking_assistant.configure_http_request_mock(mock_api)
+        self.mocking_assistant.add_http_response(
+            mock_api,
+            200,
+            {
+                "Side": "Sell",
+                "OrderId": 2628,
+                "Price": 41720.830000000000000000000000,
+                "Quantity": 0.0000000000000000000000000000,
+                "DisplayQuantity": 0.0000000000000000000000000000,
+                "Instrument": 5,
+                "Account": 528,
+                "AccountName": "hbot",
+                "OrderType": "Limit",
+                "ClientOrderId": 0,
+                "OrderState": "Working",
+                "ReceiveTime": 1627380780887,
+                "ReceiveTimeTicks": 637629775808866338,
+                "LastUpdatedTime": 1627380783860,
+                "LastUpdatedTimeTicks": 637629775838598558,
+                "OrigQuantity": 1.0000000000000000000000000000,
+                "QuantityExecuted": 1.0000000000000000000000000000,
+                "GrossValueExecuted": 41720.830000000000000000000000,
+                "ExecutableValue": 0.0000000000000000000000000000,
+                "AvgPrice": 41720.830000000000000000000000,
+                "CounterPartyId": 0,
+                "ChangeReason": "Trade",
+                "OrigOrderId": 2628,
+                "OrigClOrdId": 0,
+                "EnteredBy": 492,
+                "UserName": "hbot",
+                "IsQuote": False,
+                "InsideAsk": 41720.830000000000000000000000,
+                "InsideAskSize": 0.9329960000000000000000000000,
+                "InsideBid": 41718.340000000000000000000000,
+                "InsideBidSize": 0.0632560000000000000000000000,
+                "LastTradePrice": 41720.830000000000000000000000,
+                "RejectReason": "",
+                "IsLockedIn": False,
+                "CancelReason": "",
+                "OrderFlag": "AddedToBook, RemovedFromBook",
+                "UseMargin": False,
+                "StopPrice": 0.0000000000000000000000000000,
+                "PegPriceType": "Last",
+                "PegOffset": 0.0000000000000000000000000000,
+                "PegLimitOffset": 0.0000000000000000000000000000,
+                "IpAddress": "103.6.151.12",
+                "ClientOrderIdUuid": None,
+                "OMSId": 1
+            },
+            "")
 
         # Add TradeHistory API Response
-        self._set_mock_response(mock_api, 200, {
-            "result": False,
-            "errormsg": "Invalid Request",
-            "errorcode": 100,
-            "detail": None
-        })
+        self.mocking_assistant.add_http_response(
+            mock_api,
+            200,
+            {
+                "result": False,
+                "errormsg": "Invalid Request",
+                "errorcode": 100,
+                "detail": None
+            },
+            "")
 
         # Simulate _trading_pair_id_map initialized.
         self.exchange._order_book_tracker.data_source._trading_pair_id_map.update({
@@ -1041,7 +959,8 @@ class NdaxExchangeTests(TestCase):
             }
         ]
 
-        self._set_mock_response(mock_api, 200, mock_response)
+        self.mocking_assistant.configure_http_request_mock(mock_api)
+        self.mocking_assistant.add_http_response(mock_api, 200, mock_response, "")
 
         task = asyncio.get_event_loop().create_task(
             self.exchange._update_trading_rules()
@@ -1098,7 +1017,8 @@ class NdaxExchangeTests(TestCase):
     @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
     def test_check_network_succeeds_when_ping_replies_pong(self, mock_api):
         mock_response = {"msg": "PONG"}
-        self._set_mock_response(mock_api, 200, mock_response)
+        self.mocking_assistant.configure_http_request_mock(mock_api)
+        self.mocking_assistant.add_http_response(mock_api, 200, mock_response, "")
 
         result = asyncio.get_event_loop().run_until_complete(self.exchange.check_network())
 
@@ -1107,13 +1027,14 @@ class NdaxExchangeTests(TestCase):
     @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
     def test_check_network_fails_when_ping_does_not_reply_pong(self, mock_api):
         mock_response = {"msg": "NOT-PONG"}
-        self._set_mock_response(mock_api, 200, mock_response)
+        self.mocking_assistant.configure_http_request_mock(mock_api)
+        self.mocking_assistant.add_http_response(mock_api, 200, mock_response, "")
 
         result = asyncio.get_event_loop().run_until_complete(self.exchange.check_network())
         self.assertEqual(NetworkStatus.NOT_CONNECTED, result)
 
         mock_response = {}
-        self._set_mock_response(mock_api, 200, mock_response)
+        self.mocking_assistant.add_http_response(mock_api, 200, mock_response, "")
 
         result = asyncio.get_event_loop().run_until_complete(self.exchange.check_network())
         self.assertEqual(NetworkStatus.NOT_CONNECTED, result)
@@ -1121,7 +1042,8 @@ class NdaxExchangeTests(TestCase):
     @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
     def test_check_network_fails_when_ping_returns_error_code(self, mock_api):
         mock_response = {"msg": "PONG"}
-        self._set_mock_response(mock_api, 404, mock_response)
+        self.mocking_assistant.configure_http_request_mock(mock_api)
+        self.mocking_assistant.add_http_response(mock_api, 404, mock_response, "")
 
         result = asyncio.get_event_loop().run_until_complete(self.exchange.check_network())
 
@@ -1183,7 +1105,8 @@ class NdaxExchangeTests(TestCase):
             "OrderId": 123
         }
 
-        self._set_mock_response(mock_post, 200, expected_response)
+        self.mocking_assistant.configure_http_request_mock(mock_post)
+        self.mocking_assistant.add_http_response(mock_post, 200, expected_response, "")
 
         self._simulate_trading_rules_initialized()
 
@@ -1228,7 +1151,8 @@ class NdaxExchangeTests(TestCase):
             "OrderId": 123
         }
 
-        self._set_mock_response(mock_post, 200, expected_response)
+        self.mocking_assistant.configure_http_request_mock(mock_post)
+        self.mocking_assistant.add_http_response(mock_post, 200, expected_response, "")
 
         self._simulate_trading_rules_initialized()
 
@@ -1257,8 +1181,7 @@ class NdaxExchangeTests(TestCase):
         self.assertEqual(tracked_order.amount, Decimal(1.0))
         self.assertEqual(tracked_order.trade_type, TradeType.BUY)
 
-    @patch('websockets.connect', new_callable=AsyncMock)
-    def test_detect_created_order_server_acknowledgement(self, ws_connect_mock):
+    def test_detect_created_order_server_acknowledgement(self):
         self.exchange.start_tracking_order(
             order_id="3",
             exchange_order_id="9849",
@@ -1291,15 +1214,11 @@ class NdaxExchangeTests(TestCase):
             "n": CONSTANTS.ORDER_STATE_EVENT_ENDPOINT_NAME,
             "o": json.dumps(payload),
         }
-        ws_connect_mock.return_value = self._create_ws_mock()
         self.exchange_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
-        self.tracker_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_tracker.start())
-        self._add_successful_authentication_response()
-        self.ws_incoming_messages.put_nowait(json.dumps(message))
-        self.ws_incoming_messages.put_nowait(json.dumps(self._finalMessage))
 
-        asyncio.get_event_loop().run_until_complete(self.resume_test_event.wait())
-        self.resume_test_event.clear()
+        self.exchange._user_stream_tracker.user_stream.put_nowait(message)
+        # Yield processor for the exchange to process the new message
+        asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.3))
 
         self.assertEqual(1, len(self.exchange.in_flight_orders))
         tracked_order: NdaxInFlightOrder = self.exchange.in_flight_orders["3"]
@@ -1371,7 +1290,7 @@ class NdaxExchangeTests(TestCase):
         "hummingbot.connector.exchange.ndax.ndax_api_order_book_data_source.NdaxAPIOrderBookDataSource.get_instrument_ids",
         new_callable=AsyncMock)
     @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
-    def test_create_order_api_returns_error_exception_raised(self, mock_post, mock_get_instrument_ids, mock_main_app):
+    def test_create_order_api_returns_error_exception_raised(self, mock_post, mock_get_instrument_ids, _):
         mock_get_instrument_ids.return_value = {
             self.trading_pair: 5
         }
@@ -1382,7 +1301,8 @@ class NdaxExchangeTests(TestCase):
             "OrderId": 123
         }
 
-        self._set_mock_response(mock_post, 200, expected_response)
+        self.mocking_assistant.configure_http_request_mock(mock_post)
+        self.mocking_assistant.add_http_response(mock_post, 200, expected_response, "")
 
         self._simulate_trading_rules_initialized()
 
@@ -1428,7 +1348,8 @@ class NdaxExchangeTests(TestCase):
             "detail": None
         }
 
-        self._set_mock_response(mock_cancel, 200, mock_response)
+        self.mocking_assistant.configure_http_request_mock(mock_cancel)
+        self.mocking_assistant.add_http_response(mock_cancel, 200, mock_response, "")
 
         result = asyncio.new_event_loop().run_until_complete(
             self.exchange._execute_cancel(self.trading_pair, order.client_order_id)
@@ -1491,7 +1412,8 @@ class NdaxExchangeTests(TestCase):
                 "OMSId": 1
             },
         ]
-        self._set_mock_response(mock_get_request, 200, mock_open_orders_response)
+        self.mocking_assistant.configure_http_request_mock(mock_get_request)
+        self.mocking_assistant.add_http_response(mock_get_request, 200, mock_open_orders_response, "")
 
         mock_response = {
             "result": True,
@@ -1499,7 +1421,8 @@ class NdaxExchangeTests(TestCase):
             "errorcode": 0,
             "detail": None
         }
-        self._set_mock_response(mock_post_request, 200, mock_response)
+        self.mocking_assistant.configure_http_request_mock(mock_post_request)
+        self.mocking_assistant.add_http_response(mock_post_request, 200, mock_response, "")
 
         cancellation_results = asyncio.new_event_loop().run_until_complete(
             self.exchange.cancel_all(10)
@@ -1528,7 +1451,7 @@ class NdaxExchangeTests(TestCase):
         })
 
         # Regardless of Response, the method returns the client_order_id
-        # Actual cancellation verfication is done using WebSocket message or REST API.
+        # Actual cancellation verification is done using WebSocket message or REST API.
         mock_response = {
             "result": False,
             "errormsg": "Invalid Request",
@@ -1536,7 +1459,8 @@ class NdaxExchangeTests(TestCase):
             "detail": None
         }
 
-        self._set_mock_response(mock_cancel, 200, mock_response)
+        self.mocking_assistant.configure_http_request_mock(mock_cancel)
+        self.mocking_assistant.add_http_response(mock_cancel, 200, mock_response, "")
 
         result = asyncio.new_event_loop().run_until_complete(
             self.exchange._execute_cancel(self.trading_pair, order.client_order_id)
@@ -1751,7 +1675,8 @@ class NdaxExchangeTests(TestCase):
 
     @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
     def test_rest_api_limit_reached_error(self, mock_get_request):
-        self._set_mock_response(mock_get_request, 200, {}, CONSTANTS.API_LIMIT_REACHED_ERROR_MESSAGE)
+        self.mocking_assistant.configure_http_request_mock(mock_get_request)
+        self.mocking_assistant.add_http_response(mock_get_request, 200, {}, CONSTANTS.API_LIMIT_REACHED_ERROR_MESSAGE)
 
         with self.assertRaises(IOError) as exception_context:
             asyncio.new_event_loop().run_until_complete(

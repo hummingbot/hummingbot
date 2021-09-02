@@ -166,16 +166,23 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 async with client.get(
                     f"{ndax_utils.rest_api_url(domain) + CONSTANTS.ORDER_BOOK_URL}", params=params
                 ) as response:
-                    if response.status != 200:
+                    status = response.status
+                    if status != 200:
                         raise IOError(
                             f"Error fetching OrderBook for {trading_pair} at {CONSTANTS.ORDER_BOOK_URL}. "
-                            f"HTTP {response.status}. Response: {await response.json()}"
+                            f"HTTP {status}. Response: {await response.json()}"
                         )
 
                     response_ls: List[Any] = await response.json()
                     orderbook_entries: List[NdaxOrderBookEntry] = [NdaxOrderBookEntry(*entry) for entry in response_ls]
                     return {"data": orderbook_entries,
                             "timestamp": int(time.time() * 1e3)}
+
+    async def _sleep(self, delay):
+        """
+        Function added only to facilitate patching the sleep in unit tests without affecting the asyncio module
+        """
+        await asyncio.sleep(delay)
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair, self._domain)
@@ -217,7 +224,7 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         if not len(self._trading_pair_id_map) > 0:
             await self.init_trading_pair_ids(self._domain, self._throttler)
         while True:
-            await asyncio.sleep(self._ORDER_BOOK_SNAPSHOT_DELAY)
+            await self._sleep(self._ORDER_BOOK_SNAPSHOT_DELAY)
             try:
                 for trading_pair in self._trading_pairs:
                     snapshot: Dict[str: Any] = await self.get_order_book_data(trading_pair, domain=self._domain)
@@ -237,7 +244,7 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except Exception:
                 self.logger().error("Unexpected error occured listening for orderbook snapshots. Retrying in 5 secs...",
                                     exc_info=True)
-                await asyncio.sleep(5.0)
+                await self._sleep(5.0)
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
@@ -261,7 +268,6 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 async for raw_msg in ws_adapter.iter_messages():
                     payload = NdaxWebSocketAdaptor.payload_from_raw_message(raw_msg)
                     msg_event: str = NdaxWebSocketAdaptor.endpoint_from_raw_message(raw_msg)
-
                     if msg_event in [CONSTANTS.WS_ORDER_BOOK_CHANNEL, CONSTANTS.WS_ORDER_BOOK_L2_UPDATE_EVENT]:
                         msg_data: List[NdaxOrderBookEntry] = [NdaxOrderBookEntry(*entry)
                                                               for entry in payload]
@@ -295,7 +301,7 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                     metadata=metadata)
                             self._last_traded_prices[
                                 order_book_message.trading_pair] = order_book_message.last_traded_price
-                            output.put_nowait(order_book_message)
+                            await output.put(order_book_message)
 
             except asyncio.CancelledError:
                 raise
@@ -308,7 +314,7 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 )
                 if ws_adapter:
                     await ws_adapter.close()
-                await asyncio.sleep(30.0)
+                await self._sleep(30.0)
 
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         # NDAX does not have a public orderbook trade channel, rather it can be inferred from the Level2UpdateEvent when
