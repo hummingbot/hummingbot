@@ -70,7 +70,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
         throttler = throttler or cls._get_throttler_instance()
         async with aiohttp.ClientSession() as client:
             async with throttler.execute_task(limit_id=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL):
-                url = binance_utils.public_public_rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, domain=domain)
+                url = binance_utils.public_rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, domain=domain)
                 resp = await client.get(f"{url}?symbol={convert_to_exchange_trading_pair(trading_pair)}")
                 resp_json = await resp.json()
                 return float(resp_json["lastPrice"])
