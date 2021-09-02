@@ -1,5 +1,4 @@
 import asyncio
-import json
 import unittest
 from unittest.mock import AsyncMock, patch
 
@@ -35,7 +34,7 @@ class BittrexOrderBookDataSourceTest(unittest.TestCase):
 
     async def _get_next_ws_received_message(self):
         message = await self.ws_incoming_messages.get()
-        if json.loads(message) == self._finalMessage:
+        if message == self._finalMessage:
             self.resume_test_event.set()
         return message
 
@@ -48,28 +47,26 @@ class BittrexOrderBookDataSourceTest(unittest.TestCase):
     def test_listen_for_trades(self, transform_raw_message_mock, mocked_connection, _):
         mocked_connection.return_value = self._create_queue_mock()
         self.ws_incoming_messages.put_nowait(
-            json.dumps(
-                {
-                    'nonce': 1630292147820.41,
-                    'type': 'trade',
-                    'results': {
-                        'deltas': [
-                            {
-                                'id': 'b25fd775-bc1d-4f83-a82f-ff3022bb6982',
-                                'executedAt': '2021-08-30T02:55:47.75Z',
-                                'quantity': '0.01000000',
-                                'rate': '3197.61663059',
-                                'takerSide': 'SELL',
-                            }
-                        ],
-                        'sequence': 1228,
-                        'marketSymbol': self.trading_pair,
-                    }
+            {
+                'nonce': 1630292147820.41,
+                'type': 'trade',
+                'results': {
+                    'deltas': [
+                        {
+                            'id': 'b25fd775-bc1d-4f83-a82f-ff3022bb6982',
+                            'executedAt': '2021-08-30T02:55:47.75Z',
+                            'quantity': '0.01000000',
+                            'rate': '3197.61663059',
+                            'takerSide': 'SELL',
+                        }
+                    ],
+                    'sequence': 1228,
+                    'marketSymbol': self.trading_pair,
                 }
-            )
+            }
         )
-        transform_raw_message_mock.side_effect = lambda arg: json.loads(arg)
-        self.ws_incoming_messages.put_nowait(json.dumps(self._finalMessage))  # to resume test event
+        transform_raw_message_mock.side_effect = lambda arg: arg
+        self.ws_incoming_messages.put_nowait(self._finalMessage)  # to resume test event
         self.ev_loop.create_task(self.ob_data_source.listen_for_subscriptions())
         self.ev_loop.create_task(self.ob_data_source.listen_for_trades(self.ev_loop, self.output_queue))
         self.ev_loop.run_until_complete(asyncio.wait([self.resume_test_event.wait()], timeout=1))
@@ -86,31 +83,29 @@ class BittrexOrderBookDataSourceTest(unittest.TestCase):
     def test_listen_for_order_book_diffs(self, transform_raw_message_mock, mocked_connection, _):
         mocked_connection.return_value = self._create_queue_mock()
         self.ws_incoming_messages.put_nowait(
-            json.dumps(
-                {
-                    'nonce': 1630292145769.5452,
-                    'type': 'delta',
-                    'results': {
-                        'marketSymbol': self.trading_pair,
-                        'depth': 25,
-                        'sequence': 148887,
-                        'bidDeltas': [],
-                        'askDeltas': [
-                            {
-                                'quantity': '0',
-                                'rate': '3199.09000000',
-                            },
-                            {
-                                'quantity': '0.36876366',
-                                'rate': '3200.78897180',
-                            },
-                        ],
-                    },
-                }
-            )
+            {
+                'nonce': 1630292145769.5452,
+                'type': 'delta',
+                'results': {
+                    'marketSymbol': self.trading_pair,
+                    'depth': 25,
+                    'sequence': 148887,
+                    'bidDeltas': [],
+                    'askDeltas': [
+                        {
+                            'quantity': '0',
+                            'rate': '3199.09000000',
+                        },
+                        {
+                            'quantity': '0.36876366',
+                            'rate': '3200.78897180',
+                        },
+                    ],
+                },
+            }
         )
-        transform_raw_message_mock.side_effect = lambda arg: json.loads(arg)
-        self.ws_incoming_messages.put_nowait(json.dumps(self._finalMessage))  # to resume test event
+        transform_raw_message_mock.side_effect = lambda arg: arg
+        self.ws_incoming_messages.put_nowait(self._finalMessage)  # to resume test event
         self.ev_loop.create_task(self.ob_data_source.listen_for_subscriptions())
         self.ev_loop.create_task(self.ob_data_source.listen_for_order_book_diffs(self.ev_loop, self.output_queue))
         self.ev_loop.run_until_complete(asyncio.wait([self.resume_test_event.wait()], timeout=1))
