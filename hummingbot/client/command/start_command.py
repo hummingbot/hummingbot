@@ -27,8 +27,9 @@ from hummingbot.connector.connector_status import get_connector_status, warning_
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.command.rate_command import RateCommand
 from hummingbot.client.config.config_validators import validate_bool
-from hummingbot.client.errors import OracleRateUnavailable
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
+from hummingbot.exceptions import OracleRateUnavailable
+
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
@@ -51,7 +52,7 @@ class StartCommand:
               log_level: Optional[str] = None,
               restore: Optional[bool] = False):
         if threading.current_thread() != threading.main_thread():
-            self.ev_loop.call_soon_threadsafe(self.start, log_level)
+            self.ev_loop.call_soon_threadsafe(self.start, log_level, restore)
             return
         safe_ensure_future(self.start_check(log_level, restore), loop=self.ev_loop)
 

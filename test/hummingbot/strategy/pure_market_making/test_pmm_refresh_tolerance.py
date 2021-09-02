@@ -1,8 +1,4 @@
 #!/usr/bin/env python
-
-from os.path import join, realpath
-import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
-
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from decimal import Decimal
 import logging; logging.basicConfig(level=logging.ERROR)
@@ -77,7 +73,8 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
         self.market.add_listener(MarketEvent.OrderFilled, self.maker_order_fill_logger)
         self.market.add_listener(MarketEvent.OrderCancelled, self.cancel_order_logger)
 
-        self.one_level_strategy: PureMarketMakingStrategy = PureMarketMakingStrategy(
+        self.one_level_strategy: PureMarketMakingStrategy = PureMarketMakingStrategy()
+        self.one_level_strategy.init_params(
             self.market_info,
             bid_spread=Decimal("0.01"),
             ask_spread=Decimal("0.01"),
@@ -88,7 +85,8 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
             hanging_orders_cancel_pct=0.05,
             order_refresh_tolerance_pct=0
         )
-        self.multi_levels_strategy: PureMarketMakingStrategy = PureMarketMakingStrategy(
+        self.multi_levels_strategy: PureMarketMakingStrategy = PureMarketMakingStrategy()
+        self.multi_levels_strategy.init_params(
             self.market_info,
             bid_spread=Decimal("0.01"),
             ask_spread=Decimal("0.01"),
@@ -99,7 +97,8 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
             filled_order_delay=8,
             order_refresh_tolerance_pct=0
         )
-        self.hanging_order_multiple_strategy = PureMarketMakingStrategy(
+        self.hanging_order_multiple_strategy = PureMarketMakingStrategy()
+        self.hanging_order_multiple_strategy.init_params(
             self.market_info,
             bid_spread=Decimal("0.01"),
             ask_spread=Decimal("0.01"),

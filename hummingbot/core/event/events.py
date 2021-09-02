@@ -96,6 +96,14 @@ class PositionMode(Enum):
     ONEWAY = False
 
 
+class FundingInfo(NamedTuple):
+    trading_pair: str
+    index_price: Decimal
+    mark_price: Decimal
+    next_funding_utc_timestamp: int
+    rate: Decimal
+
+
 class PriceType(Enum):
     MidPrice = 1
     BestBid = 2
@@ -103,6 +111,7 @@ class PriceType(Enum):
     LastTrade = 4
     LastOwnTrade = 5
     InventoryCost = 6
+    Custom = 7
 
 
 class MarketTransactionFailureEvent(NamedTuple):
@@ -427,3 +436,13 @@ class RangePositionRemovedEvent:
 class RangePositionFailureEvent:
     timestamp: float
     hb_id: str
+
+
+class LimitOrderStatus(Enum):
+    UNKNOWN = 0
+    NEW = 1
+    OPEN = 2
+    CANCELING = 3
+    CANCELED = 4
+    COMPLETED = 5
+    FAILED = 6

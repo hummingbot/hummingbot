@@ -130,6 +130,14 @@ cdef class StrategyBase(TimeIterator):
 
         self._sb_order_tracker = OrderTracker()
 
+    def init_params(self, *args, **kwargs):
+        """
+        Assigns strategy parameters, this function must be called directly after init.
+        The reason for this is to make the parameters discoverable through introspect (this is not possible on init of
+        a Cython class).
+        """
+        raise NotImplementedError
+
     @property
     def active_markets(self) -> List[ConnectorBase]:
         return list(self._sb_markets)
@@ -147,6 +155,10 @@ cdef class StrategyBase(TimeIterator):
 
     @property
     def trades(self) -> List[Trade]:
+        """
+        Returns a list of all completed trades from the market.
+        The trades are taken from the market event logs.
+        """
         def event_to_trade(order_filled_event: OrderFilledEvent, market_name: str):
             return Trade(order_filled_event.trading_pair,
                          order_filled_event.trade_type,
@@ -334,9 +346,19 @@ cdef class StrategyBase(TimeIterator):
     # <editor-fold desc="+ Market event interfaces">
     # ----------------------------------------------------------------------------------------------------------
     cdef c_did_create_buy_order(self, object order_created_event):
+        """
+        In the case of asynchronous order creation on the exchange's server, this event is NOT triggered
+        upon submission of the order request to the server - it is only triggered once the server has sent
+        the acknowledgment that the order is successfully created.
+        """
         pass
 
     cdef c_did_create_sell_order(self, object order_created_event):
+        """
+        In the case of asynchronous order creation on the exchange's server, this event is NOT triggered
+        upon submission of the order request to the server - it is only triggered once the server has sent
+        the acknowledgment that the order is successfully created.
+        """
         pass
 
     cdef c_did_fill_order(self, object order_filled_event):
@@ -562,6 +584,23 @@ cdef class StrategyBase(TimeIterator):
 
     def track_restored_orders(self, market_pair: MarketTradingPairTuple):
         return self.c_track_restored_orders(market_pair)
+
+    def notify_hb_app(self, msg: str):
+        """
+        Method called to display message on the Output Panel(upper left)
+        :param msg: The message to be notified
+        """
+        from hummingbot.client.hummingbot_application import HummingbotApplication
+        HummingbotApplication.main_application()._notify(msg)
+
+    def notify_hb_app_with_timestamp(self, msg: str):
+        """
+        Method called to display message on the Output Panel(upper left)
+        This implementation adds the timestamp as the first element of the notification
+        :param msg: The message to be notified
+        """
+        timestamp = pd.Timestamp.fromtimestamp(self._current_timestamp)
+        self.notify_hb_app(f"({timestamp}) {msg}")
 
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>

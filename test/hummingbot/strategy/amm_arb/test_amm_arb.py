@@ -1,13 +1,11 @@
-from os.path import join, realpath
-import sys; sys.path.insert(0, realpath(join(__file__, "../../../../../")))
-import unittest
-import unittest.mock
-from decimal import Decimal
-import logging
 import asyncio
 import contextlib
+from decimal import Decimal
+import logging
+import unittest
+import unittest.mock
 
-from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
+from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.clock import (
     Clock,
     ClockMode
@@ -17,9 +15,10 @@ from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (MarketEvent, OrderType, BuyOrderCreatedEvent, BuyOrderCompletedEvent,
                                           SellOrderCreatedEvent, SellOrderCompletedEvent, TradeFee)
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.strategy.amm_arb.amm_arb import AmmArbStrategy
-from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.strategy.amm_arb.data_types import ArbProposalSide, ArbProposal
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
@@ -120,7 +119,8 @@ class AmmArbUnitTest(unittest.TestCase):
         self.amm_2.set_balance(base_asset, 500)
         self.amm_2.set_balance(quote_asset, 500)
         self.market_info_2 = MarketTradingPairTuple(self.amm_2, trading_pair, base_asset, quote_asset)
-        self.strategy = AmmArbStrategy(
+        self.strategy = AmmArbStrategy()
+        self.strategy.init_params(
             self.market_info_1,
             self.market_info_2,
             min_profitability=Decimal("0.01"),
@@ -236,7 +236,8 @@ class AmmArbUnitTest(unittest.TestCase):
     def test_non_concurrent_orders_submission(self):
         # On non concurrent orders submission, the second leg of the arb trade has to wait for the first leg order gets
         # filled.
-        self.strategy = AmmArbStrategy(
+        self.strategy = AmmArbStrategy()
+        self.strategy.init_params(
             self.market_info_1,
             self.market_info_2,
             min_profitability=Decimal("0.01"),
@@ -273,3 +274,44 @@ class AmmArbUnitTest(unittest.TestCase):
         new_amm_1_order = [order for market, order in placed_orders if market == self.amm_1][0]
         # Check if new order is submitted when arb opportunity still presents
         self.assertNotEqual(amm_1_order.client_order_id, new_amm_1_order.client_order_id)
+
+    def test_format_status(self):
+        self.amm_1.set_prices(trading_pair, True, 101)
+        self.amm_1.set_prices(trading_pair, False, 100)
+        self.amm_2.set_prices(trading_pair, True, 105)
+        self.amm_2.set_prices(trading_pair, False, 104)
+
+        first_side = ArbProposalSide(
+            self.market_info_1,
+            True,
+            Decimal(101),
+            Decimal(100),
+            Decimal(50)
+        )
+        second_side = ArbProposalSide(
+            self.market_info_2,
+            False,
+            Decimal(105),
+            Decimal(104),
+            Decimal(50)
+        )
+        self.strategy._arb_proposals = [ArbProposal(first_side, second_side)]
+
+        expected_status = ("  Markets:\n"
+                           "    Exchange    Market   Sell Price    Buy Price    Mid Price\n"
+                           "       onion HBOT-USDT 100.00000000 101.00000000 100.50000000\n"
+                           "      garlic HBOT-USDT 104.00000000 105.00000000 104.50000000\n\n"
+                           "  Assets:\n"
+                           "      Exchange Asset  Total Balance  Available Balance\n"
+                           "    0    onion  HBOT            500                500\n"
+                           "    1    onion  USDT            500                500\n"
+                           "    2   garlic  HBOT            500                500\n"
+                           "    3   garlic  USDT            500                500\n\n"
+                           "  Profitability:\n"
+                           "    buy at onion, sell at garlic: 3.96%\n\n"
+                           "  Quotes Rates (fixed rates)\n"
+                           "      Quotes pair Rate\n"
+                           "    0   USDT-USDT    1")
+
+        current_status = self.ev_loop.run_until_complete(self.strategy.format_status())
+        self.assertTrue(expected_status in current_status)

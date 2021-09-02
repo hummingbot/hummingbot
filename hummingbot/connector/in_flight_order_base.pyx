@@ -112,5 +112,27 @@ cdef class InFlightOrderBase:
         }
 
     @classmethod
+    def _basic_from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
+        """
+        :param data: json data from API
+        :return: formatted InFlightOrder
+        """
+        order = cls(
+            data["client_order_id"],
+            data["exchange_order_id"],
+            data["trading_pair"],
+            getattr(OrderType, data["order_type"]),
+            getattr(TradeType, data["trade_type"]),
+            Decimal(data["price"]),
+            Decimal(data["amount"]),
+            data["last_state"]
+        )
+        order.executed_amount_base = Decimal(data["executed_amount_base"])
+        order.executed_amount_quote = Decimal(data["executed_amount_quote"])
+        order.fee_asset = data["fee_asset"]
+        order.fee_paid = Decimal(data["fee_paid"])
+        return order
+
+    @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
         raise NotImplementedError

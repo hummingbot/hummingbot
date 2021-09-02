@@ -100,10 +100,10 @@ class BinanceTime:
         try:
             local_before_ms: float = time.perf_counter() * 1e3
             async with aiohttp.ClientSession() as session:
-                async with session.get(self.BINANCE_TIME_API) as resp:
-                    resp_data: Dict[str, float] = await resp.json()
-                    binance_server_time_ms: float = float(resp_data["serverTime"])
-                    local_after_ms: float = time.perf_counter() * 1e3
+                resp = await session.get(self.BINANCE_TIME_API)
+                resp_data: Dict[str, float] = await resp.json()
+                binance_server_time_ms: float = float(resp_data["serverTime"])
+                local_after_ms: float = time.perf_counter() * 1e3
             local_server_time_pre_image_ms: float = (local_before_ms + local_after_ms) / 2.0
             time_offset_ms: float = binance_server_time_ms - local_server_time_pre_image_ms
             self.add_time_offset_ms_sample(time_offset_ms)

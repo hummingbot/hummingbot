@@ -43,6 +43,10 @@ for key in connector_keys().keys():
     locals()[key] = os.getenv(key.upper())
 
 """
+# AscendEX Tests
+ascend_ex_api_key = os.getenv("ASCEND_EX_KEY")
+ascend_ex_secret_key = os.getenv("ASCEND_EX_SECRET")
+
 # Binance Tests
 binance_api_key = os.getenv("BINANCE_API_KEY")
 binance_api_secret = os.getenv("BINANCE_API_SECRET")
@@ -107,6 +111,10 @@ crypto_com_secret_key = os.getenv("CRYPTO_COM_SECRET_KEY")
 # HitBTC Tests
 hitbtc_api_key = os.getenv("HITBTC_API_KEY")
 hitbtc_secret_key = os.getenv("HITBTC_SECRET_KEY")
+
+# Gate.io Tests
+gate_io_api_key = os.getenv("GATE_IO_API_KEY")
+gate_io_secret_key = os.getenv("GATE_IO_SECRET_KEY")
 
 # CoinZoom Test
 coinzoom_api_key = os.getenv("COINZOOM_API_KEY")

@@ -41,7 +41,7 @@ class HistoryCommand:
                 precision: Optional[int] = None
                 ):
         if threading.current_thread() != threading.main_thread():
-            self.ev_loop.call_soon_threadsafe(self.history)
+            self.ev_loop.call_soon_threadsafe(self.history, days, verbose, precision)
             return
 
         if self.strategy_file_name is None:

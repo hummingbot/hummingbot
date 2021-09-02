@@ -8,11 +8,14 @@ import unittest
 from os.path import join, realpath
 from typing import Dict, Optional, List
 from hummingbot.core.event.event_logger import EventLogger
+
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.event.events import OrderBookEvent, OrderBookTradeEvent, TradeType
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_order_book_tracker import AscendExOrderBookTracker
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source import AscendExAPIOrderBookDataSource
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
+from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS
 
 
 sys.path.insert(0, realpath(join(__file__, "../../../../../")))
@@ -32,7 +35,8 @@ class AscendExOrderBookTrackerUnitTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        cls.order_book_tracker: AscendExOrderBookTracker = AscendExOrderBookTracker(cls.trading_pairs)
+        cls.throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        cls.order_book_tracker: AscendExOrderBookTracker = AscendExOrderBookTracker(cls.throttler, cls.trading_pairs)
         cls.order_book_tracker.start()
         cls.ev_loop.run_until_complete(cls.wait_til_tracker_ready())
 

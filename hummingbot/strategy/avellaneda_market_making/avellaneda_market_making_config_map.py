@@ -36,7 +36,9 @@ def validate_exchange_trading_pair(value: str) -> Optional[str]:
 
 
 def validate_max_spread(value: str) -> Optional[str]:
-    validate_decimal(value, 0, 100, inclusive=False)
+    is_invalid_decimal = validate_decimal(value, 0, 100, inclusive=False)
+    if is_invalid_decimal:
+        return is_invalid_decimal
     if avellaneda_market_making_config_map["min_spread"].value is not None:
         min_spread = Decimal(avellaneda_market_making_config_map["min_spread"].value)
         max_spread = Decimal(value)
@@ -145,14 +147,15 @@ avellaneda_market_making_config_map = {
     "vol_to_spread_multiplier":
         ConfigVar(key="vol_to_spread_multiplier",
                   prompt="Enter the Volatility threshold multiplier: "
-                         "(If market volatility multiplied by this value is above the minimum spread, it will increase the minimum and maximum spread value) >>>",
+                         "(If market volatility multiplied by this value is above the minimum spread, "
+                         "it will increase the minimum and maximum spread value) >>> ",
                   type_str="decimal",
                   required_if=lambda: avellaneda_market_making_config_map.get("parameters_based_on_spread").value,
                   validator=lambda v: validate_decimal(v, 0, 10, inclusive=True),
                   prompt_on_new=True),
     "volatility_sensibility":
         ConfigVar(key="volatility_sensibility",
-                  prompt="Enter volatility change threshold to trigger parameter recalculation>>> ",
+                  prompt="Enter volatility change threshold to trigger parameter recalculation >>> ",
                   type_str="decimal",
                   validator=lambda v: validate_decimal(v, 0, 100, inclusive=True),
                   default=20),
@@ -160,7 +163,7 @@ avellaneda_market_making_config_map = {
         ConfigVar(key="inventory_risk_aversion",
                   prompt="Enter Inventory risk aversion between 0 and 1: (For values close to 0.999 spreads will be more "
                          "skewed to meet the inventory target, while close to 0.001 spreads will be close to symmetrical, "
-                         "increasing profitability but also increasing inventory risk)>>>",
+                         "increasing profitability but also increasing inventory risk) >>>",
                   type_str="decimal",
                   required_if=lambda: avellaneda_market_making_config_map.get("parameters_based_on_spread").value,
                   validator=lambda v: validate_decimal(v, 0, 1, inclusive=False),
@@ -212,7 +215,7 @@ avellaneda_market_making_config_map = {
                   required_if=lambda: not (using_exchange("radar_relay")() or
                                            (using_exchange("bamboo_relay")() and not using_bamboo_coordinator_mode())),
                   type_str="float",
-                  default=Decimal("1800"),
+                  default=1800,
                   validator=lambda v: validate_decimal(v, 0, inclusive=False)),
     "order_refresh_tolerance_pct":
         ConfigVar(key="order_refresh_tolerance_pct",
@@ -243,7 +246,7 @@ avellaneda_market_making_config_map = {
                   validator=validate_bool),
     "volatility_buffer_size":
         ConfigVar(key="volatility_buffer_size",
-                  prompt="Enter amount of ticks that will be stored to calculate volatility>>> ",
+                  prompt="Enter amount of ticks that will be stored to calculate volatility >>> ",
                   type_str="int",
                   validator=lambda v: validate_decimal(v, 5, 600),
                   default=60),
@@ -258,5 +261,19 @@ avellaneda_market_making_config_map = {
                   prompt=None,
                   required_if=lambda: False,
                   default=None,
-                  type_str="json")
+                  type_str="json"),
+    "hanging_orders_enabled":
+        ConfigVar(key="hanging_orders_enabled",
+                  prompt="Do you want to enable hanging orders? (Yes/No) >>> ",
+                  type_str="bool",
+                  default=False,
+                  validator=validate_bool),
+    "hanging_orders_cancel_pct":
+        ConfigVar(key="hanging_orders_cancel_pct",
+                  prompt="At what spread percentage (from mid price) will hanging orders be canceled? "
+                         "(Enter 1 to indicate 1%) >>> ",
+                  required_if=lambda: avellaneda_market_making_config_map.get("hanging_orders_enabled").value,
+                  type_str="decimal",
+                  default=Decimal("10"),
+                  validator=lambda v: validate_decimal(v, 0, 100, inclusive=False)),
 }

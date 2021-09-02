@@ -1,0 +1,5 @@
+# *** Warning! Your custom domain is not using HTTPS yet ***
+# These rules will change if you change your site’s custom domains or HTTPS settings
+
+# Redirect default Netlify subdomain to primary domain
+http://hummingbot-docs-2.netlify.com/* http://docs.hummingbot.io/:splat 301!
