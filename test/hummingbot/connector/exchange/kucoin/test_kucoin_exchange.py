@@ -226,7 +226,7 @@ class TestKucoinExchange(unittest.TestCase):
         self.assertTrue(called.is_set())
 
     @aioresponses()
-    def test_cancel_all(self, mock_api, _):
+    def test_cancel_all(self, mock_api):
         url = KUCOIN_ROOT_API + CONSTANTS.ORDERS_PATH_URL
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         called1 = asyncio.Event()
