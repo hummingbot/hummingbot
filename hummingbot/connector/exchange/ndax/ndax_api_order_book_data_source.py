@@ -266,6 +266,7 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         await ws_adapter.send_request(endpoint_name=CONSTANTS.WS_ORDER_BOOK_CHANNEL,
                                                       payload=payload)
                 async for raw_msg in ws_adapter.iter_messages():
+                    print(f"\t*** {raw_msg}")
                     payload = NdaxWebSocketAdaptor.payload_from_raw_message(raw_msg)
                     msg_event: str = NdaxWebSocketAdaptor.endpoint_from_raw_message(raw_msg)
 
@@ -315,7 +316,9 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 )
                 if ws_adapter:
                     await ws_adapter.close()
+                print("*** Before sleep")
                 await self._sleep(30.0)
+                print("*** After sleep")
 
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         # NDAX does not have a public orderbook trade channel, rather it can be inferred from the Level2UpdateEvent when
