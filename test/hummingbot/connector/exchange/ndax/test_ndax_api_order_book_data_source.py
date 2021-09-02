@@ -361,6 +361,7 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
            new_callable=AsyncMock)
     @patch("websockets.connect", new_callable=AsyncMock)
     def test_listen_for_order_book_diffs_logs_exception(self, mock_ws, _):
+        print("*** test_listen_for_order_book_diffs_logs_exception")
         msg_queue: asyncio.Queue = asyncio.Queue()
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
 
@@ -376,8 +377,10 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.listening_task = self.ev_loop.create_task(
             self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue))
         try:
-            self.ev_loop.run_until_complete(asyncio.wait_for(msg_queue.get(), timeout=2))
+            result = self.ev_loop.run_until_complete(msg_queue.get())
+            print(f"\tresulting message: {result}")
         except asyncio.TimeoutError:
+            print("*** TIME OUT")
             pass
 
         self.assertTrue(self._is_logged("NETWORK", "Unexpected error with WebSocket connection."))
