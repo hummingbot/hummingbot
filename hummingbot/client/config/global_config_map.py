@@ -7,7 +7,6 @@ import hummingbot.client.settings as settings
 from hummingbot.client.config.config_methods import paper_trade_disabled, using_exchange as using_exchange_pointer
 from hummingbot.client.config.config_validators import (
     validate_bool,
-    validate_int,
     validate_decimal
 )
 from hummingbot.core.rate_oracle.rate_oracle import RateOracleSource, RateOracle
@@ -140,13 +139,6 @@ main_config_map = {
                   required_if=lambda: global_config_map["celo_address"].value is not None,
                   is_secure=True,
                   is_connect_key=True),
-    "balancer_max_swaps":
-        ConfigVar(key="balancer_max_swaps",
-                  prompt="Enter the maximum swap pool in Balancer >>> ",
-                  required_if=lambda: False,
-                  type_str="int",
-                  validator=lambda v: validate_int(v, min_value=1, inclusive=True),
-                  default=4),
     "ethereum_wallet":
         ConfigVar(key="ethereum_wallet",
                   prompt="Enter your wallet private key >>> ",
@@ -360,6 +352,14 @@ main_config_map = {
                   required_if=lambda: False,
                   on_validated=global_token_symbol_on_validated,
                   default="$"),
+    "rate_limits_share_pct":
+        ConfigVar(key="rate_limits_share_pct",
+                  prompt="What percentage of API rate limits do you want to allocate to this bot instance? "
+                         "(Enter 50 to indicate 50%)  >>> ",
+                  type_str="decimal",
+                  validator=lambda v: validate_decimal(v, 1, 100, inclusive=True),
+                  required_if=lambda: False,
+                  default=Decimal("100")),
 }
 
 global_config_map = {**key_config_map, **main_config_map}

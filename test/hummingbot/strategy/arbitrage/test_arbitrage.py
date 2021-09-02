@@ -1,8 +1,5 @@
 #!/usr/bin/env python
 from decimal import Decimal
-from os.path import join, realpath
-import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
-
 from nose.plugins.attrib import attr
 
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
@@ -73,7 +70,8 @@ class ArbitrageUnitTest(unittest.TestCase):
 
         self.logging_options: int = ArbitrageStrategy.OPTION_LOG_ALL
 
-        self.strategy: ArbitrageStrategy = ArbitrageStrategy(
+        self.strategy: ArbitrageStrategy = ArbitrageStrategy()
+        self.strategy.init_params(
             [self.market_pair],
             min_profitability=Decimal("0.03"),
             logging_options=self.logging_options,
@@ -144,7 +142,8 @@ class ArbitrageUnitTest(unittest.TestCase):
         self.assertAlmostEqual(Decimal(1.0329489291598024), profitability)
 
     def test_min_profitability_limit_1(self):
-        self.strategy: ArbitrageStrategy = ArbitrageStrategy(
+        self.strategy: ArbitrageStrategy = ArbitrageStrategy()
+        self.strategy.init_params(
             [self.market_pair],
             min_profitability=Decimal("0.04"),
             logging_options=self.logging_options,
@@ -193,7 +192,8 @@ class ArbitrageUnitTest(unittest.TestCase):
         self.assertAlmostEqual(Decimal(1.045), profitability)
 
     def test_min_profitability_limit_2(self):
-        self.strategy: ArbitrageStrategy = ArbitrageStrategy(
+        self.strategy: ArbitrageStrategy = ArbitrageStrategy()
+        self.strategy.init_params(
             [self.market_pair],
             min_profitability=Decimal("0.02"),
             logging_options=self.logging_options,

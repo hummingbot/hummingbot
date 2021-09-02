@@ -7,6 +7,7 @@ import pandas as pd
 from typing import Dict, List, Optional
 import unittest.mock
 
+from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
@@ -76,7 +77,8 @@ class LiquidityMiningTest(unittest.TestCase):
         self.market.add_listener(MarketEvent.OrderFilled, self.order_fill_logger)
         self.market.add_listener(MarketEvent.OrderCancelled, self.cancel_order_logger)
 
-        self.default_strategy = LiquidityMiningStrategy(
+        self.default_strategy = LiquidityMiningStrategy()
+        self.default_strategy.init_params(
             exchange=self.market,
             market_infos=self.market_infos,
             token="ETH",
@@ -220,7 +222,8 @@ class LiquidityMiningTest(unittest.TestCase):
         trading_pairs = list(map(lambda quote_asset: "ETH-" + quote_asset, ["USDT", "BUSD", "BTC"]))
         market, market_infos = self.create_market(trading_pairs, 100, {"USDT": usdt_balance, "BUSD": busd_balance, "ETH": eth_balance, "BTC": btc_balance})
 
-        strategy = LiquidityMiningStrategy(
+        strategy = LiquidityMiningStrategy()
+        strategy.init_params(
             exchange=market,
             market_infos=market_infos,
             token="ETH",
@@ -265,7 +268,8 @@ class LiquidityMiningTest(unittest.TestCase):
         trading_pairs = list(map(lambda quote_asset: "ETH-" + quote_asset, ["USDT", "BUSD", "BTC"]))
         market, market_infos = self.create_market(trading_pairs, 100, {"USDT": usdt_balance, "BUSD": busd_balance, "ETH": eth_balance, "BTC": btc_balance})
 
-        skewed_base_strategy = LiquidityMiningStrategy(
+        skewed_base_strategy = LiquidityMiningStrategy()
+        skewed_base_strategy.init_params(
             exchange=market,
             market_infos=market_infos,
             token="ETH",
@@ -277,7 +281,8 @@ class LiquidityMiningTest(unittest.TestCase):
             order_refresh_tolerance_pct=Decimal(0.1),  # tolerance of 10 % change
         )
 
-        unskewed_strategy = LiquidityMiningStrategy(
+        unskewed_strategy = LiquidityMiningStrategy()
+        unskewed_strategy.init_params(
             exchange=market,
             market_infos=market_infos,
             token="ETH",
@@ -322,7 +327,8 @@ class LiquidityMiningTest(unittest.TestCase):
         trading_pairs = list(map(lambda quote_asset: "ETH-" + quote_asset, ["USDT"]))
         market, market_infos = self.create_market(trading_pairs, 100, {"USDT": usdt_balance, "ETH": eth_balance})
 
-        strategy = LiquidityMiningStrategy(
+        strategy = LiquidityMiningStrategy()
+        strategy.init_params(
             exchange=market,
             market_infos=market_infos,
             token="ETH",
@@ -350,3 +356,72 @@ class LiquidityMiningTest(unittest.TestCase):
 
         # assert that volatility is none zero
         self.assertAlmostEqual(float(strategy.market_status_df().loc[0, 'Volatility'].strip('%')), 10.00, delta=0.1)
+
+    @unittest.mock.patch('hummingbot.client.hummingbot_application.HummingbotApplication.main_application')
+    @unittest.mock.patch('hummingbot.client.hummingbot_application.HummingbotCLI')
+    def test_strategy_with_default_cfg_does_not_send_in_app_notifications(self, cli_class_mock, main_application_function_mock):
+        messages = []
+        cli_logs = []
+
+        cli_instance = cli_class_mock.return_value
+        cli_instance.log.side_effect = lambda message: cli_logs.append(message)
+
+        notifier_mock = unittest.mock.MagicMock()
+        notifier_mock.add_msg_to_queue.side_effect = lambda message: messages.append(message)
+
+        hummingbot_application = HummingbotApplication()
+        hummingbot_application.notifiers.append(notifier_mock)
+        main_application_function_mock.return_value = hummingbot_application
+
+        self.clock.add_iterator(self.default_strategy)
+        self.clock.backtest_til(self.start_timestamp + 10)
+
+        self.default_strategy.notify_hb_app("Test message")
+        self.default_strategy.notify_hb_app_with_timestamp("Test message")
+
+        self.assertEqual(len(cli_logs), 0)
+        self.assertEqual(len(messages), 0)
+
+    @unittest.mock.patch('hummingbot.client.hummingbot_application.HummingbotApplication.main_application')
+    @unittest.mock.patch('hummingbot.client.hummingbot_application.HummingbotCLI')
+    def test_strategy_sends_in_app_notifications(self, cli_class_mock, main_application_function_mock):
+        messages = []
+        cli_logs = []
+
+        cli_instance = cli_class_mock.return_value
+        cli_instance.log.side_effect = lambda message: cli_logs.append(message)
+
+        notifier_mock = unittest.mock.MagicMock()
+        notifier_mock.add_msg_to_queue.side_effect = lambda message: messages.append(message)
+
+        hummingbot_application = HummingbotApplication()
+        hummingbot_application.notifiers.append(notifier_mock)
+        main_application_function_mock.return_value = hummingbot_application
+
+        strategy = self.default_strategy = LiquidityMiningStrategy()
+        self.default_strategy.init_params(
+            exchange=self.market,
+            market_infos=self.market_infos,
+            token="ETH",
+            order_amount=Decimal(2),
+            spread=Decimal(0.0005),
+            inventory_skew_enabled=False,
+            target_base_pct=Decimal(0.5),
+            order_refresh_time=5,
+            order_refresh_tolerance_pct=Decimal(0.1),  # tolerance of 10 % change
+            max_order_age=3,
+            hb_app_notification=True
+        )
+
+        timestamp = self.start_timestamp + 10
+        self.clock.add_iterator(strategy)
+        self.clock.backtest_til(timestamp)
+
+        self.default_strategy.notify_hb_app("Test message")
+        self.default_strategy.notify_hb_app_with_timestamp("Test message 2")
+
+        self.assertIn("Test message", cli_logs)
+        self.assertIn("Test message", messages)
+
+        self.assertIn(f"({pd.Timestamp.fromtimestamp(timestamp)}) Test message 2", cli_logs)
+        self.assertIn(f"({pd.Timestamp.fromtimestamp(timestamp)}) Test message 2", messages)

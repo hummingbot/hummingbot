@@ -74,7 +74,8 @@ def gen_exchange_order_id(userUid: str, client_order_id: str) -> Tuple[str, int]
 
 def gen_client_order_id(is_buy: bool, trading_pair: str) -> str:
     side = "B" if is_buy else "S"
-    return f"{HBOT_BROKER_ID}-{side}-{trading_pair}-{get_tracking_nonce()}"
+    base, quote = trading_pair.split("-")
+    return f"{HBOT_BROKER_ID}-{side}{base[:3]}{quote[:3]}{get_tracking_nonce()}"
 
 
 KEYS = {
