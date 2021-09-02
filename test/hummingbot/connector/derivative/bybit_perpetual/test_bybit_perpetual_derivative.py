@@ -19,7 +19,7 @@ from hummingbot.core.event.events import OrderType, PositionAction, PositionSide
     PositionMode
 from hummingbot.core.network_iterator import NetworkStatus
 
-from test.hummingbot.connector.network_mock_assistant import NetworkMockingAssistant
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class BybitPerpetualDerivativeTests(TestCase):
