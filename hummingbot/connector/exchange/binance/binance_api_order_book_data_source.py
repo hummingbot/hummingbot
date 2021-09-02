@@ -28,10 +28,6 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.binance.binance_order_book import BinanceOrderBook
 from hummingbot.connector.exchange.binance import binance_utils
-from hummingbot.connector.exchange.binance.binance_utils import (
-    convert_to_exchange_trading_pair,
-    convert_from_exchange_trading_pair
-)
 
 from websockets.exceptions import ConnectionClosed
 
@@ -71,7 +67,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
         async with aiohttp.ClientSession() as client:
             async with throttler.execute_task(limit_id=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL):
                 url = binance_utils.public_rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, domain=domain)
-                resp = await client.get(f"{url}?symbol={convert_to_exchange_trading_pair(trading_pair)}")
+                resp = await client.get(f"{url}?symbol={binance_utils.convert_to_exchange_trading_pair(trading_pair)}")
                 resp_json = await resp.json()
                 return float(resp_json["lastPrice"])
 
@@ -86,7 +82,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 resp_json = await resp.json()
                 ret_val = {}
                 for record in resp_json:
-                    pair = convert_from_exchange_trading_pair(record["symbol"])
+                    pair = binance_utils.convert_from_exchange_trading_pair(record["symbol"])
                     ret_val[pair] = (Decimal(record.get("bidPrice", "0")) + Decimal(record.get("askPrice", "0"))) / Decimal("2")
                 return ret_val
 
@@ -107,7 +103,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             ]
                             trading_pair_list: List[str] = []
                             for raw_trading_pair, pair_target in zip(raw_trading_pairs, trading_pair_targets):
-                                trading_pair: Optional[str] = convert_from_exchange_trading_pair(raw_trading_pair)
+                                trading_pair: Optional[str] = binance_utils.convert_from_exchange_trading_pair(raw_trading_pair)
                                 if trading_pair is not None and trading_pair == pair_target:
                                     trading_pair_list.append(trading_pair)
                             return trading_pair_list
@@ -127,8 +123,8 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str, limit: int = 1000,
                            domain: str = "com") -> Dict[str, Any]:
         throttler = BinanceAPIOrderBookDataSource._get_throttler_instance()
-        params: Dict = {"limit": str(limit), "symbol": convert_to_exchange_trading_pair(trading_pair)} if limit != 0 \
-            else {"symbol": convert_to_exchange_trading_pair(trading_pair)}
+        params: Dict = {"limit": str(limit), "symbol": binance_utils.convert_to_exchange_trading_pair(trading_pair)} if limit != 0 \
+            else {"symbol": binance_utils.convert_to_exchange_trading_pair(trading_pair)}
         async with throttler.execute_task(limit_id=CONSTANTS.SNAPSHOT_PATH_URL):
             url = binance_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=domain)
             async with client.get(url, params=params) as response:
@@ -179,7 +175,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
-                ws_path: str = "/".join([f"{convert_to_exchange_trading_pair(trading_pair).lower()}@trade"
+                ws_path: str = "/".join([f"{binance_utils.convert_to_exchange_trading_pair(trading_pair).lower()}@trade"
                                          for trading_pair in self._trading_pairs])
                 url = CONSTANTS.WSS_URL.format(self._domain)
                 stream_url: str = f"{url}/{ws_path}"
@@ -200,7 +196,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
-                ws_path: str = "/".join([f"{convert_to_exchange_trading_pair(trading_pair).lower()}@depth"
+                ws_path: str = "/".join([f"{binance_utils.convert_to_exchange_trading_pair(trading_pair).lower()}@depth"
                                          for trading_pair in self._trading_pairs])
                 url = CONSTANTS.WSS_URL.format(self._domain)
                 stream_url: str = f"{url}/{ws_path}"
