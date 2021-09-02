@@ -377,11 +377,11 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.listening_task = self.ev_loop.create_task(
             self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue))
         try:
-            result = self.ev_loop.run_until_complete(msg_queue.get())
+            result = self.ev_loop.run_until_complete(asyncio.wait_for(msg_queue.get(), timeout=5))
             print(f"\tresulting message: {result}")
         except asyncio.TimeoutError:
             print("*** TIME OUT")
-            pass
+            raise
 
         self.assertTrue(self._is_logged("NETWORK", "Unexpected error with WebSocket connection."))
 

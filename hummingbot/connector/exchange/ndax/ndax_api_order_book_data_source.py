@@ -303,7 +303,7 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                     metadata=metadata)
                             self._last_traded_prices[
                                 order_book_message.trading_pair] = order_book_message.last_traded_price
-                            output.put_nowait(order_book_message)
+                            await output.put(order_book_message)
 
             except asyncio.CancelledError:
                 raise
