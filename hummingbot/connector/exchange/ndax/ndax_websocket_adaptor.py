@@ -103,4 +103,5 @@ class NdaxWebSocketAdaptor:
             await self.close()
 
     async def close(self, *args, **kwars):
+        print("***Close Websocket")
         return await self._websocket.close(*args, **kwars)
