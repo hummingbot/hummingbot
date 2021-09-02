@@ -269,7 +269,7 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     print(f"\t*** {raw_msg}")
                     payload = NdaxWebSocketAdaptor.payload_from_raw_message(raw_msg)
                     msg_event: str = NdaxWebSocketAdaptor.endpoint_from_raw_message(raw_msg)
-
+                    print("*** After parsing")
                     if msg_event in [CONSTANTS.WS_ORDER_BOOK_CHANNEL, CONSTANTS.WS_ORDER_BOOK_L2_UPDATE_EVENT]:
                         msg_data: List[NdaxOrderBookEntry] = [NdaxOrderBookEntry(*entry)
                                                               for entry in payload]
@@ -308,6 +308,7 @@ class NdaxAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except asyncio.CancelledError:
                 raise
             except Exception:
+                print("*** Before logger")
                 self.logger().network(
                     "Unexpected error with WebSocket connection.",
                     exc_info=True,
