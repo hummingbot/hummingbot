@@ -81,7 +81,7 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self.logger().info(f"Connecting to {stream_url}.")
 
         async with self._throttler.execute_task(CONSTANTS.WS_CONNECTION_LIMIT_ID):
-            return websockets.connect(stream_url, ping_interval=40, ping_timeout=self.PING_TIMEOUT)
+            return await websockets.connect(stream_url, ping_interval=40, ping_timeout=self.PING_TIMEOUT)
 
     async def _inner_messages(self, ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
         try:
@@ -93,7 +93,7 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
             await ws.close()
             self._current_listen_key = None
 
-    async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+    async def listen_for_user_stream(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
         ws = None
         while True:
             try:
@@ -103,11 +103,11 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     self._current_endpoint = creds["data"]["instanceServers"][0]["endpoint"]
                     self.logger().debug(f"Obtained listen key {self._current_listen_key}.")
 
-                    async with (await self.get_ws_connection()) as ws:
-                        await self._subscribe_topic(ws)
-                        async for msg in self._inner_messages(ws):
-                            decoded: Dict[str, any] = ujson.loads(msg)
-                            output.put_nowait(decoded)
+                    ws = await self.get_ws_connection()
+                    await self._subscribe_topic(ws)
+                    async for msg in self._inner_messages(ws):
+                        decoded: Dict[str, any] = ujson.loads(msg)
+                        output.put_nowait(decoded)
 
             except asyncio.CancelledError:
                 raise
@@ -115,6 +115,7 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 self.logger().error("Unexpected error while maintaining the user event listen key. Retrying after "
                                     "5 seconds...", exc_info=False)
                 self._current_listen_key = None
+                print(ws is None)
                 if ws is not None:
                     await ws.close()
                 await asyncio.sleep(5)

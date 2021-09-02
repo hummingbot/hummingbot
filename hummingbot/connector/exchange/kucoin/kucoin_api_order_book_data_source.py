@@ -153,6 +153,7 @@ class KucoinWSConnectionIterator:
                     "privateChannel": False,
                     "response": True
                 })
+        throttler = throttler or cls._get_throttler_instance()
         for i, subscribe_request in enumerate(subscribe_requests):
             async with throttler.execute_task(CONSTANTS.WS_REQUEST_LIMIT_ID):
                 await ws.send(json.dumps(subscribe_request))
@@ -312,7 +313,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     def __init__(
         self,
-        throttler: Optional[AsyncThrottler] = None,
+        throttler: AsyncThrottler,
         trading_pairs: Optional[List[str]] = None,
         auth: Optional[KucoinAuth] = None,
     ):
@@ -331,8 +332,8 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
         async with aiohttp.ClientSession() as client:
             url = CONSTANTS.BASE_PATH_URL + CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL
             async with throttler.execute_task(CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL):
-                response = await client.get(url)
-            resp_json = await response.json()
+                async with client.get(url) as response:
+                    resp_json = await response.json()
             for trading_pair in trading_pairs:
                 resp_record = [
                     o for o in resp_json["data"]["ticker"]
@@ -347,19 +348,19 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
         async with aiohttp.ClientSession() as client:
             url = CONSTANTS.BASE_PATH_URL + CONSTANTS.EXCHANGE_INFO_PATH_URL
             async with throttler.execute_task(CONSTANTS.EXCHANGE_INFO_PATH_URL):
-                response = await client.get(url, timeout=5)
-                if response.status == 200:
-                    try:
-                        data: Dict[str, Any] = await response.json()
-                        all_trading_pairs = data.get("data", [])
-                        return [
-                            convert_from_exchange_trading_pair(item["symbol"]) for item in all_trading_pairs
-                            if item["enableTrading"] is True
-                        ]
-                    except Exception:
-                        pass
-                        # Do nothing if the request fails -- there will be no autocomplete for the trading pairs
-                return []
+                async with client.get(url, timeout=5) as response:
+                    if response.status == 200:
+                        try:
+                            data: Dict[str, Any] = await response.json()
+                            all_trading_pairs = data.get("data", [])
+                            return [
+                                convert_from_exchange_trading_pair(item["symbol"]) for item in all_trading_pairs
+                                if item["enableTrading"] is True
+                            ]
+                        except Exception:
+                            pass
+                            # Do nothing if the request fails -- there will be no autocomplete for the trading pairs
+                    return []
 
     @classmethod
     async def get_snapshot(
@@ -372,7 +373,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
         throttler = throttler or cls._get_throttler_instance()
         params: Dict = {"symbol": convert_to_exchange_trading_pair(trading_pair)}
 
-        if auth:
+        if auth is not None:
             url = CONSTANTS.BASE_PATH_URL + CONSTANTS.SNAPSHOT_PATH_URL
             limit_id = CONSTANTS.SNAPSHOT_PATH_URL
         else:
@@ -407,9 +408,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def get_markets_per_ws_connection(self) -> List[str]:
         # Fetch the  markets and split per connection
-        all_symbols: List[str] = (
-            self._trading_pairs if self._trading_pairs else await self.fetch_trading_pairs(self._throttler)
-        )
+        all_symbols: List[str] = self._trading_pairs if self._trading_pairs else await self.fetch_trading_pairs()
         market_subsets: List[str] = []
 
         for i in range(0, len(all_symbols), self.SYMBOLS_PER_CONNECTION):
@@ -445,9 +444,7 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :param stream_type: whether diffs or trades
         :param output: the output queue
         """
-        all_symbols: List[str] = (
-            self._trading_pairs if self._trading_pairs else await self.fetch_trading_pairs(self._throttler)
-        )
+        all_symbols: List[str] = self._trading_pairs if self._trading_pairs else await self.fetch_trading_pairs()
         all_symbols_set: Set[str] = set(all_symbols)
         pending_trading_pair_updates: Dict[Tuple[StreamType, int], Set[str]] = {}
 

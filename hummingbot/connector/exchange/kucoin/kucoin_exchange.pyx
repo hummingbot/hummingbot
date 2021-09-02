@@ -418,7 +418,7 @@ cdef class KucoinExchange(ExchangeBase):
 
         data = {"type": "trade"}  # this GET request requires that arguments be submitted as data
         response = await self._api_request("get", path_url=path_url, data=data, is_auth_required=True)
-        if data:
+        if response:
             for balance_entry in response["data"]:
                 asset_name = convert_asset_from_exchange(balance_entry["currency"])
                 self._account_available_balances[asset_name] = Decimal(balance_entry["available"])
@@ -456,6 +456,7 @@ cdef class KucoinExchange(ExchangeBase):
             int64_t current_tick = <int64_t> (self._current_timestamp / 60.0)
         if current_tick > last_tick or len(self._trading_rules) < 1:
             exchange_info = await self._api_request("get", path_url=CONSTANTS.SYMBOLS_PATH_URL)
+            self.logger().info(f"exchange info: {exchange_info}")
             trading_rules_list = self._format_trading_rules(exchange_info)
             self._trading_rules.clear()
             for trading_rule in trading_rules_list:
