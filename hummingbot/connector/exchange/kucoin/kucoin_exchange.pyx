@@ -635,7 +635,6 @@ cdef class KucoinExchange(ExchangeBase):
 
     @property
     def ready(self) -> bool:
-        # print(self.status_dict)
         return all(self.status_dict.values())
 
     def supported_order_types(self):
