@@ -357,10 +357,12 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.assertEqual(msg_queue.qsize(), 0)
 
+    @patch("hummingbot.connector.exchange.ndax.ndax_websocket_adaptor.NdaxWebSocketAdaptor.close",
+           new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.ndax.ndax_api_order_book_data_source.NdaxAPIOrderBookDataSource._sleep",
            new_callable=AsyncMock)
     @patch("websockets.connect", new_callable=AsyncMock)
-    def test_listen_for_order_book_diffs_logs_exception(self, mock_ws, _):
+    def test_listen_for_order_book_diffs_logs_exception(self, mock_ws, *_):
         print("*** test_listen_for_order_book_diffs_logs_exception")
         msg_queue: asyncio.Queue = asyncio.Queue()
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
