@@ -120,38 +120,38 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return throttler
 
     @staticmethod
-    async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str, limit: int = 1000,
+    async def get_snapshot(trading_pair: str, limit: int = 1000,
                            domain: str = "com") -> Dict[str, Any]:
         throttler = BinanceAPIOrderBookDataSource._get_throttler_instance()
         params: Dict = {"limit": str(limit), "symbol": binance_utils.convert_to_exchange_trading_pair(trading_pair)} if limit != 0 \
             else {"symbol": binance_utils.convert_to_exchange_trading_pair(trading_pair)}
-        async with throttler.execute_task(limit_id=CONSTANTS.SNAPSHOT_PATH_URL):
-            url = binance_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=domain)
-            async with client.get(url, params=params) as response:
-                response: aiohttp.ClientResponse = response
-                if response.status != 200:
-                    raise IOError(f"Error fetching market snapshot for {trading_pair}. "
-                                  f"HTTP status is {response.status}.")
-                data: Dict[str, Any] = await response.json()
+        async with aiohttp.ClientSession() as client:
+            async with throttler.execute_task(limit_id=CONSTANTS.SNAPSHOT_PATH_URL):
+                url = binance_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=domain)
+                async with client.get(url, params=params) as response:
+                    response: aiohttp.ClientResponse = response
+                    if response.status != 200:
+                        raise IOError(f"Error fetching market snapshot for {trading_pair}. "
+                                      f"Response: {response}.")
+                    data: Dict[str, Any] = await response.json()
 
-                # Need to add the symbol into the snapshot message for the Kafka message queue.
-                # Because otherwise, there'd be no way for the receiver to know which market the
-                # snapshot belongs to.
+                    # Need to add the symbol into the snapshot message for the Kafka message queue.
+                    # Because otherwise, there'd be no way for the receiver to know which market the
+                    # snapshot belongs to.
 
-                return data
+                    return data
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
-        async with aiohttp.ClientSession() as client:
-            snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair, 1000, self._domain)
-            snapshot_timestamp: float = time.time()
-            snapshot_msg: OrderBookMessage = BinanceOrderBook.snapshot_message_from_exchange(
-                snapshot,
-                snapshot_timestamp,
-                metadata={"trading_pair": trading_pair}
-            )
-            order_book = self.order_book_create_function()
-            order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
-            return order_book
+        snapshot: Dict[str, Any] = await self.get_snapshot(trading_pair, 1000, self._domain)
+        snapshot_timestamp: float = time.time()
+        snapshot_msg: OrderBookMessage = BinanceOrderBook.snapshot_message_from_exchange(
+            snapshot,
+            snapshot_timestamp,
+            metadata={"trading_pair": trading_pair}
+        )
+        order_book = self.order_book_create_function()
+        order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
+        return order_book
 
     async def _inner_messages(self,
                               ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
@@ -180,12 +180,11 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 url = CONSTANTS.WSS_URL.format(self._domain)
                 stream_url: str = f"{url}/{ws_path}"
 
-                async with websockets.connect(stream_url) as ws:
-                    ws: websockets.WebSocketClientProtocol = ws
-                    async for raw_msg in self._inner_messages(ws):
-                        msg = ujson.loads(raw_msg)
-                        trade_msg: OrderBookMessage = BinanceOrderBook.trade_message_from_exchange(msg)
-                        output.put_nowait(trade_msg)
+                ws = await websockets.connect(stream_url)
+                async for raw_msg in self._inner_messages(ws):
+                    msg = ujson.loads(raw_msg)
+                    trade_msg: OrderBookMessage = BinanceOrderBook.trade_message_from_exchange(msg)
+                    output.put_nowait(trade_msg)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -201,13 +200,12 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 url = CONSTANTS.WSS_URL.format(self._domain)
                 stream_url: str = f"{url}/{ws_path}"
 
-                async with websockets.connect(stream_url) as ws:
-                    ws: websockets.WebSocketClientProtocol = ws
-                    async for raw_msg in self._inner_messages(ws):
-                        msg = ujson.loads(raw_msg)
-                        order_book_message: OrderBookMessage = BinanceOrderBook.diff_message_from_exchange(
-                            msg, time.time())
-                        output.put_nowait(order_book_message)
+                ws = await websockets.connect(stream_url)
+                async for raw_msg in self._inner_messages(ws):
+                    msg = ujson.loads(raw_msg)
+                    order_book_message: OrderBookMessage = BinanceOrderBook.diff_message_from_exchange(
+                        msg, time.time())
+                    output.put_nowait(order_book_message)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -218,30 +216,27 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
-                async with aiohttp.ClientSession() as client:
-                    for trading_pair in self._trading_pairs:
-                        try:
-                            snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair,
-                                                                               domain=self._domain)
-                            snapshot_timestamp: float = time.time()
-                            snapshot_msg: OrderBookMessage = BinanceOrderBook.snapshot_message_from_exchange(
-                                snapshot,
-                                snapshot_timestamp,
-                                metadata={"trading_pair": trading_pair}
-                            )
-                            output.put_nowait(snapshot_msg)
-                            self.logger().debug(f"Saved order book snapshot for {trading_pair}")
-                            # Be careful not to go above Binance's API rate limits.
-                            await asyncio.sleep(5.0)
-                        except asyncio.CancelledError:
-                            raise
-                        except Exception:
-                            self.logger().error("Unexpected error.", exc_info=True)
-                            await asyncio.sleep(5.0)
-                    this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
-                    next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)
-                    delta: float = next_hour.timestamp() - time.time()
-                    await asyncio.sleep(delta)
+                for trading_pair in self._trading_pairs:
+                    try:
+                        snapshot: Dict[str, Any] = await self.get_snapshot(trading_pair, domain=self._domain)
+                        snapshot_timestamp: float = time.time()
+                        snapshot_msg: OrderBookMessage = BinanceOrderBook.snapshot_message_from_exchange(
+                            snapshot,
+                            snapshot_timestamp,
+                            metadata={"trading_pair": trading_pair}
+                        )
+                        output.put_nowait(snapshot_msg)
+                        self.logger().debug(f"Saved order book snapshot for {trading_pair}")
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception:
+                        self.logger().error(f"Unexpected error fetching order book snapshot for {trading_pair}.",
+                                            exc_info=True)
+                        await asyncio.sleep(5.0)
+                this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
+                next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)
+                delta: float = next_hour.timestamp() - time.time()
+                await asyncio.sleep(delta)
             except asyncio.CancelledError:
                 raise
             except Exception:
