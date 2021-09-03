@@ -17,19 +17,35 @@ theme:
   name: 'material'
   logo: 'assets/img/logo.png'
   favicon: 'assets/img/favicon.ico'
+  repo: 'https://github.com/coinalpha/hummingbot'
   palette:
-    primary: 'teal'
-    accent: 'teal'
+    - media: "(prefers-color-scheme: light)"
+    - scheme: default
+      primary: light blue
+      accent: purple
+      toggle:
+        icon: material/toggle-switch-off-outline
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+    - scheme: slate
+      primary: cyan
+      accent: purple
+      toggle:
+        icon: material/toggle-switch
+        name: Switch to light mode
   font:
       text: 'Roboto'
       code: 'Roboto Mono'
   feature:
-    tabs: true
+    - tabs
+    - instant
 
 # Customization
 extra:
+  homepage: 'https://www.hummingbot.io'
   search:
     language: 'en'
+
   # social:
   #   - type: 'globe'
   #     link: 'https://www.hummingbot.io'
@@ -60,7 +76,8 @@ markdown_extensions:
   - pymdownx.critic
   - pymdownx.details
   - pymdownx.emoji:
-      emoji_generator: !!python/name:pymdownx.emoji.to_svg
+        emoji_index: !!python/name:materialx.emoji.twemoji
+        emoji_generator: !!python/name:materialx.emoji.to_svg
   - pymdownx.inlinehilite
   - pymdownx.magiclink
   - pymdownx.mark
