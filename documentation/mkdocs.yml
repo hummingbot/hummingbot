@@ -30,16 +30,16 @@ theme:
 extra:
   search:
     language: 'en'
-  social:
-    - type: 'globe'
-      link: 'https://www.hummingbot.io'
-    - type: 'github'
-      link: 'https://github.com/coinalpha/hummingbot'
-    - type: 'twitter'
-      link: 'https://twitter.com/hummingbot_io'
-google_analytics:
-  - 'UA-119262087-3'
-  - 'auto'
+  # social:
+  #   - type: 'globe'
+  #     link: 'https://www.hummingbot.io'
+  #   - type: 'github'
+  #     link: 'https://github.com/coinalpha/hummingbot'
+  #   - type: 'twitter'
+  #     link: 'https://twitter.com/hummingbot_io'
+# google_analytics:
+#   - 'UA-119262087-3'
+#   - 'auto'
 extra_css:
   - assets/css/custom.css
 extra_javascript:
