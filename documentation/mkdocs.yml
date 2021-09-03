@@ -20,14 +20,14 @@ theme:
   repo: 'https://github.com/coinalpha/hummingbot'
   palette:
     - media: "(prefers-color-scheme: light)"
-    - scheme: default
-      primary: light blue
+      scheme: default
+      primary: cyan
       accent: purple
       toggle:
         icon: material/toggle-switch-off-outline
         name: Switch to dark mode
     - media: "(prefers-color-scheme: dark)"
-    - scheme: slate
+      scheme: slate
       primary: cyan
       accent: purple
       toggle:
