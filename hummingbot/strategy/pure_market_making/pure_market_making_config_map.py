@@ -67,7 +67,7 @@ def on_validate_price_source(value: str):
     if value != "custom_api":
         pure_market_making_config_map["price_source_custom_api"].value = None
     else:
-        pure_market_making_config_map["price_type"].value = None
+        pure_market_making_config_map["price_type"].value = "custom"
 
 
 def price_source_market_prompt() -> str:
@@ -98,6 +98,24 @@ def validate_price_floor_ceiling(value: str) -> Optional[str]:
         return f"{value} is not in decimal format."
     if not (decimal_value == Decimal("-1") or decimal_value > Decimal("0")):
         return "Value must be more than 0 or -1 to disable this feature."
+
+
+def validate_price_type(value: str) -> Optional[str]:
+    error = None
+    price_source = pure_market_making_config_map.get("price_source").value
+    if price_source != "custom_api":
+        valid_values = {"mid_price",
+                        "last_price",
+                        "last_own_trade_price",
+                        "best_bid",
+                        "best_ask",
+                        "inventory_cost",
+                        }
+        if value not in valid_values:
+            error = "Invalid price type."
+    elif value != "custom":
+        error = "Invalid price type."
+    return error
 
 
 def on_validated_price_type(value: str):
@@ -315,14 +333,7 @@ pure_market_making_config_map = {
                   required_if=lambda: pure_market_making_config_map.get("price_source").value != "custom_api",
                   default="mid_price",
                   on_validated=on_validated_price_type,
-                  validator=lambda s: None if s in {"mid_price",
-                                                    "last_price",
-                                                    "last_own_trade_price",
-                                                    "best_bid",
-                                                    "best_ask",
-                                                    "inventory_cost",
-                                                    } else
-                  "Invalid price type."),
+                  validator=validate_price_type),
     "price_source_exchange":
         ConfigVar(key="price_source_exchange",
                   prompt="Enter external price source exchange name >>> ",
@@ -348,6 +359,13 @@ pure_market_making_config_map = {
                   prompt="Enter pricing API URL >>> ",
                   required_if=lambda: pure_market_making_config_map.get("price_source").value == "custom_api",
                   type_str="str"),
+    "custom_api_update_interval":
+        ConfigVar(key="custom_api_update_interval",
+                  prompt="Enter custom API update interval in second (default: 5.0, min: 0.5) >>> ",
+                  required_if=lambda: False,
+                  default=float(5),
+                  type_str="float",
+                  validator=lambda v: validate_decimal(v, Decimal("0.5"))),
     "order_override":
         ConfigVar(key="order_override",
                   prompt=None,

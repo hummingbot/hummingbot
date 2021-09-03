@@ -2,7 +2,9 @@
 
 import unittest
 import asyncio
-
+from decimal import Decimal
+from typing import Any
+from unittest.mock import patch, AsyncMock
 
 import hummingbot.connector.exchange.ndax.ndax_constants as CONSTANTS
 
@@ -10,6 +12,7 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.connector.exchange.ndax.ndax_order_book import NdaxOrderBook
 from hummingbot.connector.exchange.ndax.ndax_order_book_message import NdaxOrderBookEntry, NdaxOrderBookMessage
 from hummingbot.connector.exchange.ndax.ndax_order_book_tracker import NdaxOrderBookTracker
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 
 class NdaxOrderBookTrackerUnitTest(unittest.TestCase):
@@ -26,7 +29,8 @@ class NdaxOrderBookTrackerUnitTest(unittest.TestCase):
 
     def setUp(self) -> None:
         super().setUp()
-        self.tracker: NdaxOrderBookTracker = NdaxOrderBookTracker([self.trading_pair])
+        throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        self.tracker: NdaxOrderBookTracker = NdaxOrderBookTracker(throttler, [self.trading_pair])
         self.tracking_task = None
 
         # Simulate start()
@@ -40,6 +44,14 @@ class NdaxOrderBookTrackerUnitTest(unittest.TestCase):
             for task in self.tracker._tracking_tasks.values():
                 task.cancel()
         super().tearDown()
+
+    def simulate_trading_pair_ids_initialized(self):
+        self.tracker._data_source._trading_pair_id_map.update({self.trading_pair: self.instrument_id})
+
+    @staticmethod
+    def set_mock_response(mock_api, status: int, json_data: Any):
+        mock_api.return_value.__aenter__.return_value.status = status
+        mock_api.return_value.__aenter__.return_value.json = AsyncMock(return_value=json_data)
 
     def simulate_queue_order_book_messages(self, message: NdaxOrderBookMessage):
         message_queue = self.tracker._tracking_message_queues[self.trading_pair]
@@ -74,7 +86,16 @@ class NdaxOrderBookTrackerUnitTest(unittest.TestCase):
 
         self.assertEqual(0, self.tracker.order_books[self.trading_pair].snapshot_uid)
 
-    def test_init_order_books(self):
+    @patch("aiohttp.ClientSession.get")
+    def test_init_order_books(self, mock_api):
+        self.simulate_trading_pair_ids_initialized()
+        mock_response = [
+            # mdUpdateId, accountId, actionDateTime, actionType, lastTradePrice, orderId, price, productPairCode, quantity, side
+            [93617617, 1, 1626788175416, 0, 37800.0, 1, 37750.0, 1, 0.015, 0],
+            [93617617, 1, 1626788175416, 0, 37800.0, 1, 37751.0, 1, 0.015, 1]
+        ]
+        self.set_mock_response(mock_api, 200, mock_response)
+
         self.tracker._order_books_initialized.clear()
         self.tracker._tracking_message_queues.clear()
         self.tracker._tracking_tasks.clear()
@@ -93,3 +114,23 @@ class NdaxOrderBookTrackerUnitTest(unittest.TestCase):
 
         self.assertIsInstance(self.tracker.order_books[self.trading_pair], OrderBook)
         self.assertTrue(self.tracker._order_books_initialized.is_set())
+
+    @patch("aiohttp.ClientSession.get")
+    def test_can_get_price_after_order_book_init(self, mock_api):
+        self.simulate_trading_pair_ids_initialized()
+        mock_response = [
+            # mdUpdateId, accountId, actionDateTime, actionType, lastTradePrice, orderId, price, productPairCode, quantity, side
+            [93617617, 1, 1626788175416, 0, 37800.0, 1, 37750.0, 1, 0.015, 0],
+            [93617617, 1, 1626788175416, 0, 37800.0, 1, 37751.0, 1, 0.015, 1]
+        ]
+        self.set_mock_response(mock_api, 200, mock_response)
+
+        init_order_books_task = self.ev_loop.create_task(
+            self.tracker._init_order_books()
+        )
+        self.ev_loop.run_until_complete(init_order_books_task)
+
+        ob = self.tracker.order_books[self.trading_pair]
+        ask_price = ob.get_price(True)
+
+        self.assertEqual(Decimal("37751.0"), ask_price)

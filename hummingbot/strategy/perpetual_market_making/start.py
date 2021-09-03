@@ -51,6 +51,7 @@ def start(self):
         price_source_exchange = c_map.get("price_source_derivative").value
         price_source_market = c_map.get("price_source_market").value
         price_source_custom_api = c_map.get("price_source_custom_api").value
+        custom_api_update_interval = c_map.get("custom_api_update_interval").value
         order_refresh_tolerance_pct = c_map.get("order_refresh_tolerance_pct").value / Decimal('100')
         order_override = c_map.get("order_override").value
 
@@ -69,7 +70,9 @@ def start(self):
             self.markets[price_source_exchange]: ExchangeBase = ext_market
             asset_price_delegate = OrderBookAssetPriceDelegate(ext_market, asset_trading_pair)
         elif price_source == "custom_api":
-            asset_price_delegate = APIAssetPriceDelegate(price_source_custom_api)
+            ext_market = create_paper_trade_market(exchange, [raw_trading_pair])
+            asset_price_delegate = APIAssetPriceDelegate(ext_market, price_source_custom_api,
+                                                         custom_api_update_interval)
         take_if_crossed = c_map.get("take_if_crossed").value
 
         strategy_logging_options = PerpetualMarketMakingStrategy.OPTION_LOG_ALL

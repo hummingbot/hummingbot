@@ -137,7 +137,7 @@ class UniswapConnector(ConnectorBase):
         for token, amount in self._allowances.items():
             if amount <= s_decimal_0:
                 amount_approved = await self.approve_uniswap_spender(token)
-                if amount_approved > 0:
+                if amount_approved > s_decimal_0:
                     self._allowances[token] = amount_approved
                     await asyncio.sleep(2)
                 else:
@@ -568,29 +568,32 @@ class UniswapConnector(ConnectorBase):
         :param params: A dictionary of required params for the end point
         :returns A response in json format.
         """
-        base_url = f"https://{global_config_map['gateway_api_host'].value}:" \
-                   f"{global_config_map['gateway_api_port'].value}"
-        url = f"{base_url}/{path_url}"
-        client = await self._http_client()
-        if method == "get":
-            if len(params) > 0:
-                response = await client.get(url, params=params)
-            else:
-                response = await client.get(url)
-        elif method == "post":
-            params["privateKey"] = self._wallet_private_key
-            if params["privateKey"][:2] != "0x":
-                params["privateKey"] = "0x" + params["privateKey"]
-            response = await client.post(url, data=params)
+        try:
+            base_url = f"https://{global_config_map['gateway_api_host'].value}:" \
+                       f"{global_config_map['gateway_api_port'].value}"
+            url = f"{base_url}/{path_url}"
+            client = await self._http_client()
+            if method == "get":
+                if len(params) > 0:
+                    response = await client.get(url, params=params)
+                else:
+                    response = await client.get(url)
+            elif method == "post":
+                params["privateKey"] = self._wallet_private_key
+                if params["privateKey"][:2] != "0x":
+                    params["privateKey"] = "0x" + params["privateKey"]
+                response = await client.post(url, data=params)
 
-        parsed_response = json.loads(await response.text())
-        if response.status != 200:
-            err_msg = ""
+            parsed_response = json.loads(await response.text())
+            if response.status != 200:
+                err_msg = ""
+                if "error" in parsed_response:
+                    err_msg = f" Message: {parsed_response['error']}"
+                raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.{err_msg}")
             if "error" in parsed_response:
-                err_msg = f" Message: {parsed_response['error']}"
-            raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.{err_msg}")
-        if "error" in parsed_response:
-            raise Exception(f"Error: {parsed_response['error']} {parsed_response['message']}")
+                raise Exception(f"Error: {parsed_response['error']} {parsed_response['message']}")
+        except aiohttp.client_exceptions.ServerDisconnectedError:
+            self.logger().error("Unable to receive response from Gateway, connection timeout...")
 
         return parsed_response
 

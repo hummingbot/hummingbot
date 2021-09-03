@@ -32,7 +32,7 @@ class HummingbotLogger(PythonLogger):
 
     @staticmethod
     def is_testing_mode() -> bool:
-        return any("nose" in arg or "unittest" in arg for arg in sys.argv)
+        return any("nose" in arg or "unittest" in arg or "pytest" for arg in sys.argv)
 
     def notify(self, msg: str):
         from . import INFO

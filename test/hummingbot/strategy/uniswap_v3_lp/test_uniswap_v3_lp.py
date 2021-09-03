@@ -123,25 +123,6 @@ class UniswapV3LpStrategyTest(unittest.TestCase):
             Decimal('1'),
             Decimal('0.05')
         )
-        self.default_strategy._last_price = Decimal("100")
-
-    def test_in_range_sell(self):
-        """
-        Test in_range_sell function.
-        """
-
-        self.default_strategy.tick(1)
-        self.assertFalse(self.default_strategy.in_range_sell())
-        self.default_strategy._market_info.market._in_flight_positions["pos1"] = UniswapV3InFlightPosition(hb_id="pos1",
-                                                                                                           token_id=1,
-                                                                                                           trading_pair="ETH-USDT",
-                                                                                                           fee_tier="MEDIUM",
-                                                                                                           base_amount=Decimal("0"),
-                                                                                                           quote_amount=Decimal("100"),
-                                                                                                           lower_price=Decimal("98"),
-                                                                                                           upper_price=Decimal("101"))
-        self.assertTrue(self.default_strategy.in_range_sell())
-        self.default_strategy._market_info.market._in_flight_positions = {}
 
     def test_generate_proposal_with_volatility_above_zero(self):
         """
@@ -197,6 +178,7 @@ class UniswapV3LpStrategyTest(unittest.TestCase):
         pos.unclaimed_base_amount = Decimal("1")
         pos.unclaimed_quote_amount = Decimal("10")
         pos.gas_price = Decimal("5")
+        self.default_strategy._last_price = Decimal("100")
         result = self.loop.run_until_complete(self.default_strategy.calculate_profitability(pos))
         self.assertEqual(result["profitability"], (Decimal("110") - result["tx_fee"]) / Decimal("100"))
 
@@ -208,9 +190,9 @@ class UniswapV3LpStrategyTest(unittest.TestCase):
         self.default_strategy.execute_proposal([[95, 100], []])
         self.assertEqual(len(self.default_strategy._market_info.market._in_flight_positions), 1)
 
-    def test_range_position_removal(self):
+    def test_range_calculation(self):
         """
-        Test that farthest inactive position is removed.
+        Test that the overall range of all positions cover are calculated correctly.
         """
         self.default_strategy._market_info.market._in_flight_positions["pos1"] = UniswapV3InFlightPosition(hb_id="pos1",
                                                                                                            token_id=1,
@@ -220,38 +202,31 @@ class UniswapV3LpStrategyTest(unittest.TestCase):
                                                                                                            quote_amount=Decimal("100"),
                                                                                                            lower_price=Decimal("90"),
                                                                                                            upper_price=Decimal("95"))
-
-        """self.default_strategy._market_info.market._in_flight_positions["pos1"].current_base_amount = Decimal("1")
-        self.default_strategy._market_info.market._in_flight_positions["pos1"].current_quote_amount = Decimal("0")
-        self.default_strategy._market_info.market._in_flight_positions["pos1"].unclaimed_base_amount = Decimal("1")
-        self.default_strategy._market_info.market._in_flight_positions["pos1"].unclaimed_quote_amount = Decimal("100")
-        self.default_strategy._market_info.market._in_flight_positions["pos1"].gas_price = Decimal("0")
-        self.assertEqual(len(self.default_strategy._market_info.market._in_flight_positions), 1)"""
         self.default_strategy._market_info.market._in_flight_positions["pos2"] = UniswapV3InFlightPosition(hb_id="pos2",
                                                                                                            token_id=2,
                                                                                                            trading_pair="ETH-USDT",
                                                                                                            fee_tier="MEDIUM",
                                                                                                            base_amount=Decimal("0"),
                                                                                                            quote_amount=Decimal("100"),
-                                                                                                           lower_price=Decimal("90"),
-                                                                                                           upper_price=Decimal("99"))
+                                                                                                           lower_price=Decimal("95"),
+                                                                                                           upper_price=Decimal("100"))
         self.default_strategy._market_info.market._in_flight_positions["pos3"] = UniswapV3InFlightPosition(hb_id="pos3",
                                                                                                            token_id=3,
                                                                                                            trading_pair="ETH-USDT",
                                                                                                            fee_tier="MEDIUM",
                                                                                                            base_amount=Decimal("0"),
                                                                                                            quote_amount=Decimal("100"),
-                                                                                                           lower_price=Decimal("90"),
-                                                                                                           upper_price=Decimal("95"))
+                                                                                                           lower_price=Decimal("100"),
+                                                                                                           upper_price=Decimal("105"))
         self.default_strategy._market_info.market._in_flight_positions["pos4"] = UniswapV3InFlightPosition(hb_id="pos4",
                                                                                                            token_id=4,
                                                                                                            trading_pair="ETH-USDT",
                                                                                                            fee_tier="MEDIUM",
                                                                                                            base_amount=Decimal("0"),
                                                                                                            quote_amount=Decimal("100"),
-                                                                                                           lower_price=Decimal("85"),
-                                                                                                           upper_price=Decimal("90"))
+                                                                                                           lower_price=Decimal("105"),
+                                                                                                           upper_price=Decimal("110"))
         self.assertEqual(len(self.default_strategy._market_info.market._in_flight_positions), 4)
-        self.default_strategy.remove_farthest_position()
-        self.assertEqual(len(self.default_strategy._market_info.market._in_flight_positions), 3)
-        self.assertEqual(self.default_strategy._market_info.market._in_flight_positions.get("pos4", 0), 0)
+        lower_bound, upper_bound = self.default_strategy.total_position_range()
+        self.assertEqual(lower_bound, Decimal("90"))
+        self.assertEqual(upper_bound, Decimal("110"))

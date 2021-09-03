@@ -24,7 +24,7 @@ class CustomAPIDataFeed(NetworkBase):
         self._api_url = api_url
         self._check_network_interval = 30.0
         self._ev_loop = asyncio.get_event_loop()
-        self._price: Decimal = 0
+        self._price: Decimal = Decimal("0")
         self._update_interval: float = update_interval
         self._fetch_price_task: Optional[asyncio.Task] = None
 

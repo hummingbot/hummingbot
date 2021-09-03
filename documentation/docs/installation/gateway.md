@@ -7,10 +7,10 @@ Hummingbot Gateway is a API server that allows Hummingbot to connect to [protoco
 
 ## Create SSL certificates
 
-1. Run the command `generate_certs` in the Hummingbot client
+1. Run the command `gateway generate_certs` in the Hummingbot client
 2. Enter a passphrase to be used later during installation
 
-![](/assets/img/generate-certs.gif)
+![](/assets/img/generate_certs.gif)
 
 !!! note
     As this passphrase will be stored in unencrypted form in the Gateway environment, we recommend that you use a different password as the Hummingbot password, which is used to encrypt your API and private keys.

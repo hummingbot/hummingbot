@@ -27,7 +27,7 @@ class TradesCommand:
                market: str,
                open_order_markets: bool):
         if threading.current_thread() != threading.main_thread():
-            self.ev_loop.call_soon_threadsafe(self.trades)
+            self.ev_loop.call_soon_threadsafe(self.trades, days, market, open_order_markets)
             return
         safe_ensure_future(self.trades_report(days, market, open_order_markets))
 

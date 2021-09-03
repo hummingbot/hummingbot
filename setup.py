@@ -97,7 +97,6 @@ def main():
         "hummingbot.wallet.ethereum.watcher",
         "hummingbot.wallet.ethereum.zero_ex",
     ]
-    version = "20210715"
     package_data = {
         "hummingbot": [
             "core/cpp/*",

@@ -18,7 +18,7 @@ Below are the functions that need to be implemented in the new `InFlightOrder` c
 | Function(s)                | Input                          | Output          | Description                                                                                                             |
 | -------------------------- | ------------------------------ | --------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `is_done`                  | `None`                         | `bool`          | Returns `True` if the order state is completely filled or cancelled.                                                    |
-| `is_failure`               | `None`                         | `bool`          | Returns `True` if placing the order is unsuccesfully.                                                                   |
+| `is_failure`               | `None`                         | `bool`          | Returns `True` if placing the order is unsuccessfully.                                                                   |
 | `is_cancelled`             | `None`                         | `bool`          | Returns `True` if the order state is cancelled.                                                                         |
 | `from_json`                | data: `Dict[str, Any]`         | `InFlightOrder` | Converts the order data from a JSON object to an `InFlightOrder` object.                                                |
 | `update_with_trade_update` | trade_update: `Dict[str, Any]` | `bool`          | Updates the in flight order with trade update from the REST or WebSocket API. Returns `True` if the order gets updated. |
@@ -27,7 +27,7 @@ Below are the functions that need to be implemented in the new `InFlightOrder` c
 
 The `Exchange` class is the middle-man between the strategies and the exchange API servers. It provides the necessary order book and user data to the strategies and communicates the order proposals to the exchanges.
 
-The functions of the `Exchange` class can be catergorized into:
+The functions of the `Exchange` class can be categorized into:
 
 [**(1) Placing Orders**](#1-placing-orders)<br/>
 [**(2) Cancelling Orders**](#2-cancelling-orders)<br/>
@@ -216,7 +216,7 @@ Starts tracking an order by simply adding it into `_in_flight_orders` dictionary
 **Expected Output(s):** `None`
 
 !!! note
-    In most cases, the `exchange_order_id` is only provided after the place order APi request is succesfully processed by the exchange. As such, the `exchange_order_id` can be `None` initially. It can be updated later by using the [InFlightOrderBase.update_exchange_order_id()](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/in_flight_order_base.pyx#L77-L79) function.
+    In most cases, the `exchange_order_id` is only provided after the place order APi request is successfully processed by the exchange. As such, the `exchange_order_id` can be `None` initially. It can be updated later by using the [InFlightOrderBase.update_exchange_order_id()](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/in_flight_order_base.pyx#L77-L79) function.
 
 #### `stop_tracking_order()`
 
