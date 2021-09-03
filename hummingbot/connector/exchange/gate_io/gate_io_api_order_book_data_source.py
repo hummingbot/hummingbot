@@ -106,7 +106,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
         order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
         return order_book
 
-    async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+    async def listen_for_trades(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
         """
         Listen for trades using websocket trade channel
         """
@@ -149,7 +149,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
             finally:
                 await ws.disconnect()
 
-    async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+    async def listen_for_order_book_diffs(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
         """
         Listen for orderbook diffs using websocket book channel
         """
@@ -204,7 +204,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
             finally:
                 await ws.disconnect()
 
-    async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+    async def listen_for_order_book_snapshots(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
         """
         Listen for orderbook snapshots by fetching orderbook
         """

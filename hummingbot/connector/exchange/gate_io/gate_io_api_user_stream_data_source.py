@@ -81,7 +81,7 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
             await self._ws.disconnect()
             await asyncio.sleep(5)
 
-    async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+    async def listen_for_user_stream(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
         """
         *required
         Subscribe to user stream via web socket, and keep the connection open for incoming messages

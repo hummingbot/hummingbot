@@ -968,24 +968,25 @@ class GateIoExchange(ExchangeBase):
     async def get_open_orders(self) -> List[OpenOrder]:
         result = await self._api_request("GET", CONSTANTS.USER_ORDERS_PATH_URL, is_auth_required=True)
         ret_val = []
-        for order in result:
-            if CONSTANTS.HBOT_ORDER_ID not in order["text"]:
-                continue
-            if order["type"] != OrderType.LIMIT.name.lower():
-                self.logger().info(f"Unsupported order type found: {order['type']}")
-                continue
-            ret_val.append(
-                OpenOrder(
-                    client_order_id=order["text"],
-                    trading_pair=convert_from_exchange_trading_pair(order["currency_pair"]),
-                    price=Decimal(str(order["price"])),
-                    amount=Decimal(str(order["amount"])),
-                    executed_amount=Decimal(str(order["filled_total"])),
-                    status=order["status"],
-                    order_type=OrderType.LIMIT,
-                    is_buy=True if order["side"].lower() == TradeType.BUY.name.lower() else False,
-                    time=int(order["create_time"]),
-                    exchange_order_id=order["id"]
+        for pair_orders in result:
+            for order in pair_orders["orders"]:
+                if CONSTANTS.HBOT_ORDER_ID not in order["text"]:
+                    continue
+                if order["type"] != OrderType.LIMIT.name.lower():
+                    self.logger().info(f"Unsupported order type found: {order['type']}")
+                    continue
+                ret_val.append(
+                    OpenOrder(
+                        client_order_id=order["text"],
+                        trading_pair=convert_from_exchange_trading_pair(order["currency_pair"]),
+                        price=Decimal(str(order["price"])),
+                        amount=Decimal(str(order["amount"])),
+                        executed_amount=Decimal(str(order["filled_total"])),
+                        status=order["status"],
+                        order_type=OrderType.LIMIT,
+                        is_buy=True if order["side"].lower() == TradeType.BUY.name.lower() else False,
+                        time=int(order["create_time"]),
+                        exchange_order_id=order["id"]
+                    )
                 )
-            )
         return ret_val
