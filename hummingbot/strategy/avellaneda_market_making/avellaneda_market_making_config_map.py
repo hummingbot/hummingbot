@@ -21,8 +21,6 @@ from hummingbot.client.config.config_helpers import (
 )
 from typing import Optional
 
-# from hummingbot.strategy.hanging_orders_tracker import HangingOrdersAggregationType
-
 
 def maker_trading_pair_prompt():
     exchange = avellaneda_market_making_config_map.get("exchange").value
@@ -270,13 +268,6 @@ avellaneda_market_making_config_map = {
                   type_str="bool",
                   default=False,
                   validator=validate_bool),
-    # "hanging_orders_aggregation_type":
-    #     ConfigVar(key="hanging_orders_aggregation_type",
-    #               prompt="What kind of aggregation for the hanging orders? (no_aggregation/volume_weighted/volume_time_weighted/volume_distance_weighted) >>> ",
-    #               type_str="str",
-    #               default="no_aggregation",
-    #               validator=lambda v: "Invalid option" if v.upper() not in [s.name for s in HangingOrdersAggregationType] else None,
-    #               required_if=lambda: avellaneda_market_making_config_map.get("hanging_orders_enabled").value),
     "hanging_orders_cancel_pct":
         ConfigVar(key="hanging_orders_cancel_pct",
                   prompt="At what spread percentage (from mid price) will hanging orders be canceled? "

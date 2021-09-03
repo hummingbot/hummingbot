@@ -42,7 +42,7 @@ from hummingbot.connector.exchange.crypto_com.crypto_com_in_flight_order import 
 from hummingbot.connector.exchange.crypto_com import crypto_com_utils
 from hummingbot.connector.exchange.crypto_com import crypto_com_constants as CONSTANTS
 from hummingbot.core.data_type.common import OpenOrder
-from hummingbot.core.api_throttler.varied_rate_api_throttler import VariedRateThrottler
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 ctce_logger = None
 s_decimal_NaN = Decimal("nan")
@@ -94,9 +94,7 @@ class CryptoComExchange(ExchangeBase):
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
         self._last_poll_timestamp = 0
-        self._throttler = VariedRateThrottler(
-            rate_limit_list=CONSTANTS.RATE_LIMITS,
-        )
+        self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
 
     @property
     def name(self) -> str:
@@ -349,8 +347,6 @@ class CryptoComExchange(ExchangeBase):
                               f"Message: {parsed_response}")
             if parsed_response["code"] != 0:
                 raise IOError(f"{url} API call failed, response: {parsed_response}")
-            # print(f"REQUEST: {method} {path_url} {params}")
-            # print(f"RESPONSE: {parsed_response}")
             return parsed_response
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal):

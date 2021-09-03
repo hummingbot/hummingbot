@@ -1,87 +1,85 @@
-# Uniswap v3 Liquidity Pool Strategy
+**Updated as of v0.43**
 
-**Updated as of v0.40**
-
-Before you can use the Uniswap v3 LP Strategy in Hummingbot, you need to install and configure the [Gateway API server](/installation/gateway/).
-
-The flowchart below is a guide on how to set up the installation and configuration of the strategy.
-
-![Uniswap v3 LP Strategy](/assets/img/uniswapv3-strat-diagram.jpg)
-
-### Setup Ethereum wallet and nodes
-
-Ensure you have setup the Ethereum wallet and nodes, for more details:
-
-- see [Setup Ethereum Wallet](https://docs.hummingbot.io/operation/connect-exchange/#setup-ethereum-wallet)
-- see [Setup Infura Node](https://docs.hummingbot.io/operation/connect-exchange/#option-1-infura). Take note of the Ethereum RPC URL to be use later for Gateway Docker settings.
-
-### Setup gateway
-
-You need to setup the [Gateway](/gateway/installation) to use this strategy.
-
-## Uniswap v3 LP Strategy iteration 1 behaviour
-
-The bot will create two liquidity positions:
-
-### Buy-side
-
-- The upper price bound of this position is as close as possible to the current market price
-- The lower price bound of this position is set by the spread defined by the user (A)
-- The amount of tokens locked on this position is the amount defined on the quote amount question (D)
-
-### Sell-side
-
-- The lower price bound of this position is as close as possible to the current market price
-- The upper price bound of this position is set by the spread defined by the user (B)
-- The amount of tokens locked on this position is the amount defined on the base amount question (C)
-
-## Uniswap v3 Strategy
-
-The following example shows a step-by-step on configuring the strategy.
-
-1. In Hummingbot, enter `create`.
-
-2. Enter `uniswap_v3_lp`.
-```json
-What is your market making strategy?
->>> uniswap_v3_lp
-```
-
-3. 
-```json
-Enter the pair you would like to provide liquidity to (e.g. WETH-DAI)
->>> WETH-DAI
-```
-
-4. 
-```json
-On which fee tier do you want to provide liquidity on? (LOW/MEDIUM/HIGH)
->>> Medium
-```
-
-5. 
-```json
-How wide apart(in percentage) do you want the lower price to be from the upper price for buy position? (Enter 1 to indicate 1%)
->>>
-```
-
-6. 
-```json
-How wide apart(in percentage) do you want the lower price to be from the upper price for sell position? (Enter 1 to indicate 1%)
->>>
-```
-
-7. 
-```json
-How much of your base token do you want to use?
->>>
-```
-
-8. 
-```json
-How much of your quote token do you want to use?
->>>
-```
+## How it works
 
 !!! note
-    `Paper_trade` is not applicable for this strategy. Alternatively, you may set up a `kovan_testnet` to help you run some tests without risking funds.
+    This is a proof-of-concept strategy that demonstrates how to dynamically maintain Uniswap-V3 positions as market prices changes. More features will be added over time based on community feedback.
+
+This strategy creates and maintains Uniswap positions as the market price changes in order to continue providing liquidity. Currently, it does not remove or update positions.
+
+## Strategy files
+
+**Folder**: https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/strategy/uniswap_v3_lp
+**Template**: https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/templates/conf_uniswap_v3_lp_strategy_TEMPLATE.yml
+
+## Parameters
+
+**Config map**: https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/uniswap_v3_lp/uniswap_v3_lp_config_map.py
+
+| Parameter                    | Type        | Default     | Prompt New? | Prompt                                                 |
+|------------------------------|-------------|-------------|-------------|--------------------------------------------------------|
+| `market`                     | string      |             | True        | Enter the trading pair you would like to provide liquidity on [connector]|
+| `fee_tier`                   | string      |             | True        | On which fee tier do you want to provide liquidity on? (LOW/MEDIUM/HIGH)|
+| `buy_spread`                 | decimal     |  1.00       | True        | How far away from the mid price do you want to place the buy position? (Enter 1 to indicate 1%)|
+| `sell_spread`                | decimal     |  1.00       | True        | How far away from the mid price do you want to place the sell position? (Enter 1 to indicate 1%)|
+| `base_token_amount`          | decimal     |             | True        | How much of your base token do you want to use for the buy position? |
+| `quote_token_amount`         | decimal     |             | True        | How much of your quote token do you want to use for the sell position? |
+| `min_profitability`          | decimal     |             | True        | What is the minimum profitability for each position is be adjusted? (Enter 1 to indicate 1%)|
+| `use_volatility`             | bool        |  False      | False       | Do you want to use price volatility to adjust spreads? (Yes/No)| 
+| `volatility_period`          | int         |  1          | False       | Enter how long (in hours) do you want to use for price volatility calculation |
+| `volatility_factor`          | decimal     |  1.00       | False       | Enter the multiplier applied to price volatility |
+
+## Prerequisites
+
+- [Gateway API server](/installation/gateway/)
+- [Ethereum Wallet](/operation/connect-exchange/#setup-ethereum-wallet)
+
+## Specification
+
+### Starting
+
+1. The bot will look for information about the pool, and if it is a valid pool. If the pool doesn't exist, warn the user and stop the strategy
+3. Fetch the current mid price of the pool (`last_price`)
+3. If `use_volatility` is True, the bot will calculate the price volatility used to widen spreads
+4. If the pool is valid, the bot will create two starting positions:
+    - The SELL position with:
+        - Amount of tokens added to the position = `base_token_amount`
+        - `upper_price` = `(1 + sell_spread) * last_price` 
+        - `lower_price` = `last_price`
+    - The BUY position with:
+        - Amount of tokens added to the position = `quote_token_amount`
+        - `upper_price` = `last_price`
+        - `lower_price` = `(1 - buy_spread) * last_price`
+
+![image.png](/assets/img/uniswap-v3-1.png)
+
+The bot maintains a variable `total_position_range` that defines the total price range, comprised of `upper_price` and `lower_price`, where the bot is providing liquidity.
+
+### Running
+
+Each tick, the bot monitors the pool mid price (`last_price`) and compare it to the bounds of `total_position_range`. It will adjust the position under the following scenarios:
+
+**`last_price` is higher than `upper_price` of `total_position_range`**
+
+1. Create a new SELL liquidity position, using the following values:
+    - Amount of tokens of the new position = `base_token_amount`
+    - Top price bound = `(1 + sell_spread) * last_price`
+    - Lower price bound = `last_price`
+2. Update `total_position_range`: `upper_price = (1 + sell_spread) * last_price`
+
+![image.png](/assets/img/uniswap-v3-2.png)
+
+**`last_price` is lower than `lower_price` of `total_position_range`**
+
+1. Create a new BUY liquidity position, using the following values:
+    - Amount of tokens of the new position = `quote_token_amount`
+    - New position upper price = `last_price`
+    - New position lower price = `(1 - buy_spread) * last_price`
+2. Update `total_position_range`: `lower_price = (1 - buy_spread) * last_price`
+
+![image.png](/assets/img/uniswap-v3-3.png)
+
+## Important Notes
+
+- Currently, the strategy does not remove existing positions. The user should do it manually through the Uniswap interace (https://app.uniswap.org/#/pool).
+- The `status` command shows the current profitability of each position, using the `quote` asset as reference

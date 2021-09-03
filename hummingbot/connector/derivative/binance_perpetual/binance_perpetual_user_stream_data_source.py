@@ -39,14 +39,14 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def get_listen_key(self):
         async with aiohttp.ClientSession() as client:
-            async with client.post(self._http_stream_url,
-                                   headers={"X-MBX-APIKEY": self._api_key}) as response:
-                response: aiohttp.ClientResponse = response
-                if response.status != 200:
-                    raise IOError(f"Error fetching Binance Perpetual user stream listen key. "
-                                  f"HTTP status is {response.status}.")
-                data: Dict[str, str] = await response.json()
-                return data["listenKey"]
+            response: aiohttp.ClientResponse = await client.post(
+                self._http_stream_url, headers={"X-MBX-APIKEY": self._api_key}
+            )
+            if response.status != 200:
+                raise IOError(f"Error fetching Binance Perpetual user stream listen key. "
+                              f"HTTP status is {response.status}.")
+            data: Dict[str, str] = await response.json()
+            return data["listenKey"]
 
     async def ping_listen_key(self, listen_key: str) -> bool:
         async with aiohttp.ClientSession() as client:
@@ -82,11 +82,10 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         while True:
             try:
                 stream_url: str = f"{self._wss_stream_url}{self._current_listen_key}"
-                async with websockets.connect(stream_url) as ws:
-                    ws: websockets.WebSocketClientProtocol = ws
-                    async for raw_msg in self.ws_messages(ws):
-                        msg_json: Dict[str, any] = ujson.loads(raw_msg)
-                        output.put_nowait(msg_json)
+                ws: websockets.WebSocketClientProtocol = await websockets.connect(stream_url)
+                async for raw_msg in self.ws_messages(ws):
+                    msg_json: Dict[str, any] = ujson.loads(raw_msg)
+                    output.put_nowait(msg_json)
             except asyncio.CancelledError:
                 raise
             except Exception:

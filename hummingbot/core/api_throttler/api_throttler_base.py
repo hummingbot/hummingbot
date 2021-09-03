@@ -28,14 +28,14 @@ class APIThrottlerBase(ABC):
         self._rate_limit_list: List[RateLimit] = rate_limit_list
 
         self._path_rate_limit_map: Dict[RequestPath, RateLimit] = {
-            limit.path_url: limit
+            limit.limit_id: limit
             for limit in self._rate_limit_list
         }
 
         # Each path url has its own queue.
         # Rate Limits have a DEFAULT_PATH. See data_types.py
         self._path_task_logs_map: Dict[RequestPath, Deque[TaskLog]] = {
-            limit.path_url: deque()
+            limit.limit_id: deque()
             for limit in self._rate_limit_list
         }
 

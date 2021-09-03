@@ -77,6 +77,8 @@ class AscendExExchangeUnitTest(unittest.TestCase):
         cls.clock.add_iterator(cls.connector)
         cls.stack: contextlib.ExitStack = contextlib.ExitStack()
         cls._clock = cls.stack.enter_context(cls.clock)
+        cls.connector.start(cls._clock, time.time())
+        cls.ev_loop.create_task(cls.connector.start_network())
         cls.ev_loop.run_until_complete(cls.wait_til_ready())
         print("Ready.")
 
@@ -263,7 +265,7 @@ class AscendExExchangeUnitTest(unittest.TestCase):
         ask_price = self.connector.get_price(self.trading_pair, False)
         bid_price = self.connector.quantize_order_price(self.trading_pair, bid_price * Decimal("0.9"))
         ask_price = self.connector.quantize_order_price(self.trading_pair, ask_price * Decimal("1.1"))
-        amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("0.0002"))
+        amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("90"))
 
         buy_id = self._place_order(True, amount, OrderType.LIMIT, bid_price, 1)
         sell_id = self._place_order(False, amount, OrderType.LIMIT, ask_price, 2)
@@ -278,17 +280,19 @@ class AscendExExchangeUnitTest(unittest.TestCase):
         bid_price: Decimal = self.connector.get_price(self.trading_pair, True)
         ask_price: Decimal = self.connector.get_price(self.trading_pair, False)
         mid_price: Decimal = (bid_price + ask_price) / 2
+        zil_balance = self.connector.get_balance("ZIL")
+        usdt_balance = self.connector.get_balance("USDT")
 
         # Make sure there's enough balance to make the limit orders.
-        self.assertGreater(self.connector.get_balance("BTC"), Decimal("0.001"))
-        self.assertGreater(self.connector.get_balance("USDT"), Decimal("10"))
+        self.assertGreater(zil_balance, Decimal("90"))
+        self.assertGreater(usdt_balance, Decimal("10"))
 
         # Intentionally set some prices with too many decimal places s.t. they
         # need to be quantized. Also, place them far away from the mid-price s.t. they won't
         # get filled during the test.
         bid_price = self.connector.quantize_order_price(self.trading_pair, mid_price * Decimal("0.9333192292111341"))
         ask_price = self.connector.quantize_order_price(self.trading_pair, mid_price * Decimal("1.1492431474884933"))
-        amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("0.000223456"))
+        amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("90"))
 
         # Test bid order
         cl_order_id_1 = self._place_order(True, amount, OrderType.LIMIT, bid_price, 1)
@@ -320,8 +324,7 @@ class AscendExExchangeUnitTest(unittest.TestCase):
             price: Decimal = current_bid_price * Decimal("0.8")
             price = self.connector.quantize_order_price(self.trading_pair, price)
 
-            amount: Decimal = Decimal("0.0002")
-            amount = self.connector.quantize_order_amount(self.trading_pair, amount)
+            amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("90"))
 
             cl_order_id = self._place_order(True, amount, OrderType.LIMIT_MAKER, price, 1)
             order_created_event = self.ev_loop.run_until_complete(self.event_logger.wait_for(BuyOrderCreatedEvent))
@@ -398,10 +401,10 @@ class AscendExExchangeUnitTest(unittest.TestCase):
             # Try to buy some token from the exchange, and watch for completion event.
             price = self.connector.get_price(self.trading_pair, True) * Decimal("1.05")
             price = self.connector.quantize_order_price(self.trading_pair, price)
-            amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("0.0002"))
+            amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("90"))
 
             order_id = self._place_order(True, amount, OrderType.LIMIT, price, 1)
-            self.ev_loop.run_until_complete(self.event_logger.wait_for(BuyOrderCompletedEvent))
+            self.ev_loop.run_until_complete(self.event_logger.wait_for(BuyOrderCompletedEvent, timeout_seconds=10))
             self.ev_loop.run_until_complete(asyncio.sleep(1))
 
             # Reset the logs
@@ -410,7 +413,7 @@ class AscendExExchangeUnitTest(unittest.TestCase):
             # Try to sell back the same amount to the exchange, and watch for completion event.
             price = self.connector.get_price(self.trading_pair, True) * Decimal("0.95")
             price = self.connector.quantize_order_price(self.trading_pair, price)
-            amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("0.0002"))
+            amount = self.connector.quantize_order_amount(self.trading_pair, Decimal("90"))
             order_id = self._place_order(False, amount, OrderType.LIMIT, price, 2)
             self.ev_loop.run_until_complete(self.event_logger.wait_for(SellOrderCompletedEvent))
 

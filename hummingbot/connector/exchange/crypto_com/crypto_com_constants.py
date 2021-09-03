@@ -19,16 +19,28 @@ GET_ORDER_DETAIL_PATH_URL = "private/get-order-detail"
 GET_OPEN_ORDERS_PATH_URL = "private/get-open-orders"
 
 # Crypto.com has a per method API limit
+
+# RATE_LIMITS = [
+#     RateLimit(limit_id="ALL", limit=100, time_interval=1),
+#     RateLimit(limit_id=CHECK_NETWORK_PATH_URL, limit=100, time_interval=1, linked_limits=["ALL"]),
+#     RateLimit(limit_id=GET_TRADING_RULES_PATH_URL, limit=100, time_interval=1, linked_limits=["ALL"]),
+#     RateLimit(limit_id=CREATE_ORDER_PATH_URL, limit=15, time_interval=0.1, linked_limits=["ALL"]),
+#     RateLimit(limit_id=CANCEL_ORDER_PATH_URL, limit=15, time_interval=0.1, linked_limits=["ALL"]),
+#     RateLimit(limit_id=GET_ACCOUNT_SUMMARY_PATH_URL, limit=3, time_interval=0.1, linked_limits=["ALL"]),
+#     RateLimit(limit_id=GET_ORDER_DETAIL_PATH_URL, limit=30, time_interval=0.1, linked_limits=["ALL"]),
+#     RateLimit(limit_id=GET_OPEN_ORDERS_PATH_URL, limit=3, time_interval=0.1, linked_limits=["ALL"]),
+# ]
+
 RATE_LIMITS = [
-    # RateLimit(Limit, TimeInterval, RequestPath)
-    RateLimit(100, 1, path_url=CHECK_NETWORK_PATH_URL),
-    RateLimit(100, 1, path_url=GET_TRADING_RULES_PATH_URL),
-    RateLimit(15, 0.1, path_url=CREATE_ORDER_PATH_URL),
-    RateLimit(15, 0.1, path_url=CANCEL_ORDER_PATH_URL),
-    RateLimit(3, 0.1, path_url=GET_ACCOUNT_SUMMARY_PATH_URL),
-    RateLimit(30, 0.1, path_url=GET_ORDER_DETAIL_PATH_URL),
-    RateLimit(3, 0.1, path_url=GET_OPEN_ORDERS_PATH_URL),
+    RateLimit(limit_id=CHECK_NETWORK_PATH_URL, limit=100, time_interval=1),
+    RateLimit(limit_id=GET_TRADING_RULES_PATH_URL, limit=100, time_interval=1),
+    RateLimit(limit_id=CREATE_ORDER_PATH_URL, limit=15, time_interval=0.1),
+    RateLimit(limit_id=CANCEL_ORDER_PATH_URL, limit=15, time_interval=0.1),
+    RateLimit(limit_id=GET_ACCOUNT_SUMMARY_PATH_URL, limit=3, time_interval=0.1),
+    RateLimit(limit_id=GET_ORDER_DETAIL_PATH_URL, limit=30, time_interval=0.1),
+    RateLimit(limit_id=GET_OPEN_ORDERS_PATH_URL, limit=3, time_interval=0.1),
 ]
+
 
 API_REASONS = {
     0: "Success",

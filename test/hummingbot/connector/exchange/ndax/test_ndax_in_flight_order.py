@@ -1,7 +1,8 @@
 from decimal import Decimal
 from unittest import TestCase
 
-from hummingbot.connector.exchange.ndax.ndax_in_flight_order import NdaxInFlightOrder
+from hummingbot.connector.exchange.ndax.ndax_in_flight_order import \
+    NdaxInFlightOrder, WORKING_LOCAL_STATUS
 from hummingbot.core.event.events import OrderType, TradeType
 
 
@@ -41,7 +42,7 @@ class NdaxInFlightOrderTests(TestCase):
         self.assertEqual(Decimal("0"), order.executed_amount_quote)
         self.assertEqual(order.quote_asset, order.fee_asset)
         self.assertEqual(Decimal("0"), order.fee_paid)
-        self.assertEqual("Working", order.last_state)
+        self.assertEqual(WORKING_LOCAL_STATUS, order.last_state)
 
     def test_create_from_json(self):
         order = NdaxInFlightOrder.from_json(self._example_json())

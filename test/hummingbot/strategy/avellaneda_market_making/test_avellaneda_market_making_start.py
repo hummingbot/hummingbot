@@ -5,7 +5,6 @@ from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.strategy.avellaneda_market_making.avellaneda_market_making_config_map import (
     avellaneda_market_making_config_map as strategy_cmap
 )
-# from hummingbot.strategy.hanging_orders_tracker import HangingOrdersAggregationType
 from test.hummingbot.strategy import assign_config_default
 
 
@@ -56,21 +55,6 @@ class AvellanedaStartTest(unittest.TestCase):
 
     def error(self, message, exc_info):
         self.log_errors.append(message)
-
-    # @unittest.mock.patch('hummingbot.strategy.avellaneda_market_making.start.HummingbotApplication')
-    # def test_hanging_orders_strategy_creation(self, mock_fname):
-    #     mock_fname.main_application().strategy_file_name = "test.csv"
-    #     strategy_start.start(self)
-    #     self.assertEqual(self.strategy.order_amount, Decimal("1"))
-    #     self.assertEqual(self.strategy.order_refresh_time, 60.)
-    #     self.assertEqual(self.strategy.hanging_orders_tracker.aggregation_method,
-    #                      HangingOrdersAggregationType.VOLUME_WEIGHTED)
-    #     self.assertEqual(self.strategy.hanging_orders_tracker._hanging_orders_cancel_pct,
-    #                      Decimal("0.01"))
-    #     strategy_cmap.get("hanging_orders_enabled").value = False
-    #     strategy_start.start(self)
-    #     self.assertEqual(self.strategy.hanging_orders_tracker.aggregation_method,
-    #                      HangingOrdersAggregationType.NO_AGGREGATION)
 
     @unittest.mock.patch('hummingbot.strategy.avellaneda_market_making.start.HummingbotApplication')
     def test_parameters_based_on_spread_strategy_creation(self, mock_hbot):
