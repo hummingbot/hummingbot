@@ -348,14 +348,14 @@ class GateIoExchange(ExchangeBase):
         req_params = ujson.dumps(params) if method.upper() == "POST" and params is not None else None
         # Generate auth headers if needed.
         headers: dict = {"Content-Type": "application/json"}
-        if is_auth_required:
-            headers: dict = self._gate_io_auth.get_headers(method, f"{CONSTANTS.REST_URL_AUTH}/{endpoint}",
-                                                           req_params if req_params is not None else params)
-        # Build request coro
-        response_coro = shared_client.request(method=method.upper(), url=url, headers=headers,
-                                              params=qs_params, data=req_params,
-                                              timeout=CONSTANTS.API_CALL_TIMEOUT)
         async with self._throttler.execute_task(limit_id=limit_id):
+            if is_auth_required:
+                headers: dict = self._gate_io_auth.get_headers(method, f"{CONSTANTS.REST_URL_AUTH}/{endpoint}",
+                                                               req_params if req_params is not None else params)
+            # Build request coro
+            response_coro = shared_client.request(method=method.upper(), url=url, headers=headers,
+                                                  params=qs_params, data=req_params,
+                                                  timeout=CONSTANTS.API_CALL_TIMEOUT)
             http_status, parsed_response, request_errors = await aiohttp_response_with_errors(response_coro)
         if request_errors or parsed_response is None:
             if try_count < CONSTANTS.API_MAX_RETRIES:
