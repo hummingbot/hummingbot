@@ -364,7 +364,6 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
     def test_listen_for_order_book_diffs_logs_exception(self, mock_ws, *_):
         msg_queue: asyncio.Queue = asyncio.Queue()
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
-        mock_ws.close.return_value = None
 
         incomplete_resp = {
             "m": 1,
