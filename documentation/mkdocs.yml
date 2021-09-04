@@ -1,6 +1,6 @@
 # Project info
-site_name: hummingbot docs
-site_description: 'Docs for hummingbot, the open source crypto market making bot'
+site_name: Hummingbot Documentation
+site_description: 'The official documentation for Hummingbot, the open source crypto market making bot'
 site_author: 'CoinAlpha, Inc.'
 site_url: 'https://docs.hummingbot.io'
 
@@ -10,14 +10,15 @@ repo_url: 'https://github.com/coinalpha/hummingbot'
 edit_uri: 'blob/master/documentation/docs/'
 
 # Copyright
-copyright: 'Copyright &copy; 2021 CoinAlpha, Inc.'
+copyright: Copyright &copy; 2021 CoinAlpha, Inc.
 
 # Configuration
 theme:
-  name: 'material'
-  logo: 'assets/img/logo.png'
-  favicon: 'assets/img/favicon.ico'
-  repo: 'https://github.com/coinalpha/hummingbot'
+  name: material
+  logo: assets/img/logo.png
+  favicon: assets/img/favicon.ico
+  icon:
+    repo: fontawesome/brands/github
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
@@ -36,26 +37,34 @@ theme:
   font:
       text: 'Roboto'
       code: 'Roboto Mono'
-  feature:
-    - tabs
-    - instant
+  features:
+    - navigation.instant
+    - navigation.tracking # insiders
+    - navigation.tabs
+    - navigation.tabs.sticky # insiders
+    - navigation.indexes # insiders
+    - navigation.top
 
 # Customization
 extra:
-  homepage: 'https://www.hummingbot.io'
+  homepage: https://www.hummingbot.io
   search:
-    language: 'en'
+    language: en
+  analytics:
+    provider: google
+    property: UA-119262087-3
+  social:
+    - icon: fontawesome/solid/globe
+      link: https://hummingbot.io
+    - icon: fontawesome/brands/discord
+      link: https://discord.hummingbot.io
+    - icon: fontawesome/brands/youtube
+      link: https://www.youtube.com/channel/UCxzzdEnDRbylLMWmaMjywOA
+    - icon: fontawesome/brands/twitter
+      link: https://twitter.com/hummingbot_io
+    - icon: fontawesome/brands/reddit
+      link: https://www.reddit.com/r/hummingbot
 
-  # social:
-  #   - type: 'globe'
-  #     link: 'https://www.hummingbot.io'
-  #   - type: 'github'
-  #     link: 'https://github.com/coinalpha/hummingbot'
-  #   - type: 'twitter'
-  #     link: 'https://twitter.com/hummingbot_io'
-# google_analytics:
-#   - 'UA-119262087-3'
-#   - 'auto'
 extra_css:
   - assets/css/custom.css
 extra_javascript:
@@ -67,8 +76,6 @@ markdown_extensions:
   - codehilite:
       guess_lang: false
       linenums: true
-  - toc:
-      permalink: true
   - pymdownx.arithmatex
   - pymdownx.betterem:
       smart_enable: all
@@ -86,6 +93,8 @@ markdown_extensions:
   - pymdownx.tasklist:
       custom_checkbox: true
   - pymdownx.tilde
+  - toc:
+      permalink: true
 
 # Navigation
 nav:
