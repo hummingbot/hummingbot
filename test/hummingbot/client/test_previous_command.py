@@ -1,5 +1,6 @@
 # from hummingbot.client.command.import_command import ImportCommand
 import unittest
+import asyncio
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.client.command.previous_strategy import PreviousCommand
 # from hummingbot.client.command.previous_strategy import HummingbotApplication
@@ -24,6 +25,7 @@ class PreviousCommandUnitTest(unittest.TestCase):
         strategy_name = "conf_1.yml"
         global_config_map["previous_strategy"].value = strategy_name
         hummingbotApplication.prompt_answer.side_effects = self.mock_user_response
-        safe_ensure_future(PreviousCommand.previous_statrategy(hummingbotApplication, option=""))
-        # hummingbotApplication._notify.assert_called()
-        # hummingbotApplication._notify.assert_called_with('No previous strategy found.')
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(safe_ensure_future(PreviousCommand.previous_statrategy(hummingbotApplication, option="")))
+        hummingbotApplication._notify.assert_called()
+        hummingbotApplication._notify.assert_called_with('No previous strategy found.')
