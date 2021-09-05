@@ -41,7 +41,7 @@ Only a sell order will be created, but no buy order.
 
 We aim to teach new users the basics of market-making while enabling experienced users to exercise more control over how their bots behave. By default, when you run `create`, we ask you to enter the basic parameters needed for a market-making bot.
 
-See [Advanced Market Making](/market-making/#advanced-configuration-parameters) for more information about the advanced parameters and how to use them.
+See [Advanced Market Making](/parameters/#advanced-configuration-parameters) for more information about the advanced parameters and how to use them.
 
 The following parameters are fields in Hummingbot configuration files located in the `/conf` folder (e.g. `conf_pure_mm_[#].yml`).
 
@@ -113,7 +113,7 @@ What is the amount of [base_asset] per order? (minimum [min_amount])
 
 ### `ping_pong_enabled`
 
-Whether to alternate between buys and sells, for more information on this parameter, click this [link](/market-making/ping-pong/).
+Whether to alternate between buys and sells, for more information on this parameter, click this [link](/parameters/ping-pong/).
 
 ** Prompt: **
 

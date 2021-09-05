@@ -1,5 +1,3 @@
-# Overview
-
 If you have installed Hummingbot successfully, you should see a welcome screen like the one below:
 ![](/assets/img/welcome.png)
 

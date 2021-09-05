@@ -1,4 +1,3 @@
-
 ## System requirements
 
 Hummingbot has been successfully tested with the following specifications:

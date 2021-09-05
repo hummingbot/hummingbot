@@ -1,7 +1,6 @@
 # TWAP Strategy
 
-!!! bug
-    Starting from version 0.41, we took out the existing TWAP strategy from the development branch into production. Please be advised of the [outstanding bugs](https://github.com/CoinAlpha/hummingbot/issues?q=is%3Aissue+is%3Aopen++in%3Atitle+TWAP+label%3Abug) which will be fixed in future releases.
+The TWAP strategy is a simple bot that places a series of limit orders on an exchange, while allowing users to control order size, price, and duration. This strategy is used as a reference for the [Developer Strategy Tutorial](/developers/strategies/tutorial).
 
 ## Creating the strategy
 
