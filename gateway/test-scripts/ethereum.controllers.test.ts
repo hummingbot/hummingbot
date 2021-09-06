@@ -13,7 +13,7 @@ if (process.env.ETH_PRIVATE_KEY && process.env.ETH_PRIVATE_KEY !== '') {
 
 describe('Transaction is out of gas', () => {
   it('should fail', async () => {
-    ethereum.approveERC20 = jest.fn().mockReturnValue('salio todo bien');
+    ethereum.approveERC20 = jest.fn().mockReturnValue('OUT OF GAS');
     const res = await approve(SPENDER, privateKey, 'DAI');
     expect(res).toEqual(200);
   });
