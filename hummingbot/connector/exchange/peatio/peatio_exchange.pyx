@@ -16,7 +16,9 @@ import ujson
 
 from hummingbot.core.clock cimport Clock
 
+from hummingbot.connector.exchange.peatio.peatio_api_order_book_data_source import PeatioAPIOrderBookDataSource
 from hummingbot.connector.exchange.peatio.peatio_auth import PeatioAuth
+from hummingbot.connector.exchange.peatio.peatio_user_stream_tracker import PeatioUserStreamTracker
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
@@ -42,17 +44,19 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.huobi.huobi_api_user_stream_data_source import (
-    HUOBI_SUBSCRIBE_TOPICS,
-    HUOBI_ACCOUNT_UPDATE_TOPIC,
-    HUOBI_ORDER_UPDATE_TOPIC
+from hummingbot.connector.exchange.peatio.peatio_api_user_stream_data_source import (
+    PEATIO_SUBSCRIBE_TOPICS,
+    # PEATIO_ACCOUNT_UPDATE_TOPIC,
+    PEATIO_ORDER_UPDATE_TOPIC
 )
-from hummingbot.connector.exchange.huobi.huobi_in_flight_order import HuobiInFlightOrder
-from hummingbot.connector.exchange.huobi.huobi_order_book_tracker import HuobiOrderBookTracker
-from hummingbot.connector.exchange.huobi.huobi_utils import (
+from hummingbot.connector.exchange.peatio.peatio_in_flight_order import PeatioInFlightOrder
+from hummingbot.connector.exchange.peatio.peatio_order_book_tracker import PeatioOrderBookTracker
+from hummingbot.connector.exchange.peatio.peatio_utils import (
     convert_to_exchange_trading_pair,
     convert_from_exchange_trading_pair,
-    get_new_client_order_id)
+    get_new_client_order_id,
+    PeatioAPIError
+)
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
@@ -63,12 +67,6 @@ s_decimal_0 = Decimal(0)
 s_decimal_NaN = Decimal("NaN")
 s_decimal_inf = Decimal('inf')
 PEATIO_ROOT_API = "https://market.bitzlato.com/api/v2/peatio"
-
-
-class PeatioAPIError(IOError):
-    def __init__(self, error_payload: Dict[str, Any]):
-        super().__init__(str(error_payload))
-        self.error_payload = error_payload
 
 
 cdef class PeatioExchangeTransactionTracker(TransactionTracker):
@@ -119,7 +117,7 @@ cdef class PeatioExchange(ExchangeBase):
         self._in_flight_orders = {}
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
-        self._order_book_tracker = PeatioOrderBookTracker(trading_pairs=trading_pairs)  # FIXME
+        self._order_book_tracker = PeatioOrderBookTracker(trading_pairs=trading_pairs)
         self._poll_notifier = asyncio.Event()
         self._shared_client = None
         self._status_polling_task = None
@@ -129,14 +127,14 @@ cdef class PeatioExchange(ExchangeBase):
         self._tx_tracker = PeatioExchangeTransactionTracker(self)
 
         self._user_stream_event_listener_task = None
-        self._user_stream_tracker = PeatioUserStreamTracker(peatio_auth=self._peatio_auth, trading_pairs=trading_pairs)  # FIXME
+        self._user_stream_tracker = PeatioUserStreamTracker(peatio_auth=self._peatio_auth, trading_pairs=trading_pairs)
 
     @property
     def name(self) -> str:
         return "peatio"
 
     @property
-    def order_book_tracker(self) -> HuobiOrderBookTracker:
+    def order_book_tracker(self) -> PeatioOrderBookTracker:
         return self._order_book_tracker
 
     @property
@@ -148,7 +146,7 @@ cdef class PeatioExchange(ExchangeBase):
         return self._trading_rules
 
     @property
-    def in_flight_orders(self) -> Dict[str, HuobiInFlightOrder]:
+    def in_flight_orders(self) -> Dict[str, PeatioInFlightOrder]:
         return self._in_flight_orders
 
     @property
@@ -167,7 +165,7 @@ cdef class PeatioExchange(ExchangeBase):
 
     def restore_tracking_states(self, saved_states: Dict[str, Any]):
         self._in_flight_orders.update({
-            key: PeatioInFlightOrder.from_json(value)  # FIXME
+            key: PeatioInFlightOrder.from_json(value)
             for key, value in saved_states.items()
         })
 
@@ -180,7 +178,7 @@ cdef class PeatioExchange(ExchangeBase):
         self._shared_client = client
 
     async def get_active_exchange_markets(self) -> pd.DataFrame:
-        return await PeatioAPIOrderBookDataSource.get_active_exchange_markets()    # FIXME
+        return await PeatioAPIOrderBookDataSource.get_active_exchange_markets()
 
     cdef c_start(self, Clock clock, double timestamp):
         self._tx_tracker.c_start(clock, timestamp)
@@ -261,7 +259,7 @@ cdef class PeatioExchange(ExchangeBase):
 
         client = await self._http_client()
         if is_auth_required:
-            headers = self._peatio_auth.add_auth_to_headers(headers=headers, is_ws=False)
+            headers = self._peatio_auth.add_auth_data(headers=headers, is_ws=False)
 
         if not data:
             response = await client.request(
@@ -301,25 +299,25 @@ cdef class PeatioExchange(ExchangeBase):
             object balance
 
         balances = await self._api_request("get", path_url=f"/account/balances", is_auth_required=True)
+        if len(balances) > 0:
+            for balance_entry in balances:
+                asset_name = balance_entry["currency"].upper()
+                balance = Decimal(balance_entry["balance"])
+                locked_balance = Decimal(balance_entry["locked"])
+                if balance == s_decimal_0:
+                    continue
+                if asset_name not in new_available_balances:
+                    new_available_balances[asset_name] = s_decimal_0
+                if asset_name not in new_balances:
+                    new_balances[asset_name] = s_decimal_0
+                new_balances[asset_name] += balance
+                if balance> s_decimal_0:
+                    new_available_balances[asset_name] = balance - locked_balance
 
-        for balance_entry in balances:
-            asset_name = balance_entry["currency"].upper()
-            balance = Decimal(balance_entry["balance"])
-            locked_balance = Decimal(balance_entry["locked"])
-            if balance == s_decimal_0:
-                continue
-            if asset_name not in new_available_balances:
-                new_available_balances[asset_name] = s_decimal_0
-            if asset_name not in new_balances:
-                new_balances[asset_name] = s_decimal_0
-            new_balances[asset_name] += balance
-            if balance> s_decimal_0:
-                new_available_balances[asset_name] = balance - locked_balance
-
-        self._account_available_balances.clear()
-        self._account_available_balances = new_available_balances
-        self._account_balances.clear()
-        self._account_balances = new_balances
+            self._account_available_balances.clear()
+            self._account_available_balances = new_available_balances
+            self._account_balances.clear()
+            self._account_balances = new_balances
 
     cdef object c_get_fee(self,
                           str base_currency,
@@ -385,30 +383,44 @@ cdef class PeatioExchange(ExchangeBase):
         """
         Example:
         {
-            "id": 59378,
-            "symbol": "ethusdt",
-            "account-id": 100009,
-            "amount": "10.1000000000",
-            "price": "100.1000000000",
-            "created-at": 1494901162595,
-            "type": "buy-limit",
-            "field-amount": "10.1000000000",
-            "field-cash-amount": "1011.0100000000",
-            "field-fees": "0.0202000000",
-            "finished-at": 1494901400468,
-            "user-id": 1000,
-            "source": "api",
-            "state": "filled",
-            "canceled-at": 0,
-            "exchange": "huobi",
-            "batch": ""
+          "id": 0,
+          "uuid": "string",
+          "side": "string",
+          "ord_type": "string",
+          "price": 0,
+          "avg_price": 0,
+          "state": "string",
+          "market": "string",
+          "market_type": "string",
+          "created_at": "string",
+          "updated_at": "string",
+          "origin_volume": 0,
+          "remaining_volume": 0,
+          "executed_volume": 0,
+          "maker_fee": 0,
+          "taker_fee": 0,
+          "trades_count": 0,
+          "trades": [
+            {
+              "id": "string",
+              "price": 0,
+              "amount": 0,
+              "total": 0,
+              "fee_currency": 0,
+              "fee": 0,
+              "fee_amount": 0,
+              "market": "string",
+              "market_type": "string",
+              "created_at": "string",
+              "taker_type": "string",
+              "side": "string",
+              "order_id": 0
+            }
+          ]
         }
         """
-        path_url = f"/order/orders/{exchange_order_id}"
-        params = {
-            "order_id": exchange_order_id
-        }
-        return await self._api_request("get", path_url=path_url, params=params, is_auth_required=True)
+        path_url = f"/market/orders/{exchange_order_id}"
+        return await self._api_request("get", path_url=path_url, is_auth_required=True)
 
     async def _update_order_status(self):
         cdef:
@@ -422,7 +434,7 @@ cdef class PeatioExchange(ExchangeBase):
                 exchange_order_id = await tracked_order.get_exchange_order_id()
                 try:
                     order_update = await self.get_order_status(exchange_order_id)
-                except HuobiAPIError as e:
+                except PeatioAPIError as e:
                     err_code = e.error_payload.get("error").get("err-code")
                     self.c_stop_tracking_order(tracked_order.client_order_id)
                     self.logger().info(f"Fail to retrieve order update for {tracked_order.client_order_id} - {err_code}")
@@ -446,21 +458,22 @@ cdef class PeatioExchange(ExchangeBase):
                     continue
 
                 order_state = order_update["state"]
-                # possible order states are "submitted", "partial-filled", "filled", "canceled"
+                # possible order states are "wait", "done", "cancel"
 
-                if order_state not in ["submitted", "filled", "canceled"]:
+                if order_state not in ["wait", "done", "cancel", ]:
                     self.logger().debug(f"Unrecognized order update response - {order_update}")
 
                 # Calculate the newly executed amount for this update.
                 tracked_order.last_state = order_state
-                new_confirmed_amount = Decimal(order_update["field-amount"])  # probably typo in API (filled)
+                new_confirmed_amount = Decimal(order_update["remaining_volume"])  # TODO Какое поле?
                 execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
 
                 if execute_amount_diff > s_decimal_0:
-                    tracked_order.executed_amount_base = new_confirmed_amount
-                    tracked_order.executed_amount_quote = Decimal(order_update["field-cash-amount"])
-                    tracked_order.fee_paid = Decimal(order_update["field-fees"])
-                    execute_price = Decimal(order_update["field-cash-amount"]) / new_confirmed_amount
+                    tracked_order.executed_amount_base = sum(map(lambda x: Decimal(x['volume']), order_update['trades']))  # TODO Какое поле?
+                    tracked_order.executed_amount_quote = sum(map(lambda x: Decimal(x['amount']), order_update['trades']))  # TODO Какое поле?
+                    tracked_order.fee_paid = sum(map(lambda x: Decimal(x['fee_amount']), order_update['trades']))  # TODO Какое поле?
+
+                    execute_price = tracked_order.executed_amount_quote / new_confirmed_amount  # TODO Какое поле?
                     order_filled_event = OrderFilledEvent(
                         self._current_timestamp,
                         tracked_order.client_order_id,
@@ -477,9 +490,6 @@ cdef class PeatioExchange(ExchangeBase):
                             execute_price,
                             execute_amount_diff,
                         ),
-                        # Unique exchange trade ID not available in client order status
-                        # But can use validate an order using exchange order ID:
-                        # https://huobiapi.github.io/docs/spot/v1/en/#query-order-by-order-id
                         exchange_trade_id=exchange_order_id
                     )
                     self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
@@ -542,7 +552,7 @@ cdef class PeatioExchange(ExchangeBase):
             except Exception:
                 self.logger().network("Unexpected error while fetching account updates.",
                                       exc_info=True,
-                                      app_warning_msg="Could not fetch account updates from Huobi. "
+                                      app_warning_msg="Could not fetch account updates from Peatio. "
                                                       "Check API key and network connection.")
                 await asyncio.sleep(0.5)
 
@@ -556,7 +566,7 @@ cdef class PeatioExchange(ExchangeBase):
             except Exception:
                 self.logger().network("Unexpected error while fetching trading rules.",
                                       exc_info=True,
-                                      app_warning_msg="Could not fetch new trading rules from Huobi. "
+                                      app_warning_msg="Could not fetch new trading rules from Peatio. "
                                                       "Check network connection.")
                 await asyncio.sleep(0.5)
 
@@ -570,125 +580,132 @@ cdef class PeatioExchange(ExchangeBase):
                 self.logger().error(f"Unknown error. Retrying after 1 second. {e}", exc_info=True)
                 await asyncio.sleep(1.0)
 
+    def get_in_flight_orders_by_exchange_id(self, exchange_order_id: str) -> PeatioInFlightOrder:
+        values = [v for v in self._in_flight_orders.values() if v.exchange_order_id == exchange_order_id]
+        if len(values) > 0:
+            return values[0]
+
     async def _user_stream_event_listener(self):
         async for stream_message in self._iter_user_stream_queue():
             try:
-                channel = stream_message.get("ch", None)
-                if channel not in HUOBI_SUBSCRIBE_TOPICS:
-                    continue
+                for channel in stream_message.keys():
+                    if channel not in PEATIO_SUBSCRIBE_TOPICS:
+                        continue
+                    data = stream_message[channel]
 
-                data = stream_message["data"]
-                if len(data) == 0 and stream_message["code"] == 200:
-                    # This is a subcribtion confirmation.
-                    self.logger().info(f"Successfully subscribed to {channel}")
-                    continue
-
-                if channel == HUOBI_ACCOUNT_UPDATE_TOPIC:
-                    asset_name = data["currency"].upper()
-                    balance = data["balance"]
-                    available_balance = data["available"]
-
-                    self._account_balances.update({asset_name: Decimal(balance)})
-                    self._account_available_balances.update({asset_name: Decimal(available_balance)})
-                    continue
-
-                elif channel == HUOBI_ORDER_UPDATE_TOPIC:
-                    order_id = data["orderId"]
-                    client_order_id = data["clientOrderId"]
-                    trading_pair = data["symbol"]
-                    order_status = data["orderStatus"]
-
-                    if order_status not in ["submitted", "partial-filled", "filled", "partially-canceled", "canceled", "canceling"]:
-                        self.logger().debug(f"Unrecognized order update response - {stream_message}")
-
-                    tracked_order = self._in_flight_orders.get(client_order_id, None)
-
-                    if tracked_order is None:
+                    if len(data) == 0 and stream_message["code"] == 200:
+                        # This is a subcribtion confirmation.
+                        self.logger().info(f"Successfully subscribed to {channel}")
                         continue
 
-                    execute_amount_diff = s_decimal_0
-                    # tradePrice is documented by Huobi but not sent.
-                    # However, orderprice isn't applicable to all order_types, so we assume tradePrice will be sent for such orders
-                    execute_price = Decimal(data.get("orderPrice", data.get("tradePrice", "0")))
-                    remaining_amount = Decimal(data.get("remainAmt", data["orderSize"]))
-                    order_type = data["type"]
+                    # if channel == PEATIO_ACCOUNT_UPDATE_TOPIC:
+                    #     asset_name = data["currency"].upper()
+                    #     balance = data["balance"]
+                    #     available_balance = data["available"]
+                    #
+                    #     self._account_balances.update({asset_name: Decimal(balance)})
+                    #     self._account_available_balances.update({asset_name: Decimal(available_balance)})
+                    #     continue
 
-                    new_confirmed_amount = Decimal(tracked_order.amount - remaining_amount)
+                    elif channel == PEATIO_ORDER_UPDATE_TOPIC:
+                        exchange_order_id = data["id"]
+                        trading_pair = data["market"]
+                        order_status = data["state"]
 
-                    execute_amount_diff = Decimal(new_confirmed_amount - tracked_order.executed_amount_base)
-                    tracked_order.executed_amount_base = new_confirmed_amount
-                    tracked_order.executed_amount_quote += Decimal(execute_amount_diff * execute_price)
+                        if order_status not in ["wait", "done", "reject", "cancel", ]:
+                            self.logger().debug(f"Unrecognized order update response - {stream_message}")
 
-                    if execute_amount_diff > s_decimal_0:
-                        self.logger().info(f"Filed {execute_amount_diff} out of {tracked_order.amount} of order "
-                                           f"{order_type.upper()}-{client_order_id}")
-                        self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
-                                             OrderFilledEvent(
-                                                 self._current_timestamp,
-                                                 tracked_order.client_order_id,
-                                                 tracked_order.trading_pair,
-                                                 tracked_order.trade_type,
-                                                 tracked_order.order_type,
-                                                 execute_price,
-                                                 execute_amount_diff,
-                                                 self.c_get_fee(
-                                                     tracked_order.base_asset,
-                                                     tracked_order.quote_asset,
-                                                     tracked_order.order_type,
-                                                     tracked_order.trade_type,
-                                                     execute_price,
-                                                     execute_amount_diff,
-                                                 ),
-                                                 exchange_trade_id=order_id
-                                             ))
+                        tracked_order = self.get_in_flight_orders_by_exchange_id(exchange_order_id)
+                        if tracked_order is None:
+                            continue
 
-                    if order_status == "filled":
-                        tracked_order.last_state = order_status
-                        if tracked_order.trade_type is TradeType.BUY:
-                            self.logger().info(f"The LIMIT_BUY order {tracked_order.client_order_id} has completed "
-                                               f"according to order delta websocket API.")
-                            self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
-                                                 BuyOrderCompletedEvent(
-                                                     self._current_timestamp,
-                                                     tracked_order.client_order_id,
-                                                     tracked_order.base_asset,
-                                                     tracked_order.quote_asset,
-                                                     tracked_order.fee_asset or tracked_order.quote_asset,
-                                                     tracked_order.executed_amount_base,
-                                                     tracked_order.executed_amount_quote,
-                                                     tracked_order.fee_paid,
-                                                     tracked_order.order_type
+                        execute_amount_diff = s_decimal_0
+
+                        execute_price = Decimal(data.get("avg_price", "0"))
+                        remaining_amount = Decimal(data["remaining_volume"])
+                        order_type = data["order_type"]
+
+                        new_confirmed_amount = Decimal(tracked_order.amount - remaining_amount)
+
+                        execute_amount_diff = Decimal(new_confirmed_amount - tracked_order.executed_amount_base)
+                        tracked_order.executed_amount_base = new_confirmed_amount
+                        tracked_order.executed_amount_quote += Decimal(execute_amount_diff * execute_price)
+
+                        if execute_amount_diff > s_decimal_0:
+                            self.logger().info(f"Filed {execute_amount_diff} out of {tracked_order.amount} of order "
+                                               f"{order_type.upper()}")
+                            self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
+                                                 OrderFilledEvent(
+                                                     timestamp=self._current_timestamp,
+                                                     order_id=tracked_order.order_id,
+                                                     trading_pair=tracked_order.trading_pair,
+                                                     trade_type=tracked_order.trade_type,
+                                                     order_type=tracked_order.order_type,
+                                                     price=execute_price,
+                                                     amount=execute_amount_diff,
+                                                     trade_fee=self.c_get_fee(
+                                                         tracked_order.base_asset,
+                                                         tracked_order.quote_asset,
+                                                         tracked_order.order_type,
+                                                         tracked_order.trade_type,
+                                                         execute_price,
+                                                         execute_amount_diff,
+                                                     ),
+                                                     exchange_trade_id=exchange_order_id
                                                  ))
-                        elif tracked_order.trade_type is TradeType.SELL:
-                            self.logger().info(f"The LIMIT_SELL order {tracked_order.client_order_id} has completed "
+
+                        if order_status == "filled":
+                            tracked_order.last_state = order_status
+                            if tracked_order.trade_type is TradeType.BUY:
+                                self.logger().info(f"The LIMIT_BUY order {tracked_order.order_id} has completed "
+                                                   f"according to order delta websocket API.")
+                                self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
+                                                     BuyOrderCompletedEvent(
+                                                         timestamp=self._current_timestamp,
+                                                         order_id=tracked_order.order_id,
+                                                         base_asset=tracked_order.base_asset,
+                                                         quote_asset=tracked_order.quote_asset,
+                                                         fee_asset=tracked_order.fee_asset or tracked_order.quote_asset,
+                                                         base_asset_amount=tracked_order.executed_amount_base,
+                                                         quote_asset_amount=tracked_order.executed_amount_quote,
+                                                         fee_amount=tracked_order.fee_paid,
+                                                         order_type=tracked_order.order_type,
+                                                         exchange_order_id=exchange_order_id
+                                                     ))
+                            elif tracked_order.trade_type is TradeType.SELL:
+                                self.logger().info(f"The LIMIT_SELL order {tracked_order.order_id} has completed "
+                                                   f"according to order delta websocket API.")
+                                self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
+                                                     SellOrderCompletedEvent(
+                                                         timestamp=self._current_timestamp,
+                                                         order_id=tracked_order.order_id,
+                                                         base_asset=tracked_order.base_asset,
+                                                         quote_asset=tracked_order.quote_asset,
+                                                         fee_asset=tracked_order.fee_asset or tracked_order.quote_asset,
+                                                         base_asset_amount=tracked_order.executed_amount_base,
+                                                         quote_asset_amount=tracked_order.executed_amount_quote,
+                                                         fee_amount=tracked_order.fee_paid,
+                                                         order_type=tracked_order.order_type,
+                                                         exchange_order_id=exchange_order_id
+                                                     ))
+                            self.c_stop_tracking_order(tracked_order.order_id)
+                            continue
+
+                        if order_status == "canceled":
+                            tracked_order.last_state = order_status
+                            self.logger().info(f"The order {tracked_order.order_id} has been cancelled "
                                                f"according to order delta websocket API.")
-                            self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
-                                                 SellOrderCompletedEvent(
-                                                     self._current_timestamp,
-                                                     tracked_order.client_order_id,
-                                                     tracked_order.base_asset,
-                                                     tracked_order.quote_asset,
-                                                     tracked_order.fee_asset or tracked_order.quote_asset,
-                                                     tracked_order.executed_amount_base,
-                                                     tracked_order.executed_amount_quote,
-                                                     tracked_order.fee_paid,
-                                                     tracked_order.order_type
+                            self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                                 OrderCancelledEvent(
+                                                     timestamp=self._current_timestamp,
+                                                     order_id=tracked_order.client_order_id,
+                                                     exchange_order_id=exchange_order_id
                                                  ))
-                        self.c_stop_tracking_order(tracked_order.client_order_id)
+                            self.c_stop_tracking_order(tracked_order.order_id)
+
+                    else:
+                        # Ignore all other user stream message types
                         continue
-
-                    if order_status == "canceled":
-                        tracked_order.last_state = order_status
-                        self.logger().info(f"The order {tracked_order.client_order_id} has been cancelled "
-                                           f"according to order delta websocket API.")
-                        self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                             OrderCancelledEvent(self._current_timestamp,
-                                                                 tracked_order.client_order_id))
-                        self.c_stop_tracking_order(tracked_order.client_order_id)
-
-                else:
-                    # Ignore all other user stream message types
-                    continue
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -698,7 +715,6 @@ cdef class PeatioExchange(ExchangeBase):
     @property
     def status_dict(self) -> Dict[str, bool]:
         return {
-            "account_id_initialized": self._account_id != "" if self._trading_required else True,
             "order_books_initialized": self._order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0
@@ -709,36 +725,33 @@ cdef class PeatioExchange(ExchangeBase):
         return all(self.status_dict.values())
 
     def supported_order_types(self):
-        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
+        return [OrderType.LIMIT]
 
     async def place_order(self,
-                          order_id: str,
                           trading_pair: str,
                           amount: Decimal,
                           is_buy: bool,
                           order_type: OrderType,
-                          price: Decimal) -> str:
-        path_url = "/order/orders/place"
+                          price: Decimal) -> dict:
+        path_url = "/market/orders"
         side = "buy" if is_buy else "sell"
-        order_type_str = "limit" if order_type is OrderType.LIMIT else "limit-maker"
+        order_type_str = str(order_type.name).lower()
 
         params = {
-            "account-id": self._account_id,
-            "amount": f"{amount:f}",
-            "client-order-id": order_id,
-            "symbol": convert_to_exchange_trading_pair(trading_pair),
-            "type": f"{side}-{order_type_str}",
+            "market": convert_to_exchange_trading_pair(trading_pair),
+            "side": side,
+            "volume": f"{amount:f}",
+            "ord_type": order_type_str,
+            "price": f"{price:f}",
         }
-        if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
-            params["price"] = f"{price:f}"
-        exchange_order_id = await self._api_request(
+
+        exchange_order = await self._api_request(
             "post",
             path_url=path_url,
-            params=params,
             data=params,
             is_auth_required=True
         )
-        return str(exchange_order_id)
+        return exchange_order
 
     async def execute_buy(self,
                           order_id: str,
@@ -754,34 +767,35 @@ cdef class PeatioExchange(ExchangeBase):
             str exchange_order_id
             object tracked_order
 
-        if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
+        if order_type is OrderType.LIMIT:
             decimal_amount = self.c_quantize_order_amount(trading_pair, amount)
             decimal_price = self.c_quantize_order_price(trading_pair, price)
             if decimal_amount < trading_rule.min_order_size:
                 raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
                                  f"{trading_rule.min_order_size}.")
         try:
-            exchange_order_id = await self.place_order(order_id, trading_pair, decimal_amount, True, order_type, decimal_price)
+            exchange_order = await self.place_order(trading_pair, decimal_amount, True, order_type, decimal_price)
             self.c_start_tracking_order(
-                client_order_id=order_id,
-                exchange_order_id=exchange_order_id,
+                client_order_id=str(order_id),
+                exchange_order_id=exchange_order["id"],
                 trading_pair=trading_pair,
                 order_type=order_type,
                 trade_type=TradeType.BUY,
                 price=decimal_price,
-                amount=decimal_amount
+                amount=decimal_amount,
             )
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
-                self.logger().info(f"Created {order_type} buy order {order_id} for {decimal_amount} {trading_pair}.")
+                self.logger().info(f"Created {order_type} buy order {exchange_order['id']} for {decimal_amount} {trading_pair}.")
             self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
                                  BuyOrderCreatedEvent(
-                                     self._current_timestamp,
-                                     order_type,
-                                     trading_pair,
-                                     decimal_amount,
-                                     decimal_price,
-                                     order_id
+                                     timestamp=self._current_timestamp,
+                                     type=order_type,
+                                     trading_pair=trading_pair,
+                                     amount=decimal_amount,
+                                     price=decimal_price,
+                                     order_id=order_id,
+                                     exchange_order_id=exchange_order["id"]
                                  ))
         except asyncio.CancelledError:
             raise
@@ -789,11 +803,11 @@ cdef class PeatioExchange(ExchangeBase):
             self.c_stop_tracking_order(order_id)
             order_type_str = order_type.name.lower()
             self.logger().network(
-                f"Error submitting buy {order_type_str} order to Huobi for "
+                f"Error submitting buy {order_type_str} order to Peatio for "
                 f"{decimal_amount} {trading_pair} "
                 f"{decimal_price}.",
                 exc_info=True,
-                app_warning_msg=f"Failed to submit buy order to Huobi. Check API key and network connection."
+                app_warning_msg=f"Failed to submit buy order to Peatio. Check API key and network connection."
             )
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
@@ -831,10 +845,10 @@ cdef class PeatioExchange(ExchangeBase):
                              f"{trading_rule.min_order_size}.")
 
         try:
-            exchange_order_id = await self.place_order(order_id, trading_pair, decimal_amount, False, order_type, decimal_price)
+            exchange_order = await self.place_order(trading_pair, decimal_amount, False, order_type, decimal_price)
             self.c_start_tracking_order(
                 client_order_id=order_id,
-                exchange_order_id=exchange_order_id,
+                exchange_order_id=exchange_order["id"],
                 trading_pair=trading_pair,
                 order_type=order_type,
                 trade_type=TradeType.SELL,
@@ -846,12 +860,13 @@ cdef class PeatioExchange(ExchangeBase):
                 self.logger().info(f"Created {order_type} sell order {order_id} for {decimal_amount} {trading_pair}.")
             self.c_trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
                                  SellOrderCreatedEvent(
-                                     self._current_timestamp,
-                                     order_type,
-                                     trading_pair,
-                                     decimal_amount,
-                                     decimal_price,
-                                     order_id
+                                     timestamp=self._current_timestamp,
+                                     type=order_type,
+                                     trading_pair=trading_pair,
+                                     amount=decimal_amount,
+                                     price=decimal_price,
+                                     order_id=order_id,
+                                     exchange_order_id=exchange_order["id"]
                                  ))
         except asyncio.CancelledError:
             raise
@@ -859,11 +874,11 @@ cdef class PeatioExchange(ExchangeBase):
             self.c_stop_tracking_order(order_id)
             order_type_str = order_type.name.lower()
             self.logger().network(
-                f"Error submitting sell {order_type_str} order to Huobi for "
+                f"Error submitting sell {order_type_str} order to Peatio for "
                 f"{decimal_amount} {trading_pair} "
                 f"{decimal_price}.",
                 exc_info=True,
-                app_warning_msg=f"Failed to submit sell order to Huobi. Check API key and network connection."
+                app_warning_msg=f"Failed to submit sell order to Peatio. Check API key and network connection."
             )
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(self._current_timestamp, order_id, order_type))
@@ -884,32 +899,32 @@ cdef class PeatioExchange(ExchangeBase):
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is None:
                 raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
-            path_url = f"/order/orders/{tracked_order.exchange_order_id}/submitcancel"
+            path_url = f"/market/orders/{tracked_order.exchange_order_id}/cancel"
             response = await self._api_request("post", path_url=path_url, is_auth_required=True)
 
-        except HuobiAPIError as e:
+        except PeatioAPIError as e:
             order_state = e.error_payload.get("error").get("order-state")
-            if order_state == 7:
-                # order-state is canceled
-                self.c_stop_tracking_order(tracked_order.client_order_id)
-                self.logger().info(f"The order {tracked_order.client_order_id} has been cancelled according"
-                                   f" to order status API. order_state - {order_state}")
-                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                     OrderCancelledEvent(self._current_timestamp,
-                                                         tracked_order.client_order_id))
-            else:
-                self.logger().network(
-                    f"Failed to cancel order {order_id}: {str(e)}",
-                    exc_info=True,
-                    app_warning_msg=f"Failed to cancel the order {order_id} on Huobi. "
-                                    f"Check API key and network connection."
-                )
+            # if order_state == 7:
+            #     # order-state is canceled
+            #     self.c_stop_tracking_order(tracked_order.client_order_id)
+            #     self.logger().info(f"The order {tracked_order.client_order_id} has been cancelled according"
+            #                        f" to order status API. order_state - {order_state}")
+            #     self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+            #                          OrderCancelledEvent(self._current_timestamp,
+            #                                              tracked_order.client_order_id))
+            # else:
+            self.logger().network(
+                f"Failed to cancel order {order_id}: {str(e)}",
+                exc_info=True,
+                app_warning_msg=f"Failed to cancel the order {order_id} on Peatio. "
+                                f"Check API key and network connection."
+            )
 
         except Exception as e:
             self.logger().network(
                 f"Failed to cancel order {order_id}: {str(e)}",
                 exc_info=True,
-                app_warning_msg=f"Failed to cancel the order {order_id} on Huobi. "
+                app_warning_msg=f"Failed to cancel the order {order_id} on Peatio. "
                                 f"Check API key and network connection."
             )
 
@@ -923,29 +938,22 @@ cdef class PeatioExchange(ExchangeBase):
             return []
         cancel_order_ids = [o.exchange_order_id for o in open_orders]
         self.logger().debug(f"cancel_order_ids {cancel_order_ids} {open_orders}")
-        path_url = "/order/orders/batchcancel"
-        params = {"order-ids": ujson.dumps(cancel_order_ids)}
-        data = {"order-ids": cancel_order_ids}
+        path_url = "/order/orders/cancel"
         cancellation_results = []
         try:
             cancel_all_results = await self._api_request(
                 "post",
                 path_url=path_url,
-                params=params,
-                data=data,
                 is_auth_required=True
             )
 
-            for oid in cancel_all_results.get("success", []):
-                cancellation_results.append(CancellationResult(oid, True))
-            for cancel_error in cancel_all_results.get("failed", []):
-                oid = cancel_error["order-id"]
-                cancellation_results.append(CancellationResult(oid, False))
+            for o in cancel_all_results:
+                cancellation_results.append(CancellationResult(o['id'], o["state"] == "cancel"))
         except Exception as e:
             self.logger().network(
                 f"Failed to cancel all orders: {cancel_order_ids}",
                 exc_info=True,
-                app_warning_msg=f"Failed to cancel all orders on Huobi. Check API key and network connection."
+                app_warning_msg=f"Failed to cancel all orders on Peatio. Check API key and network connection."
             )
         return cancellation_results
 
@@ -969,10 +977,10 @@ cdef class PeatioExchange(ExchangeBase):
                                 object trade_type,
                                 object price,
                                 object amount):
-        self._in_flight_orders[client_order_id] = HuobiInFlightOrder(
-            client_order_id=client_order_id,
-            exchange_order_id=exchange_order_id,
-            trading_pair=trading_pair,
+        self._in_flight_orders[client_order_id] = PeatioInFlightOrder(
+            order_id=str(client_order_id),
+            exchange_order_id=str(exchange_order_id),
+            trading_pair=str(trading_pair),
             order_type=order_type,
             trade_type=trade_type,
             price=price,
