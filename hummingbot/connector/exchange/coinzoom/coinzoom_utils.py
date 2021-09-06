@@ -21,6 +21,7 @@ EXAMPLE_PAIR = "BTC-USD"
 
 DEFAULT_FEES = [0.2, 0.26]
 
+# TODO Remove this
 REQUEST_THROTTLER = Throttler(rate_limit = (18.0, 8.0))
 
 

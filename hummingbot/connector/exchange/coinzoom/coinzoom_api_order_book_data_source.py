@@ -6,6 +6,8 @@ import pandas as pd
 from decimal import Decimal
 from typing import Optional, List, Dict, Any
 from hummingbot.core.data_type.order_book import OrderBook
+
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.logger import HummingbotLogger
@@ -30,8 +32,9 @@ class CoinzoomAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, trading_pairs: List[str] = None):
+    def __init__(self, throttler: AsyncThrottler, trading_pairs: List[str] = None):
         super().__init__(trading_pairs)
+        self._throttler: AsyncThrottler = throttler
         self._trading_pairs: List[str] = trading_pairs
         self._snapshot_msg: Dict[str, any] = {}
 
