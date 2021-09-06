@@ -957,8 +957,10 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                         tracked_order.order_type,
                         Decimal(trade_msg["exec_price"]) if "exec_price" in trade_msg else Decimal(trade_msg["price"]),
                         Decimal(trade_msg["exec_qty"]),
-                        TradeFee(Decimal(0), [tracked_order.fee_asset, Decimal(trade_msg["exec_fee"])]),
-                        exchange_trade_id=str(trade_msg["exec_id"])
+                        TradeFee(Decimal(0), [(tracked_order.fee_asset, Decimal(trade_msg["exec_fee"]))]),
+                        exchange_trade_id=str(trade_msg["exec_id"]),
+                        leverage=self._leverage[tracked_order.trading_pair],
+                        position=tracked_order.position
                     )
                 )
                 if (math.isclose(tracked_order.executed_amount_base, tracked_order.amount) or
