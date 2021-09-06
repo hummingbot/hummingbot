@@ -13,7 +13,7 @@
     "dev": "nodemon src/index.ts",
     "dev:debug": "nodemon --inspect src/index.ts",
     "start": "nodemon dist/index.js",
-    "test": "jest --verbose false ./test-scripts/ethereum.controllers.test.ts",
+    "test": "jest --verbose false ./test-scripts/ethereum-routes.test.ts",
     "test:unit": "jest --verbose ./test/",
     "test:cov": "jest --coverage ./test/",
     "test:scripts": "jest --verbose ./test-scripts/"
