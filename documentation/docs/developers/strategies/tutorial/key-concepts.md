@@ -1,13 +1,3 @@
-# Developer Tutorial
-
-## Introduction
-This tutorial is intended to get you familiarized with basic structure of a strategy for Hummingbot. It will guide you through the scope of creating a simple strategy that only fetches market status to building a more complex strategy that can perform trade.
-
-By the end of this tutorial, you should: 
-
-* Have a general understanding of the base classes that serve as building blocks of the strategies
-* Have a working strategy 
-* Be able to build new custom strategies from scratch
 
 ## What is a strategy?
 
@@ -31,7 +21,8 @@ This file handles prompting user for config values when the strategy is called. 
 The `start()` function is what gets called when user calls the strategy on client side. This function should handle initialization of configs by calling `config_map`, set market names and wallets, and eventually execute the strategy.
 
 ## StrategyBase class
-All strategies extend `StrategyBase` class. This class allows extraction of logic that would be repetitively written in all strategies otherwise. 
+
+All strategies extend the [`StrategyBase`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/strategy_base.pyx) class. This class allows extraction of logic that would be repetitively written in all strategies otherwise. 
 
 * **Event listeners** : The client’s prompt eventually leads to changes on server with the help of event listeners. Depending on action taken by the client, corresponding event listeners are called to execute the appropriate job.
 * **Data frames** : The base class handles creation of data frames for market status, `market_status_data_frame()`, and wallet balance, `wallet_balance_data_frame()`, so it is easy for developers to create and access about particular markets.
@@ -59,7 +50,7 @@ To assist in the development of custom strategies, there are many overridable fu
 
 ## Market class
 
-The `market_base` class contains overridable functions that can help get basic information about an exchange that a strategy is operating on, which can include the balance, prices, and order books for any particular asset traded on the exchange. 
+The [`Market`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/market/market_base.pyx) class contains overridable functions that can help get basic information about an exchange that a strategy is operating on, which can include the balance, prices, and order books for any particular asset traded on the exchange. 
 
 * `c_buy()`: called when the user wants to place a buy order
 * `c_sell()`: called when the user wants to place a sell order
