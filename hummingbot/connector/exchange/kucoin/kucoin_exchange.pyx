@@ -416,8 +416,7 @@ cdef class KucoinExchange(ExchangeBase):
             set local_asset_names = set(self._account_balances.keys())
             set remote_asset_names = set()
 
-        data = {"type": "trade"}  # this GET request requires that arguments be submitted as data
-        response = await self._api_request("get", path_url=path_url, data=data, is_auth_required=True)
+        response = await self._api_request("get", path_url=path_url, is_auth_required=True)
         if response:
             for balance_entry in response["data"]:
                 asset_name = convert_asset_from_exchange(balance_entry["currency"])
@@ -662,15 +661,14 @@ cdef class KucoinExchange(ExchangeBase):
         elif order_type is OrderType.LIMIT_MAKER:
             data["price"] = str(price)
             data["postOnly"] = True
-        async with self._throttler.execute_task(CONSTANTS.POST_ORDER_LIMIT_ID):
-            exchange_order_id = await self._api_request(
-                "post",
-                path_url=path_url,
-                data=data,
-                is_auth_required=True,
-                is_partner_required=True,
-                limit_id=CONSTANTS.POST_ORDER_LIMIT_ID,
-            )
+        exchange_order_id = await self._api_request(
+            "post",
+            path_url=path_url,
+            data=data,
+            is_auth_required=True,
+            is_partner_required=True,
+            limit_id=CONSTANTS.POST_ORDER_LIMIT_ID,
+        )
         return str(exchange_order_id["data"]["orderId"])
 
     async def execute_buy(self,
