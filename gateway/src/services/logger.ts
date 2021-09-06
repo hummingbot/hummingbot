@@ -1,18 +1,14 @@
 import { ConfigManager } from './config-manager';
 import winston from 'winston';
 import DailyRotateFile from 'winston-daily-rotate-file';
-import moment from 'moment';
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
 import appRoot from 'app-root-path';
+dayjs.extend(utc);
 
 export const getLocalDate = () => {
   const gmtOffset = ConfigManager.config.GMT_OFFSET;
-  let newDate = moment().format('YYYY-MM-DD hh:mm:ss').trim();
-
-  newDate = moment()
-    .utcOffset(gmtOffset, false)
-    .format('YYYY-MM-DD hh:mm:ss')
-    .trim();
-  return newDate;
+  return dayjs().utcOffset(gmtOffset, false).format('YYYY-MM-DD hh:mm:ss');
 };
 
 const logFormat = winston.format.combine(
@@ -50,11 +46,9 @@ const toStdout = new winston.transports.Console({
 });
 
 export const updateLoggerToStdout = () => {
-  if (ConfigManager.config.LOG_TO_STDOUT == true) {
-    logger.add(toStdout);
-  } else {
-    logger.remove(toStdout);
-  }
+  ConfigManager.config.LOG_TO_STDOUT === true
+    ? logger.add(toStdout)
+    : logger.remove(toStdout);
 };
 
 updateLoggerToStdout();
