@@ -42,7 +42,9 @@ from hummingbot.core.utils.async_utils import (
 )
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.kucoin.kucoin_auth import KucoinAuth
-from hummingbot.connector.exchange.kucoin.kucoin_in_flight_order import KucoinInFlightOrder
+from hummingbot.connector.exchange.kucoin.kucoin_in_flight_order import (
+    KucoinInFlightOrder, KucoinInFlightOrderNotCreated
+)
 from hummingbot.connector.exchange.kucoin.kucoin_order_book_tracker import KucoinOrderBookTracker
 from hummingbot.connector.exchange.kucoin.kucoin_user_stream_tracker import KucoinUserStreamTracker
 from hummingbot.connector.exchange.kucoin.kucoin_utils import (
@@ -455,7 +457,6 @@ cdef class KucoinExchange(ExchangeBase):
             int64_t current_tick = <int64_t> (self._current_timestamp / 60.0)
         if current_tick > last_tick or len(self._trading_rules) < 1:
             exchange_info = await self._api_request("get", path_url=CONSTANTS.SYMBOLS_PATH_URL)
-            self.logger().info(f"exchange info: {exchange_info}")
             trading_rules_list = self._format_trading_rules(exchange_info)
             self._trading_rules.clear()
             for trading_rule in trading_rules_list:
@@ -692,30 +693,32 @@ cdef class KucoinExchange(ExchangeBase):
                 raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
                                  f"{trading_rule.min_order_size}.")
         try:
-            exchange_order_id = await self.place_order(order_id, trading_pair, decimal_amount, True, order_type,
-                                                       decimal_price)
             self.c_start_tracking_order(
                 client_order_id=order_id,
-                exchange_order_id=exchange_order_id,
+                exchange_order_id="",
                 trading_pair=trading_pair,
                 order_type=order_type,
                 trade_type=TradeType.BUY,
                 price=decimal_price,
                 amount=decimal_amount
             )
+            exchange_order_id = await self.place_order(order_id, trading_pair, decimal_amount, True, order_type,
+                                                       decimal_price)
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
                 self.logger().info(f"Created {order_type} buy order {order_id} for {decimal_amount} {trading_pair}.")
-            self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
-                                 BuyOrderCreatedEvent(
-                                     self._current_timestamp,
-                                     order_type,
-                                     trading_pair,
-                                     float(decimal_amount),
-                                     float(decimal_price),
-                                     order_id,
-                                     exchange_order_id=tracked_order.exchange_order_id
-                                 ))
+                tracked_order.last_state = "DEAL"
+                tracked_order.update_exchange_order_id(exchange_order_id)
+                self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
+                                     BuyOrderCreatedEvent(
+                                         self._current_timestamp,
+                                         order_type,
+                                         trading_pair,
+                                         float(decimal_amount),
+                                         float(decimal_price),
+                                         order_id,
+                                         exchange_order_id=tracked_order.exchange_order_id
+                                     ))
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -764,30 +767,32 @@ cdef class KucoinExchange(ExchangeBase):
                              f"{trading_rule.min_order_size}.")
 
         try:
-            exchange_order_id = await self.place_order(order_id, trading_pair, decimal_amount, False, order_type,
-                                                       decimal_price)
             self.c_start_tracking_order(
                 client_order_id=order_id,
-                exchange_order_id=exchange_order_id,
+                exchange_order_id="",
                 trading_pair=trading_pair,
                 order_type=order_type,
                 trade_type=TradeType.SELL,
                 price=decimal_price,
                 amount=decimal_amount
             )
+            exchange_order_id = await self.place_order(order_id, trading_pair, decimal_amount, False, order_type,
+                                                       decimal_price)
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
                 self.logger().info(f"Created {order_type} sell order {order_id} for {decimal_amount} {trading_pair}.")
-            self.c_trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
-                                 SellOrderCreatedEvent(
-                                     self._current_timestamp,
-                                     order_type,
-                                     trading_pair,
-                                     float(decimal_amount),
-                                     float(decimal_price),
-                                     order_id,
-                                     exchange_order_id=exchange_order_id
-                                 ))
+                tracked_order.last_state = "DEAL"
+                tracked_order.update_exchange_order_id(exchange_order_id)
+                self.c_trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
+                                     SellOrderCreatedEvent(
+                                         self._current_timestamp,
+                                         order_type,
+                                         trading_pair,
+                                         float(decimal_amount),
+                                         float(decimal_price),
+                                         order_id,
+                                         exchange_order_id=exchange_order_id
+                                     ))
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -817,13 +822,20 @@ cdef class KucoinExchange(ExchangeBase):
 
     async def execute_cancel(self, trading_pair: str, order_id: str):
         try:
-            tracked_order = self._in_flight_orders.get(order_id)
+            tracked_order: KucoinInFlightOrder = self._in_flight_orders.get(order_id)
             if tracked_order is None:
                 raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
+            if tracked_order.is_local:
+                raise KucoinInFlightOrderNotCreated(
+                    f"Failed to cancel order - {order_id}. Order not yet created."
+                    f" This is most likely due to rate-limiting."
+                )
             path_url = f"{CONSTANTS.ORDERS_PATH_URL}/{tracked_order.exchange_order_id}"
             await self._api_request(
                 "delete", path_url=path_url, is_auth_required=True, limit_id=CONSTANTS.DELETE_ORDER_LIMIT_ID
             )
+        except KucoinInFlightOrderNotCreated:
+            raise
         except Exception as e:
             self.logger().network(
                 f"Failed to cancel order {order_id}: {str(e)}",
