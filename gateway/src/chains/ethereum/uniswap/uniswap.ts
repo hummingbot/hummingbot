@@ -22,11 +22,10 @@ export interface ExpectedTrade {
 export class Uniswap {
   private _uniswapRouter: string;
   private chainId;
-  private ethereum = new Ethereum();
+  private ethereum = Ethereum.getInstance();
   private tokenList: Record<string, Token> = {};
 
   constructor() {
-    this.ethereum.init(); // we are missing a try/catch and a definition on what to do on an error
     let config;
     if (ConfigManager.config.ETHEREUM_CHAIN === 'mainnet') {
       config = UniswapConfig.config.mainnet;
