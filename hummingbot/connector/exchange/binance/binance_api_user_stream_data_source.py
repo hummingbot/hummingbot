@@ -111,7 +111,7 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def get_ws_connection(self) -> websockets.WebSocketClientProtocol:
         url = CONSTANTS.WSS_URL.format(self._domain)
-        stream_url: str = f"{url}{self._current_listen_key}"
+        stream_url: str = f"{url}/{self._current_listen_key}"
         self.logger().info(f"Reconnecting to {stream_url}.")
 
         # Create the WS connection.
