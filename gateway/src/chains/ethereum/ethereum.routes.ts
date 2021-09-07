@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/ban-types */
 import { constants, Wallet } from 'ethers';
 import { NextFunction, Router, Request, Response } from 'express';
 import { Ethereum } from './ethereum';
@@ -5,27 +6,15 @@ import { EthereumConfig } from './ethereum.config';
 import { ConfigManager } from '../../services/config-manager';
 import { Token } from '../../services/ethereum-base';
 import { tokenValueToString } from '../../services/base';
+import { verifyEthereumIsAvailable } from './ethereum-middlewares';
 import { HttpException, asyncHandler } from '../../services/error-handler';
 import { latency, bigNumberWithDecimalToStr } from '../../services/base';
 import ethers from 'ethers';
-
 export namespace EthereumRoutes {
   export const router = Router();
-  let ethereum: Ethereum;
-
+  const ethereum = Ethereum.getInstance();
   export const reload = (): void => {
     // ethereum = Ethereum.reload();
-  };
-
-  const verifyEthereumIsAvailable = async (
-    _req: Request,
-    _res: Response,
-    next: NextFunction
-  ) => {
-    if (!ethereum) {
-      ethereum = await Ethereum.getInstance();
-    }
-    return next();
   };
 
   router.use(asyncHandler(verifyEthereumIsAvailable));
