@@ -929,7 +929,6 @@ cdef class BittrexExchange(ExchangeBase):
                 return order_id
 
             if "ORDER_NOT_OPEN" in str(err):
-                path_url = f"/orders/{order_id}"
                 state_result = await self._api_request("GET", path_url=path_url)
                 self.logger().info(f"{state_result}")
 
