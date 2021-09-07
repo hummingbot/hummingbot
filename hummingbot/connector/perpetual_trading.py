@@ -1,3 +1,4 @@
+from collections import defaultdict
 from decimal import Decimal
 from typing import Dict, List, Optional
 from hummingbot.core.event.events import PositionMode, FundingInfo, PositionSide
@@ -17,7 +18,7 @@ class PerpetualTrading:
     def __init__(self):
         self._account_positions: Dict[str, Position] = {}
         self._position_mode: PositionMode = PositionMode.ONEWAY
-        self._leverage: Dict[str, int] = {}
+        self._leverage: Dict[str, int] = defaultdict(lambda: 1)
         self._funding_info: Dict[str, FundingInfo] = {}
         self._funding_payment_span: List[int] = [0, 0]
 
