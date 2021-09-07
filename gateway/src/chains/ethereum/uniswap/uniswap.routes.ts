@@ -7,12 +7,18 @@ import { BigNumber } from 'ethers';
 import { latency } from '../../../services/base';
 import { ethers } from 'ethers';
 import { CurrencyAmount, Price, Trade } from '@uniswap/sdk';
+import { verifyEthereumIsAvailable } from '../ethereum-middlewares';
+import { verifyUniswapIsAvailable } from './uniswap-middlewares';
 
 export namespace UniswapRoutes {
   export const router = Router();
-  const uniswap = new Uniswap();
-  const eth = new Ethereum();
-  eth.init(); // we are missing a try/catch and a definition on what to do on an error
+  const uniswap = Uniswap.getInstance();
+  const eth = Ethereum.getInstance();
+
+  router.use(
+    asyncHandler(verifyEthereumIsAvailable),
+    asyncHandler(verifyUniswapIsAvailable)
+  );
 
   router.get('/', async (_req: Request, res: Response) => {
     res.status(200).json({

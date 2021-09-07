@@ -12,11 +12,12 @@ import { Provider } from '@ethersproject/abstract-provider';
 const MKR_ADDRESS = '0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2';
 
 export class Ethereum extends EthereumBase {
+  private static instance: Ethereum;
   private ethGasStationUrl: string;
   private gasPrice: number;
   private gasPriceLastUpdated: Date | null;
 
-  constructor() {
+  private constructor() {
     let config;
     if (ConfigManager.config.ETHEREUM_CHAIN === 'mainnet') {
       config = EthereumConfig.config.mainnet;
@@ -40,6 +41,24 @@ export class Ethereum extends EthereumBase {
     this.gasPriceLastUpdated = null;
 
     this.updateGasPrice();
+  }
+
+  // public static async getInstance(): Promise<Ethereum> {
+  //   if (!Ethereum.instance) {
+  //     const eth = new Ethereum();
+  //     await eth.init();
+  //     if (!Ethereum.instance) Ethereum.instance = eth; // avoids overriding the instance if the function is called in parallel
+  //   }
+
+  //   return Ethereum.instance;
+  // }
+
+  public static getInstance(): Ethereum {
+    if (!Ethereum.instance) {
+      Ethereum.instance = new Ethereum();
+    }
+
+    return Ethereum.instance;
   }
 
   // ethereum token lists are large. instead of reloading each time with

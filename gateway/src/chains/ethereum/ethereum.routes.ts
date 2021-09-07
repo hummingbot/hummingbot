@@ -5,17 +5,18 @@ import { EthereumConfig } from './ethereum.config';
 import { ConfigManager } from '../../services/config-manager';
 import { Token } from '../../services/ethereum-base';
 import { tokenValueToString } from '../../services/base';
+import { verifyEthereumIsAvailable } from './ethereum-middlewares';
 import { HttpException, asyncHandler } from '../../services/error-handler';
 import { latency } from '../../services/base';
 import { approve } from './ethereum.controllers';
 export namespace EthereumRoutes {
   export const router = Router();
-  let ethereum = new Ethereum();
-  ethereum.init(); // we are missing a try/catch and a definition on what to do on an error
-
+  const ethereum = Ethereum.getInstance();
   export const reload = (): void => {
-    ethereum = new Ethereum();
+    // ethereum = Ethereum.reload();
   };
+
+  router.use(asyncHandler(verifyEthereumIsAvailable));
 
   router.get(
     '/',
