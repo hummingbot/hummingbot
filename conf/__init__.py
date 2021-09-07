@@ -117,6 +117,11 @@ coinzoom_api_key = os.getenv("COINZOOM_API_KEY")
 coinzoom_secret_key = os.getenv("COINZOOM_SECRET_KEY")
 coinzoom_username = os.getenv("COINZOOM_USERNAME")
 
+# Peatio Tests
+peatio_access_key = os.getenv("PEATIO_ACCESS_KEY")
+peatio_secret_key = os.getenv("PEATIO_SECRET_KEY")
+
+
 # Wallet Tests
 test_erc20_token_address = os.getenv("TEST_ERC20_TOKEN_ADDRESS")
 web3_test_private_key_a = os.getenv("TEST_WALLET_PRIVATE_KEY_A")

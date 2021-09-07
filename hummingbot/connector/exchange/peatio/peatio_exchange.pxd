@@ -9,7 +9,7 @@ cdef class PeatioExchange(ExchangeBase):
         str _account_id
         object _async_scheduler
         object _ev_loop
-        object _huobi_auth
+        object _peatio_auth
         dict _in_flight_orders
         double _last_poll_timestamp
         double _last_timestamp
