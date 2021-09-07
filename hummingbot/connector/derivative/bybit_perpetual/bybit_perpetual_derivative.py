@@ -108,6 +108,10 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             domain=domain)
         self._user_stream_tracker = BybitPerpetualUserStreamTracker(self._auth, domain=domain)
 
+        # Set Position Mode depending on the Perpetual Market
+        if not self._domain:
+            self.set_position_mode(PositionMode.HEDGE)
+
         # Tasks
         self._funding_fee_polling_task = None
         self._user_funding_fee_polling_task = None
@@ -894,7 +898,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         """
         ex_trading_pair = position_msg.get("symbol")
         hb_trading_pair = symbol_trading_pair_map.get(ex_trading_pair)
-        position_side = PositionSide.LONG if position_msg.get("side") == "buy" else PositionSide.SHORT
+        position_side = PositionSide.LONG if position_msg.get("side") == "Buy" else PositionSide.SHORT
         position_value = Decimal(str(position_msg.get("position_value")))
         entry_price = Decimal(str(position_msg.get("entry_price")))
         amount = Decimal(str(position_msg.get("size")))
@@ -1100,7 +1104,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             data = position
             ex_trading_pair = data.get("symbol")
             hb_trading_pair = symbol_trading_pair_map.get(ex_trading_pair)
-            position_side = PositionSide.LONG if data.get("side") == "buy" else PositionSide.SHORT
+            position_side = PositionSide.LONG if data.get("side") == "Buy" else PositionSide.SHORT
             unrealized_pnl = Decimal(str(data.get("unrealised_pnl")))
             entry_price = Decimal(str(data.get("entry_price")))
             amount = Decimal(str(data.get("size")))
@@ -1154,26 +1158,6 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
     def set_leverage(self, trading_pair: str, leverage: int):
         safe_ensure_future(self._set_leverage(trading_pair=trading_pair, leverage=leverage))
-
-    # async def _get_position_mode(self):
-    #     if self._position_mode is None:
-    #         if all(bybit_utils.is_linear_perpetual(tp) for tp in self._trading_pairs):
-    #             # Currently Linear Perpetual defaults to HEDGE mode
-    #             mode = PositionMode.HEDGE
-    #         else:
-    #             mode = PositionMode.ONEWAY
-    #         self._position_mode = mode
-    #     return self._position_mode
-
-    # async def _set_position_mode(self, position_mode: PositionMode):
-    #     initial_mode = await self._get_position_mode()
-    #     if position_mode != initial_mode:
-    #         params = {
-    #         }
-    #         self._position_mode =
-
-    # def set_position_mode(self, position_mode: PositionMode):
-    #     safe_ensure_future(self._set_position_mode(position_mode))
 
     def get_funding_info(self, trading_pair: str) -> Optional[FundingInfo]:
         return asyncio.get_event_loop().run_until_complete(
