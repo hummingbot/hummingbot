@@ -193,7 +193,23 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         return self._shared_client
 
     def supported_position_modes(self) -> List[PositionMode]:
-        return [PositionMode.ONEWAY, PositionMode.HEDGE]
+        if self._domain and self._domain == "bybit_perpetual_testnet":
+            if all(bybit_utils.is_linear_perpetual(tp) for tp in self._trading_pairs):
+                return [PositionMode.HEDGE]
+            elif all(not bybit_utils.is_linear_perpetual(tp) for tp in self._trading_pairs):
+                # Support for both ONE-WAY and HEDGE positions modes is only available in Testnet Inverse Perps Markets.
+                return [PositionMode.ONEWAY, PositionMode.HEDGE]
+            else:
+                return []
+        else:  # Mainnet
+            if all(bybit_utils.is_linear_perpetual(tp) for tp in self._trading_pairs):
+                return [PositionMode.HEDGE]
+            elif all(not bybit_utils.is_linear_perpetual(tp) for tp in self._trading_pairs):
+                return [PositionMode.ONEWAY]
+            else:
+                self.logger().warning("Currently there is no support for both linear and non-linear markets concurrently. "
+                                      "Please start another Hummingbot instance.")
+                return []
 
     async def start_network(self):
         self._order_book_tracker.start()
@@ -1138,6 +1154,26 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
     def set_leverage(self, trading_pair: str, leverage: int):
         safe_ensure_future(self._set_leverage(trading_pair=trading_pair, leverage=leverage))
+
+    # async def _get_position_mode(self):
+    #     if self._position_mode is None:
+    #         if all(bybit_utils.is_linear_perpetual(tp) for tp in self._trading_pairs):
+    #             # Currently Linear Perpetual defaults to HEDGE mode
+    #             mode = PositionMode.HEDGE
+    #         else:
+    #             mode = PositionMode.ONEWAY
+    #         self._position_mode = mode
+    #     return self._position_mode
+
+    # async def _set_position_mode(self, position_mode: PositionMode):
+    #     initial_mode = await self._get_position_mode()
+    #     if position_mode != initial_mode:
+    #         params = {
+    #         }
+    #         self._position_mode =
+
+    # def set_position_mode(self, position_mode: PositionMode):
+    #     safe_ensure_future(self._set_position_mode(position_mode))
 
     def get_funding_info(self, trading_pair: str) -> Optional[FundingInfo]:
         return asyncio.get_event_loop().run_until_complete(
