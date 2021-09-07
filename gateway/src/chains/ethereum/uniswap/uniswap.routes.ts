@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express';
+import { NextFunction, Router, Request, Response } from 'express';
 import { Ethereum } from '../ethereum';
 import { Uniswap, ExpectedTrade } from './uniswap';
 import { ConfigManager } from '../../../services/config-manager';
@@ -11,8 +11,20 @@ import { Trade } from '@uniswap/sdk';
 export namespace UniswapRoutes {
   export const router = Router();
   const uniswap = new Uniswap();
-  const eth = new Ethereum();
-  eth.init(); // we are missing a try/catch and a definition on what to do on an error
+  let ethereum: Ethereum;
+
+  const verifyEthereumIsAvailable = async (
+    _req: Request,
+    _res: Response,
+    next: NextFunction
+  ) => {
+    if (!ethereum) {
+      ethereum = await Ethereum.getInstance();
+    }
+    return next();
+  };
+
+  router.use(asyncHandler(verifyEthereumIsAvailable));
 
   router.get('/', async (_req: Request, res: Response) => {
     res.status(200).json({
@@ -55,10 +67,10 @@ export namespace UniswapRoutes {
       ) => {
         const initTime = Date.now();
         const amount = req.body.amount;
-        const baseToken = eth.getTokenBySymbol(req.body.base);
+        const baseToken = ethereum.getTokenBySymbol(req.body.base);
 
         if (baseToken) {
-          const quoteToken = eth.getTokenBySymbol(req.body.quote);
+          const quoteToken = ethereum.getTokenBySymbol(req.body.quote);
           if (quoteToken) {
             const result: ExpectedTrade | string =
               req.body.side === 'BUY'
@@ -88,7 +100,7 @@ export namespace UniswapRoutes {
                   : trade.executionPrice;
 
               const gasLimit = ConfigManager.config.UNISWAP_GAS_LIMIT;
-              const gasPrice = eth.getGasPrice();
+              const gasPrice = ethereum.getGasPrice();
               const payload = {
                 network: ConfigManager.config.ETHEREUM_CHAIN,
                 timestamp: initTime,
@@ -162,15 +174,18 @@ export namespace UniswapRoutes {
 
         const limitPrice = req.body.limitPrice;
 
-        const wallet = new ethers.Wallet(req.body.privateKey, eth.provider);
+        const wallet = new ethers.Wallet(
+          req.body.privateKey,
+          ethereum.provider
+        );
 
-        const baseToken = eth.getTokenBySymbol(req.body.base);
+        const baseToken = ethereum.getTokenBySymbol(req.body.base);
         if (!baseToken)
           throw new HttpException(
             500,
             'Unrecognized base token symbol: ' + req.body.base
           );
-        const quoteToken = eth.getTokenBySymbol(req.body.quote);
+        const quoteToken = ethereum.getTokenBySymbol(req.body.quote);
         if (!quoteToken)
           throw new HttpException(
             500,
@@ -192,7 +207,7 @@ export namespace UniswapRoutes {
         if (typeof result === 'string')
           throw new HttpException(500, 'Uniswap trade query failed: ' + result);
 
-        const gasPrice = eth.getGasPrice();
+        const gasPrice = ethereum.getGasPrice();
         const gasLimit = ConfigManager.config.UNISWAP_GAS_LIMIT;
         if (req.body.side === 'BUY') {
           const price = result.trade.executionPrice.invert();
