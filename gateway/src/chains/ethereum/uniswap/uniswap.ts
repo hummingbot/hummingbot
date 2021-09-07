@@ -20,13 +20,14 @@ export interface ExpectedTrade {
 }
 
 export class Uniswap {
+  private static instance: Uniswap;
   private _uniswapRouter: string;
   private chainId;
-  private ethereum = new Ethereum();
+  private ethereum = Ethereum.getInstance();
   private tokenList: Record<string, Token> = {};
+  private _ready: boolean = false;
 
-  constructor() {
-    this.ethereum.init(); // we are missing a try/catch and a definition on what to do on an error
+  private constructor() {
     let config;
     if (ConfigManager.config.ETHEREUM_CHAIN === 'mainnet') {
       config = UniswapConfig.config.mainnet;
@@ -40,7 +41,18 @@ export class Uniswap {
     } else {
       this.chainId = EthereumConfig.config.kovan.chainId;
     }
+  }
 
+  public static getInstance(): Uniswap {
+    if (!Uniswap.instance) {
+      Uniswap.instance = new Uniswap();
+    }
+
+    return Uniswap.instance;
+  }
+
+  public async init() {
+    if (!this.ethereum.ready()) throw new Error('Eth is not available');
     for (const token of this.ethereum.getStoredTokenList()) {
       this.tokenList[token.address] = new Token(
         this.chainId,
@@ -50,6 +62,11 @@ export class Uniswap {
         token.name
       );
     }
+    this._ready = true;
+  }
+
+  public ready(): boolean {
+    return this._ready;
   }
 
   public get uniswapRouter(): string {
