@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import (
     Any,
-    Dict
+    Dict, Optional
 )
 
 from hummingbot.core.event.events import (
@@ -18,7 +18,7 @@ class KucoinInFlightOrderNotCreated(Exception):
 cdef class KucoinInFlightOrder(InFlightOrderBase):
     def __init__(self,
                  client_order_id: str,
-                 exchange_order_id: str,
+                 exchange_order_id: Optional[str],
                  trading_pair: str,
                  order_type: OrderType,
                  trade_type: TradeType,

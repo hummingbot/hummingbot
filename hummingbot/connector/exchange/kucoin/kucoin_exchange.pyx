@@ -392,7 +392,6 @@ cdef class KucoinExchange(ExchangeBase):
         if method == "get":
             async with self._throttler.execute_task(limit_id):
                 response = await client.get(url, params=params, data=data, headers=headers)
-                self.logger().info(f"url: {response.url}")
         elif method == "post":
             async with self._throttler.execute_task(limit_id):
                 response = await client.post(url, params=params, data=data, headers=headers)
@@ -695,7 +694,7 @@ cdef class KucoinExchange(ExchangeBase):
         try:
             self.c_start_tracking_order(
                 client_order_id=order_id,
-                exchange_order_id="",
+                exchange_order_id=None,
                 trading_pair=trading_pair,
                 order_type=order_type,
                 trade_type=TradeType.BUY,
@@ -769,7 +768,7 @@ cdef class KucoinExchange(ExchangeBase):
         try:
             self.c_start_tracking_order(
                 client_order_id=order_id,
-                exchange_order_id="",
+                exchange_order_id=None,
                 trading_pair=trading_pair,
                 order_type=order_type,
                 trade_type=TradeType.SELL,
