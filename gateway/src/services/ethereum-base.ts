@@ -20,7 +20,7 @@ export class EthereumBase {
   // there are async values set in the constructor
   private _ready: boolean = false;
   private initializing: boolean = false;
-  private initPromise: Promise<void>;
+  private initPromise: Promise<void> = Promise.resolve();
 
   public chainID;
   public rpcUrl;
@@ -96,13 +96,15 @@ export class EthereumBase {
     tokenListSource: string,
     tokenListType: TokenListType
   ): Promise<Token[]> {
+    let tokens;
     if (tokenListType === 'URL') {
-      const { data } = await axios.get(tokenListSource);
-      return data;
+      ({
+        data: { tokens },
+      } = await axios.get(tokenListSource));
     } else {
-      const { tokens } = JSON.parse(await fs.readFile(tokenListSource, 'utf8'));
-      return tokens;
+      ({ tokens } = JSON.parse(await fs.readFile(tokenListSource, 'utf8')));
     }
+    return tokens;
   }
 
   // return the Token object for a symbol
