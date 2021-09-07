@@ -20,12 +20,14 @@ export interface ExpectedTrade {
 }
 
 export class Uniswap {
+  private static instance: Uniswap;
   private _uniswapRouter: string;
   private chainId;
   private ethereum = Ethereum.getInstance();
   private tokenList: Record<string, Token> = {};
+  private _ready: boolean = false;
 
-  constructor() {
+  private constructor() {
     let config;
     if (ConfigManager.config.ETHEREUM_CHAIN === 'mainnet') {
       config = UniswapConfig.config.mainnet;
@@ -39,7 +41,18 @@ export class Uniswap {
     } else {
       this.chainId = EthereumConfig.config.kovan.chainId;
     }
+  }
 
+  public static getInstance(): Uniswap {
+    if (!Uniswap.instance) {
+      Uniswap.instance = new Uniswap();
+    }
+
+    return Uniswap.instance;
+  }
+
+  public async init() {
+    if (!this.ethereum.ready()) throw new Error('Eth is not available');
     for (const token of this.ethereum.getStoredTokenList()) {
       this.tokenList[token.address] = new Token(
         this.chainId,
@@ -49,6 +62,11 @@ export class Uniswap {
         token.name
       );
     }
+    this._ready = true;
+  }
+
+  public ready(): boolean {
+    return this._ready;
   }
 
   public get uniswapRouter(): string {
@@ -83,7 +101,7 @@ export class Uniswap {
       `Best trade for ${tokenIn.address}-${tokenOut.address}: ${trades[0]}`
     );
     const expectedAmount = trades[0].minimumAmountOut(
-      ConfigManager.config.UNISWAP_ALLOWED_SLIPPAGE
+      ConfigManager.getUniswapAllowedSlippagePercentage(ConfigManager.config)
     );
     return { trade: trades[0], expectedAmount };
   }
@@ -116,8 +134,9 @@ export class Uniswap {
     logger.info(
       `Best trade for ${tokenIn.address}-${tokenOut.address}: ${trades[0]}`
     );
+
     const expectedAmount = trades[0].maximumAmountIn(
-      ConfigManager.config.UNISWAP_ALLOWED_SLIPPAGE
+      ConfigManager.getUniswapAllowedSlippagePercentage(ConfigManager.config)
     );
     return { trade: trades[0], expectedAmount };
   }
@@ -132,7 +151,9 @@ export class Uniswap {
     const result = Router.swapCallParameters(trade, {
       ttl: ConfigManager.config.UNISWAP_TTL,
       recipient: wallet.address,
-      allowedSlippage: ConfigManager.config.UNISWAP_ALLOWED_SLIPPAGE,
+      allowedSlippage: ConfigManager.getUniswapAllowedSlippagePercentage(
+        ConfigManager.config
+      ),
     });
 
     const contract = new Contract(this._uniswapRouter, routerAbi.abi, wallet);
