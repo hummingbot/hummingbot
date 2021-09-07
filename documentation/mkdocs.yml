@@ -117,37 +117,38 @@ nav:
     - Home: index.md
     - Installation:
       - Installation: installation/index.md
-      - Windows: installation/windows.md
-      - Mac: installation/mac.md
-      - Linux: installation/linux.md
-      - Raspberry Pi: installation/raspberry-pi.md
-      - Cloud Servers: installation/cloud-servers.md
-      - Hummingbot Gateway: installation/gateway.md
-      - Update Hummingbot: installation/update-hummingbot.md
-      - Restore Previous Version: installation/restore-previous-version.md
-      - Running Multiple Bots: installation/multiple-bots.md
+      - Install Mac/Win: installation/binaries.md
+      - Install Docker: installation/docker.md
+      - Install Source: installation/source.md
+      - Install Raspberry Pi: installation/raspberry-pi.md
+      - Run in the Cloud: installation/cloud-servers.md
+      - Run Multiple Bots: installation/multiple-bots.md
+      - Update and Restore Hummingbot: installation/update-hummingbot.md
     - Operation:
       - Overview: operation/index.md
       - User Interface Guide: operation/user-interface.md
       - Commands and Shortcuts: operation/commands-shortcuts.md
-      - Launch and Exit Hummingbot: operation/launch-exit.md
-      - Create and Delete Password: operation/password.md
+      - Launch/Exit Hummingbot: operation/launch-exit.md
+      - Create/Delete Password: operation/password.md
       - Connecting to Exchange: operation/connect-exchange.md
-      - Checking Balances: operation/balances.md
-      - Create or Import Config Files: operation/config-files.md
-      - Start and Stop Strategy: operation/start-stop.md
-      - Pause and Resume Strategy: operation/pause-resume.md
-      - Check Bot and Market Status: operation/checking-status.md
+      - Check Balances: operation/balances.md
+      - Create/Import Config Files: operation/config-files.md
+      - Start/Stop Strategy: operation/start-stop.md
+      - Pause/Resume Strategy: operation/pause-resume.md
+      - Check Bot/Market Status: operation/checking-status.md
       - Check Performance: operation/performance-history.md
-      - Log Files: operation/log-files.md
-      - Paper Trading Mode: operation/paper-trade.md
+      - Find Log Files: operation/log-files.md
+    - Features:
+      - Features: operation/features.md
       - Kill Switch: operation/kill-switch.md
+      - Paper Trading Mode: operation/paper-trade.md
       - Balance Limit: operation/balance-limit.md
-      - Override Fees: operation/override-fees.md
+      - Fee Overrides: operation/override-fees.md
       - Telegram Integration: operation/telegram.md
+      - Gateway: installation/gateway.md
       - Rate Oracle: operation/rate-oracle.md
-      - Strategy Autostart: operation/strategy-autostart.md
       - Rate Limits Share Pct: operation/rate-limits-share-pct.md
+      - Strategy Autostart: operation/strategy-autostart.md
     - Connectors:
       - Connectors: connectors/index.md
       - AscendEX: connectors/ascend-ex.md
