@@ -197,23 +197,16 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         return self._shared_client
 
     def supported_position_modes(self) -> List[PositionMode]:
-        if self._domain and self._domain == "bybit_perpetual_testnet":
-            if all(bybit_utils.is_linear_perpetual(tp) for tp in self._trading_pairs):
-                return [PositionMode.HEDGE]
-            elif all(not bybit_utils.is_linear_perpetual(tp) for tp in self._trading_pairs):
-                # Support for both ONE-WAY and HEDGE positions modes is only available in Testnet Inverse Perps Markets.
-                return [PositionMode.ONEWAY, PositionMode.HEDGE]
-            else:
-                return []
-        else:  # Mainnet
-            if all(bybit_utils.is_linear_perpetual(tp) for tp in self._trading_pairs):
-                return [PositionMode.HEDGE]
-            elif all(not bybit_utils.is_linear_perpetual(tp) for tp in self._trading_pairs):
-                return [PositionMode.ONEWAY]
-            else:
-                self.logger().warning("Currently there is no support for both linear and non-linear markets concurrently. "
-                                      "Please start another Hummingbot instance.")
-                return []
+        # Linear Perpetuals ONLY supports Hedge mode and Non-linear perpetuals ONLY supports One-way
+        if all(bybit_utils.is_linear_perpetual(tp) for tp in self._trading_pairs):
+            return [PositionMode.HEDGE]
+        elif all(not bybit_utils.is_linear_perpetual(tp) for tp in self._trading_pairs):
+            # As of ByBit API v2, we only support ONEWAy mode for non-linear perpetuals
+            return [PositionMode.ONEWAY]
+        else:
+            self.logger().warning("Currently there is no support for both linear and non-linear markets concurrently. "
+                                  "Please start another Hummingbot instance.")
+            return []
 
     async def start_network(self):
         self._order_book_tracker.start()
