@@ -1712,28 +1712,14 @@ class BybitPerpetualDerivativeTests(TestCase):
                                                                 bybit_perpetual_secret_key='testSecretKey',
                                                                 trading_pairs=["BTC-USD"],
                                                                 domain="bybit_perpetual_testnet")
-        mainnet_non_linear_connector = BybitPerpetualDerivative(bybit_perpetual_api_key='testApiKey',
-                                                                bybit_perpetual_secret_key='testSecretKey',
-                                                                trading_pairs=["BTC-USD"])
-        mainnet_linear_connector = BybitPerpetualDerivative(bybit_perpetual_api_key='testApiKey',
-                                                            bybit_perpetual_secret_key='testSecretKey',
-                                                            trading_pairs=[self.trading_pair])
 
-        # Case 1: TESTNET Linear Perpetual
+        # Case 1: Linear Perpetual
         expected_result = [PositionMode.HEDGE]
         self.assertEqual(expected_result, self.connector.supported_position_modes())
 
-        # Case 2: TESTNET Non-Linear Perpetual
-        expected_result = [PositionMode.ONEWAY, PositionMode.HEDGE]
-        self.assertEqual(expected_result, testnet_non_linear_connector.supported_position_modes())
-
-        # Case 3: MAINNET Linear Perpetual
-        expected_result = [PositionMode.HEDGE]
-        self.assertEqual(expected_result, mainnet_linear_connector.supported_position_modes())
-
-        # Case 4: MAINNET Non-linear Perpetual
+        # Case 2: Non-Linear Perpetual
         expected_result = [PositionMode.ONEWAY]
-        self.assertEqual(expected_result, mainnet_non_linear_connector.supported_position_modes())
+        self.assertEqual(expected_result, testnet_non_linear_connector.supported_position_modes())
 
     @patch("hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils.get_next_funding_timestamp")
     def test_tick_funding_fee_poll_notifier_set(self, mock_time):
