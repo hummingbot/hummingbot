@@ -961,6 +961,69 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertIn(order.client_order_id, self.connector.in_flight_orders)
         self.assertEqual(order_json, self.connector.in_flight_orders[order.client_order_id].to_json())
 
+    @patch("hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_order_book_tracker"
+           ".BybitPerpetualOrderBookTracker.trading_pair_symbol")
+    @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
+    def test_throttler_rebuilt_on_tracking_states_restored(self, post_mock, trading_pair_symbol_mock):
+        trading_pair_symbol_mock.side_effect = lambda tp: tp.replace("-", "")
+
+        alt_pair = "BTC-USDC"
+
+        client_order_id = "01"
+        order_json = {'client_order_id': 'O1', 'exchange_order_id': 'EO1', 'trading_pair': alt_pair,
+                      'order_type': 'LIMIT', 'trade_type': 'BUY', 'price': '44000', 'amount': '1',
+                      'executed_amount_base': '0', 'executed_amount_quote': '0', 'fee_asset': 'USDC',
+                      'fee_paid': '0', 'last_state': 'Created', 'leverage': '10', 'position': 'OPEN'}
+
+        self.connector.restore_tracking_states({client_order_id: order_json})
+
+        self.mocking_assistant.configure_http_request_mock(post_mock)
+        self.mocking_assistant.add_http_response(
+            post_mock,
+            200,
+            {
+                "ret_code": 0,
+                "ret_msg": "OK",
+                "ext_code": "",
+                "ext_info": "",
+                "result": {
+                    "user_id": 1,
+                    "order_id": "EO1",
+                    "symbol": alt_pair.replace("-", ""),
+                    "side": "Buy",
+                    "order_type": "Limit",
+                    "price": 44000,
+                    "qty": 1,
+                    "time_in_force": "GoodTillCancel",
+                    "order_status": "New",
+                    "last_exec_time": 0,
+                    "last_exec_price": 0,
+                    "leaves_qty": 1,
+                    "cum_exec_qty": 0,
+                    "cum_exec_value": 0,
+                    "cum_exec_fee": 0,
+                    "reject_reason": "",
+                    "order_link_id": "O1",
+                    "created_at": "2019-11-30T11:17:18.396Z",
+                    "updated_at": "2019-11-30T11:18:01.811Z"
+                },
+                "time_now": "1575112681.814760",
+                "rate_limit_status": 98,
+                "rate_limit_reset_ms": 1580885703683,
+                "rate_limit": 100
+            })
+
+        cancel_future = self.connector._execute_cancel(trading_pair=alt_pair, order_id=client_order_id)
+        asyncio.get_event_loop().run_until_complete(cancel_future)
+
+        request_url, request_headers, request_data = asyncio.get_event_loop().run_until_complete(
+            asyncio.wait_for(self.mocking_assistant.next_sent_request_data(post_mock), timeout=1)
+        )
+
+        cancel_json = json.loads(request_data)
+
+        self.assertEqual(alt_pair.replace("-", ""), cancel_json["symbol"])
+
     @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
     def test_update_balances(self, get_mock):
         self.mocking_assistant.configure_http_request_mock(get_mock)
