@@ -19,6 +19,8 @@ export class EthereumBase {
   private tokenMap: Record<string, Token> = {};
   // there are async values set in the constructor
   private _ready: boolean = false;
+  private initializing: boolean = false;
+  private initPromise: Promise<void> = Promise.resolve();
 
   public chainID;
   public rpcUrl;
@@ -50,8 +52,17 @@ export class EthereumBase {
   }
 
   async init(): Promise<void> {
-    await this.loadTokens(this.tokenListSource, this.tokenListType);
-    this._ready = true;
+    if (!this.ready() && !this.initializing) {
+      this.initializing = true;
+      this.initPromise = this.loadTokens(
+        this.tokenListSource,
+        this.tokenListType
+      ).then(() => {
+        this._ready = true;
+        this.initializing = false;
+      });
+    }
+    return this.initPromise;
   }
 
   async loadTokens(
@@ -69,13 +80,15 @@ export class EthereumBase {
     tokenListSource: string,
     tokenListType: TokenListType
   ): Promise<Token[]> {
+    let tokens;
     if (tokenListType === 'URL') {
-      const { data } = await axios.get(tokenListSource);
-      return data;
+      ({
+        data: { tokens },
+      } = await axios.get(tokenListSource));
     } else {
-      const { tokens } = JSON.parse(await fs.readFile(tokenListSource, 'utf8'));
-      return tokens;
+      ({ tokens } = JSON.parse(await fs.readFile(tokenListSource, 'utf8')));
     }
+    return tokens;
   }
 
   // return the Token object for a symbol
