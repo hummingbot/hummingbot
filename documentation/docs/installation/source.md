@@ -3,53 +3,58 @@
 !!! note "Re-compiling files"
     If you make changes to the code, make sure to re-compile the code with `./compile` to ensure that any changes to Cython files are compiled before running Hummingbot
 
-## Ubuntu
+You can install Docker and Hummingbot by selecting the following options below:
+
+- **Scripts**: download and use automated install scripts
+- **Manual**: run install commands manually
+
+## Linux/Ubuntu
 
 _Supported versions: 16.04 LTS, 18.04 LTS, 19.04_
 
-Scripts
+=== ""Scripts""
 
-```Scripts
-# 1) Download install script
-wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/install-from-source/install-source-ubuntu.sh
+```bash
+    # 1) Download install script
+    wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/install-from-source/install-source-ubuntu.sh
 
-# 2) Enable script permissions
-chmod a+x install-source-ubuntu.sh
+    # 2) Enable script permissions
+    chmod a+x install-source-ubuntu.sh
 
-# 3) Run installation
-./install-source-ubuntu.sh
+    # 3) Run installation
+    ./install-source-ubuntu.sh
 ```
 
-Manual
+=== ""Manual""
 
-```Manual
-# 1) Install dependencies
-sudo apt-get update
-sudo apt-get install -y build-essential
+    ```bash
+    # 1) Install dependencies
+    sudo apt-get update
+    sudo apt-get install -y build-essential
 
-# 2) Install Miniconda3
-wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
-sh Miniconda3-latest-Linux-x86_64.sh
+    # 2) Install Miniconda3
+    wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
+    sh Miniconda3-latest-Linux-x86_64.sh
 
-# 3) Reload .bashrc to register "conda" command
-exec bash
+    # 3) Reload .bashrc to register "conda" command
+    exec bash
 
-# 4) Clone Hummingbot
-git clone https://github.com/CoinAlpha/hummingbot.git
+    # 4) Clone Hummingbot
+    git clone https://github.com/CoinAlpha/hummingbot.git
 
-# 5) Install Hummingbot
-cd hummingbot && ./clean && ./install
+    # 5) Install Hummingbot
+    cd hummingbot && ./clean && ./install
 
-# 6) Activate environment and compile code
-conda activate hummingbot && ./compile
+    # 6) Activate environment and compile code
+    conda activate hummingbot && ./compile
 
-# 7) Start Hummingbot
-bin/hummingbot.py
-```
+    # 7) Start Hummingbot
+    bin/hummingbot.py
+    ```
 
 ## MacOS
 
-### Install Xcode command line tools
+### Xcode command line tools
 
 Running Hummingbot on **macOS** requires [Xcode](https://developer.apple.com/xcode/) and Xcode command line tools.
 
@@ -57,7 +62,7 @@ Running Hummingbot on **macOS** requires [Xcode](https://developer.apple.com/xco
 xcode-select --install
 ```
 
-### Install Anaconda3
+### Anaconda
 
 Hummingbot requires Python 3 and other Python libraries. To manage these dependencies, Hummingbot uses Anaconda, an open-source environment, and package manager for Python that is the current industry standard for data scientists and data engineers.
 
@@ -83,7 +88,7 @@ fi
 unset __conda_setup
 ```
 
-### Install Hummingbot
+### Hummingbot
 
 ```
 # 1) Clone Hummingbot repo
@@ -107,7 +112,7 @@ bin/hummingbot.py
 
 ## Windows
 
-Step 1. Install required Applications
+### Dependencies
 
 1. Install [Git for Windows](https://git-scm.com/download/win).
 
@@ -125,7 +130,7 @@ Step 1. Install required Applications
 !!! note
     Some prerequisites are large applications and may need to restart your computer.
 
-Step 2. Install Hummingbot on Windows System
+### Hummingbot
 
 1. Launch Git Bash App.
 2. Run the following commands:
@@ -143,34 +148,34 @@ exit
 - **Scripts**: download and use automated install scripts.
 - **Manual**: run install commands manually.
 
-Scripts
+=== ""Scripts""
 
-```scripts
-# 1) Navigate to the root folder
-cd ~
+    ```bash
+    # 1) Navigate to the root folder
+    cd ~
 
-# 2) Download install script
-curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/install-from-source/install-source-windows.sh -o install-source-windows.sh
+    # 2) Download install script
+    curl https://raw.githubusercontent.com/CoinAlpha/hummingbot/development/installation/install-from-source/install-source-windows.sh -o install-source-windows.sh
 
-# 3) Enable script permissions
-chmod a+x install-source-windows.sh
+    # 3) Enable script permissions
+    chmod a+x install-source-windows.sh
 
-# 4) Run installation
-./install-source-windows.sh
-```
+    # 4) Run installation
+    ./install-source-windows.sh
+    ```
 
-Manual
+=== ""Manual""
 
-```Manual
-cd ~
-export CONDAPATH="$(pwd)/miniconda3"
-export PYTHON="$(pwd)/miniconda3/envs/hummingbot/python3"
-# Clone Hummingbot
-git clone https://github.com/CoinAlpha/hummingbot.git
-# Install Hummingbot
-export hummingbotPath="$(pwd)/hummingbot" && cd $hummingbotPath && ./install
-# Activate environment and compile code
-conda activate hummingbot && ./compile
-# Start Hummingbot
-winpty python bin/hummingbot.py
-```
+    ```bash
+    cd ~
+    export CONDAPATH="$(pwd)/miniconda3"
+    export PYTHON="$(pwd)/miniconda3/envs/hummingbot/python3"
+    # Clone Hummingbot
+    git clone https://github.com/CoinAlpha/hummingbot.git
+    # Install Hummingbot
+    export hummingbotPath="$(pwd)/hummingbot" && cd $hummingbotPath && ./install
+    # Activate environment and compile code
+    conda activate hummingbot && ./compile
+    # Start Hummingbot
+    winpty python bin/hummingbot.py
+    ```
