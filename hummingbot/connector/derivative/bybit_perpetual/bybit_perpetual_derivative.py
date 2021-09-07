@@ -94,8 +94,11 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._status_poll_notifier = asyncio.Event()
         self._funding_fee_poll_notifier = asyncio.Event()
 
-        rate_limits = bybit_utils.build_rate_limits(self._trading_pairs)
-        self._throttler = AsyncThrottler(rate_limits)
+        self._in_flight_orders = {}
+        self._trading_rules = {}
+        self._last_trade_history_timestamp = None
+
+        self._throttler = self._get_throttler_instance()
         self._auth: BybitPerpetualAuth = BybitPerpetualAuth(api_key=bybit_perpetual_api_key,
                                                             secret_key=bybit_perpetual_secret_key)
         self._order_book_tracker = BybitPerpetualOrderBookTracker(
@@ -104,10 +107,6 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             trading_pairs=trading_pairs,
             domain=domain)
         self._user_stream_tracker = BybitPerpetualUserStreamTracker(self._auth, domain=domain)
-
-        self._in_flight_orders = {}
-        self._trading_rules = {}
-        self._last_trade_history_timestamp = None
 
         # Tasks
         self._funding_fee_polling_task = None
@@ -183,6 +182,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             client_oid: BybitPerpetualInFlightOrder.from_json(order_json)
             for client_oid, order_json in saved_states.items()
         })
+        self._throttler = self._get_throttler_instance()
 
     def _aiohttp_client(self) -> aiohttp.ClientSession:
         """
@@ -1143,3 +1143,18 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         return asyncio.get_event_loop().run_until_complete(
             self._order_book_tracker.data_source.get_funding_info(trading_pair)
         )
+
+    def _get_throttler_instance(self) -> AsyncThrottler:
+        if self._trading_pairs is not None:
+            trading_pairs = [tp for tp in self._trading_pairs]
+        else:
+            trading_pairs = []
+
+        for order in self._in_flight_orders.values():
+            trading_pair = order.trading_pair
+            if trading_pair not in trading_pairs:
+                trading_pairs.append(trading_pair)
+
+        rate_limits = bybit_utils.build_rate_limits(trading_pairs)
+        throttler = AsyncThrottler(rate_limits)
+        return throttler
