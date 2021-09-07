@@ -230,7 +230,7 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         endpoint = CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT
         api_path = bybit_perpetual_utils.rest_api_path_for_endpoint(endpoint, trading_pair)
         url = bybit_perpetual_utils.rest_api_url_for_endpoint(endpoint=api_path, domain=self._domain)
-        limit_id = bybit_perpetual_utils.get_rest_api_limit_id_for_endpoint(endpoint, trading_pair)
+        limit_id = bybit_perpetual_utils.get_rest_api_limit_id_for_endpoint(endpoint)
 
         session = await self._get_session()
         async with session as client:

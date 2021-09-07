@@ -142,7 +142,7 @@ def build_rate_limits(trading_pairs: Optional[List[str]] = None) -> List[RateLim
     rate_limits = []
 
     rate_limits.extend(_build_global_rate_limits())
-    rate_limits.extend(_build_public_rate_limits(trading_pairs))
+    rate_limits.extend(_build_public_rate_limits())
     rate_limits.extend(_build_private_rate_limits(trading_pairs))
 
     return rate_limits
@@ -168,36 +168,7 @@ def _build_global_rate_limits() -> List[RateLimit]:
     return rate_limits
 
 
-def _build_public_rate_limits(trading_pairs: List[str]) -> List[RateLimit]:
-    rate_limits = []
-
-    rate_limits.extend(_build_public_pair_specific_rate_limits(trading_pairs))
-    rate_limits.extend(_build_public_general_rate_limits())
-
-    return rate_limits
-
-
-def _build_public_pair_specific_rate_limits(trading_pairs: List[str]) -> List[RateLimit]:
-    rate_limits = []
-
-    for trading_pair in trading_pairs:
-        limit_id = get_pair_specific_limit_id(  # same for linear and non-linear
-            base_limit_id=CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT[CONSTANTS.NON_LINEAR_MARKET],
-            trading_pair=trading_pair,
-        )
-        rate_limits.append(
-            RateLimit(
-                limit_id=limit_id,
-                limit=CONSTANTS.GET_RATE,
-                time_interval=1,
-                linked_limits=[CONSTANTS.GET_LIMIT_ID],
-            )
-        )
-
-    return rate_limits
-
-
-def _build_public_general_rate_limits():
+def _build_public_rate_limits():
     public_rate_limits = [
         RateLimit(  # same for linear and non-linear
             limit_id=CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT[CONSTANTS.NON_LINEAR_MARKET],
