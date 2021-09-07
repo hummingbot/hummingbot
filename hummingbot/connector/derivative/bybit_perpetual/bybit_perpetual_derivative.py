@@ -108,6 +108,10 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             domain=domain)
         self._user_stream_tracker = BybitPerpetualUserStreamTracker(self._auth, domain=domain)
 
+        # Set Position Mode depending on the Perpetual Market
+        if not self._domain:
+            self.set_position_mode(PositionMode.HEDGE)
+
         # Tasks
         self._funding_fee_polling_task = None
         self._user_funding_fee_polling_task = None
@@ -193,7 +197,16 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         return self._shared_client
 
     def supported_position_modes(self) -> List[PositionMode]:
-        return [PositionMode.ONEWAY, PositionMode.HEDGE]
+        # Linear Perpetuals ONLY supports Hedge mode and Non-linear perpetuals ONLY supports One-way
+        if all(bybit_utils.is_linear_perpetual(tp) for tp in self._trading_pairs):
+            return [PositionMode.HEDGE]
+        elif all(not bybit_utils.is_linear_perpetual(tp) for tp in self._trading_pairs):
+            # As of ByBit API v2, we only support ONEWAy mode for non-linear perpetuals
+            return [PositionMode.ONEWAY]
+        else:
+            self.logger().warning("Currently there is no support for both linear and non-linear markets concurrently. "
+                                  "Please start another Hummingbot instance.")
+            return []
 
     async def start_network(self):
         self._order_book_tracker.start()
@@ -878,7 +891,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         """
         ex_trading_pair = position_msg.get("symbol")
         hb_trading_pair = symbol_trading_pair_map.get(ex_trading_pair)
-        position_side = PositionSide.LONG if position_msg.get("side") == "buy" else PositionSide.SHORT
+        position_side = PositionSide.LONG if position_msg.get("side") == "Buy" else PositionSide.SHORT
         position_value = Decimal(str(position_msg.get("position_value")))
         entry_price = Decimal(str(position_msg.get("entry_price")))
         amount = Decimal(str(position_msg.get("size")))
@@ -1084,7 +1097,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             data = position
             ex_trading_pair = data.get("symbol")
             hb_trading_pair = symbol_trading_pair_map.get(ex_trading_pair)
-            position_side = PositionSide.LONG if data.get("side") == "buy" else PositionSide.SHORT
+            position_side = PositionSide.LONG if data.get("side") == "Buy" else PositionSide.SHORT
             unrealized_pnl = Decimal(str(data.get("unrealised_pnl")))
             entry_price = Decimal(str(data.get("entry_price")))
             amount = Decimal(str(data.get("size")))

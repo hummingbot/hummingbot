@@ -1708,8 +1708,18 @@ class BybitPerpetualDerivativeTests(TestCase):
                                "BTC-USDT")
 
     def test_supported_position_modes(self):
-        expected_result = [PositionMode.ONEWAY, PositionMode.HEDGE]
+        testnet_non_linear_connector = BybitPerpetualDerivative(bybit_perpetual_api_key='testApiKey',
+                                                                bybit_perpetual_secret_key='testSecretKey',
+                                                                trading_pairs=["BTC-USD"],
+                                                                domain="bybit_perpetual_testnet")
+
+        # Case 1: Linear Perpetual
+        expected_result = [PositionMode.HEDGE]
         self.assertEqual(expected_result, self.connector.supported_position_modes())
+
+        # Case 2: Non-Linear Perpetual
+        expected_result = [PositionMode.ONEWAY]
+        self.assertEqual(expected_result, testnet_non_linear_connector.supported_position_modes())
 
     @patch("hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils.get_next_funding_timestamp")
     def test_tick_funding_fee_poll_notifier_set(self, mock_time):
