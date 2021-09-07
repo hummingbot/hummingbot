@@ -14,12 +14,24 @@ import ethers from 'ethers';
 
 export namespace EthereumRoutes {
   export const router = Router();
-  let ethereum = new Ethereum();
-  ethereum.init(); // we are missing a try/catch and a definition on what to do on an error
+  let ethereum: Ethereum;
 
   export const reload = (): void => {
-    ethereum = new Ethereum();
+    // ethereum = Ethereum.reload();
   };
+
+  const verifyEthereumIsAvailable = async (
+    _req: Request,
+    _res: Response,
+    next: NextFunction
+  ) => {
+    if (!ethereum) {
+      ethereum = await Ethereum.getInstance();
+    }
+    return next();
+  };
+
+  router.use(asyncHandler(verifyEthereumIsAvailable));
 
   router.get(
     '/',
