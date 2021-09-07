@@ -43,11 +43,19 @@ export class Ethereum extends EthereumBase {
     this.updateGasPrice();
   }
 
-  public static async getInstance(): Promise<Ethereum> {
+  // public static async getInstance(): Promise<Ethereum> {
+  //   if (!Ethereum.instance) {
+  //     const eth = new Ethereum();
+  //     await eth.init();
+  //     if (!Ethereum.instance) Ethereum.instance = eth; // avoids overriding the instance if the function is called in parallel
+  //   }
+
+  //   return Ethereum.instance;
+  // }
+
+  public static getInstance(): Ethereum {
     if (!Ethereum.instance) {
-      const eth = new Ethereum();
-      await eth.init();
-      if (!Ethereum.instance) Ethereum.instance = eth; // avoids overriding the instance if the function is called in parallel
+      Ethereum.instance = new Ethereum();
     }
 
     return Ethereum.instance;
