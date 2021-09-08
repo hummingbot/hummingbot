@@ -6,14 +6,14 @@ import pandas as pd
 from decimal import Decimal
 from typing import Optional, List, Dict, Any
 
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+import hummingbot.connector.exchange.coinzoom.coinzoom_http_utils as http_utils
 from .coinzoom_utils import (
     convert_to_exchange_trading_pair,
     convert_from_exchange_trading_pair,
-    api_call_with_retries,
     CoinzoomAPIError,
 )
 
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -42,7 +42,7 @@ class CoinzoomAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @classmethod
     async def get_last_traded_prices(cls, trading_pairs: List[str], throttler: Optional[AsyncThrottler]) -> Dict[str, Decimal]:
         results = {}
-        tickers: List[Dict[Any]] = await api_call_with_retries("GET", Constants.ENDPOINT["TICKER"], throttler=throttler)
+        tickers: List[Dict[Any]] = await http_utils.api_call_with_retries("GET", Constants.ENDPOINT["TICKER"], throttler=throttler)
         for trading_pair in trading_pairs:
             ex_pair: str = convert_to_exchange_trading_pair(trading_pair, True)
             ticker: Dict[Any] = list([tic for symbol, tic in tickers.items() if symbol == ex_pair])[0]
@@ -52,7 +52,7 @@ class CoinzoomAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @staticmethod
     async def fetch_trading_pairs(throttler: Optional[AsyncThrottler]) -> List[str]:
         try:
-            symbols: List[Dict[str, Any]] = await api_call_with_retries(
+            symbols: List[Dict[str, Any]] = await http_utils.api_call_with_retries(
                 method="GET",
                 endpoint=Constants.ENDPOINT["SYMBOL"],
                 throttler=throttler)
@@ -72,7 +72,7 @@ class CoinzoomAPIOrderBookDataSource(OrderBookTrackerDataSource):
         try:
             ex_pair = convert_to_exchange_trading_pair(trading_pair, True)
             ob_endpoint = Constants.ENDPOINT["ORDER_BOOK"].format(trading_pair=ex_pair)
-            orderbook_response: Dict[Any] = await api_call_with_retries(
+            orderbook_response: Dict[Any] = await http_utils.api_call_with_retries(
                 "GET",
                 ob_endpoint,
                 throttler=throttler,
