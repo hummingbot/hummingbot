@@ -4,7 +4,7 @@ import { Uniswap, ExpectedTrade } from './uniswap';
 import { ConfigManager } from '../../../services/config-manager';
 import { HttpException, asyncHandler } from '../../../services/error-handler';
 import { BigNumber } from 'ethers';
-import { latency } from '../../../services/base';
+import { latency, stringWithDecimalToBigNumber } from '../../../services/base';
 import { ethers } from 'ethers';
 import { Trade } from '@uniswap/sdk';
 import { verifyEthereumIsAvailable } from '../ethereum-middlewares';
@@ -33,7 +33,7 @@ export namespace UniswapRoutes {
   interface UniswapPriceRequest {
     quote: string;
     base: string;
-    amount: BigNumber;
+    amount: string;
     side: Side;
   }
 
@@ -45,7 +45,7 @@ export namespace UniswapRoutes {
     quote: string;
     amount: string;
     expectedAmount: string;
-    tradePrice: string;
+    price: string;
     gasPrice: number;
     gasLimit: number;
     gasCost: number;
@@ -60,7 +60,30 @@ export namespace UniswapRoutes {
         res: Response<UniswapPriceResponse, {}>
       ) => {
         const initTime = Date.now();
-        const amount = req.body.amount;
+
+        let amount: BigNumber;
+        if (req.body.amount.indexOf('.') > -1) {
+          let token;
+          if (req.body.side === 'BUY') {
+            token = ethereum.getTokenBySymbol(req.body.base);
+          } else {
+            token = ethereum.getTokenBySymbol(req.body.quote);
+          }
+          if (token) {
+            amount = stringWithDecimalToBigNumber(
+              req.body.amount,
+              token.decimals
+            );
+          } else {
+            throw new HttpException(
+              500,
+              'Unrecognized quote token symbol.'
+            );
+          }
+        } else {
+          amount = BigNumber.from(req.body.amount);
+        }
+
         const baseToken = ethereum.getTokenBySymbol(req.body.base);
 
         if (baseToken) {
@@ -103,7 +126,7 @@ export namespace UniswapRoutes {
                 quote: quoteToken.address,
                 amount: amount.toString(),
                 expectedAmount: expectedAmount.toSignificant(8),
-                tradePrice: tradePrice.toSignificant(8),
+                price: tradePrice.toSignificant(8),
                 gasPrice: gasPrice,
                 gasLimit: gasLimit,
                 gasCost: gasPrice * gasLimit,
@@ -130,7 +153,7 @@ export namespace UniswapRoutes {
   interface UniswapTradeRequest {
     quote: string;
     base: string;
-    amount: BigNumber;
+    amount: string;
     privateKey: string;
     side: Side;
     limitPrice?: BigNumber;
@@ -185,17 +208,41 @@ export namespace UniswapRoutes {
             500,
             'Unrecognized quote token symbol: ' + req.body.quote
           );
+
+        let amount: BigNumber;
+        if (req.body.amount.indexOf('.') > -1) {
+          let token;
+          if (req.body.side === 'BUY') {
+            token = ethereum.getTokenBySymbol(req.body.base);
+          } else {
+            token = ethereum.getTokenBySymbol(req.body.quote);
+          }
+          if (token) {
+            amount = stringWithDecimalToBigNumber(
+              req.body.amount,
+              token.decimals
+            );
+          } else {
+            throw new HttpException(
+              500,
+              'Unrecognized quote token symbol.'
+            );
+          }
+        } else {
+          amount = BigNumber.from(req.body.amount);
+        }
+          
         const result: ExpectedTrade | string =
           req.body.side === 'BUY'
             ? await uniswap.priceSwapOut(
                 quoteToken.address, // tokenIn is quote asset
                 baseToken.address, // tokenOut is base asset
-                req.body.amount
+                amount
               )
             : await uniswap.priceSwapIn(
                 baseToken.address, // tokenIn is base asset
                 quoteToken.address, // tokenOut is quote asset
-                req.body.amount
+                amount
               );
 
         if (typeof result === 'string')
@@ -219,7 +266,7 @@ export namespace UniswapRoutes {
             latency: latency(initTime, Date.now()),
             base: baseToken.address,
             quote: quoteToken.address,
-            amount: req.body.amount.toString(),
+            amount: amount.toString(),
             expectedIn: result.expectedAmount.toSignificant(8),
             price: price.toSignificant(8),
             gasPrice: gasPrice,
@@ -242,7 +289,7 @@ export namespace UniswapRoutes {
             latency: latency(initTime, Date.now()),
             base: baseToken.address,
             quote: quoteToken.address,
-            amount: req.body.amount.toString(),
+            amount: amount.toString(),
             expectedOut: result.expectedAmount.toSignificant(8),
             price: price.toSignificant(8),
             gasPrice: gasPrice,

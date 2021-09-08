@@ -10,6 +10,7 @@ import { HttpException, asyncHandler } from '../../services/error-handler';
 import { latency, bigNumberWithDecimalToStr } from '../../services/base';
 import ethers from 'ethers';
 import { tokenValueToString } from '../../services/base';
+import { UniswapConfig } from './uniswap/uniswap.config';
 
 export namespace EthereumRoutes {
   export const router = Router();
@@ -75,13 +76,24 @@ export namespace EthereumRoutes {
           tokens[symbol] = token;
         }
 
+        let spender: string;
+        if (req.body.spender === 'uniswap') {
+          if (ConfigManager.config.ETHEREUM_CHAIN === 'mainnet') {
+            spender = UniswapConfig.config.mainnet.uniswapV2RouterAddress;
+          } else {
+            spender = UniswapConfig.config.kovan.uniswapV2RouterAddress;
+          }
+        } else {
+          spender = req.body.spender;
+        }
+
         let approvals: Record<string, string> = {};
         await Promise.all(
           Object.keys(tokens).map(async (symbol) => {
             approvals[symbol] = tokenValueToString(
               await ethereum.getERC20Allowance(
                 wallet,
-                req.body.spender,
+                spender,
                 tokens[symbol].address,
                 tokens[symbol].decimals
               )
@@ -93,7 +105,7 @@ export namespace EthereumRoutes {
           network: ConfigManager.config.ETHEREUM_CHAIN,
           timestamp: initTime,
           latency: latency(initTime, Date.now()),
-          spender: req.body.spender,
+          spender: spender,
           approvals: approvals,
         });
       }
@@ -193,7 +205,16 @@ export namespace EthereumRoutes {
         res: Response<EthereumApproveResponse | string, {}>
       ) => {
         const initTime = Date.now();
-        const spender: string = req.body.spender;
+        let spender: string;
+        if (req.body.spender === 'uniswap') {
+          if (ConfigManager.config.ETHEREUM_CHAIN === 'mainnet') {
+            spender = UniswapConfig.config.mainnet.uniswapV2RouterAddress;
+          } else {
+            spender = UniswapConfig.config.kovan.uniswapV2RouterAddress;
+          }
+        } else {
+          spender = req.body.spender;
+        }
 
         let wallet: Wallet;
         try {
