@@ -1,29 +1,21 @@
 import request from 'supertest';
 import { app } from '../src/app';
-import { ethereum } from '../src/chains/ethereum/ethereum.controllers';
+import { Ethereum } from '../src/chains/ethereum/ethereum';
+import * as transactionOutOfGas from './fixtures/transaction-out-of-gas.json';
 
 describe('Eth endpoints', () => {
-  it('should get a 200 OK on /', async () => {
-    ethereum.approveERC20 = jest.fn().mockReturnValue('OK');
-    const res = await request(app).post('/eth/approve').send({
-      privateKey:
-        '678ae8f74b6d8fdbb1c73059a63ece83c34e83daf73b0cbeaf7ff9c185f002c6',
-      spender: '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D',
-      token: 'DAI',
-    });
-    console.log(res.body)
-    expect(res.statusCode).toEqual(200);
+  let eth: Ethereum;
+  beforeAll(async () => {
+    eth = Ethereum.getInstance();
+    await eth.init();
   });
-
   it('should get a 200 OK on /', async () => {
-    ethereum.approveERC20 = jest.fn().mockReturnValue('OK');
-    const res = await request(app).post('/eth/approve').send({
-      privateKey:
-        '678ae8f74b6d8fdbb1c73059a63ece83c34e83daf73b0cbeaf7ff9c185f002c6',
-      spender: '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D',
-      token: 'DAI',
+    eth.getTransactionReceipt = jest.fn().mockReturnValue(transactionOutOfGas);
+    const res = await request(app).post('/eth/poll').send({
+      txHash:
+        '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
     });
-    console.log(res.body)
     expect(res.statusCode).toEqual(200);
+    expect(res.body.confirmed).toEqual(true);
   });
 });

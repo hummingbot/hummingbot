@@ -3,7 +3,7 @@ import { constants, Wallet, utils, BigNumber } from 'ethers';
 import { ConfigManager } from '../../services/config-manager';
 import { latency, bigNumberWithDecimalToStr } from '../../services/base';
 
-export const ethereum = new Ethereum();
+export const ethereum = Ethereum.getInstance();
 
 export async function approve(
   spender: string,
