@@ -561,11 +561,12 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                 age = pd.Timestamp(int(time.time()) - int(order.client_order_id[-16:])/1e6,
                                    unit='s').strftime('%H:%M:%S')
 
-            if is_hanging_order:
+            if not is_hanging_order:
                 amount_orig = self._order_amount + ((level - 1) * self._order_level_amount)
-                level = "hang"
+                level = ""
             else:
                 amount_orig = ""
+                level = "hang"
             data.append([
                 level,
                 "buy" if order.is_buy else "sell",
