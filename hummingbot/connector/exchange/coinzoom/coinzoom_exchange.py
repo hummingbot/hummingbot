@@ -12,7 +12,6 @@ import aiohttp
 import copy
 import math
 import time
-import ujson
 from async_timeout import timeout
 
 from hummingbot.core.network_iterator import NetworkStatus
@@ -43,12 +42,11 @@ from hummingbot.connector.exchange.coinzoom.coinzoom_order_book_tracker import C
 from hummingbot.connector.exchange.coinzoom.coinzoom_user_stream_tracker import CoinzoomUserStreamTracker
 from hummingbot.connector.exchange.coinzoom.coinzoom_auth import CoinzoomAuth
 from hummingbot.connector.exchange.coinzoom.coinzoom_in_flight_order import CoinzoomInFlightOrder
+import hummingbot.connector.exchange.coinzoom.coinzoom_http_utils as http_utils
 from hummingbot.connector.exchange.coinzoom.coinzoom_utils import (
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair,
     get_new_client_order_id,
-    aiohttp_response_with_errors,
-    retry_sleep_time,
     str_date_to_ts,
     CoinzoomAPIError,
 )
@@ -342,36 +340,21 @@ class CoinzoomExchange(ExchangeBase):
         signature to the request.
         :returns A response in json format.
         """
-        url = f"{Constants.REST_URL}/{endpoint}"
         shared_client = await self._http_client()
 
-        # Turn `params` into either GET params or POST body data
-        qs_params: dict = params if method.upper() == "GET" else None
-        req_params = ujson.dumps(params) if method.upper() == "POST" and params is not None else None
-
         # Generate auth headers if needed.
-        headers: dict = {"Content-Type": "application/json", "User-Agent": "hummingbot"}
+        headers = {}
         if is_auth_required:
-            headers = self._coinzoom_auth.get_headers()
+            headers.update(self._coinzoom_auth.get_headers())
 
-        async with self._throttler.execute_task(endpoint):
-            # Build request coro
-            response_coro = shared_client.request(method=method.upper(), url=url, headers=headers,
-                                                  params=qs_params, data=req_params,
-                                                  timeout=Constants.API_CALL_TIMEOUT)
-            http_status, parsed_response, request_errors = await aiohttp_response_with_errors(response_coro)
-
-        if request_errors or parsed_response is None:
-            if try_count < Constants.API_MAX_RETRIES:
-                try_count += 1
-                time_sleep = retry_sleep_time(try_count)
-                self.logger().info(f"Error fetching data from {url}. HTTP status is {http_status}. "
-                                   f"Retrying in {time_sleep:.0f}s.")
-                await asyncio.sleep(time_sleep)
-                return await self._api_request(method=method, endpoint=endpoint, params=params,
-                                               is_auth_required=is_auth_required, try_count=try_count)
-            else:
-                raise CoinzoomAPIError({"error": parsed_response, "status": http_status})
+        parsed_response = await http_utils.api_call_with_retries(
+            method=method,
+            endpoint=endpoint,
+            extra_headers=headers,
+            params=params,
+            shared_client=shared_client,
+            try_count=try_count,
+            throttler=self._throttler)
         if "error" in parsed_response:
             raise CoinzoomAPIError(parsed_response)
         return parsed_response

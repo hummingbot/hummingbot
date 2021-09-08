@@ -10,7 +10,7 @@ from typing import (
     Optional,
 )
 
-import hummingbot.connector.exchange.coinzoom.coinzoom_utils  # noqa: F401
+# import hummingbot.connector.exchange.coinzoom.coinzoom_utils  # noqa: F401
 from hummingbot.connector.exchange.coinzoom.coinzoom_constants import Constants
 
 from websockets.exceptions import ConnectionClosed

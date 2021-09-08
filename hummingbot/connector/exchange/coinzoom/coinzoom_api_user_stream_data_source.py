@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 import time
 import asyncio
 import logging
@@ -51,7 +50,7 @@ class CoinzoomAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
 
         try:
-            self._ws = CoinzoomWebsocket(self._coinzoom_auth)
+            self._ws = CoinzoomWebsocket(throttler=self._throttler, auth=self._coinzoom_auth)
 
             await self._ws.connect()
 
