@@ -91,19 +91,15 @@ cdef class HedgeStrategy(StrategyBase):
         return self._sb_order_tracker.market_pair_to_active_orders
 
     def get_shadow_position(self, trading_pair: str):
-        trading_pair = trading_pair.replace("-", "")
         return self._shadow_taker_balance[trading_pair]
 
     def set_shadow_position(self, trading_pair: str, value):
-        trading_pair=trading_pair.replace("-", "")
         self._shadow_taker_balance[trading_pair] = value
 
     def update_shadow_position(self, trading_pair: str, value):
-        trading_pair=trading_pair.replace("-", "")
         self._shadow_taker_balance[trading_pair] = self._shadow_taker_balance[trading_pair] + value
 
     def get_position_amount(self, trading_pair: str):
-        trading_pair=trading_pair.replace("-", "")
         position = self._exchanges.taker._account_positions.get(trading_pair, None)
         if position:
             return position._amount
