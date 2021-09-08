@@ -120,9 +120,8 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return throttler
 
     @staticmethod
-    async def get_snapshot(trading_pair: str, limit: int = 1000,
-                           domain: str = "com") -> Dict[str, Any]:
-        throttler = BinanceAPIOrderBookDataSource._get_throttler_instance()
+    async def get_snapshot(trading_pair: str, limit: int = 1000, domain: str = "com", throttler: Optional[AsyncThrottler] = None) -> Dict[str, Any]:
+        throttler = throttler or BinanceAPIOrderBookDataSource._get_throttler_instance()
         params: Dict = {"limit": str(limit), "symbol": binance_utils.convert_to_exchange_trading_pair(trading_pair)} if limit != 0 \
             else {"symbol": binance_utils.convert_to_exchange_trading_pair(trading_pair)}
         async with aiohttp.ClientSession() as client:
@@ -142,7 +141,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     return data
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
-        snapshot: Dict[str, Any] = await self.get_snapshot(trading_pair, 1000, self._domain)
+        snapshot: Dict[str, Any] = await self.get_snapshot(trading_pair, 1000, self._domain, self._throttler)
         snapshot_timestamp: float = time.time()
         snapshot_msg: OrderBookMessage = BinanceOrderBook.snapshot_message_from_exchange(
             snapshot,
@@ -218,7 +217,9 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
             try:
                 for trading_pair in self._trading_pairs:
                     try:
-                        snapshot: Dict[str, Any] = await self.get_snapshot(trading_pair, domain=self._domain)
+                        snapshot: Dict[str, Any] = await self.get_snapshot(trading_pair=trading_pair,
+                                                                           domain=self._domain,
+                                                                           throttler=self._throttler)
                         snapshot_timestamp: float = time.time()
                         snapshot_msg: OrderBookMessage = BinanceOrderBook.snapshot_message_from_exchange(
                             snapshot,
