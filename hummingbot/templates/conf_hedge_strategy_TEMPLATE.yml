@@ -1,5 +1,5 @@
 ########################################################
-###       Hello world strategy config               ###
+###       hedge strategy config                     ###
 ########################################################
 
 template_version: 4
@@ -35,7 +35,3 @@ hedge_interval: null
 
 # The minimum amount in hedge asset to execute the hedge.
 minimum_trade: null
-
-
-# For more detailed information, see:
-# https://docs.hummingbot.io/strategies/simple-trade/#configuration-parameters
