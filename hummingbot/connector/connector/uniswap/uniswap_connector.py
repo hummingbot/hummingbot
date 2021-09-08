@@ -127,7 +127,7 @@ class UniswapConnector(ConnectorBase):
         resp = await self._api_request("post",
                                        "eth/approve",
                                        {"token": token_symbol,
-                                        "spender": self.name})
+                                        "spender": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"})
         amount_approved = Decimal(str(resp["amount"]))
         if amount_approved > 0:
             self.logger().info(f"Approved Uniswap spender contract for {token_symbol}.")
@@ -142,8 +142,8 @@ class UniswapConnector(ConnectorBase):
         """
         ret_val = {}
         resp = await self._api_request("post", "eth/allowances",
-                                       {"tokenList": "[" + (",".join(['"' + t + '"' for t in self._tokens])) + "]",
-                                        "spender": self.name})
+                                       {"tokenSymbols": "[" + (",".join(['"' + t + '"' for t in self._tokens])) + "]",
+                                        "spender": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"})
         for token, amount in resp["approvals"].items():
             ret_val[token] = Decimal(str(amount))
         return ret_val
@@ -503,7 +503,7 @@ class UniswapConnector(ConnectorBase):
             remote_asset_names = set()
             resp_json = await self._api_request("post",
                                                 "eth/balances",
-                                                {"tokenList": "[" + (",".join(['"' + t + '"' for t in self._tokens])) + "]"})
+                                                {"tokenSymbols": "[" + (",".join(['"' + t + '"' for t in self._tokens])) + "]"})
 
             for token, bal in resp_json["balances"].items():
                 self._account_available_balances[token] = Decimal(str(bal))
