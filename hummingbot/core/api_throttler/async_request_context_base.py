@@ -70,18 +70,18 @@ class AsyncRequestContextBase(ABC):
 
     async def acquire(self):
         while True:
-            self.flush()
+            async with self._lock:
+                self.flush()
 
-            if self.within_capacity():
-                break
+                if self.within_capacity():
+                    break
             await asyncio.sleep(self._retry_interval)
-
-        task = TaskLog(timestamp=time.time(), rate_limits=self._rate_limits)
-        self._task_logs.append(task)
+        async with self._lock:
+            task = TaskLog(timestamp=time.time(), rate_limits=self._rate_limits)
+            self._task_logs.append(task)
 
     async def __aenter__(self):
-        async with self._lock:
-            await self.acquire()
+        await self.acquire()
 
     async def __aexit__(self, exc_type, exc, tb):
         pass

@@ -1,5 +1,6 @@
 import asyncio
 import copy
+import logging
 import math
 
 from abc import ABC, abstractmethod
@@ -16,17 +17,29 @@ from hummingbot.core.api_throttler.data_types import (
     RateLimit,
     TaskLog
 )
+from hummingbot.logger.logger import HummingbotLogger
 
 
 class AsyncThrottlerBase(ABC):
+    """
+    The APIThrottlerBase is an abstract class meant to describe the functions necessary to handle the
+    throttling of API requests through the usage of asynchronous context managers.
+    """
+
+    _logger = None
+
+    @classmethod
+    def logger(cls) -> HummingbotLogger:
+        if cls._logger is None:
+            cls._logger = logging.getLogger(__name__)
+        return cls._logger
+
     def __init__(self,
                  rate_limits: List[RateLimit],
                  retry_interval: float = 0.1,
                  safety_margin_pct: Optional[float] = 0.05,  # An extra safety margin, in percentage.
                  ):
         """
-        The APIThrottlerBase is an abstract class meant to describe the functions necessary to handle the
-        throttling of API requests through the usage of asynchronous context managers.
         :param rate_limits: List of RateLimit(s).
         :param retry_interval: Time between every capacity check.
         :param safety_margin: Percentage of limit to be added as a safety margin when calculating capacity to ensure calls are within the limit.
