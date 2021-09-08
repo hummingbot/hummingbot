@@ -191,3 +191,42 @@ Fetch your bot status by running `status` or `[Ctrl + S]`:
 - Is your `order_amount` parameter larger than the exchange minimum order size requirement?
 - If the user doesn't have enough balance to meet the set order amount, the bot will still try to create an order with a smaller order amount size provided that it still meets the exchange minimum requirement.
 - Is your `inventory_skew_enabled` parameter enabled? Since this parameter adjusts order sizes, one side may be too low or too high.
+
+### Change the time or timezone of Hummingbot
+
+Hummingbot follows the same date/time and timezone on the machine where it is intalled. Below are some steps you can follow to change the timezone depending on the operating system and installation type.
+
+**Docker**
+
+While docker `$instance_name` is running in the background, type in the command line.
+
+```
+#Run this command
+docker exec -u 0 -it instance_name bash
+
+#Install tzdata for the instance/container
+apt-get update && apt-get install -y tzdata
+
+#Run this command to change the docker timezone
+dpkg-reconfigure tzdata
+```
+
+Configure geographic location and timezone by inputting the corresponding number, see example below:
+
+![](/assets/img/time-zone.PNG)
+
+Restart your docker and start your Hummingbot again to apply changes.
+
+**Windows**
+
+You can change the timezone on a Windows computer by doing the following:
+
+1. Press **Win + R** shortcut to open the Run dialog box
+
+2. Enter **timedate.cpl** to open Date and Time settings
+
+3. Click **Change time zone**
+
+![](/assets/img/win-time.PNG)
+
+You can also follow these steps in the Windows Support article: [How to set your time and timezone](https://support.microsoft.com/en-us/windows/how-to-set-your-time-and-time-zone-dfaa7122-479f-5b98-2a7b-fa0b6e01b261)
