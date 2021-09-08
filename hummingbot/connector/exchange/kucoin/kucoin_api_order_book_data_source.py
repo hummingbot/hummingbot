@@ -107,13 +107,12 @@ class KucoinWSConnectionIterator:
         throttler = throttler or cls._get_throttler_instance()
         async with aiohttp.ClientSession() as session:
             url = CONSTANTS.BASE_PATH_URL + CONSTANTS.PUBLIC_WS_DATA_PATH_URL
-            async with throttler.execute_task(CONSTANTS.PUBLIC_WS_DATA_PATH_URL):
-                async with session.post(url, data=b'') as resp:
-                    response: aiohttp.ClientResponse = resp
-                    if response.status != 200:
-                        raise IOError(f"Error fetching Kucoin websocket connection data."
-                                      f"HTTP status is {response.status}.")
-                    data: Dict[str, Any] = await response.json()
+            async with session.post(url, data=b'') as resp:  # not rate-limited
+                response: aiohttp.ClientResponse = resp
+                if response.status != 200:
+                    raise IOError(f"Error fetching Kucoin websocket connection data."
+                                  f"HTTP status is {response.status}.")
+                data: Dict[str, Any] = await response.json()
 
         endpoint: str = data["data"]["instanceServers"][0]["endpoint"]
         token: str = data["data"]["token"]
@@ -331,9 +330,8 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
         results = dict()
         async with aiohttp.ClientSession() as client:
             url = CONSTANTS.BASE_PATH_URL + CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL
-            async with throttler.execute_task(CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL):
-                async with client.get(url) as response:
-                    resp_json = await response.json()
+            async with client.get(url) as response:  # not rate-limited
+                resp_json = await response.json()
             for trading_pair in trading_pairs:
                 resp_record = [
                     o for o in resp_json["data"]["ticker"]
@@ -347,20 +345,19 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
         throttler = throttler or cls._get_throttler_instance()
         async with aiohttp.ClientSession() as client:
             url = CONSTANTS.BASE_PATH_URL + CONSTANTS.EXCHANGE_INFO_PATH_URL
-            async with throttler.execute_task(CONSTANTS.EXCHANGE_INFO_PATH_URL):
-                async with client.get(url, timeout=5) as response:
-                    if response.status == 200:
-                        try:
-                            data: Dict[str, Any] = await response.json()
-                            all_trading_pairs = data.get("data", [])
-                            return [
-                                convert_from_exchange_trading_pair(item["symbol"]) for item in all_trading_pairs
-                                if item["enableTrading"] is True
-                            ]
-                        except Exception:
-                            pass
-                            # Do nothing if the request fails -- there will be no autocomplete for the trading pairs
-                    return []
+            async with client.get(url, timeout=5) as response:  # not rate-limited
+                if response.status == 200:
+                    try:
+                        data: Dict[str, Any] = await response.json()
+                        all_trading_pairs = data.get("data", [])
+                        return [
+                            convert_from_exchange_trading_pair(item["symbol"]) for item in all_trading_pairs
+                            if item["enableTrading"] is True
+                        ]
+                    except Exception:
+                        pass
+                        # Do nothing if the request fails -- there will be no autocomplete for the trading pairs
+                return []
 
     @classmethod
     async def get_snapshot(
@@ -375,21 +372,18 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         if auth is not None:
             url = CONSTANTS.BASE_PATH_URL + CONSTANTS.SNAPSHOT_PATH_URL
-            limit_id = CONSTANTS.SNAPSHOT_PATH_URL
         else:
             url = CONSTANTS.BASE_PATH_URL + CONSTANTS.SNAPSHOT_NO_AUTH_PATH_URL
-            limit_id = CONSTANTS.SNAPSHOT_NO_AUTH_PATH_URL
         path_url = f"{URL(url).path}?{urlencode(params)}"
         headers = auth.add_auth_to_params("get", path_url) if auth else None
 
-        async with throttler.execute_task(limit_id):
-            async with client.get(url, params=params, headers=headers) as response:
-                response: aiohttp.ClientResponse = response
-                if response.status != 200:
-                    raise IOError(f"Error fetching Kucoin market snapshot for {trading_pair}. "
-                                  f"HTTP status is {response.status}.")
-                data: Dict[str, Any] = await response.json()
-                return data
+        async with client.get(url, params=params, headers=headers) as response:  # not rate-limited
+            response: aiohttp.ClientResponse = response
+            if response.status != 200:
+                raise IOError(f"Error fetching Kucoin market snapshot for {trading_pair}. "
+                              f"HTTP status is {response.status}.")
+            data: Dict[str, Any] = await response.json()
+            return data
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         async with aiohttp.ClientSession() as client:

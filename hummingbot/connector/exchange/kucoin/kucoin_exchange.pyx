@@ -57,6 +57,7 @@ from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.connector.exchange.kucoin import kucoin_constants as CONSTANTS
+from hummingbot.client.config.global_config_map import global_config_map
 
 km_logger = None
 s_decimal_0 = Decimal(0)
@@ -120,7 +121,7 @@ cdef class KucoinExchange(ExchangeBase):
         self._in_flight_orders = {}
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
-        self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        self._throttler = self._build_async_throttler()
         self._order_book_tracker = KucoinOrderBookTracker(self._throttler, trading_pairs, self._kucoin_auth)
         self._poll_notifier = asyncio.Event()
         self._shared_client = None
@@ -219,7 +220,9 @@ cdef class KucoinExchange(ExchangeBase):
 
     async def check_network(self) -> NetworkStatus:
         try:
-            await self._api_request(method="get", path_url=CONSTANTS.SERVER_TIME_PATH_URL)
+            await self._api_request(
+                method="get", path_url=CONSTANTS.SERVER_TIME_PATH_URL, throttler_passthrough=True
+            )
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -375,7 +378,8 @@ cdef class KucoinExchange(ExchangeBase):
                            data=None,
                            is_auth_required: bool = False,
                            is_partner_required: bool = False,
-                           limit_id: Optional[str] = None) -> Dict[str, Any]:
+                           limit_id: Optional[str] = None,
+                           throttler_passthrough: bool = False) -> Dict[str, Any]:
         url = KUCOIN_ROOT_API + path_url
         client = await self._http_client()
         if is_auth_required:
@@ -389,17 +393,19 @@ cdef class KucoinExchange(ExchangeBase):
         if data is not None:
             data = json.dumps(data)
 
+        if not throttler_passthrough:
+            context = self._throttler.execute_task(limit_id)
+            await context.__aenter__()
         if method == "get":
-            async with self._throttler.execute_task(limit_id):
-                response = await client.get(url, params=params, data=data, headers=headers)
+            response = await client.get(url, params=params, data=data, headers=headers)
         elif method == "post":
-            async with self._throttler.execute_task(limit_id):
-                response = await client.post(url, params=params, data=data, headers=headers)
+            response = await client.post(url, params=params, data=data, headers=headers)
         elif method == "delete":
-            async with self._throttler.execute_task(limit_id):
-                response = await client.delete(url, headers=headers)
+            response = await client.delete(url, headers=headers)
         else:
             response = False
+        if not throttler_passthrough:
+            await context.__aexit__(None, None, None)
 
         if response:
             if response.status != 200:
@@ -417,7 +423,7 @@ cdef class KucoinExchange(ExchangeBase):
             set local_asset_names = set(self._account_balances.keys())
             set remote_asset_names = set()
 
-        response = await self._api_request("get", path_url=path_url, is_auth_required=True)
+        response = await self._api_request("get", path_url=path_url, is_auth_required=True, throttler_passthrough=True)
         if response:
             for balance_entry in response["data"]:
                 asset_name = convert_asset_from_exchange(balance_entry["currency"])
@@ -483,7 +489,11 @@ cdef class KucoinExchange(ExchangeBase):
     async def get_order_status(self, exchange_order_id: str) -> Dict[str, Any]:
         path_url = f"{CONSTANTS.ORDERS_PATH_URL}/{exchange_order_id}"
         return await self._api_request(
-            "get", path_url=path_url, is_auth_required=True, limit_id=CONSTANTS.GET_ORDER_LIMIT_ID
+            method="get",
+            path_url=path_url,
+            is_auth_required=True,
+            limit_id=CONSTANTS.GET_ORDER_LIMIT_ID,
+            throttler_passthrough=True,
         )
 
     async def _update_order_status(self):
@@ -984,3 +994,16 @@ cdef class KucoinExchange(ExchangeBase):
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         return self.c_get_order_book(trading_pair)
+
+    def _build_async_throttler(self) -> AsyncThrottler:
+        limits_pct_conf: Optional[Decimal] = global_config_map["rate_limits_share_pct"].value
+        limits_pct = Decimal("1") if limits_pct_conf is None else limits_pct_conf / Decimal("100")
+        effective_ws_connection_limit = CONSTANTS.WS_CONNECTION_LIMIT * limits_pct
+        if effective_ws_connection_limit < 3:
+            self.logger().warning(
+                f"The KuCoin connector requires 3 websocket connections to operate. The current rate limit percentage"
+                f" allows the creation of {int(effective_ws_connection_limit)} websocket connections every"
+                f" {CONSTANTS.WS_CONNECTION_TIME_INTERVAL}s. This will prevent the client from functioning properly."
+            )
+        throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        return throttler
