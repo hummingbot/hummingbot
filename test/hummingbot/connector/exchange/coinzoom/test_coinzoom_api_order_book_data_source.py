@@ -49,7 +49,7 @@ class CoinzoomAPIOrderBookDataSourceTests(TestCase):
             throttler=self.throttler))
 
         self.assertIn(self.trading_pair, results)
-        self.assertEqual(Decimal("51234.56", results[self.trading_pair]))
+        self.assertEqual(Decimal("51234.56"), results[self.trading_pair])
 
     @aioresponses()
     def test_fetch_trading_pairs(self, mock_api):
