@@ -40,9 +40,19 @@ class CoinzoomAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._snapshot_msg: Dict[str, any] = {}
 
     @classmethod
-    async def get_last_traded_prices(cls, trading_pairs: List[str], throttler: Optional[AsyncThrottler]) -> Dict[str, Decimal]:
+    def _get_throttler_instance(cls) -> AsyncThrottler:
+        throttler = AsyncThrottler(Constants.RATE_LIMITS)
+        return throttler
+
+    @classmethod
+    async def get_last_traded_prices(cls,
+                                     trading_pairs: List[str],
+                                     throttler: Optional[AsyncThrottler] = None) -> Dict[str, Decimal]:
+        throttler = throttler or CoinzoomAPIOrderBookDataSource._get_throttler_instance()
         results = {}
-        tickers: List[Dict[Any]] = await http_utils.api_call_with_retries("GET", Constants.ENDPOINT["TICKER"], throttler=throttler)
+        tickers: List[Dict[Any]] = await http_utils.api_call_with_retries("GET",
+                                                                          Constants.ENDPOINT["TICKER"],
+                                                                          throttler=throttler)
         for trading_pair in trading_pairs:
             ex_pair: str = convert_to_exchange_trading_pair(trading_pair, True)
             ticker: Dict[Any] = list([tic for symbol, tic in tickers.items() if symbol == ex_pair])[0]
@@ -50,7 +60,8 @@ class CoinzoomAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return results
 
     @staticmethod
-    async def fetch_trading_pairs(throttler: Optional[AsyncThrottler]) -> List[str]:
+    async def fetch_trading_pairs(throttler: Optional[AsyncThrottler] = None) -> List[str]:
+        throttler = throttler or CoinzoomAPIOrderBookDataSource._get_throttler_instance()
         try:
             symbols: List[Dict[str, Any]] = await http_utils.api_call_with_retries(
                 method="GET",
@@ -69,6 +80,7 @@ class CoinzoomAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         Get whole orderbook
         """
+        throttler = throttler or CoinzoomAPIOrderBookDataSource._get_throttler_instance()
         try:
             ex_pair = convert_to_exchange_trading_pair(trading_pair, True)
             ob_endpoint = Constants.ENDPOINT["ORDER_BOOK"].format(trading_pair=ex_pair)
@@ -103,7 +115,7 @@ class CoinzoomAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         while True:
             try:
-                ws = CoinzoomWebsocket()
+                ws = CoinzoomWebsocket(throttler=self._throttler)
                 await ws.connect()
 
                 for pair in self._trading_pairs:
@@ -134,7 +146,7 @@ class CoinzoomAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         while True:
             try:
-                ws = CoinzoomWebsocket()
+                ws = CoinzoomWebsocket(throttler=self._throttler)
                 await ws.connect()
 
                 order_book_methods = [
@@ -196,7 +208,8 @@ class CoinzoomAPIOrderBookDataSource(OrderBookTrackerDataSource):
             try:
                 for trading_pair in self._trading_pairs:
                     try:
-                        snapshot: Dict[str, any] = await self.get_order_book_data(trading_pair)
+                        snapshot: Dict[str, any] = await self.get_order_book_data(trading_pair,
+                                                                                  throttler=self._throttler)
                         snapshot_msg: OrderBookMessage = CoinzoomOrderBook.snapshot_message_from_exchange(
                             snapshot,
                             snapshot['timestamp'],

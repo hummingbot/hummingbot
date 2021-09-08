@@ -54,7 +54,8 @@ class CoinzoomUserStreamTracker(UserStreamTracker):
         if not self._data_source:
             self._data_source = CoinzoomAPIUserStreamDataSource(
                 coinzoom_auth=self._coinzoom_auth,
-                trading_pairs=self._trading_pairs
+                trading_pairs=self._trading_pairs,
+                throttler=self._throttler,
             )
         return self._data_source
 

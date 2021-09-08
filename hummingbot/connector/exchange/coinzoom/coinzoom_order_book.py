@@ -112,7 +112,6 @@ class CoinzoomOrderBook(OrderBook):
         """
 
         trade_msg = {
-            "trade_type": msg[4],
             "price": msg[1],
             "amount": msg[2],
             "trading_pair": convert_from_exchange_trading_pair(msg[0])
