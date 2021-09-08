@@ -83,7 +83,7 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
                         return False
                     return True
 
-    async def _inner_messages(self, ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
+    async def _iter_messages(self, ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
         # Terminate the recv() loop as soon as the next message timed out, so the outer loop can reconnect.
         try:
             while True:
@@ -103,11 +103,6 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
             return
         finally:
             await ws.close()
-
-    async def messages(self) -> AsyncIterable[str]:
-        async with (await self.get_ws_connection()) as ws:
-            async for msg in self._inner_messages(ws):
-                yield msg
 
     async def get_ws_connection(self) -> websockets.WebSocketClientProtocol:
         url = CONSTANTS.WSS_URL.format(self._domain)
@@ -141,7 +136,7 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
         finally:
             self._current_listen_key = None
             self._listen_key_initialized_event.clear()
-            self._ws.close()
+            await self._ws.close()
             self._ws = None
 
     async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
@@ -153,7 +148,7 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     await self._listen_key_initialized_event.wait()
 
                     self._ws: websockets.WebSocketClientProtocol = await self.get_ws_connection()
-                    async for msg in self._inner_messages(self._ws):
+                    async for msg in self._iter_messages(self._ws):
                         decoded: Dict[str, any] = ujson.loads(msg)
                         output.put_nowait(decoded)
                 except websockets.ConnectionClosed:
@@ -171,15 +166,3 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
             # Make sure no background task is leaked.
             self._manage_listen_key_task and self._manage_listen_key_task.cancel()
             self._current_listen_key = None
-
-    async def log_user_stream(self, output: asyncio.Queue):
-        while True:
-            try:
-                async for message in self.messages():
-                    decoded: Dict[str, any] = ujson.loads(message)
-                    output.put_nowait(decoded)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().error("Unexpected error. Retrying after 5 seconds...", exc_info=True)
-                await asyncio.sleep(5.0)
