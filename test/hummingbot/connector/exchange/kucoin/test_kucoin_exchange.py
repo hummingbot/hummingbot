@@ -220,7 +220,9 @@ class TestKucoinExchange(unittest.TestCase):
         mock_api.delete(regex_url, body=json.dumps(resp), callback=callback)
 
         order_id = "internalId"
-        self.exchange.in_flight_orders[order_id] = self.get_in_flight_order_mock(order_id, exchange_id=exchange_id)
+        order = self.get_in_flight_order_mock(order_id, exchange_id=exchange_id)
+        order.last_state = "DEAL"
+        self.exchange.in_flight_orders[order_id] = order
         self.async_run_with_timeout(coroutine=self.exchange.execute_cancel(self.trading_pair, order_id))
 
         self.assertTrue(called.is_set())

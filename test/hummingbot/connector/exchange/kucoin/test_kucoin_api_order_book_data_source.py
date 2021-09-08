@@ -209,7 +209,7 @@ class TestKucoinAPIOrderBookDataSource(KucoinTestProviders, unittest.TestCase):
         resp = self.get_snapshot_mock()
         mock_api.get(regex_url, body=json.dumps(resp))
 
-        client = self.ev_loop.run_until_complete(aiohttp.ClientSession().__aenter__())
+        client = aiohttp.ClientSession()
         ret = self.async_run_with_timeout(
             coroutine=KucoinAPIOrderBookDataSource.get_snapshot(client, self.trading_pair)
         )
