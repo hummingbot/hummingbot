@@ -347,7 +347,11 @@ cdef class BittrexExchange(ExchangeBase):
             open_orders = dict((entry["id"], entry) for entry in open_orders)
 
             for tracked_order in tracked_orders:
-                exchange_order_id = await tracked_order.get_exchange_order_id()
+                try:
+                    exchange_order_id = await tracked_order.get_exchange_order_id()
+                except asyncio.TimeoutError:
+                    self.logger().error(f"Exchange order ID never updated for {tracked_order.client_order_id}")
+                    raise
                 client_order_id = tracked_order.client_order_id
                 order = open_orders.get(exchange_order_id)
 
@@ -930,7 +934,13 @@ cdef class BittrexExchange(ExchangeBase):
 
             if "ORDER_NOT_OPEN" in str(err):
                 state_result = await self._api_request("GET", path_url=path_url)
-                self.logger().info(f"{state_result}")
+                self.logger().error(  # this indicates a potential error
+                    f"Tried to cancel order {order_id} which is already closed. Order details: {state_result}."
+                )
+                self.c_stop_tracking_order(order_id)
+                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                     OrderCancelledEvent(self._current_timestamp, order_id))
+                return order_id
 
             self.logger().network(
                 f"Failed to cancel order {order_id}: {str(err)}.",
