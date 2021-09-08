@@ -5,9 +5,16 @@ import time
 import pandas as pd
 from decimal import Decimal
 from typing import Optional, List, Dict, Any
-from hummingbot.core.data_type.order_book import OrderBook
+
+from .coinzoom_utils import (
+    convert_to_exchange_trading_pair,
+    convert_from_exchange_trading_pair,
+    api_call_with_retries,
+    CoinzoomAPIError,
+)
 
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.logger import HummingbotLogger
@@ -15,12 +22,6 @@ from .coinzoom_constants import Constants
 from .coinzoom_active_order_tracker import CoinzoomActiveOrderTracker
 from .coinzoom_order_book import CoinzoomOrderBook
 from .coinzoom_websocket import CoinzoomWebsocket
-from .coinzoom_utils import (
-    convert_to_exchange_trading_pair,
-    convert_from_exchange_trading_pair,
-    api_call_with_retries,
-    CoinzoomAPIError,
-)
 
 
 class CoinzoomAPIOrderBookDataSource(OrderBookTrackerDataSource):
@@ -39,9 +40,9 @@ class CoinzoomAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._snapshot_msg: Dict[str, any] = {}
 
     @classmethod
-    async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, Decimal]:
+    async def get_last_traded_prices(cls, trading_pairs: List[str], throttler: Optional[AsyncThrottler]) -> Dict[str, Decimal]:
         results = {}
-        tickers: List[Dict[Any]] = await api_call_with_retries("GET", Constants.ENDPOINT["TICKER"])
+        tickers: List[Dict[Any]] = await api_call_with_retries("GET", Constants.ENDPOINT["TICKER"], throttler=throttler)
         for trading_pair in trading_pairs:
             ex_pair: str = convert_to_exchange_trading_pair(trading_pair, True)
             ticker: Dict[Any] = list([tic for symbol, tic in tickers.items() if symbol == ex_pair])[0]
@@ -49,9 +50,12 @@ class CoinzoomAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return results
 
     @staticmethod
-    async def fetch_trading_pairs() -> List[str]:
+    async def fetch_trading_pairs(throttler: Optional[AsyncThrottler]) -> List[str]:
         try:
-            symbols: List[Dict[str, Any]] = await api_call_with_retries("GET", Constants.ENDPOINT["SYMBOL"])
+            symbols: List[Dict[str, Any]] = await api_call_with_retries(
+                method="GET",
+                endpoint=Constants.ENDPOINT["SYMBOL"],
+                throttler=throttler)
             trading_pairs: List[str] = list([convert_from_exchange_trading_pair(sym["symbol"]) for sym in symbols])
             # Filter out unmatched pairs so nothing breaks
             return [sym for sym in trading_pairs if sym is not None]
@@ -61,14 +65,18 @@ class CoinzoomAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return []
 
     @staticmethod
-    async def get_order_book_data(trading_pair: str) -> Dict[str, any]:
+    async def get_order_book_data(trading_pair: str, throttler: Optional[AsyncThrottler]) -> Dict[str, any]:
         """
         Get whole orderbook
         """
         try:
             ex_pair = convert_to_exchange_trading_pair(trading_pair, True)
             ob_endpoint = Constants.ENDPOINT["ORDER_BOOK"].format(trading_pair=ex_pair)
-            orderbook_response: Dict[Any] = await api_call_with_retries("GET", ob_endpoint)
+            orderbook_response: Dict[Any] = await api_call_with_retries(
+                "GET",
+                ob_endpoint,
+                throttler=throttler,
+                limit_id=Constants.REST_ORDERBOOK_LIMIT_ID)
             return orderbook_response
         except CoinzoomAPIError as e:
             err = e.error_payload.get('error', e.error_payload)
@@ -77,7 +85,7 @@ class CoinzoomAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 f"HTTP status is {e.error_payload['status']}. Error is {err.get('message', str(err))}.")
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
-        snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair)
+        snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair, self._throttler)
         snapshot_timestamp: float = float(snapshot['timestamp'])
         snapshot_msg: OrderBookMessage = CoinzoomOrderBook.snapshot_message_from_exchange(
             snapshot,

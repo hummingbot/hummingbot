@@ -12,10 +12,12 @@ from hummingbot.connector.exchange.coinzoom.coinzoom_exchange import CoinzoomExc
 from hummingbot.core.network_iterator import NetworkStatus
 
 from hummingbot.connector.trading_rule import TradingRule
+
+from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.event.events import TradeType, OrderType
 
 
-class TestCoinzoomExchange(TestCase):
+class CoinzoomExchangeTests(TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
@@ -145,3 +147,32 @@ class TestCoinzoomExchange(TestCase):
         self.assertEqual(Decimal(1000), Decimal(sent_message["price"]))
         self.assertEqual(Constants.HBOT_BROKER_ID, sent_message["originType"])
         self.assertEqual("true", sent_message["payFeesWithZoomToken"])
+
+    @aioresponses()
+    def test_execute_cancel(self, mock_api):
+        sent_messages = []
+        url = f"{Constants.REST_URL}/{Constants.ENDPOINT['ORDER_DELETE']}"
+        resp = {}
+        mock_api.post(url, body=json.dumps(resp), callback=partial(self._register_sent_request, sent_messages))
+
+        self._simulate_trading_rules_initialized()
+
+        self.exchange.start_tracking_order(
+            order_id="OID-1",
+            exchange_order_id="E-OID-1",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal(50000),
+            amount=Decimal(1),
+            order_type=OrderType.LIMIT,
+        )
+
+        result: CancellationResult = self.async_run_with_timeout(self.exchange._execute_cancel(self.trading_pair, "OID-1"))
+
+        self.assertEqual("OID-1", result.order_id)
+        self.assertTrue(result.success)
+        self.assertNotIn("E-OID-1", self.exchange.in_flight_orders)
+
+        sent_message = json.loads(sent_messages[0][1]["data"])
+        self.assertEqual("E-OID-1", sent_message["orderId"])
+        self.assertEqual(f"{self.base_asset}/{self.quote_asset}", sent_message["symbol"])
