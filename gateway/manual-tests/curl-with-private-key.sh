@@ -10,3 +10,7 @@ curl -X GET -k --key $GATEWAY_KEY --cert $GATEWAY_CERT https://localhost:5000/et
 
 # get balances for your private key
 curl -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "{\"privateKey\":\"$ETH_PRIVATE_KEY\",\"tokenSymbols\":[\"ETH\",\"WETH\",\"DAI\"]}" https://localhost:5000/eth/balances
+
+curl -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "{\"privateKey\":\"$ETH_PRIVATE_KEY\",\"spender\":\"0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D\",\"tokenSymbols\":[\"DAI\",\"WETH\"]}" https://localhost:5000/eth/allowances
+
+curl -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "{\"privateKey\":\"$ETH_PRIVATE_KEY\",\"spender\":\"0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D\",\"tokenSymbols\":[\"DAI\",\"WETH\"]}" https://localhost:5000/eth/allowances
