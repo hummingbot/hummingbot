@@ -127,7 +127,7 @@ class UniswapConnector(ConnectorBase):
         resp = await self._api_request("post",
                                        "eth/approve",
                                        {"token": token_symbol,
-                                        "spender": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"})
+                                        "spender": self.name})
         amount_approved = Decimal(str(resp["amount"]))
         if amount_approved > 0:
             self.logger().info(f"Approved Uniswap spender contract for {token_symbol}.")
@@ -142,8 +142,8 @@ class UniswapConnector(ConnectorBase):
         """
         ret_val = {}
         resp = await self._api_request("post", "eth/allowances",
-                                       {"tokenSymbols": "[" + (",".join(['"' + t + '"' for t in self._tokens])) + "]",
-                                        "spender": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"})
+                                       {"tokenSymbols": list(self._tokens),
+                                        "spender": self.name})
         for token, amount in resp["approvals"].items():
             ret_val[token] = Decimal(str(amount))
         return ret_val
@@ -166,13 +166,15 @@ class UniswapConnector(ConnectorBase):
                                            {"base": base,
                                             "quote": quote,
                                             "side": side.upper(),
-                                            "amount": amount})
+                                            "amount": str(amount)})
+            self.logger().info(resp)
             required_items = ["price", "gasLimit", "gasPrice", "gasCost"]
             if any(item not in resp.keys() for item in required_items):
                 if "info" in resp.keys():
                     self.logger().info(f"Unable to get price. {resp['info']}")
                 else:
-                    self.logger().info(f"Missing data from price result. Incomplete return result for ({resp.keys()})")
+                    missing_items = ', '.join([item for item in required_items if item not in resp.keys()])
+                    self.logger().info(f"Missing data from price result. Incomplete return result for ({missing_items})")
             else:
                 gas_limit = resp["gasLimit"]
                 gas_price = resp["gasPrice"]
@@ -504,7 +506,6 @@ class UniswapConnector(ConnectorBase):
             resp_json = await self._api_request("post",
                                                 "eth/balances",
                                                 {"tokenSymbols": "[" + (",".join(['"' + t + '"' for t in self._tokens])) + "]"})
-
             for token, bal in resp_json["balances"].items():
                 self._account_available_balances[token] = Decimal(str(bal))
                 self._account_balances[token] = Decimal(str(bal))
