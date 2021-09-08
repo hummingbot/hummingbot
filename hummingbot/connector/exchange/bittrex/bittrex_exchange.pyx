@@ -350,8 +350,16 @@ cdef class BittrexExchange(ExchangeBase):
                 try:
                     exchange_order_id = await tracked_order.get_exchange_order_id()
                 except asyncio.TimeoutError:
-                    self.logger().error(f"Exchange order ID never updated for {tracked_order.client_order_id}")
-                    raise
+                    if tracked_order.last_state == "FAILURE":
+                        self.c_stop_tracking_order(client_order_id)
+                        self.logger().warning(
+                            f"No exchange ID found for {client_order_id} on order status update."
+                            f" Order no longer tracked. This is most likely due to a POST_ONLY_NOT_MET error."
+                        )
+                        continue
+                    else:
+                        self.logger().error(f"Exchange order ID never updated for {tracked_order.client_order_id}")
+                        raise
                 client_order_id = tracked_order.client_order_id
                 order = open_orders.get(exchange_order_id)
 
@@ -512,7 +520,7 @@ cdef class BittrexExchange(ExchangeBase):
 
                     if executed_amount_diff > s_decimal_0:
                         self.logger().info(f"Filled {executed_amount_diff} out of {tracked_order.amount} of the "
-                                           f"{order_type_description} order {tracked_order.client_order_id}.")
+                                           f"{order_type_description} order {tracked_order.client_order_id}. - ws")
                         self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
                                              OrderFilledEvent(
                                                  self._current_timestamp,
@@ -788,7 +796,7 @@ cdef class BittrexExchange(ExchangeBase):
             self.logger().network(
                 f"Error submitting buy {order_type_str} order to Bittrex for "
                 f"{decimal_amount} {trading_pair} "
-                f"{decimal_price}.",
+                f"{decimal_price if order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER] else ''}.",
                 exc_info=True,
                 app_warning_msg=f"Failed to submit buy order to Bittrex. Check API key and network connection."
             )
@@ -884,7 +892,7 @@ cdef class BittrexExchange(ExchangeBase):
             self.logger().network(
                 f"Error submitting sell {order_type_str} order to Bittrex for "
                 f"{decimal_amount} {trading_pair} "
-                f"{decimal_price if order_type is OrderType.LIMIT else ''}.",
+                f"{decimal_price if order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER] else ''}.",
                 exc_info=True,
                 app_warning_msg=f"Failed to submit sell order to Bittrex. Check API key and network connection."
             )
