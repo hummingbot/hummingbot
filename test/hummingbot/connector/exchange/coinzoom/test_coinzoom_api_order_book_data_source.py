@@ -1,7 +1,9 @@
 import asyncio
 import json
+from dateutil.parser import parse as dateparse
 from decimal import Decimal
 from typing import Awaitable
+from unittest.mock import patch, AsyncMock
 
 from aioresponses import aioresponses
 from unittest import TestCase
@@ -10,6 +12,8 @@ from hummingbot.connector.exchange.coinzoom.coinzoom_api_order_book_data_source 
 from hummingbot.connector.exchange.coinzoom.coinzoom_constants import Constants
 from hummingbot.connector.exchange.coinzoom.coinzoom_order_book import CoinzoomOrderBook
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.data_type.order_book_message import OrderBookMessageType
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class CoinzoomAPIOrderBookDataSourceTests(TestCase):
@@ -26,9 +30,15 @@ class CoinzoomAPIOrderBookDataSourceTests(TestCase):
 
     def setUp(self) -> None:
         super().setUp()
+        self.listening_task = None
         self.data_source = CoinzoomAPIOrderBookDataSource(
             throttler=self.throttler,
             trading_pairs=[self.trading_pair])
+        self.mocking_assistant = NetworkMockingAssistant()
+
+    def tearDown(self) -> None:
+        self.listening_task and self.listening_task.cancel()
+        super().tearDown()
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
         ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
@@ -77,3 +87,23 @@ class CoinzoomAPIOrderBookDataSourceTests(TestCase):
             self.data_source.get_new_order_book(self.trading_pair))
 
         self.assertEqual(1234567899, order_book.snapshot_uid)
+
+    @patch("websockets.connect", new_callable=AsyncMock)
+    def test_listen_for_trades(self, ws_connect_mock):
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        received_messages = asyncio.Queue()
+
+        message = {"ts": [f"{self.base_asset}/{self.quote_asset}", 8772.05, 0.01, "2020-01-16T21:02:23Z"]}
+
+        self.listening_task = asyncio.get_event_loop().create_task(
+            self.data_source.listen_for_trades(ev_loop=asyncio.get_event_loop(), output=received_messages))
+
+        self.mocking_assistant.add_websocket_text_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(message))
+        trade_message = self.async_run_with_timeout(received_messages.get())
+
+        self.assertEqual(OrderBookMessageType.TRADE, trade_message.type)
+        self.assertEqual(int(dateparse("2020-01-16T21:02:23Z").timestamp() * 1e3), trade_message.timestamp)
+        self.assertEqual(trade_message.timestamp, trade_message.trade_id)
+        self.assertEqual(self.trading_pair, trade_message.trading_pair)
