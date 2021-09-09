@@ -22,16 +22,17 @@ class AsyncRequestContext(AsyncRequestContextBase):
         if len(self._related_limits) > 0:
             now: float = time.time()
             for rate_limit in self._related_limits:
-                same_pool_tasks = [task
-                                   for task in self._task_logs
-                                   if rate_limit in task.rate_limits and
-                                   now - task.timestamp - (rate_limit.time_interval * self._safety_margin_pct) <= rate_limit.time_interval
-                                   ]
-                if (len(same_pool_tasks) + 1) * self._rate_limit.weight > rate_limit.limit:
+                same_limit_tasks = [task
+                                    for task in self._task_logs
+                                    if rate_limit.limit_id == task.rate_limit.limit_id and
+                                    now - task.timestamp - (rate_limit.time_interval * self._safety_margin_pct) <= rate_limit.time_interval
+                                    ]
+
+                if (len(same_limit_tasks) + 1) * rate_limit.weight > rate_limit.limit:
                     if self._last_max_cap_warning_ts < now - MAX_CAPACITY_REACHED_WARNING_INTERVAL:
                         msg = f"API rate limit on {rate_limit.limit_id} ({rate_limit.limit} calls per " \
                               f"{rate_limit.time_interval}s) has almost reached. Number of calls " \
-                              f"is {len(same_pool_tasks) * rate_limit.weight} in the last " \
+                              f"is {len(same_limit_tasks) * rate_limit.weight} in the last " \
                               f"{rate_limit.time_interval} seconds"
                         self.logger().notify(msg)
                         AsyncRequestContextBase._last_max_cap_warning_ts = now

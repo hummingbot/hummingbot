@@ -98,8 +98,8 @@ class AsyncThrottlerUnitTests(unittest.TestCase):
         lock = asyncio.Lock()
 
         self.throttler._task_logs = [
-            TaskLog(timestamp=1.0, rate_limits=self.rate_limits),
-            TaskLog(timestamp=time.time(), rate_limits=self.rate_limits)
+            TaskLog(timestamp=1.0, rate_limit=self.rate_limits[0]),
+            TaskLog(timestamp=time.time(), rate_limit=self.rate_limits[0])
         ]
 
         self.assertEqual(2, len(self.throttler._task_logs))
@@ -112,7 +112,7 @@ class AsyncThrottlerUnitTests(unittest.TestCase):
         self.assertEqual(1, len(self.throttler._task_logs))
 
     def test_within_capacity_returns_false(self):
-        self.throttler._task_logs.append(TaskLog(timestamp=time.time(), rate_limits=self.rate_limits))
+        self.throttler._task_logs.append(TaskLog(timestamp=time.time(), rate_limit=self.rate_limits[0]))
 
         context = AsyncRequestContext(task_logs=self.throttler._task_logs,
                                       rate_limit=self.rate_limits[0],
@@ -137,10 +137,10 @@ class AsyncThrottlerUnitTests(unittest.TestCase):
                                       lock=asyncio.Lock(),
                                       safety_margin_pct=self.throttler._safety_margin_pct)
         self.ev_loop.run_until_complete(context.acquire())
-        self.assertEqual(1, len(self.throttler._task_logs))
+        self.assertEqual(2, len(self.throttler._task_logs))
 
     def test_acquire_awaits_when_exceed_capacity(self):
-        self.throttler._task_logs.append(TaskLog(timestamp=time.time(), rate_limits=self.rate_limits))
+        self.throttler._task_logs.append(TaskLog(timestamp=time.time(), rate_limit=self.rate_limits[0]))
         context = AsyncRequestContext(task_logs=self.throttler._task_logs,
                                       rate_limit=self.rate_limits[0],
                                       related_limits=self.rate_limits,

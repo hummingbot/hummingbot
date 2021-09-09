@@ -61,9 +61,9 @@ class AsyncRequestContextBase(ABC):
         """
         now: float = time.time()
         for task in self._task_logs:
+            task_limit: RateLimit = task.rate_limit
             elapsed: float = now - task.timestamp
-            if all(elapsed > limit.time_interval + (limit.time_interval * self._safety_margin_pct)
-                   for limit in task.rate_limits):
+            if elapsed > task_limit.time_interval + (task_limit.time_interval * self._safety_margin_pct):
                 self._task_logs.remove(task)
 
     @abstractmethod
@@ -79,8 +79,11 @@ class AsyncRequestContextBase(ABC):
                     break
             await asyncio.sleep(self._retry_interval)
         async with self._lock:
-            task = TaskLog(timestamp=time.time(), rate_limits=self._related_limits)
-            self._task_logs.append(task)
+            now = time.time()
+            # Each related limit is represented as it own individual TaskLog
+            for limit in self._related_limits:
+                task = TaskLog(timestamp=now, rate_limit=limit)
+                self._task_logs.append(task)
 
     async def __aenter__(self):
         await self.acquire()
