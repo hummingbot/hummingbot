@@ -951,7 +951,8 @@ cdef class BittrexExchange(ExchangeBase):
                 self.logger().error(  # this indicates a potential error
                     f"Tried to cancel order {order_id} which is already closed. Order details: {state_result}."
                 )
-                self._process_api_closed(state_result, tracked_order)
+                if state_result["status"] == "CLOSED":
+                    self._process_api_closed(state_result, tracked_order)
                 return order_id
 
             self.logger().network(
