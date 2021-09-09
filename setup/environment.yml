@@ -178,7 +178,7 @@ dependencies:
     - wrapt==1.12.0
     - yarl==1.4.2
     - zipp==3.4.1
-    - zope-interface==4.7.1
+    - zope-interface==4.7.2
     - markdown==3.0.1
     - mkdocs==1.0.4
     - mkdocs-material==4.6
