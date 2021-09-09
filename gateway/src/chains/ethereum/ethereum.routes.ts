@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/ban-types */
-import { constants, Wallet } from 'ethers';
+import { constants, BigNumber, Wallet } from 'ethers';
 import { NextFunction, Router, Request, Response } from 'express';
 import { Ethereum } from './ethereum';
 import { EthereumConfig } from './ethereum.config';
@@ -234,7 +234,7 @@ export namespace EthereumRoutes {
 
         let amount = constants.MaxUint256;
         if (req.body.amount) {
-          amount = ethers.utils.parseUnits(req.body.amount, token.decimals);
+            amount = BigNumber.from(req.body.amount);
         }
         // call approve function
         let approval;
@@ -265,6 +265,30 @@ export namespace EthereumRoutes {
   interface EthereumPollRequest {
     txHash: string;
   }
+  // TransactionReceipt from ethers uses BigNumber which is not easy to interpret directly from JSON.
+  // Transform those BigNumbers to string and pass the rest of the data without changes.
+  export interface EthereumTransactionRecept
+    extends Omit<
+      ethers.providers.TransactionReceipt,
+      'gasUsed' | 'cumulativeGasUsed'
+    > {
+    gasUsed: string;
+    cumulativeGasUsed: string;
+  }
+
+  const toEthereumTransactionReceipt = (
+    receipt: ethers.providers.TransactionReceipt | null
+  ): EthereumTransactionRecept | null => {
+    if (receipt) {
+      return {
+        ...receipt,
+        gasUsed: receipt.gasUsed.toString(),
+        cumulativeGasUsed: receipt.cumulativeGasUsed.toString(),
+      };
+    }
+
+    return null;
+  };
 
   interface EthereumPollResponse {
     network: string;
@@ -272,7 +296,7 @@ export namespace EthereumRoutes {
     latency: number;
     txHash: string;
     confirmed: boolean;
-    receipt: ethers.providers.TransactionReceipt | null;
+    receipt: EthereumTransactionRecept | null;
   }
 
   router.post(
@@ -292,7 +316,7 @@ export namespace EthereumRoutes {
           latency: latency(initTime, Date.now()),
           txHash: req.body.txHash,
           confirmed,
-          receipt: receipt,
+          receipt: toEthereumTransactionReceipt(receipt),
         });
       }
     )

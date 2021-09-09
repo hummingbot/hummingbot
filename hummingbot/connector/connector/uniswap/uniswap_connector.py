@@ -368,6 +368,10 @@ class UniswapConnector(ConnectorBase):
                     if update_result["receipt"]["status"] == 1:
                         gas_used = update_result["receipt"]["gasUsed"]
                         gas_price = tracked_order.gas_price
+                        self.logger().info(gas_used)
+                        self.logger().info(gas_price)
+                        self.logger().info(update_result["receipt"])
+                        self.logger().info(tracked_order)
                         fee = Decimal(str(gas_used)) * Decimal(str(gas_price)) / Decimal(str(1e9))
                         self.trigger_event(
                             MarketEvent.OrderFilled,
@@ -504,7 +508,7 @@ class UniswapConnector(ConnectorBase):
             remote_asset_names = set()
             resp_json = await self._api_request("post",
                                                 "eth/balances",
-                                                {"tokenSymbols": "[" + (",".join(['"' + t + '"' for t in self._tokens])) + "]"})
+                                                {"tokenSymbols": list(self._tokens)})
             for token, bal in resp_json["balances"].items():
                 self._account_available_balances[token] = Decimal(str(bal))
                 self._account_balances[token] = Decimal(str(bal))

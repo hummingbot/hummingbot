@@ -14,3 +14,8 @@ curl -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: applic
 curl -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "{\"privateKey\":\"$ETH_PRIVATE_KEY\",\"spender\":\"0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D\",\"tokenSymbols\":[\"DAI\",\"WETH\"]}" https://localhost:5000/eth/allowances
 
 curl -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "{\"privateKey\":\"$ETH_PRIVATE_KEY\",\"spender\":\"0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D\",\"tokenSymbols\":[\"DAI\",\"WETH\"]}" https://localhost:5000/eth/allowances
+
+curl -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT  -H "Content-Type: application/json" -d "{\"privateKey\":\"$ETH_PRIVATE_KEY\",\"amount\":\"0\",\"spender\":\"0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D\",\"token\":\"DAI\"}" https://localhost:5000/eth/approve
+
+
+curl -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT  -H "Content-Type: application/json" -d "{\"privateKey\":\"$ETH_PRIVATE_KEY\",\"spender\":\"0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D\",\"token\":\"DAI\"}" localhost:5000/eth/approve
