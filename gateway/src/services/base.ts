@@ -51,6 +51,18 @@ export const stringWithDecimalToBigNumber = (
   return BigNumber.from(numberStr + zeros);
 };
 
+export const gasCostInEthString = (
+  gasPrice: number,
+  gasLimit: number
+): string => {
+  return bigNumberWithDecimalToStr(
+    BigNumber.from(gasPrice)
+      .mul(BigNumber.from(gasLimit))
+      .mul(BigNumber.from('1000000000')),
+    18
+  );
+};
+
 // a nice way to represent the token value without carrying around as a string
 export interface TokenValue {
   value: BigNumber;

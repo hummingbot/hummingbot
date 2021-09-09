@@ -2,6 +2,7 @@ import { BigNumber } from 'ethers';
 import {
   bigNumberWithDecimalToStr,
   stringWithDecimalToBigNumber,
+  gasCostInEthString,
 } from '../../src/services/base';
 import 'jest-extended';
 
@@ -39,4 +40,8 @@ test('stringWithDecimalToBigNumber', () => {
   expect(stringWithDecimalToBigNumber('1.00000000000', 2)).toEqual(
     BigNumber.from('100')
   );
+});
+
+test('gasCostInEthString', () => {
+  expect(gasCostInEthString(200, 21000)).toEqual('0.004200000000000000');
 });
