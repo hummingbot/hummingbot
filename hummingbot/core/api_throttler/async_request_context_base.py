@@ -34,7 +34,8 @@ class AsyncRequestContextBase(ABC):
 
     def __init__(self,
                  task_logs: List[TaskLog],
-                 rate_limits: List[RateLimit],
+                 rate_limit: RateLimit,
+                 related_limits: List[RateLimit],
                  lock: asyncio.Lock,
                  safety_margin_pct: float,
                  retry_interval: float = 0.1,
@@ -47,7 +48,8 @@ class AsyncRequestContextBase(ABC):
         :param retry_interval: Time between each limit check
         """
         self._task_logs: List[TaskLog] = task_logs
-        self._rate_limits: List[RateLimit] = rate_limits
+        self._rate_limit: RateLimit = rate_limit
+        self._related_limits: List[RateLimit] = related_limits
         self._lock: asyncio.Lock = lock
         self._safety_margin_pct: float = safety_margin_pct
         self._retry_interval: float = retry_interval
@@ -77,7 +79,7 @@ class AsyncRequestContextBase(ABC):
                     break
             await asyncio.sleep(self._retry_interval)
         async with self._lock:
-            task = TaskLog(timestamp=time.time(), rate_limits=self._rate_limits)
+            task = TaskLog(timestamp=time.time(), rate_limits=self._related_limits)
             self._task_logs.append(task)
 
     async def __aenter__(self):

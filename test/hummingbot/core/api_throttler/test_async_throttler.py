@@ -18,7 +18,7 @@ from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 
 
 TEST_PATH_URL = "/hummingbot"
-TEST_POLL_ID = "TEST"
+TEST_POOL_ID = "TEST"
 
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 
@@ -30,8 +30,8 @@ class AsyncThrottlerUnitTests(unittest.TestCase):
         cls.ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
 
         cls.rate_limits: List[RateLimit] = [
-            RateLimit(limit_id=TEST_POLL_ID, limit=1, time_interval=5.0),
-            RateLimit(limit_id=TEST_PATH_URL, limit=1, time_interval=5.0, linked_limits=[TEST_POLL_ID])
+            RateLimit(limit_id=TEST_POOL_ID, limit=1, time_interval=5.0),
+            RateLimit(limit_id=TEST_PATH_URL, limit=1, time_interval=5.0, linked_limits=[TEST_POOL_ID])
         ]
 
     def setUp(self) -> None:
@@ -51,7 +51,7 @@ class AsyncThrottlerUnitTests(unittest.TestCase):
     def test_init_without_rate_limits_share_pct(self):
         self.assertEqual(0.1, self.throttler._retry_interval)
         self.assertEqual(2, len(self.throttler._rate_limits))
-        self.assertEqual(1, self.throttler._id_to_limit_map[TEST_POLL_ID].limit)
+        self.assertEqual(1, self.throttler._id_to_limit_map[TEST_POOL_ID].limit)
         self.assertEqual(1, self.throttler._id_to_limit_map[TEST_PATH_URL].limit)
 
     def test_init_with_rate_limits_share_pct(self):
@@ -66,15 +66,20 @@ class AsyncThrottlerUnitTests(unittest.TestCase):
         throttler = AsyncThrottler(rate_limits=rate_limits)
         self.assertEqual(0.1, throttler._retry_interval)
         self.assertEqual(3, len(throttler._rate_limits))
-        self.assertEqual(Decimal("1"), throttler._id_to_limit_map[TEST_POLL_ID].limit)
+        self.assertEqual(Decimal("1"), throttler._id_to_limit_map[TEST_POOL_ID].limit)
         self.assertEqual(Decimal("1"), throttler._id_to_limit_map[TEST_PATH_URL].limit)
         self.assertEqual(expected_limit, throttler._id_to_limit_map["ANOTHER_TEST"].limit)
 
-    def test_get_relevant_limits(self):
+    def test_get_related_limits(self):
         self.assertEqual(2, len(self.throttler._rate_limits))
 
-        self.assertEqual(1, len(self.throttler.get_relevant_limits(TEST_POLL_ID)))
-        self.assertEqual(2, len(self.throttler.get_relevant_limits(TEST_PATH_URL)))
+        _, related_limits = self.throttler.get_related_limits(TEST_POOL_ID)
+        # self.assertEqual(limit, self.rate_limits[0])
+        self.assertEqual(1, len(related_limits))
+
+        _, related_limits = self.throttler.get_related_limits(TEST_PATH_URL)
+        # self.assertEqual(limit, self.rate_limits[1])
+        self.assertEqual(2, len(related_limits))
 
     def test_flush_empty_task_logs(self):
         # Test: No entries in task_logs to flush
@@ -82,7 +87,8 @@ class AsyncThrottlerUnitTests(unittest.TestCase):
 
         self.assertEqual(0, len(self.throttler._task_logs))
         context = AsyncRequestContext(task_logs=self.throttler._task_logs,
-                                      rate_limits=self.rate_limits,
+                                      rate_limit=self.rate_limits[0],
+                                      related_limits=self.rate_limits,
                                       lock=lock,
                                       safety_margin_pct=self.throttler._safety_margin_pct)
         context.flush()
@@ -98,7 +104,8 @@ class AsyncThrottlerUnitTests(unittest.TestCase):
 
         self.assertEqual(2, len(self.throttler._task_logs))
         context = AsyncRequestContext(task_logs=self.throttler._task_logs,
-                                      rate_limits=self.rate_limits,
+                                      rate_limit=self.rate_limits[0],
+                                      related_limits=self.rate_limits,
                                       lock=lock,
                                       safety_margin_pct=self.throttler._safety_margin_pct)
         context.flush()
@@ -108,7 +115,8 @@ class AsyncThrottlerUnitTests(unittest.TestCase):
         self.throttler._task_logs.append(TaskLog(timestamp=time.time(), rate_limits=self.rate_limits))
 
         context = AsyncRequestContext(task_logs=self.throttler._task_logs,
-                                      rate_limits=self.rate_limits,
+                                      rate_limit=self.rate_limits[0],
+                                      related_limits=self.rate_limits,
                                       lock=asyncio.Lock(),
                                       safety_margin_pct=self.throttler._safety_margin_pct)
         self.assertFalse(context.within_capacity())
@@ -116,14 +124,16 @@ class AsyncThrottlerUnitTests(unittest.TestCase):
     def test_within_capacity_returns_true(self):
         lock = asyncio.Lock()
         context = AsyncRequestContext(task_logs=self.throttler._task_logs,
-                                      rate_limits=self.rate_limits,
+                                      rate_limit=self.rate_limits[0],
+                                      related_limits=self.rate_limits,
                                       lock=lock,
                                       safety_margin_pct=self.throttler._safety_margin_pct)
         self.assertTrue(context.within_capacity())
 
     def test_acquire_appends_to_task_logs(self):
         context = AsyncRequestContext(task_logs=self.throttler._task_logs,
-                                      rate_limits=self.rate_limits,
+                                      rate_limit=self.rate_limits[0],
+                                      related_limits=self.rate_limits,
                                       lock=asyncio.Lock(),
                                       safety_margin_pct=self.throttler._safety_margin_pct)
         self.ev_loop.run_until_complete(context.acquire())
@@ -132,7 +142,8 @@ class AsyncThrottlerUnitTests(unittest.TestCase):
     def test_acquire_awaits_when_exceed_capacity(self):
         self.throttler._task_logs.append(TaskLog(timestamp=time.time(), rate_limits=self.rate_limits))
         context = AsyncRequestContext(task_logs=self.throttler._task_logs,
-                                      rate_limits=self.rate_limits,
+                                      rate_limit=self.rate_limits[0],
+                                      related_limits=self.rate_limits,
                                       lock=asyncio.Lock(),
                                       safety_margin_pct=self.throttler._safety_margin_pct)
         with self.assertRaises(asyncio.exceptions.TimeoutError):

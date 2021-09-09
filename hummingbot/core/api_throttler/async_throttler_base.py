@@ -9,6 +9,7 @@ from typing import (
     Dict,
     List,
     Optional,
+    Tuple,
 )
 
 from hummingbot.client.config.global_config_map import global_config_map
@@ -71,17 +72,17 @@ class AsyncThrottlerBase(ABC):
         # Shared asyncio.Lock instance to prevent multiple async ContextManager from accessing the _task_logs variable
         self._lock = asyncio.Lock()
 
-    def get_relevant_limits(self, limit_id: str) -> List[RateLimit]:
+    def get_related_limits(self, limit_id: str) -> Tuple[RateLimit, List[RateLimit]]:
         rate_limit: Optional[RateLimit] = self._id_to_limit_map.get(limit_id, None)
 
-        relevant_rate_limits: List[RateLimit] = [rate_limit]
+        related_limits: List[RateLimit] = [rate_limit]
         for limit in rate_limit.linked_limits:
             if limit in self._id_to_limit_map:
-                relevant_rate_limits.append(
+                related_limits.append(
                     self._id_to_limit_map[limit]
                 )
 
-        return relevant_rate_limits
+        return rate_limit, related_limits
 
     @abstractmethod
     def execute_task(self, limit_ids: List[str]) -> AsyncRequestContextBase:
