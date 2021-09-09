@@ -11,7 +11,7 @@ EXAMPLE_PAIR = "BTC-CAD"
 
 # NDAX fees: https://ndax.io/fees
 # Fees have to be expressed as percent value
-DEFAULT_FEES = [2, 2]
+DEFAULT_FEES = [0.2, 0.2]
 
 
 # USE_ETHEREUM_WALLET not required because default value is false
