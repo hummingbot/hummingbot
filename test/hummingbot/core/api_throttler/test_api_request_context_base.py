@@ -52,8 +52,8 @@ class APIRequestContextBaseUnitTests(unittest.TestCase):
         self.assertEqual(0, len(self.throttler._path_task_logs_map[TEST_PATH_URL]))
 
         # Test: Test that TaskLogs are being flushed accordingly.
-        task_0 = TaskLog(timestamp=1.0, rate_limits=[TEST_PATH_URL])
-        task_1 = TaskLog(timestamp=time.time() + 60, rate_limits=[TEST_PATH_URL])
+        task_0 = TaskLog(timestamp=1.0, rate_limit=self.rate_limit)
+        task_1 = TaskLog(timestamp=time.time() + 60, rate_limit=self.rate_limit)
         self.throttler._path_task_logs_map[TEST_PATH_URL].append(task_0)
         self.throttler._path_task_logs_map[TEST_PATH_URL].append(task_1)
         self.assertEqual(2, len(self.throttler._path_task_logs_map[TEST_PATH_URL]))
@@ -74,14 +74,15 @@ class APIRequestContextBaseUnitTests(unittest.TestCase):
 
     def test_task_appended_after_acquire(self):
         # Test 1: Task gets appended to task_logs
-        context = MockAPIRequestContext(self.throttler._path_task_logs_map[TEST_PATH_URL], rate_limit=self.rate_limit)
+        context = MockAPIRequestContext(task_logs=self.throttler._path_task_logs_map[TEST_PATH_URL],
+                                        rate_limit=self.rate_limit)
         self.ev_loop.run_until_complete(context.acquire())
 
         self.assertEqual(1, len(self.throttler._path_task_logs_map[TEST_PATH_URL]))
 
     def test_acquire_awaits_when_exceed_capacity(self):
         # Test 1: Test acquire() awaiting when NOT within_capacity
-        task = TaskLog(timestamp=time.time(), rate_limits=[TEST_PATH_URL])
+        task = TaskLog(timestamp=time.time(), rate_limit=self.rate_limit)
         self.throttler._path_task_logs_map[TEST_PATH_URL].append(task)
 
         context = MockAPIRequestContext(self.throttler._path_task_logs_map[TEST_PATH_URL], rate_limit=self.rate_limit)

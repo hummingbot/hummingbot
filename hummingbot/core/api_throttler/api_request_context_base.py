@@ -64,7 +64,7 @@ class APIRequestContextBase(ABC):
             await asyncio.sleep(self._retry_interval)
 
         task = TaskLog(timestamp=time.time(),
-                       rate_limits=[self._rate_limit])
+                       rate_limit=self._rate_limit)
 
         self._task_logs.append(task)
 

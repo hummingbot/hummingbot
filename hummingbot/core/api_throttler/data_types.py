@@ -1,5 +1,8 @@
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import (
+    List,
+    Optional,
+)
 
 DEFAULT_PATH = ""
 DEFAULT_WEIGHT = 1
@@ -42,4 +45,4 @@ class RateLimit:
 @dataclass
 class TaskLog:
     timestamp: float
-    rate_limits: List[RateLimit]
+    rate_limit: RateLimit
