@@ -101,10 +101,10 @@ class NetworkMockingAssistant:
     def text_messages_sent_through_websocket(self, websocket_mock):
         return self._sent_websocket_text_messages[websocket_mock]
 
-    def run_until_all_text_messages_delivered(self, websocket_mock):
+    def run_until_all_text_messages_delivered(self, websocket_mock, timeout: int = 1):
         self._incoming_websocket_text_queues[websocket_mock].put_nowait(self._final_message)
-        self._ev_loop.run_until_complete(self._all_ws_delivered.wait())
+        self._ev_loop.run_until_complete(asyncio.wait_for(self._all_ws_delivered.wait(), timeout))
 
-    def run_until_all_json_messages_delivered(self, websocket_mock):
+    def run_until_all_json_messages_delivered(self, websocket_mock, timeout: int = 1):
         self._incoming_websocket_json_queues[websocket_mock].put_nowait(self._final_message)
-        self._ev_loop.run_until_complete(self._all_ws_delivered.wait())
+        self._ev_loop.run_until_complete(asyncio.wait_for(self._all_ws_delivered.wait(), timeout))
