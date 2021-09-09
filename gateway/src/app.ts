@@ -6,7 +6,7 @@ import { UniswapRoutes } from './chains/ethereum/uniswap/uniswap.routes';
 import { ConfigManager } from './services/config-manager';
 import { logger, updateLoggerToStdout } from './services/logger';
 import { addHttps } from './https';
-import { asyncHandler } from './services/error-handler';
+import { asyncHandler, GatewayError } from './services/error-handler';
 
 export const app = express();
 let server: Server;
@@ -84,12 +84,26 @@ app.post(
 );
 
 // handle any error thrown in the gateway api route
-app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-  const stack = err.stack || '';
-  const message = err.message || 'Something went wrong';
-  logger.error(message + stack);
-  res.status(500).json({ message: message, stack: stack });
-});
+app.use(
+  (
+    err: Error | GatewayError,
+    _req: Request,
+    res: Response,
+    _next: NextFunction
+  ) => {
+    const response: any = {
+      message: err.message || 'Something went wrong',
+    };
+    if (err.stack) response.stack = err.stack;
+    let httpErrorCode = 500;
+    if (err instanceof GatewayError) {
+      httpErrorCode = err.httpErrorCode;
+      response.errorCode = err.errorCode;
+    }
+    logger.error(response.message + response.stack);
+    return res.status(httpErrorCode).json(response);
+  }
+);
 
 export const startGateway = async () => {
   const port = ConfigManager.config.PORT;
