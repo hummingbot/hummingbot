@@ -25,7 +25,6 @@ import time
 from .order_book_message import OrderBookMessage
 from .order_book_row import OrderBookRow
 from .order_book_query_result import OrderBookQueryResult
-from sqlalchemy.engine import RowProxy
 import bisect
 import logging
 cimport numpy as np
@@ -471,14 +470,6 @@ cdef class OrderBook(PubSub):
 
     def get_quote_volume_for_price(self, is_buy: bool, price: float) -> OrderBookQueryResult:
         return self.c_get_quote_volume_for_price(is_buy, price)
-
-    @classmethod
-    def snapshot_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None) -> OrderBookMessage:
-        pass
-
-    @classmethod
-    def diff_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None) -> OrderBookMessage:
-        pass
 
     @classmethod
     def snapshot_message_from_kafka(cls, record: ConsumerRecord, metadata: Optional[Dict] = None) -> OrderBookMessage:

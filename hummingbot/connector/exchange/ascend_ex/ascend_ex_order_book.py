@@ -3,7 +3,6 @@
 import logging
 import hummingbot.connector.exchange.ascend_ex.ascend_ex_constants as constants
 
-from sqlalchemy.engine import RowProxy
 from typing import (
     Optional,
     Dict,
@@ -49,20 +48,6 @@ class AscendExOrderBook(OrderBook):
         )
 
     @classmethod
-    def snapshot_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None):
-        """
-        *used for backtesting
-        Convert a row of snapshot data into standard OrderBookMessage format
-        :param record: a row of snapshot data from the database
-        :return: AscendExOrderBookMessage
-        """
-        return AscendExOrderBookMessage(
-            message_type=OrderBookMessageType.SNAPSHOT,
-            content=record.json,
-            timestamp=record.timestamp
-        )
-
-    @classmethod
     def diff_message_from_exchange(cls,
                                    msg: Dict[str, any],
                                    timestamp: Optional[float] = None,
@@ -81,20 +66,6 @@ class AscendExOrderBook(OrderBook):
             message_type=OrderBookMessageType.DIFF,
             content=msg,
             timestamp=timestamp
-        )
-
-    @classmethod
-    def diff_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None):
-        """
-        *used for backtesting
-        Convert a row of diff data into standard OrderBookMessage format
-        :param record: a row of diff data from the database
-        :return: AscendExOrderBookMessage
-        """
-        return AscendExOrderBookMessage(
-            message_type=OrderBookMessageType.DIFF,
-            content=record.json,
-            timestamp=record.timestamp
         )
 
     @classmethod
@@ -122,20 +93,6 @@ class AscendExOrderBook(OrderBook):
             message_type=OrderBookMessageType.TRADE,
             content=msg,
             timestamp=timestamp
-        )
-
-    @classmethod
-    def trade_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None):
-        """
-        *used for backtesting
-        Convert a row of trade data into standard OrderBookMessage format
-        :param record: a row of trade data from the database
-        :return: AscendExOrderBookMessage
-        """
-        return AscendExOrderBookMessage(
-            message_type=OrderBookMessageType.TRADE,
-            content=record.json,
-            timestamp=record.timestamp
         )
 
     @classmethod
