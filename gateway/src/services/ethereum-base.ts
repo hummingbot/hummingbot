@@ -138,16 +138,14 @@ export class EthereumBase {
   }
 
   // returns an ethereum TransactionResponse for a txHash.
-  async getTransaction(
-    txHash: string
-  ): Promise<providers.TransactionResponse | null> {
-    return this._provider.getTransaction(txHash); // If it does makes sense shouldn't we be doing it here?
+  async getTransaction(txHash: string): Promise<providers.TransactionResponse> {
+    return this._provider.getTransaction(txHash);
   }
 
   // returns an ethereum TransactionReceipt for a txHash if the transaction has been mined.
   async getTransactionReceipt(
     txHash: string
-  ): Promise<providers.TransactionReceipt | null> {
+  ): Promise<providers.TransactionReceipt> {
     return this._provider.getTransactionReceipt(txHash);
   }
 

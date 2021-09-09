@@ -8,7 +8,7 @@ import { tokenValueToString } from '../../services/base';
 import { verifyEthereumIsAvailable } from './ethereum-middlewares';
 import { HttpException, asyncHandler } from '../../services/error-handler';
 import { latency } from '../../services/base';
-import { approve } from './ethereum.controllers';
+import { approve, poll } from './ethereum.controllers';
 export namespace EthereumRoutes {
   export const router = Router();
   const ethereum = Ethereum.getInstance();
@@ -130,12 +130,7 @@ export namespace EthereumRoutes {
         res: Response<EthereumApproveResponse | string, {}>
       ) => {
         const { spender, privateKey, token, amount } = req.body;
-        let result;
-        try {
-          result = await approve(spender, privateKey, token, amount);
-        } catch (err) {
-          throw new HttpException(500, err.message);
-        }
+        const result = await approve(spender, privateKey, token, amount);
         return res.status(200).json(result);
       }
     )
@@ -161,18 +156,8 @@ export namespace EthereumRoutes {
         req: Request<{}, {}, EthereumPollRequest>,
         res: Response<EthereumPollResponse, {}>
       ) => {
-        const initTime = Date.now();
-        const receipt = await ethereum.getTransactionReceipt(req.body.txHash);
-        const confirmed = receipt && receipt.blockNumber ? true : false;
-
-        res.status(200).json({
-          network: ConfigManager.config.ETHEREUM_CHAIN,
-          timestamp: initTime,
-          latency: latency(initTime, Date.now()),
-          txHash: req.body.txHash,
-          confirmed,
-          receipt: receipt,
-        });
+        const result = await poll(req.body.txHash);
+        res.status(200).json(result);
       }
     )
   );
