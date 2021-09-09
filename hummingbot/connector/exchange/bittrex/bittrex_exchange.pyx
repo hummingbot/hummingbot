@@ -428,46 +428,52 @@ cdef class BittrexExchange(ExchangeBase):
                                          ))
 
                 if order_state == "CLOSED":
-                    if order["quantity"] == order["fillQuantity"]:  # Order COMPLETED
-                        tracked_order.last_state = "CLOSED"
-                        self.logger().info(f"The {order_type}-{trade_type} "
-                                           f"{client_order_id} has completed according to Bittrex order status API.")
+                    self._process_api_closed(order, tracked_order)
 
-                        if tracked_order.trade_type is TradeType.BUY:
-                            self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
-                                                 BuyOrderCompletedEvent(
-                                                     self._current_timestamp,
-                                                     tracked_order.client_order_id,
-                                                     tracked_order.base_asset,
-                                                     tracked_order.quote_asset,
-                                                     tracked_order.fee_asset or tracked_order.base_asset,
-                                                     tracked_order.executed_amount_base,
-                                                     tracked_order.executed_amount_quote,
-                                                     tracked_order.fee_paid,
-                                                     tracked_order.order_type))
-                        elif tracked_order.trade_type is TradeType.SELL:
-                            self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
-                                                 SellOrderCompletedEvent(
-                                                     self._current_timestamp,
-                                                     tracked_order.client_order_id,
-                                                     tracked_order.base_asset,
-                                                     tracked_order.quote_asset,
-                                                     tracked_order.fee_asset or tracked_order.base_asset,
-                                                     tracked_order.executed_amount_base,
-                                                     tracked_order.executed_amount_quote,
-                                                     tracked_order.fee_paid,
-                                                     tracked_order.order_type))
-                    else:  # Order PARTIAL-CANCEL or CANCEL
-                        tracked_order.last_state = "CANCELLED"
-                        self.logger().info(f"The {tracked_order.order_type}-{tracked_order.trade_type} "
-                                           f"{client_order_id} has been cancelled according to Bittrex order status API.")
-                        self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                             OrderCancelledEvent(
-                                                 self._current_timestamp,
-                                                 client_order_id
-                                             ))
+    def _process_api_closed(self, order: Dict, tracked_order: BittrexInFlightOrder):
+        order_type = tracked_order.order_type
+        trade_type = tracked_order.trade_type
+        client_order_id = tracked_order.client_order_id
+        if order["quantity"] == order["fillQuantity"]:  # Order COMPLETED
+            tracked_order.last_state = "CLOSED"
+            self.logger().info(f"The {order_type}-{trade_type} "
+                               f"{client_order_id} has completed according to Bittrex order status API.")
 
-                    self.c_stop_tracking_order(client_order_id)
+            if tracked_order.trade_type is TradeType.BUY:
+                self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
+                                     BuyOrderCompletedEvent(
+                                         self._current_timestamp,
+                                         tracked_order.client_order_id,
+                                         tracked_order.base_asset,
+                                         tracked_order.quote_asset,
+                                         tracked_order.fee_asset or tracked_order.base_asset,
+                                         tracked_order.executed_amount_base,
+                                         tracked_order.executed_amount_quote,
+                                         tracked_order.fee_paid,
+                                         tracked_order.order_type))
+            elif tracked_order.trade_type is TradeType.SELL:
+                self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
+                                     SellOrderCompletedEvent(
+                                         self._current_timestamp,
+                                         tracked_order.client_order_id,
+                                         tracked_order.base_asset,
+                                         tracked_order.quote_asset,
+                                         tracked_order.fee_asset or tracked_order.base_asset,
+                                         tracked_order.executed_amount_base,
+                                         tracked_order.executed_amount_quote,
+                                         tracked_order.fee_paid,
+                                         tracked_order.order_type))
+        else:  # Order PARTIAL-CANCEL or CANCEL
+            tracked_order.last_state = "CANCELLED"
+            self.logger().info(f"The {tracked_order.order_type}-{tracked_order.trade_type} "
+                               f"{client_order_id} has been cancelled according to Bittrex order status API.")
+            self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                 OrderCancelledEvent(
+                                     self._current_timestamp,
+                                     client_order_id
+                                 ))
+
+        self.c_stop_tracking_order(client_order_id)
 
     async def _iter_user_stream_queue(self) -> AsyncIterable[Dict[str, Any]]:
         while True:
@@ -945,9 +951,7 @@ cdef class BittrexExchange(ExchangeBase):
                 self.logger().error(  # this indicates a potential error
                     f"Tried to cancel order {order_id} which is already closed. Order details: {state_result}."
                 )
-                self.c_stop_tracking_order(order_id)
-                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                     OrderCancelledEvent(self._current_timestamp, order_id))
+                self._process_api_closed(state_result, tracked_order)
                 return order_id
 
             self.logger().network(
