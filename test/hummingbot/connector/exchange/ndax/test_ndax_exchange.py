@@ -378,7 +378,7 @@ class NdaxExchangeTests(TestCase):
         self.assertEqual(inflight_order.order_type, fill_event.order_type)
         self.assertEqual(Decimal(35000), fill_event.price)
         self.assertEqual(Decimal(1), fill_event.amount)
-        self.assertEqual(Decimal("0.02"), fill_event.trade_fee.percent)
+        self.assertEqual(Decimal("0.002"), fill_event.trade_fee.percent)
         self.assertEqual(0, len(fill_event.trade_fee.flat_fees))
         self.assertEqual("213", fill_event.exchange_trade_id)
         buy_event = self.exchange.event_logs[1]
@@ -451,7 +451,7 @@ class NdaxExchangeTests(TestCase):
         self.assertEqual(inflight_order.order_type, fill_event.order_type)
         self.assertEqual(Decimal(35000), fill_event.price)
         self.assertEqual(Decimal(1), fill_event.amount)
-        self.assertEqual(Decimal("0.02"), fill_event.trade_fee.percent)
+        self.assertEqual(Decimal("0.002"), fill_event.trade_fee.percent)
         self.assertEqual(0, len(fill_event.trade_fee.flat_fees))
         self.assertEqual("213", fill_event.exchange_trade_id)
         buy_event = self.exchange.event_logs[1]
