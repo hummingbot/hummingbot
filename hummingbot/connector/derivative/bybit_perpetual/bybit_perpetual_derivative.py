@@ -429,9 +429,9 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 else:
                     revised_order_side = "Sell" if trade_type is TradeType.BUY else "Buy"
 
-            params.update({
-                "side": revised_order_side
-            })
+                params.update({
+                    "side": revised_order_side
+                })
 
             if order_type.is_limit_type():
                 price: Decimal = self.quantize_order_price(trading_pair, price)
