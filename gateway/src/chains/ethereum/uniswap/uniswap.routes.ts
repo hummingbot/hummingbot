@@ -4,7 +4,11 @@ import { Uniswap, ExpectedTrade } from './uniswap';
 import { ConfigManager } from '../../../services/config-manager';
 import { HttpException, asyncHandler } from '../../../services/error-handler';
 import { BigNumber } from 'ethers';
-import { latency, stringWithDecimalToBigNumber } from '../../../services/base';
+import {
+  latency,
+  gasCostInEthString,
+  stringWithDecimalToBigNumber,
+} from '../../../services/base';
 import { ethers } from 'ethers';
 import { Trade } from '@uniswap/sdk';
 import { verifyEthereumIsAvailable } from '../ethereum-middlewares';
@@ -48,7 +52,7 @@ export namespace UniswapRoutes {
     price: string;
     gasPrice: number;
     gasLimit: number;
-    gasCost: number;
+    gasCost: string;
     trade: Trade;
   }
 
@@ -61,13 +65,17 @@ export namespace UniswapRoutes {
       ) => {
         const initTime = Date.now();
 
+        // the amount is passed in as a string. We must validate the value.
+        // If it is a strictly an integer string, we can pass it interpet it as a BigNumber.
+        // If is a float string, we need to know how many decimal places it has then we can
+        // convert it to a BigNumber.
         let amount: BigNumber;
         if (req.body.amount.indexOf('.') > -1) {
           let token;
           if (req.body.side === 'BUY') {
-            token = ethereum.getTokenBySymbol(req.body.base);
-          } else {
             token = ethereum.getTokenBySymbol(req.body.quote);
+          } else {
+            token = ethereum.getTokenBySymbol(req.body.base);
           }
           if (token) {
             amount = stringWithDecimalToBigNumber(
@@ -77,7 +85,7 @@ export namespace UniswapRoutes {
           } else {
             throw new HttpException(
               500,
-              'Unrecognized quote token symbol.'
+              'Unrecognized token symbol for amount.'
             );
           }
         } else {
@@ -129,7 +137,7 @@ export namespace UniswapRoutes {
                 price: tradePrice.toSignificant(8),
                 gasPrice: gasPrice,
                 gasLimit: gasLimit,
-                gasCost: gasPrice * gasLimit,
+                gasCost: gasCostInEthString(gasPrice, gasLimit),
                 trade: trade,
               };
               res.status(200).json(payload);
@@ -171,7 +179,7 @@ export namespace UniswapRoutes {
     price: string;
     gasPrice: number;
     gasLimit: number;
-    gasCost: number;
+    gasCost: string;
     txHash: string | undefined;
   }
 
@@ -213,9 +221,9 @@ export namespace UniswapRoutes {
         if (req.body.amount.indexOf('.') > -1) {
           let token;
           if (req.body.side === 'BUY') {
-            token = ethereum.getTokenBySymbol(req.body.base);
-          } else {
             token = ethereum.getTokenBySymbol(req.body.quote);
+          } else {
+            token = ethereum.getTokenBySymbol(req.body.base);
           }
           if (token) {
             amount = stringWithDecimalToBigNumber(
@@ -223,15 +231,12 @@ export namespace UniswapRoutes {
               token.decimals
             );
           } else {
-            throw new HttpException(
-              500,
-              'Unrecognized quote token symbol.'
-            );
+            throw new HttpException(500, 'Unrecognized quote token symbol.');
           }
         } else {
           amount = BigNumber.from(req.body.amount);
         }
-          
+
         const result: ExpectedTrade | string =
           req.body.side === 'BUY'
             ? await uniswap.priceSwapOut(
@@ -271,7 +276,7 @@ export namespace UniswapRoutes {
             price: price.toSignificant(8),
             gasPrice: gasPrice,
             gasLimit: gasLimit,
-            gasCost: gasPrice * gasLimit,
+            gasCost: gasCostInEthString(gasPrice, gasLimit),
             txHash: tx.hash,
           });
         } else {
@@ -294,7 +299,7 @@ export namespace UniswapRoutes {
             price: price.toSignificant(8),
             gasPrice: gasPrice,
             gasLimit,
-            gasCost: gasPrice * gasLimit,
+            gasCost: gasCostInEthString(gasPrice, gasLimit),
             txHash: tx.hash,
           });
         }

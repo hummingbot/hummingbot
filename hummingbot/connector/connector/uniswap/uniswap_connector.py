@@ -167,7 +167,6 @@ class UniswapConnector(ConnectorBase):
                                             "quote": quote,
                                             "side": side.upper(),
                                             "amount": str(amount)})
-            self.logger().info(resp)
             required_items = ["price", "gasLimit", "gasPrice", "gasCost"]
             if any(item not in resp.keys() for item in required_items):
                 if "info" in resp.keys():
@@ -178,7 +177,7 @@ class UniswapConnector(ConnectorBase):
             else:
                 gas_limit = resp["gasLimit"]
                 gas_price = resp["gasPrice"]
-                gas_cost = resp["gasCost"]
+                gas_cost = Decimal(str(resp["gasCost"]))
                 price = resp["price"]
                 account_standing = {
                     "allowances": self._allowances,
