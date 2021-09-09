@@ -423,6 +423,16 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 "reduce_only": False,
             }
 
+            if self._position_mode == PositionMode.HEDGE:
+                if position_action == PositionAction.OPEN:
+                    revised_order_side = "Buy" if trade_type is TradeType.BUY else "Sell"
+                else:
+                    revised_order_side = "Sell" if trade_type is TradeType.BUY else "Buy"
+
+            params.update({
+                "side": revised_order_side
+            })
+
             if order_type.is_limit_type():
                 price: Decimal = self.quantize_order_price(trading_pair, price)
                 params.update({
