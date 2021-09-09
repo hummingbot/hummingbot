@@ -368,10 +368,6 @@ class UniswapConnector(ConnectorBase):
                     if update_result["receipt"]["status"] == 1:
                         gas_used = update_result["receipt"]["gasUsed"]
                         gas_price = tracked_order.gas_price
-                        self.logger().info(gas_used)
-                        self.logger().info(gas_price)
-                        self.logger().info(update_result["receipt"])
-                        self.logger().info(tracked_order)
                         fee = Decimal(str(gas_used)) * Decimal(str(gas_price)) / Decimal(str(1e9))
                         self.trigger_event(
                             MarketEvent.OrderFilled,
