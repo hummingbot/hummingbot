@@ -93,7 +93,7 @@ dependencies:
     - entrypoints==0.3
     - eth-abi==2.1.1
     - eth-account==0.4.0
-    - eth-bloom==1.0.3
+    - eth-bloom>=1.0.3,<=1.0.4
     - eth-hash>=0.2.0,<=0.3.2
     - eth-keyfile==0.5.1
     - eth-keys==0.2.4
