@@ -1,8 +1,8 @@
 # Project info
 site_name: Hummingbot Documentation
-site_description: 'The official documentation for Hummingbot, the open source crypto market making bot'
-site_author: 'CoinAlpha, Inc.'
-site_url: 'https://docs.hummingbot.io'
+site_description: The official documentation for Hummingbot, the open source crypto market making bot
+site_author: CoinAlpha, Inc.
+site_url: https://docs.hummingbot.io
 
 # Repository
 repo_name: 'coinalpha/hummingbot'
@@ -35,8 +35,8 @@ theme:
         icon: material/toggle-switch
         name: Switch to light mode
   font:
-      text: 'Roboto'
-      code: 'Roboto Mono'
+      text: Roboto
+      code: Roboto Mono
   features:
     - navigation.instant
     - navigation.tracking # insiders
@@ -54,7 +54,7 @@ plugins:
 
 extra:
   generator: false
-  homepage: https://www.hummingbot.io
+  homepage: https://docs.hummingbot.io
   analytics:
     provider: google
     property: UA-119262087-3
@@ -121,34 +121,29 @@ nav:
       - Docker: installation/docker.md
       - Source: installation/source.md
       - Raspberry Pi: installation/raspberry-pi.md
+      - Gateway: installation/gateway.md
       - Run in the Cloud: installation/cloud-servers.md
       - Run Multiple Bots: installation/multiple-bots.md
       - Update and Restore Hummingbot: installation/update-hummingbot.md
+    - Tutorials:
+      - Tutorials: tutorials/index.md
+      - Run Liquidity Mining bot: tutorials/liquidity-mining.md
+      - Run AMM-ARB bot: tutorials/amm-arb.md
+      - Create Strategy: tutorials/create-strategy.md
     - Operation:
-      - Overview: operation/index.md
-      - User Interface Guide: operation/user-interface.md
+      - Operation: operation/index.md
       - Commands and Shortcuts: operation/commands-shortcuts.md
+      - User Interface Guide: operation/user-interface.md
       - Launch/Exit Hummingbot: operation/launch-exit.md
       - Create/Delete Password: operation/password.md
-      - Connecting to Exchange: operation/connect-exchange.md
-      - Check Balances: operation/balances.md
+      - Connect Exchange API Keys: operation/connect.md
+      - Check Balances: operation/balance.md
       - Create/Import Config Files: operation/config-files.md
       - Start/Stop Strategy: operation/start-stop.md
       - Pause/Resume Strategy: operation/pause-resume.md
-      - Check Bot/Market Status: operation/checking-status.md
-      - Check Performance: operation/performance-history.md
+      - Check Bot/Market Status: operation/status.md
+      - Check Performance: operation/history.md
       - Find Log Files: operation/log-files.md
-    - Features:
-      - Features: operation/features.md
-      - Kill Switch: operation/kill-switch.md
-      - Paper Trading Mode: operation/paper-trade.md
-      - Balance Limit: operation/balance-limit.md
-      - Fee Overrides: operation/override-fees.md
-      - Telegram Integration: operation/telegram.md
-      - Gateway: installation/gateway.md
-      - Rate Oracle: operation/rate-oracle.md
-      - Rate Limits Share Pct: operation/rate-limits-share-pct.md
-      - Strategy Autostart: operation/strategy-autostart.md
     - Connectors:
       - Connectors: connectors/index.md
       - AscendEX: connectors/ascend-ex.md
@@ -189,94 +184,79 @@ nav:
       - Uniswap-v3: connectors/uniswap-v3.md
     - Strategies:
       - Strategies: strategies/index.md
-      - Core:
-        - AMM Arbitrage: strategies/amm-arbitrage.md
-        - Avellaneda Market Making: strategies/avellaneda-market-making.md
-        - Liquidity Mining: strategies/liquidity-mining.md
-        - Perpetual Market Making: strategies/perpetual-market-making.md
-        - Uniswap-v3 LP: strategies/uniswap-v3-lp.md
-      - Community:
-        - Arbitrage: 
-          - Arbitrage: strategies/arbitrage/index.md
-          - Specification: strategies/arbitrage/specification.md
-        - Celo Arbitrage: strategies/celo-arbitrage.md
-        - Cross-Exchange Market Making:
-          - Cross-Exchange Market Making: strategies/cross-exchange-market-making/index.md
-          - Specification: strategies/cross-exchange-market-making/specification.md
-        - Pure Market Making:
-          - Pure Market Making: strategies/pure-market-making/index.md
-          - Specification: strategies/pure-market-making/specification.md
-        - Spot Perpetual Arbitrage: strategies/spot-perpetual-arbitrage.md
-        - TWAP: 
-          - TWAP: strategies/twap/index.md
-          - Specification: strategies/twap/specification.md
-    - Parameters:
-      - Parameters: parameters/index.md
-      - Order Levels: parameters/order-levels.md
-      - Filled Order Delay: parameters/filled-order-delay.md
-      - Hanging Orders: parameters/hanging-orders.md
-      - Order Refresh Tolerance: parameters/order-refresh-tolerance.md
-      - Order Optimization: parameters/order-optimization.md
-      - Inventory Skew: parameters/inventory-skew.md
-      - External Pricing Source: parameters/external-price-source.md
-      - Max Order Age: parameters/max-order-age.md
-      - Order Override: parameters/order-override.md
-      - Price Band: parameters/price-band.md
-      - Ping Pong: parameters/ping-pong.md
-      - Adding Transaction Costs: parameters/add-transaction-costs.md
-      - Minimum Spread: parameters/minimum-spread.md
-    - Support:
-      - Get Support: support/support.md
-      - Troubleshooting: support/troubleshooting.md
-      - Frequently Asked Questions: support/faq.md
-      - Glossary: support/glossary.md
+      - AMM Arbitrage: strategies/amm-arbitrage.md
+      - Arbitrage: 
+        - Arbitrage: strategies/arbitrage/index.md
+        - Specification: strategies/arbitrage/specification.md
+      - Avellaneda Market Making: strategies/avellaneda-market-making.md
+      - Liquidity Mining: strategies/liquidity-mining.md
+      - Perpetual Market Making: strategies/perpetual-market-making.md
+      - Spot Perpetual Arbitrage: strategies/spot-perpetual-arbitrage.md
+      - Uniswap-v3 LP: strategies/uniswap-v3-lp.md
+      - Celo Arbitrage: strategies/celo-arbitrage.md
+      - Cross-Exchange Market Making:
+        - Cross-Exchange Market Making: strategies/cross-exchange-market-making/index.md
+        - Specification: strategies/cross-exchange-market-making/specification.md
+      - Pure Market Making:
+        - Pure Market Making: strategies/pure-market-making/index.md
+        - Specification: strategies/pure-market-making/specification.md
+      - TWAP: 
+        - TWAP: strategies/twap/index.md
+        - Specification: strategies/twap/specification.md
+    - Global Configs:
+      - Global Configs: global-configs/index.md
+      - Kill Switch: global-configs/kill-switch.md
+      - Paper Trading Mode: global-configs/paper-trade.md
+      - Balance Limit: global-configs/balance-limit.md
+      - Fee Overrides: global-configs/override-fees.md
+      - Telegram Integration: global-configs/telegram.md
+      - Rate Limits Share Pct: global-configs/rate-limits-share-pct.md
+      - Strategy Autostart: global-configs/strategy-autostart.md
+    - Strategy Configs:
+      - Strategy Configs: strategy-configs/index.md
+      - Order Levels: strategy-configs/order-levels.md
+      - Filled Order Delay: strategy-configs/filled-order-delay.md
+      - Hanging Orders: strategy-configs/hanging-orders.md
+      - Order Refresh Tolerance: strategy-configs/order-refresh-tolerance.md
+      - Order Optimization: strategy-configs/order-optimization.md
+      - Inventory Skew: strategy-configs/inventory-skew.md
+      - Max Order Age: strategy-configs/max-order-age.md
+      - Order Override: strategy-configs/order-override.md
+      - Price Source: strategy-configs/external-price-source.md
+      - Ping Pong: strategy-configs/ping-pong.md
+      - Rate Oracle: strategy-configs/rate-oracle.md
+    - FAQ:
+      - FAQ: faq/index.md
+      - Troubleshooting: faq/troubleshooting.md
+      - Glossary: faq/glossary.md
+      - Support: faq/support.md
 
-  - Developers:
+  - Developer Reference:
       - Overview: developers/index.md
       - Contribution Guidelines: developers/contributions.md
-      - Getting Started:
-        - Intro: developers/gettingstarted/index.md
-        - Linux:
-          - Intro: developers/gettingstarted/linux/index.md
-          - 1. Installing Hummingbot: developers/gettingstarted/linux/1-installing.md
-          - 2. Using Hummingbot: developers/gettingstarted/linux/2-using.md
-          - 3. Re-compiling Hummingbot: developers/gettingstarted/linux/3-recompiling.md
-        - macOS:
-          - Intro: developers/gettingstarted/mac/index.md
-          - 1. Installing Prerequisites: developers/gettingstarted/mac/1-prereqs.md
-          - 2. Installing Hummingbot: developers/gettingstarted/mac/2-installing.md
-          - 3. Using Hummingbot: developers/gettingstarted/mac/3-using.md
-          - 4. Re-compiling Hummingbot: developers/gettingstarted/mac/4-recompiling.md
-        - Windows:
-          - Intro: developers/gettingstarted/windows/index.md
-          - 1. Installing Hummingbot: developers/gettingstarted/windows/1-installing.md
-          - 2. Using Hummingbot: developers/gettingstarted/windows/2-using.md
-          - 3. Re-compiling Hummingbot: developers/gettingstarted/windows/3-recompiling.md
+      - Architecture: developers/architecture/index.md
       - Connectors:
         - Building Connectors: developers/connectors/index.md
         - Architecture: developers/connectors/architecture.md
-        - Tutorial:
-          - Connector Tutorial: developers/connectors/tutorial.md
-          - Task 1 - OrderBookTracker & Data Source: developers/connectors/task1.md
-          - Task 2 - UserStreamTracker & Authentication: developers/connectors/task2.md
-          - Task 3 - Exchange Connector & InFlightOrder: developers/connectors/task3.md
-          - Task 4 - Configuration & Additional Functions: developers/connectors/task4.md
-          - Debug and Testing: developers/connectors/debug&test.md
+        - Requirements:
+          - Connector Requirements: developers/connectors/requirements/index.md
+          - Task 1 - OrderBookTracker & Data Source: developers/connectors/requirements/task1.md
+          - Task 2 - UserStreamTracker & Authentication: developers/connectors/requirements/task2.md
+          - Task 3 - Exchange Connector & InFlightOrder: developers/connectors/requirements/task3.md
+          - Task 4 - Configuration & Additional Functions: developers/connectors/requirements/task4.md
+          - Debug and Testing: developers/connectors/requirements/debug&test.md
         - Miscellaneous: developers/connectors/miscellaneous.md
       - Strategies:
         - Building Strategies: developers/strategies/index.md
         - Architecture: developers/strategies/architecture.md
-        - Tutorial:
-          - Strategy Tutorial: developers/strategies/tutorial/index.md
-          - Key Concepts: developers/strategies/tutorial/key-concepts.md
-          - Get Started: developers/strategies/tutorial/create-strategy.md
-          - Display Status: developers/strategies/tutorial/status.md
-          - Access Order Book Data: developers/strategies/tutorial/order-book.md
+        - Key Concepts: developers/strategies/tutorial/key-concepts.md
+        - Define Configs: developers/config.md
+        - Display Status: developers/strategies/tutorial/status.md
+        - Access Order Book Data: developers/strategies/tutorial/order-book.md
       - Scripts:
         - Scripts: developers/scripts/index.md
         - Script Base Class: developers/scripts/script-base.md
       - Debug Console: developers/debug.md
-      - Configuration: developers/config.md
   - Release Notes:
     - About Releases: release-notes/index.md
     - 0.43.0: release-notes/0.43.0.md
@@ -335,6 +315,6 @@ nav:
     - 0.5.1: release-notes/0.5.1.md
     - 0.5.0: release-notes/0.5.0.md
     - 0.4.0: release-notes/0.4.0.md
-    - 0.3.1 (beta): release-notes/0.3.1.md
+    - 0.3.1: release-notes/0.3.1.md
     - 0.3.0: release-notes/0.3.0.md
     - 0.2.0: release-notes/0.2.0.md
