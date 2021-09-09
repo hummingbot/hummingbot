@@ -45,6 +45,7 @@ class BittrexOrderBookDataSourceTest(unittest.TestCase):
         "._transform_raw_message"
     )
     def test_listen_for_trades(self, transform_raw_message_mock, mocked_connection, _):
+        transform_raw_message_mock.side_effect = lambda arg: arg
         mocked_connection.return_value = self._create_queue_mock()
         self.ws_incoming_messages.put_nowait(
             {
@@ -65,7 +66,6 @@ class BittrexOrderBookDataSourceTest(unittest.TestCase):
                 }
             }
         )
-        transform_raw_message_mock.side_effect = lambda arg: arg
         self.ws_incoming_messages.put_nowait(self._finalMessage)  # to resume test event
         self.ev_loop.create_task(self.ob_data_source.listen_for_subscriptions())
         self.ev_loop.create_task(self.ob_data_source.listen_for_trades(self.ev_loop, self.output_queue))
@@ -81,6 +81,7 @@ class BittrexOrderBookDataSourceTest(unittest.TestCase):
         "._transform_raw_message"
     )
     def test_listen_for_order_book_diffs(self, transform_raw_message_mock, mocked_connection, _):
+        transform_raw_message_mock.side_effect = lambda arg: arg
         mocked_connection.return_value = self._create_queue_mock()
         self.ws_incoming_messages.put_nowait(
             {
@@ -104,7 +105,6 @@ class BittrexOrderBookDataSourceTest(unittest.TestCase):
                 },
             }
         )
-        transform_raw_message_mock.side_effect = lambda arg: arg
         self.ws_incoming_messages.put_nowait(self._finalMessage)  # to resume test event
         self.ev_loop.create_task(self.ob_data_source.listen_for_subscriptions())
         self.ev_loop.create_task(self.ob_data_source.listen_for_order_book_diffs(self.ev_loop, self.output_queue))
