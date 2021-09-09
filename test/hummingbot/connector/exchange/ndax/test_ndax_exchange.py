@@ -363,7 +363,7 @@ class NdaxExchangeTests(TestCase):
         self.assertIn(payload["TradeId"], inflight_order.trade_id_set)
         self.assertEqual(Decimal(1), inflight_order.executed_amount_base)
         self.assertEqual(Decimal(35000), inflight_order.executed_amount_quote)
-        self.assertEqual(inflight_order.executed_amount_base * Decimal("0.02"), inflight_order.fee_paid)
+        self.assertEqual(inflight_order.executed_amount_base * Decimal("0.002"), inflight_order.fee_paid)
 
         self.assertFalse(inflight_order.client_order_id in self.exchange.in_flight_orders)
         self.assertTrue(self._is_logged("INFO", f"The {inflight_order.trade_type.name} order "
@@ -435,7 +435,7 @@ class NdaxExchangeTests(TestCase):
         self.assertIn(payload["TradeId"], inflight_order.trade_id_set)
         self.assertEqual(Decimal(1), inflight_order.executed_amount_base)
         self.assertEqual(Decimal(35000), inflight_order.executed_amount_quote)
-        self.assertEqual(inflight_order.executed_amount_base * inflight_order.executed_amount_quote * Decimal("0.02"),
+        self.assertEqual(inflight_order.executed_amount_base * inflight_order.executed_amount_quote * Decimal("0.002"),
                          inflight_order.fee_paid)
 
         self.assertFalse(inflight_order.client_order_id in self.exchange.in_flight_orders)
