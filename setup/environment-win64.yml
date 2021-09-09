@@ -29,7 +29,7 @@ dependencies:
   - numpy-base=1.18.5=py38hc3f5095_0
   - openssl=1.1.1k=h8ffe710_0
   - pandas=1.2.1=py38h4c96930_0
-  - pip=21.1.2=pyhd8ed1ab_0
+  - pip
   - prompt_toolkit=3.0.3=py_0
   - pygments=2.5.2=py_0
   - pytables=3.6.1=py38h26f9782_1
@@ -47,7 +47,7 @@ dependencies:
   - vc=14.2=hb210afc_5
   - vs2015_runtime=14.29.30037=h902a5da_5
   - wcwidth=0.1.8=pyh9f0ad1d_1
-  - wheel=0.34.2=py_1
+  - wheel
   - wincertstore=0.2=py38haa244fe_1006
   - xz=5.2.4=h2fa13f4_1002
   - zlib=1.2.11=h62dcd97_1010

@@ -44,7 +44,7 @@ dependencies:
   - openblas=0.3.4=h9ac9557_1000
   - openssl=1.1.1k=h7f98852_0
   - pandas=1.2.1=py38h51da96c_0
-  - pip=21.1.2=pyhd8ed1ab_0
+  - pip
   - prompt_toolkit=3.0.3=py_0
   - pygments=2.5.2=py_0
   - pytables=3.6.1=py38h9f153d1_1
@@ -61,7 +61,7 @@ dependencies:
   - tzlocal=2.0.0=py38_0
   - ujson=1.35=py38h7b6447c_0
   - wcwidth=0.1.8=py_0
-  - wheel=0.34.2=py_1
+  - wheel
   - xz=5.2.4=h14c3975_1001
   - zlib=1.2.11=h516909a_1006
   - zstd=1.3.7=h0b5b093_0
