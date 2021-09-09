@@ -68,7 +68,7 @@ KEYS = {
 OTHER_DOMAINS = ["ndax_testnet"]
 OTHER_DOMAINS_PARAMETER = {"ndax_testnet": "ndax_testnet"}
 OTHER_DOMAINS_EXAMPLE_PAIR = {"ndax_testnet": "BTC-CAD"}
-OTHER_DOMAINS_DEFAULT_FEES = {"ndax_testnet": [2, 2]}
+OTHER_DOMAINS_DEFAULT_FEES = {"ndax_testnet": [0.2, 0.2]}
 OTHER_DOMAINS_KEYS = {
     "ndax_testnet": {
         "ndax_testnet_uid":
