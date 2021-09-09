@@ -107,3 +107,34 @@ class CoinzoomAPIOrderBookDataSourceTests(TestCase):
         self.assertEqual(int(dateparse("2020-01-16T21:02:23Z").timestamp() * 1e3), trade_message.timestamp)
         self.assertEqual(trade_message.timestamp, trade_message.trade_id)
         self.assertEqual(self.trading_pair, trade_message.trading_pair)
+
+    @patch("time.time")
+    @patch("websockets.connect", new_callable=AsyncMock)
+    def test_listen_for_order_book_diff(self, ws_connect_mock, time_mock):
+        time_mock.return_value = 1234567890
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        received_messages = asyncio.Queue()
+
+        message = {"oi": f"{self.base_asset}/{self.quote_asset}",
+                   "b": [["9"],
+                         ["5"],
+                         ["7", 7193.27, 6.95094164],
+                         ["8", 7196.15, 0.69481598]],
+                   "s": [["2"],
+                         ["1"],
+                         ["4", 7222.08, 6.92321326],
+                         ["6", 7219.2, 0.69259752]]}
+
+        self.listening_task = asyncio.get_event_loop().create_task(
+            self.data_source.listen_for_order_book_diffs(ev_loop=asyncio.get_event_loop(), output=received_messages))
+
+        self.mocking_assistant.add_websocket_text_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(message))
+        diff_message = self.async_run_with_timeout(received_messages.get())
+
+        self.assertEqual(OrderBookMessageType.DIFF, diff_message.type)
+        self.assertEqual(1234567890 * 1e3, diff_message.timestamp)
+        self.assertEqual(diff_message.timestamp, diff_message.update_id)
+        self.assertEqual(-1, diff_message.trade_id)
+        self.assertEqual(self.trading_pair, diff_message.trading_pair)
