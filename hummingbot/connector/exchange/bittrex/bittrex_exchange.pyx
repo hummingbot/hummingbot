@@ -642,6 +642,17 @@ cdef class BittrexExchange(ExchangeBase):
             raise ValueError(f"No order book exists for '{trading_pair}'.")
         return order_books[trading_pair]
 
+    def start_tracking_order(self,
+                             order_id: str,
+                             exchange_order_id: str,
+                             trading_pair: str,
+                             order_type: OrderType,
+                             trade_type: TradeType,
+                             price: Decimal,
+                             amount: Decimal):
+        """Helper method for testing."""
+        self.c_start_tracking_order(order_id, exchange_order_id, trading_pair, order_type, trade_type, price, amount)
+
     cdef c_start_tracking_order(self,
                                 str order_id,
                                 str exchange_order_id,
