@@ -10,8 +10,8 @@ def start(self):
     use_volatility = c_map.get("use_volatility").value
     volatility_period = c_map.get("volatility_period").value
     volatility_factor = c_map.get("volatility_factor").value
-    buy_position_price_spread = c_map.get("buy_position_price_spread").value / Decimal("100")
-    sell_position_price_spread = c_map.get("sell_position_price_spread").value / Decimal("100")
+    buy_spread = c_map.get("buy_spread").value / Decimal("100")
+    sell_spread = c_map.get("sell_spread").value / Decimal("100")
     base_token_amount = c_map.get("base_token_amount").value
     quote_token_amount = c_map.get("quote_token_amount").value
     min_profitability = c_map.get("min_profitability").value / Decimal("100")
@@ -27,8 +27,8 @@ def start(self):
                                         use_volatility,
                                         volatility_period,
                                         volatility_factor,
-                                        buy_position_price_spread,
-                                        sell_position_price_spread,
+                                        buy_spread,
+                                        sell_spread,
                                         base_token_amount,
                                         quote_token_amount,
                                         min_profitability)
