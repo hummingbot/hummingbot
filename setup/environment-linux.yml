@@ -141,8 +141,8 @@ dependencies:
     - markupsafe==2.0.1
     - matplotlib-inline==0.1.2
     - mccabe==0.6.1
-    - mkdocs==1.0.4
-    - mkdocs-material==4.6
+#    - mkdocs==1.0.4
+#    - mkdocs-material==4.6
     - more-itertools==8.8.0
     - mpmath==1.0.0
     - multiaddr==0.0.9
@@ -170,8 +170,8 @@ dependencies:
     - pycodestyle==2.5.0
     - pycparser==2.20
     - pycryptodome==3.9.7
-    - pymdown-extensions==6.2
-    - python-markdown-math==0.6
+#    - pymdown-extensions==6.2
+#    - python-markdown-math==0.6
     - pyflakes==2.1.1
     - pyhamcrest==2.0.2
     - pyinstall==0.1.4
