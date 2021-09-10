@@ -61,9 +61,9 @@ def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
     return hb_trading_pair.replace("-", "")
 
 
-def rest_url(path_url: str, domain: str = "binance_perpetual"):
+def rest_url(path_url: str, domain: str = "binance_perpetual", api_version: str = CONSTANTS.API_VERSION):
     base_url = CONSTANTS.PERPETUAL_BASE_URL if domain == "binance_perpetual" else CONSTANTS.TESTNET_BASE_URL
-    return base_url + CONSTANTS.API_VERSION + path_url
+    return base_url + api_version + path_url
 
 
 def wss_url(endpoint: str, domain: str = "binance_perpetual"):
