@@ -112,7 +112,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._domain = domain
         self._throttler = AsyncThrottler(CONSTANTS.API_LIMITS)
 
-        self._user_stream_tracker = BinancePerpetualUserStreamTracker(api_key=self._api_key, domain=self._domain)
+        self._user_stream_tracker = BinancePerpetualUserStreamTracker(api_key=self._api_key, domain=self._domain, throttler=self._throttler)
         self._order_book_tracker = BinancePerpetualOrderBookTracker(trading_pairs=trading_pairs, domain=domain, throttler=self._throttler)
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
@@ -203,7 +203,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
 
     async def check_network(self) -> NetworkStatus:
         try:
-            await self.request("/fapi/v1/ping")
+            await self.request(CONSTANTS.PING_URL)
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -258,7 +258,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         self.start_tracking_order(order_id, "", trading_pair, trade_type, price, amount, order_type, self._leverage[trading_pair], position_action.name)
 
         try:
-            order_result = await self.request(path="/fapi/v1/order",
+            order_result = await self.request(path=CONSTANTS.ORDER_URL,
                                               params=api_params,
                                               method=MethodType.POST,
                                               add_timestamp = True,
@@ -359,7 +359,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 "symbol": trading_pair
             }
             response = await self.request(
-                path="/fapi/v1/allOpenOrders",
+                path=CONSTANTS.CANCEL_ALL_OPEN_ORDERS_URL,
                 params=params,
                 method=MethodType.DELETE,
                 add_timestamp=True,
@@ -385,7 +385,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 "symbol": utils.convert_to_exchange_trading_pair(trading_pair)
             }
             response = await self.request(
-                path="/fapi/v1/order",
+                path=CONSTANTS.ORDER_URL,
                 params=params,
                 method=MethodType.DELETE,
                 is_signed=True,
@@ -623,7 +623,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         last_tick = int(self._last_timestamp / 60.0)
         current_tick = int(self.current_timestamp / 60.0)
         if current_tick > last_tick or len(self._trading_rules) < 1:
-            exchange_info = await self.request(path="/fapi/v1/exchangeInfo", method=MethodType.GET, is_signed=False)
+            exchange_info = await self.request(path=CONSTANTS.EXCHANGE_INFO_URL, method=MethodType.GET, is_signed=False)
             trading_rules_list = self._format_trading_rules(exchange_info)
             self._trading_rules.clear()
             for trading_rule in trading_rules_list:
@@ -757,7 +757,10 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
     async def _update_balances(self):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
-        account_info = await self.request(path="/fapi/v2/account", is_signed=True, add_timestamp=True)
+        account_info = await self.request(path=CONSTANTS.ACCOUNT_INFO_URL,
+                                          is_signed=True,
+                                          add_timestamp=True,
+                                          api_version=CONSTANTS.API_VERSION_V2)
         assets = account_info.get("assets")
         for asset in assets:
             asset_name = asset.get("asset")
@@ -773,7 +776,10 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             del self._account_balances[asset_name]
 
     async def _update_positions(self):
-        positions = await self.request(path="/fapi/v2/positionRisk", add_timestamp=True, is_signed=True)
+        positions = await self.request(path=CONSTANTS.POSITION_INFORMATION_URL,
+                                       add_timestamp=True,
+                                       is_signed=True,
+                                       api_version=CONSTANTS.API_VERSION_V2)
         for position in positions:
             trading_pair = position.get("symbol")
             position_side = PositionSide[position.get("positionSide")]
@@ -805,7 +811,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             trading_pairs = list(trading_pairs_to_order_map.keys())
             tasks = [
                 self.request(
-                    path="/fapi/v1/userTrades",
+                    path=CONSTANTS.ACCOUNT_TRADE_LIST_URL,
                     params={
                         "symbol": utils.convert_to_exchange_trading_pair(trading_pair)
                     },
@@ -857,7 +863,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         current_tick = int(self.current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
         if current_tick > last_tick and len(self._in_flight_orders) > 0:
             tracked_orders = list(self._in_flight_orders.values())
-            tasks = [self.request(path="/fapi/v1/order",
+            tasks = [self.request(path=CONSTANTS.ORDER_URL,
                                   params={
                                       "symbol": utils.convert_to_exchange_trading_pair(order.trading_pair),
                                       "origClientOrderId": order.client_order_id
@@ -939,7 +945,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             "leverage": leverage
         }
         set_leverage = await self.request(
-            path="/fapi/v1/leverage",
+            path=CONSTANTS.SET_LEVERAGE_URL,
             params=params,
             method=MethodType.POST,
             add_timestamp=True,
@@ -958,7 +964,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
     async def get_funding_payment(self, startTime):
         funding_payment_tasks = []
         for pair in self._trading_pairs:
-            funding_payment_tasks.append(self.request(path="/fapi/v1/income",
+            funding_payment_tasks.append(self.request(path=CONSTANTS.GET_INCOME_HISTORY_URL,
                                                       params={"symbol": utils.convert_to_exchange_trading_pair(pair), "incomeType": "FUNDING_FEE", "startTime": int(startTime * 1000)},
                                                       method=MethodType.GET,
                                                       add_timestamp=True,
@@ -985,7 +991,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 "dualSidePosition": position_mode.value
             }
             mode = await self.request(
-                path="/fapi/v1/positionSide/dual",
+                path=CONSTANTS.CHANGE_POSITION_MODE_URL,
                 params=params,
                 method=MethodType.POST,
                 add_timestamp=True,
@@ -1002,7 +1008,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         # To-do: ensure there's no active order or contract before changing position mode
         if self._position_mode is None:
             mode = await self.request(
-                path="/fapi/v1/positionSide/dual",
+                path=CONSTANTS.CHANGE_POSITION_MODE_URL,
                 method=MethodType.GET,
                 add_timestamp=True,
                 is_signed=True
@@ -1017,9 +1023,15 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
     def supported_position_modes(self):
         return [PositionMode.ONEWAY, PositionMode.HEDGE]
 
-    async def request(self, path: str, params: Dict[str, Any] = {}, method: MethodType = MethodType.GET,
-                      add_timestamp: bool = False, is_signed: bool = False, request_weight: int = 1, return_err: bool = False):
-        async with self._throttler.weighted_task(request_weight):
+    async def request(self,
+                      path: str,
+                      params: Dict[str, Any] = {},
+                      method: MethodType = MethodType.GET,
+                      add_timestamp: bool = False,
+                      is_signed: bool = False,
+                      return_err: bool = False,
+                      api_version: str = CONSTANTS.API_VERSION):
+        async with self._throttler.execute_task(limit_id=path):
             try:
                 if add_timestamp:
                     params["timestamp"] = str(int(BinanceTime.get_instance().time()) * 1000)
@@ -1030,10 +1042,11 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                     signature = hmac.new(secret, query.encode("utf-8"), hashlib.sha256).hexdigest()
                     query += f"&signature={signature}"
 
+                url = utils.rest_url(path, self._domain, api_version)
                 async with aiohttp.ClientSession() as session:
                     response = await session.request(
                         method=method.value,
-                        url=self._base_url + path + "?" + query,
+                        url=f"{url}?{query}",
                         headers={"X-MBX-APIKEY": self._api_key}
                     )
                     if response.status != 200:
