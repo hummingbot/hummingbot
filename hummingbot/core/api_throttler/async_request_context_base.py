@@ -44,7 +44,8 @@ class AsyncRequestContextBase(ABC):
         """
         Asynchronous context associated with each API request.
         :param task_logs: Shared task logs associated with this API request
-        :param rate_limits: RateLimit(s) associated with this API request
+        :param rate_limit: The RateLimit associated with this API Request
+        :param rate_limits: List of linked rate limits with its corresponding weight associated with this API Request
         :param lock: A shared asyncio.Lock used between all instances of APIRequestContextBase
         :param retry_interval: Time between each limit check
         """
