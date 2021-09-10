@@ -54,6 +54,39 @@ export namespace EthereumRoutes {
     approvals: Record<string, string>;
   }
 
+  const getSpender = (reqSpender: string): string => {
+    let spender: string;
+    if (reqSpender === 'uniswap') {
+      if (ConfigManager.config.ETHEREUM_CHAIN === 'mainnet') {
+        spender = UniswapConfig.config.mainnet.uniswapV2RouterAddress;
+      } else {
+        spender = UniswapConfig.config.kovan.uniswapV2RouterAddress;
+      }
+    } else {
+      spender = reqSpender;
+    }
+
+    return spender;
+  };
+
+  const getTokenSymbolsToTokens = (
+    tokenSymbols: Array<string>
+  ): Record<string, Token> => {
+    const tokens: Record<string, Token> = {};
+
+    for (var i = 0; i < tokenSymbols.length; i++) {
+      const symbol = tokenSymbols[i];
+      const token = ethereum.getTokenBySymbol(symbol);
+      if (!token) {
+        continue;
+      }
+
+      tokens[symbol] = token;
+    }
+
+    return tokens;
+  };
+
   router.post(
     '/allowances',
     asyncHandler(
@@ -64,28 +97,9 @@ export namespace EthereumRoutes {
         const initTime = Date.now();
         const wallet = ethereum.getWallet(req.body.privateKey);
 
-        const tokens: Record<string, Token> = {};
+        const tokens = getTokenSymbolsToTokens(req.body.tokenSymbols);
 
-        for (var i = 0; i < req.body.tokenSymbols.length; i++) {
-          const symbol = req.body.tokenSymbols[i];
-          const token = ethereum.getTokenBySymbol(symbol);
-          if (!token) {
-            continue;
-          }
-
-          tokens[symbol] = token;
-        }
-
-        let spender: string;
-        if (req.body.spender === 'uniswap') {
-          if (ConfigManager.config.ETHEREUM_CHAIN === 'mainnet') {
-            spender = UniswapConfig.config.mainnet.uniswapV2RouterAddress;
-          } else {
-            spender = UniswapConfig.config.kovan.uniswapV2RouterAddress;
-          }
-        } else {
-          spender = req.body.spender;
-        }
+        const spender = getSpender(req.body.spender);
 
         let approvals: Record<string, string> = {};
         await Promise.all(
@@ -141,25 +155,15 @@ export namespace EthereumRoutes {
           throw new HttpException(500, 'Error getting wallet ' + err);
         }
 
-        const tokenContractList: Record<string, Token> = {};
-
-        for (var i = 0; i < req.body.tokenSymbols.length; i++) {
-          const symbol = req.body.tokenSymbols[i];
-          const token = ethereum.getTokenBySymbol(symbol);
-          if (!token) {
-            continue;
-          }
-
-          tokenContractList[symbol] = token;
-        }
+        const tokens = getTokenSymbolsToTokens(req.body.tokenSymbols);
 
         const balances: Record<string, string> = {};
         balances.ETH = tokenValueToString(await ethereum.getEthBalance(wallet));
         await Promise.all(
-          Object.keys(tokenContractList).map(async (symbol) => {
-            if (tokenContractList[symbol] !== undefined) {
-              const address = tokenContractList[symbol].address;
-              const decimals = tokenContractList[symbol].decimals;
+          Object.keys(tokens).map(async (symbol) => {
+            if (tokens[symbol] !== undefined) {
+              const address = tokens[symbol].address;
+              const decimals = tokens[symbol].decimals;
               const balance = await ethereum.getERC20Balance(
                 wallet,
                 address,
@@ -205,16 +209,7 @@ export namespace EthereumRoutes {
         res: Response<EthereumApproveResponse | string, {}>
       ) => {
         const initTime = Date.now();
-        let spender: string;
-        if (req.body.spender === 'uniswap') {
-          if (ConfigManager.config.ETHEREUM_CHAIN === 'mainnet') {
-            spender = UniswapConfig.config.mainnet.uniswapV2RouterAddress;
-          } else {
-            spender = UniswapConfig.config.kovan.uniswapV2RouterAddress;
-          }
-        } else {
-          spender = req.body.spender;
-        }
+        const spender = getSpender(req.body.spender);
 
         let wallet: Wallet;
         try {
@@ -234,7 +229,7 @@ export namespace EthereumRoutes {
 
         let amount = constants.MaxUint256;
         if (req.body.amount) {
-            amount = BigNumber.from(req.body.amount);
+          amount = BigNumber.from(req.body.amount);
         }
         // call approve function
         let approval;
