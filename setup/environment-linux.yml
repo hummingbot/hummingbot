@@ -107,8 +107,7 @@ dependencies:
     - entrypoints==0.3
     - eth-abi==2.1.1
     - eth-account==0.4.0
-#    - eth-bloom==1.0.3
-#    - eth-hash==0.2.0
+    - eth-bloom==1.0.4
     - eth-keyfile==0.5.1
     - eth-keys==0.2.4
     - eth-rlp==0.1.2
@@ -217,5 +216,4 @@ dependencies:
     - python-markdown-math==0.6
     - git+https://github.com/CoinAlpha/python-signalr-client.git
     - https://hummingbot-python.s3-us-west-2.amazonaws.com/hummingsim-20210806-cp38-cp38-linux_x86_64.whl
-    - aioresponses==0.7.2
 prefix: /home/paul/anaconda3/envs/hummingbot
