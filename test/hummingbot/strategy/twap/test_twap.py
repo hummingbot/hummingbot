@@ -34,8 +34,7 @@ from hummingbot.core.event.events import (
     OrderExpiredEvent
 )
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.strategy.conditional_execution_state import RunInTimeSpanExecutionState
-from hummingbot.strategy.conditional_execution_state import RunInDelayedStartExecutionState
+from hummingbot.strategy.conditional_execution_state import RunInTimeConditionalExecutionState
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.twap import TwapTradeStrategy
 
@@ -464,8 +463,8 @@ class TWAPUnitTest(unittest.TestCase):
             order_delay_time=self.order_delay_time,
             target_asset_amount=Decimal("100.0"),
             order_step_size=Decimal("1.0"),
-            execution_state=RunInTimeSpanExecutionState(start_timestamp=datetime.fromtimestamp(span_start_time),
-                                                        end_timestamp=datetime.fromtimestamp(span_end_time))
+            execution_state=RunInTimeConditionalExecutionState(start_timestamp=datetime.fromtimestamp(span_start_time),
+                                                               end_timestamp=datetime.fromtimestamp(span_end_time))
         )
 
         self.clock.add_iterator(strategy)
@@ -495,7 +494,7 @@ class TWAPUnitTest(unittest.TestCase):
             order_delay_time=self.order_delay_time,
             target_asset_amount=Decimal("100.0"),
             order_step_size=Decimal("1.0"),
-            execution_state=RunInDelayedStartExecutionState(start_timestamp=datetime.fromtimestamp(delayed_start_time))
+            execution_state=RunInTimeConditionalExecutionState(start_timestamp=datetime.fromtimestamp(delayed_start_time))
         )
 
         self.clock.add_iterator(strategy)

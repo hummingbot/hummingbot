@@ -68,6 +68,7 @@ class TwapStartTest(unittest.TestCase):
         twap_config_map_module.twap_config_map.get("is_time_span_execution").value = True
         twap_config_map_module.twap_config_map.get("start_datetime").value = "2021-06-23 10:00:00"
         twap_config_map_module.twap_config_map.get("end_datetime").value = "2021-06-23 11:00:00"
+        twap_config_map_module.twap_config_map.get("order_delay_time").value = 360
 
         twap_start_module.start(self)
 
