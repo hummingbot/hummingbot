@@ -56,7 +56,7 @@ export const gasCostInEthString = (
   gasLimit: number
 ): string => {
   return bigNumberWithDecimalToStr(
-    BigNumber.from(gasPrice * gasLimit).mul(BigNumber.from(1e9)),
+    BigNumber.from(Math.ceil(gasPrice * gasLimit)).mul(BigNumber.from(1e9)),
     18
   );
 };
