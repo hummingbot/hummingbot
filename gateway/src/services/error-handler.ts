@@ -11,6 +11,18 @@ export class HttpException extends Error {
   }
 }
 
+export class GatewayError extends Error {
+  message: string;
+  errorCode: number;
+  httpErrorCode: number;
+  constructor(httpErrorCode: number, errorCode: number, message: string) {
+    super(message);
+    this.httpErrorCode = httpErrorCode;
+    this.errorCode = errorCode;
+    this.message = message;
+  }
+}
+
 // Capture errors from an async route, this must wrap any route that uses async.
 // For example, `app.get('/', asyncHandler(async (req, res) -> {...}))`
 export const asyncHandler =
