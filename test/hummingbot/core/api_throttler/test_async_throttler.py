@@ -144,22 +144,24 @@ class AsyncThrottlerUnitTests(unittest.TestCase):
         self.assertTrue(context.within_capacity())
 
     def test_within_capacity_pool_non_weighted_task_returns_false(self):
-        rate_limit, _ = self.throttler.get_related_limits(limit_id=TEST_PATH_URL)
-        self.throttler._task_logs.append(TaskLog(timestamp=time.time(), rate_limit=rate_limit, weight=rate_limit.weight))
+        rate_limit, related_limits = self.throttler.get_related_limits(limit_id=TEST_PATH_URL)
+
+        for linked_limit, weight in related_limits:
+            self.throttler._task_logs.append(TaskLog(timestamp=time.time(), rate_limit=linked_limit, weight=weight))
 
         context = AsyncRequestContext(task_logs=self.throttler._task_logs,
                                       rate_limit=rate_limit,
-                                      related_limits=[(rate_limit, rate_limit.weight)],
+                                      related_limits=related_limits,
                                       lock=asyncio.Lock(),
                                       safety_margin_pct=self.throttler._safety_margin_pct)
         self.assertFalse(context.within_capacity())
 
     def test_within_capacity_pool_non_weighted_task_returns_true(self):
-        rate_limit, _ = self.throttler.get_related_limits(limit_id=TEST_PATH_URL)
+        rate_limit, related_limits = self.throttler.get_related_limits(limit_id=TEST_PATH_URL)
 
         context = AsyncRequestContext(task_logs=self.throttler._task_logs,
                                       rate_limit=rate_limit,
-                                      related_limits=[(rate_limit, rate_limit.weight)],
+                                      related_limits=related_limits,
                                       lock=asyncio.Lock(),
                                       safety_margin_pct=self.throttler._safety_margin_pct)
         self.assertTrue(context.within_capacity())
