@@ -37,7 +37,7 @@ def validate_market_trading_pair_tuple(value: str) -> Optional[str]:
     return validate_market_trading_pair(exchange, value)
 
 
-def set_order_delay_default(value: str):
+def set_order_delay_default(value: str = None):
     start_datetime_string = twap_config_map.get("start_datetime").value
     end_datetime_string = twap_config_map.get("end_datetime").value
     start_datetime = datetime.fromisoformat(start_datetime_string)
