@@ -363,7 +363,7 @@ class NdaxExchangeTests(TestCase):
         self.assertIn(payload["TradeId"], inflight_order.trade_id_set)
         self.assertEqual(Decimal(1), inflight_order.executed_amount_base)
         self.assertEqual(Decimal(35000), inflight_order.executed_amount_quote)
-        self.assertEqual(inflight_order.executed_amount_base * Decimal("0.02"), inflight_order.fee_paid)
+        self.assertEqual(inflight_order.executed_amount_base * Decimal("0.002"), inflight_order.fee_paid)
 
         self.assertFalse(inflight_order.client_order_id in self.exchange.in_flight_orders)
         self.assertTrue(self._is_logged("INFO", f"The {inflight_order.trade_type.name} order "
@@ -378,7 +378,7 @@ class NdaxExchangeTests(TestCase):
         self.assertEqual(inflight_order.order_type, fill_event.order_type)
         self.assertEqual(Decimal(35000), fill_event.price)
         self.assertEqual(Decimal(1), fill_event.amount)
-        self.assertEqual(Decimal("0.02"), fill_event.trade_fee.percent)
+        self.assertEqual(Decimal("0.002"), fill_event.trade_fee.percent)
         self.assertEqual(0, len(fill_event.trade_fee.flat_fees))
         self.assertEqual("213", fill_event.exchange_trade_id)
         buy_event = self.exchange.event_logs[1]
@@ -435,7 +435,7 @@ class NdaxExchangeTests(TestCase):
         self.assertIn(payload["TradeId"], inflight_order.trade_id_set)
         self.assertEqual(Decimal(1), inflight_order.executed_amount_base)
         self.assertEqual(Decimal(35000), inflight_order.executed_amount_quote)
-        self.assertEqual(inflight_order.executed_amount_base * inflight_order.executed_amount_quote * Decimal("0.02"),
+        self.assertEqual(inflight_order.executed_amount_base * inflight_order.executed_amount_quote * Decimal("0.002"),
                          inflight_order.fee_paid)
 
         self.assertFalse(inflight_order.client_order_id in self.exchange.in_flight_orders)
@@ -451,7 +451,7 @@ class NdaxExchangeTests(TestCase):
         self.assertEqual(inflight_order.order_type, fill_event.order_type)
         self.assertEqual(Decimal(35000), fill_event.price)
         self.assertEqual(Decimal(1), fill_event.amount)
-        self.assertEqual(Decimal("0.02"), fill_event.trade_fee.percent)
+        self.assertEqual(Decimal("0.002"), fill_event.trade_fee.percent)
         self.assertEqual(0, len(fill_event.trade_fee.flat_fees))
         self.assertEqual("213", fill_event.exchange_trade_id)
         buy_event = self.exchange.event_logs[1]
