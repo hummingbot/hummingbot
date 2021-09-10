@@ -13,6 +13,12 @@ RequestWeight = int     # Integer representing the request weight of the path ur
 Seconds = float
 
 
+@dataclass
+class LinkedLimitWeightPair:
+    limit_id: str
+    weight: int = DEFAULT_WEIGHT
+
+
 class RateLimit:
     """
     Defines call rate limits typical for API endpoints.
@@ -22,8 +28,8 @@ class RateLimit:
                  limit_id: str,
                  limit: int,
                  time_interval: float,
-                 weight: int = 1,
-                 linked_limits: Optional[List[str]] = None,
+                 weight: int = DEFAULT_WEIGHT,
+                 linked_limits: Optional[List[LinkedLimitWeightPair]] = None,
                  ):
         """
         :param limit_id: A unique identifier for this RateLimit object, this is usually an API request path url
@@ -46,3 +52,4 @@ class RateLimit:
 class TaskLog:
     timestamp: float
     rate_limit: RateLimit
+    weight: int
