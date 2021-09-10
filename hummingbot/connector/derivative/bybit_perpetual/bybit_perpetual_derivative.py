@@ -426,8 +426,10 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             if self._position_mode == PositionMode.HEDGE:
                 if position_action == PositionAction.OPEN:
                     revised_order_side = "Buy" if trade_type is TradeType.BUY else "Sell"
+                    trade_type = TradeType.BUY if trade_type is TradeType.BUY else TradeType.SELL
                 else:
                     revised_order_side = "Sell" if trade_type is TradeType.BUY else "Buy"
+                    trade_type = TradeType.SELL if trade_type is TradeType.BUY else TradeType.BUY
 
                 params.update({
                     "side": revised_order_side
