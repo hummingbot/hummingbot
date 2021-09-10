@@ -1,6 +1,6 @@
 import request from 'supertest';
-import { app } from '../src/app';
-import { Ethereum } from '../src/chains/ethereum/ethereum';
+import { app } from '../../src/app';
+import { Ethereum } from '../../src/chains/ethereum/ethereum';
 import * as transactionOutOfGas from './fixtures/transaction-out-of-gas.json';
 import * as transactionOutOfGasReceipt from './fixtures/transaction-out-of-gas-receipt.json';
 
