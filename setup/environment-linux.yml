@@ -107,13 +107,13 @@ dependencies:
     - entrypoints==0.3
     - eth-abi==2.1.1
     - eth-account==0.4.0
-    - eth-bloom==1.0.3
-    - eth-hash==0.2.0
+#    - eth-bloom==1.0.3
+#    - eth-hash==0.2.0
     - eth-keyfile==0.5.1
     - eth-keys==0.2.4
     - eth-rlp==0.1.2
     - eth-typing==2.2.1
-    - eth-utils==1.8.4
+    - eth-utils==1.10.0
     - ethsnarks-loopring==0.1.5
     - filelock==3.0.12
     - flake8==3.7.9
