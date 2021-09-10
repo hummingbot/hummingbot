@@ -191,4 +191,5 @@ dependencies:
     - python-markdown-math==0.6
     - git+https://github.com/CoinAlpha/python-signalr-client.git
     - https://hummingbot-python.s3.us-west-2.amazonaws.com/hummingsim-20210607-cp38-cp38-win_amd64.whl
+    - aioresponses==0.7.2
 prefix: C:\Users\marti\Anaconda3\envs\hummingbot
