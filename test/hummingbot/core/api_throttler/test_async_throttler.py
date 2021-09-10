@@ -12,7 +12,7 @@ from typing import (
 
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.api_throttler.async_throttler import AsyncRequestContext, AsyncThrottler
-from hummingbot.core.api_throttler.data_types import RateLimit, TaskLog
+from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit, TaskLog
 
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 
@@ -31,7 +31,7 @@ class AsyncThrottlerUnitTests(unittest.TestCase):
 
         cls.rate_limits: List[RateLimit] = [
             RateLimit(limit_id=TEST_POOL_ID, limit=1, time_interval=5.0),
-            RateLimit(limit_id=TEST_PATH_URL, limit=1, time_interval=5.0, linked_limits=[TEST_POOL_ID])
+            RateLimit(limit_id=TEST_PATH_URL, limit=1, time_interval=5.0, linked_limits=[LinkedLimitWeightPair(TEST_POOL_ID)])
         ]
 
     def setUp(self) -> None:
@@ -85,10 +85,11 @@ class AsyncThrottlerUnitTests(unittest.TestCase):
         # Test: No entries in task_logs to flush
         lock = asyncio.Lock()
 
+        rate_limit = self.rate_limits[0]
         self.assertEqual(0, len(self.throttler._task_logs))
         context = AsyncRequestContext(task_logs=self.throttler._task_logs,
-                                      rate_limit=self.rate_limits[0],
-                                      related_limits=self.rate_limits,
+                                      rate_limit=rate_limit,
+                                      related_limits=[(rate_limit, rate_limit.weight)],
                                       lock=lock,
                                       safety_margin_pct=self.throttler._safety_margin_pct)
         context.flush()
@@ -96,54 +97,58 @@ class AsyncThrottlerUnitTests(unittest.TestCase):
 
     def test_flush_only_elapsed_tasks_are_flushed(self):
         lock = asyncio.Lock()
-
+        rate_limit = self.rate_limits[0]
         self.throttler._task_logs = [
-            TaskLog(timestamp=1.0, rate_limit=self.rate_limits[0]),
-            TaskLog(timestamp=time.time(), rate_limit=self.rate_limits[0])
+            TaskLog(timestamp=1.0, rate_limit=rate_limit, weight=rate_limit.weight),
+            TaskLog(timestamp=time.time(), rate_limit=rate_limit, weight=rate_limit.weight)
         ]
 
         self.assertEqual(2, len(self.throttler._task_logs))
         context = AsyncRequestContext(task_logs=self.throttler._task_logs,
-                                      rate_limit=self.rate_limits[0],
-                                      related_limits=self.rate_limits,
+                                      rate_limit=rate_limit,
+                                      related_limits=[(rate_limit, rate_limit.weight)],
                                       lock=lock,
                                       safety_margin_pct=self.throttler._safety_margin_pct)
         context.flush()
         self.assertEqual(1, len(self.throttler._task_logs))
 
     def test_within_capacity_returns_false(self):
-        self.throttler._task_logs.append(TaskLog(timestamp=time.time(), rate_limit=self.rate_limits[0]))
+        rate_limit = self.rate_limits[0]
+        self.throttler._task_logs.append(TaskLog(timestamp=time.time(), rate_limit=rate_limit, weight=rate_limit.weight))
 
         context = AsyncRequestContext(task_logs=self.throttler._task_logs,
-                                      rate_limit=self.rate_limits[0],
-                                      related_limits=self.rate_limits,
+                                      rate_limit=rate_limit,
+                                      related_limits=[(rate_limit, rate_limit.weight)],
                                       lock=asyncio.Lock(),
                                       safety_margin_pct=self.throttler._safety_margin_pct)
         self.assertFalse(context.within_capacity())
 
     def test_within_capacity_returns_true(self):
         lock = asyncio.Lock()
+        rate_limit = self.rate_limits[0]
         context = AsyncRequestContext(task_logs=self.throttler._task_logs,
-                                      rate_limit=self.rate_limits[0],
-                                      related_limits=self.rate_limits,
+                                      rate_limit=rate_limit,
+                                      related_limits=[(rate_limit, rate_limit.weight)],
                                       lock=lock,
                                       safety_margin_pct=self.throttler._safety_margin_pct)
         self.assertTrue(context.within_capacity())
 
     def test_acquire_appends_to_task_logs(self):
+        rate_limit = self.rate_limits[0]
         context = AsyncRequestContext(task_logs=self.throttler._task_logs,
-                                      rate_limit=self.rate_limits[0],
-                                      related_limits=self.rate_limits,
+                                      rate_limit=rate_limit,
+                                      related_limits=[(rate_limit, rate_limit.weight)],
                                       lock=asyncio.Lock(),
                                       safety_margin_pct=self.throttler._safety_margin_pct)
         self.ev_loop.run_until_complete(context.acquire())
         self.assertEqual(2, len(self.throttler._task_logs))
 
     def test_acquire_awaits_when_exceed_capacity(self):
-        self.throttler._task_logs.append(TaskLog(timestamp=time.time(), rate_limit=self.rate_limits[0]))
+        rate_limit = self.rate_limits[0]
+        self.throttler._task_logs.append(TaskLog(timestamp=time.time(), rate_limit=rate_limit, weight=rate_limit.weight))
         context = AsyncRequestContext(task_logs=self.throttler._task_logs,
-                                      rate_limit=self.rate_limits[0],
-                                      related_limits=self.rate_limits,
+                                      rate_limit=rate_limit,
+                                      related_limits=[(rate_limit, rate_limit.weight)],
                                       lock=asyncio.Lock(),
                                       safety_margin_pct=self.throttler._safety_margin_pct)
         with self.assertRaises(asyncio.exceptions.TimeoutError):
