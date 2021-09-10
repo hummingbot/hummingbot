@@ -155,6 +155,7 @@ def main():
         "sqlalchemy",
         "ujson",
         "yarl",
+        "aioresponses",
     ]
 
     cython_kwargs = {
