@@ -98,13 +98,6 @@ twap_config_map = {
                   default=False,
                   validator=validate_bool,
                   prompt_on_new=True),
-    "is_time_span_execution":
-        ConfigVar(key="is_time_span_execution",
-                  prompt="Do you want to specify an end time for the execution? (Yes/No) >>> ",
-                  type_str="bool",
-                  default=False,
-                  validator=validate_bool,
-                  prompt_on_new=True),
     "start_datetime":
         ConfigVar(key="start_datetime",
                   prompt="Please enter the start date and time"
@@ -112,6 +105,13 @@ twap_config_map = {
                   type_str="str",
                   validator=validate_timestamp_iso_string,
                   required_if=lambda: twap_config_map.get("is_time_span_execution").value or twap_config_map.get("is_delayed_start_execution").value,
+                  prompt_on_new=True),
+    "is_time_span_execution":
+        ConfigVar(key="is_time_span_execution",
+                  prompt="Do you want to specify an end time for the execution? (Yes/No) >>> ",
+                  type_str="bool",
+                  default=False,
+                  validator=validate_bool,
                   prompt_on_new=True),
     "end_datetime":
         ConfigVar(key="end_datetime",
