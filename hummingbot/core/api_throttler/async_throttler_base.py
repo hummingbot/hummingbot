@@ -72,15 +72,14 @@ class AsyncThrottlerBase(ABC):
         # Shared asyncio.Lock instance to prevent multiple async ContextManager from accessing the _task_logs variable
         self._lock = asyncio.Lock()
 
-    def get_related_limits(self, limit_id: str) -> Tuple[RateLimit, List[RateLimit]]:
+    def get_related_limits(self, limit_id: str) -> Tuple[RateLimit, List[Tuple[RateLimit, int]]]:
         rate_limit: Optional[RateLimit] = self._id_to_limit_map.get(limit_id, None)
 
-        related_limits: List[RateLimit] = [rate_limit]
-        for limit in rate_limit.linked_limits:
-            if limit in self._id_to_limit_map:
-                related_limits.append(
-                    self._id_to_limit_map[limit]
-                )
+        related_limits = [(self._id_to_limit_map[limit_weight_pair.limit_id], limit_weight_pair.weight)
+                          for limit_weight_pair in rate_limit.linked_limits
+                          if limit_weight_pair.limit_id in self._id_to_limit_map]
+        # Append self as part of the related_limits
+        related_limits.append((rate_limit, rate_limit.weight))
 
         return rate_limit, related_limits
 
