@@ -24,8 +24,8 @@ RECENT_TRADES_URL = "/trades"
 PING_URL = "/ping"
 
 # Private API v1 Endpoints
-ORDER_URL = "/order"  # w=1
-CANCEL_ALL_OPEN_ORDERS_URL = "/allOpenOrders"  # w=1
+ORDER_URL = "/order"
+CANCEL_ALL_OPEN_ORDERS_URL = "/allOpenOrders"
 ACCOUNT_TRADE_LIST_URL = "/userTrades"  # w=5
 SET_LEVERAGE_URL = "/leverage"  # w=1
 GET_INCOME_HISTORY_URL = "/income"  # w=30
@@ -51,16 +51,23 @@ ONE_DAY = 86400
 
 MAX_REQUEST = 2400
 
+# TODO: Include New LinkedLimitWeightPairs
 RATE_LIMITS = [
     # Pool Limits
     RateLimit(limit_id=REQUEST_WEIGHT, limit=2400, time_interval=ONE_MINUTE),
     RateLimit(limit_id=ORDERS_1MIN, limit=1200, time_interval=ONE_MINUTE),
-    RateLimit(limit_id=REQUEST_WEIGHT, limit=300, time_interval=10),
+    RateLimit(limit_id=ORDERS_1SEC, limit=300, time_interval=10),
     # Weight Limits for individual endpoints
     RateLimit(limit_id=BINANCE_USER_STREAM_ENDPOINT, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[REQUEST_WEIGHT]),
     RateLimit(limit_id=PING_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=1),
     RateLimit(limit_id=ORDER_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=1),
     RateLimit(limit_id=CANCEL_ALL_OPEN_ORDERS_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=1),
-
+    RateLimit(limit_id=ACCOUNT_TRADE_LIST_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=5),
+    RateLimit(limit_id=SET_LEVERAGE_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=1),
+    RateLimit(limit_id=GET_INCOME_HISTORY_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=30),
+    # TODO: Differentiate between POST and GET HTTP methods
+    RateLimit(limit_id=CHANGE_POSITION_MODE_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=30),
+    RateLimit(limit_id=ACCOUNT_INFO_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=5),
+    RateLimit(limit_id=POSITION_INFORMATION_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=5),
 ]
