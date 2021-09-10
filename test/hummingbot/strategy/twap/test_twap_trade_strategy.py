@@ -6,7 +6,7 @@ from unittest import TestCase
 from hummingbot.core.clock import (
     Clock,
     ClockMode)
-from hummingbot.strategy.conditional_execution_state import RunInTimeSpanExecutionState
+from hummingbot.strategy.conditional_execution_state import RunInTimeConditionalExecutionState
 
 from hummingbot.strategy.twap import TwapTradeStrategy
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
@@ -120,8 +120,8 @@ class TwapTradeStrategyTest(TestCase):
         marketTuple = MarketTradingPairTuple(exchange, "ETH-USDT", "ETH", "USDT")
         start_time_string = "2021-06-24 10:00:00"
         end_time_string = "2021-06-24 10:30:00"
-        execution_type = RunInTimeSpanExecutionState(start_timestamp=datetime.fromisoformat(start_time_string),
-                                                     end_timestamp=datetime.fromisoformat(end_time_string))
+        execution_type = RunInTimeConditionalExecutionState(start_timestamp=datetime.fromisoformat(start_time_string),
+                                                            end_timestamp=datetime.fromisoformat(end_time_string))
         strategy = TwapTradeStrategy(market_infos=[marketTuple],
                                      is_buy=True,
                                      target_asset_amount=Decimal(100),
@@ -133,6 +133,42 @@ class TwapTradeStrategyTest(TestCase):
         expected_status = ("\n  Configuration:\n"
                            "    Total amount: 100 ETH    Order price: 25000 USDT    Order size: 10.00 ETH\n"
                            f"    Execution type: run between {start_time_string} and {end_time_string}\n\n"
+                           "  Markets:\n"
+                           "           Exchange    Market  Best Bid Price  Best Ask Price  Mid Price\n"
+                           "    0  MockExchange  ETH-USDT           24900           25100      25000\n\n"
+                           "  Assets:\n"
+                           "           Exchange Asset  Total Balance  Available Balance\n"
+                           "    0  MockExchange   ETH         100000             100000\n"
+                           "    1  MockExchange  USDT          10000              10000\n\n"
+                           "  No active maker orders.\n\n"
+                           "  Average filled orders price: 0 USDT\n"
+                           "  Pending amount: 100 ETH\n\n"
+                           "*** WARNINGS ***\n"
+                           "  Markets are offline for the ETH-USDT pair. "
+                           "Continued trading with these markets may be dangerous.\n")
+
+        self.assertEqual(expected_status, status)
+
+    def test_status_with_delayed_start_execution(self):
+        exchange = MockExchange()
+        exchange.buy_price = Decimal("25100")
+        exchange.sell_price = Decimal("24900")
+        exchange.update_account_balance({"ETH": Decimal("100000"), "USDT": Decimal(10000)})
+        exchange.update_account_available_balance({"ETH": Decimal("100000"), "USDT": Decimal(10000)})
+        marketTuple = MarketTradingPairTuple(exchange, "ETH-USDT", "ETH", "USDT")
+        start_time_string = "2021-06-24 10:00:00"
+        execution_type = RunInTimeConditionalExecutionState(start_timestamp=datetime.fromisoformat(start_time_string))
+        strategy = TwapTradeStrategy(market_infos=[marketTuple],
+                                     is_buy=True,
+                                     target_asset_amount=Decimal(100),
+                                     order_step_size=Decimal(10),
+                                     order_price=Decimal(25000),
+                                     execution_state=execution_type)
+
+        status = strategy.format_status()
+        expected_status = ("\n  Configuration:\n"
+                           "    Total amount: 100 ETH    Order price: 25000 USDT    Order size: 10.00 ETH\n"
+                           f"    Execution type: run from {start_time_string}\n\n"
                            "  Markets:\n"
                            "           Exchange    Market  Best Bid Price  Best Ask Price  Mid Price\n"
                            "    0  MockExchange  ETH-USDT           24900           25100      25000\n\n"
