@@ -60,7 +60,7 @@ dependencies:
     - 0x-json-schemas==2.1.0
     - 0x-order-utils==4.0.0
     - aioconsole==0.1.15
-    - aiohttp==3.6.2
+    - aiohttp==3.7.4.post0
     - aiokafka==0.5.2
     - aioresponses==0.7.2
     - altgraph==0.17
@@ -93,14 +93,14 @@ dependencies:
     - ecdsa==0.16.0
     - entrypoints==0.3
     - eth-abi==2.1.1
-    - eth-account==0.4.0
-    - eth-bloom==1.0.3
-    - eth-hash==0.2.0
+    - eth-account==0.5.5
+    - eth-bloom==1.0.4
+    - eth-hash==0.3.2
     - eth-keyfile==0.5.1
     - eth-keys==0.2.4
     - eth-rlp==0.1.2
     - eth-typing==2.2.1
-    - eth-utils==1.8.4
+    - eth-utils==1.10.0
     - ethsnarks-loopring==0.1.5
     - filelock==3.0.12
     - flake8==3.7.9
@@ -112,7 +112,7 @@ dependencies:
     - idna-ssl==1.1.0
     - importlib-metadata==0.23
     - incremental==17.5.0
-    - ipfshttpclient==0.4.12
+    - ipfshttpclient==0.7.0
     - jsonschema==3.2.0
     - kafka-python==1.4.6
     - lru-dict==1.1.6
@@ -179,8 +179,8 @@ dependencies:
     - urllib3==1.25.8
     - varint==1.0.2
     - virtualenv==20.0.8
-    - web3==5.8.0
-    - websockets==8.1
+    - web3==5.23.0
+    - websockets==9.1
     - wrapt==1.12.0
     - yarl==1.4.2
     - zipp==3.4.1
