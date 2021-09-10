@@ -6,7 +6,7 @@ from unittest import TestCase
 from hummingbot.core.clock import (
     Clock,
     ClockMode)
-from hummingbot.strategy.conditional_execution_state import RunInTimeSpanExecutionState, RunInDelayedStartExecutionState
+from hummingbot.strategy.conditional_execution_state import RunInTimeConditionalExecutionState
 
 from hummingbot.strategy.twap import TwapTradeStrategy
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
@@ -120,8 +120,8 @@ class TwapTradeStrategyTest(TestCase):
         marketTuple = MarketTradingPairTuple(exchange, "ETH-USDT", "ETH", "USDT")
         start_time_string = "2021-06-24 10:00:00"
         end_time_string = "2021-06-24 10:30:00"
-        execution_type = RunInTimeSpanExecutionState(start_timestamp=datetime.fromisoformat(start_time_string),
-                                                     end_timestamp=datetime.fromisoformat(end_time_string))
+        execution_type = RunInTimeConditionalExecutionState(start_timestamp=datetime.fromisoformat(start_time_string),
+                                                            end_timestamp=datetime.fromisoformat(end_time_string))
         strategy = TwapTradeStrategy(market_infos=[marketTuple],
                                      is_buy=True,
                                      target_asset_amount=Decimal(100),
@@ -157,7 +157,7 @@ class TwapTradeStrategyTest(TestCase):
         exchange.update_account_available_balance({"ETH": Decimal("100000"), "USDT": Decimal(10000)})
         marketTuple = MarketTradingPairTuple(exchange, "ETH-USDT", "ETH", "USDT")
         start_time_string = "2021-06-24 10:00:00"
-        execution_type = RunInDelayedStartExecutionState(start_timestamp=datetime.fromisoformat(start_time_string))
+        execution_type = RunInTimeConditionalExecutionState(start_timestamp=datetime.fromisoformat(start_time_string))
         strategy = TwapTradeStrategy(market_infos=[marketTuple],
                                      is_buy=True,
                                      target_asset_amount=Decimal(100),

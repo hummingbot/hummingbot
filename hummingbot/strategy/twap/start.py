@@ -1,5 +1,4 @@
 from datetime import datetime
-import math
 from typing import (
     List,
     Tuple,
@@ -7,8 +6,7 @@ from typing import (
 
 from hummingbot.strategy.conditional_execution_state import (
     RunAlwaysExecutionState,
-    RunInTimeSpanExecutionState,
-    RunInDelayedStartExecutionState)
+    RunInTimeConditionalExecutionState)
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.twap import (
     TwapTradeStrategy
@@ -50,17 +48,15 @@ def start(self):
             end_datetime_string = twap_config_map.get("end_datetime").value
             start_time = datetime.fromisoformat(start_datetime_string)
             end_time = datetime.fromisoformat(end_datetime_string)
-            orders_number = math.ceil(target_asset_amount / order_step_size)
 
-            order_delay_time = math.floor((end_time - start_time).seconds / orders_number)
-            execution_state = RunInTimeSpanExecutionState(start_timestamp=start_time, end_timestamp=end_time)
+            order_delay_time = twap_config_map.get("order_delay_time").value
+            execution_state = RunInTimeConditionalExecutionState(start_timestamp=start_time, end_timestamp=end_time)
         elif is_delayed_start_execution:
             start_datetime_string = twap_config_map.get("start_datetime").value
             start_time = datetime.fromisoformat(start_datetime_string)
-            orders_number = math.ceil(target_asset_amount / order_step_size)
 
             order_delay_time = twap_config_map.get("order_delay_time").value
-            execution_state = RunInDelayedStartExecutionState(start_timestamp=start_time)
+            execution_state = RunInTimeConditionalExecutionState(start_timestamp=start_time)
         else:
             order_delay_time = twap_config_map.get("order_delay_time").value
             execution_state = RunAlwaysExecutionState()
