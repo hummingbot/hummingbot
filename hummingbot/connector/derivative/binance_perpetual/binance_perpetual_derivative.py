@@ -101,19 +101,19 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                  trading_required: bool = True,
                  domain: str = "binance_perpetual",
                  ):
-        ExchangeBase.__init__(self)
-        PerpetualTrading.__init__(self)
-        BinanceTime.get_instance().start()
-
         self._api_key = binance_perpetual_api_key
         self._api_secret = binance_perpetual_api_secret
         self._trading_pairs = trading_pairs
         self._trading_required = trading_required
+        self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         self._domain = domain
-        self._throttler = AsyncThrottler(CONSTANTS.API_LIMITS)
+
+        ExchangeBase.__init__(self)
+        PerpetualTrading.__init__(self)
+        BinanceTime.get_instance().start()
 
         self._user_stream_tracker = BinancePerpetualUserStreamTracker(api_key=self._api_key, domain=self._domain, throttler=self._throttler)
-        self._order_book_tracker = BinancePerpetualOrderBookTracker(trading_pairs=trading_pairs, domain=domain, throttler=self._throttler)
+        self._order_book_tracker = BinancePerpetualOrderBookTracker(trading_pairs=trading_pairs, domain=self._domain, throttler=self._throttler)
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
         self._in_flight_orders = {}
