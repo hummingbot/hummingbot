@@ -36,6 +36,7 @@ class RateLimit:
         :param limit: A total number of calls * weight permitted within time_interval period
         :param time_interval: The time interval in seconds
         :param weight: The weight (in integer) of each call. Defaults to 1
+        :param linked_limits: Optional list of LinkedLimitWeightPairs. Used to associate a weight to the linked rate limit.
         """
         self.limit_id = limit_id
         self.limit = limit
