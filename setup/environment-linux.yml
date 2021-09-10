@@ -142,7 +142,7 @@ dependencies:
     - matplotlib-inline==0.1.2
     - mccabe==0.6.1
     - mkdocs==1.0.4
-#    - mkdocs-material==4.6
+    - mkdocs-material==4.3.1
     - more-itertools==8.8.0
     - mpmath==1.0.0
     - multiaddr==0.0.9
