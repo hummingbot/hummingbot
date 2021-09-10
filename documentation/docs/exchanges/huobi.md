@@ -1,43 +1,58 @@
----
-tags:
-- spot exchange connector
----
+# Huobi Global
 
-# `huobi`
+Huobi is a global, centralized cryptocurrency exchange started in Seychelles and has since expanded its offices to Hong Kong, Korea, Japan, and the United States. As of March 2018, Huobi processed around US \$1 billion in trades daily.
 
-## 📁 [Connector folder](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/connector/exchange/huobi)
+## Using the connector
 
-## ℹ️ Exchange Info
+Because [Huobi](https://www.hbg.com/) is a centralized exchange, you will need to generate and provide your API key to trade using Hummingbot.
 
-**Huobi Global** 
-[Website](https://www.hbg.com/) | [CoinMarketCap](https://coinmarketcap.com/exchanges/huobi-global/) | [CoinGecko](https://www.coingecko.com/en/exchanges/huobi)
-
-* API docs: https://huobiapi.github.io/docs/spot/v1/en/#change-log
-* Transaction fees: https://www.hbg.com/en-us/about/fee/
-* Minimum order size: https://huobiglobal.zendesk.com/hc/en-us/articles/900000210246-Announcement-on-Adjusting-Minimum-Order-Amount-for-Some-Trading-Pairs
-* Creating API keys: https://www.huobi.com/support/en-us/detail/360000203002
-
-## 👷 Maintenance
-
-* Release added: [0.14.0](/release-notes/0.14.0/) by CoinAlpha
-* Maintainer: 
-
-## 🔑 Connection
-
-Run `connect huobi` in order to enter your API keys:
- 
 ```
 Enter your Huobi API key >>>
 Enter your Huobi secret key >>>
 ```
 
-If connection is successful:
-```
-You are now connected to huobi.
-```
+Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
 
-## 🪙 Fees
+!!! tip
+    For copying and pasting into Hummingbot, see [this page](/operation/user-interface/#keyboard-shortcuts).
 
-Hummingbot assumes 0.2% maker fees and 0.2% taker fees ([source](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/exchange/huobi/huobi_utils.py#L22)).
+### Creating Huobi API keys
 
-Users can override these assumptions with [Override Fees](/global-configs/override-fees/).
+1. Log in to https://www.hbg.com/ or sign up for an account on [this page](https://www.hbg.com/en-us/register/?backUrl=%2Fen-us%2F) and go to **API Management** under **Account** section.
+
+![huobi1](/assets/img/huobi-account.png)
+
+2. Add notes (required) and make sure the checkbox for **Trade** is selected to trade on Hummingbot.
+
+![huobi2](/assets/img/huobi-create-api-key.png)
+
+!!! warning
+    We recommend using only `trade` enabled API keys; enabling `withdraw`, `transfer` or `the equivalent is unnecessary` for current Hummingbot strategies.
+
+!!! tip
+    You will receive a notification and email when your API keys are about to expire.
+
+3. **Click to send** and enter the verification code sent to the registered email address.
+
+![huobi3](/assets/img/huobi-verification-code.png)
+
+- Your Access Key and Secret Key will only be shown to you once. So make sure to save and keep this information somewhere safe. If you lose your Secret Key, you can delete the API and create a new one. However, it will be impossible to reuse the same API.
+- Information related to your API keys such as create date, notes, permissions, bind IP address, days remaining before expiration, status is shown under **My API Key**. Click **Edit** button to change the permission setting or bind/unbind to an IP address anytime.
+
+![huobi4](/assets/img/huobi-my-api-key.png)
+
+## Miscellaneous info
+
+### Minimum order sizes
+
+You may refer to [this page](https://huobiglobal.zendesk.com/hc/en-us/articles/900000210246-Announcement-on-Adjusting-Minimum-Order-Amount-for-Some-Trading-Pairs) for the minimum order size per trading pair.
+
+### Transaction fees
+
+Huobi charges 0.2% on both maker and taker for most pairs. However, Huobi VIP users can also enjoy fees at a discounted rate.
+
+No maker and taker fees for trading on stablecoins with HUSD (PAX/HUSD, USDC/HUSD, TUSD/HUSD, USDT/HUSD).
+
+See [this page](https://www.hbg.com/en-us/about/fee/) for more information about their fees.
+
+Users can override the default fees by editing [`conf_fee_overrides.yml`](/operation/override-fees/).

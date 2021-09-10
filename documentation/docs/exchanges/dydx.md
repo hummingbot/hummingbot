@@ -1,36 +1,41 @@
----
-tags:
-- spot exchange connector
-- ethereum dex
----
+# dYdX
 
-# `dydx`
+dYdX describes itself as a full-featured decentralized exchange (originating from the US) for spot and margin trading. dYdX is built on Ethereum and launched at the beginning of May 2019 with spot and margin trading on ETH-DAI. dYdX claims to offer one of the most liquid order books across decentralized exchanges.
 
-## 📁 [Connector folder](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/connector/exchange/dydx)
+## Using the connector
 
-## ℹ️ Exchange Info
+Because dYdX is a decentralized exchange, you will need an independent cryptocurrency wallet and an ethereum node to use Hummingbot. See below for information on how to create these:
 
-**dydx** 
-[Website](https://dydx.exchange/) | [CoinMarketCap](https://coinmarketcap.com/exchanges/dydx/) | [CoinGecko](https://www.coingecko.com/en/exchanges/dydx-margin)
+- [Creating a crypto wallet](/operation/connect-exchange/#wallets)
+- [Creating an ethereum node](/operation/connect-exchange/#setup-ethereum-nodes)
 
-* API docs: https://docs.dydx.exchange/#general
-* Transaction fees: https://help.dydx.exchange/en/articles/4800191-are-there-fees-to-using-dydx
-* Minimum order size: Minimum order sizes will vary by trading pair. dYdX has a minimum order of 1 ETH for pairs running with ETH as the base token and 200 DAI for pairs running with DAI as base token.
-* Creating API keys: https://docs.dydx.exchange/#get-api-keys
+```
+Enter your Ethereum private key >>>
+Which Ethereum node would you like your client to connect to? >>>
+```
 
-## 👷 Maintenance
+Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
 
-* Release added: [0.34.0](/release-notes/0.34.0/) by CoinAlpha
-* Maintainer: CoinAlpha
+!!! tip
+    For copying and pasting into Hummingbot, see [this page](/operation/user-interface/#keyboard-shortcuts).
 
-## 🔑 Connection
+Also, note that your wallet must have funds deposited to dYdX to avoid getting this error when trying to connect dYdX on Hummingbot.
 
-Since this exchange is an Ethereum-based decentralized exchange (DEX), first run `connect ethereum` in order to connect your Ethereum wallet. See [Ethereum](/protocols/ethereum) for more information. Then, go to dYdX and create API keys for the same Ethereum wallet.
+```
+Error: DydxAPIError(status_code=400)(response={'errors': [{'name': 'AccountNotFoundError'}]})
+```
 
-Next, run `connect dydx` in Hummingbot in order to add your API keys.
+!!! warning
+    Currently, [dydx](/connectors/dydx/) and [dydx-perpetual](/connectors/dydx-perpetual/) do not work on Binary Installers. It can only be used when running Hummingbot from source or with Docker.
 
-## 🪙 Fees
+## Miscellaneous info
 
-Hummingbot assumes 0.0% maker fees and 0.3% taker fees ([source](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/exchange/dydx/dydx_utils.py#L11)).
+### Minimum order sizes
 
-Users can override these assumptions with [Override Fees](/global-configs/override-fees/).
+Minimum order sizes will vary by trading pair. dYdX has a minimum order of 1 ETH for pairs running with ETH as the base token and 200 DAI for pairs running with DAI as base token.
+
+### Transaction fees
+
+By default, trading fees are 0% for market makers and 0.3% for takers on dYdX. See the article below for more details.
+
+- [Trader Fees](https://help.dydx.exchange/en/articles/4800191-are-there-fees-to-using-dydx)
