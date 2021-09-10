@@ -11,7 +11,7 @@ EXAMPLE_PAIR = "BTC-CAD"
 
 # NDAX fees: https://ndax.io/fees
 # Fees have to be expressed as percent value
-DEFAULT_FEES = [2, 2]
+DEFAULT_FEES = [0.2, 0.2]
 
 
 # USE_ETHEREUM_WALLET not required because default value is false
@@ -68,7 +68,7 @@ KEYS = {
 OTHER_DOMAINS = ["ndax_testnet"]
 OTHER_DOMAINS_PARAMETER = {"ndax_testnet": "ndax_testnet"}
 OTHER_DOMAINS_EXAMPLE_PAIR = {"ndax_testnet": "BTC-CAD"}
-OTHER_DOMAINS_DEFAULT_FEES = {"ndax_testnet": [2, 2]}
+OTHER_DOMAINS_DEFAULT_FEES = {"ndax_testnet": [0.2, 0.2]}
 OTHER_DOMAINS_KEYS = {
     "ndax_testnet": {
         "ndax_testnet_uid":

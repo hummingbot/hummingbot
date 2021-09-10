@@ -90,7 +90,7 @@ class ThrottlerContextManager:
             current_capacity: int = self._rate_limit - sum(weight for (ts, weight) in self._task_logs)
             if current_capacity - self._request_weight > 0:
                 break
-            await asyncio.sleep(self._retry_interval)
+            await self._sleep(self._retry_interval)
         self._task_logs.append((time.time(), self._request_weight))
 
     async def __aenter__(self):
@@ -99,3 +99,7 @@ class ThrottlerContextManager:
 
     async def __aexit__(self, exc_type, exc, tb):
         pass
+
+    @staticmethod
+    async def _sleep(delay, result=None, *, loop=None):
+        await asyncio.sleep(delay, result, loop=loop)
