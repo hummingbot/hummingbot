@@ -2,10 +2,11 @@ import hmac
 import hashlib
 import time
 from typing import Dict, Any
-from hummingbot.connector.exchange.gate_io.gate_io_constants import Constants
+
+from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 
 
-class GateIoAuth():
+class GateIoAuth:
     """
     Auth class required by Gate.io API
     Learn more at https://exchange-docs.crypto.com/#digital-signature
@@ -68,7 +69,7 @@ class GateIoAuth():
         """
         payload = self.generate_payload(method, url, params)
         headers = {
-            "X-Gate-Channel-Id": Constants.HBOT_BROKER_ID,
+            "X-Gate-Channel-Id": CONSTANTS.HBOT_BROKER_ID,
             "KEY": f"{self.api_key}",
             "Timestamp": f"{self.nonce}",
             "SIGN": f"{payload}",
