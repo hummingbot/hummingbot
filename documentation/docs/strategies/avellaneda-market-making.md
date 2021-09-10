@@ -1,15 +1,51 @@
-# Avellaneda Market Making
+---
+tags:
+  - core strategy
+  - market making
+---
 
-!!! warning
-    This experimental strategy has undergone code review, internal testing and was shipped during one of our most recent releases. As part of User Acceptance Testing, we encourage the user to report any issues and/or provide feedback with this strategy in our [Discord server](https://discord.com/invite/2MN3UWg) or [submit a bug report](https://github.com/CoinAlpha/hummingbot/issues/new?assignees=&labels=bug&template=bug_report.md&title=)
+# `avellaneda_market_making`
 
-## How it works
+## 📝 Summary
 
-The Avellaneda Market Making Strategy is designed to scale inventory and keep it at a specific target that a user defines it with. To achieve this, the strategy will optimize both bid and ask spreads and their order amount to maximize profitability.
+This strategy implements the market making strategy described in the classic paper [High-frequency Trading in a Limit Order Book](https://people.orie.cornell.edu/sfs33/LimitOrderBook.pdf) written by Marco Avellaneda and Sasha Stoikov. It allows users to directly adjust the kappa and gamma parameters described in the paper. It also features a simplified mode that allows the user to enter spread and duration parameters that continually recalculate the advanced parameters.
 
-In its beginner mode, the user will be asked to enter min and max spread limits, and it's aversion to inventory risk scaled from 0 to 1 (Being 0 more driven to profit but less to inventory in target, and 1 being driven to keep tight control of inventory at the expense of less profit). Additionally, sensitivity to volatility changes will be included with a particular parameter `vol_to_spread_multiplier`, to modify spreads in big volatility scenarios.
+## 🏦 Exchanges supported
 
-In expert mode, the user will need to directly define the algorithm's basic parameters described in the [foundation paper](https://people.orie.cornell.edu/sfs33/LimitOrderBook.pdf), and no recalculation of parameters will happen.
+* [`spot` exchanges](exchanges/#spot)
+
+## 👷 Maintainer
+
+CoinAlpha, Inc.
+
+## 📁 Strategy folder and key files
+
+* [Folder](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/strategy/avellaneda_market_making)
+* [Trading logic](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/avellaneda_market_making/avellaneda_market_making_config_map.pyy)
+* [Config map](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/avellaneda_market_making/avellaneda_market_making_config_map.py)
+* [Config template](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/templates/conf_avellaneda_market_making_strategy_TEMPLATE.yml)
+
+## 🛠️ Strategy configs
+
+
+| Parameter                    | Type        | Default     | Prompt New? | Prompt                                                 |
+|------------------------------|-------------|-------------|-------------|--------------------------------------------------------|
+| `exchange`                   | string      |             | True        | Enter your maker spot connector [connector]|
+| `market`                     | string      |             | True        | Enter the trading pair you would like to provide liquidity on [connector]|
+| `fee_tier`                   | string      |             | True        | On which fee tier do you want to provide liquidity on? (LOW/MEDIUM/HIGH)|
+| `buy_spread`                 | decimal     |  1.00       | True        | How far away from the mid price do you want to place the buy position? (Enter 1 to indicate 1%)|
+| `sell_spread`                | decimal     |  1.00       | True        | How far away from the mid price do you want to place the sell position? (Enter 1 to indicate 1%)|
+| `base_token_amount`          | decimal     |             | True        | How much of your base token do you want to use for the buy position? |
+| `quote_token_amount`         | decimal     |             | True        | How much of your quote token do you want to use for the sell position? |
+| `min_profitability`          | decimal     |             | True        | What is the minimum profitability for each position is be adjusted? (Enter 1 to indicate 1%)|
+| `use_volatility`             | bool        |  False      | False       | Do you want to use price volatility to adjust spreads? (Yes/No)| 
+| `volatility_period`          | int         |  1          | False       | Enter how long (in hours) do you want to use for price volatility calculation |
+| `volatility_factor`          | decimal     |  1.00       | False       | Enter the multiplier applied to price volatility |
+
+## 📓 Description
+
+!!! note "Approximation only"
+    The description below is a general approximation of this strategy. Please inspect the strategy code in **Trading Logic** above to understand exactly how it works.
 
 ## Prerequisites
 

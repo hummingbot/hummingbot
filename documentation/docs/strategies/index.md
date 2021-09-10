@@ -1,63 +1,43 @@
-# Strategies
+A strategy is a continual process that monitor exchanges and make trading decisions.
 
-Hummingbot supports 11 different strategies:
+## Strategy types
 
-## Market Making
+!!! note "Core vs community maintenance"
+    **Core** strategies are actively maintained and being improved by CoinAlpha or other core maintainers. **Community** strategies are not actively maintained, but we aim to fix bugs and address issues raised by the community.
+
+### Market making
 
 Market making strategies help you provide liquidity to an exchange while mitigating risk by dynamically repositioning and/or hedging your orders.
 
-### [Pure Market Making](./pure-market-making)
+  | Name                                                          | Valid Exchanges     | Maintainer    | Description                                                                       |
+|-----------------------------------------------------------------|---------------------|---------------|-----------------------------------------------------------------------------------|
+| [`liquidity_mining`](./liquidity-mining)                        | `spot`              | CoinAlpha     | Provide liquidity on multiple pairs using a single base or quote token            |
+| [`avellaneda_market_making`](./avellaneda-market-making)        | `spot`              | CoinAlpha     | Single-pair market making strategy based on the classic Avellaneda-Stoikov paper  |
+| [`perpetual_market_making`](./perpetual-market-making)          | `perp`              | CoinAlpha     | Market-making strategy for perpetual swap markets                                 |
+| [`uniswap_v3_lp`](./uniswap-v3-lp)                              | [`uniswap-v3`](/exchanges/uniswap-v3)| CoinAlpha | Manage liquidity positions on Uniswap-V3 style AMMs                 |
+| [`pure_market_making`](./pure-market-making)                    | `spot`              | CoinAlpha      | Our original single-pair market making strategy                                   |
+| [`cross_exchange_market_making`](./cross-exchange-market-making)| `spot`              | CoinAlpha      | Provide liquidity while hedging filled orders on another exchange                 |
 
-Post buy and sell offers for an instrument on a single exchange, automatically adjust prices while actively managing inventory.
+### Arbitrage
 
-### [Liquidity Mining](./liquidity-mining)
+Arbitrage strategies help you monitor different markets for opportunities to realize an arbitrage profit and capture them when they arise.
 
-Liquidity mining allows users to run multiple market making bots on different pairs without the same base or quote are not available at the same time. Reduced the number of parameters needed and has dynamic spread adjustment on market volatility.
+| Name                                                            | Valid Exchanges     | Maintainer    | Description                                                                               |
+|-----------------------------------------------------------------|---------------------|---------------|-------------------------------------------------------------------------------------------|
+| [`amm_arb`](./amm-arb)                                           | `spot`, `amm`       | CoinAlpha     | Exploits price differences between AMM and spot exchanges                                 |
+| [`spot_perpetual_arbitrage`](./spot-perpetual-arbitrage)        | `spot`, `perp`      | CoinAlpha     | Exploits price differences between spot and perpetual swap exchanges                      |
+| [`arbitrage`](./arbitrage)                                      | `spot`              | Community     | Exploits price differences between two different spot exchanges                           |
+| [`celo-arb`](./celo-arb)                                        | [`celo`](/exchanges/celo)| Community | Exploits price differences between Celo and other exchanges                               |
 
-### [Avellaneda](./avellaneda-market-making)
+### Utility
 
-Based on the seminal Avellaneda-Stoikov paper on market making, this strategy is a more advanced version of Pure Market Making.
+| Name                                                            | Valid Exchanges     | Maintainer    | Description                                                                               |
+|-----------------------------------------------------------------|---------------------|---------------|-------------------------------------------------------------------------------------------|
+| [`twap`](./twap)                                                | `spot`, `perp`      | Community     | Places a batch of limit orders over a period of time                                      |
+| [`vwap`](./twap)                                                | `spot`, `perp`      | Community     | Places a batch of limit orders based on order book volume                                 |
 
-### [Cross Exchange Market Making](./cross-exchange-market-making)
-
-Also referred to as _liquidity mirroring_ or _exchange remarketing_. In this strategy, Hummingbot makes markets (creates buy and sell orders) on smaller or less liquid exchanges and does the opposite, back-to-back transaction for any filled trades on a more liquid exchange.
-
-### [Perpetual Market Making](./perpetual-market-making)
-
-Similar to pure market making but for exchanges that trade perpetual swaps.
-
-### [Uniswap-v3-LP](./uniswap-v3-lp)
-
-An experimental strategy that allows Uniswap-V3 liquidity providers to dynamically control placement and rebalancing of their positions.
-
-## Arbitrage
-
-Arbitrage strategies help you exploit price differences between exchanges.
-
-### [Arbitrage](./arbitrage)
-
-Aims to capture price differentials between two different exchanges (buy low on one, sell high on the other). The [Hummingbot whitepaper](https://www.hummingbot.io/hummingbot.pdf) provides more details about these strategies, as well as additional ones that we are working on for future versions of Hummingbot.
-
-### [AMM Arbitrage](./amm-arbitrage)
-
-AMM-arb lets you exploit the differences between AMMs like [Balancer](/connectors/balancer/) and order book exchanges like Binance. Extending the celo-arb strategy released a few months ago, amm-arb uses a new, simpler design that works with any AMM protocol, on both Ethereum and non-Ethereum chain. You can take a look on our supported [Connectors](/connectors/#connector-types) for this strategy
-
-### [Celo Arbitrage](./celo-arbitrage)
-
-The celo-arb strategy is a special case of the normal arbitrage strategy that arbitrages between the automated market maker (AMM) exchange on the Celo blockchain and other markets supported by Hummingbot. This strategy allows users to earn arbitrage profits while contributing to the stability of the Celo cUSD price peg. For more information, please see this [blog post](https://hummingbot.io/blog/2020-06-celo-arbitrage/).
-
-### [Spot Perpetual Arbitrage](./spot-perpetual-arbitrage)
-
-The Spot Perpetual Arbitrage strategy lets you arbitrage between [Exchange connectors](/connectors/#connector-types) and derivatives connectors like [Binance Futures](/connectors/binance-perpetual/#binance-futures) and [Perpetual Finance](/connectors/perp-fi/). This strategy looks at the price on the spot connector and the price on the derivative connector. Then it calculates the spread between the two connectors.
-
-## Misc
-
-### [TWAP](./twap)
-
-Place a batch of limit orders on an exchange over a period of time.
-
-## For developers
+## Customizing strategies
 
 These strategies are meant to be basic templates. We encourage users to extend these templates for their own purposes, and if they so desire, share them with the community.
 
-For developers interested to create their own strategies, please see [Strategies](/developers/strategies) in the Developers section.
+For developers interested to create or customize their own strategies, please see [Strategies](/developers/strategies) in the Developer Reference section.

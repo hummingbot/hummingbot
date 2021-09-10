@@ -56,41 +56,41 @@ _Supported versions: 16.04 LTS, 18.04 LTS, 19.04_
 
 === "Scripts"
 
-```bash
-# 1) Download Hummingbot install, start, and update script
-wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/master/installation/docker-commands/create.sh
-wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/master/installation/docker-commands/start.sh
-wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/master/installation/docker-commands/update.sh
+    ```bash
+    # 1) Download Hummingbot install, start, and update script
+    wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/master/installation/docker-commands/create.sh
+    wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/master/installation/docker-commands/start.sh
+    wget https://raw.githubusercontent.com/CoinAlpha/hummingbot/master/installation/docker-commands/update.sh
 
-# 2) Enable script permissions
-chmod a+x *.sh
+    # 2) Enable script permissions
+    chmod a+x *.sh
 
-# 3) Create a hummingbot instance
-./create.sh
-```
+    # 3) Create a hummingbot instance
+    ./create.sh
+    ```
 
 === "Manual"
 
-```bash
-# 1) Create folder for your new instance
-mkdir hummingbot_files
+    ```bash
+    # 1) Create folder for your new instance
+    mkdir hummingbot_files
 
-# 2) Create folders for logs, config files and database file
-mkdir hummingbot_files/hummingbot_conf
-mkdir hummingbot_files/hummingbot_logs
-mkdir hummingbot_files/hummingbot_data
-mkdir hummingbot_files/hummingbot_scripts
+    # 2) Create folders for logs, config files and database file
+    mkdir hummingbot_files/hummingbot_conf
+    mkdir hummingbot_files/hummingbot_logs
+    mkdir hummingbot_files/hummingbot_data
+    mkdir hummingbot_files/hummingbot_scripts
 
-# 3) Launch a new instance of hummingbot
-docker run -it \
---network host \
---name hummingbot-instance \
---mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
---mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
---mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_data,destination=/data/" \
---mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_scripts,destination=/scripts/" \
-coinalpha/hummingbot:latest
-```
+    # 3) Launch a new instance of hummingbot
+    docker run -it \
+    --network host \
+    --name hummingbot-instance \
+    --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
+    --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_logs,destination=/logs/" \
+    --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_data,destination=/data/" \
+    --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_scripts,destination=/scripts/" \
+    coinalpha/hummingbot:latest
+    ```
 
 ## MacOS
 

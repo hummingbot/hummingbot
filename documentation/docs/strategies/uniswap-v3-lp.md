@@ -1,20 +1,34 @@
-**Updated as of v0.43**
+---
+tags:
+  - core strategy
+  - dex market making
+---
 
-## How it works
+# `uniswap_v3_lp`
 
 !!! note
     This is a proof-of-concept strategy that demonstrates how to dynamically maintain Uniswap-V3 positions as market prices changes. More features will be added over time based on community feedback.
 
+## 📝 Summary
+
 This strategy creates and maintains Uniswap positions as the market price changes in order to continue providing liquidity. Currently, it does not remove or update positions.
 
-## Strategy files
+## 🏦 Exchanges supported
 
-**Folder**: https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/strategy/uniswap_v3_lp
-**Template**: https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/templates/conf_uniswap_v3_lp_strategy_TEMPLATE.yml
+[`uniswap-v3`](/exchanges/uniswap-v3)
 
-## Parameters
+## 👷 Maintainer
 
-**Config map**: https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/uniswap_v3_lp/uniswap_v3_lp_config_map.py
+CoinAlpha, Inc.
+
+## 📁 Strategy folder and key files
+
+* [Folder](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/strategy/uniswap_v3_lp)
+* [Trading logic](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/uniswap_v3_lp/uniswap_v3_lp.py)
+* [Config map](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/uniswap_v3_lp/uniswap_v3_lp_config_map.py)
+* [Config template](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/templates/conf_uniswap_v3_lp_strategy_TEMPLATE.yml)
+
+## 🛠️ Strategy configs
 
 | Parameter                    | Type        | Default     | Prompt New? | Prompt                                                 |
 |------------------------------|-------------|-------------|-------------|--------------------------------------------------------|
@@ -29,12 +43,10 @@ This strategy creates and maintains Uniswap positions as the market price change
 | `volatility_period`          | int         |  1          | False       | Enter how long (in hours) do you want to use for price volatility calculation |
 | `volatility_factor`          | decimal     |  1.00       | False       | Enter the multiplier applied to price volatility |
 
-## Prerequisites
+## 📓 Description
 
-- [Gateway API server](/installation/gateway/)
-- [Ethereum Wallet](/operation/connect-exchange/#setup-ethereum-wallet)
-
-## Specification
+!!! note "Approximation only"
+    The description below is a general approximation of this strategy. Please inspect the strategy code in **Trading Logic** above to understand exactly how it works.
 
 ### Starting
 
@@ -79,7 +91,7 @@ Each tick, the bot monitors the pool mid price (`last_price`) and compare it to 
 
 ![image.png](/assets/img/uniswap-v3-3.png)
 
-## Important Notes
+### Important Notes
 
 - Currently, the strategy does not remove existing positions. The user should do it manually through the Uniswap interace (https://app.uniswap.org/#/pool).
 - The `status` command shows the current profitability of each position, using the `quote` asset as reference

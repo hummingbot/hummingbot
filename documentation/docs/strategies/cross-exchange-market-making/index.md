@@ -1,21 +1,11 @@
 # Cross Exchange Market Making
 
 ## How it works
-
-Cross exchange market making is described in [Strategies](/strategies/#cross-exchange-market-making), with a further discussion in the Hummingbot [white paper](https://hummingbot.io/hummingbot.pdf).
-
-!!! warning
-    Updates to strategy — The cross exchange market making strategy has been updated as of v0.15.0 so that it will always place the order at the minimum profitability level. If the sell price for the specified volume on the taker exchange is 100, and you set the min_profitability as 0.01, it will place the maker buy order at 99. The top depth tolerance is also now specified by the user in base currency units. Please do not use old configuration files for running this strategy.
-
-### Schematic
+Also referred to as _liquidity mirroring_ or _exchange remarketing_, this strategy allows you to make a market (creates buy and sell orders) on one exchange, while hedging any filled trades on a second exchange.
 
 The diagrams below illustrate how cross exchange market making works. The transaction involves two exchanges, a **taker exchange** and a **maker exchange**. Hummingbot uses the market levels available on the taker exchange to create the bid and ask orders (act as a market maker) on the maker exchange (_Figure 1_).
 
-<small>
-  <center>
-    ***Figure 1: Hummingbot acts as market maker on maker exchange***
-  </center>
-</small>
+**Figure 1: Hummingbot acts as market maker on maker exchange**
 
 ![Figure 1: Hummingbot acts as a market maker on maker exchange](/assets/img/xemm-1.png)
 
@@ -23,51 +13,13 @@ The diagrams below illustrate how cross exchange market making works. The transa
 
 **Sell order**: Hummingbot can buy the asset on the taker exchange for 101 (the best ask available), and therefore makes a sell order on the maker exchange for a higher price of 102.
 
-<small>
-  <center>
-    ***Figure 2: Hummingbot fills an order on the maker exchanges and hedges on
-    the taker exchange***
-  </center>
-</small>
+**Figure 2: Hummingbot fills an order on the maker exchanges and hedges on the taker exchange**
 
 ![Figure 2: Hummingbot fills an order on the maker exchanges and hedges on the taker exchange](/assets/img/xemm-2.png)
 
 If a buyer (_Buyer D_) fills Hummingbot's sell order on the maker exchange (_Figure 2_ ❶), Hummingbot immediately buys the asset on the taker exchange (_Figure 2_ ❷).
 
 The end result: Hummingbot has sold the same asset at $102 (❶) and purchased it for $101 (❷), for a profit of $1.
-
-## Prerequisites
-
-### Inventory
-
-- For cross-exchange market making, you will need to hold inventory on two exchanges. The bot will make a market (the **maker exchange**) and another where the bot will source liquidity and hedge any filled orders (the **taker exchange**).
-- You will also need some Ethereum to pay gas for transactions on a DEX (if applicable).
-
-Initially, we assume that the maker exchange is an Ethereum-based decentralized exchange and that the taker exchange is Binance.
-
-### Minimum order size
-
-When placing orders on the maker market and filling orders on the taker market, the order amount should meet the exchange's minimum order size and minimum trade size.
-
-You can find more information about this for each [Exchange Connectors](/connectors/#list-of-connectors) under the Miscellaneous section.
-
-### Adjusting orders and maker price calculations
-
-If the user has the following configuration,
-
-order_amount: 1 ETH <br/>
-min_profitability: 5 <br/>
-
-and as per market conditions, we have the following,
-
-Sell price on Taker: 100 USDT (on a volume-weighted average basis) <br/>
-Top Bid price on Maker: 90 USDT (existing order on the order book, which is not the user's current order) <br/>
-
-If `adjust_order_enabled` is set to `True`:
-The bid price according to min profitability is 95 (100\*(1-0.05)). However, as top bid price is 90, the strategy will place the bid order above the existing top bid at 90.01 USDT.
-
-If `adjust_order_enabled` is set to `False`:
-The bid price according to min profitability is 95 (100\*(1-0.05)). So here the strategy will place the bid order at 95.
 
 ## Basic parameters
 

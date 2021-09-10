@@ -47,6 +47,7 @@ theme:
 
 plugins:
   - search
+  - tags
   # - social:
   #     cards_color:
   #       fill: '#0FF1CE'
@@ -121,7 +122,6 @@ nav:
       - Docker: installation/docker.md
       - Source: installation/source.md
       - Raspberry Pi: installation/raspberry-pi.md
-      - Gateway: installation/gateway.md
       - Run in the Cloud: installation/cloud-servers.md
       - Run Multiple Bots: installation/multiple-bots.md
       - Update and Restore Hummingbot: installation/update-hummingbot.md
@@ -130,8 +130,8 @@ nav:
       - Run Liquidity Mining bot: tutorials/liquidity-mining.md
       - Run AMM-ARB bot: tutorials/amm-arb.md
       - Create Strategy: tutorials/create-strategy.md
-    - Operation:
-      - Operation: operation/index.md
+    - Basic Operations:
+      - Basic Operations: operation/index.md
       - Commands and Shortcuts: operation/commands-shortcuts.md
       - User Interface Guide: operation/user-interface.md
       - Launch/Exit Hummingbot: operation/launch-exit.md
@@ -144,65 +144,71 @@ nav:
       - Check Bot/Market Status: operation/status.md
       - Check Performance: operation/history.md
       - Find Log Files: operation/log-files.md
-    - Connectors:
-      - Connectors: connectors/index.md
-      - AscendEX: connectors/ascend-ex.md
-      - Balancer: connectors/balancer.md
-      - Bamboo Relay: connectors/bamboo-relay.md
-      - Beaxy: connectors/beaxy.md
-      - Binance: connectors/binance.md
-      - Binance Perpetual: connectors/binance-perpetual.md
-      - Binance US: connectors/binance-us.md
-      - Bitfinex: connectors/bitfinex.md
-      - Bittrex Global: connectors/bittrex.md
-      - Blocktane: connectors/blocktane.md
-      - Coinbase Pro: connectors/coinbase.md
-      - CoinZoom: connectors/coinzoom.md
-      - Crypto.com : connectors/crypto-com.md
-      - Digifinex: connectors/digifinex.md
-      - Dolomite: connectors/dolomite.md
-      - dYdX: connectors/dydx.md
-      - dYdX Perpetual: connectors/dydx-perpetual.md
-      - Eterbase: connectors/eterbase.md
-      - FTX: connectors/ftx.md
-      - Gate.io: connectors/gate-io.md
-      - Himalaya: connectors/himalaya.md
-      - HitBTC: connectors/hitbtc.md
-      - Huobi Global: connectors/huobi.md
-      - KuCoin: connectors/kucoin.md
-      - Kraken: connectors/kraken.md
-      - Liquid: connectors/liquid.md
-      - Loopring: connectors/loopring.md
-      - NDAX: connectors/ndax.md
-      - OKEx: connectors/okex.md
-      - Perpetual Finance: connectors/perp-fi.md
-      - ProBit Global: connectors/probit.md
-      - ProBit Korea: connectors/probit-korea.md
-      - Radar Relay: connectors/radar-relay.md
-      - Terra: connectors/terra.md
-      - Uniswap: connectors/uniswap.md
-      - Uniswap-v3: connectors/uniswap-v3.md
-    - Strategies:
-      - Strategies: strategies/index.md
+    - Trading Strategies:
+      - Trading Strategies: strategies/index.md
       - AMM Arbitrage: strategies/amm-arbitrage.md
       - Arbitrage: 
         - Arbitrage: strategies/arbitrage/index.md
         - Specification: strategies/arbitrage/specification.md
       - Avellaneda Market Making: strategies/avellaneda-market-making.md
-      - Liquidity Mining: strategies/liquidity-mining.md
-      - Perpetual Market Making: strategies/perpetual-market-making.md
-      - Spot Perpetual Arbitrage: strategies/spot-perpetual-arbitrage.md
-      - Uniswap-v3 LP: strategies/uniswap-v3-lp.md
       - Celo Arbitrage: strategies/celo-arbitrage.md
       - Cross-Exchange Market Making:
         - Cross-Exchange Market Making: strategies/cross-exchange-market-making/index.md
         - Specification: strategies/cross-exchange-market-making/specification.md
+      - Liquidity Mining: strategies/liquidity-mining.md
+      - Perpetual Market Making: strategies/perpetual-market-making.md
+      - Spot Perpetual Arbitrage: strategies/spot-perpetual-arbitrage.md
+      - Uniswap-v3 LP: strategies/uniswap-v3-lp.md
       - Pure Market Making:
         - Pure Market Making: strategies/pure-market-making/index.md
         - Specification: strategies/pure-market-making/specification.md
       - TWAP: 
         - TWAP: strategies/twap/index.md
         - Specification: strategies/twap/specification.md
+    - Exchange Connectors:
+      - Exchange Connectors: exchanges/index.md
+      - AscendEX: exchanges/ascend-ex.md
+      - Balancer: exchanges/balancer.md
+      - Bamboo Relay: exchanges/bamboo-relay.md
+      - Beaxy: exchanges/beaxy.md
+      - Binance: exchanges/binance.md
+      - Binance Perpetual: exchanges/binance-perpetual.md
+      - Binance US: exchanges/binance-us.md
+      - Bitfinex: exchanges/bitfinex.md
+      - Bittrex Global: exchanges/bittrex.md
+      - Blocktane: exchanges/blocktane.md
+      - Coinbase Pro: exchanges/coinbase.md
+      - CoinZoom: exchanges/coinzoom.md
+      - Crypto.com : exchanges/crypto-com.md
+      - Digifinex: exchanges/digifinex.md
+      - Dolomite: exchanges/dolomite.md
+      - dYdX: exchanges/dydx.md
+      - dYdX Perpetual: exchanges/dydx-perpetual.md
+      - Eterbase: exchanges/eterbase.md
+      - FTX: exchanges/ftx.md
+      - Gate.io: exchanges/gate-io.md
+      - Himalaya: exchanges/himalaya.md
+      - HitBTC: exchanges/hitbtc.md
+      - Huobi Global: exchanges/huobi.md
+      - KuCoin: exchanges/kucoin.md
+      - Kraken: exchanges/kraken.md
+      - Liquid: exchanges/liquid.md
+      - Loopring: exchanges/loopring.md
+      - NDAX: exchanges/ndax.md
+      - OKEx: exchanges/okex.md
+      - Perpetual Finance: exchanges/perp-fi.md
+      - ProBit Global: exchanges/probit.md
+      - ProBit Korea: exchanges/probit-korea.md
+      - Radar Relay: exchanges/radar-relay.md
+      - Terra: exchanges/terra.md
+      - Uniswap: exchanges/uniswap.md
+      - Uniswap-v3: exchanges/uniswap-v3.md
+    - Protocol Connectors:
+      - Protocol Connectors: protocols/index.md
+      - Gateway: protocols/gateway.md
+      - Ethereum: protocols/ethereum.md
+      - Celo: protocols/celo.md
+      - Terra: protocols/terra.md
     - Global Configs:
       - Global Configs: global-configs/index.md
       - Kill Switch: global-configs/kill-switch.md
@@ -229,7 +235,6 @@ nav:
       - FAQ: faq/index.md
       - Troubleshooting: faq/troubleshooting.md
       - Glossary: faq/glossary.md
-      - Support: faq/support.md
 
   - Developer Reference:
       - Overview: developers/index.md
@@ -257,8 +262,10 @@ nav:
         - Scripts: developers/scripts/index.md
         - Script Base Class: developers/scripts/script-base.md
       - Debug Console: developers/debug.md
+  - Background:
+    - Background: background/index.md
   - Release Notes:
-    - About Releases: release-notes/index.md
+    - Release Notes: release-notes/index.md
     - 0.43.0: release-notes/0.43.0.md
     - 0.42.0: release-notes/0.42.0.md
     - 0.41.0: release-notes/0.41.0.md
