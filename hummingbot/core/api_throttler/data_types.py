@@ -1,5 +1,8 @@
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import (
+    List,
+    Optional,
+)
 
 DEFAULT_PATH = ""
 DEFAULT_WEIGHT = 1
@@ -8,6 +11,12 @@ Limit = int             # Integer representing the no. of requests be time inter
 RequestPath = str       # String representing the request path url
 RequestWeight = int     # Integer representing the request weight of the path url
 Seconds = float
+
+
+@dataclass
+class LinkedLimitWeightPair:
+    limit_id: str
+    weight: int = DEFAULT_WEIGHT
 
 
 class RateLimit:
@@ -19,14 +28,15 @@ class RateLimit:
                  limit_id: str,
                  limit: int,
                  time_interval: float,
-                 weight: int = 1,
-                 linked_limits: Optional[List[str]] = None,
+                 weight: int = DEFAULT_WEIGHT,
+                 linked_limits: Optional[List[LinkedLimitWeightPair]] = None,
                  ):
         """
         :param limit_id: A unique identifier for this RateLimit object, this is usually an API request path url
         :param limit: A total number of calls * weight permitted within time_interval period
         :param time_interval: The time interval in seconds
         :param weight: The weight (in integer) of each call. Defaults to 1
+        :param linked_limits: Optional list of LinkedLimitWeightPairs. Used to associate a weight to the linked rate limit.
         """
         self.limit_id = limit_id
         self.limit = limit
@@ -42,4 +52,5 @@ class RateLimit:
 @dataclass
 class TaskLog:
     timestamp: float
-    rate_limits: List[RateLimit]
+    rate_limit: RateLimit
+    weight: int
