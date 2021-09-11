@@ -1,5 +1,5 @@
 # A single source of truth for constant variables related to the exchange
-from hummingbot.core.api_throttler.data_types import RateLimit
+from hummingbot.core.api_throttler.data_types import RateLimit, LinkedLimitWeightPair
 
 EXCHANGE_NAME = "ndax"
 
@@ -54,68 +54,68 @@ RATE_LIMITS = [
         limit_id=MARKETS_URL,
         limit=HTTP_LIMIT,
         time_interval=MINUTE,
-        linked_limits=[HTTP_ENDPOINTS_LIMIT_ID],
+        linked_limits=[LinkedLimitWeightPair(HTTP_ENDPOINTS_LIMIT_ID)],
     ),
     RateLimit(
         limit_id=ORDER_BOOK_URL,
         limit=HTTP_LIMIT,
         time_interval=MINUTE,
-        linked_limits=[HTTP_ENDPOINTS_LIMIT_ID],
+        linked_limits=[LinkedLimitWeightPair(HTTP_ENDPOINTS_LIMIT_ID)],
     ),
     RateLimit(
         limit_id=LAST_TRADE_PRICE_URL,
         limit=HTTP_LIMIT,
         time_interval=MINUTE,
-        linked_limits=[HTTP_ENDPOINTS_LIMIT_ID],
+        linked_limits=[LinkedLimitWeightPair(HTTP_ENDPOINTS_LIMIT_ID)],
     ),
     # private http
     RateLimit(
         limit_id=ACCOUNT_POSITION_PATH_URL,
         limit=HTTP_LIMIT,
         time_interval=MINUTE,
-        linked_limits=[HTTP_ENDPOINTS_LIMIT_ID],
+        linked_limits=[LinkedLimitWeightPair(HTTP_ENDPOINTS_LIMIT_ID)],
     ),
     RateLimit(
         limit_id=USER_ACCOUNT_INFOS_PATH_URL,
         limit=HTTP_LIMIT,
         time_interval=MINUTE,
-        linked_limits=[HTTP_ENDPOINTS_LIMIT_ID],
+        linked_limits=[LinkedLimitWeightPair(HTTP_ENDPOINTS_LIMIT_ID)],
     ),
     RateLimit(
         limit_id=SEND_ORDER_PATH_URL,
         limit=HTTP_LIMIT,
         time_interval=MINUTE,
-        linked_limits=[HTTP_ENDPOINTS_LIMIT_ID],
+        linked_limits=[LinkedLimitWeightPair(HTTP_ENDPOINTS_LIMIT_ID)],
     ),
     RateLimit(
         limit_id=CANCEL_ORDER_PATH_URL,
         limit=HTTP_LIMIT,
         time_interval=MINUTE,
-        linked_limits=[HTTP_ENDPOINTS_LIMIT_ID],
+        linked_limits=[LinkedLimitWeightPair(HTTP_ENDPOINTS_LIMIT_ID)],
     ),
     RateLimit(
         limit_id=GET_ORDER_STATUS_PATH_URL,
         limit=HTTP_LIMIT,
         time_interval=MINUTE,
-        linked_limits=[HTTP_ENDPOINTS_LIMIT_ID],
+        linked_limits=[LinkedLimitWeightPair(HTTP_ENDPOINTS_LIMIT_ID)],
     ),
     RateLimit(
         limit_id=GET_TRADES_HISTORY_PATH_URL,
         limit=HTTP_LIMIT,
         time_interval=MINUTE,
-        linked_limits=[HTTP_ENDPOINTS_LIMIT_ID],
+        linked_limits=[LinkedLimitWeightPair(HTTP_ENDPOINTS_LIMIT_ID)],
     ),
     RateLimit(
         limit_id=GET_OPEN_ORDERS_PATH_URL,
         limit=HTTP_LIMIT,
         time_interval=MINUTE,
-        linked_limits=[HTTP_ENDPOINTS_LIMIT_ID],
+        linked_limits=[LinkedLimitWeightPair(HTTP_ENDPOINTS_LIMIT_ID)],
     ),
     RateLimit(
         limit_id=HTTP_PING_ID,
         limit=HTTP_LIMIT,
         time_interval=MINUTE,
-        linked_limits=[HTTP_ENDPOINTS_LIMIT_ID],
+        linked_limits=[LinkedLimitWeightPair(HTTP_ENDPOINTS_LIMIT_ID)],
     ),
     # ws public
     RateLimit(limit_id=WS_AUTH_LIMIT_ID, limit=50, time_interval=MINUTE),
@@ -124,42 +124,42 @@ RATE_LIMITS = [
         limit_id=ACCOUNT_POSITION_EVENT_ENDPOINT_NAME,
         limit=WS_LIMIT,
         time_interval=MINUTE,
-        linked_limits=[WS_ENDPOINTS_LIMIT_ID],
+        linked_limits=[LinkedLimitWeightPair(WS_ENDPOINTS_LIMIT_ID)],
     ),
     RateLimit(
         limit_id=AUTHENTICATE_USER_ENDPOINT_NAME,
         limit=50,
         time_interval=MINUTE,
-        linked_limits=[WS_AUTH_LIMIT_ID],
+        linked_limits=[LinkedLimitWeightPair(WS_AUTH_LIMIT_ID)],
     ),
     RateLimit(
         limit_id=ORDER_STATE_EVENT_ENDPOINT_NAME,
         limit=WS_LIMIT,
         time_interval=MINUTE,
-        linked_limits=[WS_ENDPOINTS_LIMIT_ID],
+        linked_limits=[LinkedLimitWeightPair(WS_ENDPOINTS_LIMIT_ID)],
     ),
     RateLimit(
         limit_id=ORDER_TRADE_EVENT_ENDPOINT_NAME,
         limit=WS_LIMIT,
         time_interval=MINUTE,
-        linked_limits=[WS_ENDPOINTS_LIMIT_ID],
+        linked_limits=[LinkedLimitWeightPair(WS_ENDPOINTS_LIMIT_ID)],
     ),
     RateLimit(
         limit_id=SUBSCRIBE_ACCOUNT_EVENTS_ENDPOINT_NAME,
         limit=WS_LIMIT,
         time_interval=MINUTE,
-        linked_limits=[WS_ENDPOINTS_LIMIT_ID],
+        linked_limits=[LinkedLimitWeightPair(WS_ENDPOINTS_LIMIT_ID)],
     ),
     RateLimit(
         limit_id=WS_ORDER_BOOK_CHANNEL,
         limit=WS_LIMIT,
         time_interval=MINUTE,
-        linked_limits=[WS_ENDPOINTS_LIMIT_ID],
+        linked_limits=[LinkedLimitWeightPair(WS_ENDPOINTS_LIMIT_ID)],
     ),
     RateLimit(
         limit_id=WS_PING_ID,
         limit=WS_LIMIT,
         time_interval=MINUTE,
-        linked_limits=[WS_ENDPOINTS_LIMIT_ID],
+        linked_limits=[LinkedLimitWeightPair(WS_ENDPOINTS_LIMIT_ID)],
     ),
 ]
