@@ -1,5 +1,5 @@
 # A single source of truth for constant variables related to the exchange
-from hummingbot.core.api_throttler.data_types import RateLimit
+from hummingbot.core.api_throttler.data_types import RateLimit, LinkedLimitWeightPair
 
 
 class Constants:
@@ -68,14 +68,42 @@ class Constants:
     REST_ORDERBOOK_LIMIT_ID = "OrderBook"
 
     RATE_LIMITS = [
-        RateLimit(limit_id=REST_TOTAL_LIMIT_ID, limit=120, time_interval=60),
-        RateLimit(limit_id=WS_REQUEST_LIMIT_ID, limit=30, time_interval=60),
-        RateLimit(limit_id=ENDPOINT["NETWORK_CHECK"], limit=12, time_interval=1, linked_limits=[REST_TOTAL_LIMIT_ID]),
-        RateLimit(limit_id=ENDPOINT["TICKER"], limit=12, time_interval=60, linked_limits=[REST_TOTAL_LIMIT_ID]),
-        RateLimit(limit_id=ENDPOINT["SYMBOL"], limit=12, time_interval=60, linked_limits=[REST_TOTAL_LIMIT_ID]),
-        RateLimit(limit_id=REST_ORDERBOOK_LIMIT_ID, limit=12, time_interval=60, linked_limits=[REST_TOTAL_LIMIT_ID]),
-        RateLimit(limit_id=ENDPOINT["ORDER_CREATE"], limit=60, time_interval=60, linked_limits=[REST_TOTAL_LIMIT_ID]),
-        RateLimit(limit_id=ENDPOINT["ORDER_DELETE"], limit=60, time_interval=60, linked_limits=[REST_TOTAL_LIMIT_ID]),
-        RateLimit(limit_id=ENDPOINT["ORDER_STATUS"], limit=30, time_interval=60, linked_limits=[REST_TOTAL_LIMIT_ID]),
-        RateLimit(limit_id=ENDPOINT["USER_BALANCES"], limit=60, time_interval=60, linked_limits=[REST_TOTAL_LIMIT_ID]),
+        RateLimit(limit_id=REST_TOTAL_LIMIT_ID,
+                  limit=120,
+                  time_interval=60),
+        RateLimit(limit_id=WS_REQUEST_LIMIT_ID,
+                  limit=30,
+                  time_interval=60),
+        RateLimit(limit_id=ENDPOINT["NETWORK_CHECK"],
+                  limit=12,
+                  time_interval=1,
+                  linked_limits=[LinkedLimitWeightPair(REST_TOTAL_LIMIT_ID)]),
+        RateLimit(limit_id=ENDPOINT["TICKER"],
+                  limit=12,
+                  time_interval=60,
+                  linked_limits=[LinkedLimitWeightPair(REST_TOTAL_LIMIT_ID)]),
+        RateLimit(limit_id=ENDPOINT["SYMBOL"],
+                  limit=12,
+                  time_interval=60,
+                  linked_limits=[LinkedLimitWeightPair(REST_TOTAL_LIMIT_ID)]),
+        RateLimit(limit_id=REST_ORDERBOOK_LIMIT_ID,
+                  limit=12,
+                  time_interval=60,
+                  linked_limits=[LinkedLimitWeightPair(REST_TOTAL_LIMIT_ID)]),
+        RateLimit(limit_id=ENDPOINT["ORDER_CREATE"],
+                  limit=60,
+                  time_interval=60,
+                  linked_limits=[LinkedLimitWeightPair(REST_TOTAL_LIMIT_ID)]),
+        RateLimit(limit_id=ENDPOINT["ORDER_DELETE"],
+                  limit=60,
+                  time_interval=60,
+                  linked_limits=[LinkedLimitWeightPair(REST_TOTAL_LIMIT_ID)]),
+        RateLimit(limit_id=ENDPOINT["ORDER_STATUS"],
+                  limit=30,
+                  time_interval=60,
+                  linked_limits=[LinkedLimitWeightPair(REST_TOTAL_LIMIT_ID)]),
+        RateLimit(limit_id=ENDPOINT["USER_BALANCES"],
+                  limit=60,
+                  time_interval=60,
+                  linked_limits=[LinkedLimitWeightPair(REST_TOTAL_LIMIT_ID)]),
     ]
