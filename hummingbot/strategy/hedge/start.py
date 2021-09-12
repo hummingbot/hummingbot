@@ -8,7 +8,7 @@ def start(self):
     maker_exchange = c_map.get("maker_exchange").value.lower()
     taker_exchange = c_map.get("taker_exchange").value.lower()
     maker_markets = list(c_map.get("maker_markets").value.split(","))
-    taker_markets = list(c_map.get("maker_markets").value.split(","))
+    taker_markets = list(c_map.get("taker_markets").value.split(","))
     hedge_asset = c_map.get("hedge_asset").value
     maker_markets = [m.strip().upper() for m in maker_markets]
     taker_markets = [m.strip().upper() for m in taker_markets]
