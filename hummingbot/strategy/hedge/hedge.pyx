@@ -43,7 +43,6 @@ s_logger = None
 cdef class HedgeStrategy(StrategyBase):
     # Ideally, use event listener on maker exchange to listen for orders. similar to xemm
     # At this time, it is not possible, hence check every hedge_interval second
-    # TODO: if asset to be hedged is at qoute, convert amount
     # TODO: add order age to cancel stagnant limit order and try to hedge again
     @classmethod
     def logger(cls):
@@ -96,11 +95,14 @@ cdef class HedgeStrategy(StrategyBase):
     def update_shadow_position(self, trading_pair: str, value):
         self._shadow_taker_balance[trading_pair] = self._shadow_taker_balance[trading_pair] + value
 
-    def get_position_amount(self, trading_pair: str):
-        position = self._exchanges.taker._account_positions.get(trading_pair, None)
-        if position:
-            return position._amount
+    @property
+    def active_positions(self) -> List[LimitOrder]:
+        return self._exchanges.taker.account_positions
 
+    def get_position_amount(self, trading_pair: str):
+        for idx in self.active_positions.values():
+            if idx.trading_pair == trading_pair:
+                return idx.amount
         return self.get_shadow_position(trading_pair)
 
     def get_balance(self, maker_trading_pair: str):
