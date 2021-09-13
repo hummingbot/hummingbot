@@ -158,16 +158,10 @@ jobs:
             ${{ runner.os }}-node-
 
       - name: Install Dependencies
-        with:
-          path: /home/runner/work/gateway
-        run: npm ci
+        run: npm ci --prefix ./gateway
       
       - name: Build project
-      with:
-          path: /home/runner/work/gateway
         run: npm run build
       
       - name: Run unit test
-        with:
-            path: /home/runner/work/gateway
         run: npm run test:unit
