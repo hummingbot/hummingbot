@@ -21,12 +21,6 @@ from websockets.exceptions import ConnectionClosed
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_in_flight_order import BinancePerpetualsInFlightOrder
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_order_book_tracker import BinancePerpetualOrderBookTracker
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_user_stream_tracker import BinancePerpetualUserStreamTracker
-# from hummingbot.connector.derivative.binance_perpetual.constants import (
-#     PERPETUAL_BASE_URL,
-#     TESTNET_BASE_URL,
-#     DIFF_STREAM_URL,
-#     TESTNET_STREAM_URL
-# )
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.exchange_base import ExchangeBase, s_decimal_NaN
 from hummingbot.connector.exchange.binance.binance_time import BinanceTime
@@ -991,11 +985,12 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 "dualSidePosition": position_mode.value
             }
             mode = await self.request(
+                method=MethodType.POST,
                 path=CONSTANTS.CHANGE_POSITION_MODE_URL,
                 params=params,
-                method=MethodType.POST,
                 add_timestamp=True,
-                is_signed=True
+                is_signed=True,
+                limit_id=CONSTANTS.POST_POSITION_MODE_LIMIT_ID
             )
             if mode["msg"] == "success" and mode["code"] == 200:
                 self.logger().info(f"Using {position_mode.name} position mode.")
@@ -1008,10 +1003,11 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         # To-do: ensure there's no active order or contract before changing position mode
         if self._position_mode is None:
             mode = await self.request(
-                path=CONSTANTS.CHANGE_POSITION_MODE_URL,
                 method=MethodType.GET,
+                path=CONSTANTS.CHANGE_POSITION_MODE_URL,
                 add_timestamp=True,
-                is_signed=True
+                is_signed=True,
+                limit_id=CONSTANTS.GET_POSITION_MODE_LIMIT_ID
             )
             self._position_mode = PositionMode.HEDGE if mode["dualSidePosition"] else PositionMode.ONEWAY
 
@@ -1030,8 +1026,9 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                       add_timestamp: bool = False,
                       is_signed: bool = False,
                       return_err: bool = False,
-                      api_version: str = CONSTANTS.API_VERSION):
-        async with self._throttler.execute_task(limit_id=path):
+                      api_version: str = CONSTANTS.API_VERSION,
+                      limit_id: Optional[str] = None):
+        async with self._throttler.execute_task(limit_id=limit_id if limit_id else path):
             try:
                 if add_timestamp:
                     params["timestamp"] = str(int(BinanceTime.get_instance().time()) * 1000)

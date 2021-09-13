@@ -1,4 +1,4 @@
-from hummingbot.core.api_throttler.data_types import RateLimit
+from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 
 EXCHANGE_NAME = "binance_perpetual"
 
@@ -31,6 +31,9 @@ SET_LEVERAGE_URL = "/leverage"  # w=1
 GET_INCOME_HISTORY_URL = "/income"  # w=30
 CHANGE_POSITION_MODE_URL = "/positionSide/dual"  # GET w=30, POST w=1
 
+POST_POSITION_MODE_LIMIT_ID = f"POST{CHANGE_POSITION_MODE_URL}"
+GET_POSITION_MODE_LIMIT_ID = f"GET{CHANGE_POSITION_MODE_URL}"
+
 # Private API v2 Endpoints
 ACCOUNT_INFO_URL = "/account"  # w=5
 POSITION_INFORMATION_URL = "/positionRisk"  # GET w=5
@@ -51,7 +54,6 @@ ONE_DAY = 86400
 
 MAX_REQUEST = 2400
 
-# TODO: Include New LinkedLimitWeightPairs
 RATE_LIMITS = [
     # Pool Limits
     RateLimit(limit_id=REQUEST_WEIGHT, limit=2400, time_interval=ONE_MINUTE),
@@ -59,15 +61,27 @@ RATE_LIMITS = [
     RateLimit(limit_id=ORDERS_1SEC, limit=300, time_interval=10),
     # Weight Limits for individual endpoints
     RateLimit(limit_id=BINANCE_USER_STREAM_ENDPOINT, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[REQUEST_WEIGHT]),
-    RateLimit(limit_id=PING_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=1),
-    RateLimit(limit_id=ORDER_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=1),
-    RateLimit(limit_id=CANCEL_ALL_OPEN_ORDERS_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=1),
-    RateLimit(limit_id=ACCOUNT_TRADE_LIST_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=5),
-    RateLimit(limit_id=SET_LEVERAGE_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=1),
-    RateLimit(limit_id=GET_INCOME_HISTORY_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=30),
-    # TODO: Differentiate between POST and GET HTTP methods
-    RateLimit(limit_id=CHANGE_POSITION_MODE_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=30),
-    RateLimit(limit_id=ACCOUNT_INFO_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=5),
-    RateLimit(limit_id=POSITION_INFORMATION_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=5),
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
+    RateLimit(limit_id=PING_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
+    RateLimit(limit_id=ORDER_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1),
+                             LinkedLimitWeightPair(ORDERS_1MIN, weight=1),
+                             LinkedLimitWeightPair(ORDERS_1SEC, weight=1)]),
+    RateLimit(limit_id=CANCEL_ALL_OPEN_ORDERS_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
+    RateLimit(limit_id=ACCOUNT_TRADE_LIST_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=5)]),
+    RateLimit(limit_id=SET_LEVERAGE_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
+    RateLimit(limit_id=GET_INCOME_HISTORY_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=30)]),
+    RateLimit(limit_id=POST_POSITION_MODE_LIMIT_ID, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
+    RateLimit(limit_id=GET_POSITION_MODE_LIMIT_ID, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=30)]),
+    RateLimit(limit_id=ACCOUNT_INFO_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=5)]),
+    RateLimit(limit_id=POSITION_INFORMATION_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=5,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=5)]),
 ]
