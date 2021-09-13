@@ -515,7 +515,7 @@ class CoinzoomExchange(ExchangeBase):
         if order_id in self._order_not_found_records:
             del self._order_not_found_records[order_id]
 
-    async def _execute_cancel(self, trading_pair: str, order_id: str) -> str:
+    async def _execute_cancel(self, trading_pair: str, order_id: str) -> CancellationResult:
         """
         Executes order cancellation process by first calling cancel-order API. The API result doesn't confirm whether
         the cancellation is successful, it simply states it receives the request.
@@ -528,20 +528,26 @@ class CoinzoomExchange(ExchangeBase):
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is None:
                 raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
-            if tracked_order.exchange_order_id is None:
-                await tracked_order.get_exchange_order_id()
-            ex_order_id = tracked_order.exchange_order_id
-            api_params = {
-                "orderId": ex_order_id,
-                "symbol": convert_to_exchange_trading_pair(trading_pair)
-            }
-            await self._api_request("POST",
-                                    Constants.ENDPOINT["ORDER_DELETE"],
-                                    api_params,
-                                    is_auth_required=True)
-            order_was_cancelled = True
+
+            if not tracked_order.is_local:
+                if tracked_order.exchange_order_id is None:
+                    await tracked_order.get_exchange_order_id()
+                ex_order_id = tracked_order.exchange_order_id
+                api_params = {
+                    "orderId": ex_order_id,
+                    "symbol": convert_to_exchange_trading_pair(trading_pair)
+                }
+                await self._api_request("POST",
+                                        Constants.ENDPOINT["ORDER_DELETE"],
+                                        api_params,
+                                        is_auth_required=True)
+                order_was_cancelled = True
         except asyncio.CancelledError:
             raise
+        except asyncio.TimeoutError:
+            self.logger().info(f"The order {order_id} could not be cancelled due to a timeout."
+                               " The action will be retried later.")
+            err = {"message": "Timeout during order cancellation"}
         except CoinzoomAPIError as e:
             err = e.error_payload.get('error', e.error_payload)
             self.logger().error(f"Order Cancel API Error: {err}")
@@ -549,6 +555,7 @@ class CoinzoomExchange(ExchangeBase):
             self._order_not_found_records[order_id] = self._order_not_found_records.get(order_id, 0) + 1
             if self._order_not_found_records[order_id] >= self.ORDER_NOT_EXIST_CANCEL_COUNT:
                 order_was_cancelled = True
+
         if order_was_cancelled:
             self.logger().info(f"Successfully cancelled order {order_id} on {Constants.EXCHANGE_NAME}.")
             self.stop_tracking_order(order_id)
@@ -557,12 +564,13 @@ class CoinzoomExchange(ExchangeBase):
             tracked_order.cancelled_event.set()
             return CancellationResult(order_id, True)
         else:
-            self.logger().network(
-                f"Failed to cancel order {order_id}: {err.get('message', str(err))}",
-                exc_info=True,
-                app_warning_msg=f"Failed to cancel the order {order_id} on {Constants.EXCHANGE_NAME}. "
-                                f"Check API key and network connection."
-            )
+            if not tracked_order.is_local:
+                self.logger().network(
+                    f"Failed to cancel order {order_id}: {err.get('message', str(err))}",
+                    exc_info=True,
+                    app_warning_msg=f"Failed to cancel the order {order_id} on {Constants.EXCHANGE_NAME}. "
+                                    f"Check API key and network connection."
+                )
             return CancellationResult(order_id, False)
 
     async def _status_polling_loop(self):

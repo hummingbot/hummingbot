@@ -39,6 +39,12 @@ class CoinzoomAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._trading_pairs: List[str] = trading_pairs
         self._snapshot_msg: Dict[str, any] = {}
 
+    def _time(self):
+        """ Function created to enable patching during unit tests execution.
+        :return: current time
+        """
+        return time.time()
+
     @classmethod
     def _get_throttler_instance(cls) -> AsyncThrottler:
         throttler = AsyncThrottler(Constants.RATE_LIMITS)
@@ -128,6 +134,7 @@ class CoinzoomAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         continue
 
                     trade: List[Any] = response[Constants.WS_METHODS["TRADES_UPDATE"]]
+                    trade[0] = convert_from_exchange_trading_pair(trade[0])
                     trade_msg: OrderBookMessage = CoinzoomOrderBook.trade_message_from_exchange(trade)
                     output.put_nowait(trade_msg)
 
@@ -176,7 +183,7 @@ class CoinzoomAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
                     method: str = method_key[0]
                     order_book_data: dict = response
-                    timestamp: int = int(time.time() * 1e3)
+                    timestamp: int = int(self._time() * 1e3)
                     pair: str = convert_from_exchange_trading_pair(response[method])
 
                     order_book_msg_cls = (CoinzoomOrderBook.diff_message_from_exchange
@@ -229,7 +236,7 @@ class CoinzoomAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         await asyncio.sleep(5.0)
                 this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
                 next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)
-                delta: float = next_hour.timestamp() - time.time()
+                delta: float = next_hour.timestamp() - self._time()
                 await asyncio.sleep(delta)
             except asyncio.CancelledError:
                 raise

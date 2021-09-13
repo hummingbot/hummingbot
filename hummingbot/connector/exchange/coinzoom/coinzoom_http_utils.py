@@ -37,9 +37,9 @@ async def aiohttp_response_with_errors(request_coroutine):
                         parsed_response = f"{parsed_response[:100]} ... (truncated)"
                 except Exception:
                     pass
-            TempFailure = (parsed_response is None or
-                           (response.status not in [200, 201, 204] and "error" not in parsed_response))
-            if TempFailure:
+            temp_failure = (parsed_response is None or
+                            (response.status not in [200, 201, 204] and "error" not in parsed_response))
+            if temp_failure:
                 parsed_response = response.reason if parsed_response is None else parsed_response
                 request_errors = True
     except Exception:
