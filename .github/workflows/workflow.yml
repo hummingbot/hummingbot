@@ -9,7 +9,7 @@ on:
 
 jobs:
   build_hummingbot:
-    name: build + stable tests
+    name: Hummingbot build + stable tests
     if: github.event.pull_request.draft == false
     runs-on: "ubuntu-latest"
 
@@ -136,7 +136,7 @@ jobs:
           bash webhook/send.sh $JOB_STATUS $WEBHOOK_URL
         shell: bash
   build_gateway:
-    name: build + unit tests
+    name: Gateway build + unit tests
     if: github.ref == 'refs/heads/feat/gateway-v2'
     runs-on: 'ubuntu-latest'
 
