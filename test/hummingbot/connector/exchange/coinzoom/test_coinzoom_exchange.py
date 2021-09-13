@@ -159,7 +159,37 @@ class CoinzoomExchangeTests(TestCase):
 
         self.exchange.start_tracking_order(
             order_id="OID-1",
-            exchange_order_id="E-OID-1",
+            exchange_order_id=None,
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal(50000),
+            amount=Decimal(1),
+            order_type=OrderType.LIMIT,
+        )
+        self.exchange.in_flight_orders["OID-1"].update_exchange_order_id("E-OID-1")
+
+        result: CancellationResult = self.async_run_with_timeout(self.exchange._execute_cancel(self.trading_pair, "OID-1"))
+
+        self.assertEqual("OID-1", result.order_id)
+        self.assertTrue(result.success)
+        self.assertNotIn("OID-1", self.exchange.in_flight_orders)
+
+        sent_message = json.loads(sent_messages[0][1]["data"])
+        self.assertEqual("E-OID-1", sent_message["orderId"])
+        self.assertEqual(f"{self.base_asset}/{self.quote_asset}", sent_message["symbol"])
+
+    @aioresponses()
+    def test_execute_cancel_ignores_local_orders(self, mock_api):
+        sent_messages = []
+        url = f"{Constants.REST_URL}/{Constants.ENDPOINT['ORDER_DELETE']}"
+        # To ensure the request is not sent we associate an exception to it
+        mock_api.post(url, exception=Exception(), callback=partial(self._register_sent_request, sent_messages))
+
+        self._simulate_trading_rules_initialized()
+
+        self.exchange.start_tracking_order(
+            order_id="OID-1",
+            exchange_order_id=None,
             trading_pair=self.trading_pair,
             trade_type=TradeType.BUY,
             price=Decimal(50000),
@@ -167,12 +197,10 @@ class CoinzoomExchangeTests(TestCase):
             order_type=OrderType.LIMIT,
         )
 
-        result: CancellationResult = self.async_run_with_timeout(self.exchange._execute_cancel(self.trading_pair, "OID-1"))
+        result: CancellationResult = self.async_run_with_timeout(
+            self.exchange._execute_cancel(self.trading_pair, "OID-1"))
 
         self.assertEqual("OID-1", result.order_id)
-        self.assertTrue(result.success)
-        self.assertNotIn("E-OID-1", self.exchange.in_flight_orders)
-
-        sent_message = json.loads(sent_messages[0][1]["data"])
-        self.assertEqual("E-OID-1", sent_message["orderId"])
-        self.assertEqual(f"{self.base_asset}/{self.quote_asset}", sent_message["symbol"])
+        self.assertFalse(result.success)
+        self.assertIn("OID-1", self.exchange.in_flight_orders)
+        self.assertEqual(0, len(sent_messages))
