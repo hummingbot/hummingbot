@@ -474,7 +474,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
                 self.logger().info(f"Created {order_type.name} {trade_type.name} order {order_id} for "
-                                   f"{amount} {trading_pair}.")
+                                   f"{result['qty']} @ {result['price']} {trading_pair}.")
                 tracked_order.update_exchange_order_id(exchange_order_id)
 
         except asyncio.CancelledError:
