@@ -118,11 +118,8 @@ dependencies:
     - jsonschema==3.2.0
     - kafka-python==1.4.6
     - lru-dict==1.1.6
-    - markdown==3.0.1
     - markupsafe==2.0.1
     - mccabe==0.6.1
-    - mkdocs==1.0.4
-    - mkdocs-material==4.6
     - more-itertools==8.8.0
     - mpmath==1.0.0
     - multiaddr==0.0.9
@@ -149,7 +146,6 @@ dependencies:
     - pyhamcrest==2.0.2
     - pyinstaller==3.6
     - pyjwt==1.7.1
-    - pymdown-extensions==6.2
     - pyopenssl==19.1.0
     - pyparsing==2.4.7
     - pyperclip==1.7.0
@@ -158,7 +154,6 @@ dependencies:
     - pysha3==1.0.2
     - pytest==4.6.11
     - python-binance==0.7.5
-    - python-markdown-math==0.6
     - python-telegram-bot==12.4.2
     - pywin32==227
     - pywin32-ctypes==0.2.0
