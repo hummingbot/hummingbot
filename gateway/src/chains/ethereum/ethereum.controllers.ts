@@ -81,9 +81,9 @@ const toEthereumTransactionReceipt = (
 export async function poll(txHash: string) {
   const initTime = Date.now();
   const receipt = await ethereum.getTransactionReceipt(txHash);
-  const confirmed = !!receipt.blockNumber;
+  const confirmed = !!receipt && !!receipt.blockNumber;
 
-  if (receipt.status === 0) {
+  if (receipt && receipt.status === 0) {
     const transaction = await ethereum.getTransaction(txHash);
     const gasUsed = BigNumber.from(receipt.gasUsed).toNumber();
     const gasLimit = BigNumber.from(transaction.gasLimit).toNumber();
