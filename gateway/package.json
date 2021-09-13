@@ -40,7 +40,7 @@
   "devDependencies": {
     "@types/app-root-path": "^1.2.4",
     "@types/express": "^4.17.12",
-    "@types/jest": "^26.0.24",
+    "@types/jest": "^27.0.1",
     "@types/js-yaml": "^4.0.2",
     "@types/mathjs": "^9.4.2",
     "@types/node": "^15.12.4",
