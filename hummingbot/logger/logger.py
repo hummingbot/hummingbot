@@ -50,7 +50,7 @@ class HummingbotLogger(PythonLogger):
         from . import NETWORK
 
         self.log(NETWORK, log_msg, *args, **kwargs)
-        if app_warning_msg is not None and not HummingbotApplication.is_testing_mode():
+        if app_warning_msg is not None and not HummingbotLogger.is_testing_mode():
             app_warning: ApplicationWarning = ApplicationWarning(
                 time.time(),
                 self.name,
