@@ -200,14 +200,16 @@ Hummingbot follows the same date/time and timezone on the machine where it is in
 
 While docker `$instance_name` is running in the background, type in the command line.
 
+Manual 
+
 ```
-#Run this command
+# 1) Run this command
 docker exec -u 0 -it instance_name bash
 
-#Install tzdata for the instance/container
+# 2) Install tzdata for the instance/container
 apt-get update && apt-get install -y tzdata
 
-#Run this command to change the docker timezone
+# 3) Run this command to change the docker timezone
 dpkg-reconfigure tzdata
 ```
 
