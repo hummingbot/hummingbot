@@ -1,5 +1,5 @@
 import { Ethereum } from './ethereum';
-import { constants, Wallet, utils, BigNumber } from 'ethers';
+import ethers, { constants, Wallet, utils, BigNumber } from 'ethers';
 import { ConfigManager } from '../../services/config-manager';
 import { latency, bigNumberWithDecimalToStr } from '../../services/base';
 import { GatewayError } from '../../services/error-handler';
@@ -52,12 +52,38 @@ export async function approve(
   };
 }
 
+// TransactionReceipt from ethers uses BigNumber which is not easy to interpret directly from JSON.
+// Transform those BigNumbers to string and pass the rest of the data without changes.
+
+export interface EthereumTransactionReceipt
+  extends Omit<
+    ethers.providers.TransactionReceipt,
+    'gasUsed' | 'cumulativeGasUsed'
+  > {
+  gasUsed: string;
+  cumulativeGasUsed: string;
+}
+
+const toEthereumTransactionReceipt = (
+  receipt: ethers.providers.TransactionReceipt | null
+): EthereumTransactionReceipt | null => {
+  if (receipt) {
+    return {
+      ...receipt,
+      gasUsed: receipt.gasUsed.toString(),
+      cumulativeGasUsed: receipt.cumulativeGasUsed.toString(),
+    };
+  }
+
+  return null;
+};
+
 export async function poll(txHash: string) {
   const initTime = Date.now();
   const receipt = await ethereum.getTransactionReceipt(txHash);
-  const confirmed = !!receipt.blockNumber;
+  const confirmed = !!receipt && !!receipt.blockNumber;
 
-  if (receipt.status === 0) {
+  if (receipt && receipt.status === 0) {
     const transaction = await ethereum.getTransaction(txHash);
     const gasUsed = BigNumber.from(receipt.gasUsed).toNumber();
     const gasLimit = BigNumber.from(transaction.gasLimit).toNumber();
@@ -71,6 +97,6 @@ export async function poll(txHash: string) {
     latency: latency(initTime, Date.now()),
     txHash,
     confirmed,
-    receipt: receipt,
+    receipt: toEthereumTransactionReceipt(receipt),
   };
 }

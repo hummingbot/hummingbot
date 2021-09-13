@@ -14,7 +14,9 @@ describe('Eth endpoints', () => {
   });
   it('should get an OUT of GAS error', async () => {
     eth.getTransaction = jest.fn().mockReturnValue(transactionOutOfGas);
-    eth.getTransactionReceipt = jest.fn().mockReturnValue(transactionOutOfGasReceipt);
+    eth.getTransactionReceipt = jest
+      .fn()
+      .mockReturnValue(transactionOutOfGasReceipt);
     const res = await request(app).post('/eth/poll').send({
       txHash:
         '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
