@@ -212,7 +212,7 @@ dependencies:
     - zope-interface==4.7.1
     - markdown==3.0.1
     - mkdocs==1.0.4
-    - mkdocs-material==4.6
+    - mkdocs-material==4.3.1
     - pymdown-extensions==6.2
     - python-markdown-math==0.6
     - git+https://github.com/CoinAlpha/python-signalr-client.git
