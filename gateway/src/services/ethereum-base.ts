@@ -43,23 +43,7 @@ export class EthereumBase {
     this.tokenListType = tokenListType;
   }
 
-  reload(
-    chainID: number,
-    rpcUrl: string,
-    tokenListSource: string,
-    tokenListType: TokenListType,
-    gasPriceConstant: number
-  ): void {
-    this._ready = false;
-    this._provider = new providers.JsonRpcProvider(rpcUrl);
-    this.chainID = chainID;
-    this.rpcUrl = rpcUrl;
-    this.gasPriceConstant = gasPriceConstant;
-    this.tokenListSource = tokenListSource;
-    this.tokenListType = tokenListType;
-  }
-
-  public ready(): boolean {
+  ready(): boolean {
     return this._ready;
   }
 
@@ -154,16 +138,14 @@ export class EthereumBase {
   }
 
   // returns an ethereum TransactionResponse for a txHash.
-  async getTransaction(
-    txHash: string
-  ): Promise<providers.TransactionResponse | null> {
-    return this._provider.getTransaction(txHash); // If it does makes sense shouldn't we be doing it here?
+  async getTransaction(txHash: string): Promise<providers.TransactionResponse> {
+    return this._provider.getTransaction(txHash);
   }
 
   // returns an ethereum TransactionReceipt for a txHash if the transaction has been mined.
   async getTransactionReceipt(
     txHash: string
-  ): Promise<providers.TransactionReceipt | null> {
+  ): Promise<providers.TransactionReceipt> {
     return this._provider.getTransactionReceipt(txHash);
   }
 
@@ -176,7 +158,7 @@ export class EthereumBase {
   ): Promise<boolean> {
     // instantiate a contract and pass in wallet, which act on behalf of that signer
     const contract = new Contract(tokenAddress, abi.ERC20Abi, wallet);
-    return await contract.approve(spender, amount, {
+    return contract.approve(spender, amount, {
       gasPrice: this.gasPriceConstant * 1e9,
       gasLimit: 100000,
     });
