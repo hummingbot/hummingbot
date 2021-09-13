@@ -147,7 +147,7 @@ jobs:
       - name: Use Node.js
         uses: actions/setup-node@v1
         with:
-          node-version: '12.x'
+          node-version: '16.x'
 
       - name: Cache NPM
         uses: actions/cache@v1
@@ -158,10 +158,16 @@ jobs:
             ${{ runner.os }}-node-
 
       - name: Install Dependencies
+        with:
+          path: /home/runner/work/gateway
         run: npm ci
       
       - name: Build project
+      with:
+          path: /home/runner/work/gateway
         run: npm run build
       
       - name: Run unit test
+        with:
+            path: /home/runner/work/gateway
         run: npm run test:unit
