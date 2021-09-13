@@ -1,5 +1,5 @@
 # A single source of truth for constant variables related to the exchange
-from hummingbot.core.api_throttler.data_types import RateLimit
+from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 EXCHANGE_NAME = "gate_io"
 REST_URL = "https://api.gateio.ws/api/v4"
 REST_URL_AUTH = "/api/v4"
@@ -50,13 +50,13 @@ RATE_LIMITS = [
     RateLimit(limit_id=PUBLIC_URL_POINTS_LIMIT_ID, limit=900, time_interval=1),
     RateLimit(limit_id=PRIVATE_URL_POINTS_LIMIT_ID, limit=900, time_interval=1),
     RateLimit(limit_id=CANCEL_ORDERS_LIMITS_ID, limit=5_000, time_interval=1),
-    RateLimit(limit_id=NETWORK_CHECK_PATH_URL, limit=900, time_interval=1, linked_limits=[PUBLIC_URL_POINTS_LIMIT_ID]),
-    RateLimit(limit_id=SYMBOL_PATH_URL, limit=900, time_interval=1, linked_limits=[PUBLIC_URL_POINTS_LIMIT_ID]),
-    RateLimit(limit_id=ORDER_CREATE_PATH_URL, limit=900, time_interval=1, linked_limits=[PRIVATE_URL_POINTS_LIMIT_ID]),
-    RateLimit(limit_id=ORDER_DELETE_LIMIT_ID, limit=5_000, time_interval=1, linked_limits=[CANCEL_ORDERS_LIMITS_ID]),
-    RateLimit(limit_id=USER_BALANCES_PATH_URL, limit=900, time_interval=1, linked_limits=[PRIVATE_URL_POINTS_LIMIT_ID]),
-    RateLimit(limit_id=ORDER_STATUS_LIMIT_ID, limit=900, time_interval=1, linked_limits=[PRIVATE_URL_POINTS_LIMIT_ID]),
-    RateLimit(limit_id=USER_ORDERS_PATH_URL, limit=900, time_interval=1, linked_limits=[PRIVATE_URL_POINTS_LIMIT_ID]),
-    RateLimit(limit_id=TICKER_PATH_URL, limit=900, time_interval=1, linked_limits=[PUBLIC_URL_POINTS_LIMIT_ID]),
-    RateLimit(limit_id=ORDER_BOOK_PATH_URL, limit=900, time_interval=1, linked_limits=[PUBLIC_URL_POINTS_LIMIT_ID])
+    RateLimit(limit_id=NETWORK_CHECK_PATH_URL, limit=900, time_interval=1, linked_limits=[LinkedLimitWeightPair(PUBLIC_URL_POINTS_LIMIT_ID)]),
+    RateLimit(limit_id=SYMBOL_PATH_URL, limit=900, time_interval=1, linked_limits=[LinkedLimitWeightPair(PUBLIC_URL_POINTS_LIMIT_ID)]),
+    RateLimit(limit_id=ORDER_CREATE_PATH_URL, limit=900, time_interval=1, linked_limits=[LinkedLimitWeightPair(PRIVATE_URL_POINTS_LIMIT_ID)]),
+    RateLimit(limit_id=ORDER_DELETE_LIMIT_ID, limit=5_000, time_interval=1, linked_limits=[LinkedLimitWeightPair(CANCEL_ORDERS_LIMITS_ID)]),
+    RateLimit(limit_id=USER_BALANCES_PATH_URL, limit=900, time_interval=1, linked_limits=[LinkedLimitWeightPair(PRIVATE_URL_POINTS_LIMIT_ID)]),
+    RateLimit(limit_id=ORDER_STATUS_LIMIT_ID, limit=900, time_interval=1, linked_limits=[LinkedLimitWeightPair(PRIVATE_URL_POINTS_LIMIT_ID)]),
+    RateLimit(limit_id=USER_ORDERS_PATH_URL, limit=900, time_interval=1, linked_limits=[LinkedLimitWeightPair(PRIVATE_URL_POINTS_LIMIT_ID)]),
+    RateLimit(limit_id=TICKER_PATH_URL, limit=900, time_interval=1, linked_limits=[LinkedLimitWeightPair(PUBLIC_URL_POINTS_LIMIT_ID)]),
+    RateLimit(limit_id=ORDER_BOOK_PATH_URL, limit=900, time_interval=1, linked_limits=[LinkedLimitWeightPair(PUBLIC_URL_POINTS_LIMIT_ID)])
 ]
