@@ -10,7 +10,7 @@ on:
 jobs:
   build_hummingbot:
     name: Hummingbot build + stable tests
-    if: github.event.pull_request.draft == false && github.ref != 'refs/heads/feat/gateway-v2'
+    if: github.event.pull_request.draft == false && github.base_ref != 'refs/heads/feat/gateway-v2'
     runs-on: "ubuntu-latest"
 
     steps:
@@ -137,7 +137,7 @@ jobs:
         shell: bash
   build_gateway:
     name: Gateway build + unit tests
-    if: github.ref == 'refs/heads/feat/gateway-v2'
+    if: github.base_ref == 'refs/heads/feat/gateway-v2'
     runs-on: 'ubuntu-latest'
 
     steps:
