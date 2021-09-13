@@ -2,7 +2,7 @@
 ###       Execution4 strategy config               ###
 ########################################################
 
-template_version: 5
+template_version: 6
 strategy: null
 # The following configuations are only required for the
 # twap strategy
@@ -30,6 +30,9 @@ trade_side: "buy"
 
 # Specifies if the strategy should run during a fixed time span
 is_time_span_execution: False
+
+# Specifies if the strategy should run during a with a delayed start
+is_delayed_start_execution: False
 
 # Date and time the strategy should start running
 # Only valid if is_time_span_execution is True
