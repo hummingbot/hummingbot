@@ -4,7 +4,7 @@ on:
   push:
     branches: [master, development, 'refactor/unit_tests**', 'epic/**']
   pull_request:
-    branches: [master, development, 'refactor/unit_tests**', 'epic/**']
+    branches: [master, development, 'refactor/unit_tests**', 'epic/**', 'feat/gateway-v2']
     types: [ready_for_review, opened, synchronize, reopened]
 
 jobs:
@@ -135,3 +135,33 @@ jobs:
           git clone --depth 1 https://github.com/DiscordHooks/github-actions-discord-webhook.git webhook
           bash webhook/send.sh $JOB_STATUS $WEBHOOK_URL
         shell: bash
+  build_gateway:
+    name: build + unit tests
+    if: github.ref == 'refs/heads/master'
+    runs-on: 'ubuntu-latest'
+
+    steps:
+      - name: Checkout commit
+        uses: actions/checkout@v2
+
+      - name: Use Node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: '12.x'
+
+      - name: Cache NPM
+        uses: actions/cache@v1
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install Dependencies
+        run: npm ci
+      
+      - name: Build project
+        run: npm run build
+      
+      - name: Run unit test
+        run: npm run test:unit
