@@ -375,7 +375,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertTrue("C1" in self.connector.in_flight_orders)
         in_flight_order: BybitPerpetualInFlightOrder = self.connector.in_flight_orders["C1"]
         self.assertEqual(in_flight_order.trade_type, TradeType.BUY)
-        self.assertTrue(self._is_logged("INFO", "Created LIMIT BUY order C1 for 1.000000 BTC-USDT."))
+        self.assertTrue(self._is_logged("INFO", "Created LIMIT BUY order C1 for 1 @ 8800 BTC-USDT."))
 
     @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
     def test_create_order_hedge_mode_close_position(self, post_mock):
@@ -436,7 +436,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertTrue("C1" in self.connector.in_flight_orders)
         in_flight_order: BybitPerpetualInFlightOrder = self.connector.in_flight_orders["C1"]
         self.assertEqual(in_flight_order.trade_type, TradeType.SELL)
-        self.assertTrue(self._is_logged("INFO", "Created LIMIT SELL order C1 for 1.000000 BTC-USDT."))
+        self.assertTrue(self._is_logged("INFO", "Created LIMIT SELL order C1 for 1 @ 8800 BTC-USDT."))
 
     @patch('hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils.get_tracking_nonce')
     @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
