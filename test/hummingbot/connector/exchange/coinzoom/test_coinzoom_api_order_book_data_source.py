@@ -44,10 +44,6 @@ class CoinzoomAPIOrderBookDataSourceTests(TestCase):
         ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
 
-    @staticmethod
-    def _register_sent_request(requests_list, url, **kwargs):
-        requests_list.append((url, kwargs))
-
     @aioresponses()
     def test_get_last_traded_prices(self, mock_api):
         url = f"{Constants.REST_URL}/{Constants.ENDPOINT['TICKER']}"
@@ -108,7 +104,7 @@ class CoinzoomAPIOrderBookDataSourceTests(TestCase):
         self.assertEqual(trade_message.timestamp, trade_message.trade_id)
         self.assertEqual(self.trading_pair, trade_message.trading_pair)
 
-    @patch("time.time")
+    @patch("hummingbot.connector.exchange.coinzoom.coinzoom_api_order_book_data_source.CoinzoomAPIOrderBookDataSource._time")
     @patch("websockets.connect", new_callable=AsyncMock)
     def test_listen_for_order_book_diff(self, ws_connect_mock, time_mock):
         time_mock.return_value = 1234567890
