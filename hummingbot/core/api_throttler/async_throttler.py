@@ -19,21 +19,23 @@ class AsyncRequestContext(AsyncRequestContextBase):
         Note: A task can be associated to one or more RateLimit.
         :return: True if it is within capacity to add a new task
         """
-        now: float = time.time()
-        for rate_limit in self._rate_limits:
-            same_pool_tasks = [task
-                               for task in self._task_logs
-                               if rate_limit in task.rate_limits
-                               ]
-            if (len(same_pool_tasks) + 1) * rate_limit.weight > rate_limit.limit:
-                if self._last_max_cap_warning_ts < now - MAX_CAPACITY_REACHED_WARNING_INTERVAL:
-                    msg = f"API rate limit on {rate_limit.limit_id} ({rate_limit.limit} calls per " \
-                          f"{rate_limit.time_interval}s) has almost reached. Number of calls " \
-                          f"is {len(same_pool_tasks) * rate_limit.weight} in the last " \
-                          f"{rate_limit.time_interval} seconds"
-                    self.logger().notify(msg)
-                    AsyncRequestContextBase._last_max_cap_warning_ts = now
-                return False
+        if len(self._related_limits) > 0:
+            now: float = time.time()
+            for rate_limit, weight in self._related_limits:
+                capacity_used: int = sum([task.weight
+                                          for task in self._task_logs
+                                          if rate_limit.limit_id == task.rate_limit.limit_id and
+                                          now - task.timestamp - (task.rate_limit.time_interval * self._safety_margin_pct) <= task.rate_limit.time_interval])
+
+                if capacity_used + weight > rate_limit.limit:
+                    if self._last_max_cap_warning_ts < now - MAX_CAPACITY_REACHED_WARNING_INTERVAL:
+                        msg = f"API rate limit on {rate_limit.limit_id} ({rate_limit.limit} calls per " \
+                              f"{rate_limit.time_interval}s) has almost reached. Limits used " \
+                              f"is {capacity_used} in the last " \
+                              f"{rate_limit.time_interval} seconds"
+                        self.logger().notify(msg)
+                        AsyncRequestContextBase._last_max_cap_warning_ts = now
+                    return False
         return True
 
 
@@ -56,9 +58,11 @@ class AsyncThrottler(AsyncThrottlerBase):
         :param limit_id: the limit_id associated with the APi request
         :return: An async context (used with async with syntax)
         """
+        rate_limit, related_rate_limits = self.get_related_limits(limit_id=limit_id)
         return AsyncRequestContext(
             task_logs=self._task_logs,
-            rate_limits=self.get_relevant_limits(limit_id=limit_id),
+            rate_limit=rate_limit,
+            related_limits=related_rate_limits,
             lock=self._lock,
             safety_margin_pct=self._safety_margin_pct,
             retry_interval=self._retry_interval,
