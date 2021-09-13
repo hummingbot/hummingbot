@@ -13,7 +13,7 @@ CERT_PATH: ''
 CERT_PASSPHRASE: ''
 
 # chain environments
-ETHEREUM_CHAIN: kovan
+ETHEREUM_CHAIN: mainnet
 
 # Infura
 INFURA_KEY: ''
