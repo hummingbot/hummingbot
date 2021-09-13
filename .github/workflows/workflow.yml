@@ -137,7 +137,7 @@ jobs:
         shell: bash
   build_gateway:
     name: build + unit tests
-    if: github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/feat/gateway-v2'
     runs-on: 'ubuntu-latest'
 
     steps:
