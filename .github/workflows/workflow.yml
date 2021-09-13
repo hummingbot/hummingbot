@@ -158,7 +158,7 @@ jobs:
             ${{ runner.os }}-node-
 
       - name: Install Dependencies
-        run: npm ci --prefix ./gateway
+        run: npm i --prefix ./gateway
       
       - name: Build project
         run: npm run build
