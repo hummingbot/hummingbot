@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import (
     Any,
-    Dict
+    Dict, Optional
 )
 
 from hummingbot.core.event.events import (
@@ -11,16 +11,20 @@ from hummingbot.core.event.events import (
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 
 
+class KucoinInFlightOrderNotCreated(Exception):
+    pass
+
+
 cdef class KucoinInFlightOrder(InFlightOrderBase):
     def __init__(self,
                  client_order_id: str,
-                 exchange_order_id: str,
+                 exchange_order_id: Optional[str],
                  trading_pair: str,
                  order_type: OrderType,
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
-                 initial_state: str = "DEAL"):
+                 initial_state: str = "LOCAL"):
         super().__init__(
             client_order_id,
             exchange_order_id,
@@ -43,6 +47,10 @@ cdef class KucoinInFlightOrder(InFlightOrderBase):
     @property
     def is_cancelled(self) -> bool:
         return self.last_state in {"CANCEL"}
+
+    @property
+    def is_local(self) -> bool:
+        return self.last_state in {"LOCAL"}
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
