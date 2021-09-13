@@ -161,7 +161,7 @@ jobs:
         run: npm i --prefix ./gateway
       
       - name: Build project
-        run: npm run build
+        run: npm run build --prefix ./gateway
       
       - name: Run unit test
-        run: npm run test:unit
+        run: npm run test:unit --prefix ./gateway
