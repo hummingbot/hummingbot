@@ -112,13 +112,12 @@ class BittrexAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
         return output
 
-    async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+    async def listen_for_user_stream(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
         while True:
             try:
                 self._websocket_connection = signalr_aio.Connection(BITTREX_WS_FEED, session=None)
                 self.hub = self._websocket_connection.register_hub("c3")
 
-                self.logger().info("Authenticating...")
                 await self.authenticate()
                 self.hub.server.invoke("Subscribe", ["heartbeat"])
                 self.hub.server.invoke("Subscribe", ["order"])
@@ -127,18 +126,19 @@ class BittrexAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
                 async for raw_message in self._socket_user_stream(self._websocket_connection):
                     decode: Dict[str, Any] = self._transform_raw_message(raw_message)
+                    self.logger().debug(f"Got ws message {decode}")
                     if decode.get("error") is not None:
                         self.logger().error(decode["error"])
                         continue
 
-                    if decode.get("content") is not None:
-                        content_type = decode["event_type"]
-
+                    content_type = decode.get("event_type")
+                    if content_type is not None:
                         if content_type in ["balance", "order"]:  # balance: Balance Delta, order: Order Delta
                             output.put_nowait(decode)
                         elif content_type == "re-authenticate":
                             await self.authenticate()
                         elif content_type == "heartbeat":
+                            self.logger().debug("WS heartbeat")
                             continue
 
             except asyncio.CancelledError:
@@ -150,6 +150,7 @@ class BittrexAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 await asyncio.sleep(30.0)
 
     async def authenticate(self):
+        self.logger().info("Authenticating...")
         timestamp = int(round(time.time() * 1000))
         randomized = str(uuid.uuid4())
         challenge = f"{timestamp}{randomized}"
