@@ -37,17 +37,7 @@ export namespace ConfigManager {
       'LOG_PATH' in o &&
       'GMT_OFFSET' in o &&
       'CERT_PATH' in o &&
-      'CERT_PASSPHRASE' in o &&
-      'ETHEREUM_CHAIN' in o &&
-      'INFURA_KEY' in o &&
-      'ETH_GAS_STATION_ENABLE' in o &&
-      'ETH_GAS_STATION_API_KEY' in o &&
-      'ETH_GAS_STATION_GAS_LEVEL' in o &&
-      'ETH_GAS_STATION_REFRESH_TIME' in o &&
-      'ETH_MANUAL_GAS_PRICE' in o &&
-      'UNISWAP_ALLOWED_SLIPPAGE' in o &&
-      'UNISWAP_GAS_LIMIT' in o &&
-      'UNISWAP_TTL' in o
+      'CERT_PASSPHRASE' in o
     );
   }
 
