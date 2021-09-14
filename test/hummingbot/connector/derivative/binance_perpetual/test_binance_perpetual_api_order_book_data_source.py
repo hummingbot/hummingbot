@@ -362,7 +362,6 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.assertEqual(0, msg_queue.qsize())
 
-    # @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_order_book.BinancePerpetualOrderBook.snapshot_message_from_exchange")
     @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_api_order_book_data_source.BinancePerpetualAPIOrderBookDataSource.get_snapshot", new_callable=AsyncMock)
     def test_listen_for_order_book_snapshots_logs_exception_error_with_response(self, mock_get_snapshot):
         msg_queue: asyncio.Queue = asyncio.Queue()

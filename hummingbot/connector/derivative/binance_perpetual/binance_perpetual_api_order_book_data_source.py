@@ -177,17 +177,16 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
-                async with aiohttp.ClientSession() as client:
-                    for trading_pair in self._trading_pairs:
-                        snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair, domain=self._domain)
-                        snapshot_timestamp: float = time.time()
-                        snapshot_msg: OrderBookMessage = BinancePerpetualOrderBook.snapshot_message_from_exchange(
-                            snapshot,
-                            snapshot_timestamp,
-                            metadata={"trading_pair": trading_pair}
-                        )
-                        output.put_nowait(snapshot_msg)
-                        self.logger().debug(f"Saved order book snapshot for {trading_pair}")
+                for trading_pair in self._trading_pairs:
+                    snapshot: Dict[str, Any] = await self.get_snapshot(trading_pair, domain=self._domain)
+                    snapshot_timestamp: float = time.time()
+                    snapshot_msg: OrderBookMessage = BinancePerpetualOrderBook.snapshot_message_from_exchange(
+                        snapshot,
+                        snapshot_timestamp,
+                        metadata={"trading_pair": trading_pair}
+                    )
+                    output.put_nowait(snapshot_msg)
+                    self.logger().debug(f"Saved order book snapshot for {trading_pair}")
                 this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
                 next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)
                 delta: float = next_hour.timestamp() - time.time()
