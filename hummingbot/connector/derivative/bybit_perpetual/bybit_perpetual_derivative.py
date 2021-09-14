@@ -418,22 +418,10 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 "symbol": await self._trading_pair_symbol(trading_pair),
                 "qty": amount,
                 "time_in_force": self._DEFAULT_TIME_IN_FORCE,
-                "close_on_trigger": False,
+                "close_on_trigger": True if position_action == PositionAction.CLOSE else False,
                 "order_link_id": order_id,
-                "reduce_only": False,
+                "reduce_only": True if position_action == PositionAction.CLOSE else False,
             }
-
-            if self._position_mode == PositionMode.HEDGE:
-                if position_action == PositionAction.OPEN:
-                    revised_order_side = "Buy" if trade_type is TradeType.BUY else "Sell"
-                    trade_type = TradeType.BUY if trade_type is TradeType.BUY else TradeType.SELL
-                else:
-                    revised_order_side = "Sell" if trade_type is TradeType.BUY else "Buy"
-                    trade_type = TradeType.SELL if trade_type is TradeType.BUY else TradeType.BUY
-
-                params.update({
-                    "side": revised_order_side
-                })
 
             if order_type.is_limit_type():
                 price: Decimal = self.quantize_order_price(trading_pair, price)
