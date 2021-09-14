@@ -317,7 +317,7 @@ class BybitPerpetualDerivativeTests(TestCase):
                     position_action=PositionAction.OPEN))
 
     @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
-    def test_create_order_buy_hedge_mode_open_position(self, post_mock):
+    def test_create_order_close_position_action(self, post_mock):
         self.connector.set_position_mode(PositionMode.HEDGE)
         self.mocking_assistant.configure_http_request_mock(post_mock)
 
@@ -333,68 +333,7 @@ class BybitPerpetualDerivativeTests(TestCase):
                     "user_id": 1,
                     "order_id": "335fd977-e5a5-4781-b6d0-c772d5bfb95b",
                     "symbol": "BTCUSD",
-                    "side": "Sell",
-                    "order_type": "Limit",
-                    "price": 8800,
-                    "qty": 1,
-                    "time_in_force": "GoodTillCancel",
-                    "order_status": "Created",
-                    "last_exec_time": 0,
-                    "last_exec_price": 0,
-                    "leaves_qty": 1,
-                    "cum_exec_qty": 0,
-                    "cum_exec_value": 0,
-                    "cum_exec_fee": 0,
-                    "reject_reason": "",
-                    "order_link_id": "",
-                    "created_at": "2019-11-30T11:03:43.452Z",
-                    "updated_at": "2019-11-30T11:03:43.455Z"
-                },
-                "time_now": "1575111823.458705",
-                "rate_limit_status": 98,
-                "rate_limit_reset_ms": 1580885703683,
-                "rate_limit": 100
-            })
-
-        self._simulate_trading_rules_initialized()
-
-        self.connector._leverage[self.trading_pair] = 10
-
-        asyncio.get_event_loop().run_until_complete(
-            self.connector._create_order(
-                trade_type=TradeType.BUY,
-                order_id="C1",
-                trading_pair=self.trading_pair,
-                amount=Decimal("1"),
-                order_type=OrderType.LIMIT,
-                price=Decimal("46000"),
-                position_action=PositionAction.OPEN)
-        )
-
-        self.assertEqual(1, len(self.connector.in_flight_orders))
-        self.assertTrue("C1" in self.connector.in_flight_orders)
-        in_flight_order: BybitPerpetualInFlightOrder = self.connector.in_flight_orders["C1"]
-        self.assertEqual(in_flight_order.trade_type, TradeType.BUY)
-        self.assertTrue(self._is_logged("INFO", "Created LIMIT BUY order C1 for 1 @ 8800 BTC-USDT."))
-
-    @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
-    def test_create_order_hedge_mode_close_position(self, post_mock):
-        self.connector.set_position_mode(PositionMode.HEDGE)
-        self.mocking_assistant.configure_http_request_mock(post_mock)
-
-        self.mocking_assistant.add_http_response(
-            post_mock,
-            200,
-            {
-                "ret_code": 0,
-                "ret_msg": "OK",
-                "ext_code": "",
-                "ext_info": "",
-                "result": {
-                    "user_id": 1,
-                    "order_id": "335fd977-e5a5-4781-b6d0-c772d5bfb95b",
-                    "symbol": "BTCUSD",
-                    "side": "Sell",
+                    "side": "Buy",
                     "order_type": "Limit",
                     "price": 8800,
                     "qty": 1,
@@ -435,8 +374,69 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertEqual(1, len(self.connector.in_flight_orders))
         self.assertTrue("C1" in self.connector.in_flight_orders)
         in_flight_order: BybitPerpetualInFlightOrder = self.connector.in_flight_orders["C1"]
-        self.assertEqual(in_flight_order.trade_type, TradeType.SELL)
-        self.assertTrue(self._is_logged("INFO", "Created LIMIT SELL order C1 for 1 @ 8800 BTC-USDT."))
+        self.assertEqual(in_flight_order.position, PositionAction.CLOSE.name)
+        self.assertTrue(self._is_logged("INFO", "Created LIMIT BUY order C1 for 1 @ 8800 BTC-USDT."))
+
+    @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
+    def test_create_order_open_position_action(self, post_mock):
+        self.connector.set_position_mode(PositionMode.HEDGE)
+        self.mocking_assistant.configure_http_request_mock(post_mock)
+
+        self.mocking_assistant.add_http_response(
+            post_mock,
+            200,
+            {
+                "ret_code": 0,
+                "ret_msg": "OK",
+                "ext_code": "",
+                "ext_info": "",
+                "result": {
+                    "user_id": 1,
+                    "order_id": "335fd977-e5a5-4781-b6d0-c772d5bfb95b",
+                    "symbol": "BTCUSD",
+                    "side": "Buy",
+                    "order_type": "Limit",
+                    "price": 8800,
+                    "qty": 1,
+                    "time_in_force": "GoodTillCancel",
+                    "order_status": "Created",
+                    "last_exec_time": 0,
+                    "last_exec_price": 0,
+                    "leaves_qty": 1,
+                    "cum_exec_qty": 0,
+                    "cum_exec_value": 0,
+                    "cum_exec_fee": 0,
+                    "reject_reason": "",
+                    "order_link_id": "",
+                    "created_at": "2019-11-30T11:03:43.452Z",
+                    "updated_at": "2019-11-30T11:03:43.455Z"
+                },
+                "time_now": "1575111823.458705",
+                "rate_limit_status": 98,
+                "rate_limit_reset_ms": 1580885703683,
+                "rate_limit": 100
+            })
+
+        self._simulate_trading_rules_initialized()
+
+        self.connector._leverage[self.trading_pair] = 10
+
+        asyncio.get_event_loop().run_until_complete(
+            self.connector._create_order(
+                trade_type=TradeType.BUY,
+                order_id="C1",
+                trading_pair=self.trading_pair,
+                amount=Decimal("1"),
+                order_type=OrderType.LIMIT,
+                price=Decimal("46000"),
+                position_action=PositionAction.OPEN)
+        )
+
+        self.assertEqual(1, len(self.connector.in_flight_orders))
+        self.assertTrue("C1" in self.connector.in_flight_orders)
+        in_flight_order: BybitPerpetualInFlightOrder = self.connector.in_flight_orders["C1"]
+        self.assertEqual(in_flight_order.position, PositionAction.OPEN.name)
+        self.assertTrue(self._is_logged("INFO", "Created LIMIT BUY order C1 for 1 @ 8800 BTC-USDT."))
 
     @patch('hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils.get_tracking_nonce')
     @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
