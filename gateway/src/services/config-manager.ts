@@ -62,8 +62,10 @@ export namespace ConfigManager {
     if (typeof x === 'object' && validateConfig(x)) {
       config = x;
     } else {
+      console.log(x)
+      console.log(validateConfig(x))
       throw new Error(
-        configFilePath + ' does not conform to the expected YAML structure.'
+        JSON.stringify(x) + '\n' + validateConfig(x)
       );
     }
 
