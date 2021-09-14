@@ -114,6 +114,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._order_not_found_records = {}
         self._last_timestamp = 0
         self._trading_rules = {}
+        self._position_mode = None
         self._status_polling_task = None
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
@@ -673,7 +674,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             try:
                 ws_subscription_path: str = "/".join([f"{utils.convert_to_exchange_trading_pair(trading_pair).lower()}@markPrice"
                                                       for trading_pair in self._trading_pairs])
-                stream_url: str = f"{self._stream_url}/stream?streams={ws_subscription_path}"
+                stream_url: str = utils.wss_url(CONSTANTS.PUBLIC_WS_ENDPOINT, self._domain) + f"?streams={ws_subscription_path}"
                 async with websockets.connect(stream_url) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     while True:
