@@ -367,13 +367,15 @@ cdef class PeatioExchange(ExchangeBase):
         for info in filter(lambda x: x['state'] == 'enabled', raw_trading_pair_info):
             try:
                 trading_rules.append(
-                    TradingRule(trading_pair=info["symbol"],
-                                min_order_size=Decimal(info["min_amount"]),
-                                max_order_size=s_decimal_inf,  # TODO Не ограничен?
-                                min_price_increment=Decimal(f"1e-{info['price_precision']}"),
-                                min_base_amount_increment=Decimal(f"1e-{info['amount_precision']}"),
-                                min_quote_amount_increment=Decimal(f"1e-{info['amount_precision']}"),  # TODO Равен amount_precision?
-                                min_notional_size=Decimal(info["min-order-value"]))
+                    TradingRule(
+                        trading_pair=info["symbol"],
+                        min_order_size=Decimal(info["min_amount"]),
+                        max_order_size=s_decimal_inf,  # TODO Не ограничен?
+                        min_price_increment=Decimal(f"1e-{info['price_precision']}"),
+                        min_base_amount_increment=Decimal(f"1e-{info['amount_precision']}"),
+                        min_quote_amount_increment=Decimal(f"1e-{info['amount_precision']}"),  # TODO Равен amount_precision?
+                        min_notional_size=Decimal(info["min_amount"]) * Decimal(info["min_price"])
+                    )
                 )
             except Exception:
                 self.logger().error(f"Error parsing the trading pair rule {info}. Skipping.", exc_info=True)
@@ -1007,7 +1009,6 @@ cdef class PeatioExchange(ExchangeBase):
             object quantized_amount = ExchangeBase.c_quantize_order_amount(self, trading_pair, amount)
             object current_price = self.c_get_price(trading_pair, False)
             object notional_size
-
         # Check against min_order_size. If not passing check, return 0.
         if quantized_amount < trading_rule.min_order_size:
             return s_decimal_0
@@ -1018,9 +1019,15 @@ cdef class PeatioExchange(ExchangeBase):
 
         if price == s_decimal_0:
             notional_size = current_price * quantized_amount
+            print(f"current_price: {current_price}")
+            print(f"quantized_amount: {quantized_amount}")
         else:
+            print(f"quantized_amount: {quantized_amount}")
+            print(f"price: {price}")
             notional_size = price * quantized_amount
         # Add 1% as a safety factor in case the prices changed while making the order.
+        print(f"trading_rule.min_notional_size: {trading_rule.min_notional_size}")
+        print(f"notional_size: {notional_size}")
         if notional_size < trading_rule.min_notional_size * Decimal("1.01"):
             return s_decimal_0
 

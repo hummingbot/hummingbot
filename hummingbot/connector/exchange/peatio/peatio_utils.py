@@ -14,6 +14,7 @@ from hummingbot.core.event.events import (
 RE_4_LETTERS_QUOTE = re.compile(r"^(\w+)(usdt|husd)$")
 RE_3_LETTERS_QUOTE = re.compile(r"^(\w+)(btc|eth|trx)$")
 RE_2_LETTERS_QUOTE = re.compile(r"^(\w+)(ht)$")
+TOKEN_TYPES = ["erc-20", "bec-20", "hrc-20"]
 
 CENTRALIZED = True
 
@@ -30,14 +31,28 @@ class PeatioAPIError(IOError):
         self.error_payload = error_payload
 
 
-def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
+# def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
+#     try:
+#         m = RE_4_LETTERS_QUOTE.match(trading_pair)
+#         if m is None:
+#             m = RE_3_LETTERS_QUOTE.match(trading_pair)
+#             if m is None:
+#                 m = RE_2_LETTERS_QUOTE.match(trading_pair)
+#         return m.group(1), m.group(2)
+#     # Exceptions are now logged as warnings in trading pair fetcher
+#     except Exception:
+#         return None
+
+
+def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str, str, str]]:
     try:
-        m = RE_4_LETTERS_QUOTE.match(trading_pair)
-        if m is None:
-            m = RE_3_LETTERS_QUOTE.match(trading_pair)
-            if m is None:
-                m = RE_2_LETTERS_QUOTE.match(trading_pair)
-        return m.group(1), m.group(2)
+        base, quote = trading_pair.split(sep="_", maxsplit=1)
+        base_type = next(iter([i.replace("-", "") for i in TOKEN_TYPES if i.replace("-", "") in base]), "")
+        base = base.replace(base_type, "", 1)
+        quote_type = next(iter([i.replace("-", "") for i in TOKEN_TYPES if i.replace("-", "") in quote]), "")
+        quote = quote.replace(quote_type, "", 1)
+
+        return base, base_type, quote, quote_type
     # Exceptions are now logged as warnings in trading pair fetcher
     except Exception:
         return None
@@ -47,13 +62,13 @@ def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[s
     if split_trading_pair(exchange_trading_pair) is None:
         return None
     # Peatio uses lowercase (btcusdt)
-    base_asset, quote_asset = split_trading_pair(exchange_trading_pair)
-    return f"{base_asset.upper()}-{quote_asset.upper()}"
+    base_asset, base_type, quote_asset, quote_type = split_trading_pair(exchange_trading_pair)
+    return f"{base_asset.upper()}{base_type.upper()}-{quote_asset.upper()}{quote_type.upper()}"
 
 
-def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
+def convert_to_exchange_trading_pair(trading_pair: str) -> str:
     # Peatio uses lowercase (btcusdt)
-    return hb_trading_pair.replace("-", "_").lower()
+    return trading_pair.replace("-", "_").lower()
 
 
 def get_new_client_order_id(trade_type: TradeType, trading_pair: str) -> str:

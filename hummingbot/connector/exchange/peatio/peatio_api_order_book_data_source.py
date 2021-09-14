@@ -33,7 +33,7 @@ PEATIO_WS_URL = "wss://market.bitzlato.com/api/v2/ranger/public"
 PEATIO_TRADES_STREAM = "stream={market}.trades"
 
 PEATIO_MARKETS_PATH = "/public/markets"
-PEATIO_TICKER_PATH = "/markets/tickers"
+PEATIO_TICKER_PATH = "/public/markets/tickers"
 PEATIO_DEPTH_PATH = "/public/markets/{market}/depth"
 
 
@@ -133,12 +133,11 @@ class PeatioAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, Any]:
-        api_data = PeatioAPIOrderBookDataSource.http_api_request(
+        api_data = await PeatioAPIOrderBookDataSource.http_api_request(
             method='get',
             path=PEATIO_DEPTH_PATH.format(market=convert_to_exchange_trading_pair(trading_pair)),
             client=client
         )
-        assert isinstance(api_data, dict)
         return api_data
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:

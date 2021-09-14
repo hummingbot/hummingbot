@@ -15,7 +15,8 @@ from hummingbot.core.data_type.user_stream_tracker_data_source import UserStream
 from hummingbot.logger import HummingbotLogger
 
 PEATIO_API_ENDPOINT = "https://market.bitzlato.com/api/v2/peatio"
-PEATIO_WS_ENDPOINT = "wss://market.bitzlato.com/api/v2/peatio"
+PEATIO_WS_ENDPOINT = "wss://market.bitzlato.com/api/v2/ranger/public"
+PEATIO_WS_PRIVATE_ENDPOINT = "wss://market.bitzlato.com/api/v2/ranger/private"
 
 # PEATIO_ACCOUNT_UPDATE_TOPIC = "accounts.update#2"
 PEATIO_ORDER_UPDATE_TOPIC = "orders"
@@ -133,7 +134,7 @@ class PeatioAPIUserStreamDataSource(UserStreamTrackerDataSource):
             except IOError as e:
                 self.logger().error(e, exc_info=True)
             except Exception as e:
-                self.logger().error(f"Unexpected error occurred! {e} {message}", exc_info=True)
+                self.logger().error(f"Unexpected error occurred! {e}", exc_info=True)
             finally:
                 if self._websocket_connection is not None:
                     await self._websocket_connection.close()
