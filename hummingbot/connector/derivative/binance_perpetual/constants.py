@@ -26,17 +26,17 @@ PING_URL = "/ping"
 # Private API v1 Endpoints
 ORDER_URL = "/order"
 CANCEL_ALL_OPEN_ORDERS_URL = "/allOpenOrders"
-ACCOUNT_TRADE_LIST_URL = "/userTrades"  # w=5
-SET_LEVERAGE_URL = "/leverage"  # w=1
-GET_INCOME_HISTORY_URL = "/income"  # w=30
-CHANGE_POSITION_MODE_URL = "/positionSide/dual"  # GET w=30, POST w=1
+ACCOUNT_TRADE_LIST_URL = "/userTrades"
+SET_LEVERAGE_URL = "/leverage"
+GET_INCOME_HISTORY_URL = "/income"
+CHANGE_POSITION_MODE_URL = "/positionSide/dual"
 
 POST_POSITION_MODE_LIMIT_ID = f"POST{CHANGE_POSITION_MODE_URL}"
 GET_POSITION_MODE_LIMIT_ID = f"GET{CHANGE_POSITION_MODE_URL}"
 
 # Private API v2 Endpoints
-ACCOUNT_INFO_URL = "/account"  # w=5
-POSITION_INFORMATION_URL = "/positionRisk"  # GET w=5
+ACCOUNT_INFO_URL = "/account"
+POSITION_INFORMATION_URL = "/positionRisk"
 
 
 # Private API Endpoints
@@ -60,6 +60,16 @@ RATE_LIMITS = [
     RateLimit(limit_id=ORDERS_1MIN, limit=1200, time_interval=ONE_MINUTE),
     RateLimit(limit_id=ORDERS_1SEC, limit=300, time_interval=10),
     # Weight Limits for individual endpoints
+    RateLimit(limit_id=SNAPSHOT_REST_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=20)]),
+    RateLimit(limit_id=TICKER_PRICE_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=2)]),
+    RateLimit(limit_id=TICKER_PRICE_CHANGE_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
+    RateLimit(limit_id=EXCHANGE_INFO_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=40)]),
+    RateLimit(limit_id=RECENT_TRADES_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
     RateLimit(limit_id=BINANCE_USER_STREAM_ENDPOINT, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
     RateLimit(limit_id=PING_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
