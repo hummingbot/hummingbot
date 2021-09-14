@@ -20,11 +20,22 @@ export namespace ConfigManager {
     ETH_GAS_STATION_GAS_LEVEL: string;
     ETH_GAS_STATION_REFRESH_TIME: number;
     ETH_MANUAL_GAS_PRICE: number;
-    UNISWAP_ALLOWED_SLIPPAGE: Percent;
+    UNISWAP_ALLOWED_SLIPPAGE: string;
     UNISWAP_GAS_LIMIT: number;
     UNISWAP_TTL: number;
     LOG_TO_STDOUT?: boolean;
     UNSAFE_DEV_MODE_WITH_HTTP?: boolean;
+  }
+
+  const percentRegexp = new RegExp(/^(\d+)\/(\d+)$/);
+
+  export function getUniswapAllowedSlippagePercentage(config: Config): Percent {
+    const slippageString = config['UNISWAP_ALLOWED_SLIPPAGE'];
+    const nd = slippageString.match(percentRegexp);
+    if (nd) return new Percent(nd[1], nd[2]);
+    throw new Error(
+      'Encountered a malformed percent string in the config for UNISWAP_ALLOWED_SLIPPAGE.'
+    );
   }
 
   export function validateConfig(o: any): o is Config {
@@ -46,6 +57,7 @@ export namespace ConfigManager {
       'ETH_GAS_STATION_REFRESH_TIME' in o &&
       'ETH_MANUAL_GAS_PRICE' in o &&
       'UNISWAP_ALLOWED_SLIPPAGE' in o &&
+      percentRegexp.test(o['UNISWAP_ALLOWED_SLIPPAGE']) &&
       'UNISWAP_GAS_LIMIT' in o &&
       'UNISWAP_TTL' in o
     );
