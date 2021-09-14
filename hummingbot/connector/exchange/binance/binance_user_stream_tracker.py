@@ -2,18 +2,22 @@
 
 import asyncio
 import logging
+
+from binance.client import Client as BinanceClient
 from typing import (
     Optional
 )
+
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.logger import HummingbotLogger
+
 from .binance_api_user_stream_data_source import BinanceAPIUserStreamDataSource
-from binance.client import Client as BinanceClient
 
 
 class BinanceUserStreamTracker(UserStreamTracker):
@@ -25,18 +29,19 @@ class BinanceUserStreamTracker(UserStreamTracker):
             cls._bust_logger = logging.getLogger(__name__)
         return cls._bust_logger
 
-    def __init__(self, binance_client: Optional[BinanceClient] = None, domain: str = "com"):
+    def __init__(self, binance_client: Optional[BinanceClient] = None, domain: str = "com", throttler: Optional[AsyncThrottler] = None):
         super().__init__()
         self._binance_client: BinanceClient = binance_client
         self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
         self._data_source: Optional[UserStreamTrackerDataSource] = None
         self._user_stream_tracking_task: Optional[asyncio.Task] = None
         self._domain = domain
+        self._throttler = throttler
 
     @property
     def data_source(self) -> UserStreamTrackerDataSource:
         if not self._data_source:
-            self._data_source = BinanceAPIUserStreamDataSource(binance_client=self._binance_client, domain=self._domain)
+            self._data_source = BinanceAPIUserStreamDataSource(binance_client=self._binance_client, domain=self._domain, throttler=self._throttler)
         return self._data_source
 
     @property
