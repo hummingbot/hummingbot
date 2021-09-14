@@ -162,7 +162,27 @@ jobs:
       
       - name: Create yml config file
         run: |
-          printf "%s\n" "CERT_PASSPHRASE: ''" "CERT_PATH: ''" "ETHEREUM_CHAIN: mainnet" "ETH_GAS_STATION_API_KEY: 97bf1ac4acb940a30303f301208a59091760e5d26507241e9b700a3e8703" "ETH_GAS_STATION_ENABLE: true" "ETH_GAS_STATION_GAS_LEVEL: fast" "ETH_GAS_STATION_REFRESH_TIME: 60" "ETH_MANUAL_GAS_PRICE: 100" "GMT_OFFSET: +0800" "HUMMINGBOT_INSTANCE_ID: 67618e88c8b8f52342e61c6e46dc2571fa48543b" "INFURA_KEY: 6f637da72af64d99870a68d09a7df3d7" "IP_WHITELIST: []" "LOG_PATH: ./logs" "LOG_TO_STDOUT: true" "PORT: 5000" "UNISWAP_ALLOWED_SLIPPAGE: '2/100'" "UNISWAP_GAS_LIMIT: 150688" "UNISWAP_TTL: 300" "UNSAFE_DEV_MODE_WITH_HTTP: true" "VERSION: 1" "APPNAME: 'Hummingbot Gateway API'" > ./gateway/conf/gateway-config.yml
+          cat << EOF >> ./gateway/conf/gateway-config.yml
+          VERSION: 1
+          APPNAME: 'Hummingbot Gateway API'
+          PORT: 5000
+          IP_WHITELIST: []
+          HUMMINGBOT_INSTANCE_ID: '67618e88c8b8f52342e61c6e46dc2571fa48543b'
+          LOG_PATH: './logs'
+          GMT_OFFSET: +0800
+          CERT_PATH: ''
+          CERT_PASSPHRASE: ''
+          ETHEREUM_CHAIN: mainnet
+          INFURA_KEY: '6f637da72af64d99870a68d09a7df3d7'
+          ETH_GAS_STATION_ENABLE: true
+          ETH_GAS_STATION_API_KEY: '97bf1ac4acb940a30303f301208a59091760e5d26507241e9b700a3e8703'
+          ETH_GAS_STATION_GAS_LEVEL: fast
+          ETH_GAS_STATION_REFRESH_TIME: 60
+          ETH_MANUAL_GAS_PRICE: 100
+          UNISWAP_ALLOWED_SLIPPAGE: '1/100'
+          UNISWAP_GAS_LIMIT: 150688
+          UNISWAP_TTL: 300
+          EOF
       
       - name: Build project
         run: npm run build --prefix ./gateway
