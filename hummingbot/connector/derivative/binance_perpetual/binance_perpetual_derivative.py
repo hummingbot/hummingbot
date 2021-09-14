@@ -637,16 +637,14 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                     min_order_size = Decimal(filt_dict.get("LOT_SIZE").get("minQty"))
                     step_size = Decimal(filt_dict.get("LOT_SIZE").get("stepSize"))
                     tick_size = Decimal(filt_dict.get("PRICE_FILTER").get("tickSize"))
-
-                    # TODO: BINANCE PERPETUALS DOES NOT HAVE A MIN NOTIONAL VALUE, NEED TO CREATE NEW DERIVATIVES INFRASTRUCTURE
-                    # min_notional = 0
+                    min_notional = Decimal(filt_dict.get("MIN_NOTIONAL").get("notional"))
 
                     return_val.append(
                         TradingRule(trading_pair,
                                     min_order_size=min_order_size,
                                     min_price_increment=Decimal(tick_size),
                                     min_base_amount_increment=Decimal(step_size),
-                                    # min_notional_size=Decimal(min_notional))
+                                    min_notional_size=Decimal(min_notional)
                                     )
                     )
             except Exception as e:
