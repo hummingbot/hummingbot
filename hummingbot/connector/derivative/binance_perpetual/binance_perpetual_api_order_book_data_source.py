@@ -103,8 +103,7 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 async with client.get(url=url, params=params) as response:
                     response: aiohttp.ClientResponse = response
                     if response.status != 200:
-                        raise IOError(f"Error fetching Binance market snapshot for {trading_pair}. "
-                                      f"HTTP status is {response.status}.")
+                        raise IOError(f"Error fetching Binance market snapshot for {trading_pair}.")
                     data: Dict[str, Any] = await response.json()
                     return data
 
@@ -128,6 +127,8 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     yield raw_msg
                 except asyncio.TimeoutError:
                     await client.pong(data=b'')
+        except asyncio.CancelledError:
+            raise
         except ConnectionClosed:
             return
         finally:
@@ -139,20 +140,19 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 ws_subscription_path: str = "/".join([f"{convert_to_exchange_trading_pair(trading_pair).lower()}@depth"
                                                       for trading_pair in self._trading_pairs])
                 stream_url: str = f"{utils.wss_url(endpoint=CONSTANTS.PUBLIC_WS_ENDPOINT)}?streams={ws_subscription_path}"
-                async with websockets.connect(stream_url) as ws:
-                    ws: websockets.WebSocketClientProtocol = ws
-                    async for raw_msg in self.ws_messages(ws):
-                        msg_json = ujson.loads(raw_msg)
-                        timestamp: float = time.time()
-                        order_book_message: OrderBookMessage = BinancePerpetualOrderBook.diff_message_from_exchange(
-                            msg_json,
-                            timestamp
-                        )
-                        output.put_nowait(order_book_message)
+                ws: websockets.WebSocketClientProtocol = await websockets.connect(stream_url)
+                async for raw_msg in self.ws_messages(ws):
+                    msg_json = ujson.loads(raw_msg)
+                    timestamp: float = time.time()
+                    order_book_message: OrderBookMessage = BinancePerpetualOrderBook.diff_message_from_exchange(
+                        msg_json,
+                        timestamp
+                    )
+                    output.put_nowait(order_book_message)
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unexpected error with Websocket connection. Retrying after 30 seconds... ",
+                self.logger().error("Unexpected error with Websocket connection. Retrying after 30 seconds...",
                                     exc_info=True)
                 await asyncio.sleep(30.0)
 
@@ -162,46 +162,38 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 ws_subscription_path: str = "/".join([f"{convert_to_exchange_trading_pair(trading_pair).lower()}@aggTrade"
                                                       for trading_pair in self._trading_pairs])
                 stream_url = f"{utils.wss_url(endpoint=CONSTANTS.PUBLIC_WS_ENDPOINT)}?streams={ws_subscription_path}"
-                async with websockets.connect(stream_url) as ws:
-                    ws: websockets.WebSocketClientProtocol = ws
-                    async for raw_msg in self.ws_messages(ws):
-                        msg_json = ujson.loads(raw_msg)
-                        trade_msg: OrderBookMessage = BinancePerpetualOrderBook.trade_message_from_exchange(msg_json)
-                        output.put_nowait(trade_msg)
+                ws: websockets.WebSocketClientProtocol = await websockets.connect(stream_url)
+                async for raw_msg in self.ws_messages(ws):
+                    msg_json = ujson.loads(raw_msg)
+                    trade_msg: OrderBookMessage = BinancePerpetualOrderBook.trade_message_from_exchange(msg_json)
+                    output.put_nowait(trade_msg)
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
+                self.logger().error("Unexpected error with Websocket connection. Retrying after 30 seconds...",
                                     exc_info=True)
-                await asyncio.sleep(30)
+                await asyncio.sleep(30.0)
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
                 async with aiohttp.ClientSession() as client:
                     for trading_pair in self._trading_pairs:
-                        try:
-                            snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair, domain=self._domain)
-                            snapshot_timestamp: float = time.time()
-                            snapshot_msg: OrderBookMessage = BinancePerpetualOrderBook.snapshot_message_from_exchange(
-                                snapshot,
-                                snapshot_timestamp,
-                                metadata={"trading_pair": trading_pair}
-                            )
-                            output.put_nowait(snapshot_msg)
-                            self.logger().debug(f"Saved order book snapshot for {trading_pair}")
-                            await asyncio.sleep(5)
-                        except asyncio.CancelledError:
-                            raise
-                        except Exception:
-                            self.logger().error("Unexpected error.", exc_info=True)
-                            await asyncio.sleep(5)
-                    this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
-                    next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)
-                    delta: float = next_hour.timestamp() - time.time()
-                    await asyncio.sleep(delta)
+                        snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair, domain=self._domain)
+                        snapshot_timestamp: float = time.time()
+                        snapshot_msg: OrderBookMessage = BinancePerpetualOrderBook.snapshot_message_from_exchange(
+                            snapshot,
+                            snapshot_timestamp,
+                            metadata={"trading_pair": trading_pair}
+                        )
+                        output.put_nowait(snapshot_msg)
+                        self.logger().debug(f"Saved order book snapshot for {trading_pair}")
+                this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
+                next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)
+                delta: float = next_hour.timestamp() - time.time()
+                await asyncio.sleep(delta)
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unexpected error.", exc_info=True)
+                self.logger().error("Unexpected error occurred fetching orderbook snapshots. Retrying in 5 seconds...", exc_info=True)
                 await asyncio.sleep(5.0)
