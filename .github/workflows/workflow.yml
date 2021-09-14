@@ -163,7 +163,8 @@ jobs:
       - name: Create yml config file
         run: |
           cat << EOF >> ./gateway/conf/gateway-config.yml
-          APPNAME: "Hummingbot Gateway API"
+          APPNAME: 'Hummingbot Gateway API'
+
           EOF
       
       - name: Build project
