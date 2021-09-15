@@ -223,6 +223,14 @@ class KrakenAPIOrderBookDataSourceTest(unittest.TestCase):
 
         self.assertTrue(isinstance(ret, OrderBook))
 
+        bids_df, asks_df = ret.snapshot
+        pair_data = resp["result"][f"X{self.base_asset}{self.quote_asset}"]
+        first_bid_price = float(pair_data["bids"][0][0])
+        first_ask_price = float(pair_data["asks"][0][0])
+
+        self.assertEqual(first_bid_price, bids_df.iloc[0]["price"])
+        self.assertEqual(first_ask_price, asks_df.iloc[0]["price"])
+
     @aioresponses()
     def test_fetch_trading_pairs(self, mocked_api):
         url = f"{CONSTANTS.BASE_URL}{CONSTANTS.ASSET_PAIRS_PATH_URL}"
@@ -248,4 +256,13 @@ class KrakenAPIOrderBookDataSourceTest(unittest.TestCase):
         self.mocking_assistant.run_until_all_text_messages_delivered(websocket_mock=ws_connect_mock.return_value)
 
         self.assertTrue(not output_queue.empty())
-        self.assertTrue(isinstance(output_queue.get_nowait(), OrderBookMessage))
+        msg = output_queue.get_nowait()
+        self.assertTrue(isinstance(msg, OrderBookMessage))
+        first_trade_price = resp[1][0][0]
+        self.assertEqual(msg.content["price"], first_trade_price)
+
+        self.assertTrue(not output_queue.empty())
+        msg = output_queue.get_nowait()
+        self.assertTrue(isinstance(msg, OrderBookMessage))
+        second_trade_price = resp[1][1][0]
+        self.assertEqual(msg.content["price"], second_trade_price)
