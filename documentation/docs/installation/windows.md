@@ -49,11 +49,7 @@ Supports Windows Home, Pro, and Enterprise edition. Download the latest version 
    - [Windows Home](https://docs.docker.com/docker-for-windows/install-windows-home/)
    - [Windows Pro / Enterprise](https://docs.docker.com/docker-for-windows/install/)
 
-2. To enable WSL 2, open `Windows PowerShell` and run it as administrator. Use the command below, and this will take a while to complete:
-
-```Windows PowerShell
-wsl.exe --set-version Ubuntu-18.04 2
-```
+2. To enable WSL 2, open `Windows PowerShell` and run it as administrator. Use the command: `wsl.exe --set-version Ubuntu-18.04 2`
 
 3. Open Docker Desktop, Go to Settings > Resources, and then enable WSL Integration
 
