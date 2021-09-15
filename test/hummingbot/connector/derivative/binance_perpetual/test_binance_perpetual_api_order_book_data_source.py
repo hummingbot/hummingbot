@@ -1,18 +1,21 @@
 import asyncio
-from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
-
+import re
 import ujson
-from test.connector.exchange.okex.test_okex_api_order_book_data_source import AsyncMock
 import unittest
 
+import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
+
+from aioresponses.core import aioresponses
 from typing import (
     Any,
     Dict,
 )
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+from hummingbot.connector.derivative.binance_perpetual import binance_perpetual_utils as utils
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_api_order_book_data_source import BinancePerpetualAPIOrderBookDataSource
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
@@ -105,16 +108,15 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         }
         return ujson.dumps(resp)
 
-    @patch("aiohttp.ClientSession.get")
+    @aioresponses()
     def test_get_last_traded_prices(self, mock_api):
-        self.mocking_assistant.configure_http_request_mock(mock_api)
-
+        url = utils.rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_response: Dict[str, Any] = {
             # Truncated responses
             "lastPrice": "10.0",
         }
-
-        self.mocking_assistant.add_http_response(mock_api, 200, mock_response)
+        mock_api.get(regex_url, body=ujson.dumps(mock_response))
 
         result: Dict[str, Any] = self.ev_loop.run_until_complete(
             self.data_source.get_last_traded_prices(trading_pairs=[self.trading_pair], domain=self.domain)
@@ -125,21 +127,24 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
     def test_get_throttler_instance(self):
         self.assertTrue(isinstance(self.data_source._get_throttler_instance(), AsyncThrottler))
 
-    @patch("aiohttp.ClientSession.get")
+    @aioresponses()
     def test_fetch_trading_pairs_failure(self, mock_api):
-        self.mocking_assistant.configure_http_request_mock(mock_api)
-        self.mocking_assistant.add_http_response(mock_api, 400)
+        url = utils.rest_url(path_url=CONSTANTS.EXCHANGE_INFO_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_api.get(regex_url, status=400, body=ujson.dumps({"ERROR"}))
 
         result: Dict[str, Any] = self.ev_loop.run_until_complete(
             self.data_source.fetch_trading_pairs(domain=self.domain)
         )
         self.assertEqual(0, len(result))
 
+    @aioresponses()
     @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils.convert_from_exchange_trading_pair")
-    @patch("aiohttp.ClientSession.get")
     def test_fetch_trading_pairs_successful(self, mock_api, mock_utils):
         mock_utils.return_value = self.trading_pair
-        self.mocking_assistant.configure_http_request_mock(mock_api)
+        url = utils.rest_url(path_url=CONSTANTS.EXCHANGE_INFO_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_response: Dict[str, Any] = {
             # Truncated Responses
             "symbols": [
@@ -156,27 +161,29 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                 }
             ],
         }
-        self.mocking_assistant.add_http_response(mock_api, 200, mock_response)
+        mock_api.get(regex_url, status=200, body=ujson.dumps(mock_response))
         result: Dict[str, Any] = self.ev_loop.run_until_complete(
             self.data_source.fetch_trading_pairs(domain=self.domain)
         )
         self.assertEqual(1, len(result))
 
-    @patch("aiohttp.ClientSession.get")
+    @aioresponses()
     def test_get_snapshot_exception_raised(self, mock_api):
-        self.mocking_assistant.configure_http_request_mock(mock_api)
-        self.mocking_assistant.add_http_response(mock_api, 400, {"ERROR"})
+        url = utils.rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_api.get(regex_url, status=400, body=ujson.dumps({"ERROR"}))
 
         with self.assertRaises(IOError) as context:
             self.ev_loop.run_until_complete(
-                self.data_source.get_snapshot(trading_pair=self.trading_pair)
+                self.data_source.get_snapshot(trading_pair=self.trading_pair, domain=self.domain)
             )
 
         self.assertEqual(str(context.exception), f"Error fetching Binance market snapshot for {self.trading_pair}.")
 
-    @patch("aiohttp.ClientSession.get")
+    @aioresponses()
     def test_get_snapshot_successful(self, mock_api):
-        self.mocking_assistant.configure_http_request_mock(mock_api)
+        url = utils.rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_response = {
             "lastUpdateId": 1027024,
             "E": 1589436922972,
@@ -194,16 +201,17 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                 ]
             ]
         }
-        self.mocking_assistant.add_http_response(mock_api, 200, mock_response)
+        mock_api.get(regex_url, status=200, body=ujson.dumps(mock_response))
 
         result: Dict[str, Any] = self.ev_loop.run_until_complete(
-            self.data_source.get_snapshot(trading_pair=self.trading_pair)
+            self.data_source.get_snapshot(trading_pair=self.trading_pair, domain=self.domain)
         )
         self.assertEqual(mock_response, result)
 
-    @patch("aiohttp.ClientSession.get")
+    @aioresponses()
     def test_get_new_order_book(self, mock_api):
-        self.mocking_assistant.configure_http_request_mock(mock_api)
+        url = utils.rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_response = {
             "lastUpdateId": 1027024,
             "E": 1589436922972,
@@ -221,8 +229,7 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                 ]
             ]
         }
-        self.mocking_assistant.add_http_response(mock_api, 200, mock_response)
-
+        mock_api.get(regex_url, status=200, body=ujson.dumps(mock_response))
         result = self.ev_loop.run_until_complete(
             self.data_source.get_new_order_book(trading_pair=self.trading_pair)
         )
