@@ -458,8 +458,8 @@ class GateIoExchange(ExchangeBase):
         amount = self.quantize_order_amount(trading_pair, amount)
         price = self.quantize_order_price(trading_pair, price)
         if amount < trading_rule.min_order_size:
-            raise ValueError(f"Buy order amount {amount} is lower than the minimum order size "
-                             f"{trading_rule.min_order_size}.")
+            self.logger().warning(f"Buy order amount {amount} is lower than the minimum order size "
+                                  f"{trading_rule.min_order_size}.")
         order_type_str = order_type.name.lower().split("_")[0]
         api_params = {"text": order_id,
                       "currency_pair": convert_to_exchange_trading_pair(trading_pair),
@@ -757,8 +757,6 @@ class GateIoExchange(ExchangeBase):
                                    MarketOrderFailureEvent(
                                        self.current_timestamp, tracked_order.client_order_id, tracked_order.order_type))
                 self.stop_tracking_order(tracked_order.client_order_id)
-        # Call Update balances on every message to catch order create, fill and cancel - websocket doesn't support this.
-        safe_ensure_future(self._update_balances())
 
     async def _process_trade_message(self, trade_msg: Dict[str, Any]):
         """
@@ -851,6 +849,7 @@ class GateIoExchange(ExchangeBase):
         for asset_name in asset_names_to_remove:
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
+
         self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
         self._in_flight_orders_snapshot_timestamp = self.current_timestamp
 
@@ -859,6 +858,9 @@ class GateIoExchange(ExchangeBase):
             asset_name = account["currency"]
             self._account_available_balances[asset_name] = Decimal(str(account["available"]))
             self._account_balances[asset_name] = Decimal(str(account["total"]))
+
+        self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
+        self._in_flight_orders_snapshot_timestamp = self.current_timestamp
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         """
