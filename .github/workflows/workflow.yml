@@ -4,13 +4,13 @@ on:
   push:
     branches: [master, development, 'refactor/unit_tests**', 'epic/**']
   pull_request:
-    branches: [master, development, 'refactor/unit_tests**', 'epic/**']
+    branches: [master, development, 'refactor/unit_tests**', 'epic/**', 'feat/gateway-v2']
     types: [ready_for_review, opened, synchronize, reopened]
 
 jobs:
   build_hummingbot:
-    name: build + stable tests
-    if: github.event.pull_request.draft == false
+    name: Hummingbot build + stable tests
+    if: github.event.pull_request.draft == false && github.base_ref != 'feat/gateway-v2'
     runs-on: "ubuntu-latest"
 
     steps:
@@ -135,3 +135,57 @@ jobs:
           git clone --depth 1 https://github.com/DiscordHooks/github-actions-discord-webhook.git webhook
           bash webhook/send.sh $JOB_STATUS $WEBHOOK_URL
         shell: bash
+  build_gateway:
+    name: Gateway build + unit tests
+    if: github.base_ref == 'feat/gateway-v2'
+    runs-on: 'ubuntu-latest'
+
+    steps:
+      - name: Checkout commit
+        uses: actions/checkout@v2
+
+      - name: Use Node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: '16.x'
+
+      - name: Cache NPM
+        uses: actions/cache@v1
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install Dependencies
+        run: npm i --prefix ./gateway
+      
+      - name: Create yml config file
+        run: |
+          cat << EOF >> ./gateway/conf/gateway-config.yml
+          VERSION: 1
+          APPNAME: 'Hummingbot Gateway API'
+          PORT: 5000
+          IP_WHITELIST: []
+          HUMMINGBOT_INSTANCE_ID: '67618e88c8b8f52342e61c6e46dc2571fa48543b'
+          LOG_PATH: './logs'
+          GMT_OFFSET: +0800
+          CERT_PATH: ''
+          CERT_PASSPHRASE: ''
+          ETHEREUM_CHAIN: mainnet
+          INFURA_KEY: '6f637da72af64d99870a68d09a7df3d7'
+          ETH_GAS_STATION_ENABLE: true
+          ETH_GAS_STATION_API_KEY: '97bf1ac4acb940a30303f301208a59091760e5d26507241e9b700a3e8703'
+          ETH_GAS_STATION_GAS_LEVEL: fast
+          ETH_GAS_STATION_REFRESH_TIME: 60
+          ETH_MANUAL_GAS_PRICE: 100
+          UNISWAP_ALLOWED_SLIPPAGE: '1/100'
+          UNISWAP_GAS_LIMIT: 150688
+          UNISWAP_TTL: 300
+          EOF
+      
+      - name: Build project
+        run: npm run build --prefix ./gateway
+      
+      - name: Run unit test
+        run: npm run test:unit --prefix ./gateway
