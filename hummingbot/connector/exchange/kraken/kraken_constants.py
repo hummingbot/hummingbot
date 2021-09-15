@@ -6,17 +6,17 @@ KRAKEN_TO_HB_MAP = {
     "XDG": "DOGE",
 }
 
-BASE_URL = "https://api.kraken.com/0"
-TICKER_PATH_URL = "/public/Ticker"
-SNAPSHOT_PATH_URL = "/public/Depth"
-ASSET_PAIRS_PATH_URL = "/public/AssetPairs"
-TIME_PATH_URL = "/public/Time"
-GET_TOKEN_PATH_URL = "/private/GetWebSocketsToken"
-ADD_ORDER_PATH_URL = "/private/AddOrder"
-CANCEL_ORDER_PATH_URL = "/private/CancelOrder"
-BALANCE_PATH_URL = "/private/Balance"
-OPEN_ORDERS_PATH_URL = "/private/OpenOrders"
-QUERY_ORDERS_PATH_URL = "/private/QueryOrders"
+BASE_URL = "https://api.kraken.com"
+TICKER_PATH_URL = "/0/public/Ticker"
+SNAPSHOT_PATH_URL = "/0/public/Depth"
+ASSET_PAIRS_PATH_URL = "/0/public/AssetPairs"
+TIME_PATH_URL = "/0/public/Time"
+GET_TOKEN_PATH_URL = "/0/private/GetWebSocketsToken"
+ADD_ORDER_PATH_URL = "/0/private/AddOrder"
+CANCEL_ORDER_PATH_URL = "/0/private/CancelOrder"
+BALANCE_PATH_URL = "/0/private/Balance"
+OPEN_ORDERS_PATH_URL = "/0/private/OpenOrders"
+QUERY_ORDERS_PATH_URL = "/0/private/QueryOrders"
 
 WS_URL = "wss://ws.kraken.com"
 WS_AUTH_URL = "wss://ws-auth.kraken.com/"
