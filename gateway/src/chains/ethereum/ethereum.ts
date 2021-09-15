@@ -7,15 +7,17 @@ import { ConfigManager } from '../../services/config-manager';
 import { EthereumConfig } from './ethereum.config';
 import { TokenValue } from '../../services/base';
 import { Provider } from '@ethersproject/abstract-provider';
+import { EVMNonceManager } from './evm.nonce';
 
 // MKR does not match the ERC20 perfectly so we need to use a separate ABI.
 const MKR_ADDRESS = '0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2';
 
 export class Ethereum extends EthereumBase {
-  private static instance: Ethereum;
-  private ethGasStationUrl: string;
-  private gasPrice: number;
-  private gasPriceLastUpdated: Date | null;
+  private static _instance: Ethereum;
+  private _ethGasStationUrl: string;
+  private _gasPrice: number;
+  private _gasPriceLastUpdated: Date | null;
+  private _nonceManager: EVMNonceManager;
 
   private constructor() {
     let config;
@@ -33,65 +35,64 @@ export class Ethereum extends EthereumBase {
       ConfigManager.config.ETH_MANUAL_GAS_PRICE
     );
 
-    this.ethGasStationUrl =
+    this._ethGasStationUrl =
       'https://ethgasstation.info/api/ethgasAPI.json?api-key=' +
       ConfigManager.config.ETH_GAS_STATION_API_KEY;
 
-    this.gasPrice = ConfigManager.config.ETH_MANUAL_GAS_PRICE;
-    this.gasPriceLastUpdated = null;
+    this._gasPrice = ConfigManager.config.ETH_MANUAL_GAS_PRICE;
+    this._gasPriceLastUpdated = null;
 
     this.updateGasPrice();
+
+    this._nonceManager = EVMNonceManager.getInstance();
+    this._nonceManager.init(this.provider, 60);
   }
 
-  // public static async getInstance(): Promise<Ethereum> {
-  //   if (!Ethereum.instance) {
-  //     const eth = new Ethereum();
-  //     await eth.init();
-  //     if (!Ethereum.instance) Ethereum.instance = eth; // avoids overriding the instance if the function is called in parallel
-  //   }
-
-  //   return Ethereum.instance;
-  // }
-
   public static getInstance(): Ethereum {
-    if (!Ethereum.instance) {
-      Ethereum.instance = new Ethereum();
+    if (!Ethereum._instance) {
+      Ethereum._instance = new Ethereum();
     }
 
-    return Ethereum.instance;
+    return Ethereum._instance;
+  }
+
+  // getters
+
+  public get nonceManager() {
+    return this._nonceManager;
+  }
+
+  public get gasPrice(): number {
+    return this._gasPrice;
+  }
+
+  public get gasPriceLastDated(): Date | null {
+    return this._gasPriceLastUpdated;
   }
 
   // ethereum token lists are large. instead of reloading each time with
   // getTokenList, we can read the stored tokenList value from when the
   // object was initiated.
-  getStoredTokenList(): Token[] {
-    return this.tokenList;
+  public get storedTokenList(): Token[] {
+    return this._tokenList;
   }
 
   // If ConfigManager.config.ETH_GAS_STATION_ENABLE is true this will
   // continually update the gas price.
   async updateGasPrice(): Promise<void> {
     if (ConfigManager.config.ETH_GAS_STATION_ENABLE) {
-      const { data } = await axios.get(this.ethGasStationUrl);
+      const { data } = await axios.get(this._ethGasStationUrl);
 
       // divide by 10 to convert it to Gwei
-      this.gasPrice = data[ConfigManager.config.ETH_GAS_STATION_GAS_LEVEL] / 10;
-      this.gasPriceLastUpdated = new Date();
+      this._gasPrice =
+        data[ConfigManager.config.ETH_GAS_STATION_GAS_LEVEL] / 10;
+      this._gasPriceLastUpdated = new Date();
 
       setTimeout(
         this.updateGasPrice.bind(this),
         ConfigManager.config.ETH_GAS_STATION_REFRESH_TIME * 1000
       );
     }
-  }
-
-  getGasPrice(): number {
-    return this.gasPrice;
-  }
-
-  // returns null if the gasPrice is manually set
-  getGasPriceLastDated(): Date | null {
-    return this.gasPriceLastUpdated;
   }
 
   // override getERC20Balance definition to handle MKR edge case
@@ -167,15 +168,16 @@ export class Ethereum extends EthereumBase {
         '.'
     );
     const response = await contract.approve(spender, amount, {
-      gasPrice: this.gasPrice * 1e9,
+      gasPrice: this._gasPrice * 1e9,
       gasLimit: 100000,
+      // nonce: nonce,
     });
     logger.info(response);
     return response;
   }
 
   getTokenBySymbol(tokenSymbol: string): Token | undefined {
-    return this.tokenList.find(
+    return this._tokenList.find(
       (token: Token) => token.symbol === tokenSymbol.toUpperCase()
     );
   }

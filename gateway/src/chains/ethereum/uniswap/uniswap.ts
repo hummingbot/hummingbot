@@ -53,7 +53,7 @@ export class Uniswap {
 
   public async init() {
     if (!this.ethereum.ready()) throw new Error('Eth is not available');
-    for (const token of this.ethereum.getStoredTokenList()) {
+    for (const token of this.ethereum.storedTokenList) {
       this.tokenList[token.address] = new Token(
         this.chainId,
         token.address,
@@ -157,11 +157,11 @@ export class Uniswap {
     });
 
     const contract = new Contract(this._uniswapRouter, routerAbi.abi, wallet);
-
     const tx = await contract[result.methodName](...result.args, {
       gasPrice: gasPrice * 1e9,
       gasLimit: ConfigManager.config.UNISWAP_GAS_LIMIT,
       value: result.value,
+      // nonce: nonce,
     });
 
     logger.info(`Trade tx ${tx}.`);
