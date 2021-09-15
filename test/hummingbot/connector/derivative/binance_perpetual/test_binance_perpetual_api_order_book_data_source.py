@@ -250,7 +250,7 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             self.ev_loop.run_until_complete(self.listening_task)
         self.assertEqual(msg_queue.qsize(), 0)
 
-    @patch("asyncio.sleep")
+    @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
     @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils.convert_from_exchange_trading_pair")
     @patch("websockets.connect", new_callable=AsyncMock)
     def test_listen_for_order_book_diffs_logs_exception(self, mock_ws, mock_utils, *_):
@@ -310,7 +310,7 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             self.ev_loop.run_until_complete(self.listening_task)
         self.assertEqual(msg_queue.qsize(), 0)
 
-    @patch("asyncio.sleep")
+    @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
     @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils.convert_from_exchange_trading_pair")
     @patch("websockets.connect", new_callable=AsyncMock)
     def test_listen_for_trades_logs_exception(self, mock_ws, mock_utils, *_):

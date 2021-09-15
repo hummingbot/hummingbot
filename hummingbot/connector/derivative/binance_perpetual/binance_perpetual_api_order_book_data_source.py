@@ -154,7 +154,7 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except Exception:
                 self.logger().error("Unexpected error with Websocket connection. Retrying after 30 seconds...",
                                     exc_info=True)
-                await asyncio.sleep(30.0)
+                await self._sleep(30.0)
             finally:
                 await ws.close()
 
@@ -174,7 +174,7 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except Exception:
                 self.logger().error("Unexpected error with Websocket connection. Retrying after 30 seconds...",
                                     exc_info=True)
-                await asyncio.sleep(30.0)
+                await self._sleep(30.0)
             finally:
                 await ws.close()
 
@@ -194,9 +194,9 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
                 next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)
                 delta: float = next_hour.timestamp() - time.time()
-                await asyncio.sleep(delta)
+                await self._sleep(delta)
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().error("Unexpected error occurred fetching orderbook snapshots. Retrying in 5 seconds...", exc_info=True)
-                await asyncio.sleep(5.0)
+                await self._sleep(5.0)
