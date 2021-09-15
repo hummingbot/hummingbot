@@ -169,7 +169,7 @@ export class Ethereum extends EthereumBase {
     const response = await contract.approve(spender, amount, {
       gasPrice: this.gasPrice * 1e9,
       gasLimit: 100000,
-    });
+    }); // nonce
     logger.info(response);
     return response;
   }
