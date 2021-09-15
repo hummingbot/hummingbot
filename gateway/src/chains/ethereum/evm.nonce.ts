@@ -4,8 +4,10 @@ import { logger } from '../../services/logger';
 export class EVMNonceManager {
   private static _instance: EVMNonceManager;
   private _addressToNonce: Record<string, [number, Date]> = {};
-  private _provider: ethers.providers.Provider | null = null;
   private _delay: number | null = null;
+
+  // this should be private but then we cannot mock it
+  public _provider: ethers.providers.Provider | null = null;
 
   private constructor() {}
 
