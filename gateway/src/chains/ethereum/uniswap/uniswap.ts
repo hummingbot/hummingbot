@@ -159,7 +159,7 @@ export class Uniswap {
       gasPrice: gasPrice * 1e9,
       gasLimit: ConfigManager.config.UNISWAP_GAS_LIMIT,
       value: result.value,
-    });
+    }); // nonce
 
     logger.info(`Trade tx ${tx}.`);
 
