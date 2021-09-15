@@ -12,7 +12,15 @@ from hummingbot.connector.exchange.kraken.kraken_exchange import KrakenExchange
 from hummingbot.connector.exchange.kraken.kraken_in_flight_order import KrakenInFlightOrderNotCreated
 from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS
 from hummingbot.core.clock import Clock, ClockMode
-from hummingbot.core.event.events import TradeType, OrderType, MarketEvent
+from hummingbot.core.event.events import (
+    TradeType,
+    OrderType,
+    MarketEvent,
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    SellOrderCreatedEvent,
+    OrderCancelledEvent,
+)
 from hummingbot.core.network_iterator import NetworkStatus
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from test.mock.mock_listener import MockEventListener
@@ -246,7 +254,8 @@ class KrakenExchangeTest(unittest.TestCase):
         self.async_run_with_timeout(self.exchange._update_order_status())
 
         self.assertEqual(self.event_listener.events_count, 1)
-        self.assertTrue(order_id not in self.exchange.in_flight_orders)
+        self.assertTrue(isinstance(self.event_listener.last_event, BuyOrderCompletedEvent))
+        self.assertNotIn(order_id, self.exchange.in_flight_orders)
 
     @aioresponses()
     def test_check_network_success(self, mock_api):
@@ -353,7 +362,8 @@ class KrakenExchangeTest(unittest.TestCase):
         )
 
         self.assertEqual(self.event_listener.events_count, 1)
-        self.assertTrue(order_id in self.exchange.in_flight_orders)
+        self.assertTrue(isinstance(self.event_listener.last_event, BuyOrderCreatedEvent))
+        self.assertIn(order_id, self.exchange.in_flight_orders)
 
     @aioresponses()
     def test_execute_sell(self, mocked_api):
@@ -383,7 +393,8 @@ class KrakenExchangeTest(unittest.TestCase):
         )
 
         self.assertEqual(self.event_listener.events_count, 1)
-        self.assertTrue(order_id in self.exchange.in_flight_orders)
+        self.assertTrue(isinstance(self.event_listener.last_event, SellOrderCreatedEvent))
+        self.assertIn(order_id, self.exchange.in_flight_orders)
 
     @aioresponses()
     def test_execute_cancel(self, mocked_api):
@@ -411,11 +422,13 @@ class KrakenExchangeTest(unittest.TestCase):
             userref=1,
         )
         self.exchange.in_flight_orders[order_id].update_exchange_order_id(exchange_id)
+        self.exchange.in_flight_orders[order_id].last_state = "pending"
         self.exchange.add_listener(MarketEvent.OrderCancelled, self.event_listener)
         ret = self.async_run_with_timeout(self.exchange.execute_cancel(self.trading_pair, order_id))
 
         self.assertEqual(self.event_listener.events_count, 1)
-        self.assertTrue(order_id not in self.exchange.in_flight_orders)
+        self.assertTrue(isinstance(self.event_listener.last_event, OrderCancelledEvent))
+        self.assertNotIn(order_id, self.exchange.in_flight_orders)
         self.assertEqual(ret["origClientOrderId"], order_id)
 
     def test_execute_cancel_ignores_local_orders(self):

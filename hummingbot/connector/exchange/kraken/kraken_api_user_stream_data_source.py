@@ -86,6 +86,7 @@ class KrakenAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 return response_json["result"]["token"]
 
     async def listen_for_user_stream(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
+        ws = None
         while True:
             try:
                 async with self._throttler.execute_task(CONSTANTS.WS_CONNECTION_LIMIT_ID):
@@ -115,6 +116,9 @@ class KrakenAPIUserStreamDataSource(UserStreamTrackerDataSource):
                                     "Retrying after 30 seconds...", exc_info=True)
                 self._current_auth_token = None
                 await asyncio.sleep(30.0)
+            finally:
+                if ws is not None:
+                    await ws.close()
 
     async def _http_client(self) -> aiohttp.ClientSession:
         if self._shared_client is None or self._shared_client.closed:

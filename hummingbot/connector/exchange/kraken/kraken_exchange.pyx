@@ -90,9 +90,6 @@ cdef class KrakenExchange(ExchangeBase):
     MARKET_BUY_ORDER_CREATED_EVENT_TAG = MarketEvent.BuyOrderCreated.value
     MARKET_SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated.value
 
-    API_CALL_TIMEOUT = 10.0
-    KRAKEN_TRADE_TOPIC_NAME = "kraken-trade.serialized"
-    KRAKEN_USER_STREAM_TOPIC_NAME = "kraken-user-stream.serialized"
     REQUEST_ATTEMPTS = 5
 
     ORDER_NOT_EXIST_CONFIRMATION_COUNT = 3
@@ -183,10 +180,7 @@ cdef class KrakenExchange(ExchangeBase):
         if not self._asset_pairs:
             client = await self._http_client()
             url = f"{CONSTANTS.BASE_URL}{CONSTANTS.ASSET_PAIRS_PATH_URL}"
-            async with self._throttler.execute_task(CONSTANTS.ASSET_PAIRS_PATH_URL):
-                asset_pairs_response = await client.get(url)
-            asset_pairs_data: Dict[str, Any] = await asset_pairs_response.json()
-            asset_pairs: Dict[str, Any] = asset_pairs_data["result"]
+            asset_pairs = await self._api_request(method="get", endpoint=CONSTANTS.ASSET_PAIRS_PATH_URL)
             self._asset_pairs = {f"{details['base']}-{details['quote']}": details
                                  for _, details in asset_pairs.items() if not is_dark_pool(details)}
         return self._asset_pairs
@@ -354,8 +348,6 @@ cdef class KrakenExchange(ExchangeBase):
 
             for order_update, tracked_order in zip(results, tracked_orders):
                 client_order_id = tracked_order.client_order_id
-
-                print(f"Checking {client_order_id}")
 
                 # If the order has already been cancelled or has failed do nothing
                 if client_order_id not in self._in_flight_orders:
@@ -980,10 +972,7 @@ cdef class KrakenExchange(ExchangeBase):
             if tracked_order is None:
                 raise ValueError(f"Failed to cancel order – {order_id}. Order not found.")
             if tracked_order.is_local:
-                raise KrakenInFlightOrderNotCreated(
-                    f"Failed to cancel order - {order_id}. Order not yet created."
-                    f" This is most likely due to rate-limiting."
-                )
+                raise KrakenInFlightOrderNotCreated(f"Failed to cancel order - {order_id}. Order not yet created.")
 
             data: Dict[str, str] = {"txid": tracked_order.exchange_order_id}
             cancel_result = await self._api_request_with_retry("POST",
