@@ -15,12 +15,12 @@ export interface Token {
 
 export class EthereumBase {
   private _provider;
-  protected tokenList: Token[] = [];
-  private tokenMap: Record<string, Token> = {};
+  protected _tokenList: Token[] = [];
+  private _tokenMap: Record<string, Token> = {};
   // there are async values set in the constructor
   private _ready: boolean = false;
-  private initializing: boolean = false;
-  private initPromise: Promise<void> = Promise.resolve();
+  private _initializing: boolean = false;
+  private _initPromise: Promise<void> = Promise.resolve();
 
   public chainID;
   public rpcUrl;
@@ -52,26 +52,26 @@ export class EthereumBase {
   }
 
   async init(): Promise<void> {
-    if (!this.ready() && !this.initializing) {
-      this.initializing = true;
-      this.initPromise = this.loadTokens(
+    if (!this.ready() && !this._initializing) {
+      this._initializing = true;
+      this._initPromise = this.loadTokens(
         this.tokenListSource,
         this.tokenListType
       ).then(() => {
         this._ready = true;
-        this.initializing = false;
+        this._initializing = false;
       });
     }
-    return this.initPromise;
+    return this._initPromise;
   }
 
   async loadTokens(
     tokenListSource: string,
     tokenListType: TokenListType
   ): Promise<void> {
-    this.tokenList = await this.getTokenList(tokenListSource, tokenListType);
-    this.tokenList.forEach(
-      (token: Token) => (this.tokenMap[token.symbol] = token)
+    this._tokenList = await this.getTokenList(tokenListSource, tokenListType);
+    this._tokenList.forEach(
+      (token: Token) => (this._tokenMap[token.symbol] = token)
     );
   }
 
@@ -91,14 +91,14 @@ export class EthereumBase {
     return tokens;
   }
 
-  // return the Token object for a symbol
-  getTokenForSymbol(symbol: string): Token | null {
-    return this.tokenMap[symbol] ? this.tokenMap[symbol] : null;
+  // returns the gas price.
+  public get gasPrice(): number {
+    return this.gasPriceConstant;
   }
 
-  // returns the gas price.
-  getGasPrice(): number {
-    return this.gasPriceConstant;
+  // return the Token object for a symbol
+  getTokenForSymbol(symbol: string): Token | null {
+    return this._tokenMap[symbol] ? this._tokenMap[symbol] : null;
   }
 
   // returns Wallet for a private key
