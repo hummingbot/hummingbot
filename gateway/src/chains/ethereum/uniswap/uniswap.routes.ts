@@ -4,16 +4,20 @@ import { Uniswap, ExpectedTrade } from './uniswap';
 import { ConfigManager } from '../../../services/config-manager';
 import { HttpException, asyncHandler } from '../../../services/error-handler';
 import { BigNumber } from 'ethers';
-import { latency } from '../../../services/base';
+import {
+  latency,
+  gasCostInEthString,
+  stringWithDecimalToBigNumber,
+} from '../../../services/base';
 import { ethers } from 'ethers';
-import { CurrencyAmount, Price, Trade } from '@uniswap/sdk';
+import { Trade } from '@uniswap/sdk';
 import { verifyEthereumIsAvailable } from '../ethereum-middlewares';
 import { verifyUniswapIsAvailable } from './uniswap-middlewares';
 
 export namespace UniswapRoutes {
   export const router = Router();
   const uniswap = Uniswap.getInstance();
-  const eth = Ethereum.getInstance();
+  const ethereum = Ethereum.getInstance();
 
   router.use(
     asyncHandler(verifyEthereumIsAvailable),
@@ -33,7 +37,7 @@ export namespace UniswapRoutes {
   interface UniswapPriceRequest {
     quote: string;
     base: string;
-    amount: BigNumber;
+    amount: string;
     side: Side;
   }
 
@@ -43,12 +47,12 @@ export namespace UniswapRoutes {
     latency: number;
     base: string;
     quote: string;
-    amount: BigNumber;
-    expectedAmount: CurrencyAmount;
-    tradePrice: Price;
+    amount: string;
+    expectedAmount: string;
+    price: string;
     gasPrice: number;
     gasLimit: number;
-    gasCost: number;
+    gasCost: string;
     trade: Trade;
   }
 
@@ -60,11 +64,38 @@ export namespace UniswapRoutes {
         res: Response<UniswapPriceResponse, {}>
       ) => {
         const initTime = Date.now();
-        const amount = req.body.amount;
-        const baseToken = eth.getTokenBySymbol(req.body.base);
+
+        // the amount is passed in as a string. We must validate the value.
+        // If it is a strictly an integer string, we can pass it interpet it as a BigNumber.
+        // If is a float string, we need to know how many decimal places it has then we can
+        // convert it to a BigNumber.
+        let amount: BigNumber;
+        if (req.body.amount.indexOf('.') > -1) {
+          let token;
+          if (req.body.side === 'BUY') {
+            token = ethereum.getTokenBySymbol(req.body.quote);
+          } else {
+            token = ethereum.getTokenBySymbol(req.body.base);
+          }
+          if (token) {
+            amount = stringWithDecimalToBigNumber(
+              req.body.amount,
+              token.decimals
+            );
+          } else {
+            throw new HttpException(
+              500,
+              'Unrecognized token symbol for amount.'
+            );
+          }
+        } else {
+          amount = BigNumber.from(req.body.amount);
+        }
+
+        const baseToken = ethereum.getTokenBySymbol(req.body.base);
 
         if (baseToken) {
-          const quoteToken = eth.getTokenBySymbol(req.body.quote);
+          const quoteToken = ethereum.getTokenBySymbol(req.body.quote);
           if (quoteToken) {
             const result: ExpectedTrade | string =
               req.body.side === 'BUY'
@@ -94,19 +125,19 @@ export namespace UniswapRoutes {
                   : trade.executionPrice;
 
               const gasLimit = ConfigManager.config.UNISWAP_GAS_LIMIT;
-              const gasPrice = eth.gasPrice;
+              const gasPrice = ethereum.gasPrice;
               const payload = {
                 network: ConfigManager.config.ETHEREUM_CHAIN,
                 timestamp: initTime,
                 latency: latency(initTime, Date.now()),
                 base: baseToken.address,
                 quote: quoteToken.address,
-                amount: amount,
-                expectedAmount: expectedAmount,
-                tradePrice: tradePrice,
+                amount: amount.toString(),
+                expectedAmount: expectedAmount.toSignificant(8),
+                price: tradePrice.toSignificant(8),
                 gasPrice: gasPrice,
                 gasLimit: gasLimit,
-                gasCost: gasPrice * gasLimit,
+                gasCost: gasCostInEthString(gasPrice, gasLimit),
                 trade: trade,
               };
               res.status(200).json(payload);
@@ -130,9 +161,10 @@ export namespace UniswapRoutes {
   interface UniswapTradeRequest {
     quote: string;
     base: string;
-    amount: BigNumber;
+    amount: string;
     privateKey: string;
     side: Side;
+    limitPrice?: BigNumber;
   }
 
   interface UniswapTradeResponse {
@@ -141,14 +173,19 @@ export namespace UniswapRoutes {
     latency: number;
     base: string;
     quote: string;
-    amount: BigNumber;
-    expectedIn?: CurrencyAmount;
-    expectedOut?: CurrencyAmount;
-    price: Price;
+    amount: string;
+    expectedIn?: string;
+    expectedOut?: string;
+    price: string;
     gasPrice: number;
     gasLimit: number;
-    gasCost: number;
+    gasCost: string;
     txHash: string | undefined;
+  }
+
+  interface UniswapTradeErrorResponse {
+    error: string;
+    message: string;
   }
 
   router.post(
@@ -156,43 +193,76 @@ export namespace UniswapRoutes {
     asyncHandler(
       async (
         req: Request<{}, {}, UniswapTradeRequest>,
-        res: Response<UniswapTradeResponse, {}>
+        res: Response<UniswapTradeResponse | UniswapTradeErrorResponse, {}>
       ) => {
         const initTime = Date.now();
-        const wallet = new ethers.Wallet(req.body.privateKey, eth.provider);
 
-        const baseToken = eth.getTokenBySymbol(req.body.base);
+        const limitPrice = req.body.limitPrice;
+
+        const wallet = new ethers.Wallet(
+          req.body.privateKey,
+          ethereum.provider
+        );
+
+        const baseToken = ethereum.getTokenBySymbol(req.body.base);
         if (!baseToken)
           throw new HttpException(
             500,
             'Unrecognized base token symbol: ' + req.body.base
           );
-        const quoteToken = eth.getTokenBySymbol(req.body.quote);
+        const quoteToken = ethereum.getTokenBySymbol(req.body.quote);
         if (!quoteToken)
           throw new HttpException(
             500,
             'Unrecognized quote token symbol: ' + req.body.quote
           );
+
+        let amount: BigNumber;
+        if (req.body.amount.indexOf('.') > -1) {
+          let token;
+          if (req.body.side === 'BUY') {
+            token = ethereum.getTokenBySymbol(req.body.quote);
+          } else {
+            token = ethereum.getTokenBySymbol(req.body.base);
+          }
+          if (token) {
+            amount = stringWithDecimalToBigNumber(
+              req.body.amount,
+              token.decimals
+            );
+          } else {
+            throw new HttpException(500, 'Unrecognized quote token symbol.');
+          }
+        } else {
+          amount = BigNumber.from(req.body.amount);
+        }
+
         const result: ExpectedTrade | string =
           req.body.side === 'BUY'
             ? await uniswap.priceSwapOut(
                 quoteToken.address, // tokenIn is quote asset
                 baseToken.address, // tokenOut is base asset
-                req.body.amount
+                amount
               )
             : await uniswap.priceSwapIn(
                 baseToken.address, // tokenIn is base asset
                 quoteToken.address, // tokenOut is quote asset
-                req.body.amount
+                amount
               );
 
         if (typeof result === 'string')
           throw new HttpException(500, 'Uniswap trade query failed: ' + result);
 
-        const gasPrice = eth.gasPrice;
+        const gasPrice = ethereum.gasPrice;
         const gasLimit = ConfigManager.config.UNISWAP_GAS_LIMIT;
         if (req.body.side === 'BUY') {
           const price = result.trade.executionPrice.invert();
+
+          if (limitPrice && price.toFixed(8) >= limitPrice.toString())
+            throw new HttpException(
+              500,
+              `Swap price ${price} exceeds limitPrice ${limitPrice}`
+            );
 
           const tx = await uniswap.executeTrade(wallet, result.trade, gasPrice);
           return res.status(200).json({
@@ -201,16 +271,22 @@ export namespace UniswapRoutes {
             latency: latency(initTime, Date.now()),
             base: baseToken.address,
             quote: quoteToken.address,
-            amount: req.body.amount,
-            expectedIn: result.expectedAmount,
-            price: price,
+            amount: amount.toString(),
+            expectedIn: result.expectedAmount.toSignificant(8),
+            price: price.toSignificant(8),
             gasPrice: gasPrice,
             gasLimit: gasLimit,
-            gasCost: gasPrice * gasLimit,
+            gasCost: gasCostInEthString(gasPrice, gasLimit),
             txHash: tx.hash,
           });
         } else {
           const price = result.trade.executionPrice;
+          if (limitPrice && price.toFixed(8) >= limitPrice.toString())
+            throw new HttpException(
+              500,
+              `Swap price ${price} lower than limitPrice ${limitPrice}`
+            );
+
           const tx = await uniswap.executeTrade(wallet, result.trade, gasPrice);
           return res.status(200).json({
             network: ConfigManager.config.ETHEREUM_CHAIN,
@@ -218,12 +294,12 @@ export namespace UniswapRoutes {
             latency: latency(initTime, Date.now()),
             base: baseToken.address,
             quote: quoteToken.address,
-            amount: req.body.amount,
-            expectedOut: result.expectedAmount,
-            price: price,
+            amount: amount.toString(),
+            expectedOut: result.expectedAmount.toSignificant(8),
+            price: price.toSignificant(8),
             gasPrice: gasPrice,
             gasLimit,
-            gasCost: gasPrice * gasLimit,
+            gasCost: gasCostInEthString(gasPrice, gasLimit),
             txHash: tx.hash,
           });
         }
