@@ -94,7 +94,7 @@ export namespace UniswapRoutes {
                   : trade.executionPrice;
 
               const gasLimit = ConfigManager.config.UNISWAP_GAS_LIMIT;
-              const gasPrice = eth.getGasPrice();
+              const gasPrice = eth.gasPrice;
               const payload = {
                 network: ConfigManager.config.ETHEREUM_CHAIN,
                 timestamp: initTime,
@@ -189,7 +189,7 @@ export namespace UniswapRoutes {
         if (typeof result === 'string')
           throw new HttpException(500, 'Uniswap trade query failed: ' + result);
 
-        const gasPrice = eth.getGasPrice();
+        const gasPrice = eth.gasPrice;
         const gasLimit = ConfigManager.config.UNISWAP_GAS_LIMIT;
         if (req.body.side === 'BUY') {
           const price = result.trade.executionPrice.invert();
