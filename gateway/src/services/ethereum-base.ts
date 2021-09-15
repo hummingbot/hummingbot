@@ -95,7 +95,7 @@ export class EthereumBase {
   public get gasPrice(): number {
     return this.gasPriceConstant;
   }
-    
+
   // return the Token object for a symbol
   getTokenForSymbol(symbol: string): Token | null {
     return this._tokenMap[symbol] ? this._tokenMap[symbol] : null;

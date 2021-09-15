@@ -154,12 +154,11 @@ export class Uniswap {
     });
 
     const contract = new Contract(this._uniswapRouter, routerAbi.abi, wallet);
-    const nonce = await this.ethereum.nonceManager.getNonce(wallet.address);
     const tx = await contract[result.methodName](...result.args, {
       gasPrice: gasPrice * 1e9,
       gasLimit: ConfigManager.config.UNISWAP_GAS_LIMIT,
       value: result.value,
-      nonce: nonce,
+      // nonce: nonce,
     });
 
     logger.info(`Trade tx ${tx}.`);

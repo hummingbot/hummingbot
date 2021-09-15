@@ -1,4 +1,5 @@
 import ethers from 'ethers';
+import { logger } from '../../services/logger';
 
 export class EVMNonceManager {
   private static _instance: EVMNonceManager;
@@ -19,14 +20,20 @@ export class EVMNonceManager {
   // init can be called many times and generally should always be called
   // getInstance, but it only applies the values the first time it is called
   init(provider: ethers.providers.Provider, delay: number): void {
-    if (this._provider || !!this._delay) {
+    if (!this._provider || !this._delay) {
       this._provider = provider;
       this._delay = delay;
+    }
+
+    if (delay < 0) {
+      throw new Error(
+        'EVMNonceManager.init delay must be greater than or equal to zero.'
+      );
     }
   }
 
   async mergeNonceFromEVMNode(ethAddress: string): Promise<void> {
-    if (this._provider && this._delay) {
+    if (this._provider !== null && this._delay !== null) {
       let internalNonce: number;
       if (this._addressToNonce[ethAddress]) {
         internalNonce = this._addressToNonce[ethAddress][0];
@@ -43,6 +50,9 @@ export class EVMNonceManager {
         new Date(),
       ];
     } else {
+      logger.error(
+        'EVMNonceManager.mergeNonceFromEVMNode called before initiated'
+      );
       throw new Error(
         'EVMNonceManager.mergeNonceFromEVMNode called before initiated'
       );
@@ -50,11 +60,11 @@ export class EVMNonceManager {
   }
 
   async getNonce(ethAddress: string): Promise<number> {
-    if (this._provider && this._delay) {
+    if (this._provider !== null && this._delay !== null) {
       if (this._addressToNonce[ethAddress]) {
         const timestamp = this._addressToNonce[ethAddress][1];
         const now = new Date();
-        const diffInSeconds = (timestamp.getTime() - now.getTime()) / 1000;
+        const diffInSeconds = (now.getTime() - timestamp.getTime()) / 1000;
 
         if (diffInSeconds > this._delay) {
           await this.mergeNonceFromEVMNode(ethAddress);
@@ -62,6 +72,7 @@ export class EVMNonceManager {
 
         return this._addressToNonce[ethAddress][0];
       } else {
+        logger.info('getTransactionCount');
         const nonce: number = await this._provider.getTransactionCount(
           ethAddress
         );
@@ -69,6 +80,7 @@ export class EVMNonceManager {
         return nonce;
       }
     } else {
+      logger.error('EVMNonceManager.getNonce called before initiated');
       throw new Error('EVMNonceManager.getNonce called before initiated');
     }
   }
@@ -77,7 +89,7 @@ export class EVMNonceManager {
     ethAddress: string,
     txNonce: number | null = null
   ): Promise<void> {
-    if (this._provider && this._delay) {
+    if (this._provider !== null && this._delay !== null) {
       let newNonce;
       if (txNonce) {
         newNonce = txNonce + 1;
@@ -86,6 +98,7 @@ export class EVMNonceManager {
       }
       this._addressToNonce[ethAddress] = [newNonce, new Date()];
     } else {
+      logger.error('EVMNonceManager.commitNonce called before initiated');
       throw new Error('EVMNonceManager.commitNonce called before initiated');
     }
   }

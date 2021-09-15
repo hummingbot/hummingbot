@@ -167,12 +167,10 @@ export class Ethereum extends EthereumBase {
         tokenAddress +
         '.'
     );
-
-    const nonce = await this._nonceManager.getNonce(wallet.address);
     const response = await contract.approve(spender, amount, {
       gasPrice: this._gasPrice * 1e9,
       gasLimit: 100000,
-      nonce: nonce,
+      // nonce: nonce,
     });
     logger.info(response);
     return response;
