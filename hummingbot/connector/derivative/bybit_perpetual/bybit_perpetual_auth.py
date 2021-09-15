@@ -40,7 +40,7 @@ class BybitPerpetualAuth():
         }
 
     def extend_params_with_authentication_info(self, params: Dict[str, Any]):
-        params["timestamp"] = self.get_expiration_timestamp()
+        params["timestamp"] = str(int(time.time() * 1e3))
         params["api_key"] = self._api_key
         key_value_elements = []
         for key, value in sorted(params.items()):
