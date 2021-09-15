@@ -259,7 +259,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                                               add_timestamp = True,
                                               is_signed=True)
             exchange_order_id = str(order_result["orderId"])
-            tracked_order = self._in_flight_orders.get(order_id)
+            tracked_order = self._in_flight_orders.get(order_id, None)
             if tracked_order is not None:
                 self.logger().info(f"Created {order_type.name.lower()} {trade_type.name.lower()} order {order_id} for "
                                    f"{amount} {trading_pair}.")
@@ -373,8 +373,15 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         safe_ensure_future(self.execute_cancel(trading_pair, client_order_id))
         return client_order_id
 
-    async def execute_cancel(self, trading_pair: str, client_order_id: str):
+    async def execute_cancel(self, trading_pair: str, client_order_id: str) -> Dict[str, Any]:
         try:
+            # Checks if order is not being tracked or order is waiting for created confirmation.
+            tracked_order: Optional[BinancePerpetualsInFlightOrder] = self._in_flight_orders.get(client_order_id, None)
+            if not tracked_order or not tracked_order.exchange_order_id_update_event.is_set():
+                self.logger().error(f"Error cancelling order {client_order_id}. "
+                                    f"Order not being tracked or waiting order created confirmation...")
+                return
+
             params = {
                 "origClientOrderId": client_order_id,
                 "symbol": utils.convert_to_exchange_trading_pair(trading_pair)

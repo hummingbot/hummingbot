@@ -29,7 +29,7 @@ from hummingbot.logger import HummingbotLogger
 
 
 class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
-    def __init__(self, trading_pairs: List[str] = None, domain: str = "binance_perpetual", throttler: Optional[AsyncThrottler] = None):
+    def __init__(self, trading_pairs: List[str] = None, domain: str = CONSTANTS.DOMAIN, throttler: Optional[AsyncThrottler] = None):
         super().__init__(trading_pairs)
         self._order_book_create_function = lambda: OrderBook()
         self._domain = domain
@@ -155,6 +155,8 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self.logger().error("Unexpected error with Websocket connection. Retrying after 30 seconds...",
                                     exc_info=True)
                 await asyncio.sleep(30.0)
+            finally:
+                await ws.close()
 
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
@@ -173,6 +175,8 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self.logger().error("Unexpected error with Websocket connection. Retrying after 30 seconds...",
                                     exc_info=True)
                 await asyncio.sleep(30.0)
+            finally:
+                await ws.close()
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:

@@ -63,6 +63,9 @@ class BinancePerpetualsInFlightOrder(InFlightOrderBase):
 
     def update_with_execution_report(self, execution_report: Dict[str, Any]):
         order_report = execution_report.get("o")
+        execution_type = execution_report.get("x")
+        if execution_type == "NEW" and not self.exchange_order_id_update_event.is_set():
+            self.update_exchange_order_id(exchange_id=execution_report.get("i"))
         trade_id = order_report.get("t")
         if trade_id in self.trade_id_set:
             return
