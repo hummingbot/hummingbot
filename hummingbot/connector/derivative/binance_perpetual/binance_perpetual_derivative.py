@@ -258,12 +258,16 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                                               method=MethodType.POST,
                                               add_timestamp = True,
                                               is_signed=True)
+
+            tracked_order = self._in_flight_orders.get(order_id)
+            self.logger().info(f"Created {order_type.name.lower()} {trade_type.name.lower()} order {order_id} for "
+                               f"{amount} {trading_pair}.")
+
+            # Since POST /order endpoint is synchrounous, we can update exchange_order_id and last_state of tracked order.
             exchange_order_id = str(order_result["orderId"])
-            tracked_order = self._in_flight_orders.get(order_id, None)
-            if tracked_order is not None:
-                self.logger().info(f"Created {order_type.name.lower()} {trade_type.name.lower()} order {order_id} for "
-                                   f"{amount} {trading_pair}.")
-                tracked_order.exchange_order_id = exchange_order_id
+            order_status = str(order_result["status"])
+            tracked_order.update_exchange_order_id(exchange_order_id)
+            tracked_order.last_state = order_status
 
             event_tag = self.MARKET_BUY_ORDER_CREATED_EVENT_TAG if trade_type is TradeType.BUY \
                 else self.MARKET_SELL_ORDER_CREATED_EVENT_TAG
@@ -375,11 +379,9 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
 
     async def execute_cancel(self, trading_pair: str, client_order_id: str) -> Dict[str, Any]:
         try:
-            # Checks if order is not being tracked or order is waiting for created confirmation.
+            # Checks if order is not being tracked or order is waiting for created confirmation. If so, ignores cancel request.
             tracked_order: Optional[BinancePerpetualsInFlightOrder] = self._in_flight_orders.get(client_order_id, None)
-            if not tracked_order or not tracked_order.exchange_order_id_update_event.is_set():
-                self.logger().error(f"Error cancelling order {client_order_id}. "
-                                    f"Order not being tracked or waiting order created confirmation...")
+            if not tracked_order or tracked_order.is_pending_create:
                 return
 
             params = {
