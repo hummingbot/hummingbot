@@ -2,6 +2,9 @@ from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, Rate
 
 EXCHANGE_NAME = "binance_perpetual"
 
+DOMAIN = EXCHANGE_NAME
+TESTNET_DOMAIN = "binance_perpetual_testnet"
+
 PERPETUAL_BASE_URL = "https://fapi.binance.com/fapi/"
 TESTNET_BASE_URL = "https://testnet.binancefuture.com/fapi/"
 

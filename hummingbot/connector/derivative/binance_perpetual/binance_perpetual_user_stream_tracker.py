@@ -29,18 +29,18 @@ class BinancePerpetualUserStreamTracker(UserStreamTracker):
     def _get_throttler_instance(cls) -> AsyncThrottler:
         return AsyncThrottler(CONSTANTS.RATE_LIMITS)
 
-    def __init__(self, api_key: str, domain: str = "binance_perpetual", throttler: Optional[AsyncThrottler] = None):
+    def __init__(self, api_key: str, domain: str = CONSTANTS.DOMAIN, throttler: Optional[AsyncThrottler] = None):
         super().__init__()
         self._api_key: str = api_key
         self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
         self._data_source: Optional[UserStreamTrackerDataSource] = None
         self._user_stream_tracking_task: Optional[asyncio.Task] = None
         self._domain = domain
-        self._throttler = throttler or self._get_throttler_instance()
+        self._throttler = throttler
 
     @property
     def exchange_name(self) -> str:
-        return "binance_perpetual"
+        return self._domain
 
     @property
     def data_source(self) -> UserStreamTrackerDataSource:
