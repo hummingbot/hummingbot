@@ -85,8 +85,6 @@ class UniswapConnector(ConnectorBase):
         self._allowances = {}
         self._status_polling_task = None
         self._auto_approve_task = None
-        self._initiate_pool_task = None
-        self._initiate_pool_status = None
         self._real_time_balance_update = False
         self._poll_notifier = None
 
@@ -104,28 +102,6 @@ class UniswapConnector(ConnectorBase):
             in_flight_order.to_limit_order()
             for in_flight_order in self._in_flight_orders.values()
         ]
-
-    async def initiate_pool(self) -> str:
-        """
-        Initiate connector and start caching paths for trading_pairs
-        """
-        while True:
-            try:
-                # self.logger().info(f"Initializing Uniswap connector and paths for {self._trading_pairs} pairs.")
-                resp = await self._api_request("get", "eth/uniswap/start",
-                                               {"pairs": json.dumps(self._trading_pairs)})
-                status = bool(str(resp["success"]))
-                if status:
-                    self._initiate_pool_status = status
-                    await asyncio.sleep(60)
-            except asyncio.CancelledError:
-                raise
-            except Exception as e:
-                self.logger().network(
-                    f"Error initializing {self._trading_pairs} ",
-                    exc_info=True,
-                    app_warning_msg=str(e)
-                )
 
     async def auto_approve(self):
         """
@@ -151,7 +127,7 @@ class UniswapConnector(ConnectorBase):
         resp = await self._api_request("post",
                                        "eth/approve",
                                        {"token": token_symbol,
-                                        "connector": self.name})
+                                        "spender": self.name})
         amount_approved = Decimal(str(resp["amount"]))
         if amount_approved > 0:
             self.logger().info(f"Approved Uniswap spender contract for {token_symbol}.")
@@ -166,8 +142,8 @@ class UniswapConnector(ConnectorBase):
         """
         ret_val = {}
         resp = await self._api_request("post", "eth/allowances",
-                                       {"tokenList": "[" + (",".join(['"' + t + '"' for t in self._tokens])) + "]",
-                                        "connector": self.name})
+                                       {"tokenSymbols": list(self._tokens),
+                                        "spender": self.name})
         for token, amount in resp["approvals"].items():
             ret_val[token] = Decimal(str(amount))
         return ret_val
@@ -190,17 +166,18 @@ class UniswapConnector(ConnectorBase):
                                            {"base": base,
                                             "quote": quote,
                                             "side": side.upper(),
-                                            "amount": amount})
+                                            "amount": str(amount)})
             required_items = ["price", "gasLimit", "gasPrice", "gasCost"]
             if any(item not in resp.keys() for item in required_items):
                 if "info" in resp.keys():
                     self.logger().info(f"Unable to get price. {resp['info']}")
                 else:
-                    self.logger().info(f"Missing data from price result. Incomplete return result for ({resp.keys()})")
+                    missing_items = ', '.join([item for item in required_items if item not in resp.keys()])
+                    self.logger().info(f"Missing data from price result. Incomplete return result for ({missing_items})")
             else:
                 gas_limit = resp["gasLimit"]
                 gas_price = resp["gasPrice"]
-                gas_cost = resp["gasCost"]
+                gas_cost = Decimal(str(resp["gasCost"]))
                 price = resp["price"]
                 account_standing = {
                     "allowances": self._allowances,
@@ -466,7 +443,6 @@ class UniswapConnector(ConnectorBase):
     async def start_network(self):
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
-            self._initiate_pool_task = safe_ensure_future(self.initiate_pool())
             self._auto_approve_task = safe_ensure_future(self.auto_approve())
 
     async def stop_network(self):
@@ -476,14 +452,11 @@ class UniswapConnector(ConnectorBase):
         if self._auto_approve_task is not None:
             self._auto_approve_task.cancel()
             self._auto_approve_task = None
-        if self._initiate_pool_task is not None:
-            self._initiate_pool_task.cancel()
-            self._initiate_pool_task = None
 
     async def check_network(self) -> NetworkStatus:
         try:
-            response = await self._api_request("get", "api")
-            if response["status"] != "ok":
+            response = await self._api_request("get", "")
+            if response["message"] != "ok":
                 raise Exception(f"Error connecting to Gateway API. HTTP status is {response.status}.")
         except asyncio.CancelledError:
             raise
@@ -531,8 +504,7 @@ class UniswapConnector(ConnectorBase):
             remote_asset_names = set()
             resp_json = await self._api_request("post",
                                                 "eth/balances",
-                                                {"tokenList": "[" + (",".join(['"' + t + '"' for t in self._tokens])) + "]"})
-
+                                                {"tokenSymbols": list(self._tokens)})
             for token, bal in resp_json["balances"].items():
                 self._account_available_balances[token] = Decimal(str(bal))
                 self._account_balances[token] = Decimal(str(bal))

@@ -1,5 +1,9 @@
 import { BigNumber } from 'ethers';
-import { bigNumberWithDecimalToStr } from '../../src/services/base';
+import {
+  bigNumberWithDecimalToStr,
+  stringWithDecimalToBigNumber,
+  gasCostInEthString,
+} from '../../src/services/base';
 import 'jest-extended';
 
 test('bigNumberWithDecimalToStr', () => {
@@ -22,4 +26,22 @@ test('bigNumberWithDecimalToStr', () => {
   expect(
     bigNumberWithDecimalToStr(BigNumber.from('1345000000000000000000'), 18)
   ).toEqual('1345.000000000000000000');
+});
+
+test('stringWithDecimalToBigNumber', () => {
+  expect(stringWithDecimalToBigNumber('1.001', 5)).toEqual(
+    BigNumber.from('100100')
+  );
+
+  expect(stringWithDecimalToBigNumber('1', 5)).toEqual(
+    BigNumber.from('100000')
+  );
+
+  expect(stringWithDecimalToBigNumber('1.00000000000', 2)).toEqual(
+    BigNumber.from('100')
+  );
+});
+
+test('gasCostInEthString', () => {
+  expect(gasCostInEthString(200, 21000)).toEqual('0.004200000000000000');
 });
