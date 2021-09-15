@@ -549,19 +549,21 @@ class GateIoExchange(ExchangeBase):
         order.last_state to change to CANCELED
         """
         order_was_cancelled = False
+        err_msg = None
         try:
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is None:
-                raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
-            if tracked_order.exchange_order_id is None:
-                await tracked_order.get_exchange_order_id()
-            ex_order_id = tracked_order.exchange_order_id
-            await self._api_request("DELETE",
-                                    CONSTANTS.ORDER_DELETE_PATH_URL.format(id=ex_order_id),
-                                    params={'currency_pair': convert_to_exchange_trading_pair(trading_pair)},
-                                    is_auth_required=True,
-                                    limit_id=CONSTANTS.ORDER_DELETE_LIMIT_ID)
-            order_was_cancelled = True
+                self.logger().warning(f"Failed to cancel order {order_id}. Order not found in inflight orders.")
+            else:
+                if tracked_order.exchange_order_id is None:
+                    await tracked_order.get_exchange_order_id()
+                ex_order_id = tracked_order.exchange_order_id
+                await self._api_request("DELETE",
+                                        CONSTANTS.ORDER_DELETE_PATH_URL.format(id=ex_order_id),
+                                        params={'currency_pair': convert_to_exchange_trading_pair(trading_pair)},
+                                        is_auth_required=True,
+                                        limit_id=CONSTANTS.ORDER_DELETE_LIMIT_ID)
+                order_was_cancelled = True
         except asyncio.CancelledError:
             raise
         except (asyncio.TimeoutError, GateIoAPIError) as e:
@@ -583,6 +585,7 @@ class GateIoExchange(ExchangeBase):
             tracked_order.cancelled_event.set()
             return CancellationResult(order_id, True)
         else:
+            err_msg = err_msg or "(no details available)"
             self.logger().network(
                 f"Failed to cancel order {order_id}: {err_msg}",
                 exc_info=True,
