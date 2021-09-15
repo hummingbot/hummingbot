@@ -51,9 +51,27 @@ describe('EVMNodeService', () => {
     await expect(nonce).toEqual(11);
   });
 
-  // it('mergeNonceFromEVMNode should update with the maximum nonce source', async () => {
-  //   await nonceManager.mergeNonceFromEVMNode(exampleAddress);
-  //   const nonce = await nonceManager.getNonce(exampleAddress);
-  //   await expect(nonce).toEqual(11);
-  // });    
+  it('mergeNonceFromEVMNode should update with the maximum nonce source (node)', async () => {
+    if (nonceManager._provider) {
+      nonceManager._provider.getTransactionCount = jest
+        .fn()
+        .mockReturnValue(11);
+    }
+
+    await nonceManager.commitNonce(exampleAddress, 10);
+    await nonceManager.mergeNonceFromEVMNode(exampleAddress);
+    const nonce = await nonceManager.getNonce(exampleAddress);
+    await expect(nonce).toEqual(11);
+  });
+
+  it('mergeNonceFromEVMNode should update with the maximum nonce source (local)', async () => {
+    if (nonceManager._provider) {
+      nonceManager._provider.getTransactionCount = jest.fn().mockReturnValue(3);
+    }
+
+    await nonceManager.commitNonce(exampleAddress, 20);
+    await nonceManager.mergeNonceFromEVMNode(exampleAddress);
+    const nonce = await nonceManager.getNonce(exampleAddress);
+    await expect(nonce).toEqual(21);
+  });
 });
