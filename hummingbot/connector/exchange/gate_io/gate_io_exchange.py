@@ -460,54 +460,55 @@ class GateIoExchange(ExchangeBase):
         if amount < trading_rule.min_order_size:
             self.logger().warning(f"Buy order amount {amount} is lower than the minimum order size "
                                   f"{trading_rule.min_order_size}.")
-        order_type_str = order_type.name.lower().split("_")[0]
-        api_params = {"text": order_id,
-                      "currency_pair": convert_to_exchange_trading_pair(trading_pair),
-                      "side": trade_type.name.lower(),
-                      "type": order_type_str,
-                      "price": f"{price:f}",
-                      "amount": f"{amount:f}",
-                      }
-        self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, order_type)
-        try:
-            order_result = await self._api_request("POST", CONSTANTS.ORDER_CREATE_PATH_URL, api_params, True)
-            if order_result.get('status') in {"cancelled", "expired", "failed"}:
-                raise GateIoAPIError({'label': 'ORDER_REJECTED', 'message': 'Order rejected.'})
-            if order_result.get('status') != 'open':
-                self.logger().network(f"Unexpected order result:\n{order_result}")
-            exchange_order_id = str(order_result["id"])
-            tracked_order = self._in_flight_orders.get(order_id)
-            if tracked_order is not None:
-                self.logger().info(f"Created {order_type.name} {trade_type.name} order {order_id} for "
-                                   f"{amount} {trading_pair}.")
-                tracked_order.update_exchange_order_id(exchange_order_id)
-            if trade_type is TradeType.BUY:
-                event_tag = MarketEvent.BuyOrderCreated
-                event_cls = BuyOrderCreatedEvent
-            else:
-                event_tag = MarketEvent.SellOrderCreated
-                event_cls = SellOrderCreatedEvent
-            self.trigger_event(event_tag,
-                               event_cls(self.current_timestamp,
-                                         order_type,
-                                         trading_pair,
-                                         amount,
-                                         price,
-                                         order_id,
-                                         exchange_order_id))
-        except asyncio.CancelledError:
-            raise
-        except GateIoAPIError as e:
-            error_reason = e.error_message
-            self.stop_tracking_order(order_id)
-            self.logger().network(
-                f"Error submitting {trade_type.name} {order_type.name} order to {CONSTANTS.EXCHANGE_NAME} for "
-                f"{amount} {trading_pair} {price} - {error_reason}.",
-                exc_info=True,
-                app_warning_msg=(f"Error submitting order to {CONSTANTS.EXCHANGE_NAME} - {error_reason}.")
-            )
-            self.trigger_event(MarketEvent.OrderFailure,
-                               MarketOrderFailureEvent(self.current_timestamp, order_id, order_type))
+        else:
+            order_type_str = order_type.name.lower().split("_")[0]
+            api_params = {"text": order_id,
+                          "currency_pair": convert_to_exchange_trading_pair(trading_pair),
+                          "side": trade_type.name.lower(),
+                          "type": order_type_str,
+                          "price": f"{price:f}",
+                          "amount": f"{amount:f}",
+                          }
+            self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, order_type)
+            try:
+                order_result = await self._api_request("POST", CONSTANTS.ORDER_CREATE_PATH_URL, api_params, True)
+                if order_result.get('status') in {"cancelled", "expired", "failed"}:
+                    raise GateIoAPIError({'label': 'ORDER_REJECTED', 'message': 'Order rejected.'})
+                if order_result.get('status') != 'open':
+                    self.logger().network(f"Unexpected order result:\n{order_result}")
+                exchange_order_id = str(order_result["id"])
+                tracked_order = self._in_flight_orders.get(order_id)
+                if tracked_order is not None:
+                    self.logger().info(f"Created {order_type.name} {trade_type.name} order {order_id} for "
+                                       f"{amount} {trading_pair}.")
+                    tracked_order.update_exchange_order_id(exchange_order_id)
+                if trade_type is TradeType.BUY:
+                    event_tag = MarketEvent.BuyOrderCreated
+                    event_cls = BuyOrderCreatedEvent
+                else:
+                    event_tag = MarketEvent.SellOrderCreated
+                    event_cls = SellOrderCreatedEvent
+                self.trigger_event(event_tag,
+                                   event_cls(self.current_timestamp,
+                                             order_type,
+                                             trading_pair,
+                                             amount,
+                                             price,
+                                             order_id,
+                                             exchange_order_id))
+            except asyncio.CancelledError:
+                raise
+            except GateIoAPIError as e:
+                error_reason = e.error_message
+                self.stop_tracking_order(order_id)
+                self.logger().network(
+                    f"Error submitting {trade_type.name} {order_type.name} order to {CONSTANTS.EXCHANGE_NAME} for "
+                    f"{amount} {trading_pair} {price} - {error_reason}.",
+                    exc_info=True,
+                    app_warning_msg=(f"Error submitting order to {CONSTANTS.EXCHANGE_NAME} - {error_reason}.")
+                )
+                self.trigger_event(MarketEvent.OrderFailure,
+                                   MarketOrderFailureEvent(self.current_timestamp, order_id, order_type))
 
     def start_tracking_order(self,
                              order_id: str,
