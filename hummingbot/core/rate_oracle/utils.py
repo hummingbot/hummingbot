@@ -13,9 +13,11 @@ def find_rate(prices: Dict[str, Decimal], pair: str) -> Decimal:
     :param prices: The dictionary of trading pairs and their prices
     :param pair: The trading pair
     '''
-    if pair in prices:
-        return prices[pair]
     base, quote = pair.split("-")
+    base = base.upper().replace("ERC20", "").replace("BEP20", "").replace("HRC20", "")
+    quote = quote.upper().replace("ERC20", "").replace("BEP20", "").replace("HRC20", "")
+    if f"{base}-{quote}" in prices:
+        return prices[f"{base}-{quote}"]
     if base == quote:
         return Decimal("1")
     reverse_pair = f"{quote}-{base}"

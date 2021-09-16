@@ -230,7 +230,7 @@ class RateOracle(NetworkBase):
                 raise ValueError("response not exist result")
 
             for record in records["result"]:
-                trading_pair = f"{record['first_currency']}-{record['second_currency']}"
+                trading_pair = f"{record['first_currency']}-{record['second_currency']}".upper()
                 if datetime.datetime.now() - datetime.datetime.fromtimestamp(record["date"]) > datetime.timedelta(hours=2):
                     cls.logger().error("Price expired")
                     raise ValueError("Price expired")
