@@ -4,6 +4,8 @@
 
 In Task 3, we will be required to implement both `InFlightOrder` and `Exchange` Class. This is because the primary bulk of implementing a new exchange connector is in this task.
 
+If the exchange is a perpetual derivative exchange, the connector must also inherit from the `PerpetualTrading` class. 
+
 ### InFlightOrder Class
 
 As seen in the [Exchange Component Overview](/developers/connectors/architecture/#exchange-component-overview), the `Exchange` class depends on the `InFlightOrder` Class.
@@ -31,10 +33,12 @@ The functions of the `Exchange` class can be categorized into:
 
 [**(1) Placing Orders**](#1-placing-orders)<br/>
 [**(2) Cancelling Orders**](#2-cancelling-orders)<br/>
-[**(3) Tracking Orders & Balances**](#3-tracking-orders-balances)<br/>
+[**(3) Tracking Orders, Balances & Positions**](#3-tracking-orders-balances--positions)<br/>
 [**(4) Managing Trading Rules**](#4-managing-trading-rules)<br/>
 [**(5) Additional Functions**](#5-additional-functions)<br/>
-[**(6) Class Properties**](#6-class-properties)
+[**(6) Perpetual Functions**](#6-perpetual-functions)<br/>
+[**(7) Class Properties**](#7-class-properties)<br/>
+[**(8) Perpetual Properties**](#8-perpetual-properties)
 
 Although this might seem pretty straightforward, it does require a certain level of understanding and knowing the expected side-effect(s) of certain functions.
 
@@ -43,7 +47,7 @@ The **_Exchange Class Diagram_**, given below, details the critical variables an
 ![ExchangeUMLDiagram](/assets/img/exchange-class.svg)
 
 !!! note
-    The 6 categories of functions broadly covers the necessary functions that need to be implemented in the `Exchange` class, so feel free to include other utility functions as needed.
+    The categories of functions shown here broadly cover the necessary functions that need to be implemented in the `Exchange` class. Feel free to include other utility functions as needed.
 
 ### (1) Placing Orders
 
@@ -133,8 +137,8 @@ This function is responsible for executing the API request to place the order on
 | `trading_pair` | `str`                                                                                                      | Name of the trading pair symbol(in Hummingbot's format i.e. `BASE-QUOTE`)                 |
 | `price`        | `Decimal`                                                                                                  | Price in which the order will be placed in `Decimal`                                      |
 | `amount`       | `Decimal`                                                                                                  | Amount in which the order will be placed in `Decimal`                                     |
-| `order_type`   | [`OrderType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L61-L69) | Specifies the order type of the order(i.e. `OrderType.LIMIT` and `OrderType.LIMIT_MAKER`) |
-| `trade_type`   | [`TradeType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L61-L69) | Specifies the trade type of the order(i.e. `TradeType.BUY` and `TradeType.SELL`)          |
+| `order_type`   | [`OrderType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L72-L78) | Specifies the order type of the order(i.e. `OrderType.LIMIT` and `OrderType.LIMIT_MAKER`) |
+| `trade_type`   | [`TradeType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L66-L69) | Specifies the trade type of the order(i.e. `TradeType.BUY` and `TradeType.SELL`)          |
 
 **Expected Output(s):**
 
@@ -193,9 +197,11 @@ Cancels the specified in-flight order and returns the client order ID.
 | ---------- | ----- | --------------- |
 | `order_id` | `str` | Client Order ID |
 
-### (3) Tracking Orders & Balances
+### (3) Tracking Orders, Balances & Positions
 
 The functions listed in this section details how the connector should process and track orders and balances.
+
+In the case of perpetual connectors, positions must be tracked as well.
 
 #### `start_tracking_order()`
 
@@ -210,8 +216,8 @@ Starts tracking an order by simply adding it into `_in_flight_orders` dictionary
 | `trading_pair`      | `str`                                                                                                      | Name of the trading pair symbol(in Hummingbot's format i.e. `BASE-QUOTE`)                 |
 | `price`             | `Decimal`                                                                                                  | Price in which the order will be placed in `Decimal`                                      |
 | `amount`            | `Decimal`                                                                                                  | Amount in which the order will be placed in `Decimal`                                     |
-| `order_type`        | [`OrderType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L61-L69) | Specifies the order type of the order(i.e. `OrderType.LIMIT` and `OrderType.LIMIT_MAKER`) |
-| `trade_type`        | [`TradeType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L61-L69) | Specifies the trade type of the order(i.e. `TradeType.BUY` and `TradeType.SELL`)          |
+| `order_type`        | [`OrderType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L72-L78) | Specifies the order type of the order(i.e. `OrderType.LIMIT` and `OrderType.LIMIT_MAKER`) |
+| `trade_type`        | [`TradeType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L66-L69) | Specifies the trade type of the order(i.e. `TradeType.BUY` and `TradeType.SELL`)          |
 
 **Expected Output(s):** `None`
 
@@ -235,6 +241,9 @@ Stops the tracking of order by simply removing it from `_in_flight_orders` dicti
 Wait for new messages from `_user_stream_tracker.user_stream` queue and processes them according to their message channels.
 The respective `UserStreamDataSource queues these messages`.
 
+In perpetual connectors, care should be taken here to keep the `_account_positions` dictionary, used by the perpetual
+strategies, updated.
+
 Below are the function(s) called from within `_user_stream_event_listener()` when a message is received.
 
 | Function(s)                                              | Description                           |
@@ -251,6 +260,10 @@ Below are the function(s) called from within `_user_stream_event_listener()` whe
 
 Periodically update user balances and order status via REST API. This serves as a fallback measure for WebSocket API updates.
 Calling of both [\_update_balances()](#_update_balances) and [\_update_order_status()](#_update_order_status) functions is determined by the `_poll_notifier` variable.
+
+For perpetual connectors, the [\_update_account_positions()](#_update_account_positions) should also be called here.
+In addition, for exchanges which require a REST API call to update the funding information, this can be initiated by
+the status polling loop as well.
 
 `_poll_notifier` is an `asyncio.Event` object that is set in the `tick()` function.
 It is set after every `SHORT_POLL_INTERVAL` or `LONG_POLL_INTERVAL` depending on the `last_recv_time` of the `_user_stream_tracker`.
@@ -505,16 +518,65 @@ Use `OrderType.LIMIT_MAKER` to specify you want a trading fee for the maker orde
 | `quote_currency` | `str`                                                                                                      | Quote currency of the order.                                                              |
 | `price`          | `Decimal`                                                                                                  | Price in which the order will be placed in `Decimal`                                      |
 | `amount`         | `Decimal`                                                                                                  | Amount in which the order will be placed in `Decimal`                                     |
-| `order_type`     | [`OrderType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L61-L69) | Specifies the order type of the order(i.e. `OrderType.LIMIT` and `OrderType.LIMIT_MAKER`) |
-| `trade_type`     | [`TradeType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L61-L69) | Specifies the trade type of the order(i.e. `TradeType.BUY` and `TradeType.SELL`)          |
+| `order_type`     | [`OrderType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L72-L78) | Specifies the order type of the order(i.e. `OrderType.LIMIT` and `OrderType.LIMIT_MAKER`)  |
+| `trade_type`     | [`TradeType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L66-L69) | Specifies the trade type of the order(i.e. `TradeType.BUY` and `TradeType.SELL`)           |
 
 **Expected Output(s):**
 
 | Output(s) | Type                                                                                                        | Description                       |
 | --------- | ----------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| `fee`     | [`TradeFee`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L257-L287) | Estimated trade fee of the order. |
+| `fee`     | [`TradeFee`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L272-L302) | Estimated trade fee of the order. |
 
-### (6) Class Properties
+### (6) Perpetual Functions
+
+In addition to the account positions mentioned in [section 3](#3-tracking-orders-balances--positions), the
+`PerpetualTrading` class also keeps track of the funding information and leverage levels for the traded pairs.
+
+Below are the additional methods that this class introduces.
+
+### `_update_account_positions()`
+
+Ensures the `_account_positions` dictionary is in sync with the information in the exchange.
+
+**Input Parameter(s):** `None`
+
+**Expected Output(s):** `None`
+
+### `supported_position_modes()`
+
+This method needs to be overridden to provide the accurate information depending on the exchange.
+
+**Input Parameter(s):** `None`
+
+**Expected Output(s):**
+
+| Output(s) | Type                                                                                                                      | Description                                   |
+| --------- | ------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| `modes`   | `List[`[`PositionMode`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L94-L96)\]`]` | Either or both of `HEDGE` and `ONEWAY` modes. |
+
+### `set_levelrage()`
+
+This method may need to be overridden to perform the necessary validations and set the leverage level on the exchange.
+
+**Input Parameter(s):**
+
+| Parameter(s)   | Type  | Description                                  |
+| -------------- | ----- | -------------------------------------------- |
+| `trading_pair` | `str` | Trading pair for which to set leverage level |
+| `leverage`     | `int` | The desired leverage level                   |
+
+**Expected Output(s):** `None`
+
+### `_funding_info_polling_loop()`
+
+This method can be implemented for exchanges that stream funding information over a websocket connection. In which case,
+there is no need to update the funding info in the [`_status_polling_loop()`](#_status_polling_loop) method.
+
+**Input Parameter(s):** `None`
+
+**Expected Output(s):** `None`
+
+### (7) Class Properties
 
 Below are the property functions of the `Exchange` class.
 
@@ -523,11 +585,21 @@ Below are the property functions of the `Exchange` class.
 | `name`               | `str`                      | Name of the exchange. Used to identify the exchange across Hummingbot.                                                            |
 | `order_books`        | `Dict[str, OrderBook]`     | Dictionary of the `OrderBook` of each active trading pair on the bot. Utilizes the `order_books` property from `OrderBookTracker` |
 | `trading_rules`      | `Dict[str, TradingRule]`   | Returns the `_trading_rule` class variable; a dictionary of the `TradingRule` of each active trading pair on the bot.             |
-| `in_flight_orders`   | `Dict[str, InFlightOrder]` | Dictionary of the all `InFlightOrder` by its client order ID.                                                                     |
+| `in_flight_orders`    | `Dict[str, InFlightOrder]` | Dictionary of the all `InFlightOrder` by its client order ID.                                                                     |
 | `status_dict`        | `Dict[str, bool]`          | A dictionary of statuses of various connector's components. Used by the `ready()` property function.                              |
 | `ready`              | `bool`                     | True when all statuses pass, this might take 5-10 seconds for all the connector's components and services to be ready.            |
 | `limit_orders`       | `List[LimitOrder]`         | Returns a list of `InFlightOrder`.                                                                                                |
 | `tracking_states`    | `Dict[str, Any]`           | All `InFlightOrder` in JSON format. Used to save in sqlite db.                                                                    |
+
+### (8) Perpetual Properties
+
+Below are the property functions of the `PerpetualTrading` class.
+
+| Property Function(s)   | Output                | Description                                                                                                                                                                                                                                                |
+| ---------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `account_positions`    | `Dict[str, Position]` | Returns a dictionary of current active open positions.                                                                                                                                                                                                     |
+| `funding_payment_span` | `List[int]`           | Returns the `_funding_payment_span` instance variable representing the time span (in seconds) before and after funding period when exchanges consider active positions eligible for funding payment. `_funding_payment_span` can be set on initialization. |
+| `position_mode`        | `PositionMode`        | Returns the current position mode for exchanges that support both one-way and hedge modes.                                                                                                                                                                 |
 
 ## Debugging & Testing
 
