@@ -12,6 +12,8 @@ from hummingbot.connector.exchange.kraken.kraken_exchange import KrakenExchange
 from hummingbot.connector.exchange.kraken.kraken_in_flight_order import KrakenInFlightOrderNotCreated
 from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS
 from hummingbot.core.clock import Clock, ClockMode
+
+from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     TradeType,
     OrderType,
@@ -23,7 +25,6 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
-from test.mock.mock_listener import MockEventListener
 
 
 class KrakenExchangeTest(unittest.TestCase):
@@ -38,7 +39,7 @@ class KrakenExchangeTest(unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.mocking_assistant = NetworkMockingAssistant()
-        self.event_listener = MockEventListener()
+        self.event_listener = EventLogger()
         not_a_real_secret = "kQH5HW/8p1uGOVjbgWA7FunAmGO8lsSUXNsu3eow76sz84Q18fWxnyRzBHCd3pd5nE9qa99HAZtuZuj6F1huXg=="
         self.exchange = KrakenExchange(
             kraken_api_key="someKey",
@@ -57,7 +58,7 @@ class KrakenExchangeTest(unittest.TestCase):
         resp = self.get_asset_pairs_mock()
         mocked_api.get(url, body=json.dumps(resp))
 
-        self.async_run_with_timeout(self.exchange._update_trading_rules())
+        self.async_run_with_timeout(self.exchange._update_trading_rules(), timeout=2)
 
     @staticmethod
     def register_sent_request(requests_list, url, **kwargs):
@@ -253,8 +254,8 @@ class KrakenExchangeTest(unittest.TestCase):
 
         self.async_run_with_timeout(self.exchange._update_order_status())
 
-        self.assertEqual(self.event_listener.events_count, 1)
-        self.assertTrue(isinstance(self.event_listener.last_event, BuyOrderCompletedEvent))
+        self.assertEqual(len(self.event_listener.event_log), 1)
+        self.assertTrue(isinstance(self.event_listener.event_log[0], BuyOrderCompletedEvent))
         self.assertNotIn(order_id, self.exchange.in_flight_orders)
 
     @aioresponses()
@@ -361,8 +362,8 @@ class KrakenExchangeTest(unittest.TestCase):
             )
         )
 
-        self.assertEqual(self.event_listener.events_count, 1)
-        self.assertTrue(isinstance(self.event_listener.last_event, BuyOrderCreatedEvent))
+        self.assertEqual(len(self.event_listener.event_log), 1)
+        self.assertTrue(isinstance(self.event_listener.event_log[0], BuyOrderCreatedEvent))
         self.assertIn(order_id, self.exchange.in_flight_orders)
 
     @aioresponses()
@@ -392,8 +393,8 @@ class KrakenExchangeTest(unittest.TestCase):
             )
         )
 
-        self.assertEqual(self.event_listener.events_count, 1)
-        self.assertTrue(isinstance(self.event_listener.last_event, SellOrderCreatedEvent))
+        self.assertEqual(len(self.event_listener.event_log), 1)
+        self.assertTrue(isinstance(self.event_listener.event_log[0], SellOrderCreatedEvent))
         self.assertIn(order_id, self.exchange.in_flight_orders)
 
     @aioresponses()
@@ -426,8 +427,8 @@ class KrakenExchangeTest(unittest.TestCase):
         self.exchange.add_listener(MarketEvent.OrderCancelled, self.event_listener)
         ret = self.async_run_with_timeout(self.exchange.execute_cancel(self.trading_pair, order_id))
 
-        self.assertEqual(self.event_listener.events_count, 1)
-        self.assertTrue(isinstance(self.event_listener.last_event, OrderCancelledEvent))
+        self.assertEqual(len(self.event_listener.event_log), 1)
+        self.assertTrue(isinstance(self.event_listener.event_log[0], OrderCancelledEvent))
         self.assertNotIn(order_id, self.exchange.in_flight_orders)
         self.assertEqual(ret["origClientOrderId"], order_id)
 
