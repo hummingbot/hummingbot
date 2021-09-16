@@ -121,15 +121,35 @@ class FixturePeatio:
             "source": "spot-api", "state": "filled", "canceled-at": 0}}
 
     BUY_MARKET_ORDER = {
-        "status": "ok", "data": {
-            "id": 69094699396, "symbol": "ethusdt", "account-id": 11899168,
-            "client-order-id": "buy-ethusdt-1581563124007518",
-            "amount": "5.460000000000000000", "price": "0.0",
-            "created-at": 1581563124085, "type": "buy-market",
-            "field-amount": "0.060015396458814472",
-            "field-cash-amount": "5.459999999999999816",
-            "field-fees": "0.000040030792917629", "finished-at": 1581563124185,
-            "source": "spot-api", "state": "filled", "canceled-at": 0}}
+        'id': 4037206,
+        'uuid': 'c5c7dbdb-6e98-44e9-94c5-b82b3f68766e',
+        'side': 'sell',
+        'ord_type': 'limit',
+        'price': '3800.0',
+        'avg_price': '0.0',
+        'state': 'wait',
+        'market': 'eth_usdterc20',
+        'market_type': 'spot',
+        'created_at': '2021-09-07T13:55:39Z',
+        'updated_at': '2021-09-07T13:55:39Z',
+        'origin_volume': '0.0162',
+        'remaining_volume': '0.0162',
+        'executed_volume': '0.0',
+        'maker_fee': '0.002',
+        'taker_fee': '0.002',
+        'trades_count': 0,
+        'trades': []
+    }
+
+    TRADE = {
+        'id': 183513,
+        'price': 3753.9396,
+        'amount': 0.005,
+        'total': 18.769698,
+        'market': 'eth_usdterc20',
+        'created_at': 1631015195,
+        'taker_type': 'sell'
+    }
 
     SELL_MARKET_ORDER = {
         "status": "ok", "data": {
@@ -176,3 +196,79 @@ class FixturePeatio:
             "canceled-at": 1581563762755}}
 
     ORDERS_BATCH_CANCELLED = {"status": "ok", "data": {"success": ["69098120228", "69098120253"], "failed": []}}
+
+    MARKET_TICKERS = {
+        'btc_usdterc20': {
+            'at': '1631594064',
+            'ticker': {
+                'at': '1631594064',
+                'avg_price': '0.0',
+                'high': '0.0',
+                'last': '51013.9034',
+                'low': '0.0',
+                'open': '0.0',
+                'price_change_percent': '+0.00%',
+                'volume': '0.0',
+                'amount': '0.0'
+            }
+        },
+        'eth_usdterc20': {
+            'at': '1631594067',
+            'ticker': {
+                'at': '1631594067',
+                'avg_price': '0.0',
+                'high': '0.0',
+                'last': '3744.0',
+                'low': '0.0',
+                'open': '0.0',
+                'price_change_percent': '+0.00%',
+                'volume': '0.0',
+                'amount': '0.0'
+            }
+        }
+    }
+
+    ORDER_BOOKS = {
+        'asks': [
+            {
+                'id': 4037206,
+                'uuid': 'c5c7dbdb-6e98-44e9-94c5-b82b3f68766e',
+                'side': 'sell',
+                'ord_type': 'limit',
+                'price': '3800.0',
+                'avg_price': '0.0',
+                'state': 'wait',
+                'market': 'eth_usdterc20',
+                'market_type': 'spot',
+                'created_at': '2021-09-07T13:55:39Z',
+                'updated_at': '2021-09-07T13:55:39Z',
+                'origin_volume': '0.0162',
+                'remaining_volume': '0.0162',
+                'executed_volume': '0.0',
+                'maker_fee': '0.002',
+                'taker_fee': '0.002',
+                'trades_count': 0
+            },
+        ],
+        'bids': [
+            {
+                'id': 4037298,
+                'uuid': '80084a11-f85a-423e-9efd-69c9fe60106a',
+                'side': 'buy',
+                'ord_type': 'limit',
+                'price': '3700.0',
+                'avg_price': '0.0',
+                'state': 'wait',
+                'market': 'eth_usdterc20',
+                'market_type': 'spot',
+                'created_at': '2021-09-07T13:55:39Z',
+                'updated_at': '2021-09-07T13:55:39Z',
+                'origin_volume': '0.1',
+                'remaining_volume': '0.1',
+                'executed_volume': '0.0',
+                'maker_fee': '0.002',
+                'taker_fee': '0.002',
+                'trades_count': 0
+            }
+        ]
+    }

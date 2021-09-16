@@ -29,7 +29,6 @@ from hummingbot.core.clock import (
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     MarketEvent,
-    MarketOrderFailureEvent,
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent,
     OrderFilledEvent,
@@ -175,7 +174,7 @@ class PeatioExchangeUnitTest(unittest.TestCase):
         resp.update(kwargs)
         return resp
 
-    def place_order(self, is_buy, trading_pair, amount, order_type, price, nonce, get_resp, market_connector=None):
+    def place_order(self, is_buy, trading_pair, amount, order_type, price, nonce, get_resp=None, state="wait", market_connector=None):
         global EXCHANGE_ORDER_ID
         order_id, exch_order_id, mock_resp = None, None, None
 
@@ -194,6 +193,7 @@ class PeatioExchangeUnitTest(unittest.TestCase):
                 created_at=str(current_time),
                 updated_at=str(current_time),
                 origin_volume=str(Decimal(amount)),
+                state=state,
                 remaining_volume=str(Decimal(amount))
             )
             self.web_app.update_response("post", API_BASE_URL, "/api/v2/peatio/market/orders", mock_resp)
@@ -205,24 +205,23 @@ class PeatioExchangeUnitTest(unittest.TestCase):
             order_id = market.sell(trading_pair, amount, order_type, price)
 
         if API_MOCK_ENABLED:
-            self.web_app.update_response("get", API_BASE_URL, f"/api/v2/peatio/market/orders/{exch_order_id}", mock_resp)
+            response = get_resp or mock_resp
+            response.update({"id": exch_order_id})
+            self.web_app.update_response("get", API_BASE_URL, f"/api/v2/peatio/market/orders/{exch_order_id}", response)
 
         return order_id, exch_order_id
 
-    def cancel_order(self, trading_pair, order_id, exchange_order_id, get_resp):
+    def cancel_order(self, trading_pair, order_id, exchange_order_id, get_resp, **kwargs):
         global EXCHANGE_ORDER_ID
-        mock_resp = None
-
         if API_MOCK_ENABLED:
-            mock_resp = self.get_mock_order(
-                id=exchange_order_id,
-            )
-            self.web_app.update_response("post", API_BASE_URL, f"/api/v2/peatio/market/orders/{exchange_order_id}/cancel", mock_resp)
+            resp = get_resp.copy()
+            resp["id"] = exchange_order_id
+            self.web_app.update_response("post", API_BASE_URL, f"/api/v2/peatio/market/orders/{exchange_order_id}/cancel", resp)
         self.market.cancel(trading_pair, order_id)
-
         if API_MOCK_ENABLED:
-            mock_resp["state"] = "cancel"
-            self.web_app.update_response("get", API_BASE_URL, f"/api/v2/peatio/market/orders/{exchange_order_id}", mock_resp)
+            resp = get_resp.copy()
+            resp["id"] = exchange_order_id
+            self.web_app.update_response("get", API_BASE_URL, f"/api/v2/peatio/market/orders/{exchange_order_id}", resp)
 
     def test_get_fee(self):
         limit_fee: TradeFee = self.market.get_fee("eth", "usdterc20", OrderType.LIMIT_MAKER, TradeType.BUY, Decimal("1"), Decimal("10"))
@@ -249,34 +248,10 @@ class PeatioExchangeUnitTest(unittest.TestCase):
         maker_fee: TradeFee = self.market.get_fee("USDTERC20", "ETH", OrderType.LIMIT_MAKER, TradeType.BUY, Decimal(1), Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.005"), maker_fee.percent)
 
-    def test_limit_maker_rejections(self):
-        if API_MOCK_ENABLED:
-            return
-        trading_pair = "ETH-USDTERC20"
-
-        # Try to put a buy limit maker order that is going to match, this should triggers order failure event.
-        price: Decimal = self.market.get_price(trading_pair, True) * Decimal('1.02')
-        price: Decimal = self.market.quantize_order_price(trading_pair, price)
-        amount = self.market.quantize_order_amount(trading_pair, Decimal("0.06"))
-
-        order_id = self.market.buy(trading_pair, amount, OrderType.LIMIT_MAKER, price)
-        [order_failure_event] = self.run_parallel(self.market_logger.wait_for(MarketOrderFailureEvent))
-        self.assertEqual(order_id, order_failure_event.order_id)
-        self.market_logger.clear()
-
-        # Try to put a sell limit maker order that is going to match, this should triggers order failure event.
-        price: Decimal = self.market.get_price(trading_pair, True) * Decimal('0.98')
-        price: Decimal = self.market.quantize_order_price(trading_pair, price)
-        amount = self.market.quantize_order_amount(trading_pair, Decimal("0.06"))
-
-        order_id = self.market.sell(trading_pair, amount, OrderType.LIMIT_MAKER, price)
-        [order_failure_event] = self.run_parallel(self.market_logger.wait_for(MarketOrderFailureEvent))
-        self.assertEqual(order_id, order_failure_event.order_id)
-
     def test_limit_makers_unfilled(self):
         if API_MOCK_ENABLED:
             return
-
+        # TODO
         trading_pair = "ETH-USDTERC20"
 
         bid_price: Decimal = self.market.get_price(trading_pair, True) * Decimal("0.5")
@@ -314,16 +289,63 @@ class PeatioExchangeUnitTest(unittest.TestCase):
 
     def test_limit_taker_buy(self):
         trading_pair = "ETH-USDTERC20"
-        price: Decimal = self.market.get_price(trading_pair, True)
-        amount: Decimal = Decimal("0.06")
-        quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
+        nonce = 10001
 
-        order_id, _ = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT, price, 10001,
-                                       FixturePeatio.BUY_MARKET_ORDER)
+        price: Decimal = Decimal("2600.0")
+        amount: Decimal = Decimal("0.06")
+        quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount, price)
+
+        current_time = datetime.datetime.utcnow()
+        trades = [
+            {
+                'id': 183513,
+                'price': 2500.0,
+                'amount': 0.04,
+                'total': 100.0,
+                'market': 'eth_usdterc20',
+                'created_at': current_time.timestamp(),
+                'taker_type': 'sell'
+            },
+            {
+                'id': 183514,
+                'price': 2600.0,
+                'amount': 0.02,
+                'total': 52.0,
+                'market': 'eth_usdterc20',
+                'created_at': current_time.timestamp(),
+                'taker_type': 'sell'
+            }
+        ]
+        mock_resp = self.get_mock_order(
+            side='buy',
+            ord_type="limit",
+            price=str(Decimal(price)),
+            avg_price=str(Decimal("2533.3333")),
+            market=convert_to_exchange_trading_pair(trading_pair),
+            created_at=str(current_time.isoformat()),
+            updated_at=str(current_time.isoformat()),
+            origin_volume=str(Decimal(amount)),
+            executed_volume=str(Decimal(amount)),
+            remaining_volume=str(Decimal(0)),
+            state="done",
+            trades=trades,
+        )
+
+        order_id, _ = self.place_order(
+            is_buy=True,
+            trading_pair=trading_pair,
+            amount=quantized_amount,
+            order_type=OrderType.LIMIT,
+            price=price,
+            nonce=nonce,
+            get_resp=mock_resp,
+            state='done'
+        )
+
         [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
         buy_order_completed_event: BuyOrderCompletedEvent = buy_order_completed_event
-        trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
-                                                if isinstance(t, OrderFilledEvent)]
+
+        trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log if isinstance(t, OrderFilledEvent)]
         base_amount_traded: Decimal = sum(t.amount for t in trade_events)
         quote_amount_traded: Decimal = sum(t.amount * t.price for t in trade_events)
 
@@ -340,16 +362,164 @@ class PeatioExchangeUnitTest(unittest.TestCase):
         # Reset the logs
         self.market_logger.clear()
 
+    def test_create_limit_taker_buy(self):
+        trading_pair = "ETH-USDTERC20"
+        nonce = 10001
+        price: Decimal = Decimal("2800.0")
+
+        amount: Decimal = Decimal("0.06")
+        order_id, _ = self.place_order(
+            is_buy=True,
+            trading_pair=trading_pair,
+            amount=amount,
+            order_type=OrderType.LIMIT,
+            price=price,
+            nonce=nonce,
+        )
+
+        [buy_order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
+        buy_order_created_event: BuyOrderCreatedEvent = buy_order_created_event
+
+        self.assertEqual(OrderType.LIMIT, buy_order_created_event.type)
+        self.assertEqual(order_id, buy_order_created_event.order_id)
+        self.assertEqual(amount, buy_order_created_event.amount)
+        self.assertEqual(price, buy_order_created_event.price)
+        self.assertEqual(trading_pair, buy_order_created_event.trading_pair)
+
+        self.market_logger.clear()
+
+    def test_create_market_taker_buy(self):
+        trading_pair = "ETH-USDTERC20"
+        nonce = 10001
+        price: Decimal = self.market.get_price(trading_pair, True)
+
+        amount: Decimal = Decimal("0.06")
+        order_id, _ = self.place_order(
+            is_buy=True,
+            trading_pair=trading_pair,
+            amount=amount,
+            order_type=OrderType.MARKET,
+            price=price,
+            nonce=nonce,
+        )
+
+        [buy_order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
+        buy_order_created_event: BuyOrderCreatedEvent = buy_order_created_event
+
+        self.assertEqual(OrderType.MARKET, buy_order_created_event.type)
+        self.assertEqual(order_id, buy_order_created_event.order_id)
+        self.assertEqual(amount, buy_order_created_event.amount)
+        self.assertEqual(price, buy_order_created_event.price)
+        self.assertEqual(trading_pair, buy_order_created_event.trading_pair)
+
+        self.market_logger.clear()
+
+    def test_create_market_taker_sell(self):
+        trading_pair = "ETH-USDTERC20"
+        nonce = 10001
+        price: Decimal = Decimal("3800.0")
+
+        amount: Decimal = Decimal("0.06")
+        order_id, _ = self.place_order(
+            is_buy=False,
+            trading_pair=trading_pair,
+            amount=amount,
+            order_type=OrderType.MARKET,
+            price=price,
+            nonce=nonce,
+        )
+        [sell_order_created_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
+        sell_order_created_event: BuyOrderCreatedEvent = sell_order_created_event
+
+        self.assertEqual(OrderType.MARKET, sell_order_created_event.type)
+        self.assertEqual(order_id, sell_order_created_event.order_id)
+        self.assertEqual(amount, sell_order_created_event.amount)
+        self.assertEqual(price, sell_order_created_event.price)
+        self.assertEqual(trading_pair, sell_order_created_event.trading_pair)
+
+        self.market_logger.clear()
+
+    def test_create_limit_order_sell(self):
+        trading_pair = "ETH-USDTERC20"
+        nonce = 10001
+        price: Decimal = Decimal("3800.0")
+
+        amount: Decimal = Decimal("0.06")
+        order_id, _ = self.place_order(
+            is_buy=False,
+            trading_pair=trading_pair,
+            amount=amount,
+            order_type=OrderType.LIMIT,
+            price=price,
+            nonce=nonce,
+        )
+        [sell_order_created_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
+        sell_order_created_event: BuyOrderCreatedEvent = sell_order_created_event
+
+        self.assertEqual(OrderType.LIMIT, sell_order_created_event.type)
+        self.assertEqual(order_id, sell_order_created_event.order_id)
+        self.assertEqual(amount, sell_order_created_event.amount)
+        self.assertEqual(price, sell_order_created_event.price)
+        self.assertEqual(trading_pair, sell_order_created_event.trading_pair)
+
+        self.market_logger.clear()
+
     def test_limit_taker_sell(self):
         trading_pair = "ETH-USDTERC20"
-        price: Decimal = self.market.get_price(trading_pair, False)
-        amount: Decimal = Decimal("0.06")
-        quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
 
-        order_id, _ = self.place_order(False, trading_pair, amount, OrderType.LIMIT, price, 10001,
-                                       FixturePeatio.SELL_MARKET_ORDER)
+        nonce = 10098
+        price: Decimal = Decimal("4000")
+        amount: Decimal = Decimal("0.06")
+        quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount, price=price)
+
+        current_time = datetime.datetime.utcnow()
+        trades = [
+            {
+                'id': 183513,
+                'price': 4000,
+                'amount': 0.04,
+                'total': 160.0,
+                'market': 'eth_usdterc20',
+                'created_at': current_time.timestamp(),
+                'taker_type': 'buy'
+            },
+            {
+                'id': 183514,
+                'price': 4200,
+                'amount': 0.02,
+                'total': 84.0,
+                'market': 'eth_usdterc20',
+                'created_at': current_time.timestamp(),
+                'taker_type': 'buy'
+            }
+        ]
+        mock_resp = self.get_mock_order(
+            side='sell',
+            ord_type="limit",
+            price=str(Decimal(price)),
+            avg_price=str(Decimal("4066.6666")),
+            market=convert_to_exchange_trading_pair(trading_pair),
+            created_at=str(current_time.isoformat()),
+            updated_at=str(current_time.isoformat()),
+            origin_volume=str(Decimal(amount)),
+            executed_volume=str(Decimal(amount)),
+            remaining_volume=str(Decimal(0)),
+            state="done",
+            trades=trades,
+        )
+
+        order_id, _ = self.place_order(
+            is_buy=False,
+            trading_pair=trading_pair,
+            amount=amount,
+            order_type=OrderType.LIMIT,
+            price=price,
+            nonce=nonce,
+            get_resp=mock_resp
+        )
         [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
         sell_order_completed_event: SellOrderCompletedEvent = sell_order_completed_event
+
         trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
                                                 if isinstance(t, OrderFilledEvent)]
         base_amount_traded = sum(t.amount for t in trade_events)
@@ -371,18 +541,41 @@ class PeatioExchangeUnitTest(unittest.TestCase):
     def test_cancel_order(self):
         trading_pair = "ETH-USDTERC20"
 
+        nonce = 10001
+        amount: Decimal = Decimal("0.06")
+
         current_bid_price: Decimal = self.market.get_price(trading_pair, True)
-        amount: Decimal = Decimal("0.05")
-
-        bid_price: Decimal = current_bid_price - Decimal("0.1") * current_bid_price
+        bid_price: Decimal = current_bid_price - Decimal("0.01") * current_bid_price
         quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price)
-        quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
+        quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount, price=quantize_bid_price)
 
-        order_id, exch_order_id = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT_MAKER,
-                                                   quantize_bid_price, 10001, FixturePeatio.OPEN_BUY_LIMIT_ORDER)
+        order_id, exch_order_id = self.place_order(
+            is_buy=True,
+            trading_pair=trading_pair,
+            amount=quantized_amount,
+            order_type=OrderType.LIMIT,
+            price=quantize_bid_price,
+            nonce=nonce
+        )
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
 
-        self.cancel_order(trading_pair, order_id, exch_order_id, FixturePeatio.CANCEL_ORDER)
+        current_time = datetime.datetime.utcnow()
+        mock_resp = self.get_mock_order(
+            side='buy',
+            ord_type="limit",
+            price=str(Decimal(quantize_bid_price)),
+            avg_price=str(Decimal("0")),
+            market=convert_to_exchange_trading_pair(trading_pair),
+            created_at=str(current_time.isoformat()),
+            updated_at=str(current_time.isoformat()),
+            origin_volume=str(Decimal(amount)),
+            executed_volume=str(Decimal(0)),
+            remaining_volume=str(Decimal(amount)),
+            state="cancel",
+            trades=[],
+        )
+
+        self.cancel_order(trading_pair, order_id, exch_order_id, mock_resp)
         [order_cancelled_event] = self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
         order_cancelled_event: OrderCancelledEvent = order_cancelled_event
         self.assertEqual(order_cancelled_event.order_id, order_id)
@@ -391,24 +584,72 @@ class PeatioExchangeUnitTest(unittest.TestCase):
         trading_pair = "ETH-USDTERC20"
 
         bid_price: Decimal = self.market_2.get_price(trading_pair, True) * Decimal("0.5")
-        ask_price: Decimal = self.market_2.get_price(trading_pair, False) * 2
+        ask_price: Decimal = bid_price * 4
         amount: Decimal = Decimal("0.06")
-        quantized_amount: Decimal = self.market_2.quantize_order_amount(trading_pair, amount)
+        quantized_amount: Decimal = self.market_2.quantize_order_amount(trading_pair, amount, price=bid_price)
 
         # Intentionally setting invalid price to prevent getting filled
         quantize_bid_price: Decimal = self.market_2.quantize_order_price(trading_pair, bid_price * Decimal("0.9"))
         quantize_ask_price: Decimal = self.market_2.quantize_order_price(trading_pair, ask_price * Decimal("1.1"))
 
-        _, exch_order_id1 = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT_MAKER, quantize_bid_price,
-                                             1001, FixturePeatio.OPEN_BUY_LIMIT_ORDER, self.market_2)
-        _, exch_order_id2 = self.place_order(False, trading_pair, quantized_amount, OrderType.LIMIT_MAKER, quantize_ask_price,
-                                             1002, FixturePeatio.OPEN_SELL_LIMIT_ORDER, self.market_2)
-        self.run_parallel(asyncio.sleep(1))
+        _, exch_order_id1 = self.place_order(
+            is_buy=True,
+            trading_pair=trading_pair,
+            amount=quantized_amount,
+            order_type=OrderType.LIMIT,
+            price=quantize_bid_price,
+            nonce=1001,
+            market_connector=self.market_2
+        )
+        _, exch_order_id2 = self.place_order(
+            is_buy=False,
+            trading_pair=trading_pair,
+            amount=quantized_amount,
+            order_type=OrderType.LIMIT,
+            price=quantize_ask_price,
+            nonce=1002,
+            market_connector=self.market_2
+        )
+
+        self.run_parallel(asyncio.sleep(30))
         if API_MOCK_ENABLED:
-            resp = FixturePeatio.ORDERS_BATCH_CANCELLED.copy()
-            resp["data"]["success"] = [exch_order_id1, exch_order_id2]
-            self.web_app.update_response("post", API_BASE_URL, "/v1/order/orders/batchcancel", resp)
+            current_time = datetime.datetime.utcnow()
+            mock_resp = [
+                self.get_mock_order(
+                    side='buy',
+                    ord_type="limit",
+                    price=str(Decimal(quantize_bid_price)),
+                    avg_price=str(Decimal("0")),
+                    market=convert_to_exchange_trading_pair(trading_pair),
+                    created_at=str(current_time.isoformat()),
+                    updated_at=str(current_time.isoformat()),
+                    origin_volume=str(Decimal(quantized_amount)),
+                    executed_volume=str(Decimal(0)),
+                    remaining_volume=str(Decimal(quantized_amount)),
+                    state="cancel",
+                    trades=[],
+                    id=exch_order_id1,
+                ),
+                self.get_mock_order(
+                    side='sell',
+                    ord_type="limit",
+                    price=str(Decimal(quantize_ask_price)),
+                    avg_price=str(Decimal("0")),
+                    market=convert_to_exchange_trading_pair(trading_pair),
+                    created_at=str(current_time.isoformat()),
+                    updated_at=str(current_time.isoformat()),
+                    origin_volume=str(Decimal(quantized_amount)),
+                    executed_volume=str(Decimal(0)),
+                    remaining_volume=str(Decimal(quantized_amount)),
+                    state="cancel",
+                    trades=[],
+                    id=exch_order_id2,
+                )
+            ]
+
+            self.web_app.update_response("post", API_BASE_URL, "/api/v2/peatio/market/orders/cancel", mock_resp)
         [cancellation_results] = self.run_parallel(self.market_2.cancel_all(5))
+        self.assertGreater(len(cancellation_results), 0)
         for cr in cancellation_results:
             self.assertEqual(cr.success, True)
 
@@ -430,11 +671,16 @@ class PeatioExchangeUnitTest(unittest.TestCase):
             quantize_bid_price: Decimal = self.market.quantize_order_price(trading_pair, bid_price)
 
             amount: Decimal = Decimal("0.06")
-            quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount)
+            quantized_amount: Decimal = self.market.quantize_order_amount(trading_pair, amount, price=quantize_bid_price)
 
-            order_id, exch_order_id = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT_MAKER,
-                                                       quantize_bid_price, 10001,
-                                                       FixturePeatio.OPEN_BUY_LIMIT_ORDER)
+            order_id, exch_order_id = self.place_order(
+                is_buy=True,
+                trading_pair=trading_pair,
+                amount=quantized_amount,
+                order_type=OrderType.LIMIT,
+                price=quantize_bid_price,
+                nonce=10001,
+            )
             [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
             order_created_event: BuyOrderCreatedEvent = order_created_event
             self.assertEqual(order_id, order_created_event.order_id)
@@ -475,9 +721,31 @@ class PeatioExchangeUnitTest(unittest.TestCase):
             self.market.restore_tracking_states(saved_market_states.saved_state)
             self.assertEqual(1, len(self.market.limit_orders))
             self.assertEqual(1, len(self.market.tracking_states))
-
             # Cancel the order and verify that the change is saved.
-            self.cancel_order(trading_pair, order_id, exch_order_id, FixturePeatio.CANCEL_ORDER)
+
+            current_time = datetime.datetime.utcnow()
+            mock_resp = self.get_mock_order(
+                id="PEATIO_20001",
+                side="buy",
+                ord_type="limit",
+                price=str(Decimal(quantize_bid_price)),
+                avg_price=str(Decimal("0")),
+                market=convert_to_exchange_trading_pair(trading_pair),
+                created_at=str(current_time.isoformat()),
+                updated_at=str(current_time.isoformat()),
+                origin_volume=str(Decimal(quantized_amount)),
+                executed_volume=str(Decimal(0)),
+                remaining_volume=str(Decimal(quantized_amount)),
+                state="cancel",
+                trades=[],
+            )
+
+            self.cancel_order(
+                trading_pair=trading_pair,
+                order_id=order_id,
+                exchange_order_id=exch_order_id,
+                get_resp=mock_resp
+            )
             self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
             order_id = None
             self.assertEqual(0, len(self.market.limit_orders))
@@ -503,20 +771,92 @@ class PeatioExchangeUnitTest(unittest.TestCase):
 
         try:
             # Try to buy 0.04 ETH from the exchange, and watch for completion event.
+            current_time = datetime.datetime.utcnow()
+
             price: Decimal = self.market.get_price(trading_pair, True)
             amount: Decimal = Decimal("0.06")
-            order_id, _ = self.place_order(True, trading_pair, amount, OrderType.LIMIT, price, 10001,
-                                           FixturePeatio.BUY_MARKET_ORDER)
+
+            trades = [
+                {
+                    'id': 183515,
+                    'price': str(price),
+                    'amount': 0.06,
+                    'total': str(Decimal("0.06") * price),
+                    'market': 'eth_usdterc20',
+                    'created_at': current_time.timestamp(),
+                    'taker_type': 'sell'
+                },
+            ]
+
+            mock_resp = self.get_mock_order(
+                side='buy',
+                ord_type="limit",
+                price=str(Decimal(price)),
+                avg_price=str(Decimal(price)),
+                market=convert_to_exchange_trading_pair(trading_pair),
+                created_at=str(current_time.isoformat()),
+                updated_at=str(current_time.isoformat()),
+                origin_volume=str(Decimal(amount)),
+                executed_volume=str(Decimal(amount)),
+                remaining_volume=str(Decimal(0)),
+                state="done",
+                trades=trades,
+            )
+
+            order_id, exch_order_id = self.place_order(
+                is_buy=True,
+                trading_pair=trading_pair,
+                amount=amount,
+                order_type=OrderType.LIMIT,
+                price=price,
+                nonce=10001,
+                get_resp=mock_resp
+            )
+
             [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
 
             # Reset the logs
             self.market_logger.clear()
 
             # Try to sell back the same amount of ETH to the exchange, and watch for completion event.
-            price: Decimal = self.market.get_price(trading_pair, False)
             amount = buy_order_completed_event.base_asset_amount
-            order_id, _ = self.place_order(False, trading_pair, amount, OrderType.LIMIT, price, 10002,
-                                           FixturePeatio.SELL_MARKET_ORDER)
+
+            trades = [
+                {
+                    'id': 183513,
+                    'price': str(price),
+                    'amount': 0.06,
+                    'total': str(Decimal("0.06") * price),
+                    'market': 'eth_usdterc20',
+                    'created_at': current_time.timestamp(),
+                    'taker_type': 'buy'
+                },
+            ]
+            mock_resp = self.get_mock_order(
+                side='sell',
+                ord_type="limit",
+                price=str(Decimal(price)),
+                avg_price=str(Decimal(price)),
+                market=convert_to_exchange_trading_pair(trading_pair),
+                created_at=str(current_time.isoformat()),
+                updated_at=str(current_time.isoformat()),
+                origin_volume=str(Decimal(amount)),
+                executed_volume=str(Decimal(amount)),
+                remaining_volume=str(Decimal(0)),
+                state="done",
+                trades=trades,
+            )
+
+            order_id, exch_order_id = self.place_order(
+                is_buy=False,
+                trading_pair=trading_pair,
+                amount=amount,
+                order_type=OrderType.LIMIT,
+                price=price,
+                nonce=10002,
+                get_resp=mock_resp
+            )
+
             [sell_order_completed_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCompletedEvent))
 
             # Query the persisted trade logs
