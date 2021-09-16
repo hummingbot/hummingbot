@@ -472,30 +472,32 @@ class GateIoExchange(ExchangeBase):
             self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, order_type)
             try:
                 order_result = await self._api_request("POST", CONSTANTS.ORDER_CREATE_PATH_URL, api_params, True)
-                if order_result.get('status') in {"cancelled", "expired", "failed"}:
-                    raise GateIoAPIError({'label': 'ORDER_REJECTED', 'message': 'Order rejected.'})
                 if order_result.get('status') != 'open':
-                    self.logger().network(f"Unexpected order result:\n{order_result}")
-                exchange_order_id = str(order_result["id"])
-                tracked_order = self._in_flight_orders.get(order_id)
-                if tracked_order is not None:
-                    self.logger().info(f"Created {order_type.name} {trade_type.name} order {order_id} for "
-                                       f"{amount} {trading_pair}.")
-                    tracked_order.update_exchange_order_id(exchange_order_id)
-                if trade_type is TradeType.BUY:
-                    event_tag = MarketEvent.BuyOrderCreated
-                    event_cls = BuyOrderCreatedEvent
+                    if order_result.get('status') in {"cancelled", "expired", "failed"}:
+                        raise GateIoAPIError({'label': 'ORDER_REJECTED', 'message': 'Order rejected.'})
+                    if order_result.get('status') != 'open':
+                        self.logger().network(f"Unexpected order result:\n{order_result}")
                 else:
-                    event_tag = MarketEvent.SellOrderCreated
-                    event_cls = SellOrderCreatedEvent
-                self.trigger_event(event_tag,
-                                   event_cls(self.current_timestamp,
-                                             order_type,
-                                             trading_pair,
-                                             amount,
-                                             price,
-                                             order_id,
-                                             exchange_order_id))
+                    exchange_order_id = str(order_result["id"])
+                    tracked_order = self._in_flight_orders.get(order_id)
+                    if tracked_order is not None:
+                        self.logger().info(f"Created {order_type.name} {trade_type.name} order {order_id} for "
+                                           f"{amount} {trading_pair}.")
+                        tracked_order.update_exchange_order_id(exchange_order_id)
+                        if trade_type is TradeType.BUY:
+                            event_tag = MarketEvent.BuyOrderCreated
+                            event_cls = BuyOrderCreatedEvent
+                        else:
+                            event_tag = MarketEvent.SellOrderCreated
+                            event_cls = SellOrderCreatedEvent
+                        self.trigger_event(event_tag,
+                                           event_cls(self.current_timestamp,
+                                                     order_type,
+                                                     trading_pair,
+                                                     amount,
+                                                     price,
+                                                     order_id,
+                                                     exchange_order_id))
             except asyncio.CancelledError:
                 raise
             except GateIoAPIError as e:
