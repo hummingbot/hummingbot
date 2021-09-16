@@ -45,17 +45,12 @@ Supports Windows Home, Pro, and Enterprise edition. Download the latest version 
     Docker Desktop requires WSL 2 feature enabled. For detailed instructions, refer to the [Microsoft documentation](https://docs.microsoft.com/en-us/windows/wsl/install-win10).
 
 1. For installation procedures, you check the link below depending on the version of your Windows operating system.
-
-   - [Windows Home](https://docs.docker.com/docker-for-windows/install-windows-home/)
-   - [Windows Pro / Enterprise](https://docs.docker.com/docker-for-windows/install/)
-
-2. To enable WSL 2, open `Windows PowerShell` and run it as administrator. Use the command: `wsl.exe --set-version Ubuntu-18.04 2`
-
+    - [Windows Home](https://docs.docker.com/docker-for-windows/install-windows-home/)
+    - [Windows Pro / Enterprise](https://docs.docker.com/docker-for-windows/install/)
+2. Open Windows PowerShell and run as administrator. Inside PowerShell, run the command `wsl.exe --set-version Ubuntu-18.04 2` to enable WSL 2.
 3. Open Docker Desktop, Go to Settings > Resources, and then enable WSL Integration
-
 ![Docker Desktop WSL enable](/assets/img/docker_desktop_WSLenable.gif)
-
-4. Open `Ubuntu 18.04 LTS` and move to the next step to install HummingBot.
+4. Open `Ubuntu 18.04 LTS` and move to the next step to install Hummingbot.
 
 Enter the following commands into the command line. You can install Hummingbot by selecting **_either_** of the following options from the tabs below:
 
