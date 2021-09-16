@@ -30,6 +30,7 @@ MATCHING_ENGINE_LIMIT_ID = "MatchingEngineLimitID"
 MATCHING_ENGINE_LIMIT = 60 + 60    # relaxed for limit-decay; one extra call every 1s; issue #4178 for details
 MATCHING_ENGINE_LIMIT_INTERVAL = 60
 WS_CONNECTION_LIMIT_ID = "WSConnectionLimitID"
+
 RATE_LIMITS = [
     RateLimit(
         limit_id=PUBLIC_ENDPOINT_LIMIT_ID,
@@ -46,12 +47,7 @@ RATE_LIMITS = [
         limit=MATCHING_ENGINE_LIMIT,
         time_interval=MATCHING_ENGINE_LIMIT_INTERVAL,
     ),
-    RateLimit(
-        limit_id=TICKER_PATH_URL,
-        limit=PUBLIC_ENDPOINT_LIMIT,
-        time_interval=PUBLIC_ENDPOINT_LIMIT_INTERVAL,
-        linked_limits=[LinkedLimitWeightPair(PUBLIC_ENDPOINT_LIMIT_ID)],
-    ),
+    # public endpoints
     RateLimit(
         limit_id=SNAPSHOT_PATH_URL,
         limit=PUBLIC_ENDPOINT_LIMIT,
@@ -65,10 +61,10 @@ RATE_LIMITS = [
         linked_limits=[LinkedLimitWeightPair(PUBLIC_ENDPOINT_LIMIT_ID)],
     ),
     RateLimit(
-        limit_id=GET_TOKEN_PATH_URL,
-        limit=PRIVATE_ENDPOINT_LIMIT,
-        time_interval=PRIVATE_ENDPOINT_LIMIT_INTERVAL,
-        linked_limits=[LinkedLimitWeightPair(PRIVATE_ENDPOINT_LIMIT_ID)],
+        limit_id=TICKER_PATH_URL,
+        limit=PUBLIC_ENDPOINT_LIMIT,
+        time_interval=PUBLIC_ENDPOINT_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(PUBLIC_ENDPOINT_LIMIT_ID)],
     ),
     RateLimit(
         limit_id=TIME_PATH_URL,
@@ -76,17 +72,12 @@ RATE_LIMITS = [
         time_interval=PUBLIC_ENDPOINT_LIMIT_INTERVAL,
         linked_limits=[LinkedLimitWeightPair(PUBLIC_ENDPOINT_LIMIT_ID)],
     ),
+    # private endpoints
     RateLimit(
-        limit_id=ADD_ORDER_PATH_URL,
-        limit=MATCHING_ENGINE_LIMIT,
-        time_interval=MATCHING_ENGINE_LIMIT_INTERVAL,
-        linked_limits=[LinkedLimitWeightPair(MATCHING_ENGINE_LIMIT_ID)],
-    ),
-    RateLimit(
-        limit_id=CANCEL_ORDER_PATH_URL,
-        limit=MATCHING_ENGINE_LIMIT,
-        time_interval=MATCHING_ENGINE_LIMIT_INTERVAL,
-        linked_limits=[LinkedLimitWeightPair(MATCHING_ENGINE_LIMIT_ID)],
+        limit_id=GET_TOKEN_PATH_URL,
+        limit=PRIVATE_ENDPOINT_LIMIT,
+        time_interval=PRIVATE_ENDPOINT_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(PRIVATE_ENDPOINT_LIMIT_ID)],
     ),
     RateLimit(
         limit_id=BALANCE_PATH_URL,
@@ -109,5 +100,19 @@ RATE_LIMITS = [
         weight=2,
         linked_limits=[LinkedLimitWeightPair(PRIVATE_ENDPOINT_LIMIT_ID)],
     ),
+    # matching engine endpoints
+    RateLimit(
+        limit_id=ADD_ORDER_PATH_URL,
+        limit=MATCHING_ENGINE_LIMIT,
+        time_interval=MATCHING_ENGINE_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(MATCHING_ENGINE_LIMIT_ID)],
+    ),
+    RateLimit(
+        limit_id=CANCEL_ORDER_PATH_URL,
+        limit=MATCHING_ENGINE_LIMIT,
+        time_interval=MATCHING_ENGINE_LIMIT_INTERVAL,
+        linked_limits=[LinkedLimitWeightPair(MATCHING_ENGINE_LIMIT_ID)],
+    ),
+    # ws connections limit
     RateLimit(limit_id=WS_CONNECTION_LIMIT_ID, limit=150, time_interval=60 * 10),
 ]
