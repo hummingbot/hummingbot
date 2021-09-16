@@ -2,14 +2,14 @@
 
 ## Overview
 
-In Task 3, we will be required to implement both `InFlightOrder` and `Exchange` Class. This is because the primary bulk of implementing a new exchange connector is in this task.
+In Task 3, we will be required to implement both `InFlightOrder` and `Exchange`/`Derivative` Class. This is because the primary bulk of implementing a new exchange connector is in this task.
 
-If the exchange is a perpetual derivative exchange, the connector must also inherit from the `PerpetualTrading` class. 
+If the exchange is a derivative exchange, the connector must also inherit from the `PerpetualTrading` class. 
 
 ### InFlightOrder Class
 
-As seen in the [Exchange Component Overview](/developers/connectors/architecture/#exchange-component-overview), the `Exchange` class depends on the `InFlightOrder` Class.
-The `InFlightOrder` abstracts an order's details and is primarily used by the `Exchange` class to manage all active orders.
+As seen in the [Exchange Component Overview](/developers/connectors/architecture/#exchange-component-overview), the `Exchange`/`Derivative` class depends on the `InFlightOrder` Class.
+The `InFlightOrder` abstracts an order's details and is primarily used by the `Exchange`/`Derivative` class to manage all active orders.
 
 The **_InFlightOrder Class Diagram_**, given below, details the critical variables and functions in the `InFlightOrder` class.
 
@@ -27,31 +27,32 @@ Below are the functions that need to be implemented in the new `InFlightOrder` c
 
 ### Exchange Class
 
-The `Exchange` class is the middle-man between the strategies and the exchange API servers. It provides the necessary order book and user data to the strategies and communicates the order proposals to the exchanges.
+The `Exchange`/`Derivative` class is the middle-man between the strategies and the exchange API servers. It provides the necessary order book and user data to the strategies and communicates the order proposals to the exchanges.
 
-The functions of the `Exchange` class can be categorized into:
+The functions of the `Exchange`/`Derivative` class can be categorized into:
 
 [**(1) Placing Orders**](#1-placing-orders)<br/>
 [**(2) Cancelling Orders**](#2-cancelling-orders)<br/>
-[**(3) Tracking Orders, Balances & Positions**](#3-tracking-orders-balances--positions)<br/>
+[**(3) Tracking Orders, Balances & Positions**](#3-tracking-orders-balances-positions)<br/>
 [**(4) Managing Trading Rules**](#4-managing-trading-rules)<br/>
-[**(5) Additional Functions**](#5-additional-functions)<br/>
-[**(6) Perpetual Functions**](#6-perpetual-functions)<br/>
-[**(7) Class Properties**](#7-class-properties)<br/>
-[**(8) Perpetual Properties**](#8-perpetual-properties)
+[**(5) Managing Funding Information (Derivative)**](#5-managing-funding-information-derivative)<br/>
+[**(6) Additional Functions**](#6-additional-functions)<br/>
+[**(7) Additional Derivative Functions**](#7-additional-derivative-functions)<br/>
+[**(8) Class Properties**](#8-class-properties)<br/>
+[**(9) Derivative Properties**](#9-derivative-properties)
 
 Although this might seem pretty straightforward, it does require a certain level of understanding and knowing the expected side-effect(s) of certain functions.
 
-The **_Exchange Class Diagram_**, given below, details the critical variables and functions in the `Exchange` class.
+The **_Exchange/Derivative Class Diagram_**, given below, details the critical variables and functions in the `Exchange`/`Derivative` class.
 
-![ExchangeUMLDiagram](/assets/img/exchange-class.svg)
+![ExchangeUMLDiagram](/assets/img/exchange-derivative-class.svg)
 
 !!! note
-    The categories of functions shown here broadly cover the necessary functions that need to be implemented in the `Exchange` class. Feel free to include other utility functions as needed.
+    The categories of functions shown here broadly cover the necessary functions that need to be implemented in the `Exchange`/`Derivative` class. Feel free to include other utility functions as needed.
 
 ### (1) Placing Orders
 
-The `Exchange` class places orders by either calling the [`buy()`](#buy) or [`sell()`](#sell) method.
+The `Exchange`/`Derivative` class places orders by either calling the [`buy()`](#buy) or [`sell()`](#sell) method.
 Both these methods first generate a client order ID for the order, which will be used locally by Hummingbot to track the orders before calling the [`_create_order()`](#async-_create_order) method.
 
 #### `buy()`
@@ -127,7 +128,7 @@ This function is responsible for executing the API request to place the order on
 - Upon successfully placing the order, the tracked order will be updated with the resulting **_exchange order ID_** from the API Response.
 
 !!! note
-    The tracked order is an `InFlightOrder` that is within a dictionary variable(`_in_flight_orders`) in the `Exchange` class. `InFlightOrder` are Hummingbot's internal records of orders it has placed that remain open in the exchange. When such orders are either filled or canceled, they are removed from the dictionary by calling [stop_tracking_order()](#stop_tracking_order) method, and the relevant event completion flag is passed to the strategy module.
+    The tracked order is an `InFlightOrder` that is within a dictionary variable(`_in_flight_orders`) in the `Exchange`/`Derivative` class. `InFlightOrder` are Hummingbot's internal records of orders it has placed that remain open in the exchange. When such orders are either filled or canceled, they are removed from the dictionary by calling [stop_tracking_order()](#stop_tracking_order) method, and the relevant event completion flag is passed to the strategy module.
 
 **Input Parameter(s):**
 
@@ -165,7 +166,7 @@ The function that takes in the trading pair and client order ID from the strateg
 
 #### **_async_** `cancel_all()`
 
-The function that is primarily triggered by the `ExitCommand` that **cancels all** `InFlightOrder's being tracked by the `Exchange` class. It confirms the successful cancellation of the orders by calling the
+The function that is primarily triggered by the `ExitCommand` that **cancels all** `InFlightOrder`'s being tracked by the `Exchange`/`Derivative` class. It confirms the successful cancellation of the orders by calling the
 
 Calls the [\_api_request()](#async-_api_request) function with the relevant parameters.
 
@@ -262,8 +263,6 @@ Periodically update user balances and order status via REST API. This serves as 
 Calling of both [\_update_balances()](#_update_balances) and [\_update_order_status()](#_update_order_status) functions is determined by the `_poll_notifier` variable.
 
 For perpetual connectors, the [\_update_account_positions()](#_update_account_positions) should also be called here.
-In addition, for exchanges which require a REST API call to update the funding information, this can be initiated by
-the status polling loop as well.
 
 `_poll_notifier` is an `asyncio.Event` object that is set in the `tick()` function.
 It is set after every `SHORT_POLL_INTERVAL` or `LONG_POLL_INTERVAL` depending on the `last_recv_time` of the `_user_stream_tracker`.
@@ -333,7 +332,7 @@ Updates the user's available and total asset balance.
 
 ### (4) Managing Trading Rules
 
-The `Exchange` is also responsible for managing the trading rules of the trading pairs since the exchange itself enforces rules.
+The `Exchange`/`Derivative` is also responsible for managing the trading rules of the trading pairs since the exchange itself enforces rules.
 
 Below are the functions used to ensure that orders being placed meet the requirements and ensure that the trading rules are up to date.:
 
@@ -406,9 +405,32 @@ Returns an order amount step, a minimum amount increment for a given trading pai
 | --------------- | --------- | ----------------------------------------------------------- |
 | `min_increment` | `Decimal` | Minimum base asset size increment of specified trading pair |
 
-### (5) Additional Function(s)
+### (5) Managing Funding Information (Derivative)
 
-The list below contains the utility functions and descriptions that the `Exchange` class use.
+In addition to the account positions mentioned in [section 3](#3-tracking-orders-balances--positions), the
+`Derivative` class also keeps track of the funding payments and the relevant information pertaining to them.
+The class must detect when funding payments are issued and trigger [`FundingPaymentCompletedEvent`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L222-L228)
+as necessary. The details of how this is achieved depend heavily on the given exchange's API. For instance, the 
+[Binance Perpetual derivative class](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/derivative/binance_perpetual/binance_perpetual_derivative.py)
+implements a separate polling loop that uses a REST API endpoint to request the information at the appropriate time (see `_funding_fee_polling_loop`), whereas the
+[dydx Perptual derivative class](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/derivative/dydx_perpetual/dydx_perpetual_derivative.py)
+receives the information from the websocket stream in the `_user_stream_event_listener()` method.
+
+The `_funding_payment_span` list contains two integers denoting the number of seconds before and after the funding
+period when active positions are considered by the exchange as being eligible for funding payment. If the exchange
+takes a single snapshot of the opened positions as opposed to a window, those values may be left to their defaults of
+zero.
+
+Finally, the `_funding_info` dictionary must be maintained. Much like the funding payments information, this is 
+exchange-specific and the implementation may vary. For example,
+[Binance Perpetual derivative class](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/derivative/binance_perpetual/binance_perpetual_derivative.py)
+derives that information from a websocket endpoint (see `_funding_info_polling_loop`), while
+[dydx Perptual derivative class](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/derivative/dydx_perpetual/dydx_perpetual_derivative.py)
+updates the dictionary as part of the [`_status_polling_loop()`](#_status_polling_loop) method call.
+
+### (6) Additional Function(s)
+
+The list below contains the utility functions and descriptions that the `Exchange`/`Derivative` class use.
 
 #### **_async_** `_api_request()`
 
@@ -527,12 +549,9 @@ Use `OrderType.LIMIT_MAKER` to specify you want a trading fee for the maker orde
 | --------- | ----------------------------------------------------------------------------------------------------------- | --------------------------------- |
 | `fee`     | [`TradeFee`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L272-L302) | Estimated trade fee of the order. |
 
-### (6) Perpetual Functions
+### (7) Additional Derivative Functions
 
-In addition to the account positions mentioned in [section 3](#3-tracking-orders-balances--positions), the
-`PerpetualTrading` class also keeps track of the funding information and leverage levels for the traded pairs.
-
-Below are the additional methods that this class introduces.
+Below are the additional methods that `Derivative` class must implement.
 
 ### `_update_account_positions()`
 
@@ -554,7 +573,7 @@ This method needs to be overridden to provide the accurate information depending
 | --------- | ------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
 | `modes`   | `List[`[`PositionMode`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L94-L96)\]`]` | Either or both of `HEDGE` and `ONEWAY` modes. |
 
-### `set_levelrage()`
+### `set_leverage()`
 
 This method may need to be overridden to perform the necessary validations and set the leverage level on the exchange.
 
@@ -567,18 +586,9 @@ This method may need to be overridden to perform the necessary validations and s
 
 **Expected Output(s):** `None`
 
-### `_funding_info_polling_loop()`
+### (8) Class Properties
 
-This method can be implemented for exchanges that stream funding information over a websocket connection. In which case,
-there is no need to update the funding info in the [`_status_polling_loop()`](#_status_polling_loop) method.
-
-**Input Parameter(s):** `None`
-
-**Expected Output(s):** `None`
-
-### (7) Class Properties
-
-Below are the property functions of the `Exchange` class.
+Below are the property functions of the `Exchange`/`Derivative` class.
 
 | Property Function(s) | Output                     | Description                                                                                                                       |
 | -------------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
@@ -591,9 +601,9 @@ Below are the property functions of the `Exchange` class.
 | `limit_orders`       | `List[LimitOrder]`         | Returns a list of `InFlightOrder`.                                                                                                |
 | `tracking_states`    | `Dict[str, Any]`           | All `InFlightOrder` in JSON format. Used to save in sqlite db.                                                                    |
 
-### (8) Perpetual Properties
+### (9) Derivative Properties
 
-Below are the property functions of the `PerpetualTrading` class.
+Below are the property functions specific to the `Derivative` class.
 
 | Property Function(s)   | Output                | Description                                                                                                                                                                                                                                                |
 | ---------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
