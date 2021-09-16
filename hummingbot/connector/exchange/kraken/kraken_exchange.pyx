@@ -17,6 +17,7 @@ import copy
 import aiohttp
 import pandas as pd
 
+from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.clock cimport Clock
@@ -104,13 +105,13 @@ cdef class KrakenExchange(ExchangeBase):
     def __init__(self,
                  kraken_api_key: str,
                  kraken_secret_key: str,
-                 poll_interval: float = 10.0,
+                 poll_interval: float = 30.0,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True):
 
         super().__init__()
         self._trading_required = trading_required
-        self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        self._throttler = self._build_async_throttler()
         self._order_book_tracker = KrakenOrderBookTracker(self._throttler, trading_pairs)
         self._kraken_auth = KrakenAuth(kraken_api_key, kraken_secret_key)
         self._user_stream_tracker = KrakenUserStreamTracker(self._throttler, self._kraken_auth)
@@ -1122,3 +1123,14 @@ cdef class KrakenExchange(ExchangeBase):
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         return self.c_get_order_book(trading_pair)
+
+    def _build_async_throttler(self) -> AsyncThrottler:
+        limits_pct_conf: Optional[Decimal] = global_config_map["rate_limits_share_pct"].value
+        limits_pct = Decimal("100") if limits_pct_conf is None else limits_pct_conf
+        if limits_pct < Decimal("100"):
+            self.logger().warning(
+                f"The Kraken API does not allow enough bandwidth for a reduced rate-limit share percentage."
+                f" Current percentage: {limits_pct}."
+            )
+        throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        return throttler
