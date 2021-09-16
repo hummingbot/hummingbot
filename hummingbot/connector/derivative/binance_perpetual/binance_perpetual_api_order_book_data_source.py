@@ -44,13 +44,13 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return cls._bpobds_logger
 
     @classmethod
-    async def get_last_traded_prices(cls, trading_pairs: List[str], domain: str = "binance_perpetual") -> Dict[str, float]:
+    async def get_last_traded_prices(cls, trading_pairs: List[str], domain: str = CONSTANTS.DOMAIN) -> Dict[str, float]:
         tasks = [cls.get_last_traded_price(t_pair, domain) for t_pair in trading_pairs]
         results = await safe_gather(*tasks)
         return {t_pair: result for t_pair, result in zip(trading_pairs, results)}
 
     @classmethod
-    async def get_last_traded_price(cls, trading_pair: str, domain: str = "binance_perpetual") -> float:
+    async def get_last_traded_price(cls, trading_pair: str, domain: str = CONSTANTS.DOMAIN) -> float:
         url = utils.rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_URL, domain=domain)
         params = {
             "symbol": convert_to_exchange_trading_pair(trading_pair)
@@ -65,7 +65,7 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return AsyncThrottler(CONSTANTS.RATE_LIMITS)
 
     @staticmethod
-    async def fetch_trading_pairs(domain: str = "binance_perpetual", throttler: Optional[AsyncThrottler] = None) -> List[str]:
+    async def fetch_trading_pairs(domain: str = CONSTANTS.DOMAIN, throttler: Optional[AsyncThrottler] = None) -> List[str]:
         url = utils.rest_url(path_url=CONSTANTS.EXCHANGE_INFO_URL, domain=domain)
         throttler = throttler or BinancePerpetualAPIOrderBookDataSource._get_throttler_instance()
         async with throttler.execute_task(limit_id=CONSTANTS.EXCHANGE_INFO_URL):
@@ -89,7 +89,7 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @staticmethod
     async def get_snapshot(trading_pair: str,
                            limit: int = 1000,
-                           domain: str = "binance_perpetual",
+                           domain: str = CONSTANTS.DOMAIN,
                            throttler: Optional[AsyncThrottler] = None) -> Dict[str, Any]:
         params = {
             "symbol": convert_to_exchange_trading_pair(trading_pair)
