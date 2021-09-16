@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import logging
 from typing import (
     Dict,
@@ -31,6 +32,7 @@ class RateOracleSource(Enum):
     coingecko = 1
     kucoin = 2
     ascend_ex = 3
+    price_monolithos = 4
 
 
 class RateOracle(NetworkBase):
@@ -49,6 +51,7 @@ class RateOracle(NetworkBase):
     _shared_client: Optional[aiohttp.ClientSession] = None
     _cgecko_supported_vs_tokens: List[str] = []
 
+    price_monolithos_url = "https://price.monolithos.pro/v1/setzer/price/list"
     binance_price_url = "https://api.binance.com/api/v3/ticker/bookTicker"
     binance_us_price_url = "https://api.binance.us/api/v3/ticker/bookTicker"
     coingecko_usd_price_url = "https://api.coingecko.com/api/v3/coins/markets?vs_currency={}&order=market_cap_desc" \
@@ -180,6 +183,8 @@ class RateOracle(NetworkBase):
             return await cls.get_kucoin_prices()
         elif cls.source == RateOracleSource.ascend_ex:
             return await cls.get_ascend_ex_prices()
+        elif cls.source == RateOracleSource.price_monolithos:
+            return await cls.get_monolithos_prices()
         else:
             raise NotImplementedError
 
@@ -202,6 +207,34 @@ class RateOracle(NetworkBase):
                 break
             else:
                 results.update(task_result)
+        return results
+
+    @classmethod
+    @async_ttl_cache(ttl=1, maxsize=1)
+    async def get_monolithos_prices(cls) -> Dict[str, Decimal]:
+        """
+        Fetches Monolithos prices from price.monolithos.pro. Prices are added
+        to the prices dictionary.
+        :return A dictionary of trading pairs and prices
+        """
+        results = {}
+        client = await cls._http_client()
+        async with client.request("GET", cls.price_monolithos_url) as resp:
+            records = await resp.json()
+            if "result" not in records:
+                cls.logger().error("Response not exist result")
+                raise ValueError("response not exist result")
+            if "error" in records and records["error"] is not None:
+                cls.logger().error("Unexpected error while retrieving rates from Monolithos. "
+                                   "Check the log file for more info.")
+                raise ValueError("response not exist result")
+
+            for record in records["result"]:
+                trading_pair = f"{record['first_currency']}-{record['second_currency']}"
+                if datetime.datetime.now() - datetime.datetime.fromtimestamp(record["date"]) > datetime.timedelta(hours=2):
+                    cls.logger().error("Price expired")
+                    raise ValueError("Price expired")
+                results[trading_pair] = Decimal(record["price"])
         return results
 
     @classmethod
