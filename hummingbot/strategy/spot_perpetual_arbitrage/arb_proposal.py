@@ -1,8 +1,5 @@
 from decimal import Decimal
-from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.core.event.events import FundingInfo
-from hummingbot.connector.perpetual_trading import PerpetualTrading
 
 s_decimal_nan = Decimal("NaN")
 s_decimal_0 = Decimal("0")
@@ -32,97 +29,32 @@ class ArbProposalSide:
     def __repr__(self):
         side = "Buy" if self.is_buy else "Sell"
         base, quote = self.market_info.trading_pair.split("-")
-        return f"{self.market_info.market.display_name.capitalize()}:  {side}  {self.amount} {base}" \
+        return f"{self.market_info.market.display_name.capitalize()}: {side} {self.amount} {base}" \
                f" at {self.order_price} {quote}."
 
 
 class ArbProposal:
     """
-    An arbitrage proposal which contains 2 sides of the proposal - one buy and one sell.
+    An arbitrage proposal which contains 2 sides of the proposal - one on spot market and one on perpetual market.
     """
     def __init__(self,
-                 spot_market_info: MarketTradingPairTuple,
-                 derivative_market_info: MarketTradingPairTuple,
-                 order_amount: Decimal,
-                 timestamp: float):
-        self.spot_market_info: MarketTradingPairTuple = spot_market_info
-        self.derivative_market_info: MarketTradingPairTuple = derivative_market_info
-        self.spot_side: ArbProposalSide = None
-        self.derivative_side: ArbProposalSide = None
-        self.amount: Decimal = order_amount
-        self.timestamp: float = timestamp
-        self.spot_buy_sell_prices = [0, 0]
-        self.deriv_buy_sell_prices = [0, 0]
-
-    async def update_prices(self):
+                 spot_side: ArbProposalSide,
+                 perp_side: ArbProposalSide):
         """
-        Update the buy and sell prices for both spot and deriv connectors.
+        Creates ArbProposal
+        :param spot_side: An ArbProposalSide on spot market
+        :param perp_side: An ArbProposalSide on perpetual market
         """
-        tasks = [self.spot_market_info.market.get_order_price(self.spot_market_info.trading_pair, True, self.amount),
-                 self.spot_market_info.market.get_order_price(self.spot_market_info.trading_pair, False, self.amount),
-                 self.derivative_market_info.market.get_order_price(self.derivative_market_info.trading_pair, True, self.amount),
-                 self.derivative_market_info.market.get_order_price(self.derivative_market_info.trading_pair, False, self.amount)]
-
-        prices = await safe_gather(*tasks, return_exceptions=True)
-        self.spot_buy_sell_prices = [prices[0], prices[1]]
-        self.deriv_buy_sell_prices = [prices[2], prices[3]]
-
-    def is_funding_payment_time(self):
-        """
-        Check if it's time for funding payment.
-        Return True if it's time for funding payment else False.
-        """
-        perp_trading: PerpetualTrading = self.derivative_market_info.market
-        f_info: FundingInfo = perp_trading.get_funding_info(
-            self.derivative_market_info.trading_pair)
-        payment_span = perp_trading.funding_payment_span
-        if (f_info.next_funding_utc_timestamp - payment_span[0]) < self.timestamp < \
-                (f_info.next_funding_utc_timestamp + payment_span[1]):
-            return True
-        else:
-            return False
-
-    async def proposed_spot_deriv_arb(self):
-        """
-        Determine if the current situation is contango or backwardation and return a pair of buy and sell prices accordingly.
-        """
-        await self.update_prices()
-        if (sum(self.spot_buy_sell_prices) / 2) > (sum(self.deriv_buy_sell_prices) / 2):  # Backwardation
-            self.spot_side = ArbProposalSide(self.spot_market_info, False,
-                                             self.spot_buy_sell_prices[1],
-                                             self.amount)
-            self.derivative_side = ArbProposalSide(self.derivative_market_info, True,
-                                                   self.deriv_buy_sell_prices[0],
-                                                   self.amount)
-            return (self.spot_side, self.derivative_side)
-        else:  # Contango
-            self.spot_side = ArbProposalSide(self.spot_market_info, True,
-                                             self.spot_buy_sell_prices[0],
-                                             self.amount)
-            self.derivative_side = ArbProposalSide(self.derivative_market_info, False,
-                                                   self.deriv_buy_sell_prices[1],
-                                                   self.amount)
-            return (self.spot_side, self.derivative_side)
-
-    def alternate_proposal_sides(self):
-        """
-        Alternate the sides and prices of proposed spot and derivative arb.
-        """
-        if self.spot_side.is_buy:
-            self.spot_side.is_buy = False
-            self.spot_side.order_price = self.spot_buy_sell_prices[1]
-            self.derivative_side.is_buy = True
-            self.derivative_side.order_price = self.deriv_buy_sell_prices[0]
-        else:
-            self.spot_side.is_buy = True
-            self.spot_side.order_price = self.spot_buy_sell_prices[0]
-            self.derivative_side.is_buy = False
-            self.derivative_side.order_price = self.deriv_buy_sell_prices[1]
-        return (self.spot_side, self.derivative_side)
+        if spot_side.is_buy == perp_side.is_buy:
+            raise Exception("Spot and perpetual arb proposal cannot be on the same side.")
+        self.spot_side: ArbProposalSide = spot_side
+        self.perp_side: ArbProposalSide = perp_side
 
     def spread(self):
-        spread = abs(self.spot_side.order_price - self.derivative_side.order_price) / min(self.spot_side.order_price, self.derivative_side.order_price)
-        return Decimal(str(spread))
+        buy = self.spot_side.order_price if self.spot_side.is_buy else self.perp_side.order_price
+        sell = self.spot_side.order_price if not self.spot_side.is_buy else self.perp_side.order_price
+        spread = (sell - buy) / min(sell, buy)
+        return spread
 
     def __repr__(self):
-        return f"Spot - {self.spot_market_info.market}\nDerivative - {self.derivative_market_info.market}"
+        return f"Spot: {self.spot_side}\nPerpetual: {self.perp_side}\nSpread: {self.spread()}"
