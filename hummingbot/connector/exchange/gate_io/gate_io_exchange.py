@@ -458,7 +458,7 @@ class GateIoExchange(ExchangeBase):
         amount = self.quantize_order_amount(trading_pair, amount)
         price = self.quantize_order_price(trading_pair, price)
         if amount < trading_rule.min_order_size:
-            self.logger().warning(f"Buy order amount {amount} is lower than the minimum order size "
+            self.logger().warning(f"{trade_type.name.title()} order amount {amount} is lower than the minimum order size "
                                   f"{trading_rule.min_order_size}.")
         else:
             order_type_str = order_type.name.lower().split("_")[0]
