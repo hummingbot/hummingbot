@@ -13,12 +13,12 @@ The `InFlightOrder` abstracts an order's details and is primarily used by the `E
 
 The **_InFlightOrder Class Diagram_**, given below, details the critical variables and functions in the `InFlightOrder` class.
 
-!!! note
-    The `InFlightOrder` associated with a `Derivative` class includes the `leverage` and `position` attributes. 
-    The `position` attribute is set to a [`PositionAction`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L81-L83)
-    enum **value** (i.e. it should be a string). 
-
 ![InFlightOrderUMLDiagram](/assets/img/in-flight-order-class-diagram.svg)
+
+!!! note
+    The `InFlightOrder` associated with a `Derivative` class includes the `leverage` and `position` attributes.
+    The `position` attribute is set to a [`PositionAction`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L81-L83)
+    enum **value** (i.e. it should be a string).
 
 Below are the functions that need to be implemented in the new `InFlightOrder` class.
 
