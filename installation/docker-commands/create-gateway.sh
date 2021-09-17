@@ -339,7 +339,6 @@ printf "%30s %5s\n" "Enable Eth Gas Station:" "$ENABLE_ETH_GAS_STATION"
 printf "%30s %5s\n" "Eth Gas Station API:" "$ETH_GAS_STATION_API_KEY"
 printf "%30s %5s\n" "Eth Gas Station Level:" "$ETH_GAS_STATION_GAS_LEVEL"
 printf "%30s %5s\n" "Eth Gas Station Refresh Interval:" "$ETH_GAS_STATION_REFRESH_TIME"
-printf "%30s %5s\n" "Balancer Subgraph:" "$REACT_APP_SUBGRAPH_URL"
 printf "%30s %5s\n" "Balancer Vault:" "$BALANCER_VAULT"
 printf "%30s %5s\n" "Balancer Max Swaps:" "$BALANCER_MAX_SWAPS"
 printf "%30s %5s\n" "Uniswap Router:" "$UNISWAP_ROUTER"
@@ -380,7 +379,6 @@ echo "MANUAL_GAS_PRICE: $MANUAL_GAS_PRICE" >> $ENV_FILE
 # balancer config
 echo "" >> $ENV_FILE
 echo "# Balancer Settings" >> $ENV_FILE
-echo "REACT_APP_SUBGRAPH_URL: $REACT_APP_SUBGRAPH_URL" >> $ENV_FILE # must used "REACT_APP_SUBGRAPH_URL" for balancer-sor
 echo "BALANCER_VAULT: '$BALANCER_VAULT'" >> $ENV_FILE
 echo "BALANCER_MAX_SWAPS: $BALANCER_MAX_SWAPS" >> $ENV_FILE
 
