@@ -245,6 +245,9 @@ The respective `UserStreamDataSource queues these messages`.
 In perpetual connectors, care should be taken here to keep the `_account_positions` dictionary, used by the perpetual
 strategies, updated.
 
+!!! note
+    The `Position.amount` must be negative for short positions.
+
 Below are the function(s) called from within `_user_stream_event_listener()` when a message is received.
 
 | Function(s)                                              | Description                           |
