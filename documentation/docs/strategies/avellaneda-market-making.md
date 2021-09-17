@@ -4,7 +4,10 @@ tags:
   - market making
 ---
 
+
 # `avellaneda_market_making`
+
+## 📁 [Strategy folder](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/strategy/avellaneda_market_making)
 
 ## 📝 Summary
 
@@ -12,18 +15,11 @@ This strategy implements the market making strategy described in the classic pap
 
 ## 🏦 Exchanges supported
 
-* [`spot` exchanges](exchanges/#spot)
+* [`spot` exchanges](/exchanges/#spot)
 
 ## 👷 Maintainer
 
 CoinAlpha, Inc.
-
-## 📁 Strategy folder and key files
-
-* [Folder](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/strategy/avellaneda_market_making)
-* [Trading logic](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/avellaneda_market_making/avellaneda_market_making_config_map.pyy)
-* [Config map](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/avellaneda_market_making/avellaneda_market_making_config_map.py)
-* [Config template](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/templates/conf_avellaneda_market_making_strategy_TEMPLATE.yml)
 
 ## 🛠️ Strategy configs
 
@@ -57,9 +53,14 @@ CoinAlpha, Inc.
 
 ## 📓 Description
 
+* [Trading logic](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/avellaneda_market_making/avellaneda_market_making_config_map.pyy)
+
 !!! note "Approximation only"
     The description below is a general approximation of this strategy. Please inspect the strategy code in **Trading Logic** above to understand exactly how it works.
- the order's size determined by the order price and quantity is below the exchange's minimum order size, then the orders will not be created.
+
+Coming soon.
+
+ <!-- 
 
 ### `parameters_based_on_spread`
 
@@ -110,4 +111,5 @@ Quantity of orders to be placed on each side of the order book.
 
 For example, if `order_levels = 2` , it will place **2 Buy Orders & 2 Sell Orders**.
 
-How does it determine order level amounts and spreads?
+How does it determine order level amounts and spreads? 
+-->
