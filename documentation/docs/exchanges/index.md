@@ -1,6 +1,7 @@
 An exchange connector integrates with the API of a crypto exchange to enable high-frequency, two-way communication between the Hummingbot client and the exchange.
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 ## Exchange types 
 
 Hummingbot exchange connectors try to standardize trading logic and order types across many different exchanges. Connectors are designed to handle specific exchange types:
@@ -86,82 +87,71 @@ Exchanges and other institutions can visit the [official Hummingbot website](htt
 =======
 Hummingbot connects to both centralized and decentralized exchanges. Centralized exchanges require users to enter API keys, while decentralized exchanges require users to connect their wallets to the underlying blockchain [protocols](/protocols).
 
+=======
+>>>>>>> 156ab97d4 ((docs) added pages for protocol connectors)
 ## Exchange types 
 
 Hummingbot exchange connectors try to standardize trading logic and order types across many different exchanges. Currently, connectors are designed to handle specific exchange types:
 
-### `spot`
+* `spot`: Connectors to central limit order book (CLOB) exchanges that trade spot markets
+* `perp`: Connectors to central limit order book (CLOB) exchanges that trade perpetual swap markets
+* `amm`: Connectors to automatic market maker (AMM) decentralized exchanges
 
-Connectors to central limit order book (CLOB) exchanges that trade spot markets.
+!!! note "Centralized vs decentralized exchanges
+    Hummingbot connects to both centralized and decentralized exchanges. Centralized exchanges require users to enter API keys, while decentralized exchanges require users to connect their wallets to the underlying blockchain [protocols](/protocols).
+
+In the future, Hummingbot aims to extend support to other exchange and asset types. Developers interested in forking Hummingbot to support other types of exchanges can discuss with the community on the **#dev** channels in the Hummingbot Discord.
+
+### `spot`
 
 **Centralized**
 
-| Exchange                                        | Website                                      | Status                                               |
-| ----------------------------------------------- | -------------------------------------------- | ---------------------------------------------------- |
-| [AscendEx](/exchanges/ascend-ex)                | [ascendex.com](https://ascendex.com/)        | <span style="color:green; font-size:25px">⬤</span>  |
-| [Beaxy](/exchanges/beaxy)                       | [beaxy.com](https://beaxy.com/)              | <span style="color:green; font-size:25px">⬤</span>  |
-| [Binance](/exchanges/binance)                   | [binance.com](https://binance.com)           | <span style="color:green; font-size:25px">⬤</span>  |
-| [Binance Futures](/exchanges/binance-perpetual) | [binance.com](https://binance.com)           | <span style="color:yellow; font-size:25px">⬤</span> |
-| [Binance US](/exchanges/binance-us)             | [binance.us](https://www.binance.us)         | <span style="color:yellow; font-size:25px">⬤</span> |
-| [Bitfinex](/exchanges/bitfinex)                 | [bitfinex.com](https://bitfinex.com)         | <span style="color:yellow; font-size:25px">⬤</span> |
-| [Bittrex Global](/exchanges/bittrex)            | [bittrex.com](https://bittrex.com)           | <span style="color:yellow; font-size:25px">⬤</span> |
-| [Blocktane](/exchanges/blocktane)               | [blocktane.io](https://blocktane.io/)        | <span style="color:yellow; font-size:25px">⬤</span> |
-| [Coinbase Pro](/exchanges/coinbase)             | [pro.coinbase.com](https://pro.coinbase.com) | <span style="color:yellow; font-size:25px">⬤</span> |
-| [Coinzoom](/exchanges/coinzoom)                 | [coinzoom.com](https://www.coinzoom.com/)    | <span style="color:green; font-size:25px">⬤</span>  |
-| [Crypto.com](/exchanges/crypto-com)             | [crypto.com](https://crypto.com)             | <span style="color:green; font-size:25px">⬤</span>  |
-| [Digifinex](/exchanges/digifinex)               | [digifinex.com](https://www.digifinex.com/)  | <span style="color:yellow; font-size:25px">⬤</span> |
-| [FTX](/exchanges/ftx)                           | [ftx.com](https://ftx.com/foundation)        | <span style="color:green; font-size:25px">⬤</span>  |
-| [Gate.io](/exchanges/gate-io)                   | [gate.io](https://www.gate.io/)              | <span style="color:yellow; font-size:25px">⬤</span> |
-| [HitBTC](/exchanges/hitbtc)                     | [hitbtc.com](https://hitbtc.com/)            | <span style="color:green; font-size:25px">⬤</span>  |
-| [Huobi Global](/exchanges/huobi)                | [huobi.com](https://huobi.com)               | <span style="color:green; font-size:25px">⬤</span>  |
-| [Kraken](/exchanges/kraken)                     | [kraken.com](https://kraken.com)             | <span style="color:green; font-size:25px">⬤</span>  |
-| [KuCoin](/exchanges/kucoin)                     | [kucoin.com](https://kucoin.com)             | <span style="color:green; font-size:25px">⬤</span>  |
-| [Liquid](/exchanges/liquid)                     | [liquid.com](https://liquid.com)             | <span style="color:yellow; font-size:25px">⬤</span> |
-| [NDAX](/exchanges/ndax)                         | [ndax.io](https://ndax.io/)                  | <span style="color:green; font-size:25px">⬤</span>  |
-| [OKEx](/exchanges/okex)                         | [okex.com](https://www.okex.com/)            | <span style="color:yellow; font-size:25px">⬤</span> |
-| [ProBit Global](/exchanges/probit)              | [probit.com](https://www.probit.com/)        | <span style="color:yellow; font-size:25px">⬤</span> |
-| [ProBit Korea](/exchanges/probit-korea/)        | [probit.kr](https://www.probit.kr/en-us/)    | <span style="color:yellow; font-size:25px">⬤</span> |
-
-**Decentralized**
-
-| Exchange                                         | Website                                      | Protocol                         | Status                                               |
-| ------------------------------------------------ |--------------------------------------------- | -------------------------------- | ---------------------------------------------------- |
-| [dYdX](/exchanges/dydx)                          | [dydx.exchange](https://dydx.exchange/)      | [ethereum](/protocols/ethereum)  | <span style="color:green; font-size:25px">⬤</span>  |
-| [Loopring](/exchanges/loopring)                  | [loopring.org](https://loopring.org)         | [ethereum](/protocols/ethereum)  | <span style="color:yellow; font-size:25px">⬤</span> |
+| Exchange                                        | Website                                      | Protocol                         | Maintainer | Status                                               |
+| ----------------------------------------------- | -------------------------------------------- | -------------------------------- | ---------- | ---------------------------------------------------- |
+| [AscendEx](/exchanges/ascend-ex)                | [ascendex.com](https://ascendex.com/)        |                                  | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span>  |
+| [Beaxy](/exchanges/beaxy)                       | [beaxy.com](https://beaxy.com/)              |                                  | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span>  |
+| [Binance](/exchanges/binance)                   | [binance.com](https://binance.com)           |                                  | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span>  |
+| [Binance Futures](/exchanges/binance-perpetual) | [binance.com](https://binance.com)           |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
+| [Binance US](/exchanges/binance-us)             | [binance.us](https://www.binance.us)         |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
+| [Bitfinex](/exchanges/bitfinex)                 | [bitfinex.com](https://bitfinex.com)         |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
+| [Bittrex Global](/exchanges/bittrex)            | [bittrex.com](https://bittrex.com)           |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
+| [Blocktane](/exchanges/blocktane)               | [blocktane.io](https://blocktane.io/)        |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
+| [Coinbase Pro](/exchanges/coinbase)             | [pro.coinbase.com](https://pro.coinbase.com) |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
+| [Coinzoom](/exchanges/coinzoom)                 | [coinzoom.com](https://www.coinzoom.com/)    |                                  | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span>  |
+| [Crypto.com](/exchanges/crypto-com)             | [crypto.com](https://crypto.com)             |                                  | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span>  |
+| [Digifinex](/exchanges/digifinex)               | [digifinex.com](https://www.digifinex.com/)  |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
+| [FTX](/exchanges/ftx)                           | [ftx.com](https://ftx.com/foundation)        |                                  | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span>  |
+| [Gate.io](/exchanges/gate-io)                   | [gate.io](https://www.gate.io/)              |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
+| [HitBTC](/exchanges/hitbtc)                     | [hitbtc.com](https://hitbtc.com/)            |                                  | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span>  |
+| [Huobi Global](/exchanges/huobi)                | [huobi.com](https://huobi.com)               |                                  | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span>  |
+| [Kraken](/exchanges/kraken)                     | [kraken.com](https://kraken.com)             |                                  | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span>  |
+| [KuCoin](/exchanges/kucoin)                     | [kucoin.com](https://kucoin.com)             |                                  | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span>  |
+| [Liquid](/exchanges/liquid)                     | [liquid.com](https://liquid.com)             |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
+| [NDAX](/exchanges/ndax)                         | [ndax.io](https://ndax.io/)                  |                                  | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span>  |
+| [OKEx](/exchanges/okex)                         | [okex.com](https://www.okex.com/)            |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
+| [ProBit Global](/exchanges/probit)              | [probit.com](https://www.probit.com/)        |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
+| [ProBit Korea](/exchanges/probit-korea/)        | [probit.kr](https://www.probit.kr/en-us/)    |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
+| [dYdX](/exchanges/dydx)                         | [dydx.exchange](https://dydx.exchange/)      | [ethereum](/protocols/ethereum)  | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span>  |
+| [Loopring](/exchanges/loopring)                 | [loopring.org](https://loopring.org)         | [ethereum](/protocols/ethereum)  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
 
 ### `perp`
 
-Connectors to central limit order book (CLOB) exchanges that trade perpetual swap markets.
-
-**Centralized**
-
-| Exchange                                         | Website                                      | Status                                               |
-| ------------------------------------------------ | -------------------------------------------- | ---------------------------------------------------- |
-| [Binance Futures](/exchanges/binance-perpetual)  | [binance.com](https://binance.com)           | <span style="color:yellow; font-size:25px">⬤</span> |
-| [Bybit](/exchanges/dydx-perpetual)               | [bybit.com](https://dydx.exchange/)          | <span style="color:yellow; font-size:25px">⬤</span> |
-
-**Decentralized**
-
-| Exchange                                         | Website                                      | Protocol                          | Status                                               |
-| ------------------------------------------------ | -------------------------------------------- | --------------------------------- | ---------------------------------------------------- |
-| [dYdX Perpetual](/exchanges/dydx-perpetual)      | [dydx.exchange](https://dydx.exchange/)      | [ethereum](/protocols/ethereum)   | <span style="color:yellow; font-size:25px">⬤</span> |
+| Exchange                                         | Website                                      | Protocol                          | Maintainer | Status                                               |
+| ------------------------------------------------ | -------------------------------------------- | --------------------------------- | -----------| ---------------------------------------------------- |
+| [Binance Futures](/exchanges/binance-perpetual)  | [binance.com](https://binance.com)           |                                   | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
+| [Bybit](/exchanges/dydx-perpetual)               | [bybit.com](https://dydx.exchange/)          |                                   | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
+| [dYdX Perpetual](/exchanges/dydx-perpetual)      | [dydx.exchange](https://dydx.exchange/)      | [ethereum](/protocols/ethereum)   | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
 
 ### `amm`
 
-Connectors to automatic market maker (AMM) decentralized exchanges.
-
-| Exchange                                         | Website                                      | Protocol                          | Status                                               |
-| ------------------------------------------------ | -------------------------------------------- | --------------------------------- | ---------------------------------------------------- |
-| [Balancer](/exchanges/balancer)                  | [balancer.fi](https://balancer.fi/)          | [ethereum](/protocols/ethereum)   | <span style="color:yellow; font-size:25px">⬤</span> |
-| [Celo](/exchanges/celo/)                         | [celo.org](https://celo.org/)                | [celo](/protocols/celo)           | <span style="color:yellow; font-size:25px">⬤</span> |
-| [Perpetual Finance](/connectors/perp-fi)         | [perp.exchange](https://perp.exchange/)      | xdai                              | <span style="color:red; font-size:25px">⬤</span>    |
-| [Terra](/connectors/terra)                       | [terra.money](https://www.terra.money/)      | [terra](/protocols/terra)         | <span style="color:green; font-size:25px">⬤</span>  |
-| [Uniswap](/connectors/uniswap)                   | [uniswap.org](https://uniswap.org/)          | [ethereum](/protocols/ethereum)   | <span style="color:yellow; font-size:25px">⬤</span> |
-| [Uniswap v3](/exchanges/uniswap-v3)              | [uniswap.org](https://uniswap.org/)          | [ethereum](/protocols/ethereum)   | <span style="color:yellow; font-size:25px">⬤</span> |
-
-### Other types
-
-In the future, Hummingbot aims to extend support to other exchange and asset types. Developers interested in forking Hummingbot to support other types of exchanges can discuss with the community on the **#dev** channels in the Hummingbot Discord.
+| Exchange                                         | Website                                      | Protocol                          | Maintainer | Status                                               |
+| ------------------------------------------------ | -------------------------------------------- | --------------------------------- | ---------- | ---------------------------------------------------- |
+| [Balancer](/exchanges/balancer)                  | [balancer.fi](https://balancer.fi/)          | [ethereum](/protocols/ethereum)   | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
+| [Celo](/exchanges/celo/)                         | [celo.org](https://celo.org/)                | [celo](/protocols/celo)           | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
+| [Perpetual Finance](/connectors/perp-fi)         | [perp.exchange](https://perp.exchange/)      | xdai                              | CoinAlpha  | <span style="color:red; font-size:25px">⬤</span>    |
+| [Terra](/connectors/terra)                       | [terra.money](https://www.terra.money/)      | [terra](/protocols/terra)         | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span>  |
+| [Uniswap](/connectors/uniswap)                   | [uniswap.org](https://uniswap.org/)          | [ethereum](/protocols/ethereum)   | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
+| [Uniswap v3](/exchanges/uniswap-v3)              | [uniswap.org](https://uniswap.org/)          | [ethereum](/protocols/ethereum)   | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
 
 ## Adding exchange connectors
 
