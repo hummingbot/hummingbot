@@ -13,6 +13,11 @@ The `InFlightOrder` abstracts an order's details and is primarily used by the `E
 
 The **_InFlightOrder Class Diagram_**, given below, details the critical variables and functions in the `InFlightOrder` class.
 
+!!! note
+    The `InFlightOrder` associated with a `Derivative` class includes the `leverage` and `position` attributes. 
+    The `position` attribute is set to a [`PositionAction`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L81-L83)
+    enum **value** (i.e. it should be a string). 
+
 ![InFlightOrderUMLDiagram](/assets/img/in-flight-order-class-diagram.svg)
 
 Below are the functions that need to be implemented in the new `InFlightOrder` class.
@@ -132,14 +137,15 @@ This function is responsible for executing the API request to place the order on
 
 **Input Parameter(s):**
 
-| Parameter(s)   | Type                                                                                                       | Description                                                                               |
-| -------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `order_id`     | `str`                                                                                                      | ID used to track an order in Hummingbot.                                                  |
-| `trading_pair` | `str`                                                                                                      | Name of the trading pair symbol(in Hummingbot's format i.e. `BASE-QUOTE`)                 |
-| `price`        | `Decimal`                                                                                                  | Price in which the order will be placed in `Decimal`                                      |
-| `amount`       | `Decimal`                                                                                                  | Amount in which the order will be placed in `Decimal`                                     |
-| `order_type`   | [`OrderType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L72-L78) | Specifies the order type of the order(i.e. `OrderType.LIMIT` and `OrderType.LIMIT_MAKER`) |
-| `trade_type`   | [`TradeType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L66-L69) | Specifies the trade type of the order(i.e. `TradeType.BUY` and `TradeType.SELL`)          |
+| Parameter(s)       | Type                                                                                                            | Description                                                                               |
+| ------------------ | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `order_id`         | `str`                                                                                                           | ID used to track an order in Hummingbot.                                                  |
+| `trading_pair`     | `str`                                                                                                           | Name of the trading pair symbol(in Hummingbot's format i.e. `BASE-QUOTE`)                 |
+| `price`            | `Decimal`                                                                                                       | Price in which the order will be placed in `Decimal`                                      |
+| `amount`           | `Decimal`                                                                                                       | Amount in which the order will be placed in `Decimal`                                     |
+| `order_type`       | [`OrderType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L72-L78)      | Specifies the order type of the order(i.e. `OrderType.LIMIT` and `OrderType.LIMIT_MAKER`)  |
+| `trade_type`       | [`TradeType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L66-L69)      | Specifies the trade type of the order(i.e. `TradeType.BUY` and `TradeType.SELL`)           |
+| `positions_action` | [`PositionAction`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L81-L83) | (`Derivative`) Specifies if the order is to open a position or close it                    |
 
 **Expected Output(s):**
 
@@ -217,8 +223,10 @@ Starts tracking an order by simply adding it into `_in_flight_orders` dictionary
 | `trading_pair`      | `str`                                                                                                      | Name of the trading pair symbol(in Hummingbot's format i.e. `BASE-QUOTE`)                 |
 | `price`             | `Decimal`                                                                                                  | Price in which the order will be placed in `Decimal`                                      |
 | `amount`            | `Decimal`                                                                                                  | Amount in which the order will be placed in `Decimal`                                     |
-| `order_type`        | [`OrderType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L72-L78) | Specifies the order type of the order(i.e. `OrderType.LIMIT` and `OrderType.LIMIT_MAKER`) |
-| `trade_type`        | [`TradeType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L66-L69) | Specifies the trade type of the order(i.e. `TradeType.BUY` and `TradeType.SELL`)          |
+| `order_type`        | [`OrderType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L72-L78) | Specifies the order type of the order(i.e. `OrderType.LIMIT` and `OrderType.LIMIT_MAKER`)  |
+| `trade_type`        | [`TradeType`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L66-L69) | Specifies the trade type of the order(i.e. `TradeType.BUY` and `TradeType.SELL`)           |
+| `position`          | `str`                                                                                                      | Specifies if the order is to open a position or close it (`"OPEN"`/`"CLOSE"`)              |
+| `leverage`          | `int`                                                                                                      | Specifies the level of leverage for the position                                           |
 
 **Expected Output(s):** `None`
 
