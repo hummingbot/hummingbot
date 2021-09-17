@@ -96,6 +96,7 @@ cdef class KrakenInFlightOrder(InFlightOrderBase):
 
     def update_exchange_order_id(self, exchange_id: str):
         super().update_exchange_order_id(exchange_id)
+        self.last_state = "new"
 
     def update_with_execution_report(self, execution_report: Dict[str, Any]):
         trade_id = execution_report["t"]
