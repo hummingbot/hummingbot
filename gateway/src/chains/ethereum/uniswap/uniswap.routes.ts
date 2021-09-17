@@ -165,6 +165,7 @@ export namespace UniswapRoutes {
     privateKey: string;
     side: Side;
     limitPrice?: BigNumber;
+    nonce?: number;
   }
 
   interface UniswapTradeResponse {
@@ -180,6 +181,7 @@ export namespace UniswapRoutes {
     gasPrice: number;
     gasLimit: number;
     gasCost: string;
+    nonce: number;
     txHash: string | undefined;
   }
 
@@ -264,7 +266,12 @@ export namespace UniswapRoutes {
               `Swap price ${price} exceeds limitPrice ${limitPrice}`
             );
 
-          const tx = await uniswap.executeTrade(wallet, result.trade, gasPrice);
+          const tx = await uniswap.executeTrade(
+            wallet,
+            result.trade,
+            gasPrice,
+            req.body.nonce
+          );
           return res.status(200).json({
             network: ConfigManager.config.ETHEREUM_CHAIN,
             timestamp: initTime,
@@ -277,6 +284,7 @@ export namespace UniswapRoutes {
             gasPrice: gasPrice,
             gasLimit: gasLimit,
             gasCost: gasCostInEthString(gasPrice, gasLimit),
+            nonce: tx.nonce,
             txHash: tx.hash,
           });
         } else {
@@ -300,6 +308,7 @@ export namespace UniswapRoutes {
             gasPrice: gasPrice,
             gasLimit,
             gasCost: gasCostInEthString(gasPrice, gasLimit),
+            nonce: tx.nonce,
             txHash: tx.hash,
           });
         }

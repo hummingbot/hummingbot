@@ -1,4 +1,4 @@
-import { BigNumber, Contract, providers, Wallet } from 'ethers';
+import { BigNumber, Contract, providers, Transaction, Wallet } from 'ethers';
 import abi from './ethereum.abi.json';
 import axios from 'axios';
 import fs from 'fs/promises';
@@ -155,7 +155,7 @@ export class EthereumBase {
     spender: string,
     tokenAddress: string,
     amount: BigNumber
-  ): Promise<boolean> {
+  ): Promise<Transaction> {
     // instantiate a contract and pass in wallet, which act on behalf of that signer
     const contract = new Contract(tokenAddress, abi.ERC20Abi, wallet);
     return contract.approve(spender, amount, {

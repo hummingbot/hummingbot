@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/ban-types */
-import { Wallet } from 'ethers';
+import { Transaction, Wallet } from 'ethers';
 import { NextFunction, Router, Request, Response } from 'express';
 import { Ethereum } from './ethereum';
 import { EthereumConfig } from './ethereum.config';
@@ -42,6 +42,30 @@ export namespace EthereumRoutes {
         timestamp: Date.now(),
       });
     })
+  );
+
+  interface EthereumNonceRequest {
+    privateKey: string; // the user's private Ethereum key
+  }
+
+  interface EthereumNonceResponse {
+    nonce: number; // the user's nonce
+  }
+
+  router.post(
+    '/nonce',
+    asyncHandler(
+      async (
+        req: Request<{}, {}, EthereumNonceRequest>,
+        res: Response<EthereumNonceResponse | string, {}>
+      ) => {
+        // get the address via the private key since we generally use the private
+        // key to interact with gateway and the address is not part of the user config
+        const wallet = ethereum.getWallet(req.body.privateKey);
+        const nonce = await ethereum.nonceManager.getNonce(wallet.address);
+        res.status(200).json({ nonce: nonce });
+      }
+    )
   );
 
   interface EthereumAllowancesRequest {
@@ -190,6 +214,7 @@ export namespace EthereumRoutes {
 
   interface EthereumApproveRequest {
     amount?: string;
+    nonce?: number;
     privateKey: string;
     spender: string;
     token: string;
@@ -202,7 +227,7 @@ export namespace EthereumRoutes {
     tokenAddress: string;
     spender: string;
     amount: string;
-    approval: boolean | string;
+    approval: Transaction | string;
   }
 
   router.post(
@@ -212,8 +237,8 @@ export namespace EthereumRoutes {
         req: Request<{}, {}, EthereumApproveRequest>,
         res: Response<EthereumApproveResponse | string, {}>
       ) => {
-        const { spender, privateKey, token, amount } = req.body;
-        const result = await approve(spender, privateKey, token, amount);
+        const { spender, nonce, privateKey, token, amount } = req.body;
+        const result = await approve(spender, privateKey, token, amount, nonce);
         return res.status(200).json(result);
       }
     )
