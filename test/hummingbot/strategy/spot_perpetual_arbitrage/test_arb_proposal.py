@@ -23,27 +23,25 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         spot_side = ArbProposalSide(
             spot_market_info,
             True,
-            Decimal(100),
-            Decimal("1")
+            Decimal(100)
         )
         perp_side = ArbProposalSide(
             perp_market_info,
             False,
-            Decimal(110),
-            Decimal("1")
+            Decimal(110)
         )
-        proposal = ArbProposal(spot_side, perp_side)
-        self.assertEqual(Decimal("0.1"), proposal.spread())
-        expected_str = "Spot: Binance: Buy 1 BTC at 100 USDT.\n" \
-                       "Perpetual: Binance perpetual: Sell 1 BTC at 110 USDT.\n" \
-                       "Spread: 0.1"
+        proposal = ArbProposal(spot_side, perp_side, Decimal("1"))
+        self.assertEqual(Decimal("0.1"), proposal.profit_pct())
+        expected_str = "Spot: Binance: Buy BTC at 100 USDT.\n" \
+                       "Perpetual: Binance perpetual: Sell BTC at 110 USDT.\n" \
+                       "Order amount: 1\n" \
+                       "Profit: 10.00%"
         self.assertEqual(expected_str, str(proposal))
         perp_side = ArbProposalSide(
             perp_market_info,
             True,
-            Decimal(110),
-            Decimal("1")
+            Decimal(110)
         )
         with self.assertRaises(Exception) as context:
-            proposal = ArbProposal(spot_side, perp_side)
+            proposal = ArbProposal(spot_side, perp_side, Decimal("1"))
         self.assertEqual('Spot and perpetual arb proposal cannot be on the same side.', str(context.exception))
