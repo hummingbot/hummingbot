@@ -265,7 +265,10 @@ Below are the function(s) called from within `_user_stream_event_listener()` whe
 Periodically update user balances and order status via REST API. This serves as a fallback measure for WebSocket API updates.
 Calling of both [\_update_balances()](#_update_balances) and [\_update_order_status()](#_update_order_status) functions is determined by the `_poll_notifier` variable.
 
-For perpetual connectors, the [\_update_account_positions()](#_update_account_positions) should also be called here.
+For perpetual connectors, the `_account_positions` dictionary should also be updated here.
+
+!!! note
+    The `Position.amount` must be negative for short positions.
 
 `_poll_notifier` is an `asyncio.Event` object that is set in the `tick()` function.
 It is set after every `SHORT_POLL_INTERVAL` or `LONG_POLL_INTERVAL` depending on the `last_recv_time` of the `_user_stream_tracker`.
