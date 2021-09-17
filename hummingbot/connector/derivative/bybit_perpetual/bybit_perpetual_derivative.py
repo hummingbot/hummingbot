@@ -418,10 +418,16 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 "symbol": await self._trading_pair_symbol(trading_pair),
                 "qty": amount,
                 "time_in_force": self._DEFAULT_TIME_IN_FORCE,
-                "close_on_trigger": True if position_action == PositionAction.CLOSE else False,
+                "close_on_trigger": False,
                 "order_link_id": order_id,
-                "reduce_only": True if position_action == PositionAction.CLOSE else False,
+                "reduce_only": False,
             }
+
+            if position_action == PositionAction.CLOSE:
+                params.update({
+                    "close_on_trigger": True,
+                    "reduce_only": True
+                })
 
             if order_type.is_limit_type():
                 price: Decimal = self.quantize_order_price(trading_pair, price)
@@ -454,15 +460,15 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
             if send_order_results["ret_code"] != 0:
                 raise ValueError(f"Order is rejected by the API. "
-                                 f"Parameters: {params} Error Msg: {send_order_results['ret_msg']}")
+                                 f"Error Msg: {send_order_results['ret_msg']}. Parameters: {params}")
 
             result = send_order_results["result"]
             exchange_order_id = str(result["order_id"])
 
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
-                self.logger().info(f"Created {order_type.name} {trade_type.name} order {order_id} for "
-                                   f"{result['qty']} @ {result['price']} {trading_pair}.")
+                self.logger().info(f"Created {order_type.name} {trade_type.name} order {order_id} for {trading_pair}. "
+                                   f"Amount: {result['qty']} Price: {result['price']}.")
                 tracked_order.update_exchange_order_id(exchange_order_id)
 
         except asyncio.CancelledError:
@@ -473,7 +479,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                MarketOrderFailureEvent(self.current_timestamp, order_id, order_type))
             self.logger().network(
                 f"Error submitting {trade_type.name} {order_type.name} order to Bybit Perpetual for "
-                f"{amount} {trading_pair} {price}. Error: {str(e)}",
+                f"{amount} {trading_pair} {price}. Error: {str(e)}. Parameters: {params}",
                 exc_info=True,
                 app_warning_msg="Error submitting order to Bybit Perpetual. "
             )
@@ -713,15 +719,13 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
 
-        params = {}
-        account_positions: Dict[str, Dict[str, Any]] = await self._api_request(
+        wallet_balance: Dict[str, Dict[str, Any]] = await self._api_request(
             method="GET",
             endpoint=CONSTANTS.GET_WALLET_BALANCE_PATH_URL,
-            params=params,
             is_auth_required=True,
         )
 
-        for asset_name, balance_json in account_positions["result"].items():
+        for asset_name, balance_json in wallet_balance["result"].items():
             self._account_balances[asset_name] = Decimal(str(balance_json["wallet_balance"]))
             self._account_available_balances[asset_name] = Decimal(str(balance_json["available_balance"]))
             remote_asset_names.add(asset_name)
@@ -904,7 +908,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 position_side=position_side,
                 unrealized_pnl=unrealized_pnl,
                 entry_price=entry_price,
-                amount=amount,
+                amount=amount * (Decimal("-1.0") if position_side == PositionSide.SHORT else Decimal("1.0")),
                 leverage=leverage,
             )
         else:
@@ -1076,7 +1080,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 asyncio.create_task(self._api_request(
                     method="GET",
                     endpoint=CONSTANTS.GET_POSITIONS_PATH_URL,
-                    trading_pair=self._trading_pairs[0],
+                    trading_pair=trading_pair,
                     params=body_params,
                     is_auth_required=True)))
 
@@ -1088,8 +1092,8 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             if not isinstance(resp, Exception):
                 result = resp["result"]
                 if result:
-                    trade_entries = result if isinstance(result, list) else [result]
-                    parsed_resps.extend(trade_entries)
+                    position_entries = result if isinstance(result, list) else [result]
+                    parsed_resps.extend(position_entries)
             else:
                 self.logger().error(f"Error fetching trades history. Response: {resp}")
 
@@ -1110,7 +1114,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                     position_side=position_side,
                     unrealized_pnl=unrealized_pnl,
                     entry_price=entry_price,
-                    amount=amount,
+                    amount=amount * (Decimal("-1.0") if position_side == PositionSide.SHORT else Decimal("1.0")),
                     leverage=leverage,
                 )
             else:

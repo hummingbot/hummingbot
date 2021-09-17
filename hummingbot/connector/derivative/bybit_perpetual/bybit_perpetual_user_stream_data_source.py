@@ -63,6 +63,7 @@ class BybitPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         """
         try:
             auth_payload: Dict[str, Any] = self._auth_assistant.get_ws_auth_payload()
+            self.logger().info("Authenticating to User Stream...")
             await ws.authenticate(auth_payload)
             auth_resp = await ws.receive_json()
 
@@ -70,6 +71,8 @@ class BybitPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                     auth_resp["request"]["op"] != "auth":
                 self.logger().error(f"Response: {auth_resp}", exc_info=True)
                 raise Exception("Could not authenticate websocket connection with Bybit Perpetual")
+            else:
+                self.logger().info("Successfully authenticated to User Stream.")
 
         except asyncio.CancelledError:
             raise
@@ -103,14 +106,22 @@ class BybitPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         while True:
             try:
                 ws: BybitPerpetualWebSocketAdaptor = await self._create_websocket_connection(url)
-                self.logger().info("Authenticating to User Stream...")
                 await self._authenticate(ws)
-                self.logger().info("Successfully authenticated to User Stream.")
                 await self._subscribe_to_events(ws)
-                self.logger().info("Successfully subscribed to user events.")
 
                 async for msg in ws.iter_messages():
                     self._last_recv_time = int(time.time())
+                    if "success" in msg:
+                        if msg["success"] and msg["request"]["op"] == "ping":
+                            continue
+                        if msg["success"] and msg["request"]["op"] == "subscribe":
+                            self.logger().info(
+                                f"Successful subscription to the topic {msg['request']['args']} on {url}")
+                        else:
+                            self.logger().error(
+                                "There was an error subscribing to the topic "
+                                f"{msg['request']['args']} ({msg['ret_msg']}) on {url}")
+                        continue
                     output.put_nowait(msg)
             except asyncio.CancelledError:
                 raise
