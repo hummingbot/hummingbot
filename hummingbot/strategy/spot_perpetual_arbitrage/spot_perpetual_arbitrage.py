@@ -49,30 +49,30 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
                     perp_market_info: MarketTradingPairTuple,
                     order_amount: Decimal,
                     perp_leverage: int,
-                    min_opening_profit_pct: Decimal,
-                    min_closing_profit_pct: Decimal,
-                    spot_slippage_buffer: Decimal = Decimal("0"),
-                    perp_slippage_buffer: Decimal = Decimal("0"),
+                    min_opening_arbitrage_pct: Decimal,
+                    min_closing_arbitrage_pct: Decimal,
+                    spot_market_slippage_buffer: Decimal = Decimal("0"),
+                    perp_market_slippage_buffer: Decimal = Decimal("0"),
                     next_arbitrage_cycle_delay: float = 120,
                     status_report_interval: float = 10):
         """
         :param spot_market_info: The spot market info
         :param perp_market_info: The perpetual market info
         :param order_amount: The order amount
-        :param min_opening_profit_pct: The minimum spread to open arbitrage position (e.g. 0.0003 for 0.3%)
-        :param min_closing_profit_pct: The minimum spread to close arbitrage position (e.g. 0.0003 for 0.3%)
-        :param spot_slippage_buffer: The buffer for which to adjust order price for higher chance of
+        :param min_opening_arbitrage_pct: The minimum spread to open arbitrage position (e.g. 0.0003 for 0.3%)
+        :param min_closing_arbitrage_pct: The minimum spread to close arbitrage position (e.g. 0.0003 for 0.3%)
+        :param spot_market_slippage_buffer: The buffer for which to adjust order price for higher chance of
         the order getting filled on spot market.
-        :param perp_slippage_buffer: The slipper buffer for perpetual market.
+        :param perp_market_slippage_buffer: The slipper buffer for perpetual market.
         """
         self._spot_market_info = spot_market_info
         self._perp_market_info = perp_market_info
-        self._min_opening_profit_pct = min_opening_profit_pct
-        self._min_closing_profit_pct = min_closing_profit_pct
+        self._min_opening_arbitrage_pct = min_opening_arbitrage_pct
+        self._min_closing_arbitrage_pct = min_closing_arbitrage_pct
         self._order_amount = order_amount
         self._perp_leverage = perp_leverage
-        self._spot_slippage_buffer = spot_slippage_buffer
-        self._perp_slippage_buffer = perp_slippage_buffer
+        self._spot_market_slippage_buffer = spot_market_slippage_buffer
+        self._perp_market_slippage_buffer = perp_market_slippage_buffer
         self._next_arbitrage_cycle_delay = next_arbitrage_cycle_delay
         self._next_arbitrage_cycle_time = 0
         self._all_markets_ready = False
@@ -86,12 +86,12 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         self._deriv_order_ids = []
 
     @property
-    def min_divergence(self) -> Decimal:
-        return self._min_opening_profit_pct
+    def min_opening_arbitrage_pct(self) -> Decimal:
+        return self._min_opening_arbitrage_pct
 
     @property
-    def min_convergence(self) -> Decimal:
-        return self._min_closing_profit_pct
+    def min_closing_arbitrage_pct(self) -> Decimal:
+        return self._min_closing_arbitrage_pct
 
     @property
     def order_amount(self) -> Decimal:
@@ -126,7 +126,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
                     if self.perp_positions[0].amount == self._order_amount:
                         self.logger().info(f"There is an existing {self._perp_market_info.trading_pair} "
                                            f"{self.perp_positions[0].position_side.name} position. The bot resumes "
-                                           f"waiting for spreads to converge to close out the arbitrage position")
+                                           f"operation to close out the arbitrage position")
                     else:
                         self.logger().info(f"There is an existing {self._perp_market_info.trading_pair} "
                                            f"{self.perp_positions[0].position_side.name} position with unmatched "
@@ -146,9 +146,9 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
             first_perp_side = self.perp_positions[0].position_side
             perp_is_buy = True if first_perp_side == PositionSide.SHORT else False
             proposals = [p for p in proposals if p.perp_side.is_buy == perp_is_buy and p.profit_pct() >=
-                         self._min_closing_profit_pct]
+                         self._min_closing_arbitrage_pct]
         else:
-            proposals = [p for p in proposals if p.profit_pct() >= self._min_opening_profit_pct]
+            proposals = [p for p in proposals if p.profit_pct() >= self._min_opening_arbitrage_pct]
         if len(proposals) > 1:
             raise Exception(f"Unexpected situation where number of valid proposals ({len(proposals)}) is > 1")
         if len(proposals) == 0:
@@ -160,12 +160,15 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
             self.logger().info(f"Arbitrage opportunity found. "
                                f"Profitability ({proposal.profit_pct():.2%}) is now above min_opening_profit_pct.")
         self.apply_slippage_buffers(proposal)
-        self.apply_budget_constraint(proposal)
+        if not self.check_budget_constraint(proposal):
+            return
         if proposal.order_amount > 0:
             self.execute_arb_proposal(proposal)
 
     def is_on_closing_arbitrage(self) -> bool:
-        if self.perp_positions and self.perp_positions[0].amount == self._order_amount:
+        adjusted_perp_amount = self._perp_market_info.market.quantize_order_amount(self._perp_market_info.trading_pair,
+                                                                                   self._order_amount)
+        if self.perp_positions and self.perp_positions[0].amount == adjusted_perp_amount:
             return True
         return False
 
@@ -209,52 +212,53 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         for arb_side in (proposal.spot_side, proposal.perp_side):
             market = arb_side.market_info.market
             # arb_side.amount = market.quantize_order_amount(arb_side.market_info.trading_pair, arb_side.amount)
-            s_buffer = self._spot_slippage_buffer if market == self._spot_market_info.market \
-                else self._perp_slippage_buffer
+            s_buffer = self._spot_market_slippage_buffer if market == self._spot_market_info.market \
+                else self._perp_market_slippage_buffer
             if not arb_side.is_buy:
                 s_buffer *= Decimal("-1")
             arb_side.order_price *= Decimal("1") + s_buffer
             arb_side.order_price = market.quantize_order_price(arb_side.market_info.trading_pair,
                                                                arb_side.order_price)
 
-    def required_balance(self, proposal: ArbProposal, proposal_side: ArbProposalSide) -> (Decimal, str, Decimal):
-        """
-        Calculates required balance for an order on proposal side.
-        :param proposal: An arbitrage proposal
-        :param proposal_side: The side (spot or perpetual) of proposal to make an order
-        :return: Available balance, token for the order and the required balance
-        """
-        token = proposal_side.market_info.quote_asset if proposal_side.is_buy else proposal_side.market_info.base_asset
-        available_bal = proposal_side.market_info.market.get_available_balance(token)
-        order_size = proposal.order_amount * proposal.spot_side.order_price if proposal.spot_side.is_buy else \
-            proposal.order_amount
-        fee_amount = s_decimal_zero
-        if proposal_side.is_buy:
-            # Consider fee required for order submission here, not actual fee that is gonna incurred after
-            fee = proposal_side.market_info.market.get_fee(
-                proposal_side.market_info.base_asset,
-                proposal_side.market_info.quote_asset, OrderType.LIMIT, TradeType.BUY, s_decimal_zero, s_decimal_zero
-            )
-            fee_amount = order_size * fee.percent
-        if proposal_side == proposal.spot_side:
-            required_bal = order_size + fee_amount
-        else:
-            required_bal = (order_size / self._perp_leverage) + fee_amount
-        return available_bal, token, required_bal
-
-    def apply_budget_constraint(self, proposal: ArbProposal):
+    def check_budget_constraint(self, proposal: ArbProposal) -> bool:
         """
         Updates arb_proposals by setting proposal amount to 0 if there is not enough balance to submit order with
         required order amount.
         :param proposal: An arbitrage proposal
+        :return: True if user has available balance enough for orders submission.
         """
-        for proposal_side in (proposal.spot_side, proposal.perp_side):
-            available_bal, token, required_bal = self.required_balance(proposal, proposal_side)
-            if required_bal < available_bal:
-                proposal.order_amount = s_decimal_zero
-                self.logger().info(f"Cannot arbitrage, {proposal_side.market_info.market.display_name} {token} balance "
-                                   f"({available_bal}) is below required order amount ({required_bal}).")
-                break
+        spot_side = proposal.spot_side
+        spot_token = spot_side.market_info.quote_asset if spot_side.is_buy else spot_side.market_info.base_asset
+        spot_avai_bal = spot_side.market_info.market.get_available_balance(spot_token)
+        if spot_side.is_buy:
+            fee = spot_side.market_info.market.get_fee(
+                spot_side.market_info.base_asset,
+                spot_side.market_info.quote_asset, OrderType.LIMIT, TradeType.BUY, s_decimal_zero, s_decimal_zero
+            )
+            spot_required_bal = (proposal.order_amount * proposal.spot_side.order_price) * (Decimal("1") + fee.percent)
+        else:
+            spot_required_bal = proposal.order_amount
+        if spot_avai_bal < spot_required_bal:
+            self.logger().info(f"Cannot arbitrage, {spot_side.market_info.market.display_name} {spot_token} balance "
+                               f"({spot_avai_bal}) is below required order amount ({spot_required_bal}).")
+            return False
+        if self.is_on_closing_arbitrage():
+            # For perpetual, the collateral in the existing position should be enough to cover the closing call
+            return True
+        perp_side = proposal.perp_side
+        perp_token = perp_side.market_info.quote_asset
+        perp_avai_bal = perp_side.market_info.market.get_available_balance(perp_token)
+        fee = spot_side.market_info.market.get_fee(
+            spot_side.market_info.base_asset,
+            spot_side.market_info.quote_asset, OrderType.LIMIT, TradeType.BUY, s_decimal_zero, s_decimal_zero
+        )
+        pos_size = (proposal.order_amount * proposal.spot_side.order_price)
+        perp_required_bal = (pos_size / self._perp_leverage) + (pos_size * fee.percent)
+        if perp_avai_bal < perp_required_bal:
+            self.logger().info(f"Cannot arbitrage, {perp_side.market_info.market.display_name} {perp_token} balance "
+                               f"({perp_avai_bal}) is below required position amount ({perp_required_bal}).")
+            return False
+        return True
 
     async def execute_arb_proposal(self, proposal: ArbProposal):
         """

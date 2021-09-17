@@ -97,24 +97,24 @@ spot_perpetual_arbitrage_config_map = {
         default=1,
         validator= lambda v: validate_int(v),
         prompt_on_new=True),
-    "min_opening_profit_pct": ConfigVar(
-        key="min_opening_profit_pct",
-        prompt="What is the minimum profit percentage between the spot and perpetual market price before opening "
+    "min_opening_arbitrage_pct": ConfigVar(
+        key="min_opening_arbitrage_pct",
+        prompt="What is the minimum arbitrage percentage between the spot and perpetual market price before opening "
                "an arbitrage position? (Enter 1 to indicate 1%) >>> ",
         prompt_on_new=True,
         default=Decimal("1"),
         validator=lambda v: validate_decimal(v, Decimal(-100), 100, inclusive=False),
         type_str="decimal"),
-    "min_closing_profit_pct": ConfigVar(
-        key="min_closing_profit_pct",
-        prompt="What is the minimum profit percentage between the spot and perpetual market price before closing "
+    "min_closing_arbitrage_pct": ConfigVar(
+        key="min_closing_arbitrage_pct",
+        prompt="What is the minimum arbitrage percentage between the spot and perpetual market price before closing "
                "an existing arbitrage position? (Enter 1 to indicate 1%) (This can be negative value to close out the "
                "position with lesser profit at higher chance of closing) >>> ",
         prompt_on_new=True,
         default=Decimal("-0.1"),
         validator=lambda v: validate_decimal(
             v,
-            spot_perpetual_arbitrage_config_map["min_opening_profit_pct"].value * -1,
+            spot_perpetual_arbitrage_config_map["min_opening_arbitrage_pct"].value * -1,
             100
         ),
         type_str="decimal"),
