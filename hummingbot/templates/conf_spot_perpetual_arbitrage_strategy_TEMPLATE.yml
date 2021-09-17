@@ -19,6 +19,7 @@ order_amount: null
 perpetual_leverage: null
 
 # Minimum profit percentage required before opening an arbitrage position, expressed in percentage value, e.g. 1 = 1%
+# The profitability is calculated from the gap between sell and buy price, it does not account for fees and slippages
 min_opening_profit_pct: null
 
 # Minimum profit percentage required before closing the arbitrage position, expressed in percentage value, e.g. 1 = 1%

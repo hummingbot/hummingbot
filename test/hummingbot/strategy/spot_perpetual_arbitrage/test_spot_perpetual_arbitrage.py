@@ -96,8 +96,8 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
             perp_market_info=self.perp_market_info,
             order_amount=Decimal("1"),
             perp_leverage=5,
-            min_opening_profit_pct=Decimal("0.05"),
-            min_closing_profit_pct=Decimal("0.01")
+            min_opening_arbitrage_pct=Decimal("0.05"),
+            min_closing_arbitrage_pct=Decimal("0.01")
         )
         self.strategy.logger().setLevel(1)
         self.strategy.logger().addHandler(self)
@@ -120,7 +120,7 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         self.assertTrue(self._is_logged("INFO", "Markets are ready. Trading started."))
         self.assertTrue(self._is_logged("INFO", f"There is an existing {self.trading_pair} "
                                                 f"{PositionSide.SHORT.name} position. The bot resumes "
-                                                f"waiting for spreads to converge to close out the arbitrage position"))
+                                                f"operation to close out the arbitrage position"))
         asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.01))
         self.clock.backtest_til(self.start_timestamp + 2)
 
