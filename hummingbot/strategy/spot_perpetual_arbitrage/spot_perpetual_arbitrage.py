@@ -105,6 +105,11 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
     def market_info_to_active_orders(self) -> Dict[MarketTradingPairTuple, List[LimitOrder]]:
         return self._sb_order_tracker.market_pair_to_active_orders
 
+    # @property
+    # def spot_positions(self) -> List[Position]:
+    #    return [s for s in self._spot_market_info.market.account_positions.values() if
+    #            s.trading_pair == self._spot_market_info.trading_pair and s.amount != s_decimal_zero]
+
     @property
     def perp_positions(self) -> List[Position]:
         return [s for s in self._perp_market_info.market.account_positions.values() if
@@ -121,19 +126,40 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
                 # self.logger().warning("Markets are not ready. Please wait...")
                 return
             else:
-                self.logger().info("Markets are ready. Trading started.")
+                self.logger().info("Markets are ready.")
+
+                if not self.check_budget_available():
+                    self.logger().info("Trading not possible.")
+                    return
+
+                self.logger().info("Trading started.")
+
+                # if len(self.spot_positions) > 0:
+                #     for spot_position in self.spot_positions:
+                #         if spot_position.amount == self._order_amount:
+                #             self.logger().info(f"There is an existing {self._perp_market_info.trading_pair} "
+                #                                f"{spot_position.position_side.name} position. The bot resumes "
+                #                                f"operation to close out the arbitrage position")
+                #         else:
+                #             self.logger().info(f"There is an existing {self._perp_market_info.trading_pair} "
+                #                                f"{spot_position.position_side.name} position with unmatched "
+                #                                f"position amount. Please manually close out the position before starting "
+                #                                f"this strategy.")
+                #             self.stop(self.clock)
+                #             return
                 if len(self.perp_positions) > 0:
-                    if self.perp_positions[0].amount == self._order_amount:
-                        self.logger().info(f"There is an existing {self._perp_market_info.trading_pair} "
-                                           f"{self.perp_positions[0].position_side.name} position. The bot resumes "
-                                           f"operation to close out the arbitrage position")
-                    else:
-                        self.logger().info(f"There is an existing {self._perp_market_info.trading_pair} "
-                                           f"{self.perp_positions[0].position_side.name} position with unmatched "
-                                           f"position amount. Please manually close out the position before starting "
-                                           f"this strategy.")
-                        self.stop(self.clock)
-                        return
+                    for perp_position in self.perp_positions:
+                        if perp_position.amount == self._order_amount:
+                            self.logger().info(f"There is an existing {self._perp_market_info.trading_pair} "
+                                               f"{perp_position.position_side.name} position. The bot resumes "
+                                               f"operation to close out the arbitrage position")
+                        else:
+                            self.logger().info(f"There is an existing {self._perp_market_info.trading_pair} "
+                                               f"{perp_position.position_side.name} position with unmatched "
+                                               f"position amount. Please manually close out the position before starting "
+                                               f"this strategy.")
+                            self.stop(self.clock)
+                            return
         if self._main_task is None or self._main_task.done():
             self._main_task = safe_ensure_future(self.main(timestamp))
 
@@ -219,6 +245,43 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
             arb_side.order_price *= Decimal("1") + s_buffer
             arb_side.order_price = market.quantize_order_price(arb_side.market_info.trading_pair,
                                                                arb_side.order_price)
+
+    def check_budget_available(self) -> bool:
+        """
+        Checks if there's any balance for trading to be possible at all
+        :return: True if user has available balance enough for orders submission.
+        """
+
+        spot_base, spot_quote = self._spot_market_info.trading_pair.split("-")
+        perp_base, perp_quote = self._perp_market_info.trading_pair.split("-")
+
+        balance_spot_base = self._spot_market_info.market.get_available_balance(spot_base)
+        balance_spot_quote = self._spot_market_info.market.get_available_balance(spot_quote)
+
+        balance_perp_base = self._perp_market_info.market.get_available_balance(perp_base)
+        balance_perp_quote = self._perp_market_info.market.get_available_balance(perp_quote)
+
+        if balance_spot_base == s_decimal_zero:
+            self.logger().info(f"Cannot arbitrage, {self._spot_market_info.market.display_name} {spot_base} balance "
+                               f"({balance_spot_base}) is 0.")
+            return False
+
+        if balance_spot_quote == s_decimal_zero:
+            self.logger().info(f"Cannot arbitrage, {self._spot_market_info.market.display_name} {spot_quote} balance "
+                               f"({balance_spot_quote}) is 0.")
+            return False
+
+        if balance_perp_base == s_decimal_zero:
+            self.logger().info(f"Cannot arbitrage, {self._perp_market_info.market.display_name} {perp_base} balance "
+                               f"({balance_perp_base}) is 0.")
+            return False
+
+        if balance_perp_quote == s_decimal_zero:
+            self.logger().info(f"Cannot arbitrage, {self._perp_market_info.market.display_name} {perp_quote} balance "
+                               f"({balance_perp_quote}) is 0.")
+            return False
+
+        return True
 
     def check_budget_constraint(self, proposal: ArbProposal) -> bool:
         """
