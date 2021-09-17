@@ -117,7 +117,8 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
             self.perp_connector.get_leverage(self.trading_pair)
         )
         self.clock.backtest_til(self.start_timestamp + 1)
-        self.assertTrue(self._is_logged("INFO", "Markets are ready. Trading started."))
+        self.assertTrue(self._is_logged("INFO", "Markets are ready."))
+        self.assertTrue(self._is_logged("INFO", "Trading started."))
         self.assertTrue(self._is_logged("INFO", f"There is an existing {self.trading_pair} "
                                                 f"{PositionSide.SHORT.name} position. The bot resumes "
                                                 f"operation to close out the arbitrage position"))
@@ -139,7 +140,8 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
             self.perp_connector.get_leverage(self.trading_pair)
         )
         self.clock.backtest_til(self.start_timestamp + 1)
-        self.assertTrue(self._is_logged("INFO", "Markets are ready. Trading started."))
+        self.assertTrue(self._is_logged("INFO", "Markets are ready."))
+        self.assertTrue(self._is_logged("INFO", "Trading started."))
         self.assertTrue(self._is_logged("INFO", f"There is an existing {self.trading_pair} "
                                                 f"{PositionSide.SHORT.name} position with unmatched position amount. "
                                                 f"Please manually close out the position before starting this "
