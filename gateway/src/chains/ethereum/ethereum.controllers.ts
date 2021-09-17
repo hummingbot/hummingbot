@@ -10,7 +10,8 @@ export async function approve(
   spender: string,
   privateKey: string,
   token: string,
-  amount?: BigNumber | string
+  amount?: BigNumber | string,
+  nonce?: number
 ) {
   if (!ethereum.ready()) await ethereum.init();
   const initTime = Date.now();
@@ -35,7 +36,8 @@ export async function approve(
       wallet,
       spender,
       fullToken.address,
-      amount
+      amount,
+      nonce
     );
   } catch (err) {
     approval = JSON.stringify(err);
