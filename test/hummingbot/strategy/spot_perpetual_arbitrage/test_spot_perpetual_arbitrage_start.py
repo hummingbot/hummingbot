@@ -20,13 +20,13 @@ class SpotPerpetualArbitrageStartTest(unittest.TestCase):
         assign_config_default(strategy_cmap)
         strategy_cmap.get("spot_connector").value = "binance"
         strategy_cmap.get("spot_market").value = "BTC-USDT"
-        strategy_cmap.get("derivative_connector").value = "kucoin"
-        strategy_cmap.get("derivative_market").value = "BTC-USDT"
+        strategy_cmap.get("perpetual_connector").value = "kucoin"
+        strategy_cmap.get("perpetual_market").value = "BTC-USDT"
 
         strategy_cmap.get("order_amount").value = Decimal("1")
-        strategy_cmap.get("derivative_leverage").value = Decimal("2")
-        strategy_cmap.get("min_divergence").value = Decimal("10")
-        strategy_cmap.get("min_convergence").value = Decimal("1")
+        strategy_cmap.get("perpetual_leverage").value = Decimal("2")
+        strategy_cmap.get("min_opening_arbitrage_pct").value = Decimal("10")
+        strategy_cmap.get("min_closing_arbitrage_pct").value = Decimal("1")
 
     def _initialize_market_assets(self, market, trading_pairs):
         return [("ETH", "USDT")]
@@ -49,6 +49,6 @@ class SpotPerpetualArbitrageStartTest(unittest.TestCase):
     def test_strategy_creation(self):
         strategy_start.start(self)
         self.assertEqual(self.strategy._order_amount, Decimal("1"))
-        self.assertEqual(self.strategy._derivative_leverage, Decimal("2"))
-        self.assertEqual(self.strategy._min_divergence, Decimal("0.1"))
-        self.assertEqual(self.strategy._min_convergence, Decimal("0.01"))
+        self.assertEqual(self.strategy._perp_leverage, Decimal("2"))
+        self.assertEqual(self.strategy._min_opening_arbitrage_pct, Decimal("0.1"))
+        self.assertEqual(self.strategy._min_closing_arbitrage_pct, Decimal("0.01"))
