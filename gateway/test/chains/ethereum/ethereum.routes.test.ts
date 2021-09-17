@@ -3,8 +3,6 @@ import { Express } from 'express-serve-static-core';
 import request from 'supertest';
 import { EthereumRoutes } from '../../../src/chains/ethereum/ethereum.routes';
 
-// let server: Express
-
 let app: Express;
 
 beforeAll(async () => {
