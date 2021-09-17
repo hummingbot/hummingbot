@@ -96,8 +96,8 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
             perp_market_info=self.perp_market_info,
             order_amount=Decimal("1"),
             perp_leverage=5,
-            min_divergence=Decimal("0.05"),
-            min_convergence=Decimal("0.01")
+            min_opening_profit_pct=Decimal("0.05"),
+            min_closing_profit_pct=Decimal("0.01")
         )
         self.strategy.logger().setLevel(1)
         self.strategy.logger().addHandler(self)

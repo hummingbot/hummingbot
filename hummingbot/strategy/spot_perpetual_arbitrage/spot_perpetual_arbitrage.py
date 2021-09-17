@@ -1,9 +1,8 @@
 from decimal import Decimal
-import time
 import logging
 import asyncio
 import pandas as pd
-from typing import List, Dict, Tuple, Union
+from typing import List, Dict, Tuple
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -12,8 +11,9 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.core.event.events import OrderType
+from hummingbot.core.event.events import TradeType
 
 from hummingbot.core.event.events import (
     PositionAction,
@@ -49,8 +49,8 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
                     perp_market_info: MarketTradingPairTuple,
                     order_amount: Decimal,
                     perp_leverage: int,
-                    min_divergence: Decimal,
-                    min_convergence: Decimal,
+                    min_opening_profit_pct: Decimal,
+                    min_closing_profit_pct: Decimal,
                     spot_slippage_buffer: Decimal = Decimal("0"),
                     perp_slippage_buffer: Decimal = Decimal("0"),
                     next_arbitrage_cycle_delay: float = 120,
@@ -59,16 +59,16 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         :param spot_market_info: The spot market info
         :param perp_market_info: The perpetual market info
         :param order_amount: The order amount
-        :param min_divergence: The minimum spread to open arbitrage position (e.g. 0.0003 for 0.3%)
-        :param min_convergence: The minimum spread to close arbitrage position (e.g. 0.0003 for 0.3%)
+        :param min_opening_profit_pct: The minimum spread to open arbitrage position (e.g. 0.0003 for 0.3%)
+        :param min_closing_profit_pct: The minimum spread to close arbitrage position (e.g. 0.0003 for 0.3%)
         :param spot_slippage_buffer: The buffer for which to adjust order price for higher chance of
         the order getting filled on spot market.
         :param perp_slippage_buffer: The slipper buffer for perpetual market.
         """
         self._spot_market_info = spot_market_info
         self._perp_market_info = perp_market_info
-        self._min_divergence = min_divergence
-        self._min_convergence = min_convergence
+        self._min_opening_profit_pct = min_opening_profit_pct
+        self._min_closing_profit_pct = min_closing_profit_pct
         self._order_amount = order_amount
         self._perp_leverage = perp_leverage
         self._spot_slippage_buffer = spot_slippage_buffer
@@ -87,11 +87,11 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
 
     @property
     def min_divergence(self) -> Decimal:
-        return self._min_divergence
+        return self._min_opening_profit_pct
 
     @property
     def min_convergence(self) -> Decimal:
-        return self._min_convergence
+        return self._min_closing_profit_pct
 
     @property
     def order_amount(self) -> Decimal:
@@ -144,23 +144,29 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         proposals = await self.create_base_proposals()
         if self.is_on_closing_arbitrage():
             first_perp_side = self.perp_positions[0].position_side
-            last_perp_is_buy = True if first_perp_side == PositionSide.SHORT else False
-            proposals = [p for p in proposals if p.perp_side.is_buy == last_perp_is_buy]
+            perp_is_buy = True if first_perp_side == PositionSide.SHORT else False
+            proposals = [p for p in proposals if p.perp_side.is_buy == perp_is_buy and p.profit_pct() >=
+                         self._min_closing_profit_pct]
         else:
-            proposals = [p for p in proposals if p.spread() >= self._min_divergence]
+            proposals = [p for p in proposals if p.profit_pct() >= self._min_opening_profit_pct]
         if len(proposals) > 1:
-            raise Exception(f"Unexpected situation where number of proposals ({len(proposals)}) is > 1")
-        self.apply_budget_constraint(proposals)
-        if proposals and proposals[0].spot_side.amount > 0 and proposals[0].perp_side.amount > 0:
-            pass
-
-    def execute_proposals(self, proposals: List[ArbProposal]):
-        pass
-
-    def apply_budget_constraints(self, proposals: List[ArbProposal]):
-        pass
+            raise Exception(f"Unexpected situation where number of valid proposals ({len(proposals)}) is > 1")
+        if len(proposals) == 0:
+            return
+        proposal = proposals[0]
+        if self.is_on_closing_arbitrage():
+            self.logger().info(f"Profitability ({proposal.profit_pct():.2%}) is now above min_closing_profit_pct.")
+        else:
+            self.logger().info(f"Arbitrage opportunity found. "
+                               f"Profitability ({proposal.profit_pct():.2%}) is now above min_opening_profit_pct.")
+        self.apply_slippage_buffers(proposal)
+        self.apply_budget_constraint(proposal)
+        if proposal.order_amount > 0:
+            self.execute_arb_proposal(proposal)
 
     def is_on_closing_arbitrage(self) -> bool:
+        if self.perp_positions and self.perp_positions[0].amount == self._order_amount:
+            return True
         return False
 
     async def create_base_proposals(self) -> List[ArbProposal]:
@@ -175,10 +181,12 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         prices = await safe_gather(*tasks, return_exceptions=True)
         spot_buy, spot_sell, perp_buy, perp_sell = [*prices]
         return [
-            ArbProposal(ArbProposalSide(self._spot_market_info, True, spot_buy, self._order_amount),
-                        ArbProposalSide(self._perp_market_info, False, perp_sell, self._order_amount)),
-            ArbProposal(ArbProposalSide(self._spot_market_info, False, spot_sell, self._order_amount),
-                        ArbProposalSide(self._perp_market_info, True, perp_buy, self._order_amount)),
+            ArbProposal(ArbProposalSide(self._spot_market_info, True, spot_buy),
+                        ArbProposalSide(self._perp_market_info, False, perp_sell),
+                        self._order_amount),
+            ArbProposal(ArbProposalSide(self._spot_market_info, False, spot_sell),
+                        ArbProposalSide(self._perp_market_info, True, perp_buy),
+                        self._order_amount)
         ]
 
     def timed_log(self, timestamp: float, msg: str):
@@ -191,16 +199,16 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
             self.logger().info(msg)
             self._last_timestamp = timestamp
 
-    def apply_slippage_buffers(self, arb_proposal: ArbProposal):
+    def apply_slippage_buffers(self, proposal: ArbProposal):
         """
         Updates arb_proposals by adjusting order price for slipper buffer percentage.
         E.g. if it is a buy order, for an order price of 100 and 1% slipper buffer, the new order price is 101,
         for a sell order, the new order price is 99.
-        :param arb_proposal: the arbitrage proposal
+        :param proposal: the arbitrage proposal
         """
-        for arb_side in (arb_proposal.spot_side, arb_proposal.perp_side):
+        for arb_side in (proposal.spot_side, proposal.perp_side):
             market = arb_side.market_info.market
-            arb_side.amount = market.quantize_order_amount(arb_side.market_info.trading_pair, arb_side.amount)
+            # arb_side.amount = market.quantize_order_amount(arb_side.market_info.trading_pair, arb_side.amount)
             s_buffer = self._spot_slippage_buffer if market == self._spot_market_info.market \
                 else self._perp_slippage_buffer
             if not arb_side.is_buy:
@@ -209,85 +217,83 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
             arb_side.order_price = market.quantize_order_price(arb_side.market_info.trading_pair,
                                                                arb_side.order_price)
 
-    def apply_budget_constraint(self, arb_proposal: ArbProposal):
+    def required_balance(self, proposal: ArbProposal, proposal_side: ArbProposalSide) -> (Decimal, str, Decimal):
+        """
+        Calculates required balance for an order on proposal side.
+        :param proposal: An arbitrage proposal
+        :param proposal_side: The side (spot or perpetual) of proposal to make an order
+        :return: Available balance, token for the order and the required balance
+        """
+        token = proposal_side.market_info.quote_asset if proposal_side.is_buy else proposal_side.market_info.base_asset
+        available_bal = proposal_side.market_info.market.get_available_balance(token)
+        order_size = proposal.order_amount * proposal.spot_side.order_price if proposal.spot_side.is_buy else \
+            proposal.order_amount
+        fee_amount = s_decimal_zero
+        if proposal_side.is_buy:
+            # Consider fee required for order submission here, not actual fee that is gonna incurred after
+            fee = proposal_side.market_info.market.get_fee(
+                proposal_side.market_info.base_asset,
+                proposal_side.market_info.quote_asset, OrderType.LIMIT, TradeType.BUY, s_decimal_zero, s_decimal_zero
+            )
+            fee_amount = order_size * fee.percent
+        if proposal_side == proposal.spot_side:
+            required_bal = order_size + fee_amount
+        else:
+            required_bal = (order_size / self._perp_leverage) + fee_amount
+        return available_bal, token, required_bal
+
+    def apply_budget_constraint(self, proposal: ArbProposal):
         """
         Updates arb_proposals by setting proposal amount to 0 if there is not enough balance to submit order with
         required order amount.
-        :param arb_proposal: the arbitrage proposal
+        :param proposal: An arbitrage proposal
         """
-        return
-        spot_market = self._spot_market_info.market
-        deriv_market: Union[ConnectorBase, PerpetualTrading] = self._perp_market_info.market
-        spot_token = self._spot_market_info.quote_asset if arb_proposal.spot_side.is_buy else self._spot_market_info.base_asset
-        deriv_token = self._perp_market_info.quote_asset
-        spot_token_balance = spot_market.get_available_balance(spot_token)
-        deriv_token_balance = deriv_market.get_available_balance(deriv_token)
-        required_spot_balance = arb_proposal.amount * arb_proposal.spot_side.order_price if arb_proposal.spot_side.is_buy else arb_proposal.amount
-        required_deriv_balance = (arb_proposal.amount * arb_proposal.derivative_side.order_price) / self._perp_leverage
-        if spot_token_balance < required_spot_balance:
-            arb_proposal.amount = s_decimal_zero
-            self.logger().info(f"Can't arbitrage, {spot_market.display_name} "
-                               f"{spot_token} balance "
-                               f"({spot_token_balance}) is below required order amount ({required_spot_balance}).")
-        elif deriv_token_balance < required_deriv_balance:
-            arb_proposal.amount = s_decimal_zero
-            self.logger().info(f"Can't arbitrage, {deriv_market.display_name} "
-                               f"{deriv_token} balance "
-                               f"({deriv_token_balance}) is below required order amount ({required_deriv_balance}).")
+        for proposal_side in (proposal.spot_side, proposal.perp_side):
+            available_bal, token, required_bal = self.required_balance(proposal, proposal_side)
+            if required_bal < available_bal:
+                proposal.order_amount = s_decimal_zero
+                self.logger().info(f"Cannot arbitrage, {proposal_side.market_info.market.display_name} {token} balance "
+                                   f"({available_bal}) is below required order amount ({required_bal}).")
+                break
 
-    async def execute_arb_proposals(self, arb_proposal: ArbProposal, is_funding_msg: str = ""):
+    async def execute_arb_proposal(self, proposal: ArbProposal):
         """
         Execute both sides of the arbitrage trades concurrently.
-        :param arb_proposals: the arbitrage proposal
-        :param is_funding_msg: message pertaining to funding payment
+        :param proposal: the arbitrage proposal
         """
-        return
-        if arb_proposal.amount == s_decimal_zero:
+        if proposal.amount == s_decimal_zero:
             return
-        self._spot_done = False
-        self._deriv_done = False
-        proposal = self.short_proposal_msg(False)
-        if is_funding_msg:
-            opportunity_msg = is_funding_msg
-        else:
-            first_arbitage = not bool(len(self.perp_positions))
-            opportunity_msg = "Spread wide enough to execute first arbitrage" if first_arbitage else \
-                              "Spread low enough to execute second arbitrage"
-            if not first_arbitage:
-                self._next_arbitrage_cycle_time = time.time() + self._next_arbitrage_cycle_delay
-        self.logger().info(f"{opportunity_msg}!: \n"
-                           f"{proposal[0]} \n"
-                           f"{proposal[1]} \n")
-        safe_ensure_future(self.execute_spot_side(arb_proposal.spot_side))
-        safe_ensure_future(self.execute_derivative_side(arb_proposal.derivative_side))
-
-    async def execute_spot_side(self, arb_side: ArbProposalSide):
-        side = "BUY" if arb_side.is_buy else "SELL"
-        place_order_fn = self.buy_with_specific_market if arb_side.is_buy else self.sell_with_specific_market
-        self.log_with_clock(logging.INFO,
-                            f"Placing {side} order for {arb_side.amount} {arb_side.market_info.base_asset} "
-                            f"at {arb_side.market_info.market.display_name} at {arb_side.order_price} price")
-        order_id = place_order_fn(arb_side.market_info,
-                                  arb_side.amount,
-                                  arb_side.market_info.market.get_taker_order_type(),
-                                  arb_side.order_price,
-                                  )
-        self._spot_order_ids.append(order_id)
-
-    async def execute_derivative_side(self, arb_side: ArbProposalSide):
-        side = "BUY" if arb_side.is_buy else "SELL"
-        place_order_fn = self.buy_with_specific_market if arb_side.is_buy else self.sell_with_specific_market
-        position_action = PositionAction.OPEN if len(self.perp_positions) == 0 else PositionAction.CLOSE
-        self.log_with_clock(logging.INFO,
-                            f"Placing {side} order for {arb_side.amount} {arb_side.market_info.base_asset} "
-                            f"at {arb_side.market_info.market.display_name} at {arb_side.order_price} price to {position_action.name} position.")
-        order_id = place_order_fn(arb_side.market_info,
-                                  arb_side.amount,
-                                  arb_side.market_info.market.get_taker_order_type(),
-                                  arb_side.order_price,
-                                  position_action=position_action
-                                  )
-        self._deriv_order_ids.append(order_id)
+        spot_side = proposal.spot_side
+        spot_order_fn = self.buy_with_specific_market if spot_side.is_buy else self.sell_with_specific_market
+        side = "BUY" if spot_side.is_buy else "SELL"
+        self.log_with_clock(
+            logging.INFO,
+            f"Placing {side} order for {proposal.order_amount} {spot_side.market_info.base_asset} "
+            f"at {spot_side.market_info.market.display_name} at {spot_side.order_price} price"
+        )
+        spot_order_fn(
+            spot_side.market_info,
+            proposal.order_amount,
+            spot_side.market_info.market.get_taker_order_type(),
+            spot_side.order_price,
+        )
+        perp_side = proposal.perp_side
+        perp_order_fn = self.buy_with_specific_market if perp_side.is_buy else self.sell_with_specific_market
+        side = "BUY" if perp_side.is_buy else "SELL"
+        position_action = PositionAction.CLOSE if self.is_on_closing_arbitrage() else PositionAction.OPEN
+        self.log_with_clock(
+            logging.INFO,
+            f"Placing {side} order for {proposal.order_amount} {perp_side.market_info.base_asset} "
+            f"at {perp_side.market_info.market.display_name} at {perp_side.order_price} price to "
+            f"{position_action.name} position."
+        )
+        perp_order_fn(
+            perp_side.market_info,
+            proposal.order_amount,
+            perp_side.market_info.market.get_taker_order_type(),
+            perp_side.order_price,
+            position_action=position_action
+        )
 
     def ready_for_new_arb_trades(self) -> bool:
         """
@@ -295,8 +301,6 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         """
         for market_info in [self._spot_market_info, self._perp_market_info]:
             if len(self.market_info_to_active_orders.get(market_info, [])) > 0:
-                return False
-            if not self._spot_done or not self._deriv_done:
                 return False
         return True
 
@@ -317,7 +321,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         Composes a short spread message.
         :return Info about current spread of an arbitrage
         """
-        spread = self.current_proposal.spread()
+        spread = self.current_proposal.profit_pct()
         first = not bool(len(self.perp_positions))
         target_spread_str = "minimum divergence spread" if first else "minimum convergence spread"
         target_spread = self.min_divergence if first else self.min_convergence

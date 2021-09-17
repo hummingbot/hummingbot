@@ -12,24 +12,21 @@ class ArbProposalSide:
     def __init__(self,
                  market_info: MarketTradingPairTuple,
                  is_buy: bool,
-                 order_price: Decimal,
-                 amount: Decimal
+                 order_price: Decimal
                  ):
         """
         :param market_info: The market where to submit the order
         :param is_buy: True if buy order
         :param order_price: The price required for order submission, this could differ from the quote price
-        :param amount: The order amount
         """
         self.market_info: MarketTradingPairTuple = market_info
         self.is_buy: bool = is_buy
         self.order_price: Decimal = order_price
-        self.amount: Decimal = amount
 
     def __repr__(self):
         side = "Buy" if self.is_buy else "Sell"
         base, quote = self.market_info.trading_pair.split("-")
-        return f"{self.market_info.market.display_name.capitalize()}: {side} {self.amount} {base}" \
+        return f"{self.market_info.market.display_name.capitalize()}: {side} {base}" \
                f" at {self.order_price} {quote}."
 
 
@@ -39,22 +36,25 @@ class ArbProposal:
     """
     def __init__(self,
                  spot_side: ArbProposalSide,
-                 perp_side: ArbProposalSide):
+                 perp_side: ArbProposalSide,
+                 order_amount: Decimal):
         """
         Creates ArbProposal
         :param spot_side: An ArbProposalSide on spot market
         :param perp_side: An ArbProposalSide on perpetual market
+        :param order_amount: An order amount for both spot and perpetual market
         """
         if spot_side.is_buy == perp_side.is_buy:
             raise Exception("Spot and perpetual arb proposal cannot be on the same side.")
         self.spot_side: ArbProposalSide = spot_side
         self.perp_side: ArbProposalSide = perp_side
+        self.order_amount: Decimal = order_amount
 
-    def spread(self):
+    def profit_pct(self):
         buy = self.spot_side.order_price if self.spot_side.is_buy else self.perp_side.order_price
         sell = self.spot_side.order_price if not self.spot_side.is_buy else self.perp_side.order_price
-        spread = (sell - buy) / min(sell, buy)
-        return spread
+        return (sell - buy) / min(sell, buy)
 
     def __repr__(self):
-        return f"Spot: {self.spot_side}\nPerpetual: {self.perp_side}\nSpread: {self.spread()}"
+        return f"Spot: {self.spot_side}\nPerpetual: {self.perp_side}\nOrder amount: {self.order_amount}\n" \
+               f"Profit: {self.profit_pct():.2%}"
