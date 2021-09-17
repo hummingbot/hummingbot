@@ -18,7 +18,7 @@ import {
 
 export namespace EthereumRoutes {
   export const router = Router();
-  const ethereum = Ethereum.getInstance();
+  export const ethereum = Ethereum.getInstance();
   export const reload = (): void => {
     // ethereum = Ethereum.reload();
   };
@@ -28,6 +28,7 @@ export namespace EthereumRoutes {
   router.get(
     '/',
     asyncHandler(async (_req: Request, res: Response) => {
+      console.log('hello from /');
       let rpcUrl;
       if (ConfigManager.config.ETHEREUM_CHAIN === 'mainnet') {
         rpcUrl = EthereumConfig.config.mainnet.rpcUrl;
@@ -62,6 +63,7 @@ export namespace EthereumRoutes {
         // get the address via the private key since we generally use the private
         // key to interact with gateway and the address is not part of the user config
         const wallet = ethereum.getWallet(req.body.privateKey);
+        // console.log(wallet);
         const nonce = await ethereum.nonceManager.getNonce(wallet.address);
         res.status(200).json({ nonce: nonce });
       }
