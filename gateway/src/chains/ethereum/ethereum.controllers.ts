@@ -67,21 +67,21 @@ export interface EthereumTransactionReceipt
 const toEthereumTransactionReceipt = (
   receipt: ethers.providers.TransactionReceipt | null
 ): EthereumTransactionReceipt | null => {
-  if (receipt) {
-    return {
-      ...receipt,
-      gasUsed: receipt.gasUsed.toString(),
-      cumulativeGasUsed: receipt.cumulativeGasUsed.toString(),
-    };
-  }
-
-  return null;
+  return receipt
+    ? {
+        ...receipt,
+        gasUsed: receipt.gasUsed.toString(),
+        cumulativeGasUsed: receipt.cumulativeGasUsed.toString(),
+      }
+    : null;
 };
 
 export async function poll(txHash: string) {
   const initTime = Date.now();
-  const receipt = await ethereum.getTransactionReceipt(txHash);
+  let receipt = await ethereum.getTransactionReceipt(txHash);
   const confirmed = !!receipt && !!receipt.blockNumber;
+  if (receipt && receipt.blockNumber === 0 && receipt.status === 0)
+    receipt = null;
 
   if (receipt && receipt.status === 0) {
     const transaction = await ethereum.getTransaction(txHash);
