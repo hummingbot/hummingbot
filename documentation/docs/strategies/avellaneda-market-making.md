@@ -4,6 +4,7 @@ tags:
 - ⛏️ liquidity mining strategy
 ---
 
+
 # `avellaneda_market_making`
 
 ## 📁 [Strategy folder](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/strategy/avellaneda_market_making)
