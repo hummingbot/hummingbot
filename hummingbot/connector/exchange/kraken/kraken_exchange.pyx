@@ -493,6 +493,7 @@ cdef class KrakenExchange(ExchangeBase):
                                                               TradeFee(0.0, [(tracked_order.fee_asset, Decimal((trade.get("fee"))))]),
                                                               trade.get("trade_id")))
 
+                        self.logger().debug(f"order is done: {tracked_order.is_done}")
                         if tracked_order.is_done:
                             if not tracked_order.is_failure:
                                 if tracked_order.trade_type is TradeType.BUY:
