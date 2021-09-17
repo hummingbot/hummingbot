@@ -1,6 +1,31 @@
-# Arbitrage
+# `arbitrage`
 
-## Architecture
+## 📁 [Strategy folder](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/strategy/arbitrage)
+
+## 📝 Summary
+
+This strategy monitor prices in two different trading pairs and executes offsetting buy and sell orders in both markets in order to capture arbitrage opportunities with profitability higher than `min_profitability`, net of transaction costs.
+
+## 🏦 Exchanges supported
+
+[`spot` exchanges](/exchanges/#spot)
+
+## 👷 Maintainer
+
+Open
+
+## 🛠️ Strategy configs
+
+[Config map](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/arbitrage/arbitrage_config_map.py)
+
+## 📓 Description
+
+[Trading logic](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/arbitrage/arbitrage.pyx)
+
+!!! note "Approximation only"
+    The description below is a general approximation of this strategy. Please inspect the strategy code in **Trading Logic** above to understand exactly how it works.
+
+### Architecture
 
 The strategy constantly scans for any arbitrage opportunity by comparing the order books on two markets that are trading equivalent assets (e.g. WETH-USDC vs. ETH-USD). Whenever it finds any price dislocation between the two markets (i.e. it's profitable to buy from one and sell to the other), it would calculate the optimal order size to do the arbitrage trade, and trades away the price difference by sending opposing market orders to both markets.
 
@@ -15,7 +40,7 @@ There are a few major parts to the arbitrage strategy in terms of its logic flow
  3. Calculating the optimal arbitrage size
  4. Executing the arbitrage orders
 
-## Sanity Checks
+### Sanity Checks
 
 Before the strategy looks at the two markets for profitable trades, it needs to check whether it is safe to do any trades first.
 
@@ -33,7 +58,7 @@ There are a few conditions that the strategy would check for at every tick, befo
 
     If an arbitrage trade has happened recently, within the cooldown period (the `next_trade_delay_interval` init argument in [arbitrage.pyx](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/arbitrage/arbitrage.pyx)), then no arbitrage is possible for this tick. This wait is needed because asset balances on markets often need some delay before they are updated, after the last trade.
 
-## Scanning For Profitable Arbitrage Trades
+### Scanning For Profitable Arbitrage Trades
 
 After the sanity checks have passed, the strategy would look at the top of the two markets' order books to see if any profitable arbitrage is possible. This is only possible if one of the following happens:
 
@@ -44,7 +69,7 @@ In either case, the arbitrage strategy would be able to sell into the higher bid
 
 The profitable arbitrage check logic can be found in the function `c_calculate_arbitrage_top_order_profitability()` inside [arbitrage.pyx](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/arbitrage/arbitrage.pyx).
 
-## Calculating the Optimal Arbitrage Size
+### Calculating the Optimal Arbitrage Size
 
 After an arbitrage opportunity is found, the next step is to calculate the optimal order size for the arbitrage trade.
 
@@ -58,7 +83,7 @@ Finally, the arbitrage strategy will look at the balance of assets available for
 
 The optimal arbitrage size calculation logic can be found in the functions `c_find_best_profitable_amount()` and `c_find_profitable_arbitrage_orders()` inside [arbitrage.pyx](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/arbitrage/arbitrage.pyx).
 
-## Executing the Arbitrage Orders
+### Executing the Arbitrage Orders
 
 If the calculated arbitrage size is greater than 0, then the arbitrage strategy would send both the market buy and market sell orders to the two markets simultaneously. Arbitrage opportunities are usually rare and are quickly exploited by traders, and so it is important to send both orders out without any wait.
 

@@ -1,10 +1,3 @@
----
-tags:
-  - core strategy
-  - market making
----
-
-
 # `avellaneda_market_making`
 
 ## 📁 [Strategy folder](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/strategy/avellaneda_market_making)
@@ -15,13 +8,16 @@ This strategy implements the market making strategy described in the classic pap
 
 ## 🏦 Exchanges supported
 
-* [`spot` exchanges](/exchanges/#spot)
+[`spot` exchanges](/exchanges/#spot)
 
 ## 👷 Maintainer
 
 CoinAlpha, Inc.
 
 ## 🛠️ Strategy configs
+
+[Config map](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/avellaneda_market_making/avellaneda_market_making_config_map.py)
+
 
 | Parameter                    | Type        | Default     | Prompt New? | Prompt                                                 |
 |------------------------------|-------------|-------------|-------------|--------------------------------------------------------|
@@ -53,7 +49,7 @@ CoinAlpha, Inc.
 
 ## 📓 Description
 
-* [Trading logic](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/avellaneda_market_making/avellaneda_market_making_config_map.pyy)
+[Trading logic](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/avellaneda_market_making/avellaneda_market_making_config_map.py)
 
 !!! note "Approximation only"
     The description below is a general approximation of this strategy. Please inspect the strategy code in **Trading Logic** above to understand exactly how it works.

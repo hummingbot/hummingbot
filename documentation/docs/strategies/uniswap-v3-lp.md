@@ -1,13 +1,9 @@
----
-tags:
-  - core strategy
-  - dex market making
----
-
 # `uniswap_v3_lp`
 
 !!! note
     This is a proof-of-concept strategy that demonstrates how to dynamically maintain Uniswap-V3 positions as market prices changes. More features will be added over time based on community feedback.
+
+## 📁 [Strategy folder](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/strategy/uniswap_v3_lp)
 
 ## 📝 Summary
 
@@ -21,14 +17,9 @@ This strategy creates and maintains Uniswap positions as the market price change
 
 CoinAlpha, Inc.
 
-## 📁 Strategy folder and key files
-
-* [Folder](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/strategy/uniswap_v3_lp)
-* [Trading logic](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/uniswap_v3_lp/uniswap_v3_lp.py)
-* [Config map](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/uniswap_v3_lp/uniswap_v3_lp_config_map.py)
-* [Config template](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/templates/conf_uniswap_v3_lp_strategy_TEMPLATE.yml)
-
 ## 🛠️ Strategy configs
+
+[Config map](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/uniswap_v3_lp/uniswap_v3_lp_config_map.py)
 
 | Parameter                    | Type        | Default     | Prompt New? | Prompt                                                 |
 |------------------------------|-------------|-------------|-------------|--------------------------------------------------------|
@@ -44,6 +35,8 @@ CoinAlpha, Inc.
 | `volatility_factor`          | decimal     |  1.00       | False       | Enter the multiplier applied to price volatility |
 
 ## 📓 Description
+
+[Trading logic](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/uniswap_v3_lp/uniswap_v3_lp.py)
 
 !!! note "Approximation only"
     The description below is a general approximation of this strategy. Please inspect the strategy code in **Trading Logic** above to understand exactly how it works.

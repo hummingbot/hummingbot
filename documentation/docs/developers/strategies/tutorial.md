@@ -1,13 +1,16 @@
-# How to Create a Hummingbot Strategy
-In addition to the trading strategies that come out of the box with Hummingbot, you can also customize them or create your own strategies, since they are written in Python. This guide shows you how to begin creating Hummingbot strategies.
+## What you'll learn
 
-There are various ways to get hummingbot started on your device. If you do download via Source, you should recompile the bot each time you change the source code to ensure the Cython parts within the bot works properly.
+This tutorial is intended to get you familiarized with the basic concepts of creating a basic Hummingbot strategy that executes a simple limit order. 
 
-## Getting started as a developer
+By the end of this tutorial, you should: 
 
-Follow the [Developer Getting Started](/developers/gettingstarted/) guide, which shows you how to install Hummingbot from source on various operating systems, how to set up your development environment, and provides helpful tips about compiling and developing Hummingbot.
+* Have a general understanding of the base classes that serve as building blocks of the strategies
+* Have a working strategy 
+* Be able to build new custom strategies from scratch
 
-If the installation was successful, you should see the Hummingbot welcome screen afterwards:
+## Getting started
+
+Follow the instructions in [Installation](/installation) and install Hummingbot **from source**. If the installation was successful, you should see the Hummingbot welcome screen afterwards:
 
 ![](/assets/img/welcome.gif)
 

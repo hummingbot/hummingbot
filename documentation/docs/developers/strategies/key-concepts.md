@@ -1,10 +1,3 @@
-
-## What is a strategy?
-
-An algorithmic trading strategy, or "bot", is an automated process that creates/cancels orders, executes trades, and manages positions on crypto exchanges. Like a computer program, a strategy enables traders to respond automatically and continually to market conditions.
-
-We will start by building simple strategies that build upon one another. This should expose you to different parts of the Hummingbot codebase, help you understand some core classes that are frequently referred to when building strategies, and provide a starting point for developing custom strategies. 
-
 ## Strategy folder
 
 Each strategy is contained in its own folder, with the strategy name as the folder name:

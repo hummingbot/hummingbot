@@ -126,11 +126,6 @@ nav:
       - Run in the Cloud: installation/cloud-servers.md
       - Run Multiple Bots: installation/multiple-bots.md
       - Update and Restore Hummingbot: installation/update-hummingbot.md
-    - Tutorials:
-      - Tutorials: tutorials/index.md
-      - Run Liquidity Mining bot: tutorials/liquidity-mining.md
-      - Run AMM-ARB bot: tutorials/amm-arb.md
-      - Create Strategy: tutorials/create-strategy.md
     - Basic Operations:
       - Basic Operations: operation/index.md
       - Commands and Shortcuts: operation/commands-shortcuts.md
@@ -149,7 +144,9 @@ nav:
     - Trading Strategies:
       - Trading Strategies: strategies/index.md
       - AMM Arbitrage: strategies/amm-arbitrage.md
+      - Arbitrage: strategies/arbitrage.md
       - Avellaneda Market Making: strategies/avellaneda-market-making.md
+      - Celo Arbitrage: strategies/celo-arbitrage.md
       - Cross-Exchange Market Making:
         - Cross-Exchange Market Making: strategies/cross-exchange-market-making/index.md
         - Specification: strategies/cross-exchange-market-making/specification.md
@@ -160,10 +157,6 @@ nav:
         - Specification: strategies/pure-market-making/specification.md
       - Spot Perpetual Arbitrage: strategies/spot-perpetual-arbitrage.md
       - Uniswap-v3 LP: strategies/uniswap-v3-lp.md
-      - Arbitrage: 
-        - Arbitrage: strategies/arbitrage/index.md
-        - Specification: strategies/arbitrage/specification.md
-      - Celo Arbitrage: strategies/celo-arbitrage.md
       - TWAP:
         - TWAP: strategies/twap/index.md
         - Specification: strategies/twap/specification.md
@@ -246,7 +239,7 @@ nav:
       - Contribution Guidelines: developers/contributions.md
       - Architecture: developers/architecture/index.md
       - Connectors:
-        - Building Connectors: developers/connectors/index.md
+        - Developing Connectors: developers/connectors/index.md
         - Architecture: developers/connectors/architecture.md
         - Requirements:
           - Connector Requirements: developers/connectors/requirements/index.md
@@ -257,18 +250,21 @@ nav:
           - Debug and Testing: developers/connectors/requirements/debug&test.md
         - Miscellaneous: developers/connectors/miscellaneous.md
       - Strategies:
-        - Building Strategies: developers/strategies/index.md
+        - Developing Strategies: developers/strategies/index.md
+        - Key Concepts: developers/strategies/key-concepts.md
+        - Tutorial: developers/strategies/tutorial.md
         - Architecture: developers/strategies/architecture.md
-        - Key Concepts: developers/strategies/tutorial/key-concepts.md
-        - Define Configs: developers/config.md
-        - Display Status: developers/strategies/tutorial/status.md
-        - Access Order Book Data: developers/strategies/tutorial/order-book.md
+        - Define Configs: developers/strategies/config.md
+        - Display Status: developers/strategies/status.md
+        - Access Order Book Data: developers/strategies/order-book.md
       - Scripts:
         - Scripts: developers/scripts/index.md
         - Script Base Class: developers/scripts/script-base.md
       - Debug Console: developers/debug.md
   - Background:
     - Background: background/index.md
+    - History: background/history.md
+
   - Release Notes:
     - Release Notes: release-notes/index.md
     - 0.43.0: release-notes/0.43.0.md
