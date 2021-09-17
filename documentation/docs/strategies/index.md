@@ -1,6 +1,12 @@
-A strategy is a continual process that monitor exchanges and make trading decisions.
+A strategy is a continual process that monitor exchanges and make trading decisions. Each Hummingbot strategy is a sub-folder in the [`/hummingbot/strategy`](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/strategy) folder.
 
 ## Strategy types
+
+Hummingbot offers the following automated trading strategies, each with its own set of configurable parameters.
+
+* **Market making**: strategies that provide liquidity to a market
+* **Arbitrage**: strategies that exploit differences between markets
+* **Utility**: other strategies
 
 !!! note "Core vs community maintenance"
     **Core** strategies are actively maintained and being improved by CoinAlpha or other core maintainers. **Community** strategies are not actively maintained, but we aim to fix bugs and address issues raised by the community.

@@ -8,7 +8,7 @@ tags:
 
 ## 📝 Summary
 
-This strategy implements the market making strategy described in the classic paper [High-frequency Trading in a Limit Order Book](https://people.orie.cornell.edu/sfs33/LimitOrderBook.pdf) written by Marco Avellaneda and Sasha Stoikov. It allows users to directly adjust the kappa and gamma parameters described in the paper. It also features a simplified mode that allows the user to enter spread and duration parameters that continually recalculate the advanced parameters.
+This strategy implements the market making strategy described in the classic paper [High-frequency Trading in a Limit Order Book](https://people.orie.cornell.edu/sfs33/LimitOrderBook.pdf) written by Marco Avellaneda and Sasha Stoikov. It allows users to directly adjust the kappa, gamma, and eta parameters described in the paper. It also features a simplified mode that allows the user to enter min/max spread parameters that continually recalculate the advanced parameters.
 
 ## 🏦 Exchanges supported
 
@@ -27,30 +27,29 @@ CoinAlpha, Inc.
 
 ## 🛠️ Strategy configs
 
-
 | Parameter                    | Type        | Default     | Prompt New? | Prompt                                                 |
 |------------------------------|-------------|-------------|-------------|--------------------------------------------------------|
 | `exchange`                   | string      |             | True        | Enter your maker spot connector |
 | `market`                     | string      |             | True        | Enter the token trading pair you would like to trade on `exchange`|
 | `order_amount`               | decimal     |             | True        | What is the amount of `base_asset` per order?|
-| `order_optimization_enabled` | bool        |  True       | False       | Do you want to enable best bid ask jumping? |
 | `parameters_based_on_spread` | bool        |  True       | True        | Do you want to automate Avellaneda-Stoikov parameters based on min/max spread?|
 | `min_spread`                 | decimal     |             | True        | Enter the minimum spread allowed from mid-price in percentage? |
 | `max_spread`                 | decimal     |             | True        | Enter the maximum spread allowed from mid-price in percentage? |
 | `vol_to_spread_multiplier`   | decimal     |             | True        | Enter the Volatility threshold multiplier: (If market volatility multiplied by this value is above the minimum spread, it will increase the minimum and maximum spread value)|
-| `volatility_sensibility`     | decimal     |  20         | False       | Enter volatility change threshold to trigger parameter recalculation| 
 | `inventory_risk_aversion`    | decimal     |             | True        | Enter Inventory risk aversion between 0 and 1: (For values close to 0.999 spreads will be more skewed to meet the inventory target, while close to 0.001 spreads will be close to symmetrical, increasing profitability but also increasing inventory risk)|
 | `order_refresh_time`         | decimal     |             | True        | How often do you want to cancel and replace bids and asks (in seconds)? |
+| `inventory_target_base_pct`  | decimal     |  50         | True        | What is the inventory target for the base asset? |
+| `order_optimization_enabled` | bool        |  True       | False       | Do you want to enable best bid ask jumping? |
+| `volatility_sensibility`     | decimal     |  20         | False       | Enter volatility change threshold to trigger parameter recalculation| 
 | `order_book_depth_factor`    | decimal     |  Computed   | False       | Enter order book depth factor (\u03BA)| 
-| `risk_factor`                | decimal     |  Computed   | False       | Enter how long (in hours) do you want to use for price volatility calculation |
-| `order_amount_shape_factor`  | decimal     |  Computed   | False       | Enter the multiplier applied to price volatility |
+| `risk_factor`                | decimal     |  Computed   | False       | Enter risk factor (\u03B3) |
+| `order_amount_shape_factor`  | decimal     |  Computed   | False       | Enter order amount shape factor (\u03B7) |
 | `closing_time`               | decimal     |  0.04167    | False       | Enter operational closing time (T). (How long will each trading cycle last in days or fractions of day)|
 | `max_order_age`              | decimal     |  1800       | False       | How often do you want to cancel and replace bids and asks (in seconds)? |
 | `order_refresh_tolerance_pct`| decimal     |  0          | False       | Enter the percent change in price needed to refresh orders at each cycle |
 | `filled_order_delay`         | decimal     |  60         | False       | How long do you want to wait before placing the next order if your order gets filled (in seconds)? |
-| `inventory_target_base_pct`  | decimal     |  50         | False       | What is the inventory target for the base asset? |
 | `add_transaction_costs`      | decimal     |  False      | False       | Do you want to add transaction costs automatically to order prices? (Yes/No) |
-| `volatility_buffer_size`     | decimal     |  1800       | 60          | Enter amount of ticks that will be stored to calculate volatility |
+| `volatility_buffer_size`     | decimal     |  1800       | False       | Enter amount of ticks that will be stored to calculate volatility |
 | `order_levels`               | int         |  1          | False       | How many orders do you want to place on both sides? |
 | `order_override`             | json        |             | False       |  |
 | `hanging_orders_enabled`     | bool        |  False      | False       | Do you want to enable hanging orders? (Yes/No) |

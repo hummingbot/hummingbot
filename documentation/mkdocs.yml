@@ -144,25 +144,26 @@ nav:
       - Check Bot/Market Status: operation/status.md
       - Check Performance: operation/history.md
       - Find Log Files: operation/log-files.md
+      - Exporting Data: operation/export.md
     - Trading Strategies:
       - Trading Strategies: strategies/index.md
       - AMM Arbitrage: strategies/amm-arbitrage.md
-      - Arbitrage: 
-        - Arbitrage: strategies/arbitrage/index.md
-        - Specification: strategies/arbitrage/specification.md
       - Avellaneda Market Making: strategies/avellaneda-market-making.md
-      - Celo Arbitrage: strategies/celo-arbitrage.md
       - Cross-Exchange Market Making:
         - Cross-Exchange Market Making: strategies/cross-exchange-market-making/index.md
         - Specification: strategies/cross-exchange-market-making/specification.md
       - Liquidity Mining: strategies/liquidity-mining.md
       - Perpetual Market Making: strategies/perpetual-market-making.md
-      - Spot Perpetual Arbitrage: strategies/spot-perpetual-arbitrage.md
-      - Uniswap-v3 LP: strategies/uniswap-v3-lp.md
       - Pure Market Making:
         - Pure Market Making: strategies/pure-market-making/index.md
         - Specification: strategies/pure-market-making/specification.md
-      - TWAP: 
+      - Spot Perpetual Arbitrage: strategies/spot-perpetual-arbitrage.md
+      - Uniswap-v3 LP: strategies/uniswap-v3-lp.md
+      - Arbitrage: 
+        - Arbitrage: strategies/arbitrage/index.md
+        - Specification: strategies/arbitrage/specification.md
+      - Celo Arbitrage: strategies/celo-arbitrage.md
+      - TWAP:
         - TWAP: strategies/twap/index.md
         - Specification: strategies/twap/specification.md
     - Exchange Connectors:
@@ -211,15 +212,18 @@ nav:
       - Terra: protocols/terra.md
     - Global Configs:
       - Global Configs: global-configs/index.md
+      - Balance Limit: global-configs/balance-limit.md
+      - External Database: global-configs/external-db.md
+      - Fee Overrides: global-configs/override-fees.md
       - Kill Switch: global-configs/kill-switch.md
       - Paper Trading Mode: global-configs/paper-trade.md
-      - Balance Limit: global-configs/balance-limit.md
-      - Fee Overrides: global-configs/override-fees.md
-      - Telegram Integration: global-configs/telegram.md
       - Rate Limits Share Pct: global-configs/rate-limits-share-pct.md
+      - Telegram Integration: global-configs/telegram.md
       - Strategy Autostart: global-configs/strategy-autostart.md
+      - Connect External Database: global-configs/external-db.md
     - Strategy Configs:
       - Strategy Configs: strategy-configs/index.md
+      - Add Transaction Costs: strategy-configs/add-transaction-costs.md
       - Order Levels: strategy-configs/order-levels.md
       - Filled Order Delay: strategy-configs/filled-order-delay.md
       - Hanging Orders: strategy-configs/hanging-orders.md
@@ -228,6 +232,7 @@ nav:
       - Inventory Skew: strategy-configs/inventory-skew.md
       - Max Order Age: strategy-configs/max-order-age.md
       - Order Override: strategy-configs/order-override.md
+      - Price Band: strategy-configs/price-band.md
       - Price Source: strategy-configs/external-price-source.md
       - Ping Pong: strategy-configs/ping-pong.md
       - Rate Oracle: strategy-configs/rate-oracle.md
@@ -235,7 +240,6 @@ nav:
       - FAQ: faq/index.md
       - Troubleshooting: faq/troubleshooting.md
       - Glossary: faq/glossary.md
-
   - Developer Reference:
       - Overview: developers/index.md
       - Contribution Guidelines: developers/contributions.md

@@ -1,6 +1,6 @@
 ## What is Hummingbot Gateway?
 
-Hummingbot Gateway is a API server that allows Hummingbot to connect to [protocols](/connectors/) that are used in the [amm-arb strategy](/strategies/amm-arbitrage/) and other future strategies. This is a light web server that enables Hummingbot client to send and receive data from different blockchain protocols and provides an easier entry point for external devs to build connectors to other protocols.
+Hummingbot Gateway is API middleware that allows Hummingbot to connect to decentralized exchanges on various blockchain protocols that are used in the [amm-arb strategy](/strategies/amm-arbitrage/) and other strategies. Essentially, Gateway is a light web server that enables Hummingbot client to send and receive data from different blockchain protocols and provides an easier entry point for external devs to build connectors to other protocols.
 
 !!! note
     To use Gateway, you need to install Hummingbot using Docker or from source.
