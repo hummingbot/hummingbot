@@ -1,10 +1,6 @@
-The `connect` command lets you add your user credentials in order to connect to an exchange or protocol. For centralized exchanges, this command asks you for your API key, while 
+The `connect` command lets you add your user credentials in order to connect to an exchange or protocol. For centralized exchanges, this command asks you for your API key, while blockchain protocols asks you for your private key.
 
-\your API keys to connect
-
-## Requirements
-
-Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
+Hummingbot stores both API keys and private keys on the local machine in encrypted form, with the Hummingbot client password as the key.
 
 ## Connecting to exchanges
 
@@ -12,10 +8,10 @@ Private keys and API keys are stored locally for the operation of the Hummingbot
 1. Enter API and secret keys when prompted
 1. Other exchanges may require additional details such as account ID, exchange address, etc.
 
-See [Exchanges](/exchanges) for more information about how to create API keys for each exchage.
+See [Exchanges](/exchanges) for more information about how to create API keys for each exchange.
 
 !!! warning "Only enable Read and Trade access"
-      For security reasons, Hummingbot does not support deposit and withdrawal functionality. Therefore, we recommend using only **read + trade** enabled API keys. It is not necessary to enable **withdraw**, **transfer**, or anything equivalent to retrieving assets from your wallet.
+    For security reasons, Hummingbot does not support deposit and withdrawal functionality. Therefore, we recommend using only **read + trade** enabled API keys. It is not necessary to enable **withdraw**, **transfer**, or anything equivalent to retrieving assets from your wallet.
 
 ## Connecting to protocols
 
@@ -23,6 +19,9 @@ See [Exchanges](/exchanges) for more information about how to create API keys fo
 1. Enter your wallet private key
 1. Enter the Ethereum node endpoint starting with https://
 1. Enter the websocket address starting with wss://
+
+!!! note "Connecting vs keyfile"
+    A more secure way to add your blockchain wallet credentials to Humminggbot is by [importing a keyfile](/protocols/ethereum/#keyfile).
 
 ## Checking connection status
 
