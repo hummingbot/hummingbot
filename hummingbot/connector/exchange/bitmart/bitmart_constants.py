@@ -21,20 +21,25 @@ GET_ORDER_DETAIL_PATH_URL = "spot/v1/order_detail"
 GET_TRADE_DETAIL_PATH_URL = "spot/v1/trades"
 GET_OPEN_ORDERS_PATH_URL = "spot/v1/orders"
 
+# WS API ENDPOINTS
+WS_CONNECT = "WSConnect"
+WS_SUBSCRIBE = "WSSubscribe"
+
 # BitMart has a per method API limit
 RATE_LIMITS = [
-    # RateLimit(Limit, TimeInterval(seconds), RequestPath)
-    RateLimit(10, 1, path_url=CHECK_NETWORK_PATH_URL),
-    RateLimit(5, 1, path_url=GET_TRADING_PAIRS_PATH_URL),
-    RateLimit(5, 1, path_url=GET_TRADING_RULES_PATH_URL),
-    RateLimit(5, 1, path_url=GET_LAST_TRADING_PRICES_PATH_URL),
-    RateLimit(5, 1, path_url=GET_ORDER_BOOK_PATH_URL),
-    RateLimit(50, 1, path_url=CREATE_ORDER_PATH_URL),
-    RateLimit(50, 1, path_url=CANCEL_ORDER_PATH_URL),
-    RateLimit(10, 1, path_url=GET_ACCOUNT_SUMMARY_PATH_URL),
-    RateLimit(50, 1, path_url=GET_ORDER_DETAIL_PATH_URL),
-    RateLimit(10, 1, path_url=GET_TRADE_DETAIL_PATH_URL),
-    RateLimit(10, 1, path_url=GET_OPEN_ORDERS_PATH_URL),
+    RateLimit(limit_id=CHECK_NETWORK_PATH_URL, limit=10, time_interval=1),
+    RateLimit(limit_id=GET_TRADING_PAIRS_PATH_URL, limit=5, time_interval=1),
+    RateLimit(limit_id=GET_TRADING_RULES_PATH_URL, limit=5, time_interval=1),
+    RateLimit(limit_id=GET_LAST_TRADING_PRICES_PATH_URL, limit=5, time_interval=1),
+    RateLimit(limit_id=GET_ORDER_BOOK_PATH_URL, limit=5, time_interval=1),
+    RateLimit(limit_id=CREATE_ORDER_PATH_URL, limit=50, time_interval=1),
+    RateLimit(limit_id=CANCEL_ORDER_PATH_URL, limit=50, time_interval=1),
+    RateLimit(limit_id=GET_ACCOUNT_SUMMARY_PATH_URL, limit=10, time_interval=1),
+    RateLimit(limit_id=GET_ORDER_DETAIL_PATH_URL, limit=50, time_interval=1),
+    RateLimit(limit_id=GET_TRADE_DETAIL_PATH_URL, limit=10, time_interval=1),
+    RateLimit(limit_id=GET_OPEN_ORDERS_PATH_URL, limit=10, time_interval=1),
+    RateLimit(limit_id=WS_CONNECT, limit=1, time_interval=1),
+    RateLimit(limit_id=WS_SUBSCRIBE, limit=60, time_interval=600),
 ]
 
 ORDER_STATUS = {

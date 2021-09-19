@@ -611,8 +611,8 @@ class BitmartExchange(ExchangeBase):
                     self.logger().info(f"_update_order_status data not in resp: {response}")
                     continue
                 result = response["data"]
-                await self._process_order_message(result)
                 await self._process_trade_message_rest(result)
+                await self._process_order_message(result)
 
     async def _process_order_message(self, order_msg: Dict[str, Any]):
         """
