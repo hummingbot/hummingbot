@@ -60,7 +60,7 @@ class BitmartAuth():
         :return: a dictionary of auth headers with api_key, timestamp, signature
         """
 
-        payload = payload = f'{str(timestamp)}#{self.memo}#bitmart.WebSocket'
+        payload = f'{str(timestamp)}#{self.memo}#bitmart.WebSocket'
 
         sign = hmac.new(
             self.secret_key.encode('utf-8'),
