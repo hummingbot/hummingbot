@@ -1,3 +1,9 @@
+---
+tags:
+- market making
+- dex strategy
+---
+
 # `uniswap_v3_lp`
 
 !!! note

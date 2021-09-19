@@ -221,6 +221,7 @@ nav:
       - Order Levels: strategy-configs/order-levels.md
       - Filled Order Delay: strategy-configs/filled-order-delay.md
       - Hanging Orders: strategy-configs/hanging-orders.md
+      - Minimum Spread: strategy-configs/minimum-spread.md
       - Order Refresh Tolerance: strategy-configs/order-refresh-tolerance.md
       - Order Optimization: strategy-configs/order-optimization.md
       - Inventory Skew: strategy-configs/inventory-skew.md

@@ -1,3 +1,8 @@
+---
+tags:
+- arbitrage
+---
+
 # `arbitrage`
 
 ## 📁 [Strategy folder](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/strategy/arbitrage)
