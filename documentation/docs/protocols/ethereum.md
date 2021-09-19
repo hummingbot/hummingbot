@@ -12,15 +12,12 @@ Enter your wallet private key >>>
 
 There are two ways to connect your Hummingbot wallet from other wallets like Metamask and MyCrypto:
 
-1. Importing the wallet's keyfile (recommended)
+1. Importing the wallet's keyfile
 2. Importing the wallet's private key
 
 We recommend using the keyfile method over copying and pasting the private key. If your private key remains in your clipboard, there is a risk that a malicious website that you visit may utilize Javascript to access your clipboard and copy its contents.
 
-!!! tip
-      For Metamask wallet, using a wallet that is available in your Metamask (i.e. importing a wallet from Metamask) allows you to view orders created and trades filled by Hummingbot on the decentralized exchange's website.
-
-### Keyfile (recommended)
+### Keyfile
 
 To import your wallet using its JSON keyfile:
 
