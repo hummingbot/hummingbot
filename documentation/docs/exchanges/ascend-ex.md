@@ -10,16 +10,20 @@ tags:
 
 ## ℹ️ Exchange Info
 
-* **AscendEX (Bitmax)** [Website](https://ascendex.com/) | [CoinMarketCap](https://coinmarketcap.com/exchanges/ascendex/) | [CoinGecko](https://www.coingecko.com/en/exchanges/ascendex)
+**AscendEX (Bitmax)** 
+[Website](https://ascendex.com/) | [CoinMarketCap](https://coinmarketcap.com/exchanges/ascendex/) | [CoinGecko](https://www.coingecko.com/en/exchanges/ascendex)
+
+* API docs: https://ascendex.github.io/ascendex-pro-api/#ascendex-pro-api-documentation
 * Transaction fees: https://ascendex.com/en/feerate/transactionfee-traderate
 * Minimum order size: https://ascendex.com/en/help-center/articles/360025991074
 * Creating API keys: https://ascendex.com/en/help-center/articles/4405542558099
 
-## 👷 Maintainer
+## 👷 Maintenance
 
-CoinAlpha, Inc.
+* Release added: [0.36.0](/release-notes/0.36.0/) by CoinAlpha
+* Maintainer: CoinAlpha
 
-## 🔑 Connect Exchange
+## 🔑 Connection
 
 Run `connect ascend_ex` in order to enter your API keys:
  
