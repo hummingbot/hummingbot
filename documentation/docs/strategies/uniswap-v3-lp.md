@@ -21,7 +21,8 @@ This strategy creates and maintains Uniswap positions as the market price change
 
 ## 👷 Maintainer
 
-CoinAlpha, Inc.
+* Release added: [0.40.0](/release-notes/0.40.0/) by CoinAlpha
+* Maintainer: CoinAlpha
 
 ## 🛠️ Strategy configs
 

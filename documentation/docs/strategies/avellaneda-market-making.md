@@ -1,6 +1,6 @@
 ---
 tags:
-- market making
+- market making strategy
 ---
 
 # `avellaneda_market_making`
@@ -15,9 +15,10 @@ This strategy implements the market making strategy described in the classic pap
 
 [`spot` exchanges](/exchanges/#spot)
 
-## 👷 Maintainer
+## 👷 Maintenance
 
-CoinAlpha, Inc.
+* Release added: [0.38.0](/release-notes/0.38.0/) by CoinAlpha
+* Maintainer: CoinAlpha
 
 ## 🛠️ Strategy configs
 

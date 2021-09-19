@@ -1,14 +1,13 @@
-Welcome 👋 to the official documentation for Hummingbot, the open source software that helps you build and run crypto trading bots!
+Welcome 👋 to the official documentation for Hummingbot, open source software that helps you build and run **crypto trading bots**!
 
-## Getting started
+## 🐤 Getting started
 
 New to Hummingbot? Start here!
 
 - [Installation](/installation): Install Hummingbot on various platforms
-- [Tutorials](/tutorials): Quickstart guides for new users and developers
 - [Basic Operations](/operations): Basic commands and actions in Hummingbot
 
-## Reference
+## 📚 Reference
 
 Learn about the different components in Hummingbot:
 
@@ -18,26 +17,26 @@ Learn about the different components in Hummingbot:
 - [Global Configs](/global-configs): Global configurable modules
 - [Strategy Configs](/strategy-configs): Strategy-specific configurable parameters
 
-## Release Notes
+## 📝 Release Notes
 
 Hummingbot publishes a new release to its `master` branch approximately every 4 weeks. 
 
 See [Release Notes](/release-notes) for information about the latest release, as well as historical releases.
 
-## Newsletter
+## 📬 Newsletter
 
 To get notified when Hummingbot ships a new release, sign up for the [Hummingbot newsletter](https://hummingbot.substack.com/), which is published when each release drops.
 
 In addition to release notes, the newsletter contains information about upcoming events, new educational content, contributions from the global Hummingbot community!
 
-## For developers
+## 👩‍💻 For developers
 
 Hummingbot is a general source framework for crypto algorithmic trading. We welcome developers to fork the codebase for their own purposes and contribute to the community.
 
 - [Contribution Guidelines](/developers/contributions): How to submit contributions to the Hummingbot codebase
 - [Developer Reference](/developers): Explanation of Hummingbot's architecture and detailed reference on how to build connectors and strategies
 
-## Getting help
+## 🙋‍♂️ Getting help
 
 Check out the [Troubleshooting FAQ](/faq/troubleshooting) to see if your question has already been answered.
 

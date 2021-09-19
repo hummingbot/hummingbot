@@ -12,16 +12,19 @@ tags:
 
 ## ℹ️ Exchange Info
 
-* **Binance.US** [Website](https://binance.us/) | [CoinMarketCap](https://coinmarketcap.com/exchanges/binance-us/) | [CoinGecko](https://www.coingecko.com/en/exchanges/binance_us)
+**Binance.US** [Website](https://binance.us/) | [CoinMarketCap](https://coinmarketcap.com/exchanges/binance-us/) | [CoinGecko](https://www.coingecko.com/en/exchanges/binance_us)
+
+* API docs: https://github.com/binance-us/binance-official-api-docs/blob/master/rest-api.md
 * Transaction fees: https://www.binance.us/en/fee/schedule
 * Minimum order size: https://www.binance.us/en/trade-rule
 * Creating API keys: https://www.binance.com/en/support/faq/360002502072
 
-## 👷 Maintainer
+## 👷 Maintenance
 
-CoinAlpha, Inc.
+* Release added: [0.33.0](/release-notes/0.33.0/) by CoinAlpha
+* Maintainer: CoinAlpha
 
-## 🔑 Connect Exchange
+## 🔑 Connection
 
 Run `connect binance_us` in order to enter your API keys:
  

@@ -2,13 +2,13 @@ An exchange connector integrates with the API of a crypto exchange to enable hig
 
 ## Types 
 
-Hummingbot exchange connectors try to standardize trading logic and order types across many different exchanges. Currently, connectors are designed to handle specific exchange types:
+Hummingbot exchange connectors try to standardize trading logic and order types across many different exchanges. Connectors are designed to handle specific exchange types:
 
-* `spot`: Connectors to central limit order book (CLOB) exchanges that trade spot markets
-* `perp`: Connectors to central limit order book (CLOB) exchanges that trade perpetual swap markets
-* `amm`: Connectors to automatic market maker (AMM) decentralized exchanges
+* `spot`: Connectors to central limit order book (**CLOB**) exchanges that trade **spot** markets
+* `perp`: Connectors to central limit order book (**CLOB**) exchanges that trade **perpetual swap** markets
+* `amm`: Connectors to automatic market maker (**AMM**) decentralized exchanges
 
-!!! note "Centralized vs decentralized exchanges
+!!! note "Centralized vs decentralized exchanges"
     Hummingbot connects to both centralized and decentralized exchanges. Centralized exchanges require users to enter API keys, while decentralized exchanges require users to connect their wallets to the underlying blockchain [protocols](/protocols).
 
 In the future, Hummingbot aims to extend support to other exchange and asset types. Developers interested in forking Hummingbot to support other types of exchanges can discuss with the community on the **#dev** channels in the Hummingbot Discord.
@@ -23,13 +23,17 @@ Connectors may vary in quality. The CoinAlpha QA team keeps a rough indicator of
 
 ## Maintainer
 
-Coming soon.
+Connector maintainers are responsible for fixing bugs and updating the connector when the exchange API or the Hummingbot connector spec changes.
 
-## List of exchanges
+## Adding connectors
+
+Developers may submit connectors for review by the CoinAlpha team. Please note the [Contribution Guidelines](/developers/contributions/).
+
+Exchanges and other institutions can visit the [official Hummingbot website](https://hummingbot.io), maintained by CoinAlpha, to discuss different ways to build and maintain connectors.
+
+## List of connectors
 
 ### `spot`
-
-**Centralized**
 
 | Exchange                                        | Website                                      | Protocol                         | Maintainer | Status                                               |
 | ----------------------------------------------- | -------------------------------------------- | -------------------------------- | ---------- | ---------------------------------------------------- |
@@ -78,9 +82,4 @@ Coming soon.
 | [Uniswap](/connectors/uniswap)                   | [uniswap.org](https://uniswap.org/)          | [ethereum](/protocols/ethereum)   | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
 | [Uniswap v3](/exchanges/uniswap-v3)              | [uniswap.org](https://uniswap.org/)          | [ethereum](/protocols/ethereum)   | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
 
-## Adding exchange connectors
-
-To request a new connector, please submit a [Github issue](https://github.com/CoinAlpha/hummingbot/issues).
-
-Exchanges and other institutions can contact us at [partnerships@hummingbot.io](mailto:partnerships@hummingbot.io) to discuss different ways to build and maintain connectors.
 
