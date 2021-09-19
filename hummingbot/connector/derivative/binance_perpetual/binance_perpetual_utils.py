@@ -43,7 +43,15 @@ def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[s
 
 
 def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
-    return hb_trading_pair.replace("-", "")
+    tp = hb_trading_pair.split("-")
+
+    if len(tp) == 2:
+        return tp[0] + tp[1]
+    # deliverables
+    elif len(tp) > 2:
+        return tp[0] + tp[1] + "_" + tp[2]
+    else:
+        return None
 
 
 KEYS = {
