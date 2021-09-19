@@ -78,6 +78,19 @@ dial unix /var/run/docker.sock: connect: permission denied.
 
 Exit from your virtual machine and restart.
 
+### Docker: How to stop active container?
+
+You need to run `docker ps -a` to get the list of containers available. Then you can do the following,
+
+1. Locate the container id of the bot you want to stop
+2. Run `docker container stop [container-id]`
+
+![Docker Container Stop](/assets/img/docker-container-stop.PNG)
+
+!!! note
+    Please be advised this will force close the bot from running on Docker. This means that this does not stop the outstanding orders from the HB client. The commands `stop` and `exit` is the right way to cancel orders.
+
+
 ## Operation
 
 ### AMM Arbitrage strategy is not working

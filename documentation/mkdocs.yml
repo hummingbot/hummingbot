@@ -231,10 +231,8 @@ nav:
       - Price Source: strategy-configs/external-price-source.md
       - Ping Pong: strategy-configs/ping-pong.md
       - Rate Oracle: strategy-configs/rate-oracle.md
-    - FAQ:
-      - FAQ: faq/index.md
-      - Troubleshooting: faq/troubleshooting.md
-      - Glossary: faq/glossary.md
+    - Troubleshooting: troubleshooting.md
+    - Glossary: glossary.md
   - Developer Reference:
       - Overview: developers/index.md
       - Contribution Guidelines: developers/contributions.md
@@ -262,10 +260,10 @@ nav:
         - Scripts: developers/scripts/index.md
         - Script Base Class: developers/scripts/script-base.md
       - Debug Console: developers/debug.md
-  - Background:
-    - Background: background/index.md
-    - History: background/history.md
-
+  - About:
+    - About Hummingbot: about/index.md
+    - History: about/history.md
+    - FAQ: about/faq.md
   - Release Notes:
     - Release Notes: release-notes/index.md
     - 0.43.0: release-notes/0.43.0.md
