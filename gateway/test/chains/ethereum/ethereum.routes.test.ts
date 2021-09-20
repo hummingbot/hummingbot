@@ -76,7 +76,7 @@ describe('POST /eth/approve', () => {
         });
     });
     const res = await request(app)
-      .post(`/eth/nonce`)
+      .post(`/eth/approve`)
       .send({
         privateKey: 'abc123',
         spender: 'xyz098',
