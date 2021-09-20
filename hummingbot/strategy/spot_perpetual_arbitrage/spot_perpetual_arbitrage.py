@@ -249,22 +249,12 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         balance_spot_base = self._spot_market_info.market.get_available_balance(spot_base)
         balance_spot_quote = self._spot_market_info.market.get_available_balance(spot_quote)
 
-        balance_perp_base = self._perp_market_info.market.get_available_balance(perp_base)
         balance_perp_quote = self._perp_market_info.market.get_available_balance(perp_quote)
 
-        if balance_spot_base == s_decimal_zero:
+        if balance_spot_base == s_decimal_zero and balance_spot_quote == s_decimal_zero:
             self.logger().info(f"Cannot arbitrage, {self._spot_market_info.market.display_name} {spot_base} balance "
-                               f"({balance_spot_base}) is 0.")
-            return False
-
-        if balance_spot_quote == s_decimal_zero:
-            self.logger().info(f"Cannot arbitrage, {self._spot_market_info.market.display_name} {spot_quote} balance "
+                               f"({balance_spot_base}) is 0 and {self._spot_market_info.market.display_name} {spot_quote} balance "
                                f"({balance_spot_quote}) is 0.")
-            return False
-
-        if balance_perp_base == s_decimal_zero:
-            self.logger().info(f"Cannot arbitrage, {self._perp_market_info.market.display_name} {perp_base} balance "
-                               f"({balance_perp_base}) is 0.")
             return False
 
         if balance_perp_quote == s_decimal_zero:
