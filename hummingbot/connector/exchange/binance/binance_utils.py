@@ -1,4 +1,6 @@
 import re
+import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
+
 from typing import Optional, Tuple
 
 from hummingbot.client.config.config_var import ConfigVar
@@ -40,6 +42,14 @@ def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[s
 def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
     # Binance does not split BASEQUOTE (BTCUSDT)
     return hb_trading_pair.replace("-", "")
+
+
+def public_rest_url(path_url: str, domain: str = "com") -> str:
+    return CONSTANTS.REST_URL.format(domain) + CONSTANTS.PUBLIC_API_VERSION + path_url
+
+
+def private_rest_url(path_url: str, domain: str = "com") -> str:
+    return CONSTANTS.REST_URL.format(domain) + CONSTANTS.PRIVATE_API_VERSION + path_url
 
 
 KEYS = {
