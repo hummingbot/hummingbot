@@ -17,7 +17,8 @@ from hummingbot.core.event.events import TradeType
 
 from hummingbot.core.event.events import (
     PositionAction,
-    PositionSide
+    PositionSide,
+    PositionMode
 )
 from hummingbot.connector.derivative.position import Position
 
@@ -53,7 +54,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
                     min_closing_arbitrage_pct: Decimal,
                     spot_market_slippage_buffer: Decimal = Decimal("0"),
                     perp_market_slippage_buffer: Decimal = Decimal("0"),
-                    next_arbitrage_cycle_delay: float = 120,
+                    next_arbitrage_opening_delay: float = 120,
                     status_report_interval: float = 10):
         """
         :param spot_market_info: The spot market info
@@ -73,8 +74,8 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         self._perp_leverage = perp_leverage
         self._spot_market_slippage_buffer = spot_market_slippage_buffer
         self._perp_market_slippage_buffer = perp_market_slippage_buffer
-        self._next_arbitrage_cycle_delay = next_arbitrage_cycle_delay
-        self._next_arbitrage_cycle_time = 0
+        self._next_arbitrage_opening_delay = next_arbitrage_opening_delay
+        self._next_arbitrage_opening_ts = 0  # next arbitrage opening timestamp
         self._all_markets_ready = False
         self._ev_loop = asyncio.get_event_loop()
         self._last_timestamp = 0
@@ -105,11 +106,6 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
     def market_info_to_active_orders(self) -> Dict[MarketTradingPairTuple, List[LimitOrder]]:
         return self._sb_order_tracker.market_pair_to_active_orders
 
-    # @property
-    # def spot_positions(self) -> List[Position]:
-    #    return [s for s in self._spot_market_info.market.account_positions.values() if
-    #            s.trading_pair == self._spot_market_info.trading_pair and s.amount != s_decimal_zero]
-
     @property
     def perp_positions(self) -> List[Position]:
         return [s for s in self._perp_market_info.market.account_positions.values() if
@@ -120,6 +116,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         Clock tick entry point, is run every second (on normal tick setting).
         :param timestamp: current tick timestamp
         """
+
         if not self._all_markets_ready:
             self._all_markets_ready = all([market.ready for market in self.active_markets])
             if not self._all_markets_ready:
@@ -133,33 +130,25 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
                     return
 
                 self.logger().info("Trading started.")
+                if self._perp_market_info.market.position_mode != PositionMode.ONEWAY or \
+                        len(self.perp_positions) > 1:
+                    self.logger().info("This strategy supports only Oneway position mode. Please update your position "
+                                       "mode before starting this strategy.")
+                    self.stop(self.clock)
+                    return
 
-                # if len(self.spot_positions) > 0:
-                #     for spot_position in self.spot_positions:
-                #         if spot_position.amount == self._order_amount:
-                #             self.logger().info(f"There is an existing {self._perp_market_info.trading_pair} "
-                #                                f"{spot_position.position_side.name} position. The bot resumes "
-                #                                f"operation to close out the arbitrage position")
-                #         else:
-                #             self.logger().info(f"There is an existing {self._perp_market_info.trading_pair} "
-                #                                f"{spot_position.position_side.name} position with unmatched "
-                #                                f"position amount. Please manually close out the position before starting "
-                #                                f"this strategy.")
-                #             self.stop(self.clock)
-                #             return
-                if len(self.perp_positions) > 0:
-                    for perp_position in self.perp_positions:
-                        if perp_position.amount == self._order_amount:
-                            self.logger().info(f"There is an existing {self._perp_market_info.trading_pair} "
-                                               f"{perp_position.position_side.name} position. The bot resumes "
-                                               f"operation to close out the arbitrage position")
-                        else:
-                            self.logger().info(f"There is an existing {self._perp_market_info.trading_pair} "
-                                               f"{perp_position.position_side.name} position with unmatched "
-                                               f"position amount. Please manually close out the position before starting "
-                                               f"this strategy.")
-                            self.stop(self.clock)
-                            return
+                if len(self.perp_positions) == 1:
+                    if self.perp_positions[0].amount == self._order_amount:
+                        self.logger().info(f"There is an existing {self._perp_market_info.trading_pair} "
+                                           f"{self.perp_positions[0].position_side.name} position. The bot resumes "
+                                           f"operation to close out the arbitrage position")
+                    else:
+                        self.logger().info(f"There is an existing {self._perp_market_info.trading_pair} "
+                                           f"{self.perp_positions[0].position_side.name} position with unmatched "
+                                           f"position amount. Please manually close out the position before starting "
+                                           f"this strategy.")
+                        self.stop(self.clock)
+                        return
         if self._main_task is None or self._main_task.done():
             self._main_task = safe_ensure_future(self.main(timestamp))
 
@@ -168,7 +157,8 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         The main procedure for the arbitrage strategy.
         """
         proposals = await self.create_base_proposals()
-        if self.is_on_closing_arbitrage():
+        is_on_closing = self.is_on_closing_arbitrage()
+        if is_on_closing:
             first_perp_side = self.perp_positions[0].position_side
             perp_is_buy = True if first_perp_side == PositionSide.SHORT else False
             proposals = [p for p in proposals if p.perp_side.is_buy == perp_is_buy and p.profit_pct() >=
@@ -179,17 +169,18 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
             raise Exception(f"Unexpected situation where number of valid proposals ({len(proposals)}) is > 1")
         if len(proposals) == 0:
             return
+        if not self.ready_to_execute_arbitrage_position():
+            return
         proposal = proposals[0]
-        if self.is_on_closing_arbitrage():
-            self.logger().info(f"Profitability ({proposal.profit_pct():.2%}) is now above min_closing_profit_pct.")
-        else:
-            self.logger().info(f"Arbitrage opportunity found. "
-                               f"Profitability ({proposal.profit_pct():.2%}) is now above min_opening_profit_pct.")
+        pos_txt = "closing" if is_on_closing else "opening"
+        self.logger().info(f"Arbitrage position {pos_txt} opportunity found.")
+        self.logger().info(f"Profitability ({proposal.profit_pct():.2%}) is now above min_{pos_txt}_arbitrage_pct.")
         self.apply_slippage_buffers(proposal)
         if not self.check_budget_constraint(proposal):
             return
-        if proposal.order_amount > 0:
-            self.execute_arb_proposal(proposal)
+        self.execute_arb_proposal(proposal)
+        if is_on_closing:
+            self._next_arbitrage_opening_ts = self.current_timestamp + self._next_arbitrage_opening_delay
 
     def is_on_closing_arbitrage(self) -> bool:
         adjusted_perp_amount = self._perp_market_info.market.quantize_order_amount(self._perp_market_info.trading_pair,
@@ -218,15 +209,15 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
                         self._order_amount)
         ]
 
-    def timed_log(self, timestamp: float, msg: str):
-        """
-        Displays log at specific intervals.
-        :param timestamp: current timestamp
-        :param msg: message to display at next interval
-        """
-        if timestamp - self._last_timestamp > self._status_report_interval:
-            self.logger().info(msg)
-            self._last_timestamp = timestamp
+    # def timed_log(self, timestamp: float, msg: str):
+    #     """
+    #     Displays log at specific intervals.
+    #     :param timestamp: current timestamp
+    #     :param msg: message to display at next interval
+    #     """
+    #     if timestamp - self._last_timestamp > self._status_report_interval:
+    #         self.logger().info(msg)
+    #         self._last_timestamp = timestamp
 
     def apply_slippage_buffers(self, proposal: ArbProposal):
         """
@@ -288,7 +279,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         Updates arb_proposals by setting proposal amount to 0 if there is not enough balance to submit order with
         required order amount.
         :param proposal: An arbitrage proposal
-        :return: True if user has available balance enough for orders submission.
+        :return: True if user has available balance enough for both orders submission.
         """
         spot_side = proposal.spot_side
         spot_token = spot_side.market_info.quote_asset if spot_side.is_buy else spot_side.market_info.base_asset
@@ -323,12 +314,12 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
             return False
         return True
 
-    async def execute_arb_proposal(self, proposal: ArbProposal):
+    def execute_arb_proposal(self, proposal: ArbProposal):
         """
         Execute both sides of the arbitrage trades concurrently.
         :param proposal: the arbitrage proposal
         """
-        if proposal.amount == s_decimal_zero:
+        if proposal.order_amount == s_decimal_zero:
             return
         spot_side = proposal.spot_side
         spot_order_fn = self.buy_with_specific_market if spot_side.is_buy else self.sell_with_specific_market
@@ -362,13 +353,15 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
             position_action=position_action
         )
 
-    def ready_for_new_arb_trades(self) -> bool:
+    def ready_to_execute_arbitrage_position(self) -> bool:
         """
-        Returns True if there is no outstanding unfilled order.
+        Returns True if the strategy is ready to execute arbitrage position or either opening or closing.
         """
         for market_info in [self._spot_market_info, self._perp_market_info]:
             if len(self.market_info_to_active_orders.get(market_info, [])) > 0:
                 return False
+        if self._next_arbitrage_opening_ts > self.current_timestamp and not self.is_on_closing_arbitrage():
+            return False
         return True
 
     def short_proposal_msg(self, indented: bool = True) -> List[str]:
@@ -460,21 +453,13 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
 
         return "\n".join(lines)
 
-    def did_complete_buy_order(self, order_completed_event):
-        self.update_status(order_completed_event)
-
-    def did_complete_sell_order(self, order_completed_event):
-        self.update_status(order_completed_event)
-
-    def did_fail_order(self, order_failed_event):
-        self.retry_order(order_failed_event)
-
-    def did_cancel_order(self, cancelled_event):
-        self.retry_order(cancelled_event)
-
     @property
     def tracked_market_orders(self) -> List[Tuple[ConnectorBase, MarketOrder]]:
         return self._sb_order_tracker.tracked_market_orders
+
+    @property
+    def tracked_limit_orders(self) -> List[Tuple[ConnectorBase, LimitOrder]]:
+        return self._sb_order_tracker.tracked_limit_orders
 
     def start(self, clock: Clock, timestamp: float):
         pass
