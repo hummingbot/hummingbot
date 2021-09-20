@@ -6,12 +6,12 @@ from hummingbot.client import format_decimal, FLOAT_PRINTOUT_PRECISION
 
 class FormatterTest(unittest.TestCase):
     def test_precision_assumption(self):
-        self.assertEqual(7, FLOAT_PRINTOUT_PRECISION)  # test cases must be adapted on precision change
+        self.assertEqual(8, FLOAT_PRINTOUT_PRECISION)  # test cases must be adapted on precision change
 
     def test_format_float_decimal_places_rounded(self):
-        n = 0.87654321
+        n = 0.987654321
         s = format_decimal(n)
-        self.assertEqual("0.8765432", s)
+        self.assertEqual("0.98765432", s)
 
     def test_format_float_places_no_rounding(self):
         n = 0.21
@@ -19,14 +19,14 @@ class FormatterTest(unittest.TestCase):
         self.assertEqual("0.21", s)
 
     def test_format_large_float(self):
-        n = 87654321.0
+        n = 987654321.0
         s = format_decimal(n)
-        self.assertEqual("87654321", s)
+        self.assertEqual("987654321", s)
 
     def test_format_decimal_obj_decimal_places_rounded(self):
-        n = Decimal("0.87654321")
+        n = Decimal("0.987654321")
         s = format_decimal(n)
-        self.assertEqual("0.8765432", s)
+        self.assertEqual("0.98765432", s)
 
     def test_format_decimal_obj_places_no_rounding(self):
         n = Decimal("0.21")
@@ -34,6 +34,6 @@ class FormatterTest(unittest.TestCase):
         self.assertEqual("0.21", s)
 
     def test_format_large_decimal_obj(self):
-        n = Decimal("87654321.0")
+        n = Decimal("987654321.0")
         s = format_decimal(n)
-        self.assertEqual("87654321", s)
+        self.assertEqual("987654321", s)

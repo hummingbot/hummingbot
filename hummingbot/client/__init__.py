@@ -3,7 +3,7 @@ import logging
 import pandas as pd
 import decimal
 
-FLOAT_PRINTOUT_PRECISION = 7
+FLOAT_PRINTOUT_PRECISION = 8
 
 
 def format_decimal(n):
