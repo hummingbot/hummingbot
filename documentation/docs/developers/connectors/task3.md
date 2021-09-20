@@ -30,7 +30,7 @@ Below are the functions that need to be implemented in the new `InFlightOrder` c
 | `from_json`                | data: `Dict[str, Any]`         | `InFlightOrder` | Converts the order data from a JSON object to an `InFlightOrder` object.                                                |
 | `update_with_trade_update` | trade_update: `Dict[str, Any]` | `bool`          | Updates the in flight order with trade update from the REST or WebSocket API. Returns `True` if the order gets updated. |
 
-### Exchange Class
+### Exchange/Derivative Class
 
 The `Exchange`/`Derivative` class is the middle-man between the strategies and the exchange API servers. It provides the necessary order book and user data to the strategies and communicates the order proposals to the exchanges.
 
@@ -273,7 +273,7 @@ Below are the function(s) called from within `_user_stream_event_listener()` whe
 Periodically update user balances and order status via REST API. This serves as a fallback measure for WebSocket API updates.
 Calling of both [\_update_balances()](#_update_balances) and [\_update_order_status()](#_update_order_status) functions is determined by the `_poll_notifier` variable.
 
-For perpetual connectors, the `_account_positions` dictionary should also be updated here.
+For perpetual connectors, the `_account_positions` dictionary should also be updated here by calling the [`_update_account_positions`](#_update_account_positions) method.
 
 !!! note
     The `Position.amount` must be negative for short positions.
@@ -435,7 +435,9 @@ period when active positions are considered by the exchange as being eligible fo
 takes a single snapshot of the opened positions as opposed to a window, those values may be left to their defaults of
 zero.
 
-Finally, the `_funding_info` dictionary must be maintained. Much like the funding payments information, this is 
+Finally, the `_funding_info` dictionary must be maintained. It consists of a map storing
+[`FundingInfo`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/event/events.py#L99-L104) for each
+active trading pair. Much like the funding payments information, keeping the trading pairs funding information updated is
 exchange-specific and the implementation may vary. For example,
 [Binance Perpetual derivative class](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/derivative/binance_perpetual/binance_perpetual_derivative.py)
 derives that information from a websocket endpoint (see `_funding_info_polling_loop`), while
@@ -569,7 +571,7 @@ Below are the additional methods that `Derivative` class must implement.
 
 ### `_update_account_positions()`
 
-Ensures the `_account_positions` dictionary is in sync with the information in the exchange.
+Ensures the `_account_positions` dictionary is in sync with the information in the exchange. This method should be called in the [`status_polling_loop`](#_status_polling_loop).
 
 **Input Parameter(s):** `None`
 
