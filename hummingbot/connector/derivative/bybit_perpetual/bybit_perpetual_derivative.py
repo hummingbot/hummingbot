@@ -403,11 +403,13 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         :param order_type: The order type
         """
         trading_rule: TradingRule = self._trading_rules[trading_pair]
+        params = {}
 
         if position_action not in [PositionAction.OPEN, PositionAction.CLOSE]:
             raise ValueError("Specify either OPEN_POSITION or CLOSE_POSITION position_action to create an order")
 
         try:
+
             amount: Decimal = self.quantize_order_amount(trading_pair, amount)
             if amount < trading_rule.min_order_size:
                 raise ValueError(f"{trade_type.name} order amount {amount} is lower than the minimum order size "
@@ -479,7 +481,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                MarketOrderFailureEvent(self.current_timestamp, order_id, order_type))
             self.logger().network(
                 f"Error submitting {trade_type.name} {order_type.name} order to Bybit Perpetual for "
-                f"{amount} {trading_pair} {price}. Error: {str(e)}. Parameters: {params}",
+                f"{amount} {trading_pair} {price}. Error: {str(e)} Parameters: {params if params else None}",
                 exc_info=True,
                 app_warning_msg="Error submitting order to Bybit Perpetual. "
             )

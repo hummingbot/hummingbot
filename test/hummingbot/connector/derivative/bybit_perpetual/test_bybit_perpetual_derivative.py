@@ -234,9 +234,9 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         self.assertNotIn(new_order_id, self.connector.in_flight_orders)
         self.assertTrue(self._is_logged("NETWORK",
-                                        "Error submitting BUY LIMIT order to Bybit Perpetual for 0.000100"
-                                        " BTC-USDT 46000. Error: BUY order amount 0.000100 is lower than the"
-                                        " minimum order size 0.01."))
+                                        "Error submitting BUY LIMIT order to Bybit Perpetual for 0.000100 BTC-USDT 46000."
+                                        " Error: BUY order amount 0.000100 is lower than the minimum order size 0.01."
+                                        " Parameters: None"))
 
     def test_create_order_with_invalid_position_action_raises_value_error(self):
         self._simulate_trading_rules_initialized()
@@ -290,8 +290,7 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         self.assertNotIn(new_order_id, self.connector.in_flight_orders)
         self.assertTrue(any(record.levelname == "NETWORK"
-                            and ("Error submitting BUY LIMIT order to Bybit Perpetual for 1.000000 BTC-USDT 46000.0000."
-                                 " Error: Order is rejected by the API. Parameters:")
+                            and "Error submitting BUY LIMIT order to Bybit Perpetual for 1.000000 BTC-USDT 46000.0000."
                             in record.getMessage()
                             for record in self.log_records))
         failure_events = self.order_failure_logger.event_log
@@ -375,7 +374,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertTrue("C1" in self.connector.in_flight_orders)
         in_flight_order: BybitPerpetualInFlightOrder = self.connector.in_flight_orders["C1"]
         self.assertEqual(in_flight_order.position, PositionAction.CLOSE.name)
-        self.assertTrue(self._is_logged("INFO", "Created LIMIT BUY order C1 for 1 @ 8800 BTC-USDT."))
+        self.assertTrue(self._is_logged("INFO", "Created LIMIT BUY order C1 for BTC-USDT. Amount: 1 Price: 8800."))
 
     @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
     def test_create_order_open_position_action(self, post_mock):
@@ -436,7 +435,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertTrue("C1" in self.connector.in_flight_orders)
         in_flight_order: BybitPerpetualInFlightOrder = self.connector.in_flight_orders["C1"]
         self.assertEqual(in_flight_order.position, PositionAction.OPEN.name)
-        self.assertTrue(self._is_logged("INFO", "Created LIMIT BUY order C1 for 1 @ 8800 BTC-USDT."))
+        self.assertTrue(self._is_logged("INFO", "Created LIMIT BUY order C1 for BTC-USDT. Amount: 1 Price: 8800."))
 
     @patch('hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils.get_tracking_nonce')
     @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
@@ -2148,7 +2147,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         for key in self.connector._account_positions:
             position = self.connector._account_positions[key]
             self.assertEqual(position.position_side, PositionSide.SHORT)
-            self.assertEqual(position.amount, 11)
+            self.assertEqual(position.amount, Decimal("-11.0"))
             self.assertEqual(position.leverage, 1)
             self.assertEqual(position.entry_price, Decimal('6907.291588174717'))
 

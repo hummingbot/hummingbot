@@ -111,6 +111,7 @@ class BybitPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
 
                 async for msg in ws.iter_messages():
                     self._last_recv_time = int(time.time())
+                    # Handles ping and subscribe messages.
                     if "success" in msg:
                         if msg["success"] and msg["request"]["op"] == "ping":
                             continue

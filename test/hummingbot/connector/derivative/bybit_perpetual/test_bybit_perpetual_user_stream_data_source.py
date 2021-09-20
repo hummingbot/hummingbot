@@ -92,7 +92,9 @@ class BybitPerpetualUserStreamDataSourceTests(TestCase):
 
         self.assertTrue(self._is_logged('INFO', "Authenticating to User Stream..."))
         self.assertTrue(self._is_logged('INFO', "Successfully authenticated to User Stream."))
-        self.assertTrue(self._is_logged('INFO', "Successfully subscribed to user events."))
+        self.assertTrue(self._is_logged('INFO', "Successful subscription to the topic ['position'] on test_url"))
+        self.assertTrue(self._is_logged("INFO", "Successful subscription to the topic ['order'] on test_url"))
+        self.assertTrue(self._is_logged("INFO", "Successful subscription to the topic ['execution'] on test_url"))
 
         sent_messages = self.mocking_assistant.json_messages_sent_through_websocket(ws_connect_mock.return_value)
         self.assertEqual(4, len(sent_messages))
