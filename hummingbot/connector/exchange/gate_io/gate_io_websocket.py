@@ -1,9 +1,10 @@
 #!/usr/bin/env python
-import asyncio
 import logging
-import websockets
 import json
 import time
+
+import aiohttp
+
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 
 
@@ -14,15 +15,11 @@ from typing import (
     List,
     Optional,
 )
-from websockets.exceptions import ConnectionClosed
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
 from hummingbot.connector.exchange.gate_io.gate_io_utils import (
     GateIoAPIError,
 )
-
-# reusable websocket class
-# ToDo: We should eventually remove this class, and instantiate web socket connection normally (see Binance for example)
 
 
 class GateIoWebsocket:
@@ -37,85 +34,82 @@ class GateIoWebsocket:
     def __init__(self,
                  auth: Optional[GateIoAuth] = None):
         self._auth: Optional[GateIoAuth] = auth
-        self._isPrivate = True if self._auth is not None else False
+        self._is_private = True if self._auth is not None else False
         self._WS_URL = CONSTANTS.WS_URL
-        self._client: Optional[websockets.WebSocketClientProtocol] = None
-        self._is_subscribed = False
-
-    @property
-    def is_subscribed(self):
-        return self._is_subscribed
+        self._session = aiohttp.ClientSession()
+        self._client: Optional[aiohttp.ClientWebSocketResponse] = None
+        self._closed = True
 
     # connect to exchange
     async def connect(self):
-        self._client = await websockets.connect(self._WS_URL)
-
+        self._client = await self._session.ws_connect(
+            self._WS_URL, autoping=True, heartbeat=CONSTANTS.MESSAGE_TIMEOUT
+        )
+        self._closed = False
         return self._client
 
     # disconnect from exchange
     async def disconnect(self):
         if self._client is None:
             return
-
+        self._closed = True
         await self._client.close()
+        self._client = None
 
     # receive & parse messages
     async def _messages(self) -> AsyncIterable[Any]:
         try:
             while True:
                 try:
-                    raw_msg_str: str = await asyncio.wait_for(self._client.recv(), timeout=CONSTANTS.MESSAGE_TIMEOUT)
-                    try:
-                        msg = json.loads(raw_msg_str)
+                    msg = await self._client.receive()
+                    if msg.type == aiohttp.WSMsgType.CLOSED:  # happens on ping-pong timeout or ws.close()
+                        raise ConnectionError
 
-                        # Raise API error for login failures.
-                        if msg.get('error', None) is not None:
-                            err_msg = msg.get('error', {}).get('message', msg['error'])
-                            raise GateIoAPIError({"label": "WSS_ERROR", "message": f"Error received via websocket - {err_msg}."})
+                    data = json.loads(msg.data)
+                    # Raise API error for login failures.
+                    if data.get('error', None) is not None:
+                        err_msg = data.get('error', {}).get('message', data['error'])
+                        raise GateIoAPIError(
+                            {'label': 'WSS_ERROR', 'message': f'Error received via websocket - {err_msg}.'}
+                        )
 
-                        # Filter subscribed/unsubscribed messages
-                        msg_event = msg.get('event')
-                        if msg_event in ['subscribe', 'unsubscribe']:
-                            msg_status = msg.get('result', {}).get('status')
-                            if msg_event == 'subscribe' and msg_status == 'success':
-                                self._is_subscribed = True
-                            elif msg_event == 'unsubscribe' and msg_status == 'success':
-                                self._is_subscribed = False
-                            yield None
-                        else:
-                            yield msg
-
-                    except ValueError:
+                    # Filter subscribed/unsubscribed messages
+                    msg_event = data.get('event')
+                    if msg_event in ['subscribe', 'unsubscribe']:
                         continue
-                except asyncio.TimeoutError:
-                    await asyncio.wait_for(self._client.ping(), timeout=CONSTANTS.PING_TIMEOUT)
-        except asyncio.TimeoutError:
-            self.logger().warning("WebSocket ping timed out. Going to reconnect...")
-            return
-        except ConnectionClosed:
+                    else:
+                        yield data
+
+                except ValueError:
+                    continue
+        except ConnectionError:
+            if not self._closed:
+                self.logger().warning('The websocket connection was unexpectedly closed.')
             return
         finally:
             await self.disconnect()
 
     # emit messages
-    async def _emit(self, channel: str, data: Optional[Dict[str, Any]] = {}, no_id: bool = False) -> int:
+    async def _emit(self, channel: str, data: Optional[Dict[str, Any]] = None, no_id: bool = False) -> int:
+        data = data or {}
         payload = {
-            "time": int(time.time()),
-            "channel": channel,
+            'time': int(time.time()),
+            'channel': channel,
             **data,
         }
 
         # if auth class was passed into websocket class
         # we need to emit authenticated requests
-        if self._isPrivate:
+        if self._is_private:
             payload['auth'] = self._auth.generate_auth_dict_ws(payload)
 
-        await self._client.send(json.dumps(payload))
+        await self._client.send_json(payload)
 
         return payload['time']
 
     # request via websocket
-    async def request(self, channel: str, data: Optional[Dict[str, Any]] = {}) -> int:
+    async def request(self, channel: str, data: Optional[Dict[str, Any]] = None) -> int:
+        data = data or {}
         return await self._emit(channel, data)
 
     # subscribe to a channel

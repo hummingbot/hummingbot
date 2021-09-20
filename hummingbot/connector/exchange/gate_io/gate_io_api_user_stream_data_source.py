@@ -67,10 +67,6 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
             async for msg in self._ws.on_message():
                 self._last_recv_time = time.time()
 
-                if msg is None:
-                    # Skip empty subscribed/unsubscribed messages
-                    continue
-
                 if msg.get("result", None) is None:
                     continue
                 elif msg.get("channel", None) in user_channels:
@@ -78,7 +74,8 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
         except Exception as e:
             raise e
         finally:
-            await self._ws.disconnect()
+            if self._ws is not None:
+                await self._ws.disconnect()
             await asyncio.sleep(5)
 
     async def listen_for_user_stream(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):

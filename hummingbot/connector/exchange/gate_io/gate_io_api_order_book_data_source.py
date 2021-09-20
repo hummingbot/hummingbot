@@ -110,6 +110,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         Listen for trades using websocket trade channel
         """
+        ws = None
         while True:
             try:
                 ws = GateIoWebsocket()
@@ -119,10 +120,6 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                    [convert_to_exchange_trading_pair(pair) for pair in self._trading_pairs])
 
                 async for response in ws.on_message():
-                    if response is None:
-                        # Skip empty subscribed/unsubscribed messages
-                        continue
-
                     method: str = response.get("channel", None)
                     trade_data: Dict[Any] = response.get("result", None)
 
@@ -147,12 +144,14 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self.logger().error("Unexpected error.", exc_info=True)
                 await asyncio.sleep(5.0)
             finally:
-                await ws.disconnect()
+                if ws is not None:
+                    await ws.disconnect()
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
         """
         Listen for orderbook diffs using websocket book channel
         """
+        ws = None
         while True:
             try:
                 ws = GateIoWebsocket()
@@ -170,10 +169,6 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                        [convert_to_exchange_trading_pair(pair), '100ms'])
 
                 async for response in ws.on_message():
-                    if response is None:
-                        # Skip empty subscribed/unsubscribed messages
-                        continue
-
                     channel: str = response.get("channel", None)
                     order_book_data: str = response.get("result", None)
 
@@ -202,7 +197,8 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                     "Check network connection.")
                 await asyncio.sleep(30.0)
             finally:
-                await ws.disconnect()
+                if ws is not None:
+                    await ws.disconnect()
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
         """
