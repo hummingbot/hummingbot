@@ -219,6 +219,28 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         self.assertEqual(Decimal("101"), proposal.spot_side.order_price)
         self.assertEqual(Decimal("98"), proposal.perp_side.order_price)
 
+    def test_check_budget_available(self):
+        self.spot_connector.set_balance(self.base_asset, 0)
+        self.spot_connector.set_balance(self.quote_asset, 0)
+        self.perp_connector.set_balance(self.base_asset, 0)
+        self.perp_connector.set_balance(self.quote_asset, 10)
+        # Since spot has 0 HBOT and 0 USDT, not enough to do any trade
+        self.assertFalse(self.strategy.check_budget_available())
+
+        self.spot_connector.set_balance(self.base_asset, 10)
+        self.spot_connector.set_balance(self.quote_asset, 10)
+        self.perp_connector.set_balance(self.base_asset, 10)
+        self.perp_connector.set_balance(self.quote_asset, 0)
+        # Since perp has 0, not enough to do any trade
+        self.assertFalse(self.strategy.check_budget_available())
+
+        self.spot_connector.set_balance(self.base_asset, 10)
+        self.spot_connector.set_balance(self.quote_asset, 10)
+        self.perp_connector.set_balance(self.base_asset, 10)
+        self.perp_connector.set_balance(self.quote_asset, 10)
+        # All assets are available
+        self.assertTrue(self.strategy.check_budget_available())
+
     def test_check_budget_constraint(self):
         proposal = ArbProposal(ArbProposalSide(self.spot_market_info, False, Decimal("100")),
                                ArbProposalSide(self.perp_market_info, True, Decimal("100")),
