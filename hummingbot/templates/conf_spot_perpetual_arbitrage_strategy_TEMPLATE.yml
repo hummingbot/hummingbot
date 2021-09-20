@@ -36,4 +36,4 @@ spot_market_slippage_buffer: null
 perpetual_market_slippage_buffer: null
 
 # cool off period between arbitrage cycles
-next_arbitrage_cycle_delay: null
+next_arbitrage_opening_delay: null
