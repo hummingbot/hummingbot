@@ -60,7 +60,7 @@ dependencies:
     - 0x-order-utils==4.0.0
     - aioconsole==0.1.15
     - aiohttp==3.6.2
-    - aiokafka==0.5.2
+    - aiokafka==0.7.1
     - aioresponses==0.7.2
     - altgraph==0.17
     - appdirs==1.4.3
@@ -116,13 +116,10 @@ dependencies:
     - jinja2==3.0.1
     - jinja2-pluralize==0.3.0
     - jsonschema==3.2.0
-    - kafka-python==1.4.6
+    - kafka-python==2.0.0
     - lru-dict==1.1.6
-    - markdown==3.0.1
     - markupsafe==2.0.1
     - mccabe==0.6.1
-    - mkdocs==1.0.4
-    - mkdocs-material==4.6
     - more-itertools==8.8.0
     - mpmath==1.0.0
     - multiaddr==0.0.9
@@ -149,7 +146,6 @@ dependencies:
     - pyhamcrest==2.0.2
     - pyinstaller==3.6
     - pyjwt==1.7.1
-    - pymdown-extensions==6.2
     - pyopenssl==19.1.0
     - pyparsing==2.4.7
     - pyperclip==1.7.0
@@ -158,7 +154,6 @@ dependencies:
     - pysha3==1.0.2
     - pytest==4.6.11
     - python-binance==0.7.5
-    - python-markdown-math==0.6
     - python-telegram-bot==12.4.2
     - pywin32==227
     - pywin32-ctypes==0.2.0
@@ -191,5 +186,5 @@ dependencies:
     - zipp==3.5.0
     - zope-interface==4.7.1
     - git+https://github.com/CoinAlpha/python-signalr-client.git
-    - https://hummingbot-python.s3.us-west-2.amazonaws.com/hummingsim-20210607-cp38-cp38-win_amd64.whl
+    - https://hummingbot-python.s3.us-west-2.amazonaws.com/hummingsim-20210816-cp38-cp38-win_amd64.whl
 prefix: C:\Users\marti\Anaconda3\envs\hummingbot

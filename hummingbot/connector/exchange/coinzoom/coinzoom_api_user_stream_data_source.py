@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 import time
 import asyncio
 import logging
@@ -8,6 +7,8 @@ from typing import (
     List,
     Optional,
 )
+
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 from .coinzoom_constants import Constants
@@ -26,7 +27,8 @@ class CoinzoomAPIUserStreamDataSource(UserStreamTrackerDataSource):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, coinzoom_auth: CoinzoomAuth, trading_pairs: Optional[List[str]] = []):
+    def __init__(self, throttler: AsyncThrottler, coinzoom_auth: CoinzoomAuth, trading_pairs: Optional[List[str]] = []):
+        self._throttler: AsyncThrottler = throttler
         self._coinzoom_auth: CoinzoomAuth = coinzoom_auth
         self._ws: CoinzoomWebsocket = None
         self._trading_pairs = trading_pairs
@@ -48,7 +50,7 @@ class CoinzoomAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
 
         try:
-            self._ws = CoinzoomWebsocket(self._coinzoom_auth)
+            self._ws = CoinzoomWebsocket(throttler=self._throttler, auth=self._coinzoom_auth)
 
             await self._ws.connect()
 
