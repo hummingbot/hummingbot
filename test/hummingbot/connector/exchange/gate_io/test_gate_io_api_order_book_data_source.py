@@ -205,47 +205,47 @@ class TestGateIoAPIOrderBookDataSource(unittest.TestCase):
 
         self.assertTrue(isinstance(ret, OrderBook))
 
-    @patch("websockets.connect", new_callable=AsyncMock)
+    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_trades(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         resp = self.get_trade_data_mock()
-        self.mocking_assistant.add_websocket_text_message(
-            websocket_mock=ws_connect_mock.return_value, message=json.dumps(resp)
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            ws_connect_mock.return_value, json.dumps(resp)
         )
         output_queue = asyncio.Queue()
 
         self.ev_loop.create_task(self.data_source.listen_for_trades(self.ev_loop, output_queue))
-        self.mocking_assistant.run_until_all_text_messages_delivered(websocket_mock=ws_connect_mock.return_value)
+        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(websocket_mock=ws_connect_mock.return_value)
 
         self.assertTrue(not output_queue.empty())
         self.assertTrue(isinstance(output_queue.get_nowait(), OrderBookMessage))
 
-    @patch("websockets.connect", new_callable=AsyncMock)
+    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_order_book_diffs_update(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         resp = self.get_order_book_update_mock()
-        self.mocking_assistant.add_websocket_text_message(
-            websocket_mock=ws_connect_mock.return_value, message=json.dumps(resp)
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            ws_connect_mock.return_value, json.dumps(resp)
         )
         output_queue = asyncio.Queue()
 
         self.ev_loop.create_task(self.data_source.listen_for_order_book_diffs(self.ev_loop, output_queue))
-        self.mocking_assistant.run_until_all_text_messages_delivered(websocket_mock=ws_connect_mock.return_value)
+        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(websocket_mock=ws_connect_mock.return_value)
 
         self.assertTrue(not output_queue.empty())
         self.assertTrue(isinstance(output_queue.get_nowait(), OrderBookMessage))
 
-    @patch("websockets.connect", new_callable=AsyncMock)
+    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_order_book_diffs_snapshot(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         resp = self.get_order_book_snapshot_mock()
-        self.mocking_assistant.add_websocket_text_message(
-            websocket_mock=ws_connect_mock.return_value, message=json.dumps(resp)
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            ws_connect_mock.return_value, json.dumps(resp)
         )
         output_queue = asyncio.Queue()
 
         self.ev_loop.create_task(self.data_source.listen_for_order_book_diffs(self.ev_loop, output_queue))
-        self.mocking_assistant.run_until_all_text_messages_delivered(websocket_mock=ws_connect_mock.return_value)
+        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(websocket_mock=ws_connect_mock.return_value)
 
         self.assertTrue(not output_queue.empty())
         self.assertTrue(isinstance(output_queue.get_nowait(), OrderBookMessage))
