@@ -15,15 +15,15 @@ class BybitPerpetualAuth():
         self._api_key: str = api_key
         self._secret_key: str = secret_key
 
-    def get_expiration_timestamp(self):
-        return str(int((time.time() + 1) * 1e3))
+    def get_timestamp(self):
+        return str(int(time.time() * 1e3))
 
     def get_ws_auth_payload(self) -> Dict[str, Any]:
         """
         Generates a dictionary with all required information for the authentication process
         :return: a dictionary of authentication info including the request signature
         """
-        expires = self.get_expiration_timestamp()
+        expires = self.get_timestamp()
         raw_signature = 'GET/realtime' + expires
         signature = hmac.new(self._secret_key.encode('utf-8'), raw_signature.encode('utf-8'), hashlib.sha256).hexdigest()
         auth_info = [self._api_key, expires, signature]
@@ -40,7 +40,7 @@ class BybitPerpetualAuth():
         }
 
     def extend_params_with_authentication_info(self, params: Dict[str, Any]):
-        params["timestamp"] = str(int(time.time() * 1e3))
+        params["timestamp"] = self.get_timestamp()
         params["api_key"] = self._api_key
         key_value_elements = []
         for key, value in sorted(params.items()):
