@@ -109,31 +109,31 @@ class TestGateIoAPIOrderBookDataSource(unittest.TestCase):
         }
         return user_balance
 
-    @patch("websockets.connect", new_callable=AsyncMock)
+    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_user_stream_user_trades(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         output_queue = asyncio.Queue()
         self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, output_queue))
 
         resp = self.get_user_trades_mock()
-        self.mocking_assistant.add_websocket_text_message(
-            websocket_mock=ws_connect_mock.return_value, message=json.dumps(resp)
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            ws_connect_mock.return_value, json.dumps(resp)
         )
         ret = self.async_run_with_timeout(coroutine=output_queue.get())
 
         self.assertEqual(ret, resp)
 
         resp = self.get_user_orders_mock()
-        self.mocking_assistant.add_websocket_text_message(
-            websocket_mock=ws_connect_mock.return_value, message=json.dumps(resp)
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            ws_connect_mock.return_value, json.dumps(resp)
         )
         ret = self.async_run_with_timeout(coroutine=output_queue.get())
 
         self.assertEqual(ret, resp)
 
         resp = self.get_user_balance_mock()
-        self.mocking_assistant.add_websocket_text_message(
-            websocket_mock=ws_connect_mock.return_value, message=json.dumps(resp)
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            ws_connect_mock.return_value, json.dumps(resp)
         )
         ret = self.async_run_with_timeout(coroutine=output_queue.get())
 
