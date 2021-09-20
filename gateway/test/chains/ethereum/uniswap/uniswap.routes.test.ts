@@ -1,8 +1,8 @@
 import express from 'express';
 import { Express } from 'express-serve-static-core';
 import request from 'supertest';
-import { UniswapRoutes } from '../../../src/chains/ethereum/uniswap/uniswap.routes';
-import { ConfigManager } from '../../../src/services/config-manager';
+import { UniswapRoutes } from '../../../../src/chains/ethereum/uniswap/uniswap.routes';
+import { ConfigManager } from '../../../../src/services/config-manager';
 
 let app: Express;
 
