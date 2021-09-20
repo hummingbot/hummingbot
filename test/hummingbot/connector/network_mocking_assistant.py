@@ -1,7 +1,9 @@
 import asyncio
 import functools
 from collections import defaultdict, deque
+
 from unittest.mock import PropertyMock, AsyncMock
+import aiohttp
 
 
 class NetworkMockingAssistant:
@@ -16,8 +18,10 @@ class NetworkMockingAssistant:
 
         self._incoming_websocket_json_queues = defaultdict(asyncio.Queue)
         self._incoming_websocket_text_queues = defaultdict(asyncio.Queue)
+        self._incoming_websocket_aiohttp_queues = defaultdict(asyncio.Queue)
         self._sent_websocket_json_messages = defaultdict(list)
         self._sent_websocket_text_messages = defaultdict(list)
+        self._sent_websocket_aiohttp_messages = defaultdict(list)
 
         self._final_message = 'FinalDummyMessage'
         self._all_ws_delivered = asyncio.Event()
@@ -75,6 +79,12 @@ class NetworkMockingAssistant:
             self._all_ws_delivered.set()
         return message
 
+    async def _get_next_websocket_aiohttp_message(self, websocket_mock, *args, **kwargs):
+        message = await self._incoming_websocket_aiohttp_queues[websocket_mock].get()
+        if message == self._final_message:
+            self._all_ws_delivered.set()
+        return message
+
     async def _get_next_websocket_text_message(self, websocket_mock, *args, **kwargs):
         message = await self._incoming_websocket_text_queues[websocket_mock].get()
         if message == self._final_message:
@@ -86,6 +96,7 @@ class NetworkMockingAssistant:
         ws.send_json.side_effect = lambda sent_message: self._sent_websocket_json_messages[ws].append(sent_message)
         ws.send.side_effect = lambda sent_message: self._sent_websocket_text_messages[ws].append(sent_message)
         ws.receive_json.side_effect = self.async_partial(self._get_next_websocket_json_message, ws)
+        ws.receive.side_effect = self.async_partial(self._get_next_websocket_aiohttp_message, ws)
         ws.recv.side_effect = self.async_partial(self._get_next_websocket_text_message, ws)
         return ws
 
@@ -95,11 +106,20 @@ class NetworkMockingAssistant:
     def add_websocket_text_message(self, websocket_mock, message):
         self._incoming_websocket_text_queues[websocket_mock].put_nowait(message)
 
+    def add_websocket_aiohttp_message(
+        self, websocket_mock, message, message_type: aiohttp.WSMsgType = aiohttp.WSMsgType.TEXT
+    ):
+        msg = aiohttp.WSMessage(message_type, message, extra=None)
+        self._incoming_websocket_aiohttp_queues[websocket_mock].put_nowait(msg)
+
     def json_messages_sent_through_websocket(self, websocket_mock):
         return self._sent_websocket_json_messages[websocket_mock]
 
     def text_messages_sent_through_websocket(self, websocket_mock):
         return self._sent_websocket_text_messages[websocket_mock]
+
+    def aiohttp_messages_sent_through_websocket(self, websocket_mock):
+        return self._sent_websocket_aiohttp_messages[websocket_mock]
 
     def run_until_all_text_messages_delivered(self, websocket_mock, timeout: int = 1):
         self._incoming_websocket_text_queues[websocket_mock].put_nowait(self._final_message)
@@ -107,4 +127,8 @@ class NetworkMockingAssistant:
 
     def run_until_all_json_messages_delivered(self, websocket_mock, timeout: int = 1):
         self._incoming_websocket_json_queues[websocket_mock].put_nowait(self._final_message)
+        self._ev_loop.run_until_complete(asyncio.wait_for(self._all_ws_delivered.wait(), timeout))
+
+    def run_until_all_aiohttp_messages_delivered(self, websocket_mock, timeout: int = 1):
+        self._incoming_websocket_aiohttp_queues[websocket_mock].put_nowait(self._final_message)
         self._ev_loop.run_until_complete(asyncio.wait_for(self._all_ws_delivered.wait(), timeout))
