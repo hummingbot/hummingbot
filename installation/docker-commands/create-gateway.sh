@@ -168,7 +168,7 @@ prompt_eth_gasstation_setup () {
   read -p "   Enable dynamic Ethereum gas price lookup? [Y/N] (default = \"Y\") >>> " PROCEED
   if [[ "$PROCEED" == "Y" || "$PROCEED" == "y" || "$PROCEED" == "" ]]
   then
-    ENABLE_ETH_GAS_STATION=true
+    ETH_GAS_STATION_ENABLE=true
     read -p "   Enter API key for Eth Gas Station (https://ethgasstation.info/) >>> " ETH_GAS_STATION_API_KEY
     if [ "$ETH_GAS_STATION_API_KEY" == "" ]
     then
@@ -187,7 +187,7 @@ prompt_eth_gasstation_setup () {
   else
     if [[ "$PROCEED" == "N" || "$PROCEED" == "n" ]]
     then
-      ENABLE_ETH_GAS_STATION=false
+      ETH_GAS_STATION_ENABLE=false
       ETH_GAS_STATION_API_KEY=null
       ETH_GAS_STATION_GAS_LEVEL=fast
       ETH_GAS_STATION_REFRESH_TIME=60
@@ -334,8 +334,8 @@ printf "%30s %5s\n" "Hummingbot Instance ID:" "$HUMMINGBOT_INSTANCE_ID"
 printf "%30s %5s\n" "Ethereum Chain:" "$ETHEREUM_CHAIN"
 printf "%30s %5s\n" "Ethereum RPC URL:" "$ETHEREUM_RPC_URL"
 printf "%30s %5s\n" "Ethereum Token List URL:" "$ETHEREUM_TOKEN_LIST_URL"
-printf "%30s %5s\n" "Manual Gas Price:" "$MANUAL_GAS_PRICE"
-printf "%30s %5s\n" "Enable Eth Gas Station:" "$ENABLE_ETH_GAS_STATION"
+printf "%30s %5s\n" "Manual Gas Price:" "$ETH_MANUAL_GAS_PRICE"
+printf "%30s %5s\n" "Enable Eth Gas Station:" "$ETH_GAS_STATION_ENABLE"
 printf "%30s %5s\n" "Eth Gas Station API:" "$ETH_GAS_STATION_API_KEY"
 printf "%30s %5s\n" "Eth Gas Station Level:" "$ETH_GAS_STATION_GAS_LEVEL"
 printf "%30s %5s\n" "Eth Gas Station Refresh Interval:" "$ETH_GAS_STATION_REFRESH_TIME"
@@ -370,11 +370,11 @@ echo "ETHEREUM_CHAIN: $ETHEREUM_CHAIN" >> $ENV_FILE
 echo "ETHEREUM_RPC_URL: $ETHEREUM_RPC_URL" >> $ENV_FILE
 echo "ETHEREUM_TOKEN_LIST_URL: $ETHEREUM_TOKEN_LIST_URL" >> $ENV_FILE
 echo "" >> $ENV_FILE
-echo "ENABLE_ETH_GAS_STATION: $ENABLE_ETH_GAS_STATION" >> $ENV_FILE
+echo "ETH_GAS_STATION_ENABLE: $ETH_GAS_STATION_ENABLE" >> $ENV_FILE
 echo "ETH_GAS_STATION_API_KEY: $ETH_GAS_STATION_API_KEY" >> $ENV_FILE
 echo "ETH_GAS_STATION_GAS_LEVEL: $ETH_GAS_STATION_GAS_LEVEL" >> $ENV_FILE
 echo "ETH_GAS_STATION_REFRESH_TIME: $ETH_GAS_STATION_REFRESH_TIME" >> $ENV_FILE
-echo "MANUAL_GAS_PRICE: $MANUAL_GAS_PRICE" >> $ENV_FILE
+echo "ETH_MANUAL_GAS_PRICE: $ETH_MANUAL_GAS_PRICE" >> $ENV_FILE
 
 # balancer config
 echo "" >> $ENV_FILE
