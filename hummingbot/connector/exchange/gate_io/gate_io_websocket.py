@@ -72,13 +72,7 @@ class GateIoWebsocket:
                         raise GateIoAPIError(
                             {'label': 'WSS_ERROR', 'message': f'Error received via websocket - {err_msg}.'}
                         )
-
-                    # Filter subscribed/unsubscribed messages
-                    msg_event = data.get('event')
-                    if msg_event in ['subscribe', 'unsubscribe']:
-                        continue
-                    else:
-                        yield data
+                    yield data
 
                 except ValueError:
                     continue

@@ -142,6 +142,7 @@ class GateIoExchange(ExchangeBase):
         :return True when all statuses pass, this might take 5-10 seconds for all the connector's components and
         services to be ready.
         """
+        self.logger().debug(f"Ready: {self.status_dict}")
         return all(self.status_dict.values())
 
     @property

@@ -123,6 +123,8 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     method: str = response.get("channel", None)
                     trade_data: Dict[Any] = response.get("result", None)
 
+                    if response.get("event") in ["subscribe", "unsubscribe"]:
+                        continue
                     if trade_data is None or method != CONSTANTS.TRADES_ENDPOINT_NAME:
                         continue
 
@@ -172,6 +174,8 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     channel: str = response.get("channel", None)
                     order_book_data: str = response.get("result", None)
 
+                    if response.get("event") in ["subscribe", "unsubscribe"]:
+                        continue
                     if order_book_data is None or channel not in order_book_channels:
                         continue
 
