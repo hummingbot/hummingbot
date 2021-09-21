@@ -105,13 +105,13 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     if response.status == 200:
                         resp_json: Dict[str, Any] = await response.json()
 
-                    cls._trading_pair_symbol_map[domain] = {
-                        instrument["name"]: f"{instrument['base_currency']}-{instrument['quote_currency']}"
-                        for instrument in resp_json["result"]
-                        if (instrument["status"] == "Trading"
-                            and instrument["name"] == f"{instrument['base_currency']}{instrument['quote_currency']}"
-                            and bybit_perpetual_utils.is_linear_perpetual(f"{instrument['base_currency']}-{instrument['quote_currency']}"))
-                    }
+                        cls._trading_pair_symbol_map[domain] = {
+                            instrument["name"]: f"{instrument['base_currency']}-{instrument['quote_currency']}"
+                            for instrument in resp_json["result"]
+                            if (instrument["status"] == "Trading"
+                                and instrument["name"] == f"{instrument['base_currency']}{instrument['quote_currency']}"
+                                and bybit_perpetual_utils.is_linear_perpetual(f"{instrument['base_currency']}-{instrument['quote_currency']}"))
+                        }
 
     @classmethod
     async def trading_pair_symbol_map(cls, domain: Optional[str] = None):
