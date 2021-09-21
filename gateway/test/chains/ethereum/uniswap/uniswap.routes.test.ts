@@ -14,15 +14,17 @@ beforeAll(async () => {
 
 describe('POST /eth/uniswap/trade', () => {
   it('should return 200', async () => {
-    UniswapRoutes.ethereum.getWallet = jest.fn().mockReturnValue(() => {
-      address: '0x0000000000000000000';
+    // getWallet (network call)
+    UniswapRoutes.ethereum.getWallet = jest.fn().mockReturnValue({
+      address: '0x0000000000000000000',
     });
 
-    // prevent some network calls
+    // init (network call)
     UniswapRoutes.uniswap.init = jest.fn().mockReturnValue(() => {
       return;
     });
 
+    // storedTokenList (network call)
     jest
       .spyOn(UniswapRoutes.ethereum, 'storedTokenList', 'get')
       .mockReturnValue([
@@ -41,6 +43,8 @@ describe('POST /eth/uniswap/trade', () => {
           decimals: 18,
         },
       ]);
+
+    // getTokenBySymbol (network call or read file)
     UniswapRoutes.ethereum.getTokenBySymbol = jest
       .fn()
       .mockReturnValue((symbol: string) => {
@@ -62,6 +66,8 @@ describe('POST /eth/uniswap/trade', () => {
           };
         }
       });
+
+    // priceSwapOut (network call)
     UniswapRoutes.uniswap.priceSwapOut = jest.fn().mockReturnValue({
       expectedAmount: { toSignificant: () => 100 },
       trade: {
@@ -73,26 +79,24 @@ describe('POST /eth/uniswap/trade', () => {
       },
     });
 
+    // gasPrice (network call)
     jest.spyOn(UniswapRoutes.ethereum, 'gasPrice', 'get').mockReturnValue(100);
 
+    // config (read config file)
     ConfigManager.config.UNISWAP_GAS_LIMIT = 150688;
     ConfigManager.config.ETHEREUM_CHAIN = 'kovan';
+
+    // getNonce (network call)
     UniswapRoutes.ethereum.nonceManager.getNonce = jest
       .fn()
-      .mockReturnValue(() => Promise.resolve(2));
-    UniswapRoutes.ethereum.approveERC20 = jest.fn().mockReturnValue(() => {
-      chainId: 42;
-      name: 'WETH';
-      symbol: 'WETH';
-      address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C';
-      decimals: 18;
-    });
+      .mockReturnValue(21);
 
+    // executeTrade (network call)
     UniswapRoutes.uniswap.executeTrade = jest
       .fn()
-      .mockReturnValue({ nonce: 1, hash: '000000000000000' });
+      .mockReturnValue({ nonce: 21, hash: '000000000000000' });
 
-    const res = await request(app)
+    await request(app)
       .post(`/eth/uniswap/trade`)
       .send({
         quote: 'DAI',
@@ -102,7 +106,10 @@ describe('POST /eth/uniswap/trade', () => {
         side: 'BUY',
         nonce: 21,
       })
-      .set('Accept', 'application/json');
-    expect(res.statusCode).toEqual(200);
+      .set('Accept', 'application/json')
+      .expect(200)
+      .then((res: any) => {
+        expect(res.body.nonce).toEqual(21);
+      });
   });
 });
