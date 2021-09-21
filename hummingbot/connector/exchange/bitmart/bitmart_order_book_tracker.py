@@ -10,10 +10,11 @@ from typing import Optional, Dict, List, Deque
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
-from . import bitmart_utils
+from hummingbot.connector.exchange.bitmart import bitmart_utils
 from hummingbot.connector.exchange.bitmart.bitmart_order_book_message import BitmartOrderBookMessage
 from hummingbot.connector.exchange.bitmart.bitmart_api_order_book_data_source import BitmartAPIOrderBookDataSource
 from hummingbot.connector.exchange.bitmart.bitmart_order_book import BitmartOrderBook
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 
 class BitmartOrderBookTracker(OrderBookTracker):
@@ -25,8 +26,8 @@ class BitmartOrderBookTracker(OrderBookTracker):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, trading_pairs: Optional[List[str]] = None,):
-        super().__init__(BitmartAPIOrderBookDataSource(trading_pairs), trading_pairs)
+    def __init__(self, throttler: Optional[AsyncThrottler] = None, trading_pairs: Optional[List[str]] = None):
+        super().__init__(BitmartAPIOrderBookDataSource(throttler, trading_pairs), trading_pairs)
 
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()

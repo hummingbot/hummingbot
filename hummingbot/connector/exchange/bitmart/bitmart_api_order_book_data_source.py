@@ -13,8 +13,9 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-from . import bitmart_utils
-from .bitmart_order_book import BitmartOrderBook
+from hummingbot.connector.exchange.bitmart import bitmart_utils
+from hummingbot.connector.exchange.bitmart.bitmart_order_book import BitmartOrderBook
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 
 class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
@@ -31,10 +32,15 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, trading_pairs: List[str] = None):
+    def __init__(self, throttler: Optional[AsyncThrottler] = None, trading_pairs: List[str] = None):
         super().__init__(trading_pairs)
-        self._trading_pairs: List[str] = trading_pairs
+        self._throttler = throttler or self._get_throttler_instance()
         self._snapshot_msg: Dict[str, any] = {}
+
+    @classmethod
+    def _get_throttler_instance(cls) -> AsyncThrottler:
+        throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        return throttler
 
     @classmethod
     async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:

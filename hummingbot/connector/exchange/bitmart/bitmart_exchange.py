@@ -43,9 +43,11 @@ from hummingbot.connector.exchange.bitmart.bitmart_in_flight_order import Bitmar
 from hummingbot.connector.exchange.bitmart import bitmart_utils
 from hummingbot.connector.exchange.bitmart import bitmart_constants as CONSTANTS
 from hummingbot.core.data_type.common import OpenOrder
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 ctce_logger = None
 s_decimal_NaN = Decimal("nan")
+s_decimal_0 = Decimal(0)
 
 
 class BitmartExchange(ExchangeBase):
@@ -82,9 +84,16 @@ class BitmartExchange(ExchangeBase):
         super().__init__()
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
-        self._bitmart_auth = BitmartAuth(bitmart_api_key, bitmart_secret_key, bitmart_memo)
-        self._order_book_tracker = BitmartOrderBookTracker(trading_pairs=trading_pairs)
-        self._user_stream_tracker = BitmartUserStreamTracker(self._bitmart_auth, trading_pairs)
+        self._bitmart_auth = BitmartAuth(api_key=bitmart_api_key,
+                                         secret_key=bitmart_secret_key,
+                                         memo=bitmart_memo)
+        self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        self._order_book_tracker = BitmartOrderBookTracker(
+            throttler=self._throttler, trading_pairs=trading_pairs
+        )
+        self._user_stream_tracker = BitmartUserStreamTracker(
+            throttler=self._throttler, bitmart_auth=self._bitmart_auth, trading_pairs=trading_pairs
+        )
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client = None
         self._poll_notifier = asyncio.Event()
@@ -320,29 +329,30 @@ class BitmartExchange(ExchangeBase):
         :param auth_type: Type of Authorization header to send in request, from {"SIGNED", "KEYED", None}
         :returns A response in json format.
         """
-        url = f"{CONSTANTS.REST_URL}/{path_url}"
-        client = await self._http_client()
+        async with self._throttler.execute_task(path_url):
+            url = f"{CONSTANTS.REST_URL}/{path_url}"
+            client = await self._http_client()
 
-        headers = self._bitmart_auth.get_headers(bitmart_utils.get_ms_timestamp(), params, auth_type)
+            headers = self._bitmart_auth.get_headers(bitmart_utils.get_ms_timestamp(), params, auth_type)
 
-        if method == "get":
-            response = await client.get(url, params=params, headers=headers)
-        elif method == "post":
-            post_json = json.dumps(params)
-            response = await client.post(url, data=post_json, headers=headers)
-        else:
-            raise NotImplementedError
+            if method == "get":
+                response = await client.get(url, params=params, headers=headers)
+            elif method == "post":
+                post_json = json.dumps(params)
+                response = await client.post(url, data=post_json, headers=headers)
+            else:
+                raise NotImplementedError
 
-        try:
-            parsed_response = json.loads(await response.text())
-        except Exception as e:
-            raise IOError(f"Error parsing data from {url}. Error: {str(e)}")
-        if response.status != 200:
-            raise IOError(f"Error calling {url}. HTTP status is {response.status}. "
-                          f"Message: {parsed_response['message']}")
-        if int(parsed_response["code"]) != 1000:
-            raise IOError(f"{url} API call failed, error message: {parsed_response['message']}")
-        return parsed_response
+            try:
+                parsed_response = json.loads(await response.text())
+            except Exception as e:
+                raise IOError(f"Error parsing data from {url}. Error: {str(e)}")
+            if response.status != 200:
+                raise IOError(f"Error calling {url}. HTTP status is {response.status}. "
+                              f"Message: {parsed_response['message']}")
+            if int(parsed_response["code"]) != 1000:
+                raise IOError(f"{url} API call failed, error message: {parsed_response['message']}")
+            return parsed_response
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal):
         """
@@ -423,26 +433,27 @@ class BitmartExchange(ExchangeBase):
             raise Exception(f"Unsupported order type: {order_type}")
         trading_rule = self._trading_rules[trading_pair]
 
-        amount = self.quantize_order_amount(trading_pair, amount)
-        price = self.quantize_order_price(trading_pair, price)
-        if amount < trading_rule.min_order_size:
-            raise ValueError(f"Buy order amount {amount} is lower than the minimum order size "
-                             f"{trading_rule.min_order_size}.")
-        api_params = {"symbol": bitmart_utils.convert_to_exchange_trading_pair(trading_pair),
-                      "side": trade_type.name.lower(),
-                      "type": "limit",
-                      "size": f"{amount:f}",
-                      "price": f"{price:f}"
-                      }
-        self.start_tracking_order(order_id,
-                                  None,
-                                  trading_pair,
-                                  trade_type,
-                                  price,
-                                  amount,
-                                  order_type
-                                  )
         try:
+            amount = self.quantize_order_amount(trading_pair, amount)
+            price = self.quantize_order_price(trading_pair, price)
+            if amount < trading_rule.min_order_size:
+                raise ValueError(f"Buy order amount {amount} is lower than the minimum order size "
+                                 f"{trading_rule.min_order_size}.")
+            api_params = {"symbol": bitmart_utils.convert_to_exchange_trading_pair(trading_pair),
+                          "side": trade_type.name.lower(),
+                          "type": "limit",
+                          "size": f"{amount:f}",
+                          "price": f"{price:f}"
+                          }
+            self.start_tracking_order(order_id,
+                                      None,
+                                      trading_pair,
+                                      trade_type,
+                                      price,
+                                      amount,
+                                      order_type
+                                      )
+
             order_result = await self._api_request("post", CONSTANTS.CREATE_ORDER_PATH_URL, api_params, "SIGNED")
             exchange_order_id = str(order_result["data"]["order_id"])
             tracked_order = self._in_flight_orders.get(order_id)

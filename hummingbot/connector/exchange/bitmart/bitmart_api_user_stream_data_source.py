@@ -10,8 +10,9 @@ import hummingbot.connector.exchange.bitmart.bitmart_constants as CONSTANTS
 from typing import Optional, List, AsyncIterable, Any, Dict
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-from .bitmart_auth import BitmartAuth
+from hummingbot.connector.exchange.bitmart.bitmart_auth import BitmartAuth
 from hummingbot.connector.exchange.bitmart import bitmart_utils
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 
 class BitmartAPIUserStreamDataSource(UserStreamTrackerDataSource):
@@ -27,14 +28,15 @@ class BitmartAPIUserStreamDataSource(UserStreamTrackerDataSource):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, bitmart_auth: BitmartAuth, trading_pairs: Optional[List[str]] = []):
+    def __init__(self, throttler: AsyncThrottler, bitmart_auth: BitmartAuth, trading_pairs: Optional[List[str]] = []):
+        super().__init__()
         self._bitmart_auth: BitmartAuth = bitmart_auth
         self._trading_pairs = trading_pairs
         self._websocket_client: websockets.WebSocketClientProtocol = None
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
         self._last_recv_time: float = 0
-        super().__init__()
+        self._throttler = throttler
 
     @property
     def last_recv_time(self) -> float:
