@@ -67,6 +67,8 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
             async for msg in self._ws.on_message():
                 self._last_recv_time = time.time()
 
+                if msg.get("event") in ["subscribe", "unsubscribe"]:
+                    continue
                 if msg.get("result", None) is None:
                     continue
                 elif msg.get("channel", None) in user_channels:
