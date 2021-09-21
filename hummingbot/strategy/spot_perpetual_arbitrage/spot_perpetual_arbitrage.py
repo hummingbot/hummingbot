@@ -174,7 +174,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         The main procedure for the arbitrage strategy.
         """
         print(self.current_timestamp)
-        self.update_strategy_stage()
+        self.update_strategy_state()
         if self._strategy_state in (StrategyState.Opening, StrategyState.Closing):
             return
         if self.strategy_state == StrategyState.Closed and not self.ready_to_open_new_arb_position():
@@ -206,7 +206,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
             return True
         return False
 
-    def update_strategy_stage(self):
+    def update_strategy_state(self):
         if self._strategy_state == StrategyState.Opening and len(self._completed_opening_order_ids) == 2 and \
                 self.perp_positions and self.perp_positions[0].amount == self._order_amount:
             self._strategy_state = StrategyState.Opened
