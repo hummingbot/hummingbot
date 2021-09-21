@@ -32,6 +32,7 @@ MARKET_DATA = None
 INVERSE_MARKET_LOOKUP = None
 NAME_LOOKUP = None
 
+
 def _populate_lookups():
     global MARKET_DATA
     global INVERSE_MARKET_LOOKUP
