@@ -106,7 +106,7 @@ class BitmartInFlightOrder(InFlightOrderBase):
         """
         if trade_update["last_fill_count"] == '0' or Decimal(trade_update["filled_size"]) <= self.executed_amount_base:
             return (0, 0, "")
-        trade_id = f'ws_{str(trade_update["last_fill_time"])}'
+        trade_id = f'ws_{str(bitmart_utils.get_ms_timestamp())}'
         self.trade_id_set.add(trade_id)
 
         executed_amount_base = Decimal(trade_update["filled_size"])

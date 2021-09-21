@@ -39,7 +39,6 @@ class BitmartInFlightOrderTests(TestCase):
         self.assertEqual(Decimal("1.1"), order.amount)
         self.assertEqual(Decimal("0"), order.executed_amount_base)
         self.assertEqual(Decimal("0"), order.executed_amount_quote)
-        self.assertEqual(order.quote_asset, order.fee_asset)
         self.assertEqual(Decimal("0"), order.fee_paid)
         self.assertEqual("OPEN", order.last_state)
 
@@ -99,29 +98,32 @@ class BitmartInFlightOrderTests(TestCase):
         order = BitmartInFlightOrder.from_json(self._example_json())
 
         trade_update_from_ws = {
-            "order_id": 1,
             "symbol": "BTC_USDT",
-            "create_time": 123,
             "side": "buy",
             "type": "limit",
-            "price": "35000.00",
-            "price_avg": "35000.00",
-            "size": "1.10000",
             "notional": "0.00000000",
-            "filled_notional": "10500.00",
-            "filled_size": "0.30000",
-            "status": "5"
+            "size": "1.10000",
+            "ms_t": "1609926028000",
+            "price": "35000.00",
+            "filled_notional": "21000.00",
+            "filled_size": "0.70000",
+            "margin_trading": "0",
+            "state": "5",
+            "order_id": "1",
+            "order_type": "0",
+            "last_fill_time": 125,
+            "last_fill_price": "30000.00",
+            "last_fill_count": "0.20000"
         }
 
-        (delta_trade_amount, delta_trade_price, trade_id) = order.update_with_trade_update_rest(trade_update_from_ws)
+        (delta_trade_amount, delta_trade_price, trade_id) = order.update_with_order_update_ws(trade_update_from_ws)
         self.assertNotEqual("", trade_id)
-        self.assertEqual(Decimal("0.30000") + Decimal(self._example_json()["executed_amount_base"]),
+        self.assertEqual(Decimal("0.20000") + Decimal(self._example_json()["executed_amount_base"]),
                          order.executed_amount_base)
-        self.assertEqual(Decimal("10500.00") + Decimal(self._example_json()["executed_amount_quote"]),
-                         order.executed_amount_quote)
+        self.assertEqual(Decimal("21000.00"), order.executed_amount_quote)
 
         repeated_trade_update_from_rest = {
-            "order_id": 1,
+            "order_id": "1",
             "symbol": "BTC_USDT",
             "create_time": 123,
             "side": "buy",

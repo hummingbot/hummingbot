@@ -1,5 +1,6 @@
-import hashlib
+import json
 import hmac
+import hashlib
 from unittest import TestCase
 
 from hummingbot.connector.exchange.bitmart.bitmart_auth import BitmartAuth
@@ -40,6 +41,7 @@ class BitmartAuthTests(TestCase):
         params = {'test_key': 'test_value'}
         headers = auth.get_headers(timestamp=timestamp, params=params, auth_type="SIGNED")
 
+        params = json.dumps(params)
         raw_signature = f'{timestamp}#{self.memo}#{params}'
         expected_signature = hmac.new(self.secret_key.encode('utf-8'),
                                       raw_signature.encode('utf-8'),
@@ -54,7 +56,7 @@ class BitmartAuthTests(TestCase):
     def test_ws_auth_payload(self):
         auth = BitmartAuth(api_key=self.api_key, secret_key=self.secret_key, memo=self.memo)
         timestamp = '1589793795969'
-        auth_info = auth.get_ws_auth_payload()
+        auth_info = auth.get_ws_auth_payload(timestamp=timestamp)
 
         raw_signature = f'{timestamp}#{self.memo}#bitmart.WebSocket'
         expected_signature = hmac.new(self.secret_key.encode('utf-8'),
