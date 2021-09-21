@@ -28,11 +28,10 @@ from hummingbot.core.event.events import (
     TradeFee
 )
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.connector.connector.balancer.balancer_in_flight_order import BalancerInFlightOrder
+from hummingbot.connector.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.utils.ethereum import check_transaction_exceptions, fetch_trading_pairs
-from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 
 s_logger = None
 s_decimal_0 = Decimal("0")
@@ -53,20 +52,18 @@ class GatewayBase(ConnectorBase):
     def logger(cls) -> HummingbotLogger:
         global s_logger
         if s_logger is None:
-            s_logger = logging.getLogger(__name__)
+            s_logger = logging.getLogger(cls.__name__)
         return s_logger
 
     def __init__(self,
                  trading_pairs: List[str],
                  wallet_private_key: str,
-                 trading_required: bool = True,
-                 should_call_start_endpoint: bool = False
+                 trading_required: bool = True
                  ):
         """
         :param trading_pairs: a list of trading pairs
         :param wallet_private_key: a private key for eth wallet
         :param trading_required: Whether actual trading is needed. Useful for some functionalities or commands like the balance command
-        :param should_call_start_endpoint: used to know if it's required to call start endpoint
         """
         super().__init__()
         self._trading_pairs = trading_pairs
@@ -75,7 +72,6 @@ class GatewayBase(ConnectorBase):
             self._tokens.update(set(trading_pair.split("-")))
         self._wallet_private_key = wallet_private_key
         self._trading_required = trading_required
-        self._should_call_start_endpoint = should_call_start_endpoint
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client = None
         self._last_poll_timestamp = 0.0
@@ -83,9 +79,11 @@ class GatewayBase(ConnectorBase):
         self._last_est_gas_cost_reported = 0
         self._in_flight_orders = {}
         self._allowances = {}
+        self._chain_info = {}
         self._status_polling_task = None
         self._auto_approve_task = None
         self._initiate_pool_task = None
+        self._get_chain_info_task = None
         self._initiate_pool_status = None
         self._poll_notifier = None
 
@@ -94,7 +92,7 @@ class GatewayBase(ConnectorBase):
         raise NotImplementedError
 
     @property
-    def default_path(self):
+    def base_path(self):
         raise NotImplementedError
 
     @staticmethod
@@ -108,13 +106,17 @@ class GatewayBase(ConnectorBase):
             for in_flight_order in self._in_flight_orders.values()
         ]
 
-    async def initiate_pool(self) -> str:
+    def is_pending_approval(self, token: str) -> bool:
+        pending_approval_tokens = [tk.split("_")[2] for tk in self._in_flight_orders.keys()]
+        return True if token in pending_approval_tokens else False
+
+    async def initiate_pool(self):
         """
         Basically calls a start endpoint which might be used on the gateway to initiate cache pools or get basic info about protocol.
         """
         try:
-            self.logger().info(f"Initializing Balancer connector and caching pools for {self._trading_pairs}.")
-            resp = await self._api_request("get", f"{self.default_path}/start",
+            self.logger().info(f"Initializing {self.name} connector and caching for {self._trading_pairs} on Gateway.")
+            resp = await self._api_request("get", f"{self.base_path}/start",
                                            {"pairs": json.dumps(self._trading_pairs)})
             status = bool(str(resp["success"]))
             if bool(str(resp["success"])):
@@ -128,6 +130,23 @@ class GatewayBase(ConnectorBase):
                 app_warning_msg=str(e)
             )
 
+    async def get_chain_info(self):
+        """
+        Calls the base endpoint of the connector on Gateway to know basic info about chain being used.
+        """
+        try:
+            resp = await self._api_request("get", f"{self.base_path}/")
+            if bool(str(resp["success"])):
+                self._chain_info = resp
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self.logger().network(
+                "Error fetching chain info",
+                exc_info=True,
+                app_warning_msg=str(e)
+            )
+
     async def auto_approve(self):
         """
         Automatically approves trading pair tokens for contract(s).
@@ -136,30 +155,29 @@ class GatewayBase(ConnectorBase):
         self.logger().info("Checking for allowances...")
         self._allowances = await self.get_allowances()
         for token, amount in self._allowances.items():
-            if amount <= s_decimal_0:
-                amount_approved = await self.approve_token(token)
-                # To-do: rework to treat approvals as transactions they are.
-                if amount_approved > 0:
-                    self._allowances[token] = amount_approved
-                    await asyncio.sleep(2)
-                else:
-                    break
+            if amount <= s_decimal_0 and not self.is_pending_approval(token):
+                await self.approve_token(token)
 
-    async def approve_token(self, token_symbol: str) -> Decimal:
+    async def approve_token(self, token_symbol: str):
         """
         Approves contract as a spender for a token.
         :param token_symbol: token to approve.
         """
+        order_id = f"approve_{self.name}_{token_symbol}"
         resp = await self._api_request("post",
                                        "eth/approve",
                                        {"token": token_symbol,
                                         "connector": self.name})
-        amount_approved = Decimal(str(resp["amount"]))
-        if amount_approved > 0:
-            self.logger().info(f"Approved {self.name} spender contract for {token_symbol}.")
+        self.start_tracking_order(order_id, None, token_symbol)
+
+        if "hash" in resp.get("approval", {}).keys():
+            hash = resp["approval"]["hash"]
+            tracked_order = self._in_flight_orders.get(order_id)
+            tracked_order.update_exchange_order_id(hash)
+            self.logger().info(f"Maximum {token_symbol} approval for {self.name} contract sent, hash: {hash}.")
         else:
-            self.logger().info(f"{self.name} spender contract approval failed on {token_symbol}.")
-        return amount_approved
+            self.stop_tracking_order(order_id)
+            self.logger().info(f"Approval for {token_symbol} on {self.name} failed.")
 
     async def get_allowances(self) -> Dict[str, Decimal]:
         """
@@ -188,7 +206,7 @@ class GatewayBase(ConnectorBase):
             base, quote = trading_pair.split("-")
             side = "buy" if is_buy else "sell"
             resp = await self._api_request("post",
-                                           f"{self.default_path}/price",
+                                           f"{self.base_path}/price",
                                            {"base": base,
                                             "quote": quote,
                                             "amount": amount,
@@ -222,9 +240,6 @@ class GatewayBase(ConnectorBase):
                     self.logger().info(f"Warning! [{index+1}/{len(exceptions)}] {side} order - {exceptions[index]}")
 
                 if price is not None and len(exceptions) == 0:
-                    # TODO standardize quote price object to include price, fee, token, is fee part of quote.
-                    fee_overrides_config_map[f"{self.name}_maker_fee_amount"].value = Decimal(str(gas_cost))
-                    fee_overrides_config_map[f"{self.name}_taker_fee_amount"].value = Decimal(str(gas_cost))
                     return Decimal(str(price))
         except asyncio.CancelledError:
             raise
@@ -302,7 +317,7 @@ class GatewayBase(ConnectorBase):
                       "limitPrice": str(price),
                       }
         try:
-            order_result = await self._api_request("post", f"{self.default_path}/trade", api_params)
+            order_result = await self._api_request("post", f"{self.base_path}/trade", api_params)
             hash = order_result.get("txHash")
             gas_price = order_result.get("gasPrice")
             gas_limit = order_result.get("gasLimit")
@@ -310,17 +325,14 @@ class GatewayBase(ConnectorBase):
             self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, gas_price)
             tracked_order = self._in_flight_orders.get(order_id)
 
-            # update onchain balance
-            await self._update_balances()
-
             if tracked_order is not None:
                 self.logger().info(f"Created {trade_type.name} order {order_id} txHash: {hash} "
-                                   f"for {amount} {trading_pair}. Estimated Gas Cost: {gas_cost} ETH "
+                                   f"for {amount} {trading_pair} on {self._chain_info.get('name', '--')}. Estimated Gas Cost: {gas_cost} "
                                    f" (gas limit: {gas_limit}, gas price: {gas_price})")
                 tracked_order.update_exchange_order_id(hash)
                 tracked_order.gas_price = gas_price
             if hash is not None:
-                tracked_order.fee_asset = "ETH"
+                tracked_order.fee_asset = self._chain_info["nativeCurrency"]["symbol"]
                 tracked_order.executed_amount_base = amount
                 tracked_order.executed_amount_quote = amount * price
                 event_tag = MarketEvent.BuyOrderCreated if trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
@@ -335,7 +347,7 @@ class GatewayBase(ConnectorBase):
         except Exception as e:
             self.stop_tracking_order(order_id)
             self.logger().network(
-                f"Error submitting {trade_type.name} order to {self.name} for "
+                f"Error submitting {trade_type.name} swap order to {self.name} on {self._chain_info['name']} for "
                 f"{amount} {trading_pair} "
                 f"{price}.",
                 exc_info=True,
@@ -347,15 +359,15 @@ class GatewayBase(ConnectorBase):
     def start_tracking_order(self,
                              order_id: str,
                              exchange_order_id: str,
-                             trading_pair: str,
-                             trade_type: TradeType,
-                             price: Decimal,
-                             amount: Decimal,
-                             gas_price: Decimal):
+                             trading_pair: str = "",
+                             trade_type: TradeType = TradeType.BUY,
+                             price: Decimal = s_decimal_0,
+                             amount: Decimal = s_decimal_0,
+                             gas_price: Decimal = s_decimal_0):
         """
         Starts tracking an order by simply adding it into _in_flight_orders dictionary.
         """
-        self._in_flight_orders[order_id] = BalancerInFlightOrder(
+        self._in_flight_orders[order_id] = GatewayInFlightOrder(
             client_order_id=order_id,
             exchange_order_id=exchange_order_id,
             trading_pair=trading_pair,
@@ -384,10 +396,10 @@ class GatewayBase(ConnectorBase):
             for tracked_order in tracked_orders:
                 order_id = await tracked_order.get_exchange_order_id()
                 tasks.append(self._api_request("post",
-                                               "eth/poll",
+                                               f"{self.base_path}/poll",
                                                {"txHash": order_id}))
             update_results = await safe_gather(*tasks, return_exceptions=True)
-            for update_result in update_results:
+            for tracked_order, update_result in zip(tracked_orders, update_results):
                 self.logger().info(f"Polling for order status updates of {len(tasks)} orders.")
                 if isinstance(update_result, Exception):
                     raise update_result
@@ -396,41 +408,44 @@ class GatewayBase(ConnectorBase):
                     continue
                 if update_result["confirmed"] is True:
                     if update_result["receipt"]["status"] == 1:
-                        gas_used = update_result["receipt"]["gasUsed"]
-                        gas_price = tracked_order.gas_price
-                        fee = Decimal(str(gas_used)) * Decimal(str(gas_price)) / Decimal(str(1e9))
-                        self.trigger_event(
-                            MarketEvent.OrderFilled,
-                            OrderFilledEvent(
-                                self.current_timestamp,
-                                tracked_order.client_order_id,
-                                tracked_order.trading_pair,
-                                tracked_order.trade_type,
-                                tracked_order.order_type,
-                                Decimal(str(tracked_order.price)),
-                                Decimal(str(tracked_order.amount)),
-                                TradeFee(0.0, [(tracked_order.fee_asset, Decimal(str(fee)))]),
-                                exchange_trade_id=order_id
+                        if tracked_order.client_order_id.split("_")[0] == "approve":
+                            self.logger().info(f"Approval transaction id {update_result['txHash']} confirmed.")
+                        else:
+                            gas_used = update_result["receipt"]["gasUsed"]
+                            gas_price = tracked_order.gas_price
+                            fee = Decimal(str(gas_used)) * Decimal(str(gas_price)) / Decimal(str(1e9))
+                            self.trigger_event(
+                                MarketEvent.OrderFilled,
+                                OrderFilledEvent(
+                                    self.current_timestamp,
+                                    tracked_order.client_order_id,
+                                    tracked_order.trading_pair,
+                                    tracked_order.trade_type,
+                                    tracked_order.order_type,
+                                    Decimal(str(tracked_order.price)),
+                                    Decimal(str(tracked_order.amount)),
+                                    TradeFee(0.0, [(tracked_order.fee_asset, Decimal(str(fee)))]),
+                                    exchange_trade_id=order_id
+                                )
                             )
-                        )
-                        tracked_order.last_state = "FILLED"
-                        self.logger().info(f"The {tracked_order.trade_type.name} order "
-                                           f"{tracked_order.client_order_id} has completed "
-                                           f"according to order status API.")
-                        event_tag = MarketEvent.BuyOrderCompleted if tracked_order.trade_type is TradeType.BUY \
-                            else MarketEvent.SellOrderCompleted
-                        event_class = BuyOrderCompletedEvent if tracked_order.trade_type is TradeType.BUY \
-                            else SellOrderCompletedEvent
-                        self.trigger_event(event_tag,
-                                           event_class(self.current_timestamp,
-                                                       tracked_order.client_order_id,
-                                                       tracked_order.base_asset,
-                                                       tracked_order.quote_asset,
-                                                       tracked_order.fee_asset,
-                                                       tracked_order.executed_amount_base,
-                                                       tracked_order.executed_amount_quote,
-                                                       float(fee),
-                                                       tracked_order.order_type))
+                            tracked_order.last_state = "FILLED"
+                            self.logger().info(f"The {tracked_order.trade_type.name} order "
+                                               f"{tracked_order.client_order_id} has completed "
+                                               f"according to order status API.")
+                            event_tag = MarketEvent.BuyOrderCompleted if tracked_order.trade_type is TradeType.BUY \
+                                else MarketEvent.SellOrderCompleted
+                            event_class = BuyOrderCompletedEvent if tracked_order.trade_type is TradeType.BUY \
+                                else SellOrderCompletedEvent
+                            self.trigger_event(event_tag,
+                                               event_class(self.current_timestamp,
+                                                           tracked_order.client_order_id,
+                                                           tracked_order.base_asset,
+                                                           tracked_order.quote_asset,
+                                                           tracked_order.fee_asset,
+                                                           tracked_order.executed_amount_base,
+                                                           tracked_order.executed_amount_quote,
+                                                           float(fee),
+                                                           tracked_order.order_type))
                         self.stop_tracking_order(tracked_order.client_order_id)
                     else:
                         self.logger().info(
@@ -475,6 +490,7 @@ class GatewayBase(ConnectorBase):
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._initiate_pool_task = safe_ensure_future(self.initiate_pool())
             self._auto_approve_task = safe_ensure_future(self.auto_approve())
+        self._get_chain_info_task = safe_ensure_future(self.get_chain_info())
 
     async def stop_network(self):
         if self._status_polling_task is not None:
@@ -486,6 +502,9 @@ class GatewayBase(ConnectorBase):
         if self._initiate_pool_task is not None:
             self._initiate_pool_task.cancel()
             self._initiate_pool_task = None
+        if self._get_chain_info_task is not None:
+            self._get_chain_info_task.cancel()
+            self._get_chain_info_task = None
 
     async def check_network(self) -> NetworkStatus:
         try:
@@ -524,7 +543,6 @@ class GatewayBase(ConnectorBase):
                 self.logger().network("Unexpected error while fetching account updates.",
                                       exc_info=True,
                                       app_warning_msg="Could not fetch balances from Gateway API.")
-                await asyncio.sleep(0.5)
 
     async def _update_balances(self, on_interval = False):
         """
@@ -605,5 +623,5 @@ class GatewayBase(ConnectorBase):
         return []
 
     @property
-    def in_flight_orders(self) -> Dict[str, BalancerInFlightOrder]:
+    def in_flight_orders(self) -> Dict[str, GatewayInFlightOrder]:
         return self._in_flight_orders
