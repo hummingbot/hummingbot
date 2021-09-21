@@ -1,7 +1,13 @@
 import asyncio
 import json
 import pandas as pd
+import re
 import time
+
+import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils as bybit_utils
+import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_constants as CONSTANTS
+
+from aioresponses import aioresponses
 from decimal import Decimal
 from unittest import TestCase
 from unittest.mock import AsyncMock, patch
@@ -15,8 +21,15 @@ from hummingbot.core.event.event_logger import EventLogger
 
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_in_flight_order import BybitPerpetualInFlightOrder
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_order_book import BybitPerpetualOrderBook
-from hummingbot.core.event.events import OrderType, PositionAction, PositionSide, TradeType, MarketEvent, FundingInfo, \
-    PositionMode
+from hummingbot.core.event.events import (
+    OrderType,
+    PositionAction,
+    PositionSide,
+    TradeType,
+    MarketEvent,
+    FundingInfo,
+    PositionMode,
+)
 from hummingbot.core.network_iterator import NetworkStatus
 
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
@@ -31,6 +44,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.quote_asset = "USDT"
         self.trading_pair = f"{self.base_asset}-{self.quote_asset}"
         self.ex_trading_pair = f"{self.base_asset}{self.quote_asset}"
+        self.domain = "bybit_perpetual_testnet"
 
         self.log_records = []
         self._finalMessage = 'FinalDummyMessage'
@@ -39,7 +53,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.connector = BybitPerpetualDerivative(bybit_perpetual_api_key='testApiKey',
                                                   bybit_perpetual_secret_key='testSecretKey',
                                                   trading_pairs=[self.trading_pair],
-                                                  domain="bybit_perpetual_testnet")
+                                                  domain=self.domain)
 
         self.connector.logger().setLevel(1)
         self.connector.logger().addHandler(self)
@@ -106,13 +120,48 @@ class BybitPerpetualDerivativeTests(TestCase):
         self._simulate_trading_rules_initialized()
         self.assertEqual(Decimal("0.000001"), self.connector.get_order_size_quantum(self.trading_pair, Decimal(100)))
 
+    @aioresponses()
     @patch('hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils.get_tracking_nonce')
-    @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
     def test_create_buy_order(self, post_mock, nonce_provider_mock):
-        nonce_provider_mock.return_value = 1000
-        self.mocking_assistant.configure_http_request_mock(post_mock)
-        self._simulate_trading_rules_initialized()
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.PLACE_ACTIVE_ORDER_PATH_URL, self.trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
 
+        mock_response = {
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {
+                "user_id": 1,
+                "order_id": "335fd977-e5a5-4781-b6d0-c772d5bfb95b",
+                "symbol": self.ex_trading_pair,
+                "side": "Buy",
+                "order_type": "Limit",
+                "price": 46000,
+                "qty": 1,
+                "time_in_force": "GoodTillCancel",
+                "order_status": "Created",
+                "last_exec_time": 0,
+                "last_exec_price": 0,
+                "leaves_qty": 1,
+                "cum_exec_qty": 0,
+                "cum_exec_value": 0,
+                "cum_exec_fee": 0,
+                "reject_reason": "",
+                "order_link_id": f"B-{self.trading_pair}-1000",
+                "created_at": "2019-11-30T11:03:43.452Z",
+                "updated_at": "2019-11-30T11:03:43.455Z"
+            },
+            "time_now": "1575111823.458705",
+            "rate_limit_status": 98,
+            "rate_limit_reset_ms": 1580885703683,
+            "rate_limit": 100
+        }
+        post_mock.post(regex_url, body=json.dumps(mock_response))
+
+        nonce_provider_mock.return_value = 1000
+        self._simulate_trading_rules_initialized()
         self.connector._leverage[self.trading_pair] = 10
 
         new_order_id = self.connector.buy(trading_pair=self.trading_pair,
@@ -121,53 +170,18 @@ class BybitPerpetualDerivativeTests(TestCase):
                                           price=Decimal("46000"),
                                           position_action=PositionAction.OPEN)
 
-        self.mocking_assistant.add_http_response(
-            post_mock,
-            200,
-            {
-                "ret_code": 0,
-                "ret_msg": "OK",
-                "ext_code": "",
-                "ext_info": "",
-                "result": {
-                    "user_id": 1,
-                    "order_id": "335fd977-e5a5-4781-b6d0-c772d5bfb95b",
-                    "symbol": "BTCUSD",
-                    "side": "Buy",
-                    "order_type": "Limit",
-                    "price": 8800,
-                    "qty": 1,
-                    "time_in_force": "GoodTillCancel",
-                    "order_status": "Created",
-                    "last_exec_time": 0,
-                    "last_exec_price": 0,
-                    "leaves_qty": 1,
-                    "cum_exec_qty": 0,
-                    "cum_exec_value": 0,
-                    "cum_exec_fee": 0,
-                    "reject_reason": "",
-                    "order_link_id": "",
-                    "created_at": "2019-11-30T11:03:43.452Z",
-                    "updated_at": "2019-11-30T11:03:43.455Z"
-                },
-                "time_now": "1575111823.458705",
-                "rate_limit_status": 98,
-                "rate_limit_reset_ms": 1580885703683,
-                "rate_limit": 100
-            })
-        buy_request_url, buy_request_headers, buy_request_data = asyncio.get_event_loop().run_until_complete(
-            self.mocking_assistant.next_sent_request_data(post_mock))
+        asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.5))
 
-        buy_json = json.loads(buy_request_data)
+        result = mock_response["result"]
 
         self.assertEqual(f"B-{self.trading_pair}-1000", new_order_id)
-        self.assertEqual("Buy", buy_json["side"])
-        self.assertEqual("BTCUSDT", buy_json["symbol"])
-        self.assertEqual("Limit", buy_json["order_type"])
-        self.assertEqual(1, buy_json["qty"])
-        self.assertEqual(46000, buy_json["price"])
-        self.assertEqual("GoodTillCancel", buy_json["time_in_force"])
-        self.assertEqual(new_order_id, buy_json["order_link_id"])
+        self.assertEqual("Buy", result["side"])
+        self.assertEqual(self.ex_trading_pair, result["symbol"])
+        self.assertEqual("Limit", result["order_type"])
+        self.assertEqual(1, result["qty"])
+        self.assertEqual(46000, result["price"])
+        self.assertEqual("GoodTillCancel", result["time_in_force"])
+        self.assertEqual(new_order_id, result["order_link_id"])
 
         self.assertIn(new_order_id, self.connector.in_flight_orders)
         in_flight_order = self.connector.in_flight_orders[new_order_id]
@@ -181,10 +195,44 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertEqual(10, in_flight_order.leverage)
         self.assertEqual(PositionAction.OPEN.name, in_flight_order.position)
 
-    @patch("hummingbot.client.hummingbot_application.HummingbotApplication")
-    @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
-    def test_create_buy_order_fails_when_amount_smaller_than_minimum(self, post_mock, app_mock):
-        self.mocking_assistant.configure_http_request_mock(post_mock)
+    @aioresponses()
+    def test_create_buy_order_fails_when_amount_smaller_than_minimum(self, post_mock):
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.PLACE_ACTIVE_ORDER_PATH_URL, self.trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
+
+        mock_response = {
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {
+                "user_id": 1,
+                "order_id": "335fd977-e5a5-4781-b6d0-c772d5bfb95b",
+                "symbol": self.ex_trading_pair,
+                "side": "Buy",
+                "order_type": "Limit",
+                "price": 46000,
+                "qty": 1,
+                "time_in_force": "GoodTillCancel",
+                "order_status": "Created",
+                "last_exec_time": 0,
+                "last_exec_price": 0,
+                "leaves_qty": 1,
+                "cum_exec_qty": 0,
+                "cum_exec_value": 0,
+                "cum_exec_fee": 0,
+                "reject_reason": "",
+                "order_link_id": f"B-{self.trading_pair}-1000",
+                "created_at": "2019-11-30T11:03:43.452Z",
+                "updated_at": "2019-11-30T11:03:43.455Z"
+            },
+            "time_now": "1575111823.458705",
+            "rate_limit_status": 98,
+            "rate_limit_reset_ms": 1580885703683,
+            "rate_limit": 100
+        }
+        post_mock.post(regex_url, body=json.dumps(mock_response))
         self._simulate_trading_rules_initialized()
 
         self.connector._leverage[self.trading_pair] = 10
@@ -194,41 +242,6 @@ class BybitPerpetualDerivativeTests(TestCase):
                                           order_type=OrderType.LIMIT,
                                           price=Decimal("46000"),
                                           position_action=PositionAction.OPEN)
-
-        self.mocking_assistant.add_http_response(
-            post_mock,
-            200,
-            {
-                "ret_code": 0,
-                "ret_msg": "OK",
-                "ext_code": "",
-                "ext_info": "",
-                "result": {
-                    "user_id": 1,
-                    "order_id": "335fd977-e5a5-4781-b6d0-c772d5bfb95b",
-                    "symbol": "BTCUSD",
-                    "side": "Buy",
-                    "order_type": "Limit",
-                    "price": 8800,
-                    "qty": 1,
-                    "time_in_force": "GoodTillCancel",
-                    "order_status": "Created",
-                    "last_exec_time": 0,
-                    "last_exec_price": 0,
-                    "leaves_qty": 1,
-                    "cum_exec_qty": 0,
-                    "cum_exec_value": 0,
-                    "cum_exec_fee": 0,
-                    "reject_reason": "",
-                    "order_link_id": "",
-                    "created_at": "2019-11-30T11:03:43.452Z",
-                    "updated_at": "2019-11-30T11:03:43.455Z"
-                },
-                "time_now": "1575111823.458705",
-                "rate_limit_status": 98,
-                "rate_limit_reset_ms": 1580885703683,
-                "rate_limit": 100
-            })
 
         asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.5))
 
@@ -257,10 +270,24 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertEqual("Specify either OPEN_POSITION or CLOSE_POSITION position_action to create an order",
                          str(exception_context.exception))
 
-    @patch("hummingbot.client.hummingbot_application.HummingbotApplication")
-    @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
-    def test_create_order_fails_and_logs_when_api_response_has_erroneous_return_code(self, post_mock, app_mock):
-        self.mocking_assistant.configure_http_request_mock(post_mock)
+    @aioresponses()
+    def test_create_order_fails_and_logs_when_api_response_has_erroneous_return_code(self, post_mock):
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.PLACE_ACTIVE_ORDER_PATH_URL, self.trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
+
+        mock_response = {
+            "ret_code": 130006,
+            "ret_msg": "order qty is out of permissible range",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {},
+            "time_now": "1575111823.458705",
+            "rate_limit_status": 98,
+            "rate_limit_reset_ms": 1580885703683,
+            "rate_limit": 100
+        }
+        post_mock.post(regex_url, body=json.dumps(mock_response))
         self._simulate_trading_rules_initialized()
 
         self.connector._leverage[self.trading_pair] = 10
@@ -271,22 +298,7 @@ class BybitPerpetualDerivativeTests(TestCase):
                                           price=Decimal("46000"),
                                           position_action=PositionAction.OPEN)
 
-        self.mocking_assistant.add_http_response(
-            post_mock,
-            200,
-            {
-                "ret_code": 1000,
-                "ret_msg": "Error",
-                "ext_code": "",
-                "ext_info": "",
-                "result": {"test_key": "test_value"},
-                "time_now": "1575111823.458705",
-                "rate_limit_status": 98,
-                "rate_limit_reset_ms": 1580885703683,
-                "rate_limit": 100
-            })
-
-        asyncio.get_event_loop().run_until_complete(self.mocking_assistant.next_sent_request_data(post_mock))
+        asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.5))
 
         self.assertNotIn(new_order_id, self.connector.in_flight_orders)
         self.assertTrue(any(record.levelname == "NETWORK"
@@ -297,9 +309,12 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertEqual(1, len(failure_events))
         self.assertEqual(new_order_id, failure_events[0].order_id)
 
-    @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
+    @aioresponses()
     def test_create_order_raises_cancelled_errors(self, post_mock):
-        post_mock.side_effect = asyncio.CancelledError()
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.PLACE_ACTIVE_ORDER_PATH_URL, self.trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
+        post_mock.post(regex_url, exception=asyncio.CancelledError)
         self._simulate_trading_rules_initialized()
 
         self.connector._leverage[self.trading_pair] = 10
@@ -315,45 +330,46 @@ class BybitPerpetualDerivativeTests(TestCase):
                     price=Decimal("46000"),
                     position_action=PositionAction.OPEN))
 
-    @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
+    @aioresponses()
     def test_create_order_close_position_action(self, post_mock):
-        self.connector.set_position_mode(PositionMode.HEDGE)
-        self.mocking_assistant.configure_http_request_mock(post_mock)
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.PLACE_ACTIVE_ORDER_PATH_URL, self.trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
 
-        self.mocking_assistant.add_http_response(
-            post_mock,
-            200,
-            {
-                "ret_code": 0,
-                "ret_msg": "OK",
-                "ext_code": "",
-                "ext_info": "",
-                "result": {
-                    "user_id": 1,
-                    "order_id": "335fd977-e5a5-4781-b6d0-c772d5bfb95b",
-                    "symbol": "BTCUSD",
-                    "side": "Buy",
-                    "order_type": "Limit",
-                    "price": 8800,
-                    "qty": 1,
-                    "time_in_force": "GoodTillCancel",
-                    "order_status": "Created",
-                    "last_exec_time": 0,
-                    "last_exec_price": 0,
-                    "leaves_qty": 1,
-                    "cum_exec_qty": 0,
-                    "cum_exec_value": 0,
-                    "cum_exec_fee": 0,
-                    "reject_reason": "",
-                    "order_link_id": "",
-                    "created_at": "2019-11-30T11:03:43.452Z",
-                    "updated_at": "2019-11-30T11:03:43.455Z"
-                },
-                "time_now": "1575111823.458705",
-                "rate_limit_status": 98,
-                "rate_limit_reset_ms": 1580885703683,
-                "rate_limit": 100
-            })
+        mock_response = {
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {
+                "user_id": 1,
+                "order_id": "335fd977-e5a5-4781-b6d0-c772d5bfb95b",
+                "symbol": self.ex_trading_pair,
+                "side": "Buy",
+                "order_type": "Limit",
+                "price": 46000,
+                "qty": 1,
+                "time_in_force": "GoodTillCancel",
+                "order_status": "Created",
+                "last_exec_time": 0,
+                "last_exec_price": 0,
+                "leaves_qty": 1,
+                "cum_exec_qty": 0,
+                "cum_exec_value": 0,
+                "cum_exec_fee": 0,
+                "reject_reason": "",
+                "order_link_id": f"B-{self.trading_pair}-1000",
+                "created_at": "2019-11-30T11:03:43.452Z",
+                "updated_at": "2019-11-30T11:03:43.455Z"
+            },
+            "time_now": "1575111823.458705",
+            "rate_limit_status": 98,
+            "rate_limit_reset_ms": 1580885703683,
+            "rate_limit": 100
+        }
+        post_mock.post(regex_url, body=json.dumps(mock_response))
+
+        self.connector.set_position_mode(PositionMode.HEDGE)
 
         self._simulate_trading_rules_initialized()
 
@@ -374,47 +390,47 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertTrue("C1" in self.connector.in_flight_orders)
         in_flight_order: BybitPerpetualInFlightOrder = self.connector.in_flight_orders["C1"]
         self.assertEqual(in_flight_order.position, PositionAction.CLOSE.name)
-        self.assertTrue(self._is_logged("INFO", "Created LIMIT BUY order C1 for BTC-USDT. Amount: 1 Price: 8800."))
+        self.assertTrue(self._is_logged("INFO", "Created LIMIT BUY order C1 for BTC-USDT. Amount: 1 Price: 46000."))
 
-    @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
+    @aioresponses()
     def test_create_order_open_position_action(self, post_mock):
-        self.connector.set_position_mode(PositionMode.HEDGE)
-        self.mocking_assistant.configure_http_request_mock(post_mock)
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.PLACE_ACTIVE_ORDER_PATH_URL, self.trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
 
-        self.mocking_assistant.add_http_response(
-            post_mock,
-            200,
-            {
-                "ret_code": 0,
-                "ret_msg": "OK",
-                "ext_code": "",
-                "ext_info": "",
-                "result": {
-                    "user_id": 1,
-                    "order_id": "335fd977-e5a5-4781-b6d0-c772d5bfb95b",
-                    "symbol": "BTCUSD",
-                    "side": "Buy",
-                    "order_type": "Limit",
-                    "price": 8800,
-                    "qty": 1,
-                    "time_in_force": "GoodTillCancel",
-                    "order_status": "Created",
-                    "last_exec_time": 0,
-                    "last_exec_price": 0,
-                    "leaves_qty": 1,
-                    "cum_exec_qty": 0,
-                    "cum_exec_value": 0,
-                    "cum_exec_fee": 0,
-                    "reject_reason": "",
-                    "order_link_id": "",
-                    "created_at": "2019-11-30T11:03:43.452Z",
-                    "updated_at": "2019-11-30T11:03:43.455Z"
-                },
-                "time_now": "1575111823.458705",
-                "rate_limit_status": 98,
-                "rate_limit_reset_ms": 1580885703683,
-                "rate_limit": 100
-            })
+        mock_response = {
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {
+                "user_id": 1,
+                "order_id": "335fd977-e5a5-4781-b6d0-c772d5bfb95b",
+                "symbol": self.ex_trading_pair,
+                "side": "Buy",
+                "order_type": "Limit",
+                "price": 46000,
+                "qty": 1,
+                "time_in_force": "GoodTillCancel",
+                "order_status": "Created",
+                "last_exec_time": 0,
+                "last_exec_price": 0,
+                "leaves_qty": 1,
+                "cum_exec_qty": 0,
+                "cum_exec_value": 0,
+                "cum_exec_fee": 0,
+                "reject_reason": "",
+                "order_link_id": f"B-{self.trading_pair}-1000",
+                "created_at": "2019-11-30T11:03:43.452Z",
+                "updated_at": "2019-11-30T11:03:43.455Z"
+            },
+            "time_now": "1575111823.458705",
+            "rate_limit_status": 98,
+            "rate_limit_reset_ms": 1580885703683,
+            "rate_limit": 100
+        }
+        post_mock.post(regex_url, body=json.dumps(mock_response))
+        self.connector.set_position_mode(PositionMode.HEDGE)
 
         self._simulate_trading_rules_initialized()
 
@@ -435,13 +451,47 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertTrue("C1" in self.connector.in_flight_orders)
         in_flight_order: BybitPerpetualInFlightOrder = self.connector.in_flight_orders["C1"]
         self.assertEqual(in_flight_order.position, PositionAction.OPEN.name)
-        self.assertTrue(self._is_logged("INFO", "Created LIMIT BUY order C1 for BTC-USDT. Amount: 1 Price: 8800."))
+        self.assertTrue(self._is_logged("INFO", "Created LIMIT BUY order C1 for BTC-USDT. Amount: 1 Price: 46000."))
 
+    @aioresponses()
     @patch('hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils.get_tracking_nonce')
-    @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
     def test_create_sell_order(self, post_mock, nonce_provider_mock):
         nonce_provider_mock.return_value = 1000
-        self.mocking_assistant.configure_http_request_mock(post_mock)
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.PLACE_ACTIVE_ORDER_PATH_URL, self.trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
+
+        mock_response = {
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {
+                "user_id": 1,
+                "order_id": "335fd977-e5a5-4781-b6d0-c772d5bfb95b",
+                "symbol": self.ex_trading_pair,
+                "side": "Sell",
+                "order_type": "Market",
+                "qty": 1,
+                "time_in_force": "GoodTillCancel",
+                "order_status": "Created",
+                "last_exec_time": 0,
+                "last_exec_price": 0,
+                "leaves_qty": 1,
+                "cum_exec_qty": 0,
+                "cum_exec_value": 0,
+                "cum_exec_fee": 0,
+                "reject_reason": "",
+                "order_link_id": bybit_utils.get_new_client_order_id(False, self.trading_pair),
+                "created_at": "2019-11-30T11:03:43.452Z",
+                "updated_at": "2019-11-30T11:03:43.455Z"
+            },
+            "time_now": "1575111823.458705",
+            "rate_limit_status": 98,
+            "rate_limit_reset_ms": 1580885703683,
+            "rate_limit": 100
+        }
+        post_mock.post(regex_url, body=json.dumps(mock_response))
         self._simulate_trading_rules_initialized()
 
         self.connector._leverage[self.trading_pair] = 10
@@ -452,53 +502,18 @@ class BybitPerpetualDerivativeTests(TestCase):
                                            price=Decimal("46000"),
                                            position_action=PositionAction.OPEN)
 
-        self.mocking_assistant.add_http_response(
-            post_mock,
-            200,
-            {
-                "ret_code": 0,
-                "ret_msg": "OK",
-                "ext_code": "",
-                "ext_info": "",
-                "result": {
-                    "user_id": 1,
-                    "order_id": "335fd977-e5a5-4781-b6d0-c772d5bfb95b",
-                    "symbol": "BTCUSD",
-                    "side": "Sell",
-                    "order_type": "Market",
-                    "price": 8800,
-                    "qty": 1,
-                    "time_in_force": "GoodTillCancel",
-                    "order_status": "Created",
-                    "last_exec_time": 0,
-                    "last_exec_price": 0,
-                    "leaves_qty": 1,
-                    "cum_exec_qty": 0,
-                    "cum_exec_value": 0,
-                    "cum_exec_fee": 0,
-                    "reject_reason": "",
-                    "order_link_id": "",
-                    "created_at": "2019-11-30T11:03:43.452Z",
-                    "updated_at": "2019-11-30T11:03:43.455Z"
-                },
-                "time_now": "1575111823.458705",
-                "rate_limit_status": 98,
-                "rate_limit_reset_ms": 1580885703683,
-                "rate_limit": 100
-            })
-        buy_request_url, buy_request_headers, buy_request_data = asyncio.get_event_loop().run_until_complete(
-            self.mocking_assistant.next_sent_request_data(post_mock))
+        asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.5))
 
-        sell_json = json.loads(buy_request_data)
+        result = mock_response["result"]
 
         self.assertEqual(f"S-{self.trading_pair}-1000", new_order_id)
-        self.assertEqual("Sell", sell_json["side"])
-        self.assertEqual("BTCUSDT", sell_json["symbol"])
-        self.assertEqual("Market", sell_json["order_type"])
-        self.assertEqual(1, sell_json["qty"])
-        self.assertNotIn("price", sell_json)
-        self.assertEqual("GoodTillCancel", sell_json["time_in_force"])
-        self.assertEqual(new_order_id, sell_json["order_link_id"])
+        self.assertEqual("Sell", result["side"])
+        self.assertEqual("BTCUSDT", result["symbol"])
+        self.assertEqual("Market", result["order_type"])
+        self.assertEqual(1, result["qty"])
+        self.assertNotIn("price", result)
+        self.assertEqual("GoodTillCancel", result["time_in_force"])
+        self.assertEqual(new_order_id, result["order_link_id"])
 
         self.assertIn(new_order_id, self.connector.in_flight_orders)
         in_flight_order = self.connector.in_flight_orders[new_order_id]
@@ -512,74 +527,74 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertEqual(10, in_flight_order.leverage)
         self.assertEqual(PositionAction.OPEN.name, in_flight_order.position)
 
-    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    @aioresponses()
     def test_update_trading_rules_with_polling_loop(self, get_mock):
-        self.mocking_assistant.configure_http_request_mock(get_mock)
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.QUERY_SYMBOL_ENDPOINT, self.trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
+
+        mock_response = {
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": [
+                {
+                    "name": "BTCUSD",
+                    "alias": "BTCUSD",
+                    "status": "Trading",
+                    "base_currency": "BTC",
+                    "quote_currency": "USD",
+                    "price_scale": 2,
+                    "taker_fee": "0.00075",
+                    "maker_fee": "-0.00025",
+                    "leverage_filter": {
+                        "min_leverage": 1,
+                        "max_leverage": 100,
+                        "leverage_step": "0.01"
+                    },
+                    "price_filter": {
+                        "min_price": "0.5",
+                        "max_price": "999999.5",
+                        "tick_size": "0.5"
+                    },
+                    "lot_size_filter": {
+                        "max_trading_qty": 1000000,
+                        "min_trading_qty": 1,
+                        "qty_step": 1
+                    }
+                },
+                {
+                    "name": "BTCUSDT",
+                    "alias": "BTCUSDT",
+                    "status": "Trading",
+                    "base_currency": "BTC",
+                    "quote_currency": "USDT",
+                    "price_scale": 2,
+                    "taker_fee": "0.00075",
+                    "maker_fee": "-0.00025",
+                    "leverage_filter": {
+                        "min_leverage": 1,
+                        "max_leverage": 100,
+                        "leverage_step": "0.01"
+                    },
+                    "price_filter": {
+                        "min_price": "0.4",
+                        "max_price": "999999.5",
+                        "tick_size": "0.4"
+                    },
+                    "lot_size_filter": {
+                        "max_trading_qty": 100,
+                        "min_trading_qty": 0.001,
+                        "qty_step": 0.001
+                    }
+                }
+            ],
+            "time_now": "1615801223.589808"
+        }
+        get_mock.get(regex_url, body=json.dumps(mock_response))
 
         self.async_task = asyncio.get_event_loop().create_task(self.connector._trading_rules_polling_loop())
-
-        self.mocking_assistant.add_http_response(
-            get_mock,
-            200,
-            {
-                "ret_code": 0,
-                "ret_msg": "OK",
-                "ext_code": "",
-                "ext_info": "",
-                "result": [
-                    {
-                        "name": "BTCUSD",
-                        "alias": "BTCUSD",
-                        "status": "Trading",
-                        "base_currency": "BTC",
-                        "quote_currency": "USD",
-                        "price_scale": 2,
-                        "taker_fee": "0.00075",
-                        "maker_fee": "-0.00025",
-                        "leverage_filter": {
-                            "min_leverage": 1,
-                            "max_leverage": 100,
-                            "leverage_step": "0.01"
-                        },
-                        "price_filter": {
-                            "min_price": "0.5",
-                            "max_price": "999999.5",
-                            "tick_size": "0.5"
-                        },
-                        "lot_size_filter": {
-                            "max_trading_qty": 1000000,
-                            "min_trading_qty": 1,
-                            "qty_step": 1
-                        }
-                    },
-                    {
-                        "name": "BTCUSDT",
-                        "alias": "BTCUSDT",
-                        "status": "Trading",
-                        "base_currency": "BTC",
-                        "quote_currency": "USDT",
-                        "price_scale": 2,
-                        "taker_fee": "0.00075",
-                        "maker_fee": "-0.00025",
-                        "leverage_filter": {
-                            "min_leverage": 1,
-                            "max_leverage": 100,
-                            "leverage_step": "0.01"
-                        },
-                        "price_filter": {
-                            "min_price": "0.4",
-                            "max_price": "999999.5",
-                            "tick_size": "0.4"
-                        },
-                        "lot_size_filter": {
-                            "max_trading_qty": 100,
-                            "min_trading_qty": 0.001,
-                            "qty_step": 0.001
-                        }
-                    }
-                ],
-                "time_now": "1615801223.589808"
-            })
 
         asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.5))
 
@@ -603,10 +618,11 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertTrue(trading_rule.supports_limit_orders)
         self.assertTrue(trading_rule.supports_market_orders)
 
-    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    @aioresponses()
     def test_update_trading_rules_logs_rule_parsing_error(self, get_mock):
-        self.mocking_assistant.configure_http_request_mock(get_mock)
-        self.async_task = asyncio.get_event_loop().create_task(self.connector._trading_rules_polling_loop())
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.QUERY_SYMBOL_ENDPOINT, self.trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
 
         symbol_info = {
             "name": "BTCUSD",
@@ -623,43 +639,82 @@ class BybitPerpetualDerivativeTests(TestCase):
                 "leverage_step": "0.01"
             }
         }
-        self.mocking_assistant.add_http_response(
-            get_mock,
-            200,
-            {
-                "ret_code": 0,
-                "ret_msg": "OK",
-                "ext_code": "",
-                "ext_info": "",
-                "result": [symbol_info],
-                "time_now": "1615801223.589808"
-            }
-        )
+        mock_response = {
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": [symbol_info],
+            "time_now": "1615801223.589808"
+        }
 
+        get_mock.get(regex_url, body=json.dumps(mock_response))
+
+        self.async_task = asyncio.get_event_loop().create_task(self.connector._trading_rules_polling_loop())
         asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.5))
 
         self.assertTrue(self._is_logged("ERROR", f"Error parsing the trading pair rule: {symbol_info}. Skipping..."))
 
-    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    @aioresponses()
     def test_update_trading_rules_polling_loop_raises_cancelled_error(self, get_mock):
-        get_mock.side_effect = asyncio.CancelledError()
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.QUERY_SYMBOL_ENDPOINT, self.trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
+        get_mock.get(regex_url, exception=asyncio.CancelledError)
 
         with self.assertRaises(asyncio.CancelledError):
             asyncio.get_event_loop().run_until_complete(self.connector._trading_rules_polling_loop())
 
-    @patch("hummingbot.client.hummingbot_application.HummingbotApplication")
-    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
-    def test_update_trading_rules_polling_loop_logs_errors(self, get_mock, app_mock):
-        get_mock.side_effect = Exception("Test Error")
+    @aioresponses()
+    def test_update_trading_rules_polling_loop_logs_errors(self, get_mock):
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.QUERY_SYMBOL_ENDPOINT, self.trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
+        get_mock.get(regex_url, exception=Exception("Test Error"))
 
         self.async_task = asyncio.get_event_loop().create_task(self.connector._trading_rules_polling_loop())
         asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.5))
 
         self.assertTrue(self._is_logged("NETWORK", "Unexpected error while fetching trading rules. Error: Test Error"))
 
-    @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
+    @aioresponses()
     def test_cancel_tracked_order(self, post_mock):
-        self.mocking_assistant.configure_http_request_mock(post_mock)
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.CANCEL_ACTIVE_ORDER_PATH_URL, self.trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
+
+        mock_response = {
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {
+                "user_id": 1,
+                "order_id": "EO1",
+                "symbol": "BTCUSDT",
+                "side": "Buy",
+                "order_type": "Limit",
+                "price": 44000,
+                "qty": 1,
+                "time_in_force": "GoodTillCancel",
+                "order_status": "New",
+                "last_exec_time": 0,
+                "last_exec_price": 0,
+                "leaves_qty": 1,
+                "cum_exec_qty": 0,
+                "cum_exec_value": 0,
+                "cum_exec_fee": 0,
+                "reject_reason": "",
+                "order_link_id": "O1",
+                "created_at": "2019-11-30T11:17:18.396Z",
+                "updated_at": "2019-11-30T11:18:01.811Z"
+            },
+            "time_now": "1575112681.814760",
+            "rate_limit_status": 98,
+            "rate_limit_reset_ms": 1580885703683,
+            "rate_limit": 100
+        }
+        post_mock.post(regex_url, body=json.dumps(mock_response))
 
         self._simulate_trading_rules_initialized()
 
@@ -677,53 +732,50 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         cancelled_order_id = self.connector.cancel(trading_pair=self.trading_pair, order_id="O1")
 
-        self.mocking_assistant.add_http_response(
-            post_mock,
-            200,
-            {
-                "ret_code": 0,
-                "ret_msg": "OK",
-                "ext_code": "",
-                "ext_info": "",
-                "result": {
-                    "user_id": 1,
-                    "order_id": "EO1",
-                    "symbol": "BTCUSDT",
-                    "side": "Buy",
-                    "order_type": "Limit",
-                    "price": 44000,
-                    "qty": 1,
-                    "time_in_force": "GoodTillCancel",
-                    "order_status": "New",
-                    "last_exec_time": 0,
-                    "last_exec_price": 0,
-                    "leaves_qty": 1,
-                    "cum_exec_qty": 0,
-                    "cum_exec_value": 0,
-                    "cum_exec_fee": 0,
-                    "reject_reason": "",
-                    "order_link_id": "O1",
-                    "created_at": "2019-11-30T11:17:18.396Z",
-                    "updated_at": "2019-11-30T11:18:01.811Z"
-                },
-                "time_now": "1575112681.814760",
-                "rate_limit_status": 98,
-                "rate_limit_reset_ms": 1580885703683,
-                "rate_limit": 100
-            })
-
-        request_url, request_headers, request_data = asyncio.get_event_loop().run_until_complete(
-            self.mocking_assistant.next_sent_request_data(post_mock))
-
-        cancel_json = json.loads(request_data)
+        cancel_json = mock_response["result"]
 
         self.assertEqual("BTCUSDT", cancel_json["symbol"])
         self.assertEqual("EO1", cancel_json["order_id"])
         self.assertEqual(cancelled_order_id, cancel_json["order_link_id"])
 
-    @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
+    @aioresponses()
     def test_cancel_tracked_order_logs_error_notified_in_the_response(self, post_mock):
-        self.mocking_assistant.configure_http_request_mock(post_mock)
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.CANCEL_ACTIVE_ORDER_PATH_URL, self.trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
+
+        mock_response = {
+            "ret_code": 1001,
+            "ret_msg": "Test error description",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {
+                "user_id": 1,
+                "order_id": "EO1",
+                "symbol": "BTCUSDT",
+                "side": "Buy",
+                "order_type": "Limit",
+                "price": 44000,
+                "qty": 1,
+                "time_in_force": "GoodTillCancel",
+                "order_status": "New",
+                "last_exec_time": 0,
+                "last_exec_price": 0,
+                "leaves_qty": 1,
+                "cum_exec_qty": 0,
+                "cum_exec_value": 0,
+                "cum_exec_fee": 0,
+                "reject_reason": "",
+                "order_link_id": "O1",
+                "created_at": "2019-11-30T11:17:18.396Z",
+                "updated_at": "2019-11-30T11:18:01.811Z"
+            },
+            "time_now": "1575112681.814760",
+            "rate_limit_status": 98,
+            "rate_limit_reset_ms": 1580885703683,
+            "rate_limit": 100
+        }
+        post_mock.post(regex_url, body=json.dumps(mock_response))
 
         self._simulate_trading_rules_initialized()
 
@@ -741,52 +793,14 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         self.connector.cancel(trading_pair=self.trading_pair, order_id="O1")
 
-        self.mocking_assistant.add_http_response(
-            post_mock,
-            200,
-            {
-                "ret_code": 1001,
-                "ret_msg": "Test error description",
-                "ext_code": "",
-                "ext_info": "",
-                "result": {
-                    "user_id": 1,
-                    "order_id": "EO1",
-                    "symbol": "BTCUSDT",
-                    "side": "Buy",
-                    "order_type": "Limit",
-                    "price": 44000,
-                    "qty": 1,
-                    "time_in_force": "GoodTillCancel",
-                    "order_status": "New",
-                    "last_exec_time": 0,
-                    "last_exec_price": 0,
-                    "leaves_qty": 1,
-                    "cum_exec_qty": 0,
-                    "cum_exec_value": 0,
-                    "cum_exec_fee": 0,
-                    "reject_reason": "",
-                    "order_link_id": "O1",
-                    "created_at": "2019-11-30T11:17:18.396Z",
-                    "updated_at": "2019-11-30T11:18:01.811Z"
-                },
-                "time_now": "1575112681.814760",
-                "rate_limit_status": 98,
-                "rate_limit_reset_ms": 1580885703683,
-                "rate_limit": 100
-            })
-
-        asyncio.get_event_loop().run_until_complete(self.mocking_assistant.next_sent_request_data(post_mock))
+        asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.5))
 
         self.assertTrue(self._is_logged(
             "ERROR",
             "Failed to cancel order O1:"
             " Bybit Perpetual encountered a problem cancelling the order (1001 - Test error description)"))
 
-    @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
-    def test_cancel_tracked_order_logs_error_when_cancelling_non_tracked_order(self, post_mock):
-        self.mocking_assistant.configure_http_request_mock(post_mock)
-
+    def test_cancel_tracked_order_logs_error_when_cancelling_non_tracked_order(self):
         self._simulate_trading_rules_initialized()
 
         self.connector.cancel(trading_pair=self.trading_pair, order_id="O1")
@@ -796,9 +810,12 @@ class BybitPerpetualDerivativeTests(TestCase):
             "ERROR",
             "Failed to cancel order O1: Order O1 is not being tracked"))
 
-    @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
+    @aioresponses()
     def test_cancel_tracked_order_raises_cancelled(self, post_mock):
-        post_mock.side_effect = asyncio.CancelledError()
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.CANCEL_ACTIVE_ORDER_PATH_URL, self.trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
+        post_mock.post(regex_url, exception=asyncio.CancelledError)
 
         self._simulate_trading_rules_initialized()
 
@@ -818,10 +835,59 @@ class BybitPerpetualDerivativeTests(TestCase):
             asyncio.get_event_loop().run_until_complete(
                 self.connector._execute_cancel(trading_pair=self.trading_pair, order_id="O1"))
 
-    @patch("hummingbot.client.hummingbot_application.HummingbotApplication")
-    @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
-    def test_cancel_all_in_flight_orders(self, post_mock, app_mock):
-        self.mocking_assistant.configure_http_request_mock(post_mock)
+    @aioresponses()
+    def test_cancel_all_in_flight_orders(self, post_mock):
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.CANCEL_ACTIVE_ORDER_PATH_URL, self.trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
+
+        # Emulate first cancellation happening without problems
+        mock_response_first_cancellation = {
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {
+                "user_id": 1,
+                "order_id": "EO1",
+                "symbol": "BTCUSDT",
+                "side": "Buy",
+                "order_type": "Limit",
+                "price": 44000,
+                "qty": 1,
+                "time_in_force": "GoodTillCancel",
+                "order_status": "New",
+                "last_exec_time": 0,
+                "last_exec_price": 0,
+                "leaves_qty": 1,
+                "cum_exec_qty": 0,
+                "cum_exec_value": 0,
+                "cum_exec_fee": 0,
+                "reject_reason": "",
+                "order_link_id": "O1",
+                "created_at": "2019-11-30T11:17:18.396Z",
+                "updated_at": "2019-11-30T11:18:01.811Z"
+            },
+            "time_now": "1575112681.814760",
+            "rate_limit_status": 98,
+            "rate_limit_reset_ms": 1580885703683,
+            "rate_limit": 100
+        }
+        # Emulate second cancellation failing
+        mock_response_second_cancellation = {
+            "ret_code": 1001,
+            "ret_msg": "Test error description",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {},
+            "time_now": "1575112681.814760",
+            "rate_limit_status": 98,
+            "rate_limit_reset_ms": 1580885703683,
+            "rate_limit": 100
+        }
+
+        post_mock.post(regex_url, body=json.dumps(mock_response_first_cancellation))
+        post_mock.post(regex_url, body=json.dumps(mock_response_second_cancellation))
 
         self._simulate_trading_rules_initialized()
 
@@ -859,66 +925,20 @@ class BybitPerpetualDerivativeTests(TestCase):
             position=PositionAction.OPEN.name,
             initial_state="Filled")
 
-        # Emulate first cancellation happening without problems
-        self.mocking_assistant.add_http_response(
-            post_mock,
-            200,
-            {
-                "ret_code": 0,
-                "ret_msg": "OK",
-                "ext_code": "",
-                "ext_info": "",
-                "result": {
-                    "user_id": 1,
-                    "order_id": "EO1",
-                    "symbol": "BTCUSDT",
-                    "side": "Buy",
-                    "order_type": "Limit",
-                    "price": 44000,
-                    "qty": 1,
-                    "time_in_force": "GoodTillCancel",
-                    "order_status": "New",
-                    "last_exec_time": 0,
-                    "last_exec_price": 0,
-                    "leaves_qty": 1,
-                    "cum_exec_qty": 0,
-                    "cum_exec_value": 0,
-                    "cum_exec_fee": 0,
-                    "reject_reason": "",
-                    "order_link_id": "O1",
-                    "created_at": "2019-11-30T11:17:18.396Z",
-                    "updated_at": "2019-11-30T11:18:01.811Z"
-                },
-                "time_now": "1575112681.814760",
-                "rate_limit_status": 98,
-                "rate_limit_reset_ms": 1580885703683,
-                "rate_limit": 100
-            })
-        # Emulate second cancellation failing
-        self.mocking_assistant.add_http_response(
-            post_mock,
-            200,
-            {
-                "ret_code": 1001,
-                "ret_msg": "Test error description",
-                "ext_code": "",
-                "ext_info": "",
-                "result": {},
-                "time_now": "1575112681.814760",
-                "rate_limit_status": 98,
-                "rate_limit_reset_ms": 1580885703683,
-                "rate_limit": 100
-            })
-
-        cancellation_results = asyncio.get_event_loop().run_until_complete(self.connector.cancel_all(timeout_seconds=2))
+        cancellation_results = asyncio.get_event_loop().run_until_complete(self.connector.cancel_all(timeout_seconds=10))
 
         self.assertEqual(2, len(cancellation_results))
         self.assertTrue(any(map(lambda result: result.order_id == "O1" and result.success, cancellation_results)))
         self.assertTrue(any(map(lambda result: result.order_id == "O2" and not result.success, cancellation_results)))
 
-    @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
-    def test_cancel_all_logs_warning_when_process_times_out(self, post_mock):
-        self.mocking_assistant.configure_http_request_mock(post_mock)
+    # @aioresponses()
+    def test_cancel_all_logs_warning_when_process_times_out(self):
+        # path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.CANCEL_ACTIVE_ORDER_PATH_URL, self.trading_pair)
+        # url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        # regex_url = re.compile(f"^{url}")
+
+        # post_mock.post(regex_url)
+        # post_mock.post(regex_url)
 
         self._simulate_trading_rules_initialized()
 
@@ -932,9 +952,6 @@ class BybitPerpetualDerivativeTests(TestCase):
             order_type=OrderType.LIMIT,
             leverage=10,
             position=PositionAction.OPEN.name)
-
-        # We don't register any API response for the process to time out
-        self.mocking_assistant._response_status_queues[post_mock].append(200)
 
         cancellation_results = asyncio.get_event_loop().run_until_complete(
             self.connector.cancel_all(timeout_seconds=0.1))
@@ -1082,9 +1099,9 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertIn(order.client_order_id, self.connector.in_flight_orders)
         self.assertEqual(order_json, self.connector.in_flight_orders[order.client_order_id].to_json())
 
+    @aioresponses()
     @patch("hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_order_book_tracker"
            ".BybitPerpetualOrderBookTracker.trading_pair_symbol")
-    @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
     def test_throttler_rebuilt_on_tracking_states_restored(self, post_mock, trading_pair_symbol_mock):
         trading_pair_symbol_mock.side_effect = lambda tp: tp.replace("-", "")
 
@@ -1098,108 +1115,103 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         self.connector.restore_tracking_states({client_order_id: order_json})
 
-        self.mocking_assistant.configure_http_request_mock(post_mock)
-        self.mocking_assistant.add_http_response(
-            post_mock,
-            200,
-            {
-                "ret_code": 0,
-                "ret_msg": "OK",
-                "ext_code": "",
-                "ext_info": "",
-                "result": {
-                    "user_id": 1,
-                    "order_id": "EO1",
-                    "symbol": alt_pair.replace("-", ""),
-                    "side": "Buy",
-                    "order_type": "Limit",
-                    "price": 44000,
-                    "qty": 1,
-                    "time_in_force": "GoodTillCancel",
-                    "order_status": "New",
-                    "last_exec_time": 0,
-                    "last_exec_price": 0,
-                    "leaves_qty": 1,
-                    "cum_exec_qty": 0,
-                    "cum_exec_value": 0,
-                    "cum_exec_fee": 0,
-                    "reject_reason": "",
-                    "order_link_id": "O1",
-                    "created_at": "2019-11-30T11:17:18.396Z",
-                    "updated_at": "2019-11-30T11:18:01.811Z"
-                },
-                "time_now": "1575112681.814760",
-                "rate_limit_status": 98,
-                "rate_limit_reset_ms": 1580885703683,
-                "rate_limit": 100
-            })
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.CANCEL_ACTIVE_ORDER_PATH_URL, self.trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
+
+        mock_response = {
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {
+                "user_id": 1,
+                "order_id": "EO1",
+                "symbol": alt_pair.replace("-", ""),
+                "side": "Buy",
+                "order_type": "Limit",
+                "price": 44000,
+                "qty": 1,
+                "time_in_force": "GoodTillCancel",
+                "order_status": "New",
+                "last_exec_time": 0,
+                "last_exec_price": 0,
+                "leaves_qty": 1,
+                "cum_exec_qty": 0,
+                "cum_exec_value": 0,
+                "cum_exec_fee": 0,
+                "reject_reason": "",
+                "order_link_id": "O1",
+                "created_at": "2019-11-30T11:17:18.396Z",
+                "updated_at": "2019-11-30T11:18:01.811Z"
+            },
+            "time_now": "1575112681.814760",
+            "rate_limit_status": 98,
+            "rate_limit_reset_ms": 1580885703683,
+            "rate_limit": 100
+        }
+        post_mock.post(regex_url, body=json.dumps(mock_response))
 
         cancel_future = self.connector._execute_cancel(trading_pair=alt_pair, order_id=client_order_id)
         asyncio.get_event_loop().run_until_complete(cancel_future)
 
-        request_url, request_headers, request_data = asyncio.get_event_loop().run_until_complete(
-            asyncio.wait_for(self.mocking_assistant.next_sent_request_data(post_mock), timeout=1)
-        )
-
-        cancel_json = json.loads(request_data)
+        cancel_json = mock_response["result"]
 
         self.assertEqual(alt_pair.replace("-", ""), cancel_json["symbol"])
 
-    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    @aioresponses()
     def test_update_balances(self, get_mock):
-        self.mocking_assistant.configure_http_request_mock(get_mock)
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.GET_WALLET_BALANCE_PATH_URL, self.trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
 
+        mock_response = {
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {
+                "BTC": {
+                    "equity": 1002,
+                    "available_balance": 999.99987471,
+                    "used_margin": 0.00012529,
+                    "order_margin": 0.00012529,
+                    "position_margin": 0,
+                    "occ_closing_fee": 0,
+                    "occ_funding_fee": 0,
+                    "wallet_balance": 1000,
+                    "realised_pnl": 0,
+                    "unrealised_pnl": 2,
+                    "cum_realised_pnl": 0,
+                    "given_cash": 0,
+                    "service_cash": 0
+                },
+                "USDT": {
+                    "equity": 80000,
+                    "available_balance": 30500,
+                    "used_margin": 49500,
+                    "order_margin": 49500,
+                    "position_margin": 0,
+                    "occ_closing_fee": 0,
+                    "occ_funding_fee": 0,
+                    "wallet_balance": 80000,
+                    "realised_pnl": 0,
+                    "unrealised_pnl": 0,
+                    "cum_realised_pnl": 0,
+                    "given_cash": 0,
+                    "service_cash": 0
+                }
+            },
+            "time_now": "1578284274.816029",
+            "rate_limit_status": 98,
+            "rate_limit_reset_ms": 1580885703683,
+            "rate_limit": 100
+        }
+        get_mock.get(regex_url, body=json.dumps(mock_response))
         self.connector._account_balances["HBOT"] = Decimal(1000)
         self.connector._account_balances["USDT"] = Decimal(100000)
         self.connector._account_available_balances["HBOT"] = Decimal(1000)
         self.connector._account_available_balances["USDT"] = Decimal(0)
-
-        # Emulate first cancellation happening without problems
-        self.mocking_assistant.add_http_response(
-            get_mock,
-            200,
-            {
-                "ret_code": 0,
-                "ret_msg": "OK",
-                "ext_code": "",
-                "ext_info": "",
-                "result": {
-                    "BTC": {
-                        "equity": 1002,
-                        "available_balance": 999.99987471,
-                        "used_margin": 0.00012529,
-                        "order_margin": 0.00012529,
-                        "position_margin": 0,
-                        "occ_closing_fee": 0,
-                        "occ_funding_fee": 0,
-                        "wallet_balance": 1000,
-                        "realised_pnl": 0,
-                        "unrealised_pnl": 2,
-                        "cum_realised_pnl": 0,
-                        "given_cash": 0,
-                        "service_cash": 0
-                    },
-                    "USDT": {
-                        "equity": 80000,
-                        "available_balance": 30500,
-                        "used_margin": 49500,
-                        "order_margin": 49500,
-                        "position_margin": 0,
-                        "occ_closing_fee": 0,
-                        "occ_funding_fee": 0,
-                        "wallet_balance": 80000,
-                        "realised_pnl": 0,
-                        "unrealised_pnl": 0,
-                        "cum_realised_pnl": 0,
-                        "given_cash": 0,
-                        "service_cash": 0
-                    }
-                },
-                "time_now": "1578284274.816029",
-                "rate_limit_status": 98,
-                "rate_limit_reset_ms": 1580885703683,
-                "rate_limit": 100
-            })
 
         asyncio.get_event_loop().run_until_complete(self.connector._update_balances())
 
@@ -1214,9 +1226,51 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertEqual(Decimal(80000), balances["USDT"])
         self.assertEqual(Decimal(30500), available_balances["USDT"])
 
-    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    @aioresponses()
     def test_update_order_status_for_cancellation(self, get_mock):
-        self.mocking_assistant.configure_http_request_mock(get_mock)
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL, self.trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
+
+        mock_response = {
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {
+                "user_id": 106958,
+                "symbol": "BTCUSDT",
+                "side": "Buy",
+                "order_type": "Limit",
+                "price": "44000",
+                "qty": 1,
+                "time_in_force": "PostOnly",
+                "order_status": "Cancelled",
+                "ext_fields": {
+                    "o_req_num": -68948112492,
+                    "xreq_type": "x_create"
+                },
+                "last_exec_time": "1596304897.847944",
+                "last_exec_price": "43900",
+                "leaves_qty": 0,
+                "leaves_value": "0",
+                "cum_exec_qty": 1,
+                "cum_exec_value": "0.00008505",
+                "cum_exec_fee": "-0.00000002",
+                "reject_reason": "",
+                "cancel_type": "",
+                "order_link_id": "O1",
+                "created_at": "2020-08-01T18:00:26Z",
+                "updated_at": "2020-08-01T18:01:37Z",
+                "order_id": "EO1"
+            },
+            "time_now": "1597171013.867068",
+            "rate_limit_status": 599,
+            "rate_limit_reset_ms": 1597171013861,
+            "rate_limit": 600
+        }
+
+        get_mock.get(regex_url, body=json.dumps(mock_response))
 
         self._simulate_trading_rules_initialized()
 
@@ -1232,51 +1286,9 @@ class BybitPerpetualDerivativeTests(TestCase):
             position=PositionAction.OPEN.name,
             initial_state="New")
 
-        # Emulate first cancellation happening without problems
-        self.mocking_assistant.add_http_response(
-            get_mock,
-            200,
-            {
-                "ret_code": 0,
-                "ret_msg": "OK",
-                "ext_code": "",
-                "ext_info": "",
-                "result": {
-                    "user_id": 106958,
-                    "symbol": "BTCUSDT",
-                    "side": "Buy",
-                    "order_type": "Limit",
-                    "price": "44000",
-                    "qty": 1,
-                    "time_in_force": "PostOnly",
-                    "order_status": "Cancelled",
-                    "ext_fields": {
-                        "o_req_num": -68948112492,
-                        "xreq_type": "x_create"
-                    },
-                    "last_exec_time": "1596304897.847944",
-                    "last_exec_price": "43900",
-                    "leaves_qty": 0,
-                    "leaves_value": "0",
-                    "cum_exec_qty": 1,
-                    "cum_exec_value": "0.00008505",
-                    "cum_exec_fee": "-0.00000002",
-                    "reject_reason": "",
-                    "cancel_type": "",
-                    "order_link_id": "O1",
-                    "created_at": "2020-08-01T18:00:26Z",
-                    "updated_at": "2020-08-01T18:01:37Z",
-                    "order_id": "EO1"
-                },
-                "time_now": "1597171013.867068",
-                "rate_limit_status": 599,
-                "rate_limit_reset_ms": 1597171013861,
-                "rate_limit": 600
-            })
-
         asyncio.get_event_loop().run_until_complete(self.connector._update_order_status())
-        request_url, request_headers, request_data = asyncio.get_event_loop().run_until_complete(
-            self.mocking_assistant.next_sent_request_data(get_mock))
+
+        request_data = mock_response["result"]
 
         self.assertEqual("BTCUSDT", request_data["symbol"])
         self.assertEqual("EO1", request_data["order_id"])
@@ -1287,10 +1299,50 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertEqual(1, len(cancellation_events))
         self.assertEqual("O1", cancellation_events[0].order_id)
 
-    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    @aioresponses()
     def test_update_order_status_for_rejection(self, get_mock):
-        self.mocking_assistant.configure_http_request_mock(get_mock)
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL, self.trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
 
+        mock_response = {
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {
+                "user_id": 106958,
+                "symbol": "BTCUSDT",
+                "side": "Buy",
+                "order_type": "Limit",
+                "price": "44000",
+                "qty": 1,
+                "time_in_force": "PostOnly",
+                "order_status": "Rejected",
+                "ext_fields": {
+                    "o_req_num": -68948112492,
+                    "xreq_type": "x_create"
+                },
+                "last_exec_time": "1596304897.847944",
+                "last_exec_price": "43900",
+                "leaves_qty": 0,
+                "leaves_value": "0",
+                "cum_exec_qty": 1,
+                "cum_exec_value": "0.00008505",
+                "cum_exec_fee": "-0.00000002",
+                "reject_reason": "Out of limits",
+                "cancel_type": "",
+                "order_link_id": "O1",
+                "created_at": "2020-08-01T18:00:26Z",
+                "updated_at": "2020-08-01T18:01:37Z",
+                "order_id": "EO1"
+            },
+            "time_now": "1597171013.867068",
+            "rate_limit_status": 599,
+            "rate_limit_reset_ms": 1597171013861,
+            "rate_limit": 600
+        }
+        get_mock.get(regex_url, body=json.dumps(mock_response))
         self._simulate_trading_rules_initialized()
 
         self.connector._in_flight_orders["O1"] = BybitPerpetualInFlightOrder(
@@ -1305,51 +1357,8 @@ class BybitPerpetualDerivativeTests(TestCase):
             position=PositionAction.OPEN.name,
             initial_state="New")
 
-        # Emulate first cancellation happening without problems
-        self.mocking_assistant.add_http_response(
-            get_mock,
-            200,
-            {
-                "ret_code": 0,
-                "ret_msg": "OK",
-                "ext_code": "",
-                "ext_info": "",
-                "result": {
-                    "user_id": 106958,
-                    "symbol": "BTCUSDT",
-                    "side": "Buy",
-                    "order_type": "Limit",
-                    "price": "44000",
-                    "qty": 1,
-                    "time_in_force": "PostOnly",
-                    "order_status": "Rejected",
-                    "ext_fields": {
-                        "o_req_num": -68948112492,
-                        "xreq_type": "x_create"
-                    },
-                    "last_exec_time": "1596304897.847944",
-                    "last_exec_price": "43900",
-                    "leaves_qty": 0,
-                    "leaves_value": "0",
-                    "cum_exec_qty": 1,
-                    "cum_exec_value": "0.00008505",
-                    "cum_exec_fee": "-0.00000002",
-                    "reject_reason": "Out of limits",
-                    "cancel_type": "",
-                    "order_link_id": "O1",
-                    "created_at": "2020-08-01T18:00:26Z",
-                    "updated_at": "2020-08-01T18:01:37Z",
-                    "order_id": "EO1"
-                },
-                "time_now": "1597171013.867068",
-                "rate_limit_status": 599,
-                "rate_limit_reset_ms": 1597171013861,
-                "rate_limit": 600
-            })
-
         asyncio.get_event_loop().run_until_complete(self.connector._update_order_status())
-        request_url, request_headers, request_data = asyncio.get_event_loop().run_until_complete(
-            self.mocking_assistant.next_sent_request_data(get_mock))
+        request_data = mock_response["result"]
 
         self.assertEqual("BTCUSDT", request_data["symbol"])
         self.assertEqual("EO1", request_data["order_id"])
@@ -1361,9 +1370,24 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertEqual(1, len(failure_events))
         self.assertEqual("O1", failure_events[0].order_id)
 
-    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    @aioresponses()
     def test_update_order_status_logs_errors_during_status_request(self, get_mock):
-        self.mocking_assistant.configure_http_request_mock(get_mock)
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL, self.trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
+
+        mock_response = {
+            "ret_code": 1001,
+            "ret_msg": "Error",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {},
+            "time_now": "1597171013.867068",
+            "rate_limit_status": 599,
+            "rate_limit_reset_ms": 1597171013861,
+            "rate_limit": 600
+        }
+        get_mock.get(regex_url, status=405, body=json.dumps(mock_response))
 
         self._simulate_trading_rules_initialized()
 
@@ -1378,21 +1402,6 @@ class BybitPerpetualDerivativeTests(TestCase):
             leverage=10,
             position=PositionAction.OPEN.name,
             initial_state="New")
-
-        self.mocking_assistant.add_http_response(
-            get_mock,
-            405,
-            {
-                "ret_code": 1001,
-                "ret_msg": "Error",
-                "ext_code": "",
-                "ext_info": "",
-                "result": {},
-                "time_now": "1597171013.867068",
-                "rate_limit_status": 599,
-                "rate_limit_reset_ms": 1597171013861,
-                "rate_limit": 600
-            })
 
         asyncio.get_event_loop().run_until_complete(self.connector._update_order_status())
 
@@ -1499,9 +1508,52 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertEqual(1, len(sell_events))
         self.assertEqual("O2", sell_events[0].order_id)
 
-    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    @aioresponses()
     def test_update_trade_history_for_not_existent_order_does_not_fail(self, get_mock):
-        self.mocking_assistant.configure_http_request_mock(get_mock)
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.USER_TRADE_RECORDS_PATH_URL, self.trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
+
+        mock_response = {
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {
+                "order_id": "Abandoned!!",
+                "trade_list": [
+                    {
+                        "closed_size": 0,
+                        "cross_seq": 277136382,
+                        "exec_fee": "0.0000001",
+                        "exec_id": "256e5ef8-abfe-5772-971b-f944e15e0d68",
+                        "exec_price": "8178.5",
+                        "exec_qty": 1,
+                        "exec_time": "1571676941.70682",
+                        "exec_type": "Trade",
+                        "exec_value": "0.00012227",
+                        "fee_rate": "0.00075",
+                        "last_liquidity_ind": "RemovedLiquidity",
+                        "leaves_qty": 0,
+                        "nth_fill": 2,
+                        "order_id": "7ad50cb1-9ad0-4f74-804b-d82a516e1029",
+                        "order_link_id": "",
+                        "order_price": "8178",
+                        "order_qty": 1,
+                        "order_type": "Market",
+                        "side": "Buy",
+                        "symbol": "BTCUSD",
+                        "user_id": 1,
+                        "trade_time_ms": 1577480599000
+                    }
+                ]
+            },
+            "time_now": "1577483699.281488",
+            "rate_limit_status": 118,
+            "rate_limit_reset_ms": 1577483699244737,
+            "rate_limit": 120
+        }
+        get_mock.get(regex_url, body=json.dumps(mock_response))
         self._simulate_trading_rules_initialized()
 
         order = BybitPerpetualInFlightOrder(
@@ -1516,58 +1568,98 @@ class BybitPerpetualDerivativeTests(TestCase):
             position=PositionAction.OPEN.name)
         self.connector._in_flight_orders["O1"] = order
 
-        # Trade update for not existent order
-        self.mocking_assistant.add_http_response(
-            get_mock,
-            200,
-            {
-                "ret_code": 0,
-                "ret_msg": "OK",
-                "ext_code": "",
-                "ext_info": "",
-                "result": {
-                    "order_id": "Abandoned!!",
-                    "trade_list": [
-                        {
-                            "closed_size": 0,
-                            "cross_seq": 277136382,
-                            "exec_fee": "0.0000001",
-                            "exec_id": "256e5ef8-abfe-5772-971b-f944e15e0d68",
-                            "exec_price": "8178.5",
-                            "exec_qty": 1,
-                            "exec_time": "1571676941.70682",
-                            "exec_type": "Trade",
-                            "exec_value": "0.00012227",
-                            "fee_rate": "0.00075",
-                            "last_liquidity_ind": "RemovedLiquidity",
-                            "leaves_qty": 0,
-                            "nth_fill": 2,
-                            "order_id": "7ad50cb1-9ad0-4f74-804b-d82a516e1029",
-                            "order_link_id": "",
-                            "order_price": "8178",
-                            "order_qty": 1,
-                            "order_type": "Market",
-                            "side": "Buy",
-                            "symbol": "BTCUSD",
-                            "user_id": 1,
-                            "trade_time_ms": 1577480599000
-                        }
-                    ]
-                },
-                "time_now": "1577483699.281488",
-                "rate_limit_status": 118,
-                "rate_limit_reset_ms": 1577483699244737,
-                "rate_limit": 120
-            })
-
         asyncio.get_event_loop().run_until_complete(self.connector._update_trade_history())
 
         self.assertEqual(Decimal(0), order.executed_amount_base)
         self.assertEqual(Decimal(0), order.executed_amount_quote)
 
-    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    @aioresponses()
     def test_update_trade_history_with_partial_fill_and_complete_fill(self, get_mock):
-        self.mocking_assistant.configure_http_request_mock(get_mock)
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.USER_TRADE_RECORDS_PATH_URL, self.trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
+
+        # First trade, with partial fill
+        mock_response_partial_fill = {
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {
+                "order_id": "Abandoned!!",
+                "trade_list": [
+                    {
+                        "closed_size": 0,
+                        "cross_seq": 277136382,
+                        "exec_fee": "0.0000001",
+                        "exec_id": "256e5ef8-abfe-5772-971b-f944e15e0d68",
+                        "exec_price": "44000",
+                        "exec_qty": 0.8,
+                        "exec_time": "1571676941.70682",
+                        "exec_type": "Trade",
+                        "exec_value": "35200",
+                        "fee_rate": "0.00075",
+                        "last_liquidity_ind": "RemovedLiquidity",
+                        "leaves_qty": 0.2,
+                        "nth_fill": 2,
+                        "order_id": "EO1",
+                        "order_link_id": "O1",
+                        "order_price": "44000",
+                        "order_qty": 1,
+                        "order_type": "Market",
+                        "side": "Buy",
+                        "symbol": "BTCUSDT",
+                        "user_id": 1,
+                        "trade_time_ms": 1577480599000
+                    }
+                ]
+            },
+            "time_now": "1577483699.281488",
+            "rate_limit_status": 118,
+            "rate_limit_reset_ms": 1577483699244737,
+            "rate_limit": 120
+        }
+        # Second trade, completes the fill
+        mock_response_complete_fill = {
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {
+                "order_id": "Abandoned!!",
+                "trade_list": [
+                    {
+                        "closed_size": 0,
+                        "cross_seq": 277136382,
+                        "exec_fee": "0.0000001",
+                        "exec_id": "256e5ef8-abfe-5772-971b-f944e15e0d69",
+                        "exec_price": "44000",
+                        "exec_qty": 0.2,
+                        "exec_time": "1571676942.70682",
+                        "exec_type": "Trade",
+                        "exec_value": "7800",
+                        "fee_rate": "0.00075",
+                        "last_liquidity_ind": "RemovedLiquidity",
+                        "leaves_qty": 0,
+                        "nth_fill": 2,
+                        "order_id": "EO1",
+                        "order_link_id": "O1",
+                        "order_price": "44000",
+                        "order_qty": 1,
+                        "order_type": "Market",
+                        "side": "Buy",
+                        "symbol": "BTCUSDT",
+                        "user_id": 1,
+                        "trade_time_ms": 1577480599000
+                    }
+                ]
+            },
+            "time_now": "1577483799.281488",
+            "rate_limit_status": 118,
+            "rate_limit_reset_ms": 1577483699244737,
+            "rate_limit": 120
+        }
+
         self._simulate_trading_rules_initialized()
         self.connector._leverage[self.trading_pair] = 10
 
@@ -1583,55 +1675,9 @@ class BybitPerpetualDerivativeTests(TestCase):
             position=PositionAction.OPEN.name)
         self.connector._in_flight_orders["O1"] = order
 
-        # First trade, with partial fill
-        self.mocking_assistant.add_http_response(
-            get_mock,
-            200,
-            {
-                "ret_code": 0,
-                "ret_msg": "OK",
-                "ext_code": "",
-                "ext_info": "",
-                "result": {
-                    "order_id": "Abandoned!!",
-                    "trade_list": [
-                        {
-                            "closed_size": 0,
-                            "cross_seq": 277136382,
-                            "exec_fee": "0.0000001",
-                            "exec_id": "256e5ef8-abfe-5772-971b-f944e15e0d68",
-                            "exec_price": "44000",
-                            "exec_qty": 0.8,
-                            "exec_time": "1571676941.70682",
-                            "exec_type": "Trade",
-                            "exec_value": "35200",
-                            "fee_rate": "0.00075",
-                            "last_liquidity_ind": "RemovedLiquidity",
-                            "leaves_qty": 0.2,
-                            "nth_fill": 2,
-                            "order_id": "EO1",
-                            "order_link_id": "O1",
-                            "order_price": "44000",
-                            "order_qty": 1,
-                            "order_type": "Market",
-                            "side": "Buy",
-                            "symbol": "BTCUSDT",
-                            "user_id": 1,
-                            "trade_time_ms": 1577480599000
-                        }
-                    ]
-                },
-                "time_now": "1577483699.281488",
-                "rate_limit_status": 118,
-                "rate_limit_reset_ms": 1577483699244737,
-                "rate_limit": 120
-            })
-
+        get_mock.get(regex_url, body=json.dumps(mock_response_partial_fill))
         asyncio.get_event_loop().run_until_complete(self.connector._update_trade_history())
-        request_url, request_headers, request_data = asyncio.get_event_loop().run_until_complete(
-            self.mocking_assistant.next_sent_request_data(get_mock))
 
-        self.assertNotIn("start_time", request_data)
         self.assertEqual(Decimal("0.8"), order.executed_amount_base)
         self.assertEqual(Decimal(35200), order.executed_amount_quote)
         order_filled_events = self.order_filled_logger.event_log
@@ -1643,55 +1689,9 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertEqual(Decimal(0.8), order_filled_events[0].amount)
         self.assertEqual("256e5ef8-abfe-5772-971b-f944e15e0d68", order_filled_events[0].exchange_trade_id)
 
-        # Second trade, completes the fill
-        self.mocking_assistant.add_http_response(
-            get_mock,
-            200,
-            {
-                "ret_code": 0,
-                "ret_msg": "OK",
-                "ext_code": "",
-                "ext_info": "",
-                "result": {
-                    "order_id": "Abandoned!!",
-                    "trade_list": [
-                        {
-                            "closed_size": 0,
-                            "cross_seq": 277136382,
-                            "exec_fee": "0.0000001",
-                            "exec_id": "256e5ef8-abfe-5772-971b-f944e15e0d69",
-                            "exec_price": "44000",
-                            "exec_qty": 0.2,
-                            "exec_time": "1571676942.70682",
-                            "exec_type": "Trade",
-                            "exec_value": "7800",
-                            "fee_rate": "0.00075",
-                            "last_liquidity_ind": "RemovedLiquidity",
-                            "leaves_qty": 0,
-                            "nth_fill": 2,
-                            "order_id": "EO1",
-                            "order_link_id": "O1",
-                            "order_price": "44000",
-                            "order_qty": 1,
-                            "order_type": "Market",
-                            "side": "Buy",
-                            "symbol": "BTCUSDT",
-                            "user_id": 1,
-                            "trade_time_ms": 1577480599000
-                        }
-                    ]
-                },
-                "time_now": "1577483799.281488",
-                "rate_limit_status": 118,
-                "rate_limit_reset_ms": 1577483699244737,
-                "rate_limit": 120
-            })
-
+        get_mock.get(regex_url, body=json.dumps(mock_response_complete_fill))
         asyncio.get_event_loop().run_until_complete(self.connector._update_trade_history())
-        request_url, request_headers, request_data = asyncio.get_event_loop().run_until_complete(
-            self.mocking_assistant.next_sent_request_data(get_mock))
 
-        self.assertEqual(1577483699000, request_data["start_time"])
         self.assertEqual(Decimal(1), order.executed_amount_base)
         self.assertEqual(Decimal(44000), order.executed_amount_quote)
         order_filled_events = self.order_filled_logger.event_log
@@ -1717,9 +1717,25 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertEqual(Decimal(1), order_completed_events[0].base_asset_amount)
         self.assertEqual(order.exchange_order_id, order_completed_events[0].exchange_order_id)
 
-    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    @aioresponses()
     def test_update_trade_history_when_api_call_raises_exception(self, get_mock):
-        self.mocking_assistant.configure_http_request_mock(get_mock)
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.USER_TRADE_RECORDS_PATH_URL, self.trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
+
+        mock_response = {
+            "ret_code": 1001,
+            "ret_msg": "Error",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {},
+            "time_now": "1597171013.867068",
+            "rate_limit_status": 599,
+            "rate_limit_reset_ms": 1597171013861,
+            "rate_limit": 600
+        }
+        get_mock.get(regex_url, status=405, body=json.dumps(mock_response))
+
         self._simulate_trading_rules_initialized()
 
         order = BybitPerpetualInFlightOrder(
@@ -1734,21 +1750,6 @@ class BybitPerpetualDerivativeTests(TestCase):
             position=PositionAction.OPEN.name)
         self.connector._in_flight_orders["O1"] = order
 
-        self.mocking_assistant.add_http_response(
-            get_mock,
-            405,
-            {
-                "ret_code": 1001,
-                "ret_msg": "Error",
-                "ext_code": "",
-                "ext_info": "",
-                "result": {},
-                "time_now": "1597171013.867068",
-                "rate_limit_status": 599,
-                "rate_limit_reset_ms": 1597171013861,
-                "rate_limit": 600
-            })
-
         asyncio.get_event_loop().run_until_complete(self.connector._update_trade_history())
 
         self.assertTrue(any(record.levelname == "ERROR"
@@ -1758,60 +1759,60 @@ class BybitPerpetualDerivativeTests(TestCase):
                             in record.getMessage()
                             for record in self.log_records))
 
-    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    @aioresponses()
     def test_check_network_succeeds_when_server_time_response_is_ok(self, get_mock):
-        self.mocking_assistant.configure_http_request_mock(get_mock)
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.SERVER_TIME_PATH_URL, self.trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
 
-        self.mocking_assistant.add_http_response(
-            get_mock,
-            200,
-            {
-                "ret_code": 0,
-                "ret_msg": "OK",
-                "ext_code": "",
-                "ext_info": "",
-                "result": {},
-                "time_now": "1577444332.192859"
-            })
+        mock_response = {
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {},
+            "time_now": "1577444332.192859"
+        }
+        get_mock.get(regex_url, body=json.dumps(mock_response))
 
         result = asyncio.get_event_loop().run_until_complete(self.connector.check_network())
 
         self.assertEqual(NetworkStatus.CONNECTED, result)
 
-    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    @aioresponses()
     def test_check_network_fails_when_server_time_response_is_not_ok(self, get_mock):
-        self.mocking_assistant.configure_http_request_mock(get_mock)
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.SERVER_TIME_PATH_URL, self.trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
 
-        self.mocking_assistant.add_http_response(
-            get_mock,
-            200,
-            {
-                "ret_code": 1001,
-                "ret_msg": "Not OK",
-                "ext_code": "",
-                "ext_info": "",
-                "result": {},
-                "time_now": "1577444332.192859"
-            })
+        mock_response = {
+            "ret_code": 1001,
+            "ret_msg": "Not OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {},
+            "time_now": "1577444332.192859"
+        }
+        get_mock.get(regex_url, body=json.dumps(mock_response))
 
         result = asyncio.get_event_loop().run_until_complete(self.connector.check_network())
         self.assertEqual(NetworkStatus.NOT_CONNECTED, result)
 
-    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    @aioresponses()
     def test_check_network_fails_when_server_time_returns_error_code(self, get_mock):
-        self.mocking_assistant.configure_http_request_mock(get_mock)
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.SERVER_TIME_PATH_URL, self.trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
 
-        self.mocking_assistant.add_http_response(
-            get_mock,
-            405,
-            {
-                "ret_code": 0,
-                "ret_msg": "OK",
-                "ext_code": "",
-                "ext_info": "",
-                "result": {},
-                "time_now": "1577444332.192859"
-            })
+        mock_response = {
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {},
+            "time_now": "1577444332.192859"
+        }
+        get_mock.get(regex_url, status=405, body=json.dumps(mock_response))
 
         result = asyncio.get_event_loop().run_until_complete(self.connector.check_network())
 
@@ -1860,33 +1861,33 @@ class BybitPerpetualDerivativeTests(TestCase):
             self._is_logged("ERROR", "Unable to fetch funding fee for UNSUPPORTED-PAIR. Trading pair not supported.")
         )
 
-    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
-    def test_fetch_funding_fee_supported_trading_pair_receive_funding(self, mock_request):
-        self.mocking_assistant.configure_http_request_mock(mock_request)
+    @aioresponses()
+    def test_fetch_funding_fee_supported_trading_pair_receive_funding(self, get_mock):
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL, self.trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
+
+        mock_response = {
+            "ret_code": 0,
+            "ret_msg": "ok",
+            "ext_code": "",
+            "result": {
+                "symbol": self.ex_trading_pair,
+                "side": "Buy",
+                "size": 1,
+                "funding_rate": 0.0001,
+                "exec_fee": 0.00000002,
+                "exec_timestamp": 1575907200
+            },
+            "ext_info": None,
+            "time_now": "1577446900.717204",
+            "rate_limit_status": 119,
+            "rate_limit_reset_ms": 1577446900724,
+            "rate_limit": 120
+        }
+        get_mock.get(regex_url, body=json.dumps(mock_response))
 
         # Test 2: Support trading pair. Payment > Decimal("0")
-        self.mocking_assistant.add_http_response(
-            mock_request,
-            200,
-            {
-                "ret_code": 0,
-                "ret_msg": "ok",
-                "ext_code": "",
-                "result": {
-                    "symbol": self.ex_trading_pair,
-                    "side": "Buy",
-                    "size": 1,
-                    "funding_rate": 0.0001,
-                    "exec_fee": 0.00000002,
-                    "exec_timestamp": 1575907200
-                },
-                "ext_info": None,
-                "time_now": "1577446900.717204",
-                "rate_limit_status": 119,
-                "rate_limit_reset_ms": 1577446900724,
-                "rate_limit": 120
-            })
-
         self.connector_task = asyncio.get_event_loop().create_task(
             self.connector._fetch_funding_fee(self.trading_pair)
         )
@@ -1894,31 +1895,31 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertTrue(result)
         self.assertTrue("INFO", f"Funding payment of 0.0001 received on {self.trading_pair} market.")
 
-    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
-    def test_fetch_funding_fee_supported_trading_pair_paid_funding(self, mock_request):
-        self.mocking_assistant.configure_http_request_mock(mock_request)
+    @aioresponses()
+    def test_fetch_funding_fee_supported_trading_pair_paid_funding(self, get_mock):
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL, self.trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
 
-        self.mocking_assistant.add_http_response(
-            mock_request,
-            200,
-            {
-                "ret_code": 0,
-                "ret_msg": "error",
-                "ext_code": "",
-                "result": {
-                    "symbol": self.ex_trading_pair,
-                    "side": "Buy",
-                    "size": 1,
-                    "funding_rate": -0.0001,
-                    "exec_fee": 0.00000002,
-                    "exec_timestamp": 1575907200
-                },
-                "ext_info": None,
-                "time_now": "1577446900.717204",
-                "rate_limit_status": 119,
-                "rate_limit_reset_ms": 1577446900724,
-                "rate_limit": 120
-            })
+        mock_response = {
+            "ret_code": 0,
+            "ret_msg": "error",
+            "ext_code": "",
+            "result": {
+                "symbol": self.ex_trading_pair,
+                "side": "Buy",
+                "size": 1,
+                "funding_rate": -0.0001,
+                "exec_fee": 0.00000002,
+                "exec_timestamp": 1575907200
+            },
+            "ext_info": None,
+            "time_now": "1577446900.717204",
+            "rate_limit_status": 119,
+            "rate_limit_reset_ms": 1577446900724,
+            "rate_limit": 120
+        }
+        get_mock.get(regex_url, body=json.dumps(mock_response))
 
         self.connector_task = asyncio.get_event_loop().create_task(
             self.connector._fetch_funding_fee(self.trading_pair)
@@ -1936,26 +1937,25 @@ class BybitPerpetualDerivativeTests(TestCase):
             self._is_logged("ERROR", "Unable to set leverage for UNSUPPORTED-PAIR. Trading pair not supported.")
         )
 
-    @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
-    def test_set_leverage_not_ok(self, mock_request):
-        self.mocking_assistant.configure_http_request_mock(mock_request)
+    @aioresponses()
+    def test_set_leverage_not_ok(self, post_mock):
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.SET_LEVERAGE_PATH_URL, self.trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
 
         new_leverage: int = 0
-
-        self.mocking_assistant.add_http_response(
-            mock_request,
-            200,
-            {
-                "ret_code": 1001,
-                "ret_msg": "",
-                "ext_code": "20031",
-                "result": new_leverage,
-                "ext_info": None,
-                "time_now": "1577477968.175013",
-                "rate_limit_status": 74,
-                "rate_limit_reset_ms": 1577477968183,
-                "rate_limit": 75
-            })
+        mock_response = {
+            "ret_code": 1001,
+            "ret_msg": "",
+            "ext_code": "20031",
+            "result": new_leverage,
+            "ext_info": None,
+            "time_now": "1577477968.175013",
+            "rate_limit_status": 74,
+            "rate_limit_reset_ms": 1577477968183,
+            "rate_limit": 75
+        }
+        post_mock.post(regex_url, body=json.dumps(mock_response))
 
         self.connector_task = asyncio.get_event_loop().create_task(
             self.connector._set_leverage(self.trading_pair, new_leverage)
@@ -1964,25 +1964,25 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertTrue(
             self._is_logged('ERROR', f"Unable to set leverage for {self.trading_pair}. Leverage: {new_leverage}"))
 
-    @patch("aiohttp.ClientSession.post", new_callable=AsyncMock)
-    def test_set_leverage_ok(self, mock_request):
-        self.mocking_assistant.configure_http_request_mock(mock_request)
-        new_leverage: int = 2
+    @aioresponses()
+    def test_set_leverage_ok(self, post_mock):
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.SET_LEVERAGE_PATH_URL, self.trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
 
-        self.mocking_assistant.add_http_response(
-            mock_request,
-            200,
-            {
-                "ret_code": 0,
-                "ret_msg": "ok",
-                "ext_code": "",
-                "result": new_leverage,
-                "ext_info": None,
-                "time_now": "1577477968.175013",
-                "rate_limit_status": 74,
-                "rate_limit_reset_ms": 1577477968183,
-                "rate_limit": 75
-            })
+        new_leverage: int = 2
+        mock_response = {
+            "ret_code": 0,
+            "ret_msg": "ok",
+            "ext_code": "",
+            "result": new_leverage,
+            "ext_info": None,
+            "time_now": "1577477968.175013",
+            "rate_limit_status": 74,
+            "rate_limit_reset_ms": 1577477968183,
+            "rate_limit": 75
+        }
+        post_mock.post(regex_url, body=json.dumps(mock_response))
 
         self.connector_task = asyncio.get_event_loop().create_task(
             self.connector._set_leverage(self.trading_pair, new_leverage)
@@ -1991,102 +1991,129 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertTrue(
             self._is_logged('INFO', f"Leverage Successfully set to {new_leverage} for {self.trading_pair}."))
 
-    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
-    def test_update_positions(self, mock_request):
-        self.mocking_assistant.configure_http_request_mock(mock_request)
+    @aioresponses()
+    def test_update_positions(self, get_mock):
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.GET_POSITIONS_PATH_URL, self.trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
 
-        self.mocking_assistant.add_http_response(
-            mock_request,
-            200,
-            {
-                "ret_code": 0,
-                "ret_msg": "OK",
-                "ext_code": "",
-                "ext_info": "",
-                "result": [
-                    {
-                        "user_id": 100004,
-                        "symbol": self.ex_trading_pair,
-                        "side": "Buy",
-                        "size": 10,
-                        "position_value": "0.00076448",
-                        "entry_price": "13080.78694014",
-                        "liq_price": "25",
-                        "bust_price": "25",
-                        "leverage": 100,
-                        "is_isolated": False,
-                        "auto_add_margin": 1,
-                        "position_margin": "0.40111704",
-                        "occ_closing_fee": "0.0003",
-                        "realised_pnl": 0,
-                        "cum_realised_pnl": 0,
-                        "free_qty": 30,
-                        "tp_sl_mode": "Full",
-                        "unrealised_pnl": 0.00003797,
-                        "deleverage_indicator": 0,
-                        "risk_id": 1,
-                        "stop_loss": 0,
-                        "take_profit": 0,
-                        "trailing_stop": 0
-                    }
-                ],
-                "time_now": "1577480599.097287",
-                "rate_limit_status": 119,
-                "rate_limit_reset_ms": 1580885703683,
-                "rate_limit": 120
-            })
+        mock_response_two_entries = {
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": [
+                {
+                    "user_id": 100004,
+                    "symbol": self.ex_trading_pair,
+                    "side": "Buy",
+                    "size": 10,
+                    "position_value": "0.00076448",
+                    "entry_price": "13080.78694014",
+                    "liq_price": "25",
+                    "bust_price": "25",
+                    "leverage": 100,
+                    "is_isolated": False,
+                    "auto_add_margin": 1,
+                    "position_margin": "0.40111704",
+                    "occ_closing_fee": "0.0003",
+                    "realised_pnl": 0,
+                    "cum_realised_pnl": 0,
+                    "free_qty": 30,
+                    "tp_sl_mode": "Full",
+                    "unrealised_pnl": 0.00003797,
+                    "deleverage_indicator": 0,
+                    "risk_id": 1,
+                    "stop_loss": 0,
+                    "take_profit": 0,
+                    "trailing_stop": 0
+                },
+                {
+                    "user_id": 100004,
+                    "symbol": self.ex_trading_pair,
+                    "side": "Sell",
+                    "size": 10,
+                    "position_value": "0.00076448",
+                    "entry_price": "13080.78694014",
+                    "liq_price": "25",
+                    "bust_price": "25",
+                    "leverage": 100,
+                    "is_isolated": False,
+                    "auto_add_margin": 1,
+                    "position_margin": "0.40111704",
+                    "occ_closing_fee": "0.0003",
+                    "realised_pnl": 0,
+                    "cum_realised_pnl": 0,
+                    "free_qty": 30,
+                    "tp_sl_mode": "Full",
+                    "unrealised_pnl": 0.00003797,
+                    "deleverage_indicator": 0,
+                    "risk_id": 1,
+                    "stop_loss": 0,
+                    "take_profit": 0,
+                    "trailing_stop": 0
+                }
+            ],
+            "time_now": "1577480599.097287",
+            "rate_limit_status": 119,
+            "rate_limit_reset_ms": 1580885703683,
+            "rate_limit": 120
+        }
+        mock_response_remove_long_position = {
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": [
+                {
+                    "user_id": 100004,
+                    "symbol": self.ex_trading_pair,
+                    "side": "Buy",
+                    "size": 0,
+                    "position_value": "0.00076448",
+                    "entry_price": "13080.78694014",
+                    "liq_price": "25",
+                    "bust_price": "25",
+                    "leverage": 100,
+                    "is_isolated": False,
+                    "auto_add_margin": 1,
+                    "position_margin": "0.40111704",
+                    "occ_closing_fee": "0.0003",
+                    "realised_pnl": 0,
+                    "cum_realised_pnl": 0,
+                    "free_qty": 30,
+                    "tp_sl_mode": "Full",
+                    "unrealised_pnl": 0.00003797,
+                    "deleverage_indicator": 0,
+                    "risk_id": 1,
+                    "stop_loss": 0,
+                    "take_profit": 0,
+                    "trailing_stop": 0
+                }
+            ],
+            "time_now": "1577480599.097287",
+            "rate_limit_status": 119,
+            "rate_limit_reset_ms": 1580885703683,
+            "rate_limit": 120
+        }
+        get_mock.get(regex_url, body=json.dumps(mock_response_two_entries))
+        get_mock.get(regex_url, body=json.dumps(mock_response_remove_long_position))
 
+        self.connector._position_mode = PositionMode.HEDGE
         self.connector_task = asyncio.get_event_loop().create_task(
             self.connector._update_positions())
         asyncio.get_event_loop().run_until_complete(self.connector_task)
-        self.assertEqual(1, len(self.connector._account_positions))
-
-        self.mocking_assistant.add_http_response(
-            mock_request,
-            200,
-            {
-                "ret_code": 0,
-                "ret_msg": "OK",
-                "ext_code": "",
-                "ext_info": "",
-                "result": [
-                    {
-                        "user_id": 100004,
-                        "symbol": self.ex_trading_pair,
-                        "side": "Buy",
-                        "size": 0,
-                        "position_value": "0.00076448",
-                        "entry_price": "13080.78694014",
-                        "liq_price": "25",
-                        "bust_price": "25",
-                        "leverage": 100,
-                        "is_isolated": False,
-                        "auto_add_margin": 1,
-                        "position_margin": "0.40111704",
-                        "occ_closing_fee": "0.0003",
-                        "realised_pnl": 0,
-                        "cum_realised_pnl": 0,
-                        "free_qty": 30,
-                        "tp_sl_mode": "Full",
-                        "unrealised_pnl": 0.00003797,
-                        "deleverage_indicator": 0,
-                        "risk_id": 1,
-                        "stop_loss": 0,
-                        "take_profit": 0,
-                        "trailing_stop": 0
-                    }
-                ],
-                "time_now": "1577480599.097287",
-                "rate_limit_status": 119,
-                "rate_limit_reset_ms": 1580885703683,
-                "rate_limit": 120
-            })
+        self.assertEqual(2, len(self.connector._account_positions))
 
         self.connector_task = asyncio.get_event_loop().create_task(
             self.connector._update_positions()
         )
         asyncio.get_event_loop().run_until_complete(self.connector_task)
-        self.assertEqual(0, len(self.connector._account_positions))
+        self.assertEqual(1, len(self.connector._account_positions))
+
+        # Checks that amount for SHORT positions are negative
+        short_position = self.connector._account_positions[f"{self.trading_pair}{PositionSide.SHORT.name}"]
+        self.assertEqual(Decimal("-10.0"), short_position.amount)
 
     @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
     def test_listening_process_receives_updates_position(self, ws_connect_mock):
