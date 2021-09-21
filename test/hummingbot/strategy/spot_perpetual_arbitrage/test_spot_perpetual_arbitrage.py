@@ -278,6 +278,7 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
             Decimal("1"),
             self.perp_connector.get_leverage(trading_pair)
         )
+        self.strategy._strategy_state = StrategyState.Opened
         self.assertTrue(self.strategy.check_budget_constraint(proposal))
 
     def test_no_arbitrage_opportunity(self):
