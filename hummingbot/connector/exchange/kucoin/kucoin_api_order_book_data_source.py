@@ -121,11 +121,11 @@ class KucoinWSConnectionIterator:
                 self._ws = await self._client.ws_connect(ws_url)
 
     async def close_ws_connection(self):
+        if self._ws is not None:
+            await self._ws.close()
         if self._client is not None:
-            if self._ws is not None:
-                await self._ws.close()
             await self._client.close()
-            self._client = self._ws = None
+        self._client = self._ws = None
 
     async def update_subscription(self, stream_type: StreamType, trading_pairs: Set[str], subscribe: bool):
         trading_pairs = {convert_to_exchange_trading_pair(t) for t in trading_pairs}
