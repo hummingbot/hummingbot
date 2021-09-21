@@ -75,21 +75,20 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Get whole orderbook
         """
         async with aiohttp.ClientSession() as client:
-            response = await client.get(
+            async with client.get(
                 f"{CONSTANTS.REST_URL}/{CONSTANTS.GET_ORDER_BOOK_PATH_URL}?size=200&symbol="
                 f"{bitmart_utils.convert_to_exchange_trading_pair(trading_pair)}"
-            )
+            ) as response:
+                if response.status != 200:
+                    raise IOError(
+                        f"Error fetching OrderBook for {trading_pair} at {CONSTANTS.EXCHANGE_NAME}. "
+                        f"HTTP status is {response.status}."
+                    )
 
-            if response.status != 200:
-                raise IOError(
-                    f"Error fetching OrderBook for {trading_pair} at {CONSTANTS.EXCHANGE_NAME}. "
-                    f"HTTP status is {response.status}."
-                )
+                orderbook_data: Dict[str, Any] = await response.json()
+                orderbook_data = orderbook_data["data"]
 
-            orderbook_data: Dict[str, Any] = await response.json()
-            orderbook_data = orderbook_data["data"]
-
-            return orderbook_data
+                return orderbook_data
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair)
@@ -121,6 +120,12 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return
         finally:
             await ws.close()
+
+    async def _sleep(self, delay):
+        """
+        Function added only to facilitate patching the sleep in unit tests without affecting the asyncio module
+        """
+        await asyncio.sleep(delay)
 
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
@@ -159,7 +164,7 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 raise
             except Exception:
                 self.logger().error("Unexpected error.", exc_info=True)
-                await asyncio.sleep(5.0)
+                await self._sleep(5.0)
             finally:
                 await ws.close()
 
@@ -206,7 +211,7 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     app_warning_msg="Unexpected error with WebSocket connection. Retrying in 30 seconds. "
                                     "Check network connection."
                 )
-                await asyncio.sleep(30.0)
+                await self._sleep(30.0)
             finally:
                 await ws.close()
 
@@ -228,7 +233,7 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         output.put_nowait(snapshot_msg)
                         self.logger().debug(f"Saved order book snapshot for {trading_pair}")
                         # Be careful not to go above API rate limits.
-                        await asyncio.sleep(5.0)
+                        await self._sleep(5.0)
                     except asyncio.CancelledError:
                         raise
                     except Exception:
@@ -242,7 +247,7 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
                 next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)
                 delta: float = next_hour.timestamp() - time.time()
-                await asyncio.sleep(delta)
+                await self._sleep(delta)
             except asyncio.CancelledError:
                 raise
             except Exception:
