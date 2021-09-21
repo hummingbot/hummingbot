@@ -268,7 +268,7 @@ cdef class LoopringExchange(ExchangeBase):
                 try:
                     response = await self.api_request("GET", NEXT_ORDER_ID, params={"accountId": self._loopring_accountid, "sellTokenId": token, "maxNext": "true"})
                     next_id = response["orderId"]
-                    self._next_order_id[token] = next_id + 2 # api returns used count rather than next available
+                    self._next_order_id[token] = next_id + 2  # api returns used count rather than next available
                 except Exception as e:
                     self.logger().info(str(e))
                     self.logger().info("Error getting the next order id from Loopring")
