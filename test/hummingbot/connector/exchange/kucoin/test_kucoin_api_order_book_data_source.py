@@ -6,8 +6,6 @@ from typing import Awaitable, Dict
 from unittest.mock import patch, AsyncMock
 
 import aiohttp
-import websockets
-import websockets.client
 from aioresponses import aioresponses
 
 from hummingbot.connector.exchange.kucoin.kucoin_api_order_book_data_source import (
@@ -35,6 +33,7 @@ class KucoinTestProviders:  # does not inherit from TestCase so as to not be dis
 
     def setUp(self) -> None:
         super().setUp()
+        self.throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         self.mocking_assistant = NetworkMockingAssistant()
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
@@ -43,16 +42,21 @@ class KucoinTestProviders:  # does not inherit from TestCase so as to not be dis
 
 
 class TestKucoinWSConnectionIterator(KucoinTestProviders, unittest.TestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.conn_iterator = KucoinWSConnectionIterator(StreamType.Trade, {self.trading_pair}, self.throttler)
+
     @aioresponses()
     def test_get_ws_connection_context_fail(self, mock_api):
         url = CONSTANTS.BASE_PATH_URL + CONSTANTS.PUBLIC_WS_DATA_PATH_URL
         mock_api.post(url, status=500)
 
         with self.assertRaises(IOError):
-            self.async_run_with_timeout(KucoinWSConnectionIterator.get_ws_connection_context())
+            self.async_run_with_timeout(self.conn_iterator.open_ws_connection())
 
     @aioresponses()
-    def test_get_ws_connection_context_success(self, mock_api):
+    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_get_ws_connection_context_success(self, mock_api, ws_connect_mock):
         url = CONSTANTS.BASE_PATH_URL + CONSTANTS.PUBLIC_WS_DATA_PATH_URL
         resp_data = {
             "data": {
@@ -66,70 +70,67 @@ class TestKucoinWSConnectionIterator(KucoinTestProviders, unittest.TestCase):
         }
         mock_api.post(url, body=json.dumps(resp_data))
 
-        ret = self.async_run_with_timeout(KucoinWSConnectionIterator.get_ws_connection_context())
-        self.assertTrue(isinstance(ret, websockets.client.Connect))
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
-    @patch("websockets.connect", new_callable=AsyncMock)
+        self.async_run_with_timeout(self.conn_iterator.open_ws_connection())
+        self.assertEqual(self.conn_iterator.websocket, ws_connect_mock.return_value)
+
+    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_update_subscription(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-        ws = self.ev_loop.run_until_complete(ws_connect_mock())
-        ws_text_messages = self.mocking_assistant.text_messages_sent_through_websocket(ws_connect_mock.return_value)
+        ws_json_messages = self.mocking_assistant.json_messages_sent_through_websocket(ws_connect_mock.return_value)
+        self.async_run_with_timeout(self.conn_iterator.open_ws_connection())
 
         self.async_run_with_timeout(
-            KucoinWSConnectionIterator.update_subscription(
-                ws, StreamType.Depth, {self.trading_pair}, subscribe=True
-            )
+            self.conn_iterator.update_subscription(StreamType.Depth, {self.trading_pair}, subscribe=True)
         )
 
-        self.assertTrue(len(ws_text_messages) == 1)
+        self.assertTrue(len(ws_json_messages) == 1)
 
         self.async_run_with_timeout(
-            KucoinWSConnectionIterator.update_subscription(
-                ws, StreamType.Trade, {self.trading_pair}, subscribe=True
-            )
+            self.conn_iterator.update_subscription(StreamType.Trade, {self.trading_pair}, subscribe=True)
         )
 
-        self.assertTrue(len(ws_text_messages) == 2)
+        self.assertTrue(len(ws_json_messages) == 2)
 
-    @patch("websockets.connect", new_callable=AsyncMock)
+    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_subscribe(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         ws = self.ev_loop.run_until_complete(ws_connect_mock())
-        ws_text_messages = self.mocking_assistant.text_messages_sent_through_websocket(ws_connect_mock.return_value)
+        ws_json_messages = self.mocking_assistant.json_messages_sent_through_websocket(ws_connect_mock.return_value)
 
         conn_iterator = KucoinWSConnectionIterator(
             StreamType.Trade, {self.trading_pair}, AsyncThrottler(CONSTANTS.RATE_LIMITS)
         )
-        conn_iterator._websocket = ws
+        conn_iterator._ws = ws
 
         self.async_run_with_timeout(conn_iterator.subscribe(StreamType.Depth, {self.trading_pair}))
 
-        self.assertTrue(len(ws_text_messages) == 1)
-        msg = json.loads(ws_text_messages.pop())
+        self.assertTrue(len(ws_json_messages) == 1)
+        msg = ws_json_messages.pop()
         self.assertEqual(msg["type"], "subscribe")
 
-    @patch("websockets.connect", new_callable=AsyncMock)
+    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_unsubscribe(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         ws = self.ev_loop.run_until_complete(ws_connect_mock())
-        ws_text_messages = self.mocking_assistant.text_messages_sent_through_websocket(ws_connect_mock.return_value)
+        ws_json_messages = self.mocking_assistant.json_messages_sent_through_websocket(ws_connect_mock.return_value)
 
         conn_iterator = KucoinWSConnectionIterator(
             StreamType.Trade, {self.trading_pair}, AsyncThrottler(CONSTANTS.RATE_LIMITS)
         )
-        conn_iterator._websocket = ws
+        conn_iterator._ws = ws
 
         self.async_run_with_timeout(conn_iterator.unsubscribe(StreamType.Depth, {self.trading_pair}))
 
-        self.assertTrue(len(ws_text_messages) == 1)
-        msg = json.loads(ws_text_messages.pop())
+        self.assertTrue(len(ws_json_messages) == 1)
+        msg = ws_json_messages.pop()
         self.assertEqual(msg["type"], "unsubscribe")
 
 
 class TestKucoinAPIOrderBookDataSource(KucoinTestProviders, unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
-        self.throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         self.auth = KucoinAuth(self.api_key, self.api_passphrase, self.api_secret_key)
         self.ob_data_source = KucoinAPIOrderBookDataSource(self.throttler, [self.trading_pair], self.auth)
 

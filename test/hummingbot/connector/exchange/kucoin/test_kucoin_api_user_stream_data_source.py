@@ -74,8 +74,26 @@ class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
         self.assertEqual(ret, resp)  # shallow comparison ok
 
     @aioresponses()
-    @patch("websockets.connect", new_callable=AsyncMock)
-    def test_listen_to_user_stream(self, mock_api, ws_connect_mock):
+    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_listen_to_user_stream_subscribes_to_private_topics(self, mock_api, ws_connect_mock):
+        url = CONSTANTS.BASE_PATH_URL + CONSTANTS.PRIVATE_WS_DATA_PATH_URL
+        resp = self.get_listen_key_mock()
+        mock_api.post(url, body=json.dumps(resp))
+
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        msg_queue = asyncio.Queue()
+
+        self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, msg_queue))
+        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+
+        sent_messages = self.mocking_assistant.json_messages_sent_through_websocket(ws_connect_mock.return_value)
+        self.assertEqual(len(CONSTANTS.PRIVATE_ENDPOINT_NAMES), len(sent_messages))
+        subscribed_endpoints = {m["topic"] for m in sent_messages}
+        self.assertEqual(set(CONSTANTS.PRIVATE_ENDPOINT_NAMES), subscribed_endpoints)
+
+    @aioresponses()
+    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_listen_to_user_stream_accepts_message(self, mock_api, ws_connect_mock):
         url = CONSTANTS.BASE_PATH_URL + CONSTANTS.PRIVATE_WS_DATA_PATH_URL
         resp = self.get_listen_key_mock()
         mock_api.post(url, body=json.dumps(resp))
@@ -83,33 +101,13 @@ class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         msg = "someMsg"
         msg_queue = asyncio.Queue()
-        self.mocking_assistant.add_websocket_text_message(ws_connect_mock.return_value, json.dumps(msg))
+        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(msg))
 
         self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, msg_queue))
-        self.mocking_assistant.run_until_all_text_messages_delivered(ws_connect_mock.return_value)
+        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         self.assertTrue(not msg_queue.empty())
 
         queued = msg_queue.get_nowait()
 
         self.assertEqual(msg, queued)
-
-    @aioresponses()
-    @patch("websockets.connect", new_callable=AsyncMock)
-    def test_listen_for_user_stream_closes_ws_on_exception(self, mock_api, ws_connect_mock):
-        url = CONSTANTS.BASE_PATH_URL + CONSTANTS.PRIVATE_WS_DATA_PATH_URL
-        resp = self.get_listen_key_mock()
-        mock_api.post(url, body=json.dumps(resp))
-        raised_event = asyncio.Event()
-
-        async def raise_exception():
-            raised_event.set()
-            raise IOError
-
-        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-        ws_connect_mock.return_value.recv.side_effect = raise_exception
-
-        self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, asyncio.Queue()))
-        self.async_run_with_timeout(coroutine=raised_event.wait())
-
-        ws_connect_mock.return_value.close.assert_called()
