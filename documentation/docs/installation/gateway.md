@@ -49,7 +49,7 @@ It downloads the scripts from GitHub, sets their correct permission and runs the
 
 By default, Gateway will install on port `5000` which Hummingbot will connect to. If the default port is not available, Gateway will find the next port number.
 
-4. The file `gateway.env` is created where your Gateway settings are saved.
+4. The file `global_conf.yml` is created where your Gateway settings are saved.
 
 ## Configure port number (optional)
 
@@ -98,7 +98,7 @@ Installation applies to Windows, Linux or macOS
 
 1. NodeJS - visit this [page](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm/) to download and install.
 
-- Tested versions `v10.22.0, v10.22.1 and v10.23.1`.
+- Tested versions `v12.13.0, v12.13.1`.
 
 ```bash
 # to check your current version
@@ -108,7 +108,7 @@ node -v
 ![](/assets/img/gw_version.gif)
 
 !!! tip
-    You can install [nvm] to manage and use different node versions on the same system.
+    You can install [nvm](https://gist.github.com/d2s/372b5943bce17b964a79) to manage and use different node versions on the same system.
 
 2. Yarn (required for node package installations)
 
@@ -135,34 +135,31 @@ cd gateway-api
 
 ```bash
 # install npm packages
-yarn install
+# build packages
+yarn
+yarn build
 ```
 
 ![](/assets/img/gw_yarn.gif)
 
 ```bash
 # copy sample environment
-cp .env.example .env
+cp global_conf.yml.example global_conf.yml
 ```
 
 ![](/assets/img/gw_env.gif)
 
-- Edit `.env` file with your favorite text editor then save changes.
-- There are 3 ways to start the gateway
-
-```bash
-# run dev mode with hot reload on code changes
-yarn run dev
-```
+- Edit `global_conf.yml` file with your favorite text editor then save changes.
+- There are 2 ways to start the gateway
 
 ```bash
 # run debug mode with additional route debug logging
-yarn run debug
+yarn debug
 ```
 
 ```bash
 # run prod mode
-yarn run start
+yarn start
 ```
 
 ![](/assets/img/gw_starting.gif)
@@ -182,19 +179,34 @@ When connecting your Hummingbot to ethereum, you need to change to `kovan` inste
 
 ![](/assets/img/gateway-kovan.jpg)
 
-Add the following to your `erc20_tokens_override.json` found on your Hummingbot directory under `conf` or `hummingbot_conf` folder.
+For more information about `ERC20 Kovan token lists` click [here](https://github.com/CoinAlpha/gateway-api/blob/master/src/assets/erc20_tokens_kovan.json).
+
+File location `gateway-api/src/assets/ecr20_tokens_kovan.json`
 
 ```
-  "BAT": "0x1f1f156E0317167c11Aa412E3d1435ea29Dc3cCE",
-  "WETH": "0xd0A1E359811322d97991E03f863a0C30C2cF029C",
-  "DAI": "0x1528F3FCc26d13F7079325Fb78D9442607781c8C",
-  "MKR": "0xef13C0c8abcaf5767160018d268f9697aE4f5375",
-  "USDC": "0x2F375e94FC336Cdec2Dc0cCB5277FE59CBf1cAe5",
-  "REP": "0x8c9e6c40d3402480ACE624730524fACC5482798c",
-  "WBTC": "0xe0C9275E44Ea80eF17579d33c55136b7DA269aEb",
-  "SNX": "0x86436BcE20258a6DcfE48C9512d4d49A30C4d8c4",
-  "ANT": "0x37f03a12241E9FD3658ad6777d289c3fb8512Bc9",
-  "ZRX": "0xccb0F4Cf5D3F97f4a55bb5f5cA321C3ED033f244"
+  {
+  "name": "kovan",
+  "tokens": [
+    {
+      "symbol": "COIN1",
+      "address": "0x809F5A762e7b0CC75C42cd76098b85CB7BD2BA64",
+      "decimals": 18,
+      "chainId": 42
+    },
+    {
+      "symbol": "COIN2",
+      "address": "0x9866c4043bc6cf47eaf845c56f6ab221c204e0df",
+      "decimals": 8,
+      "chainId": 42
+    },
+    {
+      "symbol": "COIN3",
+      "address": "0x3D2097889B97A9eF23B3eA8FC10c626fbda29099",
+      "decimals": 18,
+      "chainId": 42
+    }
+  ]
+}
 ```
 
 Relaunch your Hummingbot client and setup an AMM_Arbitrage strategy.

@@ -1,18 +1,26 @@
+import aiohttp
 import asyncio
 import logging
 import time
-from typing import Optional, Dict, AsyncIterable
-
-import aiohttp
 import ujson
 import websockets
+
+import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
+
+from typing import (
+    Any,
+    AsyncIterable,
+    Dict,
+    Optional,
+    Tuple,
+)
 from websockets import ConnectionClosed
 
+from hummingbot.connector.derivative.binance_perpetual import binance_perpetual_utils as utils
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
-
-BINANCE_USER_STREAM_ENDPOINT = "/fapi/v1/listenKey"
 
 
 class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
@@ -28,32 +36,40 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
     def last_recv_time(self) -> float:
         return self._last_recv_time
 
-    def __init__(self, base_url: str, stream_url: str, api_key: str):
+    def __init__(self, api_key: str, domain: str = "binance_perpetual", throttler: Optional[AsyncThrottler] = None):
         super().__init__()
         self._api_key: str = api_key
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
         self._last_recv_time: float = 0
-        self._http_stream_url = base_url + BINANCE_USER_STREAM_ENDPOINT
-        self._wss_stream_url = stream_url + "/ws/"
+        self._domain = domain
+        self._throttler = throttler or self._get_throttler_instance()
+
+    @classmethod
+    def _get_throttler_instance(cls) -> AsyncThrottler:
+        return AsyncThrottler(CONSTANTS.RATE_LIMITS)
 
     async def get_listen_key(self):
         async with aiohttp.ClientSession() as client:
-            response: aiohttp.ClientResponse = await client.post(
-                self._http_stream_url, headers={"X-MBX-APIKEY": self._api_key}
-            )
-            if response.status != 200:
-                raise IOError(f"Error fetching Binance Perpetual user stream listen key. "
-                              f"HTTP status is {response.status}.")
-            data: Dict[str, str] = await response.json()
-            return data["listenKey"]
+            async with self._throttler.execute_task(limit_id=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT):
+                response: aiohttp.ClientResponse = await client.post(
+                    url=utils.rest_url(CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, self._domain),
+                    headers={"X-MBX-APIKEY": self._api_key}
+                )
+                if response.status != 200:
+                    raise IOError(f"Error fetching Binance Perpetual user stream listen key. "
+                                  f"HTTP status is {response.status}.")
+                data: Dict[str, str] = await response.json()
+                return data["listenKey"]
 
     async def ping_listen_key(self, listen_key: str) -> bool:
         async with aiohttp.ClientSession() as client:
-            async with client.put(self._http_stream_url,
-                                  headers={"X-MBX-APIKEY": self._api_key},
-                                  params={"listenKey": listen_key}) as response:
-                data: [str, any] = await response.json()
+            async with self._throttler.execute_task(limit_id=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT):
+                response: aiohttp.ClientResponse = await client.put(
+                    url=utils.rest_url(CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, self._domain),
+                    headers={"X-MBX-APIKEY": self._api_key},
+                    params={"listenKey": listen_key})
+                data: Tuple[str, Any] = await response.json()
                 if "code" in data:
                     self.logger().warning(f"Failed to refresh the listen key {listen_key}: {data}")
                     return False
@@ -81,7 +97,7 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
     async def log_user_stream(self, output: asyncio.Queue):
         while True:
             try:
-                stream_url: str = f"{self._wss_stream_url}{self._current_listen_key}"
+                stream_url: str = f"{utils.wss_url(CONSTANTS.PRIVATE_WS_ENDPOINT, self._domain)}/{self._current_listen_key}"
                 ws: websockets.WebSocketClientProtocol = await websockets.connect(stream_url)
                 async for raw_msg in self.ws_messages(ws):
                     msg_json: Dict[str, any] = ujson.loads(raw_msg)
