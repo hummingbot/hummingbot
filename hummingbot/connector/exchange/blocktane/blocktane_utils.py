@@ -32,19 +32,22 @@ MARKET_DATA = None
 INVERSE_MARKET_LOOKUP = None
 NAME_LOOKUP = None
 
-
-def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
+def _populate_lookups():
     global MARKET_DATA
     global INVERSE_MARKET_LOOKUP
     global NAME_LOOKUP
+    try:
+        markets = requests.get('https://trade.blocktane.io/api/v2/xt/public/markets').json()
+        MARKET_DATA = {market['id']: market for market in markets}
+        INVERSE_MARKET_LOOKUP = {(market['base_unit'].upper(), market['quote_unit'].upper()): market for market in markets}
+        NAME_LOOKUP = {market['name']: market for market in markets}
+    except Exception:
+        pass  # Will fall back to regex splitting
+
+
+def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
     if MARKET_DATA is None:
-        try:
-            markets = requests.get('https://trade.blocktane.io/api/v2/xt/public/markets').json()
-            MARKET_DATA = {market['id']: market for market in markets}
-            INVERSE_MARKET_LOOKUP = {(market['base_unit'].upper(), market['quote_unit'].upper()): market for market in markets}
-            NAME_LOOKUP = {market['name']: market for market in markets}
-        except Exception:
-            pass  # Will fall back to regex splitting
+        _populate_lookups()
 
     if MARKET_DATA is not None:
         if '/' in trading_pair:
@@ -77,6 +80,8 @@ def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[s
 
 
 def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
+    if INVERSE_MARKET_LOOKUP is None:
+        _populate_lookups()
     try:
         return INVERSE_MARKET_LOOKUP[hb_trading_pair.split('-')]['id']
     except Exception:
