@@ -68,24 +68,3 @@ class GateIoWebsocketTest(unittest.TestCase):
         ret = self.async_run_with_timeout(async_iter.__anext__(), timeout=0.1)
 
         self.assertEqual(mock_event, ret["event"])
-
-    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_on_message_skips_subscribe_unsubscribe_messages(self, mock_ws):
-        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
-
-        self.async_run_with_timeout(self.ws.connect())
-        async_iter = self.ws.on_message()
-
-        self.mocking_assistant.add_websocket_aiohttp_message(
-            mock_ws.return_value, json.dumps({"event": "subscribe"})
-        )
-        with self.assertRaises(asyncio.exceptions.TimeoutError):
-            self.async_run_with_timeout(async_iter.__anext__(), timeout=0.1)
-
-        self.mocking_assistant.add_websocket_aiohttp_message(
-            mock_ws.return_value, json.dumps({"event": "unsubscribe"})
-        )
-        self.async_run_with_timeout(self.ws.connect())
-        async_iter = self.ws.on_message()
-        with self.assertRaises(asyncio.exceptions.TimeoutError):
-            self.async_run_with_timeout(async_iter.__anext__(), timeout=0.1)

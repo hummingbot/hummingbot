@@ -221,6 +221,26 @@ class TestGateIoAPIOrderBookDataSource(unittest.TestCase):
         self.assertTrue(isinstance(output_queue.get_nowait(), OrderBookMessage))
 
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_listen_for_trades_skips_subscribe_unsubscribe_messages(self, ws_connect_mock):
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        resp = {"time": 1632223851, "channel": "spot.usertrades", "event": "subscribe", "result": {"status": "success"}}
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            ws_connect_mock.return_value, json.dumps(resp)
+        )
+        resp = {
+            "time": 1632223851, "channel": "spot.usertrades", "event": "unsubscribe", "result": {"status": "success"}
+        }
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            ws_connect_mock.return_value, json.dumps(resp)
+        )
+
+        output_queue = asyncio.Queue()
+        self.ev_loop.create_task(self.data_source.listen_for_trades(self.ev_loop, output_queue))
+        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+
+        self.assertTrue(output_queue.empty())
+
+    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_order_book_diffs_update(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         resp = self.get_order_book_update_mock()
@@ -249,6 +269,26 @@ class TestGateIoAPIOrderBookDataSource(unittest.TestCase):
 
         self.assertTrue(not output_queue.empty())
         self.assertTrue(isinstance(output_queue.get_nowait(), OrderBookMessage))
+
+    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_listen_for_order_book_diffs_snapshot_skips_subscribe_unsubscribe_messages(self, ws_connect_mock):
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        resp = {"time": 1632223851, "channel": "spot.usertrades", "event": "subscribe", "result": {"status": "success"}}
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            ws_connect_mock.return_value, json.dumps(resp)
+        )
+        resp = {
+            "time": 1632223851, "channel": "spot.usertrades", "event": "unsubscribe", "result": {"status": "success"}
+        }
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            ws_connect_mock.return_value, json.dumps(resp)
+        )
+
+        output_queue = asyncio.Queue()
+        self.ev_loop.create_task(self.data_source.listen_for_order_book_diffs(self.ev_loop, output_queue))
+        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+
+        self.assertTrue(output_queue.empty())
 
     @aioresponses()
     def test_listen_for_order_book_snapshots(self, mock_api):

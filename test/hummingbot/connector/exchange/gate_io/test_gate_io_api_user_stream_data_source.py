@@ -1,8 +1,11 @@
 import asyncio
 import json
+import time
 import unittest
 from typing import Dict, Awaitable
 from unittest.mock import patch, AsyncMock
+
+import numpy as np
 
 from hummingbot.connector.exchange.gate_io.gate_io_api_user_stream_data_source import GateIoAPIUserStreamDataSource
 from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
@@ -138,3 +141,24 @@ class TestGateIoAPIOrderBookDataSource(unittest.TestCase):
         ret = self.async_run_with_timeout(coroutine=output_queue.get())
 
         self.assertEqual(ret, resp)
+
+    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_listen_for_user_stream_skips_subscribe_unsubscribe_messages_updates_last_recv_time(self, ws_connect_mock):
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        resp = {"time": 1632223851, "channel": "spot.usertrades", "event": "subscribe", "result": {"status": "success"}}
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            ws_connect_mock.return_value, json.dumps(resp)
+        )
+        resp = {
+            "time": 1632223851, "channel": "spot.usertrades", "event": "unsubscribe", "result": {"status": "success"}
+        }
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            ws_connect_mock.return_value, json.dumps(resp)
+        )
+
+        output_queue = asyncio.Queue()
+        self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, output_queue))
+        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+
+        self.assertTrue(output_queue.empty())
+        np.testing.assert_allclose([time.time()], self.data_source.last_recv_time, rtol=1)
