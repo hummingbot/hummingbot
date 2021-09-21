@@ -31,17 +31,14 @@ export async function approve(
 
   // call approve function
   let approval;
-  try {
-    approval = await ethereum.approveERC20(
-      wallet,
-      spender,
-      fullToken.address,
-      amount,
-      nonce
-    );
-  } catch (err) {
-    approval = JSON.stringify(err);
-  }
+
+  approval = await ethereum.approveERC20(
+    wallet,
+    spender,
+    fullToken.address,
+    amount,
+    nonce
+  );
 
   return {
     network: ConfigManager.config.ETHEREUM_CHAIN,
@@ -50,6 +47,7 @@ export async function approve(
     tokenAddress: fullToken.address,
     spender: spender,
     amount: bigNumberWithDecimalToStr(amount, fullToken.decimals),
+    nonce: approval.nonce,
     approval: approval,
   };
 }

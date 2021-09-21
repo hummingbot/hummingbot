@@ -220,14 +220,15 @@ export namespace EthereumRoutes {
     token: string;
   }
 
-  interface EthereumApproveResponse {
+  export interface EthereumApproveResponse {
     network: string;
     timestamp: number;
     latency: number;
     tokenAddress: string;
     spender: string;
     amount: string;
-    approval: Transaction | string;
+    nonce: number;
+    approval: Transaction;
   }
 
   router.post(
