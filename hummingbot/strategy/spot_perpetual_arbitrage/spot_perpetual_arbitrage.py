@@ -96,11 +96,11 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         self._in_flight_opening_order_ids = []
         self._completed_opening_order_ids = []
         self._completed_closing_order_ids = []
-        self._stragey_state = StrategyState.Closed
+        self._strategy_state = StrategyState.Closed
 
     @property
     def strategy_state(self) -> StrategyState:
-        return self._stragey_state
+        return self._strategy_state
 
     @property
     def min_opening_arbitrage_pct(self) -> Decimal:
@@ -158,7 +158,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
                         self.logger().info(f"There is an existing {self._perp_market_info.trading_pair} "
                                            f"{self.perp_positions[0].position_side.name} position. The bot resumes "
                                            f"operation to close out the arbitrage position")
-                        self._stragey_state = StrategyState.Opened
+                        self._strategy_state = StrategyState.Opened
                     else:
                         self.logger().info(f"There is an existing {self._perp_market_info.trading_pair} "
                                            f"{self.perp_positions[0].position_side.name} position with unmatched "
@@ -175,12 +175,12 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         """
         print(self.current_timestamp)
         self.update_strategy_stage()
-        if self._stragey_state in (StrategyState.Opening, StrategyState.Closing):
+        if self._strategy_state in (StrategyState.Opening, StrategyState.Closing):
             return
         if self.strategy_state == StrategyState.Closed and not self.ready_to_open_new_arb_position():
             return
         proposals = await self.create_base_proposals()
-        if self._stragey_state == StrategyState.Opened:
+        if self._strategy_state == StrategyState.Opened:
             first_perp_side = self.perp_positions[0].position_side
             perp_is_buy = True if first_perp_side == PositionSide.SHORT else False
             proposals = [p for p in proposals if p.perp_side.is_buy == perp_is_buy and p.profit_pct() >=
@@ -192,7 +192,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         if len(proposals) == 0:
             return
         proposal = proposals[0]
-        pos_txt = "closing" if self._stragey_state == StrategyState.Opened else "opening"
+        pos_txt = "closing" if self._strategy_state == StrategyState.Opened else "opening"
         self.logger().info(f"Arbitrage position {pos_txt} opportunity found.")
         self.logger().info(f"Profitability ({proposal.profit_pct():.2%}) is now above min_{pos_txt}_arbitrage_pct.")
         self.apply_slippage_buffers(proposal)
@@ -207,13 +207,13 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         return False
 
     def update_strategy_stage(self):
-        if self._stragey_state == StrategyState.Opening and len(self._completed_opening_order_ids) == 2 and \
+        if self._strategy_state == StrategyState.Opening and len(self._completed_opening_order_ids) == 2 and \
                 self.perp_positions and self.perp_positions[0].amount == self._order_amount:
-            self._stragey_state = StrategyState.Opened
+            self._strategy_state = StrategyState.Opened
             self._completed_opening_order_ids.clear()
-        elif self._stragey_state == StrategyState.Closing and len(self._completed_closing_order_ids) == 2 and \
+        elif self._strategy_state == StrategyState.Closing and len(self._completed_closing_order_ids) == 2 and \
                 len(self.perp_positions) == 0:
-            self._stragey_state = StrategyState.Closed
+            self._strategy_state = StrategyState.Closed
             self._completed_closing_order_ids.clear()
             self._next_arbitrage_opening_ts = self.current_timestamp + self._next_arbitrage_opening_delay
 
@@ -304,7 +304,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
             self.logger().info(f"Cannot arbitrage, {spot_side.market_info.market.display_name} {spot_token} balance "
                                f"({spot_avai_bal}) is below required order amount ({spot_required_bal}).")
             return False
-        if self._stragey_state == StrategyState.Opened:
+        if self._strategy_state == StrategyState.Opened:
             # For perpetual, the collateral in the existing position should be enough to cover the closing call
             return True
         perp_side = proposal.perp_side
@@ -346,7 +346,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         perp_side = proposal.perp_side
         perp_order_fn = self.buy_with_specific_market if perp_side.is_buy else self.sell_with_specific_market
         side = "BUY" if perp_side.is_buy else "SELL"
-        position_action = PositionAction.CLOSE if self._stragey_state.Opened else PositionAction.OPEN
+        position_action = PositionAction.CLOSE if self._strategy_state.Opened else PositionAction.OPEN
         self.log_with_clock(
             logging.INFO,
             f"Placing {side} order for {proposal.order_amount} {perp_side.market_info.base_asset} "
@@ -360,11 +360,11 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
             perp_side.order_price,
             position_action=position_action
         )
-        if self._stragey_state == StrategyState.Opened:
-            self._stragey_state = StrategyState.Closing
+        if self._strategy_state == StrategyState.Opened:
+            self._strategy_state = StrategyState.Closing
             self._completed_closing_order_ids.clear()
         else:
-            self._stragey_state = StrategyState.Opening
+            self._strategy_state = StrategyState.Opening
             self._completed_opening_order_ids.clear()
 
     def ready_to_open_new_arb_position(self) -> bool:
@@ -486,7 +486,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         self.update_complete_order_id_lists(event.order_id)
 
     def update_complete_order_id_lists(self, order_id: str):
-        if self._stragey_state == StrategyState.Opening:
+        if self._strategy_state == StrategyState.Opening:
             self._completed_opening_order_ids.append(order_id)
-        elif self._stragey_state == StrategyState.Closing:
+        elif self._strategy_state == StrategyState.Closing:
             self._completed_closing_order_ids.append(order_id)
