@@ -349,7 +349,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
 
     @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
     def test_listen_for_subscriptions_registers_to_orders_trades_and_instruments(self, ws_connect_mock):
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.domain: {"BTCUSDT": "BTC-USDT"}}
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         task = asyncio.get_event_loop().create_task(self.data_source.listen_for_subscriptions())
@@ -407,7 +407,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
     def test_listen_for_subscriptions_logs_exceptions_details(self, ws_connect_mock):
         sync_queue = asyncio.Queue()
 
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.domain: {"BTCUSDT": "BTC-USDT"}}
         websocket_mock = self.mocking_assistant.create_websocket_mock()
         websocket_mock.receive_json.side_effect = Exception()
         websocket_mock.close.side_effect = lambda: sync_queue.put_nowait(1)
@@ -426,10 +426,10 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
 
         self.assertTrue(
             self._is_logged("NETWORK",
-                            "Unexpected error with WebSocket connection on wss://stream.bybit.com/realtime_public ()"))
+                            "Unexpected error with WebSocket connection on wss://stream-testnet.bybit.com/realtime_public ()"))
 
     def test_listen_for_trades(self, ):
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.domain: {"BTCUSDT": "BTC-USDT"}}
 
         trades_queue = asyncio.Queue()
 
@@ -484,7 +484,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
             asyncio.get_event_loop().run_until_complete(task)
 
     def test_listen_for_trades_logs_exception_details(self, ):
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.domain: {"BTCUSDT": "BTC-USDT"}}
 
         trades_queue = asyncio.Queue()
 
@@ -518,7 +518,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
         self.assertTrue(self._is_logged("ERROR", "Unexpected error ('data')"))
 
     def test_listen_for_order_book_snapshot_event(self, ):
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSD": "BTC-USD"}}
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.domain: {"BTCUSD": "BTC-USD"}}
 
         order_book_messages = asyncio.Queue()
 
@@ -560,7 +560,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
         self.assertEqual(46380.0, order_book_message.asks[0].price)
 
     def test_listen_for_order_book_diff_event(self, ):
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSD": "BTC-USD"}}
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.domain: {"BTCUSD": "BTC-USD"}}
 
         order_book_messages = asyncio.Queue()
 
@@ -621,7 +621,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
             asyncio.get_event_loop().run_until_complete(task)
 
     def test_listen_for_order_book_diff_logs_exception_details(self, ):
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSD": "BTC-USD"}}
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.domain: {"BTCUSD": "BTC-USD"}}
 
         order_book_messages = asyncio.Queue()
 
@@ -655,7 +655,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
         self.assertTrue(self._is_logged("ERROR", "Unexpected error ('topic')"))
 
     def test_listen_for_instruments_info_snapshot_event_trading_info_does_not_exist(self):
-        BybitPerpetualAPIOrderBookDataSource._last_traded_prices = {None: {"BTC-USDT": 0.0}}
+        BybitPerpetualAPIOrderBookDataSource._last_traded_prices = {self.domain: {"BTC-USDT": 0.0}}
 
         task = asyncio.get_event_loop().create_task(
             self.data_source.listen_for_instruments_info())
@@ -684,7 +684,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
         # Lock the test to let the async task run
         asyncio.get_event_loop().run_until_complete(asyncio.sleep(1))
         last_traded_prices = asyncio.get_event_loop().run_until_complete(
-            BybitPerpetualAPIOrderBookDataSource.get_last_traded_prices(["BTC-USDT"]))
+            BybitPerpetualAPIOrderBookDataSource.get_last_traded_prices(["BTC-USDT"], domain=self.domain))
         funding_info = asyncio.get_event_loop().run_until_complete(
             self.data_source.get_funding_info("BTC-USDT"))
 
@@ -702,8 +702,8 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
         self.assertEqual(int(pd.Timestamp('2021-08-23T08:00:00Z', tz="UTC").timestamp()), funding_info.next_funding_utc_timestamp)
 
     def test_listen_for_instruments_info_delta_event(self):
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSD": "BTC-USD"}}
-        BybitPerpetualAPIOrderBookDataSource._last_traded_prices = {None: {"BTC-USD": 0.0}}
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.domain: {"BTCUSD": "BTC-USD"}}
+        BybitPerpetualAPIOrderBookDataSource._last_traded_prices = {self.domain: {"BTC-USD": 0.0}}
         self.data_source._funding_info = {
             "BTC-USD": FundingInfo(
                 trading_pair="BTC-USD",
@@ -814,7 +814,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
         # Lock the test to let the async task run
         asyncio.get_event_loop().run_until_complete(asyncio.sleep(1))
         last_traded_prices = asyncio.get_event_loop().run_until_complete(
-            BybitPerpetualAPIOrderBookDataSource.get_last_traded_prices(["BTC-USD"]))
+            BybitPerpetualAPIOrderBookDataSource.get_last_traded_prices(["BTC-USD"], domain=self.domain))
         funding_info = asyncio.get_event_loop().run_until_complete(
             self.data_source.get_funding_info("BTC-USD"))
         try:
@@ -824,6 +824,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
             # The exception will happen when cancelling the task
             pass
 
+        self.assertEqual(0, data_source_queue.qsize())
         self.assertEqual(46354.5, last_traded_prices["BTC-USD"])
         self.assertEqual(Decimal('50135.36'), funding_info.mark_price)
         self.assertEqual(Decimal('50131.34'), funding_info.index_price)
@@ -910,7 +911,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
             asyncio.get_event_loop().run_until_complete(task)
 
     def test_listen_for_instruments_info_logs_exception_details(self, ):
-        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {None: {"BTCUSDT": "BTC-USDT"}}
+        BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {self.domain: {"BTCUSDT": "BTC-USDT"}}
 
         task = asyncio.get_event_loop().create_task(
             self.data_source.listen_for_instruments_info())
