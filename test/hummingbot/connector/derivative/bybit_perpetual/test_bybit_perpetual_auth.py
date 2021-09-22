@@ -21,6 +21,9 @@ class BybitPerpetualAuthTests(TestCase):
     def _get_timestamp(self):
         return str(int(time.time() * 1e3))
 
+    def _get_expiration_timestamp(self):
+        return str(int(time.time() + 1 * 1e3))
+
     def test_no_authentication_headers(self):
         auth = BybitPerpetualAuth(api_key=self.api_key, secret_key=self.secret_key)
         headers = auth.get_headers()
@@ -51,18 +54,18 @@ class BybitPerpetualAuthTests(TestCase):
     def test_ws_auth_payload(self):
         auth = BybitPerpetualAuth(api_key=self.api_key, secret_key=self.secret_key)
 
-        timestamp = self._get_timestamp()
+        expires = self._get_expiration_timestamp()
 
-        with patch.object(auth, 'get_timestamp') as get_timestamp_mock:
-            get_timestamp_mock.return_value = timestamp
+        with patch.object(auth, 'get_expiration_timestamp') as get_expires_ts_mock:
+            get_expires_ts_mock.return_value = expires
             payload = auth.get_ws_auth_payload()
 
-        raw_signature = 'GET/realtime' + timestamp
+        raw_signature = 'GET/realtime' + expires
         expected_signature = hmac.new(self.secret_key.encode('utf-8'),
                                       raw_signature.encode('utf-8'),
                                       hashlib.sha256).hexdigest()
 
         self.assertEqual(3, len(payload))
         self.assertEqual(self.api_key, payload[0])
-        self.assertEqual(timestamp, payload[1])
+        self.assertEqual(expires, payload[1])
         self.assertEqual(expected_signature, payload[2])
