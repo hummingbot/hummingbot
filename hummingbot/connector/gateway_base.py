@@ -100,10 +100,24 @@ class GatewayBase(ConnectorBase):
         return await fetch_trading_pairs()
 
     @property
+    def approval_orders(self) -> List[GatewayInFlightOrder]:
+        return [
+            approval_order
+            for approval_order in self._in_flight_orders.values() if approval_order.client_order_id.split("_")[0] == "approve"
+        ]
+
+    @property
+    def amm_orders(self) -> List[GatewayInFlightOrder]:
+        return [
+            in_flight_order
+            for in_flight_order in self._in_flight_orders.values() if in_flight_order not in self.approval_orders
+        ]
+
+    @property
     def limit_orders(self) -> List[LimitOrder]:
         return [
             in_flight_order.to_limit_order()
-            for in_flight_order in self._in_flight_orders.values()
+            for in_flight_order in self.amm_orders
         ]
 
     def is_pending_approval(self, token: str) -> bool:
@@ -385,13 +399,12 @@ class GatewayBase(ConnectorBase):
         if order_id in self._in_flight_orders:
             del self._in_flight_orders[order_id]
 
-    async def _update_order_status(self):
+    async def _update_approval_order_status(self, tracked_orders: GatewayInFlightOrder):
         """
         Calls REST API to get status update for each in-flight order.
+        This function can also be used to update status of simple swap orders.
         """
-        if len(self._in_flight_orders) > 0:
-            tracked_orders = list(self._in_flight_orders.values())
-
+        if len(tracked_orders) > 0:
             tasks = []
             for tracked_order in tracked_orders:
                 order_id = await tracked_order.get_exchange_order_id()
@@ -408,7 +421,7 @@ class GatewayBase(ConnectorBase):
                     continue
                 if update_result["confirmed"] is True:
                     if update_result["receipt"]["status"] == 1:
-                        if tracked_order.client_order_id.split("_")[0] == "approve":
+                        if tracked_order in self.approval_orders:
                             self.logger().info(f"Approval transaction id {update_result['txHash']} confirmed.")
                         else:
                             gas_used = update_result["receipt"]["gasUsed"]
@@ -458,6 +471,12 @@ class GatewayBase(ConnectorBase):
                                            ))
                         self.stop_tracking_order(tracked_order.client_order_id)
 
+    async def _update_order_status(self, tracked_orders: GatewayInFlightOrder):
+        """
+        Calls REST API to get status update for each in-flight amm orders.
+        """
+        await self._update_approval_order_status(tracked_orders)
+
     def get_taker_order_type(self):
         return OrderType.LIMIT
 
@@ -490,7 +509,7 @@ class GatewayBase(ConnectorBase):
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._initiate_pool_task = safe_ensure_future(self.initiate_pool())
             self._auto_approve_task = safe_ensure_future(self.auto_approve())
-        self._get_chain_info_task = safe_ensure_future(self.get_chain_info())
+        # self._get_chain_info_task = safe_ensure_future(self.get_chain_info())
 
     async def stop_network(self):
         if self._status_polling_task is not None:
@@ -533,7 +552,8 @@ class GatewayBase(ConnectorBase):
                 await self._poll_notifier.wait()
                 await safe_gather(
                     self._update_balances(on_interval = True),
-                    self._update_order_status(),
+                    self._update_approval_order_status(self.approval_orders),
+                    self._update_order_status(self.amm_orders)
                 )
                 self._last_poll_timestamp = self.current_timestamp
             except asyncio.CancelledError:
