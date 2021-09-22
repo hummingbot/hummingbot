@@ -1,7 +1,111 @@
-# Task 4 — Configuration & Additional Functions
+# Task 4 — API Throttler, Configurations & Additional Functions
 
 This section explains the configuration for the required file, functions, and other optional settings to integrate your connector with Hummingbot.
 
+## API Throttler
+
+This section will detail the necessary steps to integrate the `AsyncThrottler` into the connector. 
+The `AsyncThrottler` class utilizes asynchrounous context managers to throttle API and/or WebSocket requests.
+
+!!! note
+    The integration of the `AsyncThrottler` into the connector is entirely optional, but it is recommended to allow users to manually configure the usable rate limits per Hummingbot client.
+
+### Types of Rate Limits
+
+There are several types of rate limits that can be handled by the `AsyncThrottler` class. The following sections will detail(with examples) how to initialize the necessary `RateLimit` and how to the throttler is consumed by the connector for each of the different rate limit types. 
+
+!!! warning
+    It is important to identify the exchange's rate limit implementation.
+
+#### 1. Rate Limit per endpoint
+
+This refers to rate limits that are applied on a per endpoint basis. For this rate limit type, each endpoint would be assigned a limit and time interval. 
+
+!!! note
+    Examples of existing connectors that utilizes this rate limit implementation are:</br>
+      (1) Kucoin</br>
+      (2) Crypto.com</br>
+
+#### 2. Rate Limit Pools
+
+Rate limit pools refer to a group of endpoints that consumes from a single rate limit. An example of this can be seen in the AscendEx connector.
+
+!!! note
+    Examples of existing connectors that utilizes this rate limit implementation are:</br>
+      (1) AscendEx</br>
+      (2) Binance, Binance Perpetual</br>
+      (3) Gate.io</br>
+      (4) Ndax</br>
+      (5) Bybit Perpetual</br>
+
+#### 3. Weighted Rate Limits
+
+For weighted rate limits, each endpoint is assigned a request weight. Generally, these exchange would utilize Rate Limit Pools in conjunction with the request weights. 
+
+!!! note
+    Examples of existing connectors that utilizes this rate limit implementation are:</br>
+      (1) Binance, Binance Perpetual</br>
+
+### Configuring and Consuming Rate Limits
+
+Below details how to configure and consume the rate limits for each respective rate limit types.
+
+#### 1. Rate Limit per endpoint
+
+1. Configuring Rate Limits
+
+We will be using the Crypto.com connector as an example.
+
+!!! note
+    Rate Limits for Crypto.com can be found [here](https://exchange-docs.crypto.com/spot/index.html#rate-limits).
+
+All the rate limits are to be initialized in the `crypto_constants.py` file.
+
+```python
+RATE_LIMITS = [
+    RateLimit(limit_id=CHECK_NETWORK_PATH_URL, limit=100, time_interval=1),
+    RateLimit(limit_id=GET_TRADING_RULES_PATH_URL, limit=100, time_interval=1),
+    RateLimit(limit_id=CREATE_ORDER_PATH_URL, limit=15, time_interval=0.1),
+    RateLimit(limit_id=CANCEL_ORDER_PATH_URL, limit=15, time_interval=0.1),
+    RateLimit(limit_id=GET_ACCOUNT_SUMMARY_PATH_URL, limit=3, time_interval=0.1),
+    RateLimit(limit_id=GET_ORDER_DETAIL_PATH_URL, limit=30, time_interval=0.1),
+    RateLimit(limit_id=GET_OPEN_ORDERS_PATH_URL, limit=3, time_interval=0.1),
+]
+```
+
+!!! note
+    `time_interval` here is in seconds. i.e. The rate limits for `CREATE_ORDER_PATH_URL` is 15 requests every 100ms
+
+2. Consuming Rate Limits
+
+#### 2. Rate Limit Pools
+
+
+#### 3. Weighted Rate Limits
+
+### Consuming AsyncThrottler
+
+The throttler should be consumed by all relevant classes that issues an API endpoints. Namely the `Exchange/Derivative`, `APIOrderBookDataSource` and `UserStreamDataSource` classes.
+
+In this example, we will use referencing the `CryptoComExchange` class.
+
+In the ```__init__()``` function, we have to initialize the `AsyncThrottler`
+```python
+from hummingbot.connector.exchange.crypto_com import crypto_com_constants as CONSTANTS
+
+class CryptoComExchange(ExchangeBase):
+  def __init__(...):
+    ...
+    self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+```
+
+To consume the throttler when executing an API request, we simple wrap the contents of the `_api_request(...)` function in an asynchrounous context manager as seen below.
+
+```python
+def _api_request(...):
+  async with self._throttler.execute_task(path_url):
+    ...
+```
 ## Configuration
 
 In `setup.py`, include the new connector package into the `packages` list as shown:
@@ -37,8 +141,6 @@ template_version: [+1]
 ```
 
 ## Additional Utility Functions
-
-### (Optional) API Request Throttler
 
 ### (Optional) Add members for Ethereum type connector
 
