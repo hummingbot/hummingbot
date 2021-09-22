@@ -328,13 +328,13 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         status = asyncio.get_event_loop().run_until_complete(self.strategy.format_status())
         expected_status = ("""
   Markets:
-              Exchange     Market  Sell Price  Buy Price  Mid Price
-        BacktestMarket  HBOT-USDT        99.5      100.5        100
-     MockPerpConnector  HBOT-USDT       109.5      110.5        110
+             Exchange    Market  Sell Price  Buy Price  Mid Price
+       BacktestMarket HBOT-USDT        99.5      100.5        100
+    MockPerpConnector HBOT-USDT       109.5      110.5        110
 
   Positions:
-        Symbol   Type Entry Price Amount  Leverage Unrealized PnL
-     HBOT-USDT  SHORT       109.5      1         5              0
+       Symbol  Type Entry Price Amount  Leverage Unrealized PnL
+    HBOT-USDT SHORT       109.5      1         5              0
 
   Assets:
                 Exchange Asset  Total Balance  Available Balance
