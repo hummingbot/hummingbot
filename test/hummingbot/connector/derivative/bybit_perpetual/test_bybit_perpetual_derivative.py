@@ -162,7 +162,7 @@ class BybitPerpetualDerivativeTests(TestCase):
             "rate_limit_reset_ms": 1580885703683,
             "rate_limit": 100
         }
-        post_mock.post(regex_url, body=json.dumps(mock_response), callback=self._mock_responses_done_callback())
+        post_mock.post(regex_url, body=json.dumps(mock_response), callback=self._mock_responses_done_callback)
 
         nonce_provider_mock.return_value = 1000
         self._simulate_trading_rules_initialized()
@@ -236,7 +236,7 @@ class BybitPerpetualDerivativeTests(TestCase):
             "rate_limit_reset_ms": 1580885703683,
             "rate_limit": 100
         }
-        post_mock.post(regex_url, body=json.dumps(mock_response), callback=self._mock_responses_done_callback())
+        post_mock.post(regex_url, body=json.dumps(mock_response), callback=self._mock_responses_done_callback)
         self._simulate_trading_rules_initialized()
 
         self.connector._leverage[self.trading_pair] = 10
@@ -247,8 +247,10 @@ class BybitPerpetualDerivativeTests(TestCase):
                                           price=Decimal("46000"),
                                           position_action=PositionAction.OPEN)
 
-        asyncio.get_event_loop().run_until_complete(self.mock_done_event.wait())
+        # Request does not get called.
+        asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.5))
 
+        self.assertFalse(self.mock_done_event.is_set())
         self.assertNotIn(new_order_id, self.connector.in_flight_orders)
         self.assertTrue(self._is_logged("NETWORK",
                                         "Error submitting BUY LIMIT order to Bybit Perpetual for 0.000100 BTC-USDT 46000."
@@ -291,7 +293,7 @@ class BybitPerpetualDerivativeTests(TestCase):
             "rate_limit_reset_ms": 1580885703683,
             "rate_limit": 100
         }
-        post_mock.post(regex_url, body=json.dumps(mock_response), callback=self._mock_responses_done_callback())
+        post_mock.post(regex_url, body=json.dumps(mock_response), callback=self._mock_responses_done_callback)
         self._simulate_trading_rules_initialized()
 
         self.connector._leverage[self.trading_pair] = 10
@@ -495,7 +497,7 @@ class BybitPerpetualDerivativeTests(TestCase):
             "rate_limit_reset_ms": 1580885703683,
             "rate_limit": 100
         }
-        post_mock.post(regex_url, body=json.dumps(mock_response), callback=self._mock_responses_done_callback())
+        post_mock.post(regex_url, body=json.dumps(mock_response), callback=self._mock_responses_done_callback)
         self._simulate_trading_rules_initialized()
 
         self.connector._leverage[self.trading_pair] = 10
@@ -596,7 +598,7 @@ class BybitPerpetualDerivativeTests(TestCase):
             ],
             "time_now": "1615801223.589808"
         }
-        get_mock.get(regex_url, body=json.dumps(mock_response), callback=self._mock_responses_done_callback())
+        get_mock.get(regex_url, body=json.dumps(mock_response), callback=self._mock_responses_done_callback)
 
         self.async_task = asyncio.get_event_loop().create_task(self.connector._trading_rules_polling_loop())
 
@@ -652,7 +654,7 @@ class BybitPerpetualDerivativeTests(TestCase):
             "time_now": "1615801223.589808"
         }
 
-        get_mock.get(regex_url, body=json.dumps(mock_response), callback=self._mock_responses_done_callback())
+        get_mock.get(regex_url, body=json.dumps(mock_response), callback=self._mock_responses_done_callback)
 
         self.async_task = asyncio.get_event_loop().create_task(self.connector._trading_rules_polling_loop())
         asyncio.get_event_loop().run_until_complete(self.mock_done_event.wait())
@@ -674,10 +676,10 @@ class BybitPerpetualDerivativeTests(TestCase):
         path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.QUERY_SYMBOL_ENDPOINT, self.trading_pair)
         url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
         regex_url = re.compile(f"^{url}")
-        get_mock.get(regex_url, exception=Exception("Test Error"), callback=self._mock_responses_done_callback())
+        get_mock.get(regex_url, exception=Exception("Test Error"))
 
         self.async_task = asyncio.get_event_loop().create_task(self.connector._trading_rules_polling_loop())
-        asyncio.get_event_loop().run_until_complete(self.mock_done_event.wait())
+        asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.5))
 
         self.assertTrue(self._is_logged("NETWORK", "Unexpected error while fetching trading rules. Error: Test Error"))
 
@@ -779,7 +781,7 @@ class BybitPerpetualDerivativeTests(TestCase):
             "rate_limit_reset_ms": 1580885703683,
             "rate_limit": 100
         }
-        post_mock.post(regex_url, body=json.dumps(mock_response), callback=self._mock_responses_done_callback())
+        post_mock.post(regex_url, body=json.dumps(mock_response), callback=self._mock_responses_done_callback)
 
         self._simulate_trading_rules_initialized()
 
