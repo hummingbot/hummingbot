@@ -40,7 +40,7 @@ You are now connected to ndax.
 
 ## 🪙 Fees
 
-Hummingbot assumes 0.1% maker fees and 0.1% taker fees ([source](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/exchange/ndax/ndax_utils.py#L14)).
+Hummingbot assumes 2% maker fees and 2% taker fees ([source](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/exchange/ndax/ndax_utils.py#L14)).
 
 Users can override these assumptions with [Override Fees](/global-configs/override-fees/).
 
