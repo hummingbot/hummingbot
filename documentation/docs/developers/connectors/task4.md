@@ -26,64 +26,31 @@ This refers to rate limits that are applied on a per endpoint basis. For this ra
       (1) Kucoin</br>
       (2) Crypto.com</br>
 
-#### 2. Rate Limit Pools
+##### i. Configuring Rate Limits
 
-Rate limit pools refer to a group of endpoints that consumes from a single rate limit. An example of this can be seen in the AscendEx connector.
+  We will be using the Crypto.com connector as an example.
 
-!!! note
-    Examples of existing connectors that utilizes this rate limit implementation are:</br>
-      (1) AscendEx</br>
-      (2) Binance, Binance Perpetual</br>
-      (3) Gate.io</br>
-      (4) Ndax</br>
-      (5) Bybit Perpetual</br>
+  !!! note
+      Rate Limits for Crypto.com can be found [here](https://exchange-docs.crypto.com/spot/index.html#rate-limits).
 
-#### 3. Weighted Rate Limits
+  All the rate limits are to be initialized in the `crypto_constants.py` file.
 
-For weighted rate limits, each endpoint is assigned a request weight. Generally, these exchange would utilize Rate Limit Pools in conjunction with the request weights. 
-
-!!! note
-    Examples of existing connectors that utilizes this rate limit implementation are:</br>
-      (1) Binance, Binance Perpetual</br>
-
-### Configuring and Consuming Rate Limits
-
-Below details how to configure and consume the rate limits for each respective rate limit types.
-
-#### 1. Rate Limit per endpoint
-
-1. Configuring Rate Limits
-
-We will be using the Crypto.com connector as an example.
-
-!!! note
-    Rate Limits for Crypto.com can be found [here](https://exchange-docs.crypto.com/spot/index.html#rate-limits).
-
-All the rate limits are to be initialized in the `crypto_constants.py` file.
-
-```python
-RATE_LIMITS = [
-    RateLimit(limit_id=CHECK_NETWORK_PATH_URL, limit=100, time_interval=1),
-    RateLimit(limit_id=GET_TRADING_RULES_PATH_URL, limit=100, time_interval=1),
-    RateLimit(limit_id=CREATE_ORDER_PATH_URL, limit=15, time_interval=0.1),
-    RateLimit(limit_id=CANCEL_ORDER_PATH_URL, limit=15, time_interval=0.1),
-    RateLimit(limit_id=GET_ACCOUNT_SUMMARY_PATH_URL, limit=3, time_interval=0.1),
-    RateLimit(limit_id=GET_ORDER_DETAIL_PATH_URL, limit=30, time_interval=0.1),
-    RateLimit(limit_id=GET_OPEN_ORDERS_PATH_URL, limit=3, time_interval=0.1),
-]
-```
+  ```python
+  RATE_LIMITS = [
+      RateLimit(limit_id=CHECK_NETWORK_PATH_URL, limit=100, time_interval=1),
+      RateLimit(limit_id=GET_TRADING_RULES_PATH_URL, limit=100, time_interval=1),
+      RateLimit(limit_id=CREATE_ORDER_PATH_URL, limit=15, time_interval=0.1),
+      RateLimit(limit_id=CANCEL_ORDER_PATH_URL, limit=15, time_interval=0.1),
+      RateLimit(limit_id=GET_ACCOUNT_SUMMARY_PATH_URL, limit=3, time_interval=0.1),
+      RateLimit(limit_id=GET_ORDER_DETAIL_PATH_URL, limit=30, time_interval=0.1),
+      RateLimit(limit_id=GET_OPEN_ORDERS_PATH_URL, limit=3, time_interval=0.1),
+  ]
+  ```
 
 !!! note
     `time_interval` here is in seconds. i.e. The rate limits for `CREATE_ORDER_PATH_URL` is 15 requests every 100ms
 
-2. Consuming Rate Limits
-
-#### 2. Rate Limit Pools
-
-
-#### 3. Weighted Rate Limits
-
-### Consuming AsyncThrottler
+##### ii. Consuming Rate Limits
 
 The throttler should be consumed by all relevant classes that issues an API endpoints. Namely the `Exchange/Derivative`, `APIOrderBookDataSource` and `UserStreamDataSource` classes.
 
@@ -106,7 +73,38 @@ def _api_request(...):
   async with self._throttler.execute_task(path_url):
     ...
 ```
-## Configuration
+#### 2. Rate Limit Pools
+
+Rate limit pools refer to a group of endpoints that consumes from a single rate limit. An example of this can be seen in the AscendEx connector.
+
+!!! note
+    Examples of existing connectors that utilizes this rate limit implementation are:</br>
+      (1) AscendEx</br>
+      (2) Binance, Binance Perpetual</br>
+      (3) Gate.io</br>
+      (4) Ndax</br>
+      (5) Bybit Perpetual</br>
+
+##### i. Configuring Rate Limits
+
+##### ii. Consuming Rate Limits
+
+
+#### 3. Weighted Rate Limits
+
+For weighted rate limits, each endpoint is assigned a request weight. Generally, these exchange would utilize Rate Limit Pools in conjunction with the request weights. 
+
+!!! note
+    Examples of existing connectors that utilizes this rate limit implementation are:</br>
+      (1) Binance, Binance Perpetual</br>
+
+##### i. Configuring Rate Limits
+
+##### ii. Consuming Rate Limits
+
+## Client Configurations
+
+The steps below are required so the Hummingbot client would recognise the new connector package.
 
 In `setup.py`, include the new connector package into the `packages` list as shown:
 
