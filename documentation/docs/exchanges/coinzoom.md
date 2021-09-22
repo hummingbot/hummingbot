@@ -1,51 +1,43 @@
-# CoinZoom
+---
+tags:
+- spot exchange connector
+---
 
-CoinZoom is an institutional-grade digital currency trading platform that uses the team’s vast experience in providing superb trade quality and customer-focused tools and technology to help our customers to become successful digital currency traders. CoinZoom will offer Buying, Selling, and Trading of Bitcoin, Ripple, Ethereum, and other top digital currency pairs. In addition, our decades of experience in financial technology security are equally important in safeguarding customer funds and customers' digital currency positions.
+# `coinzoom`
 
-It was established back on March 18, 2018. a Utah-based cryptocurrency exchange announced the official launch of its exchange and CoinZoom Visa card.
+## 📁 [Connector folder](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/connector/exchange/coinzoom)
 
-## Using the connector
+## ℹ️ Exchange Info
 
-To use [CoinZoom](https://www.coinzoom.com) connector, you will need to generate and provide your API key to trade using Hummingbot.
+**Coinzoom** 
+[Website](https://www.coinzoom.com/) | [CoinMarketCap](https://coinmarketcap.com/exchanges/coinzoom/) | [CoinGecko](https://www.coingecko.com/en/exchanges/coinzoom)
 
+* API docs: https://api-docs.coinzoom.com/
+* Transaction fees: https://www.coinzoom.com/fees/
+* Minimum order size: 
+* Creating API keys: 
+
+## 👷 Maintenance
+
+* Release added: [0.38.0](/release-notes/0.38.0/) by CoinAlpha
+* Maintainer: 
+
+## 🔑 Connection
+
+Run `connect coinzoom` in order to enter your API keys:
+ 
 ```
-Enter your CoinZoom API key >>>
-Enter your CoinZoom secret API key >>>
+Enter your Coinzoom API key >>>
+Enter your Coinzoom secret API key >>>
 ```
 
-Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
+If connection is successful:
+```
+You are now connected to coinzoom.
+```
 
-!!! tip
-    For copying and pasting into Hummingbot, see [this page](/operation/user-interface/#keyboard-shortcuts).
+## 🪙 Fees
 
-### Creating CoinZoom API keys
+Hummingbot assumes 0.2% maker fees and 0.26% taker fees ([source](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/exchange/coinzoom/coinzoom_utils.py#L22)).
 
-1. Log in to your account at https://trade.coinzoom.com/login, then go to > API trading (If you do not have an account, you will have to create one and verify your ID.)
-
-![](/assets/img/coinzoom-api-trading.png)
-
-!!! tip
-    You must enable 2FA in your Coinzoom account to create the API key. [How to enable 2FA](https://support.coinzoom.com/en/support/solutions/articles/43000574216-two-factor-authentication-faqs)?
-
-2. Then click “Generate key”
-
-![](/assets/img/coinzoom-generate-api.png)
-
-3. Now that you have created an API key, connect it to Hummingbot using the `connect` command.
-
-![](/assets/img/coinzoom-api.png)
-
-Make sure you store your Secret Key somewhere secure and do not share it with anyone. Your Secret Key will only be displayed once at the time when you create the API.
-
-!!! warning
-    If you lose your Secret Key, you can delete the API and create a new one. However, it will be impossible to reuse the same API.
-
-## Miscellaneous info
-
-### Transaction fees
-
-By default, trading fees for this exchange charge a fee of 0.20% for makers and 0.26% for takers per trade.
-
-- [Fees](https://www.coinzoom.com/fees/)
-
-Users can override the default fees by editing [`conf_fee_overrides.yml`](/operation/override-fees/).
+Users can override these assumptions with [Override Fees](/global-configs/override-fees/).
