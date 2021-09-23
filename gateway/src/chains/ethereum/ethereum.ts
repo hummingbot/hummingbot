@@ -1,7 +1,7 @@
 import abi from '../../services/ethereum.abi.json';
 import axios from 'axios';
 import { logger } from '../../services/logger';
-import { BigNumber, Contract, Wallet } from 'ethers';
+import { BigNumber, Contract, Transaction, Wallet } from 'ethers';
 import { EthereumBase, Token } from '../../services/ethereum-base';
 import { ConfigManager } from '../../services/config-manager';
 import { EthereumConfig } from './ethereum.config';
@@ -151,8 +151,9 @@ export class Ethereum extends EthereumBase {
     wallet: Wallet,
     spender: string,
     tokenAddress: string,
-    amount: BigNumber
-  ): Promise<boolean> {
+    amount: BigNumber,
+    nonce?: number
+  ): Promise<Transaction> {
     // instantiate a contract and pass in wallet, which act on behalf of that signer
     const contract = this.getContract(tokenAddress, wallet);
 
@@ -167,12 +168,17 @@ export class Ethereum extends EthereumBase {
         tokenAddress +
         '.'
     );
+    if (!nonce) {
+      nonce = await this.nonceManager.getNonce(wallet.address);
+    }
     const response = await contract.approve(spender, amount, {
       gasPrice: this._gasPrice * 1e9,
       gasLimit: 100000,
-      // nonce: nonce,
+      nonce: nonce,
     });
     logger.info(response);
+
+    await this.nonceManager.commitNonce(wallet.address, nonce);
     return response;
   }
 
