@@ -1,7 +1,6 @@
 ---
 tags:
 - spot exchange connector
-- ⛏️ liquidity mining exchange
 ---
 
 # `gate_io`
