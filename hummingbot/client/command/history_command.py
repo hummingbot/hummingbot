@@ -1,3 +1,4 @@
+import asyncio
 from decimal import Decimal
 import pandas as pd
 import threading
@@ -7,7 +8,7 @@ from typing import (
     Tuple,
     TYPE_CHECKING,
     List,
-    Optional
+    Optional,
 )
 from datetime import datetime
 from hummingbot.client.config.global_config_map import global_config_map
@@ -71,7 +72,14 @@ class HistoryCommand:
         return_pcts = []
         for market, symbol in market_info:
             cur_trades = [t for t in trades if t.market == market and t.symbol == symbol]
-            cur_balances = await self.get_current_balances(market)
+            network_timeout = float(global_config_map["other_commands_timeout"].value)
+            try:
+                cur_balances = await asyncio.wait_for(self.get_current_balances(market), network_timeout)
+            except asyncio.TimeoutError:
+                self._notify(
+                    "\nA network error prevented the balances retrieval to complete. See logs for more details."
+                )
+                raise
             perf = await PerformanceMetrics.create(market, symbol, cur_trades, cur_balances)
             if display_report:
                 self.report_performance_by_market(market, symbol, perf, precision)

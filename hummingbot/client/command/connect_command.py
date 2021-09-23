@@ -1,3 +1,5 @@
+import asyncio
+
 from hummingbot.client.config.security import Security
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.client.config.global_config_map import global_config_map
@@ -60,7 +62,17 @@ class ConnectCommand:
                     return
                 Security.update_secure_config(config.key, config.value)
             api_keys = await Security.api_keys(exchange)
-            err_msg = await UserBalances.instance().add_exchange(exchange, **api_keys)
+            network_timeout = float(global_config_map["other_commands_timeout"].value)
+            try:
+                err_msg = await asyncio.wait_for(
+                    UserBalances.instance().add_exchange(exchange, **api_keys), network_timeout
+                )
+            except asyncio.TimeoutError:
+                self._notify("\nA network error prevented the connection to complete. See logs for more details.")
+                self.placeholder_mode = False
+                self.app.hide_input = False
+                self.app.change_prompt(prompt=">>> ")
+                raise
             if err_msg is None:
                 self._notify(f"\nYou are now connected to {exchange}.")
             else:
@@ -85,7 +97,14 @@ class ConnectCommand:
         columns = ["Exchange", "  Keys Added", "  Keys Confirmed", "  Connector Status"]
         data = []
         failed_msgs = {}
-        err_msgs = await UserBalances.instance().update_exchanges(reconnect=True)
+        network_timeout = float(global_config_map["other_commands_timeout"].value)
+        try:
+            err_msgs = await asyncio.wait_for(
+                UserBalances.instance().update_exchanges(reconnect=True), network_timeout
+            )
+        except asyncio.TimeoutError:
+            self._notify("\nA network error prevented the connection table to populate. See logs for more details.")
+            raise
         for option in sorted(OPTIONS):
             keys_added = "No"
             keys_confirmed = 'No'
