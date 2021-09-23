@@ -212,7 +212,8 @@ export namespace EthereumRoutes {
         req: Request<{}, {}, EthereumApproveRequest>,
         res: Response<EthereumApproveResponse | string, {}>
       ) => {
-        const { spender, privateKey, token, amount } = req.body;
+        const { privateKey, token, amount } = req.body;
+        const spender = getSpender(req.body.spender);
         const result = await approve(spender, privateKey, token, amount);
         return res.status(200).json(result);
       }
