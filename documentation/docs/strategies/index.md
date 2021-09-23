@@ -40,7 +40,7 @@ Aims to capture price differentials between two different exchanges (buy low on 
 
 ### [AMM Arbitrage](./amm-arbitrage)
 
-AMM-arb lets you exploit the differences between AMMs like [Balancer](/connectors/balancer/) and order book exchanges like Binance. Extending the celo-arb strategy released a few months ago, amm-arb uses a new, simpler design that works with any AMM protocol, on both Ethereum and non-Ethereum chain. You can take a look on our supported [Protocol Connectors](/connectors/overview/) for this strategy
+AMM-arb lets you exploit the differences between AMMs like [Balancer](/connectors/balancer/) and order book exchanges like Binance. Extending the celo-arb strategy released a few months ago, amm-arb uses a new, simpler design that works with any AMM protocol, on both Ethereum and non-Ethereum chain. You can take a look on our supported [Connectors](/connectors/#connector-types) for this strategy
 
 ### [Celo Arbitrage](./celo-arbitrage)
 
