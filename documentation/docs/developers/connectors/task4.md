@@ -1,6 +1,6 @@
 # Task 4 — API Throttler, Configurations & Additional Functions
 
-This section explains the configuration for the required file, functions, and other optional settings to integrate your connector with Hummingbot.
+This section explains the steps required to integrate the API throttler into the connector as well as detailing the necessary configurations to integrate your connector with Hummingbot.
 
 ## API Throttler
 
@@ -8,7 +8,7 @@ This section will detail the necessary steps to integrate the `AsyncThrottler` i
 The `AsyncThrottler` class utilizes asynchrounous context managers to throttle API and/or WebSocket requests.
 
 !!! note
-    The integration of the `AsyncThrottler` into the connector is entirely optional, but it is recommended to allow users to manually configure the usable rate limits per Hummingbot client.
+    The integration of the `AsyncThrottler` into the connector is entirely optional, but it is recommended to enable a better user experience as well as allowing users to manually configure the usable rate limits per Hummingbot instance.
 
 ### Types of Rate Limits
 
@@ -87,8 +87,11 @@ Rate limit pools refer to a group of endpoints that consumes from a single rate 
 
 ##### i. Configuring Rate Limits
 
+TBD
+
 ##### ii. Consuming Rate Limits
 
+TBD
 
 #### 3. Weighted Rate Limits
 
@@ -100,7 +103,11 @@ For weighted rate limits, each endpoint is assigned a request weight. Generally,
 
 ##### i. Configuring Rate Limits
 
+TBD
+
 ##### ii. Consuming Rate Limits
+
+TBD
 
 ## Client Configurations
 
