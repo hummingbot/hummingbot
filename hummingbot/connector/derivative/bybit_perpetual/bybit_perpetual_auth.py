@@ -19,7 +19,7 @@ class BybitPerpetualAuth():
         return str(int(time.time() * 1e3))
 
     def get_expiration_timestamp(self):
-        return str(int(time.time() + 1 * 1e3))
+        return str(int((round(time.time()) + 5) * 1e3))
 
     def get_ws_auth_payload(self) -> Dict[str, Any]:
         """
