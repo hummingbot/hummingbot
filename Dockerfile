@@ -31,7 +31,7 @@ RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.35.3/install.sh | b
     export NVM_DIR="/home/hummingbot/.nvm" && \
     source "/home/hummingbot/.nvm/nvm.sh" && \
     nvm install 10 && \
-    npm install --only=production -g @celo/celocli@0.0.48 && \
+    npm install --only=production -g @celo/celocli@1.0.3 && \
     nvm cache clear && \
     npm cache clean --force && \
     rm -rf /home/hummingbot/.cache
