@@ -95,10 +95,11 @@ class UniswapV3Connector(GatewayBase):
                 for key, value in saved_states["orders"].items()
             })
         if saved_states.get("positions", False):
-            self._in_flight_positions.update({
-                key: UniswapV3InFlightPosition.from_json(value)
-                for key, value in saved_states["positions"].items()
-            })
+            for key, value in saved_states["positions"].items():
+                self._in_flight_positions.update({
+                    key: UniswapV3InFlightPosition.from_json(value)
+                })
+                self.logger().info(f"Position with id: {value['token_id']} restored.")
 
     @property
     def tracking_states(self) -> Dict[str, any]:
@@ -305,16 +306,38 @@ class UniswapV3Connector(GatewayBase):
                 if not isinstance(update_result, Exception) and len(update_result.get("position", {})) > 0:
                     tracked_item.lower_price = Decimal(update_result["position"].get("lowerPrice", "0"))
                     tracked_item.upper_price = Decimal(update_result["position"].get("upperPrice", "0"))
-                    if tracked_item.trading_pair.split("-")[0] == update_result["position"]["token0"]:
-                        tracked_item.current_base_amount = Decimal(update_result["position"].get("amount0", "0"))
-                        tracked_item.current_quote_amount = Decimal(update_result["position"].get("amount1", "0"))
-                        tracked_item.unclaimed_base_amount = Decimal(update_result["position"].get("unclaimedToken0", "0"))
-                        tracked_item.unclaimed_quote_amount = Decimal(update_result["position"].get("unclaimedToken1", "0"))
+                    amount0 = Decimal(update_result["position"].get("amount0", "0"))
+                    amount1 = Decimal(update_result["position"].get("amount1", "0"))
+                    unclaimedToken0 = Decimal(update_result["position"].get("unclaimedToken0", "0"))
+                    unclaimedToken1 = Decimal(update_result["position"].get("unclaimedToken1", "0"))
+                    if amount0 == amount1 == unclaimedToken0 == unclaimedToken1 == s_decimal_0:
+                        self.logger().info(f"Detected that position with id: {tracked_item.token_id} is closed.")
+                        tracked_item.last_status = UniswapV3PositionStatus.REMOVED  # this will prevent it from being restored on next import
+                        self.trigger_event(MarketEvent.RangePositionUpdated,
+                                           RangePositionUpdatedEvent(self.current_timestamp,
+                                                                     tracked_item.hb_id,
+                                                                     tracked_item.last_tx_hash,
+                                                                     tracked_item.token_id,
+                                                                     tracked_item.base_amount,
+                                                                     tracked_item.quote_amount,
+                                                                     tracked_item.last_status.name
+                                                                     ))
+                        self.trigger_event(MarketEvent.RangePositionRemoved,
+                                           RangePositionRemovedEvent(self.current_timestamp, tracked_item.hb_id,
+                                                                     tracked_item.token_id))
+                        self.stop_tracking_position(tracked_item.hb_id)
+
                     else:
-                        tracked_item.current_base_amount = Decimal(update_result["position"].get("amount1", "0"))
-                        tracked_item.current_quote_amount = Decimal(update_result["position"].get("amount0", "0"))
-                        tracked_item.unclaimed_base_amount = Decimal(update_result["position"].get("unclaimedToken1", "0"))
-                        tracked_item.unclaimed_quote_amount = Decimal(update_result["position"].get("unclaimedToken0", "0"))
+                        if tracked_item.trading_pair.split("-")[0] == update_result["position"]["token0"]:
+                            tracked_item.current_base_amount = amount0
+                            tracked_item.current_quote_amount = amount1
+                            tracked_item.unclaimed_base_amount = unclaimedToken0
+                            tracked_item.unclaimed_quote_amount = unclaimedToken1
+                        else:
+                            tracked_item.current_base_amount = amount1
+                            tracked_item.current_quote_amount = amount0
+                            tracked_item.unclaimed_base_amount = unclaimedToken1
+                            tracked_item.unclaimed_quote_amount = unclaimedToken0
 
     def add_position(self,
                      trading_pair: str,
@@ -609,17 +632,17 @@ class UniswapV3Connector(GatewayBase):
         :return: A dictionary of token and its allowance (how much Uniswap can spend).
         """
         ret_val = {}
-        router_allowances = await self._api_request("post", "eth/allowances",
+        """router_allowances = await self._api_request("post", "eth/allowances",
                                                     {"tokenList": "[" + (",".join(['"' + t + '"' for t in self._tokens])) + "]",
-                                                     "connector": "uniswapV3Router"})
+                                                     "connector": "uniswapV3Router"})"""
         nft_allowances = await self._api_request("post", "eth/allowances",
                                                  {"tokenList": "[" + (",".join(['"' + t + '"' for t in self._tokens])) + "]",
                                                   "connector": "uniswapV3NFTManager"})
-        for token, amount in router_allowances["approvals"].items():
+        """for token, amount in router_allowances["approvals"].items():
             try:
                 ret_val["R" + token] = Decimal(str(amount))
             except Exception:
-                ret_val["R" + token] = s_decimal_0
+                ret_val["R" + token] = s_decimal_0"""
         for token, amount in nft_allowances["approvals"].items():
             try:
                 ret_val["N" + token] = Decimal(str(amount))
@@ -631,7 +654,7 @@ class UniswapV3Connector(GatewayBase):
         """
         Checks if all tokens have allowance (an amount approved)
         """
-        return len(self._allowances.values()) == (len(self._tokens) * 2) and \
+        return len(self._allowances.values()) == len(self._tokens) and \
             all(amount > s_decimal_0 for amount in self._allowances.values())
 
     async def _create_order(self,

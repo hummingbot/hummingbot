@@ -6,6 +6,8 @@ from typing import (
     Optional,
     List,
 )
+
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.user_stream_tracker import (
@@ -31,9 +33,11 @@ class CoinzoomUserStreamTracker(UserStreamTracker):
         return cls._bust_logger
 
     def __init__(self,
+                 throttler: AsyncThrottler,
                  coinzoom_auth: Optional[CoinzoomAuth] = None,
                  trading_pairs: Optional[List[str]] = []):
         super().__init__()
+        self._throttler: AsyncThrottler = throttler
         self._coinzoom_auth: CoinzoomAuth = coinzoom_auth
         self._trading_pairs: List[str] = trading_pairs
         self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
@@ -50,7 +54,8 @@ class CoinzoomUserStreamTracker(UserStreamTracker):
         if not self._data_source:
             self._data_source = CoinzoomAPIUserStreamDataSource(
                 coinzoom_auth=self._coinzoom_auth,
-                trading_pairs=self._trading_pairs
+                trading_pairs=self._trading_pairs,
+                throttler=self._throttler,
             )
         return self._data_source
 
