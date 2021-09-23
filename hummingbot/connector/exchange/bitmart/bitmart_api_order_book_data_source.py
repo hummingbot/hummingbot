@@ -1,11 +1,9 @@
 #!/usr/bin/env python
 import asyncio
 import logging
-import time
 import aiohttp
 import ujson
 import websockets
-import pandas as pd
 import hummingbot.connector.exchange.bitmart.bitmart_constants as CONSTANTS
 
 from typing import Optional, List, Dict, Any, AsyncIterable
@@ -19,9 +17,8 @@ from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 
 class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
-    MAX_RETRIES = 20
     MESSAGE_TIMEOUT = 10.0
-    SNAPSHOT_TIMEOUT = 10.0
+    SNAPSHOT_TIMEOUT = 60 * 60  # expressed in seconds
     PING_TIMEOUT = 10.0
 
     _logger: Optional[HummingbotLogger] = None
@@ -46,12 +43,12 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
         result = {}
         async with aiohttp.ClientSession() as client:
-            response = await client.get(f"{CONSTANTS.REST_URL}/{CONSTANTS.GET_LAST_TRADING_PRICES_PATH_URL}")
-            response_json = await response.json()
-            for ticker in response_json["data"]["tickers"]:
-                t_pair = bitmart_utils.convert_from_exchange_trading_pair(ticker["symbol"])
-                if t_pair in trading_pairs and ticker["last_price"]:
-                    result[t_pair] = float(ticker["last_price"])
+            async with client.get(f"{CONSTANTS.REST_URL}/{CONSTANTS.GET_LAST_TRADING_PRICES_PATH_URL}", timeout=10) as response:
+                response_json = await response.json()
+                for ticker in response_json["data"]["tickers"]:
+                    t_pair = bitmart_utils.convert_from_exchange_trading_pair(ticker["symbol"])
+                    if t_pair in trading_pairs and ticker["last_price"]:
+                        result[t_pair] = float(ticker["last_price"])
         return result
 
     @staticmethod
@@ -121,6 +118,20 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
         finally:
             await ws.close()
 
+    async def _create_websocket_connection(self) -> websockets.WebSocketClientProtocol:
+        """
+        Initialize WebSocket client
+        """
+        try:
+            ws = await websockets.connect(uri=CONSTANTS.WSS_URL)
+            return ws
+        except asyncio.CancelledError:
+            raise
+        except Exception as ex:
+            self.logger().network(f"Unexpected error occurred during {CONSTANTS.EXCHANGE_NAME} WebSocket Connection "
+                                  f"({ex})")
+            raise
+
     async def _sleep(self, delay):
         """
         Function added only to facilitate patching the sleep in unit tests without affecting the asyncio module
@@ -133,33 +144,32 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         while True:
             try:
-                async with websockets.connect(uri=CONSTANTS.WSS_URL) as ws:
-                    ws: websockets.WebSocketClientProtocol = ws
+                ws: websockets.WebSocketClientProtocol = await self._create_websocket_connection()
 
-                    for trading_pair in self._trading_pairs:
-                        params: Dict[str, Any] = {
-                            "op": "subscribe",
-                            "args": [f"spot/trade:{bitmart_utils.convert_to_exchange_trading_pair(trading_pair)}"]
-                        }
-                        await ws.send(ujson.dumps(params))
+                for trading_pair in self._trading_pairs:
+                    params: Dict[str, Any] = {
+                        "op": "subscribe",
+                        "args": [f"spot/trade:{bitmart_utils.convert_to_exchange_trading_pair(trading_pair)}"]
+                    }
+                    await ws.send(ujson.dumps(params))
 
-                    async for raw_msg in self._inner_messages(ws):
-                        messages = ujson.loads(raw_msg)
-                        if messages is None:
-                            continue
-                        if "errorCode" in messages or "data" not in messages:
-                            # Error/Unrecognized response from "depth400" channel
-                            continue
+                async for raw_msg in self._inner_messages(ws):
+                    messages = ujson.loads(raw_msg)
+                    if messages is None:
+                        continue
+                    if "errorCode" in messages or "data" not in messages:
+                        # Error/Unrecognized response from "depth400" channel
+                        continue
 
-                        for msg in messages["data"]:        # data is a list
-                            msg_timestamp: float = float(msg["s_t"] * 1000)
-                            t_pair = bitmart_utils.convert_from_exchange_trading_pair(msg["symbol"])
+                    for msg in messages["data"]:        # data is a list
+                        msg_timestamp: float = float(msg["s_t"] * 1000)
+                        t_pair = bitmart_utils.convert_from_exchange_trading_pair(msg["symbol"])
 
-                            trade_msg: OrderBookMessage = BitmartOrderBook.trade_message_from_exchange(
-                                msg=msg,
-                                timestamp=msg_timestamp,
-                                metadata={"trading_pair": t_pair})
-                            output.put_nowait(trade_msg)
+                        trade_msg: OrderBookMessage = BitmartOrderBook.trade_message_from_exchange(
+                            msg=msg,
+                            timestamp=msg_timestamp,
+                            metadata={"trading_pair": t_pair})
+                        output.put_nowait(trade_msg)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -174,34 +184,33 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         while True:
             try:
-                async with websockets.connect(uri=CONSTANTS.WSS_URL) as ws:
-                    ws: websockets.WebSocketClientProtocol = ws
+                ws: websockets.WebSocketClientProtocol = await self._create_websocket_connection()
 
-                    for trading_pair in self._trading_pairs:
-                        params: Dict[str, Any] = {
-                            "op": "subscribe",
-                            "args": [f"spot/depth400:{bitmart_utils.convert_to_exchange_trading_pair(trading_pair)}"]
-                        }
-                        await ws.send(ujson.dumps(params))
+                for trading_pair in self._trading_pairs:
+                    params: Dict[str, Any] = {
+                        "op": "subscribe",
+                        "args": [f"spot/depth400:{bitmart_utils.convert_to_exchange_trading_pair(trading_pair)}"]
+                    }
+                    await ws.send(ujson.dumps(params))
 
-                    async for raw_msg in self._inner_messages(ws):
-                        messages = ujson.loads(raw_msg)
-                        if messages is None:
-                            continue
-                        if "errorCode" in messages or "data" not in messages:
-                            # Error/Unrecognized response from "depth400" channel
-                            continue
+                async for raw_msg in self._inner_messages(ws):
+                    messages = ujson.loads(raw_msg)
+                    if messages is None:
+                        continue
+                    if "errorCode" in messages or "data" not in messages:
+                        # Error/Unrecognized response from "depth400" channel
+                        continue
 
-                        for msg in messages["data"]:        # data is a list
-                            msg_timestamp: float = float(msg["ms_t"])
-                            t_pair = bitmart_utils.convert_from_exchange_trading_pair(msg["symbol"])
+                    for msg in messages["data"]:        # data is a list
+                        msg_timestamp: float = float(msg["ms_t"])
+                        t_pair = bitmart_utils.convert_from_exchange_trading_pair(msg["symbol"])
 
-                            snapshot_msg: OrderBookMessage = BitmartOrderBook.snapshot_message_from_exchange(
-                                msg=msg,
-                                timestamp=msg_timestamp,
-                                metadata={"trading_pair": t_pair}
-                            )
-                            output.put_nowait(snapshot_msg)
+                        snapshot_msg: OrderBookMessage = BitmartOrderBook.snapshot_message_from_exchange(
+                            msg=msg,
+                            timestamp=msg_timestamp,
+                            metadata={"trading_pair": t_pair}
+                        )
+                        output.put_nowait(snapshot_msg)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -220,36 +229,20 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Listen for orderbook snapshots by fetching orderbook
         """
         while True:
+            await self._sleep(self.SNAPSHOT_TIMEOUT)
             try:
                 for trading_pair in self._trading_pairs:
-                    try:
-                        snapshot: Dict[str, any] = await self.get_order_book_data(trading_pair)
-                        snapshot_timestamp: float = float(snapshot["timestamp"])
-                        snapshot_msg: OrderBookMessage = BitmartOrderBook.snapshot_message_from_exchange(
-                            snapshot,
-                            snapshot_timestamp,
-                            metadata={"trading_pair": trading_pair}
-                        )
-                        output.put_nowait(snapshot_msg)
-                        self.logger().debug(f"Saved order book snapshot for {trading_pair}")
-                        # Be careful not to go above API rate limits.
-                        await self._sleep(5.0)
-                    except asyncio.CancelledError:
-                        raise
-                    except Exception:
-                        self.logger().network(
-                            "Unexpected error with WebSocket connection.",
-                            exc_info=True,
-                            app_warning_msg="Unexpected error with WebSocket connection. Retrying in 5 seconds. "
-                                            "Check network connection."
-                        )
-                        await asyncio.sleep(5.0)
-                this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
-                next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)
-                delta: float = next_hour.timestamp() - time.time()
-                await self._sleep(delta)
+                    snapshot: Dict[str, any] = await self.get_order_book_data(trading_pair)
+                    snapshot_timestamp: float = float(snapshot["timestamp"])
+                    snapshot_msg: OrderBookMessage = BitmartOrderBook.snapshot_message_from_exchange(
+                        snapshot,
+                        snapshot_timestamp,
+                        metadata={"trading_pair": trading_pair}
+                    )
+                    output.put_nowait(snapshot_msg)
+                    self.logger().debug(f"Saved order book snapshot for {trading_pair}")
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unexpected error.", exc_info=True)
-                await asyncio.sleep(5.0)
+                self.logger().error("Unexpected error occured listening for orderbook snapshots. Retrying in 5 secs...", exc_info=True)
+                await self._sleep(5.0)
