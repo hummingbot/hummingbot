@@ -10,7 +10,8 @@ export async function approve(
   spender: string,
   privateKey: string,
   token: string,
-  amount?: BigNumber | string
+  amount?: BigNumber | string,
+  nonce?: number
 ) {
   if (!ethereum.ready()) await ethereum.init();
   const initTime = Date.now();
@@ -30,16 +31,14 @@ export async function approve(
 
   // call approve function
   let approval;
-  try {
-    approval = await ethereum.approveERC20(
-      wallet,
-      spender,
-      fullToken.address,
-      amount
-    );
-  } catch (err) {
-    approval = JSON.stringify(err);
-  }
+
+  approval = await ethereum.approveERC20(
+    wallet,
+    spender,
+    fullToken.address,
+    amount,
+    nonce
+  );
 
   return {
     network: ConfigManager.config.ETHEREUM_CHAIN,
@@ -48,6 +47,7 @@ export async function approve(
     tokenAddress: fullToken.address,
     spender: spender,
     amount: bigNumberWithDecimalToStr(amount, fullToken.decimals),
+    nonce: approval.nonce,
     approval: approval,
   };
 }

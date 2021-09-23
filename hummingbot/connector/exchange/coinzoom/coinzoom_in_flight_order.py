@@ -23,7 +23,7 @@ class CoinzoomInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
-                 initial_state: str = "NEW"):
+                 initial_state: str = "LOCAL"):
         super().__init__(
             client_order_id,
             exchange_order_id,
@@ -48,6 +48,15 @@ class CoinzoomInFlightOrder(InFlightOrderBase):
     @property
     def is_cancelled(self) -> bool:
         return self.last_state in {"CANCELLED"}
+
+    @property
+    def is_local(self) -> bool:
+        return self.last_state == "LOCAL"
+
+    def update_exchange_order_id(self, exchange_id: str):
+        super().update_exchange_order_id(exchange_id)
+        if self.is_local:
+            self.last_state = "NEW"
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:

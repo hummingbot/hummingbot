@@ -13,6 +13,10 @@ from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 s_decimal_0 = Decimal(0)
 
 
+class KrakenInFlightOrderNotCreated(Exception):
+    pass
+
+
 cdef class KrakenInFlightOrder(InFlightOrderBase):
     def __init__(self,
                  client_order_id: str,
@@ -23,7 +27,7 @@ cdef class KrakenInFlightOrder(InFlightOrderBase):
                  price: Decimal,
                  amount: Decimal,
                  userref: int,
-                 initial_state: str = "NEW"):
+                 initial_state: str = "local"):
         super().__init__(
             client_order_id,
             exchange_order_id,
@@ -38,6 +42,10 @@ cdef class KrakenInFlightOrder(InFlightOrderBase):
         self.userref = userref
 
     @property
+    def is_local(self) -> bool:
+        return self.last_state in {"local"}
+
+    @property
     def is_done(self) -> bool:
         return self.last_state in {"closed", "canceled", "expired"}
 
@@ -47,7 +55,7 @@ cdef class KrakenInFlightOrder(InFlightOrderBase):
 
     @property
     def is_cancelled(self) -> bool:
-        return self.last_state in {"CANCELED"}
+        return self.last_state in {"canceled"}
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
@@ -85,6 +93,10 @@ cdef class KrakenInFlightOrder(InFlightOrderBase):
             "last_state": self.last_state,
             "userref": self.userref
         }
+
+    def update_exchange_order_id(self, exchange_id: str):
+        super().update_exchange_order_id(exchange_id)
+        self.last_state = "new"
 
     def update_with_execution_report(self, execution_report: Dict[str, Any]):
         trade_id = execution_report["t"]
