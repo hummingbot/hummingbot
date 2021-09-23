@@ -15,6 +15,7 @@ from hummingbot.core.network_iterator import NetworkStatus
 
 
 from hummingbot.connector.exchange.gate_io.gate_io_in_flight_order import GateIoInFlightOrder
+from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import MarketEvent, TradeType, OrderType
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from test.mock.mock_listener import MockEventListener
@@ -316,6 +317,21 @@ class TestGateIoExchange(unittest.TestCase):
 
         self.assertEqual(self.event_listener.events_count, 1)
         self.assertTrue(client_order_id not in self.exchange.in_flight_orders)
+
+    def test_cancel_order_not_present_in_inflight_orders(self):
+        client_order_id = "test-id"
+        event_logger = EventLogger()
+        self.exchange.add_listener(MarketEvent.OrderCancelled, event_logger)
+
+        result = self.async_run_with_timeout(
+            coroutine=self.exchange._execute_cancel(self.trading_pair, client_order_id)
+        )
+
+        self.assertEqual(0, len(event_logger.event_log))
+        self.assertTrue(self._is_logged(
+            "WARNING",
+            f"Failed to cancel order {client_order_id}. Order not found in inflight orders."))
+        self.assertFalse(result.success)
 
     @patch("hummingbot.connector.exchange.gate_io.gate_io_exchange.GateIoExchange.current_timestamp")
     @aioresponses()
