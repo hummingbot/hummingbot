@@ -6,9 +6,11 @@ from hummingbot.market.celo.celo_data_types import CeloExchangeRate, CeloBalance
 
 
 UNIT_MULTIPLIER = Decimal(1e18)
-CELO_BASE = "CGLD"
+CELO_BASE = "CELO"
 CELO_QUOTE = "CUSD"
-SYMBOLS_MAP = {CELO_BASE: "gold", CELO_QUOTE: "usd"}
+CELOCLI_CELO = "CELO"
+CELOCLI_CUSD = "cUSD"
+CELOCLI_LOCKED_CELO = "lockedCELO"
 
 
 def command(commands: List[str]) -> Optional[str]:
@@ -57,13 +59,13 @@ class CeloCLI:
         output = command(["celocli", "account:balance", cls.address])
         lines = output.split("\n")
         raw_balances = {}
-        data_type = ["gold", "lockedGold", "usd", "pending"]
+        data_type = [CELOCLI_CELO, CELOCLI_LOCKED_CELO, CELOCLI_CUSD, "pending"]
         for line in lines:
-            if ":" in line and [key for key in data_type if (key in line)]:
+            if ":" in line and any(key in line for key in data_type):
                 asset, value = line.split(":")
                 raw_balances[asset.strip()] = Decimal(value) / UNIT_MULTIPLIER
-        balances[CELO_BASE] = CeloBalance(CELO_BASE, raw_balances["gold"], raw_balances["lockedGold"])
-        balances[CELO_QUOTE] = CeloBalance(CELO_QUOTE, raw_balances["usd"], Decimal("0"))
+        balances[CELO_BASE] = CeloBalance(CELO_BASE, raw_balances[CELOCLI_CELO], raw_balances[CELOCLI_LOCKED_CELO])
+        balances[CELO_QUOTE] = CeloBalance(CELO_QUOTE, raw_balances[CELOCLI_CUSD], Decimal("0"))
         return balances
 
     @classmethod
