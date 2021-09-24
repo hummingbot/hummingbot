@@ -1,3 +1,4 @@
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 import logging
 import asyncio
 import time
@@ -22,8 +23,12 @@ class BinancePerpetualOrderBookTracker(OrderBookTracker):
         return cls._bpobt_logger
 
     def __init__(self,
-                 trading_pairs: Optional[List[str]] = None, domain: str = "binance_perpetual"):
-        super().__init__(data_source=BinancePerpetualAPIOrderBookDataSource(trading_pairs=trading_pairs, domain=domain),
+                 trading_pairs: Optional[List[str]] = None,
+                 domain: str = "binance_perpetual",
+                 throttler: Optional[AsyncThrottler] = None):
+        super().__init__(data_source=BinancePerpetualAPIOrderBookDataSource(trading_pairs=trading_pairs,
+                                                                            domain=domain,
+                                                                            throttler=throttler),
                          trading_pairs=trading_pairs, domain=domain)
 
         self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()

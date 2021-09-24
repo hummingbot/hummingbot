@@ -13,7 +13,7 @@ class NdaxUtilsTests(TestCase):
     @patch('hummingbot.connector.exchange.ndax.ndax_utils.get_tracking_nonce')
     def test_client_order_id_creation(self, nonce_provider_mock):
         nonce_provider_mock.return_value = 1000
-        self.assertEqual(str(1000), utils.get_new_client_order_id(True, "BTC-USDT"))
+        self.assertEqual(f"{utils.HUMMINGBOT_ID_PREFIX}{1000}", utils.get_new_client_order_id(True, "BTC-USDT"))
 
     def test_rest_api_url(self):
         url = utils.rest_api_url(None)
