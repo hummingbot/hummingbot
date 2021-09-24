@@ -58,7 +58,8 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return copy.deepcopy(self._funding_info)
 
     def is_funding_info_initialized(self) -> bool:
-        return len(self._funding_info) > 0
+        return all(trading_pair in self._funding_info
+                   for trading_pair in self._trading_pairs)
 
     async def _sleep(self, delay):
         """
@@ -235,20 +236,20 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         session = await self._get_session()
         async with session as client:
             async with self._throttler.execute_task(limit_id):
-                async with client.get(url=url, params=params) as response:
-                    if response.status == 200:
-                        resp_json = await response.json()
+                response = await client.get(url=url, params=params)
+                if response.status == 200:
+                    resp_json = await response.json()
 
-                        symbol_info: Dict[str, Any] = (
-                            resp_json["result"][0]  # Endpoint returns a List even though 1 entry is returned
-                        )
-                        funding_info = FundingInfo(
-                            trading_pair=trading_pair,
-                            index_price=Decimal(str(symbol_info["index_price"])),
-                            mark_price=Decimal(str(symbol_info["mark_price"])),
-                            next_funding_utc_timestamp=int(pd.Timestamp(symbol_info["next_funding_time"]).timestamp()),
-                            rate=Decimal(str(symbol_info["predicted_funding_rate"])),  # Note: no _e6 suffix from resp
-                        )
+                    symbol_info: Dict[str, Any] = (
+                        resp_json["result"][0]  # Endpoint returns a List even though 1 entry is returned
+                    )
+                    funding_info = FundingInfo(
+                        trading_pair=trading_pair,
+                        index_price=Decimal(str(symbol_info["index_price"])),
+                        mark_price=Decimal(str(symbol_info["mark_price"])),
+                        next_funding_utc_timestamp=int(pd.Timestamp(symbol_info["next_funding_time"]).timestamp()),
+                        rate=Decimal(str(symbol_info["predicted_funding_rate"])),  # Note: no _e6 suffix from resp
+                    )
         return funding_info
 
     async def get_funding_info(self, trading_pair: str) -> FundingInfo:

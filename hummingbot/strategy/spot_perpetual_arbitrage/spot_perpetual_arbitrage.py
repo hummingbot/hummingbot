@@ -239,7 +239,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         """
         funding_info: FundingInfo = self._derivative_market_info.market.get_funding_info(
             self._derivative_market_info.trading_pair)
-        if (active_position[0].amount > 0 > funding_info.rate) or (active_position[0].amount < 0 < funding_info.rate):
+        if funding_info and (active_position[0].amount > 0 > funding_info.rate) or (active_position[0].amount < 0 < funding_info.rate):
             return True
         return False
 
