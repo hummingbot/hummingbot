@@ -41,51 +41,57 @@ class BitmartAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @classmethod
     async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
-        result = {}
-        async with aiohttp.ClientSession() as client:
-            async with client.get(f"{CONSTANTS.REST_URL}/{CONSTANTS.GET_LAST_TRADING_PRICES_PATH_URL}", timeout=10) as response:
-                response_json = await response.json()
-                for ticker in response_json["data"]["tickers"]:
-                    t_pair = bitmart_utils.convert_from_exchange_trading_pair(ticker["symbol"])
-                    if t_pair in trading_pairs and ticker["last_price"]:
-                        result[t_pair] = float(ticker["last_price"])
-        return result
+        throttler = cls._get_throttler_instance()
+        async with throttler.execute_task(CONSTANTS.GET_LAST_TRADING_PRICES_PATH_URL):
+            result = {}
+            async with aiohttp.ClientSession() as client:
+                async with client.get(f"{CONSTANTS.REST_URL}/{CONSTANTS.GET_LAST_TRADING_PRICES_PATH_URL}", timeout=10) as response:
+                    response_json = await response.json()
+                    for ticker in response_json["data"]["tickers"]:
+                        t_pair = bitmart_utils.convert_from_exchange_trading_pair(ticker["symbol"])
+                        if t_pair in trading_pairs and ticker["last_price"]:
+                            result[t_pair] = float(ticker["last_price"])
+            return result
 
     @staticmethod
     async def fetch_trading_pairs() -> List[str]:
-        async with aiohttp.ClientSession() as client:
-            async with client.get(f"{CONSTANTS.REST_URL}/{CONSTANTS.GET_TRADING_PAIRS_PATH_URL}", timeout=10) as response:
-                if response.status == 200:
-                    from hummingbot.connector.exchange.bitmart.bitmart_utils import \
-                        convert_from_exchange_trading_pair
-                    try:
-                        response_json: Dict[str, Any] = await response.json()
-                        return [convert_from_exchange_trading_pair(symbol) for symbol in response_json["data"]["symbols"]]
-                    except Exception:
-                        pass
-                        # Do nothing if the request fails -- there will be no autocomplete for bitmart trading pairs
-                return []
+        throttler = BitmartAPIOrderBookDataSource._get_throttler_instance()
+        async with throttler.execute_task(CONSTANTS.GET_TRADING_PAIRS_PATH_URL):
+            async with aiohttp.ClientSession() as client:
+                async with client.get(f"{CONSTANTS.REST_URL}/{CONSTANTS.GET_TRADING_PAIRS_PATH_URL}", timeout=10) as response:
+                    if response.status == 200:
+                        from hummingbot.connector.exchange.bitmart.bitmart_utils import \
+                            convert_from_exchange_trading_pair
+                        try:
+                            response_json: Dict[str, Any] = await response.json()
+                            return [convert_from_exchange_trading_pair(symbol) for symbol in response_json["data"]["symbols"]]
+                        except Exception:
+                            pass
+                            # Do nothing if the request fails -- there will be no autocomplete for bitmart trading pairs
+                    return []
 
     @staticmethod
     async def get_order_book_data(trading_pair: str) -> Dict[str, any]:
         """
         Get whole orderbook
         """
-        async with aiohttp.ClientSession() as client:
-            async with client.get(
-                f"{CONSTANTS.REST_URL}/{CONSTANTS.GET_ORDER_BOOK_PATH_URL}?size=200&symbol="
-                f"{bitmart_utils.convert_to_exchange_trading_pair(trading_pair)}"
-            ) as response:
-                if response.status != 200:
-                    raise IOError(
-                        f"Error fetching OrderBook for {trading_pair} at {CONSTANTS.EXCHANGE_NAME}. "
-                        f"HTTP status is {response.status}."
-                    )
+        throttler = BitmartAPIOrderBookDataSource._get_throttler_instance()
+        async with throttler.execute_task(CONSTANTS.GET_ORDER_BOOK_PATH_URL):
+            async with aiohttp.ClientSession() as client:
+                async with client.get(
+                    f"{CONSTANTS.REST_URL}/{CONSTANTS.GET_ORDER_BOOK_PATH_URL}?size=200&symbol="
+                    f"{bitmart_utils.convert_to_exchange_trading_pair(trading_pair)}"
+                ) as response:
+                    if response.status != 200:
+                        raise IOError(
+                            f"Error fetching OrderBook for {trading_pair} at {CONSTANTS.EXCHANGE_NAME}. "
+                            f"HTTP status is {response.status}."
+                        )
 
-                orderbook_data: Dict[str, Any] = await response.json()
-                orderbook_data = orderbook_data["data"]
+                    orderbook_data: Dict[str, Any] = await response.json()
+                    orderbook_data = orderbook_data["data"]
 
-                return orderbook_data
+                    return orderbook_data
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair)
