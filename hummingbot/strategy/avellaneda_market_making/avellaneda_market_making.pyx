@@ -1,3 +1,4 @@
+import asyncio
 from decimal import Decimal
 import logging
 import pandas as pd
@@ -92,6 +93,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     closing_time: Decimal = Decimal("1"),
                     debug_csv_path: str = '',
                     volatility_buffer_size: int = 30,
+                    should_wait_order_cancel_confirmation = True,
                     is_debug: bool = False,
                     ):
         self._sb_order_tracker = OrderTracker()
@@ -143,12 +145,15 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._optimal_ask = s_decimal_zero
         self._optimal_bid = s_decimal_zero
         self._debug_csv_path = debug_csv_path
+        self._should_wait_order_cancel_confirmation = should_wait_order_cancel_confirmation
         self._is_debug = is_debug
         try:
             if self._is_debug:
                 os.unlink(self._debug_csv_path)
         except FileNotFoundError:
             pass
+        self._previous_orders_execution_timestamp = -1
+        self._previous_orders_execution_task = None
 
     def all_markets_ready(self):
         return all([market.ready for market in self._sb_markets])
@@ -604,16 +609,15 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     self.c_apply_order_amount_eta_transformation(proposal)
                     # 3. Apply functions that modify orders price
                     self.c_apply_order_price_modifiers(proposal)
+                    # 4. Apply budget constraint, i.e. can't buy/sell more than what you have.
+                    self.c_apply_budget_constraint(proposal)
 
                 self._hanging_orders_tracker.process_tick()
                 self.c_cancel_active_orders_on_max_age_limit()
                 self.c_cancel_active_orders(proposal)
 
                 if self.c_to_create_orders(proposal):
-                    # 4. Apply budget constraint (after hanging orders were created), i.e. can't buy/sell
-                    # more than what you have.
-                    self.c_apply_budget_constraint(proposal)
-                    self.c_execute_orders_proposal(proposal)
+                    self._create_orders_execution_task(proposal)
 
                 if self._is_debug:
                     self.dump_debug_variables()
@@ -921,7 +925,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         return self.c_apply_budget_constraint(proposal)
 
     def adjusted_available_balance_for_orders_budget_constrain(self):
-        return self.c_get_adjusted_available_balance(self.active_non_hanging_orders)
+        candidate_hanging_orders = self.hanging_orders_tracker.candidate_hanging_orders_from_pairs()
+        non_hanging_active_orders = list(set(self.active_non_hanging_orders) - set(candidate_hanging_orders))
+        return self.c_get_adjusted_available_balance(non_hanging_active_orders)
 
     cdef c_apply_budget_constraint(self, object proposal):
         cdef:
@@ -1191,11 +1197,10 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         return self.c_cancel_active_orders(proposal)
 
     cdef bint c_to_create_orders(self, object proposal):
-        non_hanging_orders_non_cancelled = [o for o in self.active_non_hanging_orders if not
-                                            self._hanging_orders_tracker.is_potential_hanging_order(o)]
-
-        return self._create_timestamp < self._current_timestamp and \
-            proposal is not None and len(non_hanging_orders_non_cancelled) == 0
+        return (self._create_timestamp <= self._current_timestamp
+                and self._create_timestamp != self._previous_orders_execution_timestamp
+                and proposal is not None
+                and len(self.active_non_hanging_orders) == 0)
 
     def to_create_orders(self, proposal: Proposal) -> bool:
         return self.c_to_create_orders(proposal)
@@ -1261,6 +1266,22 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             self.c_set_timers()
 
     def execute_orders_proposal(self, proposal: Proposal):
+        self.c_execute_orders_proposal(proposal)
+
+    def _last_orders_execution_task(self):
+        # Added for testing purposes only
+        return self._previous_orders_execution_task
+
+    def _create_orders_execution_task(self, proposal: Proposal):
+        if self._previous_orders_execution_task:
+            self._previous_orders_execution_task.cancel()
+        self._previous_orders_execution_timestamp = self._create_timestamp
+        self._previous_orders_execution_task = asyncio.get_event_loop().create_task(
+            self._start_orders_execution(proposal))
+
+    async def _start_orders_execution(self, proposal: Proposal):
+        if self._should_wait_order_cancel_confirmation:
+            await self._sb_order_tracker.all_orders_being_cancelled_confirmation(self.market_info)
         self.c_execute_orders_proposal(proposal)
 
     cdef c_set_timers(self):

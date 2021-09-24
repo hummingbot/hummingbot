@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+import asyncio
 import unittest
 import pandas as pd
 import math
@@ -1251,6 +1251,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
 
+        asyncio.get_event_loop().run_until_complete(self.strategy._last_orders_execution_task())
+
         buy_order = self.strategy.active_buys[0]
         sell_order = self.strategy.active_sells[0]
 
@@ -1314,6 +1316,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
 
+        asyncio.get_event_loop().run_until_complete(self.strategy._last_orders_execution_task())
+
         buy_order = self.strategy.active_buys[0]
         sell_order = self.strategy.active_sells[0]
 
@@ -1340,6 +1344,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.clock.backtest_til(orders_creation_timestamp + 10 + filled_extension_time - 1)
         self.assertEqual(0, len(self.strategy.active_non_hanging_orders))
         self.clock.backtest_til(orders_creation_timestamp + 10 + filled_extension_time + 1)
+        asyncio.get_event_loop().run_until_complete(self.strategy._last_orders_execution_task())
         self.assertEqual(2, len(self.strategy.active_non_hanging_orders))
         # The hanging order should still be present
         self.assertEqual(1, len(self.strategy.hanging_orders_tracker.strategy_current_hanging_orders))

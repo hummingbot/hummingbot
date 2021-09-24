@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 import unittest
 import asyncio
+from unittest.mock import MagicMock
+
 import pandas as pd
 import time
 
@@ -60,10 +62,18 @@ class OrderTrackerUnitTests(unittest.TestCase):
         )
 
     def setUp(self):
+        super().setUp()
         self.order_tracker: OrderTracker = OrderTracker()
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
         self.clock.add_iterator(self.order_tracker)
         self.clock.backtest_til(self.start_timestamp)
+        self.async_task = None
+
+    def tearDown(self) -> None:
+        if self.async_task:
+            self.async_task.cancel()
+            asyncio.get_event_loop().run_until_complete(self.async_task)
+        super().tearDown()
 
     @staticmethod
     def simulate_place_order(order_tracker: OrderTracker, order: Union[LimitOrder, MarketOrder], market_info: MarketTradingPairTuple):
@@ -472,3 +482,74 @@ class OrderTrackerUnitTests(unittest.TestCase):
 
         # Check that check_and_cleanup_shadow_records clears shadow_limit_orders
         self.assertTrue(len(self.order_tracker.shadow_limit_orders) == 0)
+
+    def test_cancel_confirmation_whit_one_order_finishes_when_cancellation_confirmed(self):
+        order = LimitOrder(
+            client_order_id="OID-1",
+            trading_pair=self.trading_pair,
+            is_buy=True,
+            base_currency=self.trading_pair.split("-")[0],
+            quote_currency=self.trading_pair.split("-")[1],
+            price=Decimal(10000),
+            quantity=Decimal(1))
+
+        self.simulate_place_order(self.order_tracker, order, self.market_info)
+        self.simulate_order_created(self.order_tracker, order)
+        self.simulate_cancel_order(self.order_tracker, order)
+
+        self.assertIn(order.client_order_id, self.order_tracker.in_flight_cancels)
+
+        self.async_task = asyncio.get_event_loop().create_task(
+            self.order_tracker.all_orders_being_cancelled_confirmation(self.market_info))
+        asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.1))
+        self.simulate_stop_tracking_order(self.order_tracker, order, self.market_info)
+
+        asyncio.get_event_loop().run_until_complete(self.async_task)
+
+        self.assertNotIn(order.client_order_id, self.order_tracker.in_flight_cancels)
+
+    def test_cancel_confirmation_validates_orders_from_specific_market(self):
+        local_market = MagicMock()
+        local_market_info: MarketTradingPairTuple = MarketTradingPairTuple(
+            local_market, self.trading_pair, *self.trading_pair.split("-")
+        )
+
+        order1 = LimitOrder(
+            client_order_id="OID-1",
+            trading_pair=self.trading_pair,
+            is_buy=True,
+            base_currency=self.trading_pair.split("-")[0],
+            quote_currency=self.trading_pair.split("-")[1],
+            price=Decimal(10000),
+            quantity=Decimal(1))
+
+        order2 = LimitOrder(
+            client_order_id="OID-2",
+            trading_pair=self.trading_pair,
+            is_buy=True,
+            base_currency=self.trading_pair.split("-")[0],
+            quote_currency=self.trading_pair.split("-")[1],
+            price=Decimal(20000),
+            quantity=Decimal(2))
+
+        self.simulate_place_order(self.order_tracker, order1, self.market_info)
+        self.simulate_place_order(self.order_tracker, order2, local_market_info)
+        self.simulate_order_created(self.order_tracker, order1)
+        self.simulate_order_created(self.order_tracker, order2)
+        self.simulate_cancel_order(self.order_tracker, order1)
+        self.simulate_cancel_order(self.order_tracker, order2)
+
+        self.assertIn(order1.client_order_id, self.order_tracker.in_flight_cancels)
+        self.assertIn(order2.client_order_id, self.order_tracker.in_flight_cancels)
+
+        self.async_task = asyncio.get_event_loop().create_task(
+            self.order_tracker.all_orders_being_cancelled_confirmation(self.market_info))
+        asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.1))
+
+        # We only confirm cancellation of order1, from the generic market
+        self.simulate_stop_tracking_order(self.order_tracker, order1, self.market_info)
+
+        asyncio.get_event_loop().run_until_complete(self.async_task)
+
+        self.assertNotIn(order1.client_order_id, self.order_tracker.in_flight_cancels)
+        self.assertIn(order2.client_order_id, self.order_tracker.in_flight_cancels)

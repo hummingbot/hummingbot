@@ -348,12 +348,8 @@ class HangingOrdersTracker:
         self.current_created_pairs_of_orders.append(pair)
 
     def _add_hanging_orders_based_on_partially_executed_pairs(self):
-        for pair in self.current_created_pairs_of_orders:
-            if pair.partially_filled():
-                unfilled_order = pair.get_unfilled_order()
-                # Check if the unfilled order is in active_orders because it might have failed before being created
-                if unfilled_order in self.strategy.active_orders:
-                    self.add_order(unfilled_order)
+        for unfilled_order in self.candidate_hanging_orders_from_pairs():
+            self.add_order(unfilled_order)
         self.current_created_pairs_of_orders.clear()
 
     def _get_hanging_order_from_limit_order(self, order: LimitOrder):
@@ -362,3 +358,13 @@ class HangingOrdersTracker:
     def _limit_order_age(self, order: LimitOrder):
         calculated_age = order_age(order)
         return calculated_age if calculated_age >= 0 else 0
+
+    def candidate_hanging_orders_from_pairs(self):
+        candidate_orders = []
+        for pair in self.current_created_pairs_of_orders:
+            if pair.partially_filled():
+                unfilled_order = pair.get_unfilled_order()
+                # Check if the unfilled order is in active_orders because it might have failed before being created
+                if unfilled_order in self.strategy.active_orders:
+                    candidate_orders.append(unfilled_order)
+        return candidate_orders

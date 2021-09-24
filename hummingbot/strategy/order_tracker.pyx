@@ -1,3 +1,4 @@
+import asyncio
 from collections import (
     deque,
     OrderedDict
@@ -22,7 +23,6 @@ cdef class OrderTracker(TimeIterator):
     # ETH confirmation requirement of Binance has shortened to 12 blocks as of 7/15/2019.
     # 12 * 15 / 60 = 3 minutes
     SHADOW_MAKER_ORDER_KEEP_ALIVE_DURATION = 60.0 * 3
-
     CANCEL_EXPIRY_DURATION = 60.0
 
     def __init__(self):
@@ -112,7 +112,7 @@ cdef class OrderTracker(TimeIterator):
         return pd.DataFrame(data=market_orders, columns=["market", "trading_pair", "order_id", "quantity", "timestamp"])
 
     @property
-    def in_flight_cancels(self) -> Dict[str, float]:
+    def in_flight_cancels(self) -> Dict[str, Tuple[float, asyncio.Event]]:
         return self._in_flight_cancels
 
     @property
@@ -142,7 +142,8 @@ cdef class OrderTracker(TimeIterator):
         return self.c_get_shadow_limit_orders()
 
     cdef bint c_has_in_flight_cancel(self, str order_id):
-        return self._in_flight_cancels.get(order_id, NaN) + self.CANCEL_EXPIRY_DURATION > self._current_timestamp
+        cancel_timestamp, _ = self._in_flight_cancels.get(order_id, (NaN, None))
+        return cancel_timestamp + self.CANCEL_EXPIRY_DURATION > self._current_timestamp
 
     def has_in_flight_cancel(self, order_id: str):
         return self.c_has_in_flight_cancel(order_id)
@@ -159,7 +160,7 @@ cdef class OrderTracker(TimeIterator):
             return False
 
         # Maintain the cancel expiry time invariant.
-        for k, cancel_timestamp in self._in_flight_cancels.items():
+        for k, (cancel_timestamp, _) in self._in_flight_cancels.items():
             if cancel_timestamp < self._current_timestamp - self.CANCEL_EXPIRY_DURATION:
                 keys_to_delete.append(k)
         for k in keys_to_delete:
@@ -169,7 +170,7 @@ cdef class OrderTracker(TimeIterator):
             return False
 
         # Track the cancel.
-        self._in_flight_cancels[order_id] = self._current_timestamp
+        self._in_flight_cancels[order_id] = (self._current_timestamp, asyncio.Event())
         return True
 
     def check_and_track_cancel(self, order_id: str) -> bool:
@@ -246,6 +247,8 @@ cdef class OrderTracker(TimeIterator):
         if order_id in self._order_id_to_market_pair:
             del self._order_id_to_market_pair[order_id]
         if order_id in self._in_flight_cancels:
+            _, cancel_event = self._in_flight_cancels[order_id]
+            cancel_event.set()
             del self._in_flight_cancels[order_id]
 
     def stop_tracking_limit_order(self, market_pair: MarketTradingPairTuple, order_id: str):
@@ -307,3 +310,9 @@ cdef class OrderTracker(TimeIterator):
 
     def remove_create_order_pending(self, order_id: str):
         self.c_remove_create_order_pending(order_id)
+
+    async def all_orders_being_cancelled_confirmation(self, market_info: MarketTradingPairTuple):
+        wait_tasks = [asyncio.get_event_loop().create_task(event.wait())
+                      for order_id, (_, event) in self.in_flight_cancels.items()
+                      if self._shadow_order_id_to_market_pair[order_id] == market_info]
+        await asyncio.gather(*wait_tasks)
