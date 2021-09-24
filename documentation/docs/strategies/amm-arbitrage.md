@@ -1,6 +1,6 @@
 ---
 tags:
-- market making
+- arbitrage
 ---
 
 # `amm_arb`
@@ -13,7 +13,7 @@ tags:
 
 ## 🏦 Exchanges supported
 
-[`spot` exchanges](/exchanges/#amm)
+[`amm` exchanges](/exchanges/#amm)
 [`spot` exchanges](/exchanges/#spot)
 
 ## 👷 Maintainer

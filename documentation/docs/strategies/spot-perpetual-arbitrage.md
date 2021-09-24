@@ -1,6 +1,5 @@
 ---
 tags:
-- market making
 - arbitrage
 ---
 
