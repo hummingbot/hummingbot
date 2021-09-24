@@ -67,7 +67,7 @@ class ArbProposal:
         self.spot_buy_sell_prices = [prices[0], prices[1]]
         self.deriv_buy_sell_prices = [prices[2], prices[3]]
 
-    def is_funding_payment_time(self):
+    def is_funding_payment_time(self) -> bool:
         """
         Check if it's time for funding payment.
         Return True if it's time for funding payment else False.
@@ -76,11 +76,10 @@ class ArbProposal:
         f_info: FundingInfo = perp_trading.get_funding_info(
             self.derivative_market_info.trading_pair)
         payment_span = perp_trading.funding_payment_span
-        if (f_info.next_funding_utc_timestamp - payment_span[0]) < self.timestamp < \
+        if f_info and (f_info.next_funding_utc_timestamp - payment_span[0]) < self.timestamp < \
                 (f_info.next_funding_utc_timestamp + payment_span[1]):
             return True
-        else:
-            return False
+        return False
 
     async def proposed_spot_deriv_arb(self):
         """
