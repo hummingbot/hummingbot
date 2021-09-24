@@ -58,7 +58,8 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return copy.deepcopy(self._funding_info)
 
     def is_funding_info_initialized(self) -> bool:
-        return all(trading_pair in self._funding_info for trading_pair in self._trading_pairs)
+        return all(trading_pair in self._funding_info
+                   for trading_pair in self._trading_pairs)
 
     async def _sleep(self, delay):
         """
@@ -256,8 +257,7 @@ class BybitPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Returns the FundingInfo of the specified trading pair. If it does not exist, it will query the REST API.
         """
         if trading_pair not in self._funding_info:
-            async with self._funding_info_async_lock:
-                self._funding_info[trading_pair] = await self._get_funding_info_from_exchange(trading_pair)
+            self._funding_info[trading_pair] = await self._get_funding_info_from_exchange(trading_pair)
         return self._funding_info[trading_pair]
 
     async def _listen_for_subscriptions_on_url(self, url: str, trading_pairs: List[str]):

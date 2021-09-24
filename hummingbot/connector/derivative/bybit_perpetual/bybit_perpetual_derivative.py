@@ -1159,9 +1159,15 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         safe_ensure_future(self._set_leverage(trading_pair=trading_pair, leverage=leverage))
 
     def get_funding_info(self, trading_pair: str) -> Optional[FundingInfo]:
+        """
+        Retrieves the Funding Info for the specified trading pair.
+        Note: This function should NOT be called when the connector is not yet ready.
+        :param: trading_pair: The specified trading pair.
+        """
         if trading_pair in self._order_book_tracker.data_source.funding_info:
             return self._order_book_tracker.data_source.funding_info[trading_pair]
         else:
+            self.logger().error(f"Funding Info for {trading_pair} not found. Proceeding to fetch using REST API.")
             safe_ensure_future(self._order_book_tracker.data_source.get_funding_info(trading_pair))
             return None
 
