@@ -79,7 +79,9 @@ class OrderBookMessage(namedtuple("_OrderBookMessage", "type, content, timestamp
         return self.type == OrderBookMessageType.TRADE
 
     def __eq__(self, other: "OrderBookMessage") -> bool:
-        if self.has_update_id and other.has_update_id:
+        if self.type != other.type:
+            return False
+        elif self.has_update_id and other.has_update_id:
             return self.update_id == other.update_id
         elif self.has_trade_id and other.has_trade_id:
             return self.trade_id == other.trade_id
