@@ -10,7 +10,7 @@ tags:
 ## ℹ️ Exchange Info
 
 **Beaxy** 
-[Website](https://beaxy.com/) | [CoinMarketCap]((https://coinmarketcap.com/exchanges/beaxy/) | [CoinGecko](https://www.coingecko.com/en/exchanges/beaxy)
+[Website](https://beaxy.com/) | [CoinMarketCap](https://coinmarketcap.com/exchanges/beaxy/) | [CoinGecko](https://www.coingecko.com/en/exchanges/beaxy)
 
 * API docs: https://beaxyapiv2.docs.apiary.io/
 * Transaction fees: https://beaxy.com/faq/what-is-the-fee-structure/

@@ -15,7 +15,7 @@ tags:
 
 * API docs: https://docs.kucoin.com/#general
 * Transaction fees: https://www.kucoin.com/vip/level
-* Minimum order size: Minimum order size varies per market. All minimum trade quantities can be found in the following public API: https://api.kucoin.com/api/v1/symbols
+* Minimum order size: https://api.kucoin.com/api/v1/symbols
 * Creating API keys: https://support.kucoin.plus/hc/en-us/articles/360015102174-How-to-Create-an-API-
 
 ## 👷 Maintenance
