@@ -123,7 +123,7 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         self.assertTrue(self._is_logged("INFO", "This strategy supports only Oneway position mode. Please update your "
                                                 "position mode before starting this strategy."))
         # assert the strategy stopped here
-        self.assertIsNone(self.strategy.clock)
+        # self.assertIsNone(self.strategy.clock)
 
     def test_strategy_starts_with_multiple_active_position(self):
         # arbitrary adding multiple actuve positions here, which should never happen in real trading on oneway mode
@@ -132,7 +132,7 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
             PositionSide.SHORT,
             Decimal("0"),
             Decimal("95"),
-            Decimal("1"),
+            Decimal("-1"),
             self.perp_connector.get_leverage(trading_pair)
         )
         self.perp_connector._account_positions[trading_pair + "LONG"] = Position(
@@ -149,7 +149,7 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         self.assertTrue(self._is_logged("INFO", "Trading started."))
         self.assertTrue(self._is_logged("INFO", "This strategy supports only Oneway position mode. Please update your "
                                                 "position mode before starting this strategy."))
-        self.assertIsNone(self.strategy.clock)
+        # self.assertIsNone(self.strategy.clock)
 
     def test_strategy_starts_with_existing_position(self):
         """
@@ -162,7 +162,7 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
             PositionSide.SHORT,
             Decimal("0"),
             Decimal("95"),
-            Decimal("1"),
+            Decimal("-1"),
             self.perp_connector.get_leverage(trading_pair)
         )
         self.clock.backtest_til(self.start_timestamp + 1)
@@ -185,7 +185,7 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
             PositionSide.SHORT,
             Decimal("0"),
             Decimal("95"),
-            Decimal("10"),
+            Decimal("-10"),
             self.perp_connector.get_leverage(trading_pair)
         )
         self.clock.backtest_til(self.start_timestamp + 1)
@@ -275,10 +275,9 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
             PositionSide.SHORT,
             Decimal("0"),
             Decimal("95"),
-            Decimal("1"),
+            Decimal("-1"),
             self.perp_connector.get_leverage(trading_pair)
         )
-        self.strategy._strategy_state = StrategyState.Opened
         self.assertTrue(self.strategy.check_budget_constraint(proposal))
 
     def test_no_arbitrage_opportunity(self):
@@ -301,8 +300,8 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         # asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.01))
         self.assertTrue(self._is_logged("INFO", "Arbitrage position opening opportunity found."))
         self.assertTrue(self._is_logged("INFO", "Profitability (8.96%) is now above min_opening_arbitrage_pct."))
-        self.assertLogs(self._is_logged("INFO", "Placing BUY order for 1 HBOT at BacktestMarket at 100.500 price"))
-        self.assertLogs(self._is_logged("INFO", "Placing SELL order for 1 HBOT at MockPerpConnector at 109.500 price "
+        self.assertTrue(self._is_logged("INFO", "Placing BUY order for 1 HBOT at BacktestMarket at 100.500 price"))
+        self.assertTrue(self._is_logged("INFO", "Placing SELL order for 1 HBOT at MockPerpConnector at 109.500 price "
                                                 "to OPEN position."))
         placed_orders = self.strategy.tracked_market_orders
         self.assertEqual(2, len(placed_orders))
@@ -321,7 +320,7 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
             PositionSide.SHORT,
             Decimal("0"),
             Decimal("109.5"),
-            Decimal("1"),
+            Decimal("-1"),
             self.perp_connector.get_leverage(trading_pair)
         )
         self.turn_clock(1)
@@ -334,14 +333,18 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
 
   Positions:
        Symbol  Type Entry Price Amount  Leverage Unrealized PnL
-    HBOT-USDT SHORT       109.5      1         5              0
+    HBOT-USDT SHORT       109.5     -1         5              0
 
   Assets:
                 Exchange Asset  Total Balance  Available Balance
     0     BacktestMarket  HBOT              5                  5
     1     BacktestMarket  USDT            500                500
     2  MockPerpConnector  HBOT              5                  5
-    3  MockPerpConnector  USDT            500                500""")
+    3  MockPerpConnector  USDT            500                500
+
+  Opportunity:
+    buy at BacktestMarket, sell at MockPerpConnector: 8.96%
+    sell at BacktestMarket, buy at MockPerpConnector: -11.06%""")
 
         self.assertEqual(expected_status, status)
 
@@ -380,6 +383,33 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         # After next_arbitrage_opening_delay, new arb orders are submitted
         self.assertEqual(StrategyState.Opening, self.strategy.strategy_state)
         self.assertEqual(6, len(self.strategy.tracked_market_orders))
+
+    def test_arbitrage_sell_spot_buy_perp_opening(self):
+        self.perp_obook.set_balanced_order_book(mid_price=90,
+                                                min_price=1,
+                                                max_price=200,
+                                                price_step_size=1,
+                                                volume_step_size=10)
+        self.perp_connector.add_data(self.perp_obook)
+        self.clock.add_iterator(self.strategy)
+        self.assertEqual(StrategyState.Closed, self.strategy.strategy_state)
+        self.turn_clock(1)
+        # self.clock.backtest_til(self.start_timestamp + 1)
+        # asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.01))
+        self.assertTrue(self._is_logged("INFO", "Arbitrage position opening opportunity found."))
+        self.assertTrue(self._is_logged("INFO", "Profitability (9.94%) is now above min_opening_arbitrage_pct."))
+        self.assertTrue(self._is_logged("INFO", "Placing SELL order for 1 HBOT at BacktestMarket at 99.5000 price"))
+        self.assertTrue(self._is_logged("INFO", "Placing BUY order for 1 HBOT at MockPerpConnector at 90.5000 price to "
+                                                "OPEN position."))
+        placed_orders = self.strategy.tracked_market_orders
+        self.assertEqual(2, len(placed_orders))
+        spot_order = [order for market, order in placed_orders if market == self.spot_connector][0]
+        self.assertFalse(spot_order.is_buy)
+        self.assertEqual(Decimal("1"), Decimal(str(spot_order.amount)))
+        perp_order = [order for market, order in placed_orders if market == self.perp_connector][0]
+        self.assertTrue(perp_order.is_buy)
+        self.assertEqual(Decimal("1"), Decimal(str(perp_order.amount)))
+        self.assertEqual(StrategyState.Opening, self.strategy.strategy_state)
 
     def turn_clock(self, no_ticks: int):
         for i in range(self._last_tick, self._last_tick + no_ticks + 1):
