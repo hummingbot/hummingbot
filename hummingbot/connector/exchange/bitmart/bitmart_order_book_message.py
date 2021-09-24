@@ -88,3 +88,6 @@ class BitmartOrderBookMessage(OrderBookMessage):
             If timestamp is the same, the ordering is snapshot < diff < trade
             """
             return self.type.value < other.type.value
+
+    def __hash__(self) -> int:
+        return hash((self.type, self.timestamp))
