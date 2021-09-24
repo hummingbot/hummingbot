@@ -92,7 +92,7 @@ spot_perpetual_arbitrage_config_map = {
         prompt_on_new=True),
     "perpetual_leverage": ConfigVar(
         key="perpetual_leverage",
-        prompt="How much leverage would you like to use on the perpetual exchange? (Enter 1 to indicate 1X) ",
+        prompt="How much leverage would you like to use on the perpetual exchange? (Enter 1 to indicate 1X) >>> ",
         type_str="int",
         default=1,
         validator= lambda v: validate_int(v),
@@ -112,11 +112,7 @@ spot_perpetual_arbitrage_config_map = {
                "position with lesser profit at higher chance of closing) >>> ",
         prompt_on_new=True,
         default=Decimal("-0.1"),
-        validator=lambda v: validate_decimal(
-            v,
-            spot_perpetual_arbitrage_config_map["min_opening_arbitrage_pct"].value * -1,
-            100
-        ),
+        validator=lambda v: validate_decimal(v, Decimal(-100), 100, inclusive=False),
         type_str="decimal"),
     "spot_market_slippage_buffer": ConfigVar(
         key="spot_market_slippage_buffer",
