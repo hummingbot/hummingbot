@@ -3,7 +3,7 @@ tags:
 - market making
 ---
 
-# `spot_perpetual_arbitrage`
+# `liquidity_mining`
 
 ## 📁 [Strategy folder](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/strategy/liquidity_mining)
 
