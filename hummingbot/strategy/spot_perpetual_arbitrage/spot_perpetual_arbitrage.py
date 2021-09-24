@@ -182,7 +182,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         self.update_strategy_state()
         if self._strategy_state in (StrategyState.Opening, StrategyState.Closing):
             return
-        if self.strategy_state == StrategyState.Closed and not self.ready_to_open_new_arb_position():
+        if self.strategy_state == StrategyState.Closed and self._next_arbitrage_opening_ts > self.current_timestamp:
             return
         proposals = await self.create_base_proposals()
         if self._strategy_state == StrategyState.Opened:
@@ -204,6 +204,9 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
             self.execute_arb_proposal(proposal)
 
     def update_strategy_state(self):
+        """
+        Updates strategy state to either Opened or Closed if the condition is right.
+        """
         if self._strategy_state == StrategyState.Opening and len(self._completed_opening_order_ids) == 2 and \
                 self.perp_positions:
             self._strategy_state = StrategyState.Opened
@@ -215,6 +218,10 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
             self._next_arbitrage_opening_ts = self.current_timestamp + self._next_arbitrage_opening_delay
 
     async def create_base_proposals(self) -> List[ArbProposal]:
+        """
+        Creates a list of 2 base proposals, no filter.
+        :return: A list of 2 base proposals.
+        """
         tasks = [self._spot_market_info.market.get_order_price(self._spot_market_info.trading_pair, True,
                                                                self._order_amount),
                  self._spot_market_info.market.get_order_price(self._spot_market_info.trading_pair, False,
@@ -281,8 +288,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
 
     def check_budget_constraint(self, proposal: ArbProposal) -> bool:
         """
-        Updates arb_proposals by setting proposal amount to 0 if there is not enough balance to submit order with
-        required order amount.
+        Check balances on both exchanges if there is enough to submit both orders in a proposal.
         :param proposal: An arbitrage proposal
         :return: True if user has available balance enough for both orders submission.
         """
@@ -366,15 +372,10 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
             self._strategy_state = StrategyState.Opening
             self._completed_opening_order_ids.clear()
 
-    def ready_to_open_new_arb_position(self) -> bool:
-        """
-        Returns True if the strategy is ready to execute arbitrage position or either opening or closing.
-        """
-        if self.strategy_state == StrategyState.Closed and self._next_arbitrage_opening_ts <= self.current_timestamp:
-            return True
-        return False
-
     def active_positions_df(self) -> pd.DataFrame:
+        """
+        Returns a new dataframe on current active perpetual positions.
+        """
         columns = ["Symbol", "Type", "Entry Price", "Amount", "Leverage", "Unrealized PnL"]
         data = []
         for pos in self.perp_positions:

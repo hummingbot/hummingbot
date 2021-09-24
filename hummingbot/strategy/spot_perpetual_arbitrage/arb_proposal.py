@@ -50,7 +50,10 @@ class ArbProposal:
         self.perp_side: ArbProposalSide = perp_side
         self.order_amount: Decimal = order_amount
 
-    def profit_pct(self):
+    def profit_pct(self) -> Decimal:
+        """
+        Calculates and returns arbitrage profit (in percentage value).
+        """
         buy_price = self.spot_side.order_price if self.spot_side.is_buy else self.perp_side.order_price
         sell_price = self.spot_side.order_price if not self.spot_side.is_buy else self.perp_side.order_price
         return (sell_price - buy_price) / buy_price
