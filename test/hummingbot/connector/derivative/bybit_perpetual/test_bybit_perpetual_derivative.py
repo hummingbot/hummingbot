@@ -2310,3 +2310,50 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertEqual(expected_funding_info.mark_price, result.mark_price)
         self.assertEqual(expected_funding_info.next_funding_utc_timestamp, result.next_funding_utc_timestamp)
         self.assertEqual(expected_funding_info.rate, result.rate)
+
+    @aioresponses()
+    def test_get_funding_info_trading_pair_does_not_exist(self, get_mock):
+        expected_funding_info: FundingInfo = FundingInfo(
+            trading_pair=self.trading_pair,
+            index_price=Decimal("50000"),
+            mark_price=Decimal("50000"),
+            next_funding_utc_timestamp=int(pd.Timestamp('2021-08-23T08:00:00Z', tz="UTC").timestamp()),
+            rate=(Decimal('-15')),
+        )
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT, self.trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
+
+        mock_response = {
+            "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": [
+                # Truncated Response
+                {
+                    "symbol": self.ex_trading_pair,
+                    "mark_price": "50000",
+                    "index_price": "50000",
+                    "funding_rate": "-15",
+                    "predicted_funding_rate": "-15",
+                    "next_funding_time": "2021-08-23T08:00:00Z",
+                }
+            ],
+            "time_now": "1577484619.817968"
+        }
+        get_mock.get(regex_url, body=json.dumps(mock_response), callback=self._mock_responses_done_callback)
+
+        result = self.connector.get_funding_info(self.trading_pair)
+        self.assertIsNone(result)
+
+        self.connector.get_funding_info(self.trading_pair)
+
+        asyncio.get_event_loop().run_until_complete(self.mock_done_event.wait())
+        self.assertIsNotNone(self.connector.get_funding_info(self.trading_pair))
+        funding_info = self.connector.get_funding_info(self.trading_pair)
+        self.assertEqual(expected_funding_info.trading_pair, funding_info.trading_pair)
+        self.assertEqual(expected_funding_info.index_price, funding_info.index_price)
+        self.assertEqual(expected_funding_info.mark_price, funding_info.mark_price)
+        self.assertEqual(expected_funding_info.next_funding_utc_timestamp, funding_info.next_funding_utc_timestamp)
+        self.assertEqual(expected_funding_info.rate, funding_info.rate)
