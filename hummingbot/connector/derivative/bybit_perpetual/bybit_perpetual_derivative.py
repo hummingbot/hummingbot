@@ -1,5 +1,4 @@
 import copy
-from hummingbot.core.data_type.funding_info import FundingInfo
 
 import aiohttp
 import asyncio
@@ -33,6 +32,7 @@ from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.exchange_base import CancellationResult, ExchangeBase
 from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
@@ -1159,9 +1159,17 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         safe_ensure_future(self._set_leverage(trading_pair=trading_pair, leverage=leverage))
 
     def get_funding_info(self, trading_pair: str) -> Optional[FundingInfo]:
-        return asyncio.get_event_loop().run_until_complete(
-            self._order_book_tracker.data_source.get_funding_info(trading_pair)
-        )
+        """
+        Retrieves the Funding Info for the specified trading pair.
+        Note: This function should NOT be called when the connector is not yet ready.
+        :param: trading_pair: The specified trading pair.
+        """
+        if trading_pair in self._order_book_tracker.data_source.funding_info:
+            return self._order_book_tracker.data_source.funding_info[trading_pair]
+        else:
+            self.logger().error(f"Funding Info for {trading_pair} not found. Proceeding to fetch using REST API.")
+            safe_ensure_future(self._order_book_tracker.data_source.get_funding_info(trading_pair))
+            return None
 
     def _get_throttler_instance(self) -> AsyncThrottler:
         if self._trading_pairs is not None:
