@@ -17,8 +17,8 @@ class ImportCommandTest(unittest.TestCase):
         self.cli_mock_assistant.start()
 
     def tearDown(self) -> None:
-        super().tearDown()
         self.cli_mock_assistant.stop()
+        super().tearDown()
 
     @staticmethod
     async def raise_timeout(*args, **kwargs):

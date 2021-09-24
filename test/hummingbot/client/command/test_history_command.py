@@ -22,11 +22,14 @@ class HistoryCommandTest(unittest.TestCase):
         self.cli_mock_assistant.start()
 
     def tearDown(self) -> None:
-        super().tearDown()
         self.cli_mock_assistant.stop()
+        super().tearDown()
 
-    async def raise_timeout(*args, **kwargs):
-        raise asyncio.TimeoutError
+    @staticmethod
+    def get_async_sleep_fn(delay: float):
+        async def async_sleep(*_, **__):
+            await asyncio.sleep(delay)
+        return async_sleep
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
@@ -78,9 +81,9 @@ class HistoryCommandTest(unittest.TestCase):
     def test_history_report_raises_on_get_current_balances_network_timeout(
         self, get_current_balances_mock: AsyncMock
     ):
-        get_current_balances_mock.side_effect = self.raise_timeout
+        get_current_balances_mock.side_effect = self.get_async_sleep_fn(delay=0.02)
+        global_config_map["other_commands_timeout"].value = 0.01
         trades = self.get_trades()
-        global_config_map["other_commands_timeout"].value = 30
 
         with self.assertRaises(asyncio.TimeoutError):
             self.async_run_with_timeout_coroutine_must_raise_timeout(

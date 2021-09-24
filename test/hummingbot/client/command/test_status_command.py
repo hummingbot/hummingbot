@@ -18,12 +18,14 @@ class StatusCommandTest(unittest.TestCase):
         self.cli_mock_assistant.start()
 
     def tearDown(self) -> None:
-        super().tearDown()
         self.cli_mock_assistant.stop()
+        super().tearDown()
 
     @staticmethod
-    async def raise_timeout(*args, **kwargs):
-        raise asyncio.TimeoutError
+    def get_async_sleep_fn(delay: float):
+        async def async_sleep(*_, **__):
+            await asyncio.sleep(delay)
+        return async_sleep
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
@@ -51,9 +53,9 @@ class StatusCommandTest(unittest.TestCase):
     def test_status_check_all_handles_network_timeouts(
         self, is_decryption_done_mock, validate_required_connections_mock
     ):
-        validate_required_connections_mock.side_effect = self.raise_timeout
+        validate_required_connections_mock.side_effect = self.get_async_sleep_fn(delay=0.02)
+        global_config_map["other_commands_timeout"].value = 0.01
         is_decryption_done_mock.return_value = True
-        global_config_map["other_commands_timeout"].value = 30
         strategy_name = "some-strategy"
         self.app.strategy_name = strategy_name
         self.app.strategy_file_name = f"{strategy_name}.yml"
