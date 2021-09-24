@@ -12,10 +12,11 @@ import aiohttp
 import copy
 import math
 import time
-import ujson
 from async_timeout import timeout
 
 from hummingbot.core.network_iterator import NetworkStatus
+
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.clock import Clock
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
@@ -41,13 +42,11 @@ from hummingbot.connector.exchange.coinzoom.coinzoom_order_book_tracker import C
 from hummingbot.connector.exchange.coinzoom.coinzoom_user_stream_tracker import CoinzoomUserStreamTracker
 from hummingbot.connector.exchange.coinzoom.coinzoom_auth import CoinzoomAuth
 from hummingbot.connector.exchange.coinzoom.coinzoom_in_flight_order import CoinzoomInFlightOrder
+import hummingbot.connector.exchange.coinzoom.coinzoom_http_utils as http_utils
 from hummingbot.connector.exchange.coinzoom.coinzoom_utils import (
-    REQUEST_THROTTLER,
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair,
     get_new_client_order_id,
-    aiohttp_response_with_errors,
-    retry_sleep_time,
     str_date_to_ts,
     CoinzoomAPIError,
 )
@@ -89,9 +88,13 @@ class CoinzoomExchange(ExchangeBase):
         super().__init__()
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
+        self._throttler = AsyncThrottler(Constants.RATE_LIMITS)
         self._coinzoom_auth = CoinzoomAuth(coinzoom_api_key, coinzoom_secret_key, coinzoom_username)
-        self._order_book_tracker = CoinzoomOrderBookTracker(trading_pairs=trading_pairs)
-        self._user_stream_tracker = CoinzoomUserStreamTracker(self._coinzoom_auth, trading_pairs)
+        self._order_book_tracker = CoinzoomOrderBookTracker(throttler=self._throttler, trading_pairs=trading_pairs)
+        self._user_stream_tracker = CoinzoomUserStreamTracker(
+            throttler=self._throttler,
+            coinzoom_auth=self._coinzoom_auth,
+            trading_pairs=trading_pairs)
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client = None
         self._poll_notifier = asyncio.Event()
@@ -103,7 +106,6 @@ class CoinzoomExchange(ExchangeBase):
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
         self._last_poll_timestamp = 0
-        self._throttler = REQUEST_THROTTLER
         self._real_time_balance_update = False
         self._update_balances_fetching = False
         self._update_balances_queued = False
@@ -245,7 +247,11 @@ class CoinzoomExchange(ExchangeBase):
         """
         try:
             # since there is no ping endpoint, the lowest rate call is to get BTC-USD symbol
-            await self._api_request("GET", Constants.ENDPOINT['NETWORK_CHECK'])
+            await self._api_request(
+                "GET",
+                Constants.ENDPOINT['NETWORK_CHECK'],
+                is_auth_required=True,
+                try_count=Constants.API_MAX_RETRIES)
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -324,7 +330,7 @@ class CoinzoomExchange(ExchangeBase):
                            endpoint: str,
                            params: Optional[Dict[str, Any]] = None,
                            is_auth_required: bool = False,
-                           try_count: int = 0) -> Dict[str, Any]:
+                           try_count: int = 0):
         """
         Sends an aiohttp request and waits for a response.
         :param method: The HTTP method, e.g. get or post
@@ -334,36 +340,24 @@ class CoinzoomExchange(ExchangeBase):
         signature to the request.
         :returns A response in json format.
         """
-        request_weight = 0 if endpoint == Constants.ENDPOINT['NETWORK_CHECK'] else 1
-        async with self._throttler.weighted_task(request_weight=request_weight):
-            url = f"{Constants.REST_URL}/{endpoint}"
-            shared_client = await self._http_client()
-            # Turn `params` into either GET params or POST body data
-            qs_params: dict = params if method.upper() == "GET" else None
-            req_params = ujson.dumps(params) if method.upper() == "POST" and params is not None else None
-            # Generate auth headers if needed.
-            headers: dict = {"Content-Type": "application/json", "User-Agent": "hummingbot"}
-            if is_auth_required:
-                headers: dict = self._coinzoom_auth.get_headers()
-            # Build request coro
-            response_coro = shared_client.request(method=method.upper(), url=url, headers=headers,
-                                                  params=qs_params, data=req_params,
-                                                  timeout=Constants.API_CALL_TIMEOUT)
-            http_status, parsed_response, request_errors = await aiohttp_response_with_errors(response_coro)
-            if request_errors or parsed_response is None:
-                if try_count < Constants.API_MAX_RETRIES:
-                    try_count += 1
-                    time_sleep = retry_sleep_time(try_count)
-                    self.logger().info(f"Error fetching data from {url}. HTTP status is {http_status}. "
-                                       f"Retrying in {time_sleep:.0f}s.")
-                    await asyncio.sleep(time_sleep)
-                    return await self._api_request(method=method, endpoint=endpoint, params=params,
-                                                   is_auth_required=is_auth_required, try_count=try_count)
-                else:
-                    raise CoinzoomAPIError({"error": parsed_response, "status": http_status})
-            if "error" in parsed_response:
-                raise CoinzoomAPIError(parsed_response)
-            return parsed_response
+        shared_client = await self._http_client()
+
+        # Generate auth headers if needed.
+        headers = {}
+        if is_auth_required:
+            headers.update(self._coinzoom_auth.get_headers())
+
+        parsed_response = await http_utils.api_call_with_retries(
+            method=method,
+            endpoint=endpoint,
+            extra_headers=headers,
+            params=params,
+            shared_client=shared_client,
+            try_count=try_count,
+            throttler=self._throttler)
+        if "error" in parsed_response:
+            raise CoinzoomAPIError(parsed_response)
+        return parsed_response
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal):
         """
@@ -521,7 +515,7 @@ class CoinzoomExchange(ExchangeBase):
         if order_id in self._order_not_found_records:
             del self._order_not_found_records[order_id]
 
-    async def _execute_cancel(self, trading_pair: str, order_id: str) -> str:
+    async def _execute_cancel(self, trading_pair: str, order_id: str) -> CancellationResult:
         """
         Executes order cancellation process by first calling cancel-order API. The API result doesn't confirm whether
         the cancellation is successful, it simply states it receives the request.
@@ -534,20 +528,26 @@ class CoinzoomExchange(ExchangeBase):
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is None:
                 raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
-            if tracked_order.exchange_order_id is None:
-                await tracked_order.get_exchange_order_id()
-            ex_order_id = tracked_order.exchange_order_id
-            api_params = {
-                "orderId": ex_order_id,
-                "symbol": convert_to_exchange_trading_pair(trading_pair)
-            }
-            await self._api_request("POST",
-                                    Constants.ENDPOINT["ORDER_DELETE"],
-                                    api_params,
-                                    is_auth_required=True)
-            order_was_cancelled = True
+
+            if not tracked_order.is_local:
+                if tracked_order.exchange_order_id is None:
+                    await tracked_order.get_exchange_order_id()
+                ex_order_id = tracked_order.exchange_order_id
+                api_params = {
+                    "orderId": ex_order_id,
+                    "symbol": convert_to_exchange_trading_pair(trading_pair)
+                }
+                await self._api_request("POST",
+                                        Constants.ENDPOINT["ORDER_DELETE"],
+                                        api_params,
+                                        is_auth_required=True)
+                order_was_cancelled = True
         except asyncio.CancelledError:
             raise
+        except asyncio.TimeoutError:
+            self.logger().info(f"The order {order_id} could not be cancelled due to a timeout."
+                               " The action will be retried later.")
+            err = {"message": "Timeout during order cancellation"}
         except CoinzoomAPIError as e:
             err = e.error_payload.get('error', e.error_payload)
             self.logger().error(f"Order Cancel API Error: {err}")
@@ -555,6 +555,7 @@ class CoinzoomExchange(ExchangeBase):
             self._order_not_found_records[order_id] = self._order_not_found_records.get(order_id, 0) + 1
             if self._order_not_found_records[order_id] >= self.ORDER_NOT_EXIST_CANCEL_COUNT:
                 order_was_cancelled = True
+
         if order_was_cancelled:
             self.logger().info(f"Successfully cancelled order {order_id} on {Constants.EXCHANGE_NAME}.")
             self.stop_tracking_order(order_id)
@@ -563,12 +564,13 @@ class CoinzoomExchange(ExchangeBase):
             tracked_order.cancelled_event.set()
             return CancellationResult(order_id, True)
         else:
-            self.logger().network(
-                f"Failed to cancel order {order_id}: {err.get('message', str(err))}",
-                exc_info=True,
-                app_warning_msg=f"Failed to cancel the order {order_id} on {Constants.EXCHANGE_NAME}. "
-                                f"Check API key and network connection."
-            )
+            if not tracked_order.is_local:
+                self.logger().network(
+                    f"Failed to cancel order {order_id}: {err.get('message', str(err))}",
+                    exc_info=True,
+                    app_warning_msg=f"Failed to cancel the order {order_id} on {Constants.EXCHANGE_NAME}. "
+                                    f"Check API key and network connection."
+                )
             return CancellationResult(order_id, False)
 
     async def _status_polling_loop(self):
