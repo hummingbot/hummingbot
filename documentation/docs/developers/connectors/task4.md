@@ -5,10 +5,51 @@ This section explains the steps required to integrate the API throttler into the
 ## API Throttler
 
 This section will detail the necessary steps to integrate the `AsyncThrottler` into the connector. 
-The `AsyncThrottler` class utilizes asynchrounous context managers to throttle API and/or WebSocket requests.
+The `AsyncThrottler` class utilizes asynchrounous context managers to throttle API and/or WebSocket requests and avoid reaching the exchange's server rate limits.
 
 !!! note
     The integration of the `AsyncThrottler` into the connector is entirely optional, but it is recommended to enable a better user experience as well as allowing users to manually configure the usable rate limits per Hummingbot instance.
+
+### RateLimit & LinkedLimitWeightPair Data classes
+
+The `RateLimit` data class is used to represent a rate limit defined by exchanges, while the `LinkedLimitWeightPair` data class is used to associate a assigned weight of an endpoint to its API Pool(defaults to 1, if none is provided)
+
+!!! note
+    `limit_id` can be any arbitrarily assigned value. In the examples given in the next few sections, the `limit_id` assigned to the various rate limits are either a generic API pool name or the path url of the API endpoint.
+
+```python
+@dataclass
+class LinkedLimitWeightPair:
+    limit_id: str
+    weight: int = DEFAULT_WEIGHT
+
+class RateLimit:
+    """
+    Defines call rate limits typical for API endpoints.
+    """
+
+    def __init__(self,
+                 limit_id: str,
+                 limit: int,
+                 time_interval: float,
+                 weight: int = DEFAULT_WEIGHT,
+                 linked_limits: Optional[List[LinkedLimitWeightPair]] = None,
+                 ):
+        """
+        :param limit_id: A unique identifier for this RateLimit object, this is usually an API request path url
+        :param limit: A total number of calls * weight permitted within time_interval period
+        :param time_interval: The time interval in seconds
+        :param weight: The weight (in integer) of each call. Defaults to 1
+        :param linked_limits: Optional list of LinkedLimitWeightPairs. Used to associate a weight to the linked rate limit.
+        """
+        self.limit_id = limit_id
+        self.limit = limit
+        self.time_interval = time_interval
+        self.weight = weight
+        self.linked_limits = linked_limits or []
+```
+
+
 
 ### Types of Rate Limits
 
@@ -20,6 +61,7 @@ There are several types of rate limits that can be handled by the `AsyncThrottle
 #### 1. Rate Limit per endpoint
 
 This refers to rate limits that are applied on a per endpoint basis. For this rate limit type, the key information to retrieve for each endpoint would be its assigned **limit** and **time interval**.
+Note that the time interval is on a rolling basis. For example, if an endpoint's rate limit is 20 and the time interval is 60, this meant that the throttler will check if there are 20 calls made(to the same endpoint) within the past 60 seconds from the current moment.
 
 !!! note
     Examples of existing connectors that utilizes this rate limit implementation are:</br>
@@ -61,7 +103,9 @@ Rate limit pools refer to a group of endpoints that consumes from a single rate 
 
 ##### Configuring Rate Limits
 
-An example of an exchange implementing a this can be seen in the Ndax connector.
+An example of an exchange implementing this can be seen in the Ndax connector.
+
+Note
 
   All the rate limit are initialized in the `ndax_constants.py` file. 
 
@@ -93,11 +137,11 @@ An example of an exchange implementing a this can be seen in the Ndax connector.
   ```
 
 !!! note
-    Notice that we assign an abitruary limit id(i.e. `HTTP_ENDPOINTS_LIMIT_ID`) to the API pools and we use the [`LinkedLimitWeightPair`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/api_throttler/data_types.py) to assign an endpoint to the API pool. Also do note that an endpoint might below to multiple endpoints.
+    Notice that we assign an abitruary limit id(i.e. `HTTP_ENDPOINTS_LIMIT_ID`) to the API pools and we use the [`LinkedLimitWeightPair`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/core/api_throttler/data_types.py) to assign an endpoint to the API pool. Also do note that an endpoint may belong to multiple endpoints. It is also worth noting that there can be more complex implementations to API pools as seen in the ByBit Perpetual connector [here](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/derivative/bybit_perpetual/bybit_perpetual_constants.py).
 
 #### 3. Weighted Request Rate Limits
 
-For weighted rate limits, each endpoint is assigned a request weight. Generally, these exchange would utilize Rate Limit Pools in conjunction with the request weights. Key information to retrieve for these exchanges are the weights for each endpoint, limits the time interval for the API Pool.
+For weighted rate limits, each endpoint is assigned a request weight. Generally, these exchanges would utilize Rate Limit Pools in conjunction with the request weights, where different endpoints will have a different impact on the given pool. Key information to retrieve for these exchanges are the weights for each endpoint, limits the time interval for the API Pool.
 
 !!! note
     Examples of existing connectors that utilizes this rate limit implementation are:</br>
@@ -105,7 +149,7 @@ For weighted rate limits, each endpoint is assigned a request weight. Generally,
 
 ##### Configuring Rate Limits
 
-An example of an exchange implementing a this can be seen in the Binance connector.
+An example of an exchange implementing this type of rate limit can be seen in the Binance connector.
 
 !!! note
     Rate Limits for Binance can be found in the API response for the `GET /api/v3/exchangeInfo` endpoint [here](https://binance-docs.github.io/apidocs/spot/en/#exchange-information).
@@ -131,7 +175,7 @@ RATE_LIMITS = [
 
 ## Integrating Rate Limits into the connector
 
-The throttler should be consumed by all relevant classes that issues an API endpoints. Namely the `Exchange/Derivative`, `APIOrderBookDataSource` and `UserStreamDataSource` classes. Doing so ensures that the throttler manages all REST API/Websocket requests issued by any of the connector components.
+The throttler should be consumed by all relevant classes that issue server API calls. Namely the `Exchange/Derivative`, `APIOrderBookDataSource` and `UserStreamDataSource` classes. Doing so ensures that the throttler manages all REST API/Websocket requests issued by any of the connector components.
 
 In this example, we will use referencing the `NdaxExchange` class.
 
@@ -143,11 +187,11 @@ In the ```__init__()``` function, we have to initialize the `AsyncThrottler`.
 from hummingbot.connector.exchange.ndax import ndax_constants as CONSTANTS
 
 class NdaxExchange(ExchangeBase):
-  def __init__(...):
-    ...
-    self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
-    self._order_book_tracker = NdaxOrderBookTracker(
-            throttler=self._throttler, trading_pairs=trading_pairs, domain=domain
+    def __init__(...):
+        ...
+        self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        self._order_book_tracker = NdaxOrderBookTracker(
+                throttler=self._throttler, trading_pairs=trading_pairs, domain=domain
         )
         self._user_stream_tracker = NdaxUserStreamTracker(
             throttler=self._throttler, auth_assistant=self._auth, domain=domain
@@ -159,7 +203,8 @@ class NdaxExchange(ExchangeBase):
 
 ### Consuming the throttler
 
-To consume the throttler when executing an API request, we simple wrap the contents of the `_api_request(...)` function within the an asynchrounous context as seen below.
+To consume the throttler when executing an API request, we simply wrap the contents of the `_api_request(...)` function within the asynchronous context as seen below.
+
 
 ```python
 def _api_request(...):
