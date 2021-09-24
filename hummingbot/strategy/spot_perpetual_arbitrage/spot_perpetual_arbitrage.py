@@ -374,18 +374,6 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
             return True
         return False
 
-    def spread_msg(self):
-        """
-        Composes a short spread message.
-        :return Info about current spread of an arbitrage
-        """
-        spread = self.current_proposal.profit_pct()
-        first = not bool(len(self.perp_positions))
-        target_spread_str = "minimum divergence spread" if first else "minimum convergence spread"
-        target_spread = self.min_divergence if first else self.min_convergence
-        msg = f"Current spread: {spread:.2%}, {target_spread_str}: {target_spread:.2%}."
-        return msg
-
     def active_positions_df(self) -> pd.DataFrame:
         columns = ["Symbol", "Type", "Entry Price", "Amount", "Leverage", "Unrealized PnL"]
         data = []
