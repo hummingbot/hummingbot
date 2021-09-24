@@ -344,7 +344,7 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
 
   Opportunity:
     buy at BacktestMarket, sell at MockPerpConnector: 8.96%
-    sell at BacktestMarket, buy at MockPerpConnector: -11.06%""")
+    sell at BacktestMarket, buy at MockPerpConnector: -9.95%""")
 
         self.assertEqual(expected_status, status)
 
