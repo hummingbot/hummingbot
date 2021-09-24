@@ -17,8 +17,11 @@ class ConfigHelpersTest(unittest.TestCase):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
 
-    async def raise_timeout(*args, **kwargs):
-        raise asyncio.TimeoutError
+    @staticmethod
+    def get_async_sleep_fn(delay: float):
+        async def async_sleep(*_, **__):
+            await asyncio.sleep(delay)
+        return async_sleep
 
     def test_minimum_order_amount_no_default_min_quote(self):
         global_config_map["min_quote_order_amount"].value = {"USDT": Decimal("10")}
@@ -45,8 +48,8 @@ class ConfigHelpersTest(unittest.TestCase):
     def test_minimum_order_amount_with_default_min_quote_and_fail_to_get_last_price(
         self, get_last_price_mock: AsyncMock
     ):
-        get_last_price_mock.side_effect = self.raise_timeout
-        global_config_map["create_command_timeout"].value = 10
+        get_last_price_mock.side_effect = self.get_async_sleep_fn(delay=0.02)
+        global_config_map["create_command_timeout"].value = 0.01
         global_config_map["min_quote_order_amount"].value = {"USDT": Decimal("10")}
         min_amount = self.async_run_with_timeout(
             minimum_order_amount(exchange="binance", trading_pair="BTC-USDT")

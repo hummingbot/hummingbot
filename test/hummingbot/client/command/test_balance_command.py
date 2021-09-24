@@ -18,12 +18,14 @@ class BalanceCommandTest(unittest.TestCase):
         self.cli_mock_assistant.start()
 
     def tearDown(self) -> None:
-        super().tearDown()
         self.cli_mock_assistant.stop()
+        super().tearDown()
 
     @staticmethod
-    async def raise_timeout(*args, **kwargs):
-        raise asyncio.TimeoutError
+    def get_async_sleep_fn(delay: float):
+        async def async_sleep(*_, **__):
+            await asyncio.sleep(delay)
+        return async_sleep
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
@@ -50,8 +52,8 @@ class BalanceCommandTest(unittest.TestCase):
     def test_show_balances_handles_network_timeouts(
         self, all_balances_all_exchanges_mock
     ):
-        all_balances_all_exchanges_mock.side_effect = self.raise_timeout
-        global_config_map["other_commands_timeout"].value = 30
+        all_balances_all_exchanges_mock.side_effect = self.get_async_sleep_fn(delay=0.02)
+        global_config_map["other_commands_timeout"].value = 0.01
 
         with self.assertRaises(asyncio.TimeoutError):
             self.async_run_with_timeout_coroutine_must_raise_timeout(self.app.show_balances())

@@ -18,12 +18,14 @@ class ConnectCommandTest(unittest.TestCase):
         self.cli_mock_assistant.start()
 
     def tearDown(self) -> None:
-        super().tearDown()
         self.cli_mock_assistant.stop()
+        super().tearDown()
 
     @staticmethod
-    async def raise_timeout(*args, **kwargs):
-        raise asyncio.TimeoutError
+    def get_async_sleep_fn(delay: float):
+        async def async_sleep(*_, **__):
+            await asyncio.sleep(delay)
+        return async_sleep
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
@@ -89,14 +91,14 @@ class ConnectCommandTest(unittest.TestCase):
         encrypted_file_exists_mock: MagicMock,
         _: MagicMock
     ):
-        add_exchange_mock.side_effect = self.raise_timeout
+        add_exchange_mock.side_effect = self.get_async_sleep_fn(delay=0.02)
+        global_config_map["other_commands_timeout"].value = 0.01
         api_key = "someKey"
         api_secret = "someSecret"
         api_keys_mock.return_value = {
             "binance_api_key": api_key, "binance_api_secret": api_secret
         }
         encrypted_file_exists_mock.return_value = False
-        global_config_map["other_commands_timeout"].value = 30
         self.cli_mock_assistant.queue_prompt_reply(api_key)  # binance API key
         self.cli_mock_assistant.queue_prompt_reply(api_secret)  # binance API secret
 
@@ -114,8 +116,8 @@ class ConnectCommandTest(unittest.TestCase):
 
     @patch("hummingbot.user.user_balances.UserBalances.update_exchanges")
     def test_connection_df_handles_network_timeouts(self, update_exchanges_mock: AsyncMock):
-        update_exchanges_mock.side_effect = self.raise_timeout
-        global_config_map["other_commands_timeout"].value = 30
+        update_exchanges_mock.side_effect = self.get_async_sleep_fn(delay=0.02)
+        global_config_map["other_commands_timeout"].value = 0.01
 
         with self.assertRaises(asyncio.TimeoutError):
             self.async_run_with_timeout_coroutine_must_raise_timeout(self.app.connection_df())

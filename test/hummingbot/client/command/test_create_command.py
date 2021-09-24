@@ -19,11 +19,14 @@ class CreateCommandTest(unittest.TestCase):
         self.cli_mock_assistant.start()
 
     def tearDown(self) -> None:
-        super().tearDown()
         self.cli_mock_assistant.stop()
+        super().tearDown()
 
-    async def raise_timeout(*args, **kwargs):
-        raise asyncio.TimeoutError
+    @staticmethod
+    def get_async_sleep_fn(delay: float):
+        async def async_sleep(*_, **__):
+            await asyncio.sleep(delay)
+        return async_sleep
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
@@ -103,14 +106,14 @@ class CreateCommandTest(unittest.TestCase):
         save_to_yml_mock: MagicMock,
         _: MagicMock,
     ):
-        get_last_price_mock.side_effect = self.raise_timeout
+        get_last_price_mock.side_effect = self.get_async_sleep_fn(delay=0.02)
         validate_required_connections_mock.return_value = {}
         is_decryption_done_mock.return_value = True
         config_maps = []
         save_to_yml_mock.side_effect = lambda _, cm: config_maps.append(cm)
 
-        global_config_map["create_command_timeout"].value = 10
-        global_config_map["other_commands_timeout"].value = 30
+        global_config_map["create_command_timeout"].value = 0.005
+        global_config_map["other_commands_timeout"].value = 0.01
         strategy_name = "some-strategy"
         strategy_file_name = f"{strategy_name}.yml"
         base_strategy = "pure_market_making"
@@ -141,10 +144,10 @@ class CreateCommandTest(unittest.TestCase):
         __: MagicMock,
     ):
         get_last_price_mock.return_value = None
-        validate_required_connections_mock.side_effect = self.raise_timeout
+        validate_required_connections_mock.side_effect = self.get_async_sleep_fn(delay=0.02)
         is_decryption_done_mock.return_value = True
-        global_config_map["create_command_timeout"].value = 10
-        global_config_map["other_commands_timeout"].value = 30
+        global_config_map["create_command_timeout"].value = 0.005
+        global_config_map["other_commands_timeout"].value = 0.01
         global_config_map["min_quote_order_amount"].value = {"USDT": 11}
         strategy_file_name = "some-strategy.yml"
         self.cli_mock_assistant.queue_prompt_reply("pure_market_making")  # strategy
