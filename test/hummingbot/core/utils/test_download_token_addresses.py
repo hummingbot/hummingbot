@@ -7,10 +7,15 @@ from unittest.mock import patch, MagicMock
 
 from aioresponses import aioresponses
 
-from hummingbot.core.utils.download_token_addresses import DOLOMITE_ENDPOINT, \
-    download_dolomite_token_addresses, RADAR_RELAY_ENDPOINT, \
-    download_radar_relay_token_addresses, BAMBOO_RELAY_ENDPOINT, \
-    download_bamboo_relay_token_addresses, download_erc20_token_addresses
+from hummingbot.core.utils.download_token_addresses import (
+    DOLOMITE_ENDPOINT,
+    download_dolomite_token_addresses,
+    RADAR_RELAY_ENDPOINT,
+    download_radar_relay_token_addresses,
+    BAMBOO_RELAY_ENDPOINT,
+    download_bamboo_relay_token_addresses,
+    download_erc20_token_addresses,
+)
 
 
 class DownloadTokenAddressesTest(unittest.TestCase):
@@ -93,8 +98,7 @@ class DownloadTokenAddressesTest(unittest.TestCase):
         self.assertEqual(token_dict["BTC"], btc_identifier)
 
     @aioresponses()
-    def test_download_dolomite_token_addresses_replaces_lrc_only(self,
-                                                                 mocked_api):
+    def test_download_dolomite_token_addresses_replaces_lrc_only(self, mocked_api):
         url = DOLOMITE_ENDPOINT
         lrc_identifier = "0x0000000000000000000000000000000000000000"
         btc_identifier = "0x0000000000000000000000000000000000000001"
@@ -118,9 +122,9 @@ class DownloadTokenAddressesTest(unittest.TestCase):
 
     @patch("logging.Logger.error")
     @aioresponses()
-    def test_download_dolomite_token_addresses_logs_errors(self,
-                                                           error_mock: MagicMock,
-                                                           mocked_api):
+    def test_download_dolomite_token_addresses_logs_errors(
+        self, error_mock: MagicMock, mocked_api
+    ):
         url = DOLOMITE_ENDPOINT
         resp = {}
         mocked_api.get(url, body=json.dumps(resp))
@@ -156,9 +160,9 @@ class DownloadTokenAddressesTest(unittest.TestCase):
 
     @patch("logging.Logger.error")
     @aioresponses()
-    def test_download_radar_relay_token_addresses_logs_errors(self,
-                                                              error_mock: MagicMock,
-                                                              mocked_api):
+    def test_download_radar_relay_token_addresses_logs_errors(
+        self, error_mock: MagicMock, mocked_api
+    ):
         url = RADAR_RELAY_ENDPOINT
         regex_url = re.compile(f"^{url}")
         mocked_api.get(regex_url, status=501)
@@ -186,23 +190,22 @@ class DownloadTokenAddressesTest(unittest.TestCase):
         mocked_api.get(regex_url, body=json.dumps([]))  # to break the loop
         token_dict = {}
 
-        self.async_run_with_timeout(
-            download_bamboo_relay_token_addresses(token_dict))
+        self.async_run_with_timeout(download_bamboo_relay_token_addresses(token_dict))
 
         self.assertIn("BTC", token_dict)
         self.assertIn("USDT", token_dict)
 
     @patch("logging.Logger.error")
     @aioresponses()
-    def test_download_bamboo_relay_token_addresses_logs_errors(self,
-                                                               error_mock: MagicMock,
-                                                               mocked_api):
+    def test_download_bamboo_relay_token_addresses_logs_errors(
+        self, error_mock: MagicMock, mocked_api
+    ):
         url = BAMBOO_RELAY_ENDPOINT
         regex_url = re.compile(f"^{url}")
         mocked_api.get(regex_url, status=501)
         token_dict = {}
 
-        download_bamboo_relay_token_addresses(token_dict)
+        self.async_run_with_timeout(download_bamboo_relay_token_addresses(token_dict))
 
         error_mock.assert_called()
 
