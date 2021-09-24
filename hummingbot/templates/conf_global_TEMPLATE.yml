@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 23
+template_version: 24
 
 # Exchange configs
 bamboo_relay_use_coordinator: false

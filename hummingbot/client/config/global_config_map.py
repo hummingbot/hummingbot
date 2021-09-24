@@ -376,8 +376,7 @@ main_config_map = {
                   type_str="decimal",
                   validator=lambda v: validate_decimal(v, min_value=Decimal("0"), inclusive=True),
                   required_if=lambda: False,
-                  default=Decimal("30"),
-                  is_connect_key=True),
+                  default=Decimal("30")),
 }
 
 global_config_map = {**key_config_map, **main_config_map}
