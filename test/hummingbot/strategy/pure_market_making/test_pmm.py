@@ -1066,6 +1066,65 @@ class PMMUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("102.01"), sell.price)
         self.assertEqual(1, sell.quantity)
 
+    def test_no_new_orders_created_until_previous_orders_cancellation_confirmed(self):
+        strategy = self.one_level_strategy
+        self.clock.add_iterator(strategy)
+
+        refresh_time = strategy.order_refresh_time
+
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+
+        self.assertEqual(1, len(strategy.active_buys))
+        self.assertEqual(1, len(strategy.active_sells))
+
+        orders_creation_timestamp = strategy.current_timestamp
+
+        # Add a fake in flight cancellation to simulate a confirmation has not arrived
+        strategy._sb_order_tracker.in_flight_cancels["OID-99"] = strategy.current_timestamp
+
+        # After refresh time the two real orders should be cancelled, but no new order should be created
+        self.clock.backtest_til(orders_creation_timestamp + refresh_time)
+        self.assertEqual(0, len(strategy.active_buys))
+        self.assertEqual(0, len(strategy.active_sells))
+
+        # After a second refresh time no new order should be created
+        self.clock.backtest_til(orders_creation_timestamp + (2 * refresh_time))
+        self.assertEqual(0, len(strategy.active_buys))
+        self.assertEqual(0, len(strategy.active_sells))
+
+        del strategy._sb_order_tracker.in_flight_cancels["OID-99"]
+
+        # After removing the pending cancel, in the next tick the new orders should be created
+        self.clock.backtest_til(strategy.current_timestamp + 1)
+        self.assertEqual(1, len(strategy.active_buys))
+        self.assertEqual(1, len(strategy.active_sells))
+
+    def test_adjusted_available_balance_considers_in_flight_cancel_orders(self):
+        base_balance = self.market.get_available_balance(self.base_asset)
+        quote_balance = self.market.get_available_balance(self.quote_asset)
+
+        strategy = self.one_level_strategy
+
+        strategy._sb_order_tracker.start_tracking_limit_order(
+            market_pair=self.market_info,
+            order_id="OID-1",
+            is_buy=True,
+            price=Decimal(1000),
+            quantity=Decimal(1))
+        strategy._sb_order_tracker.start_tracking_limit_order(
+            market_pair=self.market_info,
+            order_id="OID-2",
+            is_buy=False,
+            price=Decimal(2000),
+            quantity=Decimal(2))
+
+        strategy._sb_order_tracker.in_flight_cancels["OID-1"] = strategy.current_timestamp
+
+        available_base_balance, available_quote_balance = strategy.adjusted_available_balance_for_orders_budget_constrain()
+
+        self.assertEqual(available_base_balance, base_balance + Decimal(2))
+        self.assertEqual(available_quote_balance, quote_balance + (Decimal(1) * Decimal(1000)))
+
 
 class PureMarketMakingMinimumSpreadUnitTest(unittest.TestCase):
     start: pd.Timestamp = pd.Timestamp("2019-01-01", tz="UTC")
