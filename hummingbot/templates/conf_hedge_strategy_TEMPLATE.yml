@@ -1,5 +1,5 @@
 ########################################################
-###       hedge strategy config                     ###
+###       Hello world strategy config               ###
 ########################################################
 
 template_version: 4
@@ -12,17 +12,14 @@ strategy: null
 # The exchange to monitor to run this strategy.
 maker_exchange: null
 
-# The list of markets, comma separated, e.g. LTC-USDT,ETH-USDT
-maker_markets: null
+# The list of assets to hedge, comma separated, e.g. LTC,ETH
+maker_assets: null
 
 # The exchange to hedge the asset.
 taker_exchange: null
 
-# The list of markets, comma separated, e.g. LTC-USDT,ETH-USDT
+# The list of markets to hedge the assets on the perpetual market, comma separated, e.g. LTC-USDT,ETH-USDT
 taker_markets: null
-
-# The asset (base or quote) used as hedge
-hedge_asset: null
 
 # The ratio to hedge on the hedge market. e.g 0.5 means 50% of all position will be hedged
 hedge_ratio: null
@@ -33,5 +30,6 @@ leverage: null
 # Check position every how many seconds
 hedge_interval: null
 
-# The minimum amount in hedge asset to execute the hedge.
+# The minimum amount in hedge asset (e.g USDT,BTC) to execute the hedge.
 minimum_trade: null
+

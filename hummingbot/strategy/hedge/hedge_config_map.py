@@ -35,6 +35,30 @@ def market_validate(value: str) -> Optional[str]:
             return f"Duplicate market {pair}."
         pairs.append(pair)
 
+def asset_validate(value: str) -> Optional[str]:
+    tokens_list = list()
+    if len(value.strip()) == 0:
+        # Whitespace
+        return "Invalid market(s). The given entry is empty."
+    markets = list(value.upper().split(","))
+    for market in markets:
+        if len(market.strip()) == 0:
+            return "Invalid assets. The given entry contains an empty market."
+        tokens = market.strip().split("-")
+        if len(tokens) >= 2:
+            return f"Invalid asset. {market} contain more than 1 asset."
+        for token in tokens:
+            # Check allowed ticker lengths
+            if len(token.strip()) == 0:
+                return f"Invalid market. Ticker {token} has an invalid length."
+            if(bool(re.search('^[a-zA-Z0-9]*$', token)) is False):
+                return f"Invalid market. Ticker {token} contains invalid characters."
+            # The pair is valid
+
+            if token in tokens_list:
+                return f"Duplicate market {token}."
+            tokens_list.append(token)
+
 
 def token_validate(value: str) -> Optional[str]:
     value = value.upper()
@@ -47,7 +71,6 @@ def token_validate(value: str) -> Optional[str]:
     if value not in tokens:
         return f"Invalid token. {value} is not one of {','.join(sorted(tokens))}"
 
-
 # List of parameters defined by the strategy
 hedge_config_map = {
     "strategy":
@@ -59,11 +82,11 @@ hedge_config_map = {
                   prompt="Enter the spot connector to use for target market >>> ",
                   validator=validate_exchange,
                   prompt_on_new=True),
-    "maker_markets":
-        ConfigVar(key="maker_markets",
-                  prompt="Enter a list of markets to execute on taker market for each asset(comma separated, e.g. LTC-USDT,ETH-USDT) >>> ",
+    "maker_assets":
+        ConfigVar(key="maker_assets",
+                  prompt="Enter a list of assets to hedge on taker market(comma separated, e.g. LTC,ETH) >>> ",
                   type_str="str",
-                  validator=market_validate,
+                  validator=asset_validate,
                   prompt_on_new=True),
     "taker_exchange":
         ConfigVar(key="taker_exchange",
@@ -76,17 +99,11 @@ hedge_config_map = {
                   type_str="str",
                   validator=market_validate,
                   prompt_on_new=True),
-    "hedge_asset":
-        ConfigVar(key="hedge_asset",
-                  prompt="What asset (base or quote) is used as the hedge? >>> ",
-                  type_str="str",
-                  validator=token_validate,
-                  prompt_on_new=True),
     "hedge_interval":
         ConfigVar(key="hedge_interval",
                   prompt="how often do you want to check the hedge >>> ",
                   type_str="decimal",
-                  default=Decimal(10),
+                  default=Decimal(1),
                   validator=lambda v: validate_decimal(v, min_value=0, inclusive=False),
                   prompt_on_new=True),
     "hedge_ratio":
@@ -110,5 +127,4 @@ hedge_config_map = {
                   type_str="decimal",
                   validator=lambda v: validate_decimal(v, 0, inclusive=False),
                   prompt_on_new=True),
-
 }
