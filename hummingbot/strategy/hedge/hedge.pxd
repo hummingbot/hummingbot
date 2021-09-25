@@ -22,7 +22,7 @@ cdef class HedgeStrategy(StrategyBase):
         object _slippage
 
     cdef object check_and_hedge_asset(self,
-                                      str maker_trading_pair,
+                                      str maker_asset,
                                       object maker_balance,
                                       object market_pair,
                                       str trading_pair,
@@ -33,7 +33,7 @@ cdef class HedgeStrategy(StrategyBase):
                                       )
 
     cdef object place_order(self,
-                            str maker_trading_pair,
+                            str maker_asset,
                             bint is_buy,
                             object difference,
                             object price,)
