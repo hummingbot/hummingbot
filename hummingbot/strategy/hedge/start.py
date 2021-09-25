@@ -7,31 +7,26 @@ from hummingbot.strategy.hedge.exchange_pair import ExchangePairTuple
 def start(self):
     maker_exchange = c_map.get("maker_exchange").value.lower()
     taker_exchange = c_map.get("taker_exchange").value.lower()
-    maker_markets = list(c_map.get("maker_markets").value.split(","))
+    maker_assets = list(c_map.get("maker_assets").value.split(","))
     taker_markets = list(c_map.get("taker_markets").value.split(","))
-    hedge_asset = c_map.get("hedge_asset").value
-    maker_markets = [m.strip().upper() for m in maker_markets]
+    maker_assets = [m.strip().upper() for m in maker_assets]
     taker_markets = [m.strip().upper() for m in taker_markets]
     hedge_ratio = c_map.get("hedge_ratio").value
     leverage = c_map.get("leverage").value
     minimum_trade = c_map.get("minimum_trade").value
-    self._initialize_markets([(maker_exchange, maker_markets), (taker_exchange, taker_markets)])
+    self._initialize_markets([(maker_exchange, []), (taker_exchange, taker_markets)])
     exchanges = ExchangePairTuple(maker=self.markets[maker_exchange], taker=self.markets[taker_exchange])
 
     market_infos = {}
-    assets = {}
-    for i, maker_market in enumerate(maker_markets):
-        base, quote = maker_market.split("-")
-        assets[maker_market] = base if quote == hedge_asset else quote
+    for i, maker_asset in enumerate(maker_assets):
         taker_market = taker_markets[i]
         t_base, t_quote = taker_market.split("-")
         taker = MarketTradingPairTuple(self.markets[taker_exchange], taker_market, t_base, t_quote)
-        market_infos[maker_market] = taker
+        market_infos[maker_asset] = taker
 
     self.strategy = HedgeStrategy()
     self.strategy.init_params(
         exchanges = exchanges,
-        assets = assets,
         market_infos = market_infos,
         hedge_ratio = hedge_ratio,
         leverage = leverage,

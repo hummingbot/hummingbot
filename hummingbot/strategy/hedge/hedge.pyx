@@ -34,6 +34,7 @@ from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.core.event.events import (PositionSide, PositionMode)
 from hummingbot.strategy.hedge.exchange_pair import ExchangePairTuple
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils import convert_from_exchange_trading_pair, convert_to_exchange_trading_pair
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -41,9 +42,6 @@ s_decimal_nan = Decimal("nan")
 s_logger = None
 
 cdef class HedgeStrategy(StrategyBase):
-    # Ideally, use event listener on maker exchange to listen for orders. similar to xemm
-    # At this time, it is not possible, hence check every hedge_interval second
-    # TODO: add order age to cancel stagnant limit order and try to hedge again
     @classmethod
     def logger(cls):
         global s_logger
@@ -54,19 +52,17 @@ cdef class HedgeStrategy(StrategyBase):
     def init_params(self,
                     exchanges: ExchangePairTuple,
                     market_infos: Dict[str, MarketTradingPairTuple],
-                    assets: Dict[str, str],
                     hedge_ratio: Decimal,
                     status_report_interval: float = 900,
                     minimum_trade: Decimal = 11,
                     leverage: int = 5,
                     position_mode: str = "ONEWAY",
                     hedge_interval: float = 0.1,
-                    slippage: Decimal = 0.01,
+                    slippage: Decimal = 0.05,
                     ):
 
         self._exchanges = exchanges
         self._market_infos = market_infos
-        self._assets = assets
         self._hedge_ratio = hedge_ratio
         self._minimum_trade = minimum_trade
         self._all_markets_ready = False
@@ -105,12 +101,11 @@ cdef class HedgeStrategy(StrategyBase):
                 return idx.amount
         return self.get_shadow_position(trading_pair)
 
-    def get_balance(self, maker_trading_pair: str):
-        asset = self._assets[maker_trading_pair]
-        return self._exchanges.maker.get_balance(asset)
+    def get_balance(self, maker_asset: str):
+        return self._exchanges.maker.get_balance(maker_asset)
 
     cdef object check_and_hedge_asset(self,
-                                      str maker_trading_pair,
+                                      str maker_asset,
                                       object maker_balance,
                                       object market_pair,
                                       str trading_pair,
@@ -122,23 +117,21 @@ cdef class HedgeStrategy(StrategyBase):
 
         if trading_pair in self._sb_order_tracker._tracked_limit_orders:
             return
-        if self._last_trade_time[maker_trading_pair] > self._current_timestamp - self._hedge_interval:
+        if self._last_trade_time[maker_asset] > self._current_timestamp - self._hedge_interval:
             return
-        self._last_trade_time[maker_trading_pair]=self._current_timestamp
-        self.place_order(maker_trading_pair, is_buy, abs(hedge_amount), price)
+        self._last_trade_time[maker_asset]=self._current_timestamp
+        self.place_order(maker_asset, is_buy, abs(hedge_amount), price)
 
     cdef object place_order(self,
-                            str maker_trading_pair,
+                            str maker_asset,
                             bint is_buy,
                             object amount,
                             object price):
         cdef:
-            object market_pair = self._market_infos[maker_trading_pair]
+            object market_pair = self._market_infos[maker_asset]
             str trading_pair = market_pair.trading_pair
             ExchangeBase market = market_pair.market
             object quantized_order_amount = market.c_quantize_order_amount(trading_pair, Decimal(amount))
-        if market_pair.quote != self._hedge_asset:
-            
         price = Decimal(price)
         price = price*(Decimal(1) + Decimal(self._slippage)) if is_buy else price*(Decimal(1) - Decimal(self._slippage))
         if quantized_order_amount*price>self._minimum_trade:
@@ -160,22 +153,22 @@ cdef class HedgeStrategy(StrategyBase):
         # columns = ["Asset", "Hedge Price", self._exchanges[0].name,
         #            self._exchanges[1].name, "Diff", "qoute", "shadow_balance", "last_trade"]
         columns = ["Asset", "Price", "Maker", "Taker", "Diff", "Hedge Ratio"]
-        for maker_trading_pair in self._market_infos:
-            market_pair = self._market_infos[maker_trading_pair]
+        for maker_asset in self._market_infos:
+            market_pair = self._market_infos[maker_asset]
             trading_pair=market_pair.trading_pair
             # After a recent trade execution, the position returned may be 0 for some time (binance perpetual),
             # Hence, introduce minimum time prior to last trade to ensure update is correct
             # Added to ensure shadow balance can remain in sync with actual balance
             # collect necessary data to check hedge then continue the rest to minimize execution time.
-            if self._last_trade_time[maker_trading_pair]<self._current_timestamp-self._update_shadow_balance_interval:
+            if self._last_trade_time[maker_asset]==0 or max(self._last_trade_time.values())<self._current_timestamp-self._update_shadow_balance_interval:
                 taker_balance = self.get_position_amount(trading_pair)
                 self.set_shadow_position(trading_pair, taker_balance)
-            maker_balance = self.get_balance(maker_trading_pair)
+            maker_balance = self.get_balance(maker_asset)
             taker_balance = self.get_shadow_position(trading_pair)
             hedge_amount = -(maker_balance*self._hedge_ratio + taker_balance)
             is_buy = hedge_amount > 0
             price = market_pair.get_price(is_buy)
-            self.check_and_hedge_asset(maker_trading_pair,
+            self.check_and_hedge_asset(maker_asset,
                                        maker_balance,
                                        market_pair,
                                        trading_pair,
@@ -183,13 +176,11 @@ cdef class HedgeStrategy(StrategyBase):
                                        hedge_amount,
                                        is_buy,
                                        price)
-
-            asset = self._assets[maker_trading_pair]
             mid_price = market_pair.get_mid_price()
             difference = - (maker_balance + taker_balance)
             hedge_ratio = Decimal(-round(taker_balance/maker_balance, 2)) if maker_balance != 0 else 1
             data.append([
-                asset,
+                maker_asset,
                 mid_price,
                 maker_balance,
                 taker_balance,
@@ -197,6 +188,20 @@ cdef class HedgeStrategy(StrategyBase):
                 hedge_ratio,
             ])
         self._wallet_df = pd.DataFrame(data=data, columns=columns)
+
+    def active_positions_df(self) -> pd.DataFrame:
+        columns = ["Symbol", "Type", "Entry Price", "Amount", "Leverage"]
+        data = []
+        for idx in self.active_positions.values():
+            data.append([
+                idx.trading_pair,
+                idx.position_side.name,
+                idx.entry_price,
+                idx.amount,
+                idx.leverage,
+            ])
+
+        return pd.DataFrame(data=data, columns=columns)
 
     def format_status(self) -> str:
         lines = []
@@ -208,6 +213,14 @@ cdef class HedgeStrategy(StrategyBase):
 
         lines.extend(["", f"  Wallet:\n"])
         lines.extend(["    " + line for line in self._wallet_df.to_string(index=False).split("\n")])
+
+        # See if there're any active positions.
+        if len(self.active_positions) > 0:
+            df = self.active_positions_df()
+            lines.extend(["", "  Positions:"] + ["    " + line for line in df.to_string(index=False).split("\n")])
+        else:
+            lines.extend(["", "  No active positions."])
+
         return "\n".join(lines)
 
     cdef c_apply_initial_settings(self, object market_pair, object position, int64_t leverage):
@@ -236,11 +249,11 @@ cdef class HedgeStrategy(StrategyBase):
             str trading_pair
             object taker_balance
         self._last_timestamp = timestamp
-        for maker_trading_pair in self._market_infos:
-            market_pair = self._market_infos[maker_trading_pair]
+        for maker_asset in self._market_infos:
+            market_pair = self._market_infos[maker_asset]
             trading_pair = market_pair.trading_pair
             self._shadow_taker_balance[trading_pair]=0
-            self._last_trade_time[maker_trading_pair]=0
+            self._last_trade_time[maker_asset]=0
             self.c_apply_initial_settings(market_pair, self._position_mode, self._leverage)
 
     cdef c_tick(self, double timestamp):
@@ -286,18 +299,17 @@ cdef class HedgeStrategy(StrategyBase):
             str base_asset = order_completed_event.base_asset
             str quote_asset = order_completed_event.quote_asset
 
-        if base_asset in self._assets or quote_asset in self._assets:
-            self.log_with_clock(
-                logging.INFO,
-                f"{order_type} order {order_id} "
-                f"({base_asset_amount} {base_asset} @ "
-                f"{quote_asset_amount} {quote_asset}) has been completely filled."
-            )
-            self.notify_hb_app_with_timestamp(
-                f"{order_type} order {order_id} "
-                f"({base_asset_amount} {base_asset} @ "
-                f"{quote_asset_amount} {quote_asset}) has been completely filled."
-            )
+        self.log_with_clock(
+            logging.INFO,
+            f"{order_type} order {order_id} "
+            f"({base_asset_amount} {base_asset} @ "
+            f"{quote_asset_amount} {quote_asset}) has been completely filled."
+        )
+        self.notify_hb_app_with_timestamp(
+            f"{order_type} order {order_id} "
+            f"({base_asset_amount} {base_asset} @ "
+            f"{quote_asset_amount} {quote_asset}) has been completely filled."
+        )
 
     cdef c_did_complete_sell_order(self, object order_completed_event):
         """
@@ -312,15 +324,14 @@ cdef class HedgeStrategy(StrategyBase):
             str base_asset = order_completed_event.base_asset
             str quote_asset = order_completed_event.quote_asset
 
-        if base_asset in self._assets or quote_asset in self._assets:
-            self.log_with_clock(
-                logging.INFO,
-                f"{order_type} order {order_id} "
-                f"({base_asset_amount} {base_asset} @ "
-                f"{quote_asset_amount} {quote_asset}) has been completely filled."
-            )
-            self.notify_hb_app_with_timestamp(
-                f"{order_type} order {order_id} "
-                f"({base_asset_amount} {base_asset} @ "
-                f"{quote_asset_amount} {quote_asset}) has been completely filled."
-            )
+        self.log_with_clock(
+            logging.INFO,
+            f"{order_type} order {order_id} "
+            f"({base_asset_amount} {base_asset} @ "
+            f"{quote_asset_amount} {quote_asset}) has been completely filled."
+        )
+        self.notify_hb_app_with_timestamp(
+            f"{order_type} order {order_id} "
+            f"({base_asset_amount} {base_asset} @ "
+            f"{quote_asset_amount} {quote_asset}) has been completely filled."
+        )
