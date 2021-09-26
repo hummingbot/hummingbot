@@ -13,6 +13,8 @@ def start(self):
     taker_markets = [m.strip().upper() for m in taker_markets]
     hedge_ratio = c_map.get("hedge_ratio").value
     leverage = c_map.get("leverage").value
+    slippage = c_map.get("slippage").value
+    max_order_age = c_map.get("max_order_age").value
     minimum_trade = c_map.get("minimum_trade").value
     self._initialize_markets([(maker_exchange, []), (taker_exchange, taker_markets)])
     exchanges = ExchangePairTuple(maker=self.markets[maker_exchange], taker=self.markets[taker_exchange])
@@ -30,5 +32,7 @@ def start(self):
         market_infos = market_infos,
         hedge_ratio = hedge_ratio,
         leverage = leverage,
-        minimum_trade = minimum_trade
+        minimum_trade = minimum_trade,
+        slippage = slippage,
+        max_order_age = max_order_age,
     )
