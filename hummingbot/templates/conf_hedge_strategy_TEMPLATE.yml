@@ -33,3 +33,8 @@ hedge_interval: null
 # The minimum amount in hedge asset (e.g USDT,BTC) to execute the hedge.
 minimum_trade: null
 
+# max slippage for hedge
+slippage: null
+
+# amount of time pass to retry submiting limit order again
+max_order_age: null
