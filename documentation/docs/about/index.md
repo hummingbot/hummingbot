@@ -9,7 +9,7 @@ Hummingbot utilizes a modular architecture that enables exchange connectors and 
 Hummingbot is built and maintained by CoinAlpha, a company that runs business that support the Hummingbot ecosystem, such as:
 
 * [Hummingbot Miner](https://miner.hummingbot.io): a liquidity mining platform where Hummingbot users can run market making bots on centralized exchanges to earn token rewards.
-* Hummingbot Pro: a forthcoming module that combines backtesting engine, access to historical order book data, and associated services/support aimed at professional and institutional Hummingbot users.
+* [Hummingbot Pro](/developers/architecture/#hummingbot-pro-preview): a forthcoming module that combines a Cython-based backtesting engine plugin, access to historical order book data, and associated services/support aimed at professional and institutional Hummingbot users.
 
 ## More resources
 

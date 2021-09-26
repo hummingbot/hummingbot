@@ -1,4 +1,6 @@
-A strategy is a continual process that monitor exchanges and make trading decisions. Each Hummingbot strategy is a sub-folder in the [`/hummingbot/strategy`](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/strategy) folder.
+A Hummingbot strategy is a continual process that monitors trading pairs on one or more exchanges in order to make trading decisions. Strategies separate **logic**, which is open source and public, versus **parameters**, which configure how a strategy is run in live market conditions and are defined in a local config file.
+
+Strategies utilize the standardized trading interfaces exposed by exchange and protocol connectors, enabling developers to write code that can be used across many exchanges. Each Hummingbot strategy is a sub-folder in the [`/hummingbot/strategy`](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/strategy) folder.
 
 ## Strategy types
 
@@ -8,8 +10,19 @@ Hummingbot offers the following automated trading strategies, each with its own 
 * **Arbitrage**: strategies that exploit differences between markets
 * **Utility**: other strategies
 
-!!! note "Core vs community maintenance"
-    **Core** strategies are actively maintained and being improved by CoinAlpha or other core maintainers. **Community** strategies are not actively maintained, but we aim to fix bugs and address issues raised by the community.
+## Maintainer
+
+Strategy maintainers are responsible for responding to community feedback, fixing bugs, and actively improving the strategy over time.
+
+As the creator of Hummingbot, CoinAlpha maintains for most strategies, particularly the market making strategies. As the number of strategies grows, however, CoinAlpha will enable other community members to contribute and maintain strategies.
+
+## Customizing strategies
+
+These strategies are meant to be basic templates. We encourage users to extend these templates for their own purposes, and if they so desire, share them with the community.
+
+Developers may submit strategies for review. Please note the [Contribution Guidelines](/developers/contributions/). For developers interested to create or customize their own strategies, please see [Strategies](/developers/strategies) in the Developer Reference section.
+
+## List of strategies
 
 ### Market making
 
@@ -30,20 +43,14 @@ Arbitrage strategies help you monitor different markets for opportunities to rea
 
 | Name                                                            | Valid Exchanges     | Maintainer    | Description                                                                               |
 |-----------------------------------------------------------------|---------------------|---------------|-------------------------------------------------------------------------------------------|
-| [`amm_arb`](./amm-arb)                                           | `spot`, `amm`       | CoinAlpha     | Exploits price differences between AMM and spot exchanges                                 |
+| [`amm_arb`](./amm-arb)                                           | `spot`, `amm`      | CoinAlpha     | Exploits price differences between AMM and spot exchanges                                 |
 | [`spot_perpetual_arbitrage`](./spot-perpetual-arbitrage)        | `spot`, `perp`      | CoinAlpha     | Exploits price differences between spot and perpetual swap exchanges                      |
-| [`arbitrage`](./arbitrage)                                      | `spot`              | Community     | Exploits price differences between two different spot exchanges                           |
-| [`celo-arb`](./celo-arb)                                        | [`celo`](/exchanges/celo)| Community | Exploits price differences between Celo and other exchanges                               |
+| [`arbitrage`](./arbitrage)                                      | `spot`              |               | Exploits price differences between two different spot exchanges                           |
+| [`celo-arb`](./celo-arb)                                        | [`celo`](/exchanges/celo)|          | Exploits price differences between Celo and other exchanges                               |
 
 ### Utility
 
 | Name                                                            | Valid Exchanges     | Maintainer    | Description                                                                               |
 |-----------------------------------------------------------------|---------------------|---------------|-------------------------------------------------------------------------------------------|
-| [`twap`](./twap)                                                | `spot`, `perp`      | Community     | Places a batch of limit orders over a period of time                                      |
-| [`vwap`](./twap)                                                | `spot`, `perp`      | Community     | Places a batch of limit orders based on order book volume                                 |
-
-## Customizing strategies
-
-These strategies are meant to be basic templates. We encourage users to extend these templates for their own purposes, and if they so desire, share them with the community.
-
-For developers interested to create or customize their own strategies, please see [Strategies](/developers/strategies) in the Developer Reference section.
+| [`twap`](./twap)                                                | `spot`, `perp`      |               | Places a batch of limit orders over a period of time                                      |
+| [`vwap`](./twap)                                                | `spot`, `perp`      |               | Places a batch of limit orders based on order book volume                                 |
