@@ -98,6 +98,11 @@ cdef class HedgeStrategy(StrategyBase):
     def get_position_amount(self, trading_pair: str):
         for idx in self.active_positions.values():
             if idx.trading_pair == trading_pair:
+                # some exchanges, e.g dydx shows short amount as positive while some shows it as negative e.g binance_perpetual
+                # May be due to positionMode. Need to verify
+                # hence, need to standardize position and return negative value
+                if idx.position_side == PositionSide.SHORT and idx.amount>0:
+                    return -idx.amount
                 return idx.amount
         return self.get_shadow_position(trading_pair)
 
