@@ -7,9 +7,10 @@ from decimal import Decimal
 import logging
 from math import (
     floor,
-    ceil
+    ceil,
+    isclose,
 )
-from numpy import isnan
+import numpy as np
 import pandas as pd
 from typing import (
     List,
@@ -18,7 +19,7 @@ from typing import (
     Dict,
     Set
 )
-
+import time
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.clock cimport Clock
@@ -28,13 +29,11 @@ from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.core.event.events import OrderType
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.strategy.strategy_base cimport StrategyBase
 from hummingbot.strategy.strategy_base import StrategyBase
-from hummingbot.client.performance import PerformanceMetrics
-from hummingbot.core.event.events import (PositionSide, PositionMode)
+from hummingbot.core.event.events import (PositionMode, PositionSide)
 from hummingbot.strategy.hedge.exchange_pair import ExchangePairTuple
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils import convert_from_exchange_trading_pair, convert_to_exchange_trading_pair
+from hummingbot.strategy.utils import order_age
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -58,7 +57,8 @@ cdef class HedgeStrategy(StrategyBase):
                     leverage: int = 5,
                     position_mode: str = "ONEWAY",
                     hedge_interval: float = 0.1,
-                    slippage: Decimal = 0.05,
+                    slippage: Decimal = .01,
+                    max_order_age: float = 100.0,
                     ):
 
         self._exchanges = exchanges
@@ -77,9 +77,10 @@ cdef class HedgeStrategy(StrategyBase):
         self._update_shadow_balance_interval = 600
         self._hedge_interval = hedge_interval
         self._slippage = slippage
+        self._max_order_age = max_order_age
 
     @property
-    def order_ids(self) -> Dict[MarketTradingPairTuple, List[LimitOrder]]:
+    def market_info_to_active_orders(self) -> Dict[MarketTradingPairTuple, List[LimitOrder]]:
         return self._sb_order_tracker.market_pair_to_active_orders
 
     def get_shadow_position(self, trading_pair: str):
@@ -99,7 +100,7 @@ cdef class HedgeStrategy(StrategyBase):
         for idx in self.active_positions.values():
             if idx.trading_pair == trading_pair:
                 # some exchanges, e.g dydx shows short amount as positive while some shows it as negative e.g binance_perpetual
-                # May be due to positionMode. Need to verify
+                # May be due to positionMode.
                 # hence, need to standardize position and return negative value
                 if idx.position_side == PositionSide.SHORT and idx.amount>0:
                     return -idx.amount
@@ -108,6 +109,20 @@ cdef class HedgeStrategy(StrategyBase):
 
     def get_balance(self, maker_asset: str):
         return self._exchanges.maker.get_balance(maker_asset)
+
+    cdef object check_and_cancel_active_orders(self,
+                                               object market_pair,
+                                               object hedge_amount):
+        cdef:
+            object active_orders=self.market_info_to_active_orders.get(market_pair, None)
+            ExchangeBase market = market_pair.market
+            object quantized_order_amount = market.c_quantize_order_amount(market_pair.trading_pair, Decimal(abs(hedge_amount)))
+        if active_orders is None:
+            return
+        if any((order_age(o) > self._max_order_age or o.quantity!=quantized_order_amount) for o in active_orders):
+            for order in active_orders:
+                self.c_cancel_order(market_pair, order.client_order_id)
+            return
 
     cdef object check_and_hedge_asset(self,
                                       str maker_asset,
@@ -143,20 +158,31 @@ cdef class HedgeStrategy(StrategyBase):
             if is_buy:
                 order_id = self.c_buy_with_specific_market(market_pair, quantized_order_amount,
                                                            order_type=OrderType.LIMIT, price=price, expiration_seconds=NaN)
-                if order_id:
-                    self.update_shadow_position(trading_pair, quantized_order_amount)
             else:
                 order_id = self.c_sell_with_specific_market(market_pair, quantized_order_amount,
                                                             order_type=OrderType.LIMIT, price=price, expiration_seconds=NaN)
-                if order_id:
-                    self.update_shadow_position(trading_pair, -quantized_order_amount)
             self.log_with_clock(logging.INFO,
                                 f"Place {'Buy' if is_buy else 'Sell'} {quantized_order_amount} {trading_pair}")
 
+    def market_status_data_frame(self) -> pd.DataFrame:
+        markets_data = []
+        markets_columns = ["Exchange", "Market", "Best Bid", "Best Ask"]
+        for maker_asset in self._market_infos:
+            market_pair=self._market_infos[maker_asset]
+            market=market_pair.market
+            trading_pair=market_pair.trading_pair
+            bid_price = market.get_price(trading_pair, False)
+            ask_price = market.get_price(trading_pair, True)
+            markets_data.append([
+                market.display_name,
+                trading_pair,
+                float(bid_price),
+                float(ask_price),
+            ])
+        return pd.DataFrame(data=markets_data, columns=markets_columns).replace(np.nan, '', regex=True)
+
     def update_wallet(self):
         data=[]
-        # columns = ["Asset", "Hedge Price", self._exchanges[0].name,
-        #            self._exchanges[1].name, "Diff", "qoute", "shadow_balance", "last_trade"]
         columns = ["Asset", "Price", "Maker", "Taker", "Diff", "Hedge Ratio"]
         for maker_asset in self._market_infos:
             market_pair = self._market_infos[maker_asset]
@@ -173,14 +199,16 @@ cdef class HedgeStrategy(StrategyBase):
             hedge_amount = -(maker_balance*self._hedge_ratio + taker_balance)
             is_buy = hedge_amount > 0
             price = market_pair.get_price(is_buy)
-            self.check_and_hedge_asset(maker_asset,
-                                       maker_balance,
-                                       market_pair,
-                                       trading_pair,
-                                       taker_balance,
-                                       hedge_amount,
-                                       is_buy,
-                                       price)
+            self.check_and_cancel_active_orders(market_pair, hedge_amount)
+            if market_pair not in self.market_info_to_active_orders:
+                self.check_and_hedge_asset(maker_asset,
+                                           maker_balance,
+                                           market_pair,
+                                           trading_pair,
+                                           taker_balance,
+                                           hedge_amount,
+                                           is_buy,
+                                           price)
             mid_price = market_pair.get_mid_price()
             difference = - (maker_balance + taker_balance)
             hedge_ratio = Decimal(-round(taker_balance/maker_balance, 2)) if maker_balance != 0 else 1
@@ -194,18 +222,23 @@ cdef class HedgeStrategy(StrategyBase):
             ])
         self._wallet_df = pd.DataFrame(data=data, columns=columns)
 
-    def active_positions_df(self) -> pd.DataFrame:
-        columns = ["Symbol", "Type", "Entry Price", "Amount", "Leverage"]
-        data = []
-        for idx in self.active_positions.values():
-            data.append([
-                idx.trading_pair,
-                idx.position_side.name,
-                idx.entry_price,
-                idx.amount,
-                idx.leverage,
-            ])
+    def active_orders_df(self) -> pd.DataFrame:
 
+        active_orders = self.market_info_to_active_orders
+        columns = ["Market", "Type", "Price", "Amount", "Age"]
+        data = []
+        for active_order in active_orders:
+            # only 1 level should be present
+            order = active_orders[active_order][0]
+            market = order.trading_pair
+            age = order_age(order)
+            data.append([
+                market,
+                "buy" if order.is_buy else "sell",
+                float(order.price),
+                float(order.quantity),
+                age
+            ])
         return pd.DataFrame(data=data, columns=columns)
 
     def format_status(self) -> str:
@@ -216,15 +249,18 @@ cdef class HedgeStrategy(StrategyBase):
                     lines.extend(f"{exchange.name} connector is not ready...\n")
             return ''.join(lines)
 
+        markets_df = self.market_status_data_frame()
+        lines.extend(["", "  Markets:"] + ["    " + line for line in markets_df.to_string(index=False).split("\n")])
+
         lines.extend(["", f"  Wallet:\n"])
         lines.extend(["    " + line for line in self._wallet_df.to_string(index=False).split("\n")])
 
         # See if there're any active positions.
-        if len(self.active_positions) > 0:
-            df = self.active_positions_df()
-            lines.extend(["", "  Positions:"] + ["    " + line for line in df.to_string(index=False).split("\n")])
+        if len(self.market_info_to_active_orders) > 0:
+            df = self.active_orders_df()
+            lines.extend(["", "  Active Orders:"] + ["    " + line for line in df.to_string(index=False).split("\n")])
         else:
-            lines.extend(["", "  No active positions."])
+            lines.extend(["", "  No active orders."])
 
         return "\n".join(lines)
 
@@ -241,6 +277,9 @@ cdef class HedgeStrategy(StrategyBase):
             str trade_type = "Buy" if order_filled_event.trade_type == TradeType.BUY else "sell"
             object price = order_filled_event.price
             object amount = order_filled_event.amount
+            object order_amount = amount if trade_type == "Buy" else -amount
+        self.update_shadow_position(trading_pair, order_amount)
+
         self.log_with_clock(
             logging.INFO,
             f"{trading_pair} {trade_type} order of "

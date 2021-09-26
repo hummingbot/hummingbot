@@ -35,6 +35,7 @@ def market_validate(value: str) -> Optional[str]:
             return f"Duplicate market {pair}."
         pairs.append(pair)
 
+
 def asset_validate(value: str) -> Optional[str]:
     tokens_list = list()
     if len(value.strip()) == 0:
@@ -70,6 +71,7 @@ def token_validate(value: str) -> Optional[str]:
             tokens.add(token.strip())
     if value not in tokens:
         return f"Invalid token. {value} is not one of {','.join(sorted(tokens))}"
+
 
 # List of parameters defined by the strategy
 hedge_config_map = {
@@ -119,6 +121,20 @@ hedge_config_map = {
                   type_str="int",
                   default=int(10),
                   validator=lambda v: validate_int(v, min_value=0, inclusive=False),
+                  prompt_on_new=True),
+    "max_order_age":
+        ConfigVar(key="max_order_age",
+                  prompt="Max Order Age in seconds? >>> ",
+                  type_str="float",
+                  default=float(100),
+                  validator=lambda v: validate_decimal(v, min_value=0, inclusive=True),
+                  prompt_on_new=True),
+    "slippage":
+        ConfigVar(key="slippage",
+                  prompt="Enter max slippage in decimal, e.g 0.1 -> 10% >>> ",
+                  default=Decimal("0.01"),
+                  type_str="decimal",
+                  validator=lambda v: validate_decimal(v),
                   prompt_on_new=True),
     "minimum_trade":
         ConfigVar(key="minimum_trade",

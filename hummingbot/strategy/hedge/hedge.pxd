@@ -20,6 +20,7 @@ cdef class HedgeStrategy(StrategyBase):
         float _update_shadow_balance_interval
         float _hedge_interval
         object _slippage
+        object _max_order_age
 
     cdef object check_and_hedge_asset(self,
                                       str maker_asset,
@@ -42,3 +43,8 @@ cdef class HedgeStrategy(StrategyBase):
                                   object market_pair,
                                   object position,
                                   int64_t leverage)
+
+    cdef object check_and_cancel_active_orders(self,
+                                               object market_pair,
+                                               object hedge_amount
+                                               )
