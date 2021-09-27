@@ -107,10 +107,13 @@ class HummingbotApplication(*commands):
         return self._strategy_file_name
 
     @strategy_file_name.setter
-    def strategy_file_name(self, value: str):
+    def strategy_file_name(self, value: Optional[str]):
         self._strategy_file_name = value
-        db_name = value.split(".")[0]
-        self.trade_fill_db = SQLConnectionManager.get_trade_fills_instance(db_name=db_name)
+        if value is not None:
+            db_name = value.split(".")[0]
+            self.trade_fill_db = SQLConnectionManager.get_trade_fills_instance(db_name)
+        else:
+            self.trade_fill_db = None
 
     @property
     def strategy_config_map(self):

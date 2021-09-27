@@ -1,3 +1,5 @@
+import asyncio
+
 import pandas as pd
 import time
 from collections import (
@@ -145,7 +147,12 @@ class StatusCommand:
             self._notify('  - Security check: Encrypted files are being processed. Please wait and try again later.')
             return False
 
-        invalid_conns = await self.validate_required_connections()
+        network_timeout = float(global_config_map["other_commands_timeout"].value)
+        try:
+            invalid_conns = await asyncio.wait_for(self.validate_required_connections(), network_timeout)
+        except asyncio.TimeoutError:
+            self._notify("\nA network error prevented the connection check to complete. See logs for more details.")
+            raise
         if invalid_conns:
             self._notify('  - Exchange check: Invalid connections:')
             for ex, err_msg in invalid_conns.items():
