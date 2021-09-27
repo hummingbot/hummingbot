@@ -48,7 +48,7 @@ theme:
 plugins:
   - search
   - tags
-  # - git-revision-date
+  - git-revision-date
   # - social:
   #     cards_color:
   #       fill: '#0FF1CE'
@@ -223,8 +223,8 @@ nav:
       - Rate Oracle: strategy-configs/rate-oracle.md
     - Troubleshooting: troubleshooting.md
     - Glossary: glossary.md
-  - Developer Reference:
-      - Overview: developers/index.md
+  - Developers:
+      - Developers: developers/index.md
       - Hummingbot Architecture: developers/architecture.md
       - Contribution Guidelines: developers/contributions.md
       - Connectors:
@@ -240,12 +240,10 @@ nav:
         - Miscellaneous: developers/connectors/miscellaneous.md
       - Strategies:
         - Developing Strategies: developers/strategies/index.md
-        - Key Concepts: developers/strategies/key-concepts.md
-        - Tutorial: developers/strategies/tutorial.md
         - Architecture: developers/strategies/architecture.md
+        - Tutorial: developers/strategies/tutorial.md
+        - Key Concepts: developers/strategies/key-concepts.md
         - Define Configs: developers/strategies/config.md
-        - Display Status: developers/strategies/status.md
-        - Access Order Book Data: developers/strategies/order-book.md
       - Scripts:
         - Scripts: developers/scripts/index.md
         - Script Base Class: developers/scripts/script-base.md

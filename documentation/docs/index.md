@@ -11,7 +11,7 @@ New to Hummingbot? Start here!
 
 Learn about the different components in Hummingbot:
 
-- [Trading Strategies](/strategies): Various algorithmic trading strategies
+- [Strategies](/strategies): Various algorithmic trading strategies
 - [Exchange Connectors](/exchanges): Connectors to centralized and decentralized exchanges
 - [Protocol Connectors](/protocols): Connectors to Layer 1 and Layer 2 protocols
 - [Global Configs](/global-configs): Global configurable modules
@@ -34,7 +34,7 @@ In addition to release notes, the newsletter contains information about upcoming
 Hummingbot is a general source framework for crypto algorithmic trading. We welcome developers to fork the codebase for their own purposes and contribute to the community.
 
 - [Contribution Guidelines](/developers/contributions): How to submit contributions to the Hummingbot codebase
-- [Developer Reference](/developers): Explanation of Hummingbot's architecture and detailed reference on how to build connectors and strategies
+- [Developers](/developers): Explanation of Hummingbot's architecture and detailed reference on how to build connectors and strategies
 
 ## 🙋‍♂️ Getting help
 

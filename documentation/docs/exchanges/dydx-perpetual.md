@@ -1,25 +1,40 @@
-# dYdX Perpetual
+---
+tags:
+- perp exchange connector
+- ethereum dex
+---
 
-dYdX is a leading decentralized exchange that currently supports perpetual, margin trading, spot trading, lending, and borrowing. dYdX runs on smart contracts on the Ethereum blockchain, and allows users to trade with no intermediaries.
+# `dydx_perpetual`
 
-## Prerequisites
+## 📁 [Connector folder](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/connector/derivative/dydx_perpetual)
 
-### Supported installation types
+## ℹ️ Exchange Info
 
-Currently, this connector does not work on binary installation. Install Hummingbot via Docker or from source to use this connector.
+**dydx (perpetual)** 
+[Website](https://dydx.exchange/) | [CoinMarketCap](https://coinmarketcap.com/exchanges/dydx/) | [CoinGecko](https://www.coingecko.com/en/exchanges/dydx-margin)
 
-- Install via Docker: [Linux](/installation/linux/#install-via-docker) | [Windows](/installation/windows/#install-via-docker) | [macOS](/installation/mac/#install-via-docker) | [Raspberry Pi](/installation/raspberry-pi/#install-via-docker-beta)
-- Install from source: [Linux](/installation/linux/#install-from-source) | [Windows](/installation/windows/#install-from-source) | [macOS](/installation/mac/#install-from-source) | [Raspberry Pi](/installation/raspberry-pi/#install-from-source)
+* API docs: https://docs.dydx.exchange/#perpetual-contracts
+* Transaction fees: https://help.dydx.exchange/en/articles/4800191-are-there-fees-to-using-dydx
+* Minimum order size: https://help.dydx.exchange/en/articles/4798055-what-is-the-minimum-order-size-on-perpetuals
+* Creating API keys: https://docs.dydx.exchange/#get-api-keys
 
-### API credentials and stark key
+## 👷 Maintenance
 
-1. Connect your Ethereum wallet to dydx Perpetual
-   - [How to deposit USDC or any ERC-20 token into your L2 Perpetual account](https://help.dydx.exchange/en/articles/5108497-how-to-deposit-usdc-or-any-erc-20-token-into-your-l2-perpetual-account?utm_content=article_5108497)
-2. You need the following to connect Hummingbot to the exchange:
-   - API key. [Connect to Exchange Guide](/operation/connect-exchange).
+* Release added: [0.39.0](/release-notes/0.39.0/) by CoinAlpha
+* Maintainer: CoinAlpha
+
+## 🔑 Connection
+
+Since this exchange is an Ethereum-based decentralized exchange (DEX), first run `connect ethereum` in order to connect your Ethereum wallet. See [Ethereum](/protocols/ethereum) for more information. Then, go to dYdX and create API keys for the same Ethereum wallet.
+
+Next, run `connect dydx_perpetual` in Hummingbot in order to add your API keys. 
+
+You will need the following to connect Hummingbot to `dydx_perpetual`:
+
+   - API key
    - API secret key
    - Passphrase
-   - Account number (Always set value to **0** for now)
+   - Account number: set this value to `0`
    - Stark private key
 
 API credentials and a stark private key can be obtained programmatically using their documentation:
@@ -34,32 +49,14 @@ Alternatively, you can follow these steps to get the required credentials:
 3. Select **STARK_KEY_PAIRS** and click the drop-down next to your wallet address to get the stark private key
 4. Select **API_KEY_PAIRS** and click the drop-down next to your wallet address to get the API key, secret key, and passphrase
 
-### Ethereum wallet address
+### Deposit assets
 
-You can use any Ethereum wallet address to connect to Hummingbot. If you're new to this and unsure which one to use, most of our users are on MetaMask.
+Follow the instructions below to deposit assets onto dYdX's Layer 2 side-chain:
 
-- [MetaMask - Getting Started](https://metamask.io/faqs.html)
+- [How to deposit USDC or any ERC-20 token into your L2 Perpetual account](https://help.dydx.exchange/en/articles/5108497-how-to-deposit-usdc-or-any-erc-20-token-into-your-l2-perpetual-account?utm_content=article_5108497)
 
-## Connecting to exchange
+## 🪙 Fees
 
-1. From Hummingbot, run `connect dydx_perpetual` command
-2. Enter the required dydx Perpetual credentials on each prompt
-3. Enter your Ethereum wallet address
-4. Hummingbot will confirm when you have successfully connected to the exchange
+Hummingbot assumes 0.05% maker fees and 0.20% taker fees ([source](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/exchange/dydx/dydx_utils.py#L11)).
 
-Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
-
-!!! tip
-    For copying and pasting into Hummingbot, see [this page](/operation/user-interface/#keyboard-shortcuts).
-
-## Minimum order sizes
-
-Their help article below provides information on the minimum order size per asset.
-
-- [Minimum Trade Sizes](https://help.dydx.exchange/en/articles/4798055-what-is-the-minimum-order-size-on-perpetuals)
-
-## Transaction fees
-
-By default, trading fees are 0.05% for market makers and 0.20% for takers on dYdX. See the article below for more details.
-
-- [Perpetual Trade Fees](https://help.dydx.exchange/en/articles/4798040-perpetual-trade-fees)
+Users can override these assumptions with [Override Fees](/global-configs/override-fees/).
