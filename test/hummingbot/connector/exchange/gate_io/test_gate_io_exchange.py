@@ -15,12 +15,16 @@ from hummingbot.core.network_iterator import NetworkStatus
 
 
 from hummingbot.connector.exchange.gate_io.gate_io_in_flight_order import GateIoInFlightOrder
+from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import MarketEvent, TradeType, OrderType
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 from test.mock.mock_listener import MockEventListener
 
 
 class TestGateIoExchange(unittest.TestCase):
+    # logging.Level required to receive logs from the exchange
+    level = 0
+
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
@@ -33,9 +37,20 @@ class TestGateIoExchange(unittest.TestCase):
 
     def setUp(self) -> None:
         super().setUp()
+        self.log_records = []
         self.mocking_assistant = NetworkMockingAssistant()
         self.exchange = GateIoExchange(self.api_key, self.api_secret, trading_pairs=[self.trading_pair])
         self.event_listener = MockEventListener()
+
+        self.exchange.logger().setLevel(1)
+        self.exchange.logger().addHandler(self)
+
+    def handle(self, record):
+        self.log_records.append(record)
+
+    def _is_logged(self, log_level: str, message: str) -> bool:
+        return any(record.levelname == log_level and record.getMessage() == message
+                   for record in self.log_records)
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
@@ -225,6 +240,36 @@ class TestGateIoExchange(unittest.TestCase):
         self.assertEqual(self.event_listener.events_count, 1)
         self.assertTrue(order_id in self.exchange.in_flight_orders)
 
+    @aioresponses()
+    def test_order_with_less_amount_than_allowed_is_not_created(self, mock_api):
+        trading_rules = self.get_trading_rules_mock()
+        self.exchange._trading_rules = self.exchange._format_trading_rules(trading_rules)
+
+        url = f"{CONSTANTS.REST_URL}/{CONSTANTS.ORDER_CREATE_PATH_URL}"
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_api.post(regex_url, exception=Exception("The request should never happen"))
+
+        self.exchange.add_listener(MarketEvent.BuyOrderCreated, self.event_listener)
+
+        order_id = "someId"
+        self.async_run_with_timeout(
+            coroutine=self.exchange._create_order(
+                trade_type=TradeType.BUY,
+                order_id=order_id,
+                trading_pair=self.trading_pair,
+                amount=Decimal("0.0001"),
+                order_type=OrderType.LIMIT,
+                price=Decimal("5.1"),
+            )
+        )
+
+        self.assertEqual(0, self.event_listener.events_count)
+        self.assertNotIn(order_id, self.exchange.in_flight_orders)
+        self.assertTrue(self._is_logged(
+            "WARNING",
+            "Buy order amount 0.000 is lower than the minimum order size 0.001."
+        ))
+
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication")
     @aioresponses()
     def test_create_order_fails(self, _, mock_api):
@@ -272,6 +317,21 @@ class TestGateIoExchange(unittest.TestCase):
 
         self.assertEqual(self.event_listener.events_count, 1)
         self.assertTrue(client_order_id not in self.exchange.in_flight_orders)
+
+    def test_cancel_order_not_present_in_inflight_orders(self):
+        client_order_id = "test-id"
+        event_logger = EventLogger()
+        self.exchange.add_listener(MarketEvent.OrderCancelled, event_logger)
+
+        result = self.async_run_with_timeout(
+            coroutine=self.exchange._execute_cancel(self.trading_pair, client_order_id)
+        )
+
+        self.assertEqual(0, len(event_logger.event_log))
+        self.assertTrue(self._is_logged(
+            "WARNING",
+            f"Failed to cancel order {client_order_id}. Order not found in inflight orders."))
+        self.assertFalse(result.success)
 
     @patch("hummingbot.connector.exchange.gate_io.gate_io_exchange.GateIoExchange.current_timestamp")
     @aioresponses()
