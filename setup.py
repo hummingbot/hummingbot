@@ -86,6 +86,7 @@ def main():
         "hummingbot.strategy",
         "hummingbot.strategy.amm_arb",
         "hummingbot.strategy.arbitrage",
+        "hummingbot.strategy.base_price_action",
         "hummingbot.strategy.cross_exchange_market_making",
         "hummingbot.strategy.pure_market_making",
         "hummingbot.strategy.perpetual_market_making",

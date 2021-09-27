@@ -1,0 +1,34 @@
+########################################################
+###       Base price action strategy config               ###
+########################################################
+
+template_version: 2
+strategy: null
+
+# The following configuations are only required for the
+# simple trade strategy
+
+# Exchange and token parameters
+market: MCRERC20-MDTERC20
+market_trading_pair_tuple: MCRERC20-MDTERC20
+
+# Min and Max Size of the Order
+min_order_amount: 100
+max_order_amount: 130
+
+# Time in seconds before cancelling the limit order
+# If cancel_order wait time is 60 and the order is still open after 60 seconds since placing the order,
+# it will cancel the limit order.
+cancel_order_wait_time: 60
+
+# How long to wait before placing the order (in seconds)
+time_delay: 120
+
+# By what percentage to change the price when placing orders (in percentage)
+percentage_of_price_change: 0
+
+# restrictions on the trading volume in the timestamp (example: "0.5:300;1:900")
+trade_bands: "0.5:300;1:900"
+
+# For more detailed information, see:
+# https://docs.hummingbot.io/strategies/simple-trade/#configuration-parameters
