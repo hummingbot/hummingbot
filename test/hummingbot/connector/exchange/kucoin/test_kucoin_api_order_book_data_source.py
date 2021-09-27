@@ -2,7 +2,7 @@ import json
 import re
 import unittest
 import asyncio
-from typing import Awaitable, Dict
+from typing import Awaitable, Dict, AsyncIterable
 from unittest.mock import patch, AsyncMock
 
 import aiohttp
@@ -39,6 +39,10 @@ class KucoinTestProviders:  # does not inherit from TestCase so as to not be dis
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
+
+    @staticmethod
+    def anext(ai: AsyncIterable) -> Awaitable:
+        return ai.__anext__()
 
 
 class TestKucoinWSConnectionIterator(KucoinTestProviders, unittest.TestCase):
@@ -126,6 +130,56 @@ class TestKucoinWSConnectionIterator(KucoinTestProviders, unittest.TestCase):
         self.assertTrue(len(ws_json_messages) == 1)
         msg = ws_json_messages.pop()
         self.assertEqual(msg["type"], "unsubscribe")
+
+    @aioresponses()
+    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_close_ws_connection(self, mock_api, ws_connect_mock):
+        url = CONSTANTS.BASE_PATH_URL + CONSTANTS.PUBLIC_WS_DATA_PATH_URL
+        resp_data = {
+            "data": {
+                "instanceServers": [
+                    {
+                        "endpoint": self.ws_endpoint,
+                    }
+                ],
+                "token": "someToken",
+            }
+        }
+        mock_api.post(url, body=json.dumps(resp_data))
+
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+
+        self.async_run_with_timeout(self.conn_iterator.open_ws_connection())
+        self.async_run_with_timeout(self.conn_iterator.close_ws_connection())
+
+        self.assertEqual(None, self.conn_iterator.websocket)
+        self.assertEqual(None, self.conn_iterator._client)
+
+    @aioresponses()
+    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_iteration(self, mock_api, ws_connect_mock):
+        url = CONSTANTS.BASE_PATH_URL + CONSTANTS.PUBLIC_WS_DATA_PATH_URL
+        resp_data = {
+            "data": {
+                "instanceServers": [
+                    {
+                        "endpoint": self.ws_endpoint,
+                    }
+                ],
+                "token": "someToken",
+            }
+        }
+        mock_api.post(url, body=json.dumps(resp_data))
+
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        msg_data = {"someKey": "someValue"}
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=ws_connect_mock.return_value, message=json.dumps(msg_data),
+        )
+
+        msg = self.async_run_with_timeout(self.anext(self.conn_iterator.__aiter__()))
+
+        self.assertEqual(msg_data, msg)
 
 
 class TestKucoinAPIOrderBookDataSource(KucoinTestProviders, unittest.TestCase):
