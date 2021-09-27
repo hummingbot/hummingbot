@@ -459,56 +459,59 @@ class GateIoExchange(ExchangeBase):
         amount = self.quantize_order_amount(trading_pair, amount)
         price = self.quantize_order_price(trading_pair, price)
         if amount < trading_rule.min_order_size:
-            raise ValueError(f"Buy order amount {amount} is lower than the minimum order size "
-                             f"{trading_rule.min_order_size}.")
-        order_type_str = order_type.name.lower().split("_")[0]
-        api_params = {"text": order_id,
-                      "currency_pair": convert_to_exchange_trading_pair(trading_pair),
-                      "side": trade_type.name.lower(),
-                      "type": order_type_str,
-                      "price": f"{price:f}",
-                      "amount": f"{amount:f}",
-                      }
-        self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, order_type)
-        try:
-            order_result = await self._api_request("POST", CONSTANTS.ORDER_CREATE_PATH_URL, api_params, True)
-            if order_result.get('status') in {"cancelled", "expired", "failed"}:
-                raise GateIoAPIError({'label': 'ORDER_REJECTED', 'message': 'Order rejected.'})
-            if order_result.get('status') != 'open':
-                self.logger().network(f"Unexpected order result:\n{order_result}")
-            exchange_order_id = str(order_result["id"])
-            tracked_order = self._in_flight_orders.get(order_id)
-            if tracked_order is not None:
-                self.logger().info(f"Created {order_type.name} {trade_type.name} order {order_id} for "
-                                   f"{amount} {trading_pair}.")
-                tracked_order.update_exchange_order_id(exchange_order_id)
-            if trade_type is TradeType.BUY:
-                event_tag = MarketEvent.BuyOrderCreated
-                event_cls = BuyOrderCreatedEvent
-            else:
-                event_tag = MarketEvent.SellOrderCreated
-                event_cls = SellOrderCreatedEvent
-            self.trigger_event(event_tag,
-                               event_cls(self.current_timestamp,
-                                         order_type,
-                                         trading_pair,
-                                         amount,
-                                         price,
-                                         order_id,
-                                         exchange_order_id))
-        except asyncio.CancelledError:
-            raise
-        except GateIoAPIError as e:
-            error_reason = e.error_message
-            self.stop_tracking_order(order_id)
-            self.logger().network(
-                f"Error submitting {trade_type.name} {order_type.name} order to {CONSTANTS.EXCHANGE_NAME} for "
-                f"{amount} {trading_pair} {price} - {error_reason}.",
-                exc_info=True,
-                app_warning_msg=(f"Error submitting order to {CONSTANTS.EXCHANGE_NAME} - {error_reason}.")
-            )
-            self.trigger_event(MarketEvent.OrderFailure,
-                               MarketOrderFailureEvent(self.current_timestamp, order_id, order_type))
+            self.logger().warning(f"{trade_type.name.title()} order amount {amount} is lower than the minimum order size "
+                                  f"{trading_rule.min_order_size}.")
+        else:
+            order_type_str = order_type.name.lower().split("_")[0]
+            api_params = {"text": order_id,
+                          "currency_pair": convert_to_exchange_trading_pair(trading_pair),
+                          "side": trade_type.name.lower(),
+                          "type": order_type_str,
+                          "price": f"{price:f}",
+                          "amount": f"{amount:f}",
+                          }
+            self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, order_type)
+            try:
+                order_result = await self._api_request("POST", CONSTANTS.ORDER_CREATE_PATH_URL, api_params, True)
+                if order_result.get('status') != 'open':
+                    if order_result.get('status') in {"cancelled", "expired", "failed"}:
+                        raise GateIoAPIError({'label': 'ORDER_REJECTED', 'message': 'Order rejected.'})
+                    if order_result.get('status') != 'open':
+                        self.logger().network(f"Unexpected order result:\n{order_result}")
+                else:
+                    exchange_order_id = str(order_result["id"])
+                    tracked_order = self._in_flight_orders.get(order_id)
+                    if tracked_order is not None:
+                        self.logger().info(f"Created {order_type.name} {trade_type.name} order {order_id} for "
+                                           f"{amount} {trading_pair}.")
+                        tracked_order.update_exchange_order_id(exchange_order_id)
+                        if trade_type is TradeType.BUY:
+                            event_tag = MarketEvent.BuyOrderCreated
+                            event_cls = BuyOrderCreatedEvent
+                        else:
+                            event_tag = MarketEvent.SellOrderCreated
+                            event_cls = SellOrderCreatedEvent
+                        self.trigger_event(event_tag,
+                                           event_cls(self.current_timestamp,
+                                                     order_type,
+                                                     trading_pair,
+                                                     amount,
+                                                     price,
+                                                     order_id,
+                                                     exchange_order_id))
+            except asyncio.CancelledError:
+                raise
+            except GateIoAPIError as e:
+                error_reason = e.error_message
+                self.stop_tracking_order(order_id)
+                self.logger().network(
+                    f"Error submitting {trade_type.name} {order_type.name} order to {CONSTANTS.EXCHANGE_NAME} for "
+                    f"{amount} {trading_pair} {price} - {error_reason}.",
+                    exc_info=True,
+                    app_warning_msg=(f"Error submitting order to {CONSTANTS.EXCHANGE_NAME} - {error_reason}.")
+                )
+                self.trigger_event(MarketEvent.OrderFailure,
+                                   MarketOrderFailureEvent(self.current_timestamp, order_id, order_type))
 
     def start_tracking_order(self,
                              order_id: str,
@@ -549,19 +552,21 @@ class GateIoExchange(ExchangeBase):
         order.last_state to change to CANCELED
         """
         order_was_cancelled = False
+        err_msg = None
         try:
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is None:
-                raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
-            if tracked_order.exchange_order_id is None:
-                await tracked_order.get_exchange_order_id()
-            ex_order_id = tracked_order.exchange_order_id
-            await self._api_request("DELETE",
-                                    CONSTANTS.ORDER_DELETE_PATH_URL.format(id=ex_order_id),
-                                    params={'currency_pair': convert_to_exchange_trading_pair(trading_pair)},
-                                    is_auth_required=True,
-                                    limit_id=CONSTANTS.ORDER_DELETE_LIMIT_ID)
-            order_was_cancelled = True
+                self.logger().warning(f"Failed to cancel order {order_id}. Order not found in inflight orders.")
+            else:
+                if tracked_order.exchange_order_id is None:
+                    await tracked_order.get_exchange_order_id()
+                ex_order_id = tracked_order.exchange_order_id
+                await self._api_request("DELETE",
+                                        CONSTANTS.ORDER_DELETE_PATH_URL.format(id=ex_order_id),
+                                        params={'currency_pair': convert_to_exchange_trading_pair(trading_pair)},
+                                        is_auth_required=True,
+                                        limit_id=CONSTANTS.ORDER_DELETE_LIMIT_ID)
+                order_was_cancelled = True
         except asyncio.CancelledError:
             raise
         except (asyncio.TimeoutError, GateIoAPIError) as e:
@@ -583,6 +588,7 @@ class GateIoExchange(ExchangeBase):
             tracked_order.cancelled_event.set()
             return CancellationResult(order_id, True)
         else:
+            err_msg = err_msg or "(no details available)"
             self.logger().network(
                 f"Failed to cancel order {order_id}: {err_msg}",
                 exc_info=True,
@@ -758,8 +764,6 @@ class GateIoExchange(ExchangeBase):
                                    MarketOrderFailureEvent(
                                        self.current_timestamp, tracked_order.client_order_id, tracked_order.order_type))
                 self.stop_tracking_order(tracked_order.client_order_id)
-        # Call Update balances on every message to catch order create, fill and cancel - websocket doesn't support this.
-        safe_ensure_future(self._update_balances())
 
     async def _process_trade_message(self, trade_msg: Dict[str, Any]):
         """
@@ -852,6 +856,7 @@ class GateIoExchange(ExchangeBase):
         for asset_name in asset_names_to_remove:
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
+
         self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
         self._in_flight_orders_snapshot_timestamp = self.current_timestamp
 
@@ -860,6 +865,9 @@ class GateIoExchange(ExchangeBase):
             asset_name = account["currency"]
             self._account_available_balances[asset_name] = Decimal(str(account["available"]))
             self._account_balances[asset_name] = Decimal(str(account["total"]))
+
+        self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
+        self._in_flight_orders_snapshot_timestamp = self.current_timestamp
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         """
