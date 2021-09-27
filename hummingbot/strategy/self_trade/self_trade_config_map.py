@@ -11,7 +11,7 @@ from typing import Optional
 
 
 def trading_pair_prompt():
-    market = base_price_action_config_map.get("market").value
+    market = self_trade_config_map.get("market").value
     example = EXAMPLE_PAIRS.get(market)
     return "Enter the token trading pair you would like to trade on %s%s >>> " \
            % (market, f" (e.g. {example})" if example else "")
@@ -23,15 +23,15 @@ def str2bool(value: str):
 
 # checks if the trading pair is valid
 def validate_market_trading_pair_tuple(value: str) -> Optional[str]:
-    market = base_price_action_config_map.get("market").value
+    market = self_trade_config_map.get("market").value
     return validate_market_trading_pair(market, value)
 
 
-base_price_action_config_map = {
+self_trade_config_map = {
     "strategy":
         ConfigVar(key="strategy",
                   prompt="",
-                  default="base_price_action"),
+                  default="self_trade"),
     "market":
         ConfigVar(key="market",
                   prompt="Enter the name of the exchange >>> ",

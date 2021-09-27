@@ -1,5 +1,5 @@
 ########################################################
-###       Base price action strategy config               ###
+###       Self Trade strategy config               ###
 ########################################################
 
 template_version: 2

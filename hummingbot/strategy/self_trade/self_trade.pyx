@@ -25,7 +25,7 @@ from hummingbot.core.event.events import (
 from hummingbot.core.data_type.order_book cimport OrderBook
 from datetime import datetime, timedelta
 
-from hummingbot.strategy.base_price_action.trade_band import TradeBand
+from hummingbot.strategy.self_trade.trade_band import TradeBand
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base import StrategyBase
 
@@ -35,7 +35,7 @@ s_decimal_nan = Decimal("nan")
 ds_logger = None
 
 
-cdef class BasePriceActionStrategy(StrategyBase):
+cdef class SelfTradeStrategy(StrategyBase):
     OPTION_LOG_NULL_ORDER_SIZE = 1 << 0
     OPTION_LOG_REMOVING_ORDER = 1 << 1
     OPTION_LOG_ADJUST_ORDER = 1 << 2

@@ -3,7 +3,7 @@
 from hummingbot.strategy.strategy_base cimport StrategyBase
 from libc.stdint cimport int64_t
 
-cdef class BasePriceActionStrategy(StrategyBase):
+cdef class SelfTradeStrategy(StrategyBase):
     cdef:
         dict _market_infos
         bint _all_markets_ready
