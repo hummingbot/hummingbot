@@ -106,19 +106,6 @@ prompt_ethereum_setup () {
       echo "‼️  ERROR. Unsupported chains (mainnet/kovan). "
       prompt_ethereum_setup
     fi
-    # set subgraph url, exchange_proxy
-    if [[ "$ETHEREUM_CHAIN" == "mainnet" ]]
-    then
-      ETHEREUM_CHAIN="mainnet"
-      REACT_APP_SUBGRAPH_URL="https://api.thegraph.com/subgraphs/name/balancer-labs/balancer"
-      EXCHANGE_PROXY="0x3E66B66Fd1d0b02fDa6C811Da9E0547970DB2f21"
-    else
-      if [[ "$ETHEREUM_CHAIN" == "kovan" ]]
-      then
-        REACT_APP_SUBGRAPH_URL="https://api.thegraph.com/subgraphs/name/balancer-labs/balancer-kovan"
-        EXCHANGE_PROXY="0x4e67bf5bD28Dd4b570FBAFe11D0633eCbA2754Ec"
-      fi
-    fi
   fi
 }
 prompt_ethereum_setup
@@ -181,7 +168,7 @@ prompt_eth_gasstation_setup () {
   read -p "   Enable dynamic Ethereum gas price lookup? [Y/N] (default = \"Y\") >>> " PROCEED
   if [[ "$PROCEED" == "Y" || "$PROCEED" == "y" || "$PROCEED" == "" ]]
   then
-    ENABLE_ETH_GAS_STATION=true
+    ETH_GAS_STATION_ENABLE=true
     read -p "   Enter API key for Eth Gas Station (https://ethgasstation.info/) >>> " ETH_GAS_STATION_API_KEY
     if [ "$ETH_GAS_STATION_API_KEY" == "" ]
     then
@@ -200,11 +187,11 @@ prompt_eth_gasstation_setup () {
   else
     if [[ "$PROCEED" == "N" || "$PROCEED" == "n" ]]
     then
-      ENABLE_ETH_GAS_STATION=false
+      ETH_GAS_STATION_ENABLE=false
       ETH_GAS_STATION_API_KEY=null
       ETH_GAS_STATION_GAS_LEVEL=fast
       ETH_GAS_STATION_REFRESH_TIME=60
-      MANUAL_GAS_PRICE=100
+      ETH_MANUAL_GAS_PRICE=100
     else
       prompt_eth_gasstation_setup
     fi
@@ -295,6 +282,7 @@ UNISWAP_ROUTER="0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
 UNISWAP_V3_CORE="0x1F98431c8aD98523631AE4a59f267346ea31F984"
 UNISWAP_V3_ROUTER="0xE592427A0AEce92De3Edee1F18E0157C05861564"
 UNISWAP_V3_NFT_MANAGER="0xC36442b4a4522E871399CD717aBDD847Ab11FE88"
+BALANCER_VAULT="0xBA12222222228d8Ba445958a75a0704d566BF2C8"
 
 # network setup verifications
 if [[ "$ETHEREUM_SETUP" != true && "$TERRA_SETUP" != true ]]
@@ -346,13 +334,12 @@ printf "%30s %5s\n" "Hummingbot Instance ID:" "$HUMMINGBOT_INSTANCE_ID"
 printf "%30s %5s\n" "Ethereum Chain:" "$ETHEREUM_CHAIN"
 printf "%30s %5s\n" "Ethereum RPC URL:" "$ETHEREUM_RPC_URL"
 printf "%30s %5s\n" "Ethereum Token List URL:" "$ETHEREUM_TOKEN_LIST_URL"
-printf "%30s %5s\n" "Manual Gas Price:" "$MANUAL_GAS_PRICE"
-printf "%30s %5s\n" "Enable Eth Gas Station:" "$ENABLE_ETH_GAS_STATION"
+printf "%30s %5s\n" "Manual Gas Price:" "$ETH_MANUAL_GAS_PRICE"
+printf "%30s %5s\n" "Enable Eth Gas Station:" "$ETH_GAS_STATION_ENABLE"
 printf "%30s %5s\n" "Eth Gas Station API:" "$ETH_GAS_STATION_API_KEY"
 printf "%30s %5s\n" "Eth Gas Station Level:" "$ETH_GAS_STATION_GAS_LEVEL"
 printf "%30s %5s\n" "Eth Gas Station Refresh Interval:" "$ETH_GAS_STATION_REFRESH_TIME"
-printf "%30s %5s\n" "Balancer Subgraph:" "$REACT_APP_SUBGRAPH_URL"
-printf "%30s %5s\n" "Balancer Exchange Proxy:" "$EXCHANGE_PROXY"
+printf "%30s %5s\n" "Balancer Vault:" "$BALANCER_VAULT"
 printf "%30s %5s\n" "Balancer Max Swaps:" "$BALANCER_MAX_SWAPS"
 printf "%30s %5s\n" "Uniswap Router:" "$UNISWAP_ROUTER"
 printf "%30s %5s\n" "Uniswap V3 Core:" "$UNISWAP_V3_CORE"
@@ -383,17 +370,16 @@ echo "ETHEREUM_CHAIN: $ETHEREUM_CHAIN" >> $ENV_FILE
 echo "ETHEREUM_RPC_URL: $ETHEREUM_RPC_URL" >> $ENV_FILE
 echo "ETHEREUM_TOKEN_LIST_URL: $ETHEREUM_TOKEN_LIST_URL" >> $ENV_FILE
 echo "" >> $ENV_FILE
-echo "ENABLE_ETH_GAS_STATION: $ENABLE_ETH_GAS_STATION" >> $ENV_FILE
+echo "ETH_GAS_STATION_ENABLE: $ETH_GAS_STATION_ENABLE" >> $ENV_FILE
 echo "ETH_GAS_STATION_API_KEY: $ETH_GAS_STATION_API_KEY" >> $ENV_FILE
 echo "ETH_GAS_STATION_GAS_LEVEL: $ETH_GAS_STATION_GAS_LEVEL" >> $ENV_FILE
 echo "ETH_GAS_STATION_REFRESH_TIME: $ETH_GAS_STATION_REFRESH_TIME" >> $ENV_FILE
-echo "MANUAL_GAS_PRICE: $MANUAL_GAS_PRICE" >> $ENV_FILE
+echo "ETH_MANUAL_GAS_PRICE: $ETH_MANUAL_GAS_PRICE" >> $ENV_FILE
 
 # balancer config
 echo "" >> $ENV_FILE
 echo "# Balancer Settings" >> $ENV_FILE
-echo "REACT_APP_SUBGRAPH_URL: $REACT_APP_SUBGRAPH_URL" >> $ENV_FILE # must used "REACT_APP_SUBGRAPH_URL" for balancer-sor
-echo "EXCHANGE_PROXY: '$EXCHANGE_PROXY'" >> $ENV_FILE
+echo "BALANCER_VAULT: '$BALANCER_VAULT'" >> $ENV_FILE
 echo "BALANCER_MAX_SWAPS: $BALANCER_MAX_SWAPS" >> $ENV_FILE
 
 # uniswap config
