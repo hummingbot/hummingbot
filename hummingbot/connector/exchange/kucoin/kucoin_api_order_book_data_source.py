@@ -21,7 +21,7 @@ from typing import (
     Tuple,
 )
 import websockets
-from websockets.client import Connect as WSConnectionContext
+from websockets.legacy.client import Connect as WSConnectionContext
 from urllib.parse import urlencode
 from yarl import URL
 
