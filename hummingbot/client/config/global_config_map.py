@@ -366,7 +366,7 @@ main_config_map = {
                   prompt="Network timeout when fetching the minimum order amount"
                          " in the create command (in seconds)  >>> ",
                   type_str="decimal",
-                  validator=lambda v: validate_decimal(v, min_value=Decimal("0"), inclusive=True),
+                  validator=lambda v: validate_decimal(v, min_value=Decimal("0"), inclusive=False),
                   required_if=lambda: False,
                   default=Decimal("10")),
     "other_commands_timeout":
@@ -374,7 +374,7 @@ main_config_map = {
                   prompt="Network timeout to apply to the other commands' API calls"
                          " (i.e. import, connect, balance, history; in seconds)  >>> ",
                   type_str="decimal",
-                  validator=lambda v: validate_decimal(v, min_value=Decimal("0"), inclusive=True),
+                  validator=lambda v: validate_decimal(v, min_value=Decimal("0"), inclusive=False),
                   required_if=lambda: False,
                   default=Decimal("30")),
 }
