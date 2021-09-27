@@ -71,6 +71,8 @@ def main():
         "hummingbot.connector.exchange.huobi",
         "hummingbot.connector.exchange.k2",
         "hummingbot.connector.exchange.kraken",
+        "hummingbot.connector.exchange.bitmart",
+        "hummingbot.connector.exchange.crypto_com",
         "hummingbot.connector.exchange.kucoin",
         "hummingbot.connector.exchange.liquid",
         "hummingbot.connector.exchange.loopring",
