@@ -118,7 +118,9 @@ class KucoinWSConnectionIterator:
             token: str = data["data"]["token"]
             ws_url: str = f"{endpoint}?token={token}&acceptUserMessage=true"
             async with self._throttler.execute_task(limit_id=CONSTANTS.WS_CONNECTION_LIMIT_ID):
-                self._ws = await self._client.ws_connect(ws_url)
+                self._ws = await self._client.ws_connect(
+                    ws_url, autoping=True, heartbeat=CONSTANTS.WS_PING_HEARTBEAT
+                )
 
     async def close_ws_connection(self):
         if self._ws is not None:

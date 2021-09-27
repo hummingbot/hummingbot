@@ -77,7 +77,7 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self.logger().info(f"Connecting to {stream_url}.")
 
         async with self._throttler.execute_task(CONSTANTS.WS_CONNECTION_LIMIT_ID):
-            return await client.ws_connect(stream_url, heartbeat=40)
+            return await client.ws_connect(stream_url, autoping=True, heartbeat=CONSTANTS.WS_PING_HEARTBEAT)
 
     async def _inner_messages(self, ws: aiohttp.ClientWebSocketResponse) -> AsyncIterable[str]:
         while True:
