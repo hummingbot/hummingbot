@@ -24,11 +24,10 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.logger import HummingbotLogger
+from hummingbot.connector.exchange.peatio.peatio_urls import PEATIO_ROOT_API, PEATIO_WS_URL
 from hummingbot.connector.exchange.peatio.peatio_order_book import PeatioOrderBook
 from hummingbot.connector.exchange.peatio.peatio_utils import convert_to_exchange_trading_pair, PeatioAPIError
 
-PEATIO_BASE_API_URL = "https://market.bitzlato.com/api/v2/peatio"
-PEATIO_WS_URL = "wss://market.bitzlato.com/api/v2/ranger/public"
 
 PEATIO_TRADES_STREAM = "stream={market}.trades"
 
@@ -41,6 +40,7 @@ class PeatioAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     MESSAGE_TIMEOUT = 30.0
     PING_TIMEOUT = 10.0
+    STATES = dict()
 
     _haobds_logger: Optional[HummingbotLogger] = None
 
@@ -65,7 +65,7 @@ class PeatioAPIOrderBookDataSource(OrderBookTrackerDataSource):
             "Accept": accept,
         }
 
-        url = PEATIO_BASE_API_URL + path
+        url = PEATIO_ROOT_API + path
         if client is None:
             async with aiohttp.ClientSession() as client:
                 resp = await client.request(
@@ -88,13 +88,15 @@ class PeatioAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         try:
             return await resp.json()
-        except Exception:
-            raise IOError(f"Error parsing data from {url}.")
+        except Exception as e:
+            raise IOError(f"Error {e} parsing data from {url}.")
 
     @classmethod
     async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
         results = dict()
         resp_json = await cls.http_api_request(method='get', path=PEATIO_TICKER_PATH)
+        if resp_json is None:
+            return results
         for trading_pair in trading_pairs:
             resp_record = resp_json.get(convert_to_exchange_trading_pair(trading_pair))
             if resp_record is None:
@@ -191,20 +193,22 @@ class PeatioAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         elif len(set(subscribe_request["streams"]).intersection(set(msg.keys()))) > 0:
                             for stream_name in set(subscribe_request["streams"]).intersection(set(msg.keys())):
                                 trading_pair = stream_name.split(".")[1]
-                                data = {
-                                    "direction": msg[stream_name]["taker_type"],
-                                    "id": msg[stream_name]["tid"],
-                                    "amount": msg[stream_name]["amount"],
-                                    "price": msg[stream_name]["price"],
-                                    "timestamp": msg[stream_name]["created_at"],
-                                }
-                                trade_message: OrderBookMessage = PeatioOrderBook.trade_message_from_exchange(
-                                    data, metadata={"trading_pair": trading_pair}
-                                )
-                                output.put_nowait(trade_message)
+                                for trade in msg[stream_name]["trades"]:
+                                    data = {
+                                        "direction": trade["taker_type"],
+                                        "id": trade["tid"],
+                                        "amount": trade["amount"],
+                                        "price": trade["price"],
+                                        "timestamp": trade["date"],
+                                    }
+                                    trade_message: OrderBookMessage = PeatioOrderBook.trade_message_from_exchange(
+                                        data, metadata={"trading_pair": trading_pair}
+                                    )
+                                    output.put_nowait(trade_message)
                         else:
-                            self.logger().debug(f"Unrecognized message received from Peatio websocket: {msg}")
-            except asyncio.CancelledError:
+                            self.logger().info(f"Unrecognized message [listen_for_trades] received from Peatio websocket: {msg}")
+            except asyncio.CancelledError as e:
+                self.logger().error(e)
                 raise
             except Exception:
                 self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
@@ -224,25 +228,56 @@ class PeatioAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         ],
                         "event": "subscribe"
                     }
+                    required_streams = set(subscribe_request["streams"])
+                    required_streams.update(
+                        {f"{convert_to_exchange_trading_pair(trading_pair)}.ob-snap" for trading_pair in trading_pairs}
+                    )
                     await ws.send(json.dumps(subscribe_request))
 
                     async for raw_msg in self._inner_messages(ws):
                         msg: Dict[str, Any] = json.loads(raw_msg)
                         if "error" in msg:
                             raise PeatioAPIError(msg["error"]["message"])
-                        elif len(set(subscribe_request["streams"]).intersection(set(msg.keys()))) > 0:
-                            for stream_name in set(subscribe_request["streams"]).intersection(set(msg.keys())):
-                                trading_pair = stream_name.split(".")[1]
-                                data = {
-                                    "bids": msg[stream_name]["bids"],
-                                    "asks": msg[stream_name]["asks"],
-                                    "timestamp": datetime.datetime.utcnow(),
-                                }
+                        elif len(required_streams.intersection(set(msg.keys()))) > 0:
+                            for stream_name in required_streams.intersection(set(msg.keys())):
+                                trading_pair = stream_name.split(".")[0]
+                                sequence = msg[stream_name].get("sequence", 0)
+                                if sequence <= self.STATES.get(trading_pair, {}).get("last_sequence", -1):
+                                    continue
+                                if stream_name.endswith(".ob-snap"):
+                                    self.STATES[trading_pair] = {
+                                        "last_sequence": sequence,
+                                        "bids": dict(msg[stream_name].get("bids", [])),
+                                        "asks": dict(msg[stream_name].get("asks", [])),
+                                    }
+                                elif stream_name.endswith(".ob-inc"):
+                                    self.STATES[trading_pair]["last_sequence"] = sequence
+                                    new_bid = msg[stream_name].get('bids', [])
+                                    if len(new_bid) > 1:
+                                        if new_bid[1] != '':
+                                            self.STATES[trading_pair]["bids"].update(dict([new_bid]))
+                                        else:
+                                            self.STATES[trading_pair]["bids"].pop(new_bid[0], None)
+                                    new_ask = msg[stream_name].get('asks', [])
+                                    if len(new_ask) > 1:
+                                        if new_ask[1] != '':
+                                            self.STATES[trading_pair]["asks"].update(dict([new_ask]))
+                                        else:
+                                            self.STATES[trading_pair]["asks"].pop(new_ask[0], None)
+                                else:
+                                    self.logger().warning(f"unexpected stream {stream_name}. msg={msg}")
+                                    continue
 
+                                data = {
+                                    "bids": list(self.STATES[trading_pair].get("bids", []).items()),
+                                    "asks": list(self.STATES[trading_pair].get("asks", []).items()),
+                                    "update_id": self.STATES[trading_pair].get("last_sequence", 0),
+                                    "timestamp": datetime.datetime.utcnow().timestamp(),
+                                }
                                 order_book_message: OrderBookMessage = PeatioOrderBook.diff_message_from_exchange(data, metadata={"trading_pair": trading_pair})
                                 output.put_nowait(order_book_message)
                         else:
-                            self.logger().debug(f"Unrecognized message received from Peatio websocket: {msg}")
+                            self.logger().info(f"Unrecognized message [listen_for_order_book_diffs] received from Peatio websocket: {msg}")
             except asyncio.CancelledError:
                 raise
             except Exception:

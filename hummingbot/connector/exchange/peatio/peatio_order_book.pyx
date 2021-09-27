@@ -39,7 +39,8 @@ cdef class PeatioOrderBook(OrderBook):
         msg_ts = int(msg["timestamp"])
         content = {
             "trading_pair": convert_from_exchange_trading_pair(msg["trading_pair"]),
-            "update_id": msg_ts,
+            "update_id": msg.get("update_id", 0),
+            # "update_id": msg_ts,
             "bids": msg["bids"],
             "asks": msg["asks"]
         }
@@ -55,7 +56,7 @@ cdef class PeatioOrderBook(OrderBook):
         msg_ts = int(msg["timestamp"] * 1e-3)
         content = {
             "trading_pair": convert_from_exchange_trading_pair(msg["trading_pair"]),
-            "trade_type": float(TradeType.SELL.value) if msg["direction"] == "buy" else float(TradeType.BUY.value),
+            "trade_type": float(TradeType.SELL.value) if msg["direction"] == "sell" else float(TradeType.BUY.value),
             "trade_id": msg["id"],
             "update_id": msg_ts,
             "amount": msg["amount"],
@@ -73,9 +74,10 @@ cdef class PeatioOrderBook(OrderBook):
         msg_ts = int(msg["timestamp"] * 1e-3)
         content = {
             "trading_pair": convert_from_exchange_trading_pair(msg["trading_pair"]),
-            "update_id": msg_ts,
+            "update_id": msg["update_id"],
+            # "update_id": msg_ts,
             "bids": msg["bids"],
-            "asks": msg["asks"]
+            "asks": msg["asks"],
         }
         return OrderBookMessage(OrderBookMessageType.DIFF, content, timestamp or msg_ts)
 

@@ -18,18 +18,11 @@ class PeatioAuth:
         if not headers:
             headers = {}
 
-        if is_ws:
-            headers.update({
-                "X-Auth-Apikey": self.access_key,
-                "X-Auth-Nonce": nonce,
-                "X-Auth-Signature": self.generate_x_auth_signature(nonce),
-            })
-        else:
-            headers.update({
-                "X-Auth-Apikey": self.access_key,
-                "X-Auth-Nonce": nonce,
-                "X-Auth-Signature": self.generate_x_auth_signature(nonce),
-            })
+        headers.update({
+            "X-Auth-Apikey": self.access_key,
+            "X-Auth-Nonce": nonce,
+            "X-Auth-Signature": self.generate_x_auth_signature(nonce),
+        })
 
         return headers
 

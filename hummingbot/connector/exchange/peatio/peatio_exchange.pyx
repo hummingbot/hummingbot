@@ -51,6 +51,7 @@ from hummingbot.connector.exchange.peatio.peatio_api_user_stream_data_source imp
 )
 from hummingbot.connector.exchange.peatio.peatio_in_flight_order import PeatioInFlightOrder
 from hummingbot.connector.exchange.peatio.peatio_order_book_tracker import PeatioOrderBookTracker
+from hummingbot.connector.exchange.peatio.peatio_urls import PEATIO_ROOT_API
 from hummingbot.connector.exchange.peatio.peatio_utils import (
     convert_to_exchange_trading_pair,
     convert_from_exchange_trading_pair,
@@ -66,7 +67,7 @@ hm_logger = None
 s_decimal_0 = Decimal(0)
 s_decimal_NaN = Decimal("NaN")
 s_decimal_inf = Decimal('inf')
-PEATIO_ROOT_API = "https://market.bitzlato.com/api/v2/peatio"
+
 
 cdef class PeatioExchangeTransactionTracker(TransactionTracker):
     cdef:
@@ -739,7 +740,7 @@ cdef class PeatioExchange(ExchangeBase):
             exchange_order = await self.place_order(trading_pair, decimal_amount, True, order_type, decimal_price)
             self.c_start_tracking_order(
                 client_order_id=str(client_order_id),
-                exchange_order_id=exchange_order["id"],
+                exchange_order_id=str(exchange_order["id"]),
                 trading_pair=trading_pair,
                 order_type=order_type,
                 trade_type=TradeType.BUY,
@@ -768,7 +769,8 @@ cdef class PeatioExchange(ExchangeBase):
             self.logger().network(
                 f"Error submitting buy {order_type_str} order to Peatio for "
                 f"{decimal_amount} {trading_pair} "
-                f"{decimal_price}.",
+                f"{decimal_price}."
+                f"server_resp: {exchange_order}",
                 exc_info=True,
                 app_warning_msg=f"Failed to submit buy order to Peatio. Check API key and network connection."
             )
@@ -809,14 +811,14 @@ cdef class PeatioExchange(ExchangeBase):
         )
 
         if decimal_amount < trading_rule.min_order_size:
-            raise ValueError(f"Sell order amount {decimal_amount} is lower than the minimum order size "
+            raise ValueError(f"Sell order amount {decimal_amount}({amount}) is lower than the minimum order size "
                              f"{trading_rule.min_order_size}.")
 
         try:
             exchange_order = await self.place_order(trading_pair, decimal_amount, False, order_type, decimal_price)
             self.c_start_tracking_order(
                 client_order_id=client_order_id,
-                exchange_order_id=exchange_order["id"],
+                exchange_order_id=str(exchange_order["id"]),
                 trading_pair=trading_pair,
                 order_type=order_type,
                 trade_type=TradeType.SELL,
@@ -977,6 +979,7 @@ cdef class PeatioExchange(ExchangeBase):
             object notional_size
         # Check against min_order_size. If not passing check, return 0.
         if quantized_amount < trading_rule.min_order_size:
+            self.logger().warning(f"quantized_amount ({quantized_amount}) < min_order_size ({trading_rule.min_order_size})")
             return s_decimal_0
 
         # Check against max_order_size. If not passing check, return maximum.

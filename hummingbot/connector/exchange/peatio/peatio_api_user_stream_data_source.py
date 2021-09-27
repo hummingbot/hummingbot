@@ -11,12 +11,10 @@ from typing import (
 )
 
 from hummingbot.connector.exchange.peatio.peatio_auth import PeatioAuth
+from hummingbot.connector.exchange.peatio.peatio_urls import PEATIO_WS_URL
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 
-PEATIO_API_ENDPOINT = "https://market.bitzlato.com/api/v2/peatio"
-PEATIO_WS_ENDPOINT = "wss://market.bitzlato.com/api/v2/ranger/public"
-PEATIO_WS_PRIVATE_ENDPOINT = "wss://market.bitzlato.com/api/v2/ranger/private"
 
 # PEATIO_ACCOUNT_UPDATE_TOPIC = "accounts.update#2"
 PEATIO_ORDER_UPDATE_TOPIC = "orders"
@@ -64,10 +62,6 @@ class PeatioAPIUserStreamDataSource(UserStreamTrackerDataSource):
             self.logger().info("Successfully authenticated")
 
     async def _subscribe_topic(self, topic: str):
-        subscribe_request = {
-            "action": "sub",
-            "ch": topic
-        }
         subscribe_request: Dict[str, Any] = {
             "streams": [topic],
             "event": "subscribe"
@@ -79,7 +73,7 @@ class PeatioAPIUserStreamDataSource(UserStreamTrackerDataSource):
         if self._client_session is None:
             self._client_session = aiohttp.ClientSession()
 
-        stream_url: str = f"{PEATIO_WS_ENDPOINT}"
+        stream_url: str = f"{PEATIO_WS_URL}"
         return self._client_session.ws_connect(stream_url)
 
     async def _socket_user_stream(self) -> AsyncIterable[str]:

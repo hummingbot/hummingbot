@@ -78,8 +78,8 @@ class PeatioOrderBookTracker(OrderBookTracker):
                 # Log some statistics.
                 now: float = time.time()
                 if int(now / 60.0) > int(last_message_timestamp / 60.0):
-                    self.logger().debug(f"Diff messages processed: {messages_accepted}, "
-                                        f"rejected: {messages_rejected}, queued: {messages_queued}")
+                    self.logger().info(f"Diff messages processed: {messages_accepted}, "
+                                       f"rejected: {messages_rejected}, queued: {messages_queued}")
                     messages_accepted = 0
                     messages_rejected = 0
                     messages_queued = 0
