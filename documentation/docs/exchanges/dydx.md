@@ -1,6 +1,7 @@
 ---
 tags:
 - spot exchange connector
+- ethereum dex
 ---
 
 # `dydx`
@@ -20,24 +21,16 @@ tags:
 ## 👷 Maintenance
 
 * Release added: [0.34.0](/release-notes/0.34.0/) by CoinAlpha
-* Maintainer:
+* Maintainer: CoinAlpha
 
 ## 🔑 Connection
 
-Run `connect dydx` in order to enter your API keys:
- 
-```
-Enter your Ethereum private key >>>
-Which Ethereum node would you like your client to connect to? >>>
-```
+Since this exchange is an Ethereum-based decentralized exchange (DEX), first run `connect ethereum` in order to connect your Ethereum wallet. See [Ethereum](/protocols/ethereum) for more information. Then, go to dYdX and create API keys for the same Ethereum wallet.
 
-If connection is successful:
-```
-You are now connected to dydx.
-```
+Next, run `connect dydx` in Hummingbot in order to add your API keys.
 
 ## 🪙 Fees
 
-Hummingbot assumes 0.0 maker fees and 0.3% taker fees ([source](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/exchange/dydx/dydx_utils.py#L11)).
+Hummingbot assumes 0.0% maker fees and 0.3% taker fees ([source](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/exchange/dydx/dydx_utils.py#L11)).
 
 Users can override these assumptions with [Override Fees](/global-configs/override-fees/).

@@ -1,6 +1,7 @@
 ---
 tags:
 - spot exchange connector
+- ethereum dex
 ---
 
 # `loopring`
@@ -24,10 +25,11 @@ tags:
 
 ## 🔑 Connection
 
-Run `connect loopring` in order to enter your API keys:
- 
-```
+Since this exchange is an Ethereum-based decentralized exchange (DEX), first run `connect ethereum` in order to connect your Ethereum wallet. See [Ethereum](/protocols/ethereum) for more information. Then, go to dYdX and create API keys for the same Ethereum wallet.
 
+Next, `connect loopring` in Hummingbot in order to enter your API keys:
+
+```
 Enter your Loopring account id >>>
 Enter the Loopring exchange address >>>
 Enter your Loopring private key >>>

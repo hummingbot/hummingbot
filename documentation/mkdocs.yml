@@ -48,7 +48,7 @@ theme:
 plugins:
   - search
   - tags
-  # - git-revision-date
+  - git-revision-date
   # - social:
   #     cards_color:
   #       fill: '#0FF1CE'

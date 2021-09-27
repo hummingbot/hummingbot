@@ -1,48 +1,49 @@
-# Binance Futures
+---
+tags:
+- perp exchange connector
+---
 
-<meta charset="utf-8" />
+# `binance_perpetual`
 
-Binance Futures is the fastest-growing crypto-derivative exchange by trading volume and currently offers the highest leverage of 125x margin among major crypto exchanges, making it one of the most competitive products in the market. This was made possible by our robust risk management system, which includes a sophisticated risk engine, smart liquidation model, and insurance funds that provide traders with extra protection for highly leveraged trading.
+## 📁 [Connector folder](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/connector/exchange/binance)
 
-## Using the connector
+## ℹ️ Exchange Info
 
-Like the Binance connector, you will need to generate and provide your API key to trade using Hummingbot.
+**Binance.com (Futures)** [Website](https://www.binance.com/en/futures) | [CoinMarketCap](https://coinmarketcap.com/exchanges/binance/) | [CoinGecko](https://www.coingecko.com/en/exchanges/binance)
 
+* API docs: https://binance-docs.github.io/apidocs/futures/en/#change-log
+* Transaction fees: https://www.binance.com/en/support/faq/360033544231
+* Creating API keys: https://www.binance.com/en/support/faq/360002502072
+* Trading rules: https://www.binance.com/en/futures/trading-rules/perpetual
+* Leverage and margin: https://www.binance.com/en/support/faq/360033162192
+
+!!! note "Enable Futures"
+    Ensure that the option **Enable Futures** is checked when you create your API key. If you don't see this option, you may need to open a Binance Futures account first.
+
+## 👷 Maintenance
+
+* Release added: [0.33.0](/release-notes/0.33.0/) by CoinAlpha
+* Maintainer: CoinAlpha
+
+## 🔑 Connection
+
+Run `connect binance_perpetual` in order to enter your API keys:
+ 
 ```
-Enter your Binance Perpetual API key >>>
-Enter your Binance Perpetual API secret >>>
+Enter your binance_perpetual API key >>>
+Enter your binance_perpetual secret key >>>
 ```
 
-Private keys and API keys are stored locally for the operation of the Hummingbot client only. At no point will private or API keys be shared to CoinAlpha or be used in any way other than to authorize transactions required for the operation of Hummingbot.
+If connection is successful:
+```
+You are now connected to binance_perpetual.
+```
 
-!!! tip
-    For copying and pasting into Hummingbot, see [this page](/operation/user-interface/#keyboard-shortcuts).
+!!! tip "Testnet available"
+    Hummingbot supports the testnet version of this exchange. To connect to the testnet exchange, run `connect binance_perpetual_testnet` instead.
 
-### Creating Binance Futures API keys
+## 🪙 Fees
 
-1. Log into your account at https://www.binance.com, then select **Account**> **API Management** (If you do not have an account, you will have to create one and verify your ID).
-2. Follow on-screen instructions to create your API keys.
-3. After creating the API key, click **Edit restrictions** and tick **Enable Futures** to enable future tradings on your API key.
+Hummingbot assumes 0.02% maker fees and 0.04% taker fees ([source](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/exchange/binance/binance_utils.py#L10)).
 
-![](/assets/img/api-restriction.jpg)
-
-> **Important:**
-
-- If you don't see **Enable Futures** under your API key permissions, you need to open a Futures account by simply going to **Derivatives** > **USDT features** > **Open account**
-- For API key permissions, we recommend using only `trade` enabled API keys for `Enable Futures` checkbox; enabling `withdraw`, `transfer`, or `the equivalent is unnecessary` for current Hummingbot strategies.
-- Make sure you store your Secret Key somewhere secure and do not share it with anyone. Your Secret Key will only be displayed once at the time when you create the API.
-- If you lose your Secret Key, you can delete the API and create a new one. However, it will be impossible to reuse the same API.
-
-### Creating Binance Futures Testnet API Keys
-
-If you’d like to test without risking real funds, you can try out the Binance Futures testnet.
-
-1. Login or register for a new account at https://testnet.binancefuture.com/
-2. Under **Position and Open orders**, select **API key** tab and your Binance Futures testnet API key will be automatically generated.
-
-![](/assets/img/testnet-api.jpg)
-
-## Contract specifications of Binance Perpetuals
-
-- Trading Rules: Please see [Binance future trading rules](https://www.binance.com/en/futures/trading-rules)
-- Leverage and Margin: Please see [Leverage and Margin](https://www.binance.com/en/support/faq/360033162192)
+Users can override these assumptions with [Override Fees](/global-configs/override-fees/).
