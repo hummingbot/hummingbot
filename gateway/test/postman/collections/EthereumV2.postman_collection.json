@@ -1,6 +1,6 @@
 {
 	"info": {
-		"_postman_id": "03d90cb6-8a18-4e3e-a977-64d0307a1598",
+		"_postman_id": "f2655c53-5a2d-4030-9cf3-a56001413ca6",
 		"name": "EthereumV2",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
@@ -11,19 +11,13 @@
 				"method": "POST",
 				"header": [],
 				"body": {
-					"mode": "urlencoded",
-					"urlencoded": [
-						{
-							"key": "tokenSymbols",
-							"value": "[\"WETH\", \"DAI\"]",
-							"type": "text"
-						},
-						{
-							"key": "privateKey",
-							"value": "{{privateKey}}",
-							"type": "text"
+					"mode": "raw",
+					"raw": "{\r\n    \"privateKey\":\"{{privateKey}}\",\r\n    \"tokenSymbols\":[\"ETH\",\"WETH\",\"USDC\", \"DAI\"]\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
 						}
-					]
+					}
 				},
 				"url": {
 					"raw": "https://localhost:{{port}}/eth/balances",
@@ -45,8 +39,26 @@
 			"request": {
 				"method": "POST",
 				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"txHash\":\"0x6d068067a5e5a0f08c6395b31938893d1cdad81f54a54456221ecd8c1941294d\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
 				"url": {
-					"raw": ""
+					"raw": "https://localhost:{{port}}/eth/poll",
+					"protocol": "https",
+					"host": [
+						"localhost"
+					],
+					"port": "{{port}}",
+					"path": [
+						"eth",
+						"poll"
+					]
 				}
 			},
 			"response": []
@@ -57,29 +69,13 @@
 				"method": "POST",
 				"header": [],
 				"body": {
-					"mode": "urlencoded",
-					"urlencoded": [
-						{
-							"key": "spender",
-							"value": "",
-							"type": "text"
-						},
-						{
-							"key": "privateKey",
-							"value": "{{privateKey}}",
-							"type": "text"
-						},
-						{
-							"key": "token",
-							"value": "",
-							"type": "text"
-						},
-						{
-							"key": "amount",
-							"value": "",
-							"type": "text"
+					"mode": "raw",
+					"raw": "{\r\n    \"privateKey\":\"{{privateKey}}\",\r\n    \"spender\":\"uniswap\",\r\n    \"token\":\"DAI\",\r\n    \"amount\":\"\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
 						}
-					]
+					}
 				},
 				"url": {
 					"raw": "https://localhost:{{port}}/eth/approve",
@@ -102,27 +98,13 @@
 				"method": "POST",
 				"header": [],
 				"body": {
-					"mode": "urlencoded",
-					"urlencoded": [
-						{
-							"key": "privateKey",
-							"value": "{{privateKey}}",
-							"description": "wallet private key",
-							"type": "text"
-						},
-						{
-							"key": "spender",
-							"value": "uniswap",
-							"description": "Name or address of the contract",
-							"type": "text"
-						},
-						{
-							"key": "tokenSymbols",
-							"value": "[\"WETH\", \"DAI\"]",
-							"description": "list of tokens",
-							"type": "text"
+					"mode": "raw",
+					"raw": "{\r\n    \"privateKey\":\"{{privateKey}}\",\r\n    \"spender\":\"uniswap\",\r\n    \"tokenSymbols\":[\"DAI\",\"WETH\"]\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
 						}
-					]
+					}
 				},
 				"url": {
 					"raw": "https://localhost:{{port}}/eth/allowances",
