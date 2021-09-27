@@ -99,6 +99,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     minimum_spread: Decimal = Decimal(0),
                     hb_app_notification: bool = False,
                     order_override: Dict[str, List[str]] = {},
+                    should_wait_order_cancel_confirmation = True,
                     ):
         if price_ceiling != s_decimal_neg_one and price_ceiling < price_floor:
             raise ValueError("Parameter price_ceiling cannot be lower than price_floor.")
@@ -149,6 +150,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._last_timestamp = 0
         self._status_report_interval = status_report_interval
         self._last_own_trade_price = Decimal('nan')
+        self._should_wait_order_cancel_confirmation = should_wait_order_cancel_confirmation
 
         self.c_add_markets([market_info.market])
 
@@ -872,6 +874,14 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             size = market.c_quantize_order_amount(self.trading_pair, size, sell.price)
             sell.size = size
 
+    def adjusted_available_balance_for_orders_budget_constrain(self):
+        candidate_hanging_orders = self.hanging_orders_tracker.candidate_hanging_orders_from_pairs()
+        all_limit_orders = []
+        if self.market_info in self._sb_order_tracker.get_limit_orders():
+            all_limit_orders = self._sb_order_tracker.get_limit_orders()[self.market_info].values()
+        all_non_hanging_orders = list(set(all_limit_orders) - set(candidate_hanging_orders))
+        return self.c_get_adjusted_available_balance(all_non_hanging_orders)
+
     cdef c_apply_budget_constraint(self, object proposal):
         cdef:
             ExchangeBase market = self._market_info.market
@@ -879,7 +889,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             object base_size
             object adjusted_amount
 
-        base_balance, quote_balance = self.c_get_adjusted_available_balance(self.active_non_hanging_orders)
+        base_balance, quote_balance = self.adjusted_available_balance_for_orders_budget_constrain()
 
         for buy in proposal.buys:
             buy_fee = market.c_get_fee(self.base_asset, self.quote_asset, OrderType.LIMIT, TradeType.BUY,
@@ -1177,9 +1187,11 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     cdef bint c_to_create_orders(self, object proposal):
         non_hanging_orders_non_cancelled = [o for o in self.active_non_hanging_orders if not
                                             self._hanging_orders_tracker.is_potential_hanging_order(o)]
-        return self._create_timestamp < self._current_timestamp and \
-            proposal is not None and \
-            len(non_hanging_orders_non_cancelled) == 0
+        return (self._create_timestamp < self._current_timestamp
+                and (not self._should_wait_order_cancel_confirmation or
+                     len(self._sb_order_tracker.in_flight_cancels) == 0)
+                and proposal is not None
+                and len(non_hanging_orders_non_cancelled) == 0)
 
     cdef c_execute_orders_proposal(self, object proposal):
         cdef:

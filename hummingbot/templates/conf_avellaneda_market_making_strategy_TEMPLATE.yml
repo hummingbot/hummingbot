@@ -2,7 +2,7 @@
 ###       Avellaneda market making strategy config    ###
 ########################################################
 
-template_version: 5
+template_version: 6
 strategy: null
 
 # Exchange and token parameters.
@@ -73,3 +73,6 @@ closing_time: null
 
 # Buffer size used to store historic samples and calculate volatility
 volatility_buffer_size: 60
+
+# If the strategy should wait to receive cancellations confirmation before creating new orders during refresh time
+should_wait_order_cancel_confirmation: True
