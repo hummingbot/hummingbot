@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 23
+template_version: 24
 
 # Exchange configs
 bamboo_relay_use_coordinator: false
@@ -243,3 +243,9 @@ global_token_symbol:
 # Enter 50 to indicate 50%. E.g. if the API rate limit is 100 calls per second, and you allocate 50% to this setting,
 # the bot will have a maximum (limit) of 50 calls per second
 rate_limits_share_pct:
+
+# network timeout when fetching minimum order amount in the `create` command
+create_command_timeout: 10
+
+# network timeout for other commands (i.e. import, connect, balance, history)
+other_commands_timeout: 30

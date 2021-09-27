@@ -71,6 +71,7 @@ class StartCommand:
                 RateOracle.get_instance().start()
         is_valid = await self.status_check_all(notify_success=False)
         if not is_valid:
+            self._notify("Status checks failed. Start aborted.")
             return
         if self._last_started_strategy_file != self.strategy_file_name:
             init_logging("hummingbot_logs.yml",
