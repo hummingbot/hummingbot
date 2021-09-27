@@ -68,3 +68,28 @@ class GateIoWebsocketTest(unittest.TestCase):
         ret = self.async_run_with_timeout(async_iter.__anext__(), timeout=0.1)
 
         self.assertEqual(mock_event, ret["event"])
+
+    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_backup_ping_pong(self, mock_ws):
+        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
+        default_receive = mock_ws.return_value.receive.side_effect
+
+        self.async_run_with_timeout(self.ws.connect())
+        async_iter = self.ws.on_message()
+
+        async def switch_back_and_raise_timeout(*args, **kwargs):
+            mock_ws.return_value.receive.side_effect = default_receive
+            raise asyncio.TimeoutError
+
+        mock_ws.return_value.receive.side_effect = switch_back_and_raise_timeout
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            mock_ws.return_value, json.dumps({"channel": "spot.pong"})  # should be ignored
+        )
+        mock_event = "somEvent"
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            mock_ws.return_value, json.dumps({"event": mock_event})
+        )
+
+        ret = self.async_run_with_timeout(async_iter.__anext__(), timeout=1)
+
+        self.assertEqual(mock_event, ret["event"])

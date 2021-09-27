@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import asyncio
 import logging
 import json
 import time
@@ -42,9 +43,7 @@ class GateIoWebsocket:
 
     # connect to exchange
     async def connect(self):
-        self._client = await self._session.ws_connect(
-            self._WS_URL, autoping=True, heartbeat=CONSTANTS.MESSAGE_TIMEOUT
-        )
+        self._client = await self._session.ws_connect(self._WS_URL, autoping=True)
         self._closed = False
         return self._client
 
@@ -61,45 +60,57 @@ class GateIoWebsocket:
         try:
             while True:
                 try:
-                    msg = await self._client.receive()
-                    if msg.type == aiohttp.WSMsgType.CLOSED:  # happens on ping-pong timeout or ws.close()
+                    msg = await self._get_message()
+
+                    if msg.type == aiohttp.WSMsgType.CLOSED:  # happens on ws.close()
                         raise ConnectionError
 
                     data = json.loads(msg.data)
                     # Raise API error for login failures.
-                    if data.get('error', None) is not None:
-                        err_msg = data.get('error', {}).get('message', data['error'])
+                    if data.get("error", None) is not None:
+                        err_msg = data.get("error", {}).get("message", data["error"])
                         raise GateIoAPIError(
-                            {'label': 'WSS_ERROR', 'message': f'Error received via websocket - {err_msg}.'}
+                            {"label": "WSS_ERROR", "message": f"Error received via websocket - {err_msg}."}
                         )
-                    yield data
 
+                    if data.get("channel") == "spot.pong":
+                        continue
+
+                    yield data
                 except ValueError:
                     continue
         except ConnectionError:
             if not self._closed:
-                self.logger().warning('The websocket connection was unexpectedly closed.')
-            return
+                self.logger().warning("The websocket connection was unexpectedly closed.")
         finally:
             await self.disconnect()
+
+    async def _get_message(self) -> aiohttp.WSMessage:
+        try:
+            msg = await self._client.receive(timeout=CONSTANTS.MESSAGE_TIMEOUT)
+        except asyncio.TimeoutError:
+            self.logger().debug("Message receive timed out. Sending ping.")
+            await self.request(channel="spot.ping")
+            msg = await self._client.receive(timeout=CONSTANTS.PING_TIMEOUT)
+        return msg
 
     # emit messages
     async def _emit(self, channel: str, data: Optional[Dict[str, Any]] = None, no_id: bool = False) -> int:
         data = data or {}
         payload = {
-            'time': int(time.time()),
-            'channel': channel,
+            "time": int(time.time()),
+            "channel": channel,
             **data,
         }
 
         # if auth class was passed into websocket class
         # we need to emit authenticated requests
         if self._is_private:
-            payload['auth'] = self._auth.generate_auth_dict_ws(payload)
+            payload["auth"] = self._auth.generate_auth_dict_ws(payload)
 
         await self._client.send_json(payload)
 
-        return payload['time']
+        return payload["time"]
 
     # request via websocket
     async def request(self, channel: str, data: Optional[Dict[str, Any]] = None) -> int:
@@ -111,10 +122,10 @@ class GateIoWebsocket:
                         channel: str,
                         trading_pairs: Optional[List[str]] = None) -> int:
         ws_params = {
-            'event': 'subscribe',
+            "event": "subscribe",
         }
         if trading_pairs is not None:
-            ws_params['payload'] = trading_pairs
+            ws_params["payload"] = trading_pairs
         return await self.request(channel, ws_params)
 
     # unsubscribe to a channel
@@ -122,10 +133,10 @@ class GateIoWebsocket:
                           channel: str,
                           trading_pairs: Optional[List[str]] = None) -> int:
         ws_params = {
-            'event': 'unsubscribe',
+            "event": "unsubscribe",
         }
         if trading_pairs is not None:
-            ws_params['payload'] = trading_pairs
+            ws_params["payload"] = trading_pairs
         return await self.request(channel, ws_params)
 
     # listen to messages by channel
