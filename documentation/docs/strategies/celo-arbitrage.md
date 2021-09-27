@@ -1,71 +1,46 @@
-# Celo Arbitrage
+---
+tags:
+- arbitrage
+- dex strategy
+- celo
+---
 
-**Updated as of v0.28.1**
+# `celo_arb`
 
-!!! warning
-    The Celo Arbitrage Strategy could not be used on Binary Installers since it would need a [gateway](/installation/gateway/#what-is-hummingbot-gateway) connection for it to work. It can only be used when running Hummingbot from source or with Docker.
 
-## Prerequisites
+## 📁 [Strategy folder](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/strategy/celo_arb)
 
-Since Celo is a blockchain protocol, in addition to the normal inventory requirements, you will need access to a Celo node and the `celo-cli` command line tool in the same machine in which you are running the Hummingbot client.
+## 📝 Summary
 
-See [Celo](/protocol-connectors/celo) for more information.
+This strategy is a predecessor to the `amm_arb` strategy built specifically to help [Celo Protocol](https://celo.org/) maintain price stability for its stablecoin pairs. Like `amm_arb`, this strategy monitors prices between AMM-based exchanges on the Celo blockchain versus another trading pair on another `spot` or `amm` exchange in order to identify arbitrage opportunities. 
 
-## Configuration parameters
+It executes offsetting buy and sell orders in both markets in order to capture arbitrage opportunities with profitability higher than `min_profitability`, net of transaction costs, which include both blockchain transaction fees (gas) and exchange fees.
 
-The following walks through all the steps when running `create` command. These parameters are fields in Hummingbot configuration files (located in the `/conf` folder, e.g. `conf/celo_arb_[#].yml`).
+!!! note
+    Currently, this strategy requires users to install the `celo-cli` tool alongside Hummingbot. In the future, CoinAlpha plans to add a Celo connector to [Gateway](/protocols/gateway) so that the generic `amm_arb` strategy works with Celo.
 
-### `secondary_market`
+## 🏦 Exchanges supported
 
-Enter another exchange you would like to trade on.
+* [Celo protocol](/protocols/celo)
+* [`spot` exchanges](/exchanges/#spot)
 
-** Prompt: **
+## 👷 Maintenance
 
-```json
-Enter your secondary exchange name
->>>
-```
+* Release added: [0.28.0](/release-notes/0.28.0/) by CoinAlpha
+* Maintainer: CoinAlpha
 
-### `secondary_market_trading_pair`
+## 🛠️ Strategy configs
 
-Enter the token trading pair for the secondary exchange.
+[Config map](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/amm_arb/amm_arb_config_map.py)
 
-** Prompt: **
+| Parameter                    | Type        | Default     | Prompt New? | Prompt                                                 |
+|------------------------------|-------------|-------------|-------------|--------------------------------------------------------|
+| `secondary_exchange` | string | | True | Enter your secondary spot connector |
+| `secondary_market` | string | | True | Enter the token trading pair you would like to trade on [secondary_exchange] |
+| `order_amount` | decimal | | True | What is the amount of [base_asset] per order? |
+| `min_profitability` | decimal | 0.3 | True | What is the minimum profitability for you to make a trade? |
+| `celo_slippage_buffer` | decimal | 0.01 | True | How much buffer do you want to add to the Celo price to account for slippage? |
 
-```json
-Enter the token trading pair you would like to trade on [secondary_market]
->>>
-```
+## 📓 Description
 
-### `min_profitability`
-
-Minimum profitability target required to execute trades.
-
-** Prompt: **
-
-```json
-What is the minimum profitability for you to make a trade?
->>>
-```
-
-### `order_amount`
-
-Order amount for each leg of the arbitrage trade.
-
-** Prompt: **
-
-```json
-What is the amount of [base_asset] per order?
->>>
-```
-
-### `celo_slippage_buffer`
-
-Percent buffer added to the Celo exchange price to account for price movement before trade execution
-
-** Prompt: **
-
-```json
-How much buffer do you want to add to the Celo price to account for slippage (Enter 1 for 1%)?
->>> 1
-```
+[Trading logic](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/amm_arb/amm_arb.py)

@@ -1,6 +1,61 @@
-# Cross Exchange Market Making
+---
+tags:
+- market making
+- ⛏️ liquidity mining strategy
+---
 
-## Architecture
+# `cross_exchange_market_making`
+
+## 📁 [Strategy folder](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/strategy/cross_exchange_market_making)
+
+## 📝 Summary
+
+Also referred to as **liquidity mirroring** or **exchange remarketing**, this strategy allows you to make a market (creates buy and sell orders) on the `maker` exchange, while hedging any filled trades on a second, `taker` exchange. The strategy attempts places maker orders at spreads that are wider than taker orders by a spread equal to `min_profitability`.
+
+## 🏦 Exchanges supported
+
+[`spot` exchanges](/exchanges/#spot)
+
+## 👷 Maintenance
+
+* Release added: [0.2.0](/release-notes/0.2.0/) by CoinAlpha
+* Maintainer: CoinAlpha
+
+## 🛠️ Strategy configs
+
+[Config map](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/cross_exchange_market_making/cross_exchange_market_making_config_map.py)
+
+
+| Parameter                    | Type        | Default     | Prompt New? | Prompt                                                 |
+|------------------------------|-------------|-------------|-------------|--------------------------------------------------------|
+| `maker_market`               | string      |             | True        | Enter your maker spot connector |
+| `taker_market`               | string      |             | True        | Enter your taker spot connector |
+| `maker_market_trading_pair`  | string      |             | True        | Enter the token trading pair you would like to trade on `[maker_market]`|
+| `taker_market_trading_pair`  | string      |             | True        | Enter the token trading pair you would like to trade on `[taker_market]`|
+| `min_profitability`          | string      |             | True        | What is the minimum profitability for you to make a trade?|
+| `order_amount`               | decimal     |             | True        | What is the amount of `base_asset` per order?|
+| `adjust_order_enabled`       | bool        | True        | True        | Do you want to enable adjust order?|
+| `active_order_canceling`     | bool        | True        | False       | Do you want to enable active order canceling?|
+| `cancel_order_threshold`     | decimal     | 5           | False       | Do you want to enable active order canceling?|
+| `limit_order_min_expiration` | decimal     | 130         | False       | How often do you want limit orders to expire (in seconds)?|
+| `top_depth_tolerance`        | decimal     | 0           | False       | What is your top depth tolerance? (in `base_asset`)|
+| `anti_hysteresis_duration`   | decimal     | 60          | False       | What is the minimum time interval you want limit orders to be adjusted? (in seconds)|
+| `order_size_taker_volume_factor`| decimal  | 25          | False       | What percentage of hedge-able volume would you like to be traded on the taker market?|
+| `order_size_taker_balance_factor`| decimal | 99.5        | False       | What percentage of asset balance would you like to use for hedging trades on the taker market?|
+| `order_size_portfolio_ratio_limit`| decimal| 16.67       | False       | What ratio of your total portfolio value would you like to trade on the maker and taker markets?|
+| `use_oracle_conversion_rate` | bool        | True        | False       | Do you want to use rate oracle on unmatched trading pairs?|
+| `taker_to_maker_base_conversion_rate`| decimal | 1       | False       | What percentage of asset balance would you like to use for hedging trades on the taker market?|
+| `taker_to_maker_quote_conversion_rate`| decimal | 1      | False       | What percentage of asset balance would you like to use for hedging trades on the maker market?|
+
+
+## 📓 Description
+
+[Trading logic](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/cross_exchange_market_making/cross_exchange_market_making.pyx)
+
+!!! note "Approximation only"
+    The description below is a general approximation of this strategy. Please inspect the strategy code in **Trading Logic** above to understand exactly how it works.
+
+### Architecture
 
 The cross exchange market making strategy performs market making trades between two markets: it emits limit orders to a less liquid, larger spread market; and emits market orders on a more liquid, smaller spread market whenever the limit orders were hit. This, in effect, sends the liquidity from the more liquid market to the less liquid market.
 
@@ -16,7 +71,7 @@ The cross exchange market making strategy's code is divided into two major parts
 
     Performs the opposite, hedging trade on the taker side, whenever a maker order has been filled.
 
-## Order Creation and Adjustment
+### Order Creation and Adjustment
 
 Here's a high-level view of the logical flow of the order creation and adjustment part. The overall logic of order creation and adjustment is pretty involved, but it can be roughly divided to the **Cancel Order Flow** and the **Create Order Flow**.
 
@@ -87,7 +142,7 @@ The logic inside the create order flow is relatively straightforward. It checks 
 
 The logic of the create order flow can be found in the function `c_check_and_create_new_orders()` in [`cross_exchange_market_making.pyx`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/cross_exchange_market_making/cross_exchange_market_making.pyx).
 
-## Hedging Order Fills
+### Hedging Order Fills
 
 The cross exchange market making strategy would always immediately hedge any order fills from the maker side, regardless of how profitable the hedge is at the moment. The rationale is, it is more useful to minimize unnecessary exposure to further market risks for the users, than to wait speculatively for a profitable moment to hedge the maker order fill - which may never come.
 

@@ -1,6 +1,7 @@
 ---
 tags:
 - market making
+- ⛏️ liquidity mining strategy
 ---
 
 # `liquidity_mining`
@@ -15,9 +16,10 @@ This strategy allows market making across multiple pairs on an exchange on a sin
 
 [`spot` exchanges](/exchanges/#spot)
 
-## 👷 Maintainer
+## 👷 Maintenance
 
-Open
+* Release added: [0.37.0](/release-notes/0.37.0/) by CoinAlpha
+* Maintainer: CoinAlpha
 
 ## 🛠️ Strategy configs
 

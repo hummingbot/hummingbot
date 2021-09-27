@@ -4,8 +4,8 @@ An exchange connector integrates with the API of a crypto exchange to enable hig
 
 Hummingbot exchange connectors try to standardize trading logic and order types across many different exchanges. Connectors are designed to handle specific exchange types:
 
-* `spot`: Connectors to central limit order book (**CLOB**) exchanges that trade **spot** markets
-* `perp`: Connectors to central limit order book (**CLOB**) exchanges that trade **perpetual swap** markets
+* `spot`: Connectors to central limit order book (CLOB) exchanges that trade **spot** markets
+* `perp`: Connectors to central limit order book (CLOB) exchanges that trade **perpetual swap** markets
 * `amm`: Connectors to automatic market maker (**AMM**) decentralized exchanges
 
 !!! note "Centralized vs decentralized exchanges"

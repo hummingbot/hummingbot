@@ -1,6 +1,7 @@
 ---
 tags:
 - arbitrage
+- perp strategy
 ---
 
 # `spot_perpetual_arbitrage`

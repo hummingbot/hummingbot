@@ -48,7 +48,7 @@ theme:
 plugins:
   - search
   - tags
-  - git-revision-date
+  # - git-revision-date
   # - social:
   #     cards_color:
   #       fill: '#0FF1CE'
@@ -147,19 +147,13 @@ nav:
       - Arbitrage: strategies/arbitrage.md
       - Avellaneda Market Making: strategies/avellaneda-market-making.md
       - Celo Arbitrage: strategies/celo-arbitrage.md
-      - Cross-Exchange Market Making:
-        - Cross-Exchange Market Making: strategies/cross-exchange-market-making/index.md
-        - Specification: strategies/cross-exchange-market-making/specification.md
+      - Cross-Exchange Market Making: strategies/cross-exchange-market-making.md
       - Liquidity Mining: strategies/liquidity-mining.md
       - Perpetual Market Making: strategies/perpetual-market-making.md
-      - Pure Market Making:
-        - Pure Market Making: strategies/pure-market-making/index.md
-        - Specification: strategies/pure-market-making/specification.md
+      - Pure Market Making: strategies/pure-market-making.md
       - Spot Perpetual Arbitrage: strategies/spot-perpetual-arbitrage.md
       - Uniswap-v3 LP: strategies/uniswap-v3-lp.md
-      - TWAP:
-        - TWAP: strategies/twap/index.md
-        - Specification: strategies/twap/specification.md
+      - TWAP: strategies/twap.md
     - Exchange Connectors:
       - Exchange Connectors: exchanges/index.md
       - AscendEX: exchanges/ascend-ex.md

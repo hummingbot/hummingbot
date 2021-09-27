@@ -1,6 +1,7 @@
 ---
 tags:
-- market making strategy
+- market making
+- ⛏️ liquidity mining strategy
 ---
 
 # `avellaneda_market_making`

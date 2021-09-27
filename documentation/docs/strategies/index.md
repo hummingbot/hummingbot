@@ -1,4 +1,4 @@
-A Hummingbot strategy is a continual process that monitors trading pairs on one or more exchanges in order to make trading decisions. Strategies separate **logic**, which is open source and public, versus **parameters**, which configure how a strategy is run in live market conditions and are defined in a local config file.
+A Hummingbot strategy is a continual process that monitors trading pairs on one or more exchanges in order to make trading decisions. Strategies separate **trading logic**, open source code that defines how the strategy behaves, versus **parameters**, user-defined variables like spread and order amount that control how the strategy is deployed against live market conditions. Strategy parameters are stored in a local **config file** that is not exposed externally.
 
 Strategies utilize the standardized trading interfaces exposed by exchange and protocol connectors, enabling developers to write code that can be used across many exchanges. Each Hummingbot strategy is a sub-folder in the [`/hummingbot/strategy`](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/strategy) folder.
 
@@ -52,5 +52,5 @@ Arbitrage strategies help you monitor different markets for opportunities to rea
 
 | Name                                                            | Valid Exchanges     | Maintainer    | Description                                                                               |
 |-----------------------------------------------------------------|---------------------|---------------|-------------------------------------------------------------------------------------------|
-| [`twap`](./twap)                                                | `spot`, `perp`      |               | Places a batch of limit orders over a period of time                                      |
-| [`vwap`](./twap)                                                | `spot`, `perp`      |               | Places a batch of limit orders based on order book volume                                 |
+| [`twap`](./twap)                                                | `spot`              |               | Places a batch of limit orders over a period of time                                      |
+| `vwap`                                                          | `spot`              |               | Places a batch of limit orders based on order book volume                                 |

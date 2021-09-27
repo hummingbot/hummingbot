@@ -1,6 +1,7 @@
 ---
 tags:
 - arbitrage
+- dex strategy
 ---
 
 # `amm_arb`
@@ -9,16 +10,17 @@ tags:
 
 ## 📝 Summary
 
-
+This strategy monitors prices between a trading pair on an `amm` exchange versus another trading pair on another `spot` or `amm` exchange in order to identify arbitrage opportunities. Similar to the `arbitrage` strategy, it executes offsetting buy and sell orders in both markets in order to capture arbitrage opportunities with profitability higher than `min_profitability`, net of transaction costs, which include both blockchain transaction fees (gas) and exchange fees.
 
 ## 🏦 Exchanges supported
 
-[`amm` exchanges](/exchanges/#amm)
-[`spot` exchanges](/exchanges/#spot)
+* [`amm` exchanges](/exchanges/#amm)
+* [`spot` exchanges](/exchanges/#spot)
 
-## 👷 Maintainer
+## 👷 Maintenance
 
-Open
+* Release added: [0.34.0](/release-notes/0.34.0/) by CoinAlpha
+* Maintainer: CoinAlpha
 
 ## 🛠️ Strategy configs
 
@@ -39,3 +41,10 @@ Open
 | `secondary_to_primary_quote_conversion_rate` | decimal | 1 | False | Enter conversion rate for secondary quote asset value to primary quote asset value |
 
 ## 📓 Description
+
+[Trading logic](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/amm_arb/amm_arb.py)
+
+!!! note "Approximation only"
+    The description below is a general approximation of this strategy. Please inspect the strategy code in **Trading Logic** above to understand exactly how it works.
+
+Coming soon.

@@ -15,13 +15,25 @@ This strategy monitor prices in two different trading pairs and executes offsett
 
 [`spot` exchanges](/exchanges/#spot)
 
-## 👷 Maintainer
+## 👷 Maintenance
 
-Open
+* Release added: [0.3.0](/release-notes/0.3.0/) by CoinAlpha
+* Maintainer: Open
 
 ## 🛠️ Strategy configs
 
 [Config map](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/arbitrage/arbitrage_config_map.py)
+
+| Parameter                    | Type        | Default     | Prompt New? | Prompt                                                 |
+|------------------------------|-------------|-------------|-------------|--------------------------------------------------------|
+| `primary_market` | string | | True | Enter your primary spot connector |
+| `secondary_market` | string | | True | Enter your secondary spot connector |
+| `primary_market_trading_pair` | string | | True | Enter the token trading pair you would like to trade on [primary_market] |
+| `secondary_market_trading_pair` | string | | True | Enter the token trading pair you would like to trade on [secondary_market] |
+| `min_profitability` | decimal | 0.3 | True | What is the minimum profitability for you to make a trade? |
+| `use_oracle_conversion_rate` | bool | | True | Do you want to use rate oracle on unmatched trading pairs? |
+| `secondary_to_primary_base_conversion_rate` | decimal | 1 | False | Enter conversion rate for secondary quote asset value to primary base asset value |
+| `secondary_to_primary_quote_conversion_rate` | decimal | 1 | False | Enter conversion rate for secondary quote asset value to primary quote asset value |
 
 ## 📓 Description
 
