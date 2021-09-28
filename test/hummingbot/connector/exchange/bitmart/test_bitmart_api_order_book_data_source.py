@@ -1,25 +1,20 @@
 import unittest
 import asyncio
 from collections import deque
-
 import ujson
-
 import hummingbot.connector.exchange.bitmart.bitmart_constants as CONSTANTS
-
 from unittest.mock import patch, AsyncMock
 from typing import (
     Any,
     Dict,
     List,
 )
-
 from hummingbot.connector.exchange.bitmart.bitmart_api_order_book_data_source import BitmartAPIOrderBookDataSource
-
 from hummingbot.connector.exchange.bitmart.bitmart_order_book_message import BitmartOrderBookMessage
 from hummingbot.core.data_type.order_book import OrderBook
-
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
 class BitmartAPIOrderBookDataSourceUnitTests(unittest.TestCase):
@@ -46,6 +41,7 @@ class BitmartAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.data_source = BitmartAPIOrderBookDataSource(self.throttler, [self.trading_pair])
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
+        self.mocking_assistant = NetworkMockingAssistant()
 
     def tearDown(self) -> None:
         self.listening_task and self.listening_task.cancel()
@@ -362,3 +358,52 @@ class BitmartAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             asyncio.get_event_loop().run_until_complete(self.data_source._create_websocket_connection())
 
         self.assertTrue(self._is_logged("NETWORK", "Unexpected error occurred during bitmart WebSocket Connection ()"))
+
+    def _trade_ws_messsage(self):
+        resp = {
+            "table": "spot/trade",
+            "data": [
+                {
+                    "symbol": "ETH_USDT",
+                    "price": "162.12",
+                    "side": "buy",
+                    "size": "11.085",
+                    "s_t": 1542337219
+                },
+                {
+                    "symbol": "ETH_USDT",
+                    "price": "163.12",
+                    "side": "buy",
+                    "size": "15",
+                    "s_t": 1542337238
+                }
+            ]
+        }
+        return ujson.dumps(resp)
+
+    @patch('websockets.connect', new_callable=AsyncMock)
+    def test_listen_for_trades(self, mock_ws):
+        msg_queue: asyncio.Queue = asyncio.Queue()
+        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
+        mock_ws.close.return_value = None
+
+        # Add message to be processed after subscriptions, to unlock the test
+        self.mocking_assistant.add_websocket_text_message(mock_ws.return_value, self._trade_ws_messsage())
+        BitmartAPIOrderBookDataSource._trading_pairs = ["ETH-USDT"]
+
+        listening_task = self.ev_loop.create_task(
+            self.data_source.listen_for_trades(self.ev_loop, msg_queue)
+        )
+        trade1: OrderBookMessage = self.ev_loop.run_until_complete(msg_queue.get())
+        trade2: OrderBookMessage = self.ev_loop.run_until_complete(msg_queue.get())
+
+        try:
+            listening_task.cancel()
+            asyncio.get_event_loop().run_until_complete(listening_task)
+        except asyncio.CancelledError:
+            # The exception will happen when cancelling the task
+            pass
+
+        self.assertTrue(msg_queue.empty())
+        self.assertEqual(1542337219 * 1000, int(trade1.trade_id))
+        self.assertEqual(1542337238 * 1000, int(trade2.trade_id))
