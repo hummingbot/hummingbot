@@ -146,7 +146,8 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             "order_books_initialized": self._order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0,
-            "funding_info": len(self._funding_info) > 0
+            "funding_info": len(self._funding_info) > 0,
+            "position_mode": self.position_mode,
         }
 
     @property
@@ -165,6 +166,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         self._funding_info_polling_task = safe_ensure_future(self._funding_info_polling_loop())
         if self._trading_required:
+            await self._get_position_mode()
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
             self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
@@ -992,32 +994,38 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             params = {
                 "dualSidePosition": position_mode.value
             }
-            mode = await self.request(
+            response = await self.request(
                 method=MethodType.POST,
                 path=CONSTANTS.CHANGE_POSITION_MODE_URL,
                 params=params,
                 add_timestamp=True,
                 is_signed=True,
-                limit_id=CONSTANTS.POST_POSITION_MODE_LIMIT_ID
+                limit_id=CONSTANTS.POST_POSITION_MODE_LIMIT_ID,
+                return_err=True
             )
-            if mode["msg"] == "success" and mode["code"] == 200:
+            if response["msg"] == "success" and response["code"] == 200:
                 self.logger().info(f"Using {position_mode.name} position mode.")
+                self._position_mode = position_mode
             else:
                 self.logger().error(f"Unable to set postion mode to {position_mode.name}.")
+                self.logger().info(f"Using {initial_mode.name} position mode.")
+                self._position_mode = initial_mode
         else:
             self.logger().info(f"Using {position_mode.name} position mode.")
+            self._position_mode = position_mode
 
-    async def _get_position_mode(self):
+    async def _get_position_mode(self) -> Optional[PositionMode]:
         # To-do: ensure there's no active order or contract before changing position mode
         if self._position_mode is None:
-            mode = await self.request(
+            response = await self.request(
                 method=MethodType.GET,
                 path=CONSTANTS.CHANGE_POSITION_MODE_URL,
                 add_timestamp=True,
                 is_signed=True,
-                limit_id=CONSTANTS.GET_POSITION_MODE_LIMIT_ID
+                limit_id=CONSTANTS.GET_POSITION_MODE_LIMIT_ID,
+                return_err=True
             )
-            self._position_mode = PositionMode.HEDGE if mode["dualSidePosition"] else PositionMode.ONEWAY
+            self._position_mode = PositionMode.HEDGE if response["dualSidePosition"] else PositionMode.ONEWAY
 
         return self._position_mode
 
@@ -1059,7 +1067,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                         if return_err:
                             return error_response
                         else:
-                            raise IOError(f"Error fetching data from {path}. HTTP status is {response.status}. "
+                            raise IOError(f"Error executing request {method.name} {path}. HTTP status is {response.status}. "
                                           f"Request Error: {error_response}")
                     return await response.json()
             except Exception as e:
