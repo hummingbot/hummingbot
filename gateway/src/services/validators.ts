@@ -32,3 +32,26 @@ export const throwErrorsIfExist = (errors: Array<string>): void => {
 export const missingParameter = (key: string): string => {
   return `The request is missing the private key: ${key}`;
 };
+
+export const validate = (
+  key: string,
+  errorMsg: string,
+  condition: (x: any) => boolean,
+  optional: boolean = false
+): ((req: any) => Array<string>) => {
+  return (req: any) => {
+    let errors: Array<string> = [];
+    if (req[key]) {
+      if (condition(req[key])) {
+      } else {
+        errors.push(errorMsg);
+      }
+    } else {
+      if (!optional) {
+        errors.push(missingParameter(key));
+      }
+    }
+
+    return errors;
+  };
+};
