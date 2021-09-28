@@ -102,7 +102,8 @@ describe('POST /eth/uniswap/trade', () => {
         quote: 'DAI',
         base: 'WETH',
         amount: '10000',
-        privateKey: 'abc123',
+        privateKey:
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
         side: 'BUY',
         nonce: 21,
       })
@@ -111,5 +112,19 @@ describe('POST /eth/uniswap/trade', () => {
       .then((res: any) => {
         expect(res.body.nonce).toEqual(21);
       });
+  });
+
+  it('should return 404 when parameters are incorrect', async () => {
+    await request(app)
+      .post(`/eth/uniswap/trade`)
+      .send({
+        quote: 'DAI',
+        base: 'WETH',
+        amount: 10000,
+        privateKey: 'da8',
+        side: 'comprar',
+      })
+      .set('Accept', 'application/json')
+      .expect(404);
   });
 });
