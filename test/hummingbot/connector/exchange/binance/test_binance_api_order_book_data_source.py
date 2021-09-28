@@ -1,10 +1,12 @@
 import asyncio
+import re
 import ujson
 import unittest
 
-
 import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
+import hummingbot.connector.exchange.binance.binance_utils as utils
 
+from aioresponses.core import aioresponses
 from typing import (
     Any,
     Dict,
@@ -107,16 +109,17 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         }
         return resp
 
-    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
+    @aioresponses()
     def test_get_last_trade_prices(self, mock_api):
-        self.mocking_assistant.configure_http_request_mock(mock_api)
+        url = utils.public_rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_response: Dict[str, Any] = {
             # Truncated Response
             "lastPrice": "100",
         }
 
-        self.mocking_assistant.add_http_response(mock_api, 200, mock_response)
+        mock_api.get(regex_url, body=ujson.dumps(mock_response))
 
         result: Dict[str, float] = self.ev_loop.run_until_complete(
             self.data_source.get_last_traded_prices(trading_pairs=[self.trading_pair],
@@ -126,12 +129,13 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(1, len(result))
         self.assertEqual(100, result[self.trading_pair])
 
+    @aioresponses()
     @patch("hummingbot.connector.exchange.binance.binance_utils.convert_from_exchange_trading_pair")
-    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
     def test_get_all_mid_prices(self, mock_api, mock_utils):
         # Mocks binance_utils for BinanceOrderBook.diff_message_from_exchange()
         mock_utils.return_value = self.trading_pair
-        self.mocking_assistant.configure_http_request_mock(mock_api)
+        url = utils.public_rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_response: List[Dict[str, Any]] = [{
             # Truncated Response
@@ -140,7 +144,7 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             "askPrice": "101",
         }]
 
-        self.mocking_assistant.add_http_response(mock_api, 200, mock_response)
+        mock_api.get(regex_url, body=ujson.dumps(mock_response))
 
         result: Dict[str, float] = self.ev_loop.run_until_complete(
             self.data_source.get_all_mid_prices()
@@ -149,12 +153,13 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(1, len(result))
         self.assertEqual(100, result[self.trading_pair])
 
+    @aioresponses()
     @patch("hummingbot.connector.exchange.binance.binance_utils.convert_from_exchange_trading_pair")
-    @patch("aiohttp.ClientSession.get")
     def test_fetch_trading_pairs(self, mock_api, mock_utils):
         # Mocks binance_utils for BinanceOrderBook.diff_message_from_exchange()
         mock_utils.return_value = self.trading_pair
-        self.mocking_assistant.configure_http_request_mock(mock_api)
+        url = utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_response: Dict[str, Any] = {
             # Truncated Response
@@ -169,7 +174,7 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             ]
         }
 
-        self.mocking_assistant.add_http_response(mock_api, 200, mock_response)
+        mock_api.get(regex_url, body=ujson.dumps(mock_response))
 
         result: Dict[str] = self.ev_loop.run_until_complete(
             self.data_source.fetch_trading_pairs()
@@ -181,11 +186,12 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
     def test_get_throttler_instance(self):
         self.assertIsInstance(BinanceAPIOrderBookDataSource._get_throttler_instance(), AsyncThrottler)
 
-    @patch("aiohttp.ClientSession.get")
+    @aioresponses()
     def test_get_snapshot_successful(self, mock_api):
-        self.mocking_assistant.configure_http_request_mock(mock_api)
+        url = utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        self.mocking_assistant.add_http_response(mock_api, 200, self._snapshot_response())
+        mock_api.get(regex_url, body=ujson.dumps(self._snapshot_response()))
 
         result: Dict[str, Any] = self.ev_loop.run_until_complete(
             self.data_source.get_snapshot(self.trading_pair)
@@ -193,19 +199,21 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.assertEqual(self._snapshot_response(), result)
 
-    @patch("aiohttp.ClientSession.get")
+    @aioresponses()
     def test_get_snapshot_catch_exception(self, mock_api):
-        self.mocking_assistant.configure_http_request_mock(mock_api)
+        url = utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        self.mocking_assistant.add_http_response(mock_api, 400, {})
+        mock_api.get(regex_url, status=400)
         with self.assertRaises(IOError):
             self.ev_loop.run_until_complete(
                 self.data_source.get_snapshot(self.trading_pair)
             )
 
-    @patch("aiohttp.ClientSession.get")
+    @aioresponses()
     def test_get_new_order_book(self, mock_api):
-        self.mocking_assistant.configure_http_request_mock(mock_api)
+        url = utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_response: Dict[str, Any] = {
             "lastUpdateId": 1,
@@ -222,7 +230,7 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                 ]
             ]
         }
-        self.mocking_assistant.add_http_response(mock_api, 200, mock_response)
+        mock_api.get(regex_url, body=ujson.dumps(mock_response))
 
         result: OrderBook = self.ev_loop.run_until_complete(
             self.data_source.get_new_order_book(self.trading_pair)
@@ -352,19 +360,26 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.assertTrue(12345, msg.update_id)
 
-    @patch("aiohttp.ClientSession.get")
+    @aioresponses()
     def test_listen_for_order_book_snapshots_cancelled_when_fetching_snapshot(self, mock_api):
-        mock_api.side_effect = asyncio.CancelledError
+        url = utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_api.get(regex_url, exception=asyncio.CancelledError)
 
         with self.assertRaises(asyncio.CancelledError):
             self.ev_loop.run_until_complete(
                 self.data_source.listen_for_order_book_snapshots(self.ev_loop, asyncio.Queue())
             )
 
-    @patch("aiohttp.ClientSession.get")
+    @aioresponses()
     def test_listen_for_order_book_snapshots_log_exception(self, mock_api):
         msg_queue: asyncio.Queue = asyncio.Queue()
-        mock_api.side_effect = lambda: self._raise_exception(Exception)
+
+        url = utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_api.get(regex_url, exception=Exception)
 
         self.listening_task = self.ev_loop.create_task(
             self.data_source.listen_for_order_book_snapshots(self.ev_loop, msg_queue)
@@ -376,12 +391,13 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.assertTrue(self._is_logged("ERROR", f"Unexpected error fetching order book snapshot for {self.trading_pair}."))
 
-    @patch("aiohttp.ClientSession.get")
+    @aioresponses()
     def test_listen_for_order_book_snapshots_successful(self, mock_api,):
         msg_queue: asyncio.Queue = asyncio.Queue()
-        self.mocking_assistant.configure_http_request_mock(mock_api)
+        url = utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        self.mocking_assistant.add_http_response(mock_api, 200, self._snapshot_response())
+        mock_api.get(regex_url, body=ujson.dumps(self._snapshot_response()))
 
         self.listening_task = self.ev_loop.create_task(
             self.data_source.listen_for_order_book_snapshots(self.ev_loop, msg_queue)
