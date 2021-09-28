@@ -40,6 +40,15 @@ describe('POST /eth/nonce', () => {
       .expect(200)
       .expect((res) => expect(res.body.nonce).toBe(2));
   });
+
+  it('should return 404 when parameters are invalid', async () => {
+    await request(app)
+      .post(`/eth/nonce`)
+      .send({
+        privateKey: 'da857cbda0ba96757fed842617a4',
+      })
+      .expect(404);
+  });
 });
 
 describe('POST /eth/approve', () => {
@@ -88,5 +97,18 @@ describe('POST /eth/approve', () => {
       .then((res: any) => {
         expect(res.body.nonce).toEqual(23);
       });
+  });
+
+  it('should return 404 when parameters are invalid', async () => {
+    await request(app)
+      .post(`/eth/approve`)
+      .send({
+        privateKey:
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        spender: 'uniswap',
+        token: 123,
+        nonce: '23',
+      })
+      .expect(404);
   });
 });
