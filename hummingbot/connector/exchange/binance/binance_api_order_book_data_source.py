@@ -5,8 +5,6 @@ import aiohttp
 import logging
 import pandas as pd
 import time
-import ujson
-import websockets
 
 import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
 
@@ -36,6 +34,8 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     MESSAGE_TIMEOUT = 30.0
     PING_TIMEOUT = 10.0
+    TRADE_STREAM_ID = 1
+    DIFF_STREAM_ID = 2
 
     _baobds_logger: Optional[HummingbotLogger] = None
 
@@ -134,10 +134,6 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                       f"Response: {response}.")
                     data: Dict[str, Any] = await response.json()
 
-                    # Need to add the symbol into the snapshot message for the Kafka message queue.
-                    # Because otherwise, there'd be no way for the receiver to know which market the
-                    # snapshot belongs to.
-
                     return data
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
@@ -152,17 +148,26 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
         order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
         return order_book
 
-    async def _inner_messages(self,
-                              ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
+    async def _create_websocket_connection(self) -> aiohttp.ClientWebSocketResponse:
+        """
+        Initialize WebSocket client for APIOrderBookDataSource
+        """
+        try:
+            return await aiohttp.ClientSession().ws_connect(url=CONSTANTS.WSS_URL.format(self._domain),
+                                                            heartbeat=30.0)
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self.logger().network(f"Unexpected error occured when connecting to WebSocket server. "
+                                  f"Error: {e}")
+            raise
+
+    async def _iter_messages(self,
+                             ws: aiohttp.ClientWebSocketResponse) -> AsyncIterable[Any]:
         # Terminate the recv() loop as soon as the next message timed out, so the outer loop can reconnect.
         try:
             while True:
-                try:
-                    msg: str = await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)
-                    yield msg
-                except asyncio.TimeoutError:
-                    pong_waiter = await ws.ping()
-                    await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
+                yield await ws.receive_json()
         except asyncio.TimeoutError:
             self.logger().warning("WebSocket ping timed out. Going to reconnect...")
             return
@@ -174,15 +179,22 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
-                ws_path: str = "/".join([f"{binance_utils.convert_to_exchange_trading_pair(trading_pair).lower()}@trade"
-                                         for trading_pair in self._trading_pairs])
-                url = CONSTANTS.WSS_URL.format(self._domain)
-                stream_url: str = f"{url}/{ws_path}"
+                ws = await self._create_websocket_connection()
+                payload = {
+                    "method": "SUBSCRIBE",
+                    "params":
+                    [
+                        f"{binance_utils.convert_to_exchange_trading_pair(trading_pair).lower()}@trade"
+                        for trading_pair in self._trading_pairs
+                    ],
+                    "id": self.TRADE_STREAM_ID
+                }
+                await ws.send_json(payload)
 
-                ws = await websockets.connect(stream_url)
-                async for raw_msg in self._inner_messages(ws):
-                    msg = ujson.loads(raw_msg)
-                    trade_msg: OrderBookMessage = BinanceOrderBook.trade_message_from_exchange(msg)
+                async for json_msg in self._iter_messages(ws):
+                    if "result" in json_msg:
+                        continue
+                    trade_msg: OrderBookMessage = BinanceOrderBook.trade_message_from_exchange(json_msg)
                     output.put_nowait(trade_msg)
             except asyncio.CancelledError:
                 raise
@@ -190,20 +202,28 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
                                     exc_info=True)
                 await asyncio.sleep(30.0)
+                await ws.close()
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
-                ws_path: str = "/".join([f"{binance_utils.convert_to_exchange_trading_pair(trading_pair).lower()}@depth"
-                                         for trading_pair in self._trading_pairs])
-                url = CONSTANTS.WSS_URL.format(self._domain)
-                stream_url: str = f"{url}/{ws_path}"
+                ws = await self._create_websocket_connection()
+                payload = {
+                    "method": "SUBSCRIBE",
+                    "params":
+                    [
+                        f"{binance_utils.convert_to_exchange_trading_pair(trading_pair).lower()}@depth"
+                        for trading_pair in self._trading_pairs
+                    ],
+                    "id": self.DIFF_STREAM_ID
+                }
+                await ws.send_json(payload)
 
-                ws = await websockets.connect(stream_url)
-                async for raw_msg in self._inner_messages(ws):
-                    msg = ujson.loads(raw_msg)
+                async for json_msg in self._iter_messages(ws):
+                    if "result" in json_msg:
+                        continue
                     order_book_message: OrderBookMessage = BinanceOrderBook.diff_message_from_exchange(
-                        msg, time.time())
+                        json_msg, time.time())
                     output.put_nowait(order_book_message)
             except asyncio.CancelledError:
                 raise
@@ -211,6 +231,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
                                     exc_info=True)
                 await asyncio.sleep(30.0)
+                await ws.close()
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
