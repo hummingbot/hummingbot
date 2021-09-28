@@ -18,6 +18,7 @@ def start(self):
         raw_market_trading_pair = self_trade_config_map.get("market_trading_pair_tuple").value
         percentage_of_price_change = self_trade_config_map.get("percentage_of_price_change").value
         trade_bands = self_trade_config_map.get("trade_bands").value
+        delta_price_changed_percent = self_trade_config_map.get("delta_price_changed_percent").value
 
         cancel_order_wait_time = self_trade_config_map.get("cancel_order_wait_time").value
 
@@ -50,7 +51,8 @@ def start(self):
                                           max_order_amount=max_order_amount,
                                           logging_options=strategy_logging_options,
                                           percentage_of_price_change=percentage_of_price_change,
-                                          trade_bands=trade_bands)
+                                          trade_bands=trade_bands,
+                                          delta_price_changed_percent=delta_price_changed_percent)
     except Exception as e:
         self._notify(str(e))
         self.logger().error("Unknown error during initialization.", exc_info=True)

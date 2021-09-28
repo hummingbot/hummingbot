@@ -62,8 +62,8 @@ cdef class SelfTradeStrategy(StrategyBase):
                  max_order_amount: Decimal = Decimal("10.0"),
                  logging_options: int = OPTION_LOG_ALL,
                  status_report_interval: float = 900,
-                 trade_bands: List[Tuple[float, Decimal]] = []
-                 ):
+                 trade_bands: List[Tuple[float, Decimal]] = [],
+                 delta_price_changed_percent: Decimal = s_decimal_zero):
         """
         :param market_infos: list of market trading pairs
         :param market_infos: float value percent
@@ -83,6 +83,7 @@ cdef class SelfTradeStrategy(StrategyBase):
         self.rate_oracle: RateOracle = RateOracle.get_instance()
         self.rate_oracle.start()
         self._percentage_of_price_change = percentage_of_price_change
+        self._delta_price_changed_percent = delta_price_changed_percent
 
         self._market_infos = {
             (market_info.market, market_info.trading_pair): market_info
@@ -112,6 +113,17 @@ cdef class SelfTradeStrategy(StrategyBase):
 
     def get_active_orders(self, market_info):
         return self.market_info_to_active_orders.get(market_info, [])
+
+    @staticmethod
+    def get_price_multiplier(delta_price_changed_percent: Decimal) -> Decimal:
+        if delta_price_changed_percent == s_decimal_zero:
+            return Decimal(1)
+        delimiter = Decimal(10 ** 4)
+        min_percent = (Decimal(-1) * delimiter * delta_price_changed_percent).quantize(Decimal("0.0001"))
+        max_percent = (delimiter * delta_price_changed_percent).quantize(Decimal("0.0001"))
+        multiplier = ((random.randint(min_percent, max_percent) / delimiter) / Decimal(100)).quantize(Decimal("0.0001"))
+
+        return Decimal(1) - multiplier
 
     @property
     def percentage_of_price_change(self) -> float:
@@ -372,7 +384,8 @@ cdef class SelfTradeStrategy(StrategyBase):
         elif not buy_price.is_nan() and not sell_price.is_nan():
             if buy_price > sell_price:
                 raise ValueError("buy_price must be less than sell_price")
-            price = (buy_price + ((sell_price - buy_price) / Decimal(2)))
+            price_multiplier = self.get_price_multiplier(delta_price_changed_percent=self._delta_price_changed_percent)
+            price = (buy_price + ((sell_price - buy_price) / Decimal(2))) * price_multiplier
 
             quantized_price = maker_market.c_quantize_order_price(trading_pair=trading_pair, price=price)
             if not buy_price < quantized_price < sell_price:
@@ -405,8 +418,9 @@ cdef class SelfTradeStrategy(StrategyBase):
 
                 if all(map(lambda x: x.check(amount=amount), self._trade_bands)):
                     price: Decimal = self.get_price(maker_market=maker_market, trading_pair=trading_pair)
-                    self.c_place_orders(market_info, is_buy=True, order_price=price, order_amount=amount)
-                    self.c_place_orders(market_info, is_buy=False, order_price=price, order_amount=amount)
+                    self.logger().warning(f"PRICE: {price}")
+                    # self.c_place_orders(market_info, is_buy=True, order_price=price, order_amount=amount)
+                    # self.c_place_orders(market_info, is_buy=False, order_price=price, order_amount=amount)
                     self._last_trade_timestamp = self._current_timestamp
                     list(map(lambda x: x.create_trade(amount=amount), self._trade_bands))
                 else:

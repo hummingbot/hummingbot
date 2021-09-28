@@ -20,6 +20,7 @@ cdef class SelfTradeStrategy(StrategyBase):
         object _min_order_amount
         object _max_order_amount
         object _last_execute_order_time
+        object _delta_price_changed_percent
 
         dict _tracked_orders
         dict _time_to_cancel

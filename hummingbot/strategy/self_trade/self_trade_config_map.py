@@ -77,4 +77,9 @@ self_trade_config_map = {
                   prompt="restrictions on the trading volume in the timestamp (hours: amount) ? >>> ",
                   type_str="str",
                   default=""),
+    "delta_price_changed_percent":
+        ConfigVar(key="price_changed_percent",
+                  prompt="the percentage by which the price will change (in percentage) ? >>> ",
+                  type_str="decimal",
+                  default="0.0"),
 }

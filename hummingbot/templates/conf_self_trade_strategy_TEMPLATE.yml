@@ -30,5 +30,8 @@ percentage_of_price_change: 0
 # restrictions on the trading volume in the timestamp (example: "0.5:300;1:900")
 trade_bands: "0.5:300;1:900"
 
+# the percentage by which the price will change (in percentage)
+delta_price_changed_percent: 0
+
 # For more detailed information, see:
 # https://docs.hummingbot.io/strategies/simple-trade/#configuration-parameters
