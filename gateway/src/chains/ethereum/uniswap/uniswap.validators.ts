@@ -1,8 +1,8 @@
 import {
   isNaturalNumberString,
   isFloatString,
-  missingParameter,
   throwErrorsIfExist,
+  validate,
 } from '../../../services/validators';
 
 import { validateNonce, validatePrivateKey } from '../ethereum.validators';
@@ -22,71 +22,36 @@ export const invalidSideError: string =
 export const invalidLimitPriceError: string =
   'The limitPrice param may be null or a string of a float or integer number.';
 
-export const validateQuote = (req: any): Array<string> => {
-  let errors: Array<string> = [];
-  if (req.quote) {
-    if (typeof req.quote === 'string') {
-    } else {
-      errors.push(invalidQuoteError);
-    }
-  } else {
-    errors.push(missingParameter('quote'));
-  }
-  return errors;
-};
+export const validateQuote = validate(
+  'quote',
+  invalidQuoteError,
+  (val) => typeof val === 'string'
+);
 
-export const validateBase = (req: any): Array<string> => {
-  let errors: Array<string> = [];
-  if (req.base) {
-    if (typeof req.base === 'string') {
-    } else {
-      errors.push(invalidBaseError);
-    }
-  } else {
-    errors.push(missingParameter('base'));
-  }
-  return errors;
-};
+export const validateBase = validate(
+  'base',
+  invalidBaseError,
+  (val) => typeof val === 'string'
+);
 
-export const validateAmount = (req: any): Array<string> => {
-  let errors: Array<string> = [];
-  if (req.amount) {
-    if (typeof req.amount === 'string' && isNaturalNumberString(req.amount)) {
-    } else {
-      errors.push(invalidAmountError);
-    }
-  } else {
-    errors.push(missingParameter('amount'));
-  }
-  return errors;
-};
+export const validateAmount = validate(
+  'amount',
+  invalidAmountError,
+  (val) => typeof val === 'string' && isNaturalNumberString(val)
+);
 
-export const validateSide = (req: any): Array<string> => {
-  let errors: Array<string> = [];
-  if (req.side) {
-    if (
-      typeof req.side === 'string' &&
-      (req.side === 'BUY' || req.side === 'SELL')
-    ) {
-    } else {
-      errors.push(invalidSideError);
-    }
-  } else {
-    errors.push(missingParameter('side'));
-  }
-  return errors;
-};
+export const validateSide = validate(
+  'side',
+  invalidSideError,
+  (val) => typeof val === 'string' && (val === 'BUY' || val === 'SELL')
+);
 
-export const validateLimitPrice = (req: any): Array<string> => {
-  let errors: Array<string> = [];
-  if (req.limitPrice) {
-    if (typeof req.limitPrice === 'string' && isFloatString(req.limitPrice)) {
-    } else {
-      errors.push(invalidLimitPriceError);
-    }
-  }
-  return errors;
-};
+export const validateLimitPrice = validate(
+  'limitPrice',
+  invalidLimitPriceError,
+  (val) => typeof val === 'string' && isFloatString(val),
+  true
+);
 
 export const validateUniswapPriceRequest = (req: UniswapPriceRequest): void => {
   const errors = validateQuote(req).concat(

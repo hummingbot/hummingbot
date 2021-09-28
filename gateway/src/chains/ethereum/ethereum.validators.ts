@@ -2,6 +2,7 @@ import {
   isNaturalNumberString,
   missingParameter,
   throwErrorsIfExist,
+  validate,
 } from '../../services/validators';
 
 import {
@@ -46,35 +47,18 @@ export const invalidNonceError: string =
 export const invalidTxHashError: string = 'The txHash param must be a string.';
 
 // given a request, look for a key called privateKey that is an Ethereum private key
-export const validatePrivateKey = (req: any): Array<string> => {
-  let errors: Array<string> = [];
-  if (req.privateKey) {
-    if (typeof req.privateKey === 'string' && isPrivateKey(req.privateKey)) {
-    } else {
-      errors.push(invalidPrivateKeyError);
-    }
-  } else {
-    errors.push(missingParameter('privateKey'));
-  }
-  return errors;
-};
+export const validatePrivateKey = validate(
+  'privateKey',
+  invalidPrivateKeyError,
+  (val) => typeof val === 'string' && isPrivateKey(val)
+);
 
 // given a request, look for a key called spender that is 'uniswap' or an Ethereum public key
-export const validateSpender = (req: any): Array<string> => {
-  let errors: Array<string> = [];
-  if (req.spender) {
-    if (
-      typeof req.spender === 'string' &&
-      (req.spender === 'uniswap' || isPublicKey(req.spender))
-    ) {
-    } else {
-      errors.push(invalidSpenderError);
-    }
-  } else {
-    errors.push(missingParameter('spender'));
-  }
-  return errors;
-};
+export const validateSpender = validate(
+  'spender',
+  invalidSpenderError,
+  (val) => typeof val === 'string' && (val === 'uniswap' || isPublicKey(val))
+);
 
 // confirm that tokenSymbols is an array of strings
 export const validateTokenSymbols = (req: any): Array<string> => {
@@ -97,54 +81,32 @@ export const validateTokenSymbols = (req: any): Array<string> => {
 };
 
 // confirm that token is a string
-export const validateToken = (req: any): Array<string> => {
-  let errors: Array<string> = [];
-  if (req.token) {
-    if (typeof req.token === 'string') {
-    } else {
-      errors.push(invalidTokenError);
-    }
-  } else {
-    errors.push(missingParameter('token'));
-  }
-  return errors;
-};
+export const validateToken = validate(
+  'token',
+  invalidTokenError,
+  (val) => typeof val === 'string'
+);
 
 // if amount exists, confirm that it is a string of a natural number
-export const validateAmount = (req: any): Array<string> => {
-  let errors: Array<string> = [];
-  if (req.amount) {
-    if (typeof req.amount === 'string' && isNaturalNumberString(req.amount)) {
-    } else {
-      errors.push(invalidAmountError);
-    }
-  }
-  return errors;
-};
+export const validateAmount = validate(
+  'amount',
+  invalidAmountError,
+  (val) => typeof val === 'string' && isNaturalNumberString(val),
+  true
+);
 
-export const validateNonce = (req: any): Array<string> => {
-  let errors: Array<string> = [];
-  if (req.nonce) {
-    if (typeof req.nonce === 'number' && req.nonce > -1) {
-    } else {
-      errors.push(invalidNonceError);
-    }
-  }
-  return errors;
-};
+export const validateNonce = validate(
+  'nonce',
+  invalidNonceError,
+  (val) => typeof val === 'number' && val > -1,
+  true
+);
 
-export const validateTxHash = (req: any): Array<string> => {
-  let errors: Array<string> = [];
-  if (req.txHash) {
-    if (typeof req.txHash === 'string') {
-    } else {
-      errors.push(invalidTxHashError);
-    }
-  } else {
-    errors.push(missingParameter('txHash'));
-  }
-  return errors;
-};
+export const validateTxHash = validate(
+  'txHash',
+  invalidTxHashError,
+  (val) => typeof val === 'string'
+);
 
 // request types and corresponding validators
 
