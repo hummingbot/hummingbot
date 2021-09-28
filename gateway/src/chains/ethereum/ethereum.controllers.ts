@@ -30,9 +30,7 @@ export async function approve(
     : constants.MaxUint256;
 
   // call approve function
-  let approval;
-
-  approval = await ethereum.approveERC20(
+  const approval = await ethereum.approveERC20(
     wallet,
     spender,
     fullToken.address,
