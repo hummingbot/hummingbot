@@ -15,6 +15,13 @@ import {
   approve,
   poll,
 } from './ethereum.controllers';
+import {
+  EthereumNonceRequest,
+  EthereumAllowancesRequest,
+  EthereumBalanceRequest,
+  EthereumApproveRequest,
+  EthereumPollRequest,
+} from './ethereum.requests';
 
 export namespace EthereumRoutes {
   export const router = Router();
@@ -44,10 +51,6 @@ export namespace EthereumRoutes {
     })
   );
 
-  interface EthereumNonceRequest {
-    privateKey: string; // the user's private Ethereum key
-  }
-
   interface EthereumNonceResponse {
     nonce: number; // the user's nonce
   }
@@ -67,12 +70,6 @@ export namespace EthereumRoutes {
       }
     )
   );
-
-  interface EthereumAllowancesRequest {
-    privateKey: string; // the users private Ethereum key
-    spender: string; // the spender address for whom approvals are checked
-    tokenSymbols: string[]; // a list of token symbol
-  }
 
   interface EthereumAllowancesResponse {
     network: string;
@@ -154,11 +151,6 @@ export namespace EthereumRoutes {
     )
   );
 
-  interface EthereumBalanceRequest {
-    privateKey: string; // the users private Ethereum key
-    tokenSymbols: string[]; // a list of token symbol
-  }
-
   interface EthereumBalanceResponse {
     network: string;
     timestamp: number;
@@ -212,14 +204,6 @@ export namespace EthereumRoutes {
     )
   );
 
-  interface EthereumApproveRequest {
-    amount?: string;
-    nonce?: number;
-    privateKey: string;
-    spender: string;
-    token: string;
-  }
-
   export interface EthereumApproveResponse {
     network: string;
     timestamp: number;
@@ -245,10 +229,6 @@ export namespace EthereumRoutes {
       }
     )
   );
-
-  interface EthereumPollRequest {
-    txHash: string;
-  }
 
   interface EthereumPollResponse {
     network: string;
