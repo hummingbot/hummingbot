@@ -9,7 +9,7 @@ export class EVMNonceManager {
   // this should be private but then we cannot mock it
   public _provider: ethers.providers.Provider | null = null;
 
-  private constructor() {}
+  // private constructor() {}
 
   public static getInstance(): EVMNonceManager {
     if (!EVMNonceManager._instance) {
