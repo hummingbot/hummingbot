@@ -1849,18 +1849,13 @@ class BybitPerpetualDerivativeTests(TestCase):
         expected_result = [PositionMode.ONEWAY]
         self.assertEqual(expected_result, testnet_non_linear_connector.supported_position_modes())
 
-    @patch("hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils.get_next_funding_timestamp")
-    def test_tick_funding_fee_poll_notifier_not_set(self, mock_time):
-        mock_time.return_value = pd.Timestamp("2021-08-21-01:00:00", tz="UTC").timestamp()
-
+    def test_tick_funding_fee_poll_notifier_not_set(self):
         self.assertFalse(self.connector._funding_fee_poll_notifier.is_set())
         self.connector.tick(int(time.time()))
         self.assertFalse(self.connector._funding_fee_poll_notifier.is_set())
 
-    @patch("hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils.get_next_funding_timestamp")
-    def test_tick_funding_fee_poll_notifier__set(self, mock_time):
+    def test_tick_funding_fee_poll_notifier_set(self):
         self.connector._next_funding_fee_timestamp = 0
-        mock_time.return_value = pd.Timestamp("2021-08-21-01:00:00", tz="UTC").timestamp()
 
         self.assertFalse(self.connector._funding_fee_poll_notifier.is_set())
         self.connector.tick(int(time.time()))
