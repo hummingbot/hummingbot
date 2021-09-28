@@ -102,7 +102,7 @@ export namespace EthereumRoutes {
   ): Record<string, Token> => {
     const tokens: Record<string, Token> = {};
 
-    for (var i = 0; i < tokenSymbols.length; i++) {
+    for (let i = 0; i < tokenSymbols.length; i++) {
       const symbol = tokenSymbols[i];
       const token = ethereum.getTokenBySymbol(symbol);
       if (!token) {
@@ -129,7 +129,7 @@ export namespace EthereumRoutes {
 
         const spender = getSpender(req.body.spender);
 
-        let approvals: Record<string, string> = {};
+        const approvals: Record<string, string> = {};
         await Promise.all(
           Object.keys(tokens).map(async (symbol) => {
             approvals[symbol] = tokenValueToString(

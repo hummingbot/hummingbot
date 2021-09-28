@@ -59,8 +59,8 @@ export namespace UniswapRoutes {
     '/price',
     asyncHandler(
       async (
-        req: Request<{}, {}, UniswapPriceRequest>,
-        res: Response<UniswapPriceResponse, {}>
+        req: Request<unknown, unknown, UniswapPriceRequest>,
+        res: Response<UniswapPriceResponse, any>
       ) => {
         const initTime = Date.now();
 
@@ -193,8 +193,8 @@ export namespace UniswapRoutes {
     '/trade',
     asyncHandler(
       async (
-        req: Request<{}, {}, UniswapTradeRequest>,
-        res: Response<UniswapTradeResponse | UniswapTradeErrorResponse, {}>
+        req: Request<unknown, unknown, UniswapTradeRequest>,
+        res: Response<UniswapTradeResponse | UniswapTradeErrorResponse, any>
       ) => {
         const initTime = Date.now();
 
