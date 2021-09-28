@@ -9,6 +9,7 @@ from math import (
     floor,
     ceil,
     isclose,
+    isnan,
 )
 import numpy as np
 import pandas as pd
@@ -117,13 +118,32 @@ cdef class HedgeStrategy(StrategyBase):
             object active_orders=self.market_info_to_active_orders.get(market_pair, None)
             ExchangeBase market = market_pair.market
             object quantized_order_amount = market.c_quantize_order_amount(market_pair.trading_pair, Decimal(abs(hedge_amount)))
-        if active_orders is None:
+            object order_size_quantum = market.c_get_order_size_quantum(market_pair.trading_pair,quantized_order_amount)
+        if active_orders is None or len(active_orders)<1:
             return
-        if any((order_age(o) > self._max_order_age or o.quantity!=quantized_order_amount) for o in active_orders):
+        o = active_orders[0]
+        if isnan(order_age(o)):
+            return
+        if order_age(o) > self._max_order_age:
+            self.log_with_clock(logging.INFO,
+                                f"{market_pair.trading_pair}: "
+                                f"order age of limit order ({order_age(o)}) is more than {self._max_order_age}. "
+                                f"Cancelling Order")
             for order in active_orders:
                 self.c_cancel_order(market_pair, order.client_order_id)
             return
-
+        if  isnan(o.quantity) or isnan(o.filled_quantity):
+            return
+        if abs(o.quantity-o.filled_quantity-quantized_order_amount)>order_size_quantum:
+            self.log_with_clock(logging.INFO,
+                                f"{market_pair.trading_pair}: "
+                                f"quantity: {o.quantity} filled_quantity: {o.filled_quantity}"
+                                f"{o.quantity - o.filled_quantity} is different than quantity required {quantized_order_amount}. "
+                                f"order quantum: {order_size_quantum} "
+                                f"Cancelling Order")
+            for order in active_orders:
+                self.c_cancel_order(market_pair, order.client_order_id)
+            return
     cdef object check_and_hedge_asset(self,
                                       str maker_asset,
                                       object maker_balance,
@@ -184,6 +204,7 @@ cdef class HedgeStrategy(StrategyBase):
     def update_wallet(self):
         data=[]
         columns = ["Asset", "Price", "Maker", "Taker", "Diff", "Hedge Ratio"]
+        position_updated=False
         for maker_asset in self._market_infos:
             market_pair = self._market_infos[maker_asset]
             trading_pair=market_pair.trading_pair
@@ -194,6 +215,7 @@ cdef class HedgeStrategy(StrategyBase):
             if self._last_trade_time[maker_asset]==0 or max(self._last_trade_time.values())<self._current_timestamp-self._update_shadow_balance_interval:
                 taker_balance = self.get_position_amount(trading_pair)
                 self.set_shadow_position(trading_pair, taker_balance)
+                position_updated=True
             maker_balance = self.get_balance(maker_asset)
             taker_balance = self.get_shadow_position(trading_pair)
             hedge_amount = -(maker_balance*self._hedge_ratio + taker_balance)
@@ -221,7 +243,8 @@ cdef class HedgeStrategy(StrategyBase):
                 hedge_ratio,
             ])
         self._wallet_df = pd.DataFrame(data=data, columns=columns)
-
+        if position_updated:
+            self._last_trade_time["last updated"]=self._current_timestamp
     def active_orders_df(self) -> pd.DataFrame:
 
         active_orders = self.market_info_to_active_orders
@@ -286,7 +309,7 @@ cdef class HedgeStrategy(StrategyBase):
             f"{amount}  filled at {price}.")
 
     cdef c_start(self, Clock clock, double timestamp):
-        clock._tick_size = min(self._hedge_interval, 1)
+        clock._tick_size = self._hedge_interval
         StrategyBase.c_start(self, clock, timestamp)
         cdef:
             object market_pair
