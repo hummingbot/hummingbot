@@ -22,6 +22,13 @@ import {
   EthereumApproveRequest,
   EthereumPollRequest,
 } from './ethereum.requests';
+import {
+  validateEthereumNonceRequest,
+  validateEthereumAllowancesRequest,
+  validateEthereumBalanceRequest,
+  validateEthereumApproveRequest,
+  validateEthereumPollRequest,
+} from './ethereum.validators';
 
 export namespace EthereumRoutes {
   export const router = Router();
@@ -62,6 +69,8 @@ export namespace EthereumRoutes {
         req: Request<{}, {}, EthereumNonceRequest>,
         res: Response<EthereumNonceResponse | string, {}>
       ) => {
+        validateEthereumNonceRequest(req.body);
+
         // get the address via the private key since we generally use the private
         // key to interact with gateway and the address is not part of the user config
         const wallet = ethereum.getWallet(req.body.privateKey);
@@ -119,6 +128,8 @@ export namespace EthereumRoutes {
         req: Request<{}, {}, EthereumAllowancesRequest>,
         res: Response<EthereumAllowancesResponse | string, {}>
       ) => {
+        validateEthereumAllowancesRequest(req.body);
+
         const initTime = Date.now();
         const wallet = ethereum.getWallet(req.body.privateKey);
 
@@ -166,6 +177,8 @@ export namespace EthereumRoutes {
         res: Response<EthereumBalanceResponse | string, {}>,
         _next: NextFunction
       ) => {
+        validateEthereumBalanceRequest(req.body);
+
         const initTime = Date.now();
 
         let wallet: Wallet;
@@ -222,6 +235,8 @@ export namespace EthereumRoutes {
         req: Request<{}, {}, EthereumApproveRequest>,
         res: Response<EthereumApproveResponse | string, {}>
       ) => {
+        validateEthereumApproveRequest(req.body);
+
         const { nonce, privateKey, token, amount } = req.body;
         const spender = getSpender(req.body.spender);
         const result = await approve(spender, privateKey, token, amount, nonce);
@@ -246,6 +261,8 @@ export namespace EthereumRoutes {
         req: Request<{}, {}, EthereumPollRequest>,
         res: Response<EthereumPollResponse, {}>
       ) => {
+        validateEthereumPollRequest(req.body);
+
         const result = await poll(req.body.txHash);
         res.status(200).json(result);
       }

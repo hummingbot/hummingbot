@@ -9,6 +9,7 @@ import {
   EthereumAllowancesRequest,
   EthereumBalanceRequest,
   EthereumApproveRequest,
+  EthereumPollRequest,
 } from './ethereum.requests';
 
 // validate request parameters
@@ -34,11 +35,15 @@ export const invalidSpenderError: string =
 export const invalidTokenSymbolsError: string =
   'The tokenSymbols param should be an array of strings.';
 
+export const invalidTokenError: string = 'The token param should be a string.';
+
 export const invalidAmountError: string =
   'If amount is included it must be a string of a non-negative integer.';
 
 export const invalidNonceError: string =
   'If nonce is included it must be a non-negative integer.';
+
+export const invalidTxHashError: string = 'The txHash param must be a string.';
 
 // given a request, look for a key called privateKey that is an Ethereum private key
 export const validatePrivateKey = (req: any): Array<string> => {
@@ -91,6 +96,20 @@ export const validateTokenSymbols = (req: any): Array<string> => {
   return errors;
 };
 
+// confirm that token is a string
+export const validateToken = (req: any): Array<string> => {
+  let errors: Array<string> = [];
+  if (req.token) {
+    if (typeof req.token === 'string') {
+    } else {
+      errors.push(invalidTokenError);
+    }
+  } else {
+    errors.push(missingParameter('token'));
+  }
+  return errors;
+};
+
 // if amount exists, confirm that it is a string of a natural number
 export const validateAmount = (req: any): Array<string> => {
   let errors: Array<string> = [];
@@ -110,6 +129,19 @@ export const validateNonce = (req: any): Array<string> => {
     } else {
       errors.push(invalidNonceError);
     }
+  }
+  return errors;
+};
+
+export const validateTxHash = (req: any): Array<string> => {
+  let errors: Array<string> = [];
+  if (req.txHash) {
+    if (typeof req.txHash === 'string') {
+    } else {
+      errors.push(invalidTxHashError);
+    }
+  } else {
+    errors.push(missingParameter('txHash'));
   }
   return errors;
 };
@@ -143,9 +175,13 @@ export const validateEthereumApproveRequest = (
 ): void => {
   const errors = validatePrivateKey(req).concat(
     validateSpender(req),
-    validateTokenSymbols(req),
+    validateToken(req),
     validateAmount(req),
     validateNonce(req)
   );
   throwErrorsIfExist(errors);
+};
+
+export const validateEthereumPollRequest = (req: EthereumPollRequest): void => {
+  throwErrorsIfExist(validateTxHash(req));
 };
