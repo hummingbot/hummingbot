@@ -1850,7 +1850,16 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertEqual(expected_result, testnet_non_linear_connector.supported_position_modes())
 
     @patch("hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils.get_next_funding_timestamp")
-    def test_tick_funding_fee_poll_notifier_set(self, mock_time):
+    def test_tick_funding_fee_poll_notifier_not_set(self, mock_time):
+        mock_time.return_value = pd.Timestamp("2021-08-21-01:00:00", tz="UTC").timestamp()
+
+        self.assertFalse(self.connector._funding_fee_poll_notifier.is_set())
+        self.connector.tick(int(time.time()))
+        self.assertFalse(self.connector._funding_fee_poll_notifier.is_set())
+
+    @patch("hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils.get_next_funding_timestamp")
+    def test_tick_funding_fee_poll_notifier__set(self, mock_time):
+        self.connector._next_funding_fee_timestamp = 0
         mock_time.return_value = pd.Timestamp("2021-08-21-01:00:00", tz="UTC").timestamp()
 
         self.assertFalse(self.connector._funding_fee_poll_notifier.is_set())
@@ -1933,6 +1942,46 @@ class BybitPerpetualDerivativeTests(TestCase):
         result = asyncio.get_event_loop().run_until_complete(self.connector_task)
         self.assertTrue(result)
         self.assertTrue(self._is_logged('INFO', f"Funding payment of -0.0001 paid on {self.trading_pair} market."))
+
+    @aioresponses()
+    def test_user_funding_fee_polling_loop(self, get_mock):
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL, self.trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
+
+        mock_response = {
+            "ret_code": 0,
+            "ret_msg": "ok",
+            "ext_code": "",
+            "result": {
+                "symbol": self.ex_trading_pair,
+                "side": "Buy",
+                "size": 1,
+                "funding_rate": 0.0001,
+                "exec_fee": 0.00000002,
+                "exec_timestamp": 1575907200
+            },
+            "ext_info": None,
+            "time_now": "1577446900.717204",
+            "rate_limit_status": 119,
+            "rate_limit_reset_ms": 1577446900724,
+            "rate_limit": 120
+        }
+        get_mock.get(regex_url, body=json.dumps(mock_response), callback=self._mock_responses_done_callback)
+
+        # Mock ready to fetch funding fee
+        initial_funding_fee_ts = 0
+        self.connector._next_funding_fee_timestamp = initial_funding_fee_ts
+        self.connector._funding_fee_poll_notifier.set()
+
+        self.connector_task = asyncio.get_event_loop().create_task(
+            self.connector._user_funding_fee_polling_loop()
+        )
+
+        asyncio.get_event_loop().run_until_complete(self.mock_done_event.wait())
+
+        self.assertFalse(self.connector._funding_fee_poll_notifier.is_set())
+        self.assertGreater(self.connector._next_funding_fee_timestamp, initial_funding_fee_ts)
 
     def test_set_leverage_unsupported_trading_pair(self):
         self.connector_task = asyncio.get_event_loop().create_task(
