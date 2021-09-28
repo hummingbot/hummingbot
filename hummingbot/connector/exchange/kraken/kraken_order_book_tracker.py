@@ -32,7 +32,10 @@ class KrakenOrderBookTracker(OrderBookTracker):
             cls._krobt_logger = logging.getLogger(__name__)
         return cls._krobt_logger
 
-    def __init__(self, throttler: AsyncThrottler, trading_pairs: List[str]):
+    def __init__(self,
+                 trading_pairs: List[str],
+                 throttler: Optional[AsyncThrottler] = None,
+                 ):
         super().__init__(KrakenAPIOrderBookDataSource(throttler, trading_pairs), trading_pairs)
         self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()
         self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()

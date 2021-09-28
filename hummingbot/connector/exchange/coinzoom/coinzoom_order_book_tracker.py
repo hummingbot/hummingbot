@@ -27,7 +27,7 @@ class CoinzoomOrderBookTracker(OrderBookTracker):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, throttler: AsyncThrottler, trading_pairs: Optional[List[str]] = None):
+    def __init__(self, throttler: Optional[AsyncThrottler] = None, trading_pairs: Optional[List[str]] = None):
         super().__init__(
             CoinzoomAPIOrderBookDataSource(throttler=throttler, trading_pairs=trading_pairs),
             trading_pairs)
