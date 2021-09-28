@@ -119,7 +119,7 @@ class HangingOrdersTracker:
     def _did_complete_order(self,
                             event: Union[BuyOrderCompletedEvent, SellOrderCompletedEvent],
                             is_buy: bool):
-
+        self.logger().info(f"*** The order with id {event.order_id} has been completed.")
         hanging_order = next((hanging_order for hanging_order in self.strategy_current_hanging_orders
                               if hanging_order.order_id == event.order_id), None)
 
@@ -263,6 +263,15 @@ class HangingOrdersTracker:
         equivalent_orders = self.equivalent_orders
         orders_to_create = equivalent_orders.difference(self.strategy_current_hanging_orders)
         orders_to_cancel = self.strategy_current_hanging_orders.difference(equivalent_orders)
+
+        equivalent_orders_str = ""
+        current_ho_str = ""
+        for order in self.equivalent_orders:
+            equivalent_orders_str = equivalent_orders_str + f"\n\t{order}"
+        for order in self.strategy_current_hanging_orders:
+            current_ho_str = current_ho_str + f"\n\t{order}"
+        self.logger().info(
+            f"### Updating hanging orders:\nEquivalent orders{equivalent_orders_str}\nCurrent hanging orders{current_ho_str}")
 
         self._cancel_multiple_orders_in_strategy([o.order_id for o in orders_to_cancel])
 
