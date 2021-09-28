@@ -630,7 +630,9 @@ cdef class KucoinExchange(ExchangeBase):
         return {
             "order_books_initialized": self._order_book_tracker.ready,
             "account_balance": self._account_balances if self._trading_required else True,
-            "trading_rule_initialized": len(self._trading_rules) > 0
+            "trading_rule_initialized": len(self._trading_rules) > 0,
+            "user_stream_initialized":
+                self._user_stream_tracker.data_source.last_recv_time > 0 if self._trading_required else True,
         }
 
     @property

@@ -18,6 +18,7 @@ from hummingbot.core.data_type.user_stream_tracker_data_source import UserStream
 from hummingbot.connector.exchange.kucoin.kucoin_auth import KucoinAuth
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.kucoin import kucoin_constants as CONSTANTS
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
 class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
@@ -39,6 +40,7 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
         super().__init__()
         self._kucoin_auth: KucoinAuth = kucoin_auth
         self._last_recv_time: float = 0
+        self._ping_pong_loop_task: Optional[asyncio.Future] = None
 
     @property
     def last_recv_time(self) -> float:
@@ -77,7 +79,7 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self.logger().info(f"Connecting to {stream_url}.")
 
         async with self._throttler.execute_task(CONSTANTS.WS_CONNECTION_LIMIT_ID):
-            return await client.ws_connect(stream_url, autoping=True, heartbeat=CONSTANTS.WS_PING_HEARTBEAT)
+            return await client.ws_connect(stream_url, autoping=False)
 
     async def _inner_messages(self, ws: aiohttp.ClientWebSocketResponse) -> AsyncIterable[str]:
         while True:
@@ -85,6 +87,8 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
             if msg.type == WSMsgType.CLOSED:
                 raise ConnectionError
             self._last_recv_time = time.time()
+            if msg.type == WSMsgType.PONG:
+                continue
             yield msg.data
 
     async def listen_for_user_stream(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
@@ -101,6 +105,7 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     client = aiohttp.ClientSession()
                     ws = await self.get_ws_connection(client)
                     await self._subscribe_topic(ws)
+                    self._ping_pong_loop_task = safe_ensure_future(self._ping_pong_loop(ws))
                     async for msg in self._inner_messages(ws):
                         decoded: Dict[str, any] = ujson.loads(msg)
                         output.put_nowait(decoded)
@@ -117,3 +122,15 @@ class KucoinAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 if client is not None:
                     await client.close()
                 self._current_listen_key = None
+                if self._ping_pong_loop_task is not None:
+                    self._ping_pong_loop_task.cancel()
+                    self._ping_pong_loop_task = None
+
+    async def _ping_pong_loop(self, ws: aiohttp.ClientWebSocketResponse):
+        while True:
+            ping_send_time = time.time()
+            await ws.ping()
+            await asyncio.sleep(CONSTANTS.WS_PING_HEARTBEAT)
+            if self._last_recv_time < ping_send_time:
+                ws._pong_not_received()
+                raise asyncio.TimeoutError

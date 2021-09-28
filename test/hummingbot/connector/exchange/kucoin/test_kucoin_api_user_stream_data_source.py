@@ -4,6 +4,7 @@ import unittest
 from typing import Awaitable
 from unittest.mock import AsyncMock, patch
 
+import aiohttp
 from aioresponses import aioresponses
 
 from hummingbot.connector.exchange.kucoin.kucoin_api_user_stream_data_source import KucoinAPIUserStreamDataSource
@@ -106,6 +107,31 @@ class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
         self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, msg_queue))
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
+        self.assertTrue(not msg_queue.empty())
+
+        queued = msg_queue.get_nowait()
+
+        self.assertEqual(msg, queued)
+
+    @aioresponses()
+    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_listen_to_user_stream_sends_ping_ignores_pong(self, mock_api, ws_connect_mock):
+        url = CONSTANTS.BASE_PATH_URL + CONSTANTS.PRIVATE_WS_DATA_PATH_URL
+        resp = self.get_listen_key_mock()
+        mock_api.post(url, body=json.dumps(resp))
+
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            ws_connect_mock.return_value, message="", message_type=aiohttp.WSMsgType.PONG
+        )
+        msg = "someMsg"
+        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(msg))
+        msg_queue = asyncio.Queue()
+
+        self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, msg_queue))
+        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+
+        ws_connect_mock.return_value.ping.assert_called()  # ping was sent
         self.assertTrue(not msg_queue.empty())
 
         queued = msg_queue.get_nowait()
