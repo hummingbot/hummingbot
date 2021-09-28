@@ -1,147 +1,107 @@
-# Arbitrage
+---
+tags:
+- arbitrage
+---
 
-## How it works
+# `arbitrage`
 
-Arbitrage is described in [Strategies](/strategies/#arbitrage_1), with a further discussion in the Hummingbot [white paper](https://hummingbot.io/hummingbot.pdf).
+## 📁 [Strategy folder](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/strategy/arbitrage)
 
-### Schematic
+## 📝 Summary
 
-The diagram below illustrates how arbitrage works. The transaction involves two exchanges: **Exchange A** and **Exchange B**. Hummingbot monitors the prices on both exchanges and transacts when a profit opportunity arises.
+This strategy monitor prices in two different trading pairs and executes offsetting buy and sell orders in both markets in order to capture arbitrage opportunities with profitability higher than `min_profitability`, net of transaction costs.
 
-An opportunity arises when Hummingbot can buy on one exchange at a lower price and sell on the other exchange at a higher price.
+## 🏦 Exchanges supported
 
-<small>
-  <center>***Figure 1: Hummingbot completes an arbitrage trade***</center>
-</small>
+[`spot` exchanges](/exchanges/#spot)
 
-![Figure 1: Hummingbot completes an arbitrage trade](/assets/img/arbitrage.png)
+## 👷 Maintenance
 
-## Prerequisites: Inventory
+* Release added: [0.3.0](/release-notes/0.3.0/) by CoinAlpha
+* Maintainer: Open
 
-1. Like cross-exchange market making, you will need to hold inventory on two exchanges (a **primary** and **secondary** exchange) to trade and capture price differentials (i.e., buy low on one exchange, sell high on the other).
-2. You will also need some Ethereum to pay gas for transactions on a DEX (if applicable).
+## 🛠️ Strategy configs
 
-## Basic parameters
+[Config map](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/arbitrage/arbitrage_config_map.py)
 
-The following walks through all the steps when running `create` command. These parameters are fields in Hummingbot configuration files (located in the `/conf` folder, e.g. `conf/conf_arb_[#].yml`).
+| Parameter                    | Type        | Default     | Prompt New? | Prompt                                                 |
+|------------------------------|-------------|-------------|-------------|--------------------------------------------------------|
+| `primary_market` | string | | True | Enter your primary spot connector |
+| `secondary_market` | string | | True | Enter your secondary spot connector |
+| `primary_market_trading_pair` | string | | True | Enter the token trading pair you would like to trade on [primary_market] |
+| `secondary_market_trading_pair` | string | | True | Enter the token trading pair you would like to trade on [secondary_market] |
+| `min_profitability` | decimal | 0.3 | True | What is the minimum profitability for you to make a trade? |
+| `use_oracle_conversion_rate` | bool | | True | Do you want to use rate oracle on unmatched trading pairs? |
+| `secondary_to_primary_base_conversion_rate` | decimal | 1 | False | Enter conversion rate for secondary quote asset value to primary base asset value |
+| `secondary_to_primary_quote_conversion_rate` | decimal | 1 | False | Enter conversion rate for secondary quote asset value to primary quote asset value |
 
-### `primary_market`
+## 📓 Description
 
-Enter an exchange you would like to trade on.
+[Trading logic](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/arbitrage/arbitrage.pyx)
 
-** Prompt: **
+!!! note "Approximation only"
+    The description below is a general approximation of this strategy. Please inspect the strategy code in **Trading Logic** above to understand exactly how it works.
 
-```json
-Enter your primary spot connector
->>> binance
-```
+### Architecture
 
-### `secondary_market`
+The strategy constantly scans for any arbitrage opportunity by comparing the order books on two markets that are trading equivalent assets (e.g. WETH-USDC vs. ETH-USD). Whenever it finds any price dislocation between the two markets (i.e. it's profitable to buy from one and sell to the other), it would calculate the optimal order size to do the arbitrage trade, and trades away the price difference by sending opposing market orders to both markets.
 
-Enter another exchange you would like to trade on.
+Here's a high level view of the logic flow inside the built-in arbitrage strategy.
 
-** Prompt: **
+![Figure 1: Arbitrage strategy flow chart](/assets/img/arbitrage-flowchart-1.svg)
 
-```json
-Enter your secondary spot connector
->>> kucoin
-```
+There are a few major parts to the arbitrage strategy in terms of its logic flow:
 
-### `primary_market_trading_pair`
+ 1. Sanity checks, before scanning for arbitrage opportunities
+ 2. Scanning for profitable arbitrage trades
+ 3. Calculating the optimal arbitrage size
+ 4. Executing the arbitrage orders
 
-Enter the token trading pair for the primary exchange.
+### Sanity Checks
 
-** Prompt: **
+Before the strategy looks at the two markets for profitable trades, it needs to check whether it is safe to do any trades first.
 
-```json
-Enter the token trading pair you would like to trade on [primary_market]
->>>
-```
+There are a few conditions that the strategy would check for at every tick, before proceeding to looking at the market order books:
 
-### `secondary_market_trading_pair`
+ 1. Are both markets connected and ready?
+ 
+    If any of the left or right markets is not ready, or is disconnected; then no arbitrage trade is possible.
+ 
+ 2. Are there pending market orders on the markets that are still being processed?
 
-Enter the token trading pair for the secondary exchange.
+    If there are outstanding market orders still being processed in the markets, then no further arbitrage trade is possible.
+ 
+ 3. Has there been a recent arbitrage trade within the cooldown period?
 
-** Prompt: **
+    If an arbitrage trade has happened recently, within the cooldown period (the `next_trade_delay_interval` init argument in [arbitrage.pyx](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/arbitrage/arbitrage.pyx)), then no arbitrage is possible for this tick. This wait is needed because asset balances on markets often need some delay before they are updated, after the last trade.
 
-```json
-Enter the token trading pair you would like to trade on [secondary_market]
->>>
-```
+### Scanning For Profitable Arbitrage Trades
 
-### `min_profitability`
+After the sanity checks have passed, the strategy would look at the top of the two markets' order books to see if any profitable arbitrage is possible. This is only possible if one of the following happens:
 
-Minimum profitability target required to execute trades.
+ 1. The price of the bid order book on the left market is higher than the price of the ask order book on the right market; or
+ 2. The price of the bid order book on the right market is higher than the price of the ask order book on the left market.
 
-** Prompt: **
+In either case, the arbitrage strategy would be able to sell into the higher bid book and buy from the lower ask book. If none of the above is true at the current tick, then the arbitrage strategy would wait for the next tick and repeat the same process.
 
-```json
-What is the minimum profitability for you to make a trade?
->>>
-```
+The profitable arbitrage check logic can be found in the function `c_calculate_arbitrage_top_order_profitability()` inside [arbitrage.pyx](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/arbitrage/arbitrage.pyx).
 
-!!! note
-    While running this strategy, `min_profitability` excludes the `transaction fees` when calculating profitability from your chosen exchanges.
+### Calculating the Optimal Arbitrage Size
 
-### `use_oracle_conversion_rate`
+After an arbitrage opportunity is found, the next step is to calculate the optimal order size for the arbitrage trade.
 
-Rate oracle conversion is used to compute the rate of a particular market pair using a collection of prices from either Binance or Coingecko.
+![Figure 2: Calculating the optimal arbitrage size](/assets/img/arbitrage-flowchart-2.svg)
 
-If enabled, the bot will use a real-time conversion rate from the oracle when the trading pair symbols mismatch.
-For example, if markets are set to trade for `LINK-USDT` and `LINK-USDC`, the bot will use the oracle conversion rate between `USDT` and `USDC`.
+Arbitrage opportunities are always limited in size - as you buy higher and higher into the ask book and sell lower and lower into the bid book, the amount of profit decreases for every increment of order size. Eventually, the price you buy and sell into the two books would become the same and you would no longer make more money by increasing the order size further. So the arbitrage strategy would calculate the maximum order size you can make by examining the order books on the two markets.
 
-You can also edit it from `config_global.yml` to change the `rate_oracle_source`.
+Another thing the arbitrage strategy takes into account is the transaction fee of the markets. Some markets has a fixed or semi-fixed fee for every trade, s.t. you'd need a certain minimum order size for the arbitrage before it would make any profit. The arbitrage strategy would try to take that into account and calculate the correct order size that produces the most profits.
 
-** Prompt: **
+Finally, the arbitrage strategy will look at the balance of assets available for trading in both the left and right markets - the arbitrage order size cannot exceed the amount of assets that can be traded.
 
-```json
-Do you want to use rate oracle on unmatched trading pairs? (Yes/No)
->>>
-```
+The optimal arbitrage size calculation logic can be found in the functions `c_find_best_profitable_amount()` and `c_find_profitable_arbitrage_orders()` inside [arbitrage.pyx](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/arbitrage/arbitrage.pyx).
 
-!!! tip
-    For autocomplete inputs during configuration, when going through the command line config process, pressing `<TAB>` at a prompt will display valid available inputs.
+### Executing the Arbitrage Orders
 
-## Advanced parameters
+If the calculated arbitrage size is greater than 0, then the arbitrage strategy would send both the market buy and market sell orders to the two markets simultaneously. Arbitrage opportunities are usually rare and are quickly exploited by traders, and so it is important to send both orders out without any wait.
 
-The following parameters are fields in Hummingbot configuration files (located in the `/conf` folder, e.g. `conf/conf_arb_[#].yml`).
-
-### `secondary_to_primary_base_conversion_rate`
-
-Specifies conversion rate for secondary quote asset value to primary quote asset value.
-
-### `secondary_to_primary_quote_conversion_rate`
-
-Specifies conversion rate for secondary quote asset value to primary quote asset value.
-
-## Exchange rate conversion
-
-From past versions of Hummingbot, it uses [CoinGecko](https://www.coingecko.com/en/api) and [CoinCap](https://docs.coincap.io/?version=latest) public APIs to fetch asset prices. However, this dependency caused issues for users when those APIs were unavailable. Therefore, starting on version [0.28.0](/release-notes/0.28.0/#removed-dependency-on-external-data-feeds), Hummingbot uses exchange order books to perform necessary conversions rather than data feeds.
-
-When you run strategies on multiple exchanges, there may be instances where you need to utilize an exchange rate to convert between assets.
-
-In particular, you may need to convert the value of one stable coin to another when you use different stablecoins in a multi-legged strategy like [arbitrage](/strategies/arbitrage/).
-
-For example, if you make a market in the WETH/DAI pair on a decentralized exchange, you may want to hedge filled orders using the ETH-USDT pair on Binance. Using exchange rates for USDT and DAI against ETH allows Hummingbot to take into account differences in prices.
-
-```
-maker_market: bamboo_relay
-taker_market: binance
-maker_market_trading_pair: WETH-DAI
-taker_market_trading_pair: ETH-USDT
-secondary_to_primary_base_conversion_rate: 1
-secondary_to_primary_quote_conversion_rate: 1
-```
-
-By default, secondary to primary base conversion rate and secondary to primary quote conversion rate value are both `1`.
-
-Our maker base asset is WETH and taker is ETH. 1 WETH is worth 0.99 ETH (1 / 0.99) so we will set the `secondary_to_primary_base_conversion_rate` value to 1.01.
-
-While our maker quote asset is DAI, the taker is USDT, and 1 DAI is worth 1.01 USDT (1 / 1.01). Similar to the calculation we did for the base asset. In this case, we will set the `secondary_to_primary_quote_conversion_rate` to 0.99.
-
-To configure a parameter value without going through the prompts, input command as `config [ key ] [ value ]`. These can be reconfigured without stopping the bot. However, it will only take effect after restarting the strategy.
-
-```
-config secondary_to_primary_base_conversion_rate: 1.01
-config secondary_to_primary_quote_conversion_rate: 0.99
-```
+The order execution logic can be found in the function `c_process_market_pair_inner()` inside [arbitrage.pyx](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/arbitrage/arbitrage.pyx).
