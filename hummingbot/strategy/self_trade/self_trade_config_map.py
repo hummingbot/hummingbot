@@ -66,20 +66,24 @@ self_trade_config_map = {
                   required_if=lambda: True,
                   type_str="float",
                   default=60),
-    "percentage_of_price_change":
-        ConfigVar(key="percentage_of_price_change",
-                  prompt="By what percentage to change the price when placing orders (in percentage). "
-                         "(Default is 0 percentage) ? >>> ",
-                  type_str="float",
-                  default=0),
     "trade_bands":
         ConfigVar(key="trade_bands",
                   prompt="restrictions on the trading volume in the timestamp (hours: amount) ? >>> ",
                   type_str="str",
                   default=""),
     "delta_price_changed_percent":
-        ConfigVar(key="price_changed_percent",
+        ConfigVar(key="delta_price_changed_percent",
                   prompt="the percentage by which the price will change (in percentage) ? >>> ",
                   type_str="decimal",
                   default="0.0"),
+    "percentage_of_acceptable_price_change":
+        ConfigVar(key="percentage_of_acceptable_price_change",
+                  prompt="Acceptable percentage of price change from the market (in percentage) ? >>> ",
+                  type_str="decimal",
+                  default="10.0"),
+    "use_only_oracle_price":
+        ConfigVar(key="use_only_oracle_price",
+                  prompt="Use only the price taken from the oracles? >>> ",
+                  type_str="bool",
+                  default=False),
 }

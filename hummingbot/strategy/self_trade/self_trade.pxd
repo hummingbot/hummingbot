@@ -11,7 +11,6 @@ cdef class SelfTradeStrategy(StrategyBase):
         list _trade_bands
 
         double _cancel_order_wait_time
-        double _percentage_of_price_change
         double _status_report_interval
         double _last_timestamp
         double _start_timestamp
@@ -21,6 +20,8 @@ cdef class SelfTradeStrategy(StrategyBase):
         object _max_order_amount
         object _last_execute_order_time
         object _delta_price_changed_percent
+        object _percentage_of_acceptable_price_change
+        object _use_only_oracle_price
 
         dict _tracked_orders
         dict _time_to_cancel

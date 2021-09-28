@@ -24,14 +24,14 @@ cancel_order_wait_time: 60
 # How long to wait before placing the order (in seconds)
 time_delay: 120
 
-# By what percentage to change the price when placing orders (in percentage)
-percentage_of_price_change: 0
-
 # restrictions on the trading volume in the timestamp (example: "0.5:300;1:900")
 trade_bands: "0.5:300;1:900"
 
 # the percentage by which the price will change (in percentage)
 delta_price_changed_percent: 0
 
-# For more detailed information, see:
-# https://docs.hummingbot.io/strategies/simple-trade/#configuration-parameters
+# Acceptable percentage of price change from the market (in percentage)
+percentage_of_acceptable_price_change: 10.0
+
+# Use only the price taken from the oracles?
+use_only_oracle_price: false

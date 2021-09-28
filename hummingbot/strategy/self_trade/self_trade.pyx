@@ -55,7 +55,6 @@ cdef class SelfTradeStrategy(StrategyBase):
 
     def __init__(self,
                  market_infos: List[MarketTradingPairTuple],
-                 percentage_of_price_change: Optional[float] = 0,
                  cancel_order_wait_time: Optional[float] = 60.0,
                  time_delay: float = 10.0,
                  min_order_amount: Decimal = Decimal("1.0"),
@@ -63,7 +62,9 @@ cdef class SelfTradeStrategy(StrategyBase):
                  logging_options: int = OPTION_LOG_ALL,
                  status_report_interval: float = 900,
                  trade_bands: List[Tuple[float, Decimal]] = [],
-                 delta_price_changed_percent: Decimal = s_decimal_zero):
+                 delta_price_changed_percent: Decimal = s_decimal_zero,
+                 percentage_of_acceptable_price_change: Decimal = Decimal("10.0"),
+                 use_only_oracle_price: bool = False):
         """
         :param market_infos: list of market trading pairs
         :param market_infos: float value percent
@@ -82,8 +83,9 @@ cdef class SelfTradeStrategy(StrategyBase):
         super().__init__()
         self.rate_oracle: RateOracle = RateOracle.get_instance()
         self.rate_oracle.start()
-        self._percentage_of_price_change = percentage_of_price_change
         self._delta_price_changed_percent = delta_price_changed_percent
+        self._percentage_of_acceptable_price_change = percentage_of_acceptable_price_change
+        self._use_only_oracle_price = use_only_oracle_price
 
         self._market_infos = {
             (market_info.market, market_info.trading_pair): market_info
@@ -360,37 +362,51 @@ cdef class SelfTradeStrategy(StrategyBase):
         return quote_asset_balance >= order_amount * price if is_buy else base_asset_balance >= order_amount
 
     def get_price(self, maker_market: ExchangeBase, trading_pair: str):
+        price_multiplier = self.get_price_multiplier(delta_price_changed_percent=self._delta_price_changed_percent)
         buy_price = maker_market.get_price(trading_pair=trading_pair, is_buy=False) or s_decimal_nan
         sell_price = maker_market.get_price(trading_pair=trading_pair, is_buy=True) or s_decimal_nan
+        oracle_price = self.rate_oracle.rate(trading_pair)
+
+        self.logger().debug(f"price_multiplier: {price_multiplier}")
         self.logger().debug(f"buy_price: {buy_price}")
         self.logger().debug(f"sell_price: {sell_price}")
-        if buy_price.is_nan() and sell_price.is_nan():
-            price = self.rate_oracle.rate(trading_pair)
-            quantized_price = maker_market.c_quantize_order_price(trading_pair=trading_pair, price=price)
-            self.logger().warning(f"No sell orders and no buy orders were found, the price will be taken from an open source. "
-                                  f"price={quantized_price}")
-        elif not buy_price.is_nan() and sell_price.is_nan():
-            price = buy_price + buy_price * (Decimal(abs(self.percentage_of_price_change)) / Decimal(100))
-            quantized_price = maker_market.c_quantize_order_price(trading_pair=trading_pair, price=price)
+        self.logger().debug(f"oracle_price: {sell_price}")
+
+        if not oracle_price.is_nan() and oracle_price > s_decimal_zero:
+            oracle_price = oracle_price * price_multiplier
+            quantized_oracle_price = maker_market.c_quantize_order_price(trading_pair=trading_pair, price=oracle_price * price_multiplier)
+        else:
+            raise ValueError(f"Oracle price ({oracle_price}) must be > 0")
+
+        if self._use_only_oracle_price is True:
+            quantized_price = quantized_oracle_price
+        elif buy_price.is_nan() or sell_price.is_nan():
+            quantized_price = quantized_oracle_price
             self.logger().warning(
-                f"No sell orders were found, the price will be taken from buy order - {self.percentage_of_price_change}%. "
-                f"price={quantized_price}")
-        elif buy_price.is_nan() and not sell_price.is_nan():
-            price = sell_price - sell_price * (Decimal(abs(self.percentage_of_price_change)) / Decimal(100))
-            quantized_price = maker_market.c_quantize_order_price(trading_pair=trading_pair, price=price)
-            self.logger().warning(
-                f"No buy orders were found, the price will be taken from sell order - {self.percentage_of_price_change}%. "
+                f"No sell orders and no buy orders were found, the price will be taken from an open source. "
                 f"price={quantized_price}")
         elif not buy_price.is_nan() and not sell_price.is_nan():
             if buy_price > sell_price:
                 raise ValueError("buy_price must be less than sell_price")
-            price_multiplier = self.get_price_multiplier(delta_price_changed_percent=self._delta_price_changed_percent)
-            price = (buy_price + ((sell_price - buy_price) / Decimal(2))) * price_multiplier
 
-            quantized_price = maker_market.c_quantize_order_price(trading_pair=trading_pair, price=price)
-            if not buy_price < quantized_price < sell_price:
-                self.logger().warning("price must be > buy_price and price < sell_price")
-                raise ValueError("price must be > buy_price and price < sell_price")
+            price = (buy_price + ((sell_price - buy_price) / Decimal(2)))
+            quantized_price = maker_market.c_quantize_order_price(trading_pair=trading_pair, price=price * price_multiplier)
+
+        currently_percentage_price_change = abs(
+            Decimal("100") - (quantized_price * Decimal("100")) / quantized_oracle_price
+        ).quantize(Decimal("0.0001"))
+        if currently_percentage_price_change > self._percentage_of_acceptable_price_change:
+            self.logger().warning(f"the price ({quantized_price}) should not differ from the market "
+                                  f"price ({quantized_oracle_price}) by more than {self._percentage_of_acceptable_price_change}%."
+                                  f" Currently differ is {currently_percentage_price_change}%. Used Oracle Price")
+            quantized_price = quantized_oracle_price
+
+        if not buy_price.is_nan() and not buy_price < quantized_price:
+            self.logger().warning("price must be > buy_price")
+            raise ValueError("price must be > buy_price")
+        if not sell_price.is_nan() and not sell_price > quantized_price:
+            self.logger().warning("price must be < sell_price")
+            raise ValueError("price must be > buy_price and price < sell_price")
 
         self.logger().info(f"price for {trading_pair} pair = {quantized_price}")
         return quantized_price
@@ -418,7 +434,6 @@ cdef class SelfTradeStrategy(StrategyBase):
 
                 if all(map(lambda x: x.check(amount=amount), self._trade_bands)):
                     price: Decimal = self.get_price(maker_market=maker_market, trading_pair=trading_pair)
-                    self.logger().warning(f"PRICE: {price}")
                     self.c_place_orders(market_info, is_buy=True, order_price=price, order_amount=amount)
                     self.c_place_orders(market_info, is_buy=False, order_price=price, order_amount=amount)
                     self._last_trade_timestamp = self._current_timestamp
