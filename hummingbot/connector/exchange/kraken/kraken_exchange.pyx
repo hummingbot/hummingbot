@@ -112,7 +112,7 @@ cdef class KrakenExchange(ExchangeBase):
         super().__init__()
         self._trading_required = trading_required
         self._throttler = self._build_async_throttler()
-        self._order_book_tracker = KrakenOrderBookTracker(self._throttler, trading_pairs)
+        self._order_book_tracker = KrakenOrderBookTracker(trading_pairs=trading_pairs, throttler=self._throttler)
         self._kraken_auth = KrakenAuth(kraken_api_key, kraken_secret_key)
         self._user_stream_tracker = KrakenUserStreamTracker(self._throttler, self._kraken_auth)
         self._ev_loop = asyncio.get_event_loop()

@@ -43,10 +43,10 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._kraobds_logger = logging.getLogger(__name__)
         return cls._kraobds_logger
 
-    def __init__(self, throttler: AsyncThrottler, trading_pairs: List[str] = None):
+    def __init__(self, throttler: Optional[AsyncThrottler] = None, trading_pairs: List[str] = None):
         super().__init__(trading_pairs)
         self._order_book_create_function = lambda: OrderBook()
-        self._throttler = throttler
+        self._throttler = throttler or self._get_throttler_instance()
 
     @classmethod
     def _get_throttler_instance(cls) -> AsyncThrottler:
