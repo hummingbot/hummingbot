@@ -13,7 +13,6 @@ from hummingbot.connector.exchange.gate_io.gate_io_exchange import GateIoExchang
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.core.network_iterator import NetworkStatus
 
-
 from hummingbot.connector.exchange.gate_io.gate_io_in_flight_order import GateIoInFlightOrder
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import MarketEvent, TradeType, OrderType
@@ -241,6 +240,36 @@ class TestGateIoExchange(unittest.TestCase):
         self.assertTrue(order_id in self.exchange.in_flight_orders)
 
     @aioresponses()
+    def test_create_order_when_order_is_instantly_closed(self, mock_api):
+        trading_rules = self.get_trading_rules_mock()
+        self.exchange._trading_rules = self.exchange._format_trading_rules(trading_rules)
+
+        url = f"{CONSTANTS.REST_URL}/{CONSTANTS.ORDER_CREATE_PATH_URL}"
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        resp = self.get_order_create_response_mock()
+        resp["status"] = "closed"
+        mock_api.post(regex_url, body=json.dumps(resp))
+
+        event_logger = EventLogger()
+        self.exchange.add_listener(MarketEvent.BuyOrderCreated, event_logger)
+
+        order_id = "someId"
+        self.async_run_with_timeout(
+            coroutine=self.exchange._create_order(
+                trade_type=TradeType.BUY,
+                order_id=order_id,
+                trading_pair=self.trading_pair,
+                amount=Decimal("1"),
+                order_type=OrderType.LIMIT,
+                price=Decimal("5.1"),
+            )
+        )
+
+        self.assertEqual(1, len(event_logger.event_log))
+        self.assertEqual(order_id, event_logger.event_log[0].order_id)
+        self.assertTrue(order_id in self.exchange.in_flight_orders)
+
+    @aioresponses()
     def test_order_with_less_amount_than_allowed_is_not_created(self, mock_api):
         trading_rules = self.get_trading_rules_mock()
         self.exchange._trading_rules = self.exchange._format_trading_rules(trading_rules)
@@ -377,3 +406,38 @@ class TestGateIoExchange(unittest.TestCase):
         ret = self.async_run_with_timeout(coroutine=self.exchange.get_open_orders())
 
         self.assertTrue(len(ret) == 1)
+
+    def test_process_trade_message_matching_order_by_internal_order_id(self):
+        self.exchange.start_tracking_order(
+            order_id='OID-1',
+            exchange_order_id=None,
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal(10000),
+            amount=Decimal(1),
+            order_type=OrderType.LIMIT)
+
+        trade_message = {
+            "id": 5736713,
+            "user_id": 1000001,
+            "order_id": "EOID-1",
+            "currency_pair": "BTC_USDT",
+            "create_time": 1605176741,
+            "create_time_ms": "1605176741123.456",
+            "side": "buy",
+            "amount": "1.00000000",
+            "role": "maker",
+            "price": "10000.00000000",
+            "fee": "0.00200000000000",
+            "point_fee": "0",
+            "gt_fee": "0",
+            "text": "OID-1"
+        }
+
+        asyncio.get_event_loop().run_until_complete(self.exchange._process_trade_message(trade_message))
+        order = self.exchange.in_flight_orders["OID-1"]
+
+        self.assertIn(str(trade_message["id"]), order.trade_update_id_set)
+        self.assertEqual(Decimal(1), order.executed_amount_base)
+        self.assertEqual(Decimal(10000), order.executed_amount_quote)
+        self.assertEqual(Decimal("0.002"), order.fee_paid)
