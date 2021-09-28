@@ -1969,7 +1969,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         }
         get_mock.get(regex_url, body=json.dumps(mock_response), callback=self._mock_responses_done_callback)
 
-        # Mock ready to fetch funding fee
+        # Mock tick() ready to fetch funding fee
         initial_funding_fee_ts = 0
         self.connector._next_funding_fee_timestamp = initial_funding_fee_ts
         self.connector._funding_fee_poll_notifier.set()
@@ -1982,6 +1982,7 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         self.assertFalse(self.connector._funding_fee_poll_notifier.is_set())
         self.assertGreater(self.connector._next_funding_fee_timestamp, initial_funding_fee_ts)
+        self.assertTrue(self._is_logged("INFO", f"Funding payment of 0.0001 received on {self.trading_pair} market."))
 
     def test_set_leverage_unsupported_trading_pair(self):
         self.connector_task = asyncio.get_event_loop().create_task(
