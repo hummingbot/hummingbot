@@ -1,8 +1,6 @@
-# Connectors - Overview
+## What are exchange connectors?
 
-## What are connectors?
-
-Exchange connectors are modules that allow Hummingbot to connect to an exchange. This requires constant retrieval of live exchange/order book data and handling interactions with the exchange.
+Exchange connectors are packages of code that link Hummingbot's internal trading algorithms with live information from different cryptocurrency exchanges. They interact with a given exchange's API, such as by gathering order book data and sending and cancelling trades.
 
 ## Examples / templates
 
