@@ -97,6 +97,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._in_flight_orders = {}
         self._trading_rules = {}
         self._last_trade_history_timestamp = None
+        self._next_funding_fee_timestamp = bybit_utils.get_next_funding_timestamp(time.time())
 
         self._throttler = self._get_throttler_instance()
         self._auth: BybitPerpetualAuth = BybitPerpetualAuth(api_key=bybit_perpetual_api_key,
@@ -645,7 +646,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         current_tick = int(timestamp / poll_interval)
         if current_tick > last_tick:
             self._status_poll_notifier.set()
-        if now >= bybit_utils.get_next_funding_timestamp(now) + CONSTANTS.FUNDING_SETTLEMENT_DURATION[1]:
+        if now >= self._next_funding_fee_timestamp + CONSTANTS.FUNDING_SETTLEMENT_DURATION[1]:
             self._funding_fee_poll_notifier.set()
 
         self._last_timestamp = timestamp
@@ -1060,6 +1061,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 responses: List[bool] = await safe_gather(*tasks)
                 if all(responses):
                     self._funding_fee_poll_notifier = asyncio.Event()
+                    self._next_funding_fee_timestamp = bybit_utils.get_next_funding_timestamp(time.time())
 
             except asyncio.CancelledError:
                 raise
