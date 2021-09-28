@@ -118,7 +118,7 @@ cdef class HedgeStrategy(StrategyBase):
             object active_orders=self.market_info_to_active_orders.get(market_pair, None)
             ExchangeBase market = market_pair.market
             object quantized_order_amount = market.c_quantize_order_amount(market_pair.trading_pair, Decimal(abs(hedge_amount)))
-            object order_size_quantum = market.c_get_order_size_quantum(market_pair.trading_pair,quantized_order_amount)
+            object order_size_quantum = market.c_get_order_size_quantum(market_pair.trading_pair, quantized_order_amount)
         if active_orders is None or len(active_orders)<1:
             return
         o = active_orders[0]
@@ -132,7 +132,7 @@ cdef class HedgeStrategy(StrategyBase):
             for order in active_orders:
                 self.c_cancel_order(market_pair, order.client_order_id)
             return
-        if  isnan(o.quantity) or isnan(o.filled_quantity):
+        if isnan(o.quantity) or isnan(o.filled_quantity):
             return
         if abs(o.quantity-o.filled_quantity-quantized_order_amount)>order_size_quantum:
             self.log_with_clock(logging.INFO,
@@ -245,6 +245,7 @@ cdef class HedgeStrategy(StrategyBase):
         self._wallet_df = pd.DataFrame(data=data, columns=columns)
         if position_updated:
             self._last_trade_time["last updated"]=self._current_timestamp
+
     def active_orders_df(self) -> pd.DataFrame:
 
         active_orders = self.market_info_to_active_orders
