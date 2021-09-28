@@ -779,7 +779,8 @@ class GateIoExchange(ExchangeBase):
             "price": "10000.00000000",
             "fee": "0.00200000000000",
             "point_fee": "0",
-            "gt_fee": "0"
+            "gt_fee": "0",
+            "text": "user_defined_text",
         }
         """
         exchange_order_id = str(trade_msg["order_id"])

@@ -359,7 +359,7 @@ class HangingOrdersTracker:
     def _add_hanging_orders_based_on_partially_executed_pairs(self):
         for unfilled_order in self.candidate_hanging_orders_from_pairs():
             self.add_order(unfilled_order)
-        self.current_created_pairs_of_orders = list()
+        self.current_created_pairs_of_orders.clear()
 
     def _get_hanging_order_from_limit_order(self, order: LimitOrder):
         return HangingOrder(order.client_order_id, order.trading_pair, order.is_buy, order.price, order.quantity)
