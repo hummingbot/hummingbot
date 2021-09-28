@@ -419,8 +419,8 @@ cdef class SelfTradeStrategy(StrategyBase):
                 if all(map(lambda x: x.check(amount=amount), self._trade_bands)):
                     price: Decimal = self.get_price(maker_market=maker_market, trading_pair=trading_pair)
                     self.logger().warning(f"PRICE: {price}")
-                    # self.c_place_orders(market_info, is_buy=True, order_price=price, order_amount=amount)
-                    # self.c_place_orders(market_info, is_buy=False, order_price=price, order_amount=amount)
+                    self.c_place_orders(market_info, is_buy=True, order_price=price, order_amount=amount)
+                    self.c_place_orders(market_info, is_buy=False, order_price=price, order_amount=amount)
                     self._last_trade_timestamp = self._current_timestamp
                     list(map(lambda x: x.create_trade(amount=amount), self._trade_bands))
                 else:
