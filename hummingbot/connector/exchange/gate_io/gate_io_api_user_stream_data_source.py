@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import time
 import asyncio
 import logging
 from typing import (
@@ -35,12 +34,14 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._trading_pairs = trading_pairs or []
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
-        self._last_recv_time: float = 0
         super().__init__()
 
     @property
     def last_recv_time(self) -> float:
-        return self._last_recv_time
+        recv_time = 0
+        if self._ws is not None:
+            recv_time = self._ws.last_recv_time
+        return recv_time
 
     async def _listen_to_orders_trades_balances(self) -> AsyncIterable[Any]:
         """
@@ -65,7 +66,6 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
             await self._ws.subscribe(CONSTANTS.USER_BALANCE_ENDPOINT_NAME)
 
             async for msg in self._ws.on_message():
-                self._last_recv_time = time.time()
 
                 if msg.get("event") in ["subscribe", "unsubscribe"]:
                     continue
