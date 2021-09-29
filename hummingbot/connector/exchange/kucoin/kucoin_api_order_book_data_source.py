@@ -313,12 +313,12 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     def __init__(
         self,
-        throttler: AsyncThrottler,
+        throttler: Optional[AsyncThrottler] = None,
         trading_pairs: Optional[List[str]] = None,
         auth: Optional[KucoinAuth] = None,
     ):
         super().__init__(trading_pairs)
-        self._throttler = throttler
+        self._throttler = throttler or self._get_throttler_instance()
         self._auth = auth
         self._order_book_create_function = lambda: OrderBook()
         self._tasks: DefaultDict[StreamType, Dict[int, KucoinAPIOrderBookDataSource.TaskEntry]] = defaultdict(dict)
