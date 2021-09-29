@@ -1,9 +1,31 @@
 # hummingbot-docs
 The official documentation for Hummingbot
 
-## Prequisites
+## Installation
 
-This site uses the `mkdocs` documentation engine, which is installed with Hummingbot. If the commands below don't work, re-install Hummingbot by running `./install` from the root directory.
+This documentation site uses the [MkDocs](https://www.mkdocs.org/) documentation-focused static site engine, along with the [Material for MkDocs](https://squidfunk.github.io/mkdocs-material/) theme.
+
+### Material for MkDocs Insiders
+
+The deployed site at https://docs.hummingbot.io uses the Insiders build of Material for MkDocs, which features experimental features like tags and social cards. 
+
+For internal Hummingbot staff, see below for how to deploy the site in your local development environment and Netlify:
+
+#### Local
+
+```
+# install mkdocs-material-insiders and dependencies
+pip install git+https://github.com/CoinAlpha/mkdocs-material-insiders.git
+
+# install revision date plugin
+pip mkdocs-git-revision-date-plugin
+```
+
+#### Netlify
+
+The `netlify.toml` file in the root directory contains the instructions used by Netlify to build the site. Make sure to add the `GH_TOKEN` as a build environment variable in Netlify beforehand.
+
+If you push your commits to the `docs/staging` branch, Netlify will automatically deploy that branch to a staging site.
 
 ## Develop
 
