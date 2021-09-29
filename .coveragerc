@@ -9,6 +9,7 @@ omit =
         hummingbot/connector/derivative/dydx_perpetual*
         hummingbot/connector/derivative/perpetual_finance*
         hummingbot/connector/derivative/position.py*
+        hummingbot/connector/exchange/altmarkets*
         hummingbot/connector/exchange/ascend_ex*
         hummingbot/connector/exchange/bamboo_relay*
         hummingbot/connector/exchange/beaxy*

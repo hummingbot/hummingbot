@@ -38,6 +38,9 @@ kucoin_taker_fee:
 bitmart_maker_fee:
 bitmart_taker_fee:
 
+altmarkets_maker_fee:
+altmarkets_taker_fee:
+
 crypto_com_maker_fee:
 crypto_com_taker_fee:
 
