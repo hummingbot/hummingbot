@@ -9,8 +9,6 @@ from hummingbot.core.data_type.order_book_message import (
 )
 from hummingbot.connector.exchange.bitmart.bitmart_order_book_message import BitmartOrderBookMessage
 
-_logger = None
-
 
 class BitmartOrderBook(OrderBook):
 
