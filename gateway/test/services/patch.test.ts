@@ -29,6 +29,25 @@ class B {
   }
 }
 
+class Singleton {
+  private static _instance: Singleton;
+
+  private _x: number = -1;
+
+  private constructor() {}
+
+  public static getInstance(): Singleton {
+    if (!Singleton._instance) {
+      Singleton._instance = new Singleton();
+    }
+    return Singleton._instance;
+  }
+
+  public get x() {
+    return this._x;
+  }
+}
+
 describe('internal patch system', () => {
   it('It can patch and unpatch private variables', () => {
     const a = new A();
@@ -83,5 +102,22 @@ describe('internal patch system', () => {
 
     unpatch();
     expect(b.alter('HeLlO')).toEqual('hello');
+  });
+
+  it('It can patch and unpatch a singleton correctly', () => {
+    const a = Singleton.getInstance();
+    const b = Singleton.getInstance();
+
+    patch(a, '_x', 1);
+    expect(a.x).toEqual(1);
+    expect(b.x).toEqual(1);
+
+    patch(b, '_x', 1122);
+    expect(a.x).toEqual(1122);
+    expect(b.x).toEqual(1122);
+
+    unpatch();
+    expect(a.x).toEqual(-1);
+    expect(b.x).toEqual(-1);
   });
 });
