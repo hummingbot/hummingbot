@@ -72,7 +72,6 @@ def get_rest_api_limit_id_for_endpoint(endpoint: Dict[str, str],
 def _wss_url(endpoint: Dict[str, str], connector_variant_label: Optional[str]) -> str:
     variant = connector_variant_label if connector_variant_label else "bybit_perpetual_main"
     return endpoint.get(variant)
-    return endpoint.get(variant)
 
 
 def wss_linear_public_url(connector_variant_label: Optional[str]) -> str:
