@@ -1,4 +1,4 @@
-import { BigNumber, Contract, providers, Wallet } from 'ethers';
+import { BigNumber, Contract, providers, Transaction, Wallet } from 'ethers';
 import abi from './ethereum.abi.json';
 import axios from 'axios';
 import fs from 'fs/promises';
@@ -6,7 +6,7 @@ import { TokenListType, TokenValue } from './base';
 
 // information about an Ethereum token
 export interface Token {
-  chainID: number;
+  chainId: number;
   address: string;
   name: string;
   symbol: string;
@@ -22,21 +22,21 @@ export class EthereumBase {
   private _initializing: boolean = false;
   private _initPromise: Promise<void> = Promise.resolve();
 
-  public chainID;
+  public chainId;
   public rpcUrl;
   public gasPriceConstant;
   public tokenListSource: string;
   public tokenListType: TokenListType;
 
   constructor(
-    chainID: number,
+    chainId: number,
     rpcUrl: string,
     tokenListSource: string,
     tokenListType: TokenListType,
     gasPriceConstant: number
   ) {
     this._provider = new providers.JsonRpcProvider(rpcUrl);
-    this.chainID = chainID;
+    this.chainId = chainId;
     this.rpcUrl = rpcUrl;
     this.gasPriceConstant = gasPriceConstant;
     this.tokenListSource = tokenListSource;
@@ -155,7 +155,7 @@ export class EthereumBase {
     spender: string,
     tokenAddress: string,
     amount: BigNumber
-  ): Promise<boolean> {
+  ): Promise<Transaction> {
     // instantiate a contract and pass in wallet, which act on behalf of that signer
     const contract = new Contract(tokenAddress, abi.ERC20Abi, wallet);
     return contract.approve(spender, amount, {

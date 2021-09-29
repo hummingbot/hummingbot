@@ -3,19 +3,19 @@ import asyncio
 from decimal import Decimal
 from libc.stdint cimport int64_t
 import logging
-import pandas as pd
 from typing import (
     Any,
     Dict,
     List,
     AsyncIterable,
     Optional,
-    Tuple
 )
 import json
 import time
 
 from hummingbot.core.clock cimport Clock
+
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
@@ -41,14 +41,14 @@ from hummingbot.core.utils.async_utils import (
     safe_gather,
 )
 from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.kucoin.kucoin_api_order_book_data_source import KucoinAPIOrderBookDataSource
 from hummingbot.connector.exchange.kucoin.kucoin_auth import KucoinAuth
-from hummingbot.connector.exchange.kucoin.kucoin_in_flight_order import KucoinInFlightOrder
+from hummingbot.connector.exchange.kucoin.kucoin_in_flight_order import (
+    KucoinInFlightOrder, KucoinInFlightOrderNotCreated
+)
 from hummingbot.connector.exchange.kucoin.kucoin_order_book_tracker import KucoinOrderBookTracker
 from hummingbot.connector.exchange.kucoin.kucoin_user_stream_tracker import KucoinUserStreamTracker
 from hummingbot.connector.exchange.kucoin.kucoin_utils import (
     convert_asset_from_exchange,
-    convert_asset_to_exchange,
     convert_to_exchange_trading_pair,
     convert_from_exchange_trading_pair,
 )
@@ -56,6 +56,8 @@ from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.core.utils.estimate_fee import estimate_fee
+from hummingbot.connector.exchange.kucoin import kucoin_constants as CONSTANTS
+from hummingbot.client.config.global_config_map import global_config_map
 
 km_logger = None
 s_decimal_0 = Decimal(0)
@@ -119,7 +121,8 @@ cdef class KucoinExchange(ExchangeBase):
         self._in_flight_orders = {}
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
-        self._order_book_tracker = KucoinOrderBookTracker(trading_pairs, self._kucoin_auth)
+        self._throttler = self._build_async_throttler()
+        self._order_book_tracker = KucoinOrderBookTracker(self._throttler, trading_pairs, self._kucoin_auth)
         self._poll_notifier = asyncio.Event()
         self._shared_client = None
         self._status_polling_task = None
@@ -127,7 +130,7 @@ cdef class KucoinExchange(ExchangeBase):
         self._trading_rules = {}
         self._trading_rules_polling_task = None
         self._tx_tracker = KucoinExchangeTransactionTracker(self)
-        self._user_stream_tracker = KucoinUserStreamTracker(kucoin_auth=self._kucoin_auth)
+        self._user_stream_tracker = KucoinUserStreamTracker(self._throttler, self._kucoin_auth)
 
     @property
     def name(self) -> str:
@@ -169,14 +172,6 @@ cdef class KucoinExchange(ExchangeBase):
             key: KucoinInFlightOrder.from_json(value)
             for key, value in saved_states.items()
         })
-
-    @property
-    def shared_client(self) -> str:
-        return self._shared_client
-
-    @shared_client.setter
-    def shared_client(self, client: aiohttp.ClientSession):
-        self._shared_client = client
 
     @property
     def user_stream_tracker(self) -> KucoinUserStreamTracker:
@@ -225,7 +220,7 @@ cdef class KucoinExchange(ExchangeBase):
 
     async def check_network(self) -> NetworkStatus:
         try:
-            await self._api_request(method="get", path_url="/api/v1/timestamp")
+            await self._api_request(method="get", path_url=CONSTANTS.SERVER_TIME_PATH_URL)
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -380,30 +375,36 @@ cdef class KucoinExchange(ExchangeBase):
                            params: Optional[Dict[str, Any]] = None,
                            data=None,
                            is_auth_required: bool = False,
-                           is_partner_required: bool = False) -> Dict[str, Any]:
+                           is_partner_required: bool = False,
+                           limit_id: Optional[str] = None) -> Dict[str, Any]:
         url = KUCOIN_ROOT_API + path_url
         client = await self._http_client()
         if is_auth_required:
             if is_partner_required:
-                headers = self._kucoin_auth.add_auth_to_params(method, path_url, params, partner_header=True)
+                headers = self._kucoin_auth.add_auth_to_params(method, path_url, data, partner_header=True)
             else:
-                headers = self._kucoin_auth.add_auth_to_params(method, path_url, params)
+                headers = self._kucoin_auth.add_auth_to_params(method, path_url, data)
         else:
             headers = {"Content-Type": "application/json"}
+        limit_id = limit_id or path_url
+        if data is not None:
+            data = json.dumps(data)
 
-        post_json = json.dumps(params)
         if method == "get":
-            response = await client.get(url, headers=headers)
+            async with self._throttler.execute_task(limit_id):
+                response = await client.get(url, params=params, data=data, headers=headers)
         elif method == "post":
-            response = await client.post(url, data=post_json, headers=headers)
+            async with self._throttler.execute_task(limit_id):
+                response = await client.post(url, params=params, data=data, headers=headers)
         elif method == "delete":
-            response = await client.delete(url, headers=headers)
+            async with self._throttler.execute_task(limit_id):
+                response = await client.delete(url, headers=headers)
         else:
             response = False
 
         if response:
             if response.status != 200:
-                raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
+                raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. Error is { await response.text()}")
             try:
                 parsed_response = json.loads(await response.text())
             except Exception:
@@ -412,14 +413,14 @@ cdef class KucoinExchange(ExchangeBase):
 
     async def _update_balances(self):
         cdef:
-            str path_url = "/api/v1/accounts?type=trade"
+            str path_url = CONSTANTS.ACCOUNTS_PATH_URL
             str asset_name
             set local_asset_names = set(self._account_balances.keys())
             set remote_asset_names = set()
 
-        data = await self._api_request("get", path_url=path_url, is_auth_required=True)
-        if data:
-            for balance_entry in data["data"]:
+        response = await self._api_request("get", path_url=path_url, is_auth_required=True)
+        if response:
+            for balance_entry in response["data"]:
                 asset_name = convert_asset_from_exchange(balance_entry["currency"])
                 self._account_available_balances[asset_name] = Decimal(balance_entry["available"])
                 self._account_balances[asset_name] = Decimal(balance_entry["balance"])
@@ -455,7 +456,7 @@ cdef class KucoinExchange(ExchangeBase):
             int64_t last_tick = <int64_t> (self._last_timestamp / 60.0)
             int64_t current_tick = <int64_t> (self._current_timestamp / 60.0)
         if current_tick > last_tick or len(self._trading_rules) < 1:
-            exchange_info = await self._api_request("get", path_url="/api/v1/symbols")
+            exchange_info = await self._api_request("get", path_url=CONSTANTS.SYMBOLS_PATH_URL)
             trading_rules_list = self._format_trading_rules(exchange_info)
             self._trading_rules.clear()
             for trading_rule in trading_rules_list:
@@ -481,8 +482,10 @@ cdef class KucoinExchange(ExchangeBase):
         return trading_rules
 
     async def get_order_status(self, exchange_order_id: str) -> Dict[str, Any]:
-        path_url = f"/api/v1/orders/{exchange_order_id}"
-        return await self._api_request("get", path_url=path_url, is_auth_required=True)
+        path_url = f"{CONSTANTS.ORDERS_PATH_URL}/{exchange_order_id}"
+        return await self._api_request(
+            "get", path_url=path_url, is_auth_required=True, limit_id=CONSTANTS.GET_ORDER_LIMIT_ID
+        )
 
     async def _update_order_status(self):
         cdef:
@@ -632,7 +635,6 @@ cdef class KucoinExchange(ExchangeBase):
 
     @property
     def ready(self) -> bool:
-        # print(self.status_dict)
         return all(self.status_dict.values())
 
     def supported_order_types(self):
@@ -645,10 +647,10 @@ cdef class KucoinExchange(ExchangeBase):
                           is_buy: bool,
                           order_type: OrderType,
                           price: Decimal) -> str:
-        path_url = "/api/v1/orders"
+        path_url = CONSTANTS.ORDERS_PATH_URL
         side = "buy" if is_buy else "sell"
         order_type_str = "limit"
-        params = {
+        data = {
             "size": str(amount),
             "clientOid": order_id,
             "side": side,
@@ -656,17 +658,17 @@ cdef class KucoinExchange(ExchangeBase):
             "type": order_type_str,
         }
         if order_type is OrderType.LIMIT:
-            params["price"] = str(price)
+            data["price"] = str(price)
         elif order_type is OrderType.LIMIT_MAKER:
-            params["price"] = str(price)
-            params["postOnly"] = True
+            data["price"] = str(price)
+            data["postOnly"] = True
         exchange_order_id = await self._api_request(
             "post",
             path_url=path_url,
-            params=params,
-            data=params,
+            data=data,
             is_auth_required=True,
-            is_partner_required=True
+            is_partner_required=True,
+            limit_id=CONSTANTS.POST_ORDER_LIMIT_ID,
         )
         return str(exchange_order_id["data"]["orderId"])
 
@@ -691,30 +693,32 @@ cdef class KucoinExchange(ExchangeBase):
                 raise ValueError(f"Buy order amount {decimal_amount} is lower than the minimum order size "
                                  f"{trading_rule.min_order_size}.")
         try:
-            exchange_order_id = await self.place_order(order_id, trading_pair, decimal_amount, True, order_type,
-                                                       decimal_price)
             self.c_start_tracking_order(
                 client_order_id=order_id,
-                exchange_order_id=exchange_order_id,
+                exchange_order_id=None,
                 trading_pair=trading_pair,
                 order_type=order_type,
                 trade_type=TradeType.BUY,
                 price=decimal_price,
                 amount=decimal_amount
             )
+            exchange_order_id = await self.place_order(order_id, trading_pair, decimal_amount, True, order_type,
+                                                       decimal_price)
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
                 self.logger().info(f"Created {order_type} buy order {order_id} for {decimal_amount} {trading_pair}.")
-            self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
-                                 BuyOrderCreatedEvent(
-                                     self._current_timestamp,
-                                     order_type,
-                                     trading_pair,
-                                     float(decimal_amount),
-                                     float(decimal_price),
-                                     order_id,
-                                     exchange_order_id=tracked_order.exchange_order_id
-                                 ))
+                tracked_order.last_state = "DEAL"
+                tracked_order.update_exchange_order_id(exchange_order_id)
+                self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
+                                     BuyOrderCreatedEvent(
+                                         self._current_timestamp,
+                                         order_type,
+                                         trading_pair,
+                                         float(decimal_amount),
+                                         float(decimal_price),
+                                         order_id,
+                                         exchange_order_id=tracked_order.exchange_order_id
+                                     ))
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -763,30 +767,32 @@ cdef class KucoinExchange(ExchangeBase):
                              f"{trading_rule.min_order_size}.")
 
         try:
-            exchange_order_id = await self.place_order(order_id, trading_pair, decimal_amount, False, order_type,
-                                                       decimal_price)
             self.c_start_tracking_order(
                 client_order_id=order_id,
-                exchange_order_id=exchange_order_id,
+                exchange_order_id=None,
                 trading_pair=trading_pair,
                 order_type=order_type,
                 trade_type=TradeType.SELL,
                 price=decimal_price,
                 amount=decimal_amount
             )
+            exchange_order_id = await self.place_order(order_id, trading_pair, decimal_amount, False, order_type,
+                                                       decimal_price)
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is not None:
                 self.logger().info(f"Created {order_type} sell order {order_id} for {decimal_amount} {trading_pair}.")
-            self.c_trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
-                                 SellOrderCreatedEvent(
-                                     self._current_timestamp,
-                                     order_type,
-                                     trading_pair,
-                                     float(decimal_amount),
-                                     float(decimal_price),
-                                     order_id,
-                                     exchange_order_id=exchange_order_id
-                                 ))
+                tracked_order.last_state = "DEAL"
+                tracked_order.update_exchange_order_id(exchange_order_id)
+                self.c_trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
+                                     SellOrderCreatedEvent(
+                                         self._current_timestamp,
+                                         order_type,
+                                         trading_pair,
+                                         float(decimal_amount),
+                                         float(decimal_price),
+                                         order_id,
+                                         exchange_order_id=exchange_order_id
+                                     ))
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -816,11 +822,20 @@ cdef class KucoinExchange(ExchangeBase):
 
     async def execute_cancel(self, trading_pair: str, order_id: str):
         try:
-            tracked_order = self._in_flight_orders.get(order_id)
+            tracked_order: KucoinInFlightOrder = self._in_flight_orders.get(order_id)
             if tracked_order is None:
                 raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
-            path_url = f"/api/v1/orders/{tracked_order.exchange_order_id}"
-            await self._api_request("delete", path_url=path_url, is_auth_required=True)
+            if tracked_order.is_local:
+                raise KucoinInFlightOrderNotCreated(
+                    f"Failed to cancel order - {order_id}. Order not yet created."
+                    f" This is most likely due to rate-limiting."
+                )
+            path_url = f"{CONSTANTS.ORDERS_PATH_URL}/{tracked_order.exchange_order_id}"
+            await self._api_request(
+                "delete", path_url=path_url, is_auth_required=True, limit_id=CONSTANTS.DELETE_ORDER_LIMIT_ID
+            )
+        except KucoinInFlightOrderNotCreated:
+            raise
         except Exception as e:
             self.logger().network(
                 f"Failed to cancel order {order_id}: {str(e)}",
@@ -834,7 +849,6 @@ cdef class KucoinExchange(ExchangeBase):
         return order_id
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
-        path_url = "/api/v1/orders"
         cancellation_results = []
         tracked_orders = {order.exchange_order_id: order for order in self._in_flight_orders.copy().values()}
         try:
@@ -842,8 +856,9 @@ cdef class KucoinExchange(ExchangeBase):
             for oid, order in tracked_orders.items():
                 cancellation_tasks.append(self._api_request(
                     method="delete",
-                    path_url=f"{path_url}/{oid}",
+                    path_url=f"{CONSTANTS.ORDERS_PATH_URL}/{oid}",
                     is_auth_required=True,
+                    limit_id=CONSTANTS.DELETE_ORDER_LIMIT_ID,
                 ))
             responses = await safe_gather(*cancellation_tasks)
 
@@ -970,3 +985,16 @@ cdef class KucoinExchange(ExchangeBase):
 
     def get_order_book(self, trading_pair: str) -> OrderBook:
         return self.c_get_order_book(trading_pair)
+
+    def _build_async_throttler(self) -> AsyncThrottler:
+        limits_pct_conf: Optional[Decimal] = global_config_map["rate_limits_share_pct"].value
+        limits_pct = Decimal("1") if limits_pct_conf is None else limits_pct_conf / Decimal("100")
+        effective_ws_connection_limit = CONSTANTS.WS_CONNECTION_LIMIT * limits_pct
+        if effective_ws_connection_limit < 3:
+            self.logger().warning(
+                f"The KuCoin connector requires 3 websocket connections to operate. The current rate limit percentage"
+                f" allows the creation of {int(effective_ws_connection_limit)} websocket connections every"
+                f" {CONSTANTS.WS_CONNECTION_TIME_INTERVAL}s. This will prevent the client from functioning properly."
+            )
+        throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        return throttler

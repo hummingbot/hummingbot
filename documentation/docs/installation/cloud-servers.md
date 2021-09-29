@@ -80,4 +80,4 @@ Below, we show you how to set up a new Virtual Machine Instance on each major cl
 - [Connect to a Linux-based VM](https://docs.microsoft.com/en-us/azure/marketplace/partner-center-portal/create-azure-vm-technical-asset#connect-to-a-linux-based-vm)
 
 ---
-# Next: [Install Hummingbot for Linux](/installation/docker/linux)
+# Next: [Install Hummingbot for Linux](/installation/linux/)

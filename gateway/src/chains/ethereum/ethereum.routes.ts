@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/ban-types */
-import { providers, Wallet } from 'ethers';
+import { Transaction, Wallet, providers } from 'ethers';
 import { NextFunction, Router, Request, Response } from 'express';
 import { Ethereum } from './ethereum';
 import { EthereumConfig } from './ethereum.config';
@@ -15,10 +15,24 @@ import {
   approve,
   poll,
 } from './ethereum.controllers';
+import {
+  EthereumNonceRequest,
+  EthereumAllowancesRequest,
+  EthereumBalanceRequest,
+  EthereumApproveRequest,
+  EthereumPollRequest,
+} from './ethereum.requests';
+import {
+  validateEthereumNonceRequest,
+  validateEthereumAllowancesRequest,
+  validateEthereumBalanceRequest,
+  validateEthereumApproveRequest,
+  validateEthereumPollRequest,
+} from './ethereum.validators';
 
 export namespace EthereumRoutes {
   export const router = Router();
-  const ethereum = Ethereum.getInstance();
+  export const ethereum = Ethereum.getInstance();
   export const reload = (): void => {
     // ethereum = Ethereum.reload();
   };
@@ -44,11 +58,27 @@ export namespace EthereumRoutes {
     })
   );
 
-  interface EthereumAllowancesRequest {
-    privateKey: string; // the users private Ethereum key
-    spender: string; // the spender address for whom approvals are checked
-    tokenSymbols: string[]; // a list of token symbol
+  interface EthereumNonceResponse {
+    nonce: number; // the user's nonce
   }
+
+  router.post(
+    '/nonce',
+    asyncHandler(
+      async (
+        req: Request<{}, {}, EthereumNonceRequest>,
+        res: Response<EthereumNonceResponse | string, {}>
+      ) => {
+        validateEthereumNonceRequest(req.body);
+
+        // get the address via the private key since we generally use the private
+        // key to interact with gateway and the address is not part of the user config
+        const wallet = ethereum.getWallet(req.body.privateKey);
+        const nonce = await ethereum.nonceManager.getNonce(wallet.address);
+        res.status(200).json({ nonce: nonce });
+      }
+    )
+  );
 
   interface EthereumAllowancesResponse {
     network: string;
@@ -98,6 +128,8 @@ export namespace EthereumRoutes {
         req: Request<{}, {}, EthereumAllowancesRequest>,
         res: Response<EthereumAllowancesResponse | string, {}>
       ) => {
+        validateEthereumAllowancesRequest(req.body);
+
         const initTime = Date.now();
         const wallet = ethereum.getWallet(req.body.privateKey);
 
@@ -130,11 +162,6 @@ export namespace EthereumRoutes {
     )
   );
 
-  interface EthereumBalanceRequest {
-    privateKey: string; // the users private Ethereum key
-    tokenSymbols: string[]; // a list of token symbol
-  }
-
   interface EthereumBalanceResponse {
     network: string;
     timestamp: number;
@@ -150,6 +177,8 @@ export namespace EthereumRoutes {
         res: Response<EthereumBalanceResponse | string, {}>,
         _next: NextFunction
       ) => {
+        validateEthereumBalanceRequest(req.body);
+
         const initTime = Date.now();
 
         let wallet: Wallet;
@@ -188,21 +217,15 @@ export namespace EthereumRoutes {
     )
   );
 
-  interface EthereumApproveRequest {
-    amount?: string;
-    privateKey: string;
-    spender: string;
-    token: string;
-  }
-
-  interface EthereumApproveResponse {
+  export interface EthereumApproveResponse {
     network: string;
     timestamp: number;
     latency: number;
     tokenAddress: string;
     spender: string;
     amount: string;
-    approval: boolean | string;
+    nonce: number;
+    approval: Transaction;
   }
 
   router.post(
@@ -212,16 +235,15 @@ export namespace EthereumRoutes {
         req: Request<{}, {}, EthereumApproveRequest>,
         res: Response<EthereumApproveResponse | string, {}>
       ) => {
-        const { spender, privateKey, token, amount } = req.body;
-        const result = await approve(spender, privateKey, token, amount);
+        validateEthereumApproveRequest(req.body);
+
+        const { nonce, privateKey, token, amount } = req.body;
+        const spender = getSpender(req.body.spender);
+        const result = await approve(spender, privateKey, token, amount, nonce);
         return res.status(200).json(result);
       }
     )
   );
-
-  interface EthereumPollRequest {
-    txHash: string;
-  }
 
   interface EthereumPollResponse {
     network: string;
@@ -240,6 +262,8 @@ export namespace EthereumRoutes {
         req: Request<{}, {}, EthereumPollRequest>,
         res: Response<EthereumPollResponse, {}>
       ) => {
+        validateEthereumPollRequest(req.body);
+
         const result = await poll(req.body.txHash);
         res.status(200).json(result);
       }
