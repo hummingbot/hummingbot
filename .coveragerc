@@ -1,6 +1,8 @@
 [run]
 source_pkgs = hummingbot
-omit =  hummingbot/connector/connector/balancer*
+omit =  
+        hummingbot/client/command/*
+        hummingbot/connector/connector/balancer*
         hummingbot/connector/connector/terra*
         hummingbot/connector/connector/uniswap*
         hummingbot/connector/connector/uniswap_v3*

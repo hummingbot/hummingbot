@@ -175,7 +175,7 @@ Price `NILL` means the exit price is not profitable based on the current peak pr
 
 ### Stop loss
 
-If the position’s profitability (PNL) is equal to or below the `stop_loss_spread`, the bot will create a limit or market order (depending on `close_positon_order_type` value) at the current mark price to close the position.
+If the position’s profitability (PNL) is equal to or below the `stop_loss_spread`, the bot will create a limit or market order (depending on `close_position_order_type` value) at the current mark price to close the position.
 
 If there are outstanding limit orders, they are cancelled and replaced with a stop loss order.
 

@@ -5,6 +5,7 @@ import time
 from abc import ABC, abstractmethod
 from typing import (
     List,
+    Tuple,
 )
 
 from hummingbot.core.api_throttler.data_types import (
@@ -34,7 +35,8 @@ class AsyncRequestContextBase(ABC):
 
     def __init__(self,
                  task_logs: List[TaskLog],
-                 rate_limits: List[RateLimit],
+                 rate_limit: RateLimit,
+                 related_limits: List[Tuple[RateLimit, int]],
                  lock: asyncio.Lock,
                  safety_margin_pct: float,
                  retry_interval: float = 0.1,
@@ -42,12 +44,14 @@ class AsyncRequestContextBase(ABC):
         """
         Asynchronous context associated with each API request.
         :param task_logs: Shared task logs associated with this API request
-        :param rate_limits: RateLimit(s) associated with this API request
+        :param rate_limit: The RateLimit associated with this API Request
+        :param rate_limits: List of linked rate limits with its corresponding weight associated with this API Request
         :param lock: A shared asyncio.Lock used between all instances of APIRequestContextBase
         :param retry_interval: Time between each limit check
         """
         self._task_logs: List[TaskLog] = task_logs
-        self._rate_limits: List[RateLimit] = rate_limits
+        self._rate_limit: RateLimit = rate_limit
+        self._related_limits: List[Tuple[RateLimit, int]] = related_limits
         self._lock: asyncio.Lock = lock
         self._safety_margin_pct: float = safety_margin_pct
         self._retry_interval: float = retry_interval
@@ -59,9 +63,9 @@ class AsyncRequestContextBase(ABC):
         """
         now: float = time.time()
         for task in self._task_logs:
+            task_limit: RateLimit = task.rate_limit
             elapsed: float = now - task.timestamp
-            if all(elapsed > limit.time_interval + (limit.time_interval * self._safety_margin_pct)
-                   for limit in task.rate_limits):
+            if elapsed > task_limit.time_interval + (task_limit.time_interval * self._safety_margin_pct):
                 self._task_logs.remove(task)
 
     @abstractmethod
@@ -70,18 +74,24 @@ class AsyncRequestContextBase(ABC):
 
     async def acquire(self):
         while True:
-            self.flush()
+            async with self._lock:
+                self.flush()
 
-            if self.within_capacity():
-                break
+                if self.within_capacity():
+                    break
             await asyncio.sleep(self._retry_interval)
-
-        task = TaskLog(timestamp=time.time(), rate_limits=self._rate_limits)
-        self._task_logs.append(task)
+        async with self._lock:
+            now = time.time()
+            # Each related limit is represented as it own individual TaskLog
+            self._task_logs.append(TaskLog(timestamp=now,
+                                           rate_limit=self._rate_limit,
+                                           weight=self._rate_limit.weight))
+            for limit, weight in self._related_limits:
+                task = TaskLog(timestamp=now, rate_limit=limit, weight=weight)
+                self._task_logs.append(task)
 
     async def __aenter__(self):
-        async with self._lock:
-            await self.acquire()
+        await self.acquire()
 
     async def __aexit__(self, exc_type, exc, tb):
         pass

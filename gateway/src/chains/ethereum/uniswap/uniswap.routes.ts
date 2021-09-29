@@ -3,21 +3,25 @@ import { Ethereum } from '../ethereum';
 import { Uniswap, ExpectedTrade } from './uniswap';
 import { ConfigManager } from '../../../services/config-manager';
 import { HttpException, asyncHandler } from '../../../services/error-handler';
-import { BigNumber } from 'ethers';
+import { BigNumber, Wallet } from 'ethers';
 import {
   latency,
   gasCostInEthString,
   stringWithDecimalToBigNumber,
 } from '../../../services/base';
-import { ethers } from 'ethers';
 import { Trade } from '@uniswap/sdk';
 import { verifyEthereumIsAvailable } from '../ethereum-middlewares';
 import { verifyUniswapIsAvailable } from './uniswap-middlewares';
+import { UniswapPriceRequest, UniswapTradeRequest } from './uniswap.requests';
+import {
+  validateUniswapPriceRequest,
+  validateUniswapTradeRequest,
+} from './uniswap.validators';
 
 export namespace UniswapRoutes {
   export const router = Router();
-  const uniswap = Uniswap.getInstance();
-  const ethereum = Ethereum.getInstance();
+  export const uniswap = Uniswap.getInstance();
+  export const ethereum = Ethereum.getInstance();
 
   router.use(
     asyncHandler(verifyEthereumIsAvailable),
@@ -32,14 +36,6 @@ export namespace UniswapRoutes {
       timestamp: Date.now(),
     });
   });
-
-  type Side = 'BUY' | 'SELL';
-  interface UniswapPriceRequest {
-    quote: string;
-    base: string;
-    amount: string;
-    side: Side;
-  }
 
   interface UniswapPriceResponse {
     network: string;
@@ -63,6 +59,7 @@ export namespace UniswapRoutes {
         req: Request<{}, {}, UniswapPriceRequest>,
         res: Response<UniswapPriceResponse, {}>
       ) => {
+        validateUniswapPriceRequest(req.body);
         const initTime = Date.now();
 
         // the amount is passed in as a string. We must validate the value.
@@ -158,15 +155,6 @@ export namespace UniswapRoutes {
     )
   );
 
-  interface UniswapTradeRequest {
-    quote: string;
-    base: string;
-    amount: string;
-    privateKey: string;
-    side: Side;
-    limitPrice?: BigNumber;
-  }
-
   interface UniswapTradeResponse {
     network: string;
     timestamp: number;
@@ -180,6 +168,7 @@ export namespace UniswapRoutes {
     gasPrice: number;
     gasLimit: number;
     gasCost: string;
+    nonce: number;
     txHash: string | undefined;
   }
 
@@ -195,14 +184,17 @@ export namespace UniswapRoutes {
         req: Request<{}, {}, UniswapTradeRequest>,
         res: Response<UniswapTradeResponse | UniswapTradeErrorResponse, {}>
       ) => {
+        validateUniswapTradeRequest(req.body);
         const initTime = Date.now();
 
         const limitPrice = req.body.limitPrice;
 
-        const wallet = new ethers.Wallet(
-          req.body.privateKey,
-          ethereum.provider
-        );
+        let wallet: Wallet;
+        try {
+          wallet = ethereum.getWallet(req.body.privateKey);
+        } catch (err) {
+          throw new Error(`Error getting wallet ${err}`);
+        }
 
         const baseToken = ethereum.getTokenBySymbol(req.body.base);
         if (!baseToken)
@@ -210,6 +202,7 @@ export namespace UniswapRoutes {
             500,
             'Unrecognized base token symbol: ' + req.body.base
           );
+
         const quoteToken = ethereum.getTokenBySymbol(req.body.quote);
         if (!quoteToken)
           throw new HttpException(
@@ -255,6 +248,7 @@ export namespace UniswapRoutes {
 
         const gasPrice = ethereum.gasPrice;
         const gasLimit = ConfigManager.config.UNISWAP_GAS_LIMIT;
+
         if (req.body.side === 'BUY') {
           const price = result.trade.executionPrice.invert();
 
@@ -264,7 +258,13 @@ export namespace UniswapRoutes {
               `Swap price ${price} exceeds limitPrice ${limitPrice}`
             );
 
-          const tx = await uniswap.executeTrade(wallet, result.trade, gasPrice);
+          const tx = await uniswap.executeTrade(
+            wallet,
+            result.trade,
+            gasPrice,
+            req.body.nonce
+          );
+
           return res.status(200).json({
             network: ConfigManager.config.ETHEREUM_CHAIN,
             timestamp: initTime,
@@ -277,6 +277,7 @@ export namespace UniswapRoutes {
             gasPrice: gasPrice,
             gasLimit: gasLimit,
             gasCost: gasCostInEthString(gasPrice, gasLimit),
+            nonce: tx.nonce,
             txHash: tx.hash,
           });
         } else {
@@ -287,7 +288,12 @@ export namespace UniswapRoutes {
               `Swap price ${price} lower than limitPrice ${limitPrice}`
             );
 
-          const tx = await uniswap.executeTrade(wallet, result.trade, gasPrice);
+          const tx = await uniswap.executeTrade(
+            wallet,
+            result.trade,
+            gasPrice,
+            req.body.nonce
+          );
           return res.status(200).json({
             network: ConfigManager.config.ETHEREUM_CHAIN,
             timestamp: initTime,
@@ -300,6 +306,7 @@ export namespace UniswapRoutes {
             gasPrice: gasPrice,
             gasLimit,
             gasCost: gasCostInEthString(gasPrice, gasLimit),
+            nonce: tx.nonce,
             txHash: tx.hash,
           });
         }

@@ -145,9 +145,9 @@ export class Uniswap {
   async executeTrade(
     wallet: Wallet,
     trade: Trade,
-    gasPrice: number
+    gasPrice: number,
+    nonce?: number
   ): Promise<Transaction> {
-    logger.info(`Performing trade ${trade}.`);
     const result = Router.swapCallParameters(trade, {
       ttl: ConfigManager.config.UNISWAP_TTL,
       recipient: wallet.address,
@@ -157,15 +157,18 @@ export class Uniswap {
     });
 
     const contract = new Contract(this._uniswapRouter, routerAbi.abi, wallet);
+    if (!nonce) {
+      nonce = await this.ethereum.nonceManager.getNonce(wallet.address);
+    }
     const tx = await contract[result.methodName](...result.args, {
       gasPrice: gasPrice * 1e9,
       gasLimit: ConfigManager.config.UNISWAP_GAS_LIMIT,
       value: result.value,
-      // nonce: nonce,
+      nonce: nonce,
     });
 
-    logger.info(`Trade tx ${tx}.`);
-
+    logger.info(tx);
+    await this.ethereum.nonceManager.commitNonce(wallet.address, nonce);
     return tx;
   }
 }
