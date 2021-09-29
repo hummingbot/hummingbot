@@ -84,6 +84,7 @@ class StartCommand:
             import appnope
             appnope.nope()
 
+        self._initialize_remote_command_executor()
         self._initialize_notifiers()
 
         self._notify(f"\nStatus check complete. Starting '{self.strategy_name}' strategy...")

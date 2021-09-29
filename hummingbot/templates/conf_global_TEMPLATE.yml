@@ -163,6 +163,26 @@ telegram_enabled: false
 telegram_token: null
 telegram_chat_id: null
 
+# Remote commands
+remote_commands_enabled: false
+remote_commands_api_key: null
+remote_commands_ws_url: null
+# Specify a routing name for use with multiple Hummingbot instances
+remote_commands_routing_name: null
+# Whether to ignore the first event sent over the websocket
+# For use with websockets that resend the last event upon (re)connection.
+# Recommended to keep this on so no events are missed in the case of a network drop out.
+remote_commands_ignore_first_event: true
+# Whether to disable console command processing for remote command events.
+# Best to disable this if using in custom scripts or strategies
+remote_commands_disable_console_commands: false
+# You can specify how to translate received commands to Hummingbot commands here
+# eg.
+# remote_commands_translate_commands:
+#   long: start
+#   short: stop
+remote_commands_translate_commands:
+
 # Error log sharing
 send_error_logs: null
 

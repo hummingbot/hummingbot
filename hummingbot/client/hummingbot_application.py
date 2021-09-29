@@ -32,6 +32,7 @@ from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.notifier.notifier_base import NotifierBase
 from hummingbot.notifier.telegram_notifier import TelegramNotifier
+from hummingbot.core.remote_control.remote_command_executor import RemoteCommandExecutor
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.client.config.security import Security
@@ -89,6 +90,7 @@ class HummingbotApplication(*commands):
         self.log_queue_listener: Optional[logging.handlers.QueueListener] = None
         self.data_feed: Optional[DataFeedBase] = None
         self.notifiers: List[NotifierBase] = []
+        self.remote_command_executor: Optional[RemoteCommandExecutor] = None
         self.kill_switch: Optional[KillSwitch] = None
         self._app_warnings: Deque[ApplicationWarning] = deque()
         self._trading_required: bool = True
@@ -290,6 +292,12 @@ class HummingbotApplication(*commands):
             self.strategy_name,
         )
         self.markets_recorder.start()
+
+    def _initialize_remote_command_executor(self):
+        if global_config_map.get("remote_commands_enabled").value:
+            if not self.remote_command_executor:
+                self.remote_command_executor = RemoteCommandExecutor.get_instance()
+                self.remote_command_executor.start()
 
     def _initialize_notifiers(self):
         if global_config_map.get("telegram_enabled").value:

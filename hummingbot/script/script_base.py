@@ -18,7 +18,8 @@ from .script_interface import (
 )
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
-    SellOrderCompletedEvent
+    SellOrderCompletedEvent,
+    RemoteCmdEvent
 )
 
 
@@ -80,6 +81,8 @@ class ScriptBase:
                     self.on_buy_order_completed(item)
                 elif isinstance(item, SellOrderCompletedEvent):
                     self.on_sell_order_completed(item)
+                elif isinstance(item, RemoteCmdEvent):
+                    self.on_remote_command_event(item)
                 elif isinstance(item, OnStatus):
                     status_msg = self.on_status()
                     if status_msg:
@@ -110,6 +113,13 @@ class ScriptBase:
         :param msg: The message.
         """
         self._child_queue.put(CallLog(msg))
+
+    def broadcast_remote_event(self, event: RemoteCmdEvent):
+        """
+        Broadcast remote command event via the remote command executor websocket.
+        :param event: The event.
+        """
+        self._child_queue.put(event)
 
     def avg_mid_price(self, interval: int, length: int) -> Optional[Decimal]:
         """
@@ -218,6 +228,12 @@ class ScriptBase:
         """
         Is called upon a sell order is completely filled.
         It is intended to be implemented by the derived class of this class.
+        """
+        pass
+
+    def on_remote_command_event(self, event: RemoteCmdEvent):
+        """
+        Is called upon a remote command received.
         """
         pass
 

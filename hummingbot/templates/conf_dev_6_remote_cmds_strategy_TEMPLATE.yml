@@ -1,0 +1,17 @@
+########################################################
+###         Remote Commands strategy config          ###
+########################################################
+
+template_version: 1
+strategy: null
+
+# The following configuations are only required for the
+# hello world strategy
+
+# Exchange and market and asset parameters
+exchange: null
+trading_pair: null
+asset: null
+
+# For more detailed information, see:
+# https://docs.hummingbot.io/strategies/simple-trade/#configuration-parameters

@@ -63,6 +63,10 @@ class ZeroExEvent(Enum):
     Fill = 1001
 
 
+class RemoteEvent(Enum):
+    RemoteCmdEvent = 2001
+
+
 class TradeType(Enum):
     BUY = 1
     SELL = 2
@@ -446,3 +450,59 @@ class LimitOrderStatus(Enum):
     CANCELED = 4
     COMPLETED = 5
     FAILED = 6
+
+
+@dataclass
+class RemoteCmdEvent:
+    event_descriptor: str
+    command: str = None
+    timestamp_received: int = None
+    timestamp_event: int = None
+    exchange: str = None
+    symbol: str = None
+    interval: int = None
+    price: Decimal = Decimal("0")
+    volume: Decimal = Decimal("0")
+    inventory: Decimal = Decimal("0")
+    order_bid_spread: Decimal = None
+    order_ask_spread: Decimal = None
+    order_amount: Decimal = None
+    order_levels: Decimal = None
+    order_level_spread: Decimal = None
+
+    @classmethod
+    def from_json_data(cls, data):
+        timestamp_received = data.get("timestamp_received")
+        timestamp_event = data.get("timestamp_event")
+        interval = data.get("interval")
+        price = data.get("price")
+        volume = data.get("volume")
+        inventory = data.get("inventory")
+        order_bid_spread = data.get("order_bid_spread")
+        order_ask_spread = data.get("order_ask_spread")
+        order_amount = data.get("order_amount")
+        order_levels = data.get("order_levels")
+        order_level_spread = data.get("order_level_spread")
+        return cls(event_descriptor=data.get("event_descriptor"),
+                   command=data.get("command"),
+                   timestamp_received=int(timestamp_received) if timestamp_received else None,
+                   timestamp_event=int(timestamp_event) if timestamp_event else None,
+                   exchange=data.get("exchange"),
+                   symbol=data.get("symbol"),
+                   interval=int(interval) if interval else None,
+                   price=Decimal(price) if price else None,
+                   volume=Decimal(volume) if volume else None,
+                   inventory=Decimal(inventory) if inventory else None,
+                   order_bid_spread=Decimal(order_bid_spread) if order_bid_spread else None,
+                   order_ask_spread=Decimal(order_ask_spread) if order_ask_spread else None,
+                   order_amount=Decimal(order_amount) if order_amount else None,
+                   order_levels=Decimal(order_levels) if order_levels else None,
+                   order_level_spread=Decimal(order_level_spread) if order_level_spread else None,
+                   )
+
+    def translate_commands(self, trans_dict):
+        if self.command and trans_dict:
+            for to_be_translated in trans_dict.keys():
+                if self.command == to_be_translated:
+                    self.command = trans_dict[to_be_translated]
+                    break

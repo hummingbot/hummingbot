@@ -210,6 +210,42 @@ main_config_map = {
         ConfigVar(key="telegram_chat_id",
                   prompt="What is your telegram chat id? >>> ",
                   required_if=lambda: False),
+    "remote_commands_enabled":
+        ConfigVar(key="remote_commands_enabled",
+                  prompt="Would you like to enable remote commands? >>> ",
+                  type_str="bool",
+                  required_if=lambda: False,
+                  default=False),
+    "remote_commands_api_key":
+        ConfigVar(key="remote_commands_api_key",
+                  prompt="What is your remote commands api key? >>> ",
+                  required_if=lambda: global_config_map["remote_commands_enabled"].value),
+    "remote_commands_ws_url":
+        ConfigVar(key="remote_commands_ws_url",
+                  prompt="What is your remote commands websocket url? >>> ",
+                  required_if=lambda: global_config_map["remote_commands_enabled"].value),
+    "remote_commands_routing_name":
+        ConfigVar(key="remote_commands_routing_name",
+                  prompt="What is your remote commands routing name? >>> ",
+                  required_if=lambda: False),
+    "remote_commands_ignore_first_event":
+        ConfigVar(key="remote_commands_ignore_first_event",
+                  prompt="Whether to ignore the first event received? >>> ",
+                  required_if=lambda: False,
+                  type_str="bool",
+                  default=True),
+    "remote_commands_disable_console_commands":
+        ConfigVar(key="remote_commands_disable_console_commands",
+                  prompt="Whether to disable console command processing? >>> ",
+                  required_if=lambda: False,
+                  type_str="bool",
+                  default=False),
+    "remote_commands_translate_commands":
+        ConfigVar(key="remote_commands_translate_commands",
+                  prompt="How to translate received commands to Hummingbot commands? >>> ",
+                  required_if=lambda: False,
+                  type_str="json",
+                  ),
     "send_error_logs":
         ConfigVar(key="send_error_logs",
                   prompt="Would you like to send error logs to hummingbot? (Yes/No) >>> ",

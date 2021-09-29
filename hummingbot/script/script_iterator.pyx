@@ -5,6 +5,7 @@ import asyncio
 import logging
 import traceback
 from multiprocessing import Process, Queue
+from hummingbot.core.remote_control.remote_command_executor import RemoteCommandExecutor
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.clock import Clock
 from hummingbot.strategy.pure_market_making import PureMarketMakingStrategy
@@ -12,6 +13,7 @@ from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     SellOrderCompletedEvent,
     MarketEvent,
+    RemoteCmdEvent,
 )
 from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -133,6 +135,8 @@ cdef class ScriptIterator(TimeIterator):
                     HummingbotApplication.main_application()._notify(item.msg)
                 elif isinstance(item, CallLog):
                     self.logger().info(f"script - {item.msg}")
+                elif isinstance(item, RemoteCmdEvent):
+                    RemoteCommandExecutor.get_instance().broadcast(item)
                 elif isinstance(item, ScriptError):
                     self.logger().info(f"{item}")
             except asyncio.CancelledError:
@@ -145,6 +149,9 @@ cdef class ScriptIterator(TimeIterator):
 
     def request_command(self, cmd: str, args: List[str]):
         self._parent_queue.put(OnCommand(cmd, args))
+
+    def process_remote_command_event(self, event):
+        self._parent_queue.put(event)
 
     def all_total_balances(self):
         all_bals = {m.name: m.get_all_balances() for m in self._markets}
