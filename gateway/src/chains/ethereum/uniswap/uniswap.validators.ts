@@ -1,13 +1,13 @@
 import {
   isNaturalNumberString,
   isFloatString,
-  throwErrorsIfExist,
-  validate,
+  mkValidator,
+  mkRequestValidator,
+  RequestValidator,
+  Validator,
 } from '../../../services/validators';
 
 import { validateNonce, validatePrivateKey } from '../ethereum.validators';
-
-import { UniswapPriceRequest, UniswapTradeRequest } from './uniswap.requests';
 
 export const invalidQuoteError: string = 'The quote param is not a string.';
 
@@ -22,54 +22,49 @@ export const invalidSideError: string =
 export const invalidLimitPriceError: string =
   'The limitPrice param may be null or a string of a float or integer number.';
 
-export const validateQuote = validate(
+export const validateQuote: Validator = mkValidator(
   'quote',
   invalidQuoteError,
   (val) => typeof val === 'string'
 );
 
-export const validateBase = validate(
+export const validateBase: Validator = mkValidator(
   'base',
   invalidBaseError,
   (val) => typeof val === 'string'
 );
 
-export const validateAmount = validate(
+export const validateAmount: Validator = mkValidator(
   'amount',
   invalidAmountError,
   (val) => typeof val === 'string' && isNaturalNumberString(val)
 );
 
-export const validateSide = validate(
+export const validateSide: Validator = mkValidator(
   'side',
   invalidSideError,
   (val) => typeof val === 'string' && (val === 'BUY' || val === 'SELL')
 );
 
-export const validateLimitPrice = validate(
+export const validateLimitPrice: Validator = mkValidator(
   'limitPrice',
   invalidLimitPriceError,
   (val) => typeof val === 'string' && isFloatString(val),
   true
 );
 
-export const validateUniswapPriceRequest = (req: UniswapPriceRequest): void => {
-  const errors = validateQuote(req).concat(
-    validateBase(req),
-    validateAmount(req),
-    validateSide(req)
-  );
-  throwErrorsIfExist(errors);
-};
+export const validateUniswapPriceRequest: RequestValidator = mkRequestValidator(
+  [validateQuote, validateBase, validateAmount, validateSide]
+);
 
-export const validateUniswapTradeRequest = (req: UniswapTradeRequest): void => {
-  const errors = validateQuote(req).concat(
-    validateBase(req),
-    validateAmount(req),
-    validatePrivateKey(req),
-    validateSide(req),
-    validateLimitPrice(req),
-    validateNonce(req)
-  );
-  throwErrorsIfExist(errors);
-};
+export const validateUniswapTradeRequest: RequestValidator = mkRequestValidator(
+  [
+    validateQuote,
+    validateBase,
+    validateAmount,
+    validatePrivateKey,
+    validateSide,
+    validateLimitPrice,
+    validateNonce,
+  ]
+);
