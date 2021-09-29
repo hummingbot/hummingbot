@@ -23,7 +23,7 @@ export const isFloatString = (str: string): boolean => {
 
 // throw an error because the request parameter is malformed, collect all the
 // errors related to the request to give the most information possible
-export const throwErrorsIfExist = (errors: Array<string>): void => {
+export const throwIfErrorsExist = (errors: Array<string>): void => {
   if (errors.length > 0) {
     throw new HttpException(404, errors.join(', '));
   }
@@ -33,12 +33,16 @@ export const missingParameter = (key: string): string => {
   return `The request is missing the private key: ${key}`;
 };
 
-export const validate = (
+export type Validator = (req: any) => Array<string>;
+
+export type RequestValidator = (req: any) => void;
+
+export const mkValidator = (
   key: string,
   errorMsg: string,
   condition: (x: any) => boolean,
   optional: boolean = false
-): ((req: any) => Array<string>) => {
+): Validator => {
   return (req: any) => {
     let errors: Array<string> = [];
     if (req[key]) {
@@ -53,5 +57,17 @@ export const validate = (
     }
 
     return errors;
+  };
+};
+
+export const mkRequestValidator = (
+  validators: Array<Validator>
+): RequestValidator => {
+  return (req: any) => {
+    let errors: Array<string> = [];
+    validators.forEach(
+      (validator: Validator) => (errors = errors.concat(validator(req)))
+    );
+    throwIfErrorsExist(errors);
   };
 };
