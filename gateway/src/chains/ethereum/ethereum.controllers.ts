@@ -78,25 +78,36 @@ const toEthereumTransactionReceipt = (
 
 export async function poll(txHash: string) {
   const initTime = Date.now();
-  let receipt = await ethereum.getTransactionReceipt(txHash);
-  const confirmed = !!receipt && !!receipt.blockNumber;
-  if (receipt && receipt.blockNumber === 0 && receipt.status === 0)
-    receipt = null;
-
-  if (receipt && receipt.status === 0) {
-    const transaction = await ethereum.getTransaction(txHash);
-    const gasUsed = BigNumber.from(receipt.gasUsed).toNumber();
-    const gasLimit = BigNumber.from(transaction.gasLimit).toNumber();
-    if (gasUsed / gasLimit > 0.9)
-      throw new GatewayError(503, 1003, 'Transaction out of gas.');
+  const txData = await ethereum.getTransaction(txHash);
+  let txReceipt, txStatus;
+  if (!txData) {
+    // tx didn't reach the mempool
+    txReceipt = null;
+    txStatus = -1;
+  } else {
+    txReceipt = await ethereum.getTransactionReceipt(txHash);
+    if (txReceipt === null || txReceipt.blockNumber === 0) {
+      // tx is in the mempool
+      txReceipt = null;
+      txStatus = -1;
+    } else {
+      // tx has been processed
+      txStatus = typeof txReceipt.status === 'number' ? txReceipt.status : -1;
+      if (txStatus === 0) {
+        const gasUsed = BigNumber.from(txReceipt.gasUsed).toNumber();
+        const gasLimit = BigNumber.from(txData.gasLimit).toNumber();
+        if (gasUsed / gasLimit > 0.9)
+          throw new GatewayError(503, 1003, 'Transaction out of gas.');
+      }
+    }
   }
-
   return {
     network: ConfigManager.config.ETHEREUM_CHAIN,
     timestamp: initTime,
     latency: latency(initTime, Date.now()),
     txHash,
-    confirmed,
-    receipt: toEthereumTransactionReceipt(receipt),
+    txStatus,
+    txData,
+    txReceipt: toEthereumTransactionReceipt(txReceipt),
   };
 }
