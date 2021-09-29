@@ -1,3 +1,4 @@
+import asyncio
 import os
 import shutil
 
@@ -90,7 +91,15 @@ class CreateCommand:
         self._notify(f"A new config file {self.strategy_file_name} created.")
         self.placeholder_mode = False
         self.app.hide_input = False
-        if await self.status_check_all():
+        try:
+            timeout = float(global_config_map["create_command_timeout"].value)
+            all_status_go = await asyncio.wait_for(self.status_check_all(), timeout)
+        except asyncio.TimeoutError:
+            self._notify("\nA network error prevented the connection check to complete. See logs for more details.")
+            self.strategy_file_name = None
+            self.strategy_name = None
+            raise
+        if all_status_go:
             self._notify("\nEnter \"start\" to start market making.")
 
     async def prompt_a_config(self,  # type: HummingbotApplication
