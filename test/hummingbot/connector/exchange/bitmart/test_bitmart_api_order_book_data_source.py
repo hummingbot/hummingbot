@@ -12,7 +12,6 @@ from typing import (
 )
 from aioresponses import aioresponses
 from hummingbot.connector.exchange.bitmart.bitmart_api_order_book_data_source import BitmartAPIOrderBookDataSource
-from hummingbot.connector.exchange.bitmart.bitmart_order_book_message import BitmartOrderBookMessage
 import hummingbot.connector.exchange.bitmart.bitmart_constants as CONSTANTS
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
@@ -88,72 +87,12 @@ class BitmartAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             }
         }
 
-    def set_mock_response(self, mock_api, status: int, json_data: Any):
-        mock_api.return_value.__aenter__.return_value.status = status
-        mock_api.return_value.__aenter__.return_value.json = AsyncMock(return_value=json_data)
-
-    def _raise_exception(self, exception_class):
-        raise exception_class
-
     def _is_logged(self, log_level: str, message: str) -> bool:
         return any(record.levelname == log_level and record.getMessage() == message
                    for record in self.log_records)
 
-    async def _get_next_received_message(self):
-        return await self.ws_incoming_messages.get()
-
-    def _create_ws_mock(self):
-        ws = AsyncMock()
-        ws.send.side_effect = lambda sent_message: self.ws_sent_messages.append(sent_message)
-        ws.recv.side_effect = self._get_next_received_message
-        return ws
-
-    def _add_orderbook_snapshot_response(self):
-        resp = {
-            "table": "spot/depth500",
-            "data": [
-                {
-                    "asks": [
-                        [
-                            "161.96",
-                            "7.37567"
-                        ]
-                    ],
-                    "bids": [
-                        [
-                            "161.94",
-                            "4.552355"
-                        ]
-                    ],
-                    "symbol": "ETH_USDT",
-                    "ms_t": 1542337219120
-                }
-            ]
-        }
-        self.ws_incoming_messages.put_nowait(ujson.dumps(resp))
-        return resp
-
-    def _add_subscribe_level_2_response(self):
-        resp = {
-            "m": 1,
-            "i": 2,
-            "n": "SubscribeLevel2",
-            "o": "[[93617617, 1, 1626788175000, 0, 37800.0, 1, 37750.0, 1, 0.015, 0],[93617617, 1, 1626788175000, 0, 37800.0, 1, 37751.0, 1, 0.015, 1]]"
-        }
-        return ujson.dumps(resp)
-
-    def _add_orderbook_update_event(self):
-        resp = {
-            "m": 3,
-            "i": 3,
-            "n": "Level2UpdateEvent",
-            "o": "[[93617618, 1, 1626788175001, 0, 37800.0, 1, 37740.0, 1, 0.015, 0]]"
-        }
-        self.ws_incoming_messages.put_nowait(ujson.dumps(resp))
-        return resp
-
-    @patch("aiohttp.ClientSession.get")
-    def test_get_last_traded_prices(self, mock_api):
+    @aioresponses()
+    def test_get_last_traded_prices(self, mock_get):
         mock_response: Dict[Any] = {
             "message": "OK",
             "code": 1000,
@@ -179,8 +118,8 @@ class BitmartAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                 ]
             }
         }
-
-        self.set_mock_response(mock_api, 200, mock_response)
+        regex_url = re.compile(f"{CONSTANTS.REST_URL}/{CONSTANTS.GET_LAST_TRADING_PRICES_PATH_URL}")
+        mock_get.get(regex_url, body=json.dumps(mock_response))
 
         results = self.ev_loop.run_until_complete(
             asyncio.gather(self.data_source.get_last_traded_prices([self.trading_pair])))
@@ -317,7 +256,7 @@ class BitmartAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         snapshot_msg: OrderBookMessage = msg_queue.get_nowait()
         self.assertEqual(snapshot_msg.update_id, mock_response["data"]["timestamp"])
 
-    @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
+    @patch('websockets.connect', new_callable=AsyncMock)
     def test_listen_for_order_book_diffs_cancelled_when_listening(self, mock_ws):
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         msg_queue: asyncio.Queue = asyncio.Queue()
@@ -330,44 +269,47 @@ class BitmartAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.assertEqual(msg_queue.qsize(), 0)
 
-    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch("websockets.connect", new_callable=AsyncMock)
     def test_listen_for_order_book_diffs_successful(self, mock_ws):
-        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         msg_queue: asyncio.Queue = asyncio.Queue()
-        self.mocking_assistant.add_websocket_json_message(
-            mock_ws.return_value, {
-                "table": "spot/depth500",
-                "data": [
-                    {
-                        "asks": [
-                            [
-                                "161.96",
-                                "7.37567"
-                            ]
-                        ],
-                        "bids": [
-                            [
-                                "161.94",
-                                "4.552355"
-                            ]
-                        ],
-                        "symbol": "ETH_USDT",
-                        "ms_t": 1542337219120
-                    }
-                ]
-            }
+        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
+        mock_ws.close.return_value = None
+
+        resp = {
+            "table": "spot/depth500",
+            "data": [
+                {
+                    "asks": [
+                        [
+                            "161.96",
+                            "7.37567"
+                        ]
+                    ],
+                    "bids": [
+                        [
+                            "161.94",
+                            "4.552355"
+                        ]
+                    ],
+                    "symbol": "ETH_USDT",
+                    "ms_t": 1542337219120
+                }
+            ]
+        }
+        self.mocking_assistant.add_websocket_text_message(
+            mock_ws.return_value, ujson.dumps(resp)
         )
-        # self._add_orderbook_snapshot_response()
-
-        with self.assertRaises(asyncio.TimeoutError):
-            self.listening_task = self.ev_loop.create_task(asyncio.wait_for(
-                self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue),
-                2.0
-            ))
-            self.ev_loop.run_until_complete(self.listening_task)
-
-        self.assertGreater(msg_queue.qsize(), 0)
-        first_msg: BitmartOrderBookMessage = msg_queue.get_nowait()
+        BitmartAPIOrderBookDataSource._trading_pairs = ["ETH-USDT"]
+        listening_task = self.ev_loop.create_task(
+            self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue)
+        )
+        first_msg: OrderBookMessage = self.ev_loop.run_until_complete(msg_queue.get())
+        try:
+            listening_task.cancel()
+            self.ev_loop.run_until_complete(listening_task)
+        except asyncio.CancelledError:
+            # The exception will happen when cancelling the task
+            pass
         self.assertTrue(first_msg.type == OrderBookMessageType.SNAPSHOT)
 
     @patch("websockets.connect", new_callable=AsyncMock)
