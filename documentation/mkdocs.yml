@@ -164,6 +164,7 @@ nav:
       - Bitfinex: exchanges/bitfinex.md
       - Bittrex Global: exchanges/bittrex.md
       - Blocktane: exchanges/blocktane.md
+      - Bybit Perpetual: exchanges/bybit-perpetual.md
       - Coinbase Pro: exchanges/coinbase.md
       - CoinZoom: exchanges/coinzoom.md
       - Crypto.com : exchanges/crypto-com.md
