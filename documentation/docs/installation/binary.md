@@ -1,6 +1,8 @@
 # Install Hummingbot via Binary
 
-We maintain compiled binary images for each Hummingbot release for MacOS and Windows, available on Hummingbot's [Downloads](https://hummingbot.io/download) page.
+We maintain links to compiled binary images for each Hummingbot release for MacOS and Windows, available on the [Installation](./installation) page.
+
+This guide shows you how to use the binary installer for Mac and Windows.
 
 ## MacOS
 
@@ -10,7 +12,6 @@ The macOS install package allows very easy installation and running Hummingbot o
 
 To install Hummingbot with macOS install package:
 
-- Download Hummingbot .dmg file from our [download page](https://hummingbot.io/download).
 - Open the downloaded .dmg file, drag and drop the application bundle into the `/Application` folder.
 
 ![Drag and Drop Application Bundle](/assets/img/macos-dmg-1.png)
@@ -35,7 +36,6 @@ The Windows setup package is the easiest way for Windows users to set up and run
 
 To install Hummingbot with Windows setup package:
 
-- Download Setup.exe from our [download page](https://hummingbot.io/download).
 - Double-click the `Setup.exe` hummingbot binary package to launch the installer.
 
 ![Hummingbot installed](/assets/img/windows-setup-1.png)
