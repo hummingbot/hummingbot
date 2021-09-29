@@ -29,7 +29,9 @@ To get notified when Hummingbot ships a new release, sign up for the [Hummingbot
 
 In addition to release notes, the newsletter contains information about upcoming events, new educational content, contributions from the global Hummingbot community!
 
-## 👩‍💻 For developers
+[Get the Hummingbot newsletter :fontawesome-solid-paper-plane:](https://hummingbot.substack.com/){ .md-button .md-button--primary }
+
+## 👩‍💻 Developers
 
 Hummingbot is a general source framework for crypto algorithmic trading. We welcome developers to fork the codebase for their own purposes and contribute to the community.
 
