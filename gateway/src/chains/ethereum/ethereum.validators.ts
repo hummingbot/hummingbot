@@ -1,17 +1,19 @@
 import {
   isNaturalNumberString,
   missingParameter,
-  throwErrorsIfExist,
-  validate,
+  mkValidator,
+  mkRequestValidator,
+  RequestValidator,
+  Validator,
 } from '../../services/validators';
 
-import {
-  EthereumNonceRequest,
-  EthereumAllowancesRequest,
-  EthereumBalanceRequest,
-  EthereumApproveRequest,
-  EthereumPollRequest,
-} from './ethereum.requests';
+// import {
+//   EthereumNonceRequest,
+//   EthereumAllowancesRequest,
+//   EthereumBalanceRequest,
+//   EthereumApproveRequest,
+//   EthereumPollRequest,
+// } from './ethereum.requests';
 
 // validate request parameters
 
@@ -47,21 +49,21 @@ export const invalidNonceError: string =
 export const invalidTxHashError: string = 'The txHash param must be a string.';
 
 // given a request, look for a key called privateKey that is an Ethereum private key
-export const validatePrivateKey = validate(
+export const validatePrivateKey: Validator = mkValidator(
   'privateKey',
   invalidPrivateKeyError,
   (val) => typeof val === 'string' && isPrivateKey(val)
 );
 
 // given a request, look for a key called spender that is 'uniswap' or an Ethereum public key
-export const validateSpender = validate(
+export const validateSpender: Validator = mkValidator(
   'spender',
   invalidSpenderError,
   (val) => typeof val === 'string' && (val === 'uniswap' || isPublicKey(val))
 );
 
 // confirm that tokenSymbols is an array of strings
-export const validateTokenSymbols = (req: any): Array<string> => {
+export const validateTokenSymbols: Validator = (req: any) => {
   let errors: Array<string> = [];
   if (req.tokenSymbols) {
     if (Array.isArray(req.tokenSymbols)) {
@@ -81,28 +83,28 @@ export const validateTokenSymbols = (req: any): Array<string> => {
 };
 
 // confirm that token is a string
-export const validateToken = validate(
+export const validateToken: Validator = mkValidator(
   'token',
   invalidTokenError,
   (val) => typeof val === 'string'
 );
 
 // if amount exists, confirm that it is a string of a natural number
-export const validateAmount = validate(
+export const validateAmount: Validator = mkValidator(
   'amount',
   invalidAmountError,
   (val) => typeof val === 'string' && isNaturalNumberString(val),
   true
 );
 
-export const validateNonce = validate(
+export const validateNonce: Validator = mkValidator(
   'nonce',
   invalidNonceError,
   (val) => typeof val === 'number' && val > -1,
   true
 );
 
-export const validateTxHash = validate(
+export const validateTxHash: Validator = mkValidator(
   'txHash',
   invalidTxHashError,
   (val) => typeof val === 'string'
@@ -110,40 +112,28 @@ export const validateTxHash = validate(
 
 // request types and corresponding validators
 
-export const validateEthereumNonceRequest = (
-  req: EthereumNonceRequest
-): void => {
-  throwErrorsIfExist(validatePrivateKey(req));
-};
+export const validateEthereumNonceRequest: RequestValidator =
+  mkRequestValidator([validatePrivateKey]);
 
-export const validateEthereumAllowancesRequest = (
-  req: EthereumAllowancesRequest
-): void => {
-  const errors = validatePrivateKey(req)
-    .concat(validateSpender(req))
-    .concat(validateTokenSymbols(req));
-  throwErrorsIfExist(errors);
-};
+export const validateEthereumAllowancesRequest: RequestValidator =
+  mkRequestValidator([
+    validatePrivateKey,
+    validateSpender,
+    validateTokenSymbols,
+  ]);
 
-export const validateEthereumBalanceRequest = (
-  req: EthereumBalanceRequest
-): void => {
-  const errors = validatePrivateKey(req).concat(validateTokenSymbols(req));
-  throwErrorsIfExist(errors);
-};
+export const validateEthereumBalanceRequest: RequestValidator =
+  mkRequestValidator([validatePrivateKey, validateTokenSymbols]);
 
-export const validateEthereumApproveRequest = (
-  req: EthereumApproveRequest
-): void => {
-  const errors = validatePrivateKey(req).concat(
-    validateSpender(req),
-    validateToken(req),
-    validateAmount(req),
-    validateNonce(req)
-  );
-  throwErrorsIfExist(errors);
-};
+export const validateEthereumApproveRequest: RequestValidator =
+  mkRequestValidator([
+    validatePrivateKey,
+    validateSpender,
+    validateToken,
+    validateAmount,
+    validateNonce,
+  ]);
 
-export const validateEthereumPollRequest = (req: EthereumPollRequest): void => {
-  throwErrorsIfExist(validateTxHash(req));
-};
+export const validateEthereumPollRequest: RequestValidator = mkRequestValidator(
+  [validateTxHash]
+);
