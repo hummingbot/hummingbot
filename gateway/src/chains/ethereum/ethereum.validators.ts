@@ -7,26 +7,6 @@ import {
   Validator,
 } from '../../services/validators';
 
-// import {
-//   EthereumNonceRequest,
-//   EthereumAllowancesRequest,
-//   EthereumBalanceRequest,
-//   EthereumApproveRequest,
-//   EthereumPollRequest,
-// } from './ethereum.requests';
-
-// validate request parameters
-
-// test if a string matches the shape of an Ethereum public key
-export const isPublicKey = (str: string): boolean => {
-  return /^0x[a-fA-F0-9]{40}$/.test(str);
-};
-
-// test if a string matches the shape of an Ethereum private key
-export const isPrivateKey = (str: string): boolean => {
-  return /^[a-fA-F0-9]{64}$/.test(str);
-};
-
 // invalid parameter errors
 
 export const invalidPrivateKeyError: string =
@@ -47,6 +27,16 @@ export const invalidNonceError: string =
   'If nonce is included it must be a non-negative integer.';
 
 export const invalidTxHashError: string = 'The txHash param must be a string.';
+
+// test if a string matches the shape of an Ethereum public key
+export const isPublicKey = (str: string): boolean => {
+  return /^0x[a-fA-F0-9]{40}$/.test(str);
+};
+
+// test if a string matches the shape of an Ethereum private key
+export const isPrivateKey = (str: string): boolean => {
+  return /^[a-fA-F0-9]{64}$/.test(str);
+};
 
 // given a request, look for a key called privateKey that is an Ethereum private key
 export const validatePrivateKey: Validator = mkValidator(
