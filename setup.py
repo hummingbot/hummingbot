@@ -71,6 +71,8 @@ def main():
         "hummingbot.connector.exchange.huobi",
         "hummingbot.connector.exchange.k2",
         "hummingbot.connector.exchange.kraken",
+        "hummingbot.connector.exchange.bitmart",
+        "hummingbot.connector.exchange.crypto_com",
         "hummingbot.connector.exchange.kucoin",
         "hummingbot.connector.exchange.liquid",
         "hummingbot.connector.exchange.loopring",
@@ -80,6 +82,7 @@ def main():
         "hummingbot.connector.exchange.radar_relay",
         "hummingbot.connector.derivative",
         "hummingbot.connector.derivative.binance_perpetual",
+        "hummingbot.connector.derivative.bybit_perpetual",
         "hummingbot.model",
         "hummingbot.script",
         "hummingbot.strategy",
@@ -154,6 +157,7 @@ def main():
         "sqlalchemy",
         "ujson",
         "yarl",
+        "aioresponses",
     ]
 
     cython_kwargs = {

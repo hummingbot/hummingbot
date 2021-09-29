@@ -3,6 +3,8 @@ import logging
 import pandas as pd
 import decimal
 
+FLOAT_PRINTOUT_PRECISION = 8
+
 
 def format_decimal(n):
     """
@@ -10,11 +12,10 @@ def format_decimal(n):
     """
     try:
         with decimal.localcontext() as ctx:
-            ctx.prec = 7
             if isinstance(n, float):
-                d = ctx.create_decimal(repr(n))
-                return format(d.normalize(), 'f')
-            elif isinstance(n, decimal.Decimal):
+                n = ctx.create_decimal(n)
+            if isinstance(n, decimal.Decimal):
+                n = round(n, FLOAT_PRINTOUT_PRECISION)
                 return format(n.normalize(), 'f')
             else:
                 return str(n)

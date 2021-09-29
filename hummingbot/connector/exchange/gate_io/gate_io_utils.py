@@ -8,11 +8,10 @@ from typing import (
     Tuple,
 )
 
-from hummingbot.core.utils.asyncio_throttle import Throttler
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
-from .gate_io_constants import Constants
+from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 
 
 CENTRALIZED = True
@@ -20,8 +19,6 @@ CENTRALIZED = True
 EXAMPLE_PAIR = "BTC-USDT"
 
 DEFAULT_FEES = [0.2, 0.2]
-
-REQUEST_THROTTLER = Throttler(rate_limit = (18.0, 8.0))
 
 
 class GateIoAPIError(IOError):
@@ -80,7 +77,7 @@ def get_new_client_order_id(is_buy: bool, trading_pair: str) -> str:
     base_str = f"{base[0]}{base[-1]}"
     quote_str = f"{quote[0]}{quote[-1]}"
     # Max length 30 chars including `t-`
-    return f"{Constants.HBOT_ORDER_ID}-{side}-{base_str}{quote_str}{get_tracking_nonce()}"
+    return f"{CONSTANTS.HBOT_ORDER_ID}-{side}-{base_str}{quote_str}{get_tracking_nonce()}"
 
 
 def retry_sleep_time(try_count: int) -> float:
@@ -119,40 +116,39 @@ async def api_call_with_retries(method,
                                 params: Optional[Dict[str, Any]] = None,
                                 shared_client=None,
                                 try_count: int = 0) -> Dict[str, Any]:
-    async with REQUEST_THROTTLER.weighted_task(request_weight=1):
-        url = f"{Constants.REST_URL}/{endpoint}"
-        headers = {"Content-Type": "application/json"}
-        http_client = shared_client if shared_client is not None else aiohttp.ClientSession()
-        # Build request coro
-        response_coro = http_client.request(method=method.upper(), url=url, headers=headers,
-                                            params=params, timeout=Constants.API_CALL_TIMEOUT)
-        http_status, parsed_response, request_errors = await aiohttp_response_with_errors(response_coro)
-        if shared_client is None:
-            await http_client.close()
-        if request_errors or parsed_response is None:
-            if try_count < Constants.API_MAX_RETRIES:
-                try_count += 1
-                time_sleep = retry_sleep_time(try_count)
-                print(f"Error fetching data from {url}. HTTP status is {http_status}. "
-                      f"Retrying in {time_sleep:.0f}s.")
-                await asyncio.sleep(time_sleep)
-                return await api_call_with_retries(method=method, endpoint=endpoint, params=params,
-                                                   shared_client=shared_client, try_count=try_count)
-            else:
-                raise GateIoAPIError({"label": "HTTP_ERROR", "message": parsed_response, "status": http_status})
-        return parsed_response
+    url = f"{CONSTANTS.REST_URL}/{endpoint}"
+    headers = {"Content-Type": "application/json"}
+    http_client = shared_client if shared_client is not None else aiohttp.ClientSession()
+    # Build request coro
+    response_coro = http_client.request(method=method.upper(), url=url, headers=headers,
+                                        params=params, timeout=CONSTANTS.API_CALL_TIMEOUT)
+    http_status, parsed_response, request_errors = await aiohttp_response_with_errors(response_coro)
+    if shared_client is None:
+        await http_client.close()
+    if request_errors or parsed_response is None:
+        if try_count < CONSTANTS.API_MAX_RETRIES:
+            try_count += 1
+            time_sleep = retry_sleep_time(try_count)
+            print(f"Error fetching data from {url}. HTTP status is {http_status}. "
+                  f"Retrying in {time_sleep:.0f}s.")
+            await asyncio.sleep(time_sleep)
+            return await api_call_with_retries(method=method, endpoint=endpoint, params=params,
+                                               shared_client=shared_client, try_count=try_count)
+        else:
+            raise GateIoAPIError({"label": "HTTP_ERROR", "message": parsed_response, "status": http_status})
+    return parsed_response
 
 
 KEYS = {
     "gate_io_api_key":
         ConfigVar(key="gate_io_api_key",
-                  prompt=f"Enter your {Constants.EXCHANGE_NAME} API key >>> ",
+                  prompt=f"Enter your {CONSTANTS.EXCHANGE_NAME} API key >>> ",
                   required_if=using_exchange("gate_io"),
                   is_secure=True,
                   is_connect_key=True),
     "gate_io_secret_key":
         ConfigVar(key="gate_io_secret_key",
-                  prompt=f"Enter your {Constants.EXCHANGE_NAME} secret key >>> ",
+                  prompt=f"Enter your {CONSTANTS.EXCHANGE_NAME} secret key >>> ",
                   required_if=using_exchange("gate_io"),
                   is_secure=True,
                   is_connect_key=True),
