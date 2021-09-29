@@ -139,7 +139,7 @@ nav:
       - Check Bot/Market Status: operation/status.md
       - Check Performance: operation/history.md
       - Find Log Files: operation/log-files.md
-      - Exporting Data: operation/export.md
+      - Export Trades/Keys: operation/export.md
     - Strategies:
       - Strategies: strategies/index.md
       - AMM Arbitrage: strategies/amm-arbitrage.md
