@@ -12,6 +12,11 @@ import {
 import { Trade } from '@uniswap/sdk';
 import { verifyEthereumIsAvailable } from '../ethereum-middlewares';
 import { verifyUniswapIsAvailable } from './uniswap-middlewares';
+import { UniswapPriceRequest, UniswapTradeRequest } from './uniswap.requests';
+import {
+  validateUniswapPriceRequest,
+  validateUniswapTradeRequest,
+} from './uniswap.validators';
 
 export namespace UniswapRoutes {
   export const router = Router();
@@ -31,14 +36,6 @@ export namespace UniswapRoutes {
       timestamp: Date.now(),
     });
   });
-
-  type Side = 'BUY' | 'SELL';
-  interface UniswapPriceRequest {
-    quote: string;
-    base: string;
-    amount: string;
-    side: Side;
-  }
 
   interface UniswapPriceResponse {
     network: string;
@@ -62,6 +59,7 @@ export namespace UniswapRoutes {
         req: Request<unknown, unknown, UniswapPriceRequest>,
         res: Response<UniswapPriceResponse, any>
       ) => {
+        validateUniswapPriceRequest(req.body);
         const initTime = Date.now();
 
         // the amount is passed in as a string. We must validate the value.
@@ -157,16 +155,6 @@ export namespace UniswapRoutes {
     )
   );
 
-  interface UniswapTradeRequest {
-    quote: string;
-    base: string;
-    amount: string;
-    privateKey: string;
-    side: Side;
-    limitPrice?: BigNumber;
-    nonce?: number;
-  }
-
   interface UniswapTradeResponse {
     network: string;
     timestamp: number;
@@ -196,6 +184,7 @@ export namespace UniswapRoutes {
         req: Request<unknown, unknown, UniswapTradeRequest>,
         res: Response<UniswapTradeResponse | UniswapTradeErrorResponse, any>
       ) => {
+        validateUniswapTradeRequest(req.body);
         const initTime = Date.now();
 
         const limitPrice = req.body.limitPrice;
