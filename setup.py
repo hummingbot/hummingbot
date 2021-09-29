@@ -54,6 +54,7 @@ def main():
         "hummingbot.connector.connector.balancer",
         "hummingbot.connector.connector.terra",
         "hummingbot.connector.exchange",
+        "hummingbot.connector.exchange.altmarkets",
         "hummingbot.connector.exchange.ascend_ex",
         "hummingbot.connector.exchange.bamboo_relay",
         "hummingbot.connector.exchange.beaxy",

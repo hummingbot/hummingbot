@@ -67,6 +67,9 @@ kucoin_api_key: null
 kucoin_secret_key: null
 kucoin_passphrase: null
 
+altmarkets_api_key: null
+altmarkets_secret_key: null
+
 kraken_api_key: null
 kraken_secret_key: null
 
