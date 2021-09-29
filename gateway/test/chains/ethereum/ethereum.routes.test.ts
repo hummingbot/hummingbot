@@ -24,18 +24,30 @@ describe('GET /eth', () => {
 describe('POST /eth/nonce', () => {
   it('should return 200', async () => {
     EthereumRoutes.ethereum.getWallet = jest.fn().mockReturnValue({
-      address: '0x0000000000000000000',
+      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     });
     EthereumRoutes.ethereum.nonceManager.getNonce = jest
       .fn()
       .mockReturnValue(2);
     await request(app)
       .post(`/eth/nonce`)
-      .send({ privateKey: 'abc123' })
+      .send({
+        privateKey:
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+      })
       .set('Accept', 'application/json')
       .expect('Content-Type', /json/)
       .expect(200)
       .expect((res) => expect(res.body.nonce).toBe(2));
+  });
+
+  it('should return 404 when parameters are invalid', async () => {
+    await request(app)
+      .post(`/eth/nonce`)
+      .send({
+        privateKey: 'da857cbda0ba96757fed842617a4',
+      })
+      .expect(404);
   });
 });
 
@@ -43,7 +55,7 @@ describe('POST /eth/approve', () => {
   it('should return 200', async () => {
     // override getWallet (network call)
     EthereumRoutes.ethereum.getWallet = jest.fn().mockReturnValue({
-      address: '0x0000000000000000000',
+      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     });
 
     // override getTokenBySymbol (network call, read file and config dependency)
@@ -73,8 +85,9 @@ describe('POST /eth/approve', () => {
     await request(app)
       .post(`/eth/approve`)
       .send({
-        privateKey: 'abc123',
-        spender: 'xyz098',
+        privateKey:
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        spender: 'uniswap',
         token: 'WETH',
         nonce: 23,
       })
@@ -84,5 +97,18 @@ describe('POST /eth/approve', () => {
       .then((res: any) => {
         expect(res.body.nonce).toEqual(23);
       });
+  });
+
+  it('should return 404 when parameters are invalid', async () => {
+    await request(app)
+      .post(`/eth/approve`)
+      .send({
+        privateKey:
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        spender: 'uniswap',
+        token: 123,
+        nonce: '23',
+      })
+      .expect(404);
   });
 });
