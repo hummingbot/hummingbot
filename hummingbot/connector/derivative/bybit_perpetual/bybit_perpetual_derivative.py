@@ -1,9 +1,9 @@
-import copy
-
 import aiohttp
 import asyncio
+import copy
 import logging
 import math
+import pandas as pd
 import time
 import ujson
 
@@ -202,7 +202,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         if all(bybit_utils.is_linear_perpetual(tp) for tp in self._trading_pairs):
             return [PositionMode.HEDGE]
         elif all(not bybit_utils.is_linear_perpetual(tp) for tp in self._trading_pairs):
-            # As of ByBit API v2, we only support ONEWAy mode for non-linear perpetuals
+            # As of ByBit API v2, we only support ONEWAY mode for non-linear perpetuals
             return [PositionMode.ONEWAY]
         else:
             self.logger().warning("Currently there is no support for both linear and non-linear markets concurrently. "
@@ -1007,6 +1007,11 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                     self.stop_tracking_order(tracked_order.client_order_id)
 
     async def _fetch_funding_fee(self, trading_pair: str) -> bool:
+        """
+        Retrieves the last funding fee/payment.
+        :param: trading_pair: The specified trading pair
+        :return: Returns True if the fetching was successful.
+        """
         try:
             ex_trading_pair = bybit_utils.convert_to_exchange_trading_pair(trading_pair)
             symbol_trading_pair_map: Dict[str, str] = await OrderBookDataSource.trading_pair_symbol_map(self._domain)
@@ -1025,14 +1030,22 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 is_auth_required=True)
             data: Dict[str, Any] = raw_response["result"]
 
+            if not data:
+                # An empty funding fee/payment is retrieved.
+                return True
+
             funding_rate: Decimal = Decimal(str(data["funding_rate"]))
             position_size: Decimal = Decimal(str(data["size"]))
             payment: Decimal = funding_rate * position_size
             action: str = "paid" if payment < s_decimal_0 else "received"
+            if bybit_utils.is_linear_perpetual(trading_pair):
+                timestamp: int = int(pd.Timestamp(data["exec_time"], tz="UTC").timestamp() * 1e3)
+            else:
+                timestamp: int = int(data["exec_timestamp"] * 1e3)
             if payment != s_decimal_0:
                 self.logger().info(f"Funding payment of {payment} {action} on {trading_pair} market.")
                 self.trigger_event(MarketEvent.FundingPaymentCompleted,
-                                   FundingPaymentCompletedEvent(timestamp=int(data["exec_timestamp"] * 1e3),
+                                   FundingPaymentCompletedEvent(timestamp=timestamp,
                                                                 market=self.name,
                                                                 funding_rate=funding_rate,
                                                                 trading_pair=trading_pair,
