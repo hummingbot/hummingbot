@@ -27,8 +27,6 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.binance.binance_order_book import BinanceOrderBook
 from hummingbot.connector.exchange.binance import binance_utils
 
-from websockets.exceptions import ConnectionClosed
-
 
 class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
@@ -153,8 +151,8 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Initialize WebSocket client for APIOrderBookDataSource
         """
         try:
-            return await aiohttp.ClientSession().ws_connect(url=CONSTANTS.WSS_URL.format(self._domain),
-                                                            heartbeat=30.0)
+            return await aiohttp.ClientSession.ws_connect(url=CONSTANTS.WSS_URL.format(self._domain),
+                                                          heartbeat=30.0)
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -170,8 +168,6 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 yield await ws.receive_json()
         except asyncio.TimeoutError:
             self.logger().warning("WebSocket ping timed out. Going to reconnect...")
-            return
-        except ConnectionClosed:
             return
         finally:
             await ws.close()
