@@ -5,6 +5,7 @@ import unittest
 from collections import Awaitable
 from unittest.mock import patch, AsyncMock
 
+import aiohttp
 import numpy as np
 
 from hummingbot.connector.exchange.gate_io.gate_io_websocket import GateIoWebsocket
@@ -70,8 +71,51 @@ class GateIoWebsocketTest(unittest.TestCase):
         self.assertEqual(mock_event, ret["event"])
 
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_ping_sent_pong_ignored(self, mock_ws):
+        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
+        mock_ws.return_value.closed = False
+
+        self.async_run_with_timeout(self.ws.connect())
+        async_iter = self.ws.on_message()
+
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            mock_ws.return_value, message="", message_type=aiohttp.WSMsgType.PONG  # should be ignored
+        )
+        mock_event = "somEvent"
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            mock_ws.return_value, json.dumps({"event": mock_event})
+        )
+
+        ret = self.async_run_with_timeout(async_iter.__anext__(), timeout=1)
+
+        mock_ws.return_value.ping.assert_called()
+        self.assertEqual(mock_event, ret["event"])
+
+    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_last_recv_time_set_on_pong(self, mock_ws):
+        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
+        mock_ws.return_value.closed = False
+
+        self.async_run_with_timeout(self.ws.connect())
+        async_iter = self.ws.on_message()
+
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            mock_ws.return_value, message="", message_type=aiohttp.WSMsgType.PONG  # should be ignored
+        )
+        anext_task = self.ev_loop.create_task(async_iter.__anext__())
+
+        try:
+            self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
+            np.testing.assert_allclose([self.ws.last_recv_time], [time.time()], rtol=1)
+        except Exception:
+            raise
+        finally:
+            anext_task.cancel()
+
+    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_backup_ping_pong(self, mock_ws):
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
+        mock_ws.return_value.closed = False
         default_receive = mock_ws.return_value.receive.side_effect
 
         self.async_run_with_timeout(self.ws.connect())

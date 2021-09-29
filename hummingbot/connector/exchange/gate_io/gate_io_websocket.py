@@ -16,6 +16,8 @@ from typing import (
     List,
     Optional,
 )
+
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
 from hummingbot.connector.exchange.gate_io.gate_io_utils import (
@@ -40,20 +42,28 @@ class GateIoWebsocket:
         self._session = aiohttp.ClientSession()
         self._client: Optional[aiohttp.ClientWebSocketResponse] = None
         self._closed = True
+        self._last_recv_time = 0
+        self._ping_pong_loop_future: Optional[asyncio.Future] = None
+
+    @property
+    def last_recv_time(self) -> float:
+        return self._last_recv_time
 
     # connect to exchange
     async def connect(self):
-        self._client = await self._session.ws_connect(self._WS_URL, autoping=True)
+        self._client = await self._session.ws_connect(self._WS_URL, autoping=False)
         self._closed = False
         return self._client
 
     # disconnect from exchange
     async def disconnect(self):
-        if self._client is None:
-            return
         self._closed = True
-        await self._client.close()
-        self._client = None
+        if self._client is not None:
+            await self._client.close()
+            self._client = None
+        if self._ping_pong_loop_future is not None:
+            self._ping_pong_loop_future.cancel()
+            self._ping_pong_loop_future = None
 
     # receive & parse messages
     async def _messages(self) -> AsyncIterable[Any]:
@@ -64,6 +74,11 @@ class GateIoWebsocket:
 
                     if msg.type == aiohttp.WSMsgType.CLOSED:  # happens on ws.close()
                         raise ConnectionError
+
+                    self._last_recv_time = time.time()
+
+                    if msg.type == aiohttp.WSMsgType.PONG:
+                        continue
 
                     data = json.loads(msg.data)
                     # Raise API error for login failures.
@@ -141,5 +156,15 @@ class GateIoWebsocket:
 
     # listen to messages by channel
     async def on_message(self) -> AsyncIterable[Any]:
+        self._ping_pong_loop_future = safe_ensure_future(self._ping_pong_loop())
         async for msg in self._messages():
             yield msg
+
+    async def _ping_pong_loop(self):
+        while self._client is not None and not self._client.closed:
+            ping_send_time = time.time()
+            await self._client.ping()
+            await asyncio.sleep(CONSTANTS.PING_TIMEOUT)
+            if self._last_recv_time < ping_send_time:
+                self._client._pong_not_received()
+                raise asyncio.TimeoutError
