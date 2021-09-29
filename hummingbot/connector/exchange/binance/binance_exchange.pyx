@@ -64,7 +64,8 @@ from .binance_time import BinanceTime
 from .binance_in_flight_order import BinanceInFlightOrder
 from .binance_utils import (
     convert_from_exchange_trading_pair,
-    convert_to_exchange_trading_pair)
+    convert_to_exchange_trading_pair,
+    split_trading_pair)
 from hummingbot.core.data_type.common import OpenOrder
 from hummingbot.core.data_type.trade import Trade
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
@@ -852,6 +853,10 @@ cdef class BinanceExchange(ExchangeBase):
     @staticmethod
     def to_hb_order_type(binance_type: str) -> OrderType:
         return OrderType[binance_type]
+
+    @staticmethod
+    def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
+        return split_trading_pair(trading_pair)
 
     def supported_order_types(self):
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
