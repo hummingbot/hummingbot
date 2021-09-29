@@ -1,5 +1,7 @@
 from decimal import Decimal
 from typing import (
+    Dict,
+    Any,
     Optional,
 )
 from hummingbot.core.event.events import (
@@ -9,7 +11,7 @@ from hummingbot.core.event.events import (
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 
 
-class BalancerInFlightOrder(InFlightOrderBase):
+class GatewayInFlightOrder(InFlightOrderBase):
     def __init__(self,
                  client_order_id: str,
                  exchange_order_id: Optional[str],
@@ -37,6 +39,24 @@ class BalancerInFlightOrder(InFlightOrderBase):
     def is_done(self) -> bool:
         return self.last_state in {"FILLED", "CANCELED", "REJECTED", "EXPIRED"}
 
+    @classmethod
+    def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
+        retval = GatewayInFlightOrder(
+            client_order_id=data["client_order_id"],
+            exchange_order_id=data["exchange_order_id"],
+            trading_pair=data["trading_pair"],
+            order_type=getattr(OrderType, data["order_type"]),
+            trade_type=getattr(TradeType, data["trade_type"]),
+            price=Decimal(data["price"]),
+            amount=Decimal(data["amount"]),
+            initial_state=data["last_state"]
+        )
+        retval.executed_amount_base = Decimal(data["executed_amount_base"])
+        retval.executed_amount_quote = Decimal(data["executed_amount_quote"])
+        retval.fee_asset = data["fee_asset"]
+        retval.fee_paid = Decimal(data["fee_paid"])
+        return retval
+
     @property
     def is_failure(self) -> bool:
         return self.last_state in {"REJECTED"}
@@ -50,5 +70,5 @@ class BalancerInFlightOrder(InFlightOrderBase):
         return self._gas_price
 
     @gas_price.setter
-    def gas_price(self, gas_price) -> Decimal:
+    def gas_price(self, gas_price):
         self._gas_price = gas_price
