@@ -103,7 +103,7 @@ class KucoinWSConnectionIterator:
         return throttler
 
     @classmethod
-    async def get_ws_connection_context(cls, throttler: Optional[AsyncThrottler] = None) -> WSConnectionContext:
+    async def get_ws_connection_url(cls, throttler: Optional[AsyncThrottler] = None) -> WSConnectionContext:
         throttler = throttler or cls._get_throttler_instance()
         async with aiohttp.ClientSession() as session:
             url = CONSTANTS.BASE_PATH_URL + CONSTANTS.PUBLIC_WS_DATA_PATH_URL
@@ -118,8 +118,7 @@ class KucoinWSConnectionIterator:
         endpoint: str = data["data"]["instanceServers"][0]["endpoint"]
         token: str = data["data"]["token"]
         ws_url: str = f"{endpoint}?token={token}&acceptUserMessage=true"
-        async with throttler.execute_task(limit_id=CONSTANTS.WS_CONNECTION_LIMIT_ID):
-            return WSConnectionContext(ws_url)
+        return ws_url
 
     @classmethod
     async def update_subscription(
@@ -243,7 +242,9 @@ class KucoinWSConnectionIterator:
         ping_task: Optional[asyncio.Task] = None
 
         try:
-            async with (await self.get_ws_connection_context(self._throttler)) as ws:
+            async with self._throttler.execute_task(limit_id=CONSTANTS.WS_CONNECTION_LIMIT_ID):
+                url = await self.get_ws_connection_url(self._throttler)
+            async with websockets.connect(url) as ws:
                 self._websocket = ws
 
                 # Subscribe to the initial topic.
@@ -505,15 +506,17 @@ class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         pass
                     elif msg_type == "message":
                         if stream_type == StreamType.Depth:
-                            order_book_message: OrderBookMessage = KucoinOrderBook.diff_message_from_exchange(raw_msg)
+                            trading_pair: str = convert_from_exchange_trading_pair(raw_msg["data"]["symbol"])
+                            order_book_message: OrderBookMessage = KucoinOrderBook.diff_message_from_exchange(
+                                msg=raw_msg,
+                                metadata={"symbol": trading_pair})
                         else:
-                            trading_pair: str = convert_to_exchange_trading_pair(raw_msg["data"]["symbol"])
+                            trading_pair: str = convert_from_exchange_trading_pair(raw_msg["data"]["symbol"])
                             data = raw_msg["data"]
-                            order_book_message: OrderBookMessage = \
-                                KucoinOrderBook.trade_message_from_exchange(
-                                    data,
-                                    metadata={"trading_pair": trading_pair}
-                                )
+                            order_book_message: OrderBookMessage = KucoinOrderBook.trade_message_from_exchange(
+                                msg=data,
+                                metadata={"symbol": trading_pair}
+                            )
                         output.put_nowait(order_book_message)
                     elif msg_type == "error":
                         self.logger().error(f"WS error message from Kucoin: {raw_msg}")
