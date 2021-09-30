@@ -93,6 +93,7 @@ const ethTests = async () => {
   });
 };
 
+/*
 const ethTransactionCancelTest = async () => {
   test('ethereum cancel endpoint test', async () => {
     const gatewayEthApproveResult = await request('POST', '/eth/approve', {
@@ -121,8 +122,9 @@ const ethTransactionCancelTest = async () => {
     console.log(gatewayEthPollResult.data);
   });
 };
+*/
 
 (async () => {
   await ethTests();
-  await ethTransactionCancelTest();
+  // await ethTransactionCancelTest();
 })();
