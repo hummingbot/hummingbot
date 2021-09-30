@@ -100,6 +100,10 @@ describe('internal patch system', () => {
     patch(b, '_alter', (x: string) => x.toUpperCase());
     expect(b.alter('HeLlO')).toEqual('HELLO');
 
+    // ignore param
+    patch(b, '_alter', () => 'Hummingbot');
+    expect(b.alter('HeLlO')).toEqual('Hummingbot');
+
     unpatch();
     expect(b.alter('HeLlO')).toEqual('hello');
   });
