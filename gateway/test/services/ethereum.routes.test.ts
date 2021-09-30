@@ -1,4 +1,5 @@
 import request from 'supertest';
+import { patch, unpatch } from './patch';
 import { app } from '../../src/app';
 import { Ethereum } from '../../src/chains/ethereum/ethereum';
 import * as transactionOutOfGas from './fixtures/transaction-out-of-gas.json';
@@ -13,12 +14,11 @@ describe('Eth endpoints', () => {
     eth = Ethereum.getInstance();
     await eth.init();
   });
+  afterEach(unpatch);
 
   it('should get an OUT of GAS error for failed out of gas transactions', async () => {
-    eth.getTransaction = jest.fn().mockReturnValue(transactionOutOfGas);
-    eth.getTransactionReceipt = jest
-      .fn()
-      .mockReturnValue(transactionOutOfGasReceipt);
+    patch(eth, 'getTransaction', () => transactionOutOfGas);
+    patch(eth, 'getTransactionReceipt', () => transactionOutOfGasReceipt);
     const res = await request(app).post('/eth/poll').send({
       txHash:
         '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
@@ -28,17 +28,27 @@ describe('Eth endpoints', () => {
     expect(res.body.errorCode).toEqual(OUT_OF_GAS_ERROR_CODE);
   });
 
-  it('should get a null in receipt for unconfirmed transactions', async () => {
-    eth = Ethereum.reload();
-    await eth.init();
-    console.log('getTransactionReceipt', eth.getTransactionReceipt);
-    eth.getTransaction = jest.fn().mockReturnValue(transactionOutOfGas);
-    eth.getTransactionReceipt = jest.fn().mockReturnValue(null);
+  it('should get a null in txReceipt for Tx in the mempool', async () => {
+    patch(eth, 'getTransaction', () => transactionOutOfGas);
+    patch(eth, 'getTransactionReceipt', () => null);
     const res = await request(app).post('/eth/poll').send({
       txHash:
         '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
     });
     expect(res.statusCode).toEqual(200);
     expect(res.body.txReceipt).toEqual(null);
+    expect(res.body.txData).toBeDefined();
+  });
+
+  it('should get a null in txReceipt and txData for Tx that didnt reach the mempool', async () => {
+    patch(eth, 'getTransaction', () => null);
+    patch(eth, 'getTransactionReceipt', () => null);
+    const res = await request(app).post('/eth/poll').send({
+      txHash:
+        '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
+    });
+    expect(res.statusCode).toEqual(200);
+    expect(res.body.txReceipt).toEqual(null);
+    expect(res.body.txData).toEqual(null);
   });
 });
