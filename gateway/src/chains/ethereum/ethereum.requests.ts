@@ -24,3 +24,8 @@ export interface EthereumApproveRequest {
 export interface EthereumPollRequest {
   txHash: string;
 }
+
+export interface EthereumCancelRequest {
+  nonce: number; // the nonce of the transaction to be canceled
+  privateKey: string; // the user's private Ethereum key
+}

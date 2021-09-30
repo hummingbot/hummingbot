@@ -98,3 +98,24 @@ export async function poll(txHash: string) {
     receipt: toEthereumTransactionReceipt(receipt),
   };
 }
+
+export async function cancel(nonce: number, privateKey: string) {
+  if (!ethereum.ready()) await ethereum.init();
+  const initTime = Date.now();
+  let wallet: Wallet;
+  try {
+    wallet = ethereum.getWallet(privateKey);
+  } catch (err) {
+    throw new Error(`Error getting wallet ${err}`);
+  }
+
+  // call cancelTx function
+  const cancelTx = await ethereum.cancelTx(wallet, nonce);
+
+  return {
+    network: ConfigManager.config.ETHEREUM_CHAIN,
+    timestamp: initTime,
+    latency: latency(initTime, Date.now()),
+    txHash: cancelTx.hash,
+  };
+}
