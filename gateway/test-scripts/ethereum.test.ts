@@ -58,10 +58,12 @@ const request = async (
   }
 };
 
+jest.setTimeout(300000); // run for 5 mins
+
 const ethTests = async () => {
   test('ethereum routes', async () => {
     const gatewayPingResult = await request('GET', '/', {});
-    expect(gatewayPingResult.data).toEqual('ok');
+    expect(gatewayPingResult.data.message).toEqual('ok');
 
     const gatewayEthPingResult = await request('GET', '/eth', {});
     expect(gatewayEthPingResult.data.connection).toEqual(true);
@@ -91,6 +93,36 @@ const ethTests = async () => {
   });
 };
 
+const ethTransactionCancelTest = async () => {
+  test('ethereum cancel endpoint test', async () => {
+    const gatewayEthApproveResult = await request('POST', '/eth/approve', {
+      privateKey: privateKey,
+      spender: uniswapContract,
+      token: 'DAI',
+    });
+
+    console.log('Transaction to be canceled:');
+    console.log(gatewayEthApproveResult.data);
+
+    const nonce = gatewayEthApproveResult.data.approval.nonce;
+
+    const gatewayEthCancelResult = await request('POST', '/eth/cancel', {
+      privateKey: privateKey,
+      nonce: nonce,
+    });
+    expect(gatewayEthCancelResult.status).toEqual(200);
+
+    const txHash = gatewayEthCancelResult.data.approval.hash;
+
+    const gatewayEthPollResult = await request('POST', '/eth/poll', {
+      txHash: txHash,
+    });
+
+    console.log(gatewayEthPollResult.data);
+  });
+};
+
 (async () => {
   await ethTests();
+  await ethTransactionCancelTest();
 })();
