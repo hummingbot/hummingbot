@@ -300,16 +300,10 @@ class BitmartAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             mock_ws.return_value, ujson.dumps(resp)
         )
         BitmartAPIOrderBookDataSource._trading_pairs = ["ETH-USDT"]
-        listening_task = self.ev_loop.create_task(
+        self.listening_task = self.ev_loop.create_task(
             self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue)
         )
         first_msg: OrderBookMessage = self.ev_loop.run_until_complete(msg_queue.get())
-        try:
-            listening_task.cancel()
-            self.ev_loop.run_until_complete(listening_task)
-        except asyncio.CancelledError:
-            # The exception will happen when cancelling the task
-            pass
         self.assertTrue(first_msg.type == OrderBookMessageType.SNAPSHOT)
 
     @patch("websockets.connect", new_callable=AsyncMock)
@@ -360,18 +354,11 @@ class BitmartAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.mocking_assistant.add_websocket_text_message(mock_ws.return_value, self._trade_ws_messsage())
         BitmartAPIOrderBookDataSource._trading_pairs = ["ETH-USDT"]
 
-        listening_task = self.ev_loop.create_task(
+        self.listening_task = self.ev_loop.create_task(
             self.data_source.listen_for_trades(self.ev_loop, msg_queue)
         )
         trade1: OrderBookMessage = self.ev_loop.run_until_complete(msg_queue.get())
         trade2: OrderBookMessage = self.ev_loop.run_until_complete(msg_queue.get())
-
-        try:
-            listening_task.cancel()
-            asyncio.get_event_loop().run_until_complete(listening_task)
-        except asyncio.CancelledError:
-            # The exception will happen when cancelling the task
-            pass
 
         self.assertTrue(msg_queue.empty())
         self.assertEqual(1542337219 * 1000, int(trade1.trade_id))
