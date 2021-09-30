@@ -44,3 +44,6 @@ curl -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: applic
 
 # poll the status of an ethereum transaction
 curl -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "{\"txHash\":\"0x6d068067a5e5a0f08c6395b31938893d1cdad81f54a54456221ecd8c1941294d\"}" https://localhost:5000/eth/poll
+
+# cancel a transaction. Note: modify to send the nonce of the transaction to be canceled
+curl -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "{\"privateKey\":\"$ETH_PRIVATE_KEY\",\"nonce\":83}" https://localhost:5000/eth/cancel
