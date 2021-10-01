@@ -154,8 +154,9 @@ class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
 
         mock_api.put(regex_url, status=400, body=ujson.dumps(self._error_response()))
 
+        self.data_source._current_listen_key = self.listen_key
         result: bool = self.ev_loop.run_until_complete(
-            self.data_source.ping_listen_key(listen_key=self.listen_key)
+            self.data_source.ping_listen_key()
         )
 
         self.assertTrue(self._is_logged("WARNING", f"Failed to refresh the listen key {self.listen_key}: {self._error_response()}"))
@@ -167,8 +168,9 @@ class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_api.put(regex_url, body=ujson.dumps({}))
 
+        self.data_source._current_listen_key = self.listen_key
         result: bool = self.ev_loop.run_until_complete(
-            self.data_source.ping_listen_key(listen_key=self.listen_key)
+            self.data_source.ping_listen_key()
         )
         self.assertTrue(result)
 
