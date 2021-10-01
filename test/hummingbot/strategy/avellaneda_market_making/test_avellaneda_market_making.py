@@ -1272,6 +1272,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
                                        for order in self.strategy.active_non_hanging_orders
                                        if order.is_buy])
                                   + self.market.get_available_balance(self.market_info.quote_asset))
+
         self.assertEqual(expected_base_balance, current_base_balance)
         self.assertEqual(expected_quote_balance, current_quote_balance)
 
@@ -1345,3 +1346,66 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.assertEqual(1, len(self.strategy.hanging_orders_tracker.strategy_current_hanging_orders))
         self.assertEqual(buy_order.client_order_id,
                          list(self.strategy.hanging_orders_tracker.strategy_current_hanging_orders)[0].order_id)
+
+    def test_no_new_orders_created_until_previous_orders_cancellation_confirmed(self):
+
+        refresh_time = self.strategy.order_refresh_time
+
+        self.strategy.avg_vol = self.avg_vol_indicator
+
+        # Simulate low volatility
+        self.simulate_low_volatility(self.strategy)
+        # Prepare market variables and parameters for calculation
+        self.strategy.recalculate_parameters()
+        self.strategy.calculate_reserved_price_and_optimal_spread()
+
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+
+        self.assertEqual(1, len(self.strategy.active_buys))
+        self.assertEqual(1, len(self.strategy.active_sells))
+
+        orders_creation_timestamp = self.strategy.current_timestamp
+
+        # Add a fake in flight cancellation to simulate a confirmation has not arrived
+        self.strategy._sb_order_tracker.in_flight_cancels["OID-99"] = self.strategy.current_timestamp
+
+        # After refresh time the two real orders should be cancelled, but no new order should be created
+        self.clock.backtest_til(orders_creation_timestamp + refresh_time)
+        self.assertEqual(0, len(self.strategy.active_buys))
+        self.assertEqual(0, len(self.strategy.active_sells))
+
+        # After a second refresh time no new order should be created
+        self.clock.backtest_til(orders_creation_timestamp + (2 * refresh_time))
+        self.assertEqual(0, len(self.strategy.active_buys))
+        self.assertEqual(0, len(self.strategy.active_sells))
+
+        del self.strategy._sb_order_tracker.in_flight_cancels["OID-99"]
+
+        # After removing the pending cancel, in the next tick the new orders should be created
+        self.clock.backtest_til(self.strategy.current_timestamp + 1)
+        self.assertEqual(1, len(self.strategy.active_buys))
+        self.assertEqual(1, len(self.strategy.active_sells))
+
+    def test_adjusted_available_balance_considers_in_flight_cancel_orders(self):
+        base_balance = self.market.get_available_balance(self.base_asset)
+        quote_balance = self.market.get_available_balance(self.quote_asset)
+
+        self.strategy._sb_order_tracker.start_tracking_limit_order(
+            market_pair=self.market_info,
+            order_id="OID-1",
+            is_buy=True,
+            price=Decimal(1000),
+            quantity=Decimal(1))
+        self.strategy._sb_order_tracker.start_tracking_limit_order(
+            market_pair=self.market_info,
+            order_id="OID-2",
+            is_buy=False,
+            price=Decimal(2000),
+            quantity=Decimal(2))
+
+        self.strategy._sb_order_tracker.in_flight_cancels["OID-1"] = self.strategy.current_timestamp
+
+        available_base_balance, available_quote_balance = self.strategy.adjusted_available_balance_for_orders_budget_constrain()
+
+        self.assertEqual(available_base_balance, base_balance + Decimal(2))
+        self.assertEqual(available_quote_balance, quote_balance + (Decimal(1) * Decimal(1000)))

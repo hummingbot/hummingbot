@@ -23,7 +23,7 @@ class DynamicPriceBandScript(ScriptBase):
         super().__init__()
 
     def on_tick(self):
-        avg_mid_price = self.avg_mid_price(self.avg_length, self.avg_interval)
+        avg_mid_price = self.avg_mid_price(self.avg_interval, self.avg_length)
         # The avg can be None when the bot just started as there are not enough mid prices to sample values from.
         if avg_mid_price is None:
             return
