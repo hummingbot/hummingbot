@@ -5,7 +5,6 @@ import aiohttp
 import logging
 import time
 import ujson
-import websockets
 
 import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
 
@@ -62,56 +61,57 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
         async with aiohttp.ClientSession() as client:
             async with self._throttler.execute_task(limit_id=CONSTANTS.BINANCE_USER_STREAM_PATH_URL):
                 url = binance_utils.private_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_PATH_URL, domain=self._domain)
-                async with client.post(url=url,
-                                       headers={"X-MBX-APIKEY": self._binance_client.API_KEY}) as response:
-                    response: aiohttp.ClientResponse = response
-                    if response.status != 200:
-                        raise IOError(f"Error fetching user stream listen key. Response: {response}")
-                    data: Dict[str, str] = await response.json()
-                    return data["listenKey"]
+                response = await client.post(url=url,
+                                             headers={"X-MBX-APIKEY": self._binance_client.API_KEY})
+
+                if response.status != 200:
+                    raise IOError(f"Error fetching user stream listen key. Response: {response}")
+                data: Dict[str, str] = await response.json()
+                return data["listenKey"]
 
     async def ping_listen_key(self, listen_key: str) -> bool:
         async with aiohttp.ClientSession() as client:
             async with self._throttler.execute_task(limit_id=CONSTANTS.BINANCE_USER_STREAM_PATH_URL):
                 url = binance_utils.private_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_PATH_URL, domain=self._domain)
-                async with client.put(url=url,
-                                      headers={"X-MBX-APIKEY": self._binance_client.API_KEY},
-                                      params={"listenKey": listen_key}) as response:
-                    data: Tuple[str, any] = await response.json()
-                    if "code" in data:
-                        self.logger().warning(f"Failed to refresh the listen key {listen_key}: {data}")
-                        return False
-                    return True
+                response = await client.put(url=url,
+                                            headers={"X-MBX-APIKEY": self._binance_client.API_KEY},
+                                            params={"listenKey": listen_key})
+                data: Tuple[str, any] = await response.json()
+                if "code" in data:
+                    self.logger().warning(f"Failed to refresh the listen key {listen_key}: {data}")
+                    return False
+                return True
 
-    async def _iter_messages(self, ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
-        # Terminate the recv() loop as soon as the next message timed out, so the outer loop can reconnect.
+    async def _create_websocket_connection(self) -> aiohttp.ClientWebSocketResponse:
+        """
+        Initialize WebSocket client for UserStreamDataSource
+        """
+        try:
+            url = f"{CONSTANTS.WSS_URL.format(self._domain)}/{self._current_listen_key}"
+            self.logger().info(f"Connecting to {url}.")
+            return await aiohttp.ClientSession().ws_connect(url=url,
+                                                            heartbeat=30.0,
+                                                            autoping=False)
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self.logger().network(f"Unexpected error occured when connecting to WebSocket server. {e}")
+            raise
+
+    async def _iter_messages(self, ws: aiohttp.ClientWebSocketResponse) -> AsyncIterable[aiohttp.WSMessage]:
         try:
             while True:
-                try:
-                    msg: str = await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)
-                    self._last_recv_time = time.time()
-                    yield msg
-                except asyncio.TimeoutError:
-                    pong_waiter = await ws.ping()
-                    await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
-                    self._last_recv_time = time.time()
-
-        except asyncio.TimeoutError:
-            self.logger().warning("WebSocket ping timed out. Going to reconnect...")
-            return
-        except websockets.exceptions.ConnectionClosed:
-            return
+                msg: aiohttp.WSMessage = await ws.receive()
+                self._last_recv_time = time.time()
+                yield msg.data
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self.logger().network(f"Unexpected error occured when parsing websocket payload. "
+                                  f"Error: {e}")
+            raise
         finally:
             await ws.close()
-
-    async def get_ws_connection(self) -> websockets.WebSocketClientProtocol:
-        url = CONSTANTS.WSS_URL.format(self._domain)
-        stream_url: str = f"{url}/{self._current_listen_key}"
-        self.logger().info(f"Reconnecting to {stream_url}.")
-
-        # Create the WS connection.
-        ws = await websockets.connect(stream_url)
-        return ws
 
     async def _manage_listen_key_task_loop(self):
         try:
@@ -136,33 +136,30 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
         finally:
             self._current_listen_key = None
             self._listen_key_initialized_event.clear()
-            await self._ws.close()
-            self._ws = None
 
     async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
-        try:
-            while True:
-                try:
+        while True:
+            try:
+                self._manage_listen_key_task = safe_ensure_future(self._manage_listen_key_task_loop())
+                await self._listen_key_initialized_event.wait()
 
-                    self._manage_listen_key_task = safe_ensure_future(self._manage_listen_key_task_loop())
-                    await self._listen_key_initialized_event.wait()
+                self._ws = await self._create_websocket_connection()
 
-                    self._ws: websockets.WebSocketClientProtocol = await self.get_ws_connection()
-                    async for msg in self._iter_messages(self._ws):
-                        decoded: Dict[str, any] = ujson.loads(msg)
-                        output.put_nowait(decoded)
-                except websockets.ConnectionClosed:
-                    self.logger().error("Websocket connection closed unexpectedly. Retrying in 5 seconds...",
-                                        exc_info=True)
-                    await asyncio.sleep(5)
-                except asyncio.CancelledError:
-                    raise
-                except Exception as e:
-                    self.logger().error(f"Unexpected error while maintaining the user event listen key. Retrying after 5 seconds... "
-                                        f"Error: {e}",
-                                        exc_info=True)
-                    await asyncio.sleep(5)
-        finally:
-            # Make sure no background task is leaked.
-            self._manage_listen_key_task and self._manage_listen_key_task.cancel()
-            self._current_listen_key = None
+                async for msg in self._iter_messages(self._ws):
+                    if msg.type == aiohttp.WSMsgType.CLOSED:
+                        raise aiohttp.WebSocketError(f"Websocket connection closed by server. {msg}")
+                    if msg.type in [aiohttp.WSMsgType.PING, aiohttp.WSMsgType.PONG]:
+                        continue
+                    output.put_nowait(ujson.loads(msg))
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                self.logger().error(f"Unexpected error while listening to user stream. Retrying after 5 seconds... "
+                                    f"Error: {e}",
+                                    exc_info=True)
+            finally:
+                # Make sure no background task is leaked.
+                self._manage_listen_key_task and self._manage_listen_key_task.cancel()
+                self._current_listen_key = None
+                self._listen_key_initialized_event.clear()
+                await asyncio.sleep(5)

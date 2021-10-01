@@ -151,8 +151,8 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Initialize WebSocket client for APIOrderBookDataSource
         """
         try:
-            return await aiohttp.ClientSession.ws_connect(url=CONSTANTS.WSS_URL.format(self._domain),
-                                                          heartbeat=30.0)
+            return await aiohttp.ClientSession().ws_connect(url=CONSTANTS.WSS_URL.format(self._domain),
+                                                            heartbeat=30.0)
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -162,13 +162,15 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _iter_messages(self,
                              ws: aiohttp.ClientWebSocketResponse) -> AsyncIterable[Any]:
-        # Terminate the recv() loop as soon as the next message timed out, so the outer loop can reconnect.
         try:
             while True:
                 yield await ws.receive_json()
-        except asyncio.TimeoutError:
-            self.logger().warning("WebSocket ping timed out. Going to reconnect...")
-            return
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self.logger().network(f"Unexpected error occured when parsing websocket payload. "
+                                  f"Error: {e}")
+            raise
         finally:
             await ws.close()
 
