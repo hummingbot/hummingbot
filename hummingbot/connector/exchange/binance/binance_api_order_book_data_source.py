@@ -175,6 +175,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
             await ws.close()
 
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        ws = None
         while True:
             try:
                 ws = await self._create_websocket_connection()
@@ -203,6 +204,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 await asyncio.sleep(30.0)
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        ws = None
         while True:
             try:
                 ws = await self._create_websocket_connection()
