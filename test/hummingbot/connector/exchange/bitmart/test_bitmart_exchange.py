@@ -85,12 +85,12 @@ class BitmartExchangeTests(unittest.TestCase):
         )
         return logged
 
-    async def return_queued_values_and_unlock_test_with_event(self):
+    async def return_queued_values_and_unlock_with_event(self):
         val = await self.return_values_queue.get()
         self.resume_test_event.set()
         return val
 
-    def create_exception_and_unlock_test_with_event(self, exception):
+    def create_exception_and_unlock_with_event(self, exception):
         self.resume_test_event.set()
         raise exception
 
@@ -246,7 +246,7 @@ class BitmartExchangeTests(unittest.TestCase):
 
     @patch("hummingbot.connector.exchange.bitmart.bitmart_exchange.BitmartExchange._update_trading_rules")
     def test_trading_rules_polling_loop_logs_other_exceptions(self, update_trading_rules_mock: AsyncMock):
-        update_trading_rules_mock.side_effect = lambda: self.create_exception_and_unlock_test_with_event(
+        update_trading_rules_mock.side_effect = lambda: self.create_exception_and_unlock_with_event(
             Exception("Dummy test error")
         )
         self.exchange_task = self.ev_loop.create_task(self.exchange._trading_rules_polling_loop())
@@ -552,7 +552,7 @@ class BitmartExchangeTests(unittest.TestCase):
     @patch("hummingbot.connector.exchange.bitmart.bitmart_exchange.BitmartExchange._update_balances")
     @patch("hummingbot.connector.exchange.bitmart.bitmart_exchange.BitmartExchange._update_order_status")
     def test_status_polling_loop(self, update_order_status_mock: AsyncMock, update_balances_mock: AsyncMock):
-        update_order_status_mock.side_effect = self.return_queued_values_and_unlock_test_with_event
+        update_order_status_mock.side_effect = self.return_queued_values_and_unlock_with_event
         self.return_values_queue.put_nowait("")
 
         self.exchange_task = self.ev_loop.create_task(self.exchange._status_polling_loop())
@@ -565,7 +565,7 @@ class BitmartExchangeTests(unittest.TestCase):
 
     @patch("hummingbot.connector.exchange.bitmart.bitmart_exchange.BitmartExchange._update_balances")
     def test_status_polling_loop_raises_on_asyncio_cancelled_error(self, update_balances_mock: AsyncMock):
-        update_balances_mock.side_effect = lambda: self.create_exception_and_unlock_test_with_event(
+        update_balances_mock.side_effect = lambda: self.create_exception_and_unlock_with_event(
             exception=asyncio.CancelledError
         )
 
@@ -576,7 +576,7 @@ class BitmartExchangeTests(unittest.TestCase):
 
     @patch("hummingbot.connector.exchange.bitmart.bitmart_exchange.BitmartExchange._update_balances")
     def test_status_polling_loop_logs_other_exceptions(self, update_balances_mock: AsyncMock):
-        update_balances_mock.side_effect = lambda: self.create_exception_and_unlock_test_with_event(
+        update_balances_mock.side_effect = lambda: self.create_exception_and_unlock_with_event(
             exception=Exception("Dummy test error")
         )
 
@@ -930,7 +930,7 @@ class BitmartExchangeTests(unittest.TestCase):
         self.exchange_task = self.ev_loop.create_task(self.exchange._user_stream_event_listener())
 
         dummy_user_stream = AsyncMock()
-        dummy_user_stream.get.side_effect = lambda: self.create_exception_and_unlock_test_with_event(
+        dummy_user_stream.get.side_effect = lambda: self.create_exception_and_unlock_with_event(
             Exception("Dummy test error")
         )
         self.exchange._user_stream_tracker._user_stream = dummy_user_stream
@@ -944,7 +944,7 @@ class BitmartExchangeTests(unittest.TestCase):
         self.tracker_task = self.ev_loop.create_task(self.exchange._user_stream_event_listener())
 
         dummy_user_stream = AsyncMock()
-        dummy_user_stream.get.side_effect = lambda: self.create_exception_and_unlock_test_with_event(
+        dummy_user_stream.get.side_effect = lambda: self.create_exception_and_unlock_with_event(
             asyncio.CancelledError()
         )
         self.exchange._user_stream_tracker._user_stream = dummy_user_stream
@@ -983,7 +983,7 @@ class BitmartExchangeTests(unittest.TestCase):
         }
         self.return_values_queue.put_nowait(message)
         dummy_user_stream = AsyncMock()
-        dummy_user_stream.get.side_effect = self.return_queued_values_and_unlock_test_with_event
+        dummy_user_stream.get.side_effect = self.return_queued_values_and_unlock_with_event
         self.exchange._user_stream_tracker._user_stream = dummy_user_stream
         self.tracker_task = self.ev_loop.create_task(self.exchange._user_stream_event_listener())
 
@@ -1040,7 +1040,7 @@ class BitmartExchangeTests(unittest.TestCase):
         }
         self.return_values_queue.put_nowait(message)
         dummy_user_stream = AsyncMock()
-        dummy_user_stream.get.side_effect = self.return_queued_values_and_unlock_test_with_event
+        dummy_user_stream.get.side_effect = self.return_queued_values_and_unlock_with_event
         self.exchange._user_stream_tracker._user_stream = dummy_user_stream
         self.tracker_task = self.ev_loop.create_task(self.exchange._user_stream_event_listener())
 
@@ -1100,7 +1100,7 @@ class BitmartExchangeTests(unittest.TestCase):
         }
         self.return_values_queue.put_nowait(message)
         dummy_user_stream = AsyncMock()
-        dummy_user_stream.get.side_effect = self.return_queued_values_and_unlock_test_with_event
+        dummy_user_stream.get.side_effect = self.return_queued_values_and_unlock_with_event
         self.exchange._user_stream_tracker._user_stream = dummy_user_stream
         self.tracker_task = self.ev_loop.create_task(self.exchange._user_stream_event_listener())
 
@@ -1159,7 +1159,7 @@ class BitmartExchangeTests(unittest.TestCase):
         }
         self.return_values_queue.put_nowait(message)
         dummy_user_stream = AsyncMock()
-        dummy_user_stream.get.side_effect = self.return_queued_values_and_unlock_test_with_event
+        dummy_user_stream.get.side_effect = self.return_queued_values_and_unlock_with_event
         self.exchange._user_stream_tracker._user_stream = dummy_user_stream
         self.tracker_task = self.ev_loop.create_task(self.exchange._user_stream_event_listener())
 
