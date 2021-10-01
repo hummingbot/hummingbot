@@ -139,7 +139,7 @@ nav:
       - Check Bot/Market Status: operation/status.md
       - Check Performance: operation/history.md
       - Find Log Files: operation/log-files.md
-      - Exporting Data: operation/export.md
+      - Export Trades/Keys: operation/export.md
     - Strategies:
       - Strategies: strategies/index.md
       - AMM Arbitrage: strategies/amm-arbitrage.md
@@ -245,6 +245,7 @@ nav:
         - Tutorial: developers/strategies/tutorial.md
         - Key Concepts: developers/strategies/key-concepts.md
         - Define Configs: developers/strategies/config.md
+        - Hanging Orders Tracker: developers/strategies/hanging-orders.md
       - Scripts:
         - Scripts: developers/scripts/index.md
         - Script Base Class: developers/scripts/script-base.md
