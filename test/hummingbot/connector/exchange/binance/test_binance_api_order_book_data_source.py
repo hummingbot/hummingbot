@@ -49,6 +49,8 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
+        self.resume_test_event = asyncio.Event()
+
     def tearDown(self) -> None:
         self.listening_task and self.listening_task.cancel()
         super().tearDown()
@@ -62,6 +64,10 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     def _raise_exception(self, exception_class):
         raise exception_class
+
+    def _create_exception_and_unlock_test_with_event(self, exception):
+        self.resume_test_event.set()
+        raise exception
 
     def _successfully_subscribed_event(self):
         resp = {
@@ -292,6 +298,20 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                 self.data_source.listen_for_trades(self.ev_loop, msg_queue)
             )
             self.ev_loop.run_until_complete(self.listening_task)
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_listen_for_trades_exception_raised_when_connecting(self, mock_ws):
+        msg_queue: asyncio.Queue = asyncio.Queue()
+        mock_ws.side_effect = lambda **_: self._create_exception_and_unlock_test_with_event(Exception("TEST ERROR."))
+
+        self.listening_task = self.ev_loop.create_task(
+            self.data_source.listen_for_trades(self.ev_loop, msg_queue)
+        )
+
+        self.ev_loop.run_until_complete(self.resume_test_event.wait())
+
+        self.assertTrue(self._is_logged("NETWORK", "Unexpected error occured when connecting to WebSocket server. Error: TEST ERROR."))
+        self.assertTrue(self._is_logged("ERROR", "Unexpected error with WebSocket connection. Retrying after 30 seconds..."))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_trades_cancelled_when_listening(self, mock_ws):

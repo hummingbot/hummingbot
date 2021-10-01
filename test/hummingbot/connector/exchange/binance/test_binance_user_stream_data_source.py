@@ -63,6 +63,8 @@ class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
+        self.resume_test_event = asyncio.Event()
+
     def tearDown(self) -> None:
         self.listening_task and self.listening_task.cancel()
         super().tearDown()
@@ -76,6 +78,14 @@ class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
 
     def _raise_exception(self, exception_class):
         raise exception_class
+
+    def _create_exception_and_unlock_test_with_event(self, exception):
+        self.resume_test_event.set()
+        raise exception
+
+    def _create_return_value_and_unlock_test_with_event(self, value):
+        self.resume_test_event.set()
+        return value
 
     def _error_response(self) -> Dict[str, Any]:
         resp = {
@@ -185,7 +195,7 @@ class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
     @patch("hummingbot.connector.exchange.binance.binance_api_user_stream_data_source.BinanceAPIUserStreamDataSource.ping_listen_key",
            new_callable=AsyncMock)
     def test_manage_listen_key_task_loop_keep_alive_failed(self, mock_ping_listen_key):
-        mock_ping_listen_key.return_value = False
+        mock_ping_listen_key.side_effect = lambda **_: self._create_return_value_and_unlock_test_with_event(False)
 
         self.data_source._current_listen_key = self.listen_key
 
@@ -194,7 +204,7 @@ class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
 
         self.listening_task = self.ev_loop.create_task(self.data_source._manage_listen_key_task_loop())
 
-        self.ev_loop.run_until_complete(asyncio.sleep(1))
+        self.ev_loop.run_until_complete(self.resume_test_event.wait())
 
         self.assertTrue(self._is_logged("ERROR", "Error occurred renewing listen key... "))
         self.assertIsNone(self.data_source._current_listen_key)
@@ -203,7 +213,7 @@ class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
     @patch("hummingbot.connector.exchange.binance.binance_api_user_stream_data_source.BinanceAPIUserStreamDataSource.ping_listen_key",
            new_callable=AsyncMock)
     def test_manage_listen_key_task_loop_keep_alive_successful(self, mock_ping_listen_key):
-        mock_ping_listen_key.return_value = True
+        mock_ping_listen_key.side_effect = lambda **_: self._create_return_value_and_unlock_test_with_event(True)
 
         # Simulate LISTEN_KEY_KEEP_ALIVE_INTERVAL reached
         self.data_source._current_listen_key = self.listen_key
@@ -212,7 +222,7 @@ class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
 
         self.listening_task = self.ev_loop.create_task(self.data_source._manage_listen_key_task_loop())
 
-        self.ev_loop.run_until_complete(asyncio.sleep(1))
+        self.ev_loop.run_until_complete(self.resume_test_event.wait())
 
         self.assertTrue(self._is_logged("INFO", f"Refreshed listen key {self.listen_key}."))
         self.assertGreater(self.data_source._last_listen_key_ping_ts, 0)
@@ -243,6 +253,31 @@ class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_listen_for_user_stream_connection_failed(self, mock_api, mock_ws):
+        url = utils.private_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_PATH_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_response = {
+            "listenKey": self.listen_key
+        }
+        mock_api.post(regex_url, body=ujson.dumps(mock_response))
+
+        mock_ws.side_effect = lambda **_: self._create_exception_and_unlock_test_with_event(Exception("TEST ERROR."))
+
+        msg_queue = asyncio.Queue()
+        self.listening_task = self.ev_loop.create_task(
+            self.data_source.listen_for_user_stream(self.ev_loop, msg_queue)
+        )
+
+        self.ev_loop.run_until_complete(self.resume_test_event.wait())
+
+        self.assertTrue(self._is_logged("NETWORK",
+                                        "Unexpected error occured when connecting to WebSocket server. Error: TEST ERROR."))
+        self.assertTrue(self._is_logged("ERROR",
+                                        "Unexpected error while listening to user stream. Retrying after 5 seconds... Error: TEST ERROR."))
+
+    @aioresponses()
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_user_stream_iter_message_throws_exception(self, mock_api, mock_ws):
         url = utils.private_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_PATH_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -254,16 +289,14 @@ class BinanceUserStreamDataSourceUnitTests(unittest.TestCase):
 
         msg_queue: asyncio.Queue = asyncio.Queue()
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
-        mock_ws.return_value.receive.side_effect = lambda: self._raise_exception(Exception("TEST ERROR"))
+        mock_ws.return_value.receive.side_effect = lambda: self._create_exception_and_unlock_test_with_event(Exception("TEST ERROR"))
         mock_ws.close.return_value = None
 
         self.listening_task = self.ev_loop.create_task(
             self.data_source.listen_for_user_stream(self.ev_loop, msg_queue)
         )
 
-        with self.assertRaises(asyncio.TimeoutError):
-            self.ev_loop.run_until_complete(
-                asyncio.wait_for(self.listening_task, 1)
-            )
+        self.ev_loop.run_until_complete(self.resume_test_event.wait())
+
         self.assertTrue(self._is_logged("NETWORK", "Unexpected error occured when parsing websocket payload. Error: TEST ERROR"))
         self.assertTrue(self._is_logged("ERROR", "Unexpected error while listening to user stream. Retrying after 5 seconds... Error: TEST ERROR"))

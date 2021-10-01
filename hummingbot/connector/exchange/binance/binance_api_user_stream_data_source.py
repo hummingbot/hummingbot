@@ -44,6 +44,7 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._last_recv_time: float = 0
         self._domain = domain
         self._throttler = throttler or self._get_throttler_instance()
+        self._ws = None
 
         self._listen_key_initialized_event: asyncio.Event = asyncio.Event()
         self._last_listen_key_ping_ts = 0
@@ -155,6 +156,7 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
                                     exc_info=True)
             finally:
                 # Make sure no background task is leaked.
+                self._ws and self._ws.close()
                 self._manage_listen_key_task and self._manage_listen_key_task.cancel()
                 self._current_listen_key = None
                 self._listen_key_initialized_event.clear()
