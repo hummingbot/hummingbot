@@ -103,7 +103,7 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
             while True:
                 msg: aiohttp.WSMessage = await ws.receive()
                 self._last_recv_time = time.time()
-                yield msg.data
+                yield msg
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -150,7 +150,7 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
                         raise aiohttp.WebSocketError(f"Websocket connection closed by server. {msg}")
                     if msg.type in [aiohttp.WSMsgType.PING, aiohttp.WSMsgType.PONG]:
                         continue
-                    output.put_nowait(ujson.loads(msg))
+                    output.put_nowait(ujson.loads(msg.data))
             except asyncio.CancelledError:
                 raise
             except Exception as e:
