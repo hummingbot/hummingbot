@@ -1,4 +1,10 @@
+import aiohttp
+import asyncio
+import copy
+from decimal import Decimal
+import json
 import logging
+import math
 from typing import (
     Dict,
     List,
@@ -6,11 +12,6 @@ from typing import (
     Any,
     AsyncIterable,
 )
-from decimal import Decimal
-import asyncio
-import json
-import aiohttp
-import math
 
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger import HummingbotLogger
@@ -103,6 +104,7 @@ class BitmartExchange(ExchangeBase):
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
         self._last_poll_timestamp = 0
+        self._real_time_balance_update = False
 
     @property
     def name(self) -> str:
@@ -592,6 +594,9 @@ class BitmartExchange(ExchangeBase):
         for asset_name in asset_names_to_remove:
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
+
+        self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
+        self._in_flight_orders_snapshot_timestamp = self.current_timestamp
 
     async def _update_order_status(self):
         """
