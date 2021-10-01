@@ -44,6 +44,8 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.quote_asset = "USDT"
         self.trading_pair = f"{self.base_asset}-{self.quote_asset}"
         self.ex_trading_pair = f"{self.base_asset}{self.quote_asset}"
+        self.non_linear_trading_pair = "BTC-USD"
+        self.non_linear_ex_trading_pair = "BTCUSD"
         self.domain = "bybit_perpetual_testnet"
 
         self.log_records = []
@@ -52,7 +54,7 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         self.connector = BybitPerpetualDerivative(bybit_perpetual_api_key='testApiKey',
                                                   bybit_perpetual_secret_key='testSecretKey',
-                                                  trading_pairs=[self.trading_pair],
+                                                  trading_pairs=[self.trading_pair, self.non_linear_trading_pair],
                                                   domain=self.domain)
 
         self.connector.logger().setLevel(1)
@@ -62,7 +64,11 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.mock_done_event = asyncio.Event()
 
         BybitPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {
-            "bybit_perpetual_testnet": {self.ex_trading_pair: self.trading_pair}}
+            self.domain: {
+                self.ex_trading_pair: self.trading_pair,
+                self.non_linear_ex_trading_pair: self.non_linear_trading_pair
+            }
+        }
 
         self.buy_order_created_logger: EventLogger = EventLogger()
         self.sell_order_created_logger: EventLogger = EventLogger()
@@ -95,7 +101,13 @@ class BybitPerpetualDerivativeTests(TestCase):
                 min_order_size=Decimal(str(0.01)),
                 min_price_increment=Decimal(str(0.0001)),
                 min_base_amount_increment=Decimal(str(0.000001)),
-            )
+            ),
+            self.non_linear_trading_pair: TradingRule(
+                trading_pair=self.non_linear_trading_pair,
+                min_order_size=Decimal(str(0.01)),
+                min_price_increment=Decimal(str(0.0001)),
+                min_base_amount_increment=Decimal(str(0.000001)),
+            ),
         }
 
     def _authentication_response(self, authenticated: bool) -> str:
@@ -937,14 +949,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertTrue(any(map(lambda result: result.order_id == "O1" and result.success, cancellation_results)))
         self.assertTrue(any(map(lambda result: result.order_id == "O2" and not result.success, cancellation_results)))
 
-    # @aioresponses()
     def test_cancel_all_logs_warning_when_process_times_out(self):
-        # path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.CANCEL_ACTIVE_ORDER_PATH_URL, self.trading_pair)
-        # url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
-        # regex_url = re.compile(f"^{url}")
-
-        # post_mock.post(regex_url)
-        # post_mock.post(regex_url)
 
         self._simulate_trading_rules_initialized()
 
@@ -984,6 +989,12 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.connector._user_stream_tracker.data_source._last_recv_time = 1
         self.connector._account_balances["USDT"] = Decimal(10000)
         self.connector._order_book_tracker.data_source._funding_info[self.trading_pair] = FundingInfo(
+            trading_pair=self.trading_pair,
+            index_price=Decimal(1),
+            mark_price=Decimal(1),
+            next_funding_utc_timestamp=time.time(),
+            rate=Decimal(1))
+        self.connector._order_book_tracker.data_source._funding_info[self.non_linear_trading_pair] = FundingInfo(
             trading_pair=self.trading_pair,
             index_price=Decimal(1),
             mark_price=Decimal(1),
@@ -1836,14 +1847,18 @@ class BybitPerpetualDerivativeTests(TestCase):
                                "BTC-USDT")
 
     def test_supported_position_modes(self):
+        testnet_linear_connector = BybitPerpetualDerivative(bybit_perpetual_api_key='testApiKey',
+                                                            bybit_perpetual_secret_key='testSecretKey',
+                                                            trading_pairs=[self.trading_pair],
+                                                            domain="bybit_perpetual_testnet")
         testnet_non_linear_connector = BybitPerpetualDerivative(bybit_perpetual_api_key='testApiKey',
                                                                 bybit_perpetual_secret_key='testSecretKey',
-                                                                trading_pairs=["BTC-USD"],
+                                                                trading_pairs=[self.non_linear_trading_pair],
                                                                 domain="bybit_perpetual_testnet")
 
         # Case 1: Linear Perpetual
         expected_result = [PositionMode.HEDGE]
-        self.assertEqual(expected_result, self.connector.supported_position_modes())
+        self.assertEqual(expected_result, testnet_linear_connector.supported_position_modes())
 
         # Case 2: Non-Linear Perpetual
         expected_result = [PositionMode.ONEWAY]
@@ -1872,17 +1887,53 @@ class BybitPerpetualDerivativeTests(TestCase):
         )
 
     @aioresponses()
-    def test_fetch_funding_fee_supported_trading_pair_receive_funding(self, get_mock):
+    def test_fetch_funding_fee_supported_linear_trading_pair_receive_funding(self, get_mock):
         path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL, self.trading_pair)
         url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
         regex_url = re.compile(f"^{url}")
 
         mock_response = {
             "ret_code": 0,
+            "ret_msg": "OK",
+            "ext_code": "",
+            "ext_info": "",
+            "result": {
+                "symbol": self.ex_trading_pair,
+                "side": "Buy",
+                "size": 1,
+                "funding_rate": 0.0001,
+                "exec_fee": 0.00000002,
+                "exec_time": "2020-04-13T08:00:00.000Z"
+            },
+            "time_now": "1586780352.867171",
+            "rate_limit_status": 119,
+            "rate_limit_reset_ms": 1586780352864,
+            "rate_limit": 120
+        }
+        get_mock.get(regex_url, body=json.dumps(mock_response))
+
+        # Test 2: Support trading pair. Payment > Decimal("0")
+        self.connector_task = asyncio.get_event_loop().create_task(
+            self.connector._fetch_funding_fee(self.trading_pair)
+        )
+        result = asyncio.get_event_loop().run_until_complete(self.connector_task)
+        self.assertTrue(result)
+        self.assertTrue("INFO", f"Funding payment of 0.0001 received on {self.trading_pair} market.")
+
+    @aioresponses()
+    def test_fetch_funding_fee_supported_non_linear_trading_pair_receive_funding(self, get_mock):
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL, self.non_linear_trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
+
+        # Notice the Last Funding API response for Non-linear and Linear Perpetuals are slightly different.
+        # Mainly in the `exec_time` and `exec_timestamp` data.
+        mock_response = {
+            "ret_code": 0,
             "ret_msg": "ok",
             "ext_code": "",
             "result": {
-                "symbol": self.ex_trading_pair,
+                "symbol": self.non_linear_ex_trading_pair,
                 "side": "Buy",
                 "size": 1,
                 "funding_rate": 0.0001,
@@ -1899,11 +1950,11 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         # Test 2: Support trading pair. Payment > Decimal("0")
         self.connector_task = asyncio.get_event_loop().create_task(
-            self.connector._fetch_funding_fee(self.trading_pair)
+            self.connector._fetch_funding_fee(self.non_linear_trading_pair)
         )
         result = asyncio.get_event_loop().run_until_complete(self.connector_task)
         self.assertTrue(result)
-        self.assertTrue("INFO", f"Funding payment of 0.0001 received on {self.trading_pair} market.")
+        self.assertTrue("INFO", f"Funding payment of 0.0001 received on {self.non_linear_trading_pair} market.")
 
     @aioresponses()
     def test_fetch_funding_fee_supported_trading_pair_paid_funding(self, get_mock):
@@ -1921,7 +1972,7 @@ class BybitPerpetualDerivativeTests(TestCase):
                 "size": 1,
                 "funding_rate": -0.0001,
                 "exec_fee": 0.00000002,
-                "exec_timestamp": 1575907200
+                "exec_time": "2020-04-13T08:00:00.000Z"
             },
             "ext_info": None,
             "time_now": "1577446900.717204",
@@ -1944,12 +1995,35 @@ class BybitPerpetualDerivativeTests(TestCase):
         url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
         regex_url = re.compile(f"^{url}")
 
-        mock_response = {
+        linear_mock_response = {
             "ret_code": 0,
             "ret_msg": "ok",
             "ext_code": "",
             "result": {
                 "symbol": self.ex_trading_pair,
+                "side": "Buy",
+                "size": 1,
+                "funding_rate": 0.0001,
+                "exec_fee": 0.00000002,
+                "exec_time": "2020-04-13T08:00:00.000Z"
+            },
+            "ext_info": None,
+            "time_now": "1577446900.717204",
+            "rate_limit_status": 119,
+            "rate_limit_reset_ms": 1577446900724,
+            "rate_limit": 120
+        }
+        get_mock.get(regex_url, body=json.dumps(linear_mock_response))
+
+        path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL, self.non_linear_trading_pair)
+        url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
+        regex_url = re.compile(f"^{url}")
+        non_linear_mock_response = {
+            "ret_code": 0,
+            "ret_msg": "ok",
+            "ext_code": "",
+            "result": {
+                "symbol": self.non_linear_ex_trading_pair,
                 "side": "Buy",
                 "size": 1,
                 "funding_rate": 0.0001,
@@ -1962,7 +2036,7 @@ class BybitPerpetualDerivativeTests(TestCase):
             "rate_limit_reset_ms": 1577446900724,
             "rate_limit": 120
         }
-        get_mock.get(regex_url, body=json.dumps(mock_response), callback=self._mock_responses_done_callback)
+        get_mock.get(regex_url, body=json.dumps(non_linear_mock_response), callback=self._mock_responses_done_callback)
 
         # Mock tick() ready to fetch funding fee
         initial_funding_fee_ts = 0
@@ -1978,6 +2052,7 @@ class BybitPerpetualDerivativeTests(TestCase):
         self.assertFalse(self.connector._funding_fee_poll_notifier.is_set())
         self.assertGreater(self.connector._next_funding_fee_timestamp, initial_funding_fee_ts)
         self.assertTrue(self._is_logged("INFO", f"Funding payment of 0.0001 received on {self.trading_pair} market."))
+        self.assertTrue(self._is_logged("INFO", f"Funding payment of 0.0001 received on {self.non_linear_trading_pair} market."))
 
     def test_set_leverage_unsupported_trading_pair(self):
         self.connector_task = asyncio.get_event_loop().create_task(
