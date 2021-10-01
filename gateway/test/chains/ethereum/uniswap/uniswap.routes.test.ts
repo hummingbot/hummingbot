@@ -3,6 +3,7 @@ import { Express } from 'express-serve-static-core';
 import request from 'supertest';
 import { UniswapRoutes } from '../../../../src/chains/ethereum/uniswap/uniswap.routes';
 import { ConfigManager } from '../../../../src/services/config-manager';
+import { patch, unpatch } from '../../../services/patch';
 
 let app: Express;
 
@@ -12,64 +13,77 @@ beforeAll(async () => {
   app.use('/eth/uniswap', UniswapRoutes.router);
 });
 
-describe('POST /eth/uniswap/trade', () => {
-  it('should return 200', async () => {
-    // getWallet (network call)
-    UniswapRoutes.ethereum.getWallet = jest.fn().mockReturnValue({
-      address: '0x0000000000000000000',
-    });
+afterEach(() => {
+  unpatch();
+});
 
-    // init (network call)
-    UniswapRoutes.uniswap.init = jest.fn().mockReturnValue(() => {
-      return;
-    });
+const patchGetWallet = () => {
+  patch(UniswapRoutes.ethereum, 'getWallet', () => {
+    return {
+      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+    };
+  });
+};
 
-    // storedTokenList (network call)
-    jest
-      .spyOn(UniswapRoutes.ethereum, 'storedTokenList', 'get')
-      .mockReturnValue([
-        {
-          chainId: 42,
-          name: 'WETH',
-          symbol: 'WETH',
-          address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
-          decimals: 18,
-        },
-        {
-          chainId: 42,
-          name: 'DAI',
-          symbol: 'DAI',
-          address: '0x4f96fe3b7a6cf9725f59d353f723c1bdb64ca6aa',
-          decimals: 18,
-        },
-      ]);
+const patchInit = () => {
+    patch(UniswapRoutes.uniswap, 'init', async ()  => {
+    return;
+  });
+};
 
-    // getTokenBySymbol (network call or read file)
-    UniswapRoutes.ethereum.getTokenBySymbol = jest
-      .fn()
-      .mockReturnValue((symbol: string) => {
-        if (symbol === 'WETH') {
-          return {
-            chainId: 42,
-            name: 'WETH',
-            symbol: 'WETH',
-            address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
-            decimals: 18,
-          };
-        } else {
-          return {
-            chainId: 42,
-            name: 'DAI',
-            symbol: 'DAI',
-            address: '0x4f96fe3b7a6cf9725f59d353f723c1bdb64ca6aa',
-            decimals: 18,
-          };
-        }
-      });
+const patchStoredTokenList = () => {
+  patch(UniswapRoutes.ethereum, 'storedTokenList', () => {
+    return [
+      {
+        chainId: 42,
+        name: 'WETH',
+        symbol: 'WETH',
+        address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
+        decimals: 18,
+      },
+      {
+        chainId: 42,
+        name: 'DAI',
+        symbol: 'DAI',
+        address: '0x4f96fe3b7a6cf9725f59d353f723c1bdb64ca6aa',
+        decimals: 18,
+      },
+    ];
+  });
+};
 
-    // priceSwapOut (network call)
-    UniswapRoutes.uniswap.priceSwapOut = jest.fn().mockReturnValue({
-      expectedAmount: { toSignificant: () => 100 },
+const patchGetTokenBySymbol = () => {
+  patch(UniswapRoutes.ethereum, 'getTokenBySymbol', (symbol: string) => {
+    if (symbol === 'WETH') {
+      return {
+        chainId: 42,
+        name: 'WETH',
+        symbol: 'WETH',
+        address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
+        decimals: 18,
+      };
+    } else {
+      return {
+        chainId: 42,
+        name: 'DAI',
+        symbol: 'DAI',
+        address: '0x4f96fe3b7a6cf9725f59d353f723c1bdb64ca6aa',
+        decimals: 18,
+      };
+    }
+  });
+};
+
+const patchGasPrice = () => {
+  patch(UniswapRoutes.ethereum, 'gasPrice', () => 100);
+};
+
+const patchPriceSwapOut = () => {
+  patch(UniswapRoutes.uniswap, 'priceSwapOut', () => {
+    return {
+      expectedAmount: {
+        toSignificant: () => 100,
+      },
       trade: {
         executionPrice: {
           invert: jest.fn().mockReturnValue({
@@ -77,24 +91,36 @@ describe('POST /eth/uniswap/trade', () => {
           }),
         },
       },
-    });
+    };
+  });
+};
 
-    // gasPrice (network call)
-    jest.spyOn(UniswapRoutes.ethereum, 'gasPrice', 'get').mockReturnValue(100);
+const patchConfig = () => {
+  patch(ConfigManager.config, 'UNISWAP_GAS_LIMIT', 150688);
+  patch(ConfigManager.config, 'ETHEREUM_CHAIN', 'kovan');
+};
 
-    // config (read config file)
-    ConfigManager.config.UNISWAP_GAS_LIMIT = 150688;
-    ConfigManager.config.ETHEREUM_CHAIN = 'kovan';
+const patchGetNonce = () => {
+  patch(UniswapRoutes.ethereum.nonceManager, 'getNonce', () => 21);
+};
 
-    // getNonce (network call)
-    UniswapRoutes.ethereum.nonceManager.getNonce = jest
-      .fn()
-      .mockReturnValue(21);
+const patchExecuteTrade = () => {
+  patch(UniswapRoutes.uniswap, 'executeTrade', () => {
+    return { nonce: 21, hash: '000000000000000' };
+  });
+};
 
-    // executeTrade (network call)
-    UniswapRoutes.uniswap.executeTrade = jest
-      .fn()
-      .mockReturnValue({ nonce: 21, hash: '000000000000000' });
+describe('POST /eth/uniswap/trade', () => {
+  it('should return 200', async () => {
+    patchGetWallet();
+    patchInit();
+    patchStoredTokenList();
+    patchGetTokenBySymbol();
+    patchGasPrice();
+    patchPriceSwapOut();
+    patchConfig();
+    patchGetNonce();
+    patchExecuteTrade();
 
     await request(app)
       .post(`/eth/uniswap/trade`)
@@ -114,7 +140,8 @@ describe('POST /eth/uniswap/trade', () => {
       });
   });
 
-  it('should return 404 when parameters are incorrect', async () => {
+    it('should return 404 when parameters are incorrect', async () => {
+        patchInit();
     await request(app)
       .post(`/eth/uniswap/trade`)
       .send({
