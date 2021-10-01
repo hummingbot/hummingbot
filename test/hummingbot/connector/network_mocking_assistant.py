@@ -93,6 +93,7 @@ class NetworkMockingAssistant:
 
     def create_websocket_mock(self):
         ws = AsyncMock()
+        ws.__aenter__.return_value = ws
         ws.send_json.side_effect = lambda sent_message: self._sent_websocket_json_messages[ws].append(sent_message)
         ws.send.side_effect = lambda sent_message: self._sent_websocket_text_messages[ws].append(sent_message)
         ws.receive_json.side_effect = self.async_partial(self._get_next_websocket_json_message, ws)
