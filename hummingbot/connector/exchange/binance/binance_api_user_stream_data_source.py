@@ -95,7 +95,7 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
         except asyncio.CancelledError:
             raise
         except Exception as e:
-            self.logger().network(f"Unexpected error occured when connecting to WebSocket server. {e}")
+            self.logger().network(f"Unexpected error occured when connecting to WebSocket server. Error: {e}")
             raise
 
     async def _iter_messages(self, ws: aiohttp.ClientWebSocketResponse) -> AsyncIterable[aiohttp.WSMessage]:
@@ -146,10 +146,6 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 self._ws = await self._create_websocket_connection()
 
                 async for msg in self._iter_messages(self._ws):
-                    if msg.type == aiohttp.WSMsgType.CLOSED:
-                        raise aiohttp.WebSocketError(f"Websocket connection closed by server. {msg}")
-                    if msg.type in [aiohttp.WSMsgType.PING, aiohttp.WSMsgType.PONG]:
-                        continue
                     output.put_nowait(ujson.loads(msg.data))
             except asyncio.CancelledError:
                 raise
