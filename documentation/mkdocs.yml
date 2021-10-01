@@ -80,7 +80,7 @@ extra_javascript:
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
   - assets/js/config.js
   # - https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=TeX-AMS-MML_HTMLorMML
-  
+
 # Extensions
 markdown_extensions:
   - admonition
@@ -257,6 +257,7 @@ nav:
   - Release Notes:
     - Release Notes: release-notes/index.md
     - 0.44.0: release-notes/0.44.0.md
+    - 0.43.1: release-notes/0.43.1.md
     - 0.43.0: release-notes/0.43.0.md
     - 0.42.0: release-notes/0.42.0.md
     - 0.41.0: release-notes/0.41.0.md
