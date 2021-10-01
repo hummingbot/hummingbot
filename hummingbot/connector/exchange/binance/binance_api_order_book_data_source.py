@@ -30,8 +30,7 @@ from hummingbot.connector.exchange.binance import binance_utils
 
 class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
-    MESSAGE_TIMEOUT = 30.0
-    PING_TIMEOUT = 10.0
+    HEARTBEAT_TIME_INTERVAL = 30.0
     TRADE_STREAM_ID = 1
     DIFF_STREAM_ID = 2
 
@@ -152,7 +151,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         try:
             return await aiohttp.ClientSession().ws_connect(url=CONSTANTS.WSS_URL.format(self._domain),
-                                                            heartbeat=30.0)
+                                                            heartbeat=self.HEARTBEAT_TIME_INTERVAL)
         except asyncio.CancelledError:
             raise
         except Exception as e:

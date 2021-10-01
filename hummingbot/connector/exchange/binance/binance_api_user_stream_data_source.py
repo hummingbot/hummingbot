@@ -25,9 +25,8 @@ from hummingbot.logger import HummingbotLogger
 
 class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
-    MESSAGE_TIMEOUT = 30.0
-    PING_TIMEOUT = 10.0
     LISTEN_KEY_KEEP_ALIVE_INTERVAL = 1800  # Recommended to Ping/Update listen key to keep connection alive
+    HEARTBEAT_TIME_INTERVAL = 30.0
 
     _bausds_logger: Optional[HummingbotLogger] = None
 
@@ -70,16 +69,16 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 data: Dict[str, str] = await response.json()
                 return data["listenKey"]
 
-    async def ping_listen_key(self, listen_key: str) -> bool:
+    async def ping_listen_key(self) -> bool:
         async with aiohttp.ClientSession() as client:
             async with self._throttler.execute_task(limit_id=CONSTANTS.BINANCE_USER_STREAM_PATH_URL):
                 url = binance_utils.private_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_PATH_URL, domain=self._domain)
                 response = await client.put(url=url,
                                             headers={"X-MBX-APIKEY": self._binance_client.API_KEY},
-                                            params={"listenKey": listen_key})
+                                            params={"listenKey": self._current_listen_key})
                 data: Tuple[str, any] = await response.json()
                 if "code" in data:
-                    self.logger().warning(f"Failed to refresh the listen key {listen_key}: {data}")
+                    self.logger().warning(f"Failed to refresh the listen key {self._current_listen_key}: {data}")
                     return False
                 return True
 
@@ -147,6 +146,10 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 self._ws = await self._create_websocket_connection()
 
                 async for msg in self._iter_messages(self._ws):
+                    if msg.type == aiohttp.WSMsgType.PING:
+                        self.logger().debug("Received PING frame. Sending PONG frame...")
+                        await self._ws.pong()
+                        continue
                     output.put_nowait(ujson.loads(msg.data))
             except asyncio.CancelledError:
                 raise
