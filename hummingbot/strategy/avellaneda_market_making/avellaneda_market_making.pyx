@@ -548,12 +548,15 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
         self._hanging_orders_tracker.register_events(self.active_markets)
 
-        # start tracking any restored limit order
-        restored_order_ids = self.c_track_restored_orders(self.market_info)
-        for order_id in restored_order_ids:
-            order = next(o for o in self.market_info.market.limit_orders if o.client_order_id == order_id)
-            if order:
-                self._hanging_orders_tracker.add_order(order)
+        if self._hanging_orders_enabled:
+            # start tracking any restored limit order
+            restored_order_ids = self.c_track_restored_orders(self.market_info)
+            for order_id in restored_order_ids:
+                order = next(o for o in self.market_info.market.limit_orders if o.client_order_id == order_id)
+                if order:
+                    self._hanging_orders_tracker.add_order(order)
+                    self._hanging_orders_tracker.update_strategy_orders_with_equivalent_orders()
+
         self._time_left = self._closing_time
 
     def start(self, clock: Clock, timestamp: float):
@@ -923,10 +926,12 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
     def adjusted_available_balance_for_orders_budget_constrain(self):
         candidate_hanging_orders = self.hanging_orders_tracker.candidate_hanging_orders_from_pairs()
-        all_limit_orders = []
+        non_hanging = []
         if self.market_info in self._sb_order_tracker.get_limit_orders():
-            all_limit_orders = self._sb_order_tracker.get_limit_orders()[self.market_info].values()
-        all_non_hanging_orders = list(set(all_limit_orders) - set(candidate_hanging_orders))
+            all_orders = self._sb_order_tracker.get_limit_orders()[self.market_info].values()
+            non_hanging = [order for order in all_orders
+                           if not self._hanging_orders_tracker.is_order_id_in_hanging_orders(order.client_order_id)]
+        all_non_hanging_orders = list(set(non_hanging) - set(candidate_hanging_orders))
         return self.c_get_adjusted_available_balance(all_non_hanging_orders)
 
     cdef c_apply_budget_constraint(self, object proposal):
