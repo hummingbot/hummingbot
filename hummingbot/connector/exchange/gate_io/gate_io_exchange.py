@@ -472,11 +472,8 @@ class GateIoExchange(ExchangeBase):
             self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, order_type)
             try:
                 order_result = await self._api_request("POST", CONSTANTS.ORDER_CREATE_PATH_URL, api_params, True)
-                if order_result.get('status') != 'open':
-                    if order_result.get('status') in {"cancelled", "expired", "failed"}:
-                        raise GateIoAPIError({'label': 'ORDER_REJECTED', 'message': 'Order rejected.'})
-                    if order_result.get('status') != 'open':
-                        self.logger().network(f"Unexpected order result:\n{order_result}")
+                if order_result.get('status') in {"cancelled", "expired", "failed"}:
+                    raise GateIoAPIError({'label': 'ORDER_REJECTED', 'message': 'Order rejected.'})
                 else:
                     exchange_order_id = str(order_result["id"])
                     tracked_order = self._in_flight_orders.get(order_id)
@@ -782,14 +779,15 @@ class GateIoExchange(ExchangeBase):
             "price": "10000.00000000",
             "fee": "0.00200000000000",
             "point_fee": "0",
-            "gt_fee": "0"
+            "gt_fee": "0",
+            "text": "user_defined_text",
         }
         """
         exchange_order_id = str(trade_msg["order_id"])
+        client_order_id = str(trade_msg["text"])
         tracked_orders = list(self._in_flight_orders.values())
-        for order in tracked_orders:
-            await order.get_exchange_order_id()
-        track_order = [o for o in tracked_orders if exchange_order_id == o.exchange_order_id]
+        track_order = [o for o in tracked_orders
+                       if exchange_order_id == o.exchange_order_id or client_order_id == o.client_order_id]
         if not track_order:
             return
         tracked_order = track_order[0]
