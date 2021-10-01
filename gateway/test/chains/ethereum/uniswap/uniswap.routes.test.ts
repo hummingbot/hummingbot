@@ -26,7 +26,7 @@ const patchGetWallet = () => {
 };
 
 const patchInit = () => {
-    patch(UniswapRoutes.uniswap, 'init', async ()  => {
+  patch(UniswapRoutes.uniswap, 'init', async () => {
     return;
   });
 };
@@ -87,7 +87,7 @@ const patchPriceSwapOut = () => {
       trade: {
         executionPrice: {
           invert: jest.fn().mockReturnValue({
-            toSignificant: jest.fn().mockReturnValue(100),
+            toSignificant: () => 100,
           }),
         },
       },
@@ -140,8 +140,8 @@ describe('POST /eth/uniswap/trade', () => {
       });
   });
 
-    it('should return 404 when parameters are incorrect', async () => {
-        patchInit();
+  it('should return 404 when parameters are incorrect', async () => {
+    patchInit();
     await request(app)
       .post(`/eth/uniswap/trade`)
       .send({
