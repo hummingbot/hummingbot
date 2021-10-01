@@ -11,31 +11,6 @@ export const classHasGetter = (obj: any, prop: string): boolean => {
   return false;
 };
 
-// export const classHasGetterWithoutSetter = (
-//   obj: any,
-//   prop: string
-// ): boolean => {
-//   const description = Object.getOwnPropertyDescriptor(
-//     Object.getPrototypeOf(obj),
-//     prop
-//   );
-//   if (description) {
-//     return !!description.get && !description.set;
-//   }
-//   return false;
-// };
-
-// export const classHasGetterAndSetter = (obj: any, prop: string): boolean => {
-//   const description = Object.getOwnPropertyDescriptor(
-//     Object.getPrototypeOf(obj),
-//     prop
-//   );
-//   if (description) {
-//     return !!description.get && !!description.set;
-//   }
-//   return false;
-// };
-
 // override an existing property value, but make the old one recoverable.
 export const patch = (target: any, propertyName: string, mock: any): void => {
   // clean up a target if it has already been patched, this avoids issues in unpatch
