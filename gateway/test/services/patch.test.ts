@@ -55,6 +55,9 @@ describe('internal patch system', () => {
     patch(a, '_x', 1);
     expect(a.x).toEqual(1);
 
+    patch(a, 'x', () => 3);
+    expect(a.x).toEqual(3);
+
     unpatch();
     expect(a.x).toEqual(0);
   });
@@ -102,6 +105,16 @@ describe('internal patch system', () => {
 
     // ignore param
     patch(b, '_alter', () => 'Hummingbot');
+    expect(b.alter('HeLlO')).toEqual('Hummingbot');
+
+    unpatch();
+    expect(b.alter('HeLlO')).toEqual('hello');
+  });
+
+  it('It can patch getter methods', () => {
+    const b = new B();
+
+    patch(b, 'alter', (_x: any) => (_y: any) => 'Hummingbot');
     expect(b.alter('HeLlO')).toEqual('Hummingbot');
 
     unpatch();
