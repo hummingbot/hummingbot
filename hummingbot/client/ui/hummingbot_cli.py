@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import asyncio
-from typing import Callable
+from typing import Callable, Optional
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.application import Application
 from prompt_toolkit.clipboard.pyperclip import PyperclipClipboard
@@ -54,8 +54,7 @@ class HummingbotCLI:
         self.bindings = bindings
         self.input_handler = input_handler
         self.input_field.accept_handler = self.accept
-        self.app = Application(layout=self.layout, full_screen=True, key_bindings=self.bindings, style=load_style(),
-                               mouse_support=True, clipboard=PyperclipClipboard())
+        self.app: Optional[Application] = None
 
         # settings
         self.prompt_text = ">>> "
@@ -70,6 +69,8 @@ class HummingbotCLI:
         loop.create_task(start_trade_monitor(self.trade_monitor))
 
     async def run(self):
+        self.app = Application(layout=self.layout, full_screen=True, key_bindings=self.bindings, style=load_style(),
+                               mouse_support=True, clipboard=PyperclipClipboard())
         await self.app.run_async()
 
     def accept(self, buff):

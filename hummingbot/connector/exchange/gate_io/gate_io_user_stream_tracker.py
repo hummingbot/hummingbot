@@ -18,7 +18,7 @@ from hummingbot.core.utils.async_utils import (
 from hummingbot.connector.exchange.gate_io.gate_io_api_user_stream_data_source import \
     GateIoAPIUserStreamDataSource
 from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
-from hummingbot.connector.exchange.gate_io.gate_io_constants import Constants
+from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 
 
 class GateIoUserStreamTracker(UserStreamTracker):
@@ -60,7 +60,7 @@ class GateIoUserStreamTracker(UserStreamTracker):
         *required
         Name of the current exchange
         """
-        return Constants.EXCHANGE_NAME
+        return CONSTANTS.EXCHANGE_NAME
 
     async def start(self):
         """

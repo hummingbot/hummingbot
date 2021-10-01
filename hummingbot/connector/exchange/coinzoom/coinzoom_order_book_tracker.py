@@ -7,6 +7,8 @@ import time
 
 from collections import defaultdict, deque
 from typing import Optional, Dict, List, Deque
+
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
@@ -25,8 +27,10 @@ class CoinzoomOrderBookTracker(OrderBookTracker):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, trading_pairs: Optional[List[str]] = None,):
-        super().__init__(CoinzoomAPIOrderBookDataSource(trading_pairs), trading_pairs)
+    def __init__(self, throttler: Optional[AsyncThrottler] = None, trading_pairs: Optional[List[str]] = None):
+        super().__init__(
+            CoinzoomAPIOrderBookDataSource(throttler=throttler, trading_pairs=trading_pairs),
+            trading_pairs)
 
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()

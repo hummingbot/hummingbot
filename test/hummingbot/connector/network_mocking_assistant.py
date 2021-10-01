@@ -19,6 +19,11 @@ class NetworkMockingAssistant:
         self._sent_websocket_json_messages = defaultdict(list)
         self._sent_websocket_text_messages = defaultdict(list)
 
+        self._final_message = 'FinalDummyMessage'
+        self._all_ws_delivered = asyncio.Event()
+
+        self._ev_loop = asyncio.get_event_loop()
+
     @staticmethod
     def async_partial(function, *args, **kwargs):
         async def partial_func(*args2, **kwargs2):
@@ -65,10 +70,16 @@ class NetworkMockingAssistant:
         return await self._sent_http_requests[http_request_mock].get()
 
     async def _get_next_websocket_json_message(self, websocket_mock, *args, **kwargs):
-        return await self._incoming_websocket_json_queues[websocket_mock].get()
+        message = await self._incoming_websocket_json_queues[websocket_mock].get()
+        if message == self._final_message:
+            self._all_ws_delivered.set()
+        return message
 
     async def _get_next_websocket_text_message(self, websocket_mock, *args, **kwargs):
-        return await self._incoming_websocket_text_queues[websocket_mock].get()
+        message = await self._incoming_websocket_text_queues[websocket_mock].get()
+        if message == self._final_message:
+            self._all_ws_delivered.set()
+        return message
 
     def create_websocket_mock(self):
         ws = AsyncMock()
@@ -89,3 +100,11 @@ class NetworkMockingAssistant:
 
     def text_messages_sent_through_websocket(self, websocket_mock):
         return self._sent_websocket_text_messages[websocket_mock]
+
+    def run_until_all_text_messages_delivered(self, websocket_mock, timeout: int = 1):
+        self._incoming_websocket_text_queues[websocket_mock].put_nowait(self._final_message)
+        self._ev_loop.run_until_complete(asyncio.wait_for(self._all_ws_delivered.wait(), timeout))
+
+    def run_until_all_json_messages_delivered(self, websocket_mock, timeout: int = 1):
+        self._incoming_websocket_json_queues[websocket_mock].put_nowait(self._final_message)
+        self._ev_loop.run_until_complete(asyncio.wait_for(self._all_ws_delivered.wait(), timeout))
