@@ -1,5 +1,3 @@
-# Tracking Hanging Orders
-
 ## Introduction
 This section of the tutorial provides an overview of the 
 [`HangingOrdersTracker`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/hanging_orders_tracker.py)
@@ -30,7 +28,7 @@ the strategy in order to receive updates about the orders and perform its respon
 calling the `register_events` method and passing a list of the relevant connectors. When the strategy is being stopped,
 the tracker's `unregister_events` must be called to gracefully deregister the tracker from the connectors.
 
-# Hanging Orders Creation Flow
+## Hanging Orders Creation Flow
 When creating new orders, use the method aptly named `add_current_pairs_of_proposal_orders_executed_by_strategy`
 to register the order pairs by passing them in as `CreatedPairOfOrders`. The tracker then starts listening for filled 
 orders and updates the pairs accordingly.
