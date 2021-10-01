@@ -1,14 +1,10 @@
 #!/usr/bin/env python
 from itertools import islice
-
-import aiohttp
 import asyncio
-from async_timeout import timeout
 from collections import defaultdict
 from enum import Enum
 import json
 import logging
-import pandas as pd
 import time
 from typing import (
     Any,
@@ -20,9 +16,12 @@ from typing import (
     Set,
     Tuple,
 )
-import websockets
-from websockets.legacy.client import Connect as WSConnectionContext
 from urllib.parse import urlencode
+
+import aiohttp
+from aiohttp import WSMsgType
+from async_timeout import timeout
+import pandas as pd
 from yarl import URL
 
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
@@ -95,41 +94,42 @@ class KucoinWSConnectionIterator:
         self._trading_pairs: Set[str] = trading_pairs
         self._throttler = throttler
         self._last_nonce: int = int(time.time() * 1e3)
-        self._websocket: Optional[websockets.WebSocketClientProtocol] = None
+        self._client: Optional[aiohttp.ClientSession] = None
+        self._ws: Optional[aiohttp.ClientWebSocketResponse] = None
 
     @classmethod
     def _get_throttler_instance(cls) -> AsyncThrottler:
         throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         return throttler
 
-    @classmethod
-    async def get_ws_connection_context(cls, throttler: Optional[AsyncThrottler] = None) -> WSConnectionContext:
-        throttler = throttler or cls._get_throttler_instance()
-        async with aiohttp.ClientSession() as session:
+    async def open_ws_connection(self):
+        if self._client is None:
+            self._client = aiohttp.ClientSession()
             url = CONSTANTS.BASE_PATH_URL + CONSTANTS.PUBLIC_WS_DATA_PATH_URL
-            async with throttler.execute_task(CONSTANTS.PUBLIC_WS_DATA_PATH_URL):
-                async with session.post(url, data=b'') as resp:
+            async with self._throttler.execute_task(CONSTANTS.PUBLIC_WS_DATA_PATH_URL):
+                async with self._client.post(url, data=b'') as resp:
                     response: aiohttp.ClientResponse = resp
                     if response.status != 200:
                         raise IOError(f"Error fetching Kucoin websocket connection data."
                                       f"HTTP status is {response.status}.")
                     data: Dict[str, Any] = await response.json()
 
-        endpoint: str = data["data"]["instanceServers"][0]["endpoint"]
-        token: str = data["data"]["token"]
-        ws_url: str = f"{endpoint}?token={token}&acceptUserMessage=true"
-        async with throttler.execute_task(limit_id=CONSTANTS.WS_CONNECTION_LIMIT_ID):
-            return WSConnectionContext(ws_url)
+            endpoint: str = data["data"]["instanceServers"][0]["endpoint"]
+            token: str = data["data"]["token"]
+            ws_url: str = f"{endpoint}?token={token}&acceptUserMessage=true"
+            async with self._throttler.execute_task(limit_id=CONSTANTS.WS_CONNECTION_LIMIT_ID):
+                self._ws = await self._client.ws_connect(
+                    ws_url, autoping=True, heartbeat=CONSTANTS.WS_PING_HEARTBEAT
+                )
 
-    @classmethod
-    async def update_subscription(
-        cls,
-        ws: websockets.WebSocketClientProtocol,
-        stream_type: StreamType,
-        trading_pairs: Set[str],
-        subscribe: bool,
-        throttler: Optional[AsyncThrottler] = None,
-    ):
+    async def close_ws_connection(self):
+        if self._ws is not None:
+            await self._ws.close()
+        if self._client is not None:
+            await self._client.close()
+        self._client = self._ws = None
+
+    async def update_subscription(self, stream_type: StreamType, trading_pairs: Set[str], subscribe: bool):
         trading_pairs = {convert_to_exchange_trading_pair(t) for t in trading_pairs}
         it = iter(trading_pairs)
         trading_pair_chunks: List[Tuple[str]] = list(iter(lambda: tuple(islice(it, 100)), ()))
@@ -153,20 +153,15 @@ class KucoinWSConnectionIterator:
                     "privateChannel": False,
                     "response": True
                 })
-        throttler = throttler or cls._get_throttler_instance()
         for i, subscribe_request in enumerate(subscribe_requests):
-            async with throttler.execute_task(CONSTANTS.WS_REQUEST_LIMIT_ID):
-                await ws.send(json.dumps(subscribe_request))
+            async with self._throttler.execute_task(CONSTANTS.WS_REQUEST_LIMIT_ID):
+                await self._ws.send_json(subscribe_request)
 
     async def subscribe(self, stream_type: StreamType, trading_pairs: Set[str]):
-        await KucoinWSConnectionIterator.update_subscription(
-            self.websocket, stream_type, trading_pairs, subscribe=True, throttler=self._throttler
-        )
+        await self.update_subscription(stream_type, trading_pairs, subscribe=True)
 
     async def unsubscribe(self, stream_type: StreamType, trading_pairs: Set[str]):
-        await KucoinWSConnectionIterator.update_subscription(
-            self.websocket, stream_type, trading_pairs, subscribe=False, throttler=self._throttler
-        )
+        await self.update_subscription(stream_type, trading_pairs, subscribe=False)
 
     @property
     def stream_type(self) -> StreamType:
@@ -181,7 +176,7 @@ class KucoinWSConnectionIterator:
         prev_trading_pairs = self._trading_pairs
         self._trading_pairs = trading_pairs.copy()
 
-        if prev_trading_pairs != trading_pairs and self._websocket is not None:
+        if prev_trading_pairs != trading_pairs and self._ws is not None:
             async def update_subscriptions_func():
                 unsubscribe_set: Set[str] = prev_trading_pairs - trading_pairs
                 subscribe_set: Set[str] = trading_pairs - prev_trading_pairs
@@ -192,8 +187,8 @@ class KucoinWSConnectionIterator:
             safe_ensure_future(update_subscriptions_func())
 
     @property
-    def websocket(self) -> Optional[websockets.WebSocketClientProtocol]:
-        return self._websocket
+    def websocket(self) -> Optional[aiohttp.ClientWebSocketResponse]:
+        return self._ws
 
     @property
     def ping_task(self) -> Optional[asyncio.Task]:
@@ -207,28 +202,25 @@ class KucoinWSConnectionIterator:
         return now_ms
 
     async def _ping_loop(self, interval_secs: float):
-        ws: websockets.WebSocketClientProtocol = self.websocket
-
         while True:
-            try:
-                if not ws.closed:
-                    await ws.ensure_open()
-                    ping_msg: Dict[str, Any] = {
-                        "id": self.get_nonce(),
-                        "type": "ping"
-                    }
-                    async with self._throttler.execute_task(CONSTANTS.WS_REQUEST_LIMIT_ID):
-                        await ws.send(json.dumps(ping_msg))
-            except websockets.exceptions.ConnectionClosedError:
-                pass
+            if not self._ws.closed:
+                ping_msg: Dict[str, Any] = {
+                    "id": self.get_nonce(),
+                    "type": "ping"
+                }
+                async with self._throttler.execute_task(CONSTANTS.WS_REQUEST_LIMIT_ID):
+                    await self._ws.send_json(ping_msg)
             await asyncio.sleep(interval_secs)
 
-    async def _inner_messages(self, ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
+    async def _inner_messages(self, ws: aiohttp.ClientWebSocketResponse) -> AsyncIterable[str]:
         # Terminate the recv() loop as soon as the next message timed out, so the outer loop can disconnect.
         try:
             while True:
                 async with timeout(self.PING_TIMEOUT + self.PING_INTERVAL):
-                    yield await ws.recv()
+                    msg = await ws.receive()
+                    if msg.type == WSMsgType.CLOSED:
+                        raise ConnectionError
+                    yield msg.data
         except asyncio.TimeoutError:
             self.logger().warning(f"Message recv() timed out. "
                                   f"Stream type = {self.stream_type},"
@@ -236,30 +228,30 @@ class KucoinWSConnectionIterator:
             raise
 
     async def __aiter__(self) -> AsyncIterable[Dict[str, any]]:
-        if self._websocket is not None:
+        if self._ws is not None:
             raise EnvironmentError("Iterator already in use.")
 
         # Get connection info and connect to Kucoin websocket.
         ping_task: Optional[asyncio.Task] = None
 
         try:
-            async with (await self.get_ws_connection_context(self._throttler)) as ws:
-                self._websocket = ws
+            await self.open_ws_connection()
 
-                # Subscribe to the initial topic.
-                await self.subscribe(self.stream_type, self.trading_pairs)
+            # Subscribe to the initial topic.
+            await self.subscribe(self.stream_type, self.trading_pairs)
 
-                # Start the ping task
-                ping_task = safe_ensure_future(self._ping_loop(self.PING_INTERVAL))
+            # Start the ping task
+            ping_task = safe_ensure_future(self._ping_loop(self.PING_INTERVAL))
 
-                # Get messages
-                async for raw_msg in self._inner_messages(ws):
-                    msg: Dict[str, any] = json.loads(raw_msg)
-                    yield msg
+            # Get messages
+            async for raw_msg in self._inner_messages(self._ws):
+                msg: Dict[str, any] = json.loads(raw_msg)
+                yield msg
         finally:
             # Clean up.
             if ping_task is not None:
                 ping_task.cancel()
+            await self.close_ws_connection()
 
 
 class KucoinAPIOrderBookDataSource(OrderBookTrackerDataSource):
