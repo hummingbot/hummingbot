@@ -28,15 +28,25 @@ class BitmartAPIUserStreamDataSource(UserStreamTrackerDataSource):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, throttler: AsyncThrottler, bitmart_auth: BitmartAuth, trading_pairs: Optional[List[str]] = []):
+    @classmethod
+    def _get_throttler_instance(cls) -> AsyncThrottler:
+        throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        return throttler
+
+    def __init__(
+        self,
+        bitmart_auth: BitmartAuth,
+        throttler: Optional[AsyncThrottler] = None,
+        trading_pairs: Optional[List[str]] = None,
+    ):
         super().__init__()
         self._bitmart_auth: BitmartAuth = bitmart_auth
-        self._trading_pairs = trading_pairs
+        self._trading_pairs = trading_pairs or []
         self._websocket_client: websockets.WebSocketClientProtocol = None
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
         self._last_recv_time: float = 0
-        self._throttler = throttler
+        self._throttler = throttler or self._get_throttler_instance()
 
     @property
     def last_recv_time(self) -> float:
@@ -66,7 +76,7 @@ class BitmartAPIUserStreamDataSource(UserStreamTrackerDataSource):
             if "errorCode" in auth_resp:
                 self.logger().error(f"WebSocket login errored with message: {auth_resp['errorMessage']}",
                                     exc_info=True)
-                raise
+                raise ConnectionError
         except asyncio.CancelledError:
             raise
         except Exception:
