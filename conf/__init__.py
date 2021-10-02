@@ -43,6 +43,10 @@ for key in connector_keys().keys():
     locals()[key] = os.getenv(key.upper())
 
 """
+# AscendEX Tests
+ascend_ex_api_key = os.getenv("ASCEND_EX_KEY")
+ascend_ex_secret_key = os.getenv("ASCEND_EX_SECRET")
+
 # Binance Tests
 binance_api_key = os.getenv("BINANCE_API_KEY")
 binance_api_secret = os.getenv("BINANCE_API_SECRET")
@@ -99,6 +103,11 @@ eterbase_account = os.getenv("ETERBASE_ACCOUNT")
 okex_api_key = os.getenv("OKEX_API_KEY")
 okex_secret_key = os.getenv("OKEX_SECRET_KEY")
 okex_passphrase = os.getenv("OKEX_PASSPHRASE")
+
+# BitMart Test
+bitmart_api_key = os.getenv("BITMART_API_KEY")
+bitmart_secret_key = os.getenv("BITMART_SECRET_KEY")
+bitmart_memo = os.getenv("BITMART_MEMO")
 
 # CryptoCom Test
 crypto_com_api_key = os.getenv("CRYPTO_COM_API_KEY")

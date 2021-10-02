@@ -2,7 +2,7 @@ from datetime import datetime
 from unittest import TestCase
 from unittest.mock import MagicMock
 
-from hummingbot.strategy.conditional_execution_state import RunAlwaysExecutionState, RunInTimeSpanExecutionState
+from hummingbot.strategy.conditional_execution_state import RunAlwaysExecutionState, RunInTimeConditionalExecutionState
 
 
 class RunAlwaysExecutionStateTests(TestCase):
@@ -28,7 +28,7 @@ class RunInTimeSpanExecutionStateTests(TestCase):
     def test_process_tick_when_current_time_in_span(self):
         start_timestamp = datetime.fromisoformat("2021-06-22 09:00:00")
         end_timestamp = datetime.fromisoformat("2021-06-22 10:00:00")
-        state = RunInTimeSpanExecutionState(start_timestamp=start_timestamp, end_timestamp=end_timestamp)
+        state = RunInTimeConditionalExecutionState(start_timestamp=start_timestamp, end_timestamp=end_timestamp)
 
         strategy = MagicMock()
         strategy.logger().debug.side_effect = self.debug

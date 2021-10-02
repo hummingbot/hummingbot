@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from decimal import Decimal
 import ruamel.yaml
@@ -379,9 +380,14 @@ async def minimum_order_amount(exchange: str, trading_pair: str) -> Decimal:
     default_quote_asset, default_amount = default_min_quote(quote_asset)
     quote_amount = Decimal("0")
     if default_quote_asset == quote_asset:
-        mid_price = await get_last_price(exchange, trading_pair)
-        if mid_price is not None:
-            quote_amount = default_amount / mid_price
+        timeout = float(global_config_map["create_command_timeout"].value)
+        try:
+            mid_price = await asyncio.wait_for(get_last_price(exchange, trading_pair), timeout)
+        except asyncio.TimeoutError:
+            quote_amount = Decimal("0")
+        else:
+            if mid_price is not None:
+                quote_amount = default_amount / mid_price
     return round(quote_amount, 4)
 
 

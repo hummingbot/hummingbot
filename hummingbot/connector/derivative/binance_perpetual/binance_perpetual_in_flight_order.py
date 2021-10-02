@@ -16,7 +16,7 @@ class BinancePerpetualsInFlightOrder(InFlightOrderBase):
                  amount: Decimal,
                  leverage: int,
                  position: str,
-                 initial_state: str = "NEW"):
+                 initial_state: str = "PENDING_CREATE"):
         super().__init__(
             client_order_id,
             exchange_order_id,
@@ -43,6 +43,10 @@ class BinancePerpetualsInFlightOrder(InFlightOrderBase):
     def is_failure(self):
         return self.last_state in {"CANCELED", "PENDING_CANCEL", "REJECTED", "EXPIRED"}
 
+    @property
+    def is_pending_create(self):
+        return self.last_state == "PENDING_CREATE"
+
     @classmethod
     def from_json(cls, data: Dict[str, Any]):
         return_val: BinancePerpetualsInFlightOrder = BinancePerpetualsInFlightOrder(
@@ -63,6 +67,9 @@ class BinancePerpetualsInFlightOrder(InFlightOrderBase):
 
     def update_with_execution_report(self, execution_report: Dict[str, Any]):
         order_report = execution_report.get("o")
+        execution_type = execution_report.get("x")
+        if execution_type == "NEW" and not self.exchange_order_id_update_event.is_set():
+            self.update_exchange_order_id(exchange_id=execution_report.get("i"))
         trade_id = order_report.get("t")
         if trade_id in self.trade_id_set:
             return

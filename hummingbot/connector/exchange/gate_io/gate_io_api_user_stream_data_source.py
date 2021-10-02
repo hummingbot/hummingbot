@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import time
 import asyncio
 import logging
 from typing import (
@@ -10,7 +9,7 @@ from typing import (
 )
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-from .gate_io_constants import Constants
+from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from .gate_io_auth import GateIoAuth
 from .gate_io_utils import (
     convert_to_exchange_trading_pair,
@@ -29,18 +28,20 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, gate_io_auth: GateIoAuth, trading_pairs: Optional[List[str]] = []):
+    def __init__(self, gate_io_auth: GateIoAuth, trading_pairs: Optional[List[str]] = None):
         self._gate_io_auth: GateIoAuth = gate_io_auth
-        self._ws: GateIoWebsocket = None
-        self._trading_pairs = trading_pairs
+        self._ws: Optional[GateIoWebsocket] = None
+        self._trading_pairs = trading_pairs or []
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
-        self._last_recv_time: float = 0
         super().__init__()
 
     @property
     def last_recv_time(self) -> float:
-        return self._last_recv_time
+        recv_time = 0
+        if self._ws is not None:
+            recv_time = self._ws.last_recv_time
+        return recv_time
 
     async def _listen_to_orders_trades_balances(self) -> AsyncIterable[Any]:
         """
@@ -53,24 +54,21 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
             await self._ws.connect()
 
             user_channels = [
-                Constants.WS_SUB['USER_TRADES'],
-                Constants.WS_SUB['USER_ORDERS'],
-                Constants.WS_SUB['USER_BALANCE'],
+                CONSTANTS.USER_TRADES_ENDPOINT_NAME,
+                CONSTANTS.USER_ORDERS_ENDPOINT_NAME,
+                CONSTANTS.USER_BALANCE_ENDPOINT_NAME,
             ]
 
-            await self._ws.subscribe(Constants.WS_SUB['USER_TRADES'],
+            await self._ws.subscribe(CONSTANTS.USER_TRADES_ENDPOINT_NAME,
                                      [convert_to_exchange_trading_pair(pair) for pair in self._trading_pairs])
-            await self._ws.subscribe(Constants.WS_SUB['USER_ORDERS'],
+            await self._ws.subscribe(CONSTANTS.USER_ORDERS_ENDPOINT_NAME,
                                      [convert_to_exchange_trading_pair(pair) for pair in self._trading_pairs])
-            await self._ws.subscribe(Constants.WS_SUB['USER_BALANCE'])
+            await self._ws.subscribe(CONSTANTS.USER_BALANCE_ENDPOINT_NAME)
 
             async for msg in self._ws.on_message():
-                self._last_recv_time = time.time()
 
-                if msg is None:
-                    # Skip empty subscribed/unsubscribed messages
+                if msg.get("event") in ["subscribe", "unsubscribe"]:
                     continue
-
                 if msg.get("result", None) is None:
                     continue
                 elif msg.get("channel", None) in user_channels:
@@ -78,10 +76,11 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
         except Exception as e:
             raise e
         finally:
-            await self._ws.disconnect()
+            if self._ws is not None:
+                await self._ws.disconnect()
             await asyncio.sleep(5)
 
-    async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue) -> AsyncIterable[Any]:
+    async def listen_for_user_stream(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
         """
         *required
         Subscribe to user stream via web socket, and keep the connection open for incoming messages
@@ -100,6 +99,6 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 raise
             except Exception:
                 self.logger().error(
-                    f"Unexpected error with {Constants.EXCHANGE_NAME} WebSocket connection. "
+                    f"Unexpected error with {CONSTANTS.EXCHANGE_NAME} WebSocket connection. "
                     "Retrying after 30 seconds...", exc_info=True)
                 await asyncio.sleep(30.0)

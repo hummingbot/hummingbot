@@ -1,11 +1,7 @@
-#!/usr/bin/env python
 import asyncio
 import logging
 import websockets
 import json
-from hummingbot.connector.exchange.coinzoom.coinzoom_constants import Constants
-
-
 from typing import (
     Any,
     AsyncIterable,
@@ -13,7 +9,11 @@ from typing import (
     List,
     Optional,
 )
+
+from hummingbot.connector.exchange.coinzoom.coinzoom_constants import Constants
+
 from websockets.exceptions import ConnectionClosed
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.coinzoom.coinzoom_auth import CoinzoomAuth
 
@@ -31,7 +31,9 @@ class CoinzoomWebsocket():
         return cls._logger
 
     def __init__(self,
+                 throttler: AsyncThrottler,
                  auth: Optional[CoinzoomAuth] = None):
+        self._throttler = throttler
         self._auth: Optional[CoinzoomAuth] = auth
         self._isPrivate = True if self._auth is not None else False
         self._WS_URL = Constants.WS_PRIVATE_URL if self._isPrivate else Constants.WS_PUBLIC_URL

@@ -52,7 +52,7 @@ class StartCommand:
               log_level: Optional[str] = None,
               restore: Optional[bool] = False):
         if threading.current_thread() != threading.main_thread():
-            self.ev_loop.call_soon_threadsafe(self.start, log_level)
+            self.ev_loop.call_soon_threadsafe(self.start, log_level, restore)
             return
         safe_ensure_future(self.start_check(log_level, restore), loop=self.ev_loop)
 
@@ -71,6 +71,7 @@ class StartCommand:
                 RateOracle.get_instance().start()
         is_valid = await self.status_check_all(notify_success=False)
         if not is_valid:
+            self._notify("Status checks failed. Start aborted.")
             return
         if self._last_started_strategy_file != self.strategy_file_name:
             init_logging("hummingbot_logs.yml",

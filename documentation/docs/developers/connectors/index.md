@@ -1,8 +1,6 @@
-# Connectors - Overview
+## What are exchange connectors?
 
-## What are connectors?
-
-Exchange connectors are modules that allow Hummingbot to connect to an exchange. This requires constant retrieval of live exchange/order book data and handling interactions with the exchange.
+Exchange connectors are packages of code that link Hummingbot's internal trading algorithms with live information from different cryptocurrency exchanges. They interact with a given exchange's API, such as by gathering order book data and sending and cancelling trades.
 
 ## Examples / templates
 
@@ -15,12 +13,12 @@ The following list some examples/templates that you can refer to when building t
 - [Crypto.com](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/connector/exchange/crypto_com) 
 - [Binance](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/connector/exchange/binance) 
 - [Coinbase Pro](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/connector/exchange/coinbase_pro) 
-- [Huobi](hhttps://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/connector/exchange/huobi)
+- [Huobi](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/connector/exchange/huobi)
 - [Bittrex](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/connector/exchange/bittrex)
 
 ## Exchange connector requirements
 
-1. A complete set of exchange connector files as listed [above](https://docs.hummingbot.io/spot-connectors/overview/).
+1. A complete set of exchange connector files as listed [above](https://docs.hummingbot.io/connectors/).
 2. Unit tests (see existing unit tests [here](https://github.com/CoinAlpha/hummingbot/tree/master/test/connector) or [here](https://github.com/CoinAlpha/hummingbot/tree/master/test/integration)):
   - Exchange market test ([example](https://github.com/CoinAlpha/hummingbot/tree/master/test/connector/exchange/crypto_com/test_crypto_com_exchange.py))
   - Order book tracker ([example](https://github.com/CoinAlpha/hummingbot/tree/master/test/connector/exchange/crypto_com/test_crypto_com_order_book_tracker.py))
@@ -28,7 +26,7 @@ The following list some examples/templates that you can refer to when building t
   - User authentication module ([example](https://github.com/CoinAlpha/hummingbot/tree/master/test/connector/exchange/crypto_com/test_crypto_com_auth.py))
 3. Documentation:
   - Code commenting (particularly for any code that is materially different from the templates/examples)
-  - Any specific instructions for the use of that exchange connector ([example](https://docs.hummingbot.io/spot-connectors/binance/))
+  - Any specific instructions for the use of that exchange connector ([example](https://docs.hummingbot.io/connectors/binance/))
 
 3. Documentation:
   - Code commenting (particularly for any code that is materially different from the templates/examples)
