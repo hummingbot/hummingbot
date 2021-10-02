@@ -118,8 +118,7 @@ def create_live_output_field():
         scrollbar=False,
         max_line_count=MAXIMUM_OUTPUT_PANE_LINE_COUNT,
         initial_text='',
-        height=Dimension(weight=8)
-
+        height=Dimension(max=1)
     )
 
 
@@ -237,10 +236,7 @@ def generate_layout(input_field: TextArea,
         VSplit([
             FloatContainer(
                 HSplit([
-                    HSplit([
-                        live_output_field,
-                        output_field,
-                    ], padding_char='▔', padding=1, padding_style='class:output-field'),
+                    output_field,
                     Window(height=1, char='-', style='class:primary'),
                     input_field,
                 ]),
@@ -256,7 +252,10 @@ def generate_layout(input_field: TextArea,
             ),
             Window(width=1, char='|', style='class:primary'),
             HSplit([
-                log_field,
+                HSplit([
+                    live_output_field,
+                    log_field,
+                ], padding_char='▔', padding=1, padding_style='class:output-field'),
                 search_field,
             ]),
         ]),

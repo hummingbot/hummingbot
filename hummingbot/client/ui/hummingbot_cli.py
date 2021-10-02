@@ -6,6 +6,7 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.application import Application
 from prompt_toolkit.clipboard.pyperclip import PyperclipClipboard
 from prompt_toolkit.document import Document
+from prompt_toolkit.layout.dimension import Dimension
 from prompt_toolkit.layout.processors import BeforeInput, PasswordProcessor
 from prompt_toolkit.completion import Completer
 
@@ -103,6 +104,7 @@ class HummingbotCLI:
     def set_live_text(self, text: str, escape_prompt=True):
         if text is None or text == '':
             self.live_output_max_lines = 0
+            self.live_output_field.window.height = Dimension(max=1)
             self.live_output_field.log('', save_log=False)
         else:
             text = "\n" + text + "\n"
@@ -114,6 +116,7 @@ class HummingbotCLI:
             else:
                 padding = self.live_output_max_lines - size
                 text += '\n' * padding
+            self.live_output_field.window.height = Dimension(weight=8)
             self.live_output_field.log(text, save_log=False)
 
     def log(self, text: str, save_log: bool = True):
