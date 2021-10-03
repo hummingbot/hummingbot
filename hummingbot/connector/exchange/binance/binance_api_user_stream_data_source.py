@@ -4,7 +4,6 @@ import asyncio
 import aiohttp
 import logging
 import time
-import ujson
 
 import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
 
@@ -150,7 +149,7 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
                         self.logger().debug("Received PING frame. Sending PONG frame...")
                         await self._ws.pong()
                         continue
-                    output.put_nowait(ujson.loads(msg.data))
+                    output.put_nowait(msg.json())
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -159,7 +158,7 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
                                     exc_info=True)
             finally:
                 # Make sure no background task is leaked.
-                self._ws and self._ws.close()
+                self._ws and await self._ws.close()
                 self._manage_listen_key_task and self._manage_listen_key_task.cancel()
                 self._current_listen_key = None
                 self._listen_key_initialized_event.clear()
