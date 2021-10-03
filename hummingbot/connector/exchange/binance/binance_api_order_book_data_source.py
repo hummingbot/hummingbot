@@ -199,6 +199,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except Exception:
                 self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
                                     exc_info=True)
+            finally:
                 ws and await ws.close()
                 await asyncio.sleep(30.0)
 
@@ -229,6 +230,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except Exception:
                 self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
                                     exc_info=True)
+            finally:
                 ws and await ws.close()
                 await asyncio.sleep(30.0)
 
