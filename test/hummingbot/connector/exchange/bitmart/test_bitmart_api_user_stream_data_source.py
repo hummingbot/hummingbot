@@ -262,17 +262,11 @@ class BitmartAPIUserStreamDataSourceTests(TestCase):
         messages = asyncio.Queue()
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
-        # self.listening_task = asyncio.get_event_loop().create_task(asyncio.wait_for(
-        #     self.data_source.listen_for_user_stream(asyncio.get_event_loop(),
-        #                                             messages), 1))
-        # Add the authentication response for the websocket
         self.mocking_assistant.add_websocket_text_message(
             ws_connect_mock.return_value,
             json.dumps({"event": "login"}))
 
-        # Add a dummy message for the websocket to read and include in the "messages" queue
         self.mocking_assistant.add_websocket_text_message(ws_connect_mock.return_value, 'invalid jason')
-
         with self.assertRaises(asyncio.exceptions.TimeoutError):
             asyncio.get_event_loop().run_until_complete(asyncio.wait_for(
                 self.data_source.listen_for_user_stream(asyncio.get_event_loop(),
