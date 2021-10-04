@@ -1,5 +1,5 @@
-import math
 from decimal import Decimal
+import math
 from hummingbot.connector.exchange_base import ExchangeBase
 
 s_decimal_NaN = Decimal("NaN")
