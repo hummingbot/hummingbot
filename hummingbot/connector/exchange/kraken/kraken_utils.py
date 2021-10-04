@@ -1,12 +1,17 @@
-import hummingbot.connector.exchange.kraken.kraken_constants as constants
+import hummingbot.connector.exchange.kraken.kraken_constants as CONSTANTS
+
 from typing import (
+    Any,
+    Dict,
+    List,
     Optional,
     Tuple,
-    Dict,
-    Any)
+)
 
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
+from hummingbot.connector.exchange.kraken.kraken_constants import KrakenAPITier
+from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 
 
 CENTRALIZED = True
@@ -24,15 +29,15 @@ def convert_from_exchange_symbol(symbol: str) -> str:
     # Assuming if starts with Z or X and has 4 letters then Z/X is removable
     if (symbol[0] == "X" or symbol[0] == "Z") and len(symbol) == 4:
         symbol = symbol[1:]
-    return constants.KRAKEN_TO_HB_MAP.get(symbol, symbol)
+    return CONSTANTS.KRAKEN_TO_HB_MAP.get(symbol, symbol)
 
 
 def convert_to_exchange_symbol(symbol: str) -> str:
-    inverted_kraken_to_hb_map = {v: k for k, v in constants.KRAKEN_TO_HB_MAP.items()}
+    inverted_kraken_to_hb_map = {v: k for k, v in CONSTANTS.KRAKEN_TO_HB_MAP.items()}
     return inverted_kraken_to_hb_map.get(symbol, symbol)
 
 
-def split_to_base_quote(exchange_trading_pair: str) -> (Optional[str], Optional[str]):
+def split_to_base_quote(exchange_trading_pair: str) -> Tuple[Optional[str], Optional[str]]:
     base, quote = exchange_trading_pair.split("-")
     return base, quote
 
@@ -95,6 +100,87 @@ def is_dark_pool(trading_pair_details: Dict[str, Any]):
     return False
 
 
+def _build_private_rate_limits(tier: KrakenAPITier = KrakenAPITier.STARTER) -> List[RateLimit]:
+    private_rate_limits = []
+
+    PRIVATE_ENDPOINT_LIMIT, MATCHING_ENGINE_LIMIT = CONSTANTS.KRAKEN_TIER_LIMITS[tier]
+
+    # Private REST endpoints
+    private_rate_limits.extend([
+        # Private API Pool
+        RateLimit(
+            limit_id=CONSTANTS.PRIVATE_ENDPOINT_LIMIT_ID,
+            limit=PRIVATE_ENDPOINT_LIMIT,
+            time_interval=CONSTANTS.PRIVATE_ENDPOINT_LIMIT_INTERVAL,
+        ),
+        # Private endpoints
+        RateLimit(
+            limit_id=CONSTANTS.GET_TOKEN_PATH_URL,
+            limit=PRIVATE_ENDPOINT_LIMIT,
+            time_interval=CONSTANTS.PRIVATE_ENDPOINT_LIMIT_INTERVAL,
+            linked_limits=[LinkedLimitWeightPair(CONSTANTS.PRIVATE_ENDPOINT_LIMIT_ID)],
+        ),
+        RateLimit(
+            limit_id=CONSTANTS.BALANCE_PATH_URL,
+            limit=PRIVATE_ENDPOINT_LIMIT,
+            time_interval=CONSTANTS.PRIVATE_ENDPOINT_LIMIT_INTERVAL,
+            weight=2,
+            linked_limits=[LinkedLimitWeightPair(CONSTANTS.PRIVATE_ENDPOINT_LIMIT_ID)],
+        ),
+        RateLimit(
+            limit_id=CONSTANTS.OPEN_ORDERS_PATH_URL,
+            limit=PRIVATE_ENDPOINT_LIMIT,
+            time_interval=CONSTANTS.PRIVATE_ENDPOINT_LIMIT_INTERVAL,
+            weight=2,
+            linked_limits=[LinkedLimitWeightPair(CONSTANTS.PRIVATE_ENDPOINT_LIMIT_ID)],
+        ),
+        RateLimit(
+            limit_id=CONSTANTS.QUERY_ORDERS_PATH_URL,
+            limit=PRIVATE_ENDPOINT_LIMIT,
+            time_interval=CONSTANTS.PRIVATE_ENDPOINT_LIMIT_INTERVAL,
+            weight=2,
+            linked_limits=[LinkedLimitWeightPair(CONSTANTS.PRIVATE_ENDPOINT_LIMIT_ID)],
+        ),
+    ])
+
+    # Matching Engine Limits
+    private_rate_limits.extend([
+        RateLimit(
+            limit_id=CONSTANTS.ADD_ORDER_PATH_URL,
+            limit=MATCHING_ENGINE_LIMIT,
+            time_interval=CONSTANTS.MATCHING_ENGINE_LIMIT_INTERVAL,
+            linked_limits=[LinkedLimitWeightPair(CONSTANTS.MATCHING_ENGINE_LIMIT_ID)],
+        ),
+        RateLimit(
+            limit_id=CONSTANTS.CANCEL_ORDER_PATH_URL,
+            limit=MATCHING_ENGINE_LIMIT,
+            time_interval=CONSTANTS.MATCHING_ENGINE_LIMIT_INTERVAL,
+            linked_limits=[LinkedLimitWeightPair(CONSTANTS.MATCHING_ENGINE_LIMIT_ID)],
+        ),
+    ])
+
+    return private_rate_limits
+
+
+def build_rate_limits_by_tier(tier: KrakenAPITier = KrakenAPITier.STARTER) -> List[RateLimit]:
+    rate_limits = []
+
+    rate_limits.extend(CONSTANTS.PUBLIC_API_LIMITS)
+    rate_limits.extend(_build_private_rate_limits(tier=tier))
+
+    return rate_limits
+
+
+def _api_tier_validator(value: str) -> Optional[str]:
+    """
+    Determines if input value is a valid API tier
+    """
+    try:
+        KrakenAPITier(value.upper())
+    except ValueError:
+        return "No such Kraken API Tier."
+
+
 KEYS = {
     "kraken_api_key":
         ConfigVar(key="kraken_api_key",
@@ -108,4 +194,13 @@ KEYS = {
                   required_if=using_exchange("kraken"),
                   is_secure=True,
                   is_connect_key=True),
+    "kraken_api_tier":
+        ConfigVar(key="kraken_api_tier",
+                  prompt="Enter your Kraken API Tier(i.e Starter/Intermediate/Pro) >>> ",
+                  required_if=using_exchange("kraken"),
+                  default="starter",
+                  is_secure=False,
+                  is_connect_key=True,
+                  validator=lambda v: _api_tier_validator(v),
+                  ),
 }

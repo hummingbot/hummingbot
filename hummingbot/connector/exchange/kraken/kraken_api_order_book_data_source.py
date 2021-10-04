@@ -26,7 +26,9 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.kraken.kraken_order_book import KrakenOrderBook
 from hummingbot.connector.exchange.kraken.kraken_utils import (
     convert_from_exchange_trading_pair,
-    convert_to_exchange_trading_pair)
+    convert_to_exchange_trading_pair,
+    build_rate_limits_by_tier,
+)
 from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS
 
 
@@ -50,7 +52,7 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @classmethod
     def _get_throttler_instance(cls) -> AsyncThrottler:
-        throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        throttler = AsyncThrottler(build_rate_limits_by_tier())
         return throttler
 
     @classmethod
