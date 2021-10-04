@@ -103,7 +103,6 @@ class BitmartAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     self._last_recv_time = time.time()
                     yield msg
                 except asyncio.TimeoutError:
-                    # pong_waiter = await ws.ping()
                     await asyncio.wait_for(ws.ping(), timeout=self.PING_TIMEOUT)
                     self._last_recv_time = time.time()
         except asyncio.TimeoutError:
