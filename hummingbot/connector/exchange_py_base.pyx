@@ -1,3 +1,4 @@
+import math
 from decimal import Decimal
 from hummingbot.connector.exchange_base import ExchangeBase
 
@@ -7,7 +8,7 @@ s_decimal_NaN = Decimal("NaN")
 cdef class ExchangePyBase(ExchangeBase):
     @staticmethod
     def quantize_value(value: Decimal, quantum: Decimal) -> Decimal:
-        return round(value / quantum) * quantum
+        return math.floor(value / quantum) * quantum
 
     cdef object c_quantize_order_price(self, str trading_pair, object price):
         return self.quantize_order_price(trading_pair, price)
