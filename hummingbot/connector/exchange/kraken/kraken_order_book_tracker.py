@@ -16,10 +16,11 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import (
     OrderBookTracker
 )
-from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.connector.exchange.kraken.kraken_api_order_book_data_source import KrakenAPIOrderBookDataSource
-from hummingbot.core.data_type.order_book_message import OrderBookMessage
+from hummingbot.connector.exchange.kraken.kraken_constants import KrakenAPITier
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_message import OrderBookMessage
+from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.utils.async_utils import wait_til
 
 
@@ -35,6 +36,7 @@ class KrakenOrderBookTracker(OrderBookTracker):
     def __init__(self,
                  trading_pairs: List[str],
                  throttler: Optional[AsyncThrottler] = None,
+                 kraken_api_tier: KrakenAPITier = KrakenAPITier.STARTER,
                  ):
         super().__init__(KrakenAPIOrderBookDataSource(throttler, trading_pairs), trading_pairs)
         self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()

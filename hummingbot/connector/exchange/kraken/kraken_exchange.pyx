@@ -33,7 +33,9 @@ from hummingbot.connector.exchange.kraken.kraken_utils import (
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair,
     split_to_base_quote,
-    is_dark_pool)
+    is_dark_pool,
+    build_rate_limits_by_tier,
+)
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.event.events import (
     MarketEvent,
@@ -61,6 +63,7 @@ from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS
+from hummingbot.connector.exchange.kraken.kraken_constants import KrakenAPITier
 
 s_logger = None
 s_decimal_0 = Decimal(0)
@@ -107,11 +110,13 @@ cdef class KrakenExchange(ExchangeBase):
                  kraken_secret_key: str,
                  poll_interval: float = 30.0,
                  trading_pairs: Optional[List[str]] = None,
-                 trading_required: bool = True):
+                 trading_required: bool = True,
+                 kraken_api_tier: str = "starter"):
 
         super().__init__()
         self._trading_required = trading_required
-        self._throttler = self._build_async_throttler()
+        self._kraken_api_tier = KrakenAPITier(kraken_api_tier.upper())
+        self._throttler = self._build_async_throttler(api_tier=self._kraken_api_tier)
         self._order_book_tracker = KrakenOrderBookTracker(trading_pairs=trading_pairs, throttler=self._throttler)
         self._kraken_auth = KrakenAuth(kraken_api_key, kraken_secret_key)
         self._user_stream_tracker = KrakenUserStreamTracker(self._throttler, self._kraken_auth)
@@ -1124,7 +1129,7 @@ cdef class KrakenExchange(ExchangeBase):
     def get_order_book(self, trading_pair: str) -> OrderBook:
         return self.c_get_order_book(trading_pair)
 
-    def _build_async_throttler(self) -> AsyncThrottler:
+    def _build_async_throttler(self, api_tier: KrakenAPITier) -> AsyncThrottler:
         limits_pct_conf: Optional[Decimal] = global_config_map["rate_limits_share_pct"].value
         limits_pct = Decimal("100") if limits_pct_conf is None else limits_pct_conf
         if limits_pct < Decimal("100"):
@@ -1132,5 +1137,5 @@ cdef class KrakenExchange(ExchangeBase):
                 f"The Kraken API does not allow enough bandwidth for a reduced rate-limit share percentage."
                 f" Current percentage: {limits_pct}."
             )
-        throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        throttler = AsyncThrottler(build_rate_limits_by_tier(api_tier))
         return throttler
