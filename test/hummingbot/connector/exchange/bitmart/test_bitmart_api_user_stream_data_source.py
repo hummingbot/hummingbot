@@ -215,24 +215,6 @@ class BitmartAPIUserStreamDataSourceTests(TestCase):
         self.assertTrue(self._is_logged("ERROR", "Unexpected error with BitMart WebSocket connection. "
                                                  "Retrying after 30 seconds..."))
 
-    @patch('websockets.connect', new_callable=AsyncMock)
-    def test_listening_process_timeout_inner_message(self, ws_connect_mock):
-        messages = asyncio.Queue()
-        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-
-        self.listening_task = asyncio.get_event_loop().create_task(
-            self.data_source.listen_for_user_stream(asyncio.get_event_loop(),
-                                                    messages))
-        # Add the authentication response for the websocket
-        self.mocking_assistant.add_websocket_text_message(
-            ws_connect_mock.return_value,
-            json.dumps({"event": "login"}))
-
-        self.mocking_assistant.add_websocket_text_message(ws_connect_mock.return_value, json.dumps('dummyMessage'))
-
-    def _raise_asyncio_timeout_exception(self):
-        raise asyncio.TimeoutError()
-
     def test_inner_messages_timeout_ping(self):
         async def call_inner(ws):
             async for _ in self.data_source._inner_messages(ws):
