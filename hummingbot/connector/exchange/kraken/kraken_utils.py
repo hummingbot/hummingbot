@@ -196,9 +196,9 @@ KEYS = {
                   is_connect_key=True),
     "kraken_api_tier":
         ConfigVar(key="kraken_api_tier",
-                  prompt="Enter your Kraken API Tier(i.e Starter/Intermediate/Pro) >>> ",
+                  prompt="Enter your Kraken API Tier (Starter/Intermediate/Pro) >>> ",
                   required_if=using_exchange("kraken"),
-                  default="starter",
+                  default="Starter",
                   is_secure=False,
                   is_connect_key=True,
                   validator=lambda v: _api_tier_validator(v),
