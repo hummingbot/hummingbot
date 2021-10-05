@@ -1,3 +1,5 @@
+import { Trade } from '@uniswap/sdk';
+
 export type Side = 'BUY' | 'SELL';
 
 export interface UniswapPriceRequest {
@@ -5,6 +7,21 @@ export interface UniswapPriceRequest {
   base: string;
   amount: string;
   side: Side;
+}
+
+export interface UniswapPriceResponse {
+  network: string;
+  timestamp: number;
+  latency: number;
+  base: string;
+  quote: string;
+  amount: string;
+  expectedAmount: string;
+  price: string;
+  gasPrice: number;
+  gasLimit: number;
+  gasCost: string;
+  trade: Trade;
 }
 
 export interface UniswapTradeRequest {
@@ -15,4 +32,26 @@ export interface UniswapTradeRequest {
   side: Side;
   limitPrice?: string; // integer as string
   nonce?: number;
+}
+
+export interface UniswapTradeResponse {
+  network: string;
+  timestamp: number;
+  latency: number;
+  base: string;
+  quote: string;
+  amount: string;
+  expectedIn?: string;
+  expectedOut?: string;
+  price: string;
+  gasPrice: number;
+  gasLimit: number;
+  gasCost: string;
+  nonce: number;
+  txHash: string | undefined;
+}
+
+export interface UniswapTradeErrorResponse {
+  error: string;
+  message: string;
 }
