@@ -1,6 +1,6 @@
 import asyncio
 import json
-from unittest import TestCase
+import unittest
 from unittest.mock import patch, AsyncMock
 
 from hummingbot.connector.exchange.bitmart.bitmart_api_user_stream_data_source import BitmartAPIUserStreamDataSource
@@ -10,26 +10,31 @@ from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
-class BitmartAPIUserStreamDataSourceTests(TestCase):
+class BitmartAPIUserStreamDataSourceTests(unittest.TestCase):
     # the level is required to receive logs from the data source loger
     level = 0
 
+    @classmethod
+    def setUpClass(cls) -> None:
+        super().setUpClass()
+        cls.api_key = 'testAPIKey'
+        cls.secret = 'testSecret'
+        cls.memo = '001'
+
+        cls.account_id = 528
+        cls.username = 'hbot'
+        cls.oms_id = 1
+
     def setUp(self) -> None:
         super().setUp()
-        self.api_key = 'testAPIKey'
-        self.secret = 'testSecret'
-        self.memo = '001'
-
-        self.account_id = 528
-        self.username = 'hbot'
-        self.oms_id = 1
-        self.log_records = []
         self.listening_task = None
+        self.log_records = []
 
         throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         auth_assistant = BitmartAuth(api_key=self.api_key,
                                      secret_key=self.secret,
                                      memo=self.memo)
+
         self.data_source = BitmartAPIUserStreamDataSource(throttler, auth_assistant)
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
@@ -240,30 +245,46 @@ class BitmartAPIUserStreamDataSourceTests(TestCase):
         self.assertTrue(self._is_logged("ERROR", "Unexpected error with BitMart WebSocket connection. "
                                                  "Retrying after 30 seconds..."))
 
-    def test_inner_messages_timeout_ping(self):
-        async def call_inner(ws):
-            async for _ in self.data_source._inner_messages(ws):
-                return
-        ping_messages = []
-        ws_connect_mock = self.mocking_assistant.create_websocket_mock()
-        ws_connect_mock.ping.side_effect = lambda: ping_messages.append("ping")
+    @patch("hummingbot.connector.exchange.bitmart.bitmart_api_user_stream_data_source.BitmartAPIUserStreamDataSource._authenticate")
+    @patch("hummingbot.connector.exchange.bitmart.bitmart_api_user_stream_data_source.BitmartAPIUserStreamDataSource._subscribe_to_channels")
+    @patch("hummingbot.connector.exchange.bitmart.bitmart_api_user_stream_data_source.BitmartAPIUserStreamDataSource._init_websocket_connection",
+           new_callable=AsyncMock)
+    def test_listen_for_user_stream_inner_messages_recv_timeout(self, ws_connect_mock, *_):
         self.data_source.MESSAGE_TIMEOUT = 0.1
-        with self.assertRaises(asyncio.exceptions.TimeoutError):
-            asyncio.get_event_loop().run_until_complete(asyncio.wait_for(call_inner(ws_connect_mock), 0.2))
-        self.assertIn("ping", ping_messages)
 
-    def test_inner_messages_timeout_ping_timeout(self):
-        async def call_inner(ws):
-            async for _ in self.data_source._inner_messages(ws):
-                return
-        ws_connect_mock = self.mocking_assistant.create_websocket_mock()
-        messages = asyncio.Queue()
-        ws_connect_mock.ping.side_effect = self.mocking_assistant.async_partial(messages.get)
-        ws_connect_mock.close.side_effect = lambda: self._raise_exception(Exception)
-        self.data_source.MESSAGE_TIMEOUT = 0.1
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        ws_connect_mock.return_value.ping.side_effect = lambda: done_callback_event.set()
+
+        done_callback_event = asyncio.Event()
+        message_queue = asyncio.Queue()
+        self.listening_task = asyncio.get_event_loop().create_task(
+            self.data_source.listen_for_user_stream(asyncio.get_event_loop(),
+                                                    message_queue)
+        )
+
+        asyncio.get_event_loop().run_until_complete(done_callback_event.wait())
+
+    @patch("hummingbot.connector.exchange.bitmart.bitmart_api_user_stream_data_source.BitmartAPIUserStreamDataSource._authenticate")
+    @patch("hummingbot.connector.exchange.bitmart.bitmart_api_user_stream_data_source.BitmartAPIUserStreamDataSource._subscribe_to_channels")
+    @patch("hummingbot.connector.exchange.bitmart.bitmart_api_user_stream_data_source.BitmartAPIUserStreamDataSource._init_websocket_connection",
+           new_callable=AsyncMock)
+    def test_listen_for_user_stream_inner_messages_recv_timeout_ping_timeout(self, ws_connect_mock, *_):
         self.data_source.PING_TIMEOUT = 0.1
-        try:
-            asyncio.get_event_loop().run_until_complete(call_inner(ws_connect_mock))
-        except Exception:
-            pass
+        self.data_source.MESSAGE_TIMEOUT = 0.1
+
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        ws_connect_mock.return_value.close.side_effect = lambda: done_callback_event.set()
+        ws_connect_mock.return_value.ping.side_effect = NetworkMockingAssistant.async_partial(
+            self.mocking_assistant._get_next_websocket_text_message, ws_connect_mock.return_value
+        )
+
+        done_callback_event = asyncio.Event()
+        message_queue = asyncio.Queue()
+        self.listening_task = asyncio.get_event_loop().create_task(
+            self.data_source.listen_for_user_stream(asyncio.get_event_loop(),
+                                                    message_queue)
+        )
+
+        asyncio.get_event_loop().run_until_complete(done_callback_event.wait())
+
         self.assertTrue(self._is_logged("WARNING", "WebSocket ping timed out. Going to reconnect..."))
