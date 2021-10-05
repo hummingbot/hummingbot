@@ -13,7 +13,7 @@ from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAs
 
 
 class BitmartAPIUserStreamDataSourceTests(unittest.TestCase):
-    # the level is required to receive logs from the data source loger
+    # the level is required to receive logs from the data source logger
     level = 0
 
     @classmethod

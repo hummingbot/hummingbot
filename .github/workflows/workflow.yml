@@ -50,7 +50,7 @@ jobs:
       - uses: actions/setup-python@v2
         if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
         with:
-          python-version: 3.x
+          python-version: 3.8.2
 
       - name: Install Miniconda and nose
         if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
