@@ -3,6 +3,7 @@ import abi from './ethereum.abi.json';
 import axios from 'axios';
 import fs from 'fs/promises';
 import { TokenListType, TokenValue } from './base';
+import NodeCache from 'node-cache';
 
 // information about an Ethereum token
 export interface Token {
@@ -27,6 +28,7 @@ export class EthereumBase {
   public gasPriceConstant;
   public tokenListSource: string;
   public tokenListType: TokenListType;
+  public cache: NodeCache;
 
   constructor(
     chainId: number,
@@ -41,6 +43,7 @@ export class EthereumBase {
     this.gasPriceConstant = gasPriceConstant;
     this.tokenListSource = tokenListSource;
     this.tokenListType = tokenListType;
+    this.cache = new NodeCache();
   }
 
   ready(): boolean {
