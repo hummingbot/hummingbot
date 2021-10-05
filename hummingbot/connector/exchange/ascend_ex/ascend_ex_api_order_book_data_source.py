@@ -2,7 +2,6 @@
 import asyncio
 import logging
 import aiohttp
-import websockets
 import ujson
 import time
 import pandas as pd
@@ -35,8 +34,9 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, throttler: Optional[AsyncThrottler] = None, trading_pairs: List[str] = None):
+    def __init__(self, shared_client: aiohttp.ClientSession, throttler: Optional[AsyncThrottler] = None, trading_pairs: List[str] = None):
         super().__init__(trading_pairs)
+        self._shared_client = shared_client
         self._throttler = throttler or self._get_throttler_instance()
         self._trading_pairs: List[str] = trading_pairs
         self._snapshot_msg: Dict[str, any] = {}
@@ -48,84 +48,81 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @classmethod
     async def get_last_traded_prices(
-        cls, trading_pairs: List[str], throttler: Optional[AsyncThrottler] = None
+        cls, client: aiohttp.ClientSession, trading_pairs: List[str], throttler: Optional[AsyncThrottler] = None
     ) -> Dict[str, float]:
         result = {}
 
         for trading_pair in trading_pairs:
-            async with aiohttp.ClientSession() as client:
-                throttler = throttler or cls._get_throttler_instance()
-                async with throttler.execute_task(CONSTANTS.TRADES_PATH_URL):
-                    resp = await client.get(
-                        f"{CONSTANTS.REST_URL}/{CONSTANTS.TRADES_PATH_URL}"
-                        f"?symbol={convert_to_exchange_trading_pair(trading_pair)}"
-                    )
-                if resp.status != 200:
-                    raise IOError(
-                        f"Error fetching last traded prices at {CONSTANTS.EXCHANGE_NAME}. "
-                        f"HTTP status is {resp.status}."
-                    )
-
-                resp_json = await resp.json()
-                if resp_json.get("code") != 0:
-                    raise IOError(
-                        f"Error fetching last traded prices at {CONSTANTS.EXCHANGE_NAME}. "
-                        f"Error is {resp_json.message}."
-                    )
-
-                trades = resp_json.get("data").get("data")
-                if (len(trades) == 0):
-                    continue
-
-                # last trade is the most recent trade
-                result[trading_pair] = float(trades[-1].get("p"))
-
-        return result
-
-    @staticmethod
-    async def fetch_trading_pairs(throttler: Optional[AsyncThrottler] = None) -> List[str]:
-        async with aiohttp.ClientSession() as client:
-            throttler = throttler or AscendExAPIOrderBookDataSource._get_throttler_instance()
-            async with throttler.execute_task(CONSTANTS.TICKER_PATH_URL):
-                resp = await client.get(f"{CONSTANTS.REST_URL}/{CONSTANTS.TICKER_PATH_URL}")
-
-            if resp.status != 200:
-                # Do nothing if the request fails -- there will be no autocomplete for kucoin trading pairs
-                return []
-
-            data: Dict[str, Dict[str, Any]] = await resp.json()
-            return [convert_from_exchange_trading_pair(item["symbol"]) for item in data["data"]]
-
-    @staticmethod
-    async def get_order_book_data(trading_pair: str, throttler: Optional[AsyncThrottler] = None) -> Dict[str, any]:
-        """
-        Get whole orderbook
-        """
-        async with aiohttp.ClientSession() as client:
-            throttler = throttler or AscendExAPIOrderBookDataSource._get_throttler_instance()
-            async with throttler.execute_task(CONSTANTS.DEPTH_PATH_URL):
+            throttler = throttler or cls._get_throttler_instance()
+            async with throttler.execute_task(CONSTANTS.TRADES_PATH_URL):
                 resp = await client.get(
-                    f"{CONSTANTS.REST_URL}/{CONSTANTS.DEPTH_PATH_URL}"
+                    f"{CONSTANTS.REST_URL}/{CONSTANTS.TRADES_PATH_URL}"
                     f"?symbol={convert_to_exchange_trading_pair(trading_pair)}"
                 )
             if resp.status != 200:
                 raise IOError(
-                    f"Error fetching OrderBook for {trading_pair} at {CONSTANTS.EXCHANGE_NAME}. "
+                    f"Error fetching last traded prices at {CONSTANTS.EXCHANGE_NAME}. "
                     f"HTTP status is {resp.status}."
                 )
 
-            data: List[Dict[str, Any]] = await safe_gather(resp.json())
-            item = data[0]
-            if item.get("code") != 0:
+            resp_json = await resp.json()
+            if resp_json.get("code") != 0:
                 raise IOError(
-                    f"Error fetching OrderBook for {trading_pair} at {CONSTANTS.EXCHANGE_NAME}. "
-                    f"Error is {item.message}."
+                    f"Error fetching last traded prices at {CONSTANTS.EXCHANGE_NAME}. "
+                    f"Error is {resp_json.message}."
                 )
 
-            return item["data"]
+            trades = resp_json.get("data").get("data")
+            if (len(trades) == 0):
+                continue
+
+            # last trade is the most recent trade
+            result[trading_pair] = float(trades[-1].get("p"))
+
+        return result
+
+    @staticmethod
+    async def fetch_trading_pairs(client: aiohttp.ClientSession, throttler: Optional[AsyncThrottler] = None) -> List[str]:
+        throttler = throttler or AscendExAPIOrderBookDataSource._get_throttler_instance()
+        async with throttler.execute_task(CONSTANTS.TICKER_PATH_URL):
+            resp = await client.get(f"{CONSTANTS.REST_URL}/{CONSTANTS.TICKER_PATH_URL}")
+
+        if resp.status != 200:
+            # Do nothing if the request fails -- there will be no autocomplete for kucoin trading pairs
+            return []
+
+        data: Dict[str, Dict[str, Any]] = await resp.json()
+        return [convert_from_exchange_trading_pair(item["symbol"]) for item in data["data"]]
+
+    @staticmethod
+    async def get_order_book_data(client: aiohttp.ClientSession, trading_pair: str, throttler: Optional[AsyncThrottler] = None) -> Dict[str, any]:
+        """
+        Get whole orderbook
+        """
+        throttler = throttler or AscendExAPIOrderBookDataSource._get_throttler_instance()
+        async with throttler.execute_task(CONSTANTS.DEPTH_PATH_URL):
+            resp = await client.get(
+                f"{CONSTANTS.REST_URL}/{CONSTANTS.DEPTH_PATH_URL}"
+                f"?symbol={convert_to_exchange_trading_pair(trading_pair)}"
+            )
+        if resp.status != 200:
+            raise IOError(
+                f"Error fetching OrderBook for {trading_pair} at {CONSTANTS.EXCHANGE_NAME}. "
+                f"HTTP status is {resp.status}."
+            )
+
+        data: List[Dict[str, Any]] = await safe_gather(resp.json())
+        item = data[0]
+        if item.get("code") != 0:
+            raise IOError(
+                f"Error fetching OrderBook for {trading_pair} at {CONSTANTS.EXCHANGE_NAME}. "
+                f"Error is {item.message}."
+            )
+
+        return item["data"]
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
-        snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair, self._throttler)
+        snapshot: Dict[str, Any] = await self.get_order_book_data(self._shared_client, trading_pair, self._throttler)
         snapshot_timestamp: float = snapshot.get("data").get("ts")
         snapshot_msg: OrderBookMessage = AscendExOrderBook.snapshot_message_from_exchange(
             snapshot.get("data"),
@@ -148,14 +145,13 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     "op": CONSTANTS.SUB_ENDPOINT_NAME,
                     "ch": f"trades:{trading_pairs}"
                 }
-
-                async with websockets.connect(CONSTANTS.WS_URL) as ws:
-                    ws: websockets.WebSocketClientProtocol = ws
+                async with await self._shared_client.ws_connect(CONSTANTS.WS_URL) as ws:
+                    ws: aiohttp.ClientWebSocketResponse = ws
                     async with self._throttler.execute_task(CONSTANTS.SUB_ENDPOINT_NAME):
-                        await ws.send(ujson.dumps(payload))
+                        await ws.send_json(payload)
 
                     async for raw_msg in self._inner_messages(ws):
-                        msg = ujson.loads(raw_msg)
+                        msg = ujson.loads(raw_msg).get("data")
                         if (msg is None or msg.get("m") != "trades"):
                             continue
 
@@ -169,6 +165,7 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                 metadata={"trading_pair": trading_pair}
                             )
                             output.put_nowait(trade_msg)
+                    await ws.close()
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -189,10 +186,10 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     "ch": ch
                 }
 
-                async with websockets.connect(CONSTANTS.WS_URL) as ws:
-                    ws: websockets.WebSocketClientProtocol = ws
+                async with await self._shared_client.ws_connect(CONSTANTS.WS_URL) as ws:
+                    ws: aiohttp.ClientWebSocketResponse = ws
                     async with self._throttler.execute_task(CONSTANTS.SUB_ENDPOINT_NAME):
-                        await ws.send(ujson.dumps(payload))
+                        await ws.send_json(payload)
 
                     async for raw_msg in self._inner_messages(ws):
                         msg = ujson.loads(raw_msg)
@@ -200,7 +197,7 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             continue
                         if msg.get("m", '') == "ping":
                             async with self._throttler.execute_task(CONSTANTS.PONG_ENDPOINT_NAME):
-                                await ws.send(ujson.dumps(dict(op=CONSTANTS.PONG_ENDPOINT_NAME)))
+                                await ws.send_json(dict(op=CONSTANTS.PONG_ENDPOINT_NAME))
                         if msg.get("m", '') == "depth":
                             msg_timestamp: int = msg.get("data").get("ts")
                             trading_pair: str = convert_from_exchange_trading_pair(msg.get("symbol"))
@@ -210,6 +207,7 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                 metadata={"trading_pair": trading_pair}
                             )
                             output.put_nowait(order_book_message)
+                    await ws.close()
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -226,7 +224,7 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
             try:
                 for trading_pair in self._trading_pairs:
                     try:
-                        snapshot: Dict[str, any] = await self.get_order_book_data(trading_pair, self._throttler)
+                        snapshot: Dict[str, any] = await self.get_order_book_data(self._shared_client, trading_pair, self._throttler)
                         snapshot_timestamp: float = snapshot.get("data").get("ts")
                         snapshot_msg: OrderBookMessage = AscendExOrderBook.snapshot_message_from_exchange(
                             snapshot.get("data"),
@@ -259,24 +257,24 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _inner_messages(
         self,
-        ws: websockets.WebSocketClientProtocol
+        ws: aiohttp.ClientWebSocketResponse
     ) -> AsyncIterable[str]:
         # Terminate the recv() loop as soon as the next message timed out, so the outer loop can reconnect.
         try:
             while True:
                 try:
-                    raw_msg: str = await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)
-                    yield raw_msg
+                    raw_msg = await asyncio.wait_for(ws.receive(), timeout=self.MESSAGE_TIMEOUT)
+                    if raw_msg.type == aiohttp.WSMsgType.CLOSED:
+                        raise ConnectionError
+                    yield raw_msg.data
                 except asyncio.TimeoutError:
                     payload = {"op": CONSTANTS.PONG_ENDPOINT_NAME}
-                    pong_waiter = ws.send(ujson.dumps(payload))
+                    pong_waiter = ws.send_json(payload)
                     async with self._throttler.execute_task(CONSTANTS.PONG_ENDPOINT_NAME):
                         await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
                     self._last_recv_time = time.time()
         except asyncio.TimeoutError:
             self.logger().warning("WebSocket ping timed out. Going to reconnect...")
-            return
-        except websockets.ConnectionClosed:
             return
         finally:
             await ws.close()

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import asyncio
+import aiohttp
 import logging
 
 from typing import (
@@ -34,10 +35,12 @@ class AscendExUserStreamTracker(UserStreamTracker):
         return cls._logger
 
     def __init__(self,
+                 shared_client: aiohttp.ClientSession,
                  throttler: AsyncThrottler,
                  ascend_ex_auth: Optional[AscendExAuth] = None,
                  trading_pairs: Optional[List[str]] = None):
         super().__init__()
+        self._shared_client = shared_client
         self._throttler = throttler
         self._ascend_ex_auth: AscendExAuth = ascend_ex_auth
         self._trading_pairs: List[str] = trading_pairs or []
@@ -54,7 +57,8 @@ class AscendExUserStreamTracker(UserStreamTracker):
         """
         if not self._data_source:
             self._data_source = AscendExAPIUserStreamDataSource(
-                self._throttler,
+                shared_client=self._shared_client,
+                throttler=self._throttler,
                 ascend_ex_auth=self._ascend_ex_auth,
                 trading_pairs=self._trading_pairs
             )
