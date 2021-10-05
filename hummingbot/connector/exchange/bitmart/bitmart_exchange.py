@@ -1,10 +1,10 @@
 import aiohttp
 import asyncio
 import copy
-from decimal import Decimal
 import json
 import logging
 import math
+from decimal import Decimal
 from typing import (
     Dict,
     List,
