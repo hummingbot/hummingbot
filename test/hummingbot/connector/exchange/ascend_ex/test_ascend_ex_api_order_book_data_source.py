@@ -168,14 +168,14 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
         queue = asyncio.Queue()
 
         try:
-            task = self.ev_loop.create_task(self.data_source.listen_for_trades(ev_loop=self.ev_loop, output=queue))
-            await asyncio.wait_for(task, 0)
+            self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_trades(ev_loop=self.ev_loop, output=queue))
+            await asyncio.wait_for(self.mocking_assistant._all_ws_delivered.wait(), 0)
         except asyncio.exceptions.TimeoutError:
             pass
 
         try:
-            task = self.ev_loop.create_task(self.data_source.listen_for_order_book_diffs(ev_loop=self.ev_loop, output=queue))
-            await asyncio.wait_for(task, 0)
+            self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_order_book_diffs(ev_loop=self.ev_loop, output=queue))
+            await asyncio.wait_for(self.mocking_assistant._all_ws_delivered.wait(), 0)
         except asyncio.exceptions.TimeoutError:
             pass
 
