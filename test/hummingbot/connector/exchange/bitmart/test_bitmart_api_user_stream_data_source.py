@@ -240,19 +240,26 @@ class BitmartAPIUserStreamDataSourceTests(TestCase):
         self.assertTrue(self._is_logged("WARNING", "WebSocket ping timed out. Going to reconnect..."))
 
     @patch('websockets.connect', new_callable=AsyncMock)
-    def test_invalid_json_message(self, ws_connect_mock):
+    def test_invalid_json_message_logged(self, ws_connect_mock):
         messages = asyncio.Queue()
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        # Make the close function raise an exception to finish the execution
+        ws_connect_mock.return_value.close.side_effect = lambda: self._raise_exception(Exception)
 
-        self.mocking_assistant.add_websocket_text_message(
-            ws_connect_mock.return_value,
-            json.dumps({"event": "login"}))
-
-        self.mocking_assistant.add_websocket_text_message(ws_connect_mock.return_value, 'invalid jason')
-        with self.assertRaises(asyncio.exceptions.TimeoutError):
-            asyncio.get_event_loop().run_until_complete(asyncio.wait_for(
+        try:
+            self.listening_task = asyncio.get_event_loop().create_task(
                 self.data_source.listen_for_user_stream(asyncio.get_event_loop(),
-                                                        messages), 0.2))
+                                                        messages))
+            # Add the authentication response for the websocket
+            self.mocking_assistant.add_websocket_text_message(
+                ws_connect_mock.return_value,
+                json.dumps({"event": "login"}))
+            # Add invalid json message
+            self.mocking_assistant.add_websocket_text_message(ws_connect_mock.return_value, 'invalid message')
+            asyncio.get_event_loop().run_until_complete(self.listening_task)
+        except Exception:
+            pass
+
         self.assertTrue(self._is_logged("ERROR", "Unexpected error when parsing BitMart user_stream message. "))
         self.assertTrue(self._is_logged("ERROR", "Unexpected error with BitMart WebSocket connection. "
                                                  "Retrying after 30 seconds..."))
