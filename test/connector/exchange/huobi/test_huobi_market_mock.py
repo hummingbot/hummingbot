@@ -47,7 +47,7 @@ from hummingbot.connector.exchange.huobi.huobi_exchange import HuobiExchange
 from hummingbot.connector.exchange.huobi.huobi_order_book import HuobiOrderBook
 from hummingbot.core.event.events import OrderType
 from hummingbot.connector.markets_recorder import MarketsRecorder
-from hummingbot.connector.mock_api_order_book_data_source import MockAPIOrderBookDataSource
+from test.mock.mock_api_order_book_data_source import MockAPIOrderBookDataSource
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
 from hummingbot.model.sql_connection_manager import (
