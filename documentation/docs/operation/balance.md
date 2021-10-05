@@ -16,4 +16,4 @@ Run `balance paper` to check your paper trade account balance.
 
 By default, these are the paper trade balances pre-loaded in Hummingbot. You can also enter additional assets and credits to use in paper trade mode.
 
-- [Adding Paper Trade Balance](/operation/paper-trade/#adding-paper-trade-balance)
+- [Adding Paper Trade Balance](/global-configs/paper-trade/#adding-paper-trade-balance)
