@@ -223,9 +223,6 @@ cdef class RadarRelayExchange(ExchangeBase):
             for key, value in saved_states["limit_orders"].items()
         })
 
-    async def get_active_exchange_markets(self):
-        return await RadarRelayAPIOrderBookDataSource.get_active_exchange_markets()
-
     async def _status_polling_loop(self):
         while True:
             try:

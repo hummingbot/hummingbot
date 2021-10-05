@@ -20,7 +20,6 @@ from websockets.exceptions import ConnectionClosed
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.utils import async_ttl_cache
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.okex.okex_order_book import OkexOrderBook
 from hummingbot.connector.exchange.okex.constants import (
@@ -49,34 +48,6 @@ class OkexAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def __init__(self, trading_pairs: List[str]):
         super().__init__(trading_pairs)
         self._trading_pairs: List[str] = trading_pairs
-
-    @classmethod
-    @async_ttl_cache(ttl=60 * 30, maxsize=1)
-    async def get_active_exchange_markets(cls) -> pd.DataFrame:
-        """
-        Performs the necessary API request(s) to get all currently active trading pairs on the
-        exchange and returns a pandas.DataFrame with each row representing one active trading pair.
-
-        Also the the base and quote currency should be represented under the baseAsset and quoteAsset
-        columns respectively in the DataFrame.
-
-        Refer to Calling a Class method for an example on how to test this particular function.
-        Returned data frame should have trading pair as index and include usd volume, baseAsset and quoteAsset
-        """
-        async with aiohttp.ClientSession() as client:
-            async with client.get(OKEX_TICKERS_URL) as products_response:
-
-                products_response: aiohttp.ClientResponse = products_response
-                if products_response.status != 200:
-                    raise IOError(f"Error fetching active OKEx markets. HTTP status is {products_response.status}.")
-
-                data = await products_response.json()
-                data = data['data']
-                all_markets: pd.DataFrame = pd.DataFrame.from_records(data=data)
-
-                all_markets.rename({"volCcy24h": "volume", "last": "price"},
-                                   axis="columns", inplace=True)
-                return all_markets
 
     @staticmethod
     async def fetch_trading_pairs() -> List[str]:
@@ -137,8 +108,7 @@ class OkexAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def get_trading_pairs(self) -> List[str]:
         if not self._trading_pairs:
             try:
-                active_markets: pd.DataFrame = await self.get_active_exchange_markets()
-                self._trading_pairs = active_markets['instId'].tolist()
+                self._trading_pairs = await self.fetch_trading_pairs()
             except Exception:
                 self._trading_pairs = []
                 self.logger().network(

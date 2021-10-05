@@ -19,7 +19,6 @@ from websockets.exceptions import ConnectionClosed
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.connector.exchange.eterbase.eterbase_order_book import EterbaseOrderBook
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.utils import async_ttl_cache
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.connector.exchange.eterbase.eterbase_active_order_tracker import EterbaseActiveOrderTracker
@@ -61,75 +60,6 @@ class EterbaseAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 results[trading_pair] = float(resp_record["price"])
         return results
 
-    @classmethod
-    @async_ttl_cache(ttl=60 * 30, maxsize=1)
-    async def get_active_exchange_markets(cls) -> pd.DataFrame:
-        """
-        *required
-        Returns all currently active BTC trading pairs from Eterbase, sorted by volume in descending order.
-        """
-        async with aiohttp.ClientSession() as client:
-            async with client.get(f"{constants.REST_URL}/markets") as products_response:
-                products_response: aiohttp.ClientResponse = products_response
-                if products_response.status != 200:
-                    raise IOError(f"Error fetching active Eterbase markets. HTTP status is {products_response.status}.")
-                data = await products_response.json()
-                for pair in data:
-                    pair["symbol"] = convert_from_exchange_trading_pair(pair["symbol"])
-                all_markets: pd.DataFrame = pd.DataFrame.from_records(data=data, index="id")
-                all_markets.rename({"base": "baseAsset", "quote": "quoteAsset"},
-                                   axis="columns", inplace=True)
-                all_markets = all_markets[(all_markets.state == 'Trading')]
-                ids: List[str] = list(all_markets.index)
-                volumes: List[float] = []
-                prices: List[float] = []
-
-                tickers = None
-                async with client.get(f"{constants.REST_URL}/tickers") as tickers_response:
-                    tickers_response: aiohttp.ClientResponse = tickers_response
-                    if tickers_response.status == 200:
-                        data = await tickers_response.json()
-                        tickers: pd.DataFrame = pd.DataFrame.from_records(data=data, index="marketId")
-                    else:
-                        raise IOError(f"Error fetching tickers on Eterbase. "
-                                      f"HTTP status is {tickers_response.status}.")
-
-                for product_id in ids:
-                    volumes.append(float(tickers.loc[product_id].volume))
-                    prices.append(float(tickers.loc[product_id].price))
-                all_markets["volume"] = volumes
-                all_markets["price"] = prices
-
-                cross_rates = None
-                async with client.get(f"{constants.REST_URL}/tickers/cross-rates") as crossrates_response:
-                    crossrates_response: aiohttp.ClientResponse = crossrates_response
-                    if crossrates_response.status == 200:
-                        data = await crossrates_response.json()
-                        cross_rates: pd.DataFrame = pd.json_normalize(data, record_path ='rates', meta = ['base'])
-                    else:
-                        raise IOError(f"Error fetching cross-rates on Eterbase. "
-                                      f"HTTP status is {crossrates_response.status}.")
-
-                usd_volume: List[float] = []
-                cross_rates_ids: List[str] = list(cross_rates.base)
-                for row in all_markets.itertuples():
-                    quote_name: str = row.quoteAsset
-                    quote_volume: float = row.volume
-                    quote_price: float = row.price
-
-                    found = False
-                    for product_id in cross_rates_ids:
-                        if quote_name == product_id:
-                            rate: float = cross_rates.loc[(cross_rates['base'] == product_id) & (cross_rates['quote'].str.startswith("USDT"))].iat[0, 1]
-                            usd_volume.append(quote_volume * quote_price * rate)
-                            found = True
-                            break
-                    if found is False:
-                        usd_volume.append(NaN)
-                        cls.logger().error(f"Unable to convert volume to USD for market - {quote_name}.")
-                all_markets["USDVolume"] = usd_volume
-                return all_markets.sort_values(by = ["USDVolume"], ascending = False)
-
     async def get_map_marketid(self) -> Dict[str, str]:
         """
         Get a list of active trading pairs
@@ -139,9 +69,12 @@ class EterbaseAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         if not self._tp_map_mrktid:
             try:
-                active_markets: pd.DataFrame = await self.get_active_exchange_markets()
-                active_markets['id'] = active_markets.index
-                self._tp_map_mrktid = dict(zip(active_markets.symbol, active_markets.id))
+                exchange_markets_data = await self._get_exchange_markets_data()
+                market_data = self._filter_market_data(exchange_markets_data)
+                market_data = self._reformat_trading_pairs(market_data)
+                self._tp_map_mrktid = {
+                    md["trading_pair"]: md["id"] for md in market_data
+                }
             except Exception:
                 self._tp_map_mrktid = None
                 self.logger().network(
@@ -150,6 +83,35 @@ class EterbaseAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     app_warning_msg="Error getting active exchange information. Check network connection."
                 )
         return self._tp_map_mrktid
+
+    @classmethod
+    async def _get_exchange_markets_data(cls) -> List[Dict[str, Any]]:
+        async with aiohttp.ClientSession() as client:
+            async with client.get(f"{constants.REST_URL}/markets") as products_response:
+                products_response: aiohttp.ClientResponse = products_response
+                if products_response.status != 200:
+                    raise IOError(f"Error fetching active Eterbase markets. HTTP status is {products_response.status}.")
+                exchange_markets_data = await products_response.json()
+                return exchange_markets_data
+
+    @classmethod
+    def _filter_market_data(cls, exchange_markets_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        filtered = [
+            datum for datum in exchange_markets_data
+            if datum["state"] != "Inactive"
+        ]
+        return filtered
+
+    @staticmethod
+    def _reformat_trading_pairs(products):
+        """
+        Add a new key "trading_pair" to the incoming json list
+        Modify trading pair from "{baseAsset}{quoteAsset}" to "{baseAsset}-{quoteAsset}" format
+        """
+        for data in products:
+            data["trading_pair"] = "-".join([data["base"], data["quote"]])
+
+        return products
 
     @staticmethod
     async def get_map_market_id() -> Dict[str, str]:
