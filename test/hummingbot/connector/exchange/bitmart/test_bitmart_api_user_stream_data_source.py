@@ -216,49 +216,7 @@ class BitmartAPIUserStreamDataSourceTests(TestCase):
                                                  "Retrying after 30 seconds..."))
 
     @patch('websockets.connect', new_callable=AsyncMock)
-    def test_listening_process_timeout_inner_message(self, ws_connect_mock):
-        messages = asyncio.Queue()
-        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-
-        self.listening_task = asyncio.get_event_loop().create_task(
-            self.data_source.listen_for_user_stream(asyncio.get_event_loop(),
-                                                    messages))
-        # Add the authentication response for the websocket
-        self.mocking_assistant.add_websocket_text_message(
-            ws_connect_mock.return_value,
-            json.dumps({"event": "login"}))
-
-        self.mocking_assistant.add_websocket_text_message(ws_connect_mock.return_value, json.dumps('dummyMessage'))
-
-    def _raise_asyncio_timeout_exception(self):
-        raise asyncio.TimeoutError()
-
-    def test_inner_messages_timeout_ping(self):
-        async def call_inner(ws):
-            async for _ in self.data_source._inner_messages(ws):
-                return
-        ping_messages = []
-        ws_connect_mock = self.mocking_assistant.create_websocket_mock()
-        ws_connect_mock.ping.side_effect = lambda: ping_messages.append("ping")
-        self.data_source.MESSAGE_TIMEOUT = 0.1
-        with self.assertRaises(asyncio.exceptions.TimeoutError):
-            asyncio.get_event_loop().run_until_complete(asyncio.wait_for(call_inner(ws_connect_mock), 0.2))
-        self.assertIn("ping", ping_messages)
-
-    def test_inner_messages_timeout_ping_timeout(self):
-        async def call_inner(ws):
-            async for _ in self.data_source._inner_messages(ws):
-                return
-        ws_connect_mock = self.mocking_assistant.create_websocket_mock()
-        messages = asyncio.Queue()
-        ws_connect_mock.ping.side_effect = self.mocking_assistant.async_partial(messages.get)
-        self.data_source.MESSAGE_TIMEOUT = 0.1
-        self.data_source.PING_TIMEOUT = 0.1
-        asyncio.get_event_loop().run_until_complete(call_inner(ws_connect_mock))
-        self.assertTrue(self._is_logged("WARNING", "WebSocket ping timed out. Going to reconnect..."))
-
-    @patch('websockets.connect', new_callable=AsyncMock)
-    def test_invalid_json_message_logged(self, ws_connect_mock):
+    def test_listening_process_invalid_json_message_logged(self, ws_connect_mock):
         messages = asyncio.Queue()
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         # Make the close function raise an exception to finish the execution
@@ -281,3 +239,31 @@ class BitmartAPIUserStreamDataSourceTests(TestCase):
         self.assertTrue(self._is_logged("ERROR", "Unexpected error when parsing BitMart user_stream message. "))
         self.assertTrue(self._is_logged("ERROR", "Unexpected error with BitMart WebSocket connection. "
                                                  "Retrying after 30 seconds..."))
+
+    def test_inner_messages_timeout_ping(self):
+        async def call_inner(ws):
+            async for _ in self.data_source._inner_messages(ws):
+                return
+        ping_messages = []
+        ws_connect_mock = self.mocking_assistant.create_websocket_mock()
+        ws_connect_mock.ping.side_effect = lambda: ping_messages.append("ping")
+        self.data_source.MESSAGE_TIMEOUT = 0.1
+        with self.assertRaises(asyncio.exceptions.TimeoutError):
+            asyncio.get_event_loop().run_until_complete(asyncio.wait_for(call_inner(ws_connect_mock), 0.2))
+        self.assertIn("ping", ping_messages)
+
+    def test_inner_messages_timeout_ping_timeout(self):
+        async def call_inner(ws):
+            async for _ in self.data_source._inner_messages(ws):
+                return
+        ws_connect_mock = self.mocking_assistant.create_websocket_mock()
+        messages = asyncio.Queue()
+        ws_connect_mock.ping.side_effect = self.mocking_assistant.async_partial(messages.get)
+        ws_connect_mock.close.side_effect = lambda: self._raise_exception(Exception)
+        self.data_source.MESSAGE_TIMEOUT = 0.1
+        self.data_source.PING_TIMEOUT = 0.1
+        try:
+            asyncio.get_event_loop().run_until_complete(call_inner(ws_connect_mock))
+        except Exception:
+            pass
+        self.assertTrue(self._is_logged("WARNING", "WebSocket ping timed out. Going to reconnect..."))
