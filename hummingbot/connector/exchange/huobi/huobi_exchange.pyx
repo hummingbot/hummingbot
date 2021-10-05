@@ -183,9 +183,6 @@ cdef class HuobiExchange(ExchangeBase):
     def shared_client(self, client: aiohttp.ClientSession):
         self._shared_client = client
 
-    async def get_active_exchange_markets(self) -> pd.DataFrame:
-        return await HuobiAPIOrderBookDataSource.get_active_exchange_markets()
-
     cdef c_start(self, Clock clock, double timestamp):
         self._tx_tracker.c_start(clock, timestamp)
         ExchangeBase.c_start(self, clock, timestamp)

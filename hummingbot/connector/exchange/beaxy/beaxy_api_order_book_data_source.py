@@ -6,13 +6,11 @@ import asyncio
 import json
 import ujson
 from typing import Any, AsyncIterable, Optional, List, Dict
-import pandas as pd
 import websockets
 
 
 from websockets.exceptions import ConnectionClosed
 from hummingbot.logger import HummingbotLogger
-from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
@@ -43,57 +41,6 @@ class BeaxyAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     def __init__(self, trading_pairs: List[str]):
         super().__init__(trading_pairs)
-
-    @classmethod
-    @async_ttl_cache(ttl=60 * 30, maxsize=1)
-    async def get_active_exchange_markets(cls) -> pd.DataFrame:
-        async with aiohttp.ClientSession() as client:
-
-            symbols_response: aiohttp.ClientResponse = await client.get(BeaxyConstants.PublicApi.SYMBOLS_URL)
-            rates_response: aiohttp.ClientResponse = await client.get(BeaxyConstants.PublicApi.RATES_URL)
-
-            if symbols_response.status != 200:
-                raise IOError(f'Error fetching Beaxy markets information. '
-                              f'HTTP status is {symbols_response.status}.')
-            if rates_response.status != 200:
-                raise IOError(f'Error fetching Beaxy exchange information. '
-                              f'HTTP status is {symbols_response.status}.')
-
-            symbols_data = await symbols_response.json()
-            rates_data = await rates_response.json()
-
-            market_data: List[Dict[str, Any]] = [{'pair': pair, **rates_data[pair], **item}
-                                                 for pair in rates_data
-                                                 for item in symbols_data
-                                                 if item['suspendedForTrading'] is False
-                                                 if pair in item['symbol']]
-
-            all_markets: pd.DataFrame = pd.DataFrame.from_records(data=market_data, index='pair')
-
-            btc_price: float = float(all_markets.loc['BTCUSDC'].price)
-            eth_price: float = float(all_markets.loc['ETHUSDC'].price)
-
-            usd_volume: List[float] = [
-                (
-                    volume * quote_price if trading_pair.endswith(('USDC')) else
-                    volume * quote_price * btc_price if trading_pair.endswith('BTC') else
-                    volume * quote_price * eth_price if trading_pair.endswith('ETH') else
-                    volume
-                )
-                for trading_pair, volume, quote_price in zip(
-                    all_markets.index,
-                    all_markets.volume24.astype('float'),
-                    all_markets.price.astype('float')
-                )
-            ]
-
-            all_markets.loc[:, 'USDVolume'] = usd_volume
-            del all_markets['volume']
-            all_markets.rename(columns={'baseCurrency': 'baseAsset',
-                                        'termCurrency': 'quoteAsset',
-                                        'volume24': 'volume'}, inplace=True)
-
-            return all_markets.sort_values('USDVolume', ascending=False)
 
     @staticmethod
     async def fetch_trading_pairs() -> Optional[List[str]]:

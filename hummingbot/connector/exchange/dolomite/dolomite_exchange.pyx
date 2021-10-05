@@ -212,9 +212,6 @@ cdef class DolomiteExchange(ExchangeBase):
     def in_flight_orders(self) -> Dict[str, DolomiteInFlightOrder]:
         return self._in_flight_orders
 
-    async def get_active_exchange_markets(self) -> pd.DataFrame:
-        return await DolomiteAPIOrderBookDataSource.get_active_exchange_markets()
-
     # ----------------------------------------
     # Account Balances
 
