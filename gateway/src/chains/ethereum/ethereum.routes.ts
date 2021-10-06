@@ -14,6 +14,7 @@ import {
   EthereumTransactionReceipt,
   approve,
   poll,
+  cancel,
 } from './ethereum.controllers';
 import {
   EthereumNonceRequest,
@@ -21,6 +22,7 @@ import {
   EthereumBalanceRequest,
   EthereumApproveRequest,
   EthereumPollRequest,
+  EthereumCancelRequest,
 } from './ethereum.requests';
 import {
   validateEthereumNonceRequest,
@@ -28,6 +30,7 @@ import {
   validateEthereumBalanceRequest,
   validateEthereumApproveRequest,
   validateEthereumPollRequest,
+  validateEthereumCancelRequest,
 } from './ethereum.validators';
 
 export namespace EthereumRoutes {
@@ -264,6 +267,28 @@ export namespace EthereumRoutes {
         validateEthereumPollRequest(req.body);
 
         const result = await poll(req.body.txHash);
+        res.status(200).json(result);
+      }
+    )
+  );
+
+  interface EthereumCancelResponse {
+    network: string;
+    timestamp: number;
+    latency: number;
+    txHash: string | undefined;
+  }
+
+  router.post(
+    '/cancel',
+    asyncHandler(
+      async (
+        req: Request<{}, {}, EthereumCancelRequest>,
+        res: Response<EthereumCancelResponse, {}>
+      ) => {
+        validateEthereumCancelRequest(req.body);
+
+        const result = await cancel(req.body.nonce, req.body.privateKey);
         res.status(200).json(result);
       }
     )

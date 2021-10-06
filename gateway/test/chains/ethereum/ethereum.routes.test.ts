@@ -127,3 +127,42 @@ describe('POST /eth/approve', () => {
       .expect(404);
   });
 });
+
+describe('POST /eth/cancel', () => {
+  it('should return 200', async () => {
+    // override getWallet (network call)
+    EthereumRoutes.ethereum.getWallet = jest.fn().mockReturnValue({
+      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+    });
+
+    EthereumRoutes.ethereum.cancelTx = jest.fn().mockReturnValue({
+      hash: '0xf6b9e7cec507cb3763a1179ff7e2a88c6008372e3a6f297d9027a0b39b0fff77',
+    });
+
+    await request(app)
+      .post(`/eth/cancel`)
+      .send({
+        privateKey:
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        nonce: 23,
+      })
+      .set('Accept', 'application/json')
+      .expect('Content-Type', /json/)
+      .expect(200)
+      .then((res: any) => {
+        expect(res.body.txHash).toEqual(
+          '0xf6b9e7cec507cb3763a1179ff7e2a88c6008372e3a6f297d9027a0b39b0fff77'
+        );
+      });
+  });
+
+  it('should return 404 when parameters are invalid', async () => {
+    await request(app)
+      .post(`/eth/cancel`)
+      .send({
+        privateKey: '',
+        nonce: '23',
+      })
+      .expect(404);
+  });
+});
