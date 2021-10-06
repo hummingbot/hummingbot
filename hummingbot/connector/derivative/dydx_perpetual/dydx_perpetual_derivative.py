@@ -1,4 +1,3 @@
-import aiohttp
 import asyncio
 from datetime import datetime
 import json
@@ -16,6 +15,7 @@ from typing import (
 from dateutil.parser import parse as dataparse
 
 from dydx3.errors import DydxApiError
+import aiohttp
 
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.core.clock import Clock
@@ -36,7 +36,6 @@ from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_order_book_tr
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_position import DydxPerpetualPosition
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_user_stream_tracker import \
     DydxPerpetualUserStreamTracker
-
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
 )
@@ -176,10 +175,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                                                                   ethereum_address=dydx_perpetual_ethereum_address)
         # State
         self._dydx_auth = DydxPerpetualAuth(self.dydx_client)
-        self._user_stream_tracker = DydxPerpetualUserStreamTracker(
-            orderbook_tracker_data_source=self._order_book_tracker.data_source,
-            dydx_auth=self._dydx_auth
-        )
+        self._user_stream_tracker = DydxPerpetualUserStreamTracker(dydx_auth=self._dydx_auth)
         self._user_stream_event_listener_task = None
         self._user_stream_tracker_task = None
         self._lock = asyncio.Lock()
@@ -788,22 +784,10 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                     await self._set_balances(data['account'], is_snapshot=False)
                     if 'openPositions' in data['account']:
                         open_positions = data['account']['openPositions']
-                        for market in open_positions:
-                            position = open_positions[market]
+                        for market, position in open_positions.items():
                             position_key = self.position_key(market)
-                            if position_key not in self._account_positions:
-                                entry_price: Decimal = Decimal(position['entryPrice'])
-                                amount: Decimal = Decimal(position['size'])
-                                total_quote: Decimal = entry_price * amount
-                                leverage: Decimal = total_quote / self.get_balance('USD')
-                                self._account_positions[position_key] = DydxPerpetualPosition(
-                                    trading_pair=market,
-                                    position_side=PositionSide[position['side']],
-                                    unrealized_pnl=Decimal(position['unrealizedPnl']),
-                                    entry_price=entry_price,
-                                    amount=amount,
-                                    leverage=leverage
-                                )
+                            if position_key not in self._account_positions and market in self._trading_pairs:
+                                self._create_position_from_rest_pos_item(position)
 
                 if 'orders' in data:
                     for order in data['orders']:
@@ -885,8 +869,9 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 self._poll_notifier = asyncio.Event()
                 await self._poll_notifier.wait()
 
+                await self._update_balances()  # needs to complete before updating positions
                 await asyncio.gather(
-                    self._update_balances(),
+                    self._update_account_positions(),
                     self._update_trading_rules(),
                     self._update_order_status(),
                     self._update_funding_rates(),
@@ -902,19 +887,38 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
         current_positions = account_info['account']
 
         for market, position in current_positions['openPositions'].items():
-            pos_key = self.position_key(position['market'])
+            market = position["market"]
+            pos_key = self.position_key(market)
             if pos_key in self._account_positions:
                 tracked_position = self._account_positions[pos_key]
                 tracked_position.update_position(position)
                 tracked_position.update_from_balance(Decimal(current_positions['equity']))
                 if not tracked_position.is_open:
                     del self._account_positions[pos_key]
+            elif market in self._trading_pairs:
+                self._create_position_from_rest_pos_item(position)
         positions_to_delete = []
         for position_str in self._account_positions:
             if position_str not in current_positions['openPositions']:
                 positions_to_delete.append(position_str)
         for account_position in positions_to_delete:
             del self._account_positions[account_position]
+
+    def _create_position_from_rest_pos_item(self, rest_pos_item: Dict[str, str]):
+        market = rest_pos_item["market"]
+        position_key = self.position_key(market)
+        entry_price: Decimal = Decimal(rest_pos_item["entryPrice"])
+        amount: Decimal = Decimal(rest_pos_item["size"])
+        total_quote: Decimal = entry_price * amount
+        leverage: Decimal = total_quote / self.get_balance("USD")
+        self._account_positions[position_key] = DydxPerpetualPosition(
+            trading_pair=market,
+            position_side=PositionSide[rest_pos_item["side"]],
+            unrealized_pnl=Decimal(rest_pos_item["unrealizedPnl"]),
+            entry_price=entry_price,
+            amount=amount,
+            leverage=leverage
+        )
 
     async def _update_balances(self):
         current_balances = await self.dydx_client.get_my_balances()
