@@ -13,7 +13,6 @@ import websockets
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_auth import DydxPerpetualAuth
-from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_api_order_book_data_source import DydxPerpetualAPIOrderBookDataSource
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_order_book import DydxPerpetualOrderBook
 
 DYDX_WS_URL = "wss://api.dydx.exchange/v3/ws"
@@ -31,9 +30,8 @@ class DydxPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
             cls._krausds_logger = logging.getLogger(__name__)
         return cls._krausds_logger
 
-    def __init__(self, orderbook_tracker_data_source: DydxPerpetualAPIOrderBookDataSource, dydx_auth: DydxPerpetualAuth):
+    def __init__(self, dydx_auth: DydxPerpetualAuth):
         self._dydx_auth: DydxPerpetualAuth = dydx_auth
-        self._orderbook_tracker_data_source: DydxPerpetualAPIOrderBookDataSource = orderbook_tracker_data_source
         self._shared_client: Optional[aiohttp.ClientSession] = None
         self._last_recv_time: float = 0
         super().__init__()
