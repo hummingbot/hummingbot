@@ -54,6 +54,14 @@ export class EthereumBase {
     return this._provider;
   }
 
+  public get events(): string[] {
+    const events = [];
+    for (const event of this._provider._events) {
+      events.push(event.tag);
+    }
+    return events;
+  }
+
   async init(): Promise<void> {
     if (!this.ready() && !this._initializing) {
       this._initializing = true;
@@ -145,11 +153,20 @@ export class EthereumBase {
     return this._provider.getTransaction(txHash);
   }
 
+  // caches transaction receipt once they arrive
+  cacheTransactionReceipt(tx: providers.TransactionReceipt) {
+    this.cache.set(tx.transactionHash, tx); // transaction hash is used as cache key since it is unique enough
+  }
+
   // returns an ethereum TransactionReceipt for a txHash if the transaction has been mined.
-  async getTransactionReceipt(
-    txHash: string
-  ): Promise<providers.TransactionReceipt> {
-    return this._provider.getTransactionReceipt(txHash);
+  getTransactionReceipt(txHash: string): providers.TransactionReceipt | null {
+    const txReceipt = this.cache.get(
+      txHash
+    ) as providers.TransactionReceipt | null;
+    if (!txReceipt && !this.events.includes(txHash)) {
+      this._provider.once(txHash, this.cacheTransactionReceipt.bind(this));
+    }
+    return txReceipt ? txReceipt : null;
   }
 
   // adds allowance by spender to transfer the given amount of Token
