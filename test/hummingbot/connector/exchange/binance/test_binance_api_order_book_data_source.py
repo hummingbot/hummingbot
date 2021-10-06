@@ -396,8 +396,7 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             )
             self.ev_loop.run_until_complete(self.listening_task)
 
-    @patch("hummingbot.connector.exchange.binance.binance_api_order_book_data_source"
-           ".BinanceAPIOrderBookDataSource._sleep")
+    @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_order_book_diffs_cancelled_when_listening(self, mock_ws, _: AsyncMock):
         msg_queue: asyncio.Queue = asyncio.Queue()
