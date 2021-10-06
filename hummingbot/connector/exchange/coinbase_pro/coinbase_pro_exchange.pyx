@@ -208,14 +208,6 @@ cdef class CoinbaseProExchange(ExchangeBase):
             for key, value in saved_states.items()
         })
 
-    async def get_active_exchange_markets(self) -> pd.DataFrame:
-        """
-        *required
-        Used by the discovery strategy to read order books of all actively trading markets,
-        and find opportunities to profit
-        """
-        return await CoinbaseProAPIOrderBookDataSource.get_active_exchange_markets()
-
     cdef c_start(self, Clock clock, double timestamp):
         """
         *required

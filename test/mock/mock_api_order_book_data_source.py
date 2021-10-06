@@ -44,15 +44,10 @@ class MockAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._diff_messages: asyncio.Queue = asyncio.Queue()
         self._snapshot_messages: asyncio.Queue = asyncio.Queue()
 
-    @classmethod
-    async def get_active_exchange_markets(cls) -> pd.DataFrame:
-        raise NotImplementedError("Trading Pairs are required for mock data source")
-
     async def get_trading_pairs(self) -> List[str]:
         if not self._trading_pairs:
             try:
-                active_markets: pd.DataFrame = await self.get_active_exchange_markets()
-                self._trading_pairs = active_markets.index.tolist()
+                self._trading_pairs = await self.fetch_trading_pairs()
             except Exception:
                 self._trading_pairs = []
                 self.logger().network(
@@ -61,6 +56,10 @@ class MockAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     app_warning_msg="Error getting active exchange information. Check network connection."
                 )
         return self._trading_pairs
+
+    @staticmethod
+    async def fetch_trading_pairs() -> List[str]:
+        raise NotImplementedError("Trading Pairs are required for mock data source")
 
     @staticmethod
     async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str) -> Dict[str, Any]:

@@ -1150,14 +1150,6 @@ cdef class BitfinexExchange(ExchangeBase):
             )
             return list(map(lambda client_order_id: CancellationResult(client_order_id, False), client_oids))
 
-    async def get_active_exchange_markets(self) -> pd.DataFrame:
-        """
-        *required
-        Used by the discovery strategy to read order books of all actively trading markets,
-        and find opportunities to profit
-        """
-        return await BitfinexAPIOrderBookDataSource.get_active_exchange_markets()
-
     @property
     def limit_orders(self) -> List[LimitOrder]:
         """

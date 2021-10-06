@@ -112,13 +112,6 @@ class BeaxyOrderBookTrackerUnitTest(unittest.TestCase):
     def test_order_book_data_source(self):
         self.assertTrue(isinstance(self.order_book_tracker.data_source, OrderBookTrackerDataSource))
 
-    def test_get_active_exchange_markets(self):
-        [active_markets_df] = self.run_parallel(self.order_book_tracker.data_source.get_active_exchange_markets())
-        self.assertGreater(active_markets_df.size, 0)
-        self.assertTrue("baseAsset" in active_markets_df)
-        self.assertTrue("quoteAsset" in active_markets_df)
-        self.assertTrue("USDVolume" in active_markets_df)
-
     def test_get_trading_pairs(self):
         [trading_pairs] = self.run_parallel(self.order_book_tracker.data_source.get_trading_pairs())
         self.assertGreater(len(trading_pairs), 0)

@@ -166,9 +166,6 @@ cdef class FtxExchange(ExchangeBase):
             for key, value in saved_states.items()
         })
 
-    async def get_active_exchange_markets(self) -> pd.DataFrame:
-        return await FtxAPIOrderBookDataSource.get_active_exchange_markets()
-
     cdef c_start(self, Clock clock, double timestamp):
         self._tx_tracker.c_start(clock, timestamp)
         ExchangeBase.c_start(self, clock, timestamp)
