@@ -14,6 +14,8 @@ import {
   EthereumApproveResponse,
   EthereumBalanceResponse,
   EthereumBalanceRequest,
+  EthereumCancelRequest,
+  EthereumCancelResponse,
   EthereumNonceRequest,
   EthereumNonceResponse,
   EthereumPollRequest,
@@ -26,6 +28,7 @@ import {
   validateEthereumBalanceRequest,
   validateEthereumNonceRequest,
   validateEthereumPollRequest,
+  validateEthereumCancelRequest,
 } from './ethereum.validators';
 
 export const ethereum = Ethereum.getInstance();
@@ -236,5 +239,30 @@ export async function poll(
     txHash: req.txHash,
     confirmed,
     receipt: toEthereumTransactionReceipt(receipt),
+  };
+}
+
+export async function cancel(
+  req: EthereumCancelRequest
+): Promise<EthereumCancelResponse> {
+  validateEthereumCancelRequest(req);
+
+  if (!ethereum.ready()) await ethereum.init();
+  const initTime = Date.now();
+  let wallet: Wallet;
+  try {
+    wallet = ethereum.getWallet(req.privateKey);
+  } catch (err) {
+    throw new Error(`Error getting wallet ${err}`);
+  }
+
+  // call cancelTx function
+  const cancelTx = await ethereum.cancelTx(wallet, req.nonce);
+
+  return {
+    network: ConfigManager.config.ETHEREUM_CHAIN,
+    timestamp: initTime,
+    latency: latency(initTime, Date.now()),
+    txHash: cancelTx.hash,
   };
 }

@@ -74,3 +74,15 @@ export interface EthereumPollResponse {
   confirmed: boolean;
   receipt: EthereumTransactionReceipt | null;
 }
+
+export interface EthereumCancelRequest {
+  nonce: number; // the nonce of the transaction to be canceled
+  privateKey: string; // the user's private Ethereum key
+}
+
+export interface EthereumCancelResponse {
+  network: string;
+  timestamp: number;
+  latency: number;
+  txHash: string | undefined;
+}
