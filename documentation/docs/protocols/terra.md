@@ -4,7 +4,7 @@ It runs on a Tendermint Delegated Proof of Stake algorithm and Cosmos SDK. It is
 
 ## Prerequisites
 
-- Hummingbot Gateway (see [installation guide](./gateway))
+- Hummingbot Gateway (see [installation guide](/protocols/gateway/))
 - Terra wallet
 
 ## Creating a Terra wallet

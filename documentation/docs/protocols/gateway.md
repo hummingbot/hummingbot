@@ -45,7 +45,7 @@ It downloads the scripts from GitHub, sets their correct permission and runs the
 ![](/assets/img/gateway-2.gif)
 
 !!! note
-    When creating a Gateway instance for Ethereum protocol connectors such as [Balancer](/connectors/balancer), [Uniswap](/connectors/uniswap), and [Perpetual Finance](/connectors/perp-fi/) the script picks up the settings from your global config file (`conf_global.yml`). Make sure to connect them first from the Hummingbot client before installing Gateway.
+    When creating a Gateway instance for Ethereum protocol connectors such as [Balancer](/exchanges/balancer/), [Uniswap](/exchanges/uniswap/), and [Perpetual Finance](/exchanges/perp-fi/) the script picks up the settings from your global config file (`conf_global.yml`). Make sure to connect them first from the Hummingbot client before installing Gateway.
 
 By default, Gateway will install on port `5000` which Hummingbot will connect to. If the default port is not available, Gateway will find the next port number.
 
