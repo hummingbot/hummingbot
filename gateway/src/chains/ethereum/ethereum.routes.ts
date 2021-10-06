@@ -11,18 +11,21 @@ import {
   balances,
   nonce,
   poll,
+  cancel,
 } from './ethereum.controllers';
 import {
   EthereumNonceRequest,
-  EthereumAllowancesRequest,
-  EthereumBalanceRequest,
-  EthereumApproveRequest,
-  EthereumPollRequest,
   EthereumNonceResponse,
+  EthereumAllowancesRequest,
   EthereumAllowancesResponse,
+  EthereumBalanceRequest,
   EthereumBalanceResponse,
+  EthereumApproveRequest,
   EthereumApproveResponse,
+  EthereumPollRequest,
   EthereumPollResponse,
+  EthereumCancelRequest,
+  EthereumCancelResponse,
 } from './ethereum.requests';
 
 export namespace EthereumRoutes {
@@ -114,6 +117,18 @@ export namespace EthereumRoutes {
       ) => {
         const result = await poll(req.body);
         res.status(200).json(result);
+      }
+    )
+  );
+
+  router.post(
+    '/cancel',
+    asyncHandler(
+      async (
+        req: Request<{}, {}, EthereumCancelRequest>,
+        res: Response<EthereumCancelResponse, {}>
+      ) => {
+        res.status(200).json(await cancel(req.body));
       }
     )
   );

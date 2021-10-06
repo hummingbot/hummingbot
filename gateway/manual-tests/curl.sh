@@ -45,3 +45,6 @@ curl -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: applic
 
 # poll the status of an ethereum transaction
 curl -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/eth_poll.json)" https://localhost:5000/eth/poll
+
+# cancel a transaction. Note: modify to send the nonce of the transaction to be canceled
+curl -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/eth_cancel.json)" https://localhost:5000/eth/cancel

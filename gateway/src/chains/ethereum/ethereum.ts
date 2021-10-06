@@ -1,7 +1,7 @@
 import abi from '../../services/ethereum.abi.json';
 import axios from 'axios';
 import { logger } from '../../services/logger';
-import { BigNumber, Contract, Transaction, Wallet } from 'ethers';
+import { BigNumber, Contract, Transaction, Wallet, utils } from 'ethers';
 import { EthereumBase, Token } from '../../services/ethereum-base';
 import { ConfigManager } from '../../services/config-manager';
 import { EthereumConfig } from './ethereum.config';
@@ -186,5 +186,23 @@ export class Ethereum extends EthereumBase {
     return this._tokenList.find(
       (token: Token) => token.symbol === tokenSymbol.toUpperCase()
     );
+  }
+
+  // cancel transaction
+  async cancelTx(wallet: Wallet, nonce: number): Promise<Transaction> {
+    logger.info(
+      'Canceling any existing transaction(s) with nonce number ' + nonce + '.'
+    );
+    const tx = {
+      from: wallet.address,
+      to: wallet.address,
+      value: utils.parseEther('0'),
+      nonce: nonce,
+      gasPrice: this._gasPrice * 1e9 * 2,
+    };
+    const response = await wallet.sendTransaction(tx);
+    logger.info(response);
+
+    return response;
   }
 }
