@@ -260,7 +260,7 @@ class BitmartAPIOrderBookDataSourceUnitTests(unittest.TestCase):
     @patch("aiohttp.ClientSession.get")
     def test_listen_for_snapshots_cancelled_when_fetching_snapshot(self, mock_api, mock_sleep):
         mock_api.side_effect = asyncio.CancelledError
-
+        mock_sleep.side_effect = lambda v: None
         msg_queue: asyncio.Queue = asyncio.Queue()
         with self.assertRaises(asyncio.CancelledError):
             self.listening_task = self.ev_loop.create_task(
