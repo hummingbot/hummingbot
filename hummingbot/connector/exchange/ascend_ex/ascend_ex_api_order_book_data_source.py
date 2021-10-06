@@ -47,6 +47,11 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return throttler
 
     @classmethod
+    async def _get_session_instance(cls) -> aiohttp.ClientSession:
+        session = aiohttp.ClientSession()
+        return session
+
+    @classmethod
     async def get_last_traded_prices(
         cls, client: aiohttp.ClientSession, trading_pairs: List[str], throttler: Optional[AsyncThrottler] = None
     ) -> Dict[str, float]:
@@ -82,7 +87,8 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return result
 
     @staticmethod
-    async def fetch_trading_pairs(client: aiohttp.ClientSession, throttler: Optional[AsyncThrottler] = None) -> List[str]:
+    async def fetch_trading_pairs(client: Optional[aiohttp.ClientSession] = None, throttler: Optional[AsyncThrottler] = None) -> List[str]:
+        client = client or await AscendExAPIOrderBookDataSource._get_session_instance()
         throttler = throttler or AscendExAPIOrderBookDataSource._get_throttler_instance()
         async with throttler.execute_task(CONSTANTS.TICKER_PATH_URL):
             resp = await client.get(f"{CONSTANTS.REST_URL}/{CONSTANTS.TICKER_PATH_URL}")
@@ -95,10 +101,11 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return [convert_from_exchange_trading_pair(item["symbol"]) for item in data["data"]]
 
     @staticmethod
-    async def get_order_book_data(client: aiohttp.ClientSession, trading_pair: str, throttler: Optional[AsyncThrottler] = None) -> Dict[str, any]:
+    async def get_order_book_data(trading_pair: str, client: Optional[aiohttp.ClientSession] = None, throttler: Optional[AsyncThrottler] = None) -> Dict[str, any]:
         """
         Get whole orderbook
         """
+        client = client or await AscendExAPIOrderBookDataSource._get_session_instance()
         throttler = throttler or AscendExAPIOrderBookDataSource._get_throttler_instance()
         async with throttler.execute_task(CONSTANTS.DEPTH_PATH_URL):
             resp = await client.get(
@@ -122,7 +129,7 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return item["data"]
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
-        snapshot: Dict[str, Any] = await self.get_order_book_data(self._shared_client, trading_pair, self._throttler)
+        snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair, client=self._shared_client, throttler=self._throttler)
         snapshot_timestamp: float = snapshot.get("data").get("ts")
         snapshot_msg: OrderBookMessage = AscendExOrderBook.snapshot_message_from_exchange(
             snapshot.get("data"),
@@ -224,7 +231,7 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
             try:
                 for trading_pair in self._trading_pairs:
                     try:
-                        snapshot: Dict[str, any] = await self.get_order_book_data(self._shared_client, trading_pair, self._throttler)
+                        snapshot: Dict[str, any] = await self.get_order_book_data(trading_pair, client=self._shared_client, throttler=self._throttler)
                         snapshot_timestamp: float = snapshot.get("data").get("ts")
                         snapshot_msg: OrderBookMessage = AscendExOrderBook.snapshot_message_from_exchange(
                             snapshot.get("data"),
