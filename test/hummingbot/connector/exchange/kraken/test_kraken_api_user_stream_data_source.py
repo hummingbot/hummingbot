@@ -9,8 +9,10 @@ from aioresponses import aioresponses
 
 from hummingbot.connector.exchange.kraken.kraken_api_user_stream_data_source import KrakenAPIUserStreamDataSource
 from hummingbot.connector.exchange.kraken.kraken_auth import KrakenAuth
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS
+from hummingbot.connector.exchange.kraken.kraken_constants import KrakenAPITier
+from hummingbot.connector.exchange.kraken.kraken_utils import build_rate_limits_by_tier
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
 
@@ -22,11 +24,12 @@ class KrakenAPIUserStreamDataSourceTest(unittest.TestCase):
         cls.base_asset = "COINALPHA"
         cls.quote_asset = "HBOT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
+        cls.api_tier = KrakenAPITier.STARTER
 
     def setUp(self) -> None:
         super().setUp()
         self.mocking_assistant = NetworkMockingAssistant()
-        self.throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        self.throttler = AsyncThrottler(build_rate_limits_by_tier(self.api_tier))
         not_a_real_secret = "kQH5HW/8p1uGOVjbgWA7FunAmGO8lsSUXNsu3eow76sz84Q18fWxnyRzBHCd3pd5nE9qa99HAZtuZuj6F1huXg=="
         kraken_auth = KrakenAuth(api_key="someKey", secret_key=not_a_real_secret)
         self.data_source = KrakenAPIUserStreamDataSource(self.throttler, kraken_auth)

@@ -1,4 +1,36 @@
+from enum import Enum
+from typing import (
+    Dict,
+    Tuple,
+)
 from hummingbot.core.api_throttler.data_types import RateLimit, LinkedLimitWeightPair
+
+
+class KrakenAPITier(Enum):
+    """
+    Kraken's Private Endpoint Rate Limit Tiers, based on the Account Verification level.
+    """
+    STARTER = "STARTER"
+    INTERMEDIATE = "INTERMEDIATE"
+    PRO = "PRO"
+
+
+# Values are calculated by adding the Maxiumum Counter value and the expected count decay(in a minute) of a given tier.
+# Reference:
+# - API Rate Limits: https://support.kraken.com/hc/en-us/articles/206548367-What-are-the-API-rate-limits
+# - Matching Engine Limits: https://support.kraken.com/hc/en-us/articles/360045239571
+STARTER_PRIVATE_ENDPOINT_LIMIT = 15 + 20
+STARTER_MATCHING_ENGINE_LIMIT = 60 + 60
+INTERMEDIATE_PRIVATE_ENDPOINT_LIMIT = 20 + 30
+INTERMEDIATE_MATCHING_ENGINE_LIMIT = 125 + 140
+PRO_PRIVATE_ENDPOINT_LIMIT = 20 + 60
+PRO_MATCHING_ENGINE_LIMIT = 180 + 225
+
+KRAKEN_TIER_LIMITS: Dict[KrakenAPITier, Tuple[int, int]] = {
+    KrakenAPITier.STARTER: (STARTER_PRIVATE_ENDPOINT_LIMIT, STARTER_MATCHING_ENGINE_LIMIT),
+    KrakenAPITier.INTERMEDIATE: (INTERMEDIATE_PRIVATE_ENDPOINT_LIMIT, INTERMEDIATE_MATCHING_ENGINE_LIMIT),
+    KrakenAPITier.PRO: (PRO_PRIVATE_ENDPOINT_LIMIT, PRO_MATCHING_ENGINE_LIMIT),
+}
 
 KRAKEN_TO_HB_MAP = {
     "XBT": "BTC",
@@ -24,30 +56,19 @@ PUBLIC_ENDPOINT_LIMIT_ID = "PublicEndpointLimitID"
 PUBLIC_ENDPOINT_LIMIT = 1
 PUBLIC_ENDPOINT_LIMIT_INTERVAL = 1
 PRIVATE_ENDPOINT_LIMIT_ID = "PrivateEndpointLimitID"
-PRIVATE_ENDPOINT_LIMIT = 15 + 20  # relaxed for limit-decay; one extra call every 3s; issue #4178 for details
 PRIVATE_ENDPOINT_LIMIT_INTERVAL = 60
 MATCHING_ENGINE_LIMIT_ID = "MatchingEngineLimitID"
-MATCHING_ENGINE_LIMIT = 60 + 60    # relaxed for limit-decay; one extra call every 1s; issue #4178 for details
 MATCHING_ENGINE_LIMIT_INTERVAL = 60
 WS_CONNECTION_LIMIT_ID = "WSConnectionLimitID"
 
-RATE_LIMITS = [
+PUBLIC_API_LIMITS = [
+    # Public API Pool
     RateLimit(
         limit_id=PUBLIC_ENDPOINT_LIMIT_ID,
         limit=PUBLIC_ENDPOINT_LIMIT,
         time_interval=PUBLIC_ENDPOINT_LIMIT_INTERVAL,
     ),
-    RateLimit(
-        limit_id=PRIVATE_ENDPOINT_LIMIT_ID,
-        limit=PRIVATE_ENDPOINT_LIMIT,
-        time_interval=PRIVATE_ENDPOINT_LIMIT_INTERVAL,
-    ),
-    RateLimit(
-        limit_id=MATCHING_ENGINE_LIMIT_ID,
-        limit=MATCHING_ENGINE_LIMIT,
-        time_interval=MATCHING_ENGINE_LIMIT_INTERVAL,
-    ),
-    # public endpoints
+    # Public Endpoints
     RateLimit(
         limit_id=SNAPSHOT_PATH_URL,
         limit=PUBLIC_ENDPOINT_LIMIT,
@@ -72,47 +93,8 @@ RATE_LIMITS = [
         time_interval=PUBLIC_ENDPOINT_LIMIT_INTERVAL,
         linked_limits=[LinkedLimitWeightPair(PUBLIC_ENDPOINT_LIMIT_ID)],
     ),
-    # private endpoints
-    RateLimit(
-        limit_id=GET_TOKEN_PATH_URL,
-        limit=PRIVATE_ENDPOINT_LIMIT,
-        time_interval=PRIVATE_ENDPOINT_LIMIT_INTERVAL,
-        linked_limits=[LinkedLimitWeightPair(PRIVATE_ENDPOINT_LIMIT_ID)],
-    ),
-    RateLimit(
-        limit_id=BALANCE_PATH_URL,
-        limit=PRIVATE_ENDPOINT_LIMIT,
-        time_interval=PRIVATE_ENDPOINT_LIMIT_INTERVAL,
-        weight=2,
-        linked_limits=[LinkedLimitWeightPair(PRIVATE_ENDPOINT_LIMIT_ID)],
-    ),
-    RateLimit(
-        limit_id=OPEN_ORDERS_PATH_URL,
-        limit=PRIVATE_ENDPOINT_LIMIT,
-        time_interval=PRIVATE_ENDPOINT_LIMIT_INTERVAL,
-        weight=2,
-        linked_limits=[LinkedLimitWeightPair(PRIVATE_ENDPOINT_LIMIT_ID)],
-    ),
-    RateLimit(
-        limit_id=QUERY_ORDERS_PATH_URL,
-        limit=PRIVATE_ENDPOINT_LIMIT,
-        time_interval=PRIVATE_ENDPOINT_LIMIT_INTERVAL,
-        weight=2,
-        linked_limits=[LinkedLimitWeightPair(PRIVATE_ENDPOINT_LIMIT_ID)],
-    ),
-    # matching engine endpoints
-    RateLimit(
-        limit_id=ADD_ORDER_PATH_URL,
-        limit=MATCHING_ENGINE_LIMIT,
-        time_interval=MATCHING_ENGINE_LIMIT_INTERVAL,
-        linked_limits=[LinkedLimitWeightPair(MATCHING_ENGINE_LIMIT_ID)],
-    ),
-    RateLimit(
-        limit_id=CANCEL_ORDER_PATH_URL,
-        limit=MATCHING_ENGINE_LIMIT,
-        time_interval=MATCHING_ENGINE_LIMIT_INTERVAL,
-        linked_limits=[LinkedLimitWeightPair(MATCHING_ENGINE_LIMIT_ID)],
-    ),
-    # ws connections limit
-    RateLimit(limit_id=WS_CONNECTION_LIMIT_ID, limit=150, time_interval=60 * 10),
+    # WebSocket Connection Limit
+    RateLimit(limit_id=WS_CONNECTION_LIMIT_ID,
+              limit=150,
+              time_interval=60 * 10),
 ]
