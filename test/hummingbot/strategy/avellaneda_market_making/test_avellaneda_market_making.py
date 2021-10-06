@@ -1272,6 +1272,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
                                        for order in self.strategy.active_non_hanging_orders
                                        if order.is_buy])
                                   + self.market.get_available_balance(self.market_info.quote_asset))
+
         self.assertEqual(expected_base_balance, current_base_balance)
         self.assertEqual(expected_quote_balance, current_quote_balance)
 
