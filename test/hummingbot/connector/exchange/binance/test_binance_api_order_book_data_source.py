@@ -288,8 +288,9 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertTrue(self._is_logged("NETWORK",
                                         "Unexpected error occured when connecting to WebSocket server. Error: TEST ERROR."))
 
+    @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
     @patch("aiohttp.ClientSession.ws_connect")
-    def test_listen_for_trades_cancelled_when_connecting(self, mock_ws):
+    def test_listen_for_trades_cancelled_when_connecting(self, mock_ws, _: AsyncMock):
         msg_queue: asyncio.Queue = asyncio.Queue()
         mock_ws.side_effect = asyncio.CancelledError
 
@@ -313,8 +314,9 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertTrue(self._is_logged("NETWORK", "Unexpected error occured when connecting to WebSocket server. Error: TEST ERROR."))
         self.assertTrue(self._is_logged("ERROR", "Unexpected error with WebSocket connection. Retrying after 30 seconds..."))
 
+    @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_trades_cancelled_when_listening(self, mock_ws):
+    def test_listen_for_trades_cancelled_when_listening(self, mock_ws, _: AsyncMock):
         msg_queue: asyncio.Queue = asyncio.Queue()
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         mock_ws.return_value.receive_json.side_effect = lambda: (
@@ -382,8 +384,9 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.assertTrue(12345, msg.trade_id)
 
+    @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
     @patch("aiohttp.ClientSession.ws_connect")
-    def test_listen_for_order_book_diffs_cancelled_when_connecting(self, mock_ws):
+    def test_listen_for_order_book_diffs_cancelled_when_connecting(self, mock_ws, _: AsyncMock):
         msg_queue: asyncio.Queue = asyncio.Queue()
         mock_ws.side_effect = asyncio.CancelledError
 
@@ -393,8 +396,9 @@ class BinanceAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             )
             self.ev_loop.run_until_complete(self.listening_task)
 
+    @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_order_book_diffs_cancelled_when_listening(self, mock_ws):
+    def test_listen_for_order_book_diffs_cancelled_when_listening(self, mock_ws, _: AsyncMock):
         msg_queue: asyncio.Queue = asyncio.Queue()
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         mock_ws.return_value.receive_json.side_effect = lambda: (

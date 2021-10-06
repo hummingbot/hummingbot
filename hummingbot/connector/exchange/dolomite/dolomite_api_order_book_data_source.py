@@ -1,12 +1,9 @@
 #!/usr/bin/env python
 
 import asyncio
-from decimal import Decimal
 
 import aiohttp
 import logging
-import pandas as pd
-import math
 
 from typing import AsyncIterable, Dict, List, Optional, Any
 
@@ -15,7 +12,6 @@ import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
 
-from hummingbot.core.utils import async_ttl_cache
 from hummingbot.connector.exchange.dolomite.dolomite_active_order_tracker import DolomiteActiveOrderTracker
 from hummingbot.connector.exchange.dolomite.dolomite_order_book import DolomiteOrderBook
 from hummingbot.connector.exchange.dolomite.dolomite_order_book_tracker_entry import DolomiteOrderBookTrackerEntry
@@ -53,47 +49,6 @@ class DolomiteAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._get_tracking_pair_done_event: asyncio.Event = asyncio.Event()
         self.order_book_create_function = lambda: DolomiteOrderBook()
 
-    @classmethod
-    @async_ttl_cache(ttl=60 * 30, maxsize=1)
-    async def get_active_exchange_markets(cls) -> pd.DataFrame:
-        """
-        Returned data frame should have trading pair as index and include usd volume, baseAsset and quoteAsset
-        """
-        async with aiohttp.ClientSession() as client:
-            # Hard coded to use the live exchange api for auto completing markets (opposed to using testnet)
-            markets_response: aiohttp.ClientResponse = await client.get(
-                f"https://exchange-api.dolomite.io{MARKETS_URL}"
-            )
-
-            if markets_response.status != 200:
-                raise IOError(f"Error fetching active Dolomite markets. HTTP status is {markets_response.status}.")
-
-            markets_data = await markets_response.json()
-            markets_data = markets_data["data"]
-
-            field_mapping = {
-                "market": "market",
-                "primary_token": "baseAsset",
-                "primary_ticker_decimal_places": "int",
-                "secondary_token": "quoteAsset",
-                "secondary_ticker_price_decimal_places": "int",
-                "period_volume": "volume",
-                "period_volume_usd": "USDVolume",
-            }
-
-            all_markets: pd.DataFrame = pd.DataFrame.from_records(
-                data=markets_data, index="market", columns=list(field_mapping.keys())
-            )
-
-            def obj_to_decimal(c):
-                return Decimal(c["amount"]) / Decimal(math.pow(10, c["currency"]["precision"]))
-
-            all_markets.rename(field_mapping, axis="columns", inplace=True)
-            all_markets["USDVolume"] = all_markets["USDVolume"].map(obj_to_decimal)
-            all_markets["volume"] = all_markets["volume"].map(obj_to_decimal)
-
-            return all_markets.sort_values("USDVolume", ascending=False)
-
     @property
     def order_book_class(self) -> DolomiteOrderBook:
         return DolomiteOrderBook
@@ -124,12 +79,8 @@ class DolomiteAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def get_trading_pairs(self) -> List[str]:
         if self._trading_pairs is None:
-            active_markets: pd.DataFrame = await self.get_active_exchange_markets()
-            trading_pairs: List[str] = active_markets.index.tolist()
-            self._trading_pairs = trading_pairs
-        else:
-            trading_pairs: List[str] = self._trading_pairs
-        return trading_pairs
+            self._trading_pairs = await self.fetch_trading_pairs()
+        return self._trading_pairs
 
     async def get_snapshot(self, client: aiohttp.ClientSession, trading_pair: str, level: int = 3) -> Dict[str, any]:
         async with client.get(f"{self.REST_URL}{SNAPSHOT_URL}".replace(":trading_pair", trading_pair)) as response:
