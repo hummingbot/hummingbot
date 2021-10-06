@@ -58,7 +58,7 @@ async def start_trade_monitor(trade_monitor):
             if all(market.ready for market in hb.markets.values()):
                 trades: List[TradeFill] = hb._get_trades_from_session(int(hb.init_time * 1e3),
                                                                       config_file_path=hb.strategy_file_name)
-                if len(trades) > total_trades:
+                if len(trades) > 0:
                     total_trades = len(trades)
                     market_info: Set[Tuple[str, str]] = set((t.market, t.symbol) for t in trades)
                     for market, symbol in market_info:
