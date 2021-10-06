@@ -6,16 +6,18 @@ import unittest
 from collections import Awaitable
 from decimal import Decimal
 from functools import partial
-from typing import Dict
+from typing import Dict, Any
 
 from aioresponses import aioresponses
+
 from hummingbot.connector.exchange.kucoin.kucoin_exchange import KucoinExchange, KUCOIN_ROOT_API
 from hummingbot.connector.exchange.kucoin import kucoin_constants as CONSTANTS
 from hummingbot.core.network_iterator import NetworkStatus
-
-from hummingbot.connector.exchange.kucoin.kucoin_in_flight_order import \
-    KucoinInFlightOrder
-from hummingbot.core.event.events import OrderType, TradeType
+from hummingbot.connector.exchange.kucoin.kucoin_in_flight_order import KucoinInFlightOrder
+from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.clock import Clock, ClockMode
+from hummingbot.core.event.events import OrderType, TradeType, MarketEvent
+from hummingbot.core.time_iterator import TimeIterator
 
 
 class TestKucoinExchange(unittest.TestCase):
@@ -35,6 +37,11 @@ class TestKucoinExchange(unittest.TestCase):
         self.exchange = KucoinExchange(
             self.api_key, self.api_passphrase, self.api_secret_key, trading_pairs=[self.trading_pair]
         )
+
+        self.order_filled_logger = EventLogger()
+        self.buy_order_completed_logger = EventLogger()
+        self.exchange.add_listener(MarketEvent.OrderFilled, self.order_filled_logger)
+        self.exchange.add_listener(MarketEvent.BuyOrderCompleted, self.buy_order_completed_logger)
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
@@ -101,6 +108,43 @@ class TestKucoinExchange(unittest.TestCase):
             amount=Decimal("1"),
         )
         return order
+
+    def get_order_response_mock(self, size: float, filled: float) -> Dict[str, Any]:
+        order_response = {
+            "data": {
+                "id": "5c35c02703aa673ceec2a168",
+                "symbol": self.trading_pair,
+                "opType": "DEAL",
+                "type": "limit",
+                "side": "buy",
+                "price": "10",
+                "size": str(size),
+                "funds": "0",
+                "dealFunds": "0.166",
+                "dealSize": str(filled),
+                "fee": "0",
+                "feeCurrency": "USDT",
+                "stp": "",
+                "stop": "",
+                "stopTriggered": False,
+                "stopPrice": "0",
+                "timeInForce": "GTC",
+                "postOnly": False,
+                "hidden": False,
+                "iceberg": False,
+                "visibleSize": "0",
+                "cancelAfter": 0,
+                "channel": "IOS",
+                "clientOid": "",
+                "remark": "",
+                "tags": "",
+                "isActive": False,
+                "cancelExist": False,
+                "createdAt": 1547026471000,
+                "tradeType": "TRADE"
+            }
+        }
+        return order_response
 
     @staticmethod
     def get_cancel_response(exchange_id: str) -> Dict:
@@ -252,3 +296,62 @@ class TestKucoinExchange(unittest.TestCase):
 
         self.assertTrue(called1.is_set())
         self.assertTrue(called2.is_set())
+
+    @aioresponses()
+    def test_update_order_status_notifies_on_order_filled(self, mocked_api):
+        url = KUCOIN_ROOT_API + CONSTANTS.ORDERS_PATH_URL
+        regex_url = re.compile(f"^{url}")
+        resp = self.get_order_response_mock(size=2, filled=2)
+        mocked_api.get(regex_url, body=json.dumps(resp))
+
+        clock = Clock(
+            ClockMode.BACKTEST,
+            start_time=self.exchange.UPDATE_ORDERS_INTERVAL,
+            end_time=self.exchange.UPDATE_ORDERS_INTERVAL * 2,
+        )
+        TimeIterator.start(self.exchange, clock)
+        order_id = "someId"
+        exchange_id = "someExchangeId"
+        self.exchange.in_flight_orders[order_id] = self.get_in_flight_order_mock(order_id, exchange_id)
+        order = self.exchange.in_flight_orders[order_id]
+
+        self.async_run_with_timeout(self.exchange._update_order_status())
+
+        orders_filled_events = self.order_filled_logger.event_log
+        order_completed_events = self.buy_order_completed_logger.event_log
+
+        self.assertTrue(order.is_done)
+        self.assertEqual(1, len(order_completed_events))
+        self.assertEqual(1, len(orders_filled_events))
+        self.assertEqual(order_id, order_completed_events[0].order_id)
+        self.assertEqual(order_id, orders_filled_events[0].order_id)
+
+    @aioresponses()
+    def test_update_order_status_skips_if_order_no_longer_tracked(self, mocked_api):
+        order_id = "someId"
+        exchange_id = "someExchangeId"
+
+        url = KUCOIN_ROOT_API + CONSTANTS.ORDERS_PATH_URL
+        regex_url = re.compile(f"^{url}")
+        resp = self.get_order_response_mock(size=2, filled=2)
+        mocked_api.get(
+            regex_url,
+            body=json.dumps(resp),
+            callback=lambda *_, **__: self.exchange.stop_tracking_order(order_id),
+        )
+
+        clock = Clock(
+            ClockMode.BACKTEST,
+            start_time=self.exchange.UPDATE_ORDERS_INTERVAL,
+            end_time=self.exchange.UPDATE_ORDERS_INTERVAL * 2,
+        )
+        TimeIterator.start(self.exchange, clock)
+        self.exchange.in_flight_orders[order_id] = self.get_in_flight_order_mock(order_id, exchange_id)
+
+        self.async_run_with_timeout(self.exchange._update_order_status())
+
+        orders_filled_events = self.order_filled_logger.event_log
+        order_completed_events = self.buy_order_completed_logger.event_log
+
+        self.assertEqual(0, len(order_completed_events))
+        self.assertEqual(0, len(orders_filled_events))
