@@ -98,25 +98,6 @@ cdef class KrakenInFlightOrder(InFlightOrderBase):
         super().update_exchange_order_id(exchange_id)
         self.last_state = "new"
 
-    def update_with_execution_report(self, execution_report: Dict[str, Any]):
-        trade_id = execution_report["t"]
-        if trade_id in self.trade_id_set:
-            # trade already recorded
-            return
-        self.trade_id_set.add(trade_id)
-        last_executed_quantity = Decimal(execution_report["l"])
-        last_commission_amount = Decimal(execution_report["n"])
-        last_commission_asset = execution_report["N"]
-        last_order_state = execution_report["X"]
-        last_executed_price = Decimal(execution_report["L"])
-        executed_amount_quote = last_executed_price * last_executed_quantity
-        self.executed_amount_base += last_executed_quantity
-        self.executed_amount_quote += executed_amount_quote
-        if last_commission_asset is not None:
-            self.fee_asset = last_commission_asset
-        self.fee_paid += last_commission_amount
-        self.last_state = last_order_state
-
     def update_with_trade_update(self, trade_update: Dict[str, Any]):
         trade_id = trade_update["trade_id"]
         if str(trade_update["ordertxid"]) != self.exchange_order_id or trade_id in self.trade_id_set:
