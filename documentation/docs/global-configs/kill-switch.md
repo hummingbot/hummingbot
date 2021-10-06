@@ -1,4 +1,4 @@
-Automatically stops the bot when it reaches a certain performance threshold, which can be either positive or negative. This feature uses the same performance calculation methodology as the [history](/operation/commands-shortcuts/#hummingbot-commands) command.
+Automatically stops the bot when it reaches a certain performance threshold, which can be either positive or negative. This feature uses the same performance calculation methodology as the [history](/operation/history/) command.
 
 ```
 Would you like to enable the kill switch? (Yes/No) >>>
