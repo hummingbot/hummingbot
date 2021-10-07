@@ -1,0 +1,5 @@
+{
+  "privateKey": "$ETH_PRIVATE_KEY",
+  "spender": "uniswap",
+  "tokenSymbols": ["DAI", "WETH"]
+}

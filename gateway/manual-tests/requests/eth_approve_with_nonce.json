@@ -1,0 +1,7 @@
+{
+  "privateKey": "$ETH_PRIVATE_KEY",
+  "amount": "0",
+  "spender": "uniswap",
+  "token": "DAI",
+  "nonce": 83
+}
