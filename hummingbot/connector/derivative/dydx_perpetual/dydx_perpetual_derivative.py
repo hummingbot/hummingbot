@@ -255,6 +255,9 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
         in_flight_order.update_exchange_order_id(exchange_order_id)
         self._in_flight_orders_by_exchange_id[exchange_order_id] = in_flight_order
 
+    def _claim_fills(self, in_flight_order, exchange_order_id):
+        updated_with_fills = False
+
         # Claim any fill reports for this order that came in while we awaited this exchange id
         if exchange_order_id in self._unclaimed_fills:
             for fill in self._unclaimed_fills[exchange_order_id]:
@@ -265,6 +268,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                               fill.price,
                                               fill.amount,
                                               self.get_balance('USD'))
+                    updated_with_fills = True
                 else:
                     self._account_positions[self.position_key(in_flight_order.trading_pair)] = DydxPerpetualPosition.from_dydx_fill(
                         in_flight_order,
@@ -279,6 +283,9 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
         if len(self._orders_pending_ack) == 0:
             # We are no longer waiting on any exchange order ids, so all uncalimed fills can be discarded
             self._unclaimed_fills.clear()
+
+        if updated_with_fills:
+            self._update_account_positions()
 
     async def place_order(self,
                           client_order_id: str,
@@ -384,6 +391,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
             in_flight_order = self._in_flight_orders.get(client_order_id)
             if in_flight_order is not None:
                 self._set_exchange_id(in_flight_order, dydx_order_id)
+                self._claim_fills(in_flight_order, dydx_order_id)
 
                 # Begin tracking order
                 self.logger().info(
@@ -821,6 +829,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                                           price,
                                                           amount,
                                                           self.get_available_balance('USD'))
+                                await self._update_account_positions()
                             else:
                                 self._account_positions[pos_key] = DydxPerpetualPosition.from_dydx_fill(
                                     tracked_order,
@@ -839,7 +848,13 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                     for position in positions:
                         pos_key = self.position_key(position['market'])
                         if pos_key in self._account_positions:
-                            self._account_positions[pos_key].update_position(position)
+                            self._account_positions[pos_key].update_position(
+                                position_side=PositionSide[position["side"]],
+                                unrealized_pnl=position.get("unrealizedPnl"),
+                                entry_price=position.get("entryPrice"),
+                                amount=position.get("size"),
+                                status=position.get("status"),
+                            )
                         if not self._account_positions[pos_key].is_open:
                             del self._account_positions[pos_key]
                 if 'fundingPayments' in data:
@@ -890,8 +905,14 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
             market = position["market"]
             pos_key = self.position_key(market)
             if pos_key in self._account_positions:
-                tracked_position = self._account_positions[pos_key]
-                tracked_position.update_position(position)
+                tracked_position: DydxPerpetualPosition = self._account_positions[pos_key]
+                tracked_position.update_position(
+                    position_side=PositionSide[position["side"]],
+                    unrealized_pnl=position.get("unrealizedPnl"),
+                    entry_price=position.get("entryPrice"),
+                    amount=position.get("size"),
+                    status=position.get("status"),
+                )
                 tracked_position.update_from_balance(Decimal(current_positions['equity']))
                 if not tracked_position.is_open:
                     del self._account_positions[pos_key]
@@ -989,6 +1010,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
             except Exception as e:
                 self.logger().warning(f"Failed to update dydx order {tracked_order.exchange_order_id}")
                 self.logger().warning(e)
+                self.logger().exception("")
 
     async def _update_fills(self, tracked_order: DydxPerpetualInFlightOrder):
         try:
