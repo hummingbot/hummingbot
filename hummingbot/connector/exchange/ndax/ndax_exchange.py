@@ -61,6 +61,7 @@ class NdaxExchange(ExchangeBase):
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
     UPDATE_TRADING_RULES_INTERVAL = 60.0
     LONG_POLL_INTERVAL = 120.0
+    ORDER_NOT_EXIST_CANCEL_COUNT = 2
 
     _logger = None
 
@@ -107,7 +108,7 @@ class NdaxExchange(ExchangeBase):
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
         self._in_flight_orders = {}
-        # self._order_not_found_records = {}  # Dict[client_order_id:str, count:int]
+        self._order_not_found_records = {}  # Dict[client_order_id:str, count:int]
         self._trading_rules = {}  # Dict[trading_pair:str, TradingRule]
         self._last_poll_timestamp = 0
 
@@ -557,7 +558,6 @@ class NdaxExchange(ExchangeBase):
                 is_auth_required=True
             )
 
-            return order_id
         except asyncio.CancelledError:
             raise
         except NdaxInFlightOrderNotCreated:
@@ -570,6 +570,15 @@ class NdaxExchange(ExchangeBase):
                 app_warning_msg=f"Failed to cancel order {order_id} on NDAX. "
                                 f"Check API key and network connection."
             )
+            if "Resource not found" in str(e):
+                self._order_not_found_records[order_id] = self._order_not_found_records.get(order_id, 0) + 1
+                if self._order_not_found_records[order_id] >= self.ORDER_NOT_EXIST_CANCEL_COUNT:
+                    self.logger().info(f"Order {order_id} does not seem to be active, will stop tracking order...")
+                    self.stop_tracking_order(order_id)
+                    self.trigger_event(MarketEvent.OrderCancelled,
+                                       OrderCancelledEvent(self.current_timestamp, order_id))
+        finally:
+            return order_id
 
     def cancel(self, trading_pair: str, order_id: str):
         """
