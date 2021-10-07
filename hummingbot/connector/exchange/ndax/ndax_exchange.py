@@ -570,10 +570,10 @@ class NdaxExchange(ExchangeBase):
                 app_warning_msg=f"Failed to cancel order {order_id} on NDAX. "
                                 f"Check API key and network connection."
             )
-            if "Resource not found" in str(e):
+            if "Resource Not Found" in str(e):
                 self._order_not_found_records[order_id] = self._order_not_found_records.get(order_id, 0) + 1
                 if self._order_not_found_records[order_id] >= self.ORDER_EXCEED_NOT_FOUND_COUNT:
-                    self.logger().info(f"Order {order_id} does not seem to be active, will stop tracking order...")
+                    self.logger().warning(f"Order {order_id} does not seem to be active, will stop tracking order...")
                     self.stop_tracking_order(order_id)
                     self.trigger_event(MarketEvent.OrderCancelled,
                                        OrderCancelledEvent(self.current_timestamp, order_id))
