@@ -1,13 +1,11 @@
 #!/usr/bin/env python
 
 import asyncio
-import logging
 from typing import (
     Optional,
     List,
 )
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.user_stream_tracker import (
     UserStreamTracker
 )
@@ -23,13 +21,6 @@ from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 
 class BitmartUserStreamTracker(UserStreamTracker):
-    _cbpust_logger: Optional[HummingbotLogger] = None
-
-    @classmethod
-    def logger(cls) -> HummingbotLogger:
-        if cls._bust_logger is None:
-            cls._bust_logger = logging.getLogger(__name__)
-        return cls._bust_logger
 
     def __init__(self,
                  throttler: AsyncThrottler,
