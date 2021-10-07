@@ -79,30 +79,30 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     "ch": "order:cash"
                 }
 
-                async with await self._shared_client.ws_connect(f"{get_ws_url_private(accountGroup)}/stream", headers=headers) as ws:
-                    try:
-                        ws: aiohttp.ClientWebSocketResponse = ws
-                        async with self._throttler.execute_task(CONSTANTS.SUB_ENDPOINT_NAME):
-                            await ws.send_json(payload)
+                try:
+                    ws: aiohttp.ClientWebSocketResponse = await self._shared_client.ws_connect(f"{get_ws_url_private(accountGroup)}/stream", headers=headers)
+                    async with self._throttler.execute_task(CONSTANTS.SUB_ENDPOINT_NAME):
+                        await ws.send_json(payload)
 
-                        async for msg in self._inner_messages(ws):
-                            try:
-                                if msg is None:
-                                    continue
+                    async for msg in self._inner_messages(ws):
+                        try:
+                            if msg is None:
+                                continue
 
-                                output.put_nowait(msg)
-                            except Exception:
-                                self.logger().error(
-                                    "Unexpected error when parsing AscendEx message. ", exc_info=True
-                                )
-                                raise
-                    except Exception:
-                        self.logger().error(
-                            "Unexpected error while listening to AscendEx messages. ", exc_info=True
-                        )
-                        raise
-                    finally:
-                        await ws.close()
+                            output.put_nowait(msg)
+                        except Exception:
+                            self.logger().error(
+                                "Unexpected error when parsing AscendEx message. ", exc_info=True
+                            )
+                            raise
+                    await ws.close()
+                except Exception:
+                    self.logger().error(
+                        "Unexpected error while listening to AscendEx messages. ", exc_info=True
+                    )
+                    raise
+                finally:
+                    await ws.close()
             except asyncio.CancelledError:
                 raise
             except Exception:

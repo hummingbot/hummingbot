@@ -153,26 +153,30 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     "op": CONSTANTS.SUB_ENDPOINT_NAME,
                     "ch": f"trades:{trading_pairs}"
                 }
-                async with await self._shared_client.ws_connect(CONSTANTS.WS_URL) as ws:
-                    ws: aiohttp.ClientWebSocketResponse = ws
-                    async with self._throttler.execute_task(CONSTANTS.SUB_ENDPOINT_NAME):
-                        await ws.send_json(payload)
 
-                    async for raw_msg in self._inner_messages(ws):
-                        msg = ujson.loads(raw_msg)
-                        if (msg is None or msg.get("m") != "trades"):
-                            continue
+                ws: aiohttp.ClientWebSocketResponse = await self._shared_client.ws_connect(CONSTANTS.WS_URL)
 
-                        trading_pair: str = convert_from_exchange_trading_pair(msg.get("symbol"))
+                async with self._throttler.execute_task(CONSTANTS.SUB_ENDPOINT_NAME):
+                    await ws.send_json(payload)
 
-                        for trade in msg.get("data"):
-                            trade_timestamp: int = trade.get("ts")
-                            trade_msg: OrderBookMessage = AscendExOrderBook.trade_message_from_exchange(
-                                trade,
-                                trade_timestamp,
-                                metadata={"trading_pair": trading_pair}
-                            )
-                            output.put_nowait(trade_msg)
+                async for raw_msg in self._inner_messages(ws):
+                    msg = ujson.loads(raw_msg)
+                    if (msg is None or msg.get("m") != "trades"):
+                        continue
+
+                    trading_pair: str = convert_from_exchange_trading_pair(msg.get("symbol"))
+
+                    for trade in msg.get("data"):
+                        trade_timestamp: int = trade.get("ts")
+                        trade_msg: OrderBookMessage = AscendExOrderBook.trade_message_from_exchange(
+                            trade,
+                            trade_timestamp,
+                            metadata={"trading_pair": trading_pair}
+                        )
+                        output.put_nowait(trade_msg)
+
+                await ws.close()
+
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -193,27 +197,29 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     "ch": ch
                 }
 
-                async with await self._shared_client.ws_connect(CONSTANTS.WS_URL) as ws:
-                    ws: aiohttp.ClientWebSocketResponse = ws
-                    async with self._throttler.execute_task(CONSTANTS.SUB_ENDPOINT_NAME):
-                        await ws.send_json(payload)
+                ws: aiohttp.ClientWebSocketResponse = await self._shared_client.ws_connect(CONSTANTS.WS_URL)
 
-                    async for raw_msg in self._inner_messages(ws):
-                        msg = ujson.loads(raw_msg)
-                        if msg is None:
-                            continue
-                        if msg.get("m", '') == "ping":
-                            async with self._throttler.execute_task(CONSTANTS.PONG_ENDPOINT_NAME):
-                                await ws.send_json(dict(op=CONSTANTS.PONG_ENDPOINT_NAME))
-                        if msg.get("m", '') == "depth":
-                            msg_timestamp: int = msg.get("data").get("ts")
-                            trading_pair: str = convert_from_exchange_trading_pair(msg.get("symbol"))
-                            order_book_message: OrderBookMessage = AscendExOrderBook.diff_message_from_exchange(
-                                msg.get("data"),
-                                msg_timestamp,
-                                metadata={"trading_pair": trading_pair}
-                            )
-                            output.put_nowait(order_book_message)
+                async with self._throttler.execute_task(CONSTANTS.SUB_ENDPOINT_NAME):
+                    await ws.send_json(payload)
+
+                async for raw_msg in self._inner_messages(ws):
+                    msg = ujson.loads(raw_msg)
+                    if msg is None:
+                        continue
+                    if msg.get("m", '') == "ping":
+                        async with self._throttler.execute_task(CONSTANTS.PONG_ENDPOINT_NAME):
+                            await ws.send_json(dict(op=CONSTANTS.PONG_ENDPOINT_NAME))
+                    if msg.get("m", '') == "depth":
+                        msg_timestamp: int = msg.get("data").get("ts")
+                        trading_pair: str = convert_from_exchange_trading_pair(msg.get("symbol"))
+                        order_book_message: OrderBookMessage = AscendExOrderBook.diff_message_from_exchange(
+                            msg.get("data"),
+                            msg_timestamp,
+                            metadata={"trading_pair": trading_pair}
+                        )
+                        output.put_nowait(order_book_message)
+
+                await ws.close()
             except asyncio.CancelledError:
                 raise
             except Exception as e:
