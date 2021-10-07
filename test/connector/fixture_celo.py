@@ -5,7 +5,7 @@ TEST_PASSWORD = 'TEST_PASSWORD'
 
 outputs = {
     # For order_amount of 1
-    ('celocli', 'exchange:show', '--amount', str(int(9.95 * UNIT_MULTIPLIER))):
+    ('celocli', 'exchange:show', '--amount', str(int(9.9499 * UNIT_MULTIPLIER))):
         "Fetching exchange rates...... done\n"
         f"{str(int(9.95 * UNIT_MULTIPLIER))} CELO => {str(int(99.5 * UNIT_MULTIPLIER))} cUSD\n"
         f"{str(int(9.95 * UNIT_MULTIPLIER))} cUSD => {str(int(1 * UNIT_MULTIPLIER))} CELO",
@@ -16,7 +16,7 @@ outputs = {
         f"{str(int(1 * UNIT_MULTIPLIER))} cUSD => {str(int(0.095 * UNIT_MULTIPLIER))} CELO",
 
     # For order_amount of 2
-    ('celocli', 'exchange:show', '--amount', str(int(9.9 * 2 * UNIT_MULTIPLIER))):
+    ('celocli', 'exchange:show', '--amount', str(int(9.8999 * 2 * UNIT_MULTIPLIER))):
         "Fetching exchange rates...... done\n"
         f"{str(int(9.9 * 2 * UNIT_MULTIPLIER))} CELO => {str(int(99.5 * 2 * UNIT_MULTIPLIER))} cUSD\n"
         f"{str(int(9.9 * 2 * UNIT_MULTIPLIER))} cUSD => {str(int(1.05 * 2 * UNIT_MULTIPLIER))} CELO",
