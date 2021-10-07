@@ -4,8 +4,8 @@ from decimal import Decimal
 from typing import Dict, List, Optional
 
 from hummingbot.core.utils import async_ttl_cache
-from hummingbot.connector.connector.uniswap.uniswap_connector import UniswapConnector
-from hummingbot.connector.connector.uniswap.uniswap_in_flight_order import UniswapInFlightOrder
+from hummingbot.connector.gateway_base import GatewayBase
+from hummingbot.connector.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.connector.uniswap_v3.uniswap_v3_in_flight_position import UniswapV3InFlightPosition, UniswapV3PositionStatus
 from hummingbot.core.event.events import (
     MarketEvent,
@@ -34,9 +34,9 @@ s_decimal_0 = Decimal("0")
 s_decimal_NaN = Decimal("nan")
 
 
-class UniswapV3Connector(UniswapConnector):
+class UniswapV3Connector(GatewayBase):
     """
-    UniswapV3Connector extends UniswapConnector to provide v3 specific functionality, e.g. ranged positions
+    UniswapV3Connector extends GatewayBase to provide v3 specific functionality, e.g. ranged positions
     """
 
     def __init__(self,
@@ -51,12 +51,18 @@ class UniswapV3Connector(UniswapConnector):
         :param ethereum_rpc_url: this is usually infura RPC URL
         :param trading_required: Whether actual trading is needed.
         """
-        super().__init__(trading_pairs, wallet_private_key, ethereum_rpc_url, trading_required)
+        super().__init__(trading_pairs,
+                         wallet_private_key,
+                         trading_required)
         self._in_flight_positions: Dict[str, UniswapV3InFlightPosition] = {}
 
     @property
     def name(self) -> str:
         return "uniswap_v3"
+
+    @property
+    def base_path(self):
+        return "eth/uniswap/v3"
 
     async def initiate_pool(self) -> str:
         """
@@ -65,7 +71,7 @@ class UniswapV3Connector(UniswapConnector):
         while True:
             try:
                 # self.logger().info(f"Initializing Uniswap connector and paths for {self._trading_pairs} pairs.")
-                resp = await self._api_request("get", "eth/uniswap/v3/start",
+                resp = await self._api_request("get", f"{self.base_path}/start",
                                                {"pairs": json.dumps(self._trading_pairs)})
                 status = bool(str(resp["success"]))
                 if status:
@@ -103,7 +109,7 @@ class UniswapV3Connector(UniswapConnector):
         orders = {
             key: value.to_json()
             for key, value in self._in_flight_orders.items()
-            if not value.is_done
+            if not value.is_done and value in self.amm_orders
         }
         positions = {
             key: value.to_json()
@@ -123,7 +129,7 @@ class UniswapV3Connector(UniswapConnector):
                 amount1 = Decimal(event["value"]) / 10 ** quote_decimals
         return token_id, amount0, amount1
 
-    async def update_swap_order(self, update_result: Dict[str, any], tracked_order: UniswapInFlightOrder):
+    async def update_swap_order(self, update_result: Dict[str, any], tracked_order: GatewayInFlightOrder):
         if update_result.get("confirmed", False):
             if update_result["receipt"].get("status", 0) == 1:
                 order_id = await tracked_order.get_exchange_order_id()
@@ -185,7 +191,7 @@ class UniswapV3Connector(UniswapConnector):
                 fee = Decimal(str(gas_used)) * Decimal(str(gas_price)) / Decimal(str(1e9))
                 tracked_pos.tx_fees.append(fee)
                 transaction_results = await self._api_request("post",
-                                                              "eth/uniswap/v3/result",
+                                                              f"{self.base_path}/result",
                                                               {"logs": json.dumps(update_result["receipt"]["logs"]),
                                                                "pair": tracked_pos.trading_pair})
                 for result in transaction_results["info"]:
@@ -256,13 +262,12 @@ class UniswapV3Connector(UniswapConnector):
                 self.stop_tracking_position(tracked_pos.hb_id)
                 tracked_pos.last_status = UniswapV3PositionStatus.FAILED
 
-    async def _update_order_status(self):
+    async def _update_order_status(self, tracked_orders):
         """
         Calls REST API to get status update for each in-flight order.
         """
-        tasks, tracked_orders, tracked_positions, open_positions = [], [], [], []
-        if len(self._in_flight_orders) > 0:
-            tracked_orders = list(self._in_flight_orders.values())
+        tasks, tracked_positions, open_positions = [], [], []
+        if len(tracked_orders) > 0:
             for tracked_order in tracked_orders:
                 order_id = await tracked_order.get_exchange_order_id()
                 tasks.append(self._api_request("post",
@@ -285,7 +290,7 @@ class UniswapV3Connector(UniswapConnector):
                 if "txHash" not in update_result:
                     self.logger().info(f"Update_order_status txHash not in resp: {update_result}")
                     continue
-                if isinstance(tracked_item, UniswapInFlightOrder):
+                if isinstance(tracked_item, GatewayInFlightOrder):
                     await self.update_swap_order(update_result, tracked_item)
                 else:
                     await self.update_lp_order(update_result, tracked_item)
@@ -412,7 +417,7 @@ class UniswapV3Connector(UniswapConnector):
         self.start_tracking_position(hb_id, trading_pair, fee_tier, base_amount, quote_amount,
                                      lower_price, upper_price)
         try:
-            order_result = await self._api_request("post", "eth/uniswap/v3/add-position", api_params)
+            order_result = await self._api_request("post", f"{self.base_path}/add-position", api_params)
             tracked_pos = self._in_flight_positions[hb_id]
             tx_hash = order_result["hash"]
             tracked_pos.update_last_tx_hash(tx_hash)
@@ -468,7 +473,7 @@ class UniswapV3Connector(UniswapConnector):
         tracked_pos.update_last_tx_hash(None)
         try:
             result = await self._api_request("post",
-                                             "eth/uniswap/v3/remove-position",
+                                             f"{self.base_path}/remove-position",
                                              {"tokenId": token_id, "reducePercent": reducePercent, "getFee": str(fee_estimate)})
             if fee_estimate:
                 return Decimal(str(result.get("gasFee")))
@@ -495,11 +500,11 @@ class UniswapV3Connector(UniswapConnector):
                                    RangePositionFailureEvent(self.current_timestamp, hb_id))
 
     async def get_position(self, token_id: str):
-        result = await self._api_request("post", "eth/uniswap/v3/position", {"tokenId": token_id})
+        result = await self._api_request("post", f"{self.base_path}/position", {"tokenId": token_id})
         return result
 
     async def collect_fees(self, token_id: str):  # not used yet, but should be refactored to return an order_id and also track transaction
-        result = await self._api_request("post", "eth/uniswap/v3/collect-fees", {"tokenId": token_id})
+        result = await self._api_request("post", f"{self.base_path}/collect-fees", {"tokenId": token_id})
         return result
 
     async def get_price_by_fee_tier(self, trading_pair: str, tier: str, seconds: int = 1, twap: bool = False):
@@ -513,7 +518,7 @@ class UniswapV3Connector(UniswapConnector):
         try:
             base, quote = trading_pair.split("-")
             resp = await self._api_request("post",
-                                           "eth/uniswap/v3/price",
+                                           f"{self.base_path}/price",
                                            {"base": base,
                                             "quote": quote,
                                             "tier": tier.upper(),
@@ -598,23 +603,28 @@ class UniswapV3Connector(UniswapConnector):
     def get_token_id(self, client_order_id):  # to be refactored to fetch from databse in subsequent releases
         return self._in_flight_positions.get(client_order_id, 0)
 
-    async def approve_uniswap_spender(self, token_symbol: str) -> Decimal:
+    async def approve_token(self, token_symbol: str) -> Decimal:
         """
         Approves Uniswap contract as a spender for a token.
         :param token_symbol: token to approve.
         """
         spender = "uniswapV3Router" if token_symbol[:1] == "R" else "uniswapV3NFTManager"
-        token_symbol = token_symbol[1:]
+        actual_token_symbol = token_symbol[1:]
+        order_id = f"approve_{self.name}_{token_symbol}"
         resp = await self._api_request("post",
                                        "eth/approve",
-                                       {"token": token_symbol,
+                                       {"token": actual_token_symbol,
                                         "connector": spender})
-        amount_approved = Decimal(str(resp.get("amount", "0")))
-        if amount_approved > s_decimal_0:
-            self.logger().info(f"Approved Uniswap {spender} contract for {token_symbol}.")
+        self.start_tracking_order(order_id, None, token_symbol)
+
+        if "hash" in resp.get("approval", {}).keys():
+            hash = resp["approval"]["hash"]
+            tracked_order = self._in_flight_orders.get(order_id)
+            tracked_order.update_exchange_order_id(hash)
+            self.logger().info(f"Maximum {actual_token_symbol} approval for {spender} contract sent, hash: {hash}.")
         else:
-            self.logger().info(f"Uniswap spender contract approval failed on {token_symbol}.")
-        return amount_approved
+            self.stop_tracking_order(order_id)
+            self.logger().info(f"Approval for {actual_token_symbol} on {spender} failed.")
 
     async def get_allowances(self) -> Dict[str, Decimal]:
         """
@@ -672,7 +682,7 @@ class UniswapV3Connector(UniswapConnector):
                       "limitPrice": str(price),
                       }
         try:
-            order_result = await self._api_request("post", "eth/uniswap/v3/trade", api_params)
+            order_result = await self._api_request("post", f"{self.base_path}/trade", api_params)
             hash = order_result.get("hash")
             gas_price = order_result.get("gasPrice")
             gas_limit = order_result.get("gasLimit")

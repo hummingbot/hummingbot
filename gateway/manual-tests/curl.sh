@@ -1,3 +1,5 @@
+# you need to install to programs: curl and envsubst
+
 # You must the following values in your command line
 # GATEWAY_CERT and GATEWAY_KEY are file paths that should match
 # the cert files in the same place as CERT_PATH from /conf/gateway-config.yml
@@ -23,24 +25,26 @@ curl -X GET -k --key $GATEWAY_KEY --cert $GATEWAY_CERT https://localhost:5000/et
 
 
 # TEST Ethereum
-
 # get Ethereum balances for your private key
-curl -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "{\"privateKey\":\"$ETH_PRIVATE_KEY\",\"tokenSymbols\":[\"ETH\",\"WETH\",\"DAI\"]}" https://localhost:5000/eth/balances
+curl -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/eth_balances.json)" https://localhost:5000/eth/balances
 
 # get Ethereum allowances for your uniswap on private key
-curl -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "{\"privateKey\":\"$ETH_PRIVATE_KEY\",\"spender\":\"uniswap\",\"tokenSymbols\":[\"DAI\",\"WETH\"]}" https://localhost:5000/eth/allowances
+curl -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/eth_allowances.json)" https://localhost:5000/eth/allowances
 
 # approve uniswap allowance on your private key
-curl -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "{\"privateKey\":\"$ETH_PRIVATE_KEY\",\"spender\":\"uniswap\",\"token\":\"DAI\"}" https://localhost:5000/eth/approve
+curl -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/eth_approve.json)" https://localhost:5000/eth/approve
 
 # remove uniswap allowance on your private key
-curl -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "{\"privateKey\":\"$ETH_PRIVATE_KEY\",\"spender\":\"uniswap\",\"token\":\"DAI\",\"amount\":\"0\"}" https://localhost:5000/eth/approve
+curl -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/eth_remove_allowance.json)" https://localhost:5000/eth/approve
 
 # get the next nonce you should use for your private key
-curl -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "{\"privateKey\":\"$ETH_PRIVATE_KEY\"}" https://localhost:5000/eth/nonce
+curl -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/eth_remove_allowance.json)" https://localhost:5000/eth/nonce
 
 # call approve with a nonce, if the nonce is incorrect, this should fail
-curl -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "{\"privateKey\":\"$ETH_PRIVATE_KEY\",\"amount\":\"0\",\"spender\":\"approve\",\"token\":\"DAI\",\"nonce\":83}" https://localhost:5000/eth/approve
+curl -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/eth_approve_with_nonce.json)" https://localhost:5000/eth/approve
 
 # poll the status of an ethereum transaction
-curl -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "{\"txHash\":\"0x6d068067a5e5a0f08c6395b31938893d1cdad81f54a54456221ecd8c1941294d\"}" https://localhost:5000/eth/poll
+curl -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/eth_poll.json)" https://localhost:5000/eth/poll
+
+# cancel a transaction. Note: modify to send the nonce of the transaction to be canceled
+curl -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/eth_cancel.json)" https://localhost:5000/eth/cancel

@@ -54,12 +54,11 @@ export const validateSpender: Validator = mkValidator(
 
 // confirm that tokenSymbols is an array of strings
 export const validateTokenSymbols: Validator = (req: any) => {
-  let errors: Array<string> = [];
+  const errors: Array<string> = [];
   if (req.tokenSymbols) {
     if (Array.isArray(req.tokenSymbols)) {
       req.tokenSymbols.forEach((symbol: any) => {
-        if (typeof symbol === 'string') {
-        } else {
+        if (typeof symbol !== 'string') {
           errors.push(invalidTokenSymbolsError);
         }
       });
@@ -127,3 +126,6 @@ export const validateEthereumApproveRequest: RequestValidator =
 export const validateEthereumPollRequest: RequestValidator = mkRequestValidator(
   [validateTxHash]
 );
+
+export const validateEthereumCancelRequest: RequestValidator =
+  mkRequestValidator([validateNonce, validatePrivateKey]);
