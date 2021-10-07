@@ -4,6 +4,7 @@ from decimal import Decimal
 from typing import Awaitable
 from unittest.mock import patch, MagicMock, AsyncMock
 
+from hummingbot.client.config.config_helpers import get_strategy_config_map
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from test.mock.mock_cli import CLIMockingAssistant
@@ -15,7 +16,7 @@ class CreateCommandTest(unittest.TestCase):
         super().setUp()
         self.app = HummingbotApplication()
         self.ev_loop = asyncio.get_event_loop()
-        self.cli_mock_assistant = CLIMockingAssistant()
+        self.cli_mock_assistant = CLIMockingAssistant(self.app.app)
         self.cli_mock_assistant.start()
 
     def tearDown(self) -> None:
@@ -129,6 +130,42 @@ class CreateCommandTest(unittest.TestCase):
         self.async_run_with_timeout(self.app.prompt_for_configuration(strategy_file_name))
         self.assertEqual(strategy_file_name, self.app.strategy_file_name)
         self.assertEqual(base_strategy, self.app.strategy_name)
+
+    def test_create_command_restores_config_map_after_config_stop(self):
+        base_strategy = "pure_market_making"
+        strategy_config = get_strategy_config_map(base_strategy)
+        original_exchange = "bybit"
+        strategy_config["exchange"].value = original_exchange
+
+        self.cli_mock_assistant.queue_prompt_reply(base_strategy)  # strategy
+        self.cli_mock_assistant.queue_prompt_reply("binance")  # spot connector
+        self.cli_mock_assistant.queue_prompt_to_stop_config()  # cancel on trading pair prompt
+
+        self.async_run_with_timeout(self.app.prompt_for_configuration(None))
+        strategy_config = get_strategy_config_map(base_strategy)
+
+        self.assertEqual(original_exchange, strategy_config["exchange"].value)
+
+    def test_create_command_restores_config_map_after_config_stop_on_new_file_prompt(self):
+        base_strategy = "pure_market_making"
+        strategy_config = get_strategy_config_map(base_strategy)
+        original_exchange = "bybit"
+        strategy_config["exchange"].value = original_exchange
+
+        self.cli_mock_assistant.queue_prompt_reply(base_strategy)  # strategy
+        self.cli_mock_assistant.queue_prompt_reply("binance")  # spot connector
+        self.cli_mock_assistant.queue_prompt_reply("BTC-USDT")  # trading pair
+        self.cli_mock_assistant.queue_prompt_reply("1")  # bid spread
+        self.cli_mock_assistant.queue_prompt_reply("1")  # ask spread
+        self.cli_mock_assistant.queue_prompt_reply("30")  # order refresh time
+        self.cli_mock_assistant.queue_prompt_reply("0")  # order amount
+        self.cli_mock_assistant.queue_prompt_reply("No")  # ping pong feature
+        self.cli_mock_assistant.queue_prompt_to_stop_config()  # cancel on new file prompt
+
+        self.async_run_with_timeout(self.app.prompt_for_configuration(None), 100000)
+        strategy_config = get_strategy_config_map(base_strategy)
+
+        self.assertEqual(original_exchange, strategy_config["exchange"].value)
 
     @patch("shutil.copy")
     @patch("hummingbot.client.command.create_command.save_to_yml")
