@@ -29,11 +29,11 @@ class AscendExOrderBookTracker(OrderBookTracker):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, shared_client: aiohttp.ClientSession, throttler: Optional[AsyncThrottler] = None, trading_pairs: Optional[List[str]] = None):
-        super().__init__(AscendExAPIOrderBookDataSource(shared_client, throttler, trading_pairs), trading_pairs)
+    def __init__(self, shared_client: Optional[aiohttp.ClientSession] = None, throttler: Optional[AsyncThrottler] = None, trading_pairs: Optional[List[str]] = None):
+        super().__init__(AscendExAPIOrderBookDataSource(shared_client = shared_client, throttler = throttler, trading_pairs = trading_pairs), trading_pairs)
 
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        self._shared_client = shared_client
+        self._shared_client = shared_client or self._get_session_instance()
         self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
         self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()
         self._order_book_trade_stream: asyncio.Queue = asyncio.Queue()
@@ -45,6 +45,11 @@ class AscendExOrderBookTracker(OrderBookTracker):
         self._active_order_trackers: Dict[str, AscendExActiveOrderTracker] = defaultdict(AscendExActiveOrderTracker)
         self._order_book_stream_listener_task: Optional[asyncio.Task] = None
         self._order_book_trade_listener_task: Optional[asyncio.Task] = None
+
+    @classmethod
+    def _get_session_instance(cls) -> aiohttp.ClientSession:
+        session = aiohttp.ClientSession()
+        return session
 
     @property
     def exchange_name(self) -> str:

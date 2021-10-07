@@ -34,12 +34,17 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, shared_client: aiohttp.ClientSession, throttler: Optional[AsyncThrottler] = None, trading_pairs: List[str] = None):
+    def __init__(self, shared_client: Optional[aiohttp.ClientSession] = None, throttler: Optional[AsyncThrottler] = None, trading_pairs: List[str] = None):
         super().__init__(trading_pairs)
-        self._shared_client = shared_client
+        self._shared_client = shared_client or self._get_session_instance()
         self._throttler = throttler or self._get_throttler_instance()
         self._trading_pairs: List[str] = trading_pairs
         self._snapshot_msg: Dict[str, any] = {}
+
+    @classmethod
+    def _get_session_instance(cls) -> aiohttp.ClientSession:
+        session = aiohttp.ClientSession()
+        return session
 
     @classmethod
     def _get_throttler_instance(cls) -> AsyncThrottler:
@@ -47,17 +52,13 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return throttler
 
     @classmethod
-    async def _get_session_instance(cls) -> aiohttp.ClientSession:
-        session = aiohttp.ClientSession()
-        return session
-
-    @classmethod
     async def get_last_traded_prices(
-        cls, client: aiohttp.ClientSession, trading_pairs: List[str], throttler: Optional[AsyncThrottler] = None
+        cls, trading_pairs: List[str], client: Optional[aiohttp.ClientSession] = None, throttler: Optional[AsyncThrottler] = None
     ) -> Dict[str, float]:
         result = {}
 
         for trading_pair in trading_pairs:
+            client = client or cls._get_session_instance()
             throttler = throttler or cls._get_throttler_instance()
             async with throttler.execute_task(CONSTANTS.TRADES_PATH_URL):
                 resp = await client.get(
@@ -88,7 +89,7 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @staticmethod
     async def fetch_trading_pairs(client: Optional[aiohttp.ClientSession] = None, throttler: Optional[AsyncThrottler] = None) -> List[str]:
-        client = client or await AscendExAPIOrderBookDataSource._get_session_instance()
+        client = client or AscendExAPIOrderBookDataSource._get_session_instance()
         throttler = throttler or AscendExAPIOrderBookDataSource._get_throttler_instance()
         async with throttler.execute_task(CONSTANTS.TICKER_PATH_URL):
             resp = await client.get(f"{CONSTANTS.REST_URL}/{CONSTANTS.TICKER_PATH_URL}")
@@ -105,7 +106,7 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         Get whole orderbook
         """
-        client = client or await AscendExAPIOrderBookDataSource._get_session_instance()
+        client = client or AscendExAPIOrderBookDataSource._get_session_instance()
         throttler = throttler or AscendExAPIOrderBookDataSource._get_throttler_instance()
         async with throttler.execute_task(CONSTANTS.DEPTH_PATH_URL):
             resp = await client.get(
@@ -158,7 +159,7 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         await ws.send_json(payload)
 
                     async for raw_msg in self._inner_messages(ws):
-                        msg = ujson.loads(raw_msg).get("data")
+                        msg = ujson.loads(raw_msg)
                         if (msg is None or msg.get("m") != "trades"):
                             continue
 
@@ -172,7 +173,6 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                 metadata={"trading_pair": trading_pair}
                             )
                             output.put_nowait(trade_msg)
-                    await ws.close()
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -214,7 +214,6 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                 metadata={"trading_pair": trading_pair}
                             )
                             output.put_nowait(order_book_message)
-                    await ws.close()
             except asyncio.CancelledError:
                 raise
             except Exception as e:

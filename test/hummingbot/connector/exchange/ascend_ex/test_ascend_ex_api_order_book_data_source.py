@@ -1,5 +1,4 @@
 import asyncio
-import aiohttp
 import json
 import re
 
@@ -50,18 +49,11 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
         return any(record.levelname == log_level and record.getMessage() == message
                    for record in self.log_records)
 
+    def _raise_exception(self, exception_class):
+        raise exception_class
+
     @aioresponses()
-    async def do_fetch_trading_pairs(self, mock_response, api_mock):
-        self.data_source._shared_client = aiohttp.ClientSession()
-        url = f"{CONSTANTS.REST_URL}/{CONSTANTS.TICKER_PATH_URL}"
-        api_mock.get(url, body=json.dumps(mock_response))
-
-        trading_pairs = await self.data_source.fetch_trading_pairs(client=self.data_source._shared_client, throttler=self.throttler)
-        await self.data_source._shared_client.close()
-
-        return trading_pairs
-
-    def test_fetch_trading_pairs(self):
+    def test_fetch_trading_pairs(self, api_mock):
         mock_response = {
             "code": 0,
             "data": [{
@@ -112,26 +104,16 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
             }]
         }
 
-        trading_pairs = self.ev_loop.run_until_complete(self.do_fetch_trading_pairs(mock_response))
+        url = f"{CONSTANTS.REST_URL}/{CONSTANTS.TICKER_PATH_URL}"
+        api_mock.get(url, body=json.dumps(mock_response))
+
+        trading_pairs = self.ev_loop.run_until_complete(self.data_source.fetch_trading_pairs(client=self.data_source._shared_client, throttler=self.throttler))
 
         self.assertEqual(3, len(trading_pairs))
         self.assertEqual("BTC-USDT", trading_pairs[1])
 
     @aioresponses()
-    async def do_get_last_traded_prices_requests_rest_api_price_when_subscription_price_not_available(self, mock_response, api_mock):
-        self.data_source._shared_client = aiohttp.ClientSession()
-        self.data_source._trading_pairs = ["BTC-USDT"]
-
-        url = re.escape(f"{CONSTANTS.REST_URL}/{CONSTANTS.TRADES_PATH_URL}?symbol=")
-        regex_url = re.compile(f"^{url}")
-        api_mock.get(regex_url, body=json.dumps(mock_response))
-
-        results = await self.data_source.get_last_traded_prices(client=self.data_source._shared_client, trading_pairs=[self.trading_pair], throttler=self.throttler)
-
-        await self.data_source._shared_client.close()
-        return results
-
-    def test_get_last_traded_prices_requests_rest_api_price_when_subscription_price_not_available(self):
+    def test_get_last_traded_prices_requests_rest_api_price_when_subscription_price_not_available(self, api_mock):
         mock_response = {
             "code": 0,
             "data": {
@@ -156,35 +138,39 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
             }
         }
 
-        results = self.ev_loop.run_until_complete(self.do_get_last_traded_prices_requests_rest_api_price_when_subscription_price_not_available(mock_response))
+        self.data_source._trading_pairs = ["BTC-USDT"]
+
+        url = re.escape(f"{CONSTANTS.REST_URL}/{CONSTANTS.TRADES_PATH_URL}?symbol=")
+        regex_url = re.compile(f"^{url}")
+        api_mock.get(regex_url, body=json.dumps(mock_response))
+
+        results = self.ev_loop.run_until_complete(self.data_source.get_last_traded_prices(trading_pairs=[self.trading_pair], client=self.data_source._shared_client, throttler=self.throttler))
+
         self.assertEqual(results[self.trading_pair], float(mock_response["data"]["data"][1]["p"]))
 
     @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
-    async def do_listen_for_subscriptions_registers_to_orders_trades_and_instruments(self, ws_connect_mock):
-        self.data_source._shared_client = aiohttp.ClientSession()
+    def test_listen_for_subscriptions_registers_to_orders_trades_and_instruments(self, ws_connect_mock):
         self.data_source._trading_pairs = ["BTC-USDT"]
-        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+
+        websocket_mock = self.mocking_assistant.create_websocket_mock()
+        websocket_mock.receive.side_effect = asyncio.CancelledError()
+        ws_connect_mock.return_value = websocket_mock
 
         queue = asyncio.Queue()
 
+        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_trades(ev_loop=self.ev_loop, output=queue))
         try:
-            self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_trades(ev_loop=self.ev_loop, output=queue))
-            await asyncio.wait_for(self.mocking_assistant._all_ws_delivered.wait(), 0)
-        except asyncio.exceptions.TimeoutError:
+            self.ev_loop.run_until_complete(self.listening_task)
+        except asyncio.CancelledError:
             pass
 
+        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_order_book_diffs(ev_loop=self.ev_loop, output=queue))
         try:
-            self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_order_book_diffs(ev_loop=self.ev_loop, output=queue))
-            await asyncio.wait_for(self.mocking_assistant._all_ws_delivered.wait(), 0)
-        except asyncio.exceptions.TimeoutError:
+            self.ev_loop.run_until_complete(self.listening_task)
+        except asyncio.CancelledError:
             pass
 
         sent_messages = self.mocking_assistant.json_messages_sent_through_websocket(ws_connect_mock.return_value)
-        await self.data_source._shared_client.close()
-        return sent_messages
-
-    def test_listen_for_subscriptions_registers_to_orders_trades_and_instruments(self):
-        sent_messages = self.ev_loop.run_until_complete(self.do_listen_for_subscriptions_registers_to_orders_trades_and_instruments())
 
         self.assertEqual(2, len(sent_messages))
         expected_trades_subscription = {'op': 'sub', 'ch': 'trades:BTC/USDT'}
@@ -193,8 +179,7 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
         self.assertEqual(expected_depth_subscription, sent_messages[1])
 
     @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
-    async def do_listen_for_order_book_diff_raises_cancel_exceptions(self, ws_connect_mock):
-        self.data_source._shared_client = aiohttp.ClientSession()
+    def test_listen_for_order_book_diff_raises_cancel_exceptions(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         queue = asyncio.Queue()
@@ -202,47 +187,38 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
 
         with self.assertRaises(asyncio.CancelledError):
             self.listening_task.cancel()
-            await self.listening_task
-
-        await self.data_source._shared_client.close()
-
-    def test_listen_for_order_book_diff_raises_cancel_exceptions(self):
-        self.ev_loop.run_until_complete(self.do_listen_for_order_book_diff_raises_cancel_exceptions())
+            self.ev_loop.run_until_complete(self.listening_task)
 
     @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
-    async def do_listen_for_order_book_diff_raises_cancel_exception_when_canceled_during_ws_connection(self, ws_connect_mock):
-        self.data_source._shared_client = aiohttp.ClientSession()
+    def test_listen_for_order_book_diff_raises_cancel_exception_when_canceled_during_ws_connection(self, ws_connect_mock):
         ws_connect_mock.side_effect = asyncio.CancelledError()
 
         queue = asyncio.Queue()
         self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_order_book_diffs(ev_loop=self.ev_loop, output=queue))
 
         with self.assertRaises(asyncio.CancelledError):
-            await self.listening_task
+            self.ev_loop.run_until_complete(self.listening_task)
 
-        await self.data_source._shared_client.close()
-
-    def test_listen_for_order_book_diff_raises_cancel_exception_when_canceled_during_ws_connection(self):
-        self.ev_loop.run_until_complete(self.do_listen_for_order_book_diff_raises_cancel_exception_when_canceled_during_ws_connection())
-
+    @patch('asyncio.sleep', new_callable=AsyncMock)
     @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
-    async def do_listen_for_order_book_diff_ws_connection_exception_details_are_logged(self, ws_connect_mock):
-        self.data_source._shared_client = aiohttp.ClientSession()
-        ws_connect_mock.side_effect = Exception()
+    def test_listen_for_order_book_diff_ws_connection_exception_details_are_logged(self, ws_connect_mock, sleep_mock):
+        ws_connect_mock.side_effect = Exception
+        sleep_mock.side_effect = asyncio.CancelledError
 
         queue = asyncio.Queue()
         self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_order_book_diffs(ev_loop=self.ev_loop, output=queue))
-        await asyncio.sleep(0.5)
 
-        await self.data_source._shared_client.close()
+        with self.assertRaises(asyncio.CancelledError):
+            self.ev_loop.run_until_complete(self.listening_task)
 
-    def test_listen_for_order_book_diff_ws_connection_exception_details_are_logged(self):
-        self.ev_loop.run_until_complete(self.do_listen_for_order_book_diff_ws_connection_exception_details_are_logged())
         self.assertTrue(self._is_logged("ERROR", "Unexpected error with WebSocket connection. Retrying after 30 seconds..."))
 
+    @patch('asyncio.sleep', new_callable=AsyncMock)
     @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
-    async def do_listen_for_order_book_diff_logs_exceptions_details(self, ws_connect_mock):
-        self.data_source._shared_client = aiohttp.ClientSession()
+    def test_listen_for_order_book_diff_logs_exceptions_details(self, ws_connect_mock, sleep_mock):
+        ws_connect_mock.side_effect = Exception
+        sleep_mock.side_effect = asyncio.CancelledError
+
         sync_queue = asyncio.Queue()
 
         self.data_source._trading_pairs = ["BTC-USDT"]
@@ -254,21 +230,35 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
         queue = asyncio.Queue()
         self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_order_book_diffs(ev_loop=self.ev_loop, output=queue))
 
-        try:
-            await asyncio.wait_for(self.mocking_assistant._all_ws_delivered.wait(), 0)
-        except asyncio.exceptions.TimeoutError:
-            # The exception will happen when cancelling the task
-            pass
+        with self.assertRaises(asyncio.CancelledError):
+            self.ev_loop.run_until_complete(self.listening_task)
 
-        await self.data_source._shared_client.close()
-
-    def test_listen_for_order_book_diff_logs_exceptions_details(self):
-        self.ev_loop.run_until_complete(self.do_listen_for_order_book_diff_logs_exceptions_details())
         self.assertTrue(self._is_logged("ERROR", "Unexpected error with WebSocket connection. Retrying after 30 seconds..."))
 
     @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
-    async def do_listen_for_trades(self, mock_response, ws_connect_mock):
-        self.data_source._shared_client = aiohttp.ClientSession()
+    async def test_listen_for_trades(self, ws_connect_mock):
+        # Add trade event message be processed
+        mock_response = {
+            "m": "trades",
+            "symbol": "BTC/USDT",
+            "data": [
+                {
+                    "seqnum": 144115191800016553,
+                    "p": "0.06762",
+                    "q": "400",
+                    "ts": 1573165890854,
+                    "bm": False
+                },
+                {
+                    "seqnum": 144115191800070421,
+                    "p": "0.06797",
+                    "q": "341",
+                    "ts": 1573166037845,
+                    "bm": True
+                }
+            ]
+        }
+
         self.data_source._trading_pairs = ["BTC-USDT"]
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
@@ -278,76 +268,32 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
 
         self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(mock_response))
 
-        # Lock the test to let the async task run
-        try:
-            await asyncio.wait_for(self.mocking_assistant._all_ws_delivered.wait(), 0)
-        except asyncio.exceptions.TimeoutError:
-            # The exception will happen when cancelling the task
-            pass
-
-        first_trade = await trades_queue.get()
-        second_trade = await trades_queue.get()
+        first_trade = self.ev_loop.run_until_complete(trades_queue.get())
+        second_trade = self.ev_loop.run_until_complete(trades_queue.get())
 
         try:
             task.cancel()
-            await task
+            self.ev_loop.run_until_complete(task)
         except asyncio.CancelledError:
             # The exception will happen when cancelling the task
             pass
-
-        return first_trade, second_trade, trades_queue
-
-    def test_listen_for_trades(self):
-        # Add trade event message be processed
-        mock_response = {
-            "code": 0,
-            "data": {
-                "m": "trades",
-                "symbol": "BTC/USDT",
-                "data": [
-                    {
-                        "seqnum": 144115191800016553,
-                        "p": "0.06762",
-                        "q": "400",
-                        "ts": 1573165890854,
-                        "bm": False
-                    },
-                    {
-                        "seqnum": 144115191800070421,
-                        "p": "0.06797",
-                        "q": "341",
-                        "ts": 1573166037845,
-                        "bm": True
-                    }
-                ]
-            }
-        }
-
-        first_trade, second_trade, trades_queue = self.ev_loop.run_until_complete(self.do_listen_for_trades(mock_response))
 
         self.assertTrue(trades_queue.empty())
         self.assertEqual(1573165890854, first_trade.timestamp)
         self.assertEqual(1573166037845, second_trade.timestamp)
 
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
-    async def do_listen_for_trades_raises_cancel_exceptions(self, ws_connect_mock):
-        self.data_source._shared_client = aiohttp.ClientSession()
+    def test_listen_for_trades_raises_cancel_exceptions(self, ws_connect_mock):
         trades_queue = asyncio.Queue()
         task = self.ev_loop.create_task(
             self.data_source.listen_for_trades(ev_loop=self.ev_loop, output=trades_queue))
 
         with self.assertRaises(asyncio.CancelledError):
             task.cancel()
-            await task
-
-        await self.data_source._shared_client.close()
-
-    def test_listen_for_trades_raises_cancel_exceptions(self):
-        self.ev_loop.run_until_complete(self.do_listen_for_trades_raises_cancel_exceptions())
+            self.ev_loop.run_until_complete(task)
 
     @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
-    async def do_listen_for_trades_logs_exceptions_details(self, ws_connect_mock):
-        self.data_source._shared_client = aiohttp.ClientSession()
+    async def test_listen_for_trades_logs_exceptions_details(self, ws_connect_mock):
         sync_queue = asyncio.Queue()
 
         self.data_source._trading_pairs = ["BTC-USDT"]
@@ -359,55 +305,10 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
         queue = asyncio.Queue()
         self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_trades(ev_loop=self.ev_loop, output=queue))
 
-        try:
-            await asyncio.wait_for(self.mocking_assistant._all_ws_delivered.wait(), 0)
-        except asyncio.exceptions.TimeoutError:
-            # The exception will happen when cancelling the task
-            pass
-
-        await self.data_source._shared_client.close()
-
-    def test_listen_for_trades_logs_exceptions_details(self):
-        self.ev_loop.run_until_complete(self.do_listen_for_trades_logs_exceptions_details())
         self.assertTrue(self._is_logged("ERROR", "Unexpected error with WebSocket connection. Retrying after 30 seconds..."))
 
     @aioresponses()
-    async def do_listen_for_order_book_snapshot_event(self, mock_response, api_mock):
-        self.data_source._shared_client = aiohttp.ClientSession()
-        self.data_source._trading_pairs = ["BTC-USDT"]
-
-        # Add trade event message be processed
-        url = re.escape(f"{CONSTANTS.REST_URL}/{CONSTANTS.DEPTH_PATH_URL}?symbol=")
-        regex_url = re.compile(f"^{url}")
-        api_mock.get(regex_url, body=json.dumps(mock_response))
-
-        order_book_messages = asyncio.Queue()
-
-        task = self.ev_loop.create_task(
-            self.data_source.listen_for_order_book_snapshots(ev_loop=self.ev_loop, output=order_book_messages))
-
-        # Lock the test to let the async task run
-        try:
-            await asyncio.wait_for(self.mocking_assistant._all_ws_delivered.wait(), 0)
-        except asyncio.exceptions.TimeoutError:
-            # The exception will happen when cancelling the task
-            pass
-
-        # Lock the test to let the async task run
-        order_book_message = await order_book_messages.get()
-
-        try:
-            task.cancel()
-            await task
-        except asyncio.CancelledError:
-            # The exception will happen when cancelling the task
-            pass
-
-        await self.data_source._shared_client.close()
-
-        return order_book_messages, order_book_message
-
-    def test_listen_for_order_book_snapshot_event(self):
+    def test_listen_for_order_book_snapshot_event(self, api_mock):
         mock_response = {
             "code": 0,
             "data": {
@@ -440,7 +341,26 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
             }
         }
 
-        order_book_messages, order_book_message = self.ev_loop.run_until_complete(self.do_listen_for_order_book_snapshot_event(mock_response))
+        self.data_source._trading_pairs = ["BTC-USDT"]
+
+        # Add trade event message be processed
+        url = re.escape(f"{CONSTANTS.REST_URL}/{CONSTANTS.DEPTH_PATH_URL}?symbol=")
+        regex_url = re.compile(f"^{url}")
+        api_mock.get(regex_url, body=json.dumps(mock_response))
+
+        order_book_messages = asyncio.Queue()
+
+        task = self.ev_loop.create_task(
+            self.data_source.listen_for_order_book_snapshots(ev_loop=self.ev_loop, output=order_book_messages))
+
+        order_book_message = self.ev_loop.run_until_complete(order_book_messages.get())
+
+        try:
+            task.cancel()
+            self.ev_loop.run_until_complete(task)
+        except asyncio.CancelledError:
+            # The exception will happen when cancelling the task
+            pass
 
         self.assertTrue(order_book_messages.empty())
         self.assertEqual(1573165838976, order_book_message.update_id)
@@ -449,40 +369,7 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
         self.assertEqual(0.06848, order_book_message.asks[0].price)
 
     @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
-    async def do_listen_for_order_book_diff_event(self, mock_response, ws_connect_mock):
-        self.data_source._shared_client = aiohttp.ClientSession()
-        self.data_source._trading_pairs = ["BTC-USD"]
-        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-
-        # Add a response
-        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(mock_response))
-
-        order_book_messages = asyncio.Queue()
-
-        task = self.ev_loop.create_task(
-            self.data_source.listen_for_order_book_diffs(ev_loop=self.ev_loop, output=order_book_messages))
-
-        try:
-            await asyncio.wait_for(self.mocking_assistant._all_ws_delivered.wait(), 0)
-        except asyncio.exceptions.TimeoutError:
-            # The exception will happen when cancelling the task
-            pass
-
-        # Lock the test to let the async task run
-        order_book_message = await order_book_messages.get()
-
-        try:
-            task.cancel()
-            await task
-        except asyncio.CancelledError:
-            # The exception will happen when cancelling the task
-            pass
-
-        await self.data_source._shared_client.close()
-
-        return order_book_messages, order_book_message
-
-    def test_listen_for_order_book_diff_event(self):
+    def test_listen_for_order_book_diff_event(self, ws_connect_mock):
         mock_response = {
             "m": "depth",
             "symbol": "ASD/USDT",
@@ -508,7 +395,25 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
             }
         }
 
-        order_book_messages, order_book_message = self.ev_loop.run_until_complete(self.do_listen_for_order_book_diff_event(mock_response))
+        self.data_source._trading_pairs = ["BTC-USD"]
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+
+        # Add a response
+        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(mock_response))
+
+        order_book_messages = asyncio.Queue()
+
+        task = self.ev_loop.create_task(
+            self.data_source.listen_for_order_book_diffs(ev_loop=self.ev_loop, output=order_book_messages))
+
+        order_book_message = self.ev_loop.run_until_complete(order_book_messages.get())
+
+        try:
+            task.cancel()
+            self.ev_loop.run_until_complete(task)
+        except asyncio.CancelledError:
+            # The exception will happen when cancelling the task
+            pass
 
         self.assertTrue(order_book_messages.empty())
         self.assertEqual(1573069021376, order_book_message.update_id)
@@ -518,26 +423,7 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
         self.assertEqual(0.06844, order_book_message.asks[0].price)
 
     @aioresponses()
-    async def do_get_new_order_book(self, mock_response, api_mock):
-        self.data_source._shared_client = aiohttp.ClientSession()
-        self.data_source._trading_pairs = ["BTC-USDT"]
-
-        # path_url = ascend_ex_utils.rest_api_path_for_endpoint(CONSTANTS.ORDER_BOOK_ENDPOINT, self.trading_pair)
-        url = re.escape(f"{CONSTANTS.REST_URL}/{CONSTANTS.DEPTH_PATH_URL}?symbol=")
-        regex_url = re.compile(f"^{url}")
-        api_mock.get(regex_url, body=json.dumps(mock_response))
-
-        self.listening_task = self.ev_loop.create_task(
-            self.data_source.get_new_order_book(self.trading_pair))
-        order_book = await self.listening_task
-        bids = list(order_book.bid_entries())
-        asks = list(order_book.ask_entries())
-
-        await self.data_source._shared_client.close()
-
-        return bids, asks
-
-    def test_get_new_order_book(self):
+    def test_get_new_order_book(self, api_mock):
         mock_response = {
             "code": 0,
             "data": {
@@ -570,7 +456,18 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
             }
         }
 
-        bids, asks = self.ev_loop.run_until_complete(self.do_get_new_order_book(mock_response))
+        self.data_source._trading_pairs = ["BTC-USDT"]
+
+        # path_url = ascend_ex_utils.rest_api_path_for_endpoint(CONSTANTS.ORDER_BOOK_ENDPOINT, self.trading_pair)
+        url = re.escape(f"{CONSTANTS.REST_URL}/{CONSTANTS.DEPTH_PATH_URL}?symbol=")
+        regex_url = re.compile(f"^{url}")
+        api_mock.get(regex_url, body=json.dumps(mock_response))
+
+        self.listening_task = self.ev_loop.create_task(
+            self.data_source.get_new_order_book(self.trading_pair))
+        order_book = self.ev_loop.run_until_complete(self.listening_task)
+        bids = list(order_book.bid_entries())
+        asks = list(order_book.ask_entries())
 
         self.assertEqual(2, len(bids))
         self.assertEqual(0.06703, round(bids[0].price, 5))

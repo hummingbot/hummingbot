@@ -28,16 +28,26 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
         return cls._logger
 
     def __init__(
-        self, shared_client: aiohttp.ClientSession, throttler: AsyncThrottler, ascend_ex_auth: AscendExAuth, trading_pairs: Optional[List[str]] = None
+        self, ascend_ex_auth: AscendExAuth, shared_client: Optional[aiohttp.ClientSession] = None, throttler: Optional[AsyncThrottler] = None, trading_pairs: Optional[List[str]] = None
     ):
         super().__init__()
-        self._shared_client = shared_client
-        self._throttler = throttler
+        self._shared_client = shared_client or self._get_session_instance()
+        self._throttler = throttler or self._get_throttler_instance()
         self._ascend_ex_auth: AscendExAuth = ascend_ex_auth
         self._trading_pairs = trading_pairs or []
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
         self._last_recv_time: float = 0
+
+    @classmethod
+    def _get_session_instance(cls) -> aiohttp.ClientSession:
+        session = aiohttp.ClientSession()
+        return session
+
+    @classmethod
+    def _get_throttler_instance(cls) -> AsyncThrottler:
+        throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        return throttler
 
     @property
     def last_recv_time(self) -> float:
@@ -75,9 +85,8 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
                         async with self._throttler.execute_task(CONSTANTS.SUB_ENDPOINT_NAME):
                             await ws.send_json(payload)
 
-                        async for raw_msg in self._inner_messages(ws):
+                        async for msg in self._inner_messages(ws):
                             try:
-                                msg = raw_msg
                                 if msg is None:
                                     continue
 
@@ -94,8 +103,6 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
                         raise
                     finally:
                         await ws.close()
-                        if self._shared_client is not None and not self._shared_client.closed:
-                            await self._shared_client.close()
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -131,5 +138,3 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
             return
         finally:
             await ws.close()
-            if self._shared_client is not None and not self._shared_client.closed:
-                await self._shared_client.close()
