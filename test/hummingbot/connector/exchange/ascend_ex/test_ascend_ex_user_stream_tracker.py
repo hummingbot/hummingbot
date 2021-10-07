@@ -1,6 +1,6 @@
 import asyncio
 from unittest import TestCase
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 from typing import Dict, Any, Awaitable
 from aioresponses import aioresponses
 import json
@@ -46,7 +46,7 @@ class AscendExUserStreamTrackerTests(TestCase):
         return message
 
     @aioresponses()
-    @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
+    @patch("aiohttp.client.ClientSession.ws_connect")
     def test_listening_process_authenticates_and_subscribes_to_events(self, api_mock, ws_connect_mock):
         ret = {}
 

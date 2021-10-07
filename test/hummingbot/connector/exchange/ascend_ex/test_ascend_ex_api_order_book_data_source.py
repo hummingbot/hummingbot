@@ -4,7 +4,7 @@ import re
 
 from aioresponses import aioresponses
 from unittest import TestCase
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch
 
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source import AscendExAPIOrderBookDataSource
 from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS
@@ -148,7 +148,7 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
 
         self.assertEqual(results[self.trading_pair], float(mock_response["data"]["data"][1]["p"]))
 
-    @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
+    @patch("aiohttp.client.ClientSession.ws_connect")
     def test_listen_for_subscriptions_registers_to_orders_trades_and_instruments(self, ws_connect_mock):
         self.data_source._trading_pairs = ["BTC-USDT"]
 
@@ -178,7 +178,7 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
         self.assertEqual(expected_trades_subscription, sent_messages[0])
         self.assertEqual(expected_depth_subscription, sent_messages[1])
 
-    @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
+    @patch("aiohttp.client.ClientSession.ws_connect")
     def test_listen_for_order_book_diff_raises_cancel_exceptions(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
@@ -189,7 +189,7 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
             self.listening_task.cancel()
             self.ev_loop.run_until_complete(self.listening_task)
 
-    @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
+    @patch("aiohttp.client.ClientSession.ws_connect")
     def test_listen_for_order_book_diff_raises_cancel_exception_when_canceled_during_ws_connection(self, ws_connect_mock):
         ws_connect_mock.side_effect = asyncio.CancelledError()
 
@@ -199,8 +199,8 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
         with self.assertRaises(asyncio.CancelledError):
             self.ev_loop.run_until_complete(self.listening_task)
 
-    @patch('asyncio.sleep', new_callable=AsyncMock)
-    @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
+    @patch('asyncio.sleep')
+    @patch("aiohttp.client.ClientSession.ws_connect")
     def test_listen_for_order_book_diff_ws_connection_exception_details_are_logged(self, ws_connect_mock, sleep_mock):
         ws_connect_mock.side_effect = Exception
         sleep_mock.side_effect = asyncio.CancelledError
@@ -213,8 +213,8 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
 
         self.assertTrue(self._is_logged("ERROR", "Unexpected error with WebSocket connection. Retrying after 30 seconds..."))
 
-    @patch('asyncio.sleep', new_callable=AsyncMock)
-    @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
+    @patch('asyncio.sleep')
+    @patch("aiohttp.client.ClientSession.ws_connect")
     def test_listen_for_order_book_diff_logs_exceptions_details(self, ws_connect_mock, sleep_mock):
         ws_connect_mock.side_effect = Exception
         sleep_mock.side_effect = asyncio.CancelledError
@@ -235,7 +235,7 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
 
         self.assertTrue(self._is_logged("ERROR", "Unexpected error with WebSocket connection. Retrying after 30 seconds..."))
 
-    @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
+    @patch("aiohttp.client.ClientSession.ws_connect")
     async def test_listen_for_trades(self, ws_connect_mock):
         # Add trade event message be processed
         mock_response = {
@@ -282,7 +282,7 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
         self.assertEqual(1573165890854, first_trade.timestamp)
         self.assertEqual(1573166037845, second_trade.timestamp)
 
-    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch("aiohttp.client.ClientSession.ws_connect")
     def test_listen_for_trades_raises_cancel_exceptions(self, ws_connect_mock):
         trades_queue = asyncio.Queue()
         task = self.ev_loop.create_task(
@@ -292,7 +292,7 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
             task.cancel()
             self.ev_loop.run_until_complete(task)
 
-    @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
+    @patch("aiohttp.client.ClientSession.ws_connect")
     async def test_listen_for_trades_logs_exceptions_details(self, ws_connect_mock):
         sync_queue = asyncio.Queue()
 
@@ -368,7 +368,7 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
         self.assertEqual(0.06703, order_book_message.bids[0].price)
         self.assertEqual(0.06848, order_book_message.asks[0].price)
 
-    @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
+    @patch("aiohttp.client.ClientSession.ws_connect")
     def test_listen_for_order_book_diff_event(self, ws_connect_mock):
         mock_response = {
             "m": "depth",
