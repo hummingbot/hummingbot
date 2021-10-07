@@ -5,9 +5,9 @@
 # the cert files in the same place as CERT_PATH from /conf/gateway-config.yml
 
 # Here are some examples
-# export ETH_PRIVATE_KEY='beaaaa2f32280128fa7c18ae77744d5401346ed98c065b1a99e6ed7773850909'
-# export GATEWAY_CERT='/home/hummingbot/gateway/certs/client_key.pem'
-# export GATEWAY_KEY='/home/hummingbot/gateway/certs/client_cert.pem'
+# export ETH_PRIVATE_KEY='0000000000000000000000000000000000000000000000000000000000000001'
+# export GATEWAY_CERT='/home/hummingbot/gateway/certs/client_cert.pem'
+# export GATEWAY_KEY='/home/hummingbot/gateway/certs/client_key.pem'
 
 # -k is --insecure, this disables certificate verfication and should only be
 # used for local development and testing
@@ -16,35 +16,35 @@
 # TEST SERVERS
 
 # test that the gateway-api server is running
-curl -X GET -k --key $GATEWAY_KEY --cert $GATEWAY_CERT https://localhost:5000/
+curl -s -X GET -k --key $GATEWAY_KEY --cert $GATEWAY_CERT https://localhost:5000/ | jq
 
 # test that the gateway-api ethereum server is running
-curl -X GET -k --key $GATEWAY_KEY --cert $GATEWAY_CERT https://localhost:5000/eth
+curl -s -X GET -k --key $GATEWAY_KEY --cert $GATEWAY_CERT https://localhost:5000/eth | jq
 
-curl -X GET -k --key $GATEWAY_KEY --cert $GATEWAY_CERT https://localhost:5000/eth/uniswap
+curl -s -X GET -k --key $GATEWAY_KEY --cert $GATEWAY_CERT https://localhost:5000/eth/uniswap | jq
 
 
 # TEST Ethereum
 # get Ethereum balances for your private key
-curl -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/eth_balances.json)" https://localhost:5000/eth/balances
+curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/eth_balances.json)" https://localhost:5000/eth/balances | jq
 
 # get Ethereum allowances for your uniswap on private key
-curl -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/eth_allowances.json)" https://localhost:5000/eth/allowances
+curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/eth_allowances.json)" https://localhost:5000/eth/allowances | jq
 
 # approve uniswap allowance on your private key
-curl -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/eth_approve.json)" https://localhost:5000/eth/approve
+curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/eth_approve.json)" https://localhost:5000/eth/approve | jq
 
 # remove uniswap allowance on your private key
-curl -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/eth_remove_allowance.json)" https://localhost:5000/eth/approve
+curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/eth_remove_allowance.json)" https://localhost:5000/eth/approve | jq
 
 # get the next nonce you should use for your private key
-curl -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/eth_remove_allowance.json)" https://localhost:5000/eth/nonce
+curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/eth_remove_allowance.json)" https://localhost:5000/eth/nonce | jq
 
 # call approve with a nonce, if the nonce is incorrect, this should fail
-curl -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/eth_approve_with_nonce.json)" https://localhost:5000/eth/approve
+curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/eth_approve_with_nonce.json)" https://localhost:5000/eth/approve | jq
 
 # poll the status of an ethereum transaction
-curl -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/eth_poll.json)" https://localhost:5000/eth/poll
+curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/eth_poll.json)" https://localhost:5000/eth/poll | jq
 
 # cancel a transaction. Note: modify to send the nonce of the transaction to be canceled
-curl -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/eth_cancel.json)" https://localhost:5000/eth/cancel
+curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/eth_cancel.json)" https://localhost:5000/eth/cancel | jq
