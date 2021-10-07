@@ -15,6 +15,8 @@ from async_timeout import timeout
 
 s_decimal_0 = Decimal(0)
 
+GET_EX_ORDER_ID_TIMEOUT = 5  # seconds
+
 cdef class InFlightOrderBase:
     def __init__(self,
                  client_order_id: str,
@@ -81,7 +83,7 @@ cdef class InFlightOrderBase:
 
     async def get_exchange_order_id(self):
         if self.exchange_order_id is None:
-            async with timeout(10):
+            async with timeout(GET_EX_ORDER_ID_TIMEOUT):
                 await self.exchange_order_id_update_event.wait()
         return self.exchange_order_id
 

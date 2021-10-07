@@ -61,7 +61,7 @@ class NdaxExchange(ExchangeBase):
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
     UPDATE_TRADING_RULES_INTERVAL = 60.0
     LONG_POLL_INTERVAL = 120.0
-    ORDER_NOT_EXIST_CANCEL_COUNT = 2
+    ORDER_EXCEED_NOT_FOUND_COUNT = 2
 
     _logger = None
 
@@ -572,7 +572,7 @@ class NdaxExchange(ExchangeBase):
             )
             if "Resource not found" in str(e):
                 self._order_not_found_records[order_id] = self._order_not_found_records.get(order_id, 0) + 1
-                if self._order_not_found_records[order_id] >= self.ORDER_NOT_EXIST_CANCEL_COUNT:
+                if self._order_not_found_records[order_id] >= self.ORDER_EXCEED_NOT_FOUND_COUNT:
                     self.logger().info(f"Order {order_id} does not seem to be active, will stop tracking order...")
                     self.stop_tracking_order(order_id)
                     self.trigger_event(MarketEvent.OrderCancelled,
@@ -773,13 +773,13 @@ class NdaxExchange(ExchangeBase):
 
         tasks = []
         for active_order in active_orders:
-            ex_order_id = safe_gather(active_order.get_exchange_order_id(), return_exceptions=True)
-            if not ex_order_id or isinstance(ex_order_id, Exception):
+            ex_order_id = await safe_gather(active_order.get_exchange_order_id(), return_exceptions=True)
+            if not ex_order_id or (isinstance(ex_order_id, List) and isinstance(ex_order_id[0], Exception)):
                 # We assume that tracked orders without an exchange order id is an order that failed to be created.
                 self._order_not_found_records[active_order.client_order_id] = self._order_not_found_records.get(active_order.client_order_id, 0) + 1
                 self.logger().debug(f"Tracker order {active_order.client_order_id} does not have an exchange id."
                                     f"Attempting fetch in next polling interval")
-                if self._order_not_found_records[active_order.client_order_id] >= self.ORDER_NOT_EXIST_CANCEL_COUNT:
+                if self._order_not_found_records[active_order.client_order_id] >= self.ORDER_EXCEED_NOT_FOUND_COUNT:
                     self.logger().info(f"Order {active_order.client_order_id} does not seem to be active, will stop tracking order...")
                     self.stop_tracking_order(active_order.client_order_id)
                     self.trigger_event(MarketEvent.OrderCancelled,
