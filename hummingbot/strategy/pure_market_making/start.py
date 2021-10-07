@@ -61,6 +61,7 @@ def start(self):
         self.assets = set(maker_assets)
         maker_data = [self.markets[exchange], trading_pair] + list(maker_assets)
         self.market_trading_pair_tuples = [MarketTradingPairTuple(*maker_data)]
+
         asset_price_delegate = None
         if price_source == "external_market":
             asset_trading_pair: str = price_source_market
@@ -81,6 +82,7 @@ def start(self):
 
         strategy_logging_options = PureMarketMakingStrategy.OPTION_LOG_ALL
         self.strategy = PureMarketMakingStrategy()
+        print(self.strategy)
         self.strategy.init_params(
             market_info=MarketTradingPairTuple(*maker_data),
             bid_spread=bid_spread,

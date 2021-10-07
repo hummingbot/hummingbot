@@ -99,7 +99,6 @@ class AscendExExchange(ExchangePyBase):
         super().__init__()
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
-        self._ev_loop = asyncio.get_event_loop()
         self._shared_client = aiohttp.ClientSession()
         self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         self._order_book_tracker = AscendExOrderBookTracker(shared_client=self._shared_client, throttler=self._throttler, trading_pairs=self._trading_pairs)
