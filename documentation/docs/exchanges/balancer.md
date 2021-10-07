@@ -3,7 +3,7 @@
 Balancer is an automated portfolio manager, liquidity provider, and price sensor. In other words, a decentralized finance protocol based on Ethereum allows automatic market-making.
 
 !!! warning
-    Currently, [Balancer](/connectors/balancer) could not be used on Binary Installers since it would need a [gateway](/installation/gateway/#what-is-hummingbot-gateway) connection for it to work. It can only be used when running Hummingbot from source or with Docker
+    Currently, [Balancer](/connectors/balancer) could not be used on Binary Installers since it would need a [gateway](/protocols/gateway/#what-is-hummingbot-gateway) connection for it to work. It can only be used when running Hummingbot from source or with Docker
 
 ## Prerequisites
 
@@ -28,8 +28,8 @@ When creating Hummingbot Gateway, it picks up the Ethereum settings in the globa
 
 After adding your Ethereum wallet and node in Hummingbot, follow the guide in the link below on how to install Hummingbot Gateway.
 
-- [Hummingbot Gateway Installation](/installation/gateway/)
+- [Hummingbot Gateway Installation](/protocols/gateway/)
 
 !!! note
-    For setting up gas estimator, you can check our [ETH Gas Station](/installation/gateway/#eth-gas-station) for more info
+    For setting up gas estimator, you can check our [ETH Gas Station](/protocols/gateway/#eth-gas-station) for more info
 
