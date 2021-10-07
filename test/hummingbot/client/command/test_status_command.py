@@ -14,7 +14,7 @@ class StatusCommandTest(unittest.TestCase):
         super().setUp()
         self.ev_loop = asyncio.get_event_loop()
         self.app = HummingbotApplication()
-        self.cli_mock_assistant = CLIMockingAssistant()
+        self.cli_mock_assistant = CLIMockingAssistant(self.app.app)
         self.cli_mock_assistant.start()
 
     def tearDown(self) -> None:
