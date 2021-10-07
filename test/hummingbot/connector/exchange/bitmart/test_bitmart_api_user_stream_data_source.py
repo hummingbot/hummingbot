@@ -248,15 +248,17 @@ class BitmartAPIUserStreamDataSourceTests(unittest.TestCase):
         self.assertTrue(self._is_logged("ERROR", "Unexpected error with BitMart WebSocket connection. "
                                                  "Retrying after 30 seconds..."))
 
-    @patch("hummingbot.connector.exchange.bitmart.bitmart_api_user_stream_data_source.BitmartAPIUserStreamDataSource._authenticate")
-    @patch("hummingbot.connector.exchange.bitmart.bitmart_api_user_stream_data_source.BitmartAPIUserStreamDataSource._subscribe_to_channels")
-    @patch("hummingbot.connector.exchange.bitmart.bitmart_api_user_stream_data_source.BitmartAPIUserStreamDataSource._init_websocket_connection",
-           new_callable=AsyncMock)
-    def test_listen_for_user_stream_inner_messages_recv_timeout(self, ws_connect_mock, *_):
+    @patch('websockets.connect', new_callable=AsyncMock)
+    def test_listen_for_user_stream_inner_messages_recv_timeout(self, ws_connect_mock):
         self.data_source.MESSAGE_TIMEOUT = 0.1
 
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         ws_connect_mock.return_value.ping.side_effect = lambda: done_callback_event.set()
+
+        # Add the authentication response for the websocket
+        self.mocking_assistant.add_websocket_text_message(
+            ws_connect_mock.return_value,
+            json.dumps({"event": "login"}))
 
         done_callback_event = asyncio.Event()
         message_queue = asyncio.Queue()
@@ -267,11 +269,8 @@ class BitmartAPIUserStreamDataSourceTests(unittest.TestCase):
 
         self.ev_loop.run_until_complete(done_callback_event.wait())
 
-    @patch("hummingbot.connector.exchange.bitmart.bitmart_api_user_stream_data_source.BitmartAPIUserStreamDataSource._authenticate")
-    @patch("hummingbot.connector.exchange.bitmart.bitmart_api_user_stream_data_source.BitmartAPIUserStreamDataSource._subscribe_to_channels")
-    @patch("hummingbot.connector.exchange.bitmart.bitmart_api_user_stream_data_source.BitmartAPIUserStreamDataSource._init_websocket_connection",
-           new_callable=AsyncMock)
-    def test_listen_for_user_stream_inner_messages_recv_timeout_ping_timeout(self, ws_connect_mock, *_):
+    @patch('websockets.connect', new_callable=AsyncMock)
+    def test_listen_for_user_stream_inner_messages_recv_timeout_ping_timeout(self, ws_connect_mock):
         self.data_source.PING_TIMEOUT = 0.1
         self.data_source.MESSAGE_TIMEOUT = 0.1
 
@@ -280,6 +279,11 @@ class BitmartAPIUserStreamDataSourceTests(unittest.TestCase):
         ws_connect_mock.return_value.ping.side_effect = NetworkMockingAssistant.async_partial(
             self.mocking_assistant._get_next_websocket_text_message, ws_connect_mock.return_value
         )
+
+        # Add the authentication response for the websocket
+        self.mocking_assistant.add_websocket_text_message(
+            ws_connect_mock.return_value,
+            json.dumps({"event": "login"}))
 
         done_callback_event = asyncio.Event()
         message_queue = asyncio.Queue()
