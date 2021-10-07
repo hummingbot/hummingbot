@@ -558,6 +558,8 @@ class NdaxExchange(ExchangeBase):
                 is_auth_required=True
             )
 
+            return order_id
+
         except asyncio.CancelledError:
             raise
         except NdaxInFlightOrderNotCreated:
@@ -577,8 +579,6 @@ class NdaxExchange(ExchangeBase):
                     self.stop_tracking_order(order_id)
                     self.trigger_event(MarketEvent.OrderCancelled,
                                        OrderCancelledEvent(self.current_timestamp, order_id))
-        finally:
-            return order_id
 
     def cancel(self, trading_pair: str, order_id: str):
         """
@@ -773,8 +773,10 @@ class NdaxExchange(ExchangeBase):
 
         tasks = []
         for active_order in active_orders:
-            ex_order_id = await safe_gather(active_order.get_exchange_order_id(), return_exceptions=True)
-            if not ex_order_id or (isinstance(ex_order_id, List) and isinstance(ex_order_id[0], Exception)):
+            ex_order_id: Optional[str] = None
+            try:
+                ex_order_id = await active_order.get_exchange_order_id()
+            except asyncio.TimeoutError:
                 # We assume that tracked orders without an exchange order id is an order that failed to be created.
                 self._order_not_found_records[active_order.client_order_id] = self._order_not_found_records.get(active_order.client_order_id, 0) + 1
                 self.logger().debug(f"Tracker order {active_order.client_order_id} does not have an exchange id."
