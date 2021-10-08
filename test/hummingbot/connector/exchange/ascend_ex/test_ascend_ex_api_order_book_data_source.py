@@ -199,7 +199,7 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
         with self.assertRaises(asyncio.CancelledError):
             self.ev_loop.run_until_complete(self.listening_task)
 
-    @patch('asyncio.sleep')
+    @patch('hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source.AscendExAPIOrderBookDataSource._sleep')
     @patch("aiohttp.client.ClientSession.ws_connect")
     def test_listen_for_order_book_diff_ws_connection_exception_details_are_logged(self, ws_connect_mock, sleep_mock):
         ws_connect_mock.side_effect = Exception
@@ -213,7 +213,7 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
 
         self.assertTrue(self._is_logged("ERROR", "Unexpected error with WebSocket connection. Retrying after 30 seconds..."))
 
-    @patch('asyncio.sleep')
+    @patch('hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source.AscendExAPIOrderBookDataSource._sleep')
     @patch("aiohttp.client.ClientSession.ws_connect")
     def test_listen_for_order_book_diff_logs_exceptions_details(self, ws_connect_mock, sleep_mock):
         ws_connect_mock.side_effect = Exception

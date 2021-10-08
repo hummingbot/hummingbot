@@ -82,7 +82,6 @@ def start(self):
 
         strategy_logging_options = PureMarketMakingStrategy.OPTION_LOG_ALL
         self.strategy = PureMarketMakingStrategy()
-        print(self.strategy)
         self.strategy.init_params(
             market_info=MarketTradingPairTuple(*maker_data),
             bid_spread=bid_spread,

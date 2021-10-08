@@ -40,23 +40,13 @@ class AscendExUserStreamTracker(UserStreamTracker):
                  ascend_ex_auth: Optional[AscendExAuth] = None,
                  trading_pairs: Optional[List[str]] = None):
         super().__init__()
-        self._shared_client = shared_client or self._get_session_instance()
-        self._throttler = throttler or self._get_throttler_instance()
+        self._shared_client = shared_client
+        self._throttler = throttler
         self._ascend_ex_auth: AscendExAuth = ascend_ex_auth
         self._trading_pairs: List[str] = trading_pairs or []
         self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
         self._data_source: Optional[UserStreamTrackerDataSource] = None
         self._user_stream_tracking_task: Optional[asyncio.Task] = None
-
-    @classmethod
-    def _get_session_instance(cls) -> aiohttp.ClientSession:
-        session = aiohttp.ClientSession()
-        return session
-
-    @classmethod
-    def _get_throttler_instance(cls) -> AsyncThrottler:
-        throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
-        return throttler
 
     @property
     def data_source(self) -> UserStreamTrackerDataSource:

@@ -51,6 +51,12 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
         throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         return throttler
 
+    async def _sleep(self, delay):
+        """
+        Function added only to facilitate patching the sleep in unit tests without affecting the asyncio module
+        """
+        await asyncio.sleep(delay)
+
     @classmethod
     async def get_last_traded_prices(
         cls, trading_pairs: List[str], client: Optional[aiohttp.ClientSession] = None, throttler: Optional[AsyncThrottler] = None
@@ -179,7 +185,7 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self.logger().debug(str(e))
                 self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
                                     exc_info=True)
-                await asyncio.sleep(30.0)
+                await self._sleep(30.0)
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
@@ -219,7 +225,7 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self.logger().debug(str(e))
                 self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
                                     exc_info=True)
-                await asyncio.sleep(30.0)
+                await self._sleep(30.0)
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
