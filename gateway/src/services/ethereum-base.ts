@@ -159,14 +159,26 @@ export class EthereumBase {
   }
 
   // returns an ethereum TransactionReceipt for a txHash if the transaction has been mined.
-  getTransactionReceipt(txHash: string): providers.TransactionReceipt | null {
-    const txReceipt = this.cache.get(
-      txHash
-    ) as providers.TransactionReceipt | null;
-    if (!txReceipt && !this.events.includes(txHash)) {
-      this._provider.once(txHash, this.cacheTransactionReceipt.bind(this));
+  async getTransactionReceipt(
+    txHash: string
+  ): Promise<providers.TransactionReceipt> {
+    if (this.cache.keys().includes(txHash)) {
+      // If it's in the cache, return the value in cache, whether it's null or not
+      return this.cache.get(txHash) as providers.TransactionReceipt;
+    } else {
+      // If it's not in the cache,
+      const fetchedTxReceipt = await this._provider.getTransactionReceipt(
+        txHash
+      );
+
+      this.cache.set(txHash, fetchedTxReceipt); // Cache the fetched receipt, whether it's null or not
+
+      if (!fetchedTxReceipt) {
+        this._provider.once(txHash, this.cacheTransactionReceipt.bind(this));
+      }
+
+      return fetchedTxReceipt;
     }
-    return txReceipt ? txReceipt : null;
   }
 
   // adds allowance by spender to transfer the given amount of Token

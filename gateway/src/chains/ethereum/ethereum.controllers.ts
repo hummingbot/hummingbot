@@ -78,7 +78,7 @@ const toEthereumTransactionReceipt = (
 
 export async function poll(txHash: string) {
   const initTime = Date.now();
-  const receipt = ethereum.getTransactionReceipt(txHash);
+  const receipt = await ethereum.getTransactionReceipt(txHash);
   const confirmed = !!receipt && !!receipt.blockNumber;
 
   if (receipt && receipt.status === 0) {
