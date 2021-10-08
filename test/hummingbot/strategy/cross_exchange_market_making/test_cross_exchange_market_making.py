@@ -1,7 +1,12 @@
-#!/usr/bin/env python
+import logging
 import pandas as pd
 from typing import List
 import unittest
+
+from decimal import Decimal
+from math import floor, ceil
+from nose.plugins.attrib import attr
+
 from hummingsim.backtest.backtest_market import BacktestMarket
 from hummingsim.backtest.market import (
     AssetType,
@@ -11,30 +16,26 @@ from hummingsim.backtest.market import (
 )
 from hummingsim.backtest.mock_order_book_loader import MockOrderBookLoader
 from hummingbot.core.clock import Clock, ClockMode
-from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import (
-    MarketEvent,
-    OrderBookTradeEvent,
-    TradeType,
-    OrderType,
-    OrderFilledEvent,
-    BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
-    TradeFee,
-    BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
-)
-from math import floor, ceil
+from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_row import OrderBookRow
-from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketEvent,
+    OrderBookTradeEvent,
+    OrderFilledEvent,
+    OrderType,
+    SellOrderCreatedEvent,
+    SellOrderCompletedEvent,
+    TradeFee,
+    TradeType,
+)
+from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarketMakingStrategy
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_pair import CrossExchangeMarketPair
-from nose.plugins.attrib import attr
-
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from decimal import Decimal
-import logging
+
 
 logging.basicConfig(level=logging.ERROR)
 
@@ -232,8 +233,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
 
         bid_order: LimitOrder = self.strategy.active_bids[0][1]
         ask_order: LimitOrder = self.strategy.active_asks[0][1]
-        self.assertEqual(Decimal("0.99452"), bid_order.price)
-        self.assertEqual(Decimal("1.0056"), ask_order.price)
+        self.assertEqual(Decimal("0.99451"), bid_order.price)
+        self.assertEqual(Decimal("1.0055"), ask_order.price)
         self.assertEqual(Decimal("3.0"), bid_order.quantity)
         self.assertEqual(Decimal("3.0"), ask_order.quantity)
 
@@ -247,7 +248,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         taker_fill: OrderFilledEvent = self.taker_order_fill_logger.event_log[0]
         self.assertEqual(TradeType.BUY, maker_fill.trade_type)
         self.assertEqual(TradeType.SELL, taker_fill.trade_type)
-        self.assertAlmostEqual(Decimal("0.99452"), maker_fill.price)
+        self.assertAlmostEqual(Decimal("0.99451"), maker_fill.price)
         self.assertAlmostEqual(Decimal("0.9995"), taker_fill.price)
         self.assertAlmostEqual(Decimal("3.0"), maker_fill.amount)
         self.assertAlmostEqual(Decimal("3.0"), taker_fill.amount)
@@ -283,8 +284,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             )
         )
 
-        self.assertEqual(Decimal("0.99452"), bid_order.price)
-        self.assertEqual(Decimal("1.0056"), ask_order.price)
+        self.assertEqual(Decimal("0.99451"), bid_order.price)
+        self.assertEqual(Decimal("1.0055"), ask_order.price)
         self.assertEqual(Decimal("3.0"), bid_order.quantity)
         self.assertEqual(Decimal("3.0"), ask_order.quantity)
 
@@ -299,15 +300,15 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         bid_order = self.strategy_with_top_depth_tolerance.active_bids[0][1]
         ask_order = self.strategy_with_top_depth_tolerance.active_asks[0][1]
         self.assertEqual(Decimal("0.98457"), bid_order.price)
-        self.assertEqual(Decimal("1.0156"), ask_order.price)
+        self.assertEqual(Decimal("1.0155"), ask_order.price)
 
-    def test_market_became_wider(self):  # TODO
+    def test_market_became_wider(self):
         self.clock.backtest_til(self.start_timestamp + 5)
 
         bid_order: LimitOrder = self.strategy.active_bids[0][1]
         ask_order: LimitOrder = self.strategy.active_asks[0][1]
-        self.assertEqual(Decimal("0.99452"), bid_order.price)
-        self.assertEqual(Decimal("1.0056"), ask_order.price)
+        self.assertEqual(Decimal("0.99451"), bid_order.price)
+        self.assertEqual(Decimal("1.0055"), ask_order.price)
         self.assertEqual(Decimal("3.0"), bid_order.quantity)
         self.assertEqual(Decimal("3.0"), ask_order.quantity)
 
@@ -346,14 +347,14 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         bid_order = self.strategy.active_bids[0][1]
         ask_order = self.strategy.active_asks[0][1]
         self.assertEqual(Decimal("0.98457"), bid_order.price)
-        self.assertEqual(Decimal("1.0156"), ask_order.price)
+        self.assertEqual(Decimal("1.0155"), ask_order.price)
 
     def test_market_became_narrower(self):
         self.clock.backtest_til(self.start_timestamp + 5)
         bid_order: LimitOrder = self.strategy.active_bids[0][1]
         ask_order: LimitOrder = self.strategy.active_asks[0][1]
-        self.assertEqual(Decimal("0.99452"), bid_order.price)
-        self.assertEqual(Decimal("1.0056"), ask_order.price)
+        self.assertEqual(Decimal("0.99451"), bid_order.price)
+        self.assertEqual(Decimal("1.0055"), ask_order.price)
         self.assertEqual(Decimal("3.0"), bid_order.quantity)
         self.assertEqual(Decimal("3.0"), ask_order.quantity)
 
@@ -366,15 +367,15 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
 
         bid_order = self.strategy.active_bids[0][1]
         ask_order = self.strategy.active_asks[0][1]
-        self.assertEqual(Decimal("0.99452"), bid_order.price)
-        self.assertEqual(Decimal("1.0056"), ask_order.price)
+        self.assertEqual(Decimal("0.99451"), bid_order.price)
+        self.assertEqual(Decimal("1.0055"), ask_order.price)
 
     def test_order_fills_after_cancellation(self):  # TODO
         self.clock.backtest_til(self.start_timestamp + 5)
         bid_order: LimitOrder = self.strategy.active_bids[0][1]
         ask_order: LimitOrder = self.strategy.active_asks[0][1]
-        self.assertEqual(Decimal("0.99452"), bid_order.price)
-        self.assertEqual(Decimal("1.0056"), ask_order.price)
+        self.assertEqual(Decimal("0.99451"), bid_order.price)
+        self.assertEqual(Decimal("1.0055"), ask_order.price)
         self.assertEqual(Decimal("3.0"), bid_order.quantity)
         self.assertEqual(Decimal("3.0"), ask_order.quantity)
 
@@ -413,7 +414,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         bid_order = self.strategy.active_bids[0][1]
         ask_order = self.strategy.active_asks[0][1]
         self.assertEqual(Decimal("0.98457"), bid_order.price)
-        self.assertEqual(Decimal("1.0156"), ask_order.price)
+        self.assertEqual(Decimal("1.0155"), ask_order.price)
 
         self.clock.backtest_til(self.start_timestamp + 20)
         self.simulate_limit_order_fill(self.maker_market, bid_order)
@@ -462,15 +463,15 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         bid_order: LimitOrder = self.strategy.active_bids[0][1]
         ask_order: LimitOrder = self.strategy.active_asks[0][1]
         self.assertAlmostEqual(Decimal("1.0417"), round(bid_order.price, 4))
-        self.assertAlmostEqual(Decimal("1.0637"), round(ask_order.price, 4))
+        self.assertAlmostEqual(Decimal("1.0636"), round(ask_order.price, 4))
         self.assertAlmostEqual(Decimal("2.9286"), round(bid_order.quantity, 4))
         self.assertAlmostEqual(Decimal("2.9286"), round(ask_order.quantity, 4))
 
     def test_maker_price(self):
-        buy_taker_price: Decimal = self.strategy.get_effective_hedging_price(self.market_pair, False, 3)
-        sell_taker_price: Decimal = self.strategy.get_effective_hedging_price(self.market_pair, True, 3)
+        buy_taker_price: Decimal = round(self.strategy.get_effective_hedging_price(self.market_pair, False, 3), 4)
+        sell_taker_price: Decimal = round(self.strategy.get_effective_hedging_price(self.market_pair, True, 3), 4)
         price_quantum = Decimal("0.0001")
-        self.assertEqual(Decimal("1.0005"), buy_taker_price)
+        self.assertEqual(Decimal("1.0004"), buy_taker_price)
         self.assertEqual(Decimal("0.9995"), sell_taker_price)
         self.clock.backtest_til(self.start_timestamp + 5)
         bid_order: LimitOrder = self.strategy.active_bids[0][1]
@@ -515,7 +516,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         bid_order: LimitOrder = self.strategy.active_bids[0][1]
         ask_order: LimitOrder = self.strategy.active_asks[0][1]
         # place above top bid (at 0.95)
-        self.assertAlmostEqual(Decimal("0.9501"), bid_order.price)
+        self.assertAlmostEqual(Decimal("0.9500"), bid_order.price)
         # place below top ask (at 1.05)
         self.assertAlmostEqual(Decimal("1.049"), ask_order.price)
         self.assertAlmostEqual(Decimal("3"), round(bid_order.quantity, 4))
@@ -564,8 +565,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         bid_price = self.strategy.get_market_making_price(self.market_pair, True, bid_size)
         ask_size = self.strategy.get_market_making_size(self.market_pair, False)
         ask_price = self.strategy.get_market_making_price(self.market_pair, False, ask_size)
-        self.assertEqual((Decimal("0.99452"), Decimal("3")), (bid_price, bid_size))
-        self.assertEqual((Decimal("1.0056"), Decimal("3")), (ask_price, ask_size))
+        self.assertEqual((Decimal("0.99451"), Decimal("3")), (bid_price, bid_size))
+        self.assertEqual((Decimal("1.0055"), Decimal("3")), (ask_price, ask_size))
 
     def test_empty_maker_orderbook(self):
         self.clock.remove_iterator(self.strategy)

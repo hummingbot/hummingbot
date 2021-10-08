@@ -828,9 +828,6 @@ cdef class PaperTradeExchange(ExchangeBase):
     cdef object c_get_available_balance(self, str currency):
         return self.available_balances.get(currency.upper(), s_decimal_0)
 
-    async def get_active_exchange_markets(self) -> pd.DataFrame:
-        return await self._order_book_tracker.data_source.get_active_exchange_markets()
-
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         cdef:
             LimitOrders *limit_orders_map_ptr
