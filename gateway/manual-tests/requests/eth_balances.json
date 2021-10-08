@@ -1,8 +1,4 @@
 {
   "privateKey": "$ETH_PRIVATE_KEY",
-  "tokenSymbols": [
-    "ETH",
-    "WETH",
-    "DAI"
-  ]
+  "tokenSymbols": ["ETH", "WETH", "DAI"]
 }
