@@ -51,6 +51,8 @@ from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 s_decimal_NaN = Decimal("nan")
 s_decimal_0 = Decimal(0)
 
+RESOURCE_NOT_FOUND_ERR = "Resource Not Found"
+
 
 class NdaxExchange(ExchangeBase):
     """
@@ -572,7 +574,7 @@ class NdaxExchange(ExchangeBase):
                 app_warning_msg=f"Failed to cancel order {order_id} on NDAX. "
                                 f"Check API key and network connection."
             )
-            if "Resource Not Found" in str(e):
+            if RESOURCE_NOT_FOUND_ERR in str(e):
                 self._order_not_found_records[order_id] = self._order_not_found_records.get(order_id, 0) + 1
                 if self._order_not_found_records[order_id] >= self.ORDER_EXCEED_NOT_FOUND_COUNT:
                     self.logger().warning(f"Order {order_id} does not seem to be active, will stop tracking order...")

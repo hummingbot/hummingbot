@@ -15,7 +15,7 @@ from async_timeout import timeout
 
 s_decimal_0 = Decimal(0)
 
-GET_EX_ORDER_ID_TIMEOUT = 5  # seconds
+GET_EX_ORDER_ID_TIMEOUT = 10  # seconds
 
 cdef class InFlightOrderBase:
     def __init__(self,
