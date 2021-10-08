@@ -43,7 +43,7 @@ export class EthereumBase {
     this.gasPriceConstant = gasPriceConstant;
     this.tokenListSource = tokenListSource;
     this.tokenListType = tokenListType;
-    this.cache = new NodeCache();
+    this.cache = new NodeCache({ stdTTL: 3600 }); // set default cache ttl to 1hr
   }
 
   ready(): boolean {
