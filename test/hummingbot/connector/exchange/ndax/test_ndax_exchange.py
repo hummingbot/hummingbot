@@ -2,13 +2,15 @@ import asyncio
 import json
 import time
 import pandas as pd
+import re
 
+from aioresponses import aioresponses
 from decimal import Decimal
 from typing import Any, Dict, List
 from unittest import TestCase
 from unittest.mock import AsyncMock, PropertyMock, patch
 
-import hummingbot.connector.exchange.ndax.ndax_constants as CONSTANTS
+from hummingbot.connector.exchange.ndax import ndax_constants as CONSTANTS, ndax_utils
 from hummingbot.connector.exchange.ndax.ndax_exchange import NdaxExchange
 from hummingbot.connector.exchange.ndax.ndax_in_flight_order import (
     NdaxInFlightOrder, WORKING_LOCAL_STATUS, NdaxInFlightOrderNotCreated
@@ -60,6 +62,7 @@ class NdaxExchangeTests(TestCase):
         self.exchange._account_id = 1
 
         self.mocking_assistant = NetworkMockingAssistant()
+        self.mock_done_event = asyncio.Event()
 
     def tearDown(self) -> None:
         self.tracker_task and self.tracker_task.cancel()
@@ -100,6 +103,9 @@ class NdaxExchangeTests(TestCase):
     def _create_exception_and_unlock_test_with_event(self, exception):
         self.resume_test_event.set()
         raise exception
+
+    def _mock_responses_done_callback(self, *_, **__):
+        self.mock_done_event.set()
 
     def _simulate_reset_poll_notifier(self):
         self.exchange._poll_notifier.clear()
@@ -853,6 +859,41 @@ class NdaxExchangeTests(TestCase):
 
         self.assertEqual(0, len(self.exchange.in_flight_orders[order.client_order_id].trade_id_set))
 
+    @patch("hummingbot.connector.in_flight_order_base.GET_EX_ORDER_ID_TIMEOUT", 0.1)
+    def test_update_order_status_exchange_order_id_not_found(self):
+
+        # Simulates order being tracked
+        order: NdaxInFlightOrder = NdaxInFlightOrder(
+            "0",
+            None,
+            self.trading_pair,
+            OrderType.LIMIT,
+            TradeType.SELL,
+            Decimal(str(41720.83)),
+            Decimal("1"),
+            "Working"
+        )
+        self.exchange._in_flight_orders.update({
+            order.client_order_id: order
+        })
+
+        # Simulate _trading_pair_id_map initialized.
+        self.exchange._order_book_tracker.data_source._trading_pair_id_map.update({
+            self.trading_pair: 5
+        })
+        self.exchange_task = asyncio.get_event_loop().create_task(self.exchange._update_order_status())
+        asyncio.get_event_loop().run_until_complete(self.exchange_task)
+
+        self.assertEqual(1, len(self.exchange._in_flight_orders))
+        self.assertEqual(1, self.exchange._order_not_found_records[order.client_order_id])
+
+        self.exchange_task = asyncio.get_event_loop().create_task(self.exchange._update_order_status())
+        asyncio.get_event_loop().run_until_complete(self.exchange_task)
+
+        self.assertEqual(0, len(self.exchange._in_flight_orders))
+        self.assertEqual(2, self.exchange._order_not_found_records[order.client_order_id])
+        self.assertTrue(self._is_logged("INFO", "Order 0 does not seem to be active, will stop tracking order..."))
+
     @patch("hummingbot.connector.exchange.ndax.ndax_exchange.NdaxExchange._update_balances", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.ndax.ndax_exchange.NdaxExchange._update_order_status", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.ndax.ndax_exchange.NdaxExchange.current_timestamp", new_callable=PropertyMock)
@@ -1518,6 +1559,42 @@ class NdaxExchangeTests(TestCase):
         )
 
         self._is_logged("ERROR", f"Failed to cancel order {order.client_order_id}")
+
+    @aioresponses()
+    def test_execute_cancel_exception_raised_stop_tracking_order(self, mock_api):
+        path_url = CONSTANTS.CANCEL_ORDER_PATH_URL
+        url = ndax_utils.rest_api_url(None) + path_url
+        regex_url = re.compile(f"^{url}")
+
+        mock_response = {
+            "result": False,
+            "errormsg": "Resource Not Found",
+            "errorcode": 104,
+            "detail": None
+        }
+
+        mock_api.post(regex_url, body=json.dumps(mock_response), callback=self._mock_responses_done_callback)
+
+        order: NdaxInFlightOrder = NdaxInFlightOrder(
+            client_order_id="0",
+            exchange_order_id="123",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal(10.0),
+            amount=Decimal(1.0),
+            initial_state="Working",
+        )
+
+        self.exchange._in_flight_orders.update({
+            order.client_order_id: order
+        })
+
+        asyncio.new_event_loop().run_until_complete(
+            self.exchange._execute_cancel(self.trading_pair, order.client_order_id)
+        )
+
+        self._is_logged("WARNING", f"Order {order.client_order_id} does not seem to be active, will stop tracking order...")
 
     @patch("hummingbot.connector.exchange.ndax.ndax_exchange.NdaxExchange._execute_cancel", new_callable=AsyncMock)
     def test_cancel(self, mock_cancel):
