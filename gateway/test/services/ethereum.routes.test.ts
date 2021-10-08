@@ -4,6 +4,8 @@ import { app } from '../../src/app';
 import { Ethereum } from '../../src/chains/ethereum/ethereum';
 import * as transactionOutOfGas from './fixtures/transaction-out-of-gas.json';
 import * as transactionOutOfGasReceipt from './fixtures/transaction-out-of-gas-receipt.json';
+import * as transactionSuccesful from './fixtures/transaction-succesful.json';
+import * as transactionSuccesfulReceipt from './fixtures/transaction-succesful-receipt.json';
 // import * as transactionUnconfirmedReceipt from './fixtures/transaction-unconfirmed-receipt.json';
 
 const OUT_OF_GAS_ERROR_CODE = 1003;
@@ -50,5 +52,17 @@ describe('Eth endpoints', () => {
     expect(res.statusCode).toEqual(200);
     expect(res.body.txReceipt).toEqual(null);
     expect(res.body.txData).toEqual(null);
+  });
+
+  it('should get txStatus = 1 for a succesful query', async () => {
+    patch(eth, 'getTransaction', () => transactionSuccesful);
+    patch(eth, 'getTransactionReceipt', () => transactionSuccesfulReceipt);
+    const res = await request(app).post('/eth/poll').send({
+      txHash:
+        '0x6d068067a5e5a0f08c6395b31938893d1cdad81f54a54456221ecd8c1941294d',
+    });
+    expect(res.statusCode).toEqual(200);
+    expect(res.body.txReceipt).toBeDefined();
+    expect(res.body.txData).toBeDefined();
   });
 });

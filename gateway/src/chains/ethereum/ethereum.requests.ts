@@ -1,5 +1,8 @@
 import ethers, { Transaction } from 'ethers';
 
+// gasUsed and cumulativeGasUsed are BigNumbers
+// then need to be converted to strings before being
+// passed to the client
 export interface EthereumTransactionReceipt
   extends Omit<
     ethers.providers.TransactionReceipt,
@@ -69,9 +72,9 @@ export interface EthereumPollRequest {
 export interface EthereumPollResponse {
   network: string;
   timestamp: number;
-  latency: number;
-  txHash: string;
+  currentBlock: number;
   txStatus: number;
+  txBlock: number;
   txData: ethers.providers.TransactionResponse | null;
   txReceipt: EthereumTransactionReceipt | null;
 }

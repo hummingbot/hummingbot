@@ -137,6 +137,11 @@ export class EthereumBase {
     return { value: allowance, decimals: decimals };
   }
 
+  // returns the current block number
+  async getCurrentBlockNumber(): Promise<number> {
+    return this._provider.getBlockNumber();
+  }
+
   // returns an ethereum TransactionResponse for a txHash.
   async getTransaction(txHash: string): Promise<providers.TransactionResponse> {
     return this._provider.getTransaction(txHash);
