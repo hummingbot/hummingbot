@@ -202,7 +202,7 @@ class RateOracle(NetworkBase):
         task_results = await safe_gather(*tasks, return_exceptions=True)
         for task_result in task_results:
             if isinstance(task_result, Exception):
-                cls.logger().error("Unexpected error while retrieving rates from Coingecko. "
+                cls.logger().debug("Unexpected error while retrieving rates from Binance. "
                                    "Check the log file for more info.")
                 break
             else:

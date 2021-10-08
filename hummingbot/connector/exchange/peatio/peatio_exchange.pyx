@@ -428,7 +428,7 @@ cdef class PeatioExchange(ExchangeBase):
         order_state = order_obj["state"]
         # possible order states are "wait", "done", "cancel"
 
-        if order_state not in ["wait", "done", "cancel", ]:
+        if order_state not in ["wait", "done", "cancel", "rejected"]:
             self.logger().debug(f"Unrecognized order update response - {order_obj}")
 
         # Calculate the newly executed amount for this update.
@@ -918,7 +918,9 @@ cdef class PeatioExchange(ExchangeBase):
             )
 
             for o in cancel_all_results:
-                cancellation_results.append(CancellationResult(o['id'], o["state"] == "cancel"))
+                order = await self.get_order_status(exchange_order_id=str(o['id']))
+                cancellation_results.append(CancellationResult(o['id'], order["state"] == "cancel"))
+
         except Exception as e:
             self.logger().network(
                 f"Failed to cancel all orders: {cancel_order_ids}",

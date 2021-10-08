@@ -35,7 +35,7 @@ cdef class PeatioInFlightOrder(InFlightOrderBase):
 
     @property
     def is_done(self) -> bool:
-        return self.last_state in {"done", "cancel", }
+        return self.last_state in {"done", }
 
     @property
     def is_cancelled(self) -> bool:
@@ -43,7 +43,7 @@ cdef class PeatioInFlightOrder(InFlightOrderBase):
 
     @property
     def is_failure(self) -> bool:
-        return self.last_state in {"cancel", }
+        return self.last_state in {"rejected", }
 
     @property
     def is_open(self) -> bool:

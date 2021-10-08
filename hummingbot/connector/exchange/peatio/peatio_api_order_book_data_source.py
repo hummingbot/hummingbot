@@ -206,7 +206,7 @@ class PeatioAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                     )
                                     output.put_nowait(trade_message)
                         else:
-                            self.logger().info(f"Unrecognized message [listen_for_trades] received from Peatio websocket: {msg}")
+                            self.logger().debug(f"Unrecognized message [listen_for_trades] received from Peatio websocket: {msg}")
             except asyncio.CancelledError as e:
                 self.logger().error(e)
                 raise
@@ -277,7 +277,7 @@ class PeatioAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                 order_book_message: OrderBookMessage = PeatioOrderBook.diff_message_from_exchange(data, metadata={"trading_pair": trading_pair})
                                 output.put_nowait(order_book_message)
                         else:
-                            self.logger().info(f"Unrecognized message [listen_for_order_book_diffs] received from Peatio websocket: {msg}")
+                            self.logger().debug(f"Unrecognized message [listen_for_order_book_diffs] received from Peatio websocket: {msg}")
             except asyncio.CancelledError:
                 raise
             except Exception:
