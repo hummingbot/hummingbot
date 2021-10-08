@@ -381,7 +381,7 @@ cdef class ConnectorBase(NetworkIterator):
         if price.is_nan():
             return price
         price_quantum = self.c_get_order_price_quantum(trading_pair, price)
-        return round(price / price_quantum) * price_quantum
+        return (price // price_quantum) * price_quantum
 
     def quantize_order_price(self, trading_pair: str, price: Decimal) -> Decimal:
         """
