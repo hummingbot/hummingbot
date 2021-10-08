@@ -54,12 +54,10 @@ export class EthereumBase {
     return this._provider;
   }
 
-  public get events(): string[] {
-    const events = [];
-    for (const event of this._provider._events) {
-      events.push(event.tag);
-    }
-    return events;
+  public events() {
+    this._provider._events.map(function (event) {
+      return [event.tag];
+    });
   }
 
   async init(): Promise<void> {
