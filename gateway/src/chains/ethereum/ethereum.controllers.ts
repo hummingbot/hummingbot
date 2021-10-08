@@ -219,20 +219,24 @@ export async function poll(
   validateEthereumPollRequest(req);
 
   const initTime = Date.now();
+  const currentBlock = await ethereum.getCurrentBlockNumber();
   const txData = await ethereum.getTransaction(req.txHash);
-  let txReceipt, txStatus;
+  let txBlock, txReceipt, txStatus;
   if (!txData) {
     // tx didn't reach the mempool
+    txBlock = -1;
     txReceipt = null;
     txStatus = -1;
   } else {
     txReceipt = await ethereum.getTransactionReceipt(req.txHash);
     if (txReceipt === null || txReceipt.blockNumber === 0) {
       // tx is in the mempool
+      txBlock = -1;
       txReceipt = null;
       txStatus = -1;
     } else {
       // tx has been processed
+      txBlock = txReceipt.blockNumber;
       txStatus = typeof txReceipt.status === 'number' ? txReceipt.status : -1;
       if (txStatus === 0) {
         const gasUsed = BigNumber.from(txReceipt.gasUsed).toNumber();
@@ -244,9 +248,9 @@ export async function poll(
   }
   return {
     network: ConfigManager.config.ETHEREUM_CHAIN,
+    currentBlock,
     timestamp: initTime,
-    latency: latency(initTime, Date.now()),
-    txHash: req.txHash,
+    txBlock,
     txStatus,
     txData,
     txReceipt: toEthereumTransactionReceipt(txReceipt),
