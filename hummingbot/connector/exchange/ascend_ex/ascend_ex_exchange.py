@@ -99,12 +99,11 @@ class AscendExExchange(ExchangePyBase):
         super().__init__()
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
+        self._shared_client = aiohttp.ClientSession()
         self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
-        self._order_book_tracker = AscendExOrderBookTracker(self._throttler, trading_pairs=trading_pairs)
+        self._order_book_tracker = AscendExOrderBookTracker(shared_client=self._shared_client, throttler=self._throttler, trading_pairs=self._trading_pairs)
         self._ascend_ex_auth = AscendExAuth(ascend_ex_api_key, ascend_ex_secret_key)
-        self._user_stream_tracker = AscendExUserStreamTracker(self._throttler, self._ascend_ex_auth, trading_pairs)
-        self._ev_loop = asyncio.get_event_loop()
-        self._shared_client = None
+        self._user_stream_tracker = AscendExUserStreamTracker(shared_client=self._shared_client, throttler=self._throttler, ascend_ex_auth=self._ascend_ex_auth, trading_pairs=self._trading_pairs)
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
         self._in_flight_orders = {}  # Dict[client_order_id:str, AscendExInFlightOrder]
@@ -257,14 +256,6 @@ class AscendExExchange(ExchangePyBase):
             return NetworkStatus.NOT_CONNECTED
         return NetworkStatus.CONNECTED
 
-    async def _http_client(self) -> aiohttp.ClientSession:
-        """
-        :returns Shared client session instance
-        """
-        if self._shared_client is None:
-            self._shared_client = aiohttp.ClientSession()
-        return self._shared_client
-
     async def _trading_rules_polling_loop(self):
         """
         Periodically update trading rule.
@@ -338,7 +329,7 @@ class AscendExExchange(ExchangePyBase):
             **self._ascend_ex_auth.get_auth_headers("info"),
         }
         url = f"{CONSTANTS.REST_URL}/info"
-        response = await aiohttp.ClientSession().get(url, headers=headers)
+        response = await self._shared_client.get(url, headers=headers)
 
         try:
             parsed_response = json.loads(await response.text())
@@ -390,16 +381,15 @@ class AscendExExchange(ExchangePyBase):
             url = f"{CONSTANTS.REST_URL}/{path_url}"
             kwargs["headers"] = self._ascend_ex_auth.get_headers()
 
-        client = await self._http_client()
         if method == "get":
             async with self._throttler.execute_task(path_url):
-                response = await client.get(url, **kwargs)
+                response = await self._shared_client.get(url, **kwargs)
         elif method == "post":
             async with self._throttler.execute_task(path_url):
-                response = await client.post(url, **kwargs)
+                response = await self._shared_client.post(url, **kwargs)
         elif method == "delete":
             async with self._throttler.execute_task(path_url):
-                response = await client.delete(url, **kwargs)
+                response = await self._shared_client.delete(url, **kwargs)
         else:
             raise NotImplementedError
 
