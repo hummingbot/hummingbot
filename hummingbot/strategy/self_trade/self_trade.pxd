@@ -8,20 +8,23 @@ cdef class SelfTradeStrategy(StrategyBase):
         dict _market_infos
         bint _all_markets_ready
         bint _place_orders
-        list _trade_bands
 
         double _cancel_order_wait_time
         double _status_report_interval
         double _last_timestamp
         double _start_timestamp
-        double _last_trade_timestamp
-        double _time_delay
-        object _min_order_amount
-        object _max_order_amount
-        object _last_execute_order_time
-        object _delta_price_changed_percent
-        object _percentage_of_acceptable_price_change
+
+        dict _last_trade_timestamp
+        dict _time_delay
+        dict _min_order_amount
+        dict _max_order_amount
+        dict _delta_price_changed_percent
+        dict _percentage_of_acceptable_price_change
+        dict _trade_bands
+
         object _use_only_oracle_price
+
+        object _last_execute_order_time
 
         dict _tracked_orders
         dict _time_to_cancel

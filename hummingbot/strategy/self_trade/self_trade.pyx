@@ -55,15 +55,15 @@ cdef class SelfTradeStrategy(StrategyBase):
 
     def __init__(self,
                  market_infos: List[MarketTradingPairTuple],
+                 time_delay: Dict[str, float],
+                 min_order_amount: Dict[str, Decimal],
+                 max_order_amount: Dict[str, Decimal],
+                 trade_bands: Dict[str, List[TradeBand]],
+                 delta_price_changed_percent: Dict[str, Decimal],
+                 percentage_of_acceptable_price_change: Dict[str, Decimal],
                  cancel_order_wait_time: Optional[float] = 60.0,
-                 time_delay: float = 10.0,
-                 min_order_amount: Decimal = Decimal("1.0"),
-                 max_order_amount: Decimal = Decimal("10.0"),
                  logging_options: int = OPTION_LOG_ALL,
                  status_report_interval: float = 900,
-                 trade_bands: List[Tuple[float, Decimal]] = [],
-                 delta_price_changed_percent: Decimal = s_decimal_zero,
-                 percentage_of_acceptable_price_change: Decimal = Decimal("10.0"),
                  use_only_oracle_price: bool = False):
         """
         :param market_infos: list of market trading pairs
@@ -83,35 +83,39 @@ cdef class SelfTradeStrategy(StrategyBase):
         super().__init__()
         self.rate_oracle: RateOracle = RateOracle.get_instance()
         self.rate_oracle.start()
-        self._delta_price_changed_percent = delta_price_changed_percent
-        self._percentage_of_acceptable_price_change = percentage_of_acceptable_price_change
-        self._use_only_oracle_price = use_only_oracle_price
 
         self._market_infos = {
             (market_info.market, market_info.trading_pair): market_info
             for market_info in market_infos
         }
-        self._all_markets_ready = False
-        self._place_orders = True
-        self._logging_options = logging_options
-        self._status_report_interval = status_report_interval
-        self._time_delay = time_delay
-        self._time_to_cancel = {}
-        self._min_order_amount: Decimal = min_order_amount
-        self._max_order_amount: Decimal = max_order_amount
-        self._last_trade_timestamp = 0
+
         self._start_timestamp = 0
         self._last_timestamp = 0
+        self._logging_options = logging_options
+        self._use_only_oracle_price = use_only_oracle_price
+
         if cancel_order_wait_time is not None:
             self._cancel_order_wait_time = cancel_order_wait_time
+
+        self._status_report_interval = status_report_interval
+        self._time_to_cancel = {}
+
+        self._all_markets_ready = False
+        self._place_orders = True
+
+        self._time_delay: Dict[str, float] = time_delay
+        self._delta_price_changed_percent: Dict[str, Decimal] = delta_price_changed_percent
+        self._percentage_of_acceptable_price_change: Dict[str, Decimal] = percentage_of_acceptable_price_change
+        self._min_order_amount: Dict[str, Decimal] = min_order_amount
+        self._max_order_amount: Dict[str, Decimal] = max_order_amount
+        self._trade_bands: Dict[str, List[TradeBand]] = trade_bands
+
+        self._last_trade_timestamp: Dict[str, float] = {market_info.trading_pair: 0 for market_info in market_infos}
 
         cdef:
             set all_markets = set([market_info.market for market_info in market_infos])
 
         self.c_add_markets(list(all_markets))
-        self._trade_bands = list(
-            map(lambda x: TradeBand(time_interval=timedelta(hours=x[0]).seconds, required_amount=x[1]), trade_bands)
-        )
 
     def get_active_orders(self, market_info):
         return self.market_info_to_active_orders.get(market_info, [])
@@ -126,10 +130,6 @@ cdef class SelfTradeStrategy(StrategyBase):
         multiplier = ((random.randint(min_percent, max_percent) / delimiter) / Decimal(100)).quantize(Decimal("0.0001"))
 
         return Decimal(1) - multiplier
-
-    @property
-    def percentage_of_price_change(self) -> float:
-        return self._percentage_of_price_change
 
     @property
     def active_bids(self) -> List[Tuple[ExchangeBase, LimitOrder]]:
@@ -273,10 +273,15 @@ cdef class SelfTradeStrategy(StrategyBase):
 
     cdef c_start(self, Clock clock, double timestamp):
         StrategyBase.c_start(self, clock, timestamp)
-        self.logger().info(f"Waiting for {self._time_delay} to place orders")
         self._start_timestamp = timestamp
         self._last_timestamp = timestamp
-        self._last_trade_timestamp = timestamp
+
+        for key in self._last_trade_timestamp.keys():
+            self._last_trade_timestamp[key] = timestamp
+
+        for key, value in self._time_delay.items():
+            # self._time_delay[key] = 30
+            self.logger().info(f"Waiting for {value} to place {key} orders")
 
     cdef c_tick(self, double timestamp):
         """
@@ -308,7 +313,8 @@ cdef class SelfTradeStrategy(StrategyBase):
                     self.logger().warning(f"WARNING: Some markets are not connected or are down at the moment. Market "
                                           f"making may be dangerous when markets or networks are unstable.")
 
-            list(map(lambda x: x.tick(current_timestamp=timestamp), self._trade_bands))
+            for bands in self._trade_bands.values():
+                list(map(lambda x: x.tick(current_timestamp=timestamp), bands))
             for market_info in self._market_infos.values():
                 self.c_process_market(market_info)
         finally:
@@ -319,6 +325,9 @@ cdef class SelfTradeStrategy(StrategyBase):
         Places an order specified by the user input if the user has enough balance
 
         :param market_info: a market trading pair
+        :param is_buy:
+        :param order_price:
+        :param order_amount:
         """
         cdef:
             ExchangeBase market = market_info.market
@@ -350,6 +359,9 @@ cdef class SelfTradeStrategy(StrategyBase):
         Checks to make sure the user has the sufficient balance in order to place the specified order
 
         :param market_info: a market trading pair
+        :param is_buy:
+        :param order_price:
+        :param order_amount:
         :return: True if user has enough balance, False if not
         """
         cdef:
@@ -362,28 +374,29 @@ cdef class SelfTradeStrategy(StrategyBase):
         return quote_asset_balance >= order_amount * price if is_buy else base_asset_balance >= order_amount
 
     def get_price(self, maker_market: ExchangeBase, trading_pair: str):
-        price_multiplier = self.get_price_multiplier(delta_price_changed_percent=self._delta_price_changed_percent)
-        buy_price = maker_market.get_price(trading_pair=trading_pair, is_buy=False) or s_decimal_nan
-        sell_price = maker_market.get_price(trading_pair=trading_pair, is_buy=True) or s_decimal_nan
-        oracle_price = self.rate_oracle.rate(trading_pair)
+        price_multiplier = self.get_price_multiplier(delta_price_changed_percent=self._delta_price_changed_percent[trading_pair])
+        oracle_price = self.rate_oracle.rate(trading_pair) or s_decimal_nan
 
-        self.logger().debug(f"price_multiplier: {price_multiplier}")
-        self.logger().debug(f"buy_price: {buy_price}")
-        self.logger().debug(f"sell_price: {sell_price}")
-        self.logger().debug(f"oracle_price: {sell_price}")
-
-        if not oracle_price.is_nan() and oracle_price > s_decimal_zero:
-            oracle_price = oracle_price * price_multiplier
+        if oracle_price is not None and not oracle_price.is_nan() and oracle_price > s_decimal_zero:
             quantized_oracle_price = maker_market.c_quantize_order_price(trading_pair=trading_pair, price=oracle_price * price_multiplier)
         else:
             raise ValueError(f"Oracle price ({oracle_price}) must be > 0")
+
+        buy_price = maker_market.get_price(trading_pair=trading_pair, is_buy=False) or s_decimal_nan
+        sell_price = maker_market.get_price(trading_pair=trading_pair, is_buy=True) or s_decimal_nan
+
+        self.logger().info(f"price_multiplier: {price_multiplier}")
+        self.logger().info(f"buy_price: {buy_price}")
+        self.logger().info(f"sell_price: {sell_price}")
+        self.logger().info(f"raw_oracle_price: {oracle_price}")
+        self.logger().info(f"oracle_price: {quantized_oracle_price}")
 
         if self._use_only_oracle_price is True:
             quantized_price = quantized_oracle_price
         elif buy_price.is_nan() or sell_price.is_nan():
             quantized_price = quantized_oracle_price
             self.logger().warning(
-                f"No sell orders and no buy orders were found, the price will be taken from an open source. "
+                f"No sell orders or no buy orders were found, the price will be taken from an open source. "
                 f"price={quantized_price}")
         elif not buy_price.is_nan() and not sell_price.is_nan():
             if buy_price > sell_price:
@@ -395,18 +408,21 @@ cdef class SelfTradeStrategy(StrategyBase):
         currently_percentage_price_change = abs(
             Decimal("100") - (quantized_price * Decimal("100")) / quantized_oracle_price
         ).quantize(Decimal("0.0001"))
-        if currently_percentage_price_change > self._percentage_of_acceptable_price_change:
+
+        if currently_percentage_price_change > self._percentage_of_acceptable_price_change[trading_pair]:
             self.logger().warning(f"the price ({quantized_price}) should not differ from the market "
-                                  f"price ({quantized_oracle_price}) by more than {self._percentage_of_acceptable_price_change}%."
+                                  f"price ({quantized_oracle_price}) by more than {self._percentage_of_acceptable_price_change[trading_pair]}%."
                                   f" Currently differ is {currently_percentage_price_change}%. Used Oracle Price")
             quantized_price = quantized_oracle_price
 
+        buy_price = maker_market.get_price(trading_pair=trading_pair, is_buy=False) or s_decimal_nan
+        sell_price = maker_market.get_price(trading_pair=trading_pair, is_buy=True) or s_decimal_nan
         if not buy_price.is_nan() and not buy_price < quantized_price:
-            self.logger().warning("price must be > buy_price")
+            self.logger().warning(f"price ({quantized_price}) must be > buy_price ({buy_price})")
             raise ValueError("price must be > buy_price")
         if not sell_price.is_nan() and not sell_price > quantized_price:
-            self.logger().warning("price must be < sell_price")
-            raise ValueError("price must be > buy_price and price < sell_price")
+            self.logger().warning(f"price ({quantized_price}) must be < sell_price ({sell_price})")
+            raise ValueError("price must be < sell_price")
 
         self.logger().info(f"price for {trading_pair} pair = {quantized_price}")
         return quantized_price
@@ -423,21 +439,21 @@ cdef class SelfTradeStrategy(StrategyBase):
             set cancel_order_ids = set()
             str trading_pair = market_info.trading_pair
 
-        if self._current_timestamp > self._last_trade_timestamp + self._time_delay:
+        if self._current_timestamp > self._last_trade_timestamp[trading_pair] + self._time_delay[trading_pair]:
             self.logger().info(f"Current time: "
                                f"{datetime.fromtimestamp(self._current_timestamp).strftime('%Y-%m-%d %H:%M:%S')} "
                                f"- start trading {trading_pair}")
             try:
                 quant = Decimal(10**27)
-                amount = random.randint(self._min_order_amount * quant, self._max_order_amount * quant) / quant
+                amount = random.randint(self._min_order_amount[trading_pair] * quant, self._max_order_amount[trading_pair] * quant) / quant
                 amount = maker_market.quantize_order_amount(trading_pair=trading_pair, amount=amount)
 
-                if all(map(lambda x: x.check(amount=amount), self._trade_bands)):
+                if all(map(lambda x: x.check(amount=amount), self._trade_bands[trading_pair])):
                     price: Decimal = self.get_price(maker_market=maker_market, trading_pair=trading_pair)
                     self.c_place_orders(market_info, is_buy=True, order_price=price, order_amount=amount)
                     self.c_place_orders(market_info, is_buy=False, order_price=price, order_amount=amount)
-                    self._last_trade_timestamp = self._current_timestamp
-                    list(map(lambda x: x.create_trade(amount=amount), self._trade_bands))
+                    self._last_trade_timestamp[trading_pair] = self._current_timestamp
+                    list(map(lambda x: x.create_trade(amount=amount), self._trade_bands[trading_pair]))
                 else:
                     self.logger().info(f"Не проходит BAND")
             except Exception as e:

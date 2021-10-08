@@ -24,7 +24,12 @@ def str2bool(value: str):
 # checks if the trading pair is valid
 def validate_market_trading_pair_tuple(value: str) -> Optional[str]:
     market = self_trade_config_map.get("market").value
-    return validate_market_trading_pair(market, value)
+    errors = []
+    for pair in value[1:-2].replace("'", "").split(','):
+        error_msg = validate_market_trading_pair(market, pair.strip())
+        if error_msg is not None:
+            errors.append(error_msg)
+    return None if len(errors) == 0 else "; ".join(list(errors))
 
 
 self_trade_config_map = {
@@ -40,25 +45,26 @@ self_trade_config_map = {
     "market_trading_pair_tuple":
         ConfigVar(key="market_trading_pair_tuple",
                   prompt=trading_pair_prompt,
-                  validator=validate_market_trading_pair_tuple),
+                  validator=validate_market_trading_pair_tuple,
+                  type_str="list"),
     "min_order_amount":
         ConfigVar(key="min_order_amount",
                   prompt="What is your preferred min quantity per order (denominated in the base asset, default is 1)? "
                          ">>> ",
-                  default=1.0,
-                  type_str="decimal"),
+                  required_if=lambda: True,
+                  type_str="json"),
     "max_order_amount":
         ConfigVar(key="max_order_amount",
                   prompt="What is your preferred max quantity per order (denominated in the base asset, default is 1)? "
                          ">>> ",
-                  default=2.0,
-                  type_str="decimal"),
+                  required_if=lambda: True,
+                  type_str="json"),
     "time_delay":
         ConfigVar(key="time_delay",
                   prompt="How much do you want to wait to place the order (Enter 10 to indicate 10 seconds. "
                          "Default is 0)? >>> ",
-                  type_str="float",
-                  default=0),
+                  required_if=lambda: True,
+                  type_str="json"),
     "cancel_order_wait_time":
         ConfigVar(key="cancel_order_wait_time",
                   prompt="How long do you want to wait before cancelling your limit order (in seconds). "
@@ -69,18 +75,18 @@ self_trade_config_map = {
     "trade_bands":
         ConfigVar(key="trade_bands",
                   prompt="restrictions on the trading volume in the timestamp (hours: amount) ? >>> ",
-                  type_str="str",
-                  default=""),
+                  required_if=lambda: True,
+                  type_str="json"),
     "delta_price_changed_percent":
         ConfigVar(key="delta_price_changed_percent",
                   prompt="the percentage by which the price will change (in percentage) ? >>> ",
-                  type_str="decimal",
-                  default="0.0"),
+                  required_if=lambda: True,
+                  type_str="json"),
     "percentage_of_acceptable_price_change":
         ConfigVar(key="percentage_of_acceptable_price_change",
                   prompt="Acceptable percentage of price change from the market (in percentage) ? >>> ",
-                  type_str="decimal",
-                  default="10.0"),
+                  required_if=lambda: True,
+                  type_str="json"),
     "use_only_oracle_price":
         ConfigVar(key="use_only_oracle_price",
                   prompt="Use only the price taken from the oracles? >>> ",
