@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import asyncio
+import aiohttp
 import bisect
 import logging
 import time
@@ -28,8 +29,8 @@ class AscendExOrderBookTracker(OrderBookTracker):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, throttler: Optional[AsyncThrottler] = None, trading_pairs: Optional[List[str]] = None):
-        super().__init__(AscendExAPIOrderBookDataSource(throttler, trading_pairs), trading_pairs)
+    def __init__(self, shared_client: Optional[aiohttp.ClientSession] = None, throttler: Optional[AsyncThrottler] = None, trading_pairs: Optional[List[str]] = None):
+        super().__init__(AscendExAPIOrderBookDataSource(shared_client = shared_client, throttler = throttler, trading_pairs = trading_pairs), trading_pairs)
 
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
