@@ -2,6 +2,7 @@ import asyncio
 import json
 
 from aioresponses import aioresponses
+from decimal import Decimal
 from unittest import TestCase
 
 import hummingbot.connector.parrot as parrot
@@ -40,3 +41,122 @@ class CampaignsAPIFunctionTests(TestCase):
         self.assertTrue(self._is_logged("WARNING",
                                         "Could not get active campaigns from Hummingbot API"
                                         f" (returned response '{resp}')."))
+
+    @aioresponses()
+    def test_active_campaigns_are_filetered_buy_token_pair(self, mock_api):
+        url = f"{parrot.PARROT_MINER_BASE_URL}campaigns"
+        resp = [
+            {
+                "id": 26,
+                "campaign_name": "xym",
+                "link": "https://symbolplatform.com/",
+                "markets": [{
+                    "id": 62,
+                    "trading_pair": "XYM-BTC",
+                    "exchange_name": "kucoin",
+                    "base_asset": "XYM",
+                    "base_asset_full_name": "symbol",
+                    "quote_asset": "BTC",
+                    "quote_asset_full_name": "bitcoin"}],
+                "bounty_periods": [{
+                    "id": 823,
+                    "start_datetime": "2021-10-05T00:00:00",
+                    "end_datetime": "2021-10-12T00:00:00",
+                    "payout_parameters": [{
+                        "id": 2212,
+                        "market_id": 62,
+                        "bid_budget": 1371.5,
+                        "ask_budget": 1371.5,
+                        "exponential_decay_function_factor": 8.0,
+                        "spread_max": 1.5,
+                        "payout_asset": "XYM"}]}]},
+            {
+                "id": 27,
+                "campaign_name": "test",
+                "link": "https://symbolplatform.com/",
+                "markets": [{
+                    "id": 63,
+                    "trading_pair": "COINALPHA-HBOT",
+                    "exchange_name": "kucoin",
+                    "base_asset": "COINALPHA",
+                    "base_asset_full_name": "coinalpha",
+                    "quote_asset": "HBOT",
+                    "quote_asset_full_name": "hbot"}],
+                "bounty_periods": [{
+                    "id": 823,
+                    "start_datetime": "2021-10-05T00:00:00",
+                    "end_datetime": "2021-10-12T00:00:00",
+                    "payout_parameters": [
+                        {"id": 2213,
+                         "market_id": 63,
+                         "bid_budget": 1371.5,
+                         "ask_budget": 1371.5,
+                         "exponential_decay_function_factor": 8.0,
+                         "spread_max": 1.5,
+                         "payout_asset": "HBOT"}]}]}]
+
+        mock_api.get(url, body=json.dumps(resp))
+
+        campaigns = asyncio.get_event_loop().run_until_complete(
+            parrot.get_active_campaigns(
+                exchange="kucoin",
+                trading_pairs=["COINALPHA-HBOT"]))
+
+        self.assertEqual(1, len(campaigns))
+        campaign_summary: parrot.CampaignSummary = campaigns[63]
+        self.assertEquals("COINALPHA-HBOT", campaign_summary.trading_pair)
+        self.assertEquals("kucoin", campaign_summary.exchange_name)
+        self.assertEquals(Decimal("0.015"), campaign_summary.spread_max)
+
+    @aioresponses()
+    def test_active_campaigns_are_filetered_buy_exchange_name(self, mock_api):
+        url = f"{parrot.PARROT_MINER_BASE_URL}campaigns"
+        resp = [
+            {
+                "id": 26,
+                "campaign_name": "xym",
+                "link": "https://symbolplatform.com/",
+                "markets": [{
+                    "id": 62,
+                    "trading_pair": "XYM-BTC",
+                    "exchange_name": "kucoin",
+                    "base_asset": "XYM",
+                    "base_asset_full_name": "symbol",
+                    "quote_asset": "BTC",
+                    "quote_asset_full_name": "bitcoin"}],
+                "bounty_periods": [{
+                    "id": 823,
+                    "start_datetime": "2021-10-05T00:00:00",
+                    "end_datetime": "2021-10-12T00:00:00",
+                    "payout_parameters": [{
+                        "id": 2212,
+                        "market_id": 62,
+                        "bid_budget": 1371.5,
+                        "ask_budget": 1371.5,
+                        "exponential_decay_function_factor": 8.0,
+                        "spread_max": 1.5,
+                        "payout_asset": "XYM"}]}]}]
+
+        mock_api.get(url, body=json.dumps(resp))
+
+        campaigns = asyncio.get_event_loop().run_until_complete(
+            parrot.get_active_campaigns(
+                exchange="test_exchange",
+                trading_pairs=["XYM-BTC"]))
+
+        self.assertEqual(0, len(campaigns))
+
+    @aioresponses()
+    def test_get_campaign_summary_logs_error_if_exception_happens(self, mock_api):
+        url = f"{parrot.PARROT_MINER_BASE_URL}campaigns"
+
+        mock_api.get(url, exception=Exception("Test error description"))
+
+        campaigns = asyncio.get_event_loop().run_until_complete(
+            parrot.get_campaign_summary(
+                exchange="test_exchange",
+                trading_pairs=["XYM-BTC"]))
+
+        self.assertEqual(0, len(campaigns))
+        self.assertTrue(self._is_logged("ERROR",
+                                        "Unexpected error while requesting data from Hummingbot API."))
