@@ -3,6 +3,7 @@ import time
 import asyncio
 import logging
 import aiohttp
+import ujson
 
 from typing import Optional, List, AsyncIterable, Any
 
@@ -85,8 +86,9 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
                         async with self._throttler.execute_task(CONSTANTS.SUB_ENDPOINT_NAME):
                             await ws.send_json(payload)
 
-                        async for msg in self._inner_messages(ws):
+                        async for raw_msg in self._inner_messages(ws):
                             try:
+                                msg = ujson.loads(raw_msg)
                                 if msg is None:
                                     continue
 
@@ -123,10 +125,7 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     if raw_msg.type == aiohttp.WSMsgType.CLOSED:
                         raise ConnectionError
                     self._last_recv_time = time.time()
-
-                    message = raw_msg.json()
-
-                    yield message
+                    yield raw_msg.data
                 except asyncio.TimeoutError:
                     payload = {"op": CONSTANTS.PONG_ENDPOINT_NAME}
                     pong_waiter = ws.send_json(payload)
