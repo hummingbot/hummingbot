@@ -15,6 +15,7 @@ export interface Token {
 
 export class EthereumBase {
   private _provider;
+  private _blockNumber: number = 0;
   protected _tokenList: Token[] = [];
   private _tokenMap: Record<string, Token> = {};
   // there are async values set in the constructor
@@ -36,6 +37,7 @@ export class EthereumBase {
     gasPriceConstant: number
   ) {
     this._provider = new providers.JsonRpcProvider(rpcUrl);
+    this._provider.on('block', this.on_new_block);
     this.chainId = chainId;
     this.rpcUrl = rpcUrl;
     this.gasPriceConstant = gasPriceConstant;
@@ -49,6 +51,14 @@ export class EthereumBase {
 
   public get provider() {
     return this._provider;
+  }
+
+  public get blockNumber() {
+    return this._blockNumber;
+  }
+
+  public on_new_block(bn: number) {
+    this._blockNumber = bn;
   }
 
   async init(): Promise<void> {
