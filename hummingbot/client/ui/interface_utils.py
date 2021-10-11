@@ -6,19 +6,12 @@ from typing import (
 )
 import psutil
 import datetime
-import asyncio
 from hummingbot.model.trade_fill import TradeFill
 from hummingbot.client.performance import PerformanceMetrics
+from hummingbot.core.utils.async_utils import async_sleep
 
 
 s_decimal_0 = Decimal("0")
-
-
-async def async_sleep(delay):
-    """
-    A wrapper function that facilitates patching the sleep in unit tests without affecting the asyncio module
-    """
-    await asyncio.sleep(delay)
 
 
 def format_bytes(num, suffix="B"):
