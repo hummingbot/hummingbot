@@ -6,22 +6,20 @@ from typing import (
 )
 import psutil
 import datetime
-import asyncio
 from hummingbot.model.trade_fill import TradeFill
 from hummingbot.client.performance import PerformanceMetrics
+from hummingbot.core.utils.async_utils import async_sleep
 
 
 s_decimal_0 = Decimal("0")
 
 
-def format_bytes(size):
-    power = 1000
-    n = 0
-    power_labels = {0: '', 1: 'KB', 2: 'MB', 3: 'GB', 4: 'TB'}
-    while size > power:
-        size /= power
-        n += 1
-    return f"{round(size, 2)} {power_labels[n]}"
+def format_bytes(num, suffix="B"):
+    for unit in ["", "K", "M", "G", "T", "P", "E", "Z"]:
+        if abs(num) < 1024.0:
+            return f"{num:3.2f} {unit}{suffix}"
+        num /= 1024.0
+    return f"{num:.2f} Y{suffix}"
 
 
 async def start_timer(timer):
@@ -29,7 +27,7 @@ async def start_timer(timer):
     while True:
         count += 1
         timer.log(f"Duration: {datetime.timedelta(seconds=count)}")
-        await asyncio.sleep(1)
+        await async_sleep(1)
 
 
 async def start_process_monitor(process_monitor):
@@ -41,7 +39,7 @@ async def start_process_monitor(process_monitor):
                                 "Mem: {:>10}, ".format(format_bytes(hb_process.memory_info()[1] / threads)) +
                                 "Threads: {:>3}, ".format(threads)
                                 )
-        await asyncio.sleep(1)
+        await async_sleep(1)
 
 
 async def start_trade_monitor(trade_monitor):
@@ -73,4 +71,4 @@ async def start_trade_monitor(trade_monitor):
                     trade_monitor.log(f"Trades: {len(trades)}, Total P&L: {total_pnls}, Return %: {avg_return:.2%}")
                     return_pcts.clear()
                     pnls.clear()
-        await asyncio.sleep(2)  # sleeping for longer to manage resources
+        await async_sleep(2)  # sleeping for longer to manage resources
