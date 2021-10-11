@@ -223,7 +223,7 @@ export async function poll(
   const txData = await ethereum.getTransaction(req.txHash);
   let txBlock, txReceipt, txStatus;
   if (!txData) {
-    // tx didn't reach the mempool
+    // tx not found, didn't reach the mempool or it never existed
     txBlock = -1;
     txReceipt = null;
     txStatus = -1;
@@ -250,6 +250,7 @@ export async function poll(
     network: ConfigManager.config.ETHEREUM_CHAIN,
     currentBlock,
     timestamp: initTime,
+    txHash: req.txHash,
     txBlock,
     txStatus,
     txData,

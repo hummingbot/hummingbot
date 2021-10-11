@@ -73,6 +73,7 @@ export interface EthereumPollResponse {
   network: string;
   timestamp: number;
   currentBlock: number;
+  txHash: string;
   txStatus: number;
   txBlock: number;
   txData: ethers.providers.TransactionResponse | null;
