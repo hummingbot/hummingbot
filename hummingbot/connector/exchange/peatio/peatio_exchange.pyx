@@ -981,7 +981,7 @@ cdef class PeatioExchange(ExchangeBase):
             object notional_size
         # Check against min_order_size. If not passing check, return 0.
         if quantized_amount < trading_rule.min_order_size:
-            self.logger().warning(f"quantized_amount ({quantized_amount}) < min_order_size ({trading_rule.min_order_size})")
+            self.logger().debug(f"quantized_amount ({quantized_amount}) < min_order_size ({trading_rule.min_order_size}) for {trading_pair.upper()}")
             return s_decimal_0
 
         # Check against max_order_size. If not passing check, return maximum.

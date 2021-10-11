@@ -13,6 +13,7 @@ cdef class StonesStrategy(StrategyBase):
         dict map_order_id_to_level
         dict _total_buy_order_amount
         dict _total_sell_order_amount
+        dict _last_opened_order_timestamp
         object rate_oracle
 
         double _status_report_interval

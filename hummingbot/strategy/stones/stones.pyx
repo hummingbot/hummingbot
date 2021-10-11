@@ -102,11 +102,15 @@ cdef class StonesStrategy(StrategyBase):
         self._total_buy_order_amount = total_buy_order_amount
         self._total_sell_order_amount = total_sell_order_amount
 
+        self._last_opened_order_timestamp = dict()
+
         for buy_order_level in buy_order_levels or []:
             self.add_buy_order_level(buy_order_level)
+            self._last_opened_order_timestamp[buy_order_level] = 0
 
         for sell_order_level in sell_order_levels or []:
             self.add_sell_order_level(sell_order_level)
+            self._last_opened_order_timestamp[sell_order_level] = 0
 
     def get_active_orders_by_market_info(self, market_info):
         return self.market_info_to_active_orders.get(market_info, [])
@@ -253,6 +257,9 @@ cdef class StonesStrategy(StrategyBase):
         self._start_timestamp = timestamp
         self._last_timestamp = timestamp
 
+        for key in self._last_opened_order_timestamp.keys():
+            self._last_opened_order_timestamp[key] = timestamp
+
     cdef c_tick(self, double timestamp):
         """
         Clock tick entry point.
@@ -384,15 +391,24 @@ cdef class StonesStrategy(StrategyBase):
 
         buy_orders_data = self.get_data_for_orders(market_info=market_info, current_price=oracle_price, liquidity=self._total_buy_order_amount[trading_pair], is_buy=True)
         for is_buy, price, liquidity, order_level in buy_orders_data:
+            if self._last_opened_order_timestamp[order_level] + self._time_delay > self._current_timestamp:
+                self.logger().info(f"Delay {(self._last_opened_order_timestamp[order_level] + self._time_delay) - self._current_timestamp} for {order_level}")
+                break
             if price > s_decimal_zero and liquidity > s_decimal_zero:
                 order_id = self.c_place_orders(market_info, is_buy=is_buy, order_price=price, order_amount=liquidity)
-                self.map_order_id_to_level[order_id] = order_level
+                if order_id is not None:
+                    self._last_opened_order_timestamp[order_level] = self._current_timestamp
+                    self.map_order_id_to_level[order_id] = order_level
 
         sell_orders_data = self.get_data_for_orders(market_info=market_info, current_price=oracle_price, liquidity=self._total_sell_order_amount[trading_pair], is_buy=False)
         for is_buy, price, liquidity, order_level in sell_orders_data:
+            if self._last_opened_order_timestamp[order_level] + self._time_delay > self._current_timestamp:
+                break
             if price > s_decimal_zero and liquidity > s_decimal_zero:
                 order_id = self.c_place_orders(market_info, is_buy=is_buy, order_price=price, order_amount=liquidity)
-                self.map_order_id_to_level[order_id] = order_level
+                if order_id is not None:
+                    self._last_opened_order_timestamp[order_level] = self._current_timestamp
+                    self.map_order_id_to_level[order_id] = order_level
 
     def add_order_level(self, level: OrderLevel, is_buy: bool):
         if is_buy is True:
@@ -410,14 +426,14 @@ cdef class StonesStrategy(StrategyBase):
         results = []
         available_liquidity = liquidity
         map_level_to_active_amount = self.get_active_amount_on_levels(market_info=market_info)
-        for level in map(lambda x: x, self.buy_levels if is_buy is True else self.sell_levels):
+        for level in filter(lambda x: x.trading_pair == market_info.trading_pair, self.buy_levels if is_buy is True else self.sell_levels):
             level_liquidity = ((liquidity * level.percentage_of_liquidity) / hundred) - map_level_to_active_amount.get(level, s_decimal_zero)
             self.logger().debug(f"get orders data for {level} with {level_liquidity} liquidity")
             if level_liquidity < level.min_order_amount or available_liquidity < level_liquidity:
                 continue
             orders_data = level.get_trades_data(is_buy, current_price, level_liquidity)
             results.extend(orders_data)
-            available_liquidity -= sum(map(lambda x: x[2], orders_data))
+            available_liquidity = available_liquidity - sum(map(lambda x: x[2], orders_data))
 
         return results
 
