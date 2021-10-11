@@ -14,12 +14,12 @@ from hummingbot.core.utils.async_utils import async_sleep
 s_decimal_0 = Decimal("0")
 
 
-def format_bytes(num, suffix="B"):
-    for unit in ["", "K", "M", "G", "T", "P", "E", "Z"]:
-        if abs(num) < 1024.0:
-            return f"{num:3.2f} {unit}{suffix}"
-        num /= 1024.0
-    return f"{num:.2f} Y{suffix}"
+def format_bytes(size):
+    for unit in ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB"]:
+        if abs(size) < 1024.0:
+            return f"{size:3.2f} {unit}"
+        size /= 1024.0
+    return f"{size:.2f} YB"
 
 
 async def start_timer(timer):
