@@ -222,7 +222,6 @@ def generate_layout(input_field: TextArea,
             FloatContainer(
                 HSplit([
                     output_field,
-                    Window(height=1, char='-', style='class:primary'),
                     input_field,
                 ]),
                 [
@@ -235,7 +234,6 @@ def generate_layout(input_field: TextArea,
                               scroll_offset=1)),
                 ]
             ),
-            Window(width=1, char='|', style='class:primary'),
             HSplit([
                 log_field,
                 search_field,
