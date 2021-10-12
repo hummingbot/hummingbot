@@ -46,7 +46,9 @@ describe('EVMNodeService', () => {
   let nonceManager: EVMNonceManager;
   beforeAll(() => {
     nonceManager = EVMNonceManager.getInstance();
-    const provider = new providers.JsonRpcProvider('https://ethereum.node.com');
+    const provider = new providers.StaticJsonRpcProvider(
+      'https://ethereum.node.com'
+    );
     nonceManager.init(provider, 0);
   });
 
