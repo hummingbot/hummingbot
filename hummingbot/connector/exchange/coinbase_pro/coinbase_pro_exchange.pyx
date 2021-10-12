@@ -409,9 +409,10 @@ cdef class CoinbaseProExchange(ExchangeBase):
             try:
                 trading_pair = rule.get("id")
                 retval.append(TradingRule(trading_pair,
-                                          min_price_increment=Decimal(rule.get("quote_increment")),
-                                          min_order_size=Decimal(rule.get("base_min_size")),
-                                          max_order_size=Decimal(rule.get("base_max_size")),
+                                          min_price_increment=Decimal(str(rule.get("quote_increment"))),
+                                          min_base_amount_increment=Decimal(str(rule.get("base_increment"))),
+                                          min_order_size=Decimal(str(rule.get("base_min_size"))),
+                                          max_order_size=Decimal(str(rule.get("base_max_size"))),
                                           supports_market_orders=(not rule.get("limit_only"))))
             except Exception:
                 self.logger().error(f"Error parsing the trading_pair rule {rule}. Skipping.", exc_info=True)
@@ -1051,10 +1052,7 @@ cdef class CoinbaseProExchange(ExchangeBase):
         """
         cdef:
             TradingRule trading_rule = self._trading_rules[trading_pair]
-
-        # Coinbase Pro is using the min_order_size as max_precision
-        # Order size must be a multiple of the min_order_size
-        return trading_rule.min_order_size
+        return trading_rule.min_base_amount_increment
 
     cdef object c_quantize_order_amount(self, str trading_pair, object amount, object price=s_decimal_0):
         """
