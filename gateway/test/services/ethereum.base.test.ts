@@ -5,12 +5,14 @@ describe('Eth block listener test', () => {
   beforeAll(async () => {
     eth = Ethereum.getInstance();
     await eth.init();
+    await eth.provider.ready;
   });
-  it('block event should be registered', () => {
-    expect(eth.provider._events.length).toBeGreaterThanOrEqual(1);
-  });
-  it('block number should be updated', () => {
-    eth.on_new_block(100);
-    expect(eth.blockNumber).toEqual(100);
+  it('block event should be registered', (done) => {
+    function processNewBlock(blockNumber: number) {
+      expect(blockNumber).toBeGreaterThan(1);
+      done();
+    }
+
+    eth.onNewBlock(processNewBlock);
   });
 });

@@ -14,9 +14,10 @@ export interface Token {
   decimals: number;
 }
 
+export type NewBlockHandler = (bn: number) => void;
+
 export class EthereumBase {
   private _provider;
-  private _blockNumber: number = 0;
   protected _tokenList: Token[] = [];
   private _tokenMap: Record<string, Token> = {};
   // there are async values set in the constructor
@@ -39,7 +40,6 @@ export class EthereumBase {
     gasPriceConstant: number
   ) {
     this._provider = new providers.StaticJsonRpcProvider(rpcUrl);
-    this._provider.on('block', this.on_new_block);
     this.chainId = chainId;
     this.rpcUrl = rpcUrl;
     this.gasPriceConstant = gasPriceConstant;
@@ -56,18 +56,14 @@ export class EthereumBase {
     return this._provider;
   }
 
-  public get blockNumber() {
-    return this._blockNumber;
-  }
-
-  public onNewBlock(bn: number) {
-    this._blockNumber = bn;
-  }
-
   public events() {
     this._provider._events.map(function (event) {
       return [event.tag];
     });
+  }
+
+  public onNewBlock(func: NewBlockHandler) {
+    this._provider.on('block', func);
   }
 
   async init(): Promise<void> {
