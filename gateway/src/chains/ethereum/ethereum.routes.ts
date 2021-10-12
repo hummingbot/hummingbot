@@ -63,8 +63,7 @@ export namespace EthereumRoutes {
         req: Request<{}, {}, EthereumNonceRequest>,
         res: Response<EthereumNonceResponse | string, {}>
       ) => {
-        const response = await nonce(req.body);
-        res.status(200).json(response);
+        res.status(200).json(await nonce(req.body));
       }
     )
   );
@@ -76,8 +75,7 @@ export namespace EthereumRoutes {
         req: Request<{}, {}, EthereumAllowancesRequest>,
         res: Response<EthereumAllowancesResponse | string, {}>
       ) => {
-        const response = await allowances(req.body);
-        res.status(200).json(response);
+        res.status(200).json(await allowances(req.body));
       }
     )
   );
@@ -102,8 +100,7 @@ export namespace EthereumRoutes {
         req: Request<{}, {}, EthereumApproveRequest>,
         res: Response<EthereumApproveResponse | string, {}>
       ) => {
-        const result = await approve(req.body);
-        return res.status(200).json(result);
+        return res.status(200).json(await approve(req.body));
       }
     )
   );
@@ -115,8 +112,7 @@ export namespace EthereumRoutes {
         req: Request<{}, {}, EthereumPollRequest>,
         res: Response<EthereumPollResponse, {}>
       ) => {
-        const result = await poll(req.body);
-        res.status(200).json(result);
+        res.status(200).json(await poll(req.body));
       }
     )
   );
