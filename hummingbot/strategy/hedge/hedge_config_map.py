@@ -61,18 +61,6 @@ def asset_validate(value: str) -> Optional[str]:
             tokens_list.append(token)
 
 
-def token_validate(value: str) -> Optional[str]:
-    value = value.upper()
-    markets = list(hedge_config_map["maker_markets"].value.split(","))
-    tokens = set()
-    for market in markets:
-        # Tokens in markets already validated in market_validate()
-        for token in market.strip().upper().split("-"):
-            tokens.add(token.strip())
-    if value not in tokens:
-        return f"Invalid token. {value} is not one of {','.join(sorted(tokens))}"
-
-
 # List of parameters defined by the strategy
 hedge_config_map = {
     "strategy":
