@@ -471,6 +471,7 @@ class GatewayBase(ConnectorBase):
 
     @property
     def ready(self):
+        self.logger().info(self.status_dict.values())
         return all(self.status_dict.values())
 
     def has_allowances(self) -> bool:
@@ -506,6 +507,7 @@ class GatewayBase(ConnectorBase):
             self._get_chain_info_task = None
 
     async def check_network(self) -> NetworkStatus:
+        self.logger().info("gateway_base check network.")
         try:
             response = await self._api_request("get", "")
             if response["status"] != "ok":
@@ -521,6 +523,7 @@ class GatewayBase(ConnectorBase):
         Is called automatically by the clock for each clock's tick (1 second by default).
         It checks if status polling task is due for execution.
         """
+        self.logger().info("gateway_base tick.")
         if time.time() - self._last_poll_timestamp > self.POLL_INTERVAL:
             if self._poll_notifier is not None and not self._poll_notifier.is_set():
                 self._poll_notifier.set()
@@ -534,6 +537,7 @@ class GatewayBase(ConnectorBase):
         self.nonce = resp_json['nonce']
 
     async def _status_polling_loop(self):
+        self.logger().info("gateway_base _status_polling_loop.")
         while True:
             try:
                 self._poll_notifier = asyncio.Event()

@@ -247,6 +247,7 @@ class HummingbotApplication(*commands):
 
     def _initialize_markets(self, market_names: List[Tuple[str, List[str]]]):
         # aggregate trading_pairs if there are duplicate markets
+        self.logger().info(f'_initialize_markets {market_names}')
 
         for market_name, trading_pairs in market_names:
             if market_name not in self.market_trading_pairs_map:
@@ -256,6 +257,7 @@ class HummingbotApplication(*commands):
 
         for connector_name, trading_pairs in self.market_trading_pairs_map.items():
             conn_setting = CONNECTOR_SETTINGS[connector_name]
+            self.logger().info(f'connector name and type {connector_name} {conn_setting.type}')
             if global_config_map.get("paper_trade_enabled").value and conn_setting.type == ConnectorType.Exchange:
                 connector = create_paper_trade_market(connector_name, trading_pairs)
                 paper_trade_account_balance = global_config_map.get("paper_trade_account_balance").value
@@ -271,6 +273,7 @@ class HummingbotApplication(*commands):
                     ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
                     # Todo: Hard coded this execption for now until we figure out how to handle all ethereum connectors.
                     if connector_name in ["balancer", "uniswap", "uniswap_v3", "perpetual_finance"]:
+                        self.logger().info('getting private keys')
                         private_key = get_eth_wallet_private_key()
                         init_params.update(wallet_private_key=private_key, ethereum_rpc_url=ethereum_rpc_url)
                     else:
