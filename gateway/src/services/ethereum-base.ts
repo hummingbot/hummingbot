@@ -14,6 +14,8 @@ export interface Token {
   decimals: number;
 }
 
+export type NewBlockHandler = (bn: number) => void;
+
 export class EthereumBase {
   private _provider;
   protected _tokenList: Token[] = [];
@@ -58,6 +60,10 @@ export class EthereumBase {
     this._provider._events.map(function (event) {
       return [event.tag];
     });
+  }
+
+  public onNewBlock(func: NewBlockHandler) {
+    this._provider.on('block', func);
   }
 
   async init(): Promise<void> {
