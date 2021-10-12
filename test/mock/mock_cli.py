@@ -51,3 +51,6 @@ class CLIMockingAssistant:
 
     def _register_log_call(self, text: str, save_log: bool = True):
         self._log_calls.append(text)
+
+    def toggle_logs(self):
+        self._app.toggle_logs()
