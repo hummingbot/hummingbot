@@ -204,15 +204,13 @@ export async function approve(
 const toEthereumTransactionReceipt = (
   receipt: ethers.providers.TransactionReceipt | null
 ): EthereumTransactionReceipt | null => {
-  if (receipt) {
-    return {
-      ...receipt,
-      gasUsed: receipt.gasUsed.toString(),
-      cumulativeGasUsed: receipt.cumulativeGasUsed.toString(),
-    };
-  }
-
-  return null;
+  return receipt
+    ? {
+        ...receipt,
+        gasUsed: receipt.gasUsed.toString(),
+        cumulativeGasUsed: receipt.cumulativeGasUsed.toString(),
+      }
+    : null;
 };
 
 export async function poll(
@@ -221,24 +219,37 @@ export async function poll(
   validateEthereumPollRequest(req);
 
   const initTime = Date.now();
-  const receipt = await ethereum.getTransactionReceipt(req.txHash);
-  const confirmed = !!receipt && !!receipt.blockNumber;
-
-  if (receipt && receipt.status === 0) {
-    const transaction = await ethereum.getTransaction(req.txHash);
-    const gasUsed = BigNumber.from(receipt.gasUsed).toNumber();
-    const gasLimit = BigNumber.from(transaction.gasLimit).toNumber();
-    if (gasUsed / gasLimit > 0.9)
-      throw new GatewayError(503, 1003, 'Transaction out of gas.');
+  const txData = await ethereum.getTransaction(req.txHash);
+  let txReceipt, txStatus;
+  if (!txData) {
+    // tx didn't reach the mempool
+    txReceipt = null;
+    txStatus = -1;
+  } else {
+    txReceipt = await ethereum.getTransactionReceipt(req.txHash);
+    if (txReceipt === null) {
+      // tx is in the mempool
+      txReceipt = null;
+      txStatus = -1;
+    } else {
+      // tx has been processed
+      txStatus = typeof txReceipt.status === 'number' ? txReceipt.status : -1;
+      if (txStatus === 0) {
+        const gasUsed = BigNumber.from(txReceipt.gasUsed).toNumber();
+        const gasLimit = BigNumber.from(txData.gasLimit).toNumber();
+        if (gasUsed / gasLimit > 0.9)
+          throw new GatewayError(503, 1003, 'Transaction out of gas.');
+      }
+    }
   }
-
   return {
     network: ConfigManager.config.ETHEREUM_CHAIN,
     timestamp: initTime,
     latency: latency(initTime, Date.now()),
     txHash: req.txHash,
-    confirmed,
-    receipt: toEthereumTransactionReceipt(receipt),
+    txStatus,
+    txData,
+    txReceipt: toEthereumTransactionReceipt(txReceipt),
   };
 }
 

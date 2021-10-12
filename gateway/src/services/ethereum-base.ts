@@ -165,7 +165,7 @@ export class EthereumBase {
   // returns an ethereum TransactionReceipt for a txHash if the transaction has been mined.
   async getTransactionReceipt(
     txHash: string
-  ): Promise<providers.TransactionReceipt> {
+  ): Promise<providers.TransactionReceipt | null> {
     if (this.cache.keys().includes(txHash)) {
       // If it's in the cache, return the value in cache, whether it's null or not
       return this.cache.get(txHash) as providers.TransactionReceipt;
