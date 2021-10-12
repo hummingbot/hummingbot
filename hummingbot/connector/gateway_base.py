@@ -84,6 +84,7 @@ class GatewayBase(ConnectorBase):
         self._auto_approve_task = None
         self._get_chain_info_task = None
         self._poll_notifier = None
+        self.logger().info("gateway_base initiated")
 
     @property
     def name(self):
@@ -487,7 +488,9 @@ class GatewayBase(ConnectorBase):
         }
 
     async def start_network(self):
+        self.logger().info("gateway_base starting network.")
         if self._trading_required:
+            self.logger().info("gateway_base trading required.")
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._auto_approve_task = safe_ensure_future(self.auto_approve())
 
