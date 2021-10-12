@@ -63,6 +63,8 @@ km_logger = None
 s_decimal_0 = Decimal(0)
 s_decimal_NaN = Decimal("nan")
 KUCOIN_ROOT_API = "https://api.kucoin.com"
+MINUTE = 60
+TWELVE_HOURS = MINUTE * 60 * 12
 
 
 class KucoinAPIError(IOError):
@@ -638,7 +640,7 @@ cdef class KucoinExchange(ExchangeBase):
         while True:
             try:
                 await self._update_trading_rules()
-                await asyncio.sleep(60)
+                await asyncio.sleep(MINUTE)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -652,7 +654,7 @@ cdef class KucoinExchange(ExchangeBase):
         while True:
             try:
                 await self._update_trading_fees()
-                await asyncio.sleep(60 * 60 * 12)
+                await asyncio.sleep(TWELVE_HOURS)
             except asyncio.CancelledError:
                 raise
             except Exception:
