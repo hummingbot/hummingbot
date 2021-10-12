@@ -12,10 +12,6 @@ from hummingbot.client.settings import (
     required_exchanges,
     EXAMPLE_PAIRS,
 )
-from hummingbot.client.config.global_config_map import (
-    using_bamboo_coordinator_mode,
-    using_exchange
-)
 from hummingbot.client.config.config_helpers import (
     minimum_order_amount,
 )
@@ -168,8 +164,6 @@ pure_market_making_config_map = {
         ConfigVar(key="order_refresh_time",
                   prompt="How often do you want to cancel and replace bids and asks "
                          "(in seconds)? >>> ",
-                  required_if=lambda: not (using_exchange("radar_relay")() or
-                                           (using_exchange("bamboo_relay")() and not using_bamboo_coordinator_mode())),
                   type_str="float",
                   validator=lambda v: validate_decimal(v, 0, inclusive=False),
                   prompt_on_new=True),
@@ -177,8 +171,6 @@ pure_market_making_config_map = {
         ConfigVar(key="max_order_age",
                   prompt="How long do you want to cancel and replace bids and asks "
                          "with the same price (in seconds)? >>> ",
-                  required_if=lambda: not (using_exchange("radar_relay")() or
-                                           (using_exchange("bamboo_relay")() and not using_bamboo_coordinator_mode())),
                   type_str="float",
                   default=Decimal("1800"),
                   validator=lambda v: validate_decimal(v, 0, inclusive=False)),
