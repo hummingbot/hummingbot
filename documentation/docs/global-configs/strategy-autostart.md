@@ -107,17 +107,15 @@ Whichever you used was it the **Scripts** or **Manual** method from Source, the 
 Running unattended Hummingbot is very similar to running hummingbot manually. The only differences are:
 
 - You will read the pre-existing configuration files to the `conf` directory.
-- You will pass some parameters telling Hummingbot which strategy configuration to use and the password to decrypt your API keys and wallets.
+- You will pass some parameters telling Hummingbot which strategy configuration to use to decrypt your API keys and wallets.
 
 ```
-bin/hummingbot_quickstart.py -f CONFIG_FILE_NAME -p CONFIG_PASSWORD
+bin/hummingbot_quickstart.py -f CONFIG_FILE_NAME
 ```
 
 Where  
 `STRATEGY` is the strategy name  
 `CONFIG_FILE_NAME` is the strategy config file name  
-`CONFIG_PASSWORD` is the config password
 
 - More information on strategy can be found in [Strategy](/strategies/).
 - More information on configuration file name can be found in [Configuring Hummingbot](/operation/config-files).
-- More information on password can be found in [Create a secure password](/operation/password).
