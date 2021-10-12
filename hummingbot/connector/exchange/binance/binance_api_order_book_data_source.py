@@ -201,7 +201,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                     exc_info=True)
             finally:
                 ws and await ws.close()
-                await asyncio.sleep(30.0)
+                await self._sleep(30.0)
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         ws = None
@@ -232,7 +232,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                     exc_info=True)
             finally:
                 ws and await ws.close()
-                await asyncio.sleep(30.0)
+                await self._sleep(30.0)
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
@@ -255,13 +255,13 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     except Exception:
                         self.logger().error(f"Unexpected error fetching order book snapshot for {trading_pair}.",
                                             exc_info=True)
-                        await asyncio.sleep(5.0)
+                        await self._sleep(5.0)
                 this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
                 next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)
                 delta: float = next_hour.timestamp() - time.time()
-                await asyncio.sleep(delta)
+                await self._sleep(delta)
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().error("Unexpected error.", exc_info=True)
-                await asyncio.sleep(5.0)
+                await self._sleep(5.0)

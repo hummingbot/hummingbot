@@ -2,7 +2,6 @@
 import time
 import asyncio
 import logging
-import websockets
 import aiohttp
 import ujson
 
@@ -30,15 +29,26 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
         return cls._logger
 
     def __init__(
-        self, throttler: AsyncThrottler, ascend_ex_auth: AscendExAuth, trading_pairs: Optional[List[str]] = None
+        self, ascend_ex_auth: AscendExAuth, shared_client: Optional[aiohttp.ClientSession] = None, throttler: Optional[AsyncThrottler] = None, trading_pairs: Optional[List[str]] = None
     ):
         super().__init__()
-        self._throttler = throttler
+        self._shared_client = shared_client or self._get_session_instance()
+        self._throttler = throttler or self._get_throttler_instance()
         self._ascend_ex_auth: AscendExAuth = ascend_ex_auth
         self._trading_pairs = trading_pairs or []
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
         self._last_recv_time: float = 0
+
+    @classmethod
+    def _get_session_instance(cls) -> aiohttp.ClientSession:
+        session = aiohttp.ClientSession()
+        return session
+
+    @classmethod
+    def _get_throttler_instance(cls) -> AsyncThrottler:
+        throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        return throttler
 
     @property
     def last_recv_time(self) -> float:
@@ -59,7 +69,7 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     **self._ascend_ex_auth.get_auth_headers("info"),
                 }
                 async with self._throttler.execute_task(CONSTANTS.INFO_PATH_URL):
-                    response = await aiohttp.ClientSession().get(
+                    response = await self._shared_client.get(
                         f"{CONSTANTS.REST_URL}/{CONSTANTS.INFO_PATH_URL}", headers=headers
                     )
                 info = await response.json()
@@ -70,11 +80,11 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     "ch": "order:cash"
                 }
 
-                async with websockets.connect(f"{get_ws_url_private(accountGroup)}/stream", extra_headers=headers) as ws:
+                async with self._shared_client.ws_connect(f"{get_ws_url_private(accountGroup)}/stream", headers=headers) as ws:
                     try:
-                        ws: websockets.WebSocketClientProtocol = ws
+                        ws: aiohttp.ClientWebSocketResponse = ws
                         async with self._throttler.execute_task(CONSTANTS.SUB_ENDPOINT_NAME):
-                            await ws.send(ujson.dumps(payload))
+                            await ws.send_json(payload)
 
                         async for raw_msg in self._inner_messages(ws):
                             try:
@@ -105,25 +115,25 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def _inner_messages(
         self,
-        ws: websockets.WebSocketClientProtocol
+        ws: aiohttp.ClientWebSocketResponse
     ) -> AsyncIterable[str]:
         # Terminate the recv() loop as soon as the next message timed out, so the outer loop can reconnect.
         try:
             while True:
                 try:
-                    raw_msg: str = await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)
+                    raw_msg = await asyncio.wait_for(ws.receive(), timeout=self.MESSAGE_TIMEOUT)
+                    if raw_msg.type == aiohttp.WSMsgType.CLOSED:
+                        raise ConnectionError
                     self._last_recv_time = time.time()
-                    yield raw_msg
+                    yield raw_msg.data
                 except asyncio.TimeoutError:
                     payload = {"op": CONSTANTS.PONG_ENDPOINT_NAME}
-                    pong_waiter = ws.send(ujson.dumps(payload))
+                    pong_waiter = ws.send_json(payload)
                     async with self._throttler.execute_task(CONSTANTS.PONG_ENDPOINT_NAME):
                         await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
                     self._last_recv_time = time.time()
         except asyncio.TimeoutError:
             self.logger().warning("WebSocket ping timed out. Going to reconnect...")
-            return
-        except websockets.ConnectionClosed:
             return
         finally:
             await ws.close()

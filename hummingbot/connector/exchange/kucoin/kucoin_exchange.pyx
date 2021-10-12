@@ -498,6 +498,8 @@ cdef class KucoinExchange(ExchangeBase):
             for tracked_order in tracked_orders:
                 exchange_order_id = await tracked_order.get_exchange_order_id()
                 order_update = await self.get_order_status(exchange_order_id)
+                if tracked_order.client_order_id not in self.in_flight_orders:
+                    continue  # asynchronously removed in _user_stream_event_listener
                 if order_update is None:
                     self.logger().network(
                         f"Error fetching status update for the order {tracked_order.client_order_id}: "
@@ -1000,3 +1002,6 @@ cdef class KucoinExchange(ExchangeBase):
             )
         throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         return throttler
+
+    def stop_tracking_order(self, order_id: str):
+        self.c_stop_tracking_order(order_id)
