@@ -37,7 +37,7 @@ export class EthereumBase {
     tokenListType: TokenListType,
     gasPriceConstant: number
   ) {
-    this._provider = new providers.JsonRpcProvider(rpcUrl);
+    this._provider = new providers.StaticJsonRpcProvider(rpcUrl);
     this.chainId = chainId;
     this.rpcUrl = rpcUrl;
     this.gasPriceConstant = gasPriceConstant;
