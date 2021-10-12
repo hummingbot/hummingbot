@@ -17,7 +17,7 @@ export const invalidAmountError: string =
   'The amount param must be a string of a non-negative integer.';
 
 export const invalidSideError: string =
-  'The side param must be a string of "buy" or "sell".';
+  'The side param must be a string of "BUY" or "SELL".';
 
 export const invalidLimitPriceError: string =
   'The limitPrice param may be null or a string of a float or integer number.';
