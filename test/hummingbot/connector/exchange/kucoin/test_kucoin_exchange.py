@@ -355,3 +355,34 @@ class TestKucoinExchange(unittest.TestCase):
 
         self.assertEqual(0, len(order_completed_events))
         self.assertEqual(0, len(orders_filled_events))
+
+    @aioresponses()
+    def test_get_fee_defaults_on_not_found(self, mocked_api):
+        url = KUCOIN_ROOT_API + CONSTANTS.FEE_PATH_URL
+        regex_url = re.compile(f"^{url}")
+        resp = {"data": [{"makerFeeRate": "0.002", "takerFeeRate": "0.002"}]}
+        mocked_api.get(regex_url, body=json.dumps(resp))
+
+        self.async_run_with_timeout(self.exchange._update_trading_fees())
+
+        fee = self.exchange.get_fee(
+            base_currency=self.base_asset,
+            quote_currency=self.quote_asset,
+            order_type=OrderType.LIMIT,
+            order_side=TradeType.BUY,
+            amount=Decimal("10"),
+            price=Decimal("20"),
+        )
+
+        self.assertEqual(Decimal("0.002"), fee.percent)
+
+        fee = self.exchange.get_fee(
+            base_currency="SOME",
+            quote_currency="OTHER",
+            order_type=OrderType.LIMIT,
+            order_side=TradeType.BUY,
+            amount=Decimal("10"),
+            price=Decimal("20"),
+        )
+
+        self.assertEqual(Decimal("0.001"), fee.percent)  # default fee
