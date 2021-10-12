@@ -237,9 +237,6 @@ cdef class DydxExchange(ExchangeBase):
                 retval.append(dydx_flight_order.to_limit_order())
         return retval
 
-    async def get_active_exchange_markets(self) -> pd.DataFrame:
-        return await DydxAPIOrderBookDataSource.get_active_exchange_markets()
-
     # ----------------------------------------
     # Account Balances
 

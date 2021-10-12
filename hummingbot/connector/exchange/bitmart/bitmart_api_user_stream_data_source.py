@@ -62,6 +62,7 @@ class BitmartAPIUserStreamDataSource(UserStreamTrackerDataSource):
             return self._websocket_client
         except Exception:
             self.logger().network("Unexpected error occured with BitMart WebSocket Connection")
+            raise
 
     async def _authenticate(self, ws: websockets.WebSocketClientProtocol):
         """
@@ -80,8 +81,7 @@ class BitmartAPIUserStreamDataSource(UserStreamTrackerDataSource):
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().info("Error occurred when authenticating to user stream. ",
-                               exc_info=True)
+            self.logger().error("Error occurred when authenticating to user stream.", exc_info=True)
             raise
 
     async def _subscribe_to_channels(self, ws: websockets.WebSocketClientProtocol):
@@ -100,8 +100,8 @@ class BitmartAPIUserStreamDataSource(UserStreamTrackerDataSource):
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().error(f"Error occured subscribing to {self.exchange_name} private channels. ",
-                                exc_info=True)
+            self.logger().error("Error occured during subscribing to Bitmart private channels.", exc_info=True)
+            raise
 
     async def _inner_messages(self,
                               ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
@@ -113,8 +113,7 @@ class BitmartAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     self._last_recv_time = time.time()
                     yield msg
                 except asyncio.TimeoutError:
-                    pong_waiter = await ws.ping()
-                    await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
+                    await asyncio.wait_for(ws.ping(), timeout=self.PING_TIMEOUT)
                     self._last_recv_time = time.time()
         except asyncio.TimeoutError:
             self.logger().warning("WebSocket ping timed out. Going to reconnect...")
@@ -124,7 +123,7 @@ class BitmartAPIUserStreamDataSource(UserStreamTrackerDataSource):
         finally:
             await ws.close()
 
-    async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue) -> AsyncIterable[Any]:
+    async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
         *required
         Subscribe to user stream via web socket, and keep the connection open for incoming messages

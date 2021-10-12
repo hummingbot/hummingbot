@@ -1,17 +1,29 @@
 import asyncio
 import logging
-from collections import deque, defaultdict
-from typing import Optional, Deque, List, Dict, Set
+
+from collections import defaultdict, deque
+from typing import (
+    Deque,
+    Dict,
+    List,
+    Optional,
+    Set,
+)
+
 from hummingbot.connector.exchange.dolomite.dolomite_active_order_tracker import DolomiteActiveOrderTracker
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.order_book_tracker import OrderBookTracker, OrderBookTrackerDataSourceType
+from hummingbot.connector.exchange.dolomite.dolomite_api_order_book_data_source import DolomiteAPIOrderBookDataSource
 from hummingbot.connector.exchange.dolomite.dolomite_order_book import DolomiteOrderBook
 from hummingbot.connector.exchange.dolomite.dolomite_order_book_message import DolomiteOrderBookMessage
-from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.data_type.remote_api_order_book_data_source import RemoteAPIOrderBookDataSource
-from hummingbot.connector.exchange.dolomite.dolomite_api_order_book_data_source import DolomiteAPIOrderBookDataSource
 from hummingbot.connector.exchange.dolomite.dolomite_order_book_tracker_entry import DolomiteOrderBookTrackerEntry
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
+from hummingbot.core.data_type.order_book_tracker import (
+    OrderBookTracker,
+    OrderBookTrackerDataSourceType,
+)
+from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.core.data_type.remote_api_order_book_data_source import RemoteAPIOrderBookDataSource
+from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.logger import HummingbotLogger
 
 
 class DolomiteOrderBookTracker(OrderBookTracker):
@@ -75,7 +87,7 @@ class DolomiteOrderBookTracker(OrderBookTracker):
             self._active_order_trackers[trading_pair] = order_book_tracker_entry.active_order_tracker
             self._order_books[trading_pair] = order_book_tracker_entry.order_book
             self._tracking_message_queues[trading_pair] = asyncio.Queue()
-            self._tracking_tasks[trading_pair] = asyncio.ensure_future(self._track_single_book(trading_pair))
+            self._tracking_tasks[trading_pair] = safe_ensure_future(self._track_single_book(trading_pair))
             self.logger().info("Started order book tracking for %s." % trading_pair)
 
         for trading_pair in deleted_trading_pairs:

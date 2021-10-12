@@ -26,7 +26,9 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.kraken.kraken_order_book import KrakenOrderBook
 from hummingbot.connector.exchange.kraken.kraken_utils import (
     convert_from_exchange_trading_pair,
-    convert_to_exchange_trading_pair)
+    convert_to_exchange_trading_pair,
+    build_rate_limits_by_tier,
+)
 from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS
 
 
@@ -50,7 +52,7 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     @classmethod
     def _get_throttler_instance(cls) -> AsyncThrottler:
-        throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        throttler = AsyncThrottler(build_rate_limits_by_tier())
         return throttler
 
     @classmethod
@@ -263,7 +265,6 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 await asyncio.sleep(5.0)
 
     async def get_ws_subscription_message(self, subscription_type: str):
-        # all_markets: pd.DataFrame = await self.get_active_exchange_markets()
         trading_pairs: List[str] = []
         for tp in self._trading_pairs:
             trading_pairs.append(convert_to_exchange_trading_pair(tp, '/'))

@@ -117,12 +117,12 @@ class CeloArbUnitTest(unittest.TestCase):
         # At Celo 9.95 CUSD will get you 1 CELO, so the profit is 0%
         celo_buy_trade = trade_profits[0]
         self.assertTrue(celo_buy_trade.is_celo_buy)
-        # Can sell at CTP at 9.95
-        self.assertEqual(celo_buy_trade.ctp_price, Decimal("9.95"))
+        # Can sell at CTP at 9.9499
+        self.assertEqual(celo_buy_trade.ctp_price, Decimal("9.9499"))
         # Can buy at celo for 9.95
         self.assertEqual(celo_buy_trade.celo_price, Decimal("9.95"))
-        # profit is 0
-        self.assertEqual(celo_buy_trade.profit, Decimal("0"))
+        # profit is almost 0
+        self.assertAlmostEqual(celo_buy_trade.profit, Decimal('-0.00001005'))
 
         # Buy price at CTP (counter party) 1 CELO at 10.05 USD
         # at Celo 1 CELO will get you 10.5 USD, so the profit is (10.5 - 10.05)/10.05 = 0.0447761194
@@ -151,13 +151,13 @@ class CeloArbUnitTest(unittest.TestCase):
 
         celo_sell_trade = trade_profits[1]
         self.assertFalse(celo_sell_trade.is_celo_buy)
-        # VWAP Buy price (5 CELO) at CTP is ((10.05 * 1) + (10.15 * 2) + (10.25 * 2))/5 = 10.17
-        self.assertEqual(celo_sell_trade.ctp_vwap, Decimal("10.17"))
+        # VWAP Buy price (5 CELO) at CTP is ((10.05 * 1) + (10.15 * 2) + (10.25 * 2))/5 = 10.169
+        self.assertEqual(celo_sell_trade.ctp_vwap, Decimal("10.169"))
         self.assertEqual(celo_sell_trade.ctp_price, Decimal("10.25"))
         # Can sell price celo at 10.1 each
         self.assertEqual(celo_sell_trade.celo_price, Decimal("10.1"))
-        # profit = (10.1 - 10.17)/10.17 = -0.00688298918
-        self.assertAlmostEqual(celo_sell_trade.profit, Decimal("-0.00688298918"))
+        # profit = (10.1 - 10.17)/10.17 = -0.00678532795
+        self.assertAlmostEqual(celo_sell_trade.profit, Decimal("-0.00678532795"))
 
     def test_profitable_celo_sell_trade(self):
         order_amount = Decimal("1")

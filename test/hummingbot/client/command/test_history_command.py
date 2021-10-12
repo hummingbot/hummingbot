@@ -18,7 +18,7 @@ class HistoryCommandTest(unittest.TestCase):
         super().setUp()
         self.app = HummingbotApplication()
         self.ev_loop = asyncio.get_event_loop()
-        self.cli_mock_assistant = CLIMockingAssistant()
+        self.cli_mock_assistant = CLIMockingAssistant(self.app.app)
         self.cli_mock_assistant.start()
 
     def tearDown(self) -> None:
