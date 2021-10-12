@@ -32,7 +32,7 @@ The configuration folder is the mount path that corresponds to `/conf` in the vo
 An unattended Hummingbot installation is very similar to the Docker manual installation steps. The only differences are:
 
 1.  You will copy the pre-existing configuration files to the `hummingbot_conf` directory.
-2.  You will set some environment variables telling Hummingbot which strategy configuration to use and the password to decrypt your API keys and wallets.
+2.  You will set some environment variables telling Hummingbot which strategy configuration to use to decrypt your API keys and wallets.
 
 ```bash
 # 1) Create folder for your new instance
@@ -50,11 +50,11 @@ cp -a <existing config path>/*.yml <existing config path>/*.json hummingbot_file
 
 # 4) Set environment variables specifying the strategy config file to use, and the decryption password
 export STRATEGY=<strategy name>
-export CONFIG_FILE_NAME=<strategy config file name>
-export CONFIG_PASSWORD=<config password>
+export CONFIG_FILE_NAME=<strategy config file name.yml>
+
 
 # 5) Launch unattended instance of Hummingbot
-docker run -d \
+docker run -it \
   --name hummingbot-instance \
   --network host \
   --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_conf,destination=/conf/" \
@@ -62,11 +62,8 @@ docker run -d \
   --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_data,destination=/data/" \
   --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_scripts,destination=/scripts/" \
   --mount "type=bind,source=$(pwd)/hummingbot_files/hummingbot_certs,destination=/certs/" \
-  -e STRATEGY -e CONFIG_FILE_NAME -e CONFIG_PASSWORD \
+  -e STRATEGY -e CONFIG_FILE_NAME \
   coinalpha/hummingbot:latest
-
-# 6) Clean up
-unset STRATEGY CONFIG_FILE_NAME CONFIG_PASSWORD
 ```
 
 The Hummingbot instance will be running in the background. You can bring it to foreground via
