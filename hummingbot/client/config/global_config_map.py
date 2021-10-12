@@ -21,11 +21,6 @@ def using_exchange(exchange: str) -> Callable:
     return using_exchange_pointer(exchange)
 
 
-# Required conditions
-def using_bamboo_coordinator_mode() -> bool:
-    return global_config_map.get("bamboo_relay_use_coordinator").value
-
-
 def using_wallet() -> bool:
     return paper_trade_disabled() and settings.ethereum_wallet_required()
 
