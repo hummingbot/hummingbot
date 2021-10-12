@@ -1,4 +1,5 @@
 import logging
+from enum import Enum
 from typing import (
     Dict,
     List,
@@ -53,18 +54,28 @@ AscendExOrder = namedtuple("AscendExOrder", "symbol price orderQty orderType avg
 AscendExBalance = namedtuple("AscendExBalance", "asset availableBalance totalBalance")
 
 
+class AscendExCommissionType(Enum):
+    BASE = 0
+    QUOTE = 1
+    RECEIVED = 2
+
+
 class AscendExTradingRule(TradingRule):
     def __init__(self,
                  trading_pair: str,
                  min_price_increment: Decimal,
                  min_base_amount_increment: Decimal,
                  min_notional_size: Decimal,
-                 max_notional_size: Decimal):
+                 max_notional_size: Decimal,
+                 commission_type: AscendExCommissionType,
+                 commission_reserve_rate: Decimal):
         super().__init__(trading_pair=trading_pair,
                          min_price_increment=min_price_increment,
                          min_base_amount_increment=min_base_amount_increment,
                          min_notional_size=min_notional_size)
         self.max_notional_size = max_notional_size
+        self.commission_type = commission_type
+        self.commission_reserve_rate = commission_reserve_rate
 
 
 class AscendExExchange(ExchangePyBase):
@@ -317,7 +328,9 @@ class AscendExExchange(ExchangePyBase):
                     min_price_increment=Decimal(rule["tickSize"]),
                     min_base_amount_increment=Decimal(rule["lotSize"]),
                     min_notional_size=Decimal(rule["minNotional"]),
-                    max_notional_size=Decimal(rule["maxNotional"])
+                    max_notional_size=Decimal(rule["maxNotional"]),
+                    commission_type=AscendExCommissionType[rule["commissionType"].upper()],
+                    commission_reserve_rate=Decimal(rule["commissionReserveRate"]),
                 )
             except Exception:
                 self.logger().error(f"Error parsing the trading pair rule {rule}. Skipping.", exc_info=True)
@@ -805,13 +818,16 @@ class AscendExExchange(ExchangePyBase):
                 order_side: TradeType,
                 amount: Decimal,
                 price: Decimal = s_decimal_NaN) -> TradeFee:
-        """
-        To get trading fee, this function is simplified by using fee override configuration. Most parameters to this
-        function are ignore except order_type. Use OrderType.LIMIT_MAKER to specify you want trading fee for
-        maker order.
-        """
-        is_maker = order_type is OrderType.LIMIT_MAKER
-        return TradeFee(percent=self.estimate_fee_pct(is_maker))
+        """For more information: https://ascendex.github.io/ascendex-pro-api/#place-order."""
+        trading_pair = f"{base_currency}-{quote_currency}"
+        trading_rule = self._trading_rules[trading_pair]
+        fee_percent = Decimal("0")
+        if order_side == TradeType.BUY:
+            if trading_rule.commission_type == AscendExCommissionType.QUOTE:
+                fee_percent = trading_rule.commission_reserve_rate
+        elif trading_rule.commission_type == AscendExCommissionType.BASE:
+            fee_percent = trading_rule.commission_reserve_rate
+        return TradeFee(percent=fee_percent)
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
         while True:
