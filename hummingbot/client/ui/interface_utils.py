@@ -6,9 +6,9 @@ from typing import (
 )
 import psutil
 import datetime
+import asyncio
 from hummingbot.model.trade_fill import TradeFill
 from hummingbot.client.performance import PerformanceMetrics
-from hummingbot.core.utils.async_utils import async_sleep
 
 
 s_decimal_0 = Decimal("0")
@@ -27,7 +27,14 @@ async def start_timer(timer):
     while True:
         count += 1
         timer.log(f"Duration: {datetime.timedelta(seconds=count)}")
-        await async_sleep(1)
+        await _sleep(1)
+
+
+async def _sleep(delay):
+    """
+    A wrapper function that facilitates patching the sleep in unit tests without affecting the asyncio module
+    """
+    await asyncio.sleep(delay)
 
 
 async def start_process_monitor(process_monitor):
@@ -39,7 +46,7 @@ async def start_process_monitor(process_monitor):
                                 "Mem: {:>10}, ".format(format_bytes(hb_process.memory_info()[1] / threads)) +
                                 "Threads: {:>3}, ".format(threads)
                                 )
-        await async_sleep(1)
+        await _sleep(1)
 
 
 async def start_trade_monitor(trade_monitor):
@@ -71,4 +78,4 @@ async def start_trade_monitor(trade_monitor):
                     trade_monitor.log(f"Trades: {len(trades)}, Total P&L: {total_pnls}, Return %: {avg_return:.2%}")
                     return_pcts.clear()
                     pnls.clear()
-        await async_sleep(2)  # sleeping for longer to manage resources
+        await _sleep(2)  # sleeping for longer to manage resources
