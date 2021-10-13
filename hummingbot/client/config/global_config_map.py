@@ -21,10 +21,6 @@ def using_exchange(exchange: str) -> Callable:
     return using_exchange_pointer(exchange)
 
 
-def using_wallet() -> bool:
-    return paper_trade_disabled() and settings.ethereum_wallet_required()
-
-
 def validate_script_file_path(file_path: str) -> Optional[bool]:
     path, name = os.path.split(file_path)
     if path == "":
@@ -89,8 +85,6 @@ main_config_map = {
                   prompt=None,
                   required_if=lambda: False,
                   default=["hummingbot.strategy",
-                           "hummingbot.market",
-                           "hummingbot.wallet",
                            "conf"
                            ],
                   type_str="list"),
@@ -161,13 +155,6 @@ main_config_map = {
                   type_str="str",
                   required_if=lambda: global_config_map["ethereum_wallet"].value is not None,
                   default="https://defi.cmc.eth.link/"),
-    # Whether or not to invoke cancel_all on exit if marketing making on a open order book DEX (e.g. Radar Relay)
-    "on_chain_cancel_on_exit":
-        ConfigVar(key="on_chain_cancel_on_exit",
-                  prompt="Would you like to cancel transactions on chain if using an open order books exchanges? >>> ",
-                  required_if=lambda: False,
-                  type_str="bool",
-                  default=False),
     "kill_switch_enabled":
         ConfigVar(key="kill_switch_enabled",
                   prompt="Would you like to enable the kill switch? (Yes/No) >>> ",

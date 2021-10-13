@@ -4,7 +4,7 @@ import asyncio
 from collections import deque
 import logging
 import time
-from typing import List, Dict, Optional, Tuple, Set, Deque
+from typing import List, Dict, Optional, Tuple, Deque
 
 from hummingbot.client.command import __all__ as commands
 from hummingbot.core.clock import Clock
@@ -13,13 +13,11 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.application_warning import ApplicationWarning
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 from hummingbot.connector.exchange.paper_trade import create_paper_trade_market
-from hummingbot.wallet.ethereum.ethereum_chain import EthereumChain
-from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.client.ui.keybindings import load_key_bindings
 from hummingbot.client.ui.parser import load_parser, ThrowingArgumentParser
 from hummingbot.client.ui.hummingbot_cli import HummingbotCLI
 from hummingbot.client.ui.completer import load_completer
-from hummingbot.client.config.global_config_map import global_config_map, using_wallet
+from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.config.config_helpers import (
     get_strategy_config_map,
     get_connector_class,
@@ -70,7 +68,6 @@ class HummingbotApplication(*commands):
         )
 
         self.markets: Dict[str, ExchangeBase] = {}
-        self.wallet: Optional[Web3Wallet] = None
         # strategy file name and name get assigned value after import or create command
         self._strategy_file_name: str = None
         self.strategy_name: str = None
@@ -84,7 +81,6 @@ class HummingbotApplication(*commands):
 
         self.init_time: float = time.time()
         self.start_time: Optional[int] = None
-        self.assets: Optional[Set[str]] = set()
         self.placeholder_mode = False
         self.log_queue_listener: Optional[logging.handlers.QueueListener] = None
         self.data_feed: Optional[DataFeedBase] = None
@@ -219,29 +215,6 @@ class HummingbotApplication(*commands):
         market_trading_pairs: List[Tuple[str, str]] = [(trading_pair.split('-')) for trading_pair in trading_pairs]
         return market_trading_pairs
 
-    def _initialize_wallet(self, token_trading_pairs: List[str]):
-        # Todo: This function should be removed as it's currently not used by current working connectors
-
-        if not using_wallet():
-            return
-        # Commented this out for now since get_erc20_token_addresses uses blocking call
-
-        # if not self.token_list:
-        #     self.token_list = get_erc20_token_addresses()
-
-        ethereum_wallet = global_config_map.get("ethereum_wallet").value
-        private_key = Security._private_keys[ethereum_wallet]
-        ethereum_rpc_url = global_config_map.get("ethereum_rpc_url").value
-        erc20_token_addresses = {t: l[0] for t, l in self.token_list.items() if t in token_trading_pairs}
-
-        chain_name: str = global_config_map.get("ethereum_chain_name").value
-        self.wallet: Web3Wallet = Web3Wallet(
-            private_key=private_key,
-            backend_urls=[ethereum_rpc_url],
-            erc20_token_addresses=erc20_token_addresses,
-            chain=getattr(EthereumChain, chain_name),
-        )
-
     def _initialize_markets(self, market_names: List[Tuple[str, List[str]]]):
         # aggregate trading_pairs if there are duplicate markets
 
@@ -270,9 +243,6 @@ class HummingbotApplication(*commands):
                     if connector_name in ["balancer", "uniswap", "uniswap_v3", "perpetual_finance"]:
                         private_key = get_eth_wallet_private_key()
                         init_params.update(wallet_private_key=private_key, ethereum_rpc_url=ethereum_rpc_url)
-                    else:
-                        assert self.wallet is not None
-                        init_params.update(wallet=self.wallet, ethereum_rpc_url=ethereum_rpc_url)
                 connector_class = get_connector_class(connector_name)
                 connector = connector_class(**init_params)
             self.markets[connector_name] = connector

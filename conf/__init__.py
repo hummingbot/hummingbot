@@ -131,24 +131,3 @@ kafka_2 = {
     "bootstrap_servers": "***REMOVED***",
     "zookeeper_servers": "***REMOVED***"
 }
-
-
-try:
-    from .config_local import *             # noqa: F401, F403
-except ModuleNotFoundError:
-    pass
-
-try:
-    from .web3_wallet_secret import *       # noqa: F401, F403
-except ModuleNotFoundError:
-    pass
-
-try:
-    from .binance_secret import *           # noqa: F401, F403
-except ModuleNotFoundError:
-    pass
-
-try:
-    from .coinbase_pro_secrets import *     # noqa: F401, F403
-except ModuleNotFoundError:
-    pass
