@@ -1,12 +1,11 @@
 # Set the base image
-FROM arm64v8/python:3.8-slim-buster AS builder
+FROM arm64v8/python:3.7-slim AS builder
 
 # Install linux dependencies
-# RUN apt-get update && \
-#    DEBIAN_FRONTEND=noninteractive apt-get install -y gcc \
-#        build-essential pkg-config libusb-1.0 curl git \
-#        sudo && \
-#    rm -rf /var/lib/apt/lists/*
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y gcc \
+        build-essential pkg-config libusb-1.0 curl git sudo libudev-dev && \
+    rm -rf /var/lib/apt/lists/*
 
 # Add hummingbot user
 RUN useradd -m -s /bin/bash hummingbot
@@ -16,10 +15,10 @@ USER hummingbot:hummingbot
 WORKDIR /home/hummingbot
 
 # Install miniconda
-RUN curl https://repo.anaconda.com/miniconda/Miniconda3-py38_4.10.3-Linux-aarch64.sh -o ~/miniconda.sh && \
+RUN curl https://repo.anaconda.com/miniconda/Miniconda3-py37_4.9.2-Linux-aarch64.sh -o ~/miniconda.sh && \
     /bin/bash ~/miniconda.sh -b && \
     rm ~/miniconda.sh && \
-    ~/miniconda3/bin/conda update -n base conda -y && \
+    ~/miniconda3/bin/conda init && \
     ~/miniconda3/bin/conda clean -tipsy
 
 # Dropping default ~/.bashrc because it will return if not running as interactive shell, thus not invoking PATH settings
@@ -37,7 +36,7 @@ RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | b
     rm -rf /home/hummingbot/.cache
 
 # Copy environment only to optimize build caching, so changes in sources will not cause conda env invalidation
-COPY --chown=hummingbot:hummingbot setup/environment-linux.yml setup/
+COPY --chown=hummingbot:hummingbot setup/environment-linux-aarch64.yml setup/
 
 # ./install | create hummingbot environment
 RUN ~/miniconda3/bin/conda env create -f setup/environment-linux-aarch64.yml && \
@@ -62,7 +61,7 @@ RUN /home/hummingbot/miniconda3/envs/$(head -1 setup/environment-linux-aarch64.y
     find . -type f -name "*.cpp" -delete
 
 # Build final image using artifacts from builder
-FROM builder AS release
+FROM arm64v8/python:3.7-slim AS release
 # Dockerfile author / maintainer 
 LABEL maintainer="CoinAlpha, Inc. <dev@coinalpha.com>"
 
@@ -87,24 +86,26 @@ ENV CONFIG_PASSWORD=${CONFIG_PASSWORD}
 ENV INSTALLATION_TYPE=docker
 
 # Add hummingbot user
-RUN useradd -m -s /bin/bash hummingbot && \
-  ln -s /conf /home/hummingbot/conf && \
-  ln -s /logs /home/hummingbot/logs && \
-  ln -s /data /home/hummingbot/data && \
-  ln -s /certs /home/hummingbot/certs && \
-  ln -s /scripts /home/hummingbot/scripts
+RUN useradd -m -s /bin/bash hummingbot
 
 # Create mount points
 RUN mkdir /conf /logs /data /certs /scripts && chown -R hummingbot:hummingbot /conf /logs /data /certs /scripts
 VOLUME /conf /logs /data /certs /scripts
 
+# Add symbolic links to key folders
+RUN ln -s /conf /home/hummingbot/conf && \
+  ln -s /logs /home/hummingbot/logs && \
+  ln -s /data /home/hummingbot/data && \
+  ln -s /certs /home/hummingbot/certs && \
+  ln -s /scripts /home/hummingbot/scripts
+
 # Pre-populate scripts/ volume with default scripts
 COPY --chown=hummingbot:hummingbot scripts/ scripts/
 
 # Install packages required in runtime
-# RUN apt-get update && \
-#    DEBIAN_FRONTEND=noninteractive apt-get install -y sudo libusb-1.0 && \
-#    rm -rf /var/lib/apt/lists/*
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y sudo libusb-1.0 libudev-dev && \
+    rm -rf /var/lib/apt/lists/*
 
 # Switch to hummingbot user
 USER hummingbot:hummingbot
