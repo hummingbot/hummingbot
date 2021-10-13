@@ -15,6 +15,8 @@ export interface Token {
   decimals: number;
 }
 
+export type NewBlockHandler = (bn: number) => void;
+
 export class EthereumBase {
   private _provider;
   protected _tokenList: Token[] = [];
@@ -38,7 +40,7 @@ export class EthereumBase {
     tokenListType: TokenListType,
     gasPriceConstant: number
   ) {
-    this._provider = new providers.JsonRpcProvider(rpcUrl);
+    this._provider = new providers.StaticJsonRpcProvider(rpcUrl);
     this._provider.on('error', this.logError);
     this.chainId = chainId;
     this.rpcUrl = rpcUrl;
@@ -64,6 +66,10 @@ export class EthereumBase {
     this._provider._events.map(function (event) {
       return [event.tag];
     });
+  }
+
+  public onNewBlock(func: NewBlockHandler) {
+    this._provider.on('block', func);
   }
 
   async init(): Promise<void> {
@@ -165,7 +171,7 @@ export class EthereumBase {
   // returns an ethereum TransactionReceipt for a txHash if the transaction has been mined.
   async getTransactionReceipt(
     txHash: string
-  ): Promise<providers.TransactionReceipt> {
+  ): Promise<providers.TransactionReceipt | null> {
     if (this.cache.keys().includes(txHash)) {
       // If it's in the cache, return the value in cache, whether it's null or not
       return this.cache.get(txHash) as providers.TransactionReceipt;

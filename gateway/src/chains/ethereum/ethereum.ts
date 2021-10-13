@@ -56,6 +56,10 @@ export class Ethereum extends EthereumBase {
     return Ethereum._instance;
   }
 
+  public static reload(): Ethereum {
+    Ethereum._instance = new Ethereum();
+    return Ethereum._instance;
+  }
   // getters
 
   public get nonceManager() {
