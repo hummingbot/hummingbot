@@ -9,6 +9,7 @@ from typing import Optional, List, AsyncIterable, Any
 
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
 from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS
@@ -80,18 +81,20 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     "ch": "order:cash"
                 }
 
-                async with self._shared_client.ws_connect(f"{get_ws_url_private(accountGroup)}/stream", headers=headers) as ws:
+                async with aiohttp.ClientSession().ws_connect(f"{get_ws_url_private(accountGroup)}/stream", headers=headers) as ws:
                     try:
                         ws: aiohttp.ClientWebSocketResponse = ws
                         async with self._throttler.execute_task(CONSTANTS.SUB_ENDPOINT_NAME):
                             await ws.send_json(payload)
 
-                        async for raw_msg in self._inner_messages(ws):
+                        async for raw_msg in self._iter_messages(ws):
                             try:
                                 msg = ujson.loads(raw_msg)
                                 if msg is None:
                                     continue
-
+                                if msg.get("m", '') == "ping":
+                                    async with self._throttler.execute_task(CONSTANTS.PONG_ENDPOINT_NAME):
+                                        safe_ensure_future(self._handle_ping_message(ws))
                                 output.put_nowait(msg)
                             except Exception:
                                 self.logger().error(
@@ -113,27 +116,28 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 )
                 await asyncio.sleep(30.0)
 
-    async def _inner_messages(
+    async def _iter_messages(
         self,
         ws: aiohttp.ClientWebSocketResponse
     ) -> AsyncIterable[str]:
         # Terminate the recv() loop as soon as the next message timed out, so the outer loop can reconnect.
         try:
             while True:
-                try:
-                    raw_msg = await asyncio.wait_for(ws.receive(), timeout=self.MESSAGE_TIMEOUT)
-                    if raw_msg.type == aiohttp.WSMsgType.CLOSED:
-                        raise ConnectionError
-                    self._last_recv_time = time.time()
-                    yield raw_msg.data
-                except asyncio.TimeoutError:
-                    payload = {"op": CONSTANTS.PONG_ENDPOINT_NAME}
-                    pong_waiter = ws.send_json(payload)
-                    async with self._throttler.execute_task(CONSTANTS.PONG_ENDPOINT_NAME):
-                        await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
-                    self._last_recv_time = time.time()
+                raw_msg = await ws.receive()
+                if raw_msg.type == aiohttp.WSMsgType.CLOSED:
+                    raise ConnectionError
+                self._last_recv_time = time.time()
+                yield raw_msg.data
+
         except asyncio.TimeoutError:
             self.logger().warning("WebSocket ping timed out. Going to reconnect...")
             return
         finally:
             await ws.close()
+
+    async def _handle_ping_message(self, ws: aiohttp.ClientWebSocketResponse):
+        async with self._throttler.execute_task(CONSTANTS.PONG_ENDPOINT_NAME):
+            pong_payload = {
+                "op": "pong"
+            }
+            await ws.send_json(pong_payload)

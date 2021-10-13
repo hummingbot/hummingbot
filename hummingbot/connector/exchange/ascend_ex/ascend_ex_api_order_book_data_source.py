@@ -281,7 +281,7 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def _iter_messages(
         self,
         ws: aiohttp.ClientWebSocketResponse
-    ) -> AsyncIterable[aiohttp.WSMessage]:
+    ) -> AsyncIterable[str]:
         # Terminate the recv() loop as soon as the next message timed out, so the outer loop can reconnect.
         try:
             while True:
