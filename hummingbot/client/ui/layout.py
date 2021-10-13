@@ -162,7 +162,7 @@ def create_log_field(search_field: SearchToolbar):
 
 def create_log_toggle(function):
     return Button(
-        text='▶ log pane',
+        text='> log pane',
         width=13,
         handler=function,
         left_symbol='',
