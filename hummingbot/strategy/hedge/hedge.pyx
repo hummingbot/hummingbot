@@ -57,7 +57,7 @@ cdef class HedgeStrategy(StrategyBase):
                     minimum_trade: Decimal = 11,
                     leverage: int = 5,
                     position_mode: str = "ONEWAY",
-                    hedge_interval: float = 0.1,
+                    hedge_interval: float = 10,
                     slippage: Decimal = .01,
                     max_order_age: float = 100.0,
                     ):
@@ -69,7 +69,6 @@ cdef class HedgeStrategy(StrategyBase):
         self._all_markets_ready = False
         self._last_timestamp = 0
         self._status_report_interval = status_report_interval
-        self._wallet_df = pd.DataFrame()
         self._position_mode = PositionMode.HEDGE if position_mode == "Hedge" else PositionMode.ONEWAY
         self._leverage = leverage
         self.c_add_markets([exchanges.maker, exchanges.taker])
@@ -202,8 +201,6 @@ cdef class HedgeStrategy(StrategyBase):
         return pd.DataFrame(data=markets_data, columns=markets_columns).replace(np.nan, '', regex=True)
 
     def update_wallet(self):
-        data=[]
-        columns = ["Asset", "Price", "Maker", "Taker", "Diff", "Hedge Ratio"]
         position_updated=False
         for maker_asset in self._market_infos:
             market_pair = self._market_infos[maker_asset]
@@ -211,7 +208,6 @@ cdef class HedgeStrategy(StrategyBase):
             # After a recent trade execution, the position returned may be 0 for some time (binance perpetual),
             # Hence, introduce minimum time prior to last trade to ensure update is correct
             # Added to ensure shadow balance can remain in sync with actual balance
-            # collect necessary data to check hedge then continue the rest to minimize execution time.
             if self._last_trade_time[maker_asset]==0 or max(self._last_trade_time.values())<self._current_timestamp-self._update_shadow_balance_interval:
                 taker_balance = self.get_position_amount(trading_pair)
                 self.set_shadow_position(trading_pair, taker_balance)
@@ -231,6 +227,17 @@ cdef class HedgeStrategy(StrategyBase):
                                            hedge_amount,
                                            is_buy,
                                            price)
+        if position_updated:
+            self._last_trade_time["last updated"]=self._current_timestamp
+
+    def wallet_df(self) -> pd.DataFrame:
+        data=[]
+        columns = ["Asset", "Price", "Maker", "Taker", "Diff", "Hedge Ratio"]
+        for maker_asset in self._market_infos:
+            market_pair = self._market_infos[maker_asset]
+            trading_pair=market_pair.trading_pair
+            maker_balance = self.get_balance(maker_asset)
+            taker_balance = self.get_shadow_position(trading_pair)
             mid_price = market_pair.get_mid_price()
             difference = - (maker_balance + taker_balance)
             hedge_ratio = Decimal(-round(taker_balance/maker_balance, 2)) if maker_balance != 0 else 1
@@ -242,9 +249,7 @@ cdef class HedgeStrategy(StrategyBase):
                 difference,
                 hedge_ratio,
             ])
-        self._wallet_df = pd.DataFrame(data=data, columns=columns)
-        if position_updated:
-            self._last_trade_time["last updated"]=self._current_timestamp
+        return pd.DataFrame(data=data, columns=columns)
 
     def active_orders_df(self) -> pd.DataFrame:
 
@@ -274,10 +279,11 @@ cdef class HedgeStrategy(StrategyBase):
             return ''.join(lines)
 
         markets_df = self.market_status_data_frame()
+        wallet_df = self.wallet_df()
         lines.extend(["", "  Markets:"] + ["    " + line for line in markets_df.to_string(index=False).split("\n")])
 
         lines.extend(["", f"  Wallet:\n"])
-        lines.extend(["    " + line for line in self._wallet_df.to_string(index=False).split("\n")])
+        lines.extend(["    " + line for line in wallet_df.to_string(index=False).split("\n")])
 
         # See if there're any active positions.
         if len(self.market_info_to_active_orders) > 0:
