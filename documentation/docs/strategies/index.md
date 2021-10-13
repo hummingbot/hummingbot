@@ -43,10 +43,10 @@ Arbitrage strategies help you monitor different markets for opportunities to rea
 
 | Name                                                            | Valid Exchanges     | Maintainer    | Description                                                                               |
 |-----------------------------------------------------------------|---------------------|---------------|-------------------------------------------------------------------------------------------|
-| [`amm_arb`](./amm-arb)                                           | `spot`, `amm`      | CoinAlpha     | Exploits price differences between AMM and spot exchanges                                 |
+| [`amm_arb`](./amm-arbitrage)                                           | `spot`, `amm`      | CoinAlpha     | Exploits price differences between AMM and spot exchanges                                 |
 | [`spot_perpetual_arbitrage`](./spot-perpetual-arbitrage)        | `spot`, `perp`      | CoinAlpha     | Exploits price differences between spot and perpetual swap exchanges                      |
 | [`arbitrage`](./arbitrage)                                      | `spot`              |               | Exploits price differences between two different spot exchanges                           |
-| [`celo-arb`](./celo-arb)                                        | [`celo`](/exchanges/celo)|          | Exploits price differences between Celo and other exchanges                               |
+| [`celo-arb`](./celo-arbitrage)                                        | [`celo`](/protocols/celo)|          | Exploits price differences between Celo and other exchanges                               |
 
 ### Utility
 
