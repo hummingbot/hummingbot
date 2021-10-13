@@ -17,7 +17,6 @@ from hummingbot.connector.exchange.gate_io.gate_io_in_flight_order import GateIo
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import MarketEvent, TradeType, OrderType
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
-from test.mock.mock_listener import MockEventListener
 
 
 class TestGateIoExchange(unittest.TestCase):
@@ -39,7 +38,7 @@ class TestGateIoExchange(unittest.TestCase):
         self.log_records = []
         self.mocking_assistant = NetworkMockingAssistant()
         self.exchange = GateIoExchange(self.api_key, self.api_secret, trading_pairs=[self.trading_pair])
-        self.event_listener = MockEventListener()
+        self.event_listener = EventLogger()
 
         self.exchange.logger().setLevel(1)
         self.exchange.logger().addHandler(self)
@@ -236,7 +235,11 @@ class TestGateIoExchange(unittest.TestCase):
             )
         )
 
-        self.assertEqual(self.event_listener.events_count, 1)
+        self.assertEqual(1, len(self.event_listener.event_log))
+
+        event = self.event_listener.event_log[0]
+
+        self.assertEqual(order_id, event.order_id)
         self.assertTrue(order_id in self.exchange.in_flight_orders)
 
     @aioresponses()
@@ -292,7 +295,7 @@ class TestGateIoExchange(unittest.TestCase):
             )
         )
 
-        self.assertEqual(0, self.event_listener.events_count)
+        self.assertEqual(0, len(self.event_listener.event_log))
         self.assertNotIn(order_id, self.exchange.in_flight_orders)
         self.assertTrue(self._is_logged(
             "WARNING",
@@ -324,7 +327,7 @@ class TestGateIoExchange(unittest.TestCase):
             )
         )
 
-        self.assertEqual(self.event_listener.events_count, 0)
+        self.assertEqual(0, len(self.event_listener.event_log))
         self.assertTrue(order_id not in self.exchange.in_flight_orders)
 
     @aioresponses()
@@ -344,7 +347,11 @@ class TestGateIoExchange(unittest.TestCase):
             coroutine=self.exchange._execute_cancel(self.trading_pair, client_order_id)
         )
 
-        self.assertEqual(self.event_listener.events_count, 1)
+        self.assertEqual(1, len(self.event_listener.event_log))
+
+        event = self.event_listener.event_log[0]
+
+        self.assertEqual(client_order_id, event.order_id)
         self.assertTrue(client_order_id not in self.exchange.in_flight_orders)
 
     def test_cancel_order_not_present_in_inflight_orders(self):
