@@ -3,18 +3,18 @@ from prompt_toolkit.utils import is_windows
 from hummingbot.client.config.global_config_map import global_config_map
 
 
-def load_style():
+def load_style(config_map=global_config_map):
     """
     Return a dict mapping {ui_style_name -> style_dict}.
     """
 
     # Load config
-    color_top_pane = global_config_map.get("top-pane").value
-    color_bottom_pane = global_config_map.get("bottom-pane").value
-    color_output_pane = global_config_map.get("output-pane").value
-    color_input_pane = global_config_map.get("input-pane").value
-    color_logs_pane = global_config_map.get("logs-pane").value
-    color_terminal_primary = global_config_map.get("terminal-primary").value
+    color_top_pane = config_map.get("top-pane").value
+    color_bottom_pane = config_map.get("bottom-pane").value
+    color_output_pane = config_map.get("output-pane").value
+    color_input_pane = config_map.get("input-pane").value
+    color_logs_pane = config_map.get("logs-pane").value
+    color_terminal_primary = config_map.get("terminal-primary").value
 
     if is_windows():
         # Load default style
