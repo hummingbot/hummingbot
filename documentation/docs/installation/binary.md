@@ -1,6 +1,6 @@
 # Install Hummingbot via Binary
 
-We maintain links to compiled binary images for each Hummingbot release for MacOS and Windows, available on the [Installation](./installation) page.
+We maintain links to compiled binary images for each Hummingbot release for MacOS and Windows, available on the [Installation](/installation/) page.
 
 This guide shows you how to use the binary installer for Mac and Windows.
 

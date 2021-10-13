@@ -123,7 +123,7 @@ For example, here is how the `balancer/sell` API endpoint is implemented in Gate
 * https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/exchange/binance/binance_exchange.pyx
 * https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/exchange/binance/binance_api_order_book_data_source.py
 * https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/connector/balancer/balancer_connector.py
-* https://github.com/CoinAlpha/gateway-api/blob/master/src/routes/balancer.route.js
+* https://github.com/CoinAlpha/gateway-api/blob/master/src/routes/balancer.route.ts
 
 ## Strategies
 

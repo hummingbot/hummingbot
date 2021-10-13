@@ -76,10 +76,10 @@ Exchanges and other institutions can visit the [official Hummingbot website](htt
 | Exchange                                         | Website                                      | Protocol                          | Maintainer | Status                                               |
 | ------------------------------------------------ | -------------------------------------------- | --------------------------------- | ---------- | ---------------------------------------------------- |
 | [Balancer](/exchanges/balancer)                  | [balancer.fi](https://balancer.fi/)          | [ethereum](/protocols/ethereum)   | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span> |
-| [Celo](/exchanges/celo/)                         | [celo.org](https://celo.org/)                | [celo](/protocols/celo)           | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
-| [Perpetual Finance](/connectors/perp-fi)         | [perp.exchange](https://perp.exchange/)      | xdai                              | CoinAlpha  | <span style="color:red; font-size:25px">⬤</span> |
-| [Terra](/connectors/terra)                       | [terra.money](https://www.terra.money/)      | [terra](/protocols/terra)         | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span> |
-| [Uniswap](/connectors/uniswap)                   | [uniswap.org](https://uniswap.org/)          | [ethereum](/protocols/ethereum)   | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
+| [Celo](/protocols/celo)                         | [celo.org](https://celo.org/)                | [celo](/protocols/celo)           | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
+| [Perpetual Finance](/exchanges/perp-fi/)         | [perp.exchange](https://perp.exchange/)      | xdai                              | CoinAlpha  | <span style="color:red; font-size:25px">⬤</span> |
+| [Terra](/exchanges/terra/)                       | [terra.money](https://www.terra.money/)      | [terra](/protocols/terra)         | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span> |
+| [Uniswap](/exchanges/uniswap/)                   | [uniswap.org](https://uniswap.org/)          | [ethereum](/protocols/ethereum)   | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
 | [Uniswap v3](/exchanges/uniswap-v3)              | [uniswap.org](https://uniswap.org/)          | [ethereum](/protocols/ethereum)   | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
 
 
