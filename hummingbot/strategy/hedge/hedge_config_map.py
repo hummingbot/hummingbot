@@ -93,7 +93,7 @@ hedge_config_map = {
         ConfigVar(key="hedge_interval",
                   prompt="how often do you want to check the hedge >>> ",
                   type_str="decimal",
-                  default=Decimal(1),
+                  default=Decimal(10),
                   validator=lambda v: validate_decimal(v, min_value=0, inclusive=False),
                   prompt_on_new=True),
     "hedge_ratio":
