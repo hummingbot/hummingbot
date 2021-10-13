@@ -134,6 +134,10 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                         self._last_listen_key_ping_ts = int(time.time())
                 else:
                     await asyncio.sleep(self.LISTEN_KEY_KEEP_ALIVE_INTERVAL)
+        except Exception as e:
+            self.logger().error(f"Unexpected error occurred with maintaining listen key. "
+                                f"Error {e}")
+            raise
         finally:
             self._current_listen_key = None
             self._listen_key_initialized_event.clear()
@@ -152,6 +156,8 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                         self.logger().debug("Received PING frame. Sending PONG frame...")
                         await self._ws.pong()
                         continue
+                    if msg.type == aiohttp.WSMsgType.PONG:
+                        continue
                     output.put_nowait(msg.json())
             except asyncio.CancelledError:
                 raise
@@ -167,4 +173,5 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 self._manage_listen_key_task and self._manage_listen_key_task.cancel()
                 self._current_listen_key = None
                 self._listen_key_initialized_event.clear()
+                self._last_recv_time = 0
                 await self._sleep(5)
