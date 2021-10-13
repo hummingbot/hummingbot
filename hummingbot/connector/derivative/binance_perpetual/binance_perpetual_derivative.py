@@ -5,7 +5,6 @@ import hmac
 import logging
 import time
 import ujson
-import websockets
 
 import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
 import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils as utils
@@ -16,7 +15,6 @@ from decimal import Decimal
 from enum import Enum
 from urllib.parse import urlencode
 from typing import Optional, List, Dict, Any, AsyncIterable
-from websockets.exceptions import ConnectionClosed
 
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_in_flight_order import BinancePerpetualsInFlightOrder
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_order_book_tracker import BinancePerpetualOrderBookTracker
@@ -148,6 +146,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             "trading_rule_initialized": len(self._trading_rules) > 0,
             "funding_info": len(self._funding_info) > 0,
             "position_mode": self.position_mode,
+            "user_stream_initializied": self._user_stream_tracker.data_source.last_recv_time > 0
         }
 
     @property
@@ -684,11 +683,11 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 ws_subscription_path: str = "/".join([f"{utils.convert_to_exchange_trading_pair(trading_pair).lower()}@markPrice"
                                                       for trading_pair in self._trading_pairs])
                 stream_url: str = utils.wss_url(CONSTANTS.PUBLIC_WS_ENDPOINT, self._domain) + f"?streams={ws_subscription_path}"
-                async with websockets.connect(stream_url) as ws:
-                    ws: websockets.WebSocketClientProtocol = ws
+
+                async with aiohttp.ClientSession().ws_connect(stream_url) as ws:
                     while True:
                         try:
-                            raw_msg: str = await asyncio.wait_for(ws.recv(), timeout=10.0)
+                            raw_msg: str = await asyncio.wait_for(ws.receive_str(), timeout=10.0)
                             msg = ujson.loads(raw_msg)
                             trading_pair = utils.convert_from_exchange_trading_pair(msg["data"]["s"])
                             self._funding_info[trading_pair] = FundingInfo(
@@ -700,8 +699,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                             )
                         except asyncio.TimeoutError:
                             await ws.pong(data=b'')
-                        except ConnectionClosed:
-                            raise
+
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -1068,7 +1066,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                             return error_response
                         else:
                             raise IOError(f"Error executing request {method.name} {path}. HTTP status is {response.status}. "
-                                          f"Request Error: {error_response}")
+                                          f"Error: {response}")
                     return await response.json()
             except Exception as e:
                 if "Timestamp for this request" in str(e):
