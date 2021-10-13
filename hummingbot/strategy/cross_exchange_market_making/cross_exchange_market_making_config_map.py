@@ -1,3 +1,5 @@
+import decimal
+
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
     validate_exchange,
@@ -8,9 +10,6 @@ from hummingbot.client.config.config_validators import (
 from hummingbot.client.config.config_helpers import parse_cvar_value
 import hummingbot.client.settings as settings
 from decimal import Decimal
-from hummingbot.client.config.config_helpers import (
-    minimum_order_amount
-)
 from typing import Optional
 
 
@@ -50,21 +49,16 @@ def validate_taker_market_trading_pair(value: str) -> Optional[str]:
 
 
 async def order_amount_prompt() -> str:
-    maker_exchange = cross_exchange_market_making_config_map["maker_market"].value
     trading_pair = cross_exchange_market_making_config_map["maker_market_trading_pair"].value
     base_asset, quote_asset = trading_pair.split("-")
-    min_amount = await minimum_order_amount(maker_exchange, trading_pair)
-    return f"What is the amount of {base_asset} per order? (minimum {min_amount}) >>> "
+    return f"What is the amount of {base_asset} per order? >>> "
 
 
 async def validate_order_amount(value: str) -> Optional[str]:
     try:
-        maker_exchange = cross_exchange_market_making_config_map.get("maker_market").value
-        trading_pair = cross_exchange_market_making_config_map["maker_market_trading_pair"].value
-        min_amount = await minimum_order_amount(maker_exchange, trading_pair)
-        if Decimal(value) < min_amount:
-            return f"Order amount must be at least {min_amount}."
-    except Exception:
+        if Decimal(value) <= 0:
+            return "Order amount must be a positive value."
+    except decimal.InvalidOperation:
         return "Invalid order amount."
 
 

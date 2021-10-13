@@ -1,3 +1,4 @@
+import decimal
 from decimal import Decimal
 
 from hummingbot.client.config.config_var import ConfigVar
@@ -15,9 +16,6 @@ from hummingbot.client.settings import (
 from hummingbot.client.config.global_config_map import (
     using_bamboo_coordinator_mode,
     using_exchange
-)
-from hummingbot.client.config.config_helpers import (
-    minimum_order_amount,
 )
 from typing import Optional
 
@@ -52,21 +50,16 @@ def onvalidated_min_spread(value: str):
 
 
 async def order_amount_prompt() -> str:
-    exchange = avellaneda_market_making_config_map["exchange"].value
     trading_pair = avellaneda_market_making_config_map["market"].value
     base_asset, quote_asset = trading_pair.split("-")
-    min_amount = await minimum_order_amount(exchange, trading_pair)
-    return f"What is the amount of {base_asset} per order? (minimum {min_amount}) >>> "
+    return f"What is the amount of {base_asset} per order? >>> "
 
 
 async def validate_order_amount(value: str) -> Optional[str]:
     try:
-        exchange = avellaneda_market_making_config_map["exchange"].value
-        trading_pair = avellaneda_market_making_config_map["market"].value
-        min_amount = await minimum_order_amount(exchange, trading_pair)
-        if Decimal(value) < min_amount:
-            return f"Order amount must be at least {min_amount}."
-    except Exception:
+        if Decimal(value) <= 0:
+            return "Order amount must be a positive value."
+    except decimal.InvalidOperation:
         return "Invalid order amount."
 
 
