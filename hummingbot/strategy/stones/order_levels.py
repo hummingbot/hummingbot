@@ -41,7 +41,7 @@ class OrderLevel:
         results = []
         if liquidity < self.min_order_amount:
             pass
-        elif self.min_order_amount < liquidity < self.max_order_amount:
+        elif self.min_order_amount <= liquidity <= self.max_order_amount:
             results.append((is_buy, self.calculate_price(price, is_buy), liquidity, self))
         elif liquidity > self.max_order_amount:
             order_amount: Decimal = get_random_decimal(self.min_order_amount, self.max_order_amount)
@@ -50,7 +50,7 @@ class OrderLevel:
 
         return results
 
-    def is_at_level_of(self, oracle_price: Decimal, order_price: Decimal, amount: Decimal, is_buy: bool):
+    def is_at_level_of(self, oracle_price: Decimal, order_price: Decimal, amount: Decimal, is_buy: bool, **kwargs):
         current_percent = get_percentage_of_first_from_secondary(first=order_price, secondary=oracle_price)
         current_different = (current_percent - Decimal('100'))
 

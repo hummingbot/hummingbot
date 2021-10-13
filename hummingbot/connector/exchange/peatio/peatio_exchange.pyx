@@ -279,7 +279,8 @@ cdef class PeatioExchange(ExchangeBase):
             )
 
         if response.status not in [200, 201]:
-            raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
+            raw_text = await response.text()
+            raise IOError(f"Error fetching data from {url}. HTTP status is {response.status} with response {raw_text}.")
 
         try:
             data = await response.json()
@@ -742,6 +743,7 @@ cdef class PeatioExchange(ExchangeBase):
                 client_order_id=str(client_order_id),
                 exchange_order_id=str(exchange_order["id"]),
                 trading_pair=trading_pair,
+                state=str(exchange_order["state"]),
                 order_type=order_type,
                 trade_type=TradeType.BUY,
                 price=decimal_price,
@@ -820,6 +822,7 @@ cdef class PeatioExchange(ExchangeBase):
                 client_order_id=client_order_id,
                 exchange_order_id=str(exchange_order["id"]),
                 trading_pair=trading_pair,
+                state=str(exchange_order["state"]),
                 order_type=order_type,
                 trade_type=TradeType.SELL,
                 price=decimal_price,
@@ -945,10 +948,11 @@ cdef class PeatioExchange(ExchangeBase):
                                 str client_order_id,
                                 str exchange_order_id,
                                 str trading_pair,
+                                str state,
                                 object order_type,
                                 object trade_type,
                                 object price,
-                                object amount):
+                                object amount,):
         self._in_flight_orders[client_order_id] = PeatioInFlightOrder(
             client_order_id=str(client_order_id),
             exchange_order_id=str(exchange_order_id),
@@ -956,7 +960,8 @@ cdef class PeatioExchange(ExchangeBase):
             order_type=order_type,
             trade_type=trade_type,
             price=price,
-            amount=amount
+            amount=amount,
+            initial_state=state
         )
 
     cdef c_stop_tracking_order(self, str order_id):

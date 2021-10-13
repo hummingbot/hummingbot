@@ -28,6 +28,7 @@ cdef class PeatioExchange(ExchangeBase):
                                 str client_order_id,
                                 str exchange_order_id,
                                 str trading_pair,
+                                str state,
                                 object order_type,
                                 object trade_type,
                                 object price,
