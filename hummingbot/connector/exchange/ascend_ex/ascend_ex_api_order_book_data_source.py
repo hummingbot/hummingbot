@@ -12,7 +12,7 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_active_order_tracker import AscendExActiveOrderTracker
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_order_book import AscendExOrderBook
@@ -25,6 +25,7 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
     MESSAGE_TIMEOUT = 30.0
     SNAPSHOT_TIMEOUT = 10.0
     PING_TIMEOUT = 15.0
+    HEARTBEAT_PING_INTERVAL = 15.0
 
     _logger: Optional[HummingbotLogger] = None
 
@@ -159,13 +160,18 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     "op": CONSTANTS.SUB_ENDPOINT_NAME,
                     "ch": f"trades:{trading_pairs}"
                 }
-                async with self._shared_client.ws_connect(CONSTANTS.WS_URL) as ws:
+                async with aiohttp.ClientSession().ws_connect(url=CONSTANTS.WS_URL,
+                                                              heartbeat=self.HEARTBEAT_PING_INTERVAL) as ws:
                     ws: aiohttp.ClientWebSocketResponse = ws
                     async with self._throttler.execute_task(CONSTANTS.SUB_ENDPOINT_NAME):
                         await ws.send_json(payload)
 
-                    async for raw_msg in self._inner_messages(ws):
+                    async for raw_msg in self._iter_messages(ws):
                         msg = ujson.loads(raw_msg)
+                        if msg.get("m", '') == "ping":
+                            async with self._throttler.execute_task(CONSTANTS.PONG_ENDPOINT_NAME):
+                                safe_ensure_future(self._handle_ping_message(ws))
+
                         if (msg is None or msg.get("m") != "trades"):
                             continue
 
@@ -198,18 +204,17 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     "op": CONSTANTS.SUB_ENDPOINT_NAME,
                     "ch": ch
                 }
-                async with self._shared_client.ws_connect(CONSTANTS.WS_URL) as ws:
+                async with aiohttp.ClientSession().ws_connect(url=CONSTANTS.WS_URL,
+                                                              heartbeat=self.HEARTBEAT_PING_INTERVAL) as ws:
                     ws: aiohttp.ClientWebSocketResponse = ws
                     async with self._throttler.execute_task(CONSTANTS.SUB_ENDPOINT_NAME):
                         await ws.send_json(payload)
 
-                    async for raw_msg in self._inner_messages(ws):
+                    async for raw_msg in self._iter_messages(ws):
                         msg = ujson.loads(raw_msg)
-                        if msg is None:
-                            continue
                         if msg.get("m", '') == "ping":
                             async with self._throttler.execute_task(CONSTANTS.PONG_ENDPOINT_NAME):
-                                await ws.send_json(dict(op=CONSTANTS.PONG_ENDPOINT_NAME))
+                                safe_ensure_future(self._handle_ping_message(ws))
                         if msg.get("m", '') == "depth":
                             msg_timestamp: int = msg.get("data").get("ts")
                             trading_pair: str = convert_from_exchange_trading_pair(msg.get("symbol"))
@@ -266,24 +271,24 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self.logger().error("Unexpected error.", exc_info=True)
                 await asyncio.sleep(5.0)
 
-    async def _inner_messages(
+    async def _handle_ping_message(self, ws: aiohttp.ClientWebSocketResponse):
+        async with self._throttler.execute_task(CONSTANTS.PONG_ENDPOINT_NAME):
+            pong_payload = {
+                "op": "pong"
+            }
+            await ws.send_json(pong_payload)
+
+    async def _iter_messages(
         self,
         ws: aiohttp.ClientWebSocketResponse
-    ) -> AsyncIterable[str]:
+    ) -> AsyncIterable[aiohttp.WSMessage]:
         # Terminate the recv() loop as soon as the next message timed out, so the outer loop can reconnect.
         try:
             while True:
-                try:
-                    raw_msg = await asyncio.wait_for(ws.receive(), timeout=self.MESSAGE_TIMEOUT)
-                    if raw_msg.type == aiohttp.WSMsgType.CLOSED:
-                        raise ConnectionError
-                    yield raw_msg.data
-                except asyncio.TimeoutError:
-                    payload = {"op": CONSTANTS.PONG_ENDPOINT_NAME}
-                    pong_waiter = ws.send_json(payload)
-                    async with self._throttler.execute_task(CONSTANTS.PONG_ENDPOINT_NAME):
-                        await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
-                    self._last_recv_time = time.time()
+                raw_msg = await ws.receive()
+                if raw_msg.type == aiohttp.WSMsgType.CLOSED:
+                    raise ConnectionError
+                yield raw_msg.data
         except asyncio.TimeoutError:
             self.logger().warning("WebSocket ping timed out. Going to reconnect...")
             return
