@@ -30,6 +30,7 @@ omit =
         hummingbot/connector/exchange/paper_trade*
         hummingbot/connector/exchange/probit*
         hummingbot/connector/exchange/radar_relay*
+        hummingbot/strategy/hedge*
 dynamic_context = test_function
 branch = true
 
