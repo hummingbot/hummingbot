@@ -145,7 +145,7 @@ class GatewayBase(ConnectorBase):
         Automatically approves trading pair tokens for contract(s).
         It first checks if there are any already approved amount (allowance)
         """
-        self.logger().info("Checking for allowances...")
+        # self.logger().info("Checking for allowances...")
         self._allowances = await self.get_allowances()
         for token, amount in self._allowances.items():
             if amount <= s_decimal_0 and not self.is_pending_approval(token):
@@ -182,6 +182,7 @@ class GatewayBase(ConnectorBase):
         resp = await self._api_request("post", "eth/allowances",
                                        {"tokenSymbols": list(self._tokens),
                                         "spender": self.name})
+        # self.logger().info(f"get_allowances response {resp}")
         for token, amount in resp["approvals"].items():
             ret_val[token] = Decimal(str(amount))
         return ret_val
@@ -203,7 +204,7 @@ class GatewayBase(ConnectorBase):
                                            f"{self.base_path}/price",
                                            {"base": base,
                                             "quote": quote,
-                                            "amount": amount,
+                                            "amount": str(amount),
                                             "side": side.upper()})
             required_items = ["price", "gasLimit", "gasPrice", "gasCost"]
             if any(item not in resp.keys() for item in required_items):
@@ -470,6 +471,8 @@ class GatewayBase(ConnectorBase):
 
     @property
     def ready(self):
+        # self.logger().info(f"gateway_base ready {all(self.status_dict.values())}")
+        # self.logger().info(f"gateway_base account balances {self._account_balances}")
         return all(self.status_dict.values())
 
     def has_allowances(self) -> bool:
@@ -503,10 +506,8 @@ class GatewayBase(ConnectorBase):
             self._get_chain_info_task = None
 
     async def check_network(self) -> NetworkStatus:
-        self.logger().info("gateway_base check_network")
         try:
             response = await self._api_request("get", "")
-            self.logger().info(response)
             if 'status' in response and response['status'] == 'ok':
                 pass
             else:
@@ -534,6 +535,7 @@ class GatewayBase(ConnectorBase):
         self.nonce = resp_json['nonce']
 
     async def _status_polling_loop(self):
+        await self._update_balances(on_interval = False)
         while True:
             try:
                 self._poll_notifier = asyncio.Event()
@@ -565,7 +567,6 @@ class GatewayBase(ConnectorBase):
             resp_json = await self._api_request("post",
                                                 "eth/balances",
                                                 {"tokenSymbols": list(self._tokens)})
-
             for token, bal in resp_json["balances"].items():
                 self._account_available_balances[token] = Decimal(str(bal))
                 self._account_balances[token] = Decimal(str(bal))
@@ -612,14 +613,14 @@ class GatewayBase(ConnectorBase):
                 response = await client.get(url)
         elif method == "post":
             params["privateKey"] = self._wallet_private_key
-            self.logger().info(params["privateKey"])
+            # self.logger().info(params["privateKey"])
             if params["privateKey"][:2] != "0x":
                 params["privateKey"] = "0x" + params["privateKey"]
             response = await client.post(url, data=params)
 
         parsed_response = json.loads(await response.text())
         if response.status != 200:
-            self.logger().info(await response.text())
+            # self.logger().info(await response.text())
             err_msg = ""
             if "error" in parsed_response:
                 err_msg = f" Message: {parsed_response['error']}"
