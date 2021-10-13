@@ -157,6 +157,7 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                         await self._ws.pong()
                         continue
                     if msg.type == aiohttp.WSMsgType.PONG:
+                        self.logger().debug("Received PONG frame.")
                         continue
                     output.put_nowait(msg.json())
             except asyncio.CancelledError:
