@@ -8,7 +8,6 @@ cdef class HedgeStrategy(StrategyBase):
         dict _market_infos
         dict _assets
         object _hedge_ratio
-        object _wallet_df
         object _minimum_trade
         bint _all_markets_ready
         double _last_timestamp
