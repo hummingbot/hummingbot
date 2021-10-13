@@ -71,8 +71,9 @@ export interface EthereumPollResponse {
   timestamp: number;
   latency: number;
   txHash: string;
-  confirmed: boolean;
-  receipt: EthereumTransactionReceipt | null;
+  txStatus: number;
+  txData: ethers.providers.TransactionResponse | null;
+  txReceipt: EthereumTransactionReceipt | null;
 }
 
 export interface EthereumCancelRequest {
