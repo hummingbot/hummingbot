@@ -82,7 +82,7 @@ class InterfaceUtilsTest(unittest.TestCase):
     @patch("hummingbot.client.ui.interface_utils._sleep", new_callable=AsyncMock)
     @patch("hummingbot.client.ui.interface_utils.PerformanceMetrics.create", new_callable=AsyncMock)
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication")
-    async def _test_start_trade_monitor_multi_pairs_same_quote(self, mock_hb_app, mock_perf, mock_sleep):
+   def test_start_trade_monitor_multi_pairs_same_quote(self, mock_hb_app, mock_perf, mock_sleep):
         mock_result = MagicMock()
         mock_app = mock_hb_app.main_application()
         mock_app.strategy_task.done.return_value = False
