@@ -1,10 +1,8 @@
 #!/usr/bin/env python
+import decimal
 from decimal import Decimal
 from typing import Optional
 
-from hummingbot.client.config.config_helpers import (
-    minimum_order_amount,
-)
 from hummingbot.client.config.config_validators import (
     validate_exchange,
     validate_market_trading_pair,
@@ -54,21 +52,16 @@ def validate_decimal(value: str, min_value: Decimal = None, max_value: Decimal =
 
 async def validate_order_amount(value: str) -> Optional[str]:
     try:
-        exchange = dev_2_perform_trade_config_map["exchange"].value
-        trading_pair = dev_2_perform_trade_config_map["trading_pair"].value
-        min_amount = await minimum_order_amount(exchange, trading_pair)
-        if Decimal(value) < min_amount:
-            return f"Order amount must be at least {min_amount}."
-    except Exception:
+        if Decimal(value) <= 0:
+            return "Order amount must be a positive value."
+    except decimal.InvalidOperation:
         return "Invalid order amount."
 
 
 async def order_amount_prompt() -> str:
-    exchange = dev_2_perform_trade_config_map["exchange"].value
     trading_pair = dev_2_perform_trade_config_map["trading_pair"].value
     base_asset, quote_asset = trading_pair.split("-")
-    min_amount = await minimum_order_amount(exchange, trading_pair)
-    return f"What is the amount of {base_asset} per order? (minimum {min_amount}) >>> "
+    return f"What is the amount of {base_asset} per order? >>> "
 
 dev_2_perform_trade_config_map = {
     "strategy":

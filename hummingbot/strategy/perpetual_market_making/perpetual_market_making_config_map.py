@@ -1,3 +1,4 @@
+import decimal
 from decimal import Decimal
 
 from hummingbot.client.config.config_var import ConfigVar
@@ -15,7 +16,6 @@ from hummingbot.client.settings import (
 )
 
 from hummingbot.client.config.config_helpers import (
-    minimum_order_amount,
     parse_cvar_value
 )
 from typing import Optional
@@ -40,21 +40,16 @@ def validate_derivative_position_mode(value: str) -> Optional[str]:
 
 
 async def order_amount_prompt() -> str:
-    derivative = perpetual_market_making_config_map["derivative"].value
     trading_pair = perpetual_market_making_config_map["market"].value
     base_asset, quote_asset = trading_pair.split("-")
-    min_amount = await minimum_order_amount(derivative, trading_pair)
-    return f"What is the amount of {base_asset} per order? (minimum {min_amount}) >>> "
+    return f"What is the amount of {base_asset} per order? >>> "
 
 
 async def validate_order_amount(value: str) -> Optional[str]:
     try:
-        derivative = perpetual_market_making_config_map["derivative"].value
-        trading_pair = perpetual_market_making_config_map["market"].value
-        min_amount = await minimum_order_amount(derivative, trading_pair)
-        if Decimal(value) < min_amount:
-            return f"Order amount must be at least {min_amount}."
-    except Exception:
+        if Decimal(value) <= 0:
+            return "Order amount must be a positive value."
+    except decimal.InvalidOperation:
         return "Invalid order amount."
 
 
