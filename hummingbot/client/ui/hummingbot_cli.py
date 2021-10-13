@@ -139,10 +139,10 @@ class HummingbotCLI:
     def toggle_logs(self):
         if self.logs_container.width is None:
             self.logs_container.width = 0
-            self.log_toggle.text = '◀ log pane'
+            self.log_toggle.text = '< log pane'
         else:
             self.logs_container.width = None
-            self.log_toggle.text = '▶ log pane'
+            self.log_toggle.text = '> log pane'
 
     def exit(self):
         self.app.exit()
