@@ -427,9 +427,9 @@ cdef class PeatioExchange(ExchangeBase):
 
     async def update_tracked_order(self, order_obj: dict, tracked_order: PeatioInFlightOrder, exch_order_id):
         order_state = order_obj["state"]
-        # possible order states are "wait", "done", "cancel"
+        # possible order states are "wait", "done", "cancel", "rejected", "reject"
 
-        if order_state not in ["wait", "done", "cancel", "rejected"]:
+        if order_state not in ["wait", "done", "cancel", "rejected", "reject"]:
             self.logger().debug(f"Unrecognized order update response - {order_obj}")
 
         # Calculate the newly executed amount for this update.
@@ -528,6 +528,17 @@ cdef class PeatioExchange(ExchangeBase):
                                      timestamp=self._current_timestamp,
                                      order_id=tracked_order.client_order_id,
                                      exchange_order_id=exch_order_id
+                                 ))
+            self.c_stop_tracking_order(tracked_order.client_order_id)
+
+        if tracked_order.is_failure:
+            self.logger().info(f"The order {tracked_order.client_order_id} has been rejected "
+                               f"according to order delta websocket API.")
+            self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
+                                 MarketOrderFailureEvent(
+                                     timestamp=self._current_timestamp,
+                                     order_id=tracked_order.client_order_id,
+                                     order_type=tracked_order.order_type
                                  ))
             self.c_stop_tracking_order(tracked_order.client_order_id)
 
@@ -752,7 +763,7 @@ cdef class PeatioExchange(ExchangeBase):
             tracked_order = self._in_flight_orders.get(client_order_id)
             if tracked_order is not None:
                 self.logger().info(
-                    f"Created {order_type} buy order {client_order_id} ({exchange_order['id']}) for {decimal_amount} {trading_pair}.")
+                    f"Created {order_type} buy order {client_order_id} ({exchange_order['id']}) for {decimal_amount} {trading_pair} with status {exchange_order['state']}.")
             self.c_trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
                                  BuyOrderCreatedEvent(
                                      timestamp=self._current_timestamp,
@@ -830,7 +841,7 @@ cdef class PeatioExchange(ExchangeBase):
             )
             tracked_order = self._in_flight_orders.get(client_order_id)
             if tracked_order is not None:
-                self.logger().info(f"Created {order_type} sell order {client_order_id} ({exchange_order['id']}) for {decimal_amount} {trading_pair}.")
+                self.logger().info(f"Created {order_type} sell order {client_order_id} ({exchange_order['id']}) for {decimal_amount} {trading_pair} with status {exchange_order['state']}.")
             self.c_trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
                                  SellOrderCreatedEvent(
                                      timestamp=self._current_timestamp,

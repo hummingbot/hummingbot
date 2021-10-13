@@ -20,7 +20,7 @@ cdef class PeatioInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
-                 initial_state: str = "wait"):
+                 initial_state: str = "pending"):
         self.trade_ids = set()
         super().__init__(
             client_order_id,
@@ -43,11 +43,11 @@ cdef class PeatioInFlightOrder(InFlightOrderBase):
 
     @property
     def is_failure(self) -> bool:
-        return self.last_state in {"rejected", }
+        return self.last_state in {"rejected", "reject", }
 
     @property
     def is_open(self) -> bool:
-        return self.last_state in {"wait", }
+        return self.last_state in {"wait", "pending", }
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
