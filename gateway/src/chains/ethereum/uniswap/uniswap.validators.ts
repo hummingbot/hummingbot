@@ -1,5 +1,4 @@
 import {
-  isNaturalNumberString,
   isFloatString,
   mkValidator,
   mkRequestValidator,
@@ -37,7 +36,7 @@ export const validateBase: Validator = mkValidator(
 export const validateAmount: Validator = mkValidator(
   'amount',
   invalidAmountError,
-  (val) => typeof val === 'string' && isNaturalNumberString(val)
+  (val) => typeof val === 'string' && isFloatString(val)
 );
 
 export const validateSide: Validator = mkValidator(
