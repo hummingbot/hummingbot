@@ -42,10 +42,3 @@ async def run_command(*args):
         stdout=asyncio.subprocess.PIPE)
     stdout, stderr = await process.communicate()
     return stdout.decode().strip()
-
-
-async def async_sleep(delay):
-    """
-    A wrapper function that facilitates patching the sleep in unit tests without affecting the asyncio module
-    """
-    await asyncio.sleep(delay)
