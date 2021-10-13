@@ -1,3 +1,4 @@
+import aiohttp
 import asyncio
 import json
 import re
@@ -31,12 +32,15 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
         self.shared_client = None
         self.throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
 
-        self.data_source = AscendExAPIOrderBookDataSource(shared_client=self.shared_client, throttler=self.throttler, trading_pairs=[self.trading_pair])
+        self.data_source = AscendExAPIOrderBookDataSource(
+            shared_client=self.shared_client, throttler=self.throttler, trading_pairs=[self.trading_pair]
+        )
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
         self.data_source._trading_pair_symbol_map = {}
 
         self.mocking_assistant = NetworkMockingAssistant()
+        self.resume_test = asyncio.Event()
 
     def tearDown(self) -> None:
         self.listening_task and self.listening_task.cancel()
@@ -46,8 +50,7 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
         self.log_records.append(record)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage() == message
-                   for record in self.log_records)
+        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
 
     def _raise_exception(self, exception_class):
         raise exception_class
@@ -56,58 +59,46 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
     def test_fetch_trading_pairs(self, api_mock):
         mock_response = {
             "code": 0,
-            "data": [{
-                "symbol": "ASD/USDT",
-                "open": "0.06777",
-                "close": "0.06809",
-                "high": "0.06899",
-                "low": "0.06708",
-                "volume": "19823722",
-                "ask": [
-                    "0.0681",
-                    "43641"
-                ],
-                "bid": [
-                    "0.0676",
-                    "443"
-                ]
-            }, {
-                "symbol": "BTC/USDT",
-                "open": "0.06777",
-                "close": "0.06809",
-                "high": "0.06899",
-                "low": "0.06708",
-                "volume": "19823722",
-                "ask": [
-                    "0.0681",
-                    "43641"
-                ],
-                "bid": [
-                    "0.0676",
-                    "443"
-                ]
-            }, {
-                "symbol": "ETH/USDT",
-                "open": "0.06777",
-                "close": "0.06809",
-                "high": "0.06899",
-                "low": "0.06708",
-                "volume": "19823722",
-                "ask": [
-                    "0.0681",
-                    "43641"
-                ],
-                "bid": [
-                    "0.0676",
-                    "443"
-                ]
-            }]
+            "data": [
+                {
+                    "symbol": "ASD/USDT",
+                    "open": "0.06777",
+                    "close": "0.06809",
+                    "high": "0.06899",
+                    "low": "0.06708",
+                    "volume": "19823722",
+                    "ask": ["0.0681", "43641"],
+                    "bid": ["0.0676", "443"],
+                },
+                {
+                    "symbol": "BTC/USDT",
+                    "open": "0.06777",
+                    "close": "0.06809",
+                    "high": "0.06899",
+                    "low": "0.06708",
+                    "volume": "19823722",
+                    "ask": ["0.0681", "43641"],
+                    "bid": ["0.0676", "443"],
+                },
+                {
+                    "symbol": "ETH/USDT",
+                    "open": "0.06777",
+                    "close": "0.06809",
+                    "high": "0.06899",
+                    "low": "0.06708",
+                    "volume": "19823722",
+                    "ask": ["0.0681", "43641"],
+                    "bid": ["0.0676", "443"],
+                },
+            ],
         }
 
         url = f"{CONSTANTS.REST_URL}/{CONSTANTS.TICKER_PATH_URL}"
         api_mock.get(url, body=json.dumps(mock_response))
 
-        trading_pairs = self.ev_loop.run_until_complete(self.data_source.fetch_trading_pairs(client=self.data_source._shared_client, throttler=self.throttler))
+        trading_pairs = self.ev_loop.run_until_complete(
+            self.data_source.fetch_trading_pairs(client=self.data_source._shared_client, throttler=self.throttler)
+        )
 
         self.assertEqual(3, len(trading_pairs))
         self.assertEqual("BTC-USDT", trading_pairs[1])
@@ -120,22 +111,10 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
                 "m": "trades",
                 "symbol": "BTC/USDT",
                 "data": [
-                    {
-                        "seqnum": 144115191800016553,
-                        "p": "0.06762",
-                        "q": "400",
-                        "ts": 1573165890854,
-                        "bm": False
-                    },
-                    {
-                        "seqnum": 144115191800070421,
-                        "p": "0.06797",
-                        "q": "341",
-                        "ts": 1573166037845,
-                        "bm": True
-                    }
-                ]
-            }
+                    {"seqnum": 144115191800016553, "p": "0.06762", "q": "400", "ts": 1573165890854, "bm": False},
+                    {"seqnum": 144115191800070421, "p": "0.06797", "q": "341", "ts": 1573166037845, "bm": True},
+                ],
+            },
         }
 
         self.data_source._trading_pairs = ["BTC-USDT"]
@@ -144,7 +123,11 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
         regex_url = re.compile(f"^{url}")
         api_mock.get(regex_url, body=json.dumps(mock_response))
 
-        results = self.ev_loop.run_until_complete(self.data_source.get_last_traded_prices(trading_pairs=[self.trading_pair], client=self.data_source._shared_client, throttler=self.throttler))
+        results = self.ev_loop.run_until_complete(
+            self.data_source.get_last_traded_prices(
+                trading_pairs=[self.trading_pair], client=self.data_source._shared_client, throttler=self.throttler
+            )
+        )
 
         self.assertEqual(results[self.trading_pair], float(mock_response["data"]["data"][1]["p"]))
 
@@ -158,13 +141,17 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
 
         queue = asyncio.Queue()
 
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_trades(ev_loop=self.ev_loop, output=queue))
+        self.listening_task = self.ev_loop.create_task(
+            self.data_source.listen_for_trades(ev_loop=self.ev_loop, output=queue)
+        )
         try:
             self.ev_loop.run_until_complete(self.listening_task)
         except asyncio.CancelledError:
             pass
 
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_order_book_diffs(ev_loop=self.ev_loop, output=queue))
+        self.listening_task = self.ev_loop.create_task(
+            self.data_source.listen_for_order_book_diffs(ev_loop=self.ev_loop, output=queue)
+        )
         try:
             self.ev_loop.run_until_complete(self.listening_task)
         except asyncio.CancelledError:
@@ -173,8 +160,8 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
         sent_messages = self.mocking_assistant.json_messages_sent_through_websocket(ws_connect_mock.return_value)
 
         self.assertEqual(2, len(sent_messages))
-        expected_trades_subscription = {'op': 'sub', 'ch': 'trades:BTC/USDT'}
-        expected_depth_subscription = {'op': 'sub', 'ch': 'depth:BTC/USDT'}
+        expected_trades_subscription = {"op": "sub", "ch": "trades:BTC/USDT"}
+        expected_depth_subscription = {"op": "sub", "ch": "depth:BTC/USDT"}
         self.assertEqual(expected_trades_subscription, sent_messages[0])
         self.assertEqual(expected_depth_subscription, sent_messages[1])
 
@@ -183,37 +170,51 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         queue = asyncio.Queue()
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_order_book_diffs(ev_loop=self.ev_loop, output=queue))
+        self.listening_task = self.ev_loop.create_task(
+            self.data_source.listen_for_order_book_diffs(ev_loop=self.ev_loop, output=queue)
+        )
 
         with self.assertRaises(asyncio.CancelledError):
             self.listening_task.cancel()
             self.ev_loop.run_until_complete(self.listening_task)
 
     @patch("aiohttp.client.ClientSession.ws_connect")
-    def test_listen_for_order_book_diff_raises_cancel_exception_when_canceled_during_ws_connection(self, ws_connect_mock):
+    def test_listen_for_order_book_diff_raises_cancel_exception_when_canceled_during_ws_connection(
+        self, ws_connect_mock
+    ):
         ws_connect_mock.side_effect = asyncio.CancelledError()
 
         queue = asyncio.Queue()
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_order_book_diffs(ev_loop=self.ev_loop, output=queue))
+        self.listening_task = self.ev_loop.create_task(
+            self.data_source.listen_for_order_book_diffs(ev_loop=self.ev_loop, output=queue)
+        )
 
         with self.assertRaises(asyncio.CancelledError):
             self.ev_loop.run_until_complete(self.listening_task)
 
-    @patch('hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source.AscendExAPIOrderBookDataSource._sleep')
+    @patch(
+        "hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source.AscendExAPIOrderBookDataSource._sleep"
+    )
     @patch("aiohttp.client.ClientSession.ws_connect")
     def test_listen_for_order_book_diff_ws_connection_exception_details_are_logged(self, ws_connect_mock, sleep_mock):
         ws_connect_mock.side_effect = Exception
         sleep_mock.side_effect = asyncio.CancelledError
 
         queue = asyncio.Queue()
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_order_book_diffs(ev_loop=self.ev_loop, output=queue))
+        self.listening_task = self.ev_loop.create_task(
+            self.data_source.listen_for_order_book_diffs(ev_loop=self.ev_loop, output=queue)
+        )
 
         with self.assertRaises(asyncio.CancelledError):
             self.ev_loop.run_until_complete(self.listening_task)
 
-        self.assertTrue(self._is_logged("ERROR", "Unexpected error with WebSocket connection. Retrying after 30 seconds..."))
+        self.assertTrue(
+            self._is_logged("ERROR", "Unexpected error with WebSocket connection. Retrying after 30 seconds...")
+        )
 
-    @patch('hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source.AscendExAPIOrderBookDataSource._sleep')
+    @patch(
+        "hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source.AscendExAPIOrderBookDataSource._sleep"
+    )
     @patch("aiohttp.client.ClientSession.ws_connect")
     def test_listen_for_order_book_diff_logs_exceptions_details(self, ws_connect_mock, sleep_mock):
         ws_connect_mock.side_effect = Exception
@@ -228,12 +229,16 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
         ws_connect_mock.return_value = websocket_mock
 
         queue = asyncio.Queue()
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_order_book_diffs(ev_loop=self.ev_loop, output=queue))
+        self.listening_task = self.ev_loop.create_task(
+            self.data_source.listen_for_order_book_diffs(ev_loop=self.ev_loop, output=queue)
+        )
 
         with self.assertRaises(asyncio.CancelledError):
             self.ev_loop.run_until_complete(self.listening_task)
 
-        self.assertTrue(self._is_logged("ERROR", "Unexpected error with WebSocket connection. Retrying after 30 seconds..."))
+        self.assertTrue(
+            self._is_logged("ERROR", "Unexpected error with WebSocket connection. Retrying after 30 seconds...")
+        )
 
     @patch("aiohttp.client.ClientSession.ws_connect")
     async def test_listen_for_trades(self, ws_connect_mock):
@@ -242,21 +247,9 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
             "m": "trades",
             "symbol": "BTC/USDT",
             "data": [
-                {
-                    "seqnum": 144115191800016553,
-                    "p": "0.06762",
-                    "q": "400",
-                    "ts": 1573165890854,
-                    "bm": False
-                },
-                {
-                    "seqnum": 144115191800070421,
-                    "p": "0.06797",
-                    "q": "341",
-                    "ts": 1573166037845,
-                    "bm": True
-                }
-            ]
+                {"seqnum": 144115191800016553, "p": "0.06762", "q": "400", "ts": 1573165890854, "bm": False},
+                {"seqnum": 144115191800070421, "p": "0.06797", "q": "341", "ts": 1573166037845, "bm": True},
+            ],
         }
 
         self.data_source._trading_pairs = ["BTC-USDT"]
@@ -285,8 +278,7 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
     @patch("aiohttp.client.ClientSession.ws_connect")
     def test_listen_for_trades_raises_cancel_exceptions(self, ws_connect_mock):
         trades_queue = asyncio.Queue()
-        task = self.ev_loop.create_task(
-            self.data_source.listen_for_trades(ev_loop=self.ev_loop, output=trades_queue))
+        task = self.ev_loop.create_task(self.data_source.listen_for_trades(ev_loop=self.ev_loop, output=trades_queue))
 
         with self.assertRaises(asyncio.CancelledError):
             task.cancel()
@@ -303,9 +295,35 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
         ws_connect_mock.return_value = websocket_mock
 
         queue = asyncio.Queue()
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_trades(ev_loop=self.ev_loop, output=queue))
+        self.listening_task = self.ev_loop.create_task(
+            self.data_source.listen_for_trades(ev_loop=self.ev_loop, output=queue)
+        )
 
-        self.assertTrue(self._is_logged("ERROR", "Unexpected error with WebSocket connection. Retrying after 30 seconds..."))
+        self.assertTrue(
+            self._is_logged("ERROR", "Unexpected error with WebSocket connection. Retrying after 30 seconds...")
+        )
+
+    @patch("aiohttp.client.ClientSession.ws_connect")
+    def test_listen_for_trades_handle_ping_messages(self, ws_connect_mock):
+        # In AscendEx Ping message is sent as a aiohttp.WSMsgType.TEXT message
+        mock_response = {"m": "ping", "hp": 3}
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(mock_response),
+            message_type=aiohttp.WSMsgType.TEXT,
+        )
+
+        trades_queue = asyncio.Queue()
+        self.listening_task = self.ev_loop.create_task(
+            self.data_source.listen_for_trades(ev_loop=self.ev_loop, output=trades_queue)
+        )
+
+        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+
+        sent_json = self.mocking_assistant.json_messages_sent_through_websocket(ws_connect_mock.return_value)
+
+        self.assertTrue(any(["pong" in str(payload) for payload in sent_json]))
 
     @aioresponses()
     def test_listen_for_order_book_snapshot_event(self, api_mock):
@@ -317,28 +335,10 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
                 "data": {
                     "seqnum": 5068757,
                     "ts": 1573165838976,
-                    "asks": [
-                        [
-                            "0.06848",
-                            "4084.2"
-                        ],
-                        [
-                            "0.0696",
-                            "15890.6"
-                        ]
-                    ],
-                    "bids": [
-                        [
-                            "0.06703",
-                            "13500"
-                        ],
-                        [
-                            "0.06615",
-                            "24036.9"
-                        ]
-                    ]
-                }
-            }
+                    "asks": [["0.06848", "4084.2"], ["0.0696", "15890.6"]],
+                    "bids": [["0.06703", "13500"], ["0.06615", "24036.9"]],
+                },
+            },
         }
 
         self.data_source._trading_pairs = ["BTC-USDT"]
@@ -351,7 +351,8 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
         order_book_messages = asyncio.Queue()
 
         task = self.ev_loop.create_task(
-            self.data_source.listen_for_order_book_snapshots(ev_loop=self.ev_loop, output=order_book_messages))
+            self.data_source.listen_for_order_book_snapshots(ev_loop=self.ev_loop, output=order_book_messages)
+        )
 
         order_book_message = self.ev_loop.run_until_complete(order_book_messages.get())
 
@@ -376,23 +377,9 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
             "data": {
                 "ts": 1573069021376,
                 "seqnum": 2097965,
-                "asks": [
-                    [
-                        "0.06844",
-                        "10760"
-                    ]
-                ],
-                "bids": [
-                    [
-                        "0.06777",
-                        "562.4"
-                    ],
-                    [
-                        "0.05",
-                        "221760.6"
-                    ]
-                ]
-            }
+                "asks": [["0.06844", "10760"]],
+                "bids": [["0.06777", "562.4"], ["0.05", "221760.6"]],
+            },
         }
 
         self.data_source._trading_pairs = ["BTC-USD"]
@@ -404,7 +391,8 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
         order_book_messages = asyncio.Queue()
 
         task = self.ev_loop.create_task(
-            self.data_source.listen_for_order_book_diffs(ev_loop=self.ev_loop, output=order_book_messages))
+            self.data_source.listen_for_order_book_diffs(ev_loop=self.ev_loop, output=order_book_messages)
+        )
 
         order_book_message = self.ev_loop.run_until_complete(order_book_messages.get())
 
@@ -422,6 +410,28 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
         self.assertEqual(0.05, order_book_message.bids[1].price)
         self.assertEqual(0.06844, order_book_message.asks[0].price)
 
+    @patch("aiohttp.client.ClientSession.ws_connect")
+    def test_listen_for_order_book_diff_handle_ping_messages(self, ws_connect_mock):
+        # In AscendEx Ping message is sent as a aiohttp.WSMsgType.TEXT message
+        mock_response = {"m": "ping", "hp": 3}
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(mock_response),
+            message_type=aiohttp.WSMsgType.TEXT,
+        )
+
+        message_queue = asyncio.Queue()
+        self.listening_task = self.ev_loop.create_task(
+            self.data_source.listen_for_order_book_diffs(ev_loop=self.ev_loop, output=message_queue)
+        )
+
+        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+
+        sent_json = self.mocking_assistant.json_messages_sent_through_websocket(ws_connect_mock.return_value)
+
+        self.assertTrue(any(["pong" in str(payload) for payload in sent_json]))
+
     @aioresponses()
     def test_get_new_order_book(self, api_mock):
         mock_response = {
@@ -432,28 +442,10 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
                 "data": {
                     "seqnum": 5068757,
                     "ts": 1573165838976,
-                    "asks": [
-                        [
-                            "0.06848",
-                            "4084.2"
-                        ],
-                        [
-                            "0.0696",
-                            "15890.6"
-                        ]
-                    ],
-                    "bids": [
-                        [
-                            "0.06703",
-                            "13500"
-                        ],
-                        [
-                            "0.06615",
-                            "24036.9"
-                        ]
-                    ]
-                }
-            }
+                    "asks": [["0.06848", "4084.2"], ["0.0696", "15890.6"]],
+                    "bids": [["0.06703", "13500"], ["0.06615", "24036.9"]],
+                },
+            },
         }
 
         self.data_source._trading_pairs = ["BTC-USDT"]
@@ -463,8 +455,7 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
         regex_url = re.compile(f"^{url}")
         api_mock.get(regex_url, body=json.dumps(mock_response))
 
-        self.listening_task = self.ev_loop.create_task(
-            self.data_source.get_new_order_book(self.trading_pair))
+        self.listening_task = self.ev_loop.create_task(self.data_source.get_new_order_book(self.trading_pair))
         order_book = self.ev_loop.run_until_complete(self.listening_task)
         bids = list(order_book.bid_entries())
         asks = list(order_book.ask_entries())
