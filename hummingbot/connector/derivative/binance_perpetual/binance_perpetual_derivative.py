@@ -4,7 +4,6 @@ import hashlib
 import hmac
 import logging
 import time
-import ujson
 
 import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
 import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils as utils
@@ -78,6 +77,8 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
     LONG_POLL_INTERVAL = 120.0
     ORDER_NOT_EXIST_CONFIRMATION_COUNT = 3
+    HEARTBEAT_TIME_INTERVAL = 30.0
+    ONE_HOUR_INTERVAL = 3600.0
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -468,7 +469,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                     exc_info=True,
                     app_warning_msg="Could not fetch user events from Binance. Check API key and network connection."
                 )
-                await asyncio.sleep(1.0)
+                await self._sleep(1.0)
 
     async def _user_stream_event_listener(self):
         async for event_message in self._iter_user_event_queue():
@@ -594,7 +595,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 raise
             except Exception as e:
                 self.logger().error(f"Unexpected error in user stream listener loop: {e}", exc_info=True)
-                await asyncio.sleep(5.0)
+                await self._sleep(5.0)
 
     def tick(self, timestamp: float):
         """
@@ -668,44 +669,49 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 await safe_gather(
                     self._update_trading_rules()
                 )
-                await asyncio.sleep(3600)
+                await self._sleep(3600)
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().network("Unexpected error while fetching trading rules.", exc_info=True,
                                       app_warning_msg="Could not fetch new trading rules from Binance Perpetuals. "
                                                       "Check network connection.")
-                await asyncio.sleep(0.5)
+                await self._sleep(0.5)
 
     async def _funding_info_polling_loop(self):
         while True:
             try:
-                ws_subscription_path: str = "/".join([f"{utils.convert_to_exchange_trading_pair(trading_pair).lower()}@markPrice"
-                                                      for trading_pair in self._trading_pairs])
-                stream_url: str = utils.wss_url(CONSTANTS.PUBLIC_WS_ENDPOINT, self._domain) + f"?streams={ws_subscription_path}"
+                stream_url: str = utils.wss_url(CONSTANTS.PUBLIC_WS_ENDPOINT, self._domain)
 
-                async with aiohttp.ClientSession().ws_connect(stream_url) as ws:
+                async with aiohttp.ClientSession().ws_connect(url=stream_url,
+                                                              heartbeat=self.HEARTBEAT_TIME_INTERVAL) as ws:
+                    payload = {
+                        "method": "SUBSCRIBE",
+                        "params": [
+                            f"{utils.convert_to_exchange_trading_pair(trading_pair).lower()}@markPrice"
+                            for trading_pair in self._trading_pairs
+                        ]
+                    }
+                    await ws.send_json(payload)
                     while True:
-                        try:
-                            raw_msg: str = await asyncio.wait_for(ws.receive_str(), timeout=10.0)
-                            msg = ujson.loads(raw_msg)
-                            trading_pair = utils.convert_from_exchange_trading_pair(msg["data"]["s"])
-                            self._funding_info[trading_pair] = FundingInfo(
-                                trading_pair,
-                                Decimal(str(msg["data"]["i"])),
-                                Decimal(str(msg["data"]["p"])),
-                                int(msg["data"]["T"]),
-                                Decimal(str(msg["data"]["r"]))
-                            )
-                        except asyncio.TimeoutError:
-                            await ws.pong(data=b'')
+                        msg: Dict[str, Any] = await ws.receive_json()
+                        if "result" in msg:
+                            continue
+                        trading_pair = utils.convert_from_exchange_trading_pair(msg["data"]["s"])
+                        self._funding_info[trading_pair] = FundingInfo(
+                            trading_pair,
+                            Decimal(str(msg["data"]["i"])),
+                            Decimal(str(msg["data"]["p"])),
+                            int(msg["data"]["T"]),
+                            Decimal(str(msg["data"]["r"]))
+                        )
 
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().error("Unexpected error updating funding info. Retrying after 10 seconds... ",
                                     exc_info=True)
-                await asyncio.sleep(10.0)
+                await self._sleep(10.0)
 
     def get_next_funding_timestamp(self):
         # On Binance Futures, Funding occurs every 8 hours at 00:00 UTC; 08:00 UTC and 16:00
@@ -731,9 +737,10 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 except Exception:
                     self.logger().error("Unexpected error whilst retrieving funding payments. Retrying after 10 seconds... ",
                                         exc_info=True)
-                    await asyncio.sleep(10.0)
+                    await self._sleep(10.0)
+                    continue
 
-            await asyncio.sleep(10)
+            await self._sleep(self.ONE_HOUR_INTERVAL)
 
     async def _status_polling_loop(self):
         while True:
@@ -752,7 +759,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 self.logger().network("Unexpected error while fetching account updates.", exc_info=True,
                                       app_warning_msg="Could not fetch account updates from Binance Perpetuals. "
                                                       "Check API key and network connection.")
-                await asyncio.sleep(0.5)
+                await self._sleep(0.5)
             finally:
                 self._poll_notifier = asyncio.Event()
 
@@ -1079,3 +1086,6 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                     self.logger().error(f"Error fetching {path}", exc_info=True)
                     self.logger().warning(f"{e}")
                 raise e
+
+    async def _sleep(self, delay: float):
+        await asyncio.sleep(delay)
