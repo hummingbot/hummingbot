@@ -1,5 +1,4 @@
 import { BigNumber, Contract, providers, Transaction, Wallet } from 'ethers';
-import { logger } from './logger';
 import abi from './ethereum.abi.json';
 import axios from 'axios';
 import fs from 'fs/promises';
@@ -41,7 +40,6 @@ export class EthereumBase {
     gasPriceConstant: number
   ) {
     this._provider = new providers.StaticJsonRpcProvider(rpcUrl);
-    this._provider.on('error', this.logError);
     this.chainId = chainId;
     this.rpcUrl = rpcUrl;
     this.gasPriceConstant = gasPriceConstant;
@@ -56,10 +54,6 @@ export class EthereumBase {
 
   public get provider() {
     return this._provider;
-  }
-
-  public logError(err: any) {
-    logger.error(err);
   }
 
   public events() {
