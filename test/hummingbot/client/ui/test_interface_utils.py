@@ -104,7 +104,7 @@ class InterfaceUtilsTest(unittest.TestCase):
 
     @patch("hummingbot.client.ui.interface_utils._sleep", new_callable=AsyncMock)
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication")
-    async def _test_start_trade_monitor_market_not_ready(self, mock_hb_app, mock_sleep):
+    async def test_start_trade_monitor_market_not_ready(self, mock_hb_app, mock_sleep):
         mock_result = MagicMock()
         mock_app = mock_hb_app.main_application()
         mock_app.strategy_task.done.return_value = False
