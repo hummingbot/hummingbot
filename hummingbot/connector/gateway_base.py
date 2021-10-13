@@ -162,7 +162,7 @@ class GatewayBase(ConnectorBase):
                                        "eth/approve",
                                        {"token": token_symbol,
                                         "spender": self.name,
-                                        "nonce": self._nonce})
+                                        "nonce": int(self._nonce)})
         self.start_tracking_order(order_id, None, token_symbol)
 
         if "hash" in resp.get("approval", {}).keys():
@@ -618,6 +618,7 @@ class GatewayBase(ConnectorBase):
             # self.logger().info(params["privateKey"])
             if params["privateKey"][:2] != "0x":
                 params["privateKey"] = "0x" + params["privateKey"]
+            self.logger().info(f'post params {params}')
             response = await client.post(url, data=params)
 
         parsed_response = json.loads(await response.text())
