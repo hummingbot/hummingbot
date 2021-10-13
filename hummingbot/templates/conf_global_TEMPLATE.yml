@@ -142,9 +142,6 @@ kill_switch_rate: null
 # What to auto-fill in the prompt after each import command (start/config)
 autofill_import: null
 
-# DEX active order cancellation
-0x_active_cancels: false
-
 # Paper Trading
 paper_trade_enabled: false
 paper_trade_account_balance:
@@ -176,7 +173,6 @@ logger_override_whitelist:
   - conf
 key_file_path: conf/
 log_file_path: logs/
-on_chain_cancel_on_exit: false
 
 # Minimum default order amount (in quote currency), this is used for when prompting a new order_amount.
 min_quote_order_amount:

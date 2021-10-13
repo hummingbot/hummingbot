@@ -5,7 +5,7 @@ import sys; sys.path.insert(0, realpath(join(__file__, "../../../../")))
 
 from decimal import Decimal
 import unittest
-from hummingbot.market.celo.celo_cli import CeloCLI, CELO_BASE, CELO_QUOTE
+from hummingbot.connector.other.celo.celo_cli import CeloCLI, CELO_BASE, CELO_QUOTE
 
 
 celo_address = "0x1640eb9C393630d5BC42Ff3f4e81A07912FC0fdd"

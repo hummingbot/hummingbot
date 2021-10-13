@@ -48,7 +48,6 @@ def main():
         "hummingbot.core.rate_oracle",
         "hummingbot.data_feed",
         "hummingbot.logger",
-        "hummingbot.market",
         "hummingbot.connector",
         "hummingbot.connector.connector",
         "hummingbot.connector.connector.balancer",

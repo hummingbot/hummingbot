@@ -58,10 +58,6 @@ loggers:
         level: NETWORK
         handlers: [console_info, file_handler]
         propagate: false
-    hummingbot.market:
-        level: NETWORK
-        handlers: [console_info, file_handler]
-        propagate: false
     hummingbot.connector:
         level: NETWORK
         handlers: [console_info, file_handler]
