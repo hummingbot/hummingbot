@@ -61,7 +61,7 @@ class CreateCommandTest(unittest.TestCase):
     @patch("hummingbot.client.command.create_command.save_to_yml")
     @patch("hummingbot.client.config.security.Security.is_decryption_done")
     @patch("hummingbot.client.command.status_command.StatusCommand.validate_required_connections")
-    @patch("hummingbot.client.config.config_helpers.get_last_price")
+    @patch("hummingbot.core.utils.market_price.get_last_price")
     def test_prompt_for_configuration_re_prompts_on_lower_than_minimum_amount(
         self,
         get_last_price_mock: AsyncMock,
@@ -104,7 +104,7 @@ class CreateCommandTest(unittest.TestCase):
     @patch("hummingbot.client.command.create_command.save_to_yml")
     @patch("hummingbot.client.config.security.Security.is_decryption_done")
     @patch("hummingbot.client.command.status_command.StatusCommand.validate_required_connections")
-    @patch("hummingbot.client.config.config_helpers.get_last_price")
+    @patch("hummingbot.core.utils.market_price.get_last_price")
     def test_prompt_for_configuration_accepts_zero_amount_on_get_last_price_network_timeout(
         self,
         get_last_price_mock: AsyncMock,
@@ -177,7 +177,7 @@ class CreateCommandTest(unittest.TestCase):
     @patch("hummingbot.client.command.create_command.save_to_yml")
     @patch("hummingbot.client.config.security.Security.is_decryption_done")
     @patch("hummingbot.client.command.status_command.StatusCommand.validate_required_connections")
-    @patch("hummingbot.client.config.config_helpers.get_last_price")
+    @patch("hummingbot.core.utils.market_price.get_last_price")
     def test_prompt_for_configuration_handles_status_network_timeout(
         self,
         get_last_price_mock: AsyncMock,
