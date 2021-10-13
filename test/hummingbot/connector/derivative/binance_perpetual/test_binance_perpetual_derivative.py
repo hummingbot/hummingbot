@@ -26,7 +26,8 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         cls.quote_asset = "HBOT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.symbol = f"{cls.base_asset}{cls.quote_asset}"
-        cls.domain = "binance_perpetual_testnet"
+        cls.domain = CONSTANTS.TESTNET_DOMAIN
+        cls.listen_key = "TEST_LISTEN_KEY"
 
     @patch("hummingbot.connector.exchange.binance.binance_time.BinanceTime.start")
     def setUp(self, mocked_binance_time_start) -> None:
@@ -193,11 +194,11 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(len(self.exchange.account_positions), 0)
 
     @aioresponses()
-    @patch("websockets.connect", new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_new_account_position_detected_on_stream_event(self, mock_api, ws_connect_mock):
         url = utils.rest_url(CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        listen_key_response = {"listenKey": "someListenKey"}
+        listen_key_response = {"listenKey": self.listen_key}
         mock_api.post(regex_url, body=json.dumps(listen_key_response))
 
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
@@ -206,7 +207,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(len(self.exchange.account_positions), 0)
 
         account_update = self._get_account_update_ws_event_single_position_dict()
-        self.mocking_assistant.add_websocket_text_message(ws_connect_mock.return_value, json.dumps(account_update))
+        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(account_update))
 
         url = utils.rest_url(CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION_V2)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -219,7 +220,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(len(self.exchange.account_positions), 1)
 
     @aioresponses()
-    @patch("websockets.connect", new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_account_position_updated_on_stream_event(self, mock_api, ws_connect_mock):
         url = utils.rest_url(CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION_V2)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -231,7 +232,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         url = utils.rest_url(CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        listen_key_response = {"listenKey": "someListenKey"}
+        listen_key_response = {"listenKey": self.listen_key}
         mock_api.post(regex_url, body=json.dumps(listen_key_response))
 
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
@@ -244,7 +245,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         account_update = self._get_account_update_ws_event_single_position_dict()
         account_update["a"]["P"][0]["pa"] = 2
-        self.mocking_assistant.add_websocket_text_message(ws_connect_mock.return_value, json.dumps(account_update))
+        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(account_update))
 
         self.ev_loop.create_task(self.exchange._user_stream_event_listener())
         self.ev_loop.run_until_complete(asyncio.sleep(0.3))
@@ -254,7 +255,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(pos.amount, 2)
 
     @aioresponses()
-    @patch("websockets.connect", new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_closed_account_position_removed_on_stream_event(self, mock_api, ws_connect_mock):
         url = utils.rest_url(CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION_V2)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -266,7 +267,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         url = utils.rest_url(CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        listen_key_response = {"listenKey": "someListenKey"}
+        listen_key_response = {"listenKey": self.listen_key}
         mock_api.post(regex_url, body=json.dumps(listen_key_response))
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
@@ -277,7 +278,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         account_update = self._get_account_update_ws_event_single_position_dict()
         account_update["a"]["P"][0]["pa"] = 0
-        self.mocking_assistant.add_websocket_text_message(ws_connect_mock.return_value, json.dumps(account_update))
+        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(account_update))
 
         self.ev_loop.create_task(self.exchange._user_stream_event_listener())
         self.ev_loop.run_until_complete(asyncio.sleep(0.3))
