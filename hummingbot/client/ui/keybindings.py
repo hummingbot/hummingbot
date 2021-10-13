@@ -97,4 +97,8 @@ def load_key_bindings(hb) -> KeyBindings:
     def stop_live_update(event):
         hb.app.live_updates = False
 
+    @bindings.add("c-l")
+    def toggle_logs(event):
+        hb.app.toggle_logs()
+
     return bindings
