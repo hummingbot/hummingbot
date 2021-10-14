@@ -613,7 +613,6 @@ class GatewayBase(ConnectorBase):
             if params["privateKey"][:2] != "0x":
                 params["privateKey"] = "0x" + params["privateKey"]
             response = await client.post(url, json=params)
-        self.logger().info(await response.text())
         parsed_response = json.loads(await response.text())
         if response.status != 200:
             err_msg = ""
