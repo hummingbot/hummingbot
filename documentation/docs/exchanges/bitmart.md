@@ -29,6 +29,7 @@ Run `connect bitmart` in order to enter your API keys:
 ```
 Enter your BitMart API key >>>
 Enter your BitMart secret key >>>
+Enter your BitMart API Memo >>>
 ```
 
 If connection is successful:
