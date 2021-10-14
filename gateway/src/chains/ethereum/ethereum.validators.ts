@@ -89,7 +89,7 @@ export const validateAmount: Validator = mkValidator(
 export const validateNonce: Validator = mkValidator(
   'nonce',
   invalidNonceError,
-  (val) => typeof val === 'string' && isNaturalNumberString(val),
+  (val) => typeof val === 'number' && val >= 0,
   true
 );
 

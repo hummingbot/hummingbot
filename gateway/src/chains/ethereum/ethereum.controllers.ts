@@ -159,12 +159,7 @@ export async function approve(
 ): Promise<EthereumApproveResponse> {
   console.log(req);
   validateEthereumApproveRequest(req);
-  const { amount, privateKey, token } = req;
-  const nonceString: string | undefined = req.nonce;
-  let nonce: number | undefined = undefined;
-  if (nonceString) {
-    nonce = parseInt(nonceString);
-  }
+  const { amount, nonce, privateKey, token } = req;
   const spender = getSpender(req.spender);
 
   if (!ethereum.ready()) await ethereum.init();
