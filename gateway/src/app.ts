@@ -6,7 +6,11 @@ import { UniswapRoutes } from './chains/ethereum/uniswap/uniswap.routes';
 import { ConfigManager } from './services/config-manager';
 import { logger, updateLoggerToStdout } from './services/logger';
 import { addHttps } from './https';
-import { asyncHandler, GatewayError } from './services/error-handler';
+import {
+  asyncHandler,
+  GatewayError,
+  NodeError,
+} from './services/error-handler';
 
 export const app = express();
 let server: Server;
@@ -92,7 +96,7 @@ app.post(
 // handle any error thrown in the gateway api route
 app.use(
   (
-    err: Error | GatewayError,
+    err: Error | GatewayError | NodeError,
     _req: Request,
     res: Response,
     _next: NextFunction
@@ -105,6 +109,13 @@ app.use(
     if (err instanceof GatewayError) {
       httpErrorCode = err.httpErrorCode;
       response.errorCode = err.errorCode;
+    }
+    if ('reason' in err) {
+      // error is from ethers library
+      httpErrorCode = 503;
+      const nodeErrorCodes = ['NETWORK_ERROR', 'SERVER_ERROR', 'TIMEOUT'];
+      response.errorCode = nodeErrorCodes.includes(err.code) ? 1001 : 1099;
+      response.message = err.reason;
     }
     logger.error(response.message + response.stack);
     return res.status(httpErrorCode).json(response);

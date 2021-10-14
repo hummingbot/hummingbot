@@ -60,8 +60,9 @@ describe('Eth endpoints', () => {
       txHash:
         '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
     });
-    expect(res.statusCode).toEqual(500);
-    expect(res.body.message).toEqual(expect.stringContaining(errors.TIMEOUT));
+    expect(res.statusCode).toEqual(503);
+    expect(res.body.errorCode).toEqual(1001);
+    expect(res.body.message).toEqual(errors.TIMEOUT);
   });
 
   it('should get network error', async () => {
@@ -72,10 +73,9 @@ describe('Eth endpoints', () => {
       txHash:
         '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
     });
-    expect(res.statusCode).toEqual(500);
-    expect(res.body.message).toEqual(
-      expect.stringContaining(errors.NETWORK_ERROR)
-    );
+    expect(res.statusCode).toEqual(503);
+    expect(res.body.errorCode).toEqual(1001);
+    expect(res.body.message).toEqual(errors.NETWORK_ERROR);
   });
 
   it('should get server error', async () => {
@@ -86,9 +86,8 @@ describe('Eth endpoints', () => {
       txHash:
         '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
     });
-    expect(res.statusCode).toEqual(500);
-    expect(res.body.message).toEqual(
-      expect.stringContaining(errors.SERVER_ERROR)
-    );
+    expect(res.statusCode).toEqual(503);
+    expect(res.body.errorCode).toEqual(1001);
+    expect(res.body.message).toEqual(errors.SERVER_ERROR);
   });
 });
