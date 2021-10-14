@@ -1,6 +1,8 @@
 from prompt_toolkit.styles import Style
 from prompt_toolkit.utils import is_windows
 from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.config.config_helpers import save_to_yml
+from hummingbot.client.settings import GLOBAL_CONFIG_PATH
 
 
 def load_style(config_map=global_config_map):
@@ -55,7 +57,7 @@ def load_style(config_map=global_config_map):
         return Style.from_dict(style)
 
 
-def reset_style(config_map=global_config_map):
+def reset_style(config_map=global_config_map, save=True):
     # Reset config
     config_map.get("top-pane").value = config_map.get("top-pane").default
     config_map.get("bottom-pane").value = config_map.get("bottom-pane").default
@@ -63,6 +65,11 @@ def reset_style(config_map=global_config_map):
     config_map.get("input-pane").value = config_map.get("input-pane").default
     config_map.get("logs-pane").value = config_map.get("logs-pane").default
     config_map.get("terminal-primary").value = config_map.get("terminal-primary").default
+
+    # Save configuration
+    if save:
+        file_path = GLOBAL_CONFIG_PATH
+        save_to_yml(file_path, config_map)
 
     # Apply & return style
     return load_style(config_map)

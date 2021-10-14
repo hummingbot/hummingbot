@@ -56,24 +56,26 @@ class StyleTest(unittest.TestCase):
                                  "warning": "#93C36D",
                                  "error": "#F5634A"})
 
-        self.assertEqual(style.class_names_and_attrs, reset_style(global_config_map).class_names_and_attrs)
+        self.assertEqual(style.class_names_and_attrs, reset_style(config_map=global_config_map, save=False).class_names_and_attrs)
 
     def test_hex_to_ansi(self):
-        self.assertEqual("ansiblack", hex_to_ansi("000000"))
-        self.assertEqual("ansired", hex_to_ansi("FF0000"))
-        self.assertEqual("ansigreen", hex_to_ansi("00FF00"))
-        self.assertEqual("ansiyellow", hex_to_ansi("FFFF00"))
-        self.assertEqual("ansiblue", hex_to_ansi("0000FF"))
-        self.assertEqual("ansimagenta", hex_to_ansi("FF00FF"))
-        self.assertEqual("ansicyan", hex_to_ansi("00FFFF"))
-        self.assertEqual("ansigray", hex_to_ansi("F0F0F0"))
+        self.assertEqual("#ansiblack", hex_to_ansi("#000000"))
+        self.assertEqual("#ansired", hex_to_ansi("#FF0000"))
+        self.assertEqual("#ansigreen", hex_to_ansi("#00FF00"))
+        self.assertEqual("#ansiyellow", hex_to_ansi("#FFFF00"))
+        self.assertEqual("#ansiblue", hex_to_ansi("#0000FF"))
+        self.assertEqual("#ansimagenta", hex_to_ansi("#FF00FF"))
+        self.assertEqual("#ansicyan", hex_to_ansi("#00FFFF"))
+        self.assertEqual("#ansigray", hex_to_ansi("#F0F0F0"))
 
-        self.assertEqual("ansiyellow", hex_to_ansi("FFFF00"))
-        self.assertEqual("ansiyellow", hex_to_ansi("FFAA00"))
-        self.assertEqual("ansiyellow", hex_to_ansi("FFFF00"))
-        self.assertEqual("ansired", hex_to_ansi("FF1100"))
+        self.assertEqual("#ansiyellow", hex_to_ansi("#FFFF00"))
+        self.assertEqual("#ansiyellow", hex_to_ansi("#FFAA00"))
+        self.assertEqual("#ansiyellow", hex_to_ansi("#FFFF00"))
+        self.assertEqual("#ansired", hex_to_ansi("#FF1100"))
 
-        self.assertEqual("ansiyellow", hex_to_ansi("ffff00"))
-        self.assertEqual("ansiyellow", hex_to_ansi("ffaa00"))
-        self.assertEqual("ansiyellow", hex_to_ansi("ffff00"))
-        self.assertEqual("ansired", hex_to_ansi("ff1100"))
+        self.assertEqual("#ansiyellow", hex_to_ansi("#ffff00"))
+        self.assertEqual("#ansiyellow", hex_to_ansi("#ffaa00"))
+        self.assertEqual("#ansiyellow", hex_to_ansi("#ffff00"))
+        self.assertEqual("#ansired", hex_to_ansi("#ff1100"))
+
+        self.assertEqual("#ansiyellow", hex_to_ansi("ffff00"))
