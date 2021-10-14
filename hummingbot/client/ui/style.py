@@ -129,6 +129,8 @@ win32_code_style = {
     "output-field":               "#ansigreen",  # noqa: E241
     "input-field":                "#ansiwhite",  # noqa: E241
     "log-field":                  "#ansiwhite",  # noqa: E241
+    "header":                     "#ansiwhite",  # noqa: E241
+    "footer":                     "#ansiwhite",  # noqa: E241
     "search":                     "#ansigreen",  # noqa: E241
     "search.current":             "#ansigreen",  # noqa: E241
     "primary":                    "#ansigreen",  # noqa: E241
