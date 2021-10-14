@@ -3,7 +3,7 @@
 All strategy classes are derived from the [`StrategyBase`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/strategy_base.pyx) class, which is derived from the [`TimeIterator`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/strategy_base.pyx) class.
 
 
-The concrete strategy classes included with Hummingbot, including [`ArbitrageStrategy`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/arbitrage/arbitrage.pyx), [`CrossExchangeMarketMakingStrategy`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/cross_exchange_market_making/cross_exchange_market_making.pyx), and [`PureMarketMakingStrategy`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/pure_market_making/pure_market_making_v2.pyx) - are all child classes of `StrategyBase`.
+The concrete strategy classes included with Hummingbot, including [`ArbitrageStrategy`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/arbitrage/arbitrage.pyx), [`CrossExchangeMarketMakingStrategy`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/cross_exchange_market_making/cross_exchange_market_making.pyx), and [`PureMarketMakingStrategy`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/pure_market_making/pure_market_making.pyx) - are all child classes of `StrategyBase`.
 
 Each `StrategyBase` object may be managing multiple [`MarketBase`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/market/market_base.pyx) and [`WalletBase`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/wallet/wallet_base.pyx) objects.
 

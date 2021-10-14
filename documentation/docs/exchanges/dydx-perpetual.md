@@ -15,7 +15,7 @@ tags:
 
 * API docs: https://docs.dydx.exchange/#perpetual-contracts
 * Transaction fees: https://help.dydx.exchange/en/articles/4800191-are-there-fees-to-using-dydx
-* Minimum order size: https://help.dydx.exchange/en/articles/4798055-what-is-the-minimum-order-size-on-perpetuals
+* Minimum order size: https://help.dydx.exchange/en/articles/4800587-l2-perpetual-contract-specs
 * Creating API keys: https://docs.dydx.exchange/#get-api-keys
 
 ## 👷 Maintenance

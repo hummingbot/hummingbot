@@ -25,4 +25,4 @@ the oldest ones will be deleted in order to limit disk storage usage.
 The log rotation feature was added in [Hummingbot version 0.17.0](https://docs.hummingbot.io/release-notes/0.17.0/#log-file-management-data-storage).
 
 If you are looking for support in handling errors or have questions about behavior reported in logs,
-you can find ways of contacting the team or community in our [support section](/support/support/).
+you can find ways of contacting the team or community in our [support section](https://discord.com/invite/2MN3UWg).

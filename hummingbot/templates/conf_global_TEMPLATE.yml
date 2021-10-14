@@ -174,18 +174,6 @@ logger_override_whitelist:
 key_file_path: conf/
 log_file_path: logs/
 
-# Minimum default order amount (in quote currency), this is used for when prompting a new order_amount.
-min_quote_order_amount:
-  BTC: 0.0011
-  ETH: 0.05
-  USD: 11
-  BNB: 0.5
-  USDT: 11
-  USDC: 11
-  BUSD: 11
-  TUSD: 11
-  TRY: 11
-
 # Advanced database options, currently supports SQLAlchemy's included dialects
 # Reference: https://docs.sqlalchemy.org/en/13/dialects/
 db_engine: sqlite
