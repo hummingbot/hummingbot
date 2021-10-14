@@ -13,7 +13,7 @@ class InterfaceUtilsTest(unittest.TestCase):
         self.assertEqual("157.36 GB", format_bytes(168963795964))
 
     @patch("hummingbot.client.ui.interface_utils._sleep", new_callable=AsyncMock)
-    async def test_start_timer(self, mock_sleep):
+    def test_start_timer(self, mock_sleep):
         mock_timer = MagicMock()
         mock_sleep.side_effect = [None, Exception("returns")]
         with self.assertRaises(Exception) as context:
@@ -24,7 +24,7 @@ class InterfaceUtilsTest(unittest.TestCase):
 
     @patch("hummingbot.client.ui.interface_utils._sleep", new_callable=AsyncMock)
     @patch("psutil.Process")
-    async def test_start_process_monitor(self, mock_process, mock_sleep):
+    def test_start_process_monitor(self, mock_process, mock_sleep):
         mock_process.return_value.num_threads.return_value = 2
         mock_process.return_value.cpu_percent.return_value = 30
         mock_process.return_value.memory_info.return_value = [0, 1024.]
@@ -38,7 +38,7 @@ class InterfaceUtilsTest(unittest.TestCase):
     @patch("hummingbot.client.ui.interface_utils._sleep", new_callable=AsyncMock)
     @patch("hummingbot.client.ui.interface_utils.PerformanceMetrics.create", new_callable=AsyncMock)
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication")
-    async def test_start_trade_monitor_multi_loops(self, mock_hb_app, mock_perf, mock_sleep):
+    def test_start_trade_monitor_multi_loops(self, mock_hb_app, mock_perf, mock_sleep):
         mock_result = MagicMock()
         mock_app = mock_hb_app.main_application()
         mock_app.strategy_task.done.return_value = False
@@ -59,7 +59,7 @@ class InterfaceUtilsTest(unittest.TestCase):
     @patch("hummingbot.client.ui.interface_utils._sleep", new_callable=AsyncMock)
     @patch("hummingbot.client.ui.interface_utils.PerformanceMetrics.create", new_callable=AsyncMock)
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication")
-    async def test_sstart_trade_monitor_multi_pairs_diff_quotes(self, mock_hb_app, mock_perf, mock_sleep):
+    def test_sstart_trade_monitor_multi_pairs_diff_quotes(self, mock_hb_app, mock_perf, mock_sleep):
         mock_result = MagicMock()
         mock_app = mock_hb_app.main_application()
         mock_app.strategy_task.done.return_value = False
@@ -82,7 +82,7 @@ class InterfaceUtilsTest(unittest.TestCase):
     @patch("hummingbot.client.ui.interface_utils._sleep", new_callable=AsyncMock)
     @patch("hummingbot.client.ui.interface_utils.PerformanceMetrics.create", new_callable=AsyncMock)
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication")
-   def test_start_trade_monitor_multi_pairs_same_quote(self, mock_hb_app, mock_perf, mock_sleep):
+    def test_start_trade_monitor_multi_pairs_same_quote(self, mock_hb_app, mock_perf, mock_sleep):
         mock_result = MagicMock()
         mock_app = mock_hb_app.main_application()
         mock_app.strategy_task.done.return_value = False
@@ -104,7 +104,7 @@ class InterfaceUtilsTest(unittest.TestCase):
 
     @patch("hummingbot.client.ui.interface_utils._sleep", new_callable=AsyncMock)
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication")
-    async def test_start_trade_monitor_market_not_ready(self, mock_hb_app, mock_sleep):
+    def test_start_trade_monitor_market_not_ready(self, mock_hb_app, mock_sleep):
         mock_result = MagicMock()
         mock_app = mock_hb_app.main_application()
         mock_app.strategy_task.done.return_value = False
@@ -118,7 +118,7 @@ class InterfaceUtilsTest(unittest.TestCase):
 
     @patch("hummingbot.client.ui.interface_utils._sleep", new_callable=AsyncMock)
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication")
-    async def test_start_trade_monitor_market_no_trade(self, mock_hb_app, mock_sleep):
+    def test_start_trade_monitor_market_no_trade(self, mock_hb_app, mock_sleep):
         mock_result = MagicMock()
         mock_app = mock_hb_app.main_application()
         mock_app.strategy_task.done.return_value = False
