@@ -1,16 +1,18 @@
 import unittest
 
 from prompt_toolkit.styles import Style
-from hummingbot.client.ui.style import load_style, hex_to_ansi
+from hummingbot.client.ui.style import load_style, reset_style, hex_to_ansi
 
 
 class StyleTest(unittest.TestCase):
 
     class ConfigVar():
         value = None
+        default = None
 
-        def __init__(self, value):
+        def __init__(self, value, default=None):
             self.value = value
+            self.default = default
 
     def test_load_style(self):
         global_config_map = {}
@@ -33,6 +35,28 @@ class StyleTest(unittest.TestCase):
                                  "error": "#F5634A"})
 
         self.assertEqual(style.class_names_and_attrs, load_style(global_config_map).class_names_and_attrs)
+
+    def test_reset_style(self):
+        global_config_map = {}
+        global_config_map["top-pane"] = self.ConfigVar("#FAFAFA", "#333333")
+        global_config_map["bottom-pane"] = self.ConfigVar("#FAFAFA", "#333333")
+        global_config_map["output-pane"] = self.ConfigVar("#FAFAFA", "#333333")
+        global_config_map["input-pane"] = self.ConfigVar("#FAFAFA", "#333333")
+        global_config_map["logs-pane"] = self.ConfigVar("#FAFAFA", "#333333")
+        global_config_map["terminal-primary"] = self.ConfigVar("#FCFCFC", "#010101")
+
+        style = Style.from_dict({"output-field": "bg:#333333 #010101",
+                                 "input-field": "bg:#333333 #FFFFFF",
+                                 "log-field": "bg:#333333 #FFFFFF",
+                                 "header": "bg:#333333 #AAAAAA",
+                                 "footer": "bg:#333333 #AAAAAA",
+                                 "search": "bg:#000000 #93C36D",
+                                 "search.current": "bg:#000000 #1CD085",
+                                 "primary": "#010101",
+                                 "warning": "#93C36D",
+                                 "error": "#F5634A"})
+
+        self.assertEqual(style.class_names_and_attrs, reset_style(global_config_map).class_names_and_attrs)
 
     def test_hex_to_ansi(self):
         self.assertEqual("ansiblack", hex_to_ansi("000000"))
