@@ -6,7 +6,6 @@ import * as transactionOutOfGas from './fixtures/transaction-out-of-gas.json';
 import * as transactionOutOfGasReceipt from './fixtures/transaction-out-of-gas-receipt.json';
 import * as transactionSuccesful from './fixtures/transaction-succesful.json';
 import * as transactionSuccesfulReceipt from './fixtures/transaction-succesful-receipt.json';
-// import * as transactionUnconfirmedReceipt from './fixtures/transaction-unconfirmed-receipt.json';
 
 const OUT_OF_GAS_ERROR_CODE = 1003;
 
@@ -42,7 +41,7 @@ describe('Eth endpoints', () => {
     expect(res.body.txData).toBeDefined();
   });
 
-  it('should get a null in txReceipt and txData for Tx that didnt reach the mempool', async () => {
+  it('should get a null in txReceipt and txData for Tx that didnt reach the mempool and TxReceipt is null', async () => {
     patch(eth, 'getTransaction', () => null);
     patch(eth, 'getTransactionReceipt', () => null);
     const res = await request(app).post('/eth/poll').send({
