@@ -51,7 +51,7 @@ Similar to the `pure_market_making_strategy`, it keeps placing limit buy and sel
 
 ## 📓 Description
 
-[Trading logic](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/amm_arb/amm_arb.py)
+[Trading logic](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/perpetual_market_making/perpetual_market_making.pyx)
 
 !!! note "Approximation only"
     The description below is a general approximation of this strategy. Please inspect the strategy code in **Trading Logic** above to understand exactly how it works.

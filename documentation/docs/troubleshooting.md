@@ -47,7 +47,7 @@ $ conda
 
 If you have just installed conda, close terminal and reopen a new terminal to update the command line's program registry.
 
-If you use `zshrc` or another shell other than `bash`, see install dependencies (https://docs.hummingbot.io/installation/mac/#install-from-source)
+If you use `zshrc` or another shell other than `bash`, see install dependencies (https://docs.hummingbot.io/installation/source/#macos)
 
 ### Docker: Package 'docker.io' has no installation candidate
 
