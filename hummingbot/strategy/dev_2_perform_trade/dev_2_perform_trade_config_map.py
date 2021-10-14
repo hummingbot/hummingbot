@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import decimal
 from decimal import Decimal
 from typing import Optional
 
@@ -50,18 +49,11 @@ def validate_decimal(value: str, min_value: Decimal = None, max_value: Decimal =
             return f"Value must be less than {max_value}."
 
 
-async def validate_order_amount(value: str) -> Optional[str]:
-    try:
-        if Decimal(value) <= 0:
-            return "Order amount must be a positive value."
-    except decimal.InvalidOperation:
-        return "Invalid order amount."
-
-
-async def order_amount_prompt() -> str:
+def order_amount_prompt() -> str:
     trading_pair = dev_2_perform_trade_config_map["trading_pair"].value
     base_asset, quote_asset = trading_pair.split("-")
     return f"What is the amount of {base_asset} per order? >>> "
+
 
 dev_2_perform_trade_config_map = {
     "strategy":
@@ -100,7 +92,7 @@ dev_2_perform_trade_config_map = {
         ConfigVar(key="order_amount",
                   prompt=order_amount_prompt,
                   type_str="decimal",
-                  validator=validate_order_amount,
+                  validator=lambda v: validate_decimal(v, min_value=Decimal("0"), inclusive=False),
                   prompt_on_new=True,
                   ),
     "price_type":
