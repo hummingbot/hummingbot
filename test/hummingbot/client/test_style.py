@@ -1,5 +1,6 @@
 import unittest
 
+from unittest.mock import patch
 from prompt_toolkit.styles import Style
 from hummingbot.client.ui.style import load_style, reset_style, hex_to_ansi
 
@@ -14,7 +15,10 @@ class StyleTest(unittest.TestCase):
             self.value = value
             self.default = default
 
-    def test_load_style(self):
+    @patch('hummingbot.client.ui.style.is_windows')
+    def test_load_style_unix(self, is_windows_mock):
+        is_windows_mock.return_value = False
+
         global_config_map = {}
         global_config_map["top-pane"] = self.ConfigVar("#FAFAFA")
         global_config_map["bottom-pane"] = self.ConfigVar("#FAFAFA")
@@ -33,6 +37,31 @@ class StyleTest(unittest.TestCase):
                                  "primary": "#FCFCFC",
                                  "warning": "#93C36D",
                                  "error": "#F5634A"})
+
+        self.assertEqual(style.class_names_and_attrs, load_style(global_config_map).class_names_and_attrs)
+
+    @patch('hummingbot.client.ui.style.is_windows')
+    def test_load_style_windows(self, is_windows_mock):
+        is_windows_mock.return_value = True
+
+        global_config_map = {}
+        global_config_map["top-pane"] = self.ConfigVar("#FAFAFA")
+        global_config_map["bottom-pane"] = self.ConfigVar("#FAFAFA")
+        global_config_map["output-pane"] = self.ConfigVar("#FAFAFA")
+        global_config_map["input-pane"] = self.ConfigVar("#FAFAFA")
+        global_config_map["logs-pane"] = self.ConfigVar("#FAFAFA")
+        global_config_map["terminal-primary"] = self.ConfigVar("#FCFCFC")
+
+        style = Style.from_dict({"output-field": "bg:#ansigray #ansigray",
+                                 "input-field": "bg:#ansigray #ansiwhite",
+                                 "log-field": "bg:#ansigray #ansiwhite",
+                                 "header": "bg:#ansigray #ansiwhite",
+                                 "footer": "bg:#ansigray #ansiwhite",
+                                 "search": "#ansigray",
+                                 "search.current": "#ansigray",
+                                 "primary": "#ansigray",
+                                 "warning": "#ansibrightyellow",
+                                 "error": "#ansired"})
 
         self.assertEqual(style.class_names_and_attrs, load_style(global_config_map).class_names_and_attrs)
 
