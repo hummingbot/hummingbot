@@ -3,7 +3,7 @@
 This section will breakdown some of the ways to debug and test the code. You are not entirely required to use the options during your development process.
 
 !!! warning
-    As part of the QA process, for each tasks(Task 1 through 3) you are **required** to include the unit test cases for the code review process to begin. Refer to [Option 1: Unit Test Cases](/developers/connectors/task4/#option-1-unit-test-cases) to build your unit tests.
+    As part of the QA process, for each tasks(Task 1 through 3) you are **required** to include the unit test cases for the code review process to begin. Refer to [Option 1: Unit Test Cases](/developers/connectors/requirements/debug%26test/#option-1-unit-test-cases) to build your unit tests.
     
 ## Option 1. Unit Test Cases
 

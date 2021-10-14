@@ -2,25 +2,36 @@ import unittest
 from copy import deepcopy
 
 from hummingbot.strategy.perpetual_market_making.perpetual_market_making_config_map import (
-    perpetual_market_making_config_map as perpetual_mm_config_map, on_validate_price_source,
-    validate_price_type
+    perpetual_market_making_config_map as perpetual_mm_config_map,
+    on_validate_price_source,
+    validate_price_type,
+    order_amount_prompt,
 )
 
 
 class TestPMMConfigMap(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.virgin_config_map = deepcopy(perpetual_mm_config_map)
+        super().setUpClass()
+        cls.base_asset = "COINALPHA"
+        cls.quote_asset = "HBOT"
+        cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
 
-    def setUp(self):
-        for key, config_var in perpetual_mm_config_map.items():
-            perpetual_mm_config_map[key] = deepcopy(
-                self.virgin_config_map[key]
-            )
+    def setUp(self) -> None:
+        super().setUp()
+        self.config_backup = deepcopy(perpetual_mm_config_map)
+
+    def tearDown(self) -> None:
+        self.reset_config_map()
+        super().tearDown()
+
+    def reset_config_map(self):
+        for key, value in self.config_backup.items():
+            perpetual_mm_config_map[key] = value
 
     def test_on_validate_price_source_non_external_market_reset(self):
         perpetual_mm_config_map["price_source_derivative"].value = "an_extmkt"
-        perpetual_mm_config_map["price_source_market"].value = "BTC-USDT"
+        perpetual_mm_config_map["price_source_market"].value = self.trading_pair
         perpetual_mm_config_map["take_if_crossed"].value = False
 
         on_validate_price_source(value="current_market")
@@ -74,3 +85,10 @@ class TestPMMConfigMap(unittest.TestCase):
 
         error = validate_price_type(value="custom")
         self.assertIsNone(error)
+
+    def test_order_amount_prompt(self):
+        perpetual_mm_config_map["market"].value = self.trading_pair
+        prompt = order_amount_prompt()
+        expected = f"What is the amount of {self.base_asset} per order? >>> "
+
+        self.assertEqual(expected, prompt)
