@@ -12,7 +12,7 @@ We make money by administering [Liquidity Mining](https://support.hummingbot.io/
 
 ### How much cryptocurrency do I need to get started?
 
-There is no minimum amount of assets to use Hummingbot, but users should pay heed to exchange-specific minimum order sizes. We include links to the exchange's minimum order size page. This can be found in our [spot connectors](/connectors/) documentation.
+There is no minimum amount of assets to use Hummingbot, but users should pay heed to exchange-specific minimum order sizes. We include links to the exchange's minimum order size page. This can be found in our [spot connectors](/exchanges/) documentation.
 
 ### Are my private keys and API keys secure?
 
@@ -30,7 +30,7 @@ Transactions from Hummingbot are normal transactions conducted on exchanges; the
 
 Hummingbot has a vast majority of Centralized and Decentralized exchanges to choose from, and You can do different strategies with different connectors. To learn more about the exchanges that Hummingbot supports, refer to the following links,
 
-- [Hummingbot Connectors](/connectors/)
+- [Hummingbot Connectors](/exchanges/)
 
 ### What is market-making?
 

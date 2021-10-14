@@ -92,6 +92,7 @@ def main():
         "hummingbot.strategy.pure_market_making",
         "hummingbot.strategy.perpetual_market_making",
         "hummingbot.strategy.avellaneda_market_making",
+        "hummingbot.strategy.hedge",
         "hummingbot.strategy.__utils__",
         "hummingbot.strategy.__utils__.trailing_indicators",
         "hummingbot.templates",
