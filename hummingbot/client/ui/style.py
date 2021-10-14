@@ -29,10 +29,14 @@ def load_style(config_map=global_config_map):
         color_terminal_primary = hex_to_ansi(color_terminal_primary)
 
         # Apply custom configuration
-        style["output-field"] = color_terminal_primary
+        style["output-field"] = "bg:" + color_output_pane + " " + color_terminal_primary
+        style["input-field"] = "bg:" + color_input_pane + " " + style["input-field"].split(' ')[-1]
+        style["log-field"] = "bg:" + color_logs_pane + " " + style["log-field"].split(' ')[-1]
+        style["header"] = "bg:" + color_top_pane + " " + style["header"].split(' ')[-1]
+        style["footer"] = "bg:" + color_bottom_pane + " " + style["footer"].split(' ')[-1]
+        style["primary"] = color_terminal_primary
         style["search"] = color_terminal_primary
         style["search.current"] = color_terminal_primary
-        style["primary"] = color_terminal_primary
 
         return Style.from_dict(style)
 
@@ -42,13 +46,26 @@ def load_style(config_map=global_config_map):
 
         # Apply custom configuration
         style["output-field"] = "bg:" + color_output_pane + " " + color_terminal_primary
-        style["input-field"] = "bg:" + color_input_pane + " " + style["input-field"].split(' ')[1]
-        style["log-field"] = "bg:" + color_logs_pane + " " + style["log-field"].split(' ')[1]
-        style["header"] = "bg:" + color_top_pane + " " + style["header"].split(' ')[1]
-        style["footer"] = "bg:" + color_bottom_pane + " " + style["footer"].split(' ')[1]
+        style["input-field"] = "bg:" + color_input_pane + " " + style["input-field"].split(' ')[-1]
+        style["log-field"] = "bg:" + color_logs_pane + " " + style["log-field"].split(' ')[-1]
+        style["header"] = "bg:" + color_top_pane + " " + style["header"].split(' ')[-1]
+        style["footer"] = "bg:" + color_bottom_pane + " " + style["footer"].split(' ')[-1]
         style["primary"] = color_terminal_primary
 
         return Style.from_dict(style)
+
+
+def reset_style(config_map=global_config_map):
+    # Reset config
+    config_map.get("top-pane").value = config_map.get("top-pane").default
+    config_map.get("bottom-pane").value = config_map.get("bottom-pane").default
+    config_map.get("output-pane").value = config_map.get("output-pane").default
+    config_map.get("input-pane").value = config_map.get("input-pane").default
+    config_map.get("logs-pane").value = config_map.get("logs-pane").default
+    config_map.get("terminal-primary").value = config_map.get("terminal-primary").default
+
+    # Apply & return style
+    return load_style(config_map)
 
 
 def hex_to_ansi(color_hex):
@@ -82,7 +99,7 @@ def hex_to_ansi(color_hex):
             distance_min = distance
             color_ansi = ansi_palette[ansi_hex]
 
-    return color_ansi
+    return "#" + color_ansi
 
 
 default_ui_style = {
