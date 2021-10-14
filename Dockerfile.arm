@@ -4,7 +4,7 @@ FROM arm64v8/python:3.7-slim AS builder
 # Install linux dependencies
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y gcc \
-        build-essential pkg-config libusb-1.0 curl git sudo libudev-dev && \
+        build-essential pkg-config libusb-1.0 curl git sudo libudev-dev libssl-dev && \
     rm -rf /var/lib/apt/lists/*
 
 # Add hummingbot user
@@ -104,7 +104,7 @@ COPY --chown=hummingbot:hummingbot scripts/ scripts/
 
 # Install packages required in runtime
 RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y sudo libusb-1.0 libudev-dev && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y sudo libusb-1.0 libudev-dev libssl-dev && \
     rm -rf /var/lib/apt/lists/*
 
 # Switch to hummingbot user
