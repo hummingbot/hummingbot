@@ -161,7 +161,7 @@ class GatewayBase(ConnectorBase):
                                        "eth/approve",
                                        {"token": token_symbol,
                                         "spender": self.name,
-                                        "nonce": int(self._nonce)})
+                                        "nonce": self._nonce})
         self.start_tracking_order(order_id, None, token_symbol)
 
         if "hash" in resp.get("approval", {}).keys():
@@ -529,7 +529,7 @@ class GatewayBase(ConnectorBase):
         Call the gateway API to get the current nonce for self._wallet_private_key
         """
         resp_json = await self._api_request("post", "eth/nonce", {})
-        self._nonce = int(resp_json['nonce'])
+        self._nonce = resp_json['nonce']
 
     async def _status_polling_loop(self):
         await self._update_balances(on_interval = False)

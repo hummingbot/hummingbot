@@ -157,7 +157,6 @@ export async function balances(
 export async function approve(
   req: EthereumApproveRequest
 ): Promise<EthereumApproveResponse> {
-  console.log(req);
   validateEthereumApproveRequest(req);
   const { amount, nonce, privateKey, token } = req;
   const spender = getSpender(req.spender);
