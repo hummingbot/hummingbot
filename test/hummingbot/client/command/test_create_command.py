@@ -96,7 +96,7 @@ class CreateCommandTest(unittest.TestCase):
         self.assertEqual(base_strategy, self.app.strategy_name)
         self.assertTrue(
             self.cli_mock_assistant.check_log_called_with(
-                msg="Order amount must be a positive value."
+                msg="Value must be more than 0."
             )
         )
 
