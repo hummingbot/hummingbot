@@ -215,12 +215,6 @@ main_config_map = {
                   prompt="Would you like to send error logs to hummingbot? (Yes/No) >>> ",
                   type_str="bool",
                   default=True),
-    "min_quote_order_amount":
-        ConfigVar(key="min_quote_order_amount",
-                  prompt=None,
-                  required_if=lambda: False,
-                  type_str="json",
-                  ),
     # Database options
     "db_engine":
         ConfigVar(key="db_engine",
