@@ -23,6 +23,9 @@ dependencies:
   - ujson=1.35
   - zlib=1.2.11
   - pip:
+    - 0x-contract-addresses==3.0.0
+    - 0x-contract-wrappers==2.0.0
+    - 0x-order-utils==4.0.0
     - aioconsole==0.1.15
     - aiohttp==3.7.4.post0
     - aiokafka==0.5.2
@@ -34,6 +37,8 @@ dependencies:
     - cython==3.0a7
     - cytoolz==0.11.0
     - diff-cover==5.1.2
+    - dydx-python==0.11.3
+    - dydx-v3-python==1.0.10
     - eth-bloom==1.0.4
     - eth-keyfile==0.5.1
     - eth-typing==2.2.1
