@@ -229,7 +229,7 @@ export async function poll(
     txStatus = -1;
   } else {
     txReceipt = await ethereum.getTransactionReceipt(req.txHash);
-    if (txReceipt === null || txReceipt.blockNumber === 0) {
+    if (txReceipt === null) {
       // tx is in the mempool
       txBlock = -1;
       txReceipt = null;
