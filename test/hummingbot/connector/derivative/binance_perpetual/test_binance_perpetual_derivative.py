@@ -8,7 +8,7 @@ import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
 import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils as utils
 
 from aioresponses.core import aioresponses
-from typing import Any, List, Dict, Optional
+from typing import Any, Awaitable, List, Dict, Optional
 from unittest.mock import patch, AsyncMock
 
 from hummingbot.core.event.events import PositionMode
@@ -75,6 +75,10 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
     def _create_exception_and_unlock_test_with_event(self, exception):
         self.resume_test_event.set()
         raise exception
+
+    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
+        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
+        return ret
 
     async def _await_all_api_responses_delivered(self):
         await self.api_responses.join()
@@ -412,7 +416,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         self.test_task = self.ev_loop.create_task(self.exchange._funding_info_polling_loop())
 
-        self.ev_loop.run_until_complete(self.resume_test_event.wait())
+        self.async_run_with_timeout(self.resume_test_event.wait(), 1.0)
 
         self.assertTrue(self._is_logged("ERROR",
                                         "Unexpected error updating funding info. Retrying after 10 seconds... "))

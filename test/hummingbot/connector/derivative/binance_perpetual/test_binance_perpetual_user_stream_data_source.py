@@ -81,7 +81,7 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
 
         return resp
 
-    def _user_update_event(self):
+    def _simulate_user_update_event(self):
         # Order Trade Update
         resp = {
             "e": "ORDER_TRADE_UPDATE",
@@ -323,13 +323,13 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, "", aiohttp.WSMsgType.PING)
 
-        self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, self._user_update_event())
+        self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, self._simulate_user_update_event())
 
         msg_queue = asyncio.Queue()
         self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, msg_queue))
 
         msg = self.ev_loop.run_until_complete(msg_queue.get())
-        self.assertTrue(msg, self._user_update_event)
+        self.assertTrue(msg, self._simulate_user_update_event)
         self.assertTrue(self._is_logged("DEBUG", "Received PING frame. Sending PONG frame..."))
 
     @aioresponses()
@@ -343,11 +343,11 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, "", aiohttp.WSMsgType.PONG)
 
-        self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, self._user_update_event())
+        self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, self._simulate_user_update_event())
 
         msg_queue = asyncio.Queue()
         self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, msg_queue))
 
         msg = self.ev_loop.run_until_complete(msg_queue.get())
-        self.assertTrue(msg, self._user_update_event)
+        self.assertTrue(msg, self._simulate_user_update_event)
         self.assertTrue(self._is_logged("DEBUG", "Received PONG frame."))

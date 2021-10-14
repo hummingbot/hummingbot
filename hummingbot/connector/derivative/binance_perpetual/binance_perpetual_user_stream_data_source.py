@@ -48,7 +48,6 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
 
         self._ws = None
         self._manage_listen_key_task = None
-        self._last_listen_key_ping_ts = 0
         self._listen_key_initialized_event: asyncio.Event = asyncio.Event()
 
     @classmethod
@@ -117,14 +116,11 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
     async def _manage_listen_key_task_loop(self):
         try:
             while True:
-                now = int(time.time())
                 if self._current_listen_key is None:
                     self._current_listen_key = await self.get_listen_key()
                     self.logger().info(f"Successfully obtained listen key {self._current_listen_key}")
                     self._listen_key_initialized_event.set()
-                    self._last_listen_key_ping_ts = int(time.time())
-
-                if now - self._last_listen_key_ping_ts >= self.LISTEN_KEY_KEEP_ALIVE_INTERVAL:
+                else:
                     success: bool = await self.ping_listen_key()
                     if not success:
                         self.logger().error("Error occurred renewing listen key... ")
@@ -132,8 +128,8 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                     else:
                         self.logger().info(f"Refreshed listen key {self._current_listen_key}.")
                         self._last_listen_key_ping_ts = int(time.time())
-                else:
-                    await asyncio.sleep(self.LISTEN_KEY_KEEP_ALIVE_INTERVAL)
+                    await self._sleep(self.LISTEN_KEY_KEEP_ALIVE_INTERVAL)
+
         except Exception as e:
             self.logger().error(f"Unexpected error occurred with maintaining listen key. "
                                 f"Error {e}")
