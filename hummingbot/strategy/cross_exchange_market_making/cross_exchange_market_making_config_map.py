@@ -1,5 +1,3 @@
-import decimal
-
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
     validate_exchange,
@@ -48,18 +46,10 @@ def validate_taker_market_trading_pair(value: str) -> Optional[str]:
     return validate_market_trading_pair(taker_market, value)
 
 
-async def order_amount_prompt() -> str:
+def order_amount_prompt() -> str:
     trading_pair = cross_exchange_market_making_config_map["maker_market_trading_pair"].value
     base_asset, quote_asset = trading_pair.split("-")
     return f"What is the amount of {base_asset} per order? >>> "
-
-
-async def validate_order_amount(value: str) -> Optional[str]:
-    try:
-        if Decimal(value) <= 0:
-            return "Order amount must be a positive value."
-    except decimal.InvalidOperation:
-        return "Invalid order amount."
 
 
 def taker_market_on_validated(value: str):
@@ -132,7 +122,7 @@ cross_exchange_market_making_config_map = {
         prompt=order_amount_prompt,
         prompt_on_new=True,
         type_str="decimal",
-        validator=validate_order_amount,
+        validator=lambda v: validate_decimal(v, min_value=Decimal("0"), inclusive=False),
     ),
     "adjust_order_enabled": ConfigVar(
         key="adjust_order_enabled",
