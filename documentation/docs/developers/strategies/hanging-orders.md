@@ -1,7 +1,7 @@
 ## Introduction
 This section of the tutorial provides an overview of the 
 [`HangingOrdersTracker`](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/hanging_orders_tracker.py)
-helper class designed to assist strategies with managing [hanging orders](/market-making/hanging-orders). It automates
+helper class designed to assist strategies with managing [hanging orders](/strategy-configs/hanging-orders/). It automates
 a large part of the process, including renewing outdated orders and cancelling orders that have drifted too far from
 the market price. 
 
@@ -47,6 +47,6 @@ not, then the strategy can proceed to cancelling it.
 ## The Management Process
 Finally, for the tracker to perform its tasks, the `process_tick` method must be called on every strategy tick. When the
 method is called, the `HangingOrdersTracker` performs two tasks: first, it removes hanging orders with 
-[extreme spreads](/market-making/hanging-orders/#hanging_orders_cancel_pct); second, it renews orders that have passed
+[extreme spreads](/strategy-configs/hanging-orders/#hanging_orders_cancel_pct); second, it renews orders that have passed
 the max order age. To enable renewing old orders, the strategy must implement the 
-[`max_order_age`](/market-making/max-order-age/) attribute.
+[`max_order_age`](/strategy-configs/max-order-age/) attribute.

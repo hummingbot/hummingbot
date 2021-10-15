@@ -16,7 +16,7 @@ from prompt_toolkit.layout.layout import Layout
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import Completer
 from prompt_toolkit.layout.controls import FormattedTextControl
-from prompt_toolkit.widgets import SearchToolbar
+from prompt_toolkit.widgets import SearchToolbar, Button
 
 from hummingbot.client.ui.custom_widgets import CustomTextArea as TextArea
 from hummingbot.client.settings import (
@@ -160,6 +160,16 @@ def create_log_field(search_field: SearchToolbar):
     )
 
 
+def create_log_toggle(function):
+    return Button(
+        text='> log pane',
+        width=13,
+        handler=function,
+        left_symbol='',
+        right_symbol=''
+    )
+
+
 def get_version():
     return [("class:header", f"Version: {version}")]
 
@@ -205,6 +215,7 @@ def get_strategy_file():
 def generate_layout(input_field: TextArea,
                     output_field: TextArea,
                     log_field: TextArea,
+                    log_toggle: Button,
                     search_field: SearchToolbar,
                     timer: TextArea,
                     process_monitor: TextArea,

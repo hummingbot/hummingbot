@@ -24,7 +24,7 @@ The CLI is divided into five panes:
 
    - **paper_trade_mode:**
 
-     - A Hummingbot feature that allows users to simulate trading strategies without risking any assets. Learn more about [Paper Trade Mode](/operation/paper-trade/)
+     - A Hummingbot feature that allows users to simulate trading strategies without risking any assets. Learn more about [Paper Trade Mode](/global-configs/paper-trade/)
 
    - **Strategy:**
      - Hummingbot has 9 strategy configurations that can be used for trading or liquidity mining. Hummingbot strategy guide can be found [here](/strategies/).

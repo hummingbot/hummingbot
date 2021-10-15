@@ -44,7 +44,7 @@ We recommend this strategy as a starting point for developers looking to build t
 
 ## 📓 Description
 
-[Trading logic](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/cross_exchange_market_making/cross_exchange_market_making.pyx)
+[Trading logic](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/strategy/twap/twap.py)
 
 !!! note "Approximation only"
     The description below is a general approximation of this strategy. Please inspect the strategy code in **Trading Logic** above to understand exactly how it works.

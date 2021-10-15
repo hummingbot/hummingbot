@@ -138,4 +138,4 @@ Generates the authentication payload required to established a authenticated web
 ## Debugging & Testing
 
 As part of the Code Review and QA process, for each task (Task 1 through 3), you are **required** to include the unit test cases for the code review process to begin.
-Refer to [Option 1: Unit Test Cases](/developers/connectors/debug&test/#option-1-unit-test-cases) to build your unit tests.
+Refer to [Option 1: Unit Test Cases](/developers/connectors/requirements/debug&test/#option-1-unit-test-cases) to build your unit tests.
