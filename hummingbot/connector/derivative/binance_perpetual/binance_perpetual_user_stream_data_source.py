@@ -128,7 +128,7 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                     else:
                         self.logger().info(f"Refreshed listen key {self._current_listen_key}.")
                         self._last_listen_key_ping_ts = int(time.time())
-                    await self._sleep(self.LISTEN_KEY_KEEP_ALIVE_INTERVAL)
+                await self._sleep(self.LISTEN_KEY_KEEP_ALIVE_INTERVAL)
 
         except Exception as e:
             self.logger().error(f"Unexpected error occurred with maintaining listen key. "
