@@ -12,6 +12,7 @@ from prompt_toolkit.completion import Completer
 from hummingbot.client.ui.layout import (
     create_input_field,
     create_log_field,
+    create_log_toggle,
     create_output_field,
     create_search_field,
     generate_layout,
@@ -43,6 +44,7 @@ class HummingbotCLI:
         self.input_field = create_input_field(completer=completer)
         self.output_field = create_output_field()
         self.log_field = create_log_field(self.search_field)
+        self.log_toggle = create_log_toggle(self.toggle_logs)
         self.timer = create_timer()
         self.process_usage = create_process_monitor()
         self.trade_monitor = create_trade_monitor()
@@ -133,6 +135,14 @@ class HummingbotCLI:
 
     def toggle_hide_input(self):
         self.hide_input = not self.hide_input
+
+    def toggle_logs(self):
+        if self.layout_components["pane_right"].width is None:
+            self.layout_components["pane_right"].width = 0
+            self.log_toggle.text = '< log pane'
+        else:
+            self.layout_components["pane_right"].width = None
+            self.log_toggle.text = '> log pane'
 
     def exit(self):
         self.app.exit()

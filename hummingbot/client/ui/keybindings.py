@@ -102,4 +102,8 @@ def load_key_bindings(hb) -> KeyBindings:
     def do_reset_style(event):
         hb.app.app.style = reset_style()
 
+    @bindings.add("c-t")
+    def toggle_logs(event):
+        hb.app.toggle_logs()
+
     return bindings

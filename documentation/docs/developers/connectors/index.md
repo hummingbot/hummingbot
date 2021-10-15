@@ -18,19 +18,19 @@ The following list some examples/templates that you can refer to when building t
 
 ## Exchange connector requirements
 
-1. A complete set of exchange connector files as listed [above](https://docs.hummingbot.io/connectors/).
-2. Unit tests (see existing unit tests [here](https://github.com/CoinAlpha/hummingbot/tree/master/test/connector) or [here](https://github.com/CoinAlpha/hummingbot/tree/master/test/integration)):
+1. A complete set of exchange connector files as listed [above](https://docs.hummingbot.io/exchanges/).
+2. Unit tests (see existing unit tests [here](https://github.com/CoinAlpha/hummingbot/tree/master/test/connector) or [here](https://github.com/CoinAlpha/hummingbot/tree/master/test/connector)):
   - Exchange market test ([example](https://github.com/CoinAlpha/hummingbot/tree/master/test/connector/exchange/crypto_com/test_crypto_com_exchange.py))
   - Order book tracker ([example](https://github.com/CoinAlpha/hummingbot/tree/master/test/connector/exchange/crypto_com/test_crypto_com_order_book_tracker.py))
   - User stream tracker ([example](https://github.com/CoinAlpha/hummingbot/tree/master/test/connector/exchange/crypto_com/test_crypto_com_user_stream_tracker.py))
   - User authentication module ([example](https://github.com/CoinAlpha/hummingbot/tree/master/test/connector/exchange/crypto_com/test_crypto_com_auth.py))
 3. Documentation:
   - Code commenting (particularly for any code that is materially different from the templates/examples)
-  - Any specific instructions for the use of that exchange connector ([example](https://docs.hummingbot.io/connectors/binance/))
+  - Any specific instructions for the use of that exchange connector ([example](https://docs.hummingbot.io/exchanges/binance/))
 
 3. Documentation:
   - Code commenting (particularly for any code that is materially different from the templates/examples)
-  - Any specific instructions for the use of that exchange connector ([example](https://docs.hummingbot.io/connectors/binance/))
+  - Any specific instructions for the use of that exchange connector ([example](https://docs.hummingbot.io/exchanges/binance/))
 
 ## Requirements for community-developed connectors
 
