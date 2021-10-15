@@ -257,7 +257,14 @@ export async function poll(
       txData,
       txReceipt: toEthereumTransactionReceipt(txReceipt),
     };
-  } catch (_e) {
+  } catch (e) {
+    if ('code' in e && e.code === 'NETWORK_ERROR') {
+      throw new GatewayError(
+        503,
+        1001,
+        'Network error. Please check your node URL, API key, and Internet connection.'
+      );
+    }
     throw new GatewayError(503, 1099, 'Unknown error.');
   }
 }
