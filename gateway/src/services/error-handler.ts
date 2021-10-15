@@ -3,23 +3,23 @@ import { Request, RequestHandler, Response, NextFunction } from 'express';
 // custom error for http exceptions
 export class HttpException extends Error {
   status: number;
-  errorMessage: string;
-  constructor(status: number, errorMessage: string) {
-    super(errorMessage);
+  message: string;
+  constructor(status: number, message: string) {
+    super(message);
     this.status = status;
-    this.errorMessage = errorMessage;
+    this.message = message;
   }
 }
 
 export class GatewayError extends Error {
-  errorMessage: string;
+  message: string;
   errorCode: number;
   httpErrorCode: number;
-  constructor(httpErrorCode: number, errorCode: number, errorMessage: string) {
-    super(errorMessage);
+  constructor(httpErrorCode: number, errorCode: number, message: string) {
+    super(message);
     this.httpErrorCode = httpErrorCode;
     this.errorCode = errorCode;
-    this.errorMessage = errorMessage;
+    this.message = message;
   }
 }
 
@@ -29,3 +29,8 @@ export const asyncHandler =
   (fn: RequestHandler) => (req: Request, res: Response, next: NextFunction) => {
     return Promise.resolve(fn(req, res, next)).catch(next);
   };
+
+export const NETWORK_ERROR_CODE = 1001;
+export const RATE_LIMIT_ERROR_CODE = 1002;
+export const OUT_OF_GAS_ERROR_CODE = 1003;
+export const UNKNOWN_ERROR_ERROR_CODE = 1099;

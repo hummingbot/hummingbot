@@ -6,7 +6,11 @@ import { UniswapRoutes } from './chains/ethereum/uniswap/uniswap.routes';
 import { ConfigManager } from './services/config-manager';
 import { logger, updateLoggerToStdout } from './services/logger';
 import { addHttps } from './https';
-import { asyncHandler, GatewayError } from './services/error-handler';
+import {
+  asyncHandler,
+  GatewayError,
+  HttpException,
+} from './services/error-handler';
 
 export const app = express();
 let server: Server;
@@ -105,6 +109,9 @@ app.use(
     if (err instanceof GatewayError) {
       httpErrorCode = err.httpErrorCode;
       response.errorCode = err.errorCode;
+    }
+    if (err instanceof HttpException) {
+      httpErrorCode = err.status;
     }
     logger.error(response.message + response.stack);
     return res.status(httpErrorCode).json(response);
