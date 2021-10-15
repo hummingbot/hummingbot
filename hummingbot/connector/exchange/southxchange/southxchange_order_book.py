@@ -37,7 +37,7 @@ class SouthXchangeOrderBook(OrderBook):
         Convert json snapshot data into standard OrderBookMessage format
         :param msg: json snapshot data from live web socket stream
         :param timestamp: timestamp attached to incoming data
-        :return: AscendExOrderBookMessage
+        :return: SouthXchangeOrderBookMessage
         """
 
         if metadata:
@@ -49,19 +49,19 @@ class SouthXchangeOrderBook(OrderBook):
             timestamp=timestamp
         )
 
-    # @classmethod
-    # def snapshot_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None):
-    #     """
-    #     *used for backtesting
-    #     Convert a row of snapshot data into standard OrderBookMessage format
-    #     :param record: a row of snapshot data from the database
-    #     :return: AscendExOrderBookMessage
-    #     """
-    #     return SouthXchangeOrderBookMessage(
-    #         message_type=OrderBookMessageType.SNAPSHOT,
-    #         content=record.json,
-    #         timestamp=record.timestamp
-    #     )
+    @classmethod
+    def snapshot_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None):
+        """
+        *used for backtesting
+        Convert a row of snapshot data into standard OrderBookMessage format
+        :param record: a row of snapshot data from the database
+        :return: AscendExOrderBookMessage
+        """
+        return SouthXchangeOrderBookMessage(
+            message_type=OrderBookMessageType.SNAPSHOT,
+            content=record.json,
+            timestamp=record.timestamp
+        )
 
     @classmethod
     def diff_message_from_exchange(cls,
@@ -72,7 +72,7 @@ class SouthXchangeOrderBook(OrderBook):
         Convert json diff data into standard OrderBookMessage format
         :param msg: json diff data from live web socket stream
         :param timestamp: timestamp attached to incoming data
-        :return: AscendExOrderBookMessage
+        :return: SouthXchangeOrderBookMessage
         """
 
         if metadata:
@@ -84,65 +84,78 @@ class SouthXchangeOrderBook(OrderBook):
             timestamp=timestamp
         )
 
-    # @classmethod
-    # def diff_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None):
-    #     """
-    #     *used for backtesting
-    #     Convert a row of diff data into standard OrderBookMessage format
-    #     :param record: a row of diff data from the database
-    #     :return: AscendExOrderBookMessage
-    #     """
-    #     return SouthXchangeOrderBookMessage(
-    #         message_type=OrderBookMessageType.DIFF,
-    #         content=record.json,
-    #         timestamp=record.timestamp
-    #     )
+    @classmethod
+    def diff_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None):
+        """
+        *used for backtesting
+        Convert a row of diff data into standard OrderBookMessage format
+        :param record: a row of diff data from the database
+        :return: AscendExOrderBookMessage
+        """
+        return SouthXchangeOrderBookMessage(
+            message_type=OrderBookMessageType.DIFF,
+            content=record.json,
+            timestamp=record.timestamp
+        )
 
-    # @classmethod
-    # def trade_message_from_exchange(cls,
-    #                                 msg: Dict[str, Any],
-    #                                 timestamp: Optional[float] = None,
-    #                                 metadata: Optional[Dict] = None):
-    #     """
-    #     Convert a trade data into standard OrderBookMessage format
-    #     :param record: a trade data from the database
-    #     :return: AscendExOrderBookMessage
-    #     """
+    @classmethod
+    def diff_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None):
+        """
+        *used for backtesting
+        Convert a row of diff data into standard OrderBookMessage format
+        :param record: a row of diff data from the database
+        :return: AscendExOrderBookMessage
+        """
+        return SouthXchangeOrderBookMessage(
+            message_type=OrderBookMessageType.DIFF,
+            content=record.json,
+            timestamp=record.timestamp
+        )
 
-    #     if metadata:
-    #         msg.update(metadata)
+    @classmethod
+    def trade_message_from_exchange(cls,
+                                    msg: Dict[str, Any],
+                                    timestamp: Optional[float] = None,
+                                    metadata: Optional[Dict] = None):
+        """
+        Convert a trade data into standard OrderBookMessage format
+        :param record: a trade data from the database
+        :return: SouthXchangeOrderBookMessage
+        """
 
-    #     msg.update({
-    #         "exchange_order_id": msg.get("seqnum"),
-    #         "trade_type": "buy" if msg.get("bm") else "sell",
-    #         "price": msg.get("p"),
-    #         "amount": msg.get("q"),
-    #     })
+        if metadata:
+            msg.update(metadata)
 
-    #     return SouthXchangeOrderBookMessage(
-    #         message_type=OrderBookMessageType.TRADE,
-    #         content=msg,
-    #         timestamp=timestamp
-    #     )
+        msg.update({
+            "trade_type": "buy" if msg.get("b") else "sell",
+            "price": msg.get("p"),
+            "amount": msg.get("a"),
+        })
 
-    # @classmethod
-    # def trade_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None):
-    #     """
-    #     *used for backtesting
-    #     Convert a row of trade data into standard OrderBookMessage format
-    #     :param record: a row of trade data from the database
-    #     :return: AscendExOrderBookMessage
-    #     """
-    #     return SouthXchangeOrderBookMessage(
-    #         message_type=OrderBookMessageType.TRADE,
-    #         content=record.json,
-    #         timestamp=record.timestamp
-    #     )
+        return SouthXchangeOrderBookMessage(
+            message_type=OrderBookMessageType.TRADE,
+            content=msg,
+            timestamp=timestamp
+        )
 
-    # @classmethod
-    # def from_snapshot(cls, snapshot: OrderBookMessage):
-    #     raise NotImplementedError(constants.EXCHANGE_NAME + " order book needs to retain individual order data.")
+    @classmethod
+    def from_snapshot(cls, snapshot: OrderBookMessage):
+        raise NotImplementedError(constants.EXCHANGE_NAME + " order book needs to retain individual order data.")
 
-    # @classmethod
-    # def restore_from_snapshot_and_diffs(cls, snapshot: OrderBookMessage, diffs: List[OrderBookMessage]):
-    #     raise NotImplementedError(constants.EXCHANGE_NAME + " order book needs to retain individual order data.")
+    @classmethod
+    def restore_from_snapshot_and_diffs(cls, snapshot: OrderBookMessage, diffs: List[OrderBookMessage]):
+        raise NotImplementedError(constants.EXCHANGE_NAME + " order book needs to retain individual order data.")
+
+    @classmethod
+    def trade_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None):
+        """
+        *used for backtesting
+        Convert a row of trade data into standard OrderBookMessage format
+        :param record: a row of trade data from the database
+        :return: AscendExOrderBookMessage
+        """
+        return SouthXchangeOrderBookMessage(
+            message_type=OrderBookMessageType.TRADE,
+            content=record.json,
+            timestamp=record.timestamp
+        )

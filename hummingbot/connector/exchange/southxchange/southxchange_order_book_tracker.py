@@ -26,8 +26,8 @@ class SouthxchangeOrderBookTracker(OrderBookTracker):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, trading_pairs: Optional[List[str]] = None, markets_enabled: Dict[int , str] = {}):
-        super().__init__(SouthxchangeAPIOrderBookDataSource(trading_pairs, markets_enabled), trading_pairs)
+    def __init__(self, trading_pairs: Optional[List[str]] = None):
+        super().__init__(SouthxchangeAPIOrderBookDataSource(trading_pairs), trading_pairs)
 
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()

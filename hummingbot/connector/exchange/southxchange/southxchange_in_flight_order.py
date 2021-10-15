@@ -22,7 +22,7 @@ class SouthXchangeInFlightOrder(InFlightOrderBase):
                  trade_type: TradeType,
                  price: Decimal,
                  amount: Decimal,
-                 initial_state: str = "Pending"):
+                 initial_state: str = "pending"):
         super().__init__(
             client_order_id,
             exchange_order_id,
@@ -38,15 +38,15 @@ class SouthXchangeInFlightOrder(InFlightOrderBase):
 
     @property
     def is_done(self) -> bool:
-        return self.last_state in {"Executed", "CanceledNotExecuted", "CanceledPartiallyExecuted"}
+        return self.last_state in {"executed"}
 
     @property
     def is_failure(self) -> bool:
-        return self.last_state in {"AmountBelowMinimum", "NotEnoughBalance", "PartiallyExecutedButNotEnoughBalance"}
+        return self.last_state in {"amountbelowminimum", "notenoughbalance", "partiallyexecutedbutnotenoughbalance"}
 
     @property
     def is_cancelled(self) -> bool:
-        return self.last_state in {"CanceledPartiallyExecuted", "CanceledNotExecuted", ""}
+        return self.last_state in {"canceledpartiallyexecuted", "cancelednotexecuted"}
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
@@ -55,18 +55,18 @@ class SouthXchangeInFlightOrder(InFlightOrderBase):
         :return: formatted InFlightOrder
         """
         retval = SouthXchangeInFlightOrder(
-            "",
-            data["Code"],
-            convert_from_exchange_trading_pair(
-                get_exchange_trading_pair_from_currencies(
-                    data["ListingCurrency"], data["ReferenceCurrency"]
-                )
-            ),
-            OrderType.MARKET,
-            getattr(TradeType, str(data["Type"]).upper()),
-            Decimal(data["LimitPrice"]),
-            Decimal(data["Amount"]),
-            data["Status"]
+            data["client_order_id"],
+            data["exchange_order_id"],
+            data["trading_pair"],
+            getattr(OrderType, data["order_type"]),
+            getattr(TradeType, data["trade_type"]),
+            Decimal(data["price"]),
+            Decimal(data["amount"]),
+            data["last_state"]
         )
-        retval.last_state = data["Status"]
+        retval.executed_amount_base = Decimal(data["executed_amount_base"])
+        retval.executed_amount_quote = Decimal(data["executed_amount_quote"])
+        retval.fee_asset = data["fee_asset"]
+        retval.fee_paid = Decimal(data["fee_paid"])
+        retval.last_state = data["last_state"]
         return retval
