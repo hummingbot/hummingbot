@@ -1,216 +1,71 @@
 name: hummingbot
 channels:
   - conda-forge
-  - conda-canary
   - defaults
 dependencies:
-  - _libgcc_mutex=0.1=conda_forge
-  - _openmp_mutex=4.5=0_gnu
-  - blas=1.1=openblas
-  - blosc=1.21.0=h9c3ff4c_0
-  - bzip2=1.0.8=h7f98852_4
-  - c-ares=1.17.1=h7f98852_1
-  - ca-certificates=2021.5.30=ha878542_0
-  - certifi=2021.5.30=py38h578d9bd_0
-  - coverage=5.5=py38h497a2fe_0
-  - hdf5=1.10.5=nompi_h7c3c948_1111
-  - intel-openmp=2021.3.0=h06a4308_3350
-  - krb5=1.19.1=hcc1bbae_0
-  - ld_impl_linux-64=2.33.1=h53a641e_8
-  - libblas=3.9.0=1_h6e990d7_netlib
-  - libcblas=3.9.0=3_h893e4fe_netlib
-  - libcurl=7.77.0=h2574ce0_0
-  - libedit=3.1.20191231=h46ee950_2
-  - libev=4.33=h516909a_1
-  - libffi=3.2.1=he1b5a44_1007
-  - libgcc-ng=9.3.0=h2828fa1_19
-  - libgfortran-ng=7.5.0=h14aa051_19
-  - libgfortran4=7.5.0=h14aa051_19
-  - libgomp=9.3.0=h2828fa1_19
-  - liblapack=3.9.0=3_h893e4fe_netlib
-  - libnghttp2=1.43.0=h812cca2_0
-  - libopenblas=0.3.13=h4367d64_0
-  - libssh2=1.9.0=ha56f1ee_6
-  - libstdcxx-ng=9.3.0=h6de172a_19
-  - lz4-c=1.9.3=h9c3ff4c_0
-  - lzo=2.10=h516909a_1000
-  - mock=4.0.1=py_0
-  - ncurses=6.1=hf484d3e_1002
-  - nomkl=1.0=h5ca1d4c_0
-  - nose=1.3.7=py38_2
-  - numexpr=2.7.1=py38h7ea95a0_0
-  - numpy=1.20.0=py38h18fd61f_0
-  - numpy-base=1.18.5=py38h2f8d375_0
-  - openblas=0.3.4=h9ac9557_1000
-  - openssl=1.1.1k=h7f98852_0
-  - pandas=1.2.1=py38h51da96c_0
-  - pip=21.1.2=pyhd8ed1ab_0
+  - certifi=2021.5.30
+  - coverage=5.5
+  - intel-openmp=2021.3.0
+  - nomkl=1.0
+  - nose=1.3.7
+  - numpy=1.20.1
+  - numpy-base=1.20.1
+  - pandas=1.2.1
+  - pip=21.1.2
   - prompt_toolkit=3.0.20
-  - pygments=2.5.2=py_0
-  - pytables=3.6.1=py38h9f153d1_1
-  - python=3.8.2=h9d8adfe_4_cpython
-  - python-dateutil=2.8.1=py_0
-  - python_abi=3.8=1_cp38
-  - pytz=2019.3=py_0
-  - readline=8.0=hf8c457e_0
-  - six=1.14.0=py38_0
-  - snappy=1.1.7=hbae5bb6_3
-  - sqlalchemy=1.3.13=py38h7b6447c_0
-  - sqlite=3.30.1=hcee41ef_0
-  - tk=8.6.10=hed695b0_0
-  - tzlocal=2.0.0=py38_0
-  - ujson=1.35=py38h7b6447c_0
-  - wcwidth=0.1.8=py_0
-  - wheel=0.34.2=py_1
-  - xz=5.2.4=h14c3975_1001
-  - zlib=1.2.11=h516909a_1006
-  - zstd=1.3.7=h0b5b093_0
+  - pytables=3.6.1
+  - python=3.8.2
+  - python-dateutil=2.8.1
+  - six=1.14.0
+  - sqlalchemy=1.3.13
+  - sqlite=3.31.1
+  - tzlocal=2.0.0
+  - ujson=1.35
+  - zlib=1.2.11
   - pip:
     - 0x-contract-addresses==3.0.0
-    - 0x-contract-artifacts==2.0.0
     - 0x-contract-wrappers==2.0.0
-    - 0x-json-schemas==2.1.0
     - 0x-order-utils==4.0.0
     - aioconsole==0.1.15
     - aiohttp==3.7.4.post0
-    - aioresponses==0.7.2
     - aiokafka==0.5.2
+    - aioresponses==0.7.2
     - appdirs==1.4.3
-    - asn1crypto==1.3.0
     - async-timeout==3.0.1
-    - atomicwrites==1.4.0
-    - attrdict==2.0.1
-    - attrs==19.3.0
-    - autobahn==20.3.1
-    - automat==20.2.0
-    - backcall==0.2.0
-    - base58==2.0.0
-    - bitstring==3.1.8
-    - bokeh==2.3.3
     - cachetools==4.0.0
-    - cffi==1.14.0
-    - cfgv==3.1.0
-    - chardet==3.0.4
-    - coincurve==13.0.0
-    - constantly==15.1.0
     - cryptography==2.8
     - cython==3.0a7
     - cytoolz==0.11.0
-    - dateparser==1.0.0
-    - decorator==4.4.2
-    - deprecated==1.2.7
     - diff-cover==5.1.2
-    - distlib==0.3.0
     - dydx-python==0.11.3
     - dydx-v3-python==1.0.10
-    - ecdsa==0.16.0
-    - empyrical==0.5.5
-    - entrypoints==0.3
     - eth-abi==2.1.1
     - eth-account==0.5.5
     - eth-bloom==1.0.4
-    - eth-hash==0.3.2
     - eth-keyfile==0.5.1
-    - eth-keys==0.2.4
-    - eth-rlp==0.1.2
     - eth-typing==2.2.1
     - eth-utils==1.10.0
     - ethsnarks-loopring==0.1.5
-    - filelock==3.0.12
     - flake8==3.7.9
-    - future==0.18.2
     - hexbytes==0.2.0
-    - hyperlink==19.0.0
-    - identify==1.4.11
-    - idna==2.8
-    - idna-ssl==1.1.0
     - importlib-metadata==0.23
-    - incremental==17.5.0
-    - inflect==5.3.0
-    - ipfshttpclient==0.7.0
-    - ipython==7.25.0
-    - ipython-genutils==0.2.0
-    - jedi==0.18.0
-    - jinja2==3.0.1
-    - jinja2-pluralize==0.3.0
-    - jsonschema==3.2.0
-    - kafka-python==1.4.6
-    - lru-dict==1.1.6
-    - lxml==4.6.3
-    - markupsafe==2.0.1
-    - matplotlib-inline==0.1.2
-    - mccabe==0.6.1
-    - more-itertools==8.8.0
-    - mpmath==1.0.0
-    - multiaddr==0.0.9
-    - multidict==4.7.5
     - mypy-extensions==0.4.3
-    - netaddr==0.7.19
-    - nodeenv==1.3.5
-    - objgraph==3.5.0
-    - packaging==21.0
-    - pandas-datareader==0.10.0
-    - parsimonious==0.8.1
-    - parso==0.8.2
-    - pexpect==4.8.0
-    - pickleshare==0.7.5
-    - pillow==8.3.1
-    - pluggy==0.13.1
     - pre-commit==2.1.1
-    - protobuf==3.11.3
     - psutil==5.7.2
-    - ptyprocess==0.7.0
-    - py==1.10.0
-    - pyasn1==0.4.8
-    - pyasn1-modules==0.2.8
-    - pyblake2==1.1.2
-    - pycodestyle==2.5.0
-    - pycparser==2.20
-    - pycryptodome==3.9.7
-    - pyflakes==2.1.1
-    - pyhamcrest==2.0.2
-    - pyinstall==0.1.4
     - pyjwt==1.7.1
-    - pyopenssl==19.1.0
-    - pyparsing==2.4.7
     - pyperclip==1.7.0
-    - pyrsistent==0.15.7
-    - pysha3==1.0.2
     - pytest==4.6.11
     - python-binance==0.7.5
     - python-telegram-bot==12.4.2
-    - pyyaml==5.3
-    - regex==2020.2.20
     - requests==2.22.0
-    - requests-mock==1.6.0
-    - rlp==1.2.0
     - rsa==4.7
     - ruamel-yaml==0.16.10
-    - ruamel-yaml-clib==0.2.0
-    - scipy==1.7.0
-    - service-identity==18.1.0
     - setuptools==50.3.2
     - signalr-client-aio==0.0.1.6.2
     - simplejson==3.17.2
-    - stringcase==1.2.0
-    - sympy==1.6
-    - toml==0.10.0
-    - toolz==0.10.0
-    - tornado==6.0.4
-    - tox==3.13.2
-    - traitlets==5.0.5
-    - twisted==19.10.0
-    - txaio==20.1.1
-    - typing-extensions==3.10.0.0
-    - urllib3==1.25.8
-    - varint==1.0.2
-    - virtualenv==20.0.8
     - web3==5.23.0
     - websockets==9.1
-    - wrapt==1.12.0
     - yarl==1.4.2
-    - zipp==3.5.0
-    - zope-interface==4.7.1
     - git+https://github.com/CoinAlpha/python-signalr-client.git
     - https://hummingbot-python.s3-us-west-2.amazonaws.com/hummingsim-20210806-cp38-cp38-linux_x86_64.whl
 prefix: /home/paul/anaconda3/envs/hummingbot
