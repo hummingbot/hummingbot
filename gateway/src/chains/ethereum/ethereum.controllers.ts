@@ -218,44 +218,48 @@ export async function poll(
 ): Promise<EthereumPollResponse> {
   validateEthereumPollRequest(req);
 
-  const initTime = Date.now();
-  const currentBlock = await ethereum.getCurrentBlockNumber();
-  const txData = await ethereum.getTransaction(req.txHash);
-  let txBlock, txReceipt, txStatus;
-  if (!txData) {
-    // tx not found, didn't reach the mempool or it never existed
-    txBlock = -1;
-    txReceipt = null;
-    txStatus = -1;
-  } else {
-    txReceipt = await ethereum.getTransactionReceipt(req.txHash);
-    if (txReceipt === null) {
-      // tx is in the mempool
+  try {
+    const initTime = Date.now();
+    const currentBlock = await ethereum.getCurrentBlockNumber();
+    const txData = await ethereum.getTransaction(req.txHash);
+    let txBlock, txReceipt, txStatus;
+    if (!txData) {
+      // tx not found, didn't reach the mempool or it never existed
       txBlock = -1;
       txReceipt = null;
       txStatus = -1;
     } else {
-      // tx has been processed
-      txBlock = txReceipt.blockNumber;
-      txStatus = typeof txReceipt.status === 'number' ? txReceipt.status : -1;
-      if (txStatus === 0) {
-        const gasUsed = BigNumber.from(txReceipt.gasUsed).toNumber();
-        const gasLimit = BigNumber.from(txData.gasLimit).toNumber();
-        if (gasUsed / gasLimit > 0.9)
-          throw new GatewayError(503, 1003, 'Transaction out of gas.');
+      txReceipt = await ethereum.getTransactionReceipt(req.txHash);
+      if (txReceipt === null) {
+        // tx is in the mempool
+        txBlock = -1;
+        txReceipt = null;
+        txStatus = -1;
+      } else {
+        // tx has been processed
+        txBlock = txReceipt.blockNumber;
+        txStatus = typeof txReceipt.status === 'number' ? txReceipt.status : -1;
+        if (txStatus === 0) {
+          const gasUsed = BigNumber.from(txReceipt.gasUsed).toNumber();
+          const gasLimit = BigNumber.from(txData.gasLimit).toNumber();
+          if (gasUsed / gasLimit > 0.9)
+            throw new GatewayError(503, 1003, 'Transaction out of gas.');
+        }
       }
     }
+    return {
+      network: ConfigManager.config.ETHEREUM_CHAIN,
+      currentBlock,
+      timestamp: initTime,
+      txHash: req.txHash,
+      txBlock,
+      txStatus,
+      txData,
+      txReceipt: toEthereumTransactionReceipt(txReceipt),
+    };
+  } catch (_e) {
+    throw new GatewayError(503, 1099, 'Unknown error.');
   }
-  return {
-    network: ConfigManager.config.ETHEREUM_CHAIN,
-    currentBlock,
-    timestamp: initTime,
-    txHash: req.txHash,
-    txBlock,
-    txStatus,
-    txData,
-    txReceipt: toEthereumTransactionReceipt(txReceipt),
-  };
 }
 
 export async function cancel(
