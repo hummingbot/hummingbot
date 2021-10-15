@@ -38,13 +38,11 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
     def setUp(self, _) -> None:
         super().setUp()
 
-        self.api_responses = asyncio.Queue()
         self.log_records = []
 
         self.ws_sent_messages = []
         self.ws_incoming_messages = asyncio.Queue()
         self.resume_test_event = asyncio.Event()
-        self._finalMessage = "FinalDummyMessage"
 
         self.exchange = BinancePerpetualDerivative(
             binance_perpetual_api_key="testAPIKey",
@@ -69,9 +67,6 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
     def _is_logged(self, log_level: str, message: str) -> bool:
         return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
 
-    def _raise_exception(self, exception_class):
-        raise exception_class
-
     def _create_exception_and_unlock_test_with_event(self, exception):
         self.resume_test_event.set()
         raise exception
@@ -79,9 +74,6 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
-
-    async def _await_all_api_responses_delivered(self):
-        await self.api_responses.join()
 
     def _get_position_risk_api_endpoint_single_position_list(self) -> List[Dict[str, Any]]:
         positions = [
@@ -104,18 +96,6 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
             }
         ]
         return positions
-
-    def _create_ws_mock(self):
-        ws = AsyncMock()
-        ws.send.side_effect = lambda sent_message: self.ws_sent_messages.append(sent_message)
-        ws.recv.side_effect = self._get_next_ws_received_message
-        return ws
-
-    async def _get_next_ws_received_message(self):
-        message = await self.ws_incoming_messages.get()
-        if json.loads(message) == self._finalMessage:
-            self.resume_test_event.set()
-        return message
 
     def _get_account_update_ws_event_single_position_dict(self) -> Dict[str, Any]:
         account_update = {
@@ -274,7 +254,6 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         self.ev_loop.create_task(self.exchange._user_stream_tracker.start())
-        self.ev_loop.run_until_complete(self._await_all_api_responses_delivered())
 
         self.assertEqual(len(self.exchange.account_positions), 1)
         pos = list(self.exchange.account_positions.values())[0]
@@ -311,7 +290,6 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         self.ev_loop.create_task(self.exchange._user_stream_tracker.start())
-        self.ev_loop.run_until_complete(self._await_all_api_responses_delivered())
 
         self.assertEqual(len(self.exchange.account_positions), 1)
 
