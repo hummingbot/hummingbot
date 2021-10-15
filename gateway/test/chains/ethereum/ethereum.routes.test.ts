@@ -4,8 +4,14 @@ import { patch, unpatch } from '../../services/patch';
 import * as transactionOutOfGas from './fixtures/transaction-out-of-gas.json';
 import * as transactionOutOfGasReceipt from './fixtures/transaction-out-of-gas-receipt.json';
 import { app } from '../../../src/app';
-// import * as transactionSuccesful from './fixtures/transaction-succesful.json';
-// import * as transactionSuccesfulReceipt from './fixtures/transaction-succesful-receipt.json';
+import {
+  NETWORK_ERROR_CODE,
+  RATE_LIMIT_ERROR_CODE,
+  OUT_OF_GAS_ERROR_CODE,
+  UNKNOWN_ERROR_ERROR_CODE,
+} from '../../../src/services/error-handler';
+import * as transactionSuccesful from './fixtures/transaction-succesful.json';
+import * as transactionSuccesfulReceipt from './fixtures/transaction-succesful-receipt.json';
 
 let eth: Ethereum;
 
@@ -169,9 +175,65 @@ describe('POST /eth/cancel', () => {
   });
 });
 
-const OUT_OF_GAS_ERROR_CODE = 1003;
+class RateLimitError extends Error {
+  code: number;
+  constructor() {
+    super('-32005');
+    this.code = -32005;
+  }
+}
+
+class NetworkError extends Error {
+  code: string;
+  constructor() {
+    super('NETWORK_ERROR');
+    this.code = 'NETWORK_ERROR';
+  }
+}
 
 describe('POST /eth/poll', () => {
+  it('should get a NETWORK_ERROR_CODE when the network is unavailable', async () => {
+    patch(eth, 'getCurrentBlockNumber', () => {
+      throw new NetworkError();
+    });
+
+    const res = await request(app).post('/eth/poll').send({
+      txHash:
+        '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
+    });
+
+    expect(res.statusCode).toEqual(503);
+    expect(res.body.errorCode).toEqual(NETWORK_ERROR_CODE);
+  });
+
+  it('should get a UNKNOWN_ERROR_ERROR_CODE when an unknown error is thrown', async () => {
+    patch(eth, 'getCurrentBlockNumber', () => {
+      throw new Error();
+    });
+
+    const res = await request(app).post('/eth/poll').send({
+      txHash:
+        '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
+    });
+
+    expect(res.statusCode).toEqual(503);
+    expect(res.body.errorCode).toEqual(UNKNOWN_ERROR_ERROR_CODE);
+  });
+
+  it('should get an RATE_LIMIT_ERROR_CODE when the blockchain API is rate limited', async () => {
+    patch(eth, 'getCurrentBlockNumber', () => {
+      throw new RateLimitError();
+    });
+
+    const res = await request(app).post('/eth/poll').send({
+      txHash:
+        '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
+    });
+
+    expect(res.statusCode).toEqual(503);
+    expect(res.body.errorCode).toEqual(RATE_LIMIT_ERROR_CODE);
+  });
+
   it('should get an OUT of GAS error for failed out of gas transactions', async () => {
     patch(eth, 'getCurrentBlockNumber', () => 1);
     patch(eth, 'getTransaction', () => transactionOutOfGas);
@@ -181,56 +243,46 @@ describe('POST /eth/poll', () => {
         '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
     });
 
-    // console.log(res);
-
     expect(res.statusCode).toEqual(503);
     expect(res.body.errorCode).toEqual(OUT_OF_GAS_ERROR_CODE);
   });
 
-  // it('should get a null in txReceipt for Tx in the mempool', async () => {
-  //   patch(eth, 'getCurrentBlockNumber', () => 1);
-  //   patch(eth, 'getTransaction', () => transactionOutOfGas);
-  //   patch(eth, 'getTransactionReceipt', () => null);
-  //   const res = await request(app).post('/eth/poll').send({
-  //     txHash:
-  //       '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
-  //   });
-  //   expect(res.statusCode).toEqual(200);
-  //   expect(res.body.txReceipt).toEqual(null);
-  //   expect(res.body.txData).toBeDefined();
-  // });
+  it('should get a null in txReceipt for Tx in the mempool', async () => {
+    patch(eth, 'getCurrentBlockNumber', () => 1);
+    patch(eth, 'getTransaction', () => transactionOutOfGas);
+    patch(eth, 'getTransactionReceipt', () => null);
+    const res = await request(app).post('/eth/poll').send({
+      txHash:
+        '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
+    });
+    expect(res.statusCode).toEqual(200);
+    expect(res.body.txReceipt).toEqual(null);
+    expect(res.body.txData).toBeDefined();
+  });
 
-  // it('should get a null in txReceipt and txData for Tx that didnt reach the mempool and TxReceipt is null', async () => {
-  //   patch(eth, 'getCurrentBlockNumber', () => 1);
-  //   patch(eth, 'getTransaction', () => null);
-  //   patch(eth, 'getTransactionReceipt', () => null);
-  //   const res = await request(app).post('/eth/poll').send({
-  //     txHash:
-  //       '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
-  //   });
-  //   expect(res.statusCode).toEqual(200);
-  //   expect(res.body.txReceipt).toEqual(null);
-  //   expect(res.body.txData).toEqual(null);
-  // });
+  it('should get a null in txReceipt and txData for Tx that didnt reach the mempool and TxReceipt is null', async () => {
+    patch(eth, 'getCurrentBlockNumber', () => 1);
+    patch(eth, 'getTransaction', () => null);
+    patch(eth, 'getTransactionReceipt', () => null);
+    const res = await request(app).post('/eth/poll').send({
+      txHash:
+        '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
+    });
+    expect(res.statusCode).toEqual(200);
+    expect(res.body.txReceipt).toEqual(null);
+    expect(res.body.txData).toEqual(null);
+  });
 
-  // it('should get txStatus = 1 for a succesful query', async () => {
-  //   patch(eth, 'getCurrentBlockNumber', () => 1);
-  //   patch(
-  //     eth,
-  //     'getTransaction',
-  //     () => transactionSuccesful
-  //   );
-  //   patch(
-  //     eth,
-  //     'getTransactionReceipt',
-  //     () => transactionSuccesfulReceipt
-  //   );
-  //   const res = await request(app).post('/eth/poll').send({
-  //     txHash:
-  //       '0x6d068067a5e5a0f08c6395b31938893d1cdad81f54a54456221ecd8c1941294d',
-  //   });
-  //   expect(res.statusCode).toEqual(200);
-  //   expect(res.body.txReceipt).toBeDefined();
-  //   expect(res.body.txData).toBeDefined();
-  // });
+  it('should get txStatus = 1 for a succesful query', async () => {
+    patch(eth, 'getCurrentBlockNumber', () => 1);
+    patch(eth, 'getTransaction', () => transactionSuccesful);
+    patch(eth, 'getTransactionReceipt', () => transactionSuccesfulReceipt);
+    const res = await request(app).post('/eth/poll').send({
+      txHash:
+        '0x6d068067a5e5a0f08c6395b31938893d1cdad81f54a54456221ecd8c1941294d',
+    });
+    expect(res.statusCode).toEqual(200);
+    expect(res.body.txReceipt).toBeDefined();
+    expect(res.body.txData).toBeDefined();
+  });
 });

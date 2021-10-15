@@ -2,7 +2,14 @@ import { Ethereum } from './ethereum';
 import ethers, { constants, Wallet, utils, BigNumber } from 'ethers';
 import { ConfigManager } from '../../services/config-manager';
 import { latency, bigNumberWithDecimalToStr } from '../../services/base';
-import { GatewayError, HttpException } from '../../services/error-handler';
+import {
+  GatewayError,
+  HttpException,
+  NETWORK_ERROR_CODE,
+  RATE_LIMIT_ERROR_CODE,
+  OUT_OF_GAS_ERROR_CODE,
+  UNKNOWN_ERROR_ERROR_CODE,
+} from '../../services/error-handler';
 import { UniswapConfig } from './uniswap/uniswap.config';
 import { tokenValueToString } from '../../services/base';
 import { Token } from '../../services/ethereum-base';
@@ -244,7 +251,11 @@ export async function poll(
           const gasLimit = BigNumber.from(txData.gasLimit).toNumber();
           if (gasUsed / gasLimit > 0.9) {
             console.log('outof gas');
-            throw new GatewayError(503, 1003, 'Transaction out of gas.');
+            throw new GatewayError(
+              503,
+              OUT_OF_GAS_ERROR_CODE,
+              'Transaction out of gas.'
+            );
           }
         }
       }
@@ -265,11 +276,17 @@ export async function poll(
     } else if ('code' in e && e.code === 'NETWORK_ERROR') {
       throw new GatewayError(
         503,
-        1001,
+        NETWORK_ERROR_CODE,
         'Network error. Please check your node URL, API key, and Internet connection.'
       );
+    } else if ('code' in e && e.code === -32005) {
+      throw new GatewayError(
+        503,
+        RATE_LIMIT_ERROR_CODE,
+        'Blockchain node API rate limit exceeded.'
+      );
     } else {
-      throw new GatewayError(503, 1099, 'Unknown error.');
+      throw new GatewayError(503, UNKNOWN_ERROR_ERROR_CODE, 'Unknown error.');
     }
   }
 }
