@@ -3,23 +3,23 @@ import { Request, RequestHandler, Response, NextFunction } from 'express';
 // custom error for http exceptions
 export class HttpException extends Error {
   status: number;
-  message: string;
-  constructor(status: number, message: string) {
-    super(message);
+  errorMessage: string;
+  constructor(status: number, errorMessage: string) {
+    super(errorMessage);
     this.status = status;
-    this.message = message;
+    this.errorMessage = errorMessage;
   }
 }
 
 export class GatewayError extends Error {
-  message: string;
+  errorMessage: string;
   errorCode: number;
   httpErrorCode: number;
-  constructor(httpErrorCode: number, errorCode: number, message: string) {
-    super(message);
+  constructor(httpErrorCode: number, errorCode: number, errorMessage: string) {
+    super(errorMessage);
     this.httpErrorCode = httpErrorCode;
     this.errorCode = errorCode;
-    this.message = message;
+    this.errorMessage = errorMessage;
   }
 }
 
