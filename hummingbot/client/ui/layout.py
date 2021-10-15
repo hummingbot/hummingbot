@@ -16,7 +16,7 @@ from prompt_toolkit.layout.layout import Layout
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import Completer
 from prompt_toolkit.layout.controls import FormattedTextControl
-from prompt_toolkit.widgets import SearchToolbar
+from prompt_toolkit.widgets import SearchToolbar, Button
 
 from hummingbot.client.ui.custom_widgets import CustomTextArea as TextArea
 from hummingbot.client.settings import (
@@ -160,6 +160,16 @@ def create_log_field(search_field: SearchToolbar):
     )
 
 
+def create_log_toggle(function):
+    return Button(
+        text='> log pane',
+        width=13,
+        handler=function,
+        left_symbol='',
+        right_symbol=''
+    )
+
+
 def get_version():
     return [("class:title", f"Version: {version}")]
 
@@ -205,10 +215,15 @@ def get_strategy_file():
 def generate_layout(input_field: TextArea,
                     output_field: TextArea,
                     log_field: TextArea,
+                    log_toggle: Button,
                     search_field: SearchToolbar,
                     timer: TextArea,
                     process_monitor: TextArea,
                     trade_monitor: TextArea):
+    logs_container = HSplit([
+        log_field,
+        search_field,
+    ])
     root_container = HSplit([
         VSplit([
             Window(FormattedTextControl(get_version), style="class:title"),
@@ -217,6 +232,7 @@ def generate_layout(input_field: TextArea,
             # Window(FormattedTextControl(get_active_markets), style="class:title"),
             # Window(FormattedTextControl(get_script_file), style="class:title"),
             Window(FormattedTextControl(get_strategy_file), style="class:title"),
+            log_toggle
         ], height=1),
         VSplit([
             FloatContainer(
@@ -234,10 +250,7 @@ def generate_layout(input_field: TextArea,
                               scroll_offset=1)),
                 ]
             ),
-            HSplit([
-                log_field,
-                search_field,
-            ]),
+            logs_container,
         ]),
         VSplit([
             trade_monitor,
@@ -246,4 +259,4 @@ def generate_layout(input_field: TextArea,
         ], height=1),
 
     ])
-    return Layout(root_container, focused_element=input_field)
+    return Layout(root_container, focused_element=input_field), logs_container

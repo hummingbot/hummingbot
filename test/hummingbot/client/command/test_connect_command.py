@@ -133,3 +133,18 @@ class ConnectCommandTest(unittest.TestCase):
                 msg="\nA network error prevented the connection table to populate. See logs for more details."
             )
         )
+
+    @patch("hummingbot.user.user_balances.UserBalances.update_exchanges")
+    def test_connection_df_handles_network_timeouts_logs_hidden(self, update_exchanges_mock: AsyncMock):
+        self.cli_mock_assistant.toggle_logs()
+
+        update_exchanges_mock.side_effect = self.get_async_sleep_fn(delay=0.02)
+        global_config_map["other_commands_timeout"].value = 0.01
+
+        with self.assertRaises(asyncio.TimeoutError):
+            self.async_run_with_timeout_coroutine_must_raise_timeout(self.app.connection_df())
+        self.assertTrue(
+            self.cli_mock_assistant.check_log_called_with(
+                msg="\nA network error prevented the connection table to populate. See logs for more details."
+            )
+        )
