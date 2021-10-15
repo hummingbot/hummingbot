@@ -97,21 +97,25 @@ class BinancePerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
                            limit: int = 1000,
                            domain: str = CONSTANTS.DOMAIN,
                            throttler: Optional[AsyncThrottler] = None) -> Dict[str, Any]:
-        params = {
-            "symbol": convert_to_exchange_trading_pair(trading_pair)
-        }
-        if limit != 0:
-            params.update({"limit": str(limit)})
-        url = utils.rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain)
-        throttler = throttler or BinancePerpetualAPIOrderBookDataSource._get_throttler_instance()
-        async with throttler.execute_task(limit_id=CONSTANTS.SNAPSHOT_REST_URL):
-            async with aiohttp.ClientSession() as client:
-                async with client.get(url=url, params=params) as response:
-                    response: aiohttp.ClientResponse = response
-                    if response.status != 200:
-                        raise IOError(f"Error fetching Binance market snapshot for {trading_pair}.")
-                    data: Dict[str, Any] = await response.json()
-                    return data
+        try:
+            params = {
+                "symbol": convert_to_exchange_trading_pair(trading_pair)
+            }
+            if limit != 0:
+                params.update({"limit": str(limit)})
+            url = utils.rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain)
+            throttler = throttler or BinancePerpetualAPIOrderBookDataSource._get_throttler_instance()
+            async with throttler.execute_task(limit_id=CONSTANTS.SNAPSHOT_REST_URL):
+                async with aiohttp.ClientSession() as client:
+                    async with client.get(url=url, params=params) as response:
+                        if response.status != 200:
+                            raise IOError(f"Error fetching Binance market snapshot for {trading_pair}.")
+                        data: Dict[str, Any] = await response.json()
+                        return data
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            raise
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         snapshot: Dict[str, Any] = await self.get_snapshot(trading_pair, 1000, self._domain, self._throttler)

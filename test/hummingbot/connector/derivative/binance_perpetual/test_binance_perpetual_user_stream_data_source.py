@@ -7,7 +7,7 @@ import unittest
 import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
 
 from aioresponses.core import aioresponses
-from typing import Any, Dict, Optional
+from typing import Any, Awaitable, Dict, Optional
 from unittest.mock import AsyncMock, patch
 
 from hummingbot.connector.derivative.binance_perpetual import binance_perpetual_utils as utils
@@ -58,6 +58,10 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
 
     def handle(self, record):
         self.log_records.append(record)
+
+    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
+        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
+        return ret
 
     def _is_logged(self, log_level: str, message: str) -> bool:
         return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
@@ -140,7 +144,7 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
         mock_api.post(regex_url, status=400, body=ujson.dumps(self._error_response))
 
         with self.assertRaises(IOError):
-            self.ev_loop.run_until_complete(self.data_source.get_listen_key())
+            self.async_run_with_timeout(self.data_source.get_listen_key())
 
     @aioresponses()
     def test_get_listen_key_successful(self, mock_api):
@@ -149,7 +153,7 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
 
         mock_api.post(regex_url, body=self._successful_get_listen_key_response())
 
-        result: str = self.ev_loop.run_until_complete(self.data_source.get_listen_key())
+        result: str = self.async_run_with_timeout(self.data_source.get_listen_key())
 
         self.assertEqual(self.listen_key, result)
 
@@ -161,7 +165,7 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
         mock_api.put(regex_url, status=400, body=ujson.dumps(self._error_response()))
 
         self.data_source._current_listen_key = self.listen_key
-        result: bool = self.ev_loop.run_until_complete(self.data_source.ping_listen_key())
+        result: bool = self.async_run_with_timeout(self.data_source.ping_listen_key())
 
         self.assertTrue(
             self._is_logged("WARNING", f"Failed to refresh the listen key {self.listen_key}: {self._error_response()}")
@@ -176,7 +180,7 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
         mock_api.put(regex_url, body=ujson.dumps({}))
 
         self.data_source._current_listen_key = self.listen_key
-        result: bool = self.ev_loop.run_until_complete(self.data_source.ping_listen_key())
+        result: bool = self.async_run_with_timeout(self.data_source.ping_listen_key())
         self.assertTrue(result)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
@@ -184,14 +188,14 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
         mock_ws.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
-            self.ev_loop.run_until_complete(self.data_source._create_websocket_connection())
+            self.async_run_with_timeout(self.data_source._create_websocket_connection())
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_create_websocket_connection_log_exception(self, mock_ws):
         mock_ws.side_effect = Exception("TEST ERROR.")
 
         with self.assertRaises(Exception):
-            self.ev_loop.run_until_complete(self.data_source._create_websocket_connection())
+            self.async_run_with_timeout(self.data_source._create_websocket_connection())
 
         self.assertTrue(
             self._is_logged(
@@ -215,7 +219,7 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
 
         self.listening_task = self.ev_loop.create_task(self.data_source._manage_listen_key_task_loop())
 
-        self.ev_loop.run_until_complete(self.mock_done_event.wait())
+        self.async_run_with_timeout(self.mock_done_event.wait())
 
         self.assertTrue(self._is_logged("ERROR", "Error occurred renewing listen key... "))
         self.assertIsNone(self.data_source._current_listen_key)
@@ -235,7 +239,7 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
 
         self.listening_task = self.ev_loop.create_task(self.data_source._manage_listen_key_task_loop())
 
-        self.ev_loop.run_until_complete(self.mock_done_event.wait())
+        self.async_run_with_timeout(self.mock_done_event.wait())
 
         self.assertTrue(self._is_logged("INFO", f"Refreshed listen key {self.listen_key}."))
         self.assertGreater(self.data_source._last_listen_key_ping_ts, 0)
@@ -253,7 +257,7 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
         msg_queue = asyncio.Queue()
         self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, msg_queue))
 
-        self.ev_loop.run_until_complete(self.resume_test_event.wait())
+        self.async_run_with_timeout(self.resume_test_event.wait())
 
         self.assertTrue(self._is_logged("INFO", f"Successfully obtained listen key {self.listen_key}"))
         self.assertTrue(
@@ -293,7 +297,7 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
 
         self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, msg_queue))
 
-        self.ev_loop.run_until_complete(self.resume_test_event.wait())
+        self.async_run_with_timeout(self.resume_test_event.wait())
 
         self.assertTrue(self._is_logged("INFO", f"Successfully obtained listen key {self.listen_key}"))
         self.assertTrue(
@@ -328,7 +332,7 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
         msg_queue = asyncio.Queue()
         self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, msg_queue))
 
-        msg = self.ev_loop.run_until_complete(msg_queue.get())
+        msg = self.async_run_with_timeout(msg_queue.get())
         self.assertTrue(msg, self._simulate_user_update_event)
         self.assertTrue(self._is_logged("DEBUG", "Received PING frame. Sending PONG frame..."))
 
@@ -348,6 +352,6 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
         msg_queue = asyncio.Queue()
         self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, msg_queue))
 
-        msg = self.ev_loop.run_until_complete(msg_queue.get())
+        msg = self.async_run_with_timeout(msg_queue.get())
         self.assertTrue(msg, self._simulate_user_update_event)
         self.assertTrue(self._is_logged("DEBUG", "Received PONG frame."))
