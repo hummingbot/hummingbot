@@ -20,7 +20,6 @@ def start(self):
     self._initialize_markets([(spot_connector, [spot_market]), (perpetual_connector, [perpetual_market])])
     base_1, quote_1 = spot_market.split("-")
     base_2, quote_2 = perpetual_market.split("-")
-    self.assets = set([base_1, quote_1, base_2, quote_2])
 
     spot_market_info = MarketTradingPairTuple(self.markets[spot_connector], spot_market, base_1, quote_1)
     perpetual_market_info = MarketTradingPairTuple(self.markets[perpetual_connector], perpetual_market, base_2, quote_2)

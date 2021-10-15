@@ -65,10 +65,6 @@ coinbase_pro_passphrase = os.getenv("COINBASE_PRO_PASSPHRASE")
 huobi_api_key = os.getenv("HUOBI_API_KEY")
 huobi_secret_key = os.getenv("HUOBI_SECRET_KEY")
 
-# Dolomite Tests
-dolomite_test_web3_private_key = os.getenv("DOLOMITE_TEST_PK")
-dolomite_test_web3_address = os.getenv("DOLOMITE_TEST_ADDR")
-
 # Loopring Tests
 loopring_accountid = os.getenv("LOOPRING_ACCOUNTID")
 loopring_exchangeid = os.getenv("LOOPRING_EXCHANGEID")
@@ -93,11 +89,6 @@ liquid_secret_key = os.getenv("LIQUID_SECRET_KEY")
 # Kraken Tests
 kraken_api_key = os.getenv("KRAKEN_API_KEY")
 kraken_secret_key = os.getenv("KRAKEN_SECRET_KEY")
-
-# Eterbase Test
-eterbase_api_key = os.getenv("ETERBASE_API_KEY")
-eterbase_secret_key = os.getenv("ETERBASE_SECRET_KEY")
-eterbase_account = os.getenv("ETERBASE_ACCOUNT")
 
 # OKEx Test
 okex_api_key = os.getenv("OKEX_API_KEY")
@@ -140,24 +131,3 @@ kafka_2 = {
     "bootstrap_servers": "***REMOVED***",
     "zookeeper_servers": "***REMOVED***"
 }
-
-
-try:
-    from .config_local import *             # noqa: F401, F403
-except ModuleNotFoundError:
-    pass
-
-try:
-    from .web3_wallet_secret import *       # noqa: F401, F403
-except ModuleNotFoundError:
-    pass
-
-try:
-    from .binance_secret import *           # noqa: F401, F403
-except ModuleNotFoundError:
-    pass
-
-try:
-    from .coinbase_pro_secrets import *     # noqa: F401, F403
-except ModuleNotFoundError:
-    pass

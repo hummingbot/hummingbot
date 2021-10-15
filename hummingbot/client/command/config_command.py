@@ -36,8 +36,7 @@ if TYPE_CHECKING:
 
 no_restart_pmm_keys_in_percentage = ["bid_spread", "ask_spread", "order_level_spread", "inventory_target_base_pct"]
 no_restart_pmm_keys = ["order_amount", "order_levels", "filled_order_delay", "inventory_skew_enabled", "inventory_range_multiplier"]
-global_configs_to_display = ["0x_active_cancels",
-                             "autofill_import",
+global_configs_to_display = ["autofill_import",
                              "kill_switch_enabled",
                              "kill_switch_rate",
                              "telegram_enabled",

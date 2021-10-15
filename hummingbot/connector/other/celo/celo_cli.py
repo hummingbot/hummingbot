@@ -2,7 +2,7 @@ import subprocess
 from subprocess import CalledProcessError
 from decimal import Decimal
 from typing import List, Optional, Dict
-from hummingbot.market.celo.celo_data_types import CeloExchangeRate, CeloBalance
+from hummingbot.connector.other.celo.celo_data_types import CeloExchangeRate, CeloBalance
 
 
 UNIT_MULTIPLIER = Decimal(1e18)
