@@ -188,6 +188,10 @@ cdef class PaperTradeExchange(ExchangeBase):
         self._market_order_filled_listener = OrderBookMarketOrderFillListener(self)
         self.c_add_listener(self.ORDER_FILLED_EVENT_TAG, self._market_order_filled_listener)
 
+    @property
+    def order_book_tracker(self) -> OrderBookTracker:
+        return self._order_book_tracker
+
     @classmethod
     def random_order_id(cls, order_side: str, trading_pair: str) -> str:
         vals = [random.choice(range(0, 256)) for i in range(0, 13)]
@@ -1008,3 +1012,10 @@ cdef class PaperTradeExchange(ExchangeBase):
                                   event):
         await asyncio.sleep(0.01)
         self.c_trigger_event(event_tag, event)
+
+    def set_quantization_param(self, trading_pair: str, param: QuantizationParams):
+        self._quantization_params[trading_pair] = param
+
+    @property
+    def config(self) -> MarketConfig:
+        return self._config
