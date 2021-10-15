@@ -242,3 +242,22 @@ create_command_timeout: 10
 
 # network timeout for other commands (i.e. import, connect, balance, history)
 other_commands_timeout: 30
+
+# Background color of the top pane
+top-pane: "#000000"
+
+# Background color of the bottom pane
+bottom-pane: "#000000"
+
+# Background color of the output pane
+output-pane: "#282C2F"
+
+# Background color of the input pane
+input-pane: "#151819"
+
+# Background color of the logs pane
+logs-pane: "#151819"
+
+# Terminal primary color
+terminal-primary: "#00FFE5"
+

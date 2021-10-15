@@ -1,4 +1,5 @@
 import random
+import re
 from typing import Callable, Optional
 from decimal import Decimal
 import os.path
@@ -43,6 +44,11 @@ def validate_rate_oracle_source(value: str) -> Optional[str]:
 
 def rate_oracle_source_on_validated(value: str):
     RateOracle.source = RateOracleSource[value]
+
+
+def validate_color(value: str) -> Optional[str]:
+    if not re.search(r'^#(?:[0-9a-fA-F]{2}){3}$', value):
+        return "Invalid color code"
 
 
 def global_token_on_validated(value: str):
@@ -348,4 +354,50 @@ main_config_map = {
                   default=Decimal("30")),
 }
 
-global_config_map = {**key_config_map, **main_config_map}
+color_config_map = {
+    # The variables below are usually not prompted during setup process
+    "top-pane":
+        ConfigVar(key="top-pane",
+                  prompt="What is the background color of the top pane? ",
+                  type_str="str",
+                  required_if=lambda: False,
+                  validator=validate_color,
+                  default="#000000"),
+    "bottom-pane":
+        ConfigVar(key="bottom-pane",
+                  prompt="What is the background color of the bottom pane? ",
+                  type_str="str",
+                  required_if=lambda: False,
+                  validator=validate_color,
+                  default="#000000"),
+    "output-pane":
+        ConfigVar(key="output-pane",
+                  prompt="What is the background color of the output pane? ",
+                  type_str="str",
+                  required_if=lambda: False,
+                  validator=validate_color,
+                  default="#282C2F"),
+    "input-pane":
+        ConfigVar(key="input-pane",
+                  prompt="What is the background color of the input pane? ",
+                  type_str="str",
+                  required_if=lambda: False,
+                  validator=validate_color,
+                  default="#151819"),
+    "logs-pane":
+        ConfigVar(key="logs-pane",
+                  prompt="What is the background color of the logs pane? ",
+                  type_str="str",
+                  required_if=lambda: False,
+                  validator=validate_color,
+                  default="#151819"),
+    "terminal-primary":
+        ConfigVar(key="terminal-primary",
+                  prompt="What is the terminal primary color? ",
+                  type_str="str",
+                  required_if=lambda: False,
+                  validator=validate_color,
+                  default="#00FFE5"),
+}
+
+global_config_map = {**key_config_map, **main_config_map, **color_config_map}

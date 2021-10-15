@@ -110,7 +110,7 @@ def create_output_field():
 
 def create_timer():
     return TextArea(
-        style='class:title',
+        style='class:footer',
         focus_on_click=False,
         read_only=False,
         scrollbar=False,
@@ -121,7 +121,7 @@ def create_timer():
 
 def create_process_monitor():
     return TextArea(
-        style='class:title',
+        style='class:footer',
         focus_on_click=False,
         read_only=False,
         scrollbar=False,
@@ -132,7 +132,7 @@ def create_process_monitor():
 
 def create_trade_monitor():
     return TextArea(
-        style='class:title',
+        style='class:footer',
         focus_on_click=False,
         read_only=False,
         scrollbar=False,
@@ -171,7 +171,7 @@ def create_log_toggle(function):
 
 
 def get_version():
-    return [("class:title", f"Version: {version}")]
+    return [("class:header", f"Version: {version}")]
 
 
 def get_paper_trade_status():
@@ -220,43 +220,42 @@ def generate_layout(input_field: TextArea,
                     timer: TextArea,
                     process_monitor: TextArea,
                     trade_monitor: TextArea):
-    logs_container = HSplit([
-        log_field,
-        search_field,
-    ])
+    components = {}
+    components["item_top_version"] = Window(FormattedTextControl(get_version), style="class:header")
+    components["item_top_paper"] = Window(FormattedTextControl(get_paper_trade_status), style="class:header")
+    components["item_top_active"] = Window(FormattedTextControl(get_active_strategy), style="class:header")
+    # Window(FormattedTextControl(get_active_markets), style="class:header"),
+    # Window(FormattedTextControl(get_script_file), style="class:header"),
+    components["item_top_file"] = Window(FormattedTextControl(get_strategy_file), style="class:header")
+    components["item_top_toggle"] = log_toggle
+    components["pane_top"] = VSplit([components["item_top_version"],
+                                     components["item_top_paper"],
+                                     components["item_top_active"],
+                                     components["item_top_file"],
+                                     components["item_top_toggle"]], height=1)
+    components["pane_bottom"] = VSplit([trade_monitor,
+                                        process_monitor,
+                                        timer], height=1)
+    components["pane_left"] = HSplit([output_field,
+                                      input_field])
+    components["pane_right"] = HSplit([log_field,
+                                       search_field])
+    components["hint_menus"] = [Float(xcursor=True,
+                                      ycursor=True,
+                                      transparent=True,
+                                      content=CompletionsMenu(max_height=16,
+                                                              scroll_offset=1))]
+
     root_container = HSplit([
-        VSplit([
-            Window(FormattedTextControl(get_version), style="class:title"),
-            Window(FormattedTextControl(get_paper_trade_status), style="class:title"),
-            Window(FormattedTextControl(get_active_strategy), style="class:title"),
-            # Window(FormattedTextControl(get_active_markets), style="class:title"),
-            # Window(FormattedTextControl(get_script_file), style="class:title"),
-            Window(FormattedTextControl(get_strategy_file), style="class:title"),
-            log_toggle
-        ], height=1),
+        components["pane_top"],
         VSplit([
             FloatContainer(
-                HSplit([
-                    output_field,
-                    input_field,
-                ]),
-                [
-                    # Completion menus.
-                    Float(xcursor=True,
-                          ycursor=True,
-                          transparent=True,
-                          content=CompletionsMenu(
-                              max_height=16,
-                              scroll_offset=1)),
-                ]
+                components["pane_left"],
+                components["hint_menus"]
             ),
-            logs_container,
+            components["pane_right"],
         ]),
-        VSplit([
-            trade_monitor,
-            process_monitor,
-            timer,
-        ], height=1),
+        components["pane_bottom"],
 
     ])
-    return Layout(root_container, focused_element=input_field), logs_container
+    return Layout(root_container, focused_element=input_field), components
