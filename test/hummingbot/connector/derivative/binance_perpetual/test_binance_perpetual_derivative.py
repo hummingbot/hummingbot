@@ -134,7 +134,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         req_mock.get(regex_url, body=json.dumps(positions))
 
         task = self.ev_loop.create_task(self.exchange._update_positions())
-        self.ev_loop.run_until_complete(task)
+        self.async_run_with_timeout(task)
 
         self.assertEqual(len(self.exchange.account_positions), 1)
         pos = list(self.exchange.account_positions.values())[0]
@@ -151,7 +151,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         req_mock.get(regex_url, body=json.dumps(positions))
 
         task = self.ev_loop.create_task(self.exchange._update_positions())
-        self.ev_loop.run_until_complete(task)
+        self.async_run_with_timeout(task)
 
         self.assertEqual(len(self.exchange.account_positions), 1)
         pos = list(self.exchange.account_positions.values())[0]
@@ -160,7 +160,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         positions[0]["positionAmt"] = "2"
         req_mock.get(regex_url, body=json.dumps(positions))
         task = self.ev_loop.create_task(self.exchange._update_positions())
-        self.ev_loop.run_until_complete(task)
+        self.async_run_with_timeout(task)
 
         pos = list(self.exchange.account_positions.values())[0]
         self.assertEqual(pos.amount, 2)
@@ -174,14 +174,14 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         req_mock.get(regex_url, body=json.dumps([]))
         task = self.ev_loop.create_task(self.exchange._update_positions())
-        self.ev_loop.run_until_complete(task)
+        self.async_run_with_timeout(task)
 
         self.assertEqual(len(self.exchange.account_positions), 0)
 
         positions = self._get_position_risk_api_endpoint_single_position_list()
         req_mock.get(regex_url, body=json.dumps(positions))
         task = self.ev_loop.create_task(self.exchange._update_positions())
-        self.ev_loop.run_until_complete(task)
+        self.async_run_with_timeout(task)
 
         self.assertEqual(len(self.exchange.account_positions), 1)
 
@@ -195,14 +195,14 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         positions = self._get_position_risk_api_endpoint_single_position_list()
         req_mock.get(regex_url, body=json.dumps(positions))
         task = self.ev_loop.create_task(self.exchange._update_positions())
-        self.ev_loop.run_until_complete(task)
+        self.async_run_with_timeout(task)
 
         self.assertEqual(len(self.exchange.account_positions), 1)
 
         positions[0]["positionAmt"] = "0"
         req_mock.get(regex_url, body=json.dumps(positions))
         task = self.ev_loop.create_task(self.exchange._update_positions())
-        self.ev_loop.run_until_complete(task)
+        self.async_run_with_timeout(task)
 
         self.assertEqual(len(self.exchange.account_positions), 0)
 
@@ -230,7 +230,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         mock_api.get(regex_url, body=json.dumps(positions))
 
         self.ev_loop.create_task(self.exchange._user_stream_event_listener())
-        asyncio.get_event_loop().run_until_complete(asyncio.sleep(1))
+        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         self.assertEqual(len(self.exchange.account_positions), 1)
 
@@ -245,7 +245,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         mock_api.get(regex_url, body=json.dumps(positions))
 
         task = self.ev_loop.create_task(self.exchange._update_positions())
-        self.ev_loop.run_until_complete(task)
+        self.async_run_with_timeout(task)
 
         url = utils.rest_url(CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -264,7 +264,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(account_update))
 
         self.ev_loop.create_task(self.exchange._user_stream_event_listener())
-        self.ev_loop.run_until_complete(asyncio.sleep(0.3))
+        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         self.assertEqual(len(self.exchange.account_positions), 1)
         pos = list(self.exchange.account_positions.values())[0]
@@ -281,7 +281,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         mock_api.get(regex_url, body=json.dumps(positions))
 
         task = self.ev_loop.create_task(self.exchange._update_positions())
-        self.ev_loop.run_until_complete(task)
+        self.async_run_with_timeout(task)
 
         url = utils.rest_url(CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -298,7 +298,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(account_update))
 
         self.ev_loop.create_task(self.exchange._user_stream_event_listener())
-        self.ev_loop.run_until_complete(asyncio.sleep(0.3))
+        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         self.assertEqual(len(self.exchange.account_positions), 0)
 
@@ -314,7 +314,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         mock_api.post(regex_url, body=json.dumps(post_position_mode_response))
 
         task = self.ev_loop.create_task(self.exchange._set_position_mode(PositionMode.HEDGE))
-        self.ev_loop.run_until_complete(task)
+        self.async_run_with_timeout(task)
 
         self.assertEqual(PositionMode.HEDGE, self.exchange.position_mode)
 
@@ -327,7 +327,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         mock_api.get(regex_url, body=json.dumps(get_position_mode_response))
         task = self.ev_loop.create_task(self.exchange._set_position_mode(PositionMode.ONEWAY))
-        self.ev_loop.run_until_complete(task)
+        self.async_run_with_timeout(task)
 
         self.assertEqual(PositionMode.ONEWAY, self.exchange.position_mode)
 
@@ -343,7 +343,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         mock_api.post(regex_url, body=json.dumps(post_position_mode_response))
 
         task = self.ev_loop.create_task(self.exchange._set_position_mode(PositionMode.HEDGE))
-        self.ev_loop.run_until_complete(task)
+        self.async_run_with_timeout(task)
 
         self.assertEqual(PositionMode.HEDGE, self.exchange.position_mode)
 
@@ -359,7 +359,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         mock_api.post(regex_url, body=json.dumps(post_position_mode_response))
 
         task = self.ev_loop.create_task(self.exchange._set_position_mode(PositionMode.HEDGE))
-        self.ev_loop.run_until_complete(task)
+        self.async_run_with_timeout(task)
 
         self.assertEqual(PositionMode.ONEWAY, self.exchange.position_mode)
 
@@ -368,7 +368,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         ws_connect_mock.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
-            self.ev_loop.run_until_complete(self.exchange._funding_info_polling_loop())
+            self.async_run_with_timeout(self.exchange._funding_info_polling_loop())
 
     @patch("aiohttp.ClientSession.ws_connect")
     def test_funding_info_polling_loop_cancelled_when_listening(self, ws_connect_mock):
@@ -377,7 +377,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         ws_connect_mock.return_value.receive_json.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
-            self.ev_loop.run_until_complete(self.exchange._funding_info_polling_loop())
+            self.async_run_with_timeout(self.exchange._funding_info_polling_loop())
 
     @patch("aiohttp.ClientSession.ws_connect")
     @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative.BinancePerpetualDerivative._sleep")
@@ -394,7 +394,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         self.test_task = self.ev_loop.create_task(self.exchange._funding_info_polling_loop())
 
-        self.async_run_with_timeout(self.resume_test_event.wait(), 1.0)
+        self.async_run_with_timeout(self.resume_test_event.wait())
 
         self.assertTrue(self._is_logged("ERROR",
                                         "Unexpected error updating funding info. Retrying after 10 seconds... "))
