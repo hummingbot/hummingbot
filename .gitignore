@@ -38,6 +38,7 @@ __pycache__
 /hummingbot/wallet/*.cpp
 /hummingbot/wallet/ethereum/*.c
 /hummingbot/wallet/ethereum/*.cpp
+/test/**/*.cpp
 /build
 
 # Local files
