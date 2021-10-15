@@ -53,9 +53,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     OPTION_LOG_STATUS_REPORT = 1 << 5
     OPTION_LOG_ALL = 0x7fffffffffffffff
 
-    # These are exchanges where you're expected to expire orders instead of actively cancelling them.
-    RADAR_RELAY_TYPE_EXCHANGES = {"radar_relay", "bamboo_relay"}
-
     @classmethod
     def logger(cls):
         global pmm_logger
@@ -1169,10 +1166,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     cdef c_cancel_active_orders(self, object proposal):
         if self._cancel_timestamp > self._current_timestamp:
             return
-        if not global_config_map.get("0x_active_cancels").value:
-            if ((self._market_info.market.name in self.RADAR_RELAY_TYPE_EXCHANGES) or
-                    (self._market_info.market.name == "bamboo_relay" and not self._market_info.market.use_coordinator)):
-                return
+
         cdef:
             list active_buy_prices = []
             list active_sells = []
@@ -1216,11 +1210,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
     cdef c_execute_orders_proposal(self, object proposal):
         cdef:
-            double expiration_seconds = (self._order_refresh_time
-                                         if ((self._market_info.market.name in self.RADAR_RELAY_TYPE_EXCHANGES) or
-                                             (self._market_info.market.name == "bamboo_relay" and
-                                              not self._market_info.market.use_coordinator))
-                                         else NaN)
+            double expiration_seconds = NaN
             str bid_order_id, ask_order_id
             bint orders_created = False
         # Number of pair of orders to track for hanging orders

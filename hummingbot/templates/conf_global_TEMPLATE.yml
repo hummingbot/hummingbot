@@ -6,8 +6,6 @@
 template_version: 26
 
 # Exchange configs
-bamboo_relay_use_coordinator: false
-bamboo_relay_pre_emptive_soft_cancels: false
 
 beaxy_api_key: null
 beaxy_secret_key: null
@@ -144,9 +142,6 @@ kill_switch_rate: null
 # What to auto-fill in the prompt after each import command (start/config)
 autofill_import: null
 
-# DEX active order cancellation
-0x_active_cancels: false
-
 # Paper Trading
 paper_trade_enabled: false
 paper_trade_account_balance:
@@ -178,7 +173,6 @@ logger_override_whitelist:
   - conf
 key_file_path: conf/
 log_file_path: logs/
-on_chain_cancel_on_exit: false
 
 # Advanced database options, currently supports SQLAlchemy's included dialects
 # Reference: https://docs.sqlalchemy.org/en/13/dialects/

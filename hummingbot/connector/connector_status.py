@@ -43,7 +43,6 @@ connector_status = {
 }
 
 warning_messages = {
-    'eterbase': 'Hack investigation and security audit is ongoing for Eterbase. Trading is currently disabled.'
 }
 
 
