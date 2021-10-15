@@ -957,7 +957,7 @@ cdef class PaperTradeExchange(ExchangeBase):
                                         object price=s_decimal_0):
         amount = Decimal('%.7g' % amount)  # hard code to round to 8 significant digits
         if amount <= 1e-7:
-            amount = 0
+            amount = Decimal("0")
         order_size_quantum = self.c_get_order_size_quantum(trading_pair, amount)
         return (amount // order_size_quantum) * order_size_quantum
 
