@@ -13,7 +13,7 @@ dependencies:
   - numpy-base=1.20.1
   - pandas=1.2.1
   - pip=21.1.2
-  - prompt_toolkit=3.0.3
+  - prompt_toolkit=3.0.20
   - pytables=3.6.1
   - python=3.8.2
   - python-dateutil=2.8.1
