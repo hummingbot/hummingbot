@@ -1,15 +1,17 @@
-import express from 'express';
-import { Express } from 'express-serve-static-core';
 import request from 'supertest';
-import { EthereumRoutes } from '../../../src/chains/ethereum/ethereum.routes';
+import { Ethereum } from '../../../src/chains/ethereum/ethereum';
 import { patch, unpatch } from '../../services/patch';
+import * as transactionOutOfGas from './fixtures/transaction-out-of-gas.json';
+import * as transactionOutOfGasReceipt from './fixtures/transaction-out-of-gas-receipt.json';
+import { app } from '../../../src/app';
+// import * as transactionSuccesful from './fixtures/transaction-succesful.json';
+// import * as transactionSuccesfulReceipt from './fixtures/transaction-succesful-receipt.json';
 
-let app: Express;
+let eth: Ethereum;
 
 beforeAll(async () => {
-  app = express();
-  app.use(express.json());
-  app.use('/eth', EthereumRoutes.router);
+  eth = Ethereum.getInstance();
+  await eth.init();
 });
 
 afterEach(() => {
@@ -27,7 +29,7 @@ describe('GET /eth', () => {
 });
 
 const patchGetWallet = () => {
-  patch(EthereumRoutes.ethereum, 'getWallet', () => {
+  patch(eth, 'getWallet', () => {
     return {
       address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     };
@@ -35,11 +37,11 @@ const patchGetWallet = () => {
 };
 
 const patchGetNonce = () => {
-  patch(EthereumRoutes.ethereum.nonceManager, 'getNonce', () => 2);
+  patch(eth.nonceManager, 'getNonce', () => 2);
 };
 
 const patchGetTokenBySymbol = () => {
-  patch(EthereumRoutes.ethereum, 'getTokenBySymbol', () => {
+  patch(eth, 'getTokenBySymbol', () => {
     return {
       chainId: 42,
       name: 'WETH',
@@ -51,7 +53,7 @@ const patchGetTokenBySymbol = () => {
 };
 
 const patchApproveERC20 = () => {
-  patch(EthereumRoutes.ethereum, 'approveERC20', () => {
+  patch(eth, 'approveERC20', () => {
     return {
       chainId: 42,
       name: 'WETH',
@@ -131,11 +133,11 @@ describe('POST /eth/approve', () => {
 describe('POST /eth/cancel', () => {
   it('should return 200', async () => {
     // override getWallet (network call)
-    EthereumRoutes.ethereum.getWallet = jest.fn().mockReturnValue({
+    eth.getWallet = jest.fn().mockReturnValue({
       address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     });
 
-    EthereumRoutes.ethereum.cancelTx = jest.fn().mockReturnValue({
+    eth.cancelTx = jest.fn().mockReturnValue({
       hash: '0xf6b9e7cec507cb3763a1179ff7e2a88c6008372e3a6f297d9027a0b39b0fff77',
     });
 
@@ -165,4 +167,70 @@ describe('POST /eth/cancel', () => {
       })
       .expect(404);
   });
+});
+
+const OUT_OF_GAS_ERROR_CODE = 1003;
+
+describe('POST /eth/poll', () => {
+  it('should get an OUT of GAS error for failed out of gas transactions', async () => {
+    patch(eth, 'getCurrentBlockNumber', () => 1);
+    patch(eth, 'getTransaction', () => transactionOutOfGas);
+    patch(eth, 'getTransactionReceipt', () => transactionOutOfGasReceipt);
+    const res = await request(app).post('/eth/poll').send({
+      txHash:
+        '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
+    });
+
+    // console.log(res);
+
+    expect(res.statusCode).toEqual(503);
+    expect(res.body.errorCode).toEqual(OUT_OF_GAS_ERROR_CODE);
+  });
+
+  // it('should get a null in txReceipt for Tx in the mempool', async () => {
+  //   patch(eth, 'getCurrentBlockNumber', () => 1);
+  //   patch(eth, 'getTransaction', () => transactionOutOfGas);
+  //   patch(eth, 'getTransactionReceipt', () => null);
+  //   const res = await request(app).post('/eth/poll').send({
+  //     txHash:
+  //       '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
+  //   });
+  //   expect(res.statusCode).toEqual(200);
+  //   expect(res.body.txReceipt).toEqual(null);
+  //   expect(res.body.txData).toBeDefined();
+  // });
+
+  // it('should get a null in txReceipt and txData for Tx that didnt reach the mempool and TxReceipt is null', async () => {
+  //   patch(eth, 'getCurrentBlockNumber', () => 1);
+  //   patch(eth, 'getTransaction', () => null);
+  //   patch(eth, 'getTransactionReceipt', () => null);
+  //   const res = await request(app).post('/eth/poll').send({
+  //     txHash:
+  //       '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
+  //   });
+  //   expect(res.statusCode).toEqual(200);
+  //   expect(res.body.txReceipt).toEqual(null);
+  //   expect(res.body.txData).toEqual(null);
+  // });
+
+  // it('should get txStatus = 1 for a succesful query', async () => {
+  //   patch(eth, 'getCurrentBlockNumber', () => 1);
+  //   patch(
+  //     eth,
+  //     'getTransaction',
+  //     () => transactionSuccesful
+  //   );
+  //   patch(
+  //     eth,
+  //     'getTransactionReceipt',
+  //     () => transactionSuccesfulReceipt
+  //   );
+  //   const res = await request(app).post('/eth/poll').send({
+  //     txHash:
+  //       '0x6d068067a5e5a0f08c6395b31938893d1cdad81f54a54456221ecd8c1941294d',
+  //   });
+  //   expect(res.statusCode).toEqual(200);
+  //   expect(res.body.txReceipt).toBeDefined();
+  //   expect(res.body.txData).toBeDefined();
+  // });
 });

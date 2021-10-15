@@ -242,8 +242,10 @@ export async function poll(
         if (txStatus === 0) {
           const gasUsed = BigNumber.from(txReceipt.gasUsed).toNumber();
           const gasLimit = BigNumber.from(txData.gasLimit).toNumber();
-          if (gasUsed / gasLimit > 0.9)
+          if (gasUsed / gasLimit > 0.9) {
+            console.log('outof gas');
             throw new GatewayError(503, 1003, 'Transaction out of gas.');
+          }
         }
       }
     }
@@ -258,14 +260,17 @@ export async function poll(
       txReceipt: toEthereumTransactionReceipt(txReceipt),
     };
   } catch (e) {
-    if ('code' in e && e.code === 'NETWORK_ERROR') {
+    if (e instanceof GatewayError) {
+      throw e;
+    } else if ('code' in e && e.code === 'NETWORK_ERROR') {
       throw new GatewayError(
         503,
         1001,
         'Network error. Please check your node URL, API key, and Internet connection.'
       );
+    } else {
+      throw new GatewayError(503, 1099, 'Unknown error.');
     }
-    throw new GatewayError(503, 1099, 'Unknown error.');
   }
 }
 
