@@ -1,7 +1,10 @@
+from datetime import datetime
+from dateutil import parser
+
 from hummingbot.core.event.events import TradeType
 from unittest.case import TestCase
 from hummingbot.connector.exchange.southxchange.southxchange_in_flight_order import SouthXchangeInFlightOrder
-
+from hummingbot.connector.exchange.southxchange.southxchange_utils import  time_to_num
 
 class TestSouthXchangeInFlightOrder(TestCase):
 
@@ -67,7 +70,7 @@ class TestSouthXchangeInFlightOrder(TestCase):
             "LimitPrice": 123,
             "ListingCurrency": "BTC2",
             "ReferenceCurrency": "USD2",
-            "Status": "Executed",
+            "Status": "executed",
             "DateAdded": "2021-07-29T15:26:42.120Z"
         }
 

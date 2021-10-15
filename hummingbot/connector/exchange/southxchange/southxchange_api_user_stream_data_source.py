@@ -5,14 +5,14 @@ import logging
 import websockets
 import aiohttp
 import ujson
+import json
 
 from typing import Optional, List, AsyncIterable, Any
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.southxchange.southxchange_auth import SouthXchangeAuth
-from hummingbot.connector.exchange.southxchange.southxchange_constants import REST_URL, PONG_PAYLOAD
-from hummingbot.connector.exchange.southxchange.southxchange_utils import get_ws_url_private
-
+from hummingbot.connector.exchange.southxchange.southxchange_constants import PRIVATE_WS_URL, PONG_PAYLOAD
+from hummingbot.connector.exchange.southxchange.southxchange_utils import get_market_id
 class SouthxchangeAPIUserStreamDataSource(UserStreamTrackerDataSource):
     MAX_RETRIES = 20
     MESSAGE_TIMEOUT = 10.0
@@ -33,6 +33,7 @@ class SouthxchangeAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._listen_for_user_stream_task = None
         self._last_recv_time: float = 0
         self._ws_client: websockets.WebSocketClientProtocol = None
+        self._idMarket = get_market_id(trading_pairs=trading_pairs)
         super().__init__()
 
     @property
@@ -48,20 +49,14 @@ class SouthxchangeAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
 
         while True:
+            tokenWS = self._southxchange__auth.get_websoxket_token()
             try:
-                response = await aiohttp.ClientSession().get(f"{REST_URL}/info", headers={
-                    **self._southxchange__auth.get_headers(),
-                    **self._southxchange__auth.get_auth_headers("info"),
-                })
-                info = await response.json()
-                accountGroup = info.get("data").get("accountGroup")
-                headers = self._southxchange__auth.get_auth_headers("stream")
                 payload = {
-                    "op": "sub",
-                    "ch": "order:cash"
+                    "k": "subscribe",
+                    "v": self._idMarket
                 }
 
-                async with websockets.connect(f"{get_ws_url_private(accountGroup)}/stream", extra_headers=headers) as ws:
+                async with websockets.connect(F"{PRIVATE_WS_URL}{tokenWS}") as ws:
                     try:
                         ws: websockets.WebSocketClientProtocol = ws
                         await ws.send(ujson.dumps(payload))
@@ -71,16 +66,15 @@ class SouthxchangeAPIUserStreamDataSource(UserStreamTrackerDataSource):
                                 msg = ujson.loads(raw_msg)
                                 if msg is None:
                                     continue
-
                                 output.put_nowait(msg)
-                            except Exception:
+                            except Exception  as e:
                                 self.logger().error(
-                                    "Unexpected error when parsing AscendEx message. ", exc_info=True
+                                    "Unexpected error when parsing SouthXchange message. ", exc_info=True
                                 )
                                 raise
                     except Exception:
                         self.logger().error(
-                            "Unexpected error while listening to AscendEx messages. ", exc_info=True
+                            "Unexpected error while listening to SouthXchange messages. ", exc_info=True
                         )
                         raise
                     finally:
@@ -89,9 +83,9 @@ class SouthxchangeAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 raise
             except Exception:
                 self.logger().error(
-                    "Unexpected error with AscendEx WebSocket connection. " "Retrying after 30 seconds...", exc_info=True
+                    "Unexpected error with SouthXchange WebSocket connection. " "Retrying after 30 seconds...", exc_info=True
                 )
-                await asyncio.sleep(30.0)
+                await asyncio.sleep(60.0)
 
     async def _inner_messages(
         self,
