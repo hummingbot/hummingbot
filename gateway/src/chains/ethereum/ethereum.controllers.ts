@@ -270,7 +270,7 @@ export async function poll(
       txData,
       txReceipt: toEthereumTransactionReceipt(txReceipt),
     };
-  } catch (e) {
+  } catch (e: any) {
     if (e instanceof GatewayError) {
       throw e;
     } else if ('code' in e && e.code === 'NETWORK_ERROR') {
