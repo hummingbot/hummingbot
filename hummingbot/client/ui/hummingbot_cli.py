@@ -48,7 +48,7 @@ class HummingbotCLI:
         self.timer = create_timer()
         self.process_usage = create_process_monitor()
         self.trade_monitor = create_trade_monitor()
-        self.layout, self.layout_components = generate_layout(self.input_field, self.output_field, self.log_field, self.search_field, self.timer, self.process_usage, self.trade_monitor)
+        self.layout, self.layout_components = generate_layout(self.input_field, self.output_field, self.log_field, self.log_toggle, self.search_field, self.timer, self.process_usage, self.trade_monitor)
         # add self.to_stop_config to know if cancel is triggered
         self.to_stop_config: bool = False
 
@@ -139,10 +139,10 @@ class HummingbotCLI:
     def toggle_logs(self):
         if self.layout_components["pane_right"].width is None:
             self.layout_components["pane_right"].width = 0
-            self.log_toggle.text = '< log pane'
+            self.layout_components["item_top_toggle"].text = '< log pane'
         else:
             self.layout_components["pane_right"].width = None
-            self.log_toggle.text = '> log pane'
+            self.layout_components["item_top_toggle"].text = '> log pane'
 
     def exit(self):
         self.app.exit()

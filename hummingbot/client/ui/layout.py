@@ -227,10 +227,12 @@ def generate_layout(input_field: TextArea,
     # Window(FormattedTextControl(get_active_markets), style="class:header"),
     # Window(FormattedTextControl(get_script_file), style="class:header"),
     components["item_top_file"] = Window(FormattedTextControl(get_strategy_file), style="class:header")
+    components["item_top_toggle"] = log_toggle
     components["pane_top"] = VSplit([components["item_top_version"],
                                      components["item_top_paper"],
                                      components["item_top_active"],
-                                     components["item_top_file"]], height=1)
+                                     components["item_top_file"],
+                                     components["item_top_toggle"]], height=1)
     components["pane_bottom"] = VSplit([trade_monitor,
                                         process_monitor,
                                         timer], height=1)
