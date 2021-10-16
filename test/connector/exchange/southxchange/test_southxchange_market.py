@@ -701,7 +701,8 @@ class TestSouthXchangeExchange(unittest.TestCase):
 
             recorder.stop()
             os.unlink(self.db_path)
-
+            
+    def test_buy_and_sell(self):
         trading_pair: str = "LTC2-USD2"
         quote_token: str = "USD2"
         base_token: str = "LTC2"
