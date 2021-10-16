@@ -1,10 +1,10 @@
 ## Binary (Mac/Win)
 
-To update Hummingbot, uninstall Hummingbot locally from your computer, then download and install the latest version from the website https://hummingbot.io/download/
+To update Hummingbot, uninstall Hummingbot locally from your computer, then download and install the latest version from the website https://docs.hummingbot.io/installation/
 
 Users can revert and update Hummingbot installed via Binary by following the steps below:
 
-To install a previous Hummingbot version via binary, download the installer from https://hummingbot.io/download/ in the previous client section
+To install a previous Hummingbot version via binary, download the installer from https://docs.hummingbot.io/installation/ in the previous client section
 
 ![](/assets/img/installer.png)
 
