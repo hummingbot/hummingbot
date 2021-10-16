@@ -1,1 +1,0 @@
-{"crypto": {"cipher": "aes-128-ctr", "cipherparams": {"iv": "01d4777bb20c24b7c267aa361fc07607"}, "ciphertext": "0cac673bd2edd299082e2650d94821c44dd3", "kdf": "pbkdf2", "kdfparams": {"c": 1000000, "dklen": 32, "prf": "hmac-sha256", "salt": "9e01774d11f5e45a520456eb19f55594"}, "mac": "4af3658f7ff05baf540a748694bdee2c219e76dfa8640e8f291b17d156b62063"}, "version": 3}
