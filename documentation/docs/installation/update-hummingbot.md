@@ -60,6 +60,26 @@ Updating to the latest docker image (e.g. `coinalpha/hummingbot:latest`)
     ```
 A previous version (i.e. `version-0.30.0`) can be installed when creating a Hummingbot instance.
 
+## Raspberry Pi
+
+Users have been experiencing problems with updating Hummingbot on a Docker build. The command `./update.sh` doesn't work on Raspberry Pi. 
+
+Instead, you need to run `./create.sh` to create a new instance with the latest version.
+
+=== "Manual"
+
+    ```bash
+    # 1) Create a new Hummingbot instance
+    `./create.sh`
+
+    # 2) Pull Hummingbot ARM image when asked what version to use
+    Enter Hummingbot version [ latest/development ] ( default = 'latest' )
+    >> version-0.44.0-arm_beta 
+    ```
+!!! Note
+    The latest ARM version of Hummingbot can be found here (filter list by "arm") - https://hub.docker.com/r/coinalpha/hummingbot/tags?page=1&ordering=last_updated&name=arm
+
+
 ## Source
 
 The Hummingbot codebase is hosted at https://github.com/coinalpha/hummingbot.
