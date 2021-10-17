@@ -70,7 +70,7 @@ Instead, you need to run `./create.sh` to create a new instance with the latest 
 
     ```bash
     # 1) Create a new Hummingbot instance
-    `./create.sh`
+    ./create.sh
 
     # 2) Pull Hummingbot ARM image when asked what version to use
     Enter Hummingbot version [ latest/development ] ( default = 'latest' )
