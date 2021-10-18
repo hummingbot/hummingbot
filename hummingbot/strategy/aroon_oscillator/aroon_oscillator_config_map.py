@@ -13,11 +13,7 @@ from hummingbot.client.settings import (
     EXAMPLE_PAIRS,
 )
 from hummingbot.client.config.global_config_map import (
-    using_bamboo_coordinator_mode,
     using_exchange
-)
-from hummingbot.client.config.config_helpers import (
-    minimum_order_amount,
 )
 from typing import Optional
 
@@ -36,11 +32,9 @@ def validate_exchange_trading_pair(value: str) -> Optional[str]:
 
 
 async def order_amount_prompt() -> str:
-    exchange = aroon_oscillator_config_map["exchange"].value
     trading_pair = aroon_oscillator_config_map["market"].value
     base_asset, quote_asset = trading_pair.split("-")
-    min_amount = await minimum_order_amount(exchange, trading_pair)
-    return f"What is the amount of {base_asset} per order? (minimum {min_amount}) >>> "
+    return f"What is the amount of {base_asset} per order? >>> "
 
 
 def validate_price_floor_ceiling(value: str) -> Optional[str]:
@@ -140,7 +134,7 @@ aroon_oscillator_config_map = {
                   prompt="How often do you want to cancel and replace bids and asks "
                          "(in seconds)? >>> ",
                   required_if=lambda: not (using_exchange("radar_relay")() or
-                                           (using_exchange("bamboo_relay")() and not using_bamboo_coordinator_mode())),
+                                           (using_exchange("bamboo_relay")())),
                   type_str="float",
                   validator=lambda v: validate_decimal(v, 0, inclusive=False),
                   prompt_on_new=True),
@@ -149,7 +143,7 @@ aroon_oscillator_config_map = {
                   prompt="How long do you want to cancel and replace bids and asks "
                          "with the same price (in seconds)? >>> ",
                   required_if=lambda: not (using_exchange("radar_relay")() or
-                                           (using_exchange("bamboo_relay")() and not using_bamboo_coordinator_mode())),
+                                           (using_exchange("bamboo_relay")())),
                   type_str="float",
                   default=Decimal("1800"),
                   validator=lambda v: validate_decimal(v, 0, inclusive=False)),
