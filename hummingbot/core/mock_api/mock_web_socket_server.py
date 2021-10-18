@@ -91,7 +91,7 @@ class MockWebSocketServerFactory:
         if ws_server is None:
             return MockWebSocketServerFactory._orig_ws_connect(url, **kwargs)
         kwargs.clear()
-        return MockWebSocketServerFactory._orig_ws_connect(f"http://{ws_server.host}:{ws_server.port}", **kwargs)
+        return MockWebSocketServerFactory._orig_ws_connect(f"ws://{ws_server.host}:{ws_server.port}", **kwargs)
 
     @staticmethod
     async def send_str(url, message, delay=0):
