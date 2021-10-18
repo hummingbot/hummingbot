@@ -70,7 +70,7 @@ export namespace ConfigManager {
   // after reloading the config, all services should be restarted, the dev is
   // responsible for making sure that this is true.
   export function reloadConfig(): void {
-    let x = yaml.load(fs.readFileSync(configFilePath, 'utf8'));
+    const x = yaml.load(fs.readFileSync(configFilePath, 'utf8'));
     if (typeof x === 'object' && validateConfig(x)) {
       config = x;
     } else {

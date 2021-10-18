@@ -26,9 +26,12 @@ app.get('/', (_req: Request, res: Response) => {
   res.status(200).json({ message: 'ok' });
 });
 
-app.get('/config', (_req: Request, res: Response<ConfigManager.Config, {}>) => {
-  res.status(200).json(ConfigManager.config);
-});
+app.get(
+  '/config',
+  (_req: Request, res: Response<ConfigManager.Config, any>) => {
+    res.status(200).json(ConfigManager.config);
+  }
+);
 
 interface ConfigUpdateRequest {
   APPNAME?: string;
@@ -52,8 +55,11 @@ interface ConfigUpdateRequest {
 app.post(
   '/config/update',
   asyncHandler(
-    async (req: Request<{}, {}, ConfigUpdateRequest>, res: Response) => {
-      let config = ConfigManager.config;
+    async (
+      req: Request<unknown, unknown, ConfigUpdateRequest>,
+      res: Response
+    ) => {
+      const config = ConfigManager.config;
 
       for (const [k, v] of Object.entries(req.body)) {
         // this prevents the client from accidentally turning off HTTPS
