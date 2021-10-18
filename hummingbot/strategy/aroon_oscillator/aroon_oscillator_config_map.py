@@ -43,17 +43,6 @@ async def order_amount_prompt() -> str:
     return f"What is the amount of {base_asset} per order? (minimum {min_amount}) >>> "
 
 
-async def validate_order_amount(value: str) -> Optional[str]:
-    try:
-        exchange = aroon_oscillator_config_map["exchange"].value
-        trading_pair = aroon_oscillator_config_map["market"].value
-        min_amount = await minimum_order_amount(exchange, trading_pair)
-        if Decimal(value) < min_amount:
-            return f"Order amount must be at least {min_amount}."
-    except Exception:
-        return "Invalid order amount."
-
-
 def validate_price_floor_ceiling(value: str) -> Optional[str]:
     try:
         decimal_value = Decimal(value)
@@ -182,7 +171,7 @@ aroon_oscillator_config_map = {
         ConfigVar(key="order_amount",
                   prompt=order_amount_prompt,
                   type_str="decimal",
-                  validator=validate_order_amount,
+                  validator=lambda v: validate_decimal(v, min_value=Decimal("0"), inclusive=False),
                   prompt_on_new=True),
     "price_ceiling":
         ConfigVar(key="price_ceiling",
