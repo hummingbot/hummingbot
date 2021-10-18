@@ -86,6 +86,7 @@ def main():
         "hummingbot.strategy.cross_exchange_market_making",
         "hummingbot.strategy.pure_market_making",
         "hummingbot.strategy.perpetual_market_making",
+        "hummingbot.strategy.aroon_oscillator",
         "hummingbot.strategy.avellaneda_market_making",
         "hummingbot.strategy.hedge",
         "hummingbot.strategy.__utils__",
