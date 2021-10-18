@@ -44,12 +44,12 @@ describe('unitiated EVMNodeService', () => {
 
 describe('EVMNodeService', () => {
   let nonceManager: EVMNonceManager;
-  beforeAll(() => {
+  beforeAll(async () => {
     nonceManager = EVMNonceManager.getInstance();
     const provider = new providers.StaticJsonRpcProvider(
       'https://ethereum.node.com'
     );
-    nonceManager.init(provider, 0);
+    await nonceManager.init(provider, 0, 43);
   });
 
   const patchGetTransactionCount = () => {
