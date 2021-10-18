@@ -1,8 +1,9 @@
 import { Request, RequestHandler, Response, NextFunction } from 'express';
 
 export interface NodeError extends Error {
-  code: string;
-  reason: string;
+  code: string | number;
+  reason?: string;
+  data?: any;
 }
 
 // custom error for http exceptions

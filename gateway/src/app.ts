@@ -109,14 +109,35 @@ app.use(
     if (err instanceof GatewayError) {
       httpErrorCode = err.httpErrorCode;
       response.errorCode = err.errorCode;
-    }
-    if ('reason' in err) {
-      // error is from ethers library
+    } else if ('code' in err) {
       httpErrorCode = 503;
-      const nodeErrorCodes = ['NETWORK_ERROR', 'SERVER_ERROR', 'TIMEOUT'];
-      response.errorCode = nodeErrorCodes.includes(err.code) ? 1001 : 1099;
-      response.message = err.reason;
+
+      switch (typeof err.code) {
+        case 'string':
+          // error is from ethers library
+          response.errorCode = [
+            'NETWORK_ERROR',
+            'SERVER_ERROR',
+            'TIMEOUT',
+          ].includes(err.code)
+            ? 1001
+            : 1099;
+          response.message = err.reason;
+          break;
+
+        case 'number':
+          // error is from provider
+          response.errorCode = 1002;
+          response.providerErrCode = err.code;
+          response.data = err.data;
+          break;
+
+        default:
+          response.errorCode = 1099;
+          break;
+      }
     }
+
     logger.error(response.message + response.stack);
     return res.status(httpErrorCode).json(response);
   }
