@@ -121,6 +121,7 @@ class AscendExExchange(ExchangePyBase):
         self._order_not_found_records = {}  # Dict[client_order_id:str, count:int]
         self._trading_rules = {}  # Dict[trading_pair:str, AscendExTradingRule]
         self._status_polling_task = None
+        self._user_stream_tracker_task = None
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
         self._last_poll_timestamp = 0
