@@ -260,23 +260,27 @@ cdef class PeatioExchange(ExchangeBase):
         if is_auth_required:
             headers = self._peatio_auth.add_auth_data(headers=headers, is_ws=False)
 
-        if not data:
-            response = await client.request(
-                method=method.upper(),
-                url=url,
-                headers=headers,
-                params=params,
-                timeout=self.API_CALL_TIMEOUT
-            )
-        else:
-            response = await client.request(
-                method=method.upper(),
-                url=url,
-                headers=headers,
-                params=params,
-                data=ujson.dumps(data),
-                timeout=self.API_CALL_TIMEOUT
-            )
+        try:
+            if not data:
+                response = await client.request(
+                    method=method.upper(),
+                    url=url,
+                    headers=headers,
+                    params=params,
+                    timeout=self.API_CALL_TIMEOUT
+                )
+            else:
+                response = await client.request(
+                    method=method.upper(),
+                    url=url,
+                    headers=headers,
+                    params=params,
+                    data=ujson.dumps(data),
+                    timeout=self.API_CALL_TIMEOUT
+                )
+        except Exception as e:
+            self._shared_client = None
+            raise e
 
         if response.status not in [200, 201]:
             raw_text = await response.text()
