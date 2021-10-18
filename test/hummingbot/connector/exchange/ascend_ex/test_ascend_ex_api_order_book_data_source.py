@@ -231,9 +231,9 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
 
     @patch("aiohttp.client.ClientSession.ws_connect")
     def test_subscribe_to_order_book_streams_raises_exception(self, ws_connect_mock):
-        ws_connect_mock.side_effect = Exception("TEST ERRROR")
+        ws_connect_mock.side_effect = Exception("TEST ERROR")
 
-        with self.assertRaises(Exception):
+        with self.assertRaisesRegex(Exception, "TEST ERROR"):
             self.async_run_with_timeout(self.data_source._subscribe_to_order_book_streams())
 
         self.assertTrue(
@@ -287,7 +287,7 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
             self.async_run_with_timeout(self.data_source.listen_for_subscriptions())
 
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
-    @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
+    @patch("hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source.AscendExAPIOrderBookDataSource._sleep")
     def test_listen_for_subscription_logs_exception(self, _, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         ws_connect_mock.return_value.receive.side_effect = lambda: self._create_exception_and_unlock_test_with_event(
@@ -372,7 +372,7 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
             self.ev_loop.run_until_complete(self.listening_task)
 
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
-    @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
+    @patch("hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source.AscendExAPIOrderBookDataSource._sleep")
     def test_listen_for_order_book_diff_logs_exception_parsing_message(self, _, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         # Add incomplete diff event message be processed
@@ -441,7 +441,7 @@ class AscendExAPIOrderBookDataSourceTests(TestCase):
             self.ev_loop.run_until_complete(self.listening_task)
 
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
-    @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
+    @patch("hummingbot.connector.exchange.ascend_ex.ascend_ex_api_order_book_data_source.AscendExAPIOrderBookDataSource._sleep")
     def test_listen_for_trades_logs_exception_parsing_message(self, _, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         # Add incomplete diff event message be processed
