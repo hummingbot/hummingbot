@@ -38,23 +38,11 @@ class Fixturesouthxchange:
     OPEN_ORDERS_BUY = {"Type":"buy","Amount":1.0,"OriginalAmount":1.0,"LimitPrice":84.24,"ListingCurrency":"LTC2","ReferenceCurrency":"USD2"}
     OPEN_ORDERS_SELL = {"Type":"sell","Amount":1.0,"OriginalAmount":1.0,"LimitPrice":102.96,"ListingCurrency":"LTC2","ReferenceCurrency":"USD2"}
     OPEN_ORDERS = []
-
     
-    # OPEN_ORDERS = [{"Code":"50000","Type":"buy","Amount":1.0,"LimitPrice":84.24,"ListingCurrency":"LTC2","ReferenceCurrency":"USD2","Status":"cancelednotexecuted","DateAdded":"2021-10-08T13:21:27.22"},
-    #     {"Code":"50001","Type":"sell","Amount":1.0,"LimitPrice":102.96,"ListingCurrency":"LTC2","ReferenceCurrency":"USD2","Status":"cancelednotexecuted","DateAdded":"2021-10-08T13:21:27.22"}]
-
     WS_AFTER_BUY = {
     "k": "order",
     "v": [
         {
-            # "c": "250039",
-            # "m": "3",
-            # "d": "2021-10-10T12:32:29.297",
-            # "get": "LTC2",
-            # "giv": "USD2",
-            # "a": "0.500000000000000000",
-            # "oa": "1.000000000000000000",
-            # "p": "86.240000000000000000",
             "m": 0,
             "d": "0001-01-01T00:00:00",
             "get": None,
