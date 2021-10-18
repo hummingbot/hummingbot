@@ -35,7 +35,7 @@ export const isPublicKey = (str: string): boolean => {
 
 // test if a string matches the shape of an Ethereum private key
 export const isPrivateKey = (str: string): boolean => {
-  return /^[a-fA-F0-9]{64}$/.test(str);
+  return /^(0x)?[a-fA-F0-9]{64}$/.test(str);
 };
 
 // given a request, look for a key called privateKey that is an Ethereum private key
@@ -89,7 +89,7 @@ export const validateAmount: Validator = mkValidator(
 export const validateNonce: Validator = mkValidator(
   'nonce',
   invalidNonceError,
-  (val) => typeof val === 'number' && val > -1,
+  (val) => typeof val === 'number' && val >= 0 && Number.isInteger(val),
   true
 );
 

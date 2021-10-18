@@ -23,7 +23,7 @@ app.use('/eth/uniswap', UniswapRoutes.router);
 
 // a simple route to test that the server is running
 app.get('/', (_req: Request, res: Response) => {
-  res.status(200).json({ message: 'ok' });
+  res.status(200).json({ status: 'ok' });
 });
 
 app.get(

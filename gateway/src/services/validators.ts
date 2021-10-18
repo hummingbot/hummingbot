@@ -30,7 +30,7 @@ export const throwIfErrorsExist = (errors: Array<string>): void => {
 };
 
 export const missingParameter = (key: string): string => {
-  return `The request is missing the private key: ${key}`;
+  return `The request is missing the key: ${key}`;
 };
 
 export type Validator = (req: any) => Array<string>;
@@ -44,10 +44,9 @@ export const mkValidator = (
   optional: boolean = false
 ): Validator => {
   return (req: any) => {
-    let errors: Array<string> = [];
+    const errors: Array<string> = [];
     if (req[key]) {
-      if (condition(req[key])) {
-      } else {
+      if (!condition(req[key])) {
         errors.push(errorMsg);
       }
     } else {
