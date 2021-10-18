@@ -1,5 +1,6 @@
 import { Request, RequestHandler, Response, NextFunction } from 'express';
 
+// error origination from ethers library when interracting with node
 export interface NodeError extends Error {
   code: string | number;
   reason?: string;
@@ -10,22 +11,12 @@ export interface NodeError extends Error {
 export class HttpException extends Error {
   status: number;
   message: string;
-  constructor(status: number, message: string) {
+  errorCode: number;
+  constructor(status: number, message: string, errorCode: number = -1) {
     super(message);
     this.status = status;
     this.message = message;
-  }
-}
-
-export class GatewayError extends Error {
-  message: string;
-  errorCode: number;
-  httpErrorCode: number;
-  constructor(httpErrorCode: number, errorCode: number, message: string) {
-    super(message);
-    this.httpErrorCode = httpErrorCode;
     this.errorCode = errorCode;
-    this.message = message;
   }
 }
 

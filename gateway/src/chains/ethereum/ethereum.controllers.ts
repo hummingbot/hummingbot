@@ -2,7 +2,7 @@ import { Ethereum } from './ethereum';
 import ethers, { constants, Wallet, utils, BigNumber } from 'ethers';
 import { ConfigManager } from '../../services/config-manager';
 import { latency, bigNumberWithDecimalToStr } from '../../services/base';
-import { GatewayError, HttpException } from '../../services/error-handler';
+import { HttpException } from '../../services/error-handler';
 import { UniswapConfig } from './uniswap/uniswap.config';
 import { tokenValueToString } from '../../services/base';
 import { Token } from '../../services/ethereum-base';
@@ -238,7 +238,7 @@ export async function poll(
         const gasUsed = BigNumber.from(txReceipt.gasUsed).toNumber();
         const gasLimit = BigNumber.from(txData.gasLimit).toNumber();
         if (gasUsed / gasLimit > 0.9)
-          throw new GatewayError(503, 1003, 'Transaction out of gas.');
+          throw new HttpException(503, 'Transaction out of gas.', 1003);
       }
     }
   }
