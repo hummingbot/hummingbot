@@ -349,10 +349,9 @@ cdef class SelfTradeStrategy(StrategyBase):
                                                             order_type=OrderType.LIMIT,
                                                             price=quantized_price)
                 self.logger().info("Limit sell order has been placed")
-
-            self._time_to_cancel[order_id] = self._current_timestamp + self._cancel_order_wait_time
         else:
             self.logger().info(f"Not enough balance to run the strategy. Please check balances and try again.")
+        return order_id
 
     cdef c_has_enough_balance(self, object market_info, is_buy: bool, order_price: Decimal, order_amount: Decimal):
         """
@@ -450,8 +449,16 @@ cdef class SelfTradeStrategy(StrategyBase):
 
                 if all(map(lambda x: x.check(amount=amount), self._trade_bands[trading_pair])):
                     price: Decimal = self.get_price(maker_market=maker_market, trading_pair=trading_pair)
-                    self.c_place_orders(market_info, is_buy=True, order_price=price, order_amount=amount)
-                    self.c_place_orders(market_info, is_buy=False, order_price=price, order_amount=amount)
+                    is_buy = bool(random.randint(0, 1))
+                    first_order_id = self.c_place_orders(market_info, is_buy=is_buy, order_price=price, order_amount=amount)
+                    if first_order_id is not None:
+                        self._time_to_cancel[first_order_id] = self._current_timestamp + self._cancel_order_wait_time
+                        second_order_id = self.c_place_orders(market_info, is_buy=not is_buy, order_price=price, order_amount=amount)
+                        if second_order_id is not None:
+                            self._time_to_cancel[second_order_id] = self._current_timestamp + self._cancel_order_wait_time
+                        else:
+                            self._time_to_cancel[first_order_id] = self._current_timestamp
+
                     self._last_trade_timestamp[trading_pair] = self._current_timestamp
                     list(map(lambda x: x.create_trade(amount=amount), self._trade_bands[trading_pair]))
                 else:
