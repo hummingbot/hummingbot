@@ -432,25 +432,31 @@ cdef class PeatioExchange(ExchangeBase):
     async def update_tracked_order(self, order_obj: dict, tracked_order: PeatioInFlightOrder, exch_order_id):
         order_state = order_obj["state"]
         # possible order states are "wait", "done", "cancel", "rejected", "reject"
-
+        self.logger().info(f"update_tracked_order --- 0;\n order_state: {order_state},"
+                           f" order_id: {tracked_order.client_order_id}, exchange_order_id: {exch_order_id}")
+        self.logger().debug(f"update_tracked_order --- 0;\n order_state: {order_state}")
         if order_state not in ["wait", "done", "cancel", "rejected", "reject"]:
-            self.logger().debug(f"Unrecognized order update response - {order_obj}")
+            self.logger().warning(f"Unrecognized order update response - {order_obj}")
 
         # Calculate the newly executed amount for this update.
         tracked_order.last_state = order_state
         new_confirmed_amount = Decimal(order_obj["remaining_volume"])
         execute_amount_diff = Decimal(order_obj["executed_volume"]) - tracked_order.executed_amount_base
+        self.logger().debug(f"update_tracked_order --- 1;\n execute_amount_diff: {execute_amount_diff} new_confirmed_amount: {new_confirmed_amount}")
 
         if execute_amount_diff > s_decimal_0:
             tracked_order.fee_paid = Decimal(order_obj.get("maker_fee", 0))
+            self.logger().debug(f"update_tracked_order --- 2;\n fee_paid: {tracked_order.fee_paid}")
 
             for trade in order_obj.get('trades', []):
                 if trade["id"] in tracked_order.trade_ids:
                     continue
+                self.logger().debug(f"update_tracked_order --- 3;\n executed_amount_base: {tracked_order.executed_amount_base}, executed_amount_quote: {tracked_order.executed_amount_quote}")
                 tracked_order.executed_amount_base += Decimal(trade.get("amount", 0))
                 tracked_order.executed_amount_quote += Decimal(trade.get("total", 0))
 
                 price = Decimal(trade.get("price", 0))
+                self.logger().debug(f"update_tracked_order --- 4;\n price: {price}")
                 order_filled_event = OrderFilledEvent(
                     timestamp=self._current_timestamp,
                     order_id=tracked_order.client_order_id,
@@ -469,64 +475,62 @@ cdef class PeatioExchange(ExchangeBase):
                     ),
                     exchange_trade_id=exch_order_id
                 )
+                self.logger().debug(f"update_tracked_order --- 5;\n price: {price}")
                 self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
                                    f"order {tracked_order.client_order_id}.")
                 self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
                 tracked_order.trade_ids.add(trade["id"])
 
         if tracked_order.is_open:
+            self.logger().debug(f"update_tracked_order --- 6;\n is_open: {tracked_order.is_open}")
             return tracked_order
 
         if tracked_order.is_done:
-            if not tracked_order.is_cancelled:  # Handles "filled" order
-                self.c_stop_tracking_order(tracked_order.client_order_id)
-                if tracked_order.trade_type is TradeType.BUY:
-                    self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
-                                       f"according to order status API.")
-                    self.c_trigger_event(
-                        self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
-                        BuyOrderCompletedEvent(
-                            timestamp=self._current_timestamp,
-                            order_id=tracked_order.client_order_id,
-                            base_asset=tracked_order.base_asset,
-                            quote_asset=tracked_order.quote_asset,
-                            fee_asset=tracked_order.fee_asset or tracked_order.base_asset,
-                            base_asset_amount=tracked_order.executed_amount_base,
-                            quote_asset_amount=tracked_order.executed_amount_quote,
-                            fee_amount=tracked_order.fee_paid,
-                            order_type=tracked_order.order_type,
-                            exchange_order_id=exch_order_id
-                        )
+            self.logger().warning(f"update_tracked_order --- 7;\n is_done: {tracked_order.is_done}")
+            self.c_stop_tracking_order(tracked_order.client_order_id)
+            if tracked_order.trade_type is TradeType.BUY:
+                self.logger().warning(f"update_tracked_order --- 8;")
+                self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
+                                   f"according to order status API.")
+                self.c_trigger_event(
+                    self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
+                    BuyOrderCompletedEvent(
+                        timestamp=self._current_timestamp,
+                        order_id=tracked_order.client_order_id,
+                        base_asset=tracked_order.base_asset,
+                        quote_asset=tracked_order.quote_asset,
+                        fee_asset=tracked_order.fee_asset or tracked_order.base_asset,
+                        base_asset_amount=tracked_order.executed_amount_base,
+                        quote_asset_amount=tracked_order.executed_amount_quote,
+                        fee_amount=tracked_order.fee_paid,
+                        order_type=tracked_order.order_type,
+                        exchange_order_id=exch_order_id
                     )
-                else:
-                    self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
-                                       f"according to order status API.")
-                    self.c_trigger_event(
-                        self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
-                        SellOrderCompletedEvent(
-                            timestamp=self._current_timestamp,
-                            order_id=tracked_order.client_order_id,
-                            base_asset=tracked_order.base_asset,
-                            quote_asset=tracked_order.quote_asset,
-                            fee_asset=tracked_order.fee_asset or tracked_order.quote_asset,
-                            base_asset_amount=tracked_order.executed_amount_base,
-                            quote_asset_amount=tracked_order.executed_amount_quote,
-                            fee_amount=tracked_order.fee_paid,
-                            order_type=tracked_order.order_type,
-                            exchange_order_id=exch_order_id
-                        )
+                )
+            else:
+                self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
+                                   f"according to order status API.")
+                self.logger().warning(f"update_tracked_order --- 9;")
+                self.c_trigger_event(
+                    self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
+                    SellOrderCompletedEvent(
+                        timestamp=self._current_timestamp,
+                        order_id=tracked_order.client_order_id,
+                        base_asset=tracked_order.base_asset,
+                        quote_asset=tracked_order.quote_asset,
+                        fee_asset=tracked_order.fee_asset or tracked_order.quote_asset,
+                        base_asset_amount=tracked_order.executed_amount_base,
+                        quote_asset_amount=tracked_order.executed_amount_quote,
+                        fee_amount=tracked_order.fee_paid,
+                        order_type=tracked_order.order_type,
+                        exchange_order_id=exch_order_id
                     )
-            else:  # Handles "canceled" or "partial-canceled" order
-                self.c_stop_tracking_order(tracked_order.client_order_id)
-                self.logger().info(f"The market order {tracked_order.client_order_id} "
-                                   f"has been cancelled according to order status API.")
-                self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                     OrderCancelledEvent(self._current_timestamp,
-                                                         tracked_order.client_order_id))
+                )
 
         if tracked_order.is_cancelled:
             self.logger().info(f"The order {tracked_order.client_order_id} has been cancelled "
                                f"according to order delta websocket API.")
+            self.logger().debug(f"update_tracked_order --- 10;")
             self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                  OrderCancelledEvent(
                                      timestamp=self._current_timestamp,
@@ -538,6 +542,7 @@ cdef class PeatioExchange(ExchangeBase):
         if tracked_order.is_failure:
             self.logger().info(f"The order {tracked_order.client_order_id} has been rejected "
                                f"according to order delta websocket API.")
+            self.logger().debug(f"update_tracked_order --- 11;")
             self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
                                  MarketOrderFailureEvent(
                                      timestamp=self._current_timestamp,
@@ -561,18 +566,18 @@ cdef class PeatioExchange(ExchangeBase):
                 try:
                     order_update = await self.get_order_status(exchange_order_id)
                 except PeatioAPIError as e:
-                    err_code = e.error_payload.get("error").get("err-code")
-                    self.c_stop_tracking_order(tracked_order.client_order_id)
+                    errors = e.error_payload.get("errors")
+                    # self.c_stop_tracking_order(tracked_order.client_order_id)
                     self.logger().info(
-                        f"Fail to retrieve order update for {tracked_order.client_order_id} - {err_code}")
-                    self.c_trigger_event(
-                        self.MARKET_ORDER_FAILURE_EVENT_TAG,
-                        MarketOrderFailureEvent(
-                            self._current_timestamp,
-                            tracked_order.client_order_id,
-                            tracked_order.order_type
-                        )
-                    )
+                        f"Fail to retrieve order update for {tracked_order.client_order_id} - {errors}")
+                    # self.c_trigger_event(
+                    #     self.MARKET_ORDER_FAILURE_EVENT_TAG,
+                    #     MarketOrderFailureEvent(
+                    #         self._current_timestamp,
+                    #         tracked_order.client_order_id,
+                    #         tracked_order.order_type
+                    #     )
+                    # )
                     continue
 
                 if order_update is None:
