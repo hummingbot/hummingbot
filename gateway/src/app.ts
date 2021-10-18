@@ -8,7 +8,7 @@ import { logger, updateLoggerToStdout } from './services/logger';
 import { addHttps } from './https';
 import {
   asyncHandler,
-  GatewayError,
+  HttpException,
   NodeError,
 } from './services/error-handler';
 
@@ -96,7 +96,7 @@ app.post(
 // handle any error thrown in the gateway api route
 app.use(
   (
-    err: Error | GatewayError | NodeError,
+    err: Error | NodeError | HttpException,
     _req: Request,
     res: Response,
     _next: NextFunction
@@ -106,8 +106,8 @@ app.use(
     };
     if (err.stack) response.stack = err.stack;
     let httpErrorCode = 500;
-    if (err instanceof GatewayError) {
-      httpErrorCode = err.httpErrorCode;
+    if (err instanceof HttpException) {
+      httpErrorCode = err.status;
       response.errorCode = err.errorCode;
     } else if ('code' in err) {
       httpErrorCode = 503;
