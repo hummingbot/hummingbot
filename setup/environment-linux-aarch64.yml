@@ -39,12 +39,16 @@ dependencies:
     - diff-cover==5.1.2
     - dydx-python==0.11.3
     - dydx-v3-python==1.0.10
+    - eth-abi==2.1.1
+    - eth-account==0.5.5
     - eth-bloom==1.0.4
     - eth-keyfile==0.5.1
     - eth-typing==2.2.1
     - eth-utils==1.10.0
     - ethsnarks-loopring==0.1.5
     - flake8==3.7.9
+    - hexbytes==0.2.0
+    - importlib-metadata==0.23
     - mypy-extensions==0.4.3
     - pre-commit==2.1.1
     - psutil==5.7.2
