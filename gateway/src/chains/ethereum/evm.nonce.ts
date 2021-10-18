@@ -1,15 +1,16 @@
 import ethers from 'ethers';
 import { logger } from '../../services/logger';
+import { dbSaveNonce, getChainNonces } from '../../services/local-storage';
 
 export class EVMNonceManager {
   private static _instance: EVMNonceManager;
   private _addressToNonce: Record<string, [number, Date]> = {};
   private _delay: number | null = null;
+  private _initialized: boolean = false;
+  private _chainId: number = 0;
 
   // this should be private but then we cannot mock it
   public _provider: ethers.providers.Provider | null = null;
-
-  // private constructor() {}
 
   public static getInstance(): EVMNonceManager {
     if (!EVMNonceManager._instance) {
@@ -21,10 +22,23 @@ export class EVMNonceManager {
 
   // init can be called many times and generally should always be called
   // getInstance, but it only applies the values the first time it is called
-  init(provider: ethers.providers.Provider, delay: number): void {
+  public async init(
+    provider: ethers.providers.Provider,
+    delay: number,
+    chainId: number
+  ): Promise<void> {
     if (!this._provider || !this._delay) {
       this._provider = provider;
       this._delay = delay;
+    }
+
+    if (!this._initialized) {
+      const addressToNonce = await getChainNonces('eth', chainId);
+      for (const [key, value] of Object.entries(addressToNonce)) {
+        this._addressToNonce[key] = [value, new Date()];
+      }
+      this._chainId = chainId;
+      this._initialized = true;
     }
 
     if (delay < 0) {
@@ -47,10 +61,9 @@ export class EVMNonceManager {
         ethAddress
       );
 
-      this._addressToNonce[ethAddress] = [
-        Math.max(internalNonce, externalNonce),
-        new Date(),
-      ];
+      const newNonce = Math.max(internalNonce, externalNonce);
+      this._addressToNonce[ethAddress] = [newNonce, new Date()];
+      dbSaveNonce('eth', this._chainId, ethAddress, newNonce);
     } else {
       logger.error(
         'EVMNonceManager.mergeNonceFromEVMNode called before initiated'
@@ -79,6 +92,7 @@ export class EVMNonceManager {
           ethAddress
         );
         this._addressToNonce[ethAddress] = [nonce, new Date()];
+        dbSaveNonce('eth', this._chainId, ethAddress, nonce);
         return nonce;
       }
     } else {
@@ -99,6 +113,7 @@ export class EVMNonceManager {
         newNonce = (await this.getNonce(ethAddress)) + 1;
       }
       this._addressToNonce[ethAddress] = [newNonce, new Date()];
+      dbSaveNonce('eth', this._chainId, ethAddress, newNonce);
     } else {
       logger.error('EVMNonceManager.commitNonce called before initiated');
       throw new Error('EVMNonceManager.commitNonce called before initiated');
