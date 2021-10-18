@@ -13,7 +13,7 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_active_order_tracker import AscendExActiveOrderTracker
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_order_book import AscendExOrderBook
@@ -56,12 +56,6 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def _get_throttler_instance(cls) -> AsyncThrottler:
         throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         return throttler
-
-    async def _sleep(self, delay):
-        """
-        Function added only to facilitate patching the sleep in unit tests without affecting the asyncio module
-        """
-        await asyncio.sleep(delay)
 
     @classmethod
     async def get_last_traded_prices(
@@ -131,15 +125,14 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 f"HTTP status is {resp.status}."
             )
 
-        data: List[Dict[str, Any]] = await safe_gather(resp.json())
-        item = data[0]
-        if item.get("code") != 0:
+        data: Dict[str, Any] = await resp.json()
+        if data.get("code") != 0:
             raise IOError(
                 f"Error fetching OrderBook for {trading_pair} at {CONSTANTS.EXCHANGE_NAME}. "
-                f"Error is {item.message}."
+                f"Error is {data['reason']}."
             )
 
-        return item["data"]
+        return data["data"]
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair, client=self._shared_client, throttler=self._throttler)
@@ -177,6 +170,8 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
             self.logger().info(f"Subscribed to {self._trading_pairs} orderbook trading and delta streams...")
 
             return ws
+        except asyncio.CancelledError:
+            raise
         except Exception:
             self.logger().error("Unexpected error occurred subscribing to order book trading and delta streams...")
             raise
@@ -196,13 +191,15 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 if raw_msg.type == aiohttp.WSMsgType.CLOSED:
                     raise ConnectionError
                 yield raw_msg.data
-        except asyncio.TimeoutError:
-            self.logger().warning("WebSocket ping timed out. Going to reconnect...")
-            return
+        except Exception:
+            self.logger().error("Unexpected error occurred iterating through websocket messages.",
+                                exc_info=True)
+            raise
         finally:
             await ws.close()
 
     async def listen_for_subscriptions(self):
+        ws = None
         while True:
             try:
                 ws = await self._subscribe_to_order_book_streams()
@@ -214,9 +211,10 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         self._message_queue[self.TRADE_TOPIC_ID].put_nowait(msg)
                     elif msg.get("m", '') == self.DIFF_TOPIC_ID:
                         self._message_queue[self.DIFF_TOPIC_ID].put_nowait(msg)
-
+            except asyncio.CancelledError:
+                raise
             except Exception:
-                self.logger().error("Unexpected error occurred when listening to order book streams."
+                self.logger().error("Unexpected error occurred when listening to order book streams. "
                                     "Retrying in 5 seconds...",
                                     exc_info=True)
                 await self._sleep(5.0)
