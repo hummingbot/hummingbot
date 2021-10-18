@@ -63,7 +63,7 @@ dependencies:
     - setuptools==50.3.2
     - signalr-client-aio==0.0.1.6.2
     - simplejson==3.17.2
-    #- virtualenv==20.0.8
+    - virtualenv==20.7.2
     - web3==5.23.0
     - websockets==9.1
     - yarl==1.4.2
