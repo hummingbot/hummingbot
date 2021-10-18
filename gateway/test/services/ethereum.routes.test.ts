@@ -90,4 +90,26 @@ describe('Eth endpoints', () => {
     expect(res.body.errorCode).toEqual(1001);
     expect(res.body.message).toEqual(errors.SERVER_ERROR);
   });
+  it('should get rate limit error', async () => {
+    patch(eth, 'getTransaction', () => {
+      const error: any = new Error(
+        'daily request count exceeded, request rate limited'
+      );
+      error.code = -32005;
+      error.data = {
+        see: 'https://infura.io/docs/ethereum/jsonrpc/ratelimits',
+        current_rps: 13.333,
+        allowed_rps: 10.0,
+        backoff_seconds: 30.0,
+      };
+      throw error;
+    });
+    const res = await request(app).post('/eth/poll').send({
+      txHash:
+        '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
+    });
+    expect(res.statusCode).toEqual(503);
+    expect(res.body.errorCode).toEqual(1002);
+    expect(res.body.providerErrCode).toEqual(-32005);
+  });
 });
