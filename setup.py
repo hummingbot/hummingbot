@@ -78,6 +78,7 @@ def main():
         "hummingbot.connector.exchange.k2",
         "hummingbot.connector.derivative",
         "hummingbot.connector.derivative.binance_perpetual",
+        "hummingbot.connector.southxchange",
         "hummingbot.script",
         "hummingbot.strategy",
         "hummingbot.strategy.amm_arb",
