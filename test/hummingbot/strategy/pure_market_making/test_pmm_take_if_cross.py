@@ -68,7 +68,6 @@ class PureMMTakeIfCrossUnitTest(unittest.TestCase):
         self.market.set_balance("HBOT", 500)
         self.market.set_balance("ETH", 5000)
         self.market.set_quantization_param(
-            self.trading_pair,
             QuantizationParams(
                 self.trading_pair, 6, 6, 6, 6
             )

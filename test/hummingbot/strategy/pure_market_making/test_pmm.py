@@ -78,7 +78,6 @@ class PMMUnitTest(unittest.TestCase):
         self.market.set_balance("HBOT", 500)
         self.market.set_balance("ETH", 5000)
         self.market.set_quantization_param(
-            self.trading_pair,
             QuantizationParams(
                 self.trading_pair, 6, 6, 6, 6
             )
@@ -1145,7 +1144,6 @@ class PureMarketMakingMinimumSpreadUnitTest(unittest.TestCase):
         self.market.set_balance("WETH", 5000)
         self.market.set_balance("QETH", 500)
         self.market.set_quantization_param(
-            self.trading_pair,
             QuantizationParams(
                 self.maker_trading_pairs[0], 6, 6, 6, 6
             )
