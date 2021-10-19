@@ -29,7 +29,7 @@ dependencies:
     - 0x-order-utils==4.0.0
     - aioconsole==0.1.15
     - aiohttp==3.7.4.post0
-    - aiokafka==0.5.2
+    - aiokafka==0.7.1
     - aioresponses==0.7.2
     - appdirs==1.4.3
     - async-timeout==3.0.1
