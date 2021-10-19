@@ -122,7 +122,7 @@ class CryptoComExchange(ExchangeBase):
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0,
             "user_stream_initialized":
-                self._user_stream_tracker.data_source.last_recv_time > 0 if self._trading_required else True,
+                self._user_stream_tracker.data_source.ready > 0 if self._trading_required else True,
         }
 
     @property
