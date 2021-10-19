@@ -727,25 +727,38 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                                            tracked_order.fee_paid,
                                                            tracked_order.order_type))
 
-    async def _get_funding_info(self, trading_pair):
+    async def _get_funding_info(self):
         markets_info = (await self.dydx_client.get_markets())['markets']
-        self._funding_info[trading_pair] = FundingInfo(
-            trading_pair,
-            Decimal(markets_info[trading_pair]['indexPrice']),
-            Decimal(markets_info[trading_pair]['oraclePrice']),
-            dataparse(markets_info[trading_pair]['nextFundingAt']).timestamp(),
-            Decimal(markets_info[trading_pair]['nextFundingRate'])
-        )
+        for trading_pair in self._trading_pairs:
+            self._funding_info[trading_pair] = FundingInfo(
+                trading_pair,
+                Decimal(markets_info[trading_pair]['indexPrice']),
+                Decimal(markets_info[trading_pair]['oraclePrice']),
+                dataparse(markets_info[trading_pair]['nextFundingAt']).timestamp(),
+                Decimal(markets_info[trading_pair]['nextFundingRate'])
+            )
 
     async def _update_funding_rates(self):
         try:
-            for trading_pair in self._trading_pairs:
-                await self._get_funding_info(trading_pair)
+            await self._get_funding_info()
+        except DydxApiError as e:
+            if e.status_code == 429:
+                self.logger().network(
+                    log_msg="Rate-limit error. Retrying after 1 second.",
+                    app_warning_msg="Could not fetch funding rates due to API rate limits.",
+                    exc_info=True,
+                )
+            else:
+                self.logger().network(
+                    "Unknown error. Retrying after 1 seconds.",
+                    exc_info=True,
+                    app_warning_msg="Could not fetch funding rates. Check API key and network connection."
+                )
         except Exception:
             self.logger().network(
                 "Unknown error. Retrying after 1 seconds.",
                 exc_info=True,
-                app_warning_msg=f"Could not fetch funding_rate for {trading_pair}. Check API key and network connection."
+                app_warning_msg="Could not fetch funding rates. Check API key and network connection."
             )
 
     def get_funding_info(self, trading_pair):
