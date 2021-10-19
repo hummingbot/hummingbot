@@ -1,15 +1,14 @@
 #!/usr/bin/env python
+import aiohttp
 import asyncio
 import copy
 import logging
-import websockets
 import ujson
 import hummingbot.connector.exchange.crypto_com.crypto_com_constants as constants
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
-from typing import Optional, AsyncIterable, Any, List
-from websockets.exceptions import ConnectionClosed
+from typing import Dict, Optional, AsyncIterable, Any, List
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.crypto_com.crypto_com_auth import CryptoComAuth
 from hummingbot.connector.exchange.crypto_com.crypto_com_utils import RequestId, get_ms_timestamp
@@ -19,8 +18,7 @@ from hummingbot.connector.exchange.crypto_com.crypto_com_utils import RequestId,
 
 
 class CryptoComWebsocket(RequestId):
-    MESSAGE_TIMEOUT = 30.0
-    PING_TIMEOUT = 10.0
+    HEARTBEAT_INTERVAL = 15.0
     _logger: Optional[HummingbotLogger] = None
 
     @classmethod
@@ -33,12 +31,12 @@ class CryptoComWebsocket(RequestId):
         self._auth: Optional[CryptoComAuth] = auth
         self._isPrivate = True if self._auth is not None else False
         self._WS_URL = constants.WSS_PRIVATE_URL if self._isPrivate else constants.WSS_PUBLIC_URL
-        self._client: Optional[websockets.WebSocketClientProtocol] = None
+        self._client: Optional[aiohttp.ClientWebSocketResponse] = None
 
     # connect to exchange
     async def connect(self):
         try:
-            self._client = await websockets.connect(self._WS_URL)
+            self._client = await aiohttp.ClientSession().ws_connect(self._WS_URL, heartbeat=self.HEARTBEAT_INTERVAL)
 
             # if auth class was passed into websocket class
             # we need to emit authenticated requests
@@ -58,26 +56,22 @@ class CryptoComWebsocket(RequestId):
 
         await self._client.close()
 
+    def _is_ping_message(self, msg: Dict[str, Any]) -> bool:
+        return "method" in msg and msg["method"] == "public/heartbeat"
+
+    def _pong(self, ping_msg: Dict[str, Any]):
+        ping_id: int = ping_msg["id"]
+        pong_payload = {"id": ping_id, "method": "public/respond-heartbeat"}
+        safe_ensure_future(self._client.send_json(pong_payload))
+
     # receive & parse messages
     async def _messages(self) -> AsyncIterable[Any]:
-        try:
-            while True:
-                try:
-                    raw_msg_str: str = await asyncio.wait_for(self._client.recv(), timeout=self.MESSAGE_TIMEOUT)
-                    raw_msg = ujson.loads(raw_msg_str)
-                    if "method" in raw_msg and raw_msg["method"] == "public/heartbeat":
-                        payload = {"id": raw_msg["id"], "method": "public/respond-heartbeat"}
-                        safe_ensure_future(self._client.send(ujson.dumps(payload)))
-                    yield raw_msg
-                except asyncio.TimeoutError:
-                    await asyncio.wait_for(self._client.ping(), timeout=self.PING_TIMEOUT)
-        except asyncio.TimeoutError:
-            self.logger().warning("WebSocket ping timed out. Going to reconnect...")
-            return
-        except ConnectionClosed:
-            return
-        finally:
-            await self.disconnect()
+        async for raw_msg in self._client:
+            raw_msg = ujson.loads(raw_msg.data)
+            if self._is_ping_message(raw_msg):
+                self._pong(raw_msg)
+                continue
+            yield raw_msg
 
     # emit messages
     async def _emit(self, method: str, data: Optional[Any] = {}) -> int:
@@ -102,7 +96,7 @@ class CryptoComWebsocket(RequestId):
             payload["sig"] = auth["sig"]
             payload["api_key"] = auth["api_key"]
 
-        await self._client.send(ujson.dumps(payload))
+        await self._client.send_json(payload)
 
         return id
 
@@ -112,15 +106,11 @@ class CryptoComWebsocket(RequestId):
 
     # subscribe to a method
     async def subscribe(self, channels: List[str]) -> int:
-        return await self.request("subscribe", {
-            "channels": channels
-        })
+        return await self.request("subscribe", {"channels": channels})
 
     # unsubscribe to a method
     async def unsubscribe(self, channels: List[str]) -> int:
-        return await self.request("unsubscribe", {
-            "channels": channels
-        })
+        return await self.request("unsubscribe", {"channels": channels})
 
     # listen to messages by method
     async def on_message(self) -> AsyncIterable[Any]:
