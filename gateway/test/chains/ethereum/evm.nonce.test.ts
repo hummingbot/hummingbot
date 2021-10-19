@@ -59,8 +59,10 @@ describe('EVMNodeService', () => {
   };
 
   it('commitNonce with a provided txNonce should increase the nonce by 1', async () => {
+    patchGetTransactionCount();
     await nonceManager.commitNonce(exampleAddress, 10);
     const nonce = await nonceManager.getNonce(exampleAddress);
+
     await expect(nonce).toEqual(11);
   });
 
