@@ -1,5 +1,6 @@
 import asyncio
 import unittest
+from copy import deepcopy
 from typing import Awaitable
 from unittest.mock import patch, MagicMock
 
@@ -16,10 +17,16 @@ class StatusCommandTest(unittest.TestCase):
         self.app = HummingbotApplication()
         self.cli_mock_assistant = CLIMockingAssistant(self.app.app)
         self.cli_mock_assistant.start()
+        self.global_config_backup = deepcopy(global_config_map)
 
     def tearDown(self) -> None:
         self.cli_mock_assistant.stop()
+        self.reset_global_config()
         super().tearDown()
+
+    def reset_global_config(self):
+        for key, value in self.global_config_backup.items():
+            global_config_map[key] = value
 
     @staticmethod
     def get_async_sleep_fn(delay: float):

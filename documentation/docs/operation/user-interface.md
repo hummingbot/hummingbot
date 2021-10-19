@@ -66,6 +66,8 @@ The CLI is divided into five panes:
 | `CTRL + Z`        | Undo                       | \* Undo action                               |
 | `Single CTRL + C` | Copy                       | \* Copy text                                 |
 | `CTRL + V`        | Paste                      | \* Paste text                                |
+| `CTRL + R`        | Reset Style                | Set default style                            |
+| `CTRL + T`        | Toggle logs                | Hide / show the logs pane                    |
 
 _\* Used for text edit in input pane only._
 

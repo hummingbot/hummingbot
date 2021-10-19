@@ -28,7 +28,6 @@ from hummingbot.connector.exchange.bittrex.bittrex_auth import BittrexAuth
 from hummingbot.connector.exchange.bittrex.bittrex_in_flight_order import BittrexInFlightOrder
 from hummingbot.connector.exchange.bittrex.bittrex_order_book_tracker import BittrexOrderBookTracker
 from hummingbot.connector.exchange.bittrex.bittrex_user_stream_tracker import BittrexUserStreamTracker
-from hummingbot.market.market_base import NaN
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.core.utils.estimate_fee import estimate_fee
@@ -37,6 +36,7 @@ from hummingbot.connector.exchange_base import ExchangeBase
 bm_logger = None
 s_decimal_0 = Decimal(0)
 s_decimal_NaN = Decimal("NaN")
+NaN = float("nan")
 
 
 cdef class BittrexExchangeTransactionTracker(TransactionTracker):

@@ -113,7 +113,7 @@ def _create_connector_settings() -> Dict[str, ConnectorSetting]:
     """
     Iterate over files in specific Python directories to create a dictionary of exchange names to ConnectorSetting.
     """
-    connector_exceptions = ["paper_trade", "eterbase"]
+    connector_exceptions = ["paper_trade"]
     connector_settings = {}
     package_dir = Path(__file__).resolve().parent.parent.parent
     type_dirs = [f for f in scandir(f'{str(package_dir)}/hummingbot/connector') if f.is_dir()]

@@ -6,7 +6,7 @@ from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.user.user_balances import UserBalances
 from hummingbot.client.config.config_helpers import save_to_yml
 import hummingbot.client.settings as settings
-from hummingbot.market.celo.celo_cli import CeloCLI
+from hummingbot.connector.other.celo.celo_cli import CeloCLI
 from hummingbot.connector.connector_status import get_connector_status
 import pandas as pd
 from typing import TYPE_CHECKING, Optional
