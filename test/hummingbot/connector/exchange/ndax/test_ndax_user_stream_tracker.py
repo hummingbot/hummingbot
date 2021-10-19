@@ -1,7 +1,7 @@
 import asyncio
 import json
 from unittest import TestCase
-from unittest.mock import patch
+from unittest.mock import patch, AsyncMock
 
 from hummingbot.connector.exchange.ndax.ndax_auth import NdaxAuth
 import hummingbot.connector.exchange.ndax.ndax_constants as CONSTANTS
@@ -55,7 +55,7 @@ class NdaxUserStreamTrackerTests(TestCase):
 
         return json.dumps(message)
 
-    @patch("aiohttp.client.ClientSession.ws_connect")
+    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listening_process_authenticates_and_subscribes_to_events(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
