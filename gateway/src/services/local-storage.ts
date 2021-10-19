@@ -11,30 +11,37 @@ export async function dbSaveNonce(
   return db.put(chain + '/' + String(chainId) + '/' + address, nonce);
 }
 
-export async function dbGetNonce(
-  chain: string,
-  chainId: number,
-  address: string
-): Promise<number | null> {
-  const val = await db.get(chain + '/' + String(chainId) + '/' + address);
-  if (typeof val === 'number') {
-    return val;
-  }
-  return null;
-}
-
-export async function getChainNonces(
+export async function dbGetChainNonces(
   chain: string,
   chainId: number
 ): Promise<Record<string, number>> {
-  const results: Record<string, number> = {};
   // await db.open();
-  await db.createReadStream().on('data', (data) => {
-    const key = data.split('/');
-    if (key.length === 3 && key[0] === chain && key[1] === String(chainId)) {
-      results[key[2]] = data.value;
+  const stream = db.createReadStream();
+  const result = await new Promise<Record<string, number>>(
+    (resolve, reject) => {
+      const results: Record<string, number> = {};
+      stream
+        .on('data', ({ key, value }) => {
+          const splitKey = key.split('/');
+          if (
+            splitKey.length === 3 &&
+            splitKey[0] === chain &&
+            splitKey[1] === String(chainId)
+          ) {
+            results[splitKey[2]] = value;
+          }
+        })
+        .on('error', (err) => {
+          reject(err);
+        })
+        .on('close', () => {
+          resolve(resulsts);
+        })
+        .on('end', () => {
+          resolve(results);
+        });
     }
-  });
+  );
 
-  return results;
+  return result;
 }
