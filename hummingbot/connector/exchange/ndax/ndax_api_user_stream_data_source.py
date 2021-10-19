@@ -53,7 +53,7 @@ class NdaxAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
         try:
             if self._ws_adaptor is None:
-                ws = self._shared_client.ws_connect(ndax_utils.wss_url(self._domain))
+                ws = await self._shared_client.ws_connect(ndax_utils.wss_url(self._domain))
                 self._ws_adaptor = NdaxWebSocketAdaptor(throttler=self._throttler, websocket=ws)
             return self._ws_adaptor
         except asyncio.CancelledError:
