@@ -28,7 +28,12 @@ class CryptoComAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
         self._last_recv_time: float = 0
+        self._auth_successful_event = asyncio.Event()
         super().__init__()
+
+    @property
+    def ready(self) -> bool:
+        return self.last_recv_time > 0 and self._auth_successful_event.is_set()
 
     @property
     def last_recv_time(self) -> float:
@@ -44,16 +49,17 @@ class CryptoComAPIUserStreamDataSource(UserStreamTrackerDataSource):
             await ws.connect()
             await ws.subscribe(["user.order", "user.trade", "user.balance"])
             async for msg in ws.on_message():
-                # print(f"WS_SOCKET: {msg}")
-                yield msg
                 self._last_recv_time = time.time()
+                if msg.get("method", "") == CryptoComWebsocket.AUTH_REQUEST and msg.get("code", -1) == 0:
+                    self._auth_successful_event.set()
                 if (msg.get("result") is None):
                     continue
+                yield msg
         except Exception as e:
             raise e
         finally:
             await ws.disconnect()
-            await asyncio.sleep(5)
+            await self._sleep(5.0)
 
     async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue) -> AsyncIterable[Any]:
         """
@@ -73,4 +79,4 @@ class CryptoComAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 self.logger().error(
                     "Unexpected error with CryptoCom WebSocket connection. " "Retrying after 30 seconds...", exc_info=True
                 )
-                await asyncio.sleep(30.0)
+                await self._sleep(30.0)

@@ -133,7 +133,7 @@ class CryptoComAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 raise
             except Exception:
                 self.logger().error("Unexpected error.", exc_info=True)
-                await asyncio.sleep(5.0)
+                await self._sleep(5.0)
             finally:
                 await ws.disconnect()
 
@@ -177,7 +177,7 @@ class CryptoComAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     app_warning_msg="Unexpected error with WebSocket connection. Retrying in 30 seconds. "
                                     "Check network connection."
                 )
-                await asyncio.sleep(30.0)
+                await self._sleep(30.0)
             finally:
                 await ws.disconnect()
 
@@ -199,7 +199,7 @@ class CryptoComAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         output.put_nowait(snapshot_msg)
                         self.logger().debug(f"Saved order book snapshot for {trading_pair}")
                         # Be careful not to go above API rate limits.
-                        await asyncio.sleep(5.0)
+                        await self._sleep(5.0)
                     except asyncio.CancelledError:
                         raise
                     except Exception:
@@ -209,13 +209,13 @@ class CryptoComAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             app_warning_msg="Unexpected error with WebSocket connection. Retrying in 5 seconds. "
                                             "Check network connection."
                         )
-                        await asyncio.sleep(5.0)
+                        await self._sleep(5.0)
                 this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
                 next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)
                 delta: float = next_hour.timestamp() - time.time()
-                await asyncio.sleep(delta)
+                await self._sleep(delta)
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().error("Unexpected error.", exc_info=True)
-                await asyncio.sleep(5.0)
+                await self._sleep(5.0)
