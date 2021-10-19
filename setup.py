@@ -80,7 +80,7 @@ def main():
         "hummingbot.connector.exchange.okex",
         "hummingbot.connector.exchange.probit",
         "hummingbot.connector.exchange.radar_relay",
-        "hummingbot.connector.exchange.southxchange"
+        "hummingbot.connector.exchange.southxchange",
         "hummingbot.connector.derivative",
         "hummingbot.connector.derivative.binance_perpetual",
         "hummingbot.connector.derivative.bybit_perpetual",
