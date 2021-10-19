@@ -255,7 +255,7 @@ class DydxPerpetualDerivativeTest(unittest.TestCase):
 
         self.async_run_with_timeout(self.exchange._update_funding_rates())
 
-        self.check_is_logged(log_level="NETWORK", message="Unknown error. Retrying after 1 seconds.")
+        self.check_is_logged(log_level="NETWORK", message="dYdX API error. Retrying after 1 seconds.")
 
     @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_client_wrapper"
            ".DydxPerpetualClientWrapper.get_markets")

@@ -750,7 +750,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 )
             else:
                 self.logger().network(
-                    "Unknown error. Retrying after 1 seconds.",
+                    "dYdX API error. Retrying after 1 seconds.",
                     exc_info=True,
                     app_warning_msg="Could not fetch funding rates. Check API key and network connection."
                 )
