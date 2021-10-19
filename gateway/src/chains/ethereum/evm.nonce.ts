@@ -91,7 +91,6 @@ export class EVMNonceManager {
 
         return this._addressToNonce[ethAddress][0];
       } else {
-        logger.info('getTransactionCount');
         const nonce: number = await this._provider.getTransactionCount(
           ethAddress
         );
