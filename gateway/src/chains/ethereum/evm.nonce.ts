@@ -1,6 +1,6 @@
 import ethers from 'ethers';
 import { logger } from '../../services/logger';
-import { dbSaveNonce, getChainNonces } from '../../services/local-storage';
+import { dbSaveNonce, dbGetChainNonces } from '../../services/local-storage';
 
 export class EVMNonceManager {
   private static _instance: EVMNonceManager;
@@ -27,14 +27,18 @@ export class EVMNonceManager {
     delay: number,
     chainId: number
   ): Promise<void> {
+    logger.info('initialize nonce');
     if (!this._provider || !this._delay) {
       this._provider = provider;
       this._delay = delay;
     }
 
     if (!this._initialized) {
-      const addressToNonce = await getChainNonces('eth', chainId);
+      const addressToNonce = await dbGetChainNonces('eth', chainId);
+      logger.info('eth stored nonces');
+
       for (const [key, value] of Object.entries(addressToNonce)) {
+        logger.info(key + ':' + String(value));
         this._addressToNonce[key] = [value, new Date()];
       }
       this._chainId = chainId;
@@ -63,7 +67,7 @@ export class EVMNonceManager {
 
       const newNonce = Math.max(internalNonce, externalNonce);
       this._addressToNonce[ethAddress] = [newNonce, new Date()];
-      dbSaveNonce('eth', this._chainId, ethAddress, newNonce);
+      await dbSaveNonce('eth', this._chainId, ethAddress, newNonce);
     } else {
       logger.error(
         'EVMNonceManager.mergeNonceFromEVMNode called before initiated'
@@ -92,7 +96,7 @@ export class EVMNonceManager {
           ethAddress
         );
         this._addressToNonce[ethAddress] = [nonce, new Date()];
-        dbSaveNonce('eth', this._chainId, ethAddress, nonce);
+        await dbSaveNonce('eth', this._chainId, ethAddress, nonce);
         return nonce;
       }
     } else {
@@ -113,7 +117,7 @@ export class EVMNonceManager {
         newNonce = (await this.getNonce(ethAddress)) + 1;
       }
       this._addressToNonce[ethAddress] = [newNonce, new Date()];
-      dbSaveNonce('eth', this._chainId, ethAddress, newNonce);
+      await dbSaveNonce('eth', this._chainId, ethAddress, newNonce);
     } else {
       logger.error('EVMNonceManager.commitNonce called before initiated');
       throw new Error('EVMNonceManager.commitNonce called before initiated');
