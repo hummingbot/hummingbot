@@ -138,7 +138,7 @@ class NdaxExchangeTests(TestCase):
         )
         return future
 
-    @patch('websockets.connect', new_callable=AsyncMock)
+    @patch("aiohttp.client.ClientSession.ws_connect")
     def test_user_event_queue_error_is_logged(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
