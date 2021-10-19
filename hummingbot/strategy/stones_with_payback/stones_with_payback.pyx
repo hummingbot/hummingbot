@@ -2,16 +2,14 @@
 from decimal import Decimal
 from libc.stdint cimport int64_t
 import logging
-import random
 from typing import (
     List,
     Tuple,
-    Optional,
-    Dict
+    Dict, Optional
 )
 from hummingbot.core.clock cimport Clock
 
-from hummingbot.core.rate_oracle.rate_oracle import RateOracle, RateOracleSource
+from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -23,19 +21,20 @@ from hummingbot.core.event.events import (
     TradeType
 )
 from hummingbot.core.data_type.order_book cimport OrderBook
-from datetime import datetime, timedelta
 
-from hummingbot.strategy.self_trade.trade_band import TradeBand
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base import StrategyBase
 
+from hummingbot.strategy.stones.order_levels import OrderLevel
+
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
+hundred = Decimal('100')
 s_decimal_nan = Decimal("nan")
 ds_logger = None
 
 
-cdef class SelfTradeStrategy(StrategyBase):
+cdef class StonesWithPaybackStrategy(StrategyBase):
     OPTION_LOG_NULL_ORDER_SIZE = 1 << 0
     OPTION_LOG_REMOVING_ORDER = 1 << 1
     OPTION_LOG_ADJUST_ORDER = 1 << 2
@@ -44,7 +43,6 @@ cdef class SelfTradeStrategy(StrategyBase):
     OPTION_LOG_STATUS_REPORT = 1 << 5
     OPTION_LOG_MAKER_ORDER_HEDGED = 1 << 6
     OPTION_LOG_ALL = 0x7fffffffffffffff
-    CANCEL_EXPIRY_DURATION = 60.0
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -55,26 +53,21 @@ cdef class SelfTradeStrategy(StrategyBase):
 
     def __init__(self,
                  market_infos: List[MarketTradingPairTuple],
-                 time_delay: Dict[str, float],
-                 min_order_amount: Dict[str, Decimal],
-                 max_order_amount: Dict[str, Decimal],
-                 trade_bands: Dict[str, List[TradeBand]],
-                 delta_price_changed_percent: Dict[str, Decimal],
-                 percentage_of_acceptable_price_change: Dict[str, Decimal],
-                 cancel_order_wait_time: Optional[float] = 60.0,
+                 total_buy_order_amount: dict,
+                 total_sell_order_amount: dict,
+                 payback_info: Optional[Dict[MarketTradingPairTuple, MarketTradingPairTuple]] = None,
+                 time_delay: float = 10.0,
                  logging_options: int = OPTION_LOG_ALL,
                  status_report_interval: float = 900,
-                 use_only_oracle_price: bool = False):
+                 buy_order_levels: List[OrderLevel] = None,
+                 sell_order_levels: List[OrderLevel] = None,
+                 ):
         """
         :param market_infos: list of market trading pairs
         :param market_infos: float value percent
-        :param cancel_order_wait_time: how long to wait before cancelling an order
         :param time_delay: how long to wait between placing trades
-        :param min_order_amount: min qty of the order to place
-        :param max_order_amount: max qty of the order to place
         :param logging_options: select the types of logs to output
         :param status_report_interval: how often to report network connection related warnings, if any
-        :param trade_bands: list restrictions on the trading volume in the timestamp
         """
 
         if len(market_infos) < 1:
@@ -89,47 +82,43 @@ cdef class SelfTradeStrategy(StrategyBase):
             for market_info in market_infos
         }
 
-        self._start_timestamp = 0
-        self._last_timestamp = 0
-        self._logging_options = logging_options
-        self._use_only_oracle_price = use_only_oracle_price
-
-        if cancel_order_wait_time is not None:
-            self._cancel_order_wait_time = cancel_order_wait_time
-
         self._status_report_interval = status_report_interval
-        self._time_to_cancel = {}
 
         self._all_markets_ready = False
-        self._place_orders = True
+        self._logging_options = logging_options
 
-        self._time_delay: Dict[str, float] = time_delay
-        self._delta_price_changed_percent: Dict[str, Decimal] = delta_price_changed_percent
-        self._percentage_of_acceptable_price_change: Dict[str, Decimal] = percentage_of_acceptable_price_change
-        self._min_order_amount: Dict[str, Decimal] = min_order_amount
-        self._max_order_amount: Dict[str, Decimal] = max_order_amount
-        self._trade_bands: Dict[str, List[TradeBand]] = trade_bands
-
-        self._last_trade_timestamp: Dict[str, float] = {market_info.trading_pair: 0 for market_info in market_infos}
+        self._start_timestamp = 0
+        self._last_timestamp = 0
 
         cdef:
             set all_markets = set([market_info.market for market_info in market_infos])
 
         self.c_add_markets(list(all_markets))
 
-    def get_active_orders(self, market_info):
+        self.buy_levels: List[OrderLevel] = []
+        self.sell_levels: List[OrderLevel] = []
+        self.map_order_id_to_level = dict()
+        self.map_order_id_to_oracle_price = dict()
+        self.percentage_price_shift_during_payback = hundred / Decimal("0.1")
+
+        self._time_delay = time_delay
+        self._total_buy_order_amount = total_buy_order_amount
+        self._total_sell_order_amount = total_sell_order_amount
+
+        self._last_opened_order_timestamp = dict()
+
+        self._payback_info = payback_info
+
+        for buy_order_level in buy_order_levels or []:
+            self.add_buy_order_level(buy_order_level)
+            self._last_opened_order_timestamp[buy_order_level] = 0
+
+        for sell_order_level in sell_order_levels or []:
+            self.add_sell_order_level(sell_order_level)
+            self._last_opened_order_timestamp[sell_order_level] = 0
+
+    def get_active_orders_by_market_info(self, market_info):
         return self.market_info_to_active_orders.get(market_info, [])
-
-    @staticmethod
-    def get_price_multiplier(delta_price_changed_percent: Decimal) -> Decimal:
-        if delta_price_changed_percent == s_decimal_zero:
-            return Decimal(1)
-        delimiter = Decimal(10 ** 4)
-        min_percent = (Decimal(-1) * delimiter * delta_price_changed_percent).quantize(Decimal("0.0001"))
-        max_percent = (delimiter * delta_price_changed_percent).quantize(Decimal("0.0001"))
-        multiplier = ((random.randint(min_percent, max_percent) / delimiter) / Decimal(100)).quantize(Decimal("0.0001"))
-
-        return Decimal(1) - multiplier
 
     @property
     def active_bids(self) -> List[Tuple[ExchangeBase, LimitOrder]]:
@@ -199,7 +188,6 @@ cdef class SelfTradeStrategy(StrategyBase):
 
     cdef c_did_fill_order(self, object order_filled_event):
         """
-        Output log for filled order.
 
         :param order_filled_event: Order filled event
         """
@@ -211,6 +199,7 @@ cdef class SelfTradeStrategy(StrategyBase):
         if market_info is not None:
             limit_order_record = self._sb_order_tracker.c_get_shadow_limit_order(order_id)
             order_fill_record = (limit_order_record, order_filled_event)
+            payback_info = self._payback_info.get(market_info)
 
             if order_filled_event.trade_type is TradeType.BUY:
                 if self._logging_options & self.OPTION_LOG_MAKER_ORDER_FILLED:
@@ -219,6 +208,24 @@ cdef class SelfTradeStrategy(StrategyBase):
                         f"({market_info.trading_pair}) Limit buy order of "
                         f"{order_filled_event.amount} {market_info.base_asset} filled."
                     )
+                if payback_info is not None:
+                    price_multiplier = (Decimal('1') - self.percentage_price_shift_during_payback)
+                    payback_price = self.map_order_id_to_oracle_price[order_filled_event.order_id] * price_multiplier
+                    best_market_price = payback_info.market.get_price(trading_pair=payback_info.trading_pair,
+                                                                      is_buy=False) * price_multiplier
+
+                    # payback_order_id = self.c_place_orders(market_info=payback_info, is_buy=False,
+                    #                     order_price=max(payback_price, best_market_price),
+                    #                     order_amount=order_filled_event.amount)
+                    payback_order_id = "TEST_SELL"
+
+                    if payback_order_id is not None:
+                        self.logger().info(
+                            f"place buy order {payback_order_id} to {payback_info.market.name} exchange to payback of order {order_filled_event.order_id}."
+                            f" Order amount={order_filled_event.amount},"
+                            f" order_price={min(payback_price, best_market_price)},"
+                            f" op={payback_price},"
+                            f" bmp={best_market_price}")
             else:
                 if self._logging_options & self.OPTION_LOG_MAKER_ORDER_FILLED:
                     self.log_with_clock(
@@ -226,10 +233,25 @@ cdef class SelfTradeStrategy(StrategyBase):
                         f"({market_info.trading_pair}) Limit sell order of "
                         f"{order_filled_event.amount} {market_info.base_asset} filled."
                     )
+                if payback_info is not None:
+                    price_multiplier = (Decimal('1') + self.percentage_price_shift_during_payback)
+                    payback_price = self.map_order_id_to_oracle_price[order_filled_event.order_id] * price_multiplier
+                    best_market_price = payback_info.market.get_price(trading_pair=payback_info.trading_pair,
+                                                                      is_buy=True) * price_multiplier
+
+                    # payback_order_id = self.c_place_orders(market_info=payback_info, is_buy=True,
+                    #                     order_price=min(payback_price, best_market_price),
+                    #                     order_amount=order_filled_event.amount)
+                    payback_order_id = "TEST_BUY"
+                    if payback_order_id is not None:
+                        self.logger().info(f"place buy order {payback_order_id} to {payback_info.market.name} exchange to payback of order {order_filled_event.order_id}."
+                                           f" Order amount={order_filled_event.amount},"
+                                           f" order_price={min(payback_price, best_market_price)},"
+                                           f" op={payback_price},"
+                                           f" bmp={best_market_price}")
 
     cdef c_did_complete_buy_order(self, object order_completed_event):
         """
-        Output log for completed buy order.
 
         :param order_completed_event: Order completed event
         """
@@ -251,8 +273,6 @@ cdef class SelfTradeStrategy(StrategyBase):
 
     cdef c_did_complete_sell_order(self, object order_completed_event):
         """
-        Output log for completed sell order.
-
         :param order_completed_event: Order completed event
         """
         cdef:
@@ -273,15 +293,12 @@ cdef class SelfTradeStrategy(StrategyBase):
 
     cdef c_start(self, Clock clock, double timestamp):
         StrategyBase.c_start(self, clock, timestamp)
+        self.logger().info(f"Waiting for {self._time_delay} to place orders")
         self._start_timestamp = timestamp
         self._last_timestamp = timestamp
 
-        for key in self._last_trade_timestamp.keys():
-            self._last_trade_timestamp[key] = timestamp
-
-        for key, value in self._time_delay.items():
-            # self._time_delay[key] = 30
-            self.logger().info(f"Waiting for {value} to place {key} orders")
+        for key in self._last_opened_order_timestamp.keys():
+            self._last_opened_order_timestamp[key] = timestamp
 
     cdef c_tick(self, double timestamp):
         """
@@ -307,14 +324,16 @@ cdef class SelfTradeStrategy(StrategyBase):
                     if should_report_warnings:
                         self.logger().warning(f"Markets are not ready. No market making trades are permitted.")
                     return
+                else:
+                    # Markets are ready, ok to proceed.
+                    if self.OPTION_LOG_STATUS_REPORT:
+                        self.logger().info(f"Markets are ready. Trading started.")
 
             if should_report_warnings:
                 if not all([market.network_status is NetworkStatus.CONNECTED for market in self._sb_markets]):
                     self.logger().warning(f"WARNING: Some markets are not connected or are down at the moment. Market "
                                           f"making may be dangerous when markets or networks are unstable.")
 
-            for bands in self._trade_bands.values():
-                list(map(lambda x: x.tick(current_timestamp=timestamp), bands))
             for market_info in self._market_infos.values():
                 self.c_process_market(market_info)
         finally:
@@ -329,29 +348,34 @@ cdef class SelfTradeStrategy(StrategyBase):
         :param order_price:
         :param order_amount:
         """
+
         cdef:
             ExchangeBase market = market_info.market
             object quantized_amount = market.c_quantize_order_amount(market_info.trading_pair, order_amount)
             object quantized_price
 
         self.logger().info(f"Checking to see if the user has enough balance to place orders")
-        if self.c_has_enough_balance(market_info, is_buy=is_buy, order_price=order_price, order_amount=order_amount):
+        if quantized_amount == s_decimal_zero:
+            self.logger().debug(f"amount ({order_amount}) == 0")
+            return
+        if self.c_has_enough_balance(market_info, is_buy=is_buy, order_price=order_price, order_amount=quantized_amount):
             quantized_price = market.c_quantize_order_price(market_info.trading_pair, order_price)
             if is_buy:
                 order_id = self.c_buy_with_specific_market(market_info,
                                                            amount=quantized_amount,
                                                            order_type=OrderType.LIMIT,
                                                            price=quantized_price)
-                self.logger().info("Limit buy order has been placed")
+                self.logger().debug("Limit buy order has been placed")
             else:
                 order_id = self.c_sell_with_specific_market(market_info,
                                                             amount=quantized_amount,
                                                             order_type=OrderType.LIMIT,
                                                             price=quantized_price)
-                self.logger().info("Limit sell order has been placed")
+                self.logger().debug("Limit sell order has been placed")
+            self.logger().info(f"place order {'buy' if is_buy is True else 'sell'} for amount {quantized_amount} with price {quantized_price}. order_id={order_id}")
+            return order_id
         else:
             self.logger().info(f"Not enough balance to run the strategy. Please check balances and try again.")
-        return order_id
 
     cdef c_has_enough_balance(self, object market_info, is_buy: bool, order_price: Decimal, order_amount: Decimal):
         """
@@ -372,59 +396,19 @@ cdef class SelfTradeStrategy(StrategyBase):
 
         return quote_asset_balance >= order_amount * price if is_buy else base_asset_balance >= order_amount
 
-    def get_price(self, maker_market: ExchangeBase, trading_pair: str):
-        price_multiplier = self.get_price_multiplier(delta_price_changed_percent=self._delta_price_changed_percent[trading_pair])
+    def get_oracle_price(self, maker_market: ExchangeBase, trading_pair: str):
         oracle_price = self.rate_oracle.rate(trading_pair) or s_decimal_nan
 
         if oracle_price is not None and not oracle_price.is_nan() and oracle_price > s_decimal_zero:
-            quantized_oracle_price = maker_market.c_quantize_order_price(trading_pair=trading_pair, price=oracle_price * price_multiplier)
+            oracle_price = maker_market.c_quantize_order_price(trading_pair=trading_pair, price=oracle_price)
         else:
             raise ValueError(f"Oracle price ({oracle_price}) must be > 0")
 
-        buy_price = maker_market.get_price(trading_pair=trading_pair, is_buy=False) or s_decimal_nan
-        sell_price = maker_market.get_price(trading_pair=trading_pair, is_buy=True) or s_decimal_nan
+        return oracle_price
 
-        self.logger().info(f"price_multiplier: {price_multiplier}")
-        self.logger().info(f"buy_price: {buy_price}")
-        self.logger().info(f"sell_price: {sell_price}")
-        self.logger().info(f"raw_oracle_price: {oracle_price}")
-        self.logger().info(f"oracle_price: {quantized_oracle_price}")
-
-        if self._use_only_oracle_price is True:
-            quantized_price = quantized_oracle_price
-        elif buy_price.is_nan() or sell_price.is_nan():
-            quantized_price = quantized_oracle_price
-            self.logger().warning(
-                f"No sell orders or no buy orders were found, the price will be taken from an open source. "
-                f"price={quantized_price}")
-        elif not buy_price.is_nan() and not sell_price.is_nan():
-            if buy_price > sell_price:
-                raise ValueError("buy_price must be less than sell_price")
-
-            price = (buy_price + ((sell_price - buy_price) / Decimal(2)))
-            quantized_price = maker_market.c_quantize_order_price(trading_pair=trading_pair, price=price * price_multiplier)
-
-        currently_percentage_price_change = abs(
-            Decimal("100") - (quantized_price * Decimal("100")) / quantized_oracle_price
-        ).quantize(Decimal("0.0001"))
-
-        if currently_percentage_price_change > self._percentage_of_acceptable_price_change[trading_pair]:
-            self.logger().warning(f"the price ({quantized_price}) should not differ from the market "
-                                  f"price ({quantized_oracle_price}) by more than {self._percentage_of_acceptable_price_change[trading_pair]}%."
-                                  f" Currently differ is {currently_percentage_price_change}%. Used Oracle Price")
-            quantized_price = quantized_oracle_price
-
-        buy_price = maker_market.get_price(trading_pair=trading_pair, is_buy=False) or s_decimal_nan
-        sell_price = maker_market.get_price(trading_pair=trading_pair, is_buy=True) or s_decimal_nan
-        if not buy_price.is_nan() and not buy_price < quantized_price:
-            self.logger().warning(f"price ({quantized_price}) must be > buy_price ({buy_price})")
-            raise ValueError("price must be > buy_price")
-        if not sell_price.is_nan() and not sell_price > quantized_price:
-            self.logger().warning(f"price ({quantized_price}) must be < sell_price ({sell_price})")
-            raise ValueError("price must be < sell_price")
-
-        self.logger().info(f"price for {trading_pair} pair = {quantized_price}")
-        return quantized_price
+    def find_orders_that_need_closed(self, market_info: MarketTradingPairTuple):
+        active_orders = self.get_active_orders_by_market_info(market_info=market_info)
+        return list(filter(lambda x: not self.check_on_close_order(exchange=market_info.market, order=x), active_orders))
 
     cdef c_process_market(self, object market_info):
         """
@@ -438,42 +422,87 @@ cdef class SelfTradeStrategy(StrategyBase):
             set cancel_order_ids = set()
             str trading_pair = market_info.trading_pair
 
-        if self._current_timestamp > self._last_trade_timestamp[trading_pair] + self._time_delay[trading_pair]:
-            self.logger().info(f"Current time: "
-                               f"{datetime.fromtimestamp(self._current_timestamp).strftime('%Y-%m-%d %H:%M:%S')} "
-                               f"- start trading {trading_pair}")
-            try:
-                quant = Decimal(10**27)
-                amount = random.randint(self._min_order_amount[trading_pair] * quant, self._max_order_amount[trading_pair] * quant) / quant
-                amount = maker_market.quantize_order_amount(trading_pair=trading_pair, amount=amount)
+        orders_for_cancel = self.find_orders_that_need_closed(market_info=market_info)
 
-                if all(map(lambda x: x.check(amount=amount), self._trade_bands[trading_pair])):
-                    price: Decimal = self.get_price(maker_market=maker_market, trading_pair=trading_pair)
-                    is_buy = bool(random.randint(0, 1))
-                    first_order_id = self.c_place_orders(market_info, is_buy=is_buy, order_price=price, order_amount=amount)
-                    if first_order_id is not None:
-                        self._time_to_cancel[first_order_id] = self._current_timestamp + self._cancel_order_wait_time
-                        self.logger().info(f"place {'buy' if is_buy else 'sell'} order {first_order_id} with time_to_cancel = {self._time_to_cancel[first_order_id]}")
-                        second_order_id = self.c_place_orders(market_info, is_buy=not is_buy, order_price=price, order_amount=amount)
-                        if second_order_id is not None:
-                            self._time_to_cancel[second_order_id] = self._current_timestamp + self._cancel_order_wait_time
-                            self.logger().info(f"place {'buy' if not is_buy else 'sell'} order {second_order_id} with time_to_cancel = {self._time_to_cancel[second_order_id]}")
-                        else:
-                            self._time_to_cancel[first_order_id] = self._current_timestamp
+        for order in orders_for_cancel:
+            self.logger().info(f"cancel {'buy' if order.is_buy else 'ask'} LIMIT order with {order.client_order_id} ID")
+            self.c_cancel_order(market_info, order.client_order_id)
 
-                    self._last_trade_timestamp[trading_pair] = self._current_timestamp
-                    list(map(lambda x: x.create_trade(amount=amount), self._trade_bands[trading_pair]))
-                else:
-                    self.logger().info(f"Не проходит BAND")
-            except Exception as e:
-                self.logger().error(e, exc_info=True)
+        oracle_price = self.get_oracle_price(maker_market=maker_market, trading_pair=trading_pair)
 
-        active_orders = self.get_active_orders(market_info)
-        if len(active_orders) > 0:
-            for active_order in active_orders:
-                if self._current_timestamp >= self._time_to_cancel[active_order.client_order_id]:
-                    cancel_order_ids.add(active_order.client_order_id)
+        buy_orders_data = self.get_data_for_orders(market_info=market_info, current_price=oracle_price, liquidity=self._total_buy_order_amount[trading_pair], is_buy=True)
+        for is_buy, price, liquidity, order_level in buy_orders_data:
+            if self._last_opened_order_timestamp[order_level] + self._time_delay > self._current_timestamp:
+                self.logger().info(f"Delay {(self._last_opened_order_timestamp[order_level] + self._time_delay) - self._current_timestamp} for {order_level}")
+                break
+            if price > s_decimal_zero and liquidity > s_decimal_zero:
+                order_id = self.c_place_orders(market_info, is_buy=is_buy, order_price=price, order_amount=liquidity)
+                # order_id = None
+                # self.logger().info(f"self.c_place_orders({market_info}, is_buy={is_buy}, order_price={price}, order_amount={liquidity})")
+                if order_id is not None:
+                    self._last_opened_order_timestamp[order_level] = self._current_timestamp
+                    self.map_order_id_to_level[order_id] = order_level
+                    self.map_order_id_to_oracle_price[order_id] = oracle_price
 
-        if len(cancel_order_ids) > 0:
-            for order in cancel_order_ids:
-                self.c_cancel_order(market_info, order)
+        sell_orders_data = self.get_data_for_orders(market_info=market_info, current_price=oracle_price, liquidity=self._total_sell_order_amount[trading_pair], is_buy=False)
+        for is_buy, price, liquidity, order_level in sell_orders_data:
+            if self._last_opened_order_timestamp[order_level] + self._time_delay > self._current_timestamp:
+                break
+            if price > s_decimal_zero and liquidity > s_decimal_zero:
+                order_id = self.c_place_orders(market_info, is_buy=is_buy, order_price=price, order_amount=liquidity)
+                # order_id = None
+                # self.logger().info(f"self.c_place_orders({market_info}, is_buy={is_buy}, order_price={price}, order_amount={liquidity})")
+                if order_id is not None:
+                    self._last_opened_order_timestamp[order_level] = self._current_timestamp
+                    self.map_order_id_to_level[order_id] = order_level
+                    self.map_order_id_to_oracle_price[order_id] = oracle_price
+
+    def add_order_level(self, level: OrderLevel, is_buy: bool):
+        if is_buy is True:
+            self.buy_levels.append(level)
+        else:
+            self.sell_levels.append(level)
+
+    def add_buy_order_level(self, level: OrderLevel):
+        self.add_order_level(level=level, is_buy=True)
+
+    def add_sell_order_level(self, level: OrderLevel):
+        self.add_order_level(level=level, is_buy=False)
+
+    def get_data_for_orders(self, market_info, current_price: Decimal, liquidity: Decimal, is_buy: bool):
+        results = []
+        available_liquidity = liquidity
+        map_level_to_active_amount = self.get_active_amount_on_levels(market_info=market_info)
+        for level in filter(lambda x: x.trading_pair == market_info.trading_pair, self.buy_levels if is_buy is True else self.sell_levels):
+            level_liquidity = ((liquidity * level.percentage_of_liquidity) / hundred) - map_level_to_active_amount.get(level, s_decimal_zero)
+            self.logger().debug(f"get orders data for {level} with {level_liquidity} liquidity")
+            if level_liquidity < level.min_order_amount or available_liquidity < level_liquidity:
+                continue
+            orders_data = level.get_trades_data(is_buy, current_price, level_liquidity)
+            results.extend(orders_data)
+            available_liquidity = available_liquidity - sum(map(lambda x: x[2], orders_data))
+
+        return results
+
+    def get_active_amount_on_levels(self, market_info):
+        result = {}
+        active_orders = self.get_active_orders_by_market_info(market_info)
+        for order in active_orders:
+            level = self.map_order_id_to_level[order.client_order_id]
+            result[level] = result.get(level, s_decimal_zero) + order.quantity
+        return result
+
+    def check_on_close_order(self, exchange: ExchangeBase, order: LimitOrder):
+        oracle_price = self.get_oracle_price(maker_market=exchange, trading_pair=order.trading_pair)
+
+        try:
+            level = self.map_order_id_to_level[order.client_order_id]
+            is_at_level = level.is_at_level_of(oracle_price=oracle_price, order_price=order.price, amount=order.quantity, is_buy=order.is_buy)
+        except Exception as e:
+            self.logger().error(e)
+            is_at_level = False
+
+        if not is_at_level:
+            self.logger().debug(f"The {order.client_order_id} order has gone beyond the level")
+
+        return is_at_level

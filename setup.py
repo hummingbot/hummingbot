@@ -88,6 +88,7 @@ def main():
         "hummingbot.strategy.arbitrage",
         "hummingbot.strategy.self_trade",
         "hummingbot.strategy.stones",
+        "hummingbot.strategy.stones_with_payback",
         "hummingbot.strategy.cross_exchange_market_making",
         "hummingbot.strategy.pure_market_making",
         "hummingbot.strategy.perpetual_market_making",

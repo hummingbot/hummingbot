@@ -1,0 +1,45 @@
+#########################################################
+###       Stones With Payback strategy config         ###
+#########################################################
+
+template_version: 2
+strategy: null
+
+# The following configuations are only required for the
+# simple trade strategy
+
+# Exchange and token parameters
+market: "peatio"
+payback_market: "binance"
+market_trading_pair_tuple:
+  - "MCRERC20-MDTERC20"
+  - "BTC-USDTERC20"
+
+# How long to wait before placing the order (in seconds)
+time_delay: 120
+
+total_buy_order_amount: 2000
+total_sell_order_amount: 2000
+
+payback_info:
+  BTC-USDTERC20: BTC-USDT
+
+# Rules for the buy order levels
+buy_order_levels:
+  BTC-USDTERC20:
+    '0':
+      min_percentage_price_change: 5
+      max_percentage_price_change: 10
+      min_order_amount: 100
+      max_order_amount: 200
+      percentage_of_liquidity: 100
+
+# Rules for the sell order levels
+sell_order_levels:
+  BTC-USDTERC20:
+    '0':
+      min_percentage_price_change: 10
+      max_percentage_price_change: 20
+      min_order_amount: 100
+      max_order_amount: 200
+      percentage_of_liquidity: 100
