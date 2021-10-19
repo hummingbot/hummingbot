@@ -23,6 +23,14 @@ ctypedef cpp_set[CPPLimitOrder].reverse_iterator SingleTradingPairLimitOrdersRIt
 ctypedef cpp_set[CPPOrderExpirationEntry] LimitOrderExpirationSet
 ctypedef cpp_set[CPPOrderExpirationEntry].iterator LimitOrderExpirationSetIterator
 
+cdef class QuantizationParams:
+    cdef:
+        str trading_pair
+        int price_precision
+        int price_decimals
+        int order_size_precision
+        int order_size_decimals
+
 
 cdef class PaperTradeExchange(ExchangeBase):
     cdef:

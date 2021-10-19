@@ -757,8 +757,8 @@ class PMMUnitTest(unittest.TestCase):
         first_ask_order = strategy.active_sells[0]
         self.assertEqual(Decimal("99"), first_bid_order.price)
         self.assertEqual(Decimal("101"), first_ask_order.price)
-        self.assertAlmostEqual(Decimal("0.651349"), first_bid_order.quantity, 4)
-        self.assertAlmostEqual(Decimal("1.34865"), first_ask_order.quantity, 4)
+        self.assertEqual(Decimal("0.651349"), first_bid_order.quantity)
+        self.assertEqual(Decimal("1.34865"), first_ask_order.quantity)
 
     def test_inventory_skew_multiple_orders(self):
         strategy = PureMarketMakingStrategy()
@@ -821,14 +821,14 @@ class PMMUnitTest(unittest.TestCase):
         last_ask_order = strategy.active_sells[-1]
         self.assertEqual(Decimal("99"), first_bid_order.price)
         self.assertEqual(Decimal("101"), first_ask_order.price)
-        self.assertAlmostEqual(Decimal("0.651349"), first_bid_order.quantity, 5)
+        self.assertEqual(Decimal("0.651349"), first_bid_order.quantity)
         self.assertEqual(Decimal("1.34865"), first_ask_order.quantity)
         last_bid_price = Decimal(100 * (1 - 0.01 - (0.01 * 4))).quantize(Decimal("0.001"))
         last_ask_price = Decimal(100 * (1 + 0.01 + (0.01 * 4))).quantize(Decimal("0.001"))
         self.assertAlmostEqual(last_bid_price, last_bid_order.price, 3)
         self.assertAlmostEqual(last_ask_price, last_ask_order.price, 3)
-        self.assertAlmostEqual(Decimal("1.95404"), last_bid_order.quantity, 4)
-        self.assertAlmostEqual(Decimal("4.04595"), last_ask_order.quantity, 4)
+        self.assertEqual(Decimal("1.95404"), last_bid_order.quantity)
+        self.assertEqual(Decimal("4.04595"), last_ask_order.quantity)
 
     def test_inventory_skew_multiple_orders_status(self):
         strategy = PureMarketMakingStrategy()

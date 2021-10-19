@@ -67,13 +67,6 @@ s_decimal_0 = Decimal(0)
 
 
 cdef class QuantizationParams:
-    cdef:
-        str trading_pair
-        int price_precision
-        int price_decimals
-        int order_size_precision
-        int order_size_decimals
-
     def __init__(self,
                  str trading_pair,
                  int price_precision,
