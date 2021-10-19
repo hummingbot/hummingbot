@@ -1,10 +1,20 @@
-.PHONY: test
-
 .ONESHELL:
+.PHONY: test
+.PHONY: run_coverage
+.PHONY: report_coverage
+.PHONY: development-diff-cover
 
 test:
-	find test/hummingbot/ -iname "test_*.py" | xargs nosetests -v -d
+	coverage run -m nose test.hummingbot
 
-coverage:
-	find test/hummingbot/ -iname "test_*.py" | xargs nosetests -v -d --with-coverage --cover-inclusive --cover-package=hummingbot --cover-xml --cover-html
+run_coverage: test
+	coverage report
+	coverage html
 
+report_coverage:
+	coverage report
+	coverage html
+
+development-diff-cover:
+	coverage xml
+	diff-cover --compare-branch=origin/development coverage.xml

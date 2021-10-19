@@ -1,9 +1,9 @@
 from decimal import Decimal
-import time
 import logging
 import asyncio
 import pandas as pd
 from typing import List, Dict, Tuple
+from enum import Enum
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -12,11 +12,15 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_py_base import StrategyPyBase
 from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.core.event.events import OrderType
+from hummingbot.core.event.events import TradeType
 
 from hummingbot.core.event.events import (
     PositionAction,
-    PositionSide,
-    PositionMode
+    PositionMode,
+    BuyOrderCompletedEvent,
+    SellOrderCompletedEvent,
 )
 from hummingbot.connector.derivative.position import Position
 
@@ -28,12 +32,19 @@ s_decimal_zero = Decimal(0)
 spa_logger = None
 
 
+class StrategyState(Enum):
+    Closed = 0
+    Opening = 1
+    Opened = 2
+    Closing = 3
+
+
 class SpotPerpetualArbitrageStrategy(StrategyPyBase):
     """
-    This strategy arbitrages between a spot and a perpetual exchange connector.
-    For a given order amount, the strategy checks the divergence and convergence in prices that could occur
-    before and during funding payment on the perpetual exchange.
-    If presents, the strategy submits taker orders to both market.
+    This strategy arbitrages between a spot and a perpetual exchange.
+    For a given order amount, the strategy checks for price discrepancy between buy and sell price on the 2 exchanges.
+    Since perpetual contract requires closing position before profit is realised, there are 2 stages to this arbitrage
+    operation - first to open and second to close.
     """
 
     @classmethod
@@ -43,74 +54,66 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
             spa_logger = logging.getLogger(__name__)
         return spa_logger
 
-    def __init__(self,
-                 spot_market_info: MarketTradingPairTuple,
-                 derivative_market_info: MarketTradingPairTuple,
-                 order_amount: Decimal,
-                 derivative_leverage: int,
-                 min_divergence: Decimal,
-                 min_convergence: Decimal,
-                 spot_market_slippage_buffer: Decimal = Decimal("0"),
-                 derivative_market_slippage_buffer: Decimal = Decimal("0"),
-                 maximize_funding_rate: bool = True,
-                 next_arbitrage_cycle_delay: float = 120,
-                 status_report_interval: float = 10):
+    def init_params(self,
+                    spot_market_info: MarketTradingPairTuple,
+                    perp_market_info: MarketTradingPairTuple,
+                    order_amount: Decimal,
+                    perp_leverage: int,
+                    min_opening_arbitrage_pct: Decimal,
+                    min_closing_arbitrage_pct: Decimal,
+                    spot_market_slippage_buffer: Decimal = Decimal("0"),
+                    perp_market_slippage_buffer: Decimal = Decimal("0"),
+                    next_arbitrage_opening_delay: float = 120,
+                    status_report_interval: float = 10):
         """
-        :param spot_market_info: The first market
-        :param derivative_market_info: The second market
+        :param spot_market_info: The spot market info
+        :param perp_market_info: The perpetual market info
         :param order_amount: The order amount
-        :param min_divergence: The minimum spread to start arbitrage (e.g. 0.0003 for 0.3%)
-        :param min_convergence: The minimum spread to close arbitrage (e.g. 0.0003 for 0.3%)
+        :param perp_leverage: The leverage level to use on perpetual market
+        :param min_opening_arbitrage_pct: The minimum spread to open arbitrage position (e.g. 0.0003 for 0.3%)
+        :param min_closing_arbitrage_pct: The minimum spread to close arbitrage position (e.g. 0.0003 for 0.3%)
         :param spot_market_slippage_buffer: The buffer for which to adjust order price for higher chance of
-        the order getting filled. This is quite important for AMM which transaction takes a long time where a slippage
-        is acceptable rather having the transaction get rejected. The submitted order price will be adjust higher
-        for buy order and lower for sell order.
-        :param derivative_market_slippage_buffer: The slipper buffer for market_2
-        :param maximize_funding_rate: whether to submit both arbitrage taker orders (buy and sell) simultaneously
-        If false, the bot will wait for first exchange order filled before submitting the other order.
+        the order getting filled on spot market.
+        :param perp_market_slippage_buffer: The slipper buffer for perpetual market.
+        :param next_arbitrage_opening_delay: The number of seconds to delay before the next arb position can be opened
+        :param status_report_interval: Amount of seconds to wait to refresh the status report
         """
-        super().__init__()
         self._spot_market_info = spot_market_info
-        self._derivative_market_info = derivative_market_info
-        self._min_divergence = min_divergence
-        self._min_convergence = min_convergence
+        self._perp_market_info = perp_market_info
+        self._min_opening_arbitrage_pct = min_opening_arbitrage_pct
+        self._min_closing_arbitrage_pct = min_closing_arbitrage_pct
         self._order_amount = order_amount
-        self._derivative_leverage = derivative_leverage
+        self._perp_leverage = perp_leverage
         self._spot_market_slippage_buffer = spot_market_slippage_buffer
-        self._derivative_market_slippage_buffer = derivative_market_slippage_buffer
-        self._maximize_funding_rate = maximize_funding_rate
-        self._next_arbitrage_cycle_delay = next_arbitrage_cycle_delay
-        self._next_arbitrage_cycle_time = 0
+        self._perp_market_slippage_buffer = perp_market_slippage_buffer
+        self._next_arbitrage_opening_delay = next_arbitrage_opening_delay
+        self._next_arbitrage_opening_ts = 0  # next arbitrage opening timestamp
         self._all_markets_ready = False
-
         self._ev_loop = asyncio.get_event_loop()
-
         self._last_timestamp = 0
         self._status_report_interval = status_report_interval
-        self.add_markets([spot_market_info.market, derivative_market_info.market])
+        self.add_markets([spot_market_info.market, perp_market_info.market])
 
-        self._current_proposal = None
         self._main_task = None
-        self._spot_done = True
-        self._deriv_done = True
-        self._spot_order_ids = []
-        self._deriv_order_ids = []
+        self._in_flight_opening_order_ids = []
+        self._completed_opening_order_ids = []
+        self._completed_closing_order_ids = []
+        self._strategy_state = StrategyState.Closed
+        self._ready_to_start = False
+        self._last_arb_op_reported_ts = 0
+        perp_market_info.market.set_leverage(perp_market_info.trading_pair, self._perp_leverage)
 
     @property
-    def current_proposal(self) -> ArbProposal:
-        return self._current_proposal
-
-    @current_proposal.setter
-    def current_proposal(self, value):
-        self._current_proposal = value
+    def strategy_state(self) -> StrategyState:
+        return self._strategy_state
 
     @property
-    def min_divergence(self) -> Decimal:
-        return self._min_divergence
+    def min_opening_arbitrage_pct(self) -> Decimal:
+        return self._min_opening_arbitrage_pct
 
     @property
-    def min_convergence(self) -> Decimal:
-        return self._min_convergence
+    def min_closing_arbitrage_pct(self) -> Decimal:
+        return self._min_closing_arbitrage_pct
 
     @property
     def order_amount(self) -> Decimal:
@@ -125,9 +128,9 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         return self._sb_order_tracker.market_pair_to_active_orders
 
     @property
-    def deriv_position(self) -> List[Position]:
-        return [s for s in self._derivative_market_info.market._account_positions.values() if
-                s.trading_pair == self._derivative_market_info.trading_pair]
+    def perp_positions(self) -> List[Position]:
+        return [s for s in self._perp_market_info.market.account_positions.values() if
+                s.trading_pair == self._perp_market_info.trading_pair and s.amount != s_decimal_zero]
 
     def tick(self, timestamp: float):
         """
@@ -137,254 +140,252 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         if not self._all_markets_ready:
             self._all_markets_ready = all([market.ready for market in self.active_markets])
             if not self._all_markets_ready:
-                # self.logger().warning("Markets are not ready. Please wait...")
                 return
             else:
-                self.logger().info("Markets are ready. Trading started.")
-                if len(self.deriv_position) > 0:
-                    self.logger().info("Active position detected, bot assumes first arbitrage was done and would scan for second arbitrage.")
-        if self.ready_for_new_arb_trades():
-            if self._main_task is None or self._main_task.done():
-                self.current_proposal = ArbProposal(self._spot_market_info, self._derivative_market_info, self.order_amount, timestamp)
-                self._main_task = safe_ensure_future(self.main(timestamp))
+                self.logger().info("Markets are ready.")
+                self.logger().info("Trading started.")
+
+                if not self.check_budget_available():
+                    self.logger().info("Trading not possible.")
+                    return
+
+                if self._perp_market_info.market.position_mode != PositionMode.ONEWAY or \
+                        len(self.perp_positions) > 1:
+                    self.logger().info("This strategy supports only Oneway position mode. Please update your position "
+                                       "mode before starting this strategy.")
+                    return
+
+                if len(self.perp_positions) == 1:
+                    adj_perp_amount = self._perp_market_info.market.quantize_order_amount(
+                        self._perp_market_info.trading_pair, self._order_amount)
+                    if abs(self.perp_positions[0].amount) == adj_perp_amount:
+                        self.logger().info(f"There is an existing {self._perp_market_info.trading_pair} "
+                                           f"{self.perp_positions[0].position_side.name} position. The bot resumes "
+                                           f"operation to close out the arbitrage position")
+                        self._strategy_state = StrategyState.Opened
+                        self._ready_to_start = True
+                    else:
+                        self.logger().info(f"There is an existing {self._perp_market_info.trading_pair} "
+                                           f"{self.perp_positions[0].position_side.name} position with unmatched "
+                                           f"position amount. Please manually close out the position before starting "
+                                           f"this strategy.")
+                        return
+                else:
+                    self._ready_to_start = True
+        if self._ready_to_start and (self._main_task is None or self._main_task.done()):
+            self._main_task = safe_ensure_future(self.main(timestamp))
 
     async def main(self, timestamp):
         """
-        The main procedure for the arbitrage strategy. It first check if it's time for funding payment, decide if to compare with either
-        min_convergence or min_divergence, applies the slippage buffer, applies budget constraint, then finally execute the
-        arbitrage.
+        The main procedure for the arbitrage strategy.
         """
-        execute_arb = False
-        funding_msg = ""
-        await self.current_proposal.proposed_spot_deriv_arb()
-        if len(self.deriv_position) > 0 and self.should_alternate_proposal_sides(self.current_proposal, self.deriv_position):
-            self.current_proposal.alternate_proposal_sides()
-
-        if self.current_proposal.is_funding_payment_time():
-            if len(self.deriv_position) > 0:
-                if self._maximize_funding_rate:
-                    execute_arb = not self.would_receive_funding_payment(self.deriv_position)
-                    if execute_arb:
-                        funding_msg = "Time for funding payment, executing second arbitrage to prevent paying funding fee"
-                    else:
-                        funding_msg = "Waiting for funding payment."
-                else:
-                    funding_msg = "Time for funding payment, executing second arbitrage " \
-                                  "immediately since we don't intend to maximize funding rate"
-                    execute_arb = True
-            else:
-                funding_msg = "Funding payment time, not looking for arbitrage opportunity because prices should be converging now!"
+        self.update_strategy_state()
+        if self._strategy_state in (StrategyState.Opening, StrategyState.Closing):
+            return
+        if self.strategy_state == StrategyState.Closed and self._next_arbitrage_opening_ts > self.current_timestamp:
+            return
+        proposals = await self.create_base_proposals()
+        if self._strategy_state == StrategyState.Opened:
+            perp_is_buy = False if self.perp_positions[0].amount > 0 else True
+            proposals = [p for p in proposals if p.perp_side.is_buy == perp_is_buy and p.profit_pct() >=
+                         self._min_closing_arbitrage_pct]
         else:
-            if len(self.deriv_position) > 0:
-                execute_arb = self.ready_for_execution(self.current_proposal, False)
-            else:
-                execute_arb = self.ready_for_execution(self.current_proposal, True)
+            proposals = [p for p in proposals if p.profit_pct() >= self._min_opening_arbitrage_pct]
+        if len(proposals) == 0:
+            return
+        proposal = proposals[0]
+        if self._last_arb_op_reported_ts + 60 < self.current_timestamp:
+            pos_txt = "closing" if self._strategy_state == StrategyState.Opened else "opening"
+            self.logger().info(f"Arbitrage position {pos_txt} opportunity found.")
+            self.logger().info(f"Profitability ({proposal.profit_pct():.2%}) is now above min_{pos_txt}_arbitrage_pct.")
+            self._last_arb_op_reported_ts = self.current_timestamp
+        self.apply_slippage_buffers(proposal)
+        if self.check_budget_constraint(proposal):
+            self.execute_arb_proposal(proposal)
 
-        if execute_arb:
-            self.logger().info(self.spread_msg())
-            self.apply_slippage_buffers(self.current_proposal)
-            self.apply_budget_constraint(self.current_proposal)
-            await self.execute_arb_proposals(self.current_proposal, funding_msg)
-        else:
-            if funding_msg:
-                self.timed_logger(timestamp, funding_msg)
-            elif self._next_arbitrage_cycle_time > time.time():
-                self.timed_logger(timestamp, "Cooling off...")
-            else:
-                self.timed_logger(timestamp, self.spread_msg())
+    def update_strategy_state(self):
+        """
+        Updates strategy state to either Opened or Closed if the condition is right.
+        """
+        if self._strategy_state == StrategyState.Opening and len(self._completed_opening_order_ids) == 2 and \
+                self.perp_positions:
+            self._strategy_state = StrategyState.Opened
+            self._completed_opening_order_ids.clear()
+        elif self._strategy_state == StrategyState.Closing and len(self._completed_closing_order_ids) == 2 and \
+                len(self.perp_positions) == 0:
+            self._strategy_state = StrategyState.Closed
+            self._completed_closing_order_ids.clear()
+            self._next_arbitrage_opening_ts = self.current_timestamp + self._next_arbitrage_opening_delay
 
-    def timed_logger(self, timestamp, msg):
+    async def create_base_proposals(self) -> List[ArbProposal]:
         """
-        Displays log at specific intervals.
-        :param timestamp: current timestamp
-        :param msg: message to display at next interval
+        Creates a list of 2 base proposals, no filter.
+        :return: A list of 2 base proposals.
         """
-        if timestamp - self._last_timestamp > self._status_report_interval:
-            self.logger().info(msg)
-            self._last_timestamp = timestamp
+        tasks = [self._spot_market_info.market.get_order_price(self._spot_market_info.trading_pair, True,
+                                                               self._order_amount),
+                 self._spot_market_info.market.get_order_price(self._spot_market_info.trading_pair, False,
+                                                               self._order_amount),
+                 self._perp_market_info.market.get_order_price(self._perp_market_info.trading_pair, True,
+                                                               self._order_amount),
+                 self._perp_market_info.market.get_order_price(self._perp_market_info.trading_pair, False,
+                                                               self._order_amount)]
+        prices = await safe_gather(*tasks, return_exceptions=True)
+        spot_buy, spot_sell, perp_buy, perp_sell = [*prices]
+        return [
+            ArbProposal(ArbProposalSide(self._spot_market_info, True, spot_buy),
+                        ArbProposalSide(self._perp_market_info, False, perp_sell),
+                        self._order_amount),
+            ArbProposal(ArbProposalSide(self._spot_market_info, False, spot_sell),
+                        ArbProposalSide(self._perp_market_info, True, perp_buy),
+                        self._order_amount)
+        ]
 
-    def ready_for_execution(self, proposal: ArbProposal, first: bool):
-        """
-        Check if the spread meets the required spread requirement for the right arbitrage.
-        :param proposal: current proposal object
-        :param first: True, if scanning for opportunity for first arbitrage, else, False
-        :return: True if ready, else, False
-        """
-        spread = self.current_proposal.spread()
-        if first and spread >= self.min_divergence and self._next_arbitrage_cycle_time < time.time():  # we do not want to start new cycle untill cooloff is over
-            return True
-        elif not first and spread <= self.min_convergence and self._next_arbitrage_cycle_time < time.time():  # we also don't want second arbitrage to ever be retried within this period
-            return True
-        return False
-
-    def should_alternate_proposal_sides(self, proposal: ArbProposal, active_position: List[Position]):
-        """
-        Checks if there's need to alternate the sides of a proposed arbitrage.
-        :param proposal: current proposal object
-        :param active_position: information about active position for the derivative connector
-        :return: True if sides need to be alternated, else, False
-        """
-        deriv_proposal_side = PositionSide.LONG if proposal.derivative_side.is_buy else PositionSide.SHORT
-        position_side = PositionSide.LONG if active_position[0].amount > 0 else PositionSide.SHORT
-        if deriv_proposal_side == position_side:
-            return True
-        return False
-
-    def would_receive_funding_payment(self, active_position: List[Position]):
-        """
-        Checks if an active position would receive funding payment.
-        :param active_position: information about active position for the derivative connector
-        :return: True if funding payment would be received, else, False
-        """
-        funding_info = self._derivative_market_info.market.get_funding_info(self._derivative_market_info.trading_pair)
-        if (active_position[0].amount > 0 and funding_info["rate"] < 0) or \
-           (active_position[0].amount < 0 and funding_info["rate"] > 0):
-            return True
-        return False
-
-    def apply_slippage_buffers(self, arb_proposal: ArbProposal):
+    def apply_slippage_buffers(self, proposal: ArbProposal):
         """
         Updates arb_proposals by adjusting order price for slipper buffer percentage.
         E.g. if it is a buy order, for an order price of 100 and 1% slipper buffer, the new order price is 101,
         for a sell order, the new order price is 99.
-        :param arb_proposal: the arbitrage proposal
+        :param proposal: the arbitrage proposal
         """
-        for arb_side in (arb_proposal.spot_side, arb_proposal.derivative_side):
+        for arb_side in (proposal.spot_side, proposal.perp_side):
             market = arb_side.market_info.market
-            arb_side.amount = market.quantize_order_amount(arb_side.market_info.trading_pair, arb_side.amount)
+            # arb_side.amount = market.quantize_order_amount(arb_side.market_info.trading_pair, arb_side.amount)
             s_buffer = self._spot_market_slippage_buffer if market == self._spot_market_info.market \
-                else self._derivative_market_slippage_buffer
+                else self._perp_market_slippage_buffer
             if not arb_side.is_buy:
                 s_buffer *= Decimal("-1")
             arb_side.order_price *= Decimal("1") + s_buffer
             arb_side.order_price = market.quantize_order_price(arb_side.market_info.trading_pair,
                                                                arb_side.order_price)
 
-    def apply_budget_constraint(self, arb_proposal: ArbProposal):
+    def check_budget_available(self) -> bool:
         """
-        Updates arb_proposals by setting proposal amount to 0 if there is not enough balance to submit order with
-        required order amount.
-        :param arb_proposal: the arbitrage proposal
+        Checks if there's any balance for trading to be possible at all
+        :return: True if user has available balance enough for orders submission.
         """
-        spot_market = self._spot_market_info.market
-        deriv_market = self._derivative_market_info.market
-        spot_token = self._spot_market_info.quote_asset if arb_proposal.spot_side.is_buy else self._spot_market_info.base_asset
-        deriv_token = self._derivative_market_info.quote_asset
-        spot_token_balance = spot_market.get_available_balance(spot_token)
-        deriv_token_balance = deriv_market.get_available_balance(deriv_token)
-        required_spot_balance = arb_proposal.amount * arb_proposal.spot_side.order_price if arb_proposal.spot_side.is_buy else arb_proposal.amount
-        required_deriv_balance = (arb_proposal.amount * arb_proposal.derivative_side.order_price) / self._derivative_leverage
-        if spot_token_balance < required_spot_balance:
-            arb_proposal.amount = s_decimal_zero
-            self.logger().info(f"Can't arbitrage, {spot_market.display_name} "
-                               f"{spot_token} balance "
-                               f"({spot_token_balance}) is below required order amount ({required_spot_balance}).")
-        elif deriv_token_balance < required_deriv_balance:
-            arb_proposal.amount = s_decimal_zero
-            self.logger().info(f"Can't arbitrage, {deriv_market.display_name} "
-                               f"{deriv_token} balance "
-                               f"({deriv_token_balance}) is below required order amount ({required_deriv_balance}).")
 
-    async def execute_arb_proposals(self, arb_proposal: ArbProposal, is_funding_msg: str = ""):
-        """
-        Execute both sides of the arbitrage trades concurrently.
-        :param arb_proposals: the arbitrage proposal
-        :param is_funding_msg: message pertaining to funding payment
-        """
-        if arb_proposal.amount == s_decimal_zero:
-            return
-        self._spot_done = False
-        self._deriv_done = False
-        proposal = self.short_proposal_msg(False)
-        if is_funding_msg:
-            opportunity_msg = is_funding_msg
-        else:
-            first_arbitage = not bool(len(self.deriv_position))
-            opportunity_msg = "Spread wide enough to execute first arbitrage" if first_arbitage else \
-                              "Spread low enough to execute second arbitrage"
-            if not first_arbitage:
-                self._next_arbitrage_cycle_time = time.time() + self._next_arbitrage_cycle_delay
-        self.logger().info(f"{opportunity_msg}!: \n"
-                           f"{proposal[0]} \n"
-                           f"{proposal[1]} \n")
-        safe_ensure_future(self.execute_spot_side(arb_proposal.spot_side))
-        safe_ensure_future(self.execute_derivative_side(arb_proposal.derivative_side))
+        spot_base, spot_quote = self._spot_market_info.trading_pair.split("-")
+        perp_base, perp_quote = self._perp_market_info.trading_pair.split("-")
 
-    async def execute_spot_side(self, arb_side: ArbProposalSide):
-        side = "BUY" if arb_side.is_buy else "SELL"
-        place_order_fn = self.buy_with_specific_market if arb_side.is_buy else self.sell_with_specific_market
-        self.log_with_clock(logging.INFO,
-                            f"Placing {side} order for {arb_side.amount} {arb_side.market_info.base_asset} "
-                            f"at {arb_side.market_info.market.display_name} at {arb_side.order_price} price")
-        order_id = place_order_fn(arb_side.market_info,
-                                  arb_side.amount,
-                                  arb_side.market_info.market.get_taker_order_type(),
-                                  arb_side.order_price,
-                                  )
-        self._spot_order_ids.append(order_id)
+        balance_spot_base = self._spot_market_info.market.get_available_balance(spot_base)
+        balance_spot_quote = self._spot_market_info.market.get_available_balance(spot_quote)
 
-    async def execute_derivative_side(self, arb_side: ArbProposalSide):
-        side = "BUY" if arb_side.is_buy else "SELL"
-        place_order_fn = self.buy_with_specific_market if arb_side.is_buy else self.sell_with_specific_market
-        position_action = PositionAction.OPEN if len(self.deriv_position) == 0 else PositionAction.CLOSE
-        self.log_with_clock(logging.INFO,
-                            f"Placing {side} order for {arb_side.amount} {arb_side.market_info.base_asset} "
-                            f"at {arb_side.market_info.market.display_name} at {arb_side.order_price} price to {position_action.name} position.")
-        order_id = place_order_fn(arb_side.market_info,
-                                  arb_side.amount,
-                                  arb_side.market_info.market.get_taker_order_type(),
-                                  arb_side.order_price,
-                                  position_action=position_action
-                                  )
-        self._deriv_order_ids.append(order_id)
+        balance_perp_quote = self._perp_market_info.market.get_available_balance(perp_quote)
 
-    def ready_for_new_arb_trades(self) -> bool:
-        """
-        Returns True if there is no outstanding unfilled order.
-        """
-        for market_info in [self._spot_market_info, self._derivative_market_info]:
-            if len(self.market_info_to_active_orders.get(market_info, [])) > 0:
-                return False
-            if not self._spot_done or not self._deriv_done:
-                return False
+        if balance_spot_base == s_decimal_zero and balance_spot_quote == s_decimal_zero:
+            self.logger().info(f"Cannot arbitrage, {self._spot_market_info.market.display_name} {spot_base} balance "
+                               f"({balance_spot_base}) is 0 and {self._spot_market_info.market.display_name} {spot_quote} balance "
+                               f"({balance_spot_quote}) is 0.")
+            return False
+
+        if balance_perp_quote == s_decimal_zero:
+            self.logger().info(f"Cannot arbitrage, {self._perp_market_info.market.display_name} {perp_quote} balance "
+                               f"({balance_perp_quote}) is 0.")
+            return False
+
         return True
 
-    def short_proposal_msg(self, indented: bool = True) -> List[str]:
+    def check_budget_constraint(self, proposal: ArbProposal) -> bool:
         """
-        Composes a short proposal message.
-        :param indented: If the message should be indented (by 4 spaces)
-        :return A list of info on both sides of an arbitrage
+        Check balances on both exchanges if there is enough to submit both orders in a proposal.
+        :param proposal: An arbitrage proposal
+        :return: True if user has available balance enough for both orders submission.
         """
-        lines = []
-        proposal = self.current_proposal
-        lines.append(f"{'    ' if indented else ''}{proposal.spot_side}")
-        lines.append(f"{'    ' if indented else ''}{proposal.derivative_side}")
-        return lines
+        spot_side = proposal.spot_side
+        spot_token = spot_side.market_info.quote_asset if spot_side.is_buy else spot_side.market_info.base_asset
+        spot_avai_bal = spot_side.market_info.market.get_available_balance(spot_token)
+        if spot_side.is_buy:
+            fee = spot_side.market_info.market.get_fee(
+                spot_side.market_info.base_asset,
+                spot_side.market_info.quote_asset, OrderType.LIMIT, TradeType.BUY, s_decimal_zero, s_decimal_zero
+            )
+            spot_required_bal = (proposal.order_amount * proposal.spot_side.order_price) * (Decimal("1") + fee.percent)
+        else:
+            spot_required_bal = proposal.order_amount
+        if spot_avai_bal < spot_required_bal:
+            self.logger().info(f"Cannot arbitrage, {spot_side.market_info.market.display_name} {spot_token} balance "
+                               f"({spot_avai_bal}) is below required order amount ({spot_required_bal}).")
+            return False
+        perp_side = proposal.perp_side
+        if self.perp_positions and abs(self.perp_positions[0].amount) == proposal.order_amount:
+            cur_perp_pos_is_buy = True if self.perp_positions[0].amount > 0 else False
+            if perp_side != cur_perp_pos_is_buy:
+                # For perpetual, the collateral in the existing position should be enough to cover the closing call
+                return True
+        perp_token = perp_side.market_info.quote_asset
+        perp_avai_bal = perp_side.market_info.market.get_available_balance(perp_token)
+        fee = spot_side.market_info.market.get_fee(
+            spot_side.market_info.base_asset,
+            spot_side.market_info.quote_asset, OrderType.LIMIT, TradeType.BUY, s_decimal_zero, s_decimal_zero
+        )
+        pos_size = (proposal.order_amount * proposal.spot_side.order_price)
+        perp_required_bal = (pos_size / self._perp_leverage) + (pos_size * fee.percent)
+        if perp_avai_bal < perp_required_bal:
+            self.logger().info(f"Cannot arbitrage, {perp_side.market_info.market.display_name} {perp_token} balance "
+                               f"({perp_avai_bal}) is below required position amount ({perp_required_bal}).")
+            return False
+        return True
 
-    def spread_msg(self):
+    def execute_arb_proposal(self, proposal: ArbProposal):
         """
-        Composes a short spread message.
-        :return Info about current spread of an arbitrage
+        Execute both sides of the arbitrage trades concurrently.
+        :param proposal: the arbitrage proposal
         """
-        spread = self.current_proposal.spread()
-        first = not bool(len(self.deriv_position))
-        target_spread_str = "minimum divergence spread" if first else "minimum convergence spread"
-        target_spread = self.min_divergence if first else self.min_convergence
-        msg = f"Current spread: {spread:.2%}, {target_spread_str}: {target_spread:.2%}."
-        return msg
+        if proposal.order_amount == s_decimal_zero:
+            return
+        spot_side = proposal.spot_side
+        spot_order_fn = self.buy_with_specific_market if spot_side.is_buy else self.sell_with_specific_market
+        side = "BUY" if spot_side.is_buy else "SELL"
+        self.log_with_clock(
+            logging.INFO,
+            f"Placing {side} order for {proposal.order_amount} {spot_side.market_info.base_asset} "
+            f"at {spot_side.market_info.market.display_name} at {spot_side.order_price} price"
+        )
+        spot_order_fn(
+            spot_side.market_info,
+            proposal.order_amount,
+            spot_side.market_info.market.get_taker_order_type(),
+            spot_side.order_price,
+        )
+        perp_side = proposal.perp_side
+        perp_order_fn = self.buy_with_specific_market if perp_side.is_buy else self.sell_with_specific_market
+        side = "BUY" if perp_side.is_buy else "SELL"
+        position_action = PositionAction.CLOSE if self._strategy_state == StrategyState.Opened else PositionAction.OPEN
+        self.log_with_clock(
+            logging.INFO,
+            f"Placing {side} order for {proposal.order_amount} {perp_side.market_info.base_asset} "
+            f"at {perp_side.market_info.market.display_name} at {perp_side.order_price} price to "
+            f"{position_action.name} position."
+        )
+        perp_order_fn(
+            perp_side.market_info,
+            proposal.order_amount,
+            perp_side.market_info.market.get_taker_order_type(),
+            perp_side.order_price,
+            position_action=position_action
+        )
+        if self._strategy_state == StrategyState.Opened:
+            self._strategy_state = StrategyState.Closing
+            self._completed_closing_order_ids.clear()
+        else:
+            self._strategy_state = StrategyState.Opening
+            self._completed_opening_order_ids.clear()
 
     def active_positions_df(self) -> pd.DataFrame:
+        """
+        Returns a new dataframe on current active perpetual positions.
+        """
         columns = ["Symbol", "Type", "Entry Price", "Amount", "Leverage", "Unrealized PnL"]
         data = []
-        for idx in self.deriv_position:
-            unrealized_profit = ((self.current_proposal.derivative_side.order_price - idx.entry_price) * idx.amount)
+        for pos in self.perp_positions:
             data.append([
-                idx.trading_pair,
-                idx.position_side.name,
-                idx.entry_price,
-                idx.amount,
-                idx.leverage,
-                unrealized_profit
+                pos.trading_pair,
+                "LONG" if pos.amount > 0 else "SHORT",
+                pos.entry_price,
+                pos.amount,
+                pos.leverage,
+                pos.unrealized_pnl
             ])
 
         return pd.DataFrame(data=data, columns=columns)
@@ -396,7 +397,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         """
         columns = ["Exchange", "Market", "Sell Price", "Buy Price", "Mid Price"]
         data = []
-        for market_info in [self._spot_market_info, self._derivative_market_info]:
+        for market_info in [self._spot_market_info, self._perp_market_info]:
             market, trading_pair, base_asset, quote_asset = market_info
             buy_price = await market.get_quote_price(trading_pair, True, self._order_amount)
             sell_price = await market.get_quote_price(trading_pair, False, self._order_amount)
@@ -413,99 +414,71 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         lines.extend(["", "  Markets:"] + ["    " + line for line in markets_df.to_string(index=False).split("\n")])
 
         # See if there're any active positions.
-        if len(self.deriv_position) > 0:
+        if len(self.perp_positions) > 0:
             df = self.active_positions_df()
             lines.extend(["", "  Positions:"] + ["    " + line for line in df.to_string(index=False).split("\n")])
         else:
             lines.extend(["", "  No active positions."])
 
-        assets_df = self.wallet_balance_data_frame([self._spot_market_info, self._derivative_market_info])
+        assets_df = self.wallet_balance_data_frame([self._spot_market_info, self._perp_market_info])
         lines.extend(["", "  Assets:"] +
                      ["    " + line for line in str(assets_df).split("\n")])
 
-        try:
-            lines.extend(["", "  Spread details:"] + ["    " + self.spread_msg()] +
-                         self.short_proposal_msg())
-        except Exception:
-            pass
+        proposals = await self.create_base_proposals()
+        lines.extend(["", "  Opportunity:"] + self.short_proposal_msg(proposals))
 
         warning_lines = self.network_warning([self._spot_market_info])
-        warning_lines.extend(self.network_warning([self._derivative_market_info]))
+        warning_lines.extend(self.network_warning([self._perp_market_info]))
         warning_lines.extend(self.balance_warning([self._spot_market_info]))
-        warning_lines.extend(self.balance_warning([self._derivative_market_info]))
+        warning_lines.extend(self.balance_warning([self._perp_market_info]))
         if len(warning_lines) > 0:
             lines.extend(["", "*** WARNINGS ***"] + warning_lines)
 
         return "\n".join(lines)
 
-    def did_complete_buy_order(self, order_completed_event):
-        self.update_status(order_completed_event)
-
-    def did_complete_sell_order(self, order_completed_event):
-        self.update_status(order_completed_event)
-
-    def did_fail_order(self, order_failed_event):
-        self.retry_order(order_failed_event)
-
-    def did_cancel_order(self, cancelled_event):
-        self.retry_order(cancelled_event)
-
-    def did_expire_order(self, expired_event):
-        self.retry_order(expired_event)
-
-    def did_complete_funding_payment(self, funding_payment_completed_event):
-        # Excute second arbitrage if necessary (even spread hasn't reached min convergence)
-        if len(self.deriv_position) > 0 and \
-           self._all_markets_ready and \
-           self.current_proposal and \
-           self.ready_for_new_arb_trades():
-            self.apply_slippage_buffers(self.current_proposal)
-            self.apply_budget_constraint(self.current_proposal)
-            funding_msg = "Executing second arbitrage after funding payment is received"
-            safe_ensure_future(self.execute_arb_proposals(self.current_proposal, funding_msg))
-        return
-
-    def update_status(self, event):
-        order_id = event.order_id
-        if order_id in self._spot_order_ids:
-            self._spot_done = True
-            self._spot_order_ids.remove(order_id)
-        elif order_id in self._deriv_order_ids:
-            self._deriv_done = True
-            self._deriv_order_ids.remove(order_id)
-
-    def retry_order(self, event):
-        order_id = event.order_id
-        # To-do: Should be updated to do counted retry rather than time base retry. i.e mark as done after retrying 3 times
-        if event.timestamp > (time.time() - 5):  # retry if order failed less than 5 secs ago
-            if order_id in self._spot_order_ids:
-                self.logger().info("Retrying failed order on spot exchange.")
-                safe_ensure_future(self.execute_spot_side(self.current_proposal.spot_side))
-                self._spot_order_ids.remove(order_id)
-            elif order_id in self._deriv_order_ids:
-                self.logger().info("Retrying failed order on derivative exchange.")
-                safe_ensure_future(self.execute_derivative_side(self.current_proposal.derivative_side))
-                self._deriv_order_ids.remove(order_id)
-        else:  # mark as done
-            self.update_status(event)
-
-    @property
-    def tracked_limit_orders(self) -> List[Tuple[ConnectorBase, LimitOrder]]:
-        return self._sb_order_tracker.tracked_limit_orders
+    def short_proposal_msg(self, arb_proposal: List[ArbProposal], indented: bool = True) -> List[str]:
+        """
+        Composes a short proposal message.
+        :param arb_proposal: The arbitrage proposal
+        :param indented: If the message should be indented (by 4 spaces)
+        :return A list of messages
+        """
+        lines = []
+        for proposal in arb_proposal:
+            spot_side = "buy" if proposal.spot_side.is_buy else "sell"
+            perp_side = "buy" if proposal.perp_side.is_buy else "sell"
+            profit_pct = proposal.profit_pct()
+            lines.append(f"{'    ' if indented else ''}{spot_side} at "
+                         f"{proposal.spot_side.market_info.market.display_name}"
+                         f", {perp_side} at {proposal.perp_side.market_info.market.display_name}: "
+                         f"{profit_pct:.2%}")
+        return lines
 
     @property
     def tracked_market_orders(self) -> List[Tuple[ConnectorBase, MarketOrder]]:
         return self._sb_order_tracker.tracked_market_orders
 
-    def apply_initial_settings(self, trading_pair, leverage):
-        deriv_market = self._derivative_market_info.market
-        deriv_market.set_leverage(trading_pair, leverage)
-        deriv_market.set_position_mode(PositionMode.ONEWAY)
+    @property
+    def tracked_limit_orders(self) -> List[Tuple[ConnectorBase, LimitOrder]]:
+        return self._sb_order_tracker.tracked_limit_orders
 
     def start(self, clock: Clock, timestamp: float):
-        self.apply_initial_settings(self._derivative_market_info.trading_pair, self._derivative_leverage)
+        self._ready_to_start = False
 
     def stop(self, clock: Clock):
         if self._main_task is not None:
             self._main_task.cancel()
             self._main_task = None
+        self._ready_to_start = False
+
+    def did_complete_buy_order(self, event: BuyOrderCompletedEvent):
+        self.update_complete_order_id_lists(event.order_id)
+
+    def did_complete_sell_order(self, event: SellOrderCompletedEvent):
+        self.update_complete_order_id_lists(event.order_id)
+
+    def update_complete_order_id_lists(self, order_id: str):
+        if self._strategy_state == StrategyState.Opening:
+            self._completed_opening_order_ids.append(order_id)
+        elif self._strategy_state == StrategyState.Closing:
+            self._completed_closing_order_ids.append(order_id)

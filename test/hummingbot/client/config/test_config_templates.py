@@ -6,7 +6,6 @@ from os.path import (
     realpath,
 )
 from os import listdir
-import sys; sys.path.insert(0, realpath(join(__file__, "../../../../../")))
 import logging; logging.basicConfig(level=logging.INFO)
 import unittest
 import ruamel.yaml

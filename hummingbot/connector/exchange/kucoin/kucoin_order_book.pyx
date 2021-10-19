@@ -74,7 +74,7 @@ cdef class KucoinOrderBook(OrderBook):
     @classmethod
     def diff_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None) -> OrderBookMessage:
         ts = int(record["timestamp"])
-        msg = ujson.loads(record["json"])  # Kucoin json in DB is TEXT
+        msg = record["json"] if type(record["json"]) == dict else ujson.loads(record["json"])
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.DIFF, {
@@ -114,7 +114,7 @@ cdef class KucoinOrderBook(OrderBook):
     @classmethod
     def trade_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None):
         ts = int(record["timestamp"])
-        msg = record["json"]
+        msg = record["json"] if type(record["json"]) == dict else ujson.loads(record["json"])
         if metadata:
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.TRADE, {

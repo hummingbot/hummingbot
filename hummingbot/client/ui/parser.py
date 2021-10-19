@@ -2,7 +2,7 @@ import argparse
 from typing import (
     List,
 )
-from hummingbot.client.errors import ArgumentParserError
+from hummingbot.exceptions import ArgumentParserError
 from hummingbot.client.command.connect_command import OPTIONS as CONNECT_OPTIONS
 from hummingbot.client.config.global_config_map import global_config_map
 

@@ -12,6 +12,7 @@ from typing import (
     Optional
 )
 
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.connector.exchange.kucoin.kucoin_api_order_book_data_source import KucoinAPIOrderBookDataSource
@@ -32,13 +33,14 @@ class KucoinOrderBookTracker(OrderBookTracker):
         return cls._kobt_logger
 
     def __init__(self,
-                 trading_pairs: List[str],
-                 auth: KucoinAuth):
-        super().__init__(KucoinAPIOrderBookDataSource(trading_pairs, auth), trading_pairs)
+                 throttler: Optional[AsyncThrottler] = None,
+                 trading_pairs: Optional[List[str]] = None,
+                 auth: Optional[KucoinAuth] = None):
+        super().__init__(KucoinAPIOrderBookDataSource(throttler, trading_pairs, auth), trading_pairs)
         self._auth = auth
         self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()
         self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
-        self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
+        self._ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         self._saved_message_queues: Dict[str, Deque[KucoinOrderBookMessage]] = defaultdict(lambda: deque(maxlen=1000))
         self._active_order_trackers: Dict[str, KucoinActiveOrderTracker] = defaultdict(KucoinActiveOrderTracker)
 

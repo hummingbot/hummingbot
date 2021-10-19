@@ -1,5 +1,6 @@
 # A single source of truth for constant variables related to the exchange
 
+from hummingbot.core.api_throttler.data_types import RateLimit
 
 EXCHANGE_NAME = "crypto_com"
 REST_URL = "https://api.crypto.com/v2"
@@ -7,6 +8,39 @@ REST_URL = "https://api.crypto.com/v2"
 WSS_PRIVATE_URL = "wss://d289dek49b4wqs.cloudfront.net/v2/user"
 # WSS_PUBLIC_URL = "wss://stream.crypto.com/v2/market"
 WSS_PUBLIC_URL = "wss://d10tq1f9ygdz7y.cloudfront.net/v2/market"
+
+# REST API ENDPOINTS
+CHECK_NETWORK_PATH_URL = "public/get-ticker?instrument_name=BTC_USDT"
+GET_TRADING_RULES_PATH_URL = "public/get-instruments"
+CREATE_ORDER_PATH_URL = "private/create-order"
+CANCEL_ORDER_PATH_URL = "private/cancel-order"
+GET_ACCOUNT_SUMMARY_PATH_URL = "private/get-account-summary"
+GET_ORDER_DETAIL_PATH_URL = "private/get-order-detail"
+GET_OPEN_ORDERS_PATH_URL = "private/get-open-orders"
+
+# Crypto.com has a per method API limit
+
+# RATE_LIMITS = [
+#     RateLimit(limit_id="ALL", limit=100, time_interval=1),
+#     RateLimit(limit_id=CHECK_NETWORK_PATH_URL, limit=100, time_interval=1, linked_limits=["ALL"]),
+#     RateLimit(limit_id=GET_TRADING_RULES_PATH_URL, limit=100, time_interval=1, linked_limits=["ALL"]),
+#     RateLimit(limit_id=CREATE_ORDER_PATH_URL, limit=15, time_interval=0.1, linked_limits=["ALL"]),
+#     RateLimit(limit_id=CANCEL_ORDER_PATH_URL, limit=15, time_interval=0.1, linked_limits=["ALL"]),
+#     RateLimit(limit_id=GET_ACCOUNT_SUMMARY_PATH_URL, limit=3, time_interval=0.1, linked_limits=["ALL"]),
+#     RateLimit(limit_id=GET_ORDER_DETAIL_PATH_URL, limit=30, time_interval=0.1, linked_limits=["ALL"]),
+#     RateLimit(limit_id=GET_OPEN_ORDERS_PATH_URL, limit=3, time_interval=0.1, linked_limits=["ALL"]),
+# ]
+
+RATE_LIMITS = [
+    RateLimit(limit_id=CHECK_NETWORK_PATH_URL, limit=100, time_interval=1),
+    RateLimit(limit_id=GET_TRADING_RULES_PATH_URL, limit=100, time_interval=1),
+    RateLimit(limit_id=CREATE_ORDER_PATH_URL, limit=15, time_interval=0.1),
+    RateLimit(limit_id=CANCEL_ORDER_PATH_URL, limit=15, time_interval=0.1),
+    RateLimit(limit_id=GET_ACCOUNT_SUMMARY_PATH_URL, limit=3, time_interval=0.1),
+    RateLimit(limit_id=GET_ORDER_DETAIL_PATH_URL, limit=30, time_interval=0.1),
+    RateLimit(limit_id=GET_OPEN_ORDERS_PATH_URL, limit=3, time_interval=0.1),
+]
+
 
 API_REASONS = {
     0: "Success",

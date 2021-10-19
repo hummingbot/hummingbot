@@ -1,4 +1,7 @@
 # A single source of truth for constant variables related to the exchange
+from hummingbot.core.api_throttler.data_types import RateLimit, LinkedLimitWeightPair
+
+
 class Constants:
     """
     API Documentation Links:
@@ -17,6 +20,7 @@ class Constants:
 
     ENDPOINT = {
         # Public Endpoints
+        "NETWORK_CHECK": "currencies",
         "TICKER": "marketwatch/ticker",
         "SYMBOL": "instruments",
         "ORDER_BOOK": "marketwatch/orderbook/{trading_pair}/150/2",
@@ -58,3 +62,48 @@ class Constants:
     UPDATE_ORDER_STATUS_INTERVAL = 60.0
     # 10 minute interval to update trading rules, these would likely never change whilst running.
     INTERVAL_TRADING_RULES = 600
+
+    REST_TOTAL_LIMIT_ID = "RestAPITotal"
+    WS_REQUEST_LIMIT_ID = "WSRequest"
+    REST_ORDERBOOK_LIMIT_ID = "OrderBook"
+
+    RATE_LIMITS = [
+        RateLimit(limit_id=REST_TOTAL_LIMIT_ID,
+                  limit=120,
+                  time_interval=60),
+        RateLimit(limit_id=WS_REQUEST_LIMIT_ID,
+                  limit=30,
+                  time_interval=60),
+        RateLimit(limit_id=ENDPOINT["NETWORK_CHECK"],
+                  limit=12,
+                  time_interval=1,
+                  linked_limits=[LinkedLimitWeightPair(REST_TOTAL_LIMIT_ID)]),
+        RateLimit(limit_id=ENDPOINT["TICKER"],
+                  limit=12,
+                  time_interval=60,
+                  linked_limits=[LinkedLimitWeightPair(REST_TOTAL_LIMIT_ID)]),
+        RateLimit(limit_id=ENDPOINT["SYMBOL"],
+                  limit=12,
+                  time_interval=60,
+                  linked_limits=[LinkedLimitWeightPair(REST_TOTAL_LIMIT_ID)]),
+        RateLimit(limit_id=REST_ORDERBOOK_LIMIT_ID,
+                  limit=12,
+                  time_interval=60,
+                  linked_limits=[LinkedLimitWeightPair(REST_TOTAL_LIMIT_ID)]),
+        RateLimit(limit_id=ENDPOINT["ORDER_CREATE"],
+                  limit=60,
+                  time_interval=60,
+                  linked_limits=[LinkedLimitWeightPair(REST_TOTAL_LIMIT_ID)]),
+        RateLimit(limit_id=ENDPOINT["ORDER_DELETE"],
+                  limit=60,
+                  time_interval=60,
+                  linked_limits=[LinkedLimitWeightPair(REST_TOTAL_LIMIT_ID)]),
+        RateLimit(limit_id=ENDPOINT["ORDER_STATUS"],
+                  limit=30,
+                  time_interval=60,
+                  linked_limits=[LinkedLimitWeightPair(REST_TOTAL_LIMIT_ID)]),
+        RateLimit(limit_id=ENDPOINT["USER_BALANCES"],
+                  limit=60,
+                  time_interval=60,
+                  linked_limits=[LinkedLimitWeightPair(REST_TOTAL_LIMIT_ID)]),
+    ]

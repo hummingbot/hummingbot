@@ -2,7 +2,7 @@
 ###       Pure market making strategy config         ###
 ########################################################
 
-template_version: 20
+template_version: 22
 strategy: null
 
 # Exchange and token parameters.
@@ -31,7 +31,7 @@ minimum_spread: null
 # If the value is 60, the bot cancels active orders and placing new ones after a minute.
 order_refresh_time: null
 
-# Time in seconds before replacing existing order with new orders at thesame price.
+# Time in seconds before replacing existing order with new orders at the same price.
 max_order_age: null
 
 # The spread (from mid price) to defer order refresh process to the next cycle.
@@ -109,6 +109,9 @@ price_source_market: null
 # An external api that returns price (for custom_api pricing source).
 price_source_custom_api: null
 
+# An interval time in second to update the price from custom api (for custom_api pricing source).
+custom_api_update_interval: null
+
 #Take order if they cross order book when external price source is enabled
 take_if_crossed: null
 
@@ -121,6 +124,9 @@ take_if_crossed: null
 #   order_3: [sell, 0.1, 500]
 # Please make sure there is a space between : and [
 order_override: null
+
+# If the strategy should wait to receive cancellations confirmation before creating new orders during refresh time
+should_wait_order_cancel_confirmation: True
 
 # For more detailed information, see:
 # https://docs.hummingbot.io/strategies/pure-market-making/#configuration-parameters

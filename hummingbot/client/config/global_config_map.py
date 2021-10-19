@@ -258,6 +258,7 @@ main_config_map = {
                   type_str="str",
                   required_if=lambda: global_config_map.get("db_engine").value != "sqlite",
                   default="dbname"),
+    # other options
     "0x_active_cancels":
         ConfigVar(key="0x_active_cancels",
                   prompt="Enable active order cancellations for 0x exchanges (warning: this costs gas)?  >>> ",
@@ -352,6 +353,30 @@ main_config_map = {
                   required_if=lambda: False,
                   on_validated=global_token_symbol_on_validated,
                   default="$"),
+    "rate_limits_share_pct":
+        ConfigVar(key="rate_limits_share_pct",
+                  prompt="What percentage of API rate limits do you want to allocate to this bot instance? "
+                         "(Enter 50 to indicate 50%)  >>> ",
+                  type_str="decimal",
+                  validator=lambda v: validate_decimal(v, 1, 100, inclusive=True),
+                  required_if=lambda: False,
+                  default=Decimal("100")),
+    "create_command_timeout":
+        ConfigVar(key="create_command_timeout",
+                  prompt="Network timeout when fetching the minimum order amount"
+                         " in the create command (in seconds)  >>> ",
+                  type_str="decimal",
+                  validator=lambda v: validate_decimal(v, min_value=Decimal("0"), inclusive=False),
+                  required_if=lambda: False,
+                  default=Decimal("10")),
+    "other_commands_timeout":
+        ConfigVar(key="other_commands_timeout",
+                  prompt="Network timeout to apply to the other commands' API calls"
+                         " (i.e. import, connect, balance, history; in seconds)  >>> ",
+                  type_str="decimal",
+                  validator=lambda v: validate_decimal(v, min_value=Decimal("0"), inclusive=False),
+                  required_if=lambda: False,
+                  default=Decimal("30")),
 }
 
 global_config_map = {**key_config_map, **main_config_map}

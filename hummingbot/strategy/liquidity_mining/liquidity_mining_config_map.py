@@ -2,6 +2,7 @@
 The configuration parameters for a user made liquidity_mining strategy.
 """
 
+import re
 from decimal import Decimal
 from typing import Optional
 from hummingbot.client.config.config_var import ConfigVar
@@ -20,14 +21,41 @@ def exchange_on_validated(value: str) -> None:
     required_exchanges.append(value)
 
 
+def market_validate(value: str) -> Optional[str]:
+    pairs = list()
+    if len(value.strip()) == 0:
+        # Whitespace
+        return "Invalid market(s). The given entry is empty."
+    markets = list(value.upper().split(","))
+    for market in markets:
+        if len(market.strip()) == 0:
+            return "Invalid markets. The given entry contains an empty market."
+        tokens = market.strip().split("-")
+        if len(tokens) != 2:
+            return f"Invalid market. {market} doesn't contain exactly 2 tickers."
+        for token in tokens:
+            # Check allowed ticker lengths
+            if len(token.strip()) == 0:
+                return f"Invalid market. Ticker {token} has an invalid length."
+            if(bool(re.search('^[a-zA-Z0-9]*$', token)) is False):
+                return f"Invalid market. Ticker {token} contains invalid characters."
+        # The pair is valid
+        pair = f"{tokens[0]}-{tokens[1]}"
+        if pair in pairs:
+            return f"Duplicate market {pair}."
+        pairs.append(pair)
+
+
 def token_validate(value: str) -> Optional[str]:
     value = value.upper()
     markets = list(liquidity_mining_config_map["markets"].value.split(","))
     tokens = set()
     for market in markets:
-        tokens.update(set(market.split("-")))
+        # Tokens in markets already validated in market_validate()
+        for token in market.strip().upper().split("-"):
+            tokens.add(token.strip())
     if value not in tokens:
-        return f"Invalid token. {value} is not one of {','.join(tokens)}"
+        return f"Invalid token. {value} is not one of {','.join(sorted(tokens))}"
 
 
 def order_size_prompt() -> str:
@@ -50,6 +78,7 @@ liquidity_mining_config_map = {
         ConfigVar(key="markets",
                   prompt="Enter a list of markets (comma separated, e.g. LTC-USDT,ETH-USDT) >>> ",
                   type_str="str",
+                  validator=market_validate,
                   prompt_on_new=True),
     "token":
         ConfigVar(key="token",

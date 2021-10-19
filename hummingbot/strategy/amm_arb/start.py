@@ -35,11 +35,12 @@ def start(self):
         rate_source = FixedRateSource()
         rate_source.add_rate(f"{quote_2}-{quote_1}", secondary_to_primary_quote_conversion_rate)
 
-    self.strategy = AmmArbStrategy(market_info_1=market_info_1,
-                                   market_info_2=market_info_2,
-                                   min_profitability=min_profitability,
-                                   order_amount=order_amount,
-                                   market_1_slippage_buffer=market_1_slippage_buffer,
-                                   market_2_slippage_buffer=market_2_slippage_buffer,
-                                   concurrent_orders_submission=concurrent_orders_submission,
-                                   rate_source=rate_source)
+    self.strategy = AmmArbStrategy()
+    self.strategy.init_params(market_info_1=market_info_1,
+                              market_info_2=market_info_2,
+                              min_profitability=min_profitability,
+                              order_amount=order_amount,
+                              market_1_slippage_buffer=market_1_slippage_buffer,
+                              market_2_slippage_buffer=market_2_slippage_buffer,
+                              concurrent_orders_submission=concurrent_orders_submission,
+                              rate_source=rate_source)

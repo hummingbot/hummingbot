@@ -50,6 +50,10 @@ class RequestId:
 
 def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
     try:
+        if trading_pair == 'USDTUSD':
+            return 'USD', 'TUSD'
+        elif trading_pair == 'USDTGUSD':
+            return 'USD', 'GUSD'
         m = TRADING_PAIR_SPLITTER.match(trading_pair)
         return m.group(1), m.group(2)
     # Exceptions are now logged as warnings in trading pair fetcher
@@ -69,6 +73,11 @@ def translate_asset(asset_name: str) -> str:
 
 
 def translate_assets(hb_trading_pair: str) -> str:
+    skip_pairs = [
+        'USDT-GUSD'
+    ]
+    if hb_trading_pair in skip_pairs:
+        return hb_trading_pair
     assets = hb_trading_pair.split('-')
     for x in range(len(assets)):
         assets[x] = translate_asset(assets[x])

@@ -8,6 +8,7 @@ from typing import List, Dict, Optional, Tuple, Set, Deque
 
 from hummingbot.client.command import __all__ as commands
 from hummingbot.core.clock import Clock
+from hummingbot.exceptions import ArgumentParserError
 from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.application_warning import ApplicationWarning
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
@@ -18,7 +19,6 @@ from hummingbot.client.ui.keybindings import load_key_bindings
 from hummingbot.client.ui.parser import load_parser, ThrowingArgumentParser
 from hummingbot.client.ui.hummingbot_cli import HummingbotCLI
 from hummingbot.client.ui.completer import load_completer
-from hummingbot.client.errors import InvalidCommandError, ArgumentParserError
 from hummingbot.client.config.global_config_map import global_config_map, using_wallet
 from hummingbot.client.config.config_helpers import (
     get_strategy_config_map,
@@ -107,10 +107,13 @@ class HummingbotApplication(*commands):
         return self._strategy_file_name
 
     @strategy_file_name.setter
-    def strategy_file_name(self, value: str):
+    def strategy_file_name(self, value: Optional[str]):
         self._strategy_file_name = value
-        db_name = value.split(".")[0]
-        self.trade_fill_db = SQLConnectionManager.get_trade_fills_instance(db_name=db_name)
+        if value is not None:
+            db_name = value.split(".")[0]
+            self.trade_fill_db = SQLConnectionManager.get_trade_fills_instance(db_name)
+        else:
+            self.trade_fill_db = None
 
     @property
     def strategy_config_map(self):
@@ -169,8 +172,6 @@ class HummingbotApplication(*commands):
                     f = args.func
                     del kwargs["func"]
                     f(**kwargs)
-        except InvalidCommandError as e:
-            self._notify("Invalid command: %s" % (str(e),))
         except ArgumentParserError as e:
             if not self.be_silly(raw_command):
                 self._notify(str(e))
@@ -259,10 +260,7 @@ class HummingbotApplication(*commands):
         for connector_name, trading_pairs in self.market_trading_pairs_map.items():
             conn_setting = CONNECTOR_SETTINGS[connector_name]
             if global_config_map.get("paper_trade_enabled").value and conn_setting.type == ConnectorType.Exchange:
-                try:
-                    connector = create_paper_trade_market(connector_name, trading_pairs)
-                except Exception:
-                    raise
+                connector = create_paper_trade_market(connector_name, trading_pairs)
                 paper_trade_account_balance = global_config_map.get("paper_trade_account_balance").value
                 for asset, balance in paper_trade_account_balance.items():
                     connector.set_balance(asset, balance)

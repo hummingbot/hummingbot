@@ -1,8 +1,4 @@
 #!/usr/bin/env python
-
-from os.path import join, realpath
-import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
-
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from decimal import Decimal
 import logging; logging.basicConfig(level=logging.ERROR)
@@ -77,7 +73,8 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
         self.market.add_listener(MarketEvent.OrderCancelled, self.cancel_order_logger)
 
     def test_strategy_ping_pong_on_ask_fill(self):
-        self.strategy = PureMarketMakingStrategy(
+        self.strategy = PureMarketMakingStrategy()
+        self.strategy.init_params(
             self.market_info,
             bid_spread=Decimal("0.01"),
             ask_spread=Decimal("0.01"),
@@ -119,7 +116,8 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
         self.assertEqual(1, len(self.strategy.active_sells))
 
     def test_strategy_ping_pong_on_bid_fill(self):
-        self.strategy = PureMarketMakingStrategy(
+        self.strategy = PureMarketMakingStrategy()
+        self.strategy.init_params(
             self.market_info,
             bid_spread=Decimal("0.01"),
             ask_spread=Decimal("0.01"),
@@ -162,7 +160,8 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
         self.assertEqual(1, len(self.strategy.active_sells))
 
     def test_multiple_orders_ping_pong(self):
-        self.strategy = PureMarketMakingStrategy(
+        self.strategy = PureMarketMakingStrategy()
+        self.strategy.init_params(
             self.market_info,
             bid_spread=Decimal("0.01"),
             ask_spread=Decimal("0.01"),

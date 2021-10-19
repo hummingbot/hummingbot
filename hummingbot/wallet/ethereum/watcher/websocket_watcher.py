@@ -120,11 +120,8 @@ class WSNewBlocksWatcher(BaseWatcher):
                     raw_msg_str: str = await asyncio.wait_for(self._client.recv(), self.MESSAGE_TIMEOUT)
                     yield raw_msg_str
                 except asyncio.TimeoutError:
-                    try:
-                        pong_waiter = await self._client.ping()
-                        await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
-                    except asyncio.TimeoutError:
-                        raise
+                    pong_waiter = await self._client.ping()
+                    await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
         except asyncio.TimeoutError:
             self.logger().warning("WebSocket ping timed out. Going to reconnect...")
             return

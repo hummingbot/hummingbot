@@ -36,17 +36,20 @@ class AmmArbStrategy(StrategyPyBase):
             amm_logger = logging.getLogger(__name__)
         return amm_logger
 
-    def __init__(self,
-                 market_info_1: MarketTradingPairTuple,
-                 market_info_2: MarketTradingPairTuple,
-                 min_profitability: Decimal,
-                 order_amount: Decimal,
-                 market_1_slippage_buffer: Decimal = Decimal("0"),
-                 market_2_slippage_buffer: Decimal = Decimal("0"),
-                 concurrent_orders_submission: bool = True,
-                 status_report_interval: float = 900,
-                 rate_source: Any = FixedRateSource()):
+    def init_params(self,
+                    market_info_1: MarketTradingPairTuple,
+                    market_info_2: MarketTradingPairTuple,
+                    min_profitability: Decimal,
+                    order_amount: Decimal,
+                    market_1_slippage_buffer: Decimal = Decimal("0"),
+                    market_2_slippage_buffer: Decimal = Decimal("0"),
+                    concurrent_orders_submission: bool = True,
+                    status_report_interval: float = 900,
+                    rate_source: Any = FixedRateSource()):
         """
+        Assigns strategy parameters, this function must be called directly after init.
+        The reason for this is to make the parameters discoverable on introspect (it is not possible on init of
+        a Cython class).
         :param market_info_1: The first market
         :param market_info_2: The second market
         :param min_profitability: The minimum profitability for execute trades (e.g. 0.0003 for 0.3%)
@@ -61,7 +64,6 @@ class AmmArbStrategy(StrategyPyBase):
         :param status_report_interval: Amount of seconds to wait to refresh the status report
         :param rate_source: Provider of conversion rates between tokens
         """
-        super().__init__()
         self._market_info_1 = market_info_1
         self._market_info_2 = market_info_2
         self._min_profitability = min_profitability

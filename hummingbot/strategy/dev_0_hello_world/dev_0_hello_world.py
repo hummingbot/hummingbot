@@ -36,13 +36,6 @@ class HelloWorldStrategy(StrategyPyBase):
 
         self.add_markets([self._exchange])
 
-    def notify_hb_app(self, msg: str):
-        """
-        Method called to display message on the Output Panel(upper left)
-        """
-        from hummingbot.client.hummingbot_application import HummingbotApplication
-        HummingbotApplication.main_application()._notify(msg)
-
     async def format_status(self) -> str:
         """
         Method called by the `status` command. Generates the status report for this strategy.

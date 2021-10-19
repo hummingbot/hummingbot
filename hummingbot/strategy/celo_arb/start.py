@@ -30,4 +30,5 @@ def start(self):
     secondary_data = [self.markets[secondary_exchange], secondary_trading_pair] + list(secondary_assets)
     market_info = MarketTradingPairTuple(*secondary_data)
     self.market_trading_pair_tuples = [market_info]
-    self.strategy = CeloArbStrategy(market_info, min_profitability, order_amount, celo_slippage_buffer)
+    self.strategy = CeloArbStrategy()
+    self.strategy.init_params(market_info, min_profitability, order_amount, celo_slippage_buffer)

@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 from decimal import Decimal
-from os.path import join, realpath
-import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
-
-import logging; logging.basicConfig(level=logging.ERROR)
+import logging
 import pandas as pd
 import unittest
 import mock
@@ -27,6 +24,8 @@ from test.connector.fixture_celo import outputs as celo_outputs, TEST_ADDRESS, T
 from hummingbot.market.celo.celo_cli import CeloCLI
 
 
+logging.basicConfig(level=logging.ERROR)
+
 MOCK_CELO_COMMANDS = True
 
 
@@ -43,7 +42,7 @@ class CeloArbUnitTest(unittest.TestCase):
     end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
     start_timestamp: float = start.timestamp()
     end_timestamp: float = end.timestamp()
-    trading_pair = "CGLD-CUSD"
+    trading_pair = "CELO-CUSD"
     base_asset = trading_pair.split("-")[0]
     quote_asset = trading_pair.split("-")[1]
 
@@ -79,7 +78,8 @@ class CeloArbUnitTest(unittest.TestCase):
         self.market_info = MarketTradingPairTuple(self.market, self.trading_pair,
                                                   self.base_asset, self.quote_asset)
         self.logging_options: int = CeloArbStrategy.OPTION_LOG_ALL
-        self.strategy = CeloArbStrategy(
+        self.strategy = CeloArbStrategy()
+        self.strategy.init_params(
             self.market_info,
             min_profitability=Decimal("0.01"),
             order_amount=Decimal("1"),
@@ -113,8 +113,8 @@ class CeloArbUnitTest(unittest.TestCase):
         """
         order_amount = 1
         trade_profits = get_trade_profits(self.market, self.trading_pair, order_amount)
-        # Sell price at CTP (counter party) 1 CGLD is 9.95 CUSD
-        # At Celo 9.95 CUSD will get you 1 CGLD, so the profit is 0%
+        # Sell price at CTP (counter party) 1 CELO is 9.95 CUSD
+        # At Celo 9.95 CUSD will get you 1 CELO, so the profit is 0%
         celo_buy_trade = trade_profits[0]
         self.assertTrue(celo_buy_trade.is_celo_buy)
         # Can sell at CTP at 9.95
@@ -124,8 +124,8 @@ class CeloArbUnitTest(unittest.TestCase):
         # profit is 0
         self.assertEqual(celo_buy_trade.profit, Decimal("0"))
 
-        # Buy price at CTP (counter party) 1 CGLD at 10.05 USD
-        # at Celo 1 CGLD will get you 10.5 USD, so the profit is (10.5 - 10.05)/10.05 = 0.0447761194
+        # Buy price at CTP (counter party) 1 CELO at 10.05 USD
+        # at Celo 1 CELO will get you 10.5 USD, so the profit is (10.5 - 10.05)/10.05 = 0.0447761194
         celo_sell_trade = trade_profits[1]
         self.assertFalse(celo_sell_trade.is_celo_buy)
         # Can buy price at CTP for 10.05
@@ -141,17 +141,17 @@ class CeloArbUnitTest(unittest.TestCase):
 
         celo_buy_trade = trade_profits[0]
         self.assertTrue(celo_buy_trade.is_celo_buy)
-        # VWAP Sell price (5 CGLD) at CTP is ((9.95 * 1) + (9.85 * 2) + (9.75 * 2))/5 = 9.83
+        # VWAP Sell price (5 CELO) at CTP is ((9.95 * 1) + (9.85 * 2) + (9.75 * 2))/5 = 9.83
         self.assertEqual(celo_buy_trade.ctp_vwap, Decimal("9.83"))
         self.assertEqual(celo_buy_trade.ctp_price, Decimal("9.75"))
-        # for 9.83 * 5 USD, you can get 0.99 * 5 CGLD at Celo, so the price is 9.83/0.99 = 9.92929292929
+        # for 9.83 * 5 USD, you can get 0.99 * 5 CELO at Celo, so the price is 9.83/0.99 = 9.92929292929
         self.assertAlmostEqual(celo_buy_trade.celo_price, Decimal("9.92929292929"))
         # profit is -0.00999999999
         self.assertAlmostEqual(celo_buy_trade.profit, Decimal("-0.00999999999"))
 
         celo_sell_trade = trade_profits[1]
         self.assertFalse(celo_sell_trade.is_celo_buy)
-        # VWAP Buy price (5 CGLD) at CTP is ((10.05 * 1) + (10.15 * 2) + (10.25 * 2))/5 = 10.17
+        # VWAP Buy price (5 CELO) at CTP is ((10.05 * 1) + (10.15 * 2) + (10.25 * 2))/5 = 10.17
         self.assertEqual(celo_sell_trade.ctp_vwap, Decimal("10.17"))
         self.assertEqual(celo_sell_trade.ctp_price, Decimal("10.25"))
         # Can sell price celo at 10.1 each
@@ -160,7 +160,7 @@ class CeloArbUnitTest(unittest.TestCase):
         self.assertAlmostEqual(celo_sell_trade.profit, Decimal("-0.00688298918"))
 
     def test_profitable_celo_sell_trade(self):
-        order_amount = 1
+        order_amount = Decimal("1")
         self.strategy.order_amount = order_amount
         trade_profits = get_trade_profits(self.market, self.trading_pair, order_amount)
         celo_sell_trade = [t for t in trade_profits if not t.is_celo_buy][0]
@@ -176,7 +176,7 @@ class CeloArbUnitTest(unittest.TestCase):
         self.assertEqual(self.strategy.celo_orders[0].amount, order_amount)
 
     def test_profitable_celo_buy_trade(self):
-        order_amount = 2
+        order_amount = Decimal("2")
         self.strategy.order_amount = order_amount
         trade_profits = get_trade_profits(self.market, self.trading_pair, order_amount)
         celo_buy_trade = [t for t in trade_profits if t.is_celo_buy][0]
@@ -192,7 +192,7 @@ class CeloArbUnitTest(unittest.TestCase):
         self.assertEqual(self.strategy.celo_orders[0].amount, order_amount)
 
     def test_profitable_but_insufficient_balance(self):
-        order_amount = 2
+        order_amount = Decimal("2")
         trade_profits = get_trade_profits(self.market, self.trading_pair, order_amount)
         celo_buy_trade = [t for t in trade_profits if t.is_celo_buy][0]
         self.assertTrue(celo_buy_trade.profit > self.strategy.min_profitability)

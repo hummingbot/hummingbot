@@ -79,21 +79,22 @@ class OrderBookMessage(namedtuple("_OrderBookMessage", "type, content, timestamp
         return self.type == OrderBookMessageType.TRADE
 
     def __eq__(self, other: "OrderBookMessage") -> bool:
-        if self.has_update_id and other.has_update_id:
-            return self.update_id == other.update_id
-        elif self.has_trade_id and other.has_trade_id:
-            return self.trade_id == other.trade_id
-        else:
-            return False
+        eq = (
+            (self.type == other.type)
+            and (
+                (self.has_update_id and (self.update_id == other.update_id))
+                or (self.trade_id == other.trade_id)
+            )
+        )
+        return eq
 
     def __lt__(self, other: "OrderBookMessage") -> bool:
-        if self.has_update_id and other.has_update_id:
-            return self.update_id < other.update_id
-        elif self.has_trade_id and other.has_trade_id:
-            return self.trade_id < other.trade_id
-        else:
-            if self.timestamp != other.timestamp:
-                return self.timestamp < other.timestamp
-            else:
-                # For messages of same timestamp, order book messages come before trade messages.
-                return self.has_update_id
+        eq = (
+            (self.has_update_id and other.has_update_id and self.update_id < other.update_id)
+            or (self.has_trade_id and other.has_trade_id and self.trade_id < other.trade_id)
+            or (
+                ((self.timestamp != other.timestamp) and self.timestamp < other.timestamp)
+                or self.has_update_id  # if same timestamp, order book messages < trade messages.
+            )
+        )
+        return eq

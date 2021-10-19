@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-
-from os.path import join, realpath
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from decimal import Decimal
 import math
@@ -32,7 +30,6 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.strategy.dev_5_vwap import Dev5TwapTradeStrategy
-import sys; sys.path.insert(0, realpath(join(__file__, "../../")))
 
 
 class TWAPUnitTest(unittest.TestCase):

@@ -9,15 +9,16 @@ from typing import (
 from decimal import Decimal
 import asyncio
 import aiohttp
+import copy
 import math
 import time
-import ujson
 from async_timeout import timeout
 
 from hummingbot.core.network_iterator import NetworkStatus
+
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.clock import Clock
-from hummingbot.core.utils.asyncio_throttle import Throttler
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.cancellation_result import CancellationResult
@@ -41,12 +42,11 @@ from hummingbot.connector.exchange.coinzoom.coinzoom_order_book_tracker import C
 from hummingbot.connector.exchange.coinzoom.coinzoom_user_stream_tracker import CoinzoomUserStreamTracker
 from hummingbot.connector.exchange.coinzoom.coinzoom_auth import CoinzoomAuth
 from hummingbot.connector.exchange.coinzoom.coinzoom_in_flight_order import CoinzoomInFlightOrder
+import hummingbot.connector.exchange.coinzoom.coinzoom_http_utils as http_utils
 from hummingbot.connector.exchange.coinzoom.coinzoom_utils import (
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair,
     get_new_client_order_id,
-    aiohttp_response_with_errors,
-    retry_sleep_time,
     str_date_to_ts,
     CoinzoomAPIError,
 )
@@ -88,9 +88,13 @@ class CoinzoomExchange(ExchangeBase):
         super().__init__()
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
+        self._throttler = AsyncThrottler(Constants.RATE_LIMITS)
         self._coinzoom_auth = CoinzoomAuth(coinzoom_api_key, coinzoom_secret_key, coinzoom_username)
-        self._order_book_tracker = CoinzoomOrderBookTracker(trading_pairs=trading_pairs)
-        self._user_stream_tracker = CoinzoomUserStreamTracker(self._coinzoom_auth, trading_pairs)
+        self._order_book_tracker = CoinzoomOrderBookTracker(throttler=self._throttler, trading_pairs=trading_pairs)
+        self._user_stream_tracker = CoinzoomUserStreamTracker(
+            throttler=self._throttler,
+            coinzoom_auth=self._coinzoom_auth,
+            trading_pairs=trading_pairs)
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client = None
         self._poll_notifier = asyncio.Event()
@@ -102,7 +106,10 @@ class CoinzoomExchange(ExchangeBase):
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
         self._last_poll_timestamp = 0
-        self._throttler = Throttler(rate_limit = (8.0, 6))
+        self._real_time_balance_update = False
+        self._update_balances_fetching = False
+        self._update_balances_queued = False
+        self._update_balances_finished = asyncio.Event()
 
     @property
     def name(self) -> str:
@@ -210,6 +217,11 @@ class CoinzoomExchange(ExchangeBase):
         # Resets timestamps for status_polling_task
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
+        self._poll_notifier = asyncio.Event()
+        # Reset balance queue
+        self._update_balances_fetching = False
+        self._update_balances_queued = False
+        self._update_balances_finished = asyncio.Event()
 
         self._order_book_tracker.stop()
         if self._status_polling_task is not None:
@@ -235,7 +247,11 @@ class CoinzoomExchange(ExchangeBase):
         """
         try:
             # since there is no ping endpoint, the lowest rate call is to get BTC-USD symbol
-            await self._api_request("GET", Constants.ENDPOINT['SYMBOL'])
+            await self._api_request(
+                "GET",
+                Constants.ENDPOINT['NETWORK_CHECK'],
+                is_auth_required=True,
+                try_count=Constants.API_MAX_RETRIES)
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -314,7 +330,7 @@ class CoinzoomExchange(ExchangeBase):
                            endpoint: str,
                            params: Optional[Dict[str, Any]] = None,
                            is_auth_required: bool = False,
-                           try_count: int = 0) -> Dict[str, Any]:
+                           try_count: int = 0):
         """
         Sends an aiohttp request and waits for a response.
         :param method: The HTTP method, e.g. get or post
@@ -324,35 +340,24 @@ class CoinzoomExchange(ExchangeBase):
         signature to the request.
         :returns A response in json format.
         """
-        async with self._throttler.weighted_task(request_weight=1):
-            url = f"{Constants.REST_URL}/{endpoint}"
-            shared_client = await self._http_client()
-            # Turn `params` into either GET params or POST body data
-            qs_params: dict = params if method.upper() == "GET" else None
-            req_params = ujson.dumps(params) if method.upper() == "POST" and params is not None else None
-            # Generate auth headers if needed.
-            headers: dict = {"Content-Type": "application/json", "User-Agent": "hummingbot"}
-            if is_auth_required:
-                headers: dict = self._coinzoom_auth.get_headers()
-            # Build request coro
-            response_coro = shared_client.request(method=method.upper(), url=url, headers=headers,
-                                                  params=qs_params, data=req_params,
-                                                  timeout=Constants.API_CALL_TIMEOUT)
-            http_status, parsed_response, request_errors = await aiohttp_response_with_errors(response_coro)
-            if request_errors or parsed_response is None:
-                if try_count < Constants.API_MAX_RETRIES:
-                    try_count += 1
-                    time_sleep = retry_sleep_time(try_count)
-                    self.logger().info(f"Error fetching data from {url}. HTTP status is {http_status}. "
-                                       f"Retrying in {time_sleep:.0f}s.")
-                    await asyncio.sleep(time_sleep)
-                    return await self._api_request(method=method, endpoint=endpoint, params=params,
-                                                   is_auth_required=is_auth_required, try_count=try_count)
-                else:
-                    raise CoinzoomAPIError({"error": parsed_response, "status": http_status})
-            if "error" in parsed_response:
-                raise CoinzoomAPIError(parsed_response)
-            return parsed_response
+        shared_client = await self._http_client()
+
+        # Generate auth headers if needed.
+        headers = {}
+        if is_auth_required:
+            headers.update(self._coinzoom_auth.get_headers())
+
+        parsed_response = await http_utils.api_call_with_retries(
+            method=method,
+            endpoint=endpoint,
+            extra_headers=headers,
+            params=params,
+            shared_client=shared_client,
+            try_count=try_count,
+            throttler=self._throttler)
+        if "error" in parsed_response:
+            raise CoinzoomAPIError(parsed_response)
+        return parsed_response
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal):
         """
@@ -510,7 +515,7 @@ class CoinzoomExchange(ExchangeBase):
         if order_id in self._order_not_found_records:
             del self._order_not_found_records[order_id]
 
-    async def _execute_cancel(self, trading_pair: str, order_id: str) -> str:
+    async def _execute_cancel(self, trading_pair: str, order_id: str) -> CancellationResult:
         """
         Executes order cancellation process by first calling cancel-order API. The API result doesn't confirm whether
         the cancellation is successful, it simply states it receives the request.
@@ -523,20 +528,26 @@ class CoinzoomExchange(ExchangeBase):
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is None:
                 raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
-            if tracked_order.exchange_order_id is None:
-                await tracked_order.get_exchange_order_id()
-            ex_order_id = tracked_order.exchange_order_id
-            api_params = {
-                "orderId": ex_order_id,
-                "symbol": convert_to_exchange_trading_pair(trading_pair)
-            }
-            await self._api_request("POST",
-                                    Constants.ENDPOINT["ORDER_DELETE"],
-                                    api_params,
-                                    is_auth_required=True)
-            order_was_cancelled = True
+
+            if not tracked_order.is_local:
+                if tracked_order.exchange_order_id is None:
+                    await tracked_order.get_exchange_order_id()
+                ex_order_id = tracked_order.exchange_order_id
+                api_params = {
+                    "orderId": ex_order_id,
+                    "symbol": convert_to_exchange_trading_pair(trading_pair)
+                }
+                await self._api_request("POST",
+                                        Constants.ENDPOINT["ORDER_DELETE"],
+                                        api_params,
+                                        is_auth_required=True)
+                order_was_cancelled = True
         except asyncio.CancelledError:
             raise
+        except asyncio.TimeoutError:
+            self.logger().info(f"The order {order_id} could not be cancelled due to a timeout."
+                               " The action will be retried later.")
+            err = {"message": "Timeout during order cancellation"}
         except CoinzoomAPIError as e:
             err = e.error_payload.get('error', e.error_payload)
             self.logger().error(f"Order Cancel API Error: {err}")
@@ -544,6 +555,7 @@ class CoinzoomExchange(ExchangeBase):
             self._order_not_found_records[order_id] = self._order_not_found_records.get(order_id, 0) + 1
             if self._order_not_found_records[order_id] >= self.ORDER_NOT_EXIST_CANCEL_COUNT:
                 order_was_cancelled = True
+
         if order_was_cancelled:
             self.logger().info(f"Successfully cancelled order {order_id} on {Constants.EXCHANGE_NAME}.")
             self.stop_tracking_order(order_id)
@@ -552,12 +564,13 @@ class CoinzoomExchange(ExchangeBase):
             tracked_order.cancelled_event.set()
             return CancellationResult(order_id, True)
         else:
-            self.logger().network(
-                f"Failed to cancel order {order_id}: {err.get('message', str(err))}",
-                exc_info=True,
-                app_warning_msg=f"Failed to cancel the order {order_id} on {Constants.EXCHANGE_NAME}. "
-                                f"Check API key and network connection."
-            )
+            if not tracked_order.is_local:
+                self.logger().network(
+                    f"Failed to cancel order {order_id}: {err.get('message', str(err))}",
+                    exc_info=True,
+                    app_warning_msg=f"Failed to cancel the order {order_id} on {Constants.EXCHANGE_NAME}. "
+                                    f"Check API key and network connection."
+                )
             return CancellationResult(order_id, False)
 
     async def _status_polling_loop(self):
@@ -589,8 +602,35 @@ class CoinzoomExchange(ExchangeBase):
         """
         Calls REST API to update total and available balances.
         """
-        account_info = await self._api_request("GET", Constants.ENDPOINT["USER_BALANCES"], is_auth_required=True)
-        self._process_balance_message(account_info)
+        try:
+            # Check for in progress balance updates, queue if fetching and none already waiting, otherwise skip.
+            if self._update_balances_fetching:
+                if not self._update_balances_queued:
+                    self._update_balances_queued = True
+                    await self._update_balances_finished.wait()
+                    self._update_balances_queued = False
+                    self._update_balances_finished = asyncio.Event()
+                else:
+                    return
+            self._update_balances_fetching = True
+            account_info = await self._api_request("GET", Constants.ENDPOINT["USER_BALANCES"], is_auth_required=True)
+            self._process_balance_message(account_info)
+            self._update_balances_fetching = False
+            # Set balance update finished event if there's one waiting.
+            if self._update_balances_queued and not self._update_balances_finished.is_set():
+                self._update_balances_finished.set()
+        except Exception as e:
+            if self._update_balances_queued:
+                if self._update_balances_finished.is_set():
+                    self._update_balances_finished = asyncio.Event()
+                else:
+                    self._update_balances_finished.set()
+                self._update_balances_queued = False
+            if self._update_balances_fetching:
+                self._update_balances_fetching = False
+            warn_msg = (f"Could not fetch balance update from {Constants.EXCHANGE_NAME}")
+            self.logger().network(f"Unexpected error while fetching balance update - {str(e)}", exc_info=True,
+                                  app_warning_msg=warn_msg)
 
     async def _update_order_status(self):
         """
@@ -688,6 +728,7 @@ class CoinzoomExchange(ExchangeBase):
                 "averagePrice": 56518.7,
             }
         """
+
         # Looks like CoinZoom might support clientOrderId eventually so leaving this here for now.
         # if order_msg.get('clientOrderId') is not None:
         #     client_order_id = order_msg["clientOrderId"]
@@ -701,30 +742,29 @@ class CoinzoomExchange(ExchangeBase):
             exchange_order_id = str(order_msg["orderId"])
         tracked_orders = list(self._in_flight_orders.values())
         track_order = [o for o in tracked_orders if exchange_order_id == o.exchange_order_id]
-        if not track_order:
-            return
-        tracked_order = track_order[0]
+        if track_order:
+            tracked_order = track_order[0]
 
-        # Estimate fee
-        order_msg["trade_fee"] = self.estimate_fee_pct(tracked_order.order_type is OrderType.LIMIT_MAKER)
-        updated = tracked_order.update_with_order_update(order_msg)
+            # Estimate fee
+            order_msg["trade_fee"] = self.estimate_fee_pct(tracked_order.order_type is OrderType.LIMIT_MAKER)
+            updated = tracked_order.update_with_order_update(order_msg)
+
+            if updated:
+                safe_ensure_future(self._trigger_order_fill(tracked_order, order_msg))
+            elif tracked_order.is_cancelled:
+                self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
+                self.stop_tracking_order(tracked_order.client_order_id)
+                self.trigger_event(MarketEvent.OrderCancelled,
+                                   OrderCancelledEvent(self.current_timestamp, tracked_order.client_order_id))
+                tracked_order.cancelled_event.set()
+            elif tracked_order.is_failure:
+                self.logger().info(f"The order {tracked_order.client_order_id} has failed according to order status API. ")
+                self.trigger_event(MarketEvent.OrderFailure,
+                                   MarketOrderFailureEvent(
+                                       self.current_timestamp, tracked_order.client_order_id, tracked_order.order_type))
+                self.stop_tracking_order(tracked_order.client_order_id)
         # Call Update balances on every message to catch order create, fill and cancel.
         safe_ensure_future(self._update_balances())
-
-        if updated:
-            safe_ensure_future(self._trigger_order_fill(tracked_order, order_msg))
-        elif tracked_order.is_cancelled:
-            self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
-            self.stop_tracking_order(tracked_order.client_order_id)
-            self.trigger_event(MarketEvent.OrderCancelled,
-                               OrderCancelledEvent(self.current_timestamp, tracked_order.client_order_id))
-            tracked_order.cancelled_event.set()
-        elif tracked_order.is_failure:
-            self.logger().info(f"The order {tracked_order.client_order_id} has failed according to order status API. ")
-            self.trigger_event(MarketEvent.OrderFailure,
-                               MarketOrderFailureEvent(
-                                   self.current_timestamp, tracked_order.client_order_id, tracked_order.order_type))
-            self.stop_tracking_order(tracked_order.client_order_id)
 
     async def _trigger_order_fill(self,
                                   tracked_order: CoinzoomInFlightOrder,
@@ -781,6 +821,8 @@ class CoinzoomExchange(ExchangeBase):
         for asset_name in asset_names_to_remove:
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
+        self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._in_flight_orders.items()}
+        self._in_flight_orders_snapshot_timestamp = self.current_timestamp
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         """
