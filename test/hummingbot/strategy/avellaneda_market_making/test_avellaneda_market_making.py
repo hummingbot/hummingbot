@@ -10,18 +10,6 @@ from typing import (
     List,
     Tuple,
 )
-
-from hummingsim.backtest.backtest_market import BacktestMarket
-from hummingsim.backtest.market import (
-    Market,
-    QuantizationParams
-)
-from hummingsim.backtest.market_config import (
-    AssetType,
-    MarketConfig,
-)
-from hummingsim.backtest.mock_order_book_loader import MockOrderBookLoader
-
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
@@ -40,6 +28,8 @@ from hummingbot.strategy.avellaneda_market_making import AvellanedaMarketMakingS
 from hummingbot.strategy.data_types import PriceSize, Proposal
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.__utils__.trailing_indicators.instant_volatility import InstantVolatilityIndicator
+from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
+from test.mock.mock_paper_exchange import MockPaperExchange
 
 s_decimal_zero = Decimal(0)
 s_decimal_one = Decimal(1)
@@ -79,23 +69,20 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
     def setUp(self):
         super().setUp()
-        self.market: BacktestMarket = BacktestMarket()
+        self.market: MockPaperExchange = MockPaperExchange(fee_percent=Decimal("25"))
         self.market_info: MarketTradingPairTuple = MarketTradingPairTuple(
             self.market, self.trading_pair, *self.trading_pair.split("-")
         )
-
-        self.order_book_data: MockOrderBookLoader = MockOrderBookLoader(
-            self.trading_pair, *self.trading_pair.split("-")
-        )
-        self.order_book_data.set_balanced_order_book(mid_price=self.initial_mid_price,
-                                                     min_price=1,
-                                                     max_price=200,
-                                                     price_step_size=1,
-                                                     volume_step_size=10)
-        self.market.add_data(self.order_book_data)
+        self.market.set_balanced_order_book(trading_pair=self.trading_pair,
+                                            mid_price=self.initial_mid_price,
+                                            min_price=1,
+                                            max_price=200,
+                                            price_step_size=1,
+                                            volume_step_size=10)
         self.market.set_balance("COINALPHA", 1)
         self.market.set_balance("HBOT", 500)
         self.market.set_quantization_param(
+            self.trading_pair,
             QuantizationParams(
                 self.trading_pair.split("-")[0], 6, 6, 6, 6
             )
@@ -147,15 +134,12 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         strategy.avg_vol = volatility_indicator
 
         # Simulates change in mid price to reflect last sample added
-        order_book_data: MockOrderBookLoader = MockOrderBookLoader(
-            strategy.trading_pair, *strategy.trading_pair.split("-")
-        )
-        order_book_data.set_balanced_order_book(mid_price=samples[-1],
-                                                min_price=1,
-                                                max_price=200,
-                                                price_step_size=1,
-                                                volume_step_size=10)
-        strategy.market_info.market.add_data(order_book_data)
+        strategy.market_info.market.set_balanced_order_book(trading_pair=strategy.trading_pair,
+                                                            mid_price=samples[-1],
+                                                            min_price=1,
+                                                            max_price=200,
+                                                            price_step_size=1,
+                                                            volume_step_size=10)
 
         # Simulates c_collect_market_variables().
         # This is required since c_collect_market_variables() calls avg_vol.add_sample() which would affect calculations.
@@ -185,15 +169,12 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         strategy.avg_vol = volatility_indicator
 
         # Simulates change in mid price to reflect last sample added
-        order_book_data: MockOrderBookLoader = MockOrderBookLoader(
-            strategy.trading_pair, *strategy.trading_pair.split("-")
-        )
-        order_book_data.set_balanced_order_book(mid_price=samples[-1],
-                                                min_price=1,
-                                                max_price=200,
-                                                price_step_size=1,
-                                                volume_step_size=10)
-        strategy.market_info.market.add_data(order_book_data)
+        strategy.market_info.market.set_balanced_order_book(trading_pair=strategy.trading_pair,
+                                                            mid_price=samples[-1],
+                                                            min_price=1,
+                                                            max_price=200,
+                                                            price_step_size=1,
+                                                            volume_step_size=10)
 
         # Simulates c_collect_market_variables().
         # This is required since c_collect_market_variables() calls avg_vol.add_sample() which would affect calculations.
@@ -224,12 +205,11 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         strategy.cancel_active_orders(None)
 
     @staticmethod
-    def simulate_limit_order_fill(market: Market, limit_order: LimitOrder):
+    def simulate_limit_order_fill(market: MockPaperExchange, limit_order: LimitOrder):
         quote_currency_traded: Decimal = limit_order.price * limit_order.quantity
         base_currency_traded: Decimal = limit_order.quantity
         quote_currency: str = limit_order.quote_currency
         base_currency: str = limit_order.base_currency
-        config: MarketConfig = market.config
 
         if limit_order.is_buy:
             market.set_balance(quote_currency, market.get_balance(quote_currency) - quote_currency_traded)
@@ -249,7 +229,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
                 limit_order.client_order_id,
                 base_currency,
                 quote_currency,
-                base_currency if config.buy_fees_asset is AssetType.BASE_CURRENCY else quote_currency,
+                quote_currency,
                 base_currency_traded,
                 quote_currency_traded,
                 Decimal("0"),
@@ -273,7 +253,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
                 limit_order.client_order_id,
                 base_currency,
                 quote_currency,
-                base_currency if config.sell_fees_asset is AssetType.BASE_CURRENCY else quote_currency,
+                quote_currency,
                 base_currency_traded,
                 quote_currency_traded,
                 Decimal("0"),
@@ -895,10 +875,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         initial_proposal: Proposal = Proposal([PriceSize(bid_price, order_amount)], [PriceSize(ask_price, order_amount)])
 
         # Set TradeFees
-        self.market.config: MarketConfig = MarketConfig(AssetType.BASE_CURRENCY,
-                                                        Decimal("0.25"),
-                                                        AssetType.QUOTE_CURRENCY,
-                                                        Decimal("0.25"))
+        # self.market.set_flat_fee(Decimal("0.25"))
 
         new_proposal: Proposal = deepcopy(initial_proposal)
         self.strategy.apply_order_price_modifiers(new_proposal)
@@ -907,6 +884,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
     def test_apply_order_price_modifiers(self):
         # >>>> Test Preparation Start
+        # self.market.set_flat_fee(Decimal("0.25"))
+
         # Simulate low volatility
         self.simulate_low_volatility(self.strategy)
 
@@ -928,10 +907,6 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         ob_bids: List[OrderBookRow] = [OrderBookRow(bid_price * Decimal("0.5"), self.order_amount, 2)]
         ob_asks: List[OrderBookRow] = [OrderBookRow(ask_price * Decimal("1.5"), self.order_amount, 2)]
         self.market.order_books[self.trading_pair].apply_snapshot(ob_bids, ob_asks, 2)
-        self.market.config: MarketConfig = MarketConfig(AssetType.BASE_CURRENCY,
-                                                        Decimal("0.25"),
-                                                        AssetType.QUOTE_CURRENCY,
-                                                        Decimal("0.25"))
 
         expected_bid_price = self.market.quantize_order_price(
             self.trading_pair,

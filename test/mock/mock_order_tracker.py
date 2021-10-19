@@ -32,8 +32,8 @@ class MockOrderTracker(OrderBookTracker):
         # self._trading_pairs: List[str] = trading_pairs
         self._order_books: Dict[str, OrderBook] = {}
 
-    def exchange_name(self):
-        return str(self.__class__)
+    # def exchange_name(self):
+    #     return "MockPaperExchange" # self.__class__.__name__
 
     @property
     def ready(self) -> bool:
