@@ -2,7 +2,7 @@
 aioconsole==0.1.15
 aiohttp==3.7.4.post0
 aioresponses==0.7.2
-aiokafka==0.5.2
+aiokafka==0.7.1
 attrdict==2.0.1
 cachetools==4.0.0
 coverage==5.5
