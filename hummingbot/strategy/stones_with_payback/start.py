@@ -53,7 +53,7 @@ def start(self):
             _payback_info = _payback_infos.get(market_info.trading_pair)
             if _payback_info is not None:
                 payback_info[market_info] = MarketTradingPairTuple(
-                    self.markets[market],
+                    self.markets[payback_market],
                     _payback_info,
                     *_payback_info.split("-", 1)
                 )

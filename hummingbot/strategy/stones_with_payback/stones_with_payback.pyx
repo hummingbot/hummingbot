@@ -99,7 +99,7 @@ cdef class StonesWithPaybackStrategy(StrategyBase):
         self.sell_levels: List[OrderLevel] = []
         self.map_order_id_to_level = dict()
         self.map_order_id_to_oracle_price = dict()
-        self.percentage_price_shift_during_payback = hundred / Decimal("0.1")
+        self.percentage_price_shift_during_payback = Decimal("0.1") / hundred
 
         self._time_delay = time_delay
         self._total_buy_order_amount = total_buy_order_amount
@@ -221,10 +221,10 @@ cdef class StonesWithPaybackStrategy(StrategyBase):
 
                     if payback_order_id is not None:
                         self.logger().info(
-                            f"place buy order {payback_order_id} to {payback_info.market.name} exchange to payback of order {order_filled_event.order_id}."
+                            f"place sell order {payback_order_id} to {payback_info.market.name} exchange to payback of order {order_filled_event.order_id}."
                             f" Order amount={order_filled_event.amount},"
-                            f" order_price={min(payback_price, best_market_price)},"
-                            f" op={payback_price},"
+                            f" order_price={payback_price},"
+                            f" original_price={self.map_order_id_to_oracle_price[order_filled_event.order_id]},"
                             f" bmp={best_market_price}")
             else:
                 if self._logging_options & self.OPTION_LOG_MAKER_ORDER_FILLED:
@@ -246,8 +246,8 @@ cdef class StonesWithPaybackStrategy(StrategyBase):
                     if payback_order_id is not None:
                         self.logger().info(f"place buy order {payback_order_id} to {payback_info.market.name} exchange to payback of order {order_filled_event.order_id}."
                                            f" Order amount={order_filled_event.amount},"
-                                           f" order_price={min(payback_price, best_market_price)},"
-                                           f" op={payback_price},"
+                                           f" order_price={payback_price},"
+                                           f" original_price={self.map_order_id_to_oracle_price[order_filled_event.order_id]},"
                                            f" bmp={best_market_price}")
 
     cdef c_did_complete_buy_order(self, object order_completed_event):
