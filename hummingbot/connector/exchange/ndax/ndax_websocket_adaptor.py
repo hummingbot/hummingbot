@@ -1,9 +1,9 @@
 import asyncio
+import aiohttp
 from enum import Enum
 from typing import AsyncIterable, Dict, Any, Optional
 
 import ujson
-import websockets
 
 import hummingbot.connector.exchange.ndax.ndax_constants as CONSTANTS
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
@@ -39,7 +39,7 @@ class NdaxWebSocketAdaptor:
     def __init__(
         self,
         throttler: AsyncThrottler,
-        websocket: websockets.WebSocketClientProtocol,
+        websocket: aiohttp.ClientWebSocketResponse,
         previous_messages_number: int = 0,
     ):
         self._websocket = websocket
@@ -81,26 +81,29 @@ class NdaxWebSocketAdaptor:
 
         limit_id = limit_id or endpoint_name
         async with self._throttler.execute_task(limit_id):
-            await self._websocket.send(ujson.dumps(message))
+            await self._websocket.send_json(message)
 
-    async def recv(self):
-        return await self._websocket.recv()
+    async def receive(self):
+        return await self._websocket.receive()
 
     async def iter_messages(self) -> AsyncIterable[str]:
         try:
             while True:
                 try:
-                    msg: str = await asyncio.wait_for(self.recv(), timeout=self.MESSAGE_TIMEOUT)
-                    yield msg
+                    raw_msg = await asyncio.wait_for(self.receive(), timeout=self.MESSAGE_TIMEOUT)
+                    if raw_msg.type == aiohttp.WSMsgType.CLOSED:
+                        raise ConnectionError
+                    yield raw_msg.data
                 except asyncio.TimeoutError:
                     await asyncio.wait_for(
                         self.send_request(CONSTANTS.WS_PING_REQUEST, payload={}, limit_id=CONSTANTS.WS_PING_ID),
                         timeout=self.PING_TIMEOUT
                     )
-        except websockets.exceptions.ConnectionClosed:
+        except ConnectionError:
             return
         finally:
             await self.close()
 
-    async def close(self, *args, **kwars):
-        return await self._websocket.close(*args, **kwars)
+    async def close(self):
+        if self._websocket is not None:
+            await self._websocket.close()

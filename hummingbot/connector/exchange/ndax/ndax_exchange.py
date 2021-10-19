@@ -98,15 +98,15 @@ class NdaxExchange(ExchangeBase):
                               secret_key=ndax_secret_key,
                               account_name=ndax_account_name)
         self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        self._shared_client = aiohttp.ClientSession()
         self._order_book_tracker = NdaxOrderBookTracker(
-            throttler=self._throttler, trading_pairs=trading_pairs, domain=domain
+            throttler=self._throttler, shared_client=self._shared_client, trading_pairs=trading_pairs, domain=domain
         )
         self._user_stream_tracker = NdaxUserStreamTracker(
-            throttler=self._throttler, auth_assistant=self._auth, domain=domain
+            throttler=self._throttler, shared_client=self._shared_client, auth_assistant=self._auth, domain=domain
         )
         self._domain = domain
         self._ev_loop = asyncio.get_event_loop()
-        self._shared_client = None
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
         self._in_flight_orders = {}
@@ -204,14 +204,6 @@ class NdaxExchange(ExchangeBase):
         Note that Market order type is no longer required and will not be used.
         """
         return [OrderType.MARKET, OrderType.LIMIT, OrderType.LIMIT_MAKER]
-
-    async def _http_client(self) -> aiohttp.ClientSession:
-        """
-        :returns Shared client session instance
-        """
-        if self._shared_client is None:
-            self._shared_client = aiohttp.ClientSession()
-        return self._shared_client
 
     async def _get_account_id(self) -> int:
         """
@@ -323,7 +315,6 @@ class NdaxExchange(ExchangeBase):
         :returns A response in json format.
         """
         url = ndax_utils.rest_api_url(self._domain) + path_url
-        client = await self._http_client()
 
         try:
             if is_auth_required:
@@ -334,10 +325,10 @@ class NdaxExchange(ExchangeBase):
             limit_id = limit_id or path_url
             if method == "GET":
                 async with self._throttler.execute_task(limit_id):
-                    response = await client.get(url, headers=headers, params=params)
+                    response = await self._shared_client.get(url, headers=headers, params=params)
             elif method == "POST":
                 async with self._throttler.execute_task(limit_id):
-                    response = await client.post(url, headers=headers, data=ujson.dumps(data))
+                    response = await self._shared_client.post(url, headers=headers, data=ujson.dumps(data))
             else:
                 raise NotImplementedError(f"{method} HTTP Method not implemented. ")
 
