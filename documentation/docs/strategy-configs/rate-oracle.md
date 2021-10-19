@@ -53,16 +53,16 @@ Change the default setting in `conf_global.yml` to GBP (Great Britain Pound). Th
 
 The conversion also shows up during the `status` command for the `liquidity_mining` strategy. Under the `Miner` section.
 
-![](/assets/img/oracle-status.png)
+![](/assets/img/oracle-status1.png)
 
 The conversion shows up when using the `pnl` command.
 
-![ ](/assets/img/oracle-pnl.png)
+![ ](/assets/img/oracle-pnl1.png)
 
 The conversion also shows up when running the `trades` command.
 
-![](/assets/img/oracle-trades.png)
+![](/assets/img/oracle-trades1.png)
 
 The conversion also works with the `open_orders` command.
 
-![](/assets/img/oracle-open-orders.png)
+![](/assets/img/oracle-open-orders1.png)
