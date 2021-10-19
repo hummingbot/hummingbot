@@ -11,11 +11,18 @@ export async function dbSaveNonce(
   return db.put(chain + '/' + String(chainId) + '/' + address, nonce);
 }
 
+export async function dbDeleteNonce(
+  chain: string,
+  chainId: number,
+  address: string
+): Promise<void> {
+  return db.del(chain + '/' + String(chainId) + '/' + address);
+}
+
 export async function dbGetChainNonces(
   chain: string,
   chainId: number
 ): Promise<Record<string, number>> {
-  // await db.open();
   const stream = db.createReadStream();
   const result = await new Promise<Record<string, number>>(
     (resolve, reject) => {
@@ -28,14 +35,11 @@ export async function dbGetChainNonces(
             splitKey[0] === chain &&
             splitKey[1] === String(chainId)
           ) {
-            results[splitKey[2]] = value;
+            results[splitKey[2]] = parseInt(value);
           }
         })
         .on('error', (err) => {
           reject(err);
-        })
-        .on('close', () => {
-          resolve(resulsts);
         })
         .on('end', () => {
           resolve(results);
