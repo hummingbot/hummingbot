@@ -39,35 +39,17 @@ async def download_dolomite_token_addresses(token_dict: Dict[str, str]):
 
 
 async def download_radar_relay_token_addresses(token_dict: Dict[str, str]):
-    page_count = 1
-    while True:
-        url = f"{RADAR_RELAY_ENDPOINT}?perPage=100&page={page_count}"
-        async with aiohttp.ClientSession() as client:
-            async with client.get(url, timeout=API_CALL_TIMEOUT) as response:
-                page_count += 1
-                try:
-                    if response.status == 200:
-                        markets = await response.json()
-                        if len(markets) == 0:
-                            break
-                        for market in markets:
-                            market_id = market.get("id")
-                            base, quote = market_id.split("-")
-                            if base not in token_dict:
-                                token_dict[base] = Web3.toChecksumAddress(market.get("baseTokenAddress"))
-                            if quote not in token_dict:
-                                token_dict[quote] = Web3.toChecksumAddress(market.get("quoteTokenAddress"))
-                    else:
-                        raise Exception(f"Call to {url} failed with status {response.status}")
-                except Exception as err:
-                    logging.getLogger().error(err)
-                    break
+    await _download_some_relay_token_addresses(token_dict, base_url=RADAR_RELAY_ENDPOINT)
 
 
 async def download_bamboo_relay_token_addresses(token_dict: Dict[str, str]):
+    await _download_some_relay_token_addresses(token_dict, base_url=BAMBOO_RELAY_ENDPOINT)
+
+
+async def _download_some_relay_token_addresses(token_dict: Dict[str, str], base_url):
     page_count = 1
     while True:
-        url = f"{BAMBOO_RELAY_ENDPOINT}?perPage=1000&page={page_count}"
+        url = f"{base_url}?perPage=1000&page={page_count}"
         async with aiohttp.ClientSession() as client:
             async with client.get(url, timeout=API_CALL_TIMEOUT) as response:
                 page_count += 1

@@ -76,13 +76,15 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             CrossExchangeMarketMakingStrategy.OPTION_LOG_ALL
             & (~CrossExchangeMarketMakingStrategy.OPTION_LOG_NULL_ORDER_SIZE)
         )
-        self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy(
+        self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy()
+        self.strategy.init_params(
             [self.market_pair],
             order_size_portfolio_ratio_limit=Decimal("0.3"),
             min_profitability=Decimal(self.min_profitbality),
             logging_options=logging_options,
         )
-        self.strategy_with_top_depth_tolerance: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy(
+        self.strategy_with_top_depth_tolerance: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy()
+        self.strategy_with_top_depth_tolerance.init_params(
             [self.market_pair],
             order_size_portfolio_ratio_limit=Decimal("0.3"),
             min_profitability=Decimal(self.min_profitbality),
@@ -446,7 +448,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.maker_data: MockOrderBookLoader = MockOrderBookLoader("COINALPHA-QETH", "COINALPHA", "QETH")
         self.maker_data.set_balanced_order_book(1.05, 0.55, 1.55, 0.01, 10)
         self.maker_market.add_data(self.maker_data)
-        self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy(
+        self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy()
+        self.strategy.init_params(
             [self.market_pair], Decimal("0.01"),
             order_size_portfolio_ratio_limit=Decimal("0.3"),
             logging_options=self.logging_options,
@@ -493,7 +496,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             MarketTradingPairTuple(self.maker_market, *self.maker_trading_pairs),
             MarketTradingPairTuple(self.taker_market, *self.taker_trading_pairs),
         )
-        self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy(
+        self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy()
+        self.strategy.init_params(
             [self.market_pair],
             order_size_portfolio_ratio_limit=Decimal("0.3"),
             min_profitability=Decimal("0.005"),
@@ -530,7 +534,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             MarketTradingPairTuple(self.maker_market, *self.maker_trading_pairs),
             MarketTradingPairTuple(self.taker_market, *self.taker_trading_pairs),
         )
-        self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy(
+        self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy()
+        self.strategy.init_params(
             [self.market_pair],
             order_size_portfolio_ratio_limit=Decimal("0.3"),
             min_profitability=Decimal("0.005"),
@@ -574,7 +579,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             MarketTradingPairTuple(self.maker_market, *self.maker_trading_pairs),
             MarketTradingPairTuple(self.taker_market, *self.taker_trading_pairs),
         )
-        self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy(
+        self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy()
+        self.strategy.init_params(
             [self.market_pair],
             order_amount=1,
             min_profitability=Decimal("0.005"),

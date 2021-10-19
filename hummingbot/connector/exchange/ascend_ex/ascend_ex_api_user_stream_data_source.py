@@ -7,10 +7,12 @@ import aiohttp
 import ujson
 
 from typing import Optional, List, AsyncIterable, Any
+
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_auth import AscendExAuth
-from hummingbot.connector.exchange.ascend_ex.ascend_ex_constants import REST_URL, PONG_PAYLOAD
+from hummingbot.connector.exchange.ascend_ex import ascend_ex_constants as CONSTANTS
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_utils import get_ws_url_private
 
 
@@ -27,14 +29,16 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, ascend_ex_auth: AscendExAuth, trading_pairs: Optional[List[str]] = []):
+    def __init__(
+        self, throttler: AsyncThrottler, ascend_ex_auth: AscendExAuth, trading_pairs: Optional[List[str]] = None
+    ):
+        super().__init__()
+        self._throttler = throttler
         self._ascend_ex_auth: AscendExAuth = ascend_ex_auth
-        self._trading_pairs = trading_pairs
+        self._trading_pairs = trading_pairs or []
         self._current_listen_key = None
         self._listen_for_user_stream_task = None
         self._last_recv_time: float = 0
-        self._ws_client: websockets.WebSocketClientProtocol = None
-        super().__init__()
 
     @property
     def last_recv_time(self) -> float:
@@ -50,22 +54,27 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
         while True:
             try:
-                response = await aiohttp.ClientSession().get(f"{REST_URL}/info", headers={
+                headers = {
                     **self._ascend_ex_auth.get_headers(),
                     **self._ascend_ex_auth.get_auth_headers("info"),
-                })
+                }
+                async with self._throttler.execute_task(CONSTANTS.INFO_PATH_URL):
+                    response = await aiohttp.ClientSession().get(
+                        f"{CONSTANTS.REST_URL}/{CONSTANTS.INFO_PATH_URL}", headers=headers
+                    )
                 info = await response.json()
                 accountGroup = info.get("data").get("accountGroup")
                 headers = self._ascend_ex_auth.get_auth_headers("stream")
                 payload = {
-                    "op": "sub",
+                    "op": CONSTANTS.SUB_ENDPOINT_NAME,
                     "ch": "order:cash"
                 }
 
                 async with websockets.connect(f"{get_ws_url_private(accountGroup)}/stream", extra_headers=headers) as ws:
                     try:
                         ws: websockets.WebSocketClientProtocol = ws
-                        await ws.send(ujson.dumps(payload))
+                        async with self._throttler.execute_task(CONSTANTS.SUB_ENDPOINT_NAME):
+                            await ws.send(ujson.dumps(payload))
 
                         async for raw_msg in self._inner_messages(ws):
                             try:
@@ -106,8 +115,10 @@ class AscendExAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     self._last_recv_time = time.time()
                     yield raw_msg
                 except asyncio.TimeoutError:
-                    pong_waiter = ws.send(ujson.dumps(PONG_PAYLOAD))
-                    await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
+                    payload = {"op": CONSTANTS.PONG_ENDPOINT_NAME}
+                    pong_waiter = ws.send(ujson.dumps(payload))
+                    async with self._throttler.execute_task(CONSTANTS.PONG_ENDPOINT_NAME):
+                        await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
                     self._last_recv_time = time.time()
         except asyncio.TimeoutError:
             self.logger().warning("WebSocket ping timed out. Going to reconnect...")

@@ -2,11 +2,12 @@
 import asyncio
 import bisect
 import logging
-from hummingbot.connector.exchange.gate_io.gate_io_constants import Constants
 import time
 
 from collections import defaultdict, deque
 from typing import Optional, Dict, List, Deque
+
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
@@ -14,6 +15,7 @@ from hummingbot.connector.exchange.gate_io.gate_io_order_book_message import Gat
 from hummingbot.connector.exchange.gate_io.gate_io_active_order_tracker import GateIoActiveOrderTracker
 from hummingbot.connector.exchange.gate_io.gate_io_api_order_book_data_source import GateIoAPIOrderBookDataSource
 from hummingbot.connector.exchange.gate_io.gate_io_order_book import GateIoOrderBook
+from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 
 
 class GateIoOrderBookTracker(OrderBookTracker):
@@ -25,10 +27,10 @@ class GateIoOrderBookTracker(OrderBookTracker):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, trading_pairs: Optional[List[str]] = None,):
-        super().__init__(GateIoAPIOrderBookDataSource(trading_pairs), trading_pairs)
+    def __init__(self, throttler: Optional[AsyncThrottler] = None, trading_pairs: Optional[List[str]] = None,):
+        super().__init__(GateIoAPIOrderBookDataSource(throttler, trading_pairs), trading_pairs)
 
-        self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
+        self._ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
         self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()
         self._order_book_trade_stream: asyncio.Queue = asyncio.Queue()
@@ -46,7 +48,7 @@ class GateIoOrderBookTracker(OrderBookTracker):
         """
         Name of the current exchange
         """
-        return Constants.EXCHANGE_NAME
+        return CONSTANTS.EXCHANGE_NAME
 
     async def _track_single_book(self, trading_pair: str):
         """

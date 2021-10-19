@@ -44,17 +44,17 @@ cdef class ArbitrageStrategy(StrategyBase):
             as_logger = logging.getLogger(__name__)
         return as_logger
 
-    def __init__(self,
-                 market_pairs: List[ArbitrageMarketPair],
-                 min_profitability: Decimal,
-                 logging_options: int = OPTION_LOG_ORDER_COMPLETED,
-                 status_report_interval: float = 60.0,
-                 next_trade_delay_interval: float = 15.0,
-                 failed_order_tolerance: int = 1,
-                 use_oracle_conversion_rate: bool = False,
-                 secondary_to_primary_base_conversion_rate: Decimal = Decimal("1"),
-                 secondary_to_primary_quote_conversion_rate: Decimal = Decimal("1"),
-                 hb_app_notification: bool = False):
+    def init_params(self,
+                    market_pairs: List[ArbitrageMarketPair],
+                    min_profitability: Decimal,
+                    logging_options: int = OPTION_LOG_ORDER_COMPLETED,
+                    status_report_interval: float = 60.0,
+                    next_trade_delay_interval: float = 15.0,
+                    failed_order_tolerance: int = 1,
+                    use_oracle_conversion_rate: bool = False,
+                    secondary_to_primary_base_conversion_rate: Decimal = Decimal("1"),
+                    secondary_to_primary_quote_conversion_rate: Decimal = Decimal("1"),
+                    hb_app_notification: bool = False):
         """
         :param market_pairs: list of arbitrage market pairs
         :param min_profitability: minimum profitability limit, for calculating arbitrage order sizes
@@ -69,10 +69,8 @@ cdef class ArbitrageStrategy(StrategyBase):
         :param secondary_to_primary_quote_conversion_rate: Conversion rate of quote token between markets. The default is 1
         :param hb_app_notification: Enables sending notifications to the client application. The default is false.
         """
-
         if len(market_pairs) < 0:
             raise ValueError(f"market_pairs must not be empty.")
-        super().__init__()
         self._logging_options = logging_options
         self._market_pairs = market_pairs
         self._min_profitability = min_profitability
@@ -99,6 +97,14 @@ cdef class ArbitrageStrategy(StrategyBase):
             }
 
         self.c_add_markets(list(all_markets))
+
+    @property
+    def min_profitability(self) -> Decimal:
+        return self._min_profitability
+
+    @property
+    def use_oracle_conversion_rate(self) -> Decimal:
+        return self._use_oracle_conversion_rate
 
     @property
     def tracked_limit_orders(self) -> List[Tuple[ExchangeBase, LimitOrder]]:

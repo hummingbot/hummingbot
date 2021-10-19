@@ -61,26 +61,26 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             s_logger = logging.getLogger(__name__)
         return s_logger
 
-    def __init__(self,
-                 market_pairs: List[CrossExchangeMarketPair],
-                 min_profitability: Decimal,
-                 order_amount: Optional[Decimal] = Decimal("0.0"),
-                 order_size_taker_volume_factor: Decimal = Decimal("0.25"),
-                 order_size_taker_balance_factor: Decimal = Decimal("0.995"),
-                 order_size_portfolio_ratio_limit: Decimal = Decimal("0.1667"),
-                 limit_order_min_expiration: float = 130.0,
-                 adjust_order_enabled: bool = True,
-                 anti_hysteresis_duration: float = 60.0,
-                 active_order_canceling: bint = True,
-                 cancel_order_threshold: Decimal = Decimal("0.05"),
-                 top_depth_tolerance: Decimal = Decimal(0),
-                 logging_options: int = OPTION_LOG_ALL,
-                 status_report_interval: float = 900,
-                 use_oracle_conversion_rate: bool = False,
-                 taker_to_maker_base_conversion_rate: Decimal = Decimal("1"),
-                 taker_to_maker_quote_conversion_rate: Decimal = Decimal("1"),
-                 hb_app_notification: bool = False
-                 ):
+    def init_params(self,
+                    market_pairs: List[CrossExchangeMarketPair],
+                    min_profitability: Decimal,
+                    order_amount: Optional[Decimal] = Decimal("0.0"),
+                    order_size_taker_volume_factor: Decimal = Decimal("0.25"),
+                    order_size_taker_balance_factor: Decimal = Decimal("0.995"),
+                    order_size_portfolio_ratio_limit: Decimal = Decimal("0.1667"),
+                    limit_order_min_expiration: float = 130.0,
+                    adjust_order_enabled: bool = True,
+                    anti_hysteresis_duration: float = 60.0,
+                    active_order_canceling: bint = True,
+                    cancel_order_threshold: Decimal = Decimal("0.05"),
+                    top_depth_tolerance: Decimal = Decimal(0),
+                    logging_options: int = OPTION_LOG_ALL,
+                    status_report_interval: float = 900,
+                    use_oracle_conversion_rate: bool = False,
+                    taker_to_maker_base_conversion_rate: Decimal = Decimal("1"),
+                    taker_to_maker_quote_conversion_rate: Decimal = Decimal("1"),
+                    hb_app_notification: bool = False
+                    ):
         """
         Initializes a cross exchange market making strategy object.
 
@@ -109,7 +109,6 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         if not 0 <= order_size_taker_balance_factor <= 1:
             raise ValueError(f"order_size_taker_balance_factor must be between 0 and 1.")
 
-        super().__init__()
         self._market_pairs = {
             (market_pair.maker.market, market_pair.maker.trading_pair): market_pair
             for market_pair in market_pairs
@@ -147,6 +146,14 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             list all_markets = list(self._maker_markets | self._taker_markets)
 
         self.c_add_markets(all_markets)
+
+    @property
+    def order_amount(self):
+        return self._order_amount
+
+    @property
+    def min_profitability(self):
+        return self._min_profitability
 
     @property
     def active_limit_orders(self) -> List[Tuple[ExchangeBase, LimitOrder]]:

@@ -20,6 +20,7 @@ from hummingbot.core.clock import (
     ClockMode
 )
 from hummingbot.core.event.event_logger import EventLogger
+
 from hummingbot.core.event.events import (
     MarketEvent,
     TradeType,
@@ -33,7 +34,7 @@ from hummingbot.core.event.events import (
     OrderExpiredEvent
 )
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.strategy.conditional_execution_state import RunInTimeSpanExecutionState
+from hummingbot.strategy.conditional_execution_state import RunInTimeConditionalExecutionState
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.twap import TwapTradeStrategy
 
@@ -399,6 +400,11 @@ class TWAPUnitTest(unittest.TestCase):
         self.clock.backtest_til(order_time_2)
         ask_order2: LimitOrder = self.limit_sell_strategy.active_asks[0][1]
 
+        base_balance = self.market_info.base_balance
+        available_base_balance = self.market.get_available_balance(self.market_info.base_asset)
+        quote_balance = self.market_info.quote_balance
+        available_quote_balance = self.market.get_available_balance(self.market_info.quote_asset)
+
         buy_not_started_status = self.limit_buy_strategy.format_status()
         expected_buy_status = ("\n  Configuration:\n"
                                "    Total amount: 2.00 COINALPHA"
@@ -410,8 +416,12 @@ class TWAPUnitTest(unittest.TestCase):
                                "    0  BacktestMarket  COINALPHA-WETH            99.5           100.5        100\n\n"
                                "  Assets:\n"
                                "             Exchange      Asset  Total Balance  Available Balance\n"
-                               "    0  BacktestMarket  COINALPHA         498.33             496.66\n"
-                               "    1  BacktestMarket       WETH       50168.67           50168.67\n\n"
+                               "    0  BacktestMarket  COINALPHA         "
+                               f"{base_balance:.2f}             "
+                               f"{available_base_balance:.2f}\n"
+                               "    1  BacktestMarket       WETH       "
+                               f"{quote_balance:.2f}           "
+                               f"{available_quote_balance:.2f}\n\n"
                                "  No active maker orders.\n\n"
                                "  Average filled orders price: 0 WETH\n"
                                "  Pending amount: 2.00 COINALPHA")
@@ -427,8 +437,12 @@ class TWAPUnitTest(unittest.TestCase):
                                 "    0  BacktestMarket  COINALPHA-WETH            99.5           100.5        100\n\n"
                                 "  Assets:\n"
                                 "             Exchange      Asset  Total Balance  Available Balance\n"
-                                "    0  BacktestMarket  COINALPHA         498.33             496.66\n"
-                                "    1  BacktestMarket       WETH       50168.67           50168.67\n\n"
+                                "    0  BacktestMarket  COINALPHA         "
+                                f"{base_balance:.2f}             "
+                                f"{available_base_balance:.2f}\n"
+                                "    1  BacktestMarket       WETH       "
+                                f"{quote_balance:.2f}           "
+                                f"{available_quote_balance:.2f}\n\n"
                                 "  Active orders:\n"
                                 "      Order ID  Type  Price Spread  Amount  Age Hang\n"
                                 f"    0  ...{ask_order2.client_order_id[-4:]}  sell    101  0.00%    1.67  n/a  n/a\n\n"
@@ -449,8 +463,8 @@ class TWAPUnitTest(unittest.TestCase):
             order_delay_time=self.order_delay_time,
             target_asset_amount=Decimal("100.0"),
             order_step_size=Decimal("1.0"),
-            execution_state=RunInTimeSpanExecutionState(start_timestamp=datetime.fromtimestamp(span_start_time),
-                                                        end_timestamp=datetime.fromtimestamp(span_end_time))
+            execution_state=RunInTimeConditionalExecutionState(start_timestamp=datetime.fromtimestamp(span_start_time),
+                                                               end_timestamp=datetime.fromtimestamp(span_end_time))
         )
 
         self.clock.add_iterator(strategy)
@@ -469,3 +483,28 @@ class TWAPUnitTest(unittest.TestCase):
         order_time_2 = span_end_time + (self.clock_tick_size * 10)
         self.clock.backtest_til(order_time_2)
         self.assertEqual(1, len(strategy.active_bids))
+
+    def test_strategy_delayed_start_execution(self):
+        delayed_start_time = self.start_timestamp + (self.clock_tick_size * 5)
+        strategy = TwapTradeStrategy(
+            [self.market_info],
+            order_price=Decimal("99"),
+            cancel_order_wait_time=self.cancel_order_wait_time,
+            is_buy=True,
+            order_delay_time=self.order_delay_time,
+            target_asset_amount=Decimal("100.0"),
+            order_step_size=Decimal("1.0"),
+            execution_state=RunInTimeConditionalExecutionState(start_timestamp=datetime.fromtimestamp(delayed_start_time))
+        )
+
+        self.clock.add_iterator(strategy)
+        # check no orders are placed before start
+        self.clock.backtest_til(delayed_start_time - self.clock_tick_size)
+        self.assertEqual(0, len(self.limit_sell_strategy.active_asks))
+
+        order_time_1 = delayed_start_time + self.clock_tick_size
+        self.clock.backtest_til(order_time_1)
+        self.assertEqual(1, len(strategy.active_bids))
+        first_bid_order: LimitOrder = strategy.active_bids[0][1]
+        self.assertEqual(Decimal("99"), first_bid_order.price)
+        self.assertEqual(1, first_bid_order.quantity)

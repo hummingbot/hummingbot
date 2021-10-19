@@ -23,6 +23,8 @@ def create_paper_trade_market(exchange_name: str, trading_pairs: List[str]):
     obt_class = get_order_book_tracker_class(exchange_name)
     conn_setting = CONNECTOR_SETTINGS[exchange_name]
     obt_params = {"trading_pairs": trading_pairs}
-    return PaperTradeExchange(obt_class(**conn_setting.add_domain_parameter(obt_params)),
+    obt_kwargs = conn_setting.add_domain_parameter(obt_params)
+    obt_obj = obt_class(**obt_kwargs)
+    return PaperTradeExchange(obt_obj,
                               MarketConfig.default_config(),
                               get_connector_class(exchange_name))
