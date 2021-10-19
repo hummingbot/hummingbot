@@ -47,7 +47,7 @@ class LiquidityMiningTest(unittest.TestCase):
                                            max_price=200,
                                            price_step_size=1,
                                            volume_step_size=10)
-            market.set_quantization_param(trading_pair, QuantizationParams(trading_pair, 6, 6, 6, 6))
+            market.set_quantization_param(QuantizationParams(trading_pair, 6, 6, 6, 6))
             market_infos[trading_pair] = MarketTradingPairTuple(market, trading_pair, base_asset, quote_asset)
 
         for asset, value in balances.items():

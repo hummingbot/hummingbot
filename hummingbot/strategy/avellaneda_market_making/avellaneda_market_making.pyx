@@ -1061,13 +1061,11 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         for buy in proposal.buys:
             fee = market.c_get_fee(self.base_asset, self.quote_asset,
                                    self._limit_order_type, TradeType.BUY, buy.size, buy.price)
-            print(f"c_apply_add_transaction_costs buy: {fee}")
             price = buy.price * (Decimal(1) - fee.percent)
             buy.price = market.c_quantize_order_price(self.trading_pair, price)
         for sell in proposal.sells:
             fee = market.c_get_fee(self.base_asset, self.quote_asset,
                                    self._limit_order_type, TradeType.SELL, sell.size, sell.price)
-            print(f"c_apply_add_transaction_costs sell: {fee}")
             price = sell.price * (Decimal(1) + fee.percent)
             sell.price = market.c_quantize_order_price(self.trading_pair, price)
 

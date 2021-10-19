@@ -52,7 +52,6 @@ class Dev2PerformTradeUnitTest(unittest.TestCase):
         self.market.set_balance("COINALPHA", 500)
         self.market.set_balance("WETH", 5000)
         self.market.set_quantization_param(
-            self.trading_pair,
             QuantizationParams(
                 self.trading_pair, 6, 6, 6, 6
             )
