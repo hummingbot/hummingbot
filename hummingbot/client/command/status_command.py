@@ -13,7 +13,6 @@ from hummingbot.logger.application_warning import ApplicationWarning
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.core.utils.ethereum import check_web3
 from hummingbot.client.config.config_helpers import (
     missing_required_configs,
     get_strategy_config_map
@@ -169,29 +168,6 @@ class StatusCommand:
             self._notify('  - Strategy check: All required parameters confirmed.')
         if invalid_conns or missing_configs:
             return False
-
-        if self.wallet is not None:
-            # Only check node url when a wallet has been initialized
-            eth_node_valid = check_web3(global_config_map.get("ethereum_rpc_url").value)
-            if not eth_node_valid:
-                self._notify('  - Node check: Bad ethereum rpc url. '
-                             'Please re-configure by entering "config ethereum_rpc_url"')
-                return False
-            elif notify_success:
-                self._notify("  - Node check: Ethereum node running and current.")
-
-            if self.wallet.network_status is NetworkStatus.CONNECTED:
-                if self._trading_required:
-                    has_minimum_eth = self.wallet.get_balance("ETH") > 0.01
-                    if not has_minimum_eth:
-                        self._notify("  - ETH wallet check: Not enough ETH in wallet. "
-                                     "A small amount of Ether is required for sending transactions on "
-                                     "Decentralized Exchanges")
-                        return False
-                    elif notify_success:
-                        self._notify("  - ETH wallet check: Minimum ETH requirement satisfied")
-            else:
-                self._notify("  - ETH wallet check: ETH wallet is not connected.")
 
         loading_markets: List[ConnectorBase] = []
         for market in self.markets.values():

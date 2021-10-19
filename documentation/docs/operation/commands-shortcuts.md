@@ -69,6 +69,7 @@ For more information about basic Linux commands, check out [The Linux command li
 | `CTRL + Z`        | Undo                       | \* Undo action                               |
 | `Single CTRL + C` | Copy                       | \* Copy text                                 |
 | `CTRL + V`        | Paste                      | \* Paste text                                |
+| `CTRL + T`        | Toggle Logs                | Hide / Show logs pane                        |
 
 _\* Used for text edit in input pane only._
 

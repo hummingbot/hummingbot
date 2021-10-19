@@ -1,6 +1,5 @@
 from .config_command import ConfigCommand
 from .exit_command import ExitCommand
-from .get_balance_command import GetBalanceCommand
 from .help_command import HelpCommand
 from .history_command import HistoryCommand
 from .paper_trade_command import PaperTradeCommand
@@ -26,7 +25,6 @@ from .rate_command import RateCommand
 __all__ = [
     ConfigCommand,
     ExitCommand,
-    GetBalanceCommand,
     HelpCommand,
     HistoryCommand,
     PaperTradeCommand,
