@@ -5,7 +5,6 @@ import copy
 import logging
 import ujson
 import hummingbot.connector.exchange.crypto_com.crypto_com_constants as constants
-from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
 from typing import Dict, Optional, AsyncIterable, Any, List
@@ -72,10 +71,10 @@ class CryptoComWebsocket(RequestId):
     def _is_ping_message(self, msg: Dict[str, Any]) -> bool:
         return "method" in msg and msg["method"] == self.PING_METHOD
 
-    def _pong(self, ping_msg: Dict[str, Any]):
+    async def _pong(self, ping_msg: Dict[str, Any]):
         ping_id: int = ping_msg["id"]
         pong_payload = {"id": ping_id, "method": self.PONG_METHOD}
-        safe_ensure_future(self._client.send_json(pong_payload))
+        await self._client.send_json(pong_payload)
 
     # receive & parse messages
     async def _messages(self) -> AsyncIterable[Any]:
@@ -83,7 +82,7 @@ class CryptoComWebsocket(RequestId):
             raw_msg = await self._client.receive()
             raw_msg = ujson.loads(raw_msg.data)
             if self._is_ping_message(raw_msg):
-                self._pong(raw_msg)
+                await self._pong(raw_msg)
                 continue
             yield raw_msg
 
