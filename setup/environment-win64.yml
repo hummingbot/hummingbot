@@ -186,5 +186,4 @@ dependencies:
     - zipp==3.5.0
     - zope-interface==4.7.1
     - git+https://github.com/CoinAlpha/python-signalr-client.git
-    - https://hummingbot-python.s3.us-west-2.amazonaws.com/hummingsim-20210816-cp38-cp38-win_amd64.whl
 prefix: C:\Users\marti\Anaconda3\envs\hummingbot
