@@ -1006,9 +1006,6 @@ cdef class PaperTradeExchange(ExchangeBase):
         await asyncio.sleep(0.01)
         self.c_trigger_event(event_tag, event)
 
-    def set_quantization_param(self, trading_pair: str, param: QuantizationParams):
-        self._quantization_params[trading_pair] = param
-
     @property
     def config(self) -> MarketConfig:
         return self._config

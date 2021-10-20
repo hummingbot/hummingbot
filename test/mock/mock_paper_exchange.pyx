@@ -5,8 +5,10 @@ from decimal import Decimal
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange cimport PaperTradeExchange, QuantizationParams
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
 from hummingbot.connector.exchange.paper_trade.trading_pair import TradingPair
-from hummingbot.core.data_type.order_book import OrderBook, OrderBookRow
+from hummingbot.core.data_type.order_book import OrderBookRow
 from hummingbot.core.data_type.composite_order_book cimport CompositeOrderBook
+from hummingbot.core.clock cimport Clock
+from hummingbot.core.network_base import NetworkStatus
 from hummingbot.connector.exchange.paper_trade.market_config import MarketConfig
 from hummingbot.client.settings import CONNECTOR_SETTINGS, ConnectorSetting, ConnectorType, TradeFeeType
 from hummingbot.core.event.events import OrderType
@@ -135,3 +137,7 @@ cdef class MockPaperExchange(PaperTradeExchange):
 
     def get_taker_order_type(self):
         return OrderType.MARKET
+
+    cdef c_start(self, Clock clock, double timestamp):
+        PaperTradeExchange.c_start(self, clock, timestamp)
+        self._network_status = NetworkStatus.CONNECTED
