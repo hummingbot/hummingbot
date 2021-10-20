@@ -17,7 +17,7 @@ from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import Quant
 from test.mock.mock_paper_exchange import MockPaperExchange
 
 
-class ExtendedBacktestMarket(MockPaperExchange):
+class ExtendedMockPaperExchange(MockPaperExchange):
     def __init__(self):
         super().__init__()
         self._trading_pairs = ["ETH-USDT"]
@@ -72,7 +72,7 @@ class UniswapV3LpStrategyTest(unittest.TestCase):
         """
         Create a BacktestMarket and marketinfo dictionary to be used by the liquidity mining strategy
         """
-        market: ExtendedBacktestMarket = ExtendedBacktestMarket()
+        market: ExtendedMockPaperExchange = ExtendedMockPaperExchange()
         market_infos: Dict[str, MarketTradingPairTuple] = {}
 
         for trading_pair in trading_pairs:
