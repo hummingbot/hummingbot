@@ -139,6 +139,7 @@ class BybitPerpetualDerivativeTests(TestCase):
     @aioresponses()
     @patch('hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils.get_tracking_nonce')
     def test_create_buy_order(self, post_mock, nonce_provider_mock):
+        nonce_provider_mock.return_value = 1000
         path_url = bybit_utils.rest_api_path_for_endpoint(CONSTANTS.PLACE_ACTIVE_ORDER_PATH_URL, self.trading_pair)
         url = bybit_utils.rest_api_url_for_endpoint(path_url, self.domain)
         regex_url = re.compile(f"^{url}")
@@ -165,7 +166,7 @@ class BybitPerpetualDerivativeTests(TestCase):
                 "cum_exec_value": 0,
                 "cum_exec_fee": 0,
                 "reject_reason": "",
-                "order_link_id": f"B-{self.trading_pair}-1000",
+                "order_link_id": bybit_utils.get_new_client_order_id(True, self.trading_pair),
                 "created_at": "2019-11-30T11:03:43.452Z",
                 "updated_at": "2019-11-30T11:03:43.455Z"
             },
@@ -176,7 +177,6 @@ class BybitPerpetualDerivativeTests(TestCase):
         }
         post_mock.post(regex_url, body=json.dumps(mock_response), callback=self._mock_responses_done_callback)
 
-        nonce_provider_mock.return_value = 1000
         self._simulate_trading_rules_initialized()
         self.connector._leverage[self.trading_pair] = 10
 
@@ -190,7 +190,7 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         result = mock_response["result"]
 
-        self.assertEqual(f"B-{self.trading_pair}-1000", new_order_id)
+        self.assertEqual(f"HBOT-B-{self.trading_pair}-1000", new_order_id)
         self.assertEqual("Buy", result["side"])
         self.assertEqual(self.ex_trading_pair, result["symbol"])
         self.assertEqual("Limit", result["order_type"])
@@ -438,7 +438,7 @@ class BybitPerpetualDerivativeTests(TestCase):
                 "cum_exec_value": 0,
                 "cum_exec_fee": 0,
                 "reject_reason": "",
-                "order_link_id": f"B-{self.trading_pair}-1000",
+                "order_link_id": f"HBOT-B-{self.trading_pair}-1000",
                 "created_at": "2019-11-30T11:03:43.452Z",
                 "updated_at": "2019-11-30T11:03:43.455Z"
             },
@@ -524,7 +524,7 @@ class BybitPerpetualDerivativeTests(TestCase):
 
         result = mock_response["result"]
 
-        self.assertEqual(f"S-{self.trading_pair}-1000", new_order_id)
+        self.assertEqual(f"HBOT-S-{self.trading_pair}-1000", new_order_id)
         self.assertEqual("Sell", result["side"])
         self.assertEqual("BTCUSDT", result["symbol"])
         self.assertEqual("Market", result["order_type"])
