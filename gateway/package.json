@@ -13,7 +13,7 @@
     "dev": "nodemon src/index.ts",
     "dev:debug": "nodemon --inspect src/index.ts",
     "start": "nodemon dist/index.js",
-    "test:unit": "jest --verbose --forceExit ./test/",
+    "test:unit": "jest --verbose --runInBand --forceExit ./test/",
     "test:cov": "jest --coverage ./test/",
     "test:scripts": "jest --verbose ./test-scripts/"
   },
