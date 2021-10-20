@@ -75,7 +75,7 @@ class NdaxAPIUserStreamDataSourceTests(TestCase):
     def _raise_exception(self, exception_class):
         raise exception_class
 
-    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listening_process_authenticates_and_subscribes_to_events(self, ws_connect_mock):
         messages = asyncio.Queue()
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
@@ -114,7 +114,7 @@ class NdaxAPIUserStreamDataSourceTests(TestCase):
 
         self.assertGreater(self.data_source.last_recv_time, initial_last_recv_time)
 
-    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listening_process_fails_when_authentication_fails(self, ws_connect_mock):
         messages = asyncio.Queue()
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
@@ -140,7 +140,7 @@ class NdaxAPIUserStreamDataSourceTests(TestCase):
                                         "Unexpected error with NDAX WebSocket connection. Retrying in 30 seconds. "
                                         "(Could not authenticate websocket connection with NDAX)"))
 
-    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listening_process_canceled_when_cancel_exception_during_initialization(self, ws_connect_mock):
         messages = asyncio.Queue()
         ws_connect_mock.side_effect = asyncio.CancelledError
@@ -151,7 +151,7 @@ class NdaxAPIUserStreamDataSourceTests(TestCase):
                                                         messages))
             asyncio.get_event_loop().run_until_complete(self.listening_task)
 
-    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listening_process_canceled_when_cancel_exception_during_authentication(self, ws_connect_mock):
         messages = asyncio.Queue()
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
@@ -166,7 +166,7 @@ class NdaxAPIUserStreamDataSourceTests(TestCase):
                                                         messages))
             asyncio.get_event_loop().run_until_complete(self.listening_task)
 
-    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listening_process_canceled_when_cancel_exception_during_events_subscription(self, ws_connect_mock):
         messages = asyncio.Queue()
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
@@ -185,7 +185,7 @@ class NdaxAPIUserStreamDataSourceTests(TestCase):
                 self._authentication_response(True))
             asyncio.get_event_loop().run_until_complete(self.listening_task)
 
-    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listening_process_logs_exception_details_during_initialization(self, ws_connect_mock):
         ws_connect_mock.side_effect = Exception
 
@@ -194,7 +194,7 @@ class NdaxAPIUserStreamDataSourceTests(TestCase):
             asyncio.get_event_loop().run_until_complete(self.listening_task)
         self.assertTrue(self._is_logged("NETWORK", "Unexpected error occurred during ndax WebSocket Connection ()"))
 
-    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listening_process_logs_exception_details_during_authentication(self, ws_connect_mock):
         messages = asyncio.Queue()
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
@@ -217,7 +217,7 @@ class NdaxAPIUserStreamDataSourceTests(TestCase):
         self.assertTrue(self._is_logged("ERROR",
                                         "Unexpected error with NDAX WebSocket connection. Retrying in 30 seconds. ()"))
 
-    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listening_process_logs_exception_during_events_subscription(self, ws_connect_mock):
         messages = asyncio.Queue()
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()

@@ -15,7 +15,7 @@ class NdaxWebSocketAdaptorTests(TestCase):
         super().setUp()
         self.mocking_assistant = NetworkMockingAssistant()
 
-    @patch("aiohttp.client.ClientSession.ws_connect")
+    @patch("aiohttp.ClientSession.ws_connect")
     def test_sending_messages_increment_message_number(self, mock_ws):
         sent_messages = []
         throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
@@ -41,7 +41,7 @@ class NdaxWebSocketAdaptorTests(TestCase):
         message = sent_messages[2]
         self.assertEqual(3, message.get('i'))
 
-    @patch("aiohttp.client.ClientSession.ws_connect")
+    @patch("aiohttp.ClientSession.ws_connect")
     def test_request_message_structure(self, mock_ws):
         sent_messages = []
         throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
@@ -63,7 +63,7 @@ class NdaxWebSocketAdaptorTests(TestCase):
         message_payload = json.loads(message.get('o'))
         self.assertEqual(payload, message_payload)
 
-    @patch("aiohttp.client.ClientSession.ws_connect")
+    @patch("aiohttp.ClientSession.ws_connect")
     def test_receive_message(self, mock_ws):
         throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
@@ -74,7 +74,7 @@ class NdaxWebSocketAdaptorTests(TestCase):
 
         self.assertEqual('test message', received_message.data)
 
-    @patch("aiohttp.client.ClientSession.ws_connect")
+    @patch("aiohttp.ClientSession.ws_connect")
     def test_close(self, mock_ws):
         throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
@@ -84,7 +84,7 @@ class NdaxWebSocketAdaptorTests(TestCase):
 
         self.assertEquals(1, mock_ws.return_value.close.await_count)
 
-    @patch("aiohttp.client.ClientSession.ws_connect")
+    @patch("aiohttp.ClientSession.ws_connect")
     def test_get_payload_from_raw_received_message(self, mock_ws):
         throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
@@ -101,7 +101,7 @@ class NdaxWebSocketAdaptorTests(TestCase):
 
         self.assertEqual(payload, extracted_payload)
 
-    @patch("aiohttp.client.ClientSession.ws_connect")
+    @patch("aiohttp.ClientSession.ws_connect")
     def test_get_endpoint_from_raw_received_message(self, mock_ws):
         throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()

@@ -86,7 +86,7 @@ class NdaxOrderBookTrackerUnitTest(unittest.TestCase):
 
         self.assertEqual(0, self.tracker.order_books[self.trading_pair].snapshot_uid)
 
-    @patch("aiohttp.client.ClientSession.get")
+    @patch("aiohttp.ClientSession.get")
     def test_init_order_books(self, mock_api):
         self.simulate_trading_pair_ids_initialized()
         mock_response = [
@@ -115,7 +115,7 @@ class NdaxOrderBookTrackerUnitTest(unittest.TestCase):
         self.assertIsInstance(self.tracker.order_books[self.trading_pair], OrderBook)
         self.assertTrue(self.tracker._order_books_initialized.is_set())
 
-    @patch("aiohttp.client.ClientSession.get")
+    @patch("aiohttp.ClientSession.get")
     def test_can_get_price_after_order_book_init(self, mock_api):
         self.simulate_trading_pair_ids_initialized()
         mock_response = [

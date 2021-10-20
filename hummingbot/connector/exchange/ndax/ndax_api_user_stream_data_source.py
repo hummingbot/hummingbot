@@ -1,8 +1,8 @@
+import aiohttp
 import asyncio
 import logging
 import time
 import ujson
-import aiohttp
 
 from typing import (
     Any,
