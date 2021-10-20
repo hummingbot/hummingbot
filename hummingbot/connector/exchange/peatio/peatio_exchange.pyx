@@ -473,7 +473,7 @@ cdef class PeatioExchange(ExchangeBase):
                         price,
                         execute_amount_diff,
                     ),
-                    exchange_trade_id=exch_order_id
+                    exchange_trade_id=trade["id"]
                 )
                 self.logger().debug(f"update_tracked_order --- 5;\n price: {price}")
                 self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
