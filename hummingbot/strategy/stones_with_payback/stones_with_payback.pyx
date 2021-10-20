@@ -388,7 +388,7 @@ cdef class StonesWithPaybackStrategy(StrategyBase):
             self.logger().info(f"place order {'buy' if is_buy is True else 'sell'} for amount {quantized_amount} with price {quantized_price}. order_id={order_id}")
             return order_id
         else:
-            self.logger().info(f"Not enough balance to run the strategy. Please check balances and try again.")
+            self.logger().info(f"Not enough balance to {market_info.market.name.upper()} {market_info.trading_pair.upper()} to run the strategy. Please check balances and try again.")
 
     cdef c_has_enough_balance(self, object market_info, is_buy: bool, order_price: Decimal, order_amount: Decimal):
         """

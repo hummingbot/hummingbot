@@ -24,7 +24,10 @@ class SlackWebhookLog:
 
     def send(self, data):
         message = f"#{self.project_name}\n\n{data}"
-        self.slack.post(text=message)
+        try:
+            self.slack.post(text=message)
+        except Exception:
+            pass
 
 
 class SlackWebhookHandler(StreamHandler):
