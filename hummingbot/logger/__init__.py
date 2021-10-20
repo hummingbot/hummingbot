@@ -13,6 +13,7 @@ from logging import (
 from .logger import HummingbotLogger
 
 NETWORK = DEBUG + 6
+NOTIFICATION = CRITICAL + 5
 
 
 def log_encoder(obj):
@@ -30,8 +31,10 @@ __all__ = [
     "ERROR",
     "CRITICAL",
     "NETWORK",
+    "NOTIFICATION",
     "HummingbotLogger",
     "log_encoder"
 ]
 logging.setLoggerClass(HummingbotLogger)
 logging.addLevelName(NETWORK, "NETWORK")
+logging.addLevelName(NOTIFICATION, "NOTIFICATION")

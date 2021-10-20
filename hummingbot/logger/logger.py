@@ -59,6 +59,11 @@ class HummingbotLogger(PythonLogger):
             hummingbot_app: HummingbotApplication = HummingbotApplication.main_application()
             hummingbot_app.add_application_warning(app_warning)
 
+    def notification(self, log_msg: str, *args, **kwargs):
+        from . import NOTIFICATION
+
+        self.log(NOTIFICATION, log_msg, *args, **kwargs)
+
     #  --- Copied from logging module ---
     def findCaller(self, stack_info=False, stacklevel=1):
         """

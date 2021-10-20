@@ -220,12 +220,18 @@ cdef class StonesWithPaybackStrategy(StrategyBase):
                     payback_order_id = "TEST_SELL"
 
                     if payback_order_id is not None:
-                        self.logger().info(
-                            f"place sell order {payback_order_id} to {payback_info.market.name} exchange to payback of order {order_filled_event.order_id}."
-                            f" Order amount={order_filled_event.amount},"
-                            f" order_price={payback_price},"
-                            f" original_price={self.map_order_id_to_oracle_price[order_filled_event.order_id]},"
-                            f" bmp={best_market_price}")
+                        msg = f"🔴 Place sell order {payback_order_id} to {payback_info.market.name.upper()}" \
+                              f" exchange to payback of order {order_filled_event.order_id}." \
+                              f" order_amount={order_filled_event.amount}," \
+                              f" order_price={payback_price}," \
+                              f" original_price={self.map_order_id_to_oracle_price[order_filled_event.order_id]}," \
+                              f" best_oracle_price_in_exchange={best_market_price}" \
+                              f" trade_id={order_filled_event.exchange_trade_id}" \
+                              f" trade_price={order_filled_event.price}" \
+                              f" order_pair={order_filled_event.trading_pair}" \
+                              f" payback_pair={payback_info.trading_pair}" \
+                              f" trade_amount={order_filled_event.amount}"
+                        self.logger().notification(msg)
             else:
                 if self._logging_options & self.OPTION_LOG_MAKER_ORDER_FILLED:
                     self.log_with_clock(
@@ -244,11 +250,18 @@ cdef class StonesWithPaybackStrategy(StrategyBase):
                     #                     order_amount=order_filled_event.amount)
                     payback_order_id = "TEST_BUY"
                     if payback_order_id is not None:
-                        self.logger().info(f"place buy order {payback_order_id} to {payback_info.market.name} exchange to payback of order {order_filled_event.order_id}."
-                                           f" Order amount={order_filled_event.amount},"
-                                           f" order_price={payback_price},"
-                                           f" original_price={self.map_order_id_to_oracle_price[order_filled_event.order_id]},"
-                                           f" bmp={best_market_price}")
+                        msg = f"🟢 place buy order {payback_order_id} to {payback_info.market.name.upper()}" \
+                              f" exchange to payback of order {order_filled_event.order_id}." \
+                              f" order_amount={order_filled_event.amount}," \
+                              f" order_price={payback_price}," \
+                              f" original_price={self.map_order_id_to_oracle_price[order_filled_event.order_id]}," \
+                              f" best_oracle_price_in_exchange={best_market_price}" \
+                              f" trade_id={order_filled_event.exchange_trade_id}" \
+                              f" trade_price={order_filled_event.price}" \
+                              f" order_pair={order_filled_event.trading_pair}" \
+                              f" payback_pair={payback_info.trading_pair}" \
+                              f" trade_amount={order_filled_event.amount}"
+                        self.logger().notification(msg)
 
     cdef c_did_complete_buy_order(self, object order_completed_event):
         """
