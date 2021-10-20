@@ -38,7 +38,6 @@ class NdaxOrderBookTracker(OrderBookTracker):
         super().__init__(NdaxAPIOrderBookDataSource(throttler=throttler, shared_client=shared_client, trading_pairs=trading_pairs, domain=domain), trading_pairs, domain)
 
         self._domain = domain
-        self._shared_client = shared_client
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
         self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()

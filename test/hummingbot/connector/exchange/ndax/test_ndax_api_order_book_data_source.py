@@ -85,7 +85,7 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         }
         return ujson.dumps(resp)
 
-    @patch("aiohttp.client.ClientSession.get")
+    @patch("aiohttp.ClientSession.get")
     def test_init_trading_pair_ids(self, mock_api):
         self.mocking_assistant.configure_http_request_mock(mock_api)
 
@@ -117,7 +117,7 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(1, self.data_source._trading_pair_id_map[self.trading_pair])
         self.assertEqual(2, self.data_source._trading_pair_id_map["ANOTHER_ACTIVE-MARKET"])
 
-    @patch("aiohttp.client.ClientSession.get")
+    @patch("aiohttp.ClientSession.get")
     def test_get_last_traded_prices(self, mock_api):
         self.mocking_assistant.configure_http_request_mock(mock_api)
         self.simulate_trading_pair_ids_initialized()
@@ -133,7 +133,7 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.assertEqual(results[self.trading_pair], mock_response["LastTradedPx"])
 
-    @patch("aiohttp.client.ClientSession.get")
+    @patch("aiohttp.ClientSession.get")
     def test_fetch_trading_pairs(self, mock_api):
         self.mocking_assistant.configure_http_request_mock(mock_api)
 
@@ -168,7 +168,7 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertTrue("ANOTHER_ACTIVE-MARKET" in results)
         self.assertFalse("NOT_ACTIVE-MARKET" in results)
 
-    @patch("aiohttp.client.ClientSession.get")
+    @patch("aiohttp.ClientSession.get")
     def test_fetch_trading_pairs_with_error_status_in_response(self, mock_api):
         self.mocking_assistant.configure_http_request_mock(mock_api)
         mock_response = {}
@@ -177,7 +177,7 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         result = self.ev_loop.run_until_complete(self.data_source.fetch_trading_pairs())
         self.assertEqual(0, len(result))
 
-    @patch("aiohttp.client.ClientSession.get")
+    @patch("aiohttp.ClientSession.get")
     def test_get_order_book_data(self, mock_api):
         self.mocking_assistant.configure_http_request_mock(mock_api)
         self.simulate_trading_pair_ids_initialized()
@@ -195,7 +195,7 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertGreaterEqual(len(result["data"]), 0)
         self.assertEqual(NdaxOrderBookEntry(*mock_response[0]), result["data"][0])
 
-    @patch("aiohttp.client.ClientSession.get")
+    @patch("aiohttp.ClientSession.get")
     def test_get_order_book_data_raises_exception_when_response_has_error_code(self, mock_api):
         self.mocking_assistant.configure_http_request_mock(mock_api)
 
@@ -210,7 +210,7 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                                                  f"at {CONSTANTS.ORDER_BOOK_URL}. "
                                                  f"HTTP {100}. Response: {mock_response}")
 
-    @patch("aiohttp.client.ClientSession.get")
+    @patch("aiohttp.ClientSession.get")
     def test_get_new_order_book(self, mock_api):
         self.mocking_assistant.configure_http_request_mock(mock_api)
 
@@ -230,7 +230,7 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertTrue(type(result) == OrderBook)
         self.assertEqual(result.snapshot_uid, 0)
 
-    @patch("aiohttp.client.ClientSession.get")
+    @patch("aiohttp.ClientSession.get")
     def test_get_instrument_ids(self, mock_api):
         self.mocking_assistant.configure_http_request_mock(mock_api)
 
@@ -249,7 +249,7 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(result[self.trading_pair], self.instrument_id)
 
     @patch("hummingbot.connector.exchange.ndax.ndax_api_order_book_data_source.NdaxAPIOrderBookDataSource._sleep")
-    @patch("aiohttp.client.ClientSession.get")
+    @patch("aiohttp.ClientSession.get")
     def test_listen_for_snapshots_cancelled_when_fetching_snapshot(self, mock_api, mock_sleep):
         mock_api.side_effect = asyncio.CancelledError
         self.simulate_trading_pair_ids_initialized()
@@ -264,7 +264,7 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(msg_queue.qsize(), 0)
 
     @patch("hummingbot.connector.exchange.ndax.ndax_api_order_book_data_source.NdaxAPIOrderBookDataSource._sleep")
-    @patch("aiohttp.client.ClientSession.get")
+    @patch("aiohttp.ClientSession.get")
     def test_listen_for_snapshots_logs_exception_when_fetching_snapshot(self, mock_api, mock_sleep):
         # the queue and the division by zero error are used just to synchronize the test
         sync_queue = deque()
@@ -286,7 +286,7 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                                         "Unexpected error occured listening for orderbook snapshots. Retrying in 5 secs..."))
 
     @patch("hummingbot.connector.exchange.ndax.ndax_api_order_book_data_source.NdaxAPIOrderBookDataSource._sleep")
-    @patch("aiohttp.client.ClientSession.get")
+    @patch("aiohttp.ClientSession.get")
     def test_listen_for_snapshots_successful(self, mock_api, mock_sleep):
         self.mocking_assistant.configure_http_request_mock(mock_api)
 
@@ -315,7 +315,7 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         snapshot_msg: OrderBookMessage = msg_queue.get_nowait()
         self.assertEqual(snapshot_msg.update_id, 0)
 
-    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_order_book_diffs_cancelled_when_subscribing(self, mock_ws):
         msg_queue: asyncio.Queue = asyncio.Queue()
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
@@ -332,7 +332,7 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             )
             self.ev_loop.run_until_complete(self.listening_task)
 
-    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_order_book_diffs_cancelled_when_listening(self, mock_ws):
         msg_queue: asyncio.Queue = asyncio.Queue()
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
@@ -352,8 +352,8 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication")
     @patch("hummingbot.connector.exchange.ndax.ndax_api_order_book_data_source.NdaxAPIOrderBookDataSource._sleep")
-    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
-    @patch("aiohttp.client.ClientSession.get", new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.get", new_callable=AsyncMock)
     def test_listen_for_order_book_diffs_logs_exception(self, mock_api, mock_ws, *_):
         msg_queue: asyncio.Queue = asyncio.Queue()
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
@@ -375,7 +375,7 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.assertTrue(self._is_logged("NETWORK", "Unexpected error with WebSocket connection."))
 
-    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_order_book_diffs_successful(self, mock_ws):
         msg_queue: asyncio.Queue = asyncio.Queue()
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
@@ -395,14 +395,14 @@ class NdaxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertTrue(first_msg.type == OrderBookMessageType.SNAPSHOT)
         self.assertTrue(second_msg.type == OrderBookMessageType.DIFF)
 
-    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_websocket_connection_creation_raises_cancel_exception(self, mock_ws):
         mock_ws.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
             asyncio.get_event_loop().run_until_complete(self.data_source._create_websocket_connection())
 
-    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_websocket_connection_creation_raises_exception_after_loging(self, mock_ws):
         mock_ws.side_effect = Exception
 
