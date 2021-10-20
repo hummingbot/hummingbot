@@ -1,16 +1,22 @@
 import asyncio
+from datetime import datetime
 import unittest
 from collections import Awaitable
 from decimal import Decimal
 from typing import Dict, Optional
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, patch, MagicMock
+from requests import Response
+
+from dydx3 import DydxApiError
 
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_derivative import DydxPerpetualDerivative
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_position import DydxPerpetualPosition
-from hummingbot.core.event.events import PositionSide
+from hummingbot.core.event.events import PositionSide, FundingInfo
 
 
 class DydxPerpetualDerivativeTest(unittest.TestCase):
+    level = 0
+
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
@@ -24,6 +30,7 @@ class DydxPerpetualDerivativeTest(unittest.TestCase):
         self.exchange_task = None
         self.return_values_queue = asyncio.Queue()
         self.resume_test_event = asyncio.Event()
+        self.log_records = []
 
         self.exchange = DydxPerpetualDerivative(
             dydx_perpetual_api_key="someAPIKey",
@@ -34,12 +41,24 @@ class DydxPerpetualDerivativeTest(unittest.TestCase):
             dydx_perpetual_stark_private_key="1234",
             trading_pairs=[self.trading_pair],
         )
+        self.exchange.logger().setLevel(1)
+        self.exchange.logger().addHandler(self)
 
         self.ev_loop = asyncio.get_event_loop()
 
     def tearDown(self) -> None:
         self.exchange_task and self.exchange_task.cancel()
         super().tearDown()
+
+    def handle(self, record):
+        self.log_records.append(record)
+
+    def check_is_logged(self, log_level: str, message: str) -> bool:
+        is_logged = any(
+            record.levelname == log_level and record.getMessage() == message
+            for record in self.log_records
+        )
+        return is_logged
 
     def simulate_balances_initialized(self, account_balances: Optional[Dict] = None):
         if account_balances is None:
@@ -82,6 +101,19 @@ class DydxPerpetualDerivativeTest(unittest.TestCase):
             }
         }
         return account_message_mock
+
+    def get_markets_message_mock(self, index_price: float) -> Dict:
+        markets_message_mock = {
+            "markets": {
+                self.trading_pair: {
+                    "indexPrice": str(index_price),
+                    "oraclePrice": "10.1",
+                    "nextFundingAt": str(datetime.now()),
+                    "nextFundingRate": "0.1",
+                }
+            }
+        }
+        return markets_message_mock
 
     def get_user_stream_positions_ws_message_mock(self, size: float, status: str = "OPEN") -> Dict:
         positions_message_mock = {
@@ -186,3 +218,103 @@ class DydxPerpetualDerivativeTest(unittest.TestCase):
 
         self.assertEqual(position_size, position.amount)  # position was updated with message
         self.assertEqual(0, len(self.exchange.account_positions))  # closed position removed
+
+    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_client_wrapper"
+           ".DydxPerpetualClientWrapper.get_markets")
+    def test_update_funding_rates_succeeds(self, get_markets_mock: AsyncMock):
+        index_price = 10.0
+        markets_message_mock = self.get_markets_message_mock(index_price)
+        get_markets_mock.return_value = markets_message_mock
+
+        self.async_run_with_timeout(self.exchange._update_funding_rates())
+
+        funding_info = self.exchange.get_funding_info(self.trading_pair)
+
+        self.assertIsInstance(funding_info, FundingInfo)
+        self.assertEqual(Decimal(index_price), funding_info.index_price)
+
+    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_client_wrapper"
+           ".DydxPerpetualClientWrapper.get_markets")
+    def test_update_funding_fails_on_rate_limit(self, get_markets_mock: AsyncMock):
+        resp = Response()
+        resp.status_code = 429
+        resp._content = b'{"errors": [{"msg": "Too many requests"}]}'
+        get_markets_mock.return_value = DydxApiError(resp)
+
+        self.async_run_with_timeout(self.exchange._update_funding_rates())
+
+        self.check_is_logged(log_level="NETWORK", message="Rate-limit error.")
+
+    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_client_wrapper"
+           ".DydxPerpetualClientWrapper.get_markets")
+    def test_update_funding_fails_on_other_dydx_api_error(self, get_markets_mock: AsyncMock):
+        resp = Response()
+        resp.status_code = 430
+        resp._content = b'{"errors": [{"msg": "Some other dydx API error."}]}'
+        get_markets_mock.return_value = DydxApiError(resp)
+
+        self.async_run_with_timeout(self.exchange._update_funding_rates())
+
+        self.check_is_logged(log_level="NETWORK", message="dYdX API error.")
+
+    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_client_wrapper"
+           ".DydxPerpetualClientWrapper.get_markets")
+    def test_update_funding_fails_on_general_exception(self, get_markets_mock: AsyncMock):
+        get_markets_mock.return_value = Exception("Dummy exception")
+
+        self.async_run_with_timeout(self.exchange._update_funding_rates())
+
+        self.check_is_logged(log_level="NETWORK", message="Unknown error.")
+
+    def test_tick_manual_poll_interval(self):
+        poll_interval = 10
+        exchange = DydxPerpetualDerivative(
+            dydx_perpetual_api_key="someAPIKey",
+            dydx_perpetual_api_secret="someAPISecret",
+            dydx_perpetual_passphrase="somePassPhrase",
+            dydx_perpetual_account_number=1234,
+            dydx_perpetual_ethereum_address="someETHAddress",
+            dydx_perpetual_stark_private_key="1234",
+            trading_pairs=[self.trading_pair],
+            poll_interval=poll_interval,
+        )
+
+        initial_timestamp = 0
+        exchange._last_timestamp = initial_timestamp
+        exchange.tick(timestamp=initial_timestamp + poll_interval - 1)
+
+        self.assertFalse(exchange._poll_notifier.is_set())
+
+        exchange.tick(timestamp=initial_timestamp + poll_interval)
+
+        self.assertTrue(exchange._poll_notifier.is_set())
+
+    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_derivative.time.time")
+    def test_tick_short_interval(self, time_patch: MagicMock):
+        initial_timestamp = 0
+        self.exchange._last_timestamp = initial_timestamp
+        self.exchange._user_stream_tracker._last_recv_time = 0
+        time_patch.return_value = 61
+
+        self.exchange.tick(timestamp=initial_timestamp + self.exchange.SHORT_POLL_INTERVAL - 1)
+
+        self.assertFalse(self.exchange._poll_notifier.is_set())
+
+        self.exchange.tick(timestamp=initial_timestamp + self.exchange.SHORT_POLL_INTERVAL)
+
+        self.assertTrue(self.exchange._poll_notifier.is_set())
+
+    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_derivative.time.time")
+    def test_tick_long_interval(self, time_patch: MagicMock):
+        initial_time_stamp = 0
+        self.exchange._last_timestamp = initial_time_stamp
+        self.exchange._user_stream_tracker._last_recv_time = 0
+        time_patch.return_value = 5
+
+        self.exchange.tick(timestamp=initial_time_stamp + self.exchange.LONG_POLL_INTERVAL - 1)
+
+        self.assertFalse(self.exchange._poll_notifier.is_set())
+
+        self.exchange.tick(timestamp=initial_time_stamp + self.exchange.LONG_POLL_INTERVAL)
+
+        self.assertTrue(self.exchange._poll_notifier.is_set())
