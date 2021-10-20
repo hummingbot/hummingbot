@@ -52,6 +52,7 @@ dependencies:
     - mypy-extensions==0.4.3
     - pre-commit==2.1.1
     - psutil==5.7.2
+    - pyinstaller==3.6
     - pyjwt==1.7.1
     - pyperclip==1.7.0
     - pytest==4.6.11
