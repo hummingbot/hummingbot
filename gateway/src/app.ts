@@ -102,7 +102,7 @@ app.use(
     _next: NextFunction
   ) => {
     const response: any = {
-      message: err.message || 'Something went wrong',
+      message: err.message || 'Unknown error.',
     };
     if (err.stack) response.stack = err.stack;
     let httpErrorCode = 500;
@@ -111,29 +111,27 @@ app.use(
       response.errorCode = err.errorCode;
     } else if ('code' in err) {
       httpErrorCode = 503;
+      response.errorCode = 1099;
+      response.message = 'Unknown error.';
 
       switch (typeof err.code) {
         case 'string':
           // error is from ethers library
-          response.errorCode = [
-            'NETWORK_ERROR',
-            'SERVER_ERROR',
-            'TIMEOUT',
-          ].includes(err.code)
-            ? 1001
-            : 1099;
-          response.message = err.reason;
+          if (['NETWORK_ERROR', 'SERVER_ERROR', 'TIMEOUT'].includes(err.code)) {
+            response.errorCode = 1001;
+            response.message =
+              'Network error. Please check your node URL, API key, and Internet connection.';
+          }
           break;
 
         case 'number':
-          // error is from provider
-          response.errorCode = 1002;
-          response.providerErrCode = err.code;
-          response.data = err.data;
-          break;
-
-        default:
-          response.errorCode = 1099;
+          // errors from provider
+          if (err.code === -32005) {
+            // we only handle rate-limit errors
+            response.errorCode = 1002;
+            response.message = 'Blockchain node API rate limit exceeded.';
+            response.data = err.data;
+          }
           break;
       }
     }
