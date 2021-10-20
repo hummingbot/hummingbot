@@ -6,14 +6,6 @@ import logging; logging.basicConfig(level=logging.ERROR)
 import pandas as pd
 from typing import List
 import unittest
-from hummingsim.backtest.backtest_market import BacktestMarket
-from hummingsim.backtest.market import (
-    AssetType,
-    Market,
-    MarketConfig,
-    QuantizationParams
-)
-from hummingsim.backtest.mock_order_book_loader import MockOrderBookLoader
 from hummingbot.core.clock import (
     Clock,
     ClockMode
@@ -30,6 +22,8 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.strategy.dev_5_vwap import Dev5TwapTradeStrategy
+from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
+from test.mock.mock_paper_exchange import MockPaperExchange
 
 
 class TWAPUnitTest(unittest.TestCase):
@@ -43,14 +37,13 @@ class TWAPUnitTest(unittest.TestCase):
     def setUp(self):
 
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
-        self.market: BacktestMarket = BacktestMarket()
-        self.maker_data: MockOrderBookLoader = MockOrderBookLoader(*self.maker_symbols)
+        self.market: MockPaperExchange = MockPaperExchange()
         self.mid_price = 100
         self.time_delay = 15
         self.cancel_order_wait_time = 45
-        self.maker_data.set_balanced_order_book(mid_price=self.mid_price, min_price=1,
-                                                max_price=200, price_step_size=1, volume_step_size=10)
-        self.market.add_data(self.maker_data)
+        self.market.set_balanced_order_book(self.maker_symbols[0],
+                                            mid_price=self.mid_price, min_price=1,
+                                            max_price=200, price_step_size=1, volume_step_size=10)
         self.market.set_balance("COINALPHA", 500)
         self.market.set_balance("WETH", 500000000000)
         self.market.set_balance("QETH", 500)
@@ -127,12 +120,11 @@ class TWAPUnitTest(unittest.TestCase):
         self.market.add_listener(MarketEvent.OrderCancelled, self.cancel_order_logger)
 
     @staticmethod
-    def simulate_limit_order_fill(market: Market, limit_order: LimitOrder):
+    def simulate_limit_order_fill(market: MockPaperExchange, limit_order: LimitOrder):
         quote_currency_traded: Decimal = limit_order.price * limit_order.quantity
         base_currency_traded: Decimal = limit_order.quantity
         quote_currency: str = limit_order.quote_currency
         base_currency: str = limit_order.base_currency
-        config: MarketConfig = market.config
 
         if limit_order.is_buy:
             market.set_balance(quote_currency, market.get_balance(quote_currency) - quote_currency_traded)
@@ -152,7 +144,7 @@ class TWAPUnitTest(unittest.TestCase):
                 limit_order.client_order_id,
                 base_currency,
                 quote_currency,
-                base_currency if config.buy_fees_asset is AssetType.BASE_CURRENCY else quote_currency,
+                quote_currency,
                 base_currency_traded,
                 quote_currency_traded,
                 Decimal("0"),
@@ -176,7 +168,7 @@ class TWAPUnitTest(unittest.TestCase):
                 limit_order.client_order_id,
                 base_currency,
                 quote_currency,
-                base_currency if config.sell_fees_asset is AssetType.BASE_CURRENCY else quote_currency,
+                quote_currency,
                 base_currency_traded,
                 quote_currency_traded,
                 Decimal("0"),

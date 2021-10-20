@@ -38,6 +38,13 @@ cdef class MockPaperExchange(PaperTradeExchange):
     def split_trading_pair(self, trading_pair: str) -> Tuple[str, str]:
         return trading_pair.split("-")
 
+    def new_empty_order_book(self, trading_pair: str):
+        order_book = CompositeOrderBook()
+        order_book.c_add_listener(self.ORDER_BOOK_TRADE_EVENT_TAG, self._order_book_trade_listener)
+        base_asset, quote_asset = self.split_trading_pair(trading_pair)
+        self._trading_pairs[trading_pair] = TradingPair(trading_pair, base_asset, quote_asset)
+        self.order_book_tracker._order_books[trading_pair] = order_book
+
     def set_balanced_order_book(self,
                                 str trading_pair,
                                 double mid_price,
