@@ -130,6 +130,9 @@ class DydxPerpetualDerivativeTransactionTracker(TransactionTracker):
 
 
 class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
+    SHORT_POLL_INTERVAL = 5.0
+    LONG_POLL_INTERVAL = 120.0
+
     @classmethod
     def logger(cls) -> HummingbotLogger:
         global s_logger
@@ -144,7 +147,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                  dydx_perpetual_account_number: int,
                  dydx_perpetual_ethereum_address: str,
                  dydx_perpetual_stark_private_key: str,
-                 poll_interval: float = 10.0,
+                 poll_interval: Optional[float] = None,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True):
 
@@ -744,19 +747,19 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
         except DydxApiError as e:
             if e.status_code == 429:
                 self.logger().network(
-                    log_msg="Rate-limit error. Retrying after 1 second.",
+                    log_msg="Rate-limit error.",
                     app_warning_msg="Could not fetch funding rates due to API rate limits.",
                     exc_info=True,
                 )
             else:
                 self.logger().network(
-                    "dYdX API error. Retrying after 1 seconds.",
+                    log_msg="dYdX API error.",
                     exc_info=True,
                     app_warning_msg="Could not fetch funding rates. Check API key and network connection."
                 )
         except Exception:
             self.logger().network(
-                "Unknown error. Retrying after 1 seconds.",
+                log_msg="Unknown error.",
                 exc_info=True,
                 app_warning_msg="Could not fetch funding rates. Check API key and network connection."
             )
@@ -1118,12 +1121,24 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
         return quantized_amount
 
     def tick(self, timestamp: float):
-        last_tick = self._last_timestamp / self._poll_interval
-        current_tick = timestamp / self._poll_interval
+        poll_interval = self._get_poll_interval()
+        last_tick = int(self._last_timestamp / poll_interval)
+        current_tick = int(timestamp / poll_interval)
         if current_tick > last_tick:
             if not self._poll_notifier.is_set():
                 self._poll_notifier.set()
         self._last_timestamp = timestamp
+
+    def _get_poll_interval(self) -> float:
+        if self._poll_interval is not None:
+            poll_interval = self._poll_interval
+        else:
+            now = time.time()
+            if now - self._user_stream_tracker.last_recv_time > 60.0:
+                poll_interval = self.SHORT_POLL_INTERVAL
+            else:
+                poll_interval = self.LONG_POLL_INTERVAL
+        return poll_interval
 
     async def api_request(self,
                           http_method: str,
