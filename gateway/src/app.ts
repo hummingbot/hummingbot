@@ -130,7 +130,6 @@ app.use(
             // we only handle rate-limit errors
             response.errorCode = 1002;
             response.message = 'Blockchain node API rate limit exceeded.';
-            response.data = err.data;
           }
           break;
       }
