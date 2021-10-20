@@ -222,7 +222,7 @@ class CryptoComExchange(ExchangeBase):
         """
         try:
             # since there is no ping endpoint, the lowest rate call is to get BTC-USDT ticker
-            await self._api_request("get", CONSTANTS.CHECK_NETWORK_PATH_URL)
+            await self._api_request("get", CONSTANTS.GET_TICKER_PATH_URL)
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -319,7 +319,7 @@ class CryptoComExchange(ExchangeBase):
         :returns A response in json format.
         """
         async with self._throttler.execute_task(path_url):
-            url = f"{CONSTANTS.REST_URL}/{path_url}"
+            url = crypto_com_utils.get_rest_url(path_url)
             client = await self._http_client()
             if is_auth_required:
                 request_id = crypto_com_utils.RequestId.generate_request_id()
