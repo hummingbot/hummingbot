@@ -92,18 +92,10 @@ def main():
         "hummingbot.strategy.__utils__",
         "hummingbot.strategy.__utils__.trailing_indicators",
         "hummingbot.templates",
-        "hummingbot.wallet",
-        "hummingbot.wallet.ethereum",
-        "hummingbot.wallet.ethereum.watcher",
-        "hummingbot.wallet.ethereum.zero_ex",
     ]
     package_data = {
         "hummingbot": [
             "core/cpp/*",
-            "wallet/ethereum/zero_ex/*.json",
-            "wallet/ethereum/token_abi/*.json",
-            "wallet/ethereum/erc20_tokens.json",
-            "wallet/ethereum/erc20_tokens_kovan.json",
             "VERSION",
             "templates/*TEMPLATE.yml"
         ],
