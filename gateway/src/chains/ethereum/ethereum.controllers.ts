@@ -1,5 +1,11 @@
 import { Ethereum } from './ethereum';
-import ethers, { constants, Wallet, utils, BigNumber } from 'ethers';
+import ethers, {
+  constants,
+  Wallet,
+  utils,
+  BigNumber,
+  Transaction,
+} from 'ethers';
 import { ConfigManager } from '../../services/config-manager';
 import { latency, bigNumberWithDecimalToStr } from '../../services/base';
 import { GatewayError, HttpException } from '../../services/error-handler';
@@ -21,6 +27,7 @@ import {
   EthereumPollRequest,
   EthereumPollResponse,
   EthereumTransactionReceipt,
+  EthereumTransaction,
 } from './ethereum.requests';
 import {
   validateEthereumAllowancesRequest,
@@ -154,6 +161,30 @@ export async function balances(
   };
 }
 
+const toEthereumTransaction = (
+  transaction: Transaction
+): EthereumTransaction => {
+  let maxFeePerGas = null;
+  if (transaction.maxFeePerGas) {
+    maxFeePerGas = transaction.maxFeePerGas.toString();
+  }
+  let maxPriorityFeePerGas = null;
+  if (transaction.maxPriorityFeePerGas) {
+    maxPriorityFeePerGas = transaction.maxPriorityFeePerGas.toString();
+  }
+  let gasLimit = null;
+  if (transaction.gasLimit) {
+    gasLimit = transaction.gasLimit.toString();
+  }
+  return {
+    ...transaction,
+    maxPriorityFeePerGas,
+    maxFeePerGas,
+    gasLimit,
+    value: transaction.value.toString(),
+  };
+};
+
 export async function approve(
   req: EthereumApproveRequest
 ): Promise<EthereumApproveResponse> {
@@ -194,7 +225,7 @@ export async function approve(
     spender: spender,
     amount: bigNumberWithDecimalToStr(amountBigNumber, fullToken.decimals),
     nonce: approval.nonce,
-    approval: approval,
+    approval: toEthereumTransaction(approval),
   };
 }
 
