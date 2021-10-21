@@ -14,6 +14,8 @@ WSS_LINEAR_PRIVATE_URLS = {"bybit_perpetual_main": "wss://stream.bybit.com/realt
 
 REST_API_VERSION = "v2"
 
+HBOT_BROKER_ID = "HBOT"
+
 # REST API Public Endpoints
 LINEAR_MARKET = "linear"
 NON_LINEAR_MARKET = "non_linear"
