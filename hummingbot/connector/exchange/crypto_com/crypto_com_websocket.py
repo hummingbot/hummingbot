@@ -60,6 +60,7 @@ class CryptoComWebsocket(RequestId):
             return self._client
         except Exception as e:
             self.logger().error(f"Websocket error: '{str(e)}'", exc_info=True)
+            raise
 
     # disconnect from exchange
     async def disconnect(self):

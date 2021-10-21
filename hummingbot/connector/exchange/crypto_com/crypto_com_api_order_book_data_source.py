@@ -1,13 +1,12 @@
 #!/usr/bin/env python
 import asyncio
+from collections import defaultdict
 import logging
-import time
 from typing import Any, Dict, List, Optional
 
 import aiohttp
 import hummingbot.connector.exchange.crypto_com.crypto_com_constants as CONSTANTS
 import hummingbot.connector.exchange.crypto_com.crypto_com_utils as crypto_com_utils
-import pandas as pd
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
@@ -24,6 +23,11 @@ class CryptoComAPIOrderBookDataSource(OrderBookTrackerDataSource):
     MAX_RETRIES = 20
     MESSAGE_TIMEOUT = 30.0
     SNAPSHOT_TIMEOUT = 10.0
+    ORDER_BOOK_SNAPSHOT_DELAY = 60 * 60  # expressed in seconds
+
+    DIFF_CHANNEL_ID = "book"
+    TRADE_CHANNEL_ID = "trade"
+    SUBSCRIPTION_LIST = set([DIFF_CHANNEL_ID, TRADE_CHANNEL_ID])
 
     _logger: Optional[HummingbotLogger] = None
 
@@ -38,6 +42,7 @@ class CryptoComAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self._trading_pairs: List[str] = trading_pairs
         self._snapshot_msg: Dict[str, any] = {}
         self._throttler = throttler or self._get_throttler_instance()
+        self._message_queue: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
 
     @classmethod
     def _get_throttler_instance(cls):
@@ -116,7 +121,7 @@ class CryptoComAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair, self._throttler)
-        snapshot_timestamp: int = crypto_com_utils.ms_timestamp_to_s(snapshot["t"])
+        snapshot_timestamp: float = snapshot["t"]
         snapshot_msg: OrderBookMessage = CryptoComOrderBook.snapshot_message_from_exchange(
             snapshot, snapshot_timestamp, metadata={"trading_pair": trading_pair}
         )
@@ -126,88 +131,111 @@ class CryptoComAPIOrderBookDataSource(OrderBookTrackerDataSource):
         order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
         return order_book
 
+    async def _subscribe_to_order_book_streams(self) -> CryptoComWebsocket:
+        try:
+            ws = CryptoComWebsocket()
+            await ws.connect()
+
+            channels = []
+            for pair in self._trading_pairs:
+                channels.extend(
+                    [
+                        f"{self.DIFF_CHANNEL_ID}.{crypto_com_utils.convert_to_exchange_trading_pair(pair)}.150",
+                        f"{self.TRADE_CHANNEL_ID}.{crypto_com_utils.convert_to_exchange_trading_pair(pair)}",
+                    ]
+                )
+
+            await ws.subscribe(channels)
+
+            self.logger().info(f"Subscribed to {self._trading_pairs} orderbook trading and delta streams...")
+
+            return ws
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().error("Unexpected error occurred subscribing to order book trading and delta streams...",
+                                exc_info=True)
+            raise
+
+    async def listen_for_subscriptions(self):
+        ws = None
+        while True:
+            try:
+                ws = await self._subscribe_to_order_book_streams()
+                async for response in ws.on_message():
+                    if response.get("result") is None:
+                        continue
+                    channel = response["result"].get("channel", None)
+                    if channel in self.SUBSCRIPTION_LIST:
+                        self._message_queue[channel].put_nowait(response["result"])
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().error(
+                    "Unexpected error occurred when listening to order book streams. " "Retrying in 5 seconds...",
+                    exc_info=True,
+                )
+                await self._sleep(5.0)
+            finally:
+                ws and await ws.disconnect()
+
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
         Listen for trades using websocket trade channel
         """
+        msg_queue = self._message_queue[self.TRADE_CHANNEL_ID]
         while True:
             try:
-                ws = CryptoComWebsocket()
-                await ws.connect()
+                payload = await msg_queue.get()
 
-                await ws.subscribe([
-                    f"trade.{crypto_com_utils.convert_to_exchange_trading_pair(pair)}"
-                    for pair in self._trading_pairs
-                ])
-
-                async for response in ws.on_message():
-                    if response.get("result") is None:
-                        continue
-
-                    for trade in response["result"]["data"]:
-                        trade: Dict[Any] = trade
-                        trade_timestamp: int = crypto_com_utils.ms_timestamp_to_s(trade["t"])
-                        trade_msg: OrderBookMessage = CryptoComOrderBook.trade_message_from_exchange(
-                            trade,
-                            trade_timestamp,
-                            metadata={"trading_pair": crypto_com_utils.convert_from_exchange_trading_pair(trade["i"])},
-                        )
-                        output.put_nowait(trade_msg)
+                for trade in payload["data"]:
+                    trade_timestamp: float = trade["t"]
+                    trade_msg: OrderBookMessage = CryptoComOrderBook.trade_message_from_exchange(
+                        trade,
+                        trade_timestamp,
+                        metadata={"trading_pair": crypto_com_utils.convert_from_exchange_trading_pair(trade["i"])},
+                    )
+                    output.put_nowait(trade_msg)
 
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unexpected error.", exc_info=True)
-                await self._sleep(5.0)
-            finally:
-                await ws.disconnect()
+                self.logger().error(f"Unexpected error parsing order book trade payload. Payload: {payload}",
+                                    exc_info=True)
+                await self._sleep(30.0)
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
         Listen for orderbook diffs using websocket book channel
         """
+        msg_queue = self._message_queue[self.DIFF_CHANNEL_ID]
         while True:
             try:
-                ws = CryptoComWebsocket()
-                await ws.connect()
+                payload = await msg_queue.get()
 
-                await ws.subscribe([
-                    f"book.{crypto_com_utils.convert_to_exchange_trading_pair(pair)}.150"
-                    for pair in self._trading_pairs
-                ])
+                trading_pair = crypto_com_utils.convert_from_exchange_trading_pair(payload["instrument_name"])
 
-                async for response in ws.on_message():
-                    if response.get("result") is None:
-                        continue
+                order_book_data = payload["data"][0]
+                timestamp: float = order_book_data["t"]
 
-                    order_book_data = response["result"]["data"][0]
-                    timestamp: int = crypto_com_utils.ms_timestamp_to_s(order_book_data["t"])
-                    # data in this channel is not order book diff but the entire order book (up to depth 150).
-                    # so we need to convert it into a order book snapshot.
-                    # Crypto.com does not offer order book diff ws updates.
-                    orderbook_msg: OrderBookMessage = CryptoComOrderBook.snapshot_message_from_exchange(
-                        order_book_data,
-                        timestamp,
-                        metadata={
-                            "trading_pair": crypto_com_utils.convert_from_exchange_trading_pair(
-                                response["result"]["instrument_name"]
-                            )
-                        },
-                    )
-                    output.put_nowait(orderbook_msg)
+                # data in this channel is not order book diff but the entire order book (up to depth 150).
+                # so we need to convert it into a order book snapshot.
+                # Crypto.com does not offer order book diff ws updates.
+                orderbook_msg: OrderBookMessage = CryptoComOrderBook.snapshot_message_from_exchange(
+                    order_book_data,
+                    timestamp,
+                    metadata={"trading_pair": trading_pair},
+                )
+                output.put_nowait(orderbook_msg)
 
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().network(
-                    "Unexpected error with WebSocket connection.",
+                self.logger().error(
+                    f"Unexpected error parsing order book diff payload. Payload: {payload}",
                     exc_info=True,
-                    app_warning_msg="Unexpected error with WebSocket connection. Retrying in 30 seconds. "
-                                    "Check network connection."
                 )
                 await self._sleep(30.0)
-            finally:
-                await ws.disconnect()
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
@@ -218,28 +246,22 @@ class CryptoComAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 for trading_pair in self._trading_pairs:
                     try:
                         snapshot: Dict[str, any] = await self.get_order_book_data(trading_pair, self._throttler)
-                        snapshot_timestamp: int = crypto_com_utils.ms_timestamp_to_s(snapshot["t"])
+                        snapshot_timestamp: float = snapshot["t"]
                         snapshot_msg: OrderBookMessage = CryptoComOrderBook.snapshot_message_from_exchange(
                             snapshot, snapshot_timestamp, metadata={"trading_pair": trading_pair}
                         )
                         output.put_nowait(snapshot_msg)
                         self.logger().debug(f"Saved order book snapshot for {trading_pair}")
-                        # Be careful not to go above API rate limits.
-                        await self._sleep(5.0)
                     except asyncio.CancelledError:
                         raise
                     except Exception:
-                        self.logger().network(
-                            "Unexpected error with WebSocket connection.",
-                            exc_info=True,
-                            app_warning_msg="Unexpected error with WebSocket connection. Retrying in 5 seconds. "
-                                            "Check network connection."
+                        self.logger().error(
+                            "Unexpected error with fetching order book snapshot via API Request. Retrying in 5 seconds...",
+                            exc_info=True
                         )
                         await self._sleep(5.0)
-                this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
-                next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)
-                delta: float = next_hour.timestamp() - time.time()
-                await self._sleep(delta)
+                # Be careful not to go above API rate limits.
+                await self._sleep(self.ORDER_BOOK_SNAPSHOT_DELAY)
             except asyncio.CancelledError:
                 raise
             except Exception:
