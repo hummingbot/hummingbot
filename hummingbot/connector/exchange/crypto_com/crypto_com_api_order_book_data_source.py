@@ -116,7 +116,7 @@ class CryptoComAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair, self._throttler)
-        snapshot_timestamp: float = time.time()
+        snapshot_timestamp: int = crypto_com_utils.ms_timestamp_to_s(snapshot["t"])
         snapshot_msg: OrderBookMessage = CryptoComOrderBook.snapshot_message_from_exchange(
             snapshot, snapshot_timestamp, metadata={"trading_pair": trading_pair}
         )
