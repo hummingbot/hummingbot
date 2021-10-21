@@ -82,6 +82,7 @@ class TestKucoinAPIUserStreamDataSource(unittest.TestCase):
         mock_api.post(url, body=json.dumps(resp))
 
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, message="")
         msg_queue = asyncio.Queue()
 
         self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, msg_queue))
