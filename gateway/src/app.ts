@@ -8,8 +8,8 @@ import { logger, updateLoggerToStdout } from './services/logger';
 import { addHttps } from './https';
 import {
   asyncHandler,
-  GatewayError,
   HttpException,
+  NodeError,
 } from './services/error-handler';
 
 export const app = express();
@@ -96,19 +96,43 @@ app.post(
 // handle any error thrown in the gateway api route
 app.use(
   (
-    err: Error | GatewayError,
+    err: Error | NodeError | HttpException,
     _req: Request,
     res: Response,
     _next: NextFunction
   ) => {
     const response: any = {
-      message: err.message || 'Something went wrong',
+      message: err.message || 'Unknown error.',
     };
     if (err.stack) response.stack = err.stack;
     let httpErrorCode = 500;
-    if (err instanceof GatewayError) {
-      httpErrorCode = err.httpErrorCode;
+    if (err instanceof HttpException) {
+      httpErrorCode = err.status;
       response.errorCode = err.errorCode;
+    } else if ('code' in err) {
+      httpErrorCode = 503;
+      response.errorCode = 1099;
+      response.message = 'Unknown error.';
+
+      switch (typeof err.code) {
+        case 'string':
+          // error is from ethers library
+          if (['NETWORK_ERROR', 'SERVER_ERROR', 'TIMEOUT'].includes(err.code)) {
+            response.errorCode = 1001;
+            response.message =
+              'Network error. Please check your node URL, API key, and Internet connection.';
+          }
+          break;
+
+        case 'number':
+          // errors from provider
+          if (err.code === -32005) {
+            // we only handle rate-limit errors
+            response.errorCode = 1002;
+            response.message = 'Blockchain node API rate limit exceeded.';
+          }
+          break;
+      }
     }
     if (err instanceof HttpException) {
       httpErrorCode = err.status;
