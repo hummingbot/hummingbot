@@ -13,7 +13,7 @@
     "dev": "nodemon src/index.ts",
     "dev:debug": "nodemon --inspect src/index.ts",
     "start": "nodemon dist/index.js",
-    "test:unit": "jest --verbose --runInBand --forceExit ./test/",
+    "test:unit": "jest --verbose --forceExit ./test/",
     "test:cov": "jest --coverage ./test/",
     "test:scripts": "jest --verbose ./test-scripts/"
   },
@@ -35,6 +35,7 @@
     "express-winston": "^4.1.0",
     "js-yaml": "^4.1.0",
     "level": "^7.0.1",
+    "level-party": "^5.1.1",
     "winston": "^3.3.3",
     "winston-daily-rotate-file": "^4.5.5"
   },
