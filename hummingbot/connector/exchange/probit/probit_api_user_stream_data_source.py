@@ -2,9 +2,10 @@
 
 import asyncio
 import logging
-import time
+
+import aiohttp
 import ujson
-import websockets
+from aiohttp import WSMessage, WSMsgType
 
 import hummingbot.connector.exchange.probit.probit_constants as CONSTANTS
 
@@ -36,15 +37,16 @@ class ProbitAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     def __init__(self,
                  probit_auth: ProbitAuth,
-                 trading_pairs: Optional[List[str]] = [],
+                 trading_pairs: Optional[List[str]] = None,
                  domain: str = "com"):
+        super().__init__()
+        self._shared_client = self._get_session_instance()
         self._domain: str = domain
-        self._websocket_client: websockets.WebSocketClientProtocol = None
+        self._websocket_client: Optional[aiohttp.ClientWebSocketResponse] = None
         self._probit_auth: ProbitAuth = probit_auth
-        self._trading_pairs = trading_pairs
+        self._trading_pairs = trading_pairs or []
 
         self._last_recv_time: float = 0
-        super().__init__()
 
     @property
     def exchange_name(self) -> str:
@@ -57,26 +59,33 @@ class ProbitAPIUserStreamDataSource(UserStreamTrackerDataSource):
     def last_recv_time(self) -> float:
         return self._last_recv_time
 
-    async def _init_websocket_connection(self) -> websockets.WebSocketClientProtocol:
+    @classmethod
+    def _get_session_instance(cls) -> aiohttp.ClientSession:
+        session = aiohttp.ClientSession()
+        return session
+
+    async def _init_websocket_connection(self) -> aiohttp.ClientWebSocketResponse:
         """
         Initialize WebSocket client for UserStreamDataSource
         """
         try:
             if self._websocket_client is None:
-                self._websocket_client = await websockets.connect(CONSTANTS.WSS_URL.format(self._domain))
-            return self._websocket_client
+                self._websocket_client = await self._shared_client.ws_connect(
+                    CONSTANTS.WSS_URL.format(self._domain)
+                )
         except Exception:
             self.logger().network("Unexpected error occured with ProBit WebSocket Connection")
+            raise
+        return self._websocket_client
 
-    async def _authenticate(self, ws: websockets.WebSocketClientProtocol):
+    async def _authenticate(self, ws: aiohttp.ClientWebSocketResponse):
         """
         Authenticates user to websocket
         """
         try:
             auth_payload: Dict[str, Any] = await self._probit_auth.get_ws_auth_payload()
-            await ws.send(ujson.dumps(auth_payload, escape_forward_slashes=False))
-            auth_resp = await ws.recv()
-            auth_resp: Dict[str, Any] = ujson.loads(auth_resp)
+            await ws.send_str(ujson.dumps(auth_payload, escape_forward_slashes=False))
+            auth_resp = await ws.receive_json()
 
             if auth_resp["result"] != "ok":
                 self.logger().error(f"Response: {auth_resp}",
@@ -89,7 +98,7 @@ class ProbitAPIUserStreamDataSource(UserStreamTrackerDataSource):
                                exc_info=True)
             raise
 
-    async def _subscribe_to_channels(self, ws: websockets.WebSocketClientProtocol):
+    async def _subscribe_to_channels(self, ws: aiohttp.ClientWebSocketResponse):
         """
         Subscribes to Private User Channels
         """
@@ -99,27 +108,29 @@ class ProbitAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     "type": "subscribe",
                     "channel": channel
                 }
-                await ws.send(ujson.dumps(sub_payload))
+                await ws.send_json(sub_payload)
 
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.logger().error(f"Error occured subscribing to {self.exchange_name} private channels. ",
+            self.logger().error(f"Error occurred subscribing to {self.exchange_name} private channels. ",
                                 exc_info=True)
 
-    async def _inner_messages(self,
-                              ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
+    async def _iter_messages(self, ws: aiohttp.ClientWebSocketResponse) -> AsyncIterable[str]:
         try:
             while True:
-                msg: str = await ws.recv()
-                self._last_recv_time = int(time.time())
-                yield msg
-        except websockets.exceptions.ConnectionClosed:
-            return
+                msg: WSMessage = await ws.receive()
+                if msg.type == WSMsgType.CLOSED:
+                    return
+                yield msg.data
+        except Exception:
+            self.logger().error("Unexpected error occurred iterating through websocket messages.",
+                                exc_info=True)
+            raise
         finally:
             await ws.close()
 
-    async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue) -> AsyncIterable[Any]:
+    async def listen_for_user_stream(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
         """
         *required
         Subscribe to user stream via web socket, and keep the connection open for incoming messages
@@ -129,14 +140,14 @@ class ProbitAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
         while True:
             try:
-                ws: websockets.WebSocketClientProtocol = await self._init_websocket_connection()
+                ws: aiohttp.ClientWebSocketResponse = await self._init_websocket_connection()
                 self.logger().info("Authenticating to User Stream...")
                 await self._authenticate(ws)
                 self.logger().info("Successfully authenticated to User Stream.")
                 await self._subscribe_to_channels(ws)
                 self.logger().info("Successfully subscribed to all Private channels.")
 
-                async for msg in self._inner_messages(ws):
+                async for msg in self._iter_messages(ws):
                     output.put_nowait(ujson.loads(msg))
             except asyncio.CancelledError:
                 raise
@@ -148,4 +159,7 @@ class ProbitAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 if self._websocket_client is not None:
                     await self._websocket_client.close()
                     self._websocket_client = None
-                await asyncio.sleep(30.0)
+                await self._sleep(30.0)
+
+    async def _sleep(self, delay: float):
+        await asyncio.sleep(delay)

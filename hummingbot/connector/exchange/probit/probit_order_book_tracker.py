@@ -13,6 +13,7 @@ from hummingbot.connector.exchange.probit import probit_utils
 from hummingbot.connector.exchange.probit.probit_order_book_message import ProbitOrderBookMessage
 from hummingbot.connector.exchange.probit.probit_api_order_book_data_source import ProbitAPIOrderBookDataSource
 from hummingbot.connector.exchange.probit.probit_order_book import ProbitOrderBook
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
 
 
@@ -38,8 +39,8 @@ class ProbitOrderBookTracker(OrderBookTracker):
         self._order_books: Dict[str, ProbitOrderBook] = {}
         self._saved_message_queues: Dict[str, Deque[ProbitOrderBookMessage]] = \
             defaultdict(lambda: deque(maxlen=1000))
+
         self._order_book_stream_listener_task: Optional[asyncio.Task] = None
-        self._order_book_trade_listener_task: Optional[asyncio.Task] = None
 
     @property
     def exchange_name(self) -> str:
@@ -50,6 +51,12 @@ class ProbitOrderBookTracker(OrderBookTracker):
             return CONSTANTS.EXCHANGE_NAME
         else:
             return f"{CONSTANTS.EXCHANGE_NAME}_{self._domain}"
+
+    def start(self):
+        super().start()
+        self._order_book_stream_listener_task = safe_ensure_future(
+            self._data_source.listen_for_subscriptions()
+        )
 
     async def _track_single_book(self, trading_pair: str):
         """
