@@ -65,7 +65,9 @@ class CryptoComWebSocketUnitTests(unittest.TestCase):
         ws_connect_mock.side_effect = Exception("TEST ERROR")
 
         self.websocket = CryptoComWebsocket()
-        self.async_run_with_timeout(self.websocket.connect())
+
+        with self.assertRaisesRegex(Exception, "TEST ERROR"):
+            self.async_run_with_timeout(self.websocket.connect())
 
         self.assertTrue(self._is_logged("ERROR", "Websocket error: 'TEST ERROR'"))
 
