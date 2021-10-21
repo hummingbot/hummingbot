@@ -1,20 +1,19 @@
-import express from 'express';
-import { Express } from 'express-serve-static-core';
 import request from 'supertest';
-import { EthereumRoutes } from '../../../src/chains/ethereum/ethereum.routes';
 import { patch, unpatch } from '../../services/patch';
+import { app } from '../../../src/app';
+import { Ethereum } from '../../../src/chains/ethereum/ethereum';
+import * as transactionOutOfGas from './fixtures/transaction-out-of-gas.json';
+import * as transactionOutOfGasReceipt from './fixtures/transaction-out-of-gas-receipt.json';
+import * as approveMax from './fixtures/approve-max.json';
+// import * as approveZero from './fixtures/approve-zero.json';
 
-let app: Express;
-
+let eth: Ethereum;
 beforeAll(async () => {
-  app = express();
-  app.use(express.json());
-  app.use('/eth', EthereumRoutes.router);
+  eth = Ethereum.getInstance();
+  await eth.init();
 });
 
-afterEach(() => {
-  unpatch();
-});
+afterEach(unpatch);
 
 describe('GET /eth', () => {
   it('should return 200', async () => {
@@ -27,7 +26,7 @@ describe('GET /eth', () => {
 });
 
 const patchGetWallet = () => {
-  patch(EthereumRoutes.ethereum, 'getWallet', () => {
+  patch(eth, 'getWallet', () => {
     return {
       address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     };
@@ -35,11 +34,11 @@ const patchGetWallet = () => {
 };
 
 const patchGetNonce = () => {
-  patch(EthereumRoutes.ethereum.nonceManager, 'getNonce', () => 2);
+  patch(eth.nonceManager, 'getNonce', () => 2);
 };
 
 const patchGetTokenBySymbol = () => {
-  patch(EthereumRoutes.ethereum, 'getTokenBySymbol', () => {
+  patch(eth, 'getTokenBySymbol', () => {
     return {
       chainId: 42,
       name: 'WETH',
@@ -51,16 +50,7 @@ const patchGetTokenBySymbol = () => {
 };
 
 const patchApproveERC20 = () => {
-  patch(EthereumRoutes.ethereum, 'approveERC20', () => {
-    return {
-      chainId: 42,
-      name: 'WETH',
-      symbol: 'WETH',
-      address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
-      decimals: 18,
-      nonce: 23,
-    };
-  });
+  patch(eth, 'approveERC20', () => approveMax);
 };
 
 describe('POST /eth/nonce', () => {
@@ -93,7 +83,7 @@ describe('POST /eth/nonce', () => {
 describe('POST /eth/approve', () => {
   it('should return 200', async () => {
     patchGetWallet();
-    patchGetNonce();
+    patch(eth.nonceManager, 'getNonce', () => 115);
     patchGetTokenBySymbol();
     patchApproveERC20();
 
@@ -104,13 +94,13 @@ describe('POST /eth/approve', () => {
           'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
         spender: 'uniswap',
         token: 'WETH',
-        nonce: 23,
+        nonce: 115,
       })
       .set('Accept', 'application/json')
       .expect('Content-Type', /json/)
       .expect(200)
       .then((res: any) => {
-        expect(res.body.nonce).toEqual(23);
+        expect(res.body.nonce).toEqual(115);
       });
   });
 
@@ -131,11 +121,11 @@ describe('POST /eth/approve', () => {
 describe('POST /eth/cancel', () => {
   it('should return 200', async () => {
     // override getWallet (network call)
-    EthereumRoutes.ethereum.getWallet = jest.fn().mockReturnValue({
+    eth.getWallet = jest.fn().mockReturnValue({
       address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     });
 
-    EthereumRoutes.ethereum.cancelTx = jest.fn().mockReturnValue({
+    eth.cancelTx = jest.fn().mockReturnValue({
       hash: '0xf6b9e7cec507cb3763a1179ff7e2a88c6008372e3a6f297d9027a0b39b0fff77',
     });
 
@@ -164,5 +154,45 @@ describe('POST /eth/cancel', () => {
         nonce: '23',
       })
       .expect(404);
+  });
+});
+
+const OUT_OF_GAS_ERROR_CODE = 1003;
+
+describe('POST /eth/poll', () => {
+  it('should get an OUT of GAS error for failed out of gas transactions', async () => {
+    patch(eth, 'getTransaction', () => transactionOutOfGas);
+    patch(eth, 'getTransactionReceipt', () => transactionOutOfGasReceipt);
+    const res = await request(app).post('/eth/poll').send({
+      txHash:
+        '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
+    });
+
+    expect(res.statusCode).toEqual(503);
+    expect(res.body.errorCode).toEqual(OUT_OF_GAS_ERROR_CODE);
+  });
+
+  it('should get a null in txReceipt for Tx in the mempool', async () => {
+    patch(eth, 'getTransaction', () => transactionOutOfGas);
+    patch(eth, 'getTransactionReceipt', () => null);
+    const res = await request(app).post('/eth/poll').send({
+      txHash:
+        '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
+    });
+    expect(res.statusCode).toEqual(200);
+    expect(res.body.txReceipt).toEqual(null);
+    expect(res.body.txData).toBeDefined();
+  });
+
+  it('should get a null in txReceipt and txData for Tx that didnt reach the mempool and TxReceipt is null', async () => {
+    patch(eth, 'getTransaction', () => null);
+    patch(eth, 'getTransactionReceipt', () => null);
+    const res = await request(app).post('/eth/poll').send({
+      txHash:
+        '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
+    });
+    expect(res.statusCode).toEqual(200);
+    expect(res.body.txReceipt).toEqual(null);
+    expect(res.body.txData).toEqual(null);
   });
 });
