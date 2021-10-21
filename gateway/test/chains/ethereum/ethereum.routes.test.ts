@@ -4,8 +4,6 @@ import { app } from '../../../src/app';
 import { Ethereum } from '../../../src/chains/ethereum/ethereum';
 import * as transactionOutOfGas from './fixtures/transaction-out-of-gas.json';
 import * as transactionOutOfGasReceipt from './fixtures/transaction-out-of-gas-receipt.json';
-import * as approveMax from './fixtures/approve-max.json';
-// import * as approveZero from './fixtures/approve-zero.json';
 
 let eth: Ethereum;
 beforeAll(async () => {
@@ -50,7 +48,27 @@ const patchGetTokenBySymbol = () => {
 };
 
 const patchApproveERC20 = () => {
-  patch(eth, 'approveERC20', () => approveMax);
+  patch(eth, 'approveERC20', () => {
+    return {
+      type: 2,
+      chainId: 42,
+      nonce: 115,
+      maxPriorityFeePerGas: { toString: () => '106000000000' },
+      maxFeePerGas: { toString: () => '106000000000' },
+      gasPrice: { toString: () => null },
+      gasLimit: { toString: () => '100000' },
+      to: '0x4F96Fe3b7A6Cf9725f59d353F723c1bDb64CA6Aa',
+      value: { toString: () => '0' },
+      data: '0x095ea7b30000000000000000000000007a250d5630b4cf539739df2c5dacb4c659f2488dffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+      accessList: [],
+      hash: '0x75f98675a8f64dcf14927ccde9a1d59b67fa09b72cc2642ad055dae4074853d9',
+      v: 0,
+      r: '0xbeb9aa40028d79b9fdab108fcef5de635457a05f3a254410414c095b02c64643',
+      s: '0x5a1506fa4b7f8b4f3826d8648f27ebaa9c0ee4bd67f569414b8cd8884c073100',
+      from: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+      confirmations: 0,
+    };
+  });
 };
 
 describe('POST /eth/nonce', () => {
