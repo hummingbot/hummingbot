@@ -66,10 +66,6 @@ loggers:
         level: NETWORK
         handlers: [console_info, file_handler]
         propagate: false
-    hummingbot.wallet:
-        level: NETWORK
-        handlers: [console_info, file_handler]
-        propagate: false
     hummingbot.core.event.event_reporter:
         level: EVENT_LOG
         handlers: [file_handler, report_proxy_handler]
