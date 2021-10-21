@@ -2,8 +2,11 @@ import hashlib
 import hmac
 import json
 import time
+
 from decimal import Decimal
-from typing import Dict, Any
+from typing import Dict, Any, Optional
+
+from hummingbot.connector.derivative.bybit_perpetual import bybit_perpetual_constants as CONSTANTS
 
 
 class BybitPerpetualAuth():
@@ -33,14 +36,19 @@ class BybitPerpetualAuth():
 
         return auth_info
 
-    def get_headers(self) -> Dict[str, Any]:
+    def get_headers(self, referer_header_required: Optional[bool] = False) -> Dict[str, Any]:
         """
         Generates authentication headers required by ProBit
         :return: a dictionary of auth headers
         """
-        return {
-            "Content-Type": 'application/json',
+        result = {
+            "Content-Type": "application/json"
         }
+        if referer_header_required:
+            result.update({
+                "Referer": CONSTANTS.HBOT_BROKER_ID
+            })
+        return result
 
     def extend_params_with_authentication_info(self, params: Dict[str, Any]):
         params["timestamp"] = self.get_timestamp()

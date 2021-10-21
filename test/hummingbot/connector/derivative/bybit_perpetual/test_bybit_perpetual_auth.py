@@ -5,6 +5,7 @@ import time
 from unittest import TestCase
 from unittest.mock import patch
 
+from hummingbot.connector.derivative.bybit_perpetual import bybit_perpetual_constants as CONSTANTS
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_auth import BybitPerpetualAuth
 
 
@@ -69,3 +70,22 @@ class BybitPerpetualAuthTests(TestCase):
         self.assertEqual(self.api_key, payload[0])
         self.assertEqual(expires, payload[1])
         self.assertEqual(expected_signature, payload[2])
+
+    def test_get_header_without_referer(self):
+        auth = BybitPerpetualAuth(api_key=self.api_key, secret_key=self.secret_key)
+        expected_header = {
+            "Content-Type": "application/json"
+        }
+
+        header = auth.get_headers()
+        self.assertTrue(header, expected_header)
+
+    def test_get_header_with_referer(self):
+        auth = BybitPerpetualAuth(api_key=self.api_key, secret_key=self.secret_key)
+        expected_header = {
+            "Content-Type": "application/json",
+            "Referer": CONSTANTS.HBOT_BROKER_ID
+        }
+
+        header = auth.get_headers(referer_header_required=True)
+        self.assertTrue(header, expected_header)
