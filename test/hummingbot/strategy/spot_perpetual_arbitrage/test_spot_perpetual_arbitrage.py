@@ -8,9 +8,6 @@ import unittest
 import asyncio
 
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingsim.backtest.backtest_market import BacktestMarket
-from hummingsim.backtest.market import QuantizationParams
-from hummingsim.backtest.mock_order_book_loader import MockOrderBookLoader
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
@@ -19,7 +16,6 @@ from hummingbot.core.event.events import (
     SellOrderCompletedEvent,
     OrderType
 )
-from test.mock.mock_perp_connector import MockPerpConnector
 from hummingbot.strategy.spot_perpetual_arbitrage.spot_perpetual_arbitrage import (
     SpotPerpetualArbitrageStrategy,
     StrategyState,
@@ -28,6 +24,9 @@ from hummingbot.strategy.spot_perpetual_arbitrage.arb_proposal import ArbProposa
 from hummingbot.connector.derivative.position import Position
 from hummingbot.core.event.events import PositionMode, PositionSide
 from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
+from test.mock.mock_perp_connector import MockPerpConnector
+from test.mock.mock_paper_exchange import MockPaperExchange
 
 trading_pair = "HBOT-USDT"
 base_asset = trading_pair.split("-")[0]
@@ -54,14 +53,13 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         self.order_fill_logger: EventLogger = EventLogger()
         self.cancel_order_logger: EventLogger = EventLogger()
         self.clock: Clock = Clock(ClockMode.BACKTEST, 1, self.start_timestamp, self.end_timestamp)
-        self.spot_connector: BacktestMarket = BacktestMarket()
-        self.spot_obook: MockOrderBookLoader = MockOrderBookLoader(trading_pair, base_asset, quote_asset)
-        self.spot_obook.set_balanced_order_book(mid_price=100,
-                                                min_price=1,
-                                                max_price=200,
-                                                price_step_size=1,
-                                                volume_step_size=10)
-        self.spot_connector.add_data(self.spot_obook)
+        self.spot_connector: MockPaperExchange = MockPaperExchange()
+        self.spot_connector.set_balanced_order_book(trading_pair=trading_pair,
+                                                    mid_price=100,
+                                                    min_price=1,
+                                                    max_price=200,
+                                                    price_step_size=1,
+                                                    volume_step_size=10)
         self.spot_connector.set_balance(base_asset, 5)
         self.spot_connector.set_balance(quote_asset, 500)
         self.spot_connector.set_quantization_param(
@@ -74,14 +72,12 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
 
         self.perp_connector: MockPerpConnector = MockPerpConnector()
         self.perp_connector.set_leverage(trading_pair, 5)
-        self.perp_obook: MockOrderBookLoader = MockOrderBookLoader(trading_pair, base_asset,
-                                                                   quote_asset)
-        self.perp_obook.set_balanced_order_book(mid_price=110,
-                                                min_price=1,
-                                                max_price=200,
-                                                price_step_size=1,
-                                                volume_step_size=10)
-        self.perp_connector.add_data(self.perp_obook)
+        self.perp_connector.set_balanced_order_book(trading_pair=trading_pair,
+                                                    mid_price=110,
+                                                    min_price=1,
+                                                    max_price=200,
+                                                    price_step_size=1,
+                                                    volume_step_size=10)
         self.perp_connector.set_balance(base_asset, 5)
         self.perp_connector.set_balance(quote_asset, 500)
         self.perp_connector.set_quantization_param(
@@ -281,11 +277,12 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         self.assertTrue(self.strategy.check_budget_constraint(proposal))
 
     def test_no_arbitrage_opportunity(self):
-        self.perp_obook.set_balanced_order_book(mid_price=100,
-                                                min_price=1,
-                                                max_price=200,
-                                                price_step_size=1,
-                                                volume_step_size=10)
+        self.perp_connector.set_balanced_order_book(trading_pair=trading_pair,
+                                                    mid_price=100,
+                                                    min_price=1,
+                                                    max_price=200,
+                                                    price_step_size=1,
+                                                    volume_step_size=10)
         self.clock.add_iterator(self.strategy)
         self.clock.backtest_til(self.start_timestamp + 1)
         asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.01))
@@ -300,7 +297,7 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         # asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.01))
         self.assertTrue(self._is_logged("INFO", "Arbitrage position opening opportunity found."))
         self.assertTrue(self._is_logged("INFO", "Profitability (8.96%) is now above min_opening_arbitrage_pct."))
-        self.assertTrue(self._is_logged("INFO", "Placing BUY order for 1 HBOT at BacktestMarket at 100.500 price"))
+        self.assertTrue(self._is_logged("INFO", "Placing BUY order for 1 HBOT at MockPaperExchange at 100.500 price"))
         self.assertTrue(self._is_logged("INFO", "Placing SELL order for 1 HBOT at MockPerpConnector at 109.500 price "
                                                 "to OPEN position."))
         placed_orders = self.strategy.tracked_market_orders
@@ -328,7 +325,7 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         expected_status = ("""
   Markets:
              Exchange    Market  Sell Price  Buy Price  Mid Price
-       BacktestMarket HBOT-USDT        99.5      100.5        100
+    MockPaperExchange HBOT-USDT        99.5      100.5        100
     MockPerpConnector HBOT-USDT       109.5      110.5        110
 
   Positions:
@@ -337,24 +334,24 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
 
   Assets:
                 Exchange Asset  Total Balance  Available Balance
-    0     BacktestMarket  HBOT              5                  5
-    1     BacktestMarket  USDT            500                500
+    0  MockPaperExchange  HBOT              5                  5
+    1  MockPaperExchange  USDT            500                500
     2  MockPerpConnector  HBOT              5                  5
     3  MockPerpConnector  USDT            500                500
 
   Opportunity:
-    buy at BacktestMarket, sell at MockPerpConnector: 8.96%
-    sell at BacktestMarket, buy at MockPerpConnector: -9.95%""")
+    buy at MockPaperExchange, sell at MockPerpConnector: 8.96%
+    sell at MockPaperExchange, buy at MockPerpConnector: -9.95%""")
 
         self.assertEqual(expected_status, status)
 
         self.assertEqual(StrategyState.Opened, self.strategy.strategy_state)
-        self.perp_obook.set_balanced_order_book(mid_price=90,
-                                                min_price=1,
-                                                max_price=200,
-                                                price_step_size=1,
-                                                volume_step_size=10)
-        self.perp_connector.add_data(self.perp_obook)
+        self.perp_connector.set_balanced_order_book(trading_pair=trading_pair,
+                                                    mid_price=90,
+                                                    min_price=1,
+                                                    max_price=200,
+                                                    price_step_size=1,
+                                                    volume_step_size=10)
         self.turn_clock(1)
         placed_orders = self.strategy.tracked_market_orders
         self.assertEqual(4, len(placed_orders))
@@ -385,12 +382,12 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         self.assertEqual(6, len(self.strategy.tracked_market_orders))
 
     def test_arbitrage_sell_spot_buy_perp_opening(self):
-        self.perp_obook.set_balanced_order_book(mid_price=90,
-                                                min_price=1,
-                                                max_price=200,
-                                                price_step_size=1,
-                                                volume_step_size=10)
-        self.perp_connector.add_data(self.perp_obook)
+        self.perp_connector.set_balanced_order_book(trading_pair=trading_pair,
+                                                    mid_price=90,
+                                                    min_price=1,
+                                                    max_price=200,
+                                                    price_step_size=1,
+                                                    volume_step_size=10)
         self.clock.add_iterator(self.strategy)
         self.assertEqual(StrategyState.Closed, self.strategy.strategy_state)
         self.turn_clock(1)
@@ -398,7 +395,7 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         # asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.01))
         self.assertTrue(self._is_logged("INFO", "Arbitrage position opening opportunity found."))
         self.assertTrue(self._is_logged("INFO", "Profitability (9.94%) is now above min_opening_arbitrage_pct."))
-        self.assertTrue(self._is_logged("INFO", "Placing SELL order for 1 HBOT at BacktestMarket at 99.5000 price"))
+        self.assertTrue(self._is_logged("INFO", "Placing SELL order for 1 HBOT at MockPaperExchange at 99.5000 price"))
         self.assertTrue(self._is_logged("INFO", "Placing BUY order for 1 HBOT at MockPerpConnector at 90.5000 price to "
                                                 "OPEN position."))
         placed_orders = self.strategy.tracked_market_orders

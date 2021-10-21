@@ -5,11 +5,6 @@ import pandas as pd
 import unittest
 import mock
 from nose.plugins.attrib import attr
-from hummingsim.backtest.backtest_market import BacktestMarket
-from hummingsim.backtest.market import (
-    QuantizationParams
-)
-from hummingsim.backtest.mock_order_book_loader import MockOrderBookLoader
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.core.clock import (
     Clock,
@@ -22,7 +17,8 @@ from hummingbot.core.event.events import (
 from hummingbot.strategy.celo_arb.celo_arb import CeloArbStrategy, get_trade_profits
 from test.connector.fixture_celo import outputs as celo_outputs, TEST_ADDRESS, TEST_PASSWORD
 from hummingbot.connector.other.celo.celo_cli import CeloCLI
-
+from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
+from test.mock.mock_paper_exchange import MockPaperExchange
 
 logging.basicConfig(level=logging.ERROR)
 
@@ -61,12 +57,9 @@ class CeloArbUnitTest(unittest.TestCase):
     def setUp(self):
         self.maxDiff = None
         self.clock: Clock = Clock(ClockMode.BACKTEST, 1.0, self.start_timestamp, self.end_timestamp)
-        self.market: BacktestMarket = BacktestMarket()
+        self.market: MockPaperExchange = MockPaperExchange()
 
-        self.market_data = MockOrderBookLoader(self.trading_pair, self.base_asset, self.quote_asset)
-        self.market_data.set_balanced_order_book(10, 5, 15, 0.1, 1)
-
-        self.market.add_data(self.market_data)
+        self.market.set_balanced_order_book(self.trading_pair, 10, 5, 15, 0.1, 1)
 
         self.market.set_balance(self.base_asset, 500)
         self.market.set_balance(self.quote_asset, 500)
