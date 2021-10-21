@@ -40,8 +40,6 @@ class CryptoComWebsocket(RequestId):
         self._WS_URL = constants.WSS_PRIVATE_URL if self._is_private else constants.WSS_PUBLIC_URL
         self._client: Optional[aiohttp.ClientWebSocketResponse] = None
 
-        self._auth_request_successful_event = asyncio.Event()
-
     # connect to exchange
     async def connect(self):
         try:
