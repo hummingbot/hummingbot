@@ -1,0 +1,28 @@
+{
+  "network": "kovan",
+  "timestamp": 1634825549012,
+  "latency": 1.523,
+  "tokenAddress": "0x4f96fe3b7a6cf9725f59d353f723c1bdb64ca6aa",
+  "spender": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
+  "amount": "115792089237316195423570985008687907853269984665640564039457.584007913129639935",
+  "nonce": 115,
+  "approval": {
+    "type": 2,
+    "chainId": 42,
+    "nonce": 115,
+    "maxPriorityFeePerGas": "106000000000",
+    "maxFeePerGas": "106000000000",
+    "gasPrice": null,
+    "gasLimit": "100000",
+    "to": "0x4F96Fe3b7A6Cf9725f59d353F723c1bDb64CA6Aa",
+    "value": "0",
+    "data": "0x095ea7b30000000000000000000000007a250d5630b4cf539739df2c5dacb4c659f2488dffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "accessList": [],
+    "hash": "0x75f98675a8f64dcf14927ccde9a1d59b67fa09b72cc2642ad055dae4074853d9",
+    "v": 0,
+    "r": "0xbeb9aa40028d79b9fdab108fcef5de635457a05f3a254410414c095b02c64643",
+    "s": "0x5a1506fa4b7f8b4f3826d8648f27ebaa9c0ee4bd67f569414b8cd8884c073100",
+    "from": "0xFaA12FD102FE8623C9299c72B03E45107F2772B5",
+    "confirmations": 0
+  }
+}
