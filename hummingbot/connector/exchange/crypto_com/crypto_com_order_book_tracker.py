@@ -10,6 +10,7 @@ from typing import Optional, Dict, List, Deque
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.connector.exchange.crypto_com.crypto_com_order_book_message import CryptoComOrderBookMessage
 from hummingbot.connector.exchange.crypto_com.crypto_com_active_order_tracker import CryptoComActiveOrderTracker
 from hummingbot.connector.exchange.crypto_com.crypto_com_api_order_book_data_source import CryptoComAPIOrderBookDataSource
@@ -25,18 +26,19 @@ class CryptoComOrderBookTracker(OrderBookTracker):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, trading_pairs: Optional[List[str]] = None,):
+    def __init__(
+        self,
+        trading_pairs: Optional[List[str]] = None,
+    ):
         super().__init__(CryptoComAPIOrderBookDataSource(trading_pairs), trading_pairs)
 
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
-        self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()
-        self._order_book_trade_stream: asyncio.Queue = asyncio.Queue()
         self._process_msg_deque_task: Optional[asyncio.Task] = None
         self._past_diffs_windows: Dict[str, Deque] = {}
         self._order_books: Dict[str, CryptoComOrderBook] = {}
-        self._saved_message_queues: Dict[str, Deque[CryptoComOrderBookMessage]] = \
-            defaultdict(lambda: deque(maxlen=1000))
+        self._saved_message_queues: Dict[str, Deque[CryptoComOrderBookMessage]] = defaultdict(
+            lambda: deque(maxlen=1000)
+        )
         self._active_order_trackers: Dict[str, CryptoComActiveOrderTracker] = defaultdict(CryptoComActiveOrderTracker)
         self._order_book_stream_listener_task: Optional[asyncio.Task] = None
         self._order_book_trade_listener_task: Optional[asyncio.Task] = None
@@ -47,6 +49,14 @@ class CryptoComOrderBookTracker(OrderBookTracker):
         Name of the current exchange
         """
         return constants.EXCHANGE_NAME
+
+    def start(self):
+        super().start()
+        self._order_book_stream_listener_task = safe_ensure_future(self._data_source.listen_for_subscriptions())
+
+    def stop(self):
+        self._order_book_stream_listener_task and self._order_book_stream_listener_task.cancel()
+        super().stop()
 
     async def _track_single_book(self, trading_pair: str):
         """
