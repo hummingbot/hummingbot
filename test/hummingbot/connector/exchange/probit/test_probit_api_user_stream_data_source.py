@@ -99,6 +99,7 @@ class ProbitAPIUserStreamDataSourceTest(unittest.TestCase):
             CONSTANTS.WS_PRIVATE_CHANNELS.remove(sent_json_msg["channel"])
 
         self.assertEqual(0, len(CONSTANTS.WS_PRIVATE_CHANNELS))
+        self.assertNotEqual(0, self.data_source.last_recv_time)
 
     @patch("aiohttp.client.ClientSession.ws_connect")
     @patch(

@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import time
 
 import aiohttp
 import ujson
@@ -120,6 +121,7 @@ class ProbitAPIUserStreamDataSource(UserStreamTrackerDataSource):
         try:
             while True:
                 msg: WSMessage = await ws.receive()
+                self._last_recv_time = int(time.time())
                 if msg.type == WSMsgType.CLOSED:
                     return
                 yield msg.data
