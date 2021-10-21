@@ -134,7 +134,9 @@ app.use(
           break;
       }
     }
-
+    if (err instanceof HttpException) {
+      httpErrorCode = err.status;
+    }
     logger.error(response.message + response.stack);
     return res.status(httpErrorCode).json(response);
   }
