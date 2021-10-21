@@ -1,4 +1,5 @@
-import level, { LevelDB } from 'level';
+import { LevelDB } from 'level';
+const level = require('level-party');
 
 const db: LevelDB = level('gateway.level', { createIfMissing: true });
 
