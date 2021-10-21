@@ -68,5 +68,4 @@ dependencies:
     - websockets==9.1
     - yarl==1.4.2
     - git+https://github.com/CoinAlpha/python-signalr-client.git
-    - https://hummingbot-python.s3-us-west-2.amazonaws.com/hummingsim-20210806-cp38-cp38-macosx_10_9_x86_64.whl
 prefix: /usr/local/Caskroom/miniconda/base/envs/hummingbot
