@@ -32,6 +32,7 @@ dependencies:
     - appdirs==1.4.3
     - async-timeout==3.0.1
     - cachetools==4.0.0
+    - coincurve==13.0.0
     - cryptography==2.8
     - cython==3.0a7
     - cytoolz==0.11.0
