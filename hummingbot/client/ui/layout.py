@@ -178,14 +178,14 @@ def get_paper_trade_status():
     from hummingbot.client.config.global_config_map import global_config_map
     enabled = global_config_map["paper_trade_enabled"].value is True
     paper_trade_status = "ON" if enabled else "OFF"
-    style = "class:primary" if enabled else "class:warning"
+    style = "class:primary" if enabled else "class:log-field"
     return [(style, f"paper_trade_mode: {paper_trade_status}")]
 
 
 def get_active_strategy():
     from hummingbot.client.hummingbot_application import HummingbotApplication
     hb = HummingbotApplication.main_application()
-    style = "class:primary"
+    style = "class:log-field"
     return [(style, f"Strategy: {hb.strategy_name}")]
 
 
@@ -208,7 +208,7 @@ def get_active_strategy():
 def get_strategy_file():
     from hummingbot.client.hummingbot_application import HummingbotApplication
     hb = HummingbotApplication.main_application()
-    style = "class:primary"
+    style = "class:log-field"
     return [(style, f"Strategy File: {hb._strategy_file_name}")]
 
 
