@@ -10,6 +10,12 @@ import {
   asyncHandler,
   HttpException,
   NodeError,
+  NETWORK_ERROR_CODE,
+  RATE_LIMIT_ERROR_CODE,
+  UNKNOWN_ERROR_ERROR_CODE,
+  NETWORK_ERROR_MESSAGE,
+  RATE_LIMIT_ERROR_MESSAGE,
+  UNKNOWN_ERROR_MESSAGE,
 } from './services/error-handler';
 
 export const app = express();
@@ -102,40 +108,40 @@ app.use(
     _next: NextFunction
   ) => {
     const response: any = {
-      message: err.message || 'Unknown error.',
+      message: err.message || UNKNOWN_ERROR_MESSAGE,
     };
     if (err.stack) response.stack = err.stack;
-    let httpErrorCode = 500;
+    // the default http error code is 503 for an unknown error
+    let httpErrorCode = 503;
     if (err instanceof HttpException) {
       httpErrorCode = err.status;
       response.errorCode = err.errorCode;
-    } else if ('code' in err) {
-      httpErrorCode = 503;
-      response.errorCode = 1099;
-      response.message = 'Unknown error.';
+    } else {
+      response.errorCode = UNKNOWN_ERROR_ERROR_CODE;
+      response.message = UNKNOWN_ERROR_MESSAGE;
 
-      switch (typeof err.code) {
-        case 'string':
-          // error is from ethers library
-          if (['NETWORK_ERROR', 'SERVER_ERROR', 'TIMEOUT'].includes(err.code)) {
-            response.errorCode = 1001;
-            response.message =
-              'Network error. Please check your node URL, API key, and Internet connection.';
-          }
-          break;
+      if ('code' in err) {
+        switch (typeof err.code) {
+          case 'string':
+            // error is from ethers library
+            if (
+              ['NETWORK_ERROR', 'SERVER_ERROR', 'TIMEOUT'].includes(err.code)
+            ) {
+              response.errorCode = NETWORK_ERROR_CODE;
+              response.message = NETWORK_ERROR_MESSAGE;
+            }
+            break;
 
-        case 'number':
-          // errors from provider
-          if (err.code === -32005) {
-            // we only handle rate-limit errors
-            response.errorCode = 1002;
-            response.message = 'Blockchain node API rate limit exceeded.';
-          }
-          break;
+          case 'number':
+            // errors from provider, this code comes from infura
+            if (err.code === -32005) {
+              // we only handle rate-limit errors
+              response.errorCode = RATE_LIMIT_ERROR_CODE;
+              response.message = RATE_LIMIT_ERROR_MESSAGE;
+            }
+            break;
+        }
       }
-    }
-    if (err instanceof HttpException) {
-      httpErrorCode = err.status;
     }
     logger.error(response.message + '\n' + response.stack);
     return res.status(httpErrorCode).json(response);

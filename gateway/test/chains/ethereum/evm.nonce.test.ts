@@ -44,12 +44,12 @@ describe('unitiated EVMNodeService', () => {
 
 describe('EVMNodeService', () => {
   let nonceManager: EVMNonceManager;
-  beforeAll(() => {
+  beforeAll(async () => {
     nonceManager = EVMNonceManager.getInstance();
     const provider = new providers.StaticJsonRpcProvider(
       'https://ethereum.node.com'
     );
-    nonceManager.init(provider, 0);
+    await nonceManager.init(provider, 0, 43);
   });
 
   const patchGetTransactionCount = () => {
@@ -59,8 +59,10 @@ describe('EVMNodeService', () => {
   };
 
   it('commitNonce with a provided txNonce should increase the nonce by 1', async () => {
+    patchGetTransactionCount();
     await nonceManager.commitNonce(exampleAddress, 10);
     const nonce = await nonceManager.getNonce(exampleAddress);
+
     await expect(nonce).toEqual(11);
   });
 
