@@ -74,6 +74,7 @@ gateway.env
 /cover/
 /coverage_html_report/
 coverage.xml
+/gateway/coverage/
 
 # Gateway-V2 repo
 # configuration files
