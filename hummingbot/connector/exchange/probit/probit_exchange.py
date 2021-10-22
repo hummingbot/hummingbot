@@ -84,16 +84,14 @@ class ProbitExchange(ExchangeBase):
         super().__init__()
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
-        self._shared_client = None
+        self._shared_client = aiohttp.ClientSession()
         self._probit_auth = ProbitAuth(probit_api_key, probit_secret_key, domain=domain)
-        shared_client = await self._http_client()
         self._order_book_tracker = ProbitOrderBookTracker(
-            trading_pairs=trading_pairs, domain=domain, shared_client=shared_client
+            trading_pairs=trading_pairs, domain=domain, shared_client=self._shared_client
         )
         self._user_stream_tracker = ProbitUserStreamTracker(
-            self._probit_auth, trading_pairs, domain, shared_client
+            self._probit_auth, trading_pairs, domain, self._shared_client
         )
-        self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
         self._in_flight_orders = {}  # Dict[client_order_id:str, ProbitInFlightOrder]
