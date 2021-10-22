@@ -2,6 +2,9 @@
 import asyncio
 import bisect
 import logging
+
+import aiohttp
+
 import hummingbot.connector.exchange.probit.probit_constants as CONSTANTS
 import time
 
@@ -26,8 +29,15 @@ class ProbitOrderBookTracker(OrderBookTracker):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, trading_pairs: Optional[List[str]] = None, domain: str = "com"):
-        super().__init__(ProbitAPIOrderBookDataSource(trading_pairs, domain), trading_pairs)
+    def __init__(
+        self,
+        trading_pairs: List[str] = None,
+        domain: str = "com",
+        shared_client: Optional[aiohttp.ClientSession] = None,
+    ):
+        super().__init__(
+            ProbitAPIOrderBookDataSource(trading_pairs, domain, shared_client), trading_pairs
+        )
 
         self._domain = domain
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()

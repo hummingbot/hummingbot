@@ -39,9 +39,10 @@ class ProbitAPIUserStreamDataSource(UserStreamTrackerDataSource):
     def __init__(self,
                  probit_auth: ProbitAuth,
                  trading_pairs: Optional[List[str]] = None,
-                 domain: str = "com"):
+                 domain: str = "com",
+                 shared_client: Optional[aiohttp.ClientSession] = None):
         super().__init__()
-        self._shared_client = self._get_session_instance()
+        self._shared_client = shared_client or self._get_session_instance()
         self._domain: str = domain
         self._websocket_client: Optional[aiohttp.ClientWebSocketResponse] = None
         self._probit_auth: ProbitAuth = probit_auth
