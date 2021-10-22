@@ -144,9 +144,11 @@ nav:
       - Strategies: strategies/index.md
       - AMM Arbitrage: strategies/amm-arbitrage.md
       - Arbitrage: strategies/arbitrage.md
+      - Aroon Oscillator: strategies/aroon-oscillator.md
       - Avellaneda Market Making: strategies/avellaneda-market-making.md
       - Celo Arbitrage: strategies/celo-arbitrage.md
       - Cross-Exchange Market Making: strategies/cross-exchange-market-making.md
+      - Hedge: strategies/hedge.md
       - Liquidity Mining: strategies/liquidity-mining.md
       - Perpetual Market Making: strategies/perpetual-market-making.md
       - Pure Market Making: strategies/pure-market-making.md

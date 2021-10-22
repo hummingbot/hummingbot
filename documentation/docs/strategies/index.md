@@ -30,12 +30,13 @@ Market making strategies help you provide liquidity to an exchange while mitigat
 
   | Name                                                          | Valid Exchanges     | Maintainer    | Description                                                                       |
 |-----------------------------------------------------------------|---------------------|---------------|-----------------------------------------------------------------------------------|
-| [`liquidity_mining`](./liquidity-mining)                        | `spot`              | CoinAlpha     | Provide liquidity on multiple pairs using a single base or quote token            |
 | [`avellaneda_market_making`](./avellaneda-market-making)        | `spot`              | CoinAlpha     | Single-pair market making strategy based on the classic Avellaneda-Stoikov paper  |
+| [`aroon_oscillator`](./aroon_oscillator)                        | `spot`              |               | Modified version of Pure Market Making that uses Aroon technical indicator (Open DeFi hackathon winner) |
+| [`cross_exchange_market_making`](./cross-exchange-market-making)| `spot`              | CoinAlpha     | Provide liquidity while hedging filled orders on another exchange                |
+| [`liquidity_mining`](./liquidity-mining)                        | `spot`              | CoinAlpha     | Provide liquidity on multiple pairs using a single base or quote token            |
 | [`perpetual_market_making`](./perpetual-market-making)          | `perp`              | CoinAlpha     | Market-making strategy for perpetual swap markets                                 |
-| [`uniswap_v3_lp`](./uniswap-v3-lp)                              | [`uniswap-v3`](/exchanges/uniswap-v3)| CoinAlpha | Manage liquidity positions on Uniswap-V3 style AMMs                 |
-| [`pure_market_making`](./pure-market-making)                    | `spot`              | CoinAlpha      | Our original single-pair market making strategy                                   |
-| [`cross_exchange_market_making`](./cross-exchange-market-making)| `spot`              | CoinAlpha      | Provide liquidity while hedging filled orders on another exchange                 |
+| [`pure_market_making`](./pure-market-making)                    | `spot`              | CoinAlpha      | Our original single-pair market making strategy                                  |
+| [`uniswap_v3_lp`](./uniswap-v3-lp)                              | [`uniswap-v3`](/exchanges/uniswap-v3)| CoinAlpha | Manage liquidity positions on Uniswap-V3 style AMMs                  |
 
 ### Arbitrage
 
@@ -43,14 +44,15 @@ Arbitrage strategies help you monitor different markets for opportunities to rea
 
 | Name                                                            | Valid Exchanges     | Maintainer    | Description                                                                               |
 |-----------------------------------------------------------------|---------------------|---------------|-------------------------------------------------------------------------------------------|
-| [`amm_arb`](./amm-arbitrage)                                           | `spot`, `amm`      | CoinAlpha     | Exploits price differences between AMM and spot exchanges                                 |
-| [`spot_perpetual_arbitrage`](./spot-perpetual-arbitrage)        | `spot`, `perp`      | CoinAlpha     | Exploits price differences between spot and perpetual swap exchanges                      |
+| [`amm_arb`](./amm-arbitrage)                                    | `spot`, `amm`       | CoinAlpha     | Exploits price differences between AMM and spot exchanges                                 |
 | [`arbitrage`](./arbitrage)                                      | `spot`              |               | Exploits price differences between two different spot exchanges                           |
-| [`celo-arb`](./celo-arbitrage)                                        | [`celo`](/protocols/celo)|          | Exploits price differences between Celo and other exchanges                               |
+| [`celo-arb`](./celo-arbitrage)                                  | [`celo`](/protocols/celo)|          | Exploits price differences between Celo and other exchanges                               |
+| [`spot_perpetual_arbitrage`](./spot-perpetual-arbitrage)        | `spot`, `perp`      | CoinAlpha     | Exploits price differences between spot and perpetual swap exchanges                      |
 
 ### Utility
 
 | Name                                                            | Valid Exchanges     | Maintainer    | Description                                                                               |
 |-----------------------------------------------------------------|---------------------|---------------|-------------------------------------------------------------------------------------------|
+| [`hedge`](./hedge)                                              | `perp`              |               | Hedges spot exchange inventory risk using perpetual swaps (dYdX hackathon winner)         |
 | [`twap`](./twap)                                                | `spot`              |               | Places a batch of limit orders over a period of time                                      |
 | `vwap`                                                          | `spot`              |               | Places a batch of limit orders based on order book volume                                 |
