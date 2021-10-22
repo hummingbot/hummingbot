@@ -18,6 +18,7 @@ class CryptoComWebSocketUnitTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         super().setUpClass()
         cls.ev_loop = asyncio.get_event_loop()
+        cls.trading_pairs = ["COINALPHA-HBOT"]
 
         cls.api_key = "someKey"
         cls.secret_key = "someSecretKey"
@@ -37,7 +38,7 @@ class CryptoComWebSocketUnitTests(unittest.TestCase):
         self.resume_test_event = asyncio.Event()
 
     def tearDown(self) -> None:
-        self.websocket._client and self.ev_loop.run_until_complete(self.websocket._client.close())
+        self.ev_loop.run_until_complete(self.websocket.disconnect())
         self.async_task and self.async_task.cancel()
         super().tearDown()
 
@@ -55,7 +56,7 @@ class CryptoComWebSocketUnitTests(unittest.TestCase):
         self.resume_test_event.set()
 
     async def _iter_message(self):
-        async for _ in self.websocket._messages():
+        async for _ in self.websocket.iter_messages():
             self.resume_test_callback()
             self.async_task.cancel()
 
@@ -73,7 +74,7 @@ class CryptoComWebSocketUnitTests(unittest.TestCase):
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.crypto_com.crypto_com_websocket.CryptoComWebsocket._sleep")
-    def test_connect_emit_auth_is_called(self, _, ws_connect_mock):
+    def test_connect_authenticate_is_called(self, _, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         self.async_run_with_timeout(self.websocket.connect())
 
@@ -83,7 +84,7 @@ class CryptoComWebSocketUnitTests(unittest.TestCase):
 
     def test_disconnect(self):
         ws = AsyncMock()
-        self.websocket._client = ws
+        self.websocket._websocket = ws
 
         self.async_run_with_timeout(self.websocket.disconnect())
 
@@ -91,7 +92,7 @@ class CryptoComWebSocketUnitTests(unittest.TestCase):
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.crypto_com.crypto_com_websocket.CryptoComWebsocket._sleep")
-    def test_messages_handle_ping(self, _, ws_connect_mock):
+    def test_iter_messages_handle_ping(self, _, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         self.async_run_with_timeout(self.websocket.connect())
 
@@ -106,3 +107,59 @@ class CryptoComWebSocketUnitTests(unittest.TestCase):
         sent_payloads = self.mocking_assistant.json_messages_sent_through_websocket(ws_connect_mock.return_value)
         self.assertEqual(2, len(sent_payloads))
         self.assertEqual(expected_pong_payload, sent_payloads[-1])
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch("hummingbot.connector.exchange.crypto_com.crypto_com_websocket.CryptoComWebsocket._sleep")
+    def test_subscribe_to_order_book_streams_raises_cancelled_exception(self, _, ws_connect_mock):
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+
+        self.async_run_with_timeout(self.websocket.connect())
+
+        ws_connect_mock.return_value.send_json.side_effect = asyncio.CancelledError
+
+        with self.assertRaises(asyncio.CancelledError):
+            self.async_run_with_timeout(self.websocket.subscribe_to_order_book_streams(self.trading_pairs))
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch("hummingbot.connector.exchange.crypto_com.crypto_com_websocket.CryptoComWebsocket._sleep")
+    def test_subscribe_to_order_book_streams_logs_exception(self, _, ws_connect_mock):
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+
+        self.async_run_with_timeout(self.websocket.connect())
+
+        ws_connect_mock.return_value.send_json.side_effect = Exception("TEST ERROR")
+
+        with self.assertRaisesRegex(Exception, "TEST ERROR"):
+            self.async_run_with_timeout(self.websocket.subscribe_to_order_book_streams(self.trading_pairs))
+
+        self.assertTrue(self._is_logged(
+            "ERROR", "Unexpected error occurred subscribing to order book trading and delta streams..."
+        ))
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch("hummingbot.connector.exchange.crypto_com.crypto_com_websocket.CryptoComWebsocket._sleep")
+    def test_subscribe_to_user_streams_raises_cancelled_exception(self, _, ws_connect_mock):
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+
+        self.async_run_with_timeout(self.websocket.connect())
+
+        ws_connect_mock.return_value.send_json.side_effect = asyncio.CancelledError
+
+        with self.assertRaises(asyncio.CancelledError):
+            self.async_run_with_timeout(self.websocket.subscribe_to_user_streams())
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch("hummingbot.connector.exchange.crypto_com.crypto_com_websocket.CryptoComWebsocket._sleep")
+    def test_subscribe_to_user_streams_logs_exception(self, _, ws_connect_mock):
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+
+        self.async_run_with_timeout(self.websocket.connect())
+
+        ws_connect_mock.return_value.send_json.side_effect = Exception("TEST ERROR")
+
+        with self.assertRaisesRegex(Exception, "TEST ERROR"):
+            self.async_run_with_timeout(self.websocket.subscribe_to_user_streams())
+
+        self.assertTrue(self._is_logged(
+            "ERROR", "Unexpected error occurred subscribing to user streams..."
+        ))

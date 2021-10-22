@@ -12,6 +12,7 @@ from hummingbot.connector.exchange.crypto_com import crypto_com_utils
 from hummingbot.connector.exchange.crypto_com.crypto_com_api_order_book_data_source import (
     CryptoComAPIOrderBookDataSource,
 )
+from hummingbot.connector.exchange.crypto_com.crypto_com_websocket import CryptoComWebsocket
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
@@ -174,49 +175,32 @@ class CryptoComAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertIsInstance(result, OrderBook)
         self.assertEqual(snapshot_timestamp, result.snapshot_uid)
 
-    @patch("aiohttp.ClientSession.ws_connect")
-    def test_subscribe_to_order_book_streams_raises_exception(self, ws_connect_mock):
-        ws_connect_mock.side_effect = Exception("TEST ERROR")
-
-        with self.assertRaisesRegex(Exception, "TEST ERROR"):
-            self.async_run_with_timeout(self.data_source._subscribe_to_order_book_streams())
-
-        self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error occurred subscribing to order book trading and delta streams...")
-        )
-
-    @patch("aiohttp.client.ClientSession.ws_connect")
-    def test_subscribe_to_order_book_streams_raises_cancel_exception(self, ws_connect_mock):
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_create_websocket_connection_raised_cancelled(self, ws_connect_mock):
         ws_connect_mock.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
-            self.async_run_with_timeout(self.data_source._subscribe_to_order_book_streams())
+            self.async_run_with_timeout(self.data_source._create_websocket_connection())
 
-    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
-    @patch("hummingbot.connector.exchange.crypto_com.crypto_com_websocket.CryptoComWebsocket._sleep")
-    def test_subscribe_to_order_book_streams_successful(self, _, ws_connect_mock):
-        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_create_websocket_connection_logs_exception(self, ws_connect_mock):
+        ws_connect_mock.side_effect = Exception("TEST ERROR")
 
-        self.async_run_with_timeout(self.data_source._subscribe_to_order_book_streams())
+        with self.assertRaisesRegex(Exception, "TEST ERROR"):
+            self.async_run_with_timeout(self.data_source._create_websocket_connection())
 
-        self.assertTrue(
-            self._is_logged("INFO", f"Subscribed to ['{self.trading_pair}'] orderbook trading and delta streams...")
-        )
+        self.assertTrue(self._is_logged(
+            "NETWORK", "Unexpected error occured connecting to crypto_com WebSocket API. (TEST ERROR)"
+        ))
 
-        sent_messages = self.mocking_assistant.json_messages_sent_through_websocket(ws_connect_mock.return_value)
-        self.assertEqual(1, len(sent_messages))
-        channels = sent_messages[0]["params"]["channels"]
-        self.assertTrue(f"{self.data_source.DIFF_CHANNEL_ID}.{self.ex_trading_pair}.150" in channels)
-        self.assertTrue(f"{self.data_source.TRADE_CHANNEL_ID}.{self.ex_trading_pair}" in channels)
-
-    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_subscriptions_exception_raised_cancelled_when_connecting(self, ws_connect_mock):
         ws_connect_mock.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
             self.async_run_with_timeout(self.data_source.listen_for_subscriptions())
 
-    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.crypto_com.crypto_com_websocket.CryptoComWebsocket._sleep")
     def test_listen_for_subscriptions_exception_raised_cancelled_when_subscribing(self, _, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
@@ -225,7 +209,7 @@ class CryptoComAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         with self.assertRaises(asyncio.CancelledError):
             self.async_run_with_timeout(self.data_source.listen_for_subscriptions())
 
-    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.crypto_com.crypto_com_websocket.CryptoComWebsocket._sleep")
     def test_listen_for_subscriptions_exception_raised_cancelled_when_listening(self, _, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
@@ -234,7 +218,7 @@ class CryptoComAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         with self.assertRaises(asyncio.CancelledError):
             self.async_run_with_timeout(self.data_source.listen_for_subscriptions())
 
-    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.crypto_com.crypto_com_websocket.CryptoComWebsocket._sleep")
     def test_listen_for_subscription_logs_exception(self, _, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
@@ -251,11 +235,11 @@ class CryptoComAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             )
         )
 
-    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.crypto_com.crypto_com_websocket.CryptoComWebsocket._sleep")
     def test_listen_for_subscriptions_enqueues_diff_and_trade_messages(self, _, ws_connect_mock):
-        diffs_queue = self.data_source._message_queue[self.data_source.DIFF_CHANNEL_ID]
-        trade_queue = self.data_source._message_queue[self.data_source.TRADE_CHANNEL_ID]
+        diffs_queue = self.data_source._message_queue[CryptoComWebsocket.DIFF_CHANNEL_ID]
+        trade_queue = self.data_source._message_queue[CryptoComWebsocket.TRADE_CHANNEL_ID]
 
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         # Add diff event message be processed
@@ -301,7 +285,7 @@ class CryptoComAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(1, diffs_queue.qsize())
         self.assertEqual(1, trade_queue.qsize())
 
-    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.crypto_com.crypto_com_websocket.CryptoComWebsocket._sleep")
     def test_listen_for_order_book_diff_raises_cancel_exceptions(self, _, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
@@ -315,7 +299,7 @@ class CryptoComAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             self.listening_task.cancel()
             self.ev_loop.run_until_complete(self.listening_task)
 
-    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.crypto_com.crypto_com_websocket.CryptoComWebsocket._sleep")
     @patch(
         "hummingbot.connector.exchange.crypto_com.crypto_com_api_order_book_data_source.CryptoComAPIOrderBookDataSource._sleep"
@@ -346,7 +330,7 @@ class CryptoComAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             )
         )
 
-    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.crypto_com.crypto_com_websocket.CryptoComWebsocket._sleep")
     def test_listen_for_order_book_diff_successful(self, _, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
@@ -363,7 +347,7 @@ class CryptoComAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         }
         self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, ujson.dumps(diff_response))
 
-        diffs_queue = self.data_source._message_queue[self.data_source.DIFF_CHANNEL_ID]
+        diffs_queue = self.data_source._message_queue[CryptoComWebsocket.DIFF_CHANNEL_ID]
         self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
 
         output_queue = asyncio.Queue()
@@ -379,7 +363,7 @@ class CryptoComAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(11746.488, order_book_message.bids[0].price)
         self.assertEqual(11747.488, order_book_message.asks[0].price)
 
-    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.crypto_com.crypto_com_websocket.CryptoComWebsocket._sleep")
     def test_listen_for_trades_raises_cancel_exceptions(self, _, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
@@ -393,7 +377,7 @@ class CryptoComAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             self.listening_task.cancel()
             self.ev_loop.run_until_complete(self.listening_task)
 
-    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.crypto_com.crypto_com_websocket.CryptoComWebsocket._sleep")
     @patch(
         "hummingbot.connector.exchange.crypto_com.crypto_com_api_order_book_data_source.CryptoComAPIOrderBookDataSource._sleep"
@@ -424,7 +408,7 @@ class CryptoComAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             )
         )
 
-    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.crypto_com.crypto_com_websocket.CryptoComWebsocket._sleep")
     def test_listen_for_trades_successful(self, _, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
@@ -450,7 +434,7 @@ class CryptoComAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         }
         self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, ujson.dumps(trade_response))
 
-        trades_queue = self.data_source._message_queue[self.data_source.TRADE_CHANNEL_ID]
+        trades_queue = self.data_source._message_queue[CryptoComWebsocket.TRADE_CHANNEL_ID]
         self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
 
         output_queue = asyncio.Queue()

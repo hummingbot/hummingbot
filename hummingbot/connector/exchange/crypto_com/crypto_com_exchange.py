@@ -81,10 +81,17 @@ class CryptoComExchange(ExchangeBase):
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._crypto_com_auth = CryptoComAuth(crypto_com_api_key, crypto_com_secret_key)
-        self._order_book_tracker = CryptoComOrderBookTracker(trading_pairs=trading_pairs)
-        self._user_stream_tracker = CryptoComUserStreamTracker(self._crypto_com_auth, trading_pairs)
+        self._shared_client = aiohttp.ClientSession()
+        self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+
+        self._order_book_tracker = CryptoComOrderBookTracker(shared_client=self._shared_client,
+                                                             throttler=self._throttler,
+                                                             trading_pairs=trading_pairs,
+                                                             )
+        self._user_stream_tracker = CryptoComUserStreamTracker(crypto_com_auth=self._crypto_com_auth,
+                                                               shared_client=self._shared_client,
+                                                               )
         self._ev_loop = asyncio.get_event_loop()
-        self._shared_client = None
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
         self._in_flight_orders = {}  # Dict[client_order_id:str, CryptoComInFlightOrder]
@@ -94,7 +101,6 @@ class CryptoComExchange(ExchangeBase):
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
         self._last_poll_timestamp = 0
-        self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
 
     @property
     def name(self) -> str:

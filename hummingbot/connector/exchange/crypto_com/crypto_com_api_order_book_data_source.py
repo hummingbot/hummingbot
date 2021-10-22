@@ -1,12 +1,17 @@
 #!/usr/bin/env python
-import asyncio
-from collections import defaultdict
-import logging
-from typing import Any, Dict, List, Optional
-
 import aiohttp
+import asyncio
+import logging
+
 import hummingbot.connector.exchange.crypto_com.crypto_com_constants as CONSTANTS
 import hummingbot.connector.exchange.crypto_com.crypto_com_utils as crypto_com_utils
+
+from collections import defaultdict
+from typing import Any, Dict, List, Optional
+
+from hummingbot.connector.exchange.crypto_com.crypto_com_active_order_tracker import CryptoComActiveOrderTracker
+from hummingbot.connector.exchange.crypto_com.crypto_com_order_book import CryptoComOrderBook
+from hummingbot.connector.exchange.crypto_com.crypto_com_websocket import CryptoComWebsocket
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
@@ -14,20 +19,12 @@ from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTr
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
 
-from .crypto_com_active_order_tracker import CryptoComActiveOrderTracker
-from .crypto_com_order_book import CryptoComOrderBook
-from .crypto_com_websocket import CryptoComWebsocket
-
 
 class CryptoComAPIOrderBookDataSource(OrderBookTrackerDataSource):
     MAX_RETRIES = 20
     MESSAGE_TIMEOUT = 30.0
     SNAPSHOT_TIMEOUT = 10.0
     ORDER_BOOK_SNAPSHOT_DELAY = 60 * 60  # expressed in seconds
-
-    DIFF_CHANNEL_ID = "book"
-    TRADE_CHANNEL_ID = "trade"
-    SUBSCRIPTION_LIST = set([DIFF_CHANNEL_ID, TRADE_CHANNEL_ID])
 
     _logger: Optional[HummingbotLogger] = None
 
@@ -37,11 +34,18 @@ class CryptoComAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, trading_pairs: List[str] = None, throttler: Optional[AsyncThrottler] = None):
+    def __init__(
+        self,
+        trading_pairs: List[str] = None,
+        throttler: Optional[AsyncThrottler] = None,
+        shared_client: Optional[aiohttp.ClientSession] = None,
+    ):
         super().__init__(trading_pairs)
         self._trading_pairs: List[str] = trading_pairs
-        self._snapshot_msg: Dict[str, any] = {}
         self._throttler = throttler or self._get_throttler_instance()
+        self._shared_client = shared_client
+
+        self._snapshot_msg: Dict[str, any] = {}
         self._message_queue: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
 
     @classmethod
@@ -131,59 +135,58 @@ class CryptoComAPIOrderBookDataSource(OrderBookTrackerDataSource):
         order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
         return order_book
 
-    async def _subscribe_to_order_book_streams(self) -> CryptoComWebsocket:
+    def _get_shared_client(self):
+        """
+        Retrieves the shared aiohttp.ClientSession. If no shared client is provided, create a new ClientSession.
+        """
+        if not self._shared_client:
+            self._shared_client = aiohttp.ClientSession()
+        return self._shared_client
+
+    async def _create_websocket_connection(self) -> CryptoComWebsocket:
+        """
+        Initialize sets up the websocket connection with a CryptoComWebsocket object.
+        """
         try:
-            ws = CryptoComWebsocket()
+            ws = CryptoComWebsocket(shared_client=self._get_shared_client())
             await ws.connect()
-
-            channels = []
-            for pair in self._trading_pairs:
-                channels.extend(
-                    [
-                        f"{self.DIFF_CHANNEL_ID}.{crypto_com_utils.convert_to_exchange_trading_pair(pair)}.150",
-                        f"{self.TRADE_CHANNEL_ID}.{crypto_com_utils.convert_to_exchange_trading_pair(pair)}",
-                    ]
-                )
-
-            await ws.subscribe(channels)
-
-            self.logger().info(f"Subscribed to {self._trading_pairs} orderbook trading and delta streams...")
-
             return ws
         except asyncio.CancelledError:
             raise
-        except Exception:
-            self.logger().error("Unexpected error occurred subscribing to order book trading and delta streams...",
-                                exc_info=True)
+        except Exception as e:
+            self.logger().network(f"Unexpected error occured connecting to {CONSTANTS.EXCHANGE_NAME} WebSocket API. "
+                                  f"({e})")
             raise
 
     async def listen_for_subscriptions(self):
         ws = None
-        while True:
-            try:
-                ws = await self._subscribe_to_order_book_streams()
-                async for response in ws.on_message():
-                    if response.get("result") is None:
+        try:
+            while True:
+                ws = await self._create_websocket_connection()
+                await ws.subscribe_to_order_book_streams(self._trading_pairs)
+
+                async for msg in ws.iter_messages():
+                    if msg.get("result") is None:
                         continue
-                    channel = response["result"].get("channel", None)
-                    if channel in self.SUBSCRIPTION_LIST:
-                        self._message_queue[channel].put_nowait(response["result"])
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().error(
-                    "Unexpected error occurred when listening to order book streams. " "Retrying in 5 seconds...",
-                    exc_info=True,
-                )
-                await self._sleep(5.0)
-            finally:
-                ws and await ws.disconnect()
+                    channel = msg["result"].get("channel", None)
+                    if channel in CryptoComWebsocket.SUBSCRIPTION_LIST:
+                        self._message_queue[channel].put_nowait(msg["result"])
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().error(
+                "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds...",
+                exc_info=True,
+            )
+            await self._sleep(5.0)
+        finally:
+            ws and await ws.disconnect()
 
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
         Listen for trades using websocket trade channel
         """
-        msg_queue = self._message_queue[self.TRADE_CHANNEL_ID]
+        msg_queue = self._message_queue[CryptoComWebsocket.TRADE_CHANNEL_ID]
         while True:
             try:
                 payload = await msg_queue.get()
@@ -208,7 +211,7 @@ class CryptoComAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         Listen for orderbook diffs using websocket book channel
         """
-        msg_queue = self._message_queue[self.DIFF_CHANNEL_ID]
+        msg_queue = self._message_queue[CryptoComWebsocket.DIFF_CHANNEL_ID]
         while True:
             try:
                 payload = await msg_queue.get()

@@ -2,19 +2,22 @@
 import asyncio
 import bisect
 import logging
+
+import aiohttp
 import hummingbot.connector.exchange.crypto_com.crypto_com_constants as constants
 import time
 
 from collections import defaultdict, deque
 from typing import Optional, Dict, List, Deque
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
-from hummingbot.logger import HummingbotLogger
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.connector.exchange.crypto_com.crypto_com_order_book_message import CryptoComOrderBookMessage
 from hummingbot.connector.exchange.crypto_com.crypto_com_active_order_tracker import CryptoComActiveOrderTracker
 from hummingbot.connector.exchange.crypto_com.crypto_com_api_order_book_data_source import CryptoComAPIOrderBookDataSource
 from hummingbot.connector.exchange.crypto_com.crypto_com_order_book import CryptoComOrderBook
+from hummingbot.logger import HummingbotLogger
 
 
 class CryptoComOrderBookTracker(OrderBookTracker):
@@ -28,9 +31,14 @@ class CryptoComOrderBookTracker(OrderBookTracker):
 
     def __init__(
         self,
+        shared_client: aiohttp.ClientSession,
+        throttler: AsyncThrottler,
         trading_pairs: Optional[List[str]] = None,
     ):
-        super().__init__(CryptoComAPIOrderBookDataSource(trading_pairs), trading_pairs)
+        super().__init__(data_source=CryptoComAPIOrderBookDataSource(trading_pairs=trading_pairs,
+                                                                     throttler=throttler,
+                                                                     shared_client=shared_client),
+                         trading_pairs=trading_pairs)
 
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         self._process_msg_deque_task: Optional[asyncio.Task] = None
