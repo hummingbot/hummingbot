@@ -41,9 +41,14 @@ class ProbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, trading_pairs: List[str] = None, domain: str = "com"):
+    def __init__(
+        self,
+        trading_pairs: List[str] = None,
+        domain: str = "com",
+        shared_client: Optional[aiohttp.ClientSession] = None,
+    ):
         super().__init__(trading_pairs)
-        self._shared_client = self._get_session_instance()
+        self._shared_client = shared_client or self._get_session_instance()
         self._domain = domain
         self._trading_pairs: List[str] = trading_pairs
 
