@@ -32,10 +32,6 @@ class MarketEvent(Enum):
     RangePositionFailure = 304
 
 
-class NewBlocksWatcherEvent(Enum):
-    NewBlocks = 401
-
-
 class OrderBookEvent(Enum):
     TradeEvent = 901
 
@@ -100,15 +96,6 @@ class MarketOrderFailureEvent(NamedTuple):
     timestamp: float
     order_id: str
     order_type: OrderType
-
-
-class MarketReceivedAssetEvent(NamedTuple):
-    timestamp: float
-    tx_hash: str
-    from_address: str
-    to_address: str
-    asset_name: str
-    amount_received: float
 
 
 @dataclass
