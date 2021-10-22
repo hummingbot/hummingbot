@@ -6,10 +6,11 @@ import ethers, { Transaction } from 'ethers';
 export interface EthereumTransactionReceipt
   extends Omit<
     ethers.providers.TransactionReceipt,
-    'gasUsed' | 'cumulativeGasUsed'
+    'gasUsed' | 'cumulativeGasUsed' | 'effectiveGasPrice'
   > {
   gasUsed: string;
   cumulativeGasUsed: string;
+  effectiveGasPrice: string | null;
 }
 
 export interface EthereumTransaction
@@ -20,6 +21,16 @@ export interface EthereumTransaction
   maxPriorityFeePerGas: string | null;
   maxFeePerGas: string | null;
   gasLimit: string | null;
+  value: string;
+}
+
+export interface EthereumTransactionResponse
+  extends Omit<
+    ethers.providers.TransactionResponse,
+    'gasPrice' | 'gasLimit' | 'value'
+  > {
+  gasPrice: string | null;
+  gasLimit: string;
   value: string;
 }
 
@@ -87,7 +98,7 @@ export interface EthereumPollResponse {
   txHash: string;
   txStatus: number;
   txBlock: number;
-  txData: ethers.providers.TransactionResponse | null;
+  txData: EthereumTransactionResponse | null;
   txReceipt: EthereumTransactionReceipt | null;
 }
 
