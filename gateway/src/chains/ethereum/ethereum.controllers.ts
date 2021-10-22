@@ -8,7 +8,11 @@ import ethers, {
 } from 'ethers';
 import { ConfigManager } from '../../services/config-manager';
 import { latency, bigNumberWithDecimalToStr } from '../../services/base';
-import { HttpException } from '../../services/error-handler';
+import {
+  HttpException,
+  OUT_OF_GAS_ERROR_CODE,
+  OUT_OF_GAS_ERROR_MESSAGE,
+} from '../../services/error-handler';
 import { UniswapConfig } from './uniswap/uniswap.config';
 import { tokenValueToString } from '../../services/base';
 import { Token } from '../../services/ethereum-base';
@@ -28,6 +32,7 @@ import {
   EthereumPollResponse,
   EthereumTransactionReceipt,
   EthereumTransaction,
+  EthereumTransactionResponse,
 } from './ethereum.requests';
 import {
   validateEthereumAllowancesRequest,
@@ -235,13 +240,39 @@ export async function approve(
 const toEthereumTransactionReceipt = (
   receipt: ethers.providers.TransactionReceipt | null
 ): EthereumTransactionReceipt | null => {
-  return receipt
-    ? {
-        ...receipt,
-        gasUsed: receipt.gasUsed.toString(),
-        cumulativeGasUsed: receipt.cumulativeGasUsed.toString(),
-      }
-    : null;
+  if (receipt) {
+    let effectiveGasPrice = null;
+    if (receipt.effectiveGasPrice) {
+      effectiveGasPrice = receipt.effectiveGasPrice.toString();
+    }
+    return {
+      ...receipt,
+      gasUsed: receipt.gasUsed.toString(),
+      cumulativeGasUsed: receipt.cumulativeGasUsed.toString(),
+      effectiveGasPrice,
+    };
+  }
+
+  return null;
+};
+
+const toEthereumTransactionResponse = (
+  response: ethers.providers.TransactionResponse | null
+): EthereumTransactionResponse | null => {
+  if (response) {
+    let gasPrice = null;
+    if (response.gasPrice) {
+      gasPrice = response.gasPrice.toString();
+    }
+    return {
+      ...response,
+      gasPrice,
+      gasLimit: response.gasLimit.toString(),
+      value: response.value.toString(),
+    };
+  }
+
+  return null;
 };
 
 export async function poll(
@@ -250,36 +281,46 @@ export async function poll(
   validateEthereumPollRequest(req);
 
   const initTime = Date.now();
+  const currentBlock = await ethereum.getCurrentBlockNumber();
   const txData = await ethereum.getTransaction(req.txHash);
-  let txReceipt, txStatus;
+  let txBlock, txReceipt, txStatus;
   if (!txData) {
-    // tx didn't reach the mempool
+    // tx not found, didn't reach the mempool or it never existed
+    txBlock = -1;
     txReceipt = null;
     txStatus = -1;
   } else {
     txReceipt = await ethereum.getTransactionReceipt(req.txHash);
     if (txReceipt === null) {
       // tx is in the mempool
+      txBlock = -1;
       txReceipt = null;
       txStatus = -1;
     } else {
       // tx has been processed
+      txBlock = txReceipt.blockNumber;
       txStatus = typeof txReceipt.status === 'number' ? txReceipt.status : -1;
       if (txStatus === 0) {
         const gasUsed = BigNumber.from(txReceipt.gasUsed).toNumber();
         const gasLimit = BigNumber.from(txData.gasLimit).toNumber();
-        if (gasUsed / gasLimit > 0.9)
-          throw new HttpException(503, 'Transaction out of gas.', 1003);
+        if (gasUsed / gasLimit > 0.9) {
+          throw new HttpException(
+            503,
+            OUT_OF_GAS_ERROR_MESSAGE,
+            OUT_OF_GAS_ERROR_CODE
+          );
+        }
       }
     }
   }
   return {
     network: ConfigManager.config.ETHEREUM_CHAIN,
+    currentBlock,
     timestamp: initTime,
-    latency: latency(initTime, Date.now()),
     txHash: req.txHash,
+    txBlock,
     txStatus,
-    txData,
+    txData: toEthereumTransactionResponse(txData),
     txReceipt: toEthereumTransactionReceipt(txReceipt),
   };
 }

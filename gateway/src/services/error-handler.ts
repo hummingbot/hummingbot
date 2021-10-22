@@ -26,3 +26,15 @@ export const asyncHandler =
   (fn: RequestHandler) => (req: Request, res: Response, next: NextFunction) => {
     return Promise.resolve(fn(req, res, next)).catch(next);
   };
+
+export const NETWORK_ERROR_CODE = 1001;
+export const RATE_LIMIT_ERROR_CODE = 1002;
+export const OUT_OF_GAS_ERROR_CODE = 1003;
+export const UNKNOWN_ERROR_ERROR_CODE = 1099;
+
+export const NETWORK_ERROR_MESSAGE =
+  'Network error. Please check your node URL, API key, and Internet connection.';
+export const RATE_LIMIT_ERROR_MESSAGE =
+  'Blockchain node API rate limit exceeded.';
+export const OUT_OF_GAS_ERROR_MESSAGE = 'Transaction out of gas.';
+export const UNKNOWN_ERROR_MESSAGE = 'Unknown error.';
