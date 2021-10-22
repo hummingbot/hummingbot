@@ -120,7 +120,7 @@ If the trading pair price moves, the **History** changes but **Return %** retain
 
 The `pnl` command shows consolidated performance for all running bots in the same Binance account. This command can be useful when participating in Liquidity Mining campaigns.
 
-![](/assets/img/pnl-command1.png)
+![](/assets/img/pnl-command.png)
 
 | Optional Argument      | Description                                      |
 | :--------------------- | :----------------------------------------------- |
