@@ -5,6 +5,8 @@ from collections import Awaitable
 from typing import Optional
 from unittest.mock import patch, AsyncMock
 
+from aiohttp import WSMsgType
+
 from hummingbot.connector.exchange.probit.probit_api_user_stream_data_source import (
     ProbitAPIUserStreamDataSource
 )
@@ -135,3 +137,32 @@ class ProbitAPIUserStreamDataSourceTest(unittest.TestCase):
             self.async_run_with_timeout(
                 self.data_source.listen_for_user_stream(self.ev_loop, asyncio.Queue())
             )
+
+    @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch(
+        "hummingbot.connector.exchange.probit.probit_auth.ProbitAuth.get_ws_auth_payload",
+        new_callable=AsyncMock,
+    )
+    def test_listen_for_user_stream_registers_ping_msg(self, get_ws_auth_payload_mock, ws_connect_mock):
+        auth_msg = {
+            "type": "authorization",
+            "token": "someToken"
+        }
+        get_ws_auth_payload_mock.return_value = auth_msg
+
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        self.mocking_assistant.add_websocket_json_message(
+            ws_connect_mock.return_value, message={"result": "ok"}  # authentication
+        )
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            ws_connect_mock.return_value, message="", message_type=WSMsgType.PING
+        )
+        output_queue = asyncio.Queue()
+        self.async_task = self.ev_loop.create_task(
+            self.data_source.listen_for_user_stream(self.ev_loop, output_queue)
+        )
+
+        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+
+        self.assertTrue(output_queue.empty())
+        ws_connect_mock.return_value.pong.assert_called()

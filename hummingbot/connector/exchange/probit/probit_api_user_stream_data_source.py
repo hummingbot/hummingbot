@@ -73,7 +73,9 @@ class ProbitAPIUserStreamDataSource(UserStreamTrackerDataSource):
         try:
             if self._websocket_client is None:
                 self._websocket_client = await self._shared_client.ws_connect(
-                    CONSTANTS.WSS_URL.format(self._domain)
+                    CONSTANTS.WSS_URL.format(self._domain),
+                    autoping=False,
+                    heartbeat=self.PING_TIMEOUT,
                 )
         except Exception:
             self.logger().network("Unexpected error occured with ProBit WebSocket Connection")
@@ -125,6 +127,9 @@ class ProbitAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 self._last_recv_time = int(time.time())
                 if msg.type == WSMsgType.CLOSED:
                     return
+                elif msg.type == WSMsgType.PING:
+                    await ws.pong()
+                    continue
                 yield msg.data
         except Exception:
             self.logger().error("Unexpected error occurred iterating through websocket messages.",
