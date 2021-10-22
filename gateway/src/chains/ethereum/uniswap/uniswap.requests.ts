@@ -1,5 +1,3 @@
-import { Trade } from '@uniswap/sdk';
-
 export type Side = 'BUY' | 'SELL';
 
 export interface UniswapPriceRequest {
@@ -21,7 +19,6 @@ export interface UniswapPriceResponse {
   gasPrice: number;
   gasLimit: number;
   gasCost: string;
-  trade: Trade;
 }
 
 export interface UniswapTradeRequest {

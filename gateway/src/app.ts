@@ -8,8 +8,14 @@ import { logger, updateLoggerToStdout } from './services/logger';
 import { addHttps } from './https';
 import {
   asyncHandler,
-  GatewayError,
   HttpException,
+  NodeError,
+  NETWORK_ERROR_CODE,
+  RATE_LIMIT_ERROR_CODE,
+  UNKNOWN_ERROR_ERROR_CODE,
+  NETWORK_ERROR_MESSAGE,
+  RATE_LIMIT_ERROR_MESSAGE,
+  UNKNOWN_ERROR_MESSAGE,
 } from './services/error-handler';
 
 export const app = express();
@@ -27,7 +33,7 @@ app.use('/eth/uniswap', UniswapRoutes.router);
 
 // a simple route to test that the server is running
 app.get('/', (_req: Request, res: Response) => {
-  res.status(200).json({ message: 'ok' });
+  res.status(200).json({ status: 'ok' });
 });
 
 app.get(
@@ -96,22 +102,46 @@ app.post(
 // handle any error thrown in the gateway api route
 app.use(
   (
-    err: Error | GatewayError,
+    err: Error | NodeError | HttpException,
     _req: Request,
     res: Response,
     _next: NextFunction
   ) => {
     const response: any = {
-      message: err.message || 'Something went wrong',
+      message: err.message || UNKNOWN_ERROR_MESSAGE,
     };
     if (err.stack) response.stack = err.stack;
-    let httpErrorCode = 500;
-    if (err instanceof GatewayError) {
-      httpErrorCode = err.httpErrorCode;
-      response.errorCode = err.errorCode;
-    }
+    // the default http error code is 503 for an unknown error
+    let httpErrorCode = 503;
     if (err instanceof HttpException) {
       httpErrorCode = err.status;
+      response.errorCode = err.errorCode;
+    } else {
+      response.errorCode = UNKNOWN_ERROR_ERROR_CODE;
+      response.message = UNKNOWN_ERROR_MESSAGE;
+
+      if ('code' in err) {
+        switch (typeof err.code) {
+          case 'string':
+            // error is from ethers library
+            if (
+              ['NETWORK_ERROR', 'SERVER_ERROR', 'TIMEOUT'].includes(err.code)
+            ) {
+              response.errorCode = NETWORK_ERROR_CODE;
+              response.message = NETWORK_ERROR_MESSAGE;
+            }
+            break;
+
+          case 'number':
+            // errors from provider, this code comes from infura
+            if (err.code === -32005) {
+              // we only handle rate-limit errors
+              response.errorCode = RATE_LIMIT_ERROR_CODE;
+              response.message = RATE_LIMIT_ERROR_MESSAGE;
+            }
+            break;
+        }
+      }
     }
     logger.error(response.message + response.stack);
     return res.status(httpErrorCode).json(response);

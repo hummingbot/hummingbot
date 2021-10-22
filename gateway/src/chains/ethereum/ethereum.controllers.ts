@@ -1,14 +1,17 @@
 import { Ethereum } from './ethereum';
-import ethers, { constants, Wallet, utils, BigNumber } from 'ethers';
+import ethers, {
+  constants,
+  Wallet,
+  utils,
+  BigNumber,
+  Transaction,
+} from 'ethers';
 import { ConfigManager } from '../../services/config-manager';
 import { latency, bigNumberWithDecimalToStr } from '../../services/base';
 import {
-  GatewayError,
   HttpException,
-  NETWORK_ERROR_CODE,
-  RATE_LIMIT_ERROR_CODE,
   OUT_OF_GAS_ERROR_CODE,
-  UNKNOWN_ERROR_ERROR_CODE,
+  OUT_OF_GAS_ERROR_MESSAGE,
 } from '../../services/error-handler';
 import { UniswapConfig } from './uniswap/uniswap.config';
 import { tokenValueToString } from '../../services/base';
@@ -28,6 +31,7 @@ import {
   EthereumPollRequest,
   EthereumPollResponse,
   EthereumTransactionReceipt,
+  EthereumTransaction,
 } from './ethereum.requests';
 import {
   validateEthereumAllowancesRequest,
@@ -161,6 +165,30 @@ export async function balances(
   };
 }
 
+const toEthereumTransaction = (
+  transaction: Transaction
+): EthereumTransaction => {
+  let maxFeePerGas = null;
+  if (transaction.maxFeePerGas) {
+    maxFeePerGas = transaction.maxFeePerGas.toString();
+  }
+  let maxPriorityFeePerGas = null;
+  if (transaction.maxPriorityFeePerGas) {
+    maxPriorityFeePerGas = transaction.maxPriorityFeePerGas.toString();
+  }
+  let gasLimit = null;
+  if (transaction.gasLimit) {
+    gasLimit = transaction.gasLimit.toString();
+  }
+  return {
+    ...transaction,
+    maxPriorityFeePerGas,
+    maxFeePerGas,
+    gasLimit,
+    value: transaction.value.toString(),
+  };
+};
+
 export async function approve(
   req: EthereumApproveRequest
 ): Promise<EthereumApproveResponse> {
@@ -201,7 +229,7 @@ export async function approve(
     spender: spender,
     amount: bigNumberWithDecimalToStr(amountBigNumber, fullToken.decimals),
     nonce: approval.nonce,
-    approval: approval,
+    approval: toEthereumTransaction(approval),
   };
 }
 
@@ -225,70 +253,49 @@ export async function poll(
 ): Promise<EthereumPollResponse> {
   validateEthereumPollRequest(req);
 
-  try {
-    const initTime = Date.now();
-    const currentBlock = await ethereum.getCurrentBlockNumber();
-    const txData = await ethereum.getTransaction(req.txHash);
-    let txBlock, txReceipt, txStatus;
-    if (!txData) {
-      // tx not found, didn't reach the mempool or it never existed
+  const initTime = Date.now();
+  const currentBlock = await ethereum.getCurrentBlockNumber();
+  const txData = await ethereum.getTransaction(req.txHash);
+  let txBlock, txReceipt, txStatus;
+  if (!txData) {
+    // tx not found, didn't reach the mempool or it never existed
+    txBlock = -1;
+    txReceipt = null;
+    txStatus = -1;
+  } else {
+    txReceipt = await ethereum.getTransactionReceipt(req.txHash);
+    if (txReceipt === null) {
+      // tx is in the mempool
       txBlock = -1;
       txReceipt = null;
       txStatus = -1;
     } else {
-      txReceipt = await ethereum.getTransactionReceipt(req.txHash);
-      if (txReceipt === null) {
-        // tx is in the mempool
-        txBlock = -1;
-        txReceipt = null;
-        txStatus = -1;
-      } else {
-        // tx has been processed
-        txBlock = txReceipt.blockNumber;
-        txStatus = typeof txReceipt.status === 'number' ? txReceipt.status : -1;
-        if (txStatus === 0) {
-          const gasUsed = BigNumber.from(txReceipt.gasUsed).toNumber();
-          const gasLimit = BigNumber.from(txData.gasLimit).toNumber();
-          if (gasUsed / gasLimit > 0.9) {
-            console.log('outof gas');
-            throw new GatewayError(
-              503,
-              OUT_OF_GAS_ERROR_CODE,
-              'Transaction out of gas.'
-            );
-          }
+      // tx has been processed
+      txBlock = txReceipt.blockNumber;
+      txStatus = typeof txReceipt.status === 'number' ? txReceipt.status : -1;
+      if (txStatus === 0) {
+        const gasUsed = BigNumber.from(txReceipt.gasUsed).toNumber();
+        const gasLimit = BigNumber.from(txData.gasLimit).toNumber();
+        if (gasUsed / gasLimit > 0.9) {
+          throw new HttpException(
+            503,
+            OUT_OF_GAS_ERROR_MESSAGE,
+            OUT_OF_GAS_ERROR_CODE
+          );
         }
       }
     }
-    return {
-      network: ConfigManager.config.ETHEREUM_CHAIN,
-      currentBlock,
-      timestamp: initTime,
-      txHash: req.txHash,
-      txBlock,
-      txStatus,
-      txData,
-      txReceipt: toEthereumTransactionReceipt(txReceipt),
-    };
-  } catch (e: any) {
-    if (e instanceof GatewayError) {
-      throw e;
-    } else if ('code' in e && e.code === 'NETWORK_ERROR') {
-      throw new GatewayError(
-        503,
-        NETWORK_ERROR_CODE,
-        'Network error. Please check your node URL, API key, and Internet connection.'
-      );
-    } else if ('code' in e && e.code === -32005) {
-      throw new GatewayError(
-        503,
-        RATE_LIMIT_ERROR_CODE,
-        'Blockchain node API rate limit exceeded.'
-      );
-    } else {
-      throw new GatewayError(503, UNKNOWN_ERROR_ERROR_CODE, 'Unknown error.');
-    }
   }
+  return {
+    network: ConfigManager.config.ETHEREUM_CHAIN,
+    currentBlock,
+    timestamp: initTime,
+    txHash: req.txHash,
+    txBlock,
+    txStatus,
+    txData,
+    txReceipt: toEthereumTransactionReceipt(txReceipt),
+  };
 }
 
 export async function cancel(
