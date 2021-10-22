@@ -273,6 +273,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                            body: Optional[Dict[str, Any]] = None,
                            is_auth_required: bool = False,
                            limit_id: Optional[str] = None,
+                           referer_header_required: bool = False,
                            ):
         """
         Sends an aiohttp request and waits for a response.
@@ -301,7 +302,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 params = self._auth.extend_params_with_authentication_info(params=params)
             async with self._throttler.execute_task(limit_id):
                 response = await client.get(url=url,
-                                            headers=self._auth.get_headers(),
+                                            headers=self._auth.get_headers(referer_header_required),
                                             params=params,
                                             )
         elif method == "POST":
@@ -309,7 +310,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 params = self._auth.extend_params_with_authentication_info(params=body)
             async with self._throttler.execute_task(limit_id):
                 response = await client.post(url=url,
-                                             headers=self._auth.get_headers(),
+                                             headers=self._auth.get_headers(referer_header_required),
                                              data=ujson.dumps(params)
                                              )
         else:
@@ -459,6 +460,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 trading_pair=trading_pair,
                 body=params,
                 is_auth_required=True,
+                referer_header_required=True,
             )
 
             if send_order_results["ret_code"] != 0:
