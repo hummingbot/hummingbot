@@ -250,14 +250,14 @@ top-pane: "#000000"
 bottom-pane: "#000000"
 
 # Background color of the output pane
-output-pane: "#282C2F"
+output-pane: "#262626"
 
 # Background color of the input pane
-input-pane: "#151819"
+input-pane: "#1C1C1C"
 
 # Background color of the logs pane
-logs-pane: "#151819"
+logs-pane: "#121212"
 
 # Terminal primary color
-terminal-primary: "#00FFE5"
+terminal-primary: "#5FFFD7"
 
