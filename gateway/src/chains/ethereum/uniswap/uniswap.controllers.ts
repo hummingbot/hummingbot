@@ -91,7 +91,6 @@ export async function price(
           gasPrice: gasPrice,
           gasLimit: gasLimit,
           gasCost: gasCostInEthString(gasPrice, gasLimit),
-          trade: trade,
         };
       }
     } else {

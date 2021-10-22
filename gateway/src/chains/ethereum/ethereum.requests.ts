@@ -12,6 +12,17 @@ export interface EthereumTransactionReceipt
   cumulativeGasUsed: string;
 }
 
+export interface EthereumTransaction
+  extends Omit<
+    Transaction,
+    'maxPriorityFeePerGas' | 'maxFeePerGas' | 'gasLimit' | 'value'
+  > {
+  maxPriorityFeePerGas: string | null;
+  maxFeePerGas: string | null;
+  gasLimit: string | null;
+  value: string;
+}
+
 export interface EthereumNonceRequest {
   privateKey: string; // the users private Ethereum key
 }
@@ -62,7 +73,7 @@ export interface EthereumApproveResponse {
   spender: string;
   amount: string;
   nonce: number;
-  approval: Transaction;
+  approval: EthereumTransaction;
 }
 
 export interface EthereumPollRequest {
