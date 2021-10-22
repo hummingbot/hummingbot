@@ -14,7 +14,7 @@
     "dev:debug": "nodemon --inspect src/index.ts",
     "start": "nodemon dist/src/index.js",
     "test:unit": "jest --verbose --forceExit ./test/",
-    "test:cov": "jest --coverage ./test/",
+    "test:cov": "jest --coverage --forceExit ./test/",
     "test:scripts": "jest --verbose ./test-scripts/"
   },
   "dependencies": {
@@ -50,6 +50,7 @@
     "@types/supertest": "^2.0.11",
     "@typescript-eslint/eslint-plugin": "^4.26.1",
     "@typescript-eslint/parser": "^4.26.1",
+    "coverage-on-diff": "^0.0.3",
     "eslint": "^7.25.0",
     "eslint-config-prettier": "^8.3.0",
     "eslint-config-standard": "^16.0.3",
