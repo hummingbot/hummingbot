@@ -23,7 +23,7 @@ beforeAll(async () => {
   await eth.init();
 });
 
-afterEach(unpatch);
+afterEach(() => unpatch());
 
 describe('GET /eth', () => {
   it('should return 200', async () => {
