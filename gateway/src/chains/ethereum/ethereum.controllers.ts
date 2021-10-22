@@ -32,6 +32,7 @@ import {
   EthereumPollResponse,
   EthereumTransactionReceipt,
   EthereumTransaction,
+  EthereumTransactionResponse,
 } from './ethereum.requests';
 import {
   validateEthereumAllowancesRequest,
@@ -239,13 +240,39 @@ export async function approve(
 const toEthereumTransactionReceipt = (
   receipt: ethers.providers.TransactionReceipt | null
 ): EthereumTransactionReceipt | null => {
-  return receipt
-    ? {
-        ...receipt,
-        gasUsed: receipt.gasUsed.toString(),
-        cumulativeGasUsed: receipt.cumulativeGasUsed.toString(),
-      }
-    : null;
+  if (receipt) {
+    let effectiveGasPrice = null;
+    if (receipt.effectiveGasPrice) {
+      effectiveGasPrice = receipt.effectiveGasPrice.toString();
+    }
+    return {
+      ...receipt,
+      gasUsed: receipt.gasUsed.toString(),
+      cumulativeGasUsed: receipt.cumulativeGasUsed.toString(),
+      effectiveGasPrice,
+    };
+  }
+
+  return null;
+};
+
+const toEthereumTransactionResponse = (
+  response: ethers.providers.TransactionResponse | null
+): EthereumTransactionResponse | null => {
+  if (response) {
+    let gasPrice = null;
+    if (response.gasPrice) {
+      gasPrice = response.gasPrice.toString();
+    }
+    return {
+      ...response,
+      gasPrice,
+      gasLimit: response.gasLimit.toString(),
+      value: response.value.toString(),
+    };
+  }
+
+  return null;
 };
 
 export async function poll(
@@ -293,7 +320,7 @@ export async function poll(
     txHash: req.txHash,
     txBlock,
     txStatus,
-    txData,
+    txData: toEthereumTransactionResponse(txData),
     txReceipt: toEthereumTransactionReceipt(txReceipt),
   };
 }
