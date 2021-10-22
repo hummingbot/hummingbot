@@ -1,20 +1,18 @@
-import express from 'express';
-import { Express } from 'express-serve-static-core';
 import request from 'supertest';
-import { EthereumRoutes } from '../../../src/chains/ethereum/ethereum.routes';
 import { patch, unpatch } from '../../services/patch';
+import { app } from '../../../src/app';
+import { Ethereum } from '../../../src/chains/ethereum/ethereum';
+import * as transactionOutOfGas from './fixtures/transaction-out-of-gas.json';
+import * as transactionOutOfGasReceipt from './fixtures/transaction-out-of-gas-receipt.json';
+import { logger, errors } from 'ethers';
 
-let app: Express;
-
+let eth: Ethereum;
 beforeAll(async () => {
-  app = express();
-  app.use(express.json());
-  app.use('/eth', EthereumRoutes.router);
+  eth = Ethereum.getInstance();
+  await eth.init();
 });
 
-afterEach(() => {
-  unpatch();
-});
+afterEach(unpatch);
 
 describe('GET /eth', () => {
   it('should return 200', async () => {
@@ -27,7 +25,7 @@ describe('GET /eth', () => {
 });
 
 const patchGetWallet = () => {
-  patch(EthereumRoutes.ethereum, 'getWallet', () => {
+  patch(eth, 'getWallet', () => {
     return {
       address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     };
@@ -35,11 +33,11 @@ const patchGetWallet = () => {
 };
 
 const patchGetNonce = () => {
-  patch(EthereumRoutes.ethereum.nonceManager, 'getNonce', () => 2);
+  patch(eth.nonceManager, 'getNonce', () => 2);
 };
 
 const patchGetTokenBySymbol = () => {
-  patch(EthereumRoutes.ethereum, 'getTokenBySymbol', () => {
+  patch(eth, 'getTokenBySymbol', () => {
     return {
       chainId: 42,
       name: 'WETH',
@@ -51,14 +49,25 @@ const patchGetTokenBySymbol = () => {
 };
 
 const patchApproveERC20 = () => {
-  patch(EthereumRoutes.ethereum, 'approveERC20', () => {
+  patch(eth, 'approveERC20', () => {
     return {
+      type: 2,
       chainId: 42,
-      name: 'WETH',
-      symbol: 'WETH',
-      address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
-      decimals: 18,
-      nonce: 23,
+      nonce: 115,
+      maxPriorityFeePerGas: { toString: () => '106000000000' },
+      maxFeePerGas: { toString: () => '106000000000' },
+      gasPrice: { toString: () => null },
+      gasLimit: { toString: () => '100000' },
+      to: '0x4F96Fe3b7A6Cf9725f59d353F723c1bDb64CA6Aa',
+      value: { toString: () => '0' },
+      data: '0x095ea7b30000000000000000000000007a250d5630b4cf539739df2c5dacb4c659f2488dffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+      accessList: [],
+      hash: '0x75f98675a8f64dcf14927ccde9a1d59b67fa09b72cc2642ad055dae4074853d9',
+      v: 0,
+      r: '0xbeb9aa40028d79b9fdab108fcef5de635457a05f3a254410414c095b02c64643',
+      s: '0x5a1506fa4b7f8b4f3826d8648f27ebaa9c0ee4bd67f569414b8cd8884c073100',
+      from: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+      confirmations: 0,
     };
   });
 };
@@ -93,7 +102,7 @@ describe('POST /eth/nonce', () => {
 describe('POST /eth/approve', () => {
   it('should return 200', async () => {
     patchGetWallet();
-    patchGetNonce();
+    patch(eth.nonceManager, 'getNonce', () => 115);
     patchGetTokenBySymbol();
     patchApproveERC20();
 
@@ -104,13 +113,13 @@ describe('POST /eth/approve', () => {
           'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
         spender: 'uniswap',
         token: 'WETH',
-        nonce: 23,
+        nonce: 115,
       })
       .set('Accept', 'application/json')
       .expect('Content-Type', /json/)
       .expect(200)
       .then((res: any) => {
-        expect(res.body.nonce).toEqual(23);
+        expect(res.body.nonce).toEqual(115);
       });
   });
 
@@ -131,11 +140,11 @@ describe('POST /eth/approve', () => {
 describe('POST /eth/cancel', () => {
   it('should return 200', async () => {
     // override getWallet (network call)
-    EthereumRoutes.ethereum.getWallet = jest.fn().mockReturnValue({
+    eth.getWallet = jest.fn().mockReturnValue({
       address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     });
 
-    EthereumRoutes.ethereum.cancelTx = jest.fn().mockReturnValue({
+    eth.cancelTx = jest.fn().mockReturnValue({
       hash: '0xf6b9e7cec507cb3763a1179ff7e2a88c6008372e3a6f297d9027a0b39b0fff77',
     });
 
@@ -164,5 +173,114 @@ describe('POST /eth/cancel', () => {
         nonce: '23',
       })
       .expect(404);
+  });
+});
+
+const NETWORK_ERROR_CODE = 1001;
+const RATE_LIMIT_ERROR_CODE = 1002;
+const OUT_OF_GAS_ERROR_CODE = 1003;
+const UNKNOWN_ERROR_CODE = 1099;
+
+const NETWORK_ERROR_MESSAGE =
+  'Network error. Please check your node URL, API key, and Internet connection.';
+const RATE_LIMIT_ERROR_MESSAGE = 'Blockchain node API rate limit exceeded.';
+const OUT_OF_GAS_ERROR_MESSAGE = 'Transaction out of gas.';
+const UNKNOWN_ERROR_MESSAGE = 'Unknown error.';
+
+describe('POST /eth/poll', () => {
+  it('should get an OUT of GAS error for failed out of gas transactions', async () => {
+    patch(eth, 'getTransaction', () => transactionOutOfGas);
+    patch(eth, 'getTransactionReceipt', () => transactionOutOfGasReceipt);
+    const res = await request(app).post('/eth/poll').send({
+      txHash:
+        '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
+    });
+
+    expect(res.statusCode).toEqual(503);
+    expect(res.body.errorCode).toEqual(OUT_OF_GAS_ERROR_CODE);
+    expect(res.body.message).toEqual(OUT_OF_GAS_ERROR_MESSAGE);
+  });
+
+  it('should get a null in txReceipt for Tx in the mempool', async () => {
+    patch(eth, 'getTransaction', () => transactionOutOfGas);
+    patch(eth, 'getTransactionReceipt', () => null);
+    const res = await request(app).post('/eth/poll').send({
+      txHash:
+        '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
+    });
+    expect(res.statusCode).toEqual(200);
+    expect(res.body.txReceipt).toEqual(null);
+    expect(res.body.txData).toBeDefined();
+  });
+
+  it('should get a null in txReceipt and txData for Tx that didnt reach the mempool and TxReceipt is null', async () => {
+    patch(eth, 'getTransaction', () => null);
+    patch(eth, 'getTransactionReceipt', () => null);
+    const res = await request(app).post('/eth/poll').send({
+      txHash:
+        '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
+    });
+    expect(res.statusCode).toEqual(200);
+    expect(res.body.txReceipt).toEqual(null);
+    expect(res.body.txData).toEqual(null);
+  });
+
+  it('should get network error', async () => {
+    patch(eth, 'getTransaction', () => {
+      return logger.throwError(errors.NETWORK_ERROR, errors.NETWORK_ERROR);
+    });
+    const res = await request(app).post('/eth/poll').send({
+      txHash:
+        '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
+    });
+    expect(res.statusCode).toEqual(503);
+    expect(res.body.errorCode).toEqual(NETWORK_ERROR_CODE);
+    expect(res.body.message).toEqual(NETWORK_ERROR_MESSAGE);
+  });
+
+  it('should get rate limit error', async () => {
+    patch(eth, 'getTransaction', () => {
+      const error: any = new Error(
+        'daily request count exceeded, request rate limited'
+      );
+      error.code = -32005;
+      error.data = {
+        see: 'https://infura.io/docs/ethereum/jsonrpc/ratelimits',
+        current_rps: 13.333,
+        allowed_rps: 10.0,
+        backoff_seconds: 30.0,
+      };
+      throw error;
+    });
+    const res = await request(app).post('/eth/poll').send({
+      txHash:
+        '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
+    });
+    expect(res.statusCode).toEqual(503);
+    expect(res.body.errorCode).toEqual(RATE_LIMIT_ERROR_CODE);
+    expect(res.body.message).toEqual(RATE_LIMIT_ERROR_MESSAGE);
+  });
+
+  it('should get unknown error', async () => {
+    patch(eth, 'getTransaction', () => {
+      const error: any = new Error(
+        'daily request count exceeded, request rate limited'
+      );
+      error.code = -32006;
+      error.data = {
+        see: 'https://infura.io/docs/ethereum/jsonrpc/ratelimits',
+        current_rps: 13.333,
+        allowed_rps: 10.0,
+        backoff_seconds: 30.0,
+      };
+      throw error;
+    });
+    const res = await request(app).post('/eth/poll').send({
+      txHash:
+        '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
+    });
+    expect(res.statusCode).toEqual(503);
+    expect(res.body.errorCode).toEqual(UNKNOWN_ERROR_CODE);
+    expect(res.body.message).toEqual(UNKNOWN_ERROR_MESSAGE);
   });
 });
