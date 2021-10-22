@@ -45,7 +45,6 @@ export class Ethereum extends EthereumBase {
     this.updateGasPrice();
 
     this._nonceManager = EVMNonceManager.getInstance();
-    this._nonceManager.init(this.provider, 60);
   }
 
   public static getInstance(): Ethereum {
@@ -54,6 +53,17 @@ export class Ethereum extends EthereumBase {
     }
 
     return Ethereum._instance;
+  }
+
+  async init(): Promise<void> {
+    if (!this.ready() && !this._initializing) {
+      this._initializing = true;
+      await this.loadTokens(this.tokenListSource, this.tokenListType);
+      await this._nonceManager.init(this.provider, 60, this.chainId);
+      this._ready = true;
+      this._initializing = false;
+    }
+    return this._initPromise;
   }
 
   public static reload(): Ethereum {
