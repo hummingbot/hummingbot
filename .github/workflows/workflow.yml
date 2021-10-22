@@ -189,3 +189,14 @@ jobs:
 
       - name: Run unit test
         run: npm run test:unit --prefix ./gateway
+
+      - name: Run unit test coverage
+        if: github.event_name == 'pull_request' && steps.program-changes.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          export DIFF_FILE='./gateway/coverage/diff.diff'
+          git fetch --all -q
+          git checkout -b $GITHUB_SHA
+          npm run test:cov --prefix ./gateway
+          git diff --output=$DIFF_FILE origin/$GITHUB_BASE_REF
+          $(npm bin --prefix ./gateway)/coverageOnDiff -d $DIFF_FILE -b 65 -s 67 -c "./gateway/coverage/coverage-final.json"
