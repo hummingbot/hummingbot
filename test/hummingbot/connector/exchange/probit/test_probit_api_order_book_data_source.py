@@ -311,7 +311,7 @@ class ProbitAPIOrderBookDataSourceTest(unittest.TestCase):
             ws_connect_mock.return_value
         )
 
-        self.assertEqual(2, len(sent_msgs))
+        self.assertGreaterEqual(len(sent_msgs), 2)
 
         msg_filters = [m["filter"][0] for m in sent_msgs]
 
