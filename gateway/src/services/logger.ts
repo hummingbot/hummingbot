@@ -11,12 +11,21 @@ export const getLocalDate = () => {
   return dayjs().utcOffset(gmtOffset, false).format('YYYY-MM-DD hh:mm:ss');
 };
 
-const logFormat = winston.format.combine(
+const logFileFormat = winston.format.combine(
   winston.format.timestamp(),
   winston.format.align(),
   winston.format.printf((info) => {
     const localDate = getLocalDate();
     return `${localDate} | ${info.level} | ${info.message}`;
+  })
+);
+
+const sdtoutFormat = winston.format.combine(
+  winston.format.timestamp(),
+  winston.format.align(),
+  winston.format.printf((info) => {
+    const localDate = getLocalDate();
+    return `${localDate} | ${info.level} | ${info.message.split(/\r?\n/)[0]}`;
   })
 );
 
@@ -36,13 +45,13 @@ const allLogsFileTransport = new DailyRotateFile({
 
 export const logger = winston.createLogger({
   level: 'info',
-  format: logFormat,
+  format: logFileFormat,
   exitOnError: false,
   transports: [allLogsFileTransport],
 });
 
 const toStdout = new winston.transports.Console({
-  format: winston.format.simple(),
+  format: sdtoutFormat,
 });
 
 export const updateLoggerToStdout = () => {
