@@ -91,6 +91,7 @@ coverage.xml
 /gateway/dist/
 
 # misc
+/gateway/coverage/
 /gateway/logs/
 /gateway/package-lock.json
 *.srl
