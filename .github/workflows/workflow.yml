@@ -199,4 +199,4 @@ jobs:
           git checkout -b $GITHUB_SHA
           npm run test:cov --prefix ./gateway
           git diff --output=$DIFF_FILE origin/$GITHUB_BASE_REF
-          $(npm bin)/coverageOnDiff -d $DIFF_FILE -b 65 -s 67 -c "./gateway/coverage/coverage-final.json"
+          $(npm bin --prefix ./gateway)/coverageOnDiff -d $DIFF_FILE -b 65 -s 67 -c "./gateway/coverage/coverage-final.json"
