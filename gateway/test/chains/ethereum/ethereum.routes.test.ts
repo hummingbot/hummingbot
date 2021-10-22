@@ -5,18 +5,17 @@ import { app } from '../../../src/app';
 import {
   NETWORK_ERROR_CODE,
   RATE_LIMIT_ERROR_CODE,
-  //  OUT_OF_GAS_ERROR_CODE,
+  OUT_OF_GAS_ERROR_CODE,
   UNKNOWN_ERROR_ERROR_CODE,
   NETWORK_ERROR_MESSAGE,
   RATE_LIMIT_ERROR_MESSAGE,
-  //  OUT_OF_GAS_ERROR_MESSAGE,
+  OUT_OF_GAS_ERROR_MESSAGE,
   UNKNOWN_ERROR_MESSAGE,
 } from '../../../src/services/error-handler';
-import { logger, errors } from 'ethers';
 import * as transactionSuccesful from './fixtures/transaction-succesful.json';
 import * as transactionSuccesfulReceipt from './fixtures/transaction-succesful-receipt.json';
 import * as transactionOutOfGas from './fixtures/transaction-out-of-gas.json';
-// import * as transactionOutOfGasReceipt from './fixtures/transaction-out-of-gas-receipt.json';
+import * as transactionOutOfGasReceipt from './fixtures/transaction-out-of-gas-receipt.json';
 
 let eth: Ethereum;
 beforeAll(async () => {
@@ -188,26 +187,12 @@ describe('POST /eth/cancel', () => {
   });
 });
 
-class RateLimitError extends Error {
-  code: number;
-  constructor() {
-    super('-32005');
-    this.code = -32005;
-  }
-}
-
-class NetworkError extends Error {
-  code: string;
-  constructor() {
-    super('NETWORK_ERROR');
-    this.code = 'NETWORK_ERROR';
-  }
-}
-
 describe('POST /eth/poll', () => {
   it('should get a NETWORK_ERROR_CODE when the network is unavailable', async () => {
     patch(eth, 'getCurrentBlockNumber', () => {
-      throw new NetworkError();
+      const error: any = new Error('something went wrong');
+      error.code = 'NETWORK_ERROR';
+      throw error;
     });
 
     const res = await request(app).post('/eth/poll').send({
@@ -217,6 +202,7 @@ describe('POST /eth/poll', () => {
 
     expect(res.statusCode).toEqual(503);
     expect(res.body.errorCode).toEqual(NETWORK_ERROR_CODE);
+    expect(res.body.message).toEqual(NETWORK_ERROR_MESSAGE);
   });
 
   it('should get a UNKNOWN_ERROR_ERROR_CODE when an unknown error is thrown', async () => {
@@ -233,42 +219,22 @@ describe('POST /eth/poll', () => {
     expect(res.body.errorCode).toEqual(UNKNOWN_ERROR_ERROR_CODE);
   });
 
-  it('should get an RATE_LIMIT_ERROR_CODE when the blockchain API is rate limited', async () => {
-    patch(eth, 'getCurrentBlockNumber', () => {
-      throw new RateLimitError();
-    });
-
+  it('should get an OUT of GAS error for failed out of gas transactions', async () => {
+    patch(eth, 'getCurrentBlockNumber', () => 1);
+    patch(eth, 'getTransaction', () => transactionOutOfGas);
+    patch(eth, 'getTransactionReceipt', () => transactionOutOfGasReceipt);
     const res = await request(app).post('/eth/poll').send({
       txHash:
         '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
     });
 
     expect(res.statusCode).toEqual(503);
-    expect(res.body.errorCode).toEqual(RATE_LIMIT_ERROR_CODE);
+    expect(res.body.errorCode).toEqual(OUT_OF_GAS_ERROR_CODE);
+    expect(res.body.message).toEqual(OUT_OF_GAS_ERROR_MESSAGE);
   });
-
-  it('should get an OUT of GAS error for failed out of gas transactions', async () => {
-    patch(eth, 'getCurrentBlockNumber', () => 1);
-  });
-
-  // it('should get an OUT of GAS error for failed out of gas transactions', async () => {
-  //   patch(eth, 'getTransaction', () => transactionOutOfGas);
-  //   patch(eth, 'getTransactionReceipt', () => transactionOutOfGasReceipt);
-  //   const res = await request(app).post('/eth/poll').send({
-  //     txHash:
-  //       '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
-  //   });
-
-  //   expect(res.statusCode).toEqual(503);
-  //   expect(res.body.errorCode).toEqual(OUT_OF_GAS_ERROR_CODE);
-  // });
-
-  // it('should get a null in txReceipt for Tx in the mempool', async () => {
-  //   patch(eth, 'getCurrentBlockNumber', () => 1);
-  //   expect(res.body.message).toEqual(OUT_OF_GAS_ERROR_MESSAGE);
-  // });
 
   it('should get a null in txReceipt for Tx in the mempool', async () => {
+    patch(eth, 'getCurrentBlockNumber', () => 1);
     patch(eth, 'getTransaction', () => transactionOutOfGas);
     patch(eth, 'getTransactionReceipt', () => null);
     const res = await request(app).post('/eth/poll').send({
@@ -306,21 +272,8 @@ describe('POST /eth/poll', () => {
     expect(res.body.txData).toBeDefined();
   });
 
-  it('should get network error', async () => {
-    patch(eth, 'getTransaction', () => {
-      return logger.throwError(errors.NETWORK_ERROR, errors.NETWORK_ERROR);
-    });
-    const res = await request(app).post('/eth/poll').send({
-      txHash:
-        '0x2faeb1aa55f96c1db55f643a8cf19b0f76bf091d0b7d1b068d2e829414576362',
-    });
-    expect(res.statusCode).toEqual(503);
-    expect(res.body.errorCode).toEqual(NETWORK_ERROR_CODE);
-    expect(res.body.message).toEqual(NETWORK_ERROR_MESSAGE);
-  });
-
-  it('should get rate limit error', async () => {
-    patch(eth, 'getTransaction', () => {
+  it('should get an RATE_LIMIT_ERROR_CODE when the blockchain API is rate limited', async () => {
+    patch(eth, 'getCurrentBlockNumber', () => {
       const error: any = new Error(
         'daily request count exceeded, request rate limited'
       );
@@ -343,17 +296,9 @@ describe('POST /eth/poll', () => {
   });
 
   it('should get unknown error', async () => {
-    patch(eth, 'getTransaction', () => {
-      const error: any = new Error(
-        'daily request count exceeded, request rate limited'
-      );
+    patch(eth, 'getCurrentBlockNumber', () => {
+      const error: any = new Error('something went wrong');
       error.code = -32006;
-      error.data = {
-        see: 'https://infura.io/docs/ethereum/jsonrpc/ratelimits',
-        current_rps: 13.333,
-        allowed_rps: 10.0,
-        backoff_seconds: 30.0,
-      };
       throw error;
     });
     const res = await request(app).post('/eth/poll').send({
