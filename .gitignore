@@ -80,6 +80,7 @@ coverage.xml
 /gateway/conf/*
 # except the example /gateway/conf/gateway-config-example.yml
 !/gateway/conf/gateway-config-example.yml
+/gateway/gateway.level
 
 # node installs
 /gateway/node_modules/
