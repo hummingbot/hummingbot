@@ -194,7 +194,9 @@ jobs:
         if: github.event_name == 'pull_request' && steps.program-changes.outputs.cache-hit != 'true'
         shell: bash
         run: |
+          export DIFF_FILE='./gateway/coverage/diff.diff'
           git fetch --all -q
           git checkout -b $GITHUB_SHA
           npm run test:cov --prefix ./gateway
-          diff-cover --compare-branch=origin/feat/gateway-v2 --fail-under=67 ./gateway/coverage/clover.xml
+          git diff -output=$DIFF_FILE $GITHUB_BASE_REF $GITHUB_HEAD_REF
+          $(npm bin)/coverageOnDiff -d $DIFF_FILE -b 65 -s 67 -c "./gateway/coverage/coverage-final.json"
