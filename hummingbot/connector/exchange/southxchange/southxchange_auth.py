@@ -1,13 +1,11 @@
 import hmac
 import hashlib
-from os import name
-import time
 import json
 import requests
 from typing import Dict, Any
 from hummingbot.connector.exchange.southxchange.southxchange_utils import get_ms_timestamp
 from hummingbot.connector.exchange.southxchange.southxchange_constants import REST_URL
-import aiohttp
+
 
 class SouthXchangeAuth():
     """
@@ -16,7 +14,7 @@ class SouthXchangeAuth():
     """
     def __init__(self, api_key: str, secret_key: str):
         self.api_key = api_key
-        self.secret_key = secret_key        
+        self.secret_key = secret_key
 
     def get_auth_headers(
         self,
@@ -26,21 +24,21 @@ class SouthXchangeAuth():
         """
         Modify - SouthXchange
         """
-        time = get_ms_timestamp()
-        data['nonce'] = time   
-        data['key'] = self.api_key   
+        nonce_time = get_ms_timestamp()
+        data['nonce'] = nonce_time
+        data['key'] = self.api_key
         userSignature = hmac.new(
             self.secret_key.encode('utf-8'),
             json.dumps(data).encode('utf8'),
-        hashlib.sha512).hexdigest()
-
+            hashlib.sha512
+        ).hexdigest()
         header = {'Hash': userSignature, 'Content-Type': 'application/json'}
-
         return {
             "header": header,
             "data": data,
         }
-    def get_api_key(self) -> str:        
+
+    def get_api_key(self) -> str:
         return self.api_key
 
     def get_headers(self) -> Dict[str, Any]:
@@ -52,14 +50,14 @@ class SouthXchangeAuth():
             'Content-Type': 'application/json',
         }
 
-    def get_websoxket_token(self) -> str:    
+    def get_websoxket_token(self) -> str:
         url = f"{REST_URL}GetWebSocketToken"
         headers = self.get_auth_headers()
-        resp = requests.post(url,headers= headers["header"],data=json.dumps(headers["data"]))
+        resp = requests.post(url, headers= headers["header"], data=json.dumps(headers["data"]))
         if resp.status_code == 200:
             resp_text = json.loads(resp.text)
-        try:        
+        try:
             return resp_text
-        except Exception as e:
-            falla = e  
-        return "" 
+        except Exception:
+            return ""
+        return ""

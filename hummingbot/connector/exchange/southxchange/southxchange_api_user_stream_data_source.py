@@ -3,16 +3,15 @@ import time
 import asyncio
 import logging
 import websockets
-import aiohttp
 import ujson
-import json
-
 from typing import Optional, List, AsyncIterable, Any
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.southxchange.southxchange_auth import SouthXchangeAuth
 from hummingbot.connector.exchange.southxchange.southxchange_constants import PRIVATE_WS_URL, PONG_PAYLOAD
 from hummingbot.connector.exchange.southxchange.southxchange_utils import get_market_id
+
+
 class SouthxchangeAPIUserStreamDataSource(UserStreamTrackerDataSource):
     MAX_RETRIES = 20
     MESSAGE_TIMEOUT = 10.0
@@ -47,7 +46,6 @@ class SouthxchangeAPIUserStreamDataSource(UserStreamTrackerDataSource):
         :param ev_loop: ev_loop to execute this function in
         :param output: an async queue where the incoming messages are stored
         """
-
         while True:
             tokenWS = self._southxchange__auth.get_websoxket_token()
             try:
@@ -55,7 +53,6 @@ class SouthxchangeAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     "k": "subscribe",
                     "v": self._idMarket
                 }
-
                 async with websockets.connect(F"{PRIVATE_WS_URL}{tokenWS}") as ws:
                     try:
                         ws: websockets.WebSocketClientProtocol = ws
@@ -67,7 +64,7 @@ class SouthxchangeAPIUserStreamDataSource(UserStreamTrackerDataSource):
                                 if msg is None:
                                     continue
                                 output.put_nowait(msg)
-                            except Exception  as e:
+                            except Exception:
                                 self.logger().error(
                                     "Unexpected error when parsing SouthXchange message. ", exc_info=True
                                 )

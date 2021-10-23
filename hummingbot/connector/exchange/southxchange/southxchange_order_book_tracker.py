@@ -17,6 +17,7 @@ from hummingbot.connector.exchange.southxchange.southxchange_api_order_book_data
 from hummingbot.connector.exchange.southxchange.southxchange_order_book import SouthXchangeOrderBook
 from hummingbot.logger import HummingbotLogger
 
+
 class SouthxchangeOrderBookTracker(OrderBookTracker):
     _logger: Optional[HummingbotLogger] = None
 
@@ -97,7 +98,7 @@ class SouthxchangeOrderBookTracker(OrderBookTracker):
 
             except asyncio.CancelledError:
                 raise
-            except Exception as e:
+            except Exception:
                 self.logger().network(
                     f"Unexpected error processing order book messages for {trading_pair}.",
                     exc_info=True,
