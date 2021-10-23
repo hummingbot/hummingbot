@@ -1,46 +1,31 @@
 # #!/usr/bin/env python
-import hmac
-import hashlib
-import json
-from array import array
-from aiohttp import web
-import conf
-import sys
-import asyncio
+# import conf
+# import sys
+# import asyncio
+import unittest
 import requests
+from decimal import Decimal
 from typing import (
     List,
     Optional
 )
-from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 import math
 import asyncio
 import contextlib
-from decimal import Decimal
 import os
 import time
-import ujson
-import websockets
 import conf
+import logging
+# from unittest.case import TestCase
+# from os.path import join, realpath
+from typing import Dict, Any
+from os.path import join, realpath
+import sys; sys.path.insert(0, realpath(join(__file__, "../../../../../")))
+from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.core.clock import (
     Clock,
     ClockMode
 )
-import logging
-# from unittest.case import TestCase
-from os.path import join, realpath
-from typing import Dict, Any
-from hummingbot.connector.exchange.southxchange.southxchange_auth import SouthXchangeAuth
-from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-from hummingbot.connector.exchange.southxchange.southxchange_constants import REST_URL
-from hummingbot.connector.exchange.southxchange.southxchange_utils import get_ws_url_private, gen_client_order_id, get_ms_timestamp
-from test.connector.exchange.southXchange import fixture_southxchange
-
-from os.path import join, realpath
-import sys; sys.path.insert(0, realpath(join(__file__, "../../../../../")))
-logging.basicConfig(level=METRICS_LOG_LEVEL)
-import unittest
-
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     MarketEvent,
@@ -58,7 +43,6 @@ from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-
 from hummingbot.connector.exchange.southxchange.southxchange_exchange import SouthxchangeExchange
 from hummingbot.core.event.events import OrderType
 from hummingbot.connector.markets_recorder import MarketsRecorder
@@ -68,7 +52,6 @@ from hummingbot.model.sql_connection_manager import (
     SQLConnectionManager,
     SQLConnectionType
 )
-from hummingbot.connector.exchange.southxchange.southxchange_utils import get_market_id
 from hummingbot.model.trade_fill import TradeFill
 from hummingbot.core.mock_api.mock_web_server import MockWebServer
 from test.connector.exchange.southXchange.fixture_southxchange import Fixturesouthxchange
@@ -84,8 +67,7 @@ API_BASE_URL = "www.southxchange.com"
 EXCHANGE_ORDER_ID = 20001
 
 
-
-class TestSouthXchangeExchange(unittest.TestCase):  
+class TestSouthXchangeExchange(unittest.TestCase):
     events: List[MarketEvent] = [
         MarketEvent.BuyOrderCompleted,
         MarketEvent.SellOrderCompleted,
@@ -97,7 +79,6 @@ class TestSouthXchangeExchange(unittest.TestCase):
         MarketEvent.OrderCancelled,
         MarketEvent.OrderFailure
     ]
-
     market: SouthxchangeExchange
     market_logger: EventLogger
     stack: contextlib.ExitStack
@@ -107,28 +88,24 @@ class TestSouthXchangeExchange(unittest.TestCase):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         if API_MOCK_ENABLED:
             cls.web_app = MockWebServer.get_instance()
-            cls.web_app.add_host_to_mock(API_BASE_URL, ["/api/v1/ticker/24hr","api/v4/connect", "api/v4/connect?token="])
+            cls.web_app.add_host_to_mock(API_BASE_URL, ["/api/v1/ticker/24hr", "api/v4/connect", "api/v4/connect?token="])
             cls.web_app.start()
             cls.ev_loop.run_until_complete(cls.web_app.wait_til_started())
             cls._patcher = mock.patch("aiohttp.client.URL")
             cls._url_mock = cls._patcher.start()
             cls._url_mock.side_effect = cls.web_app.reroute_local
-
-            
             cls._req_patcher = unittest.mock.patch.object(requests.Session, "request", autospec=True)
             cls._req_url_mock = cls._req_patcher.start()
             cls._req_url_mock.side_effect = MockWebServer.reroute_request
             cls.web_app.update_response("get", API_BASE_URL, "/api/v4/markets", Fixturesouthxchange.MARKETS)
-            cls.web_app.update_response("get", API_BASE_URL, "/api/v4/book/LTC2/USD2",  Fixturesouthxchange.ORDERS_BOOK)
-            cls.web_app.update_response("get", API_BASE_URL, "/api/v4/trades/LTC2/USD2",  Fixturesouthxchange.TRADES)
+            cls.web_app.update_response("get", API_BASE_URL, "/api/v4/book/LTC2/USD2", Fixturesouthxchange.ORDERS_BOOK)
+            cls.web_app.update_response("get", API_BASE_URL, "/api/v4/trades/LTC2/USD2", Fixturesouthxchange.TRADES)
             cls.web_app.update_response("get", API_BASE_URL, "/api/v4/fees", Fixturesouthxchange.FEES)
-            cls.web_app.update_response("post", API_BASE_URL, "/api/v4/listTransactions", Fixturesouthxchange.LIST_TRANSACTIONS)            
-            cls.web_app.update_response("post", API_BASE_URL, "/api/v4/getUserInfo", {"TraderLevel" : "Test"})
-            
+            cls.web_app.update_response("post", API_BASE_URL, "/api/v4/listTransactions", Fixturesouthxchange.LIST_TRANSACTIONS)
+            cls.web_app.update_response("post", API_BASE_URL, "/api/v4/getUserInfo", {"TraderLevel": "Test"})
             cls.web_app.update_response("post", API_BASE_URL, "/api/v4/cancelOrder", None)
-            cls.web_app.update_response("post", API_BASE_URL, "/api/v4/listBalances", Fixturesouthxchange.BALANCES)            
+            cls.web_app.update_response("post", API_BASE_URL, "/api/v4/listBalances", Fixturesouthxchange.BALANCES)
             cls.web_app.update_response("post", API_BASE_URL, "/api/v4/GetWebSocketToken", "tokenTest")
-            
             ws_base_url = "wss://www.southxchange.com/api/v4/connect?token=tokenTest"
             cls._ws_user_url = f"{ws_base_url}"
             MockWebSocketServerFactory.start_new_server(cls._ws_user_url)
@@ -179,15 +156,14 @@ class TestSouthXchangeExchange(unittest.TestCase):
             os.unlink(self.db_path)
         except FileNotFoundError:
             pass
-
-        self.market_logger = EventLogger()        
+        self.market_logger = EventLogger()
         for event_tag in self.events:
-            self.market.add_listener(event_tag, self.market_logger)            
+            self.market.add_listener(event_tag, self.market_logger)
 
     def tearDown(self):
         for event_tag in self.events:
-            self.market.remove_listener(event_tag, self.market_logger)            
-        self.market_logger = None        
+            self.market.remove_listener(event_tag, self.market_logger)
+        self.market_logger = None
 
     async def run_parallel_async(self, *tasks):
         future: asyncio.Future = safe_ensure_future(safe_gather(*tasks))
@@ -196,10 +172,10 @@ class TestSouthXchangeExchange(unittest.TestCase):
             next_iteration = now // 1.0 + 1
             await self._clock.run_til(next_iteration)
             await asyncio.sleep(0.5)
-        return future.result()    
+        return future.result()
 
     def run_parallel(self, *tasks):
-        return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))               
+        return self.ev_loop.run_until_complete(self.run_parallel_async(*tasks))
 
     def test_get_fee(self):
         limit_fee: TradeFee = self.market.get_fee("LTC2", "USD2", OrderType.LIMIT_MAKER, TradeType.BUY, 1, 10)
@@ -229,13 +205,13 @@ class TestSouthXchangeExchange(unittest.TestCase):
             "DateAdded": "2021-07-29T15:26:42.120Z"
         }
         return api_response
-   
+
     def test_place_order(self):
         order_id_buy, exchange_order_id_buy = self.place_order(True, "LTC2-USD2", 1, OrderType.LIMIT_MAKER, 66)
         order_id_sell, exchange_order_id_sell = self.place_order(False, "LTC2-USD2", 1, OrderType.LIMIT_MAKER, 66)
         return "ok"
-  
-    def test_fee_overrides_config(self):        
+
+    def test_fee_overrides_config(self):
         fee_overrides_config_map["southxchange_taker_fee"].value = None
         taker_fee: TradeFee = self.market.get_fee("LTC2", "USD2", OrderType.LIMIT, TradeType.BUY, Decimal(1),
                                                   Decimal('0.1'))
@@ -253,7 +229,7 @@ class TestSouthXchangeExchange(unittest.TestCase):
                                                   Decimal('0.1'))
         self.assertAlmostEqual(Decimal("0.005"), maker_fee.percent)
 
-    def test_limit_maker_rejections(self):        
+    def test_limit_maker_rejections(self):
         if API_MOCK_ENABLED:
             return
         trading_pair = "LTC2-USD2"
@@ -285,80 +261,30 @@ class TestSouthXchangeExchange(unittest.TestCase):
         bid_price = self.market.get_price(trading_pair, True) * Decimal("0.8")
         quantized_bid_price = self.market.quantize_order_price(trading_pair, bid_price)
         quantized_bid_amount = self.market.quantize_order_amount(trading_pair, Decimal(1))
-
-
-        order_id_buy, exchange_order_id_buy = self.place_order(True, "LTC2-USD2", quantized_bid_amount, OrderType.LIMIT_MAKER, 
-                                                                quantized_bid_price)
+        order_id_buy, exchange_order_id_buy = self.place_order(True, "LTC2-USD2", quantized_bid_amount, OrderType.LIMIT_MAKER, quantized_bid_price)
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
         order_created_event: BuyOrderCreatedEvent = order_created_event
         self.assertEqual(order_id_buy, order_created_event.order_id)
-
         ask_price = self.market.get_price(trading_pair, True) * Decimal("1.2")
         quatized_ask_price = self.market.quantize_order_price(trading_pair, ask_price)
         quatized_ask_amount = self.market.quantize_order_amount(trading_pair, Decimal(1))
-
         order_id, _ = self.place_order(False, trading_pair, quatized_ask_amount, OrderType.LIMIT_MAKER,
                                        quatized_ask_price)
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
         order_created_event: BuyOrderCreatedEvent = order_created_event
         self.assertEqual(order_id, order_created_event.order_id)
-
+        [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
+        for cr in cancellation_results:
+            self.assertEqual(cr.success, True)
         [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
         for cr in cancellation_results:
             self.assertEqual(cr.success, True)
 
-        [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
-        for cr in cancellation_results:
-            self.assertEqual(cr.success, True)
-    
     def _cancel_order(self, cl_order_id):
         self.market.cancel("LTC2-USD2", cl_order_id)
         resp_GET_RESPONSE_BUY_CANCEL = Fixturesouthxchange.GET_ORDER_RESPONSE_BUY_CANCEL.copy()
         resp_GET_RESPONSE_BUY_CANCEL["Code"] = "20001"
-        self.web_app.update_response("post", API_BASE_URL, "/api/v4/getOrder", resp_GET_RESPONSE_BUY_CANCEL)        
-    
-    def test_limit_taker_buy(self):
-        self.assertGreater(self.market.get_balance("LTC2"), Decimal("0.05"))
-        trading_pair = "LTC2-USD2"
-        price = self.market.get_price(trading_pair, True) * Decimal("0.8")
-        price = self.market.quantize_order_price(trading_pair, price)
-        quantized_amount = self.market.quantize_order_amount(trading_pair, Decimal("0.0002"))
-        quote_bal = self.market.get_available_balance("USD2")
-
-        order_id, _ = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT_MAKER, price)
-        order_created_event = self.ev_loop.run_until_complete(self.market_logger.wait_for(BuyOrderCreatedEvent))
-        self.assertEqual(order_id, order_created_event.order_id)
-
-        expected_quote_bal = quote_bal - (price * quantized_amount)
-        self.ev_loop.run_until_complete(self.market._update_balances())
-
-
-        self.assertAlmostEqual(expected_quote_bal, self.market.get_available_balance("USD2"), 1)
-        self._cancel_order(order_id)
-        event = self.ev_loop.run_until_complete(self.market_logger.wait_for(OrderCancelledEvent))
-        self.assertEqual(order_id, event.order_id)
-
-        order_id, _ = self.place_order(True, trading_pair, quantized_amount, OrderType.LIMIT, price)
-        [buy_order_completed_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCompletedEvent))
-
-        buy_order_completed_event: BuyOrderCompletedEvent = buy_order_completed_event
-        trade_events: List[OrderFilledEvent] = [t for t in self.market_logger.event_log
-                                                if isinstance(t, OrderFilledEvent)]
-        base_amount_traded: float = sum(t.amount for t in trade_events)
-        quote_amount_traded: float = sum(t.amount * t.price for t in trade_events)
-
-        self.assertTrue([evt.order_type == OrderType.LIMIT for evt in trade_events])
-        self.assertEqual(order_id, buy_order_completed_event.order_id)
-        self.assertAlmostEqual(float(quantized_amount), buy_order_completed_event.base_asset_amount, places=4)
-        self.assertEqual("LTC2", buy_order_completed_event.base_asset)
-        self.assertEqual("USD2", buy_order_completed_event.quote_asset)
-        self.assertAlmostEqual(base_amount_traded, float(buy_order_completed_event.base_asset_amount), places=4)
-        self.assertAlmostEqual(quote_amount_traded, float(buy_order_completed_event.quote_asset_amount), places=4)
-        self.assertGreater(buy_order_completed_event.fee_amount, Decimal(0))
-        self.assertTrue(any([isinstance(event, BuyOrderCreatedEvent) and event.order_id == order_id
-                             for event in self.market_logger.event_log]))
-        # # Reset the logs
-        self.market_logger.clear()
+        self.web_app.update_response("post", API_BASE_URL, "/api/v4/getOrder", resp_GET_RESPONSE_BUY_CANCEL)
 
     def test_cancel_all(self):
         trading_pair = "LTC2-USD2"
@@ -370,22 +296,19 @@ class TestSouthXchangeExchange(unittest.TestCase):
 
         list_orders_exchange = Fixturesouthxchange.OPEN_ORDERS.copy()
         sell_id = self.place_order(False, trading_pair, amount, OrderType.LIMIT, ask_price)
-        resp_LIST_ORDER_SELL = Fixturesouthxchange.OPEN_ORDERS_SELL.copy()   
+        resp_LIST_ORDER_SELL = Fixturesouthxchange.OPEN_ORDERS_SELL.copy()
         resp_LIST_ORDER_SELL["Code"] = str(sell_id[1])
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(SellOrderCreatedEvent))
-
         buy_id = self.place_order(True, trading_pair, amount, OrderType.LIMIT, bid_price)
         resp_LIST_ORDER_BUY = Fixturesouthxchange.OPEN_ORDERS_BUY.copy()
         resp_LIST_ORDER_BUY["Code"] = str(buy_id[1])
         [order_created_event] = self.run_parallel(self.market_logger.wait_for(BuyOrderCreatedEvent))
-        
         list_orders_exchange = []
-
         self.web_app.update_response("post", API_BASE_URL, "/api/v4/listOrders", list_orders_exchange)
         [cancellation_results] = self.run_parallel(self.market.cancel_all(5))
         for cr in cancellation_results:
-                self.assertEqual(cr.success, True)
-   
+            self.assertEqual(cr.success, True)
+
     def place_order(self, is_buy, trading_pair, amount, order_type, price):
         # , post_resp, get_resp):
         global EXCHANGE_ORDER_ID
@@ -403,30 +326,28 @@ class TestSouthXchangeExchange(unittest.TestCase):
                 resp_GET_ORDER_BUY = Fixturesouthxchange.GET_ORDER_RESPONSE_BUY_CREATE.copy()
                 resp_GET_ORDER_BUY["Code"] = exch_order_id
                 self.web_app.update_response("post", API_BASE_URL, "/api/v4/getOrder", resp_GET_ORDER_BUY)
-            else:   
+            else:
                 resp_GET_ORDER_SELL = Fixturesouthxchange.GET_ORDER_RESPONSE_SELL_CREATE.copy()
                 resp_GET_ORDER_SELL["Code"] = exch_order_id
                 self.web_app.update_response("post", API_BASE_URL, "/api/v4/getOrder", resp_GET_ORDER_SELL)
         return order_id, exch_order_id
 
-    def test_limit_taker_buy(self):
+    def test_limit_buy(self):
         self.assertGreater(self.market.get_balance("LTC2"), Decimal("0.05"))
         trading_pair = "LTC2-USD2"
         price = self.market.get_price(trading_pair, True)
         price = self.market.quantize_order_price(trading_pair, Decimal("86.24000"))
         amount = self.market.quantize_order_amount(trading_pair, Decimal("1"))
         order_id, exchange_order_code = self.place_order(True, trading_pair, amount, OrderType.LIMIT, price)
-        
         fixture_ws = Fixturesouthxchange.WS_AFTER_BUY.get("v").copy()
         aux = fixture_ws[0]
         aux["c"] = str(exchange_order_code)
         ws_message = []
         ws_message.append(aux)
-        final = {"k": "order", "v": ws_message}                
+        final = {"k": "order", "v": ws_message}
         MockWebSocketServerFactory.send_json_threadsafe(self._ws_user_url,
-                                final,
-                                delay=1)    
-
+                                                        final,
+                                                        delay=1)
         resp_GET_ORDER_BUY = Fixturesouthxchange.GET_ORDER_RESPONSE_BUY_EXECUTED.copy()
         resp_GET_ORDER_BUY["Code"] = exchange_order_code
         self.web_app.update_response("post", API_BASE_URL, "/api/v4/getOrder", resp_GET_ORDER_BUY)
@@ -437,7 +358,6 @@ class TestSouthXchangeExchange(unittest.TestCase):
                                                 if isinstance(t, OrderFilledEvent)]
         base_amount_traded: float = sum(t.amount for t in trade_events)
         quote_amount_traded: float = sum(t.amount * t.price for t in trade_events)
-
         self.assertTrue([evt.order_type == OrderType.LIMIT for evt in trade_events])
         self.assertEqual(order_id, buy_order_completed_event.order_id)
         self.assertAlmostEqual(amount, buy_order_completed_event.base_asset_amount, places=4)
@@ -450,7 +370,8 @@ class TestSouthXchangeExchange(unittest.TestCase):
                              for event in self.market_logger.event_log]))
         # Reset the logs
         self.market_logger.clear()
-    def test_limit_taker_sell(self):
+
+    def test_limit_sell(self):
         self.assertGreater(self.market.get_balance("LTC2"), Decimal("0.05"))
         trading_pair = "LTC2-USD2"
         price = self.market.get_price(trading_pair, True)
@@ -463,11 +384,10 @@ class TestSouthXchangeExchange(unittest.TestCase):
         aux["c"] = str(exchange_order_code)
         ws_message = []
         ws_message.append(aux)
-        final = {"k": "order", "v": ws_message}                
+        final = {"k": "order", "v": ws_message}
         MockWebSocketServerFactory.send_json_threadsafe(self._ws_user_url,
-                                final,
-                                delay=1)    
-
+                                                        final,
+                                                        delay=1)
         resp_GET_ORDER_SELL = Fixturesouthxchange.GET_ORDER_RESPONSE_SELL_EXECUTED.copy()
         resp_GET_ORDER_SELL["Code"] = exchange_order_code
         self.web_app.update_response("post", API_BASE_URL, "/api/v4/getOrder", resp_GET_ORDER_SELL)
@@ -491,6 +411,7 @@ class TestSouthXchangeExchange(unittest.TestCase):
                              for event in self.market_logger.event_log]))
         # Reset the logs
         self.market_logger.clear()
+
     def test_cancel_order(self):
         self.assertGreater(self.market.get_balance("LTC2"), Decimal("0.05"))
         trading_pair = "LTC2-USD2"
@@ -498,26 +419,19 @@ class TestSouthXchangeExchange(unittest.TestCase):
         price = self.market.quantize_order_price(trading_pair, Decimal("86.24000"))
         amount = self.market.quantize_order_amount(trading_pair, Decimal("1"))
         order_id, exchange_order_code = self.place_order(True, trading_pair, amount, OrderType.LIMIT_MAKER, price)
-
         self.run_parallel(asyncio.sleep(1.0))
-
         self.market.cancel(trading_pair, order_id)
-
         if API_MOCK_ENABLED:
             resp_GET_RESPONSE_BUY_CANCEL = Fixturesouthxchange.GET_ORDER_RESPONSE_BUY_CANCEL.copy()
             resp_GET_RESPONSE_BUY_CANCEL["Code"] = str(exchange_order_code)
-            self.web_app.update_response("post", API_BASE_URL, "/api/v4/getOrder", resp_GET_RESPONSE_BUY_CANCEL)  
-
+            self.web_app.update_response("post", API_BASE_URL, "/api/v4/getOrder", resp_GET_RESPONSE_BUY_CANCEL)
             fixture_ws = Fixturesouthxchange.WS_AFTER_CANCEL_BUY.get("v").copy()
             aux = fixture_ws[0]
             aux["c"] = str(exchange_order_code)
             ws_message = []
             ws_message.append(aux)
-            final = {"k": "order", "v": ws_message}                
-            MockWebSocketServerFactory.send_json_threadsafe(self._ws_user_url,
-                                    final,
-                                    delay=0.1)
-
+            final = {"k": "order", "v": ws_message}
+            MockWebSocketServerFactory.send_json_threadsafe(self._ws_user_url, final, delay=0.1)
         [order_cancelled_event] = self.run_parallel(
             self.market_logger.wait_for(OrderCancelledEvent))
 
@@ -526,12 +440,14 @@ class TestSouthXchangeExchange(unittest.TestCase):
         self.run_parallel(asyncio.sleep(6.0))
         self.assertEqual(0, len(self.market.limit_orders))
         self.assertEqual(str(exchange_order_code), order_cancelled_event.exchange_order_id)
+
     def test_update_last_prices(self):
         # This is basic test to see if order_book last_trade_price is initiated and updated.
         for order_book in self.market.order_books.values():
             for _ in range(5):
                 self.ev_loop.run_until_complete(asyncio.sleep(1))
                 self.assertFalse(math.isnan(order_book.last_trade_price))
+
     def test_order_fill_record(self):
         config_path: str = "test_config"
         strategy_name: str = "test_strategy"
@@ -552,11 +468,8 @@ class TestSouthXchangeExchange(unittest.TestCase):
             aux["c"] = str(exchange_order_code)
             ws_message = []
             ws_message.append(aux)
-            final = {"k": "order", "v": ws_message}                
-            MockWebSocketServerFactory.send_json_threadsafe(self._ws_user_url,
-                                    final,
-                                    delay=1)    
-
+            final = {"k": "order", "v": ws_message}
+            MockWebSocketServerFactory.send_json_threadsafe(self._ws_user_url, final, delay=1)
             resp_GET_ORDER_BUY = Fixturesouthxchange.GET_ORDER_RESPONSE_BUY_EXECUTED.copy()
             resp_GET_ORDER_BUY["Code"] = exchange_order_code
             self.web_app.update_response("post", API_BASE_URL, "/api/v4/getOrder", resp_GET_ORDER_BUY)
@@ -576,11 +489,8 @@ class TestSouthXchangeExchange(unittest.TestCase):
             aux["c"] = str(exchange_order_code)
             ws_message = []
             ws_message.append(aux)
-            final = {"k": "order", "v": ws_message}                
-            MockWebSocketServerFactory.send_json_threadsafe(self._ws_user_url,
-                                    final,
-                                    delay=1)    
-
+            final = {"k": "order", "v": ws_message}
+            MockWebSocketServerFactory.send_json_threadsafe(self._ws_user_url, final, delay=1)
             resp_GET_ORDER_SELL = Fixturesouthxchange.GET_ORDER_RESPONSE_SELL_EXECUTED.copy()
             resp_GET_ORDER_SELL["Code"] = exchange_order_code
             self.web_app.update_response("post", API_BASE_URL, "/api/v4/getOrder", resp_GET_ORDER_SELL)
@@ -605,6 +515,7 @@ class TestSouthXchangeExchange(unittest.TestCase):
             recorder.stop()
             os.unlink(self.db_path)
             self.market_logger.clear()
+
     def test_orders_saving_and_restoration(self):
         config_path: str = "test_config"
         strategy_name: str = "test_strategy"
@@ -674,7 +585,7 @@ class TestSouthXchangeExchange(unittest.TestCase):
             if API_MOCK_ENABLED:
                 resp_GET_RESPONSE_BUY_CANCEL = Fixturesouthxchange.GET_ORDER_RESPONSE_BUY_CANCEL.copy()
                 resp_GET_RESPONSE_BUY_CANCEL["Code"] = str(exch_order_id)
-                self.web_app.update_response("post", API_BASE_URL, "/api/v4/getOrder", resp_GET_RESPONSE_BUY_CANCEL)  
+                self.web_app.update_response("post", API_BASE_URL, "/api/v4/getOrder", resp_GET_RESPONSE_BUY_CANCEL)
             new_connector.cancel(trading_pair, order_id)
             if API_MOCK_ENABLED:
                 fixture_ws = Fixturesouthxchange.WS_AFTER_CANCEL_BUY.get("v").copy()
@@ -682,11 +593,8 @@ class TestSouthXchangeExchange(unittest.TestCase):
                 aux["c"] = str(exch_order_id)
                 ws_message = []
                 ws_message.append(aux)
-                final = {"k": "order", "v": ws_message}                
-                MockWebSocketServerFactory.send_json_threadsafe(self._ws_user_url,
-                                        final,
-                                        delay=5)
-
+                final = {"k": "order", "v": ws_message}
+                MockWebSocketServerFactory.send_json_threadsafe(self._ws_user_url, final, delay=5)
             self.ev_loop.run_until_complete(self.market_logger.wait_for(OrderCancelledEvent))
             recorder.save_market_states(config_path, new_connector)
             order_id = None
@@ -700,5 +608,13 @@ class TestSouthXchangeExchange(unittest.TestCase):
                 self.run_parallel(self.market_logger.wait_for(OrderCancelledEvent))
 
             recorder.stop()
-            os.unlink(self.db_path)           
-    
+            os.unlink(self.db_path)
+
+
+def main():
+    logging.basicConfig(level=logging.INFO)
+    unittest.main()
+
+
+if __name__ == "__main__":
+    main()

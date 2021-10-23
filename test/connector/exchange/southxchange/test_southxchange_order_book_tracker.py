@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 import math
+import logging
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../../../")))
-
+from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     OrderBookEvent,
@@ -10,7 +11,6 @@ from hummingbot.core.event.events import (
     TradeType
 )
 import asyncio
-import logging
 from typing import (
     Dict,
     Optional,
@@ -22,15 +22,9 @@ from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
-from hummingbot.core.event.events import OrderBookEvent, OrderBookTradeEvent, TradeType
 from hummingbot.connector.exchange.southxchange.southxchange_order_book_tracker import SouthxchangeOrderBookTracker
 from hummingbot.connector.exchange.southxchange.southxchange_api_order_book_data_source import SouthxchangeAPIOrderBookDataSource
-# from hummingbot.core.data_type.order_book import OrderBook
-# from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-
-
-# sys.path.insert(0, realpath(join(__file__, "../../../../../")))
-# logging.basicConfig(level=METRICS_LOG_LEVEL)
+logging.basicConfig(level=METRICS_LOG_LEVEL)
 
 
 class TestSouthXchangeOrderBookTracker(unittest.TestCase):
@@ -44,7 +38,7 @@ class TestSouthXchangeOrderBookTracker(unittest.TestCase):
     ]
 
     @classmethod
-    def setUpClass(cls):    
+    def setUpClass(cls):
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.order_book_tracker: SouthxchangeOrderBookTracker = SouthxchangeOrderBookTracker(
             trading_pairs=cls.trading_pairs
@@ -79,7 +73,7 @@ class TestSouthXchangeOrderBookTracker(unittest.TestCase):
         self.event_logger = EventLogger()
         for event_tag in self.events:
             for trading_pair, order_book in self.order_book_tracker.order_books.items():
-                order_book.add_listener(event_tag, self.event_logger)    
+                order_book.add_listener(event_tag, self.event_logger)
 
     def test_order_book_trade_event_emission(self):
         """
@@ -112,10 +106,20 @@ class TestSouthXchangeOrderBookTracker(unittest.TestCase):
                                 btc_usd.get_price(True))
         self.assertLessEqual(btc_usd.get_price_for_volume(False, 0.1).result_price,
                              btc_usd.get_price(False))
+
     def test_api_get_last_traded_prices(self):
         prices = self.ev_loop.run_until_complete(
-            SouthxchangeAPIOrderBookDataSource.get_last_traded_prices(["BTC-USD","LTC-USD"]))
+            SouthxchangeAPIOrderBookDataSource.get_last_traded_prices(["BTC-USD", "LTC-USD"]))
         for key, value in prices.items():
             print(f"{key} last_trade_price: {value}")
         self.assertGreater(prices["BTC-USD"], 1000)
         self.assertLess(prices["LTC-USD"], 1000)
+
+
+def main():
+    logging.basicConfig(level=logging.INFO)
+    unittest.main()
+
+
+if __name__ == "__main__":
+    main()

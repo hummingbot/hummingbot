@@ -1,11 +1,8 @@
 #!/usr/bin/env python
-
 from typing import (
     Dict,
-    List,
-    Optional,
+    List
 )
-
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.order_book_message import (
     OrderBookMessage,
@@ -17,7 +14,7 @@ class SouthXchangeOrderBookMessage(OrderBookMessage):
     def __new__(
         cls,
         message_type: OrderBookMessageType,
-        content: Dict[str, any],        
+        content: Dict[str, any],
         *args,
         **kwargs,
     ):

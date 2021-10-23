@@ -34,6 +34,7 @@ class TestSouthXchangeUserStreamTracker(unittest.TestCase):
         self.ev_loop.run_until_complete(asyncio.sleep(120.0))
         print(self.user_stream_tracker.user_stream)
 
+
 def main():
     logging.basicConfig(level=logging.INFO)
     unittest.main()

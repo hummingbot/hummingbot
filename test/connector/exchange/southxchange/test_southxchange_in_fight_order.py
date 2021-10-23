@@ -1,13 +1,13 @@
-from datetime import datetime
-from dateutil import parser
+import unittest
 from decimal import Decimal
-
 from hummingbot.core.event.events import TradeType
-from unittest.case import TestCase
 from hummingbot.connector.exchange.southxchange.southxchange_in_flight_order import SouthXchangeInFlightOrder
-from hummingbot.connector.exchange.southxchange.southxchange_utils import  time_to_num
+from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
+import logging
+logging.basicConfig(level=METRICS_LOG_LEVEL)
 
-class TestSouthXchangeInFlightOrder(TestCase):
+
+class TestSouthXchangeInFlightOrder(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -25,18 +25,18 @@ class TestSouthXchangeInFlightOrder(TestCase):
 
     def test_southxchange_object_from_api_response_sell(self):
         api_response = {
-            'client_order_id':'SX-HMBot-B-LTC2-USD2-1634561259964310',
-            'exchange_order_id':'20001',
-            'trading_pair':'LTC2-USD2',
-            'order_type':'LIMIT_MAKER',
-            'trade_type':'SELL',
-            'price':'74.88000000',
-            'amount':'0.00020000',
-            'executed_amount_base':'0',
-            'executed_amount_quote':'0',
-            'fee_asset':None,
-            'fee_paid':'0',
-            'last_state':'executed',
+            'client_order_id': 'SX-HMBot-B-LTC2-USD2-1634561259964310',
+            'exchange_order_id': '20001',
+            'trading_pair': 'LTC2-USD2',
+            'order_type': 'LIMIT_MAKER',
+            'trade_type': 'SELL',
+            'price': '74.88000000',
+            'amount': '0.00020000',
+            'executed_amount_base': '0',
+            'executed_amount_quote': '0',
+            'fee_asset': None,
+            'fee_paid': '0',
+            'last_state': 'executed',
         }
 
         in_flight_order = SouthXchangeInFlightOrder.from_json(api_response)
@@ -49,22 +49,20 @@ class TestSouthXchangeInFlightOrder(TestCase):
 
     def test_southxchange_object_from_api_response_buy(self):
         api_response = {
-            'client_order_id':'SX-HMBot-B-LTC2-USD2-1634561259964310',
-            'exchange_order_id':'20001',
-            'trading_pair':'LTC2-USD2',
-            'order_type':'LIMIT_MAKER',
-            'trade_type':'BUY',
-            'price':'74.88000000',
-            'amount':'0.00020000',
-            'executed_amount_base':'0',
-            'executed_amount_quote':'0',
-            'fee_asset':None,
-            'fee_paid':'0',
-            'last_state':'executed',
+            'client_order_id': 'SX-HMBot-B-LTC2-USD2-1634561259964310',
+            'exchange_order_id': '20001',
+            'trading_pair': 'LTC2-USD2',
+            'order_type': 'LIMIT_MAKER',
+            'trade_type': 'BUY',
+            'price': '74.88000000',
+            'amount': '0.00020000',
+            'executed_amount_base': '0',
+            'executed_amount_quote': '0',
+            'fee_asset': None,
+            'fee_paid': '0',
+            'last_state': 'executed',
         }
-
         in_flight_order = SouthXchangeInFlightOrder.from_json(api_response)
-
         assert in_flight_order.exchange_order_id == api_response["exchange_order_id"]
         assert in_flight_order.trade_type == TradeType.BUY
         assert in_flight_order.amount == Decimal(api_response["amount"])
@@ -73,44 +71,49 @@ class TestSouthXchangeInFlightOrder(TestCase):
 
     def test_in_flight_order_status_executed(self):
         api_response = {
-            'client_order_id':'SX-HMBot-B-LTC2-USD2-1634561259964310',
-            'exchange_order_id':'20001',
-            'trading_pair':'LTC2-USD2',
-            'order_type':'LIMIT_MAKER',
-            'trade_type':'BUY',
-            'price':'74.88000000',
-            'amount':'0.00020000',
-            'executed_amount_base':'0',
-            'executed_amount_quote':'0',
-            'fee_asset':None,
-            'fee_paid':'0',
-            'last_state':'executed',
+            'client_order_id': 'SX-HMBot-B-LTC2-USD2-1634561259964310',
+            'exchange_order_id': '20001',
+            'trading_pair': 'LTC2-USD2',
+            'order_type': 'LIMIT_MAKER',
+            'trade_type': 'BUY',
+            'price': '74.88000000',
+            'amount': '0.00020000',
+            'executed_amount_base': '0',
+            'executed_amount_quote': '0',
+            'fee_asset': None,
+            'fee_paid': '0',
+            'last_state': 'executed',
         }
-
         in_flight_order = SouthXchangeInFlightOrder.from_json(api_response)
-
         assert in_flight_order.is_done
         assert not in_flight_order.is_failure
         assert not in_flight_order.is_cancelled
 
     def test_in_flight_order_status_canceled(self):
         api_response = {
-            'client_order_id':'SX-HMBot-B-LTC2-USD2-1634561259964310',
-            'exchange_order_id':'20001',
-            'trading_pair':'LTC2-USD2',
-            'order_type':'LIMIT_MAKER',
-            'trade_type':'BUY',
-            'price':'74.88000000',
-            'amount':'0.00020000',
-            'executed_amount_base':'0',
-            'executed_amount_quote':'0',
-            'fee_asset':None,
-            'fee_paid':'0',
-            'last_state':'cancelednotexecuted',
+            'client_order_id': 'SX-HMBot-B-LTC2-USD2-1634561259964310',
+            'exchange_order_id': '20001',
+            'trading_pair': 'LTC2-USD2',
+            'order_type': 'LIMIT_MAKER',
+            'trade_type': 'BUY',
+            'price': '74.88000000',
+            'amount': '0.00020000',
+            'executed_amount_base': '0',
+            'executed_amount_quote': '0',
+            'fee_asset': None,
+            'fee_paid': '0',
+            'last_state': 'cancelednotexecuted',
         }
-
         in_flight_order = SouthXchangeInFlightOrder.from_json(api_response)
-
         assert not in_flight_order.is_done
         assert not in_flight_order.is_failure
         assert in_flight_order.is_cancelled
+
+
+def main():
+    logging.basicConfig(level=logging.INFO)
+    unittest.main()
+
+
+if __name__ == "__main__":
+    main()

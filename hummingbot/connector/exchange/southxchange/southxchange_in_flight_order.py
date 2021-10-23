@@ -1,5 +1,4 @@
 from decimal import Decimal
-from hummingbot.connector.exchange.southxchange.southxchange_utils import convert_from_exchange_trading_pair, get_exchange_trading_pair_from_currencies
 from typing import (
     Any,
     Dict,
