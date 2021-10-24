@@ -228,8 +228,9 @@ nav:
     - Glossary: glossary.md
   - Developers:
       - Developers: developers/index.md
-      - Hummingbot Architecture: developers/architecture.md
       - Contribution Guidelines: developers/contributions.md
+      - Architecture: developers/architecture.md
+      - Gateway: developers/gateway.md
       - Connectors:
         - Developing Connectors: developers/connectors/index.md
         - Architecture: developers/connectors/architecture.md
