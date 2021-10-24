@@ -185,11 +185,11 @@ nav:
       - Loopring: exchanges/loopring.md
       - NDAX: exchanges/ndax.md
       - OKEx: exchanges/okex.md
-      - Perpetual Finance: exchanges/perp-fi.md
+      - Perpetual Protocol: exchanges/perp-fi.md
       - ProBit Global: exchanges/probit.md
       - ProBit Korea: exchanges/probit-korea.md
       - Uniswap: exchanges/uniswap.md
-      - Uniswap-v3: exchanges/uniswap-v3.md
+      - Uniswap V3: exchanges/uniswap-v3.md
     - Protocol Connectors:
       - Protocol Connectors: protocols/index.md
       - Gateway: protocols/gateway.md

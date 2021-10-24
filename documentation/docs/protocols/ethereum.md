@@ -48,8 +48,10 @@ When you import a wallet with Hummingbot, a JSON file named `key_file_[address].
 
 ### Private key
 
-1. In the Hummingbot client run command `connect ethereum`
-2. Enter the private key associated with the wallet
+1. Run the command `connect ethereum` in the Hummingbot client
+2. Enter your wallet private key
+3. Enter Ethereum node address (starts with https://)
+4. Enter the WebSocket connection address of your Ethereum node (starts with wss://)
 
 Within the Hummingbot CLI, you can use the `export_private_key` command to display the private key associated with a wallet address. You can import your wallet to dApps like Metamask and MyCrypto using this private key as well.
 
