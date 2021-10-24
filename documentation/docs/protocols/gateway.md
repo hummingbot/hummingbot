@@ -5,6 +5,8 @@
 
 Hummingbot Gateway is API middleware that allows Hummingbot to connect to decentralized exchanges on various blockchain protocols that are used in the [amm-arb strategy](/strategies/amm-arbitrage/) and other strategies. Essentially, Gateway is a light web server that enables Hummingbot client to send and receive data from different blockchain protocols and provides an easier entry point for external devs to build connectors to other protocols.
 
+Gateway V1 is currently in a separate Github repository (https://github.com/coinalpha/gateway-api), while Gateway V2 will be contained in a `gateway` directory in the Hummingbot repository.
+
 !!! note
     To use Gateway, you need to install Hummingbot using Docker or from source. Gateway doesn't work with the binary installers.
 
