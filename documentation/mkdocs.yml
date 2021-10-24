@@ -188,7 +188,6 @@ nav:
       - Perpetual Finance: exchanges/perp-fi.md
       - ProBit Global: exchanges/probit.md
       - ProBit Korea: exchanges/probit-korea.md
-      - Terra: exchanges/terra.md
       - Uniswap: exchanges/uniswap.md
       - Uniswap-v3: exchanges/uniswap-v3.md
     - Protocol Connectors:
