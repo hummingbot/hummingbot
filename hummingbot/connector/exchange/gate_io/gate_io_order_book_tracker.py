@@ -65,6 +65,10 @@ class GateIoOrderBookTracker(OrderBookTracker):
             self._data_source.listen_for_subscriptions()
         )
 
+    def stop(self):
+        self._order_book_stream_listener_task and self._order_book_stream_listener_task.cancel()
+        super().stop()
+
     async def _track_single_book(self, trading_pair: str):
         """
         Update an order book with changes from the latest batch of received messages
