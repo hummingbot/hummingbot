@@ -225,7 +225,7 @@ export async function approve(
     maxFeePerGasBigNumber = BigNumber.from(maxFeePerGas);
   }
   let maxPriorityFeePerGasBigNumber;
-  if (maxPriorityFeePerGasBigNumber) {
+  if (maxPriorityFeePerGas) {
     maxPriorityFeePerGasBigNumber = BigNumber.from(maxPriorityFeePerGas);
   }
   // convert strings to BigNumber
