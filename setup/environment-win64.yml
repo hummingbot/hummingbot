@@ -58,6 +58,7 @@ dependencies:
     - pytest==4.6.11
     - python-binance==0.7.5
     - python-telegram-bot==12.4.2
+    - pywin32==227 #Required for binary image build
     - requests==2.22.0
     - rsa==4.7
     - ruamel-yaml==0.16.10
