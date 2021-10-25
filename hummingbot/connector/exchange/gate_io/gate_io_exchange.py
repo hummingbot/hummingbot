@@ -89,10 +89,14 @@ class GateIoExchange(ExchangeBase):
         self._trading_pairs = trading_pairs
         self._gate_io_auth = GateIoAuth(gate_io_api_key, gate_io_secret_key)
         self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
-        self._order_book_tracker = GateIoOrderBookTracker(self._throttler, trading_pairs=trading_pairs)
-        self._user_stream_tracker = GateIoUserStreamTracker(self._gate_io_auth, trading_pairs)
+        self._shared_client = aiohttp.ClientSession()
+        self._order_book_tracker = GateIoOrderBookTracker(
+            self._throttler, trading_pairs, self._shared_client
+        )
+        self._user_stream_tracker = GateIoUserStreamTracker(
+            self._gate_io_auth, trading_pairs, self._shared_client
+        )
         self._ev_loop = asyncio.get_event_loop()
-        self._shared_client = None
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
         self._in_flight_orders = {}  # Dict[client_order_id:str, GateIoInFlightOrder]
