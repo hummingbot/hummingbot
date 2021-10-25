@@ -59,7 +59,7 @@ def validate_order_step_size(value: Decimal = None):
     :return: Error message printed in output pane
     """
     target_asset_amount = twap_config_map.get("target_asset_amount").value
-    if value > target_asset_amount:
+    if Decimal(value) > target_asset_amount:
         return "Order step size cannot be greater than the total trade amount."
 
 
