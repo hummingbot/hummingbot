@@ -34,6 +34,9 @@ curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: app
 # approve uniswap allowance on your private key
 curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/eth_approve.json)" https://localhost:5000/eth/approve | jq
 
+# approve uniswap allowance on your private key
+curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/eth_approve_with_fees.json)" https://localhost:5000/eth/approve | jq
+
 # remove uniswap allowance on your private key
 curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/eth_remove_allowance.json)" https://localhost:5000/eth/approve | jq
 

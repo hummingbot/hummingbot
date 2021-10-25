@@ -30,6 +30,7 @@ export const asyncHandler =
 export const NETWORK_ERROR_CODE = 1001;
 export const RATE_LIMIT_ERROR_CODE = 1002;
 export const OUT_OF_GAS_ERROR_CODE = 1003;
+export const TRANSACTION_GAS_PRICE_TOO_LOW = 1004;
 export const UNKNOWN_ERROR_ERROR_CODE = 1099;
 
 export const NETWORK_ERROR_MESSAGE =
