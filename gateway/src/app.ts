@@ -17,6 +17,7 @@ import {
   RATE_LIMIT_ERROR_MESSAGE,
   TRANSACTION_GAS_PRICE_TOO_LOW,
   UNKNOWN_ERROR_MESSAGE,
+  parseTransactionGasError,
 } from './services/error-handler';
 
 export const app = express();
@@ -129,21 +130,10 @@ app.use(
               response.errorCode = NETWORK_ERROR_CODE;
               response.message = NETWORK_ERROR_MESSAGE;
             } else if (err.code === 'SERVER_ERROR') {
-              if ('body' in err) {
-                const error = JSON.parse(err['body']);
-
-                if (
-                  'error' in error &&
-                  'code' in error['error'] &&
-                  error['error']['code'] === -32010 &&
-                  'message' in error['error']
-                ) {
-                  response.errorCode = TRANSACTION_GAS_PRICE_TOO_LOW;
-                  response.message = error['error']['message'];
-                } else {
-                  response.errorCode = NETWORK_ERROR_CODE;
-                  response.message = NETWORK_ERROR_MESSAGE;
-                }
+              const transactionError = parseTransactionGasError(err);
+              if (transactionError) {
+                response.errorCode = transactionError.errorCode;
+                response.message = transactionError.message;
               } else {
                 response.errorCode = NETWORK_ERROR_CODE;
                 response.message = NETWORK_ERROR_MESSAGE;
