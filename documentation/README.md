@@ -14,11 +14,14 @@ For internal Hummingbot staff, see below for how to deploy the site in your loca
 #### Local
 
 ```
+# change to conda base environment since there may be conflicts with hummingbot environment
+➜ conda activate
+
 # install mkdocs-material-insiders and dependencies
-pip install git+https://github.com/CoinAlpha/mkdocs-material-insiders.git
+(base) ➜ pip install git+ssh://git@github.com/CoinAlpha/mkdocs-material-insiders
 
 # install revision date plugin
-pip mkdocs-git-revision-date-plugin
+(base) ➜ pip install mkdocs-git-revision-date-plugin
 ```
 
 #### Netlify

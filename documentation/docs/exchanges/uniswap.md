@@ -1,33 +1,36 @@
-# Uniswap
+---
+tags:
+- amm exchange connector
+- ethereum dex
+---
 
-[Uniswap](https://uniswap.org/) is a protocol on Ethereum for swapping ERC20 tokens. Unlike most exchanges, which are designed to take fees, Uniswap is designed to function as a public good — a tool for the community to trade tokens without platform fees or middlemen.
+# `uniswap`
 
-Source: https://docs.uniswap.org/protocol/V2/introduction
+!!! note
+    This connector is currently being refactored as part of the [Gateway V2 redesign](/developers/gateway). The current V1 version is working, but may have usability issues that will be addressed in the redesign.
 
-!!! warning
-    Currently, [Uniswap](/exchanges/uniswap/) could not be used on Binary Installers since it would need a [gateway](/protocols/gateway/) connection for it to work. It can only be used when running Hummingbot from source or with Docker.
+## 📁 Folders
 
-## Prerequisites
+* [Hummingbot - Connector](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/connector/connector/uniswap)
+* [Gateway - Routes](https://github.com/CoinAlpha/gateway-api/blob/master/src/routes/uniswap.ts)
+* [Gateway - Service](https://github.com/CoinAlpha/gateway-api/blob/master/src/services/uniswap.js)
 
-- Ethereum wallet (refer to our guide [here](/protocols/ethereum/#connect-wallet))
-- Ethereum node (refer to our guide [here](/protocols/ethereum/#connect-node))
-- Hummingbot Gateway (done after connecting to Uniswap)
-- Some ETH in wallet for gas
-- Inventory on both base and quote assets for the connectors
+## ℹ️ Exchange Info
 
-## Connecting to Uniswap
+**Uniswap** 
+[Website](https://uniswap.org/) | [CoinMarketCap](https://coinmarketcap.com/currencies/terra-luna/) | [CoinGecko](https://www.coingecko.com/en/coins/uniswap)
 
-When creating Hummingbot Gateway, it picks up the Ethereum settings in the global config file, which we can set up in the Hummingbot client.
+* API docs: https://docs.uniswap.org/protocol/V2/introduction
+* SDK: https://docs.uniswap.org/sdk/introduction
+* Fees: https://docs.uniswap.org/protocol/V2/concepts/advanced-topics/fees
 
-1. Run the command `connect ethereum` in the Hummingbot client
-2. Enter your wallet private key
-3. Enter Ethereum node address (starts with https://)
-4. Enter the WebSocket connection address of your Ethereum node (starts with wss://)
+## 👷 Maintenance
 
-![](/assets/img/connect-ethereum.gif)
+* Release added: [0.34.0](/release-notes/0.34.0/) by CoinAlpha
+* Maintainer: CoinAlpha
 
-## Install Hummingbot Gateway
+## 🔑 Connection
 
-After adding your Ethereum wallet and node in Hummingbot, follow the guide in the link below on how to install Hummingbot Gateway.
+First, follow the instructions to install and run [Hummingbot Gateway](/protocols/gateway/).
 
-- [Hummingbot Gateway Installation](/protocols/gateway/)
+Since this exchange is an Ethereum-based decentralized exchange (DEX), run `connect ethereum` in order to connect your Ethereum wallet. See [Ethereum](/protocols/ethereum) for more information.
