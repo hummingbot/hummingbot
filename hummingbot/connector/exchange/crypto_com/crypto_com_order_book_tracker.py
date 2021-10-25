@@ -32,7 +32,7 @@ class CryptoComOrderBookTracker(OrderBookTracker):
     def __init__(
         self,
         shared_client: aiohttp.ClientSession,
-        throttler: AsyncThrottler,
+        throttler: Optional[AsyncThrottler] = None,
         trading_pairs: Optional[List[str]] = None,
     ):
         super().__init__(data_source=CryptoComAPIOrderBookDataSource(trading_pairs=trading_pairs,
