@@ -2,11 +2,14 @@
 import asyncio
 import logging
 import time
-import pandas as pd
-from decimal import Decimal
+from collections import defaultdict
 from typing import Optional, List, Dict, Any
-from hummingbot.core.data_type.order_book import OrderBook
+from decimal import Decimal
 
+import aiohttp
+import pandas as pd
+
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -25,6 +28,8 @@ from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 
 class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
     _logger: Optional[HummingbotLogger] = None
+    _trades_queue_name = "trades"
+    _ob_queue_name = "ob"
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -32,11 +37,18 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, throttler: Optional[AsyncThrottler] = None, trading_pairs: List[str] = None):
+    def __init__(
+        self,
+        throttler: Optional[AsyncThrottler] = None,
+        trading_pairs: List[str] = None,
+        shared_client: Optional[aiohttp.ClientSession] = None,
+    ):
         super().__init__(trading_pairs)
+        self._shared_client = shared_client
         self._throttler = throttler or self._get_throttler_instance()
         self._trading_pairs: List[str] = trading_pairs
-        self._snapshot_msg: Dict[str, any] = {}
+
+        self._message_queue: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
 
     @classmethod
     def _get_throttler_instance(cls) -> AsyncThrottler:
@@ -106,91 +118,112 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
         order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
         return order_book
 
+    async def listen_for_subscriptions(self):
+        ws = None
+        ob_channels = [
+            CONSTANTS.ORDER_SNAPSHOT_ENDPOINT_NAME,
+            CONSTANTS.ORDERS_UPDATE_ENDPOINT_NAME,
+        ]
+        target_channels = [CONSTANTS.TRADES_ENDPOINT_NAME]
+        target_channels.extend(ob_channels)
+
+        while True:
+            try:
+                ws = await self._subscribe_to_order_book_streams()
+                async for response in ws.on_message():
+                    channel: str = response.get("channel", None)
+
+                    if response.get("event") in ["subscribe", "unsubscribe"]:
+                        continue
+                    elif channel == CONSTANTS.TRADES_ENDPOINT_NAME:
+                        self._message_queue[self._trades_queue_name].put_nowait(response)
+                    elif channel in ob_channels:
+                        self._message_queue[self._ob_queue_name].put_nowait(response)
+
+                    self._message_queue[channel].put_nowait(response)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().error("Unexpected error occurred when listening to order book streams. "
+                                    "Retrying in 5 seconds...",
+                                    exc_info=True)
+                await self._sleep(5.0)
+            finally:
+                ws and await ws.disconnect()
+
+    async def _subscribe_to_order_book_streams(self) -> GateIoWebsocket:
+        try:
+            ws = GateIoWebsocket(shared_client=self._shared_client)
+            await ws.connect()
+            await ws.subscribe(
+                CONSTANTS.TRADES_ENDPOINT_NAME,
+                [convert_to_exchange_trading_pair(pair) for pair in self._trading_pairs],
+            )
+            for pair in self._trading_pairs:
+                await ws.subscribe(CONSTANTS.ORDER_SNAPSHOT_ENDPOINT_NAME,
+                                   [convert_to_exchange_trading_pair(pair), '5', '1000ms'])
+                await ws.subscribe(CONSTANTS.ORDERS_UPDATE_ENDPOINT_NAME,
+                                   [convert_to_exchange_trading_pair(pair), '100ms'])
+                self.logger().info(f"Subscribed to {self._trading_pairs} orderbook data streams...")
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().error("Unexpected error occurred subscribing to order book data streams...")
+            raise
+        return ws
+
     async def listen_for_trades(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
         """
         Listen for trades using websocket trade channel
         """
-        ws = None
+        msg_queue = self._message_queue[self._trades_queue_name]
         while True:
             try:
-                ws = GateIoWebsocket()
-                await ws.connect()
+                msg = await msg_queue.get()
+                trade_data: Dict[Any] = msg.get("result", None)
 
-                await ws.subscribe(CONSTANTS.TRADES_ENDPOINT_NAME,
-                                   [convert_to_exchange_trading_pair(pair) for pair in self._trading_pairs])
+                pair: str = convert_from_exchange_trading_pair(trade_data.get("currency_pair", None))
 
-                async for response in ws.on_message():
-                    method: str = response.get("channel", None)
-                    trade_data: Dict[Any] = response.get("result", None)
+                if pair is None:
+                    continue
 
-                    if response.get("event") in ["subscribe", "unsubscribe"]:
-                        continue
-                    if trade_data is None or method != CONSTANTS.TRADES_ENDPOINT_NAME:
-                        continue
-
-                    pair: str = convert_from_exchange_trading_pair(trade_data.get("currency_pair", None))
-
-                    if pair is None:
-                        continue
-
-                    trade_timestamp: int = trade_data['create_time']
-                    trade_msg: OrderBookMessage = GateIoOrderBook.trade_message_from_exchange(
-                        trade_data,
-                        trade_timestamp,
-                        metadata={"trading_pair": pair})
-                    output.put_nowait(trade_msg)
+                trade_timestamp: int = trade_data['create_time']
+                trade_msg: OrderBookMessage = GateIoOrderBook.trade_message_from_exchange(
+                    trade_data,
+                    trade_timestamp,
+                    metadata={"trading_pair": pair})
+                output.put_nowait(trade_msg)
 
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().error("Unexpected error.", exc_info=True)
                 await asyncio.sleep(5.0)
-            finally:
-                if ws is not None:
-                    await ws.disconnect()
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
         """
         Listen for orderbook diffs using websocket book channel
         """
-        ws = None
+        msg_queue = self._message_queue[self._ob_queue_name]
         while True:
             try:
-                ws = GateIoWebsocket()
-                await ws.connect()
+                msg = await msg_queue.get()
+                channel: str = msg.get("channel", None)
+                order_book_data: str = msg.get("result", None)
 
-                order_book_channels = [
-                    CONSTANTS.ORDER_SNAPSHOT_ENDPOINT_NAME,
-                    CONSTANTS.ORDERS_UPDATE_ENDPOINT_NAME,
-                ]
+                timestamp: int = order_book_data["t"]
+                pair: str = convert_from_exchange_trading_pair(order_book_data["s"])
 
-                for pair in self._trading_pairs:
-                    await ws.subscribe(CONSTANTS.ORDER_SNAPSHOT_ENDPOINT_NAME,
-                                       [convert_to_exchange_trading_pair(pair), '5', '1000ms'])
-                    await ws.subscribe(CONSTANTS.ORDERS_UPDATE_ENDPOINT_NAME,
-                                       [convert_to_exchange_trading_pair(pair), '100ms'])
+                order_book_msg_cls = (GateIoOrderBook.diff_message_from_exchange
+                                      if channel == CONSTANTS.ORDERS_UPDATE_ENDPOINT_NAME else
+                                      GateIoOrderBook.snapshot_message_from_exchange)
 
-                async for response in ws.on_message():
-                    channel: str = response.get("channel", None)
-                    order_book_data: str = response.get("result", None)
-
-                    if response.get("event") in ["subscribe", "unsubscribe"]:
-                        continue
-                    if order_book_data is None or channel not in order_book_channels:
-                        continue
-
-                    timestamp: int = order_book_data["t"]
-                    pair: str = convert_from_exchange_trading_pair(order_book_data["s"])
-
-                    order_book_msg_cls = (GateIoOrderBook.diff_message_from_exchange
-                                          if channel == CONSTANTS.ORDERS_UPDATE_ENDPOINT_NAME else
-                                          GateIoOrderBook.snapshot_message_from_exchange)
-
-                    orderbook_msg: OrderBookMessage = order_book_msg_cls(
-                        order_book_data,
-                        timestamp,
-                        metadata={"trading_pair": pair})
-                    output.put_nowait(orderbook_msg)
+                orderbook_msg: OrderBookMessage = order_book_msg_cls(
+                    order_book_data,
+                    timestamp,
+                    metadata={"trading_pair": pair}
+                )
+                output.put_nowait(orderbook_msg)
 
             except asyncio.CancelledError:
                 raise
@@ -200,9 +233,6 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     app_warning_msg="Unexpected error with WebSocket connection. Retrying in 30 seconds. "
                                     "Check network connection.")
                 await asyncio.sleep(30.0)
-            finally:
-                if ws is not None:
-                    await ws.disconnect()
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
         """

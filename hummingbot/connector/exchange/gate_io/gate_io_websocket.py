@@ -3,12 +3,6 @@ import asyncio
 import logging
 import json
 import time
-
-import aiohttp
-
-from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
-
-
 from typing import (
     Any,
     AsyncIterable,
@@ -17,12 +11,14 @@ from typing import (
     Optional,
 )
 
-from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.logger import HummingbotLogger
+import aiohttp
+
+from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
 from hummingbot.connector.exchange.gate_io.gate_io_utils import (
     GateIoAPIError,
 )
+from hummingbot.logger import HummingbotLogger
 
 
 class GateIoWebsocket:
@@ -35,11 +31,12 @@ class GateIoWebsocket:
         return cls._logger
 
     def __init__(self,
-                 auth: Optional[GateIoAuth] = None):
+                 auth: Optional[GateIoAuth] = None,
+                 shared_client: Optional[aiohttp.ClientSession] = None):
         self._auth: Optional[GateIoAuth] = auth
         self._is_private = True if self._auth is not None else False
         self._WS_URL = CONSTANTS.WS_URL
-        self._session = aiohttp.ClientSession()
+        self._session = shared_client or self._get_session_instance()
         self._client: Optional[aiohttp.ClientWebSocketResponse] = None
         self._closed = True
         self._last_recv_time = 0
@@ -49,9 +46,16 @@ class GateIoWebsocket:
     def last_recv_time(self) -> float:
         return self._last_recv_time
 
+    @classmethod
+    def _get_session_instance(cls) -> aiohttp.ClientSession:
+        session = aiohttp.ClientSession()
+        return session
+
     # connect to exchange
     async def connect(self):
-        self._client = await self._session.ws_connect(self._WS_URL, autoping=False)
+        self._client = await self._session.ws_connect(
+            self._WS_URL, autoping=False, heartbeat=CONSTANTS.PING_TIMEOUT
+        )
         self._closed = False
         return self._client
 
@@ -75,10 +79,13 @@ class GateIoWebsocket:
                     if msg.type == aiohttp.WSMsgType.CLOSED:  # happens on ws.close()
                         raise ConnectionError
 
-                    self._last_recv_time = time.time()
-
-                    if msg.type == aiohttp.WSMsgType.PONG:
+                    if msg.type == aiohttp.WSMsgType.PING:
+                        if self._last_recv_time == 0:
+                            self._last_recv_time = time.time()
+                        await self._client.pong()
                         continue
+
+                    self._last_recv_time = time.time()
 
                     data = json.loads(msg.data)
                     # Raise API error for login failures.
@@ -156,15 +163,5 @@ class GateIoWebsocket:
 
     # listen to messages by channel
     async def on_message(self) -> AsyncIterable[Any]:
-        self._ping_pong_loop_future = safe_ensure_future(self._ping_pong_loop())
         async for msg in self._messages():
             yield msg
-
-    async def _ping_pong_loop(self):
-        while self._client is not None and not self._client.closed:
-            ping_send_time = time.time()
-            await self._client.ping()
-            await asyncio.sleep(CONSTANTS.PING_TIMEOUT)
-            if self._last_recv_time < ping_send_time:
-                self._client._pong_not_received()
-                raise asyncio.TimeoutError
