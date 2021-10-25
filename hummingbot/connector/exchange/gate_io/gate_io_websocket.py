@@ -80,7 +80,7 @@ class GateIoWebsocket:
                         raise ConnectionError
 
                     if msg.type == aiohttp.WSMsgType.PING:
-                        if self._last_recv_time == 0:
+                        if self._last_recv_time == 0:  # if no updates so far; indicates connector is ready
                             self._last_recv_time = time.time()
                         await self._client.pong()
                         continue
