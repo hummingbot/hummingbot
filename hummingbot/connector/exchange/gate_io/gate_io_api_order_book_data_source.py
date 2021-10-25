@@ -177,6 +177,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Listen for trades using websocket trade channel
         """
         msg_queue = self._message_queue[self._trades_queue_name]
+        msg = None
         while True:
             try:
                 msg = await msg_queue.get()
@@ -197,7 +198,9 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unexpected error.", exc_info=True)
+                self.logger().error(
+                    f"Unexpected error while parsing ws trades message {msg}.", exc_info=True
+                )
                 await asyncio.sleep(5.0)
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
@@ -205,6 +208,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Listen for orderbook diffs using websocket book channel
         """
         msg_queue = self._message_queue[self._ob_queue_name]
+        msg = None
         while True:
             try:
                 msg = await msg_queue.get()
@@ -228,10 +232,9 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().network(
-                    "Unexpected error with WebSocket connection.", exc_info=True,
-                    app_warning_msg="Unexpected error with WebSocket connection. Retrying in 30 seconds. "
-                                    "Check network connection.")
+                self.logger().error(
+                    f"Unexpected error while parsing ws order book message {msg}.", exc_info=True
+                )
                 await asyncio.sleep(30.0)
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
