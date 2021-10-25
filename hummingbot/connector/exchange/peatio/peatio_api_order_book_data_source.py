@@ -24,7 +24,7 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.peatio.peatio_urls import PEATIO_ROOT_API, PEATIO_WS_URL
+from hummingbot.connector.exchange.peatio.peatio_urls import PEATIO_ROOT_API, PEATIO_WS_PUBLIC_URL
 from hummingbot.connector.exchange.peatio.peatio_order_book import PeatioOrderBook
 from hummingbot.connector.exchange.peatio.peatio_utils import convert_to_exchange_trading_pair, PeatioAPIError
 
@@ -175,7 +175,7 @@ class PeatioAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 trading_pairs: List[str] = self._trading_pairs
-                async with websockets.connect(PEATIO_WS_URL) as ws:
+                async with websockets.connect(PEATIO_WS_PUBLIC_URL) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     subscribe_request: Dict[str, Any] = {
                         "streams": [
@@ -219,7 +219,7 @@ class PeatioAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 trading_pairs: List[str] = self._trading_pairs
-                async with websockets.connect(PEATIO_WS_URL) as ws:
+                async with websockets.connect(PEATIO_WS_PUBLIC_URL) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     subscribe_request: Dict[str, Any] = {
                         "streams": [
@@ -236,6 +236,7 @@ class PeatioAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
                     async for raw_msg in self._inner_messages(ws):
                         msg: Dict[str, Any] = json.loads(raw_msg)
+                        self.logger().info(f"stream msg: {msg}")
                         if "error" in msg:
                             raise PeatioAPIError(msg["error"]["message"])
                         elif len(required_streams.intersection(set(msg.keys()))) > 0:

@@ -648,14 +648,13 @@ cdef class PeatioExchange(ExchangeBase):
         async for stream_message in self._iter_user_stream_queue():
             try:
                 for channel in stream_message.keys():
-                    if channel not in PEATIO_SUBSCRIBE_TOPICS:
-                        continue
+                    # if channel not in PEATIO_SUBSCRIBE_TOPICS:
+                    #     continue
                     data = stream_message[channel]
-
-                    if len(data) == 0 and stream_message["code"] == 200:
-                        # This is a subcribtion confirmation.
-                        self.logger().info(f"Successfully subscribed to {channel}")
-                        continue
+                    # if len(data) == 0 and stream_message["code"] == 200:
+                    #     # This is a subcribtion confirmation.
+                    #     self.logger().info(f"Successfully subscribed to {channel}")
+                    #     continue
 
                     # if channel == PEATIO_ACCOUNT_UPDATE_TOPIC:
                     #     asset_name = data["currency"].upper()
@@ -666,21 +665,21 @@ cdef class PeatioExchange(ExchangeBase):
                     #     self._account_available_balances.update({asset_name: Decimal(available_balance)})
                     #     continue
 
-                    elif channel == PEATIO_ORDER_UPDATE_TOPIC:
-                        exchange_order_id = data["id"]
-
-                        tracked_order = self.get_in_flight_orders_by_exchange_id(exchange_order_id)
-                        if tracked_order is None:
-                            continue
-
-                        await self.update_tracked_order(
-                            order_obj=data,
-                            tracked_order=tracked_order,
-                            exch_order_id=exchange_order_id
-                        )
-                    else:
-                        # Ignore all other user stream message types
-                        continue
+                    # elif channel == PEATIO_ORDER_UPDATE_TOPIC:
+                    #     exchange_order_id = data["id"]
+                    #
+                    #     tracked_order = self.get_in_flight_orders_by_exchange_id(exchange_order_id)
+                    #     if tracked_order is None:
+                    #         continue
+                    #
+                    #     await self.update_tracked_order(
+                    #         order_obj=data,
+                    #         tracked_order=tracked_order,
+                    #         exch_order_id=exchange_order_id
+                    #     )
+                    # else:
+                    #     # Ignore all other user stream message types
+                    #     continue
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -951,6 +950,45 @@ cdef class PeatioExchange(ExchangeBase):
                 app_warning_msg=f"Failed to cancel all orders on Peatio. Check API key and network connection."
             )
         return cancellation_results
+
+    # async def cancel_all_with_conditions(self, trading_pair: str = None, trade_type: TradeType = None) -> List[CancellationResult]:
+    #     data = {}
+    #     open_orders = filter(lambda x: x.is_open, self._in_flight_orders.values())
+    #     if trading_pair is not None:
+    #         open_orders = list(filter(lambda x: x.trading_pair == trading_pair, open_orders))
+    #         data['market'] = convert_to_exchange_trading_pair(trading_pair)
+    #     if trade_type is not None:
+    #         open_orders = list(filter(lambda x: x.trade_type == trade_type, open_orders))
+    #         data['side'] = "buy" if trade_type is TradeType.BUY else "sell"
+    #     open_orders = list(open_orders)
+    #
+    #     if len(open_orders) == 0:
+    #         self.logger().info("Opened orders not found")
+    #         return []
+    #
+    #     cancel_order_ids = list(map(lambda x: x.exchange_order_id, open_orders))
+    #     self.logger().info(f"cancel_order_ids {cancel_order_ids} {open_orders}")
+    #     path_url = "/market/orders/cancel"
+    #     try:
+    #         cancel_all_results = await self._api_request(
+    #             "post",
+    #             data=data,
+    #             path_url=path_url,
+    #             is_auth_required=True
+    #         )
+    #         results = await safe_gather(*list(map(lambda x: self.get_order_status(exchange_order_id=str(x['id'])), cancel_all_results)))
+    #         cancellation_results = list(map(lambda x: CancellationResult(x['id'], x["state"] == "cancel"), results))
+    #
+    #     except Exception as e:
+    #         self.logger().network(
+    #             f"Failed to cancel all orders: {cancel_order_ids}",
+    #             exc_info=True,
+    #             app_warning_msg=f"Failed to cancel all orders on Peatio. Check API key and network connection."
+    #         )
+    #     return cancellation_results
+    #
+    # cdef c_cancel_all_with_conditions(self, str trading_pair, object trade_type):
+    #     safe_ensure_future(self.cancel_all_with_conditions(trading_pair, trade_type))
 
     cdef OrderBook c_get_order_book(self, str trading_pair):
         cdef:
