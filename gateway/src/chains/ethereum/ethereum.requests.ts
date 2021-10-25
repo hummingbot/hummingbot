@@ -71,6 +71,8 @@ export interface EthereumBalanceResponse {
 export interface EthereumApproveRequest {
   amount?: string; // the amount the spender will be approved to use
   nonce?: number; // the privateKey's next nonce
+  maxFeePerGas?: string;
+  maxPriorityFeePerGas?: string;
   privateKey: string; // the user's private Ethereum key
   spender: string; // the address of the spend (or a pre-defined string like 'uniswap', 'balancer', etc.)
   token: string; // the token symbol the spender will be approved for

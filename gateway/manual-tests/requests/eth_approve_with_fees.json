@@ -1,0 +1,7 @@
+{
+  "privateKey": "$ETH_PRIVATE_KEY",
+  "spender": "uniswap",
+  "token": "DAI",
+  "maxFeePerGas": "2500000000",
+  "maxPriorityFeePerGas": "5000000000"
+}
