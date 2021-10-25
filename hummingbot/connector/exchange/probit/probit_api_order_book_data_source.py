@@ -161,15 +161,7 @@ class ProbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
             for trading_pair in self._trading_pairs:
                 params: Dict[str, Any] = {
                     "channel": "marketdata",
-                    "filter": [self.TRADE_FILTER_ID],
-                    "interval": 100,
-                    "market_id": trading_pair,
-                    "type": "subscribe"
-                }
-                await ws.send_json(params)
-                params: Dict[str, Any] = {
-                    "channel": "marketdata",
-                    "filter": [self.DIFF_FILTER_ID],
+                    "filter": [self.TRADE_FILTER_ID, self.DIFF_FILTER_ID],
                     "interval": 100,
                     "market_id": trading_pair,
                     "type": "subscribe"
@@ -210,10 +202,11 @@ class ProbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Listen for orderbook diffs using websocket book channel
         """
         msg_queue = self._message_queue[self.DIFF_FILTER_ID]
+        msg = None
         while True:
             try:
                 msg = await msg_queue.get()
-                msg_timestamp: int = int(time.time() * 1e3)
+                msg_timestamp = int(time.time() * 1e3)
 
                 if "reset" in msg and msg["reset"] is True:
                     # First response from websocket is a snapshot. This is only when reset = True
@@ -232,7 +225,9 @@ class ProbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unexpected error.", exc_info=True)
+                self.logger().error(
+                    f"Error while parsing OrderBookMessage from ws message {msg}", exc_info=True
+                )
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
