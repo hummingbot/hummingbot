@@ -160,8 +160,8 @@ class CryptoComAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def listen_for_subscriptions(self):
         ws = None
-        try:
-            while True:
+        while True:
+            try:
                 ws = await self._create_websocket_connection()
                 await ws.subscribe_to_order_book_streams(self._trading_pairs)
 
@@ -171,16 +171,16 @@ class CryptoComAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     channel = msg["result"].get("channel", None)
                     if channel in CryptoComWebsocket.SUBSCRIPTION_LIST:
                         self._message_queue[channel].put_nowait(msg["result"])
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            self.logger().error(
-                "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds...",
-                exc_info=True,
-            )
-            await self._sleep(5.0)
-        finally:
-            ws and await ws.disconnect()
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().error(
+                    "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds...",
+                    exc_info=True,
+                )
+                await self._sleep(5.0)
+            finally:
+                ws and await ws.disconnect()
 
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """

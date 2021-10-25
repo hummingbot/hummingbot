@@ -54,8 +54,14 @@ class CryptoComAPIUserStreamDataSourceUnitTests(unittest.TestCase):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
 
-    def test_get_shared_client(self):
+    def test_get_shared_client_not_shared_client_provided(self):
+        self.assertIsNone(self.data_source._shared_client)
         self.assertIsInstance(self.data_source._get_shared_client(), aiohttp.ClientSession)
+
+    def test_get_shared_client_shared_client_provided(self):
+        aiohttp_client = aiohttp.ClientSession()
+        data_source = CryptoComAPIUserStreamDataSource(crypto_com_auth=self.auth, shared_client=aiohttp_client)
+        self.assertEqual(data_source._get_shared_client(), aiohttp_client)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_create_websocket_connection_raised_cancelled(self, ws_connect_mock):

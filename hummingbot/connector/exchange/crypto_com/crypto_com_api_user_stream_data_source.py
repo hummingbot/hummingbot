@@ -33,7 +33,7 @@ class CryptoComAPIUserStreamDataSource(UserStreamTrackerDataSource):
     ):
         super().__init__()
         self._crypto_com_auth: CryptoComAuth = crypto_com_auth
-        self._shared_client = shared_client or aiohttp.ClientSession()
+        self._shared_client = shared_client
 
         self._last_recv_time: float = 0
         self._auth_successful_event = asyncio.Event()
@@ -77,8 +77,8 @@ class CryptoComAPIUserStreamDataSource(UserStreamTrackerDataSource):
         :param output: an async queue where the incoming messages are stored
         """
         ws = None
-        try:
-            while True:
+        while True:
+            try:
                 ws = await self._create_websocket_connection()
                 await ws.subscribe_to_user_streams()
                 async for msg in ws.iter_messages():
@@ -88,12 +88,12 @@ class CryptoComAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     if msg.get("result") is None:
                         continue
                     output.put_nowait(msg)
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            self.logger().error(
-                "Unexpected error when listening to user streams. Retrying after 5 seconds...", exc_info=True
-            )
-            await self._sleep(5)
-        finally:
-            ws and await ws.disconnect()
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().error(
+                    "Unexpected error when listening to user streams. Retrying after 5 seconds...", exc_info=True
+                )
+                await self._sleep(5)
+            finally:
+                ws and await ws.disconnect()
