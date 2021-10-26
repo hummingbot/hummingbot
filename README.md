@@ -81,7 +81,6 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 
 ### Install Hummingbot
 
-- [Quickstart guide](https://hummingbot.io/academy/quickstart/)
 - [All installation options](https://docs.hummingbot.io/installation/overview/)
 - [Installation scripts](./installation/)
 
@@ -96,8 +95,8 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 ## Contributions
 
 We welcome contributions from the community:
-- **Code and documentation contributions** via [pull requests](https://github.com/CoinAlpha/hummingbot/pulls)
-- **Bug reports and feature requests** through [Github issues](https://github.com/CoinAlpha/hummingbot/issues)
+- Code and documentation contributions via [pull requests](https://github.com/CoinAlpha/hummingbot/pulls)
+- Bug reports and feature requests through [Github issues](https://github.com/CoinAlpha/hummingbot/issues)
 - When contributing, please review the [contributing guidelines](CONTRIBUTING.md)
 
 ## About us
