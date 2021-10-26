@@ -69,3 +69,63 @@ export const RATE_LIMIT_ERROR_MESSAGE =
   'Blockchain node API rate limit exceeded.';
 export const OUT_OF_GAS_ERROR_MESSAGE = 'Transaction out of gas.';
 export const UNKNOWN_ERROR_MESSAGE = 'Unknown error.';
+
+export interface ErrorResponse {
+  stack?: any;
+  message: string;
+  httpErrorCode: number;
+  errorCode: number;
+}
+
+export const gatewayErrorMiddleware = (
+  err: Error | NodeError | HttpException
+): ErrorResponse => {
+  const response: ErrorResponse = {
+    message: err.message || UNKNOWN_ERROR_MESSAGE,
+    httpErrorCode: 503,
+    errorCode: UNKNOWN_ERROR_ERROR_CODE,
+    stack: err.stack,
+  };
+  // the default http error code is 503 for an unknown error
+  if (err instanceof HttpException) {
+    response.httpErrorCode = err.status;
+    response.errorCode = err.errorCode;
+  } else {
+    response.errorCode = UNKNOWN_ERROR_ERROR_CODE;
+    response.message = UNKNOWN_ERROR_MESSAGE;
+
+    if ('code' in err) {
+      switch (typeof err.code) {
+        case 'string':
+          // error is from ethers library
+          if (['NETWORK_ERROR', 'TIMEOUT'].includes(err.code)) {
+            response.errorCode = NETWORK_ERROR_CODE;
+            response.message = NETWORK_ERROR_MESSAGE;
+          } else if (err.code === 'SERVER_ERROR') {
+            const transactionError = parseTransactionGasError(err);
+            if (transactionError) {
+              response.errorCode = transactionError.errorCode;
+              response.message = transactionError.message;
+            } else {
+              response.errorCode = NETWORK_ERROR_CODE;
+              response.message = NETWORK_ERROR_MESSAGE;
+            }
+          }
+          break;
+
+        case 'number':
+          // errors from provider, this code comes from infura
+          if (err.code === -32005) {
+            // we only handle rate-limit errors
+            response.errorCode = RATE_LIMIT_ERROR_CODE;
+            response.message = RATE_LIMIT_ERROR_MESSAGE;
+          } else if (err.code === -32010) {
+            response.errorCode = TRANSACTION_GAS_PRICE_TOO_LOW;
+            response.message = err.message;
+          }
+          break;
+      }
+    }
+  }
+  return response;
+};
