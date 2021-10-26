@@ -14,7 +14,7 @@
     "dev:debug": "nodemon --inspect src/index.ts",
     "start": "nodemon dist/src/index.js",
     "test:unit": "jest --verbose --forceExit ./test/",
-    "test:cov": "jest --coverage ./test/",
+    "test:cov": "jest --coverage --forceExit ./test/",
     "test:scripts": "jest --verbose ./test-scripts/"
   },
   "dependencies": {
@@ -34,6 +34,8 @@
     "express-ipfilter": "^1.2.0",
     "express-winston": "^4.1.0",
     "js-yaml": "^4.1.0",
+    "level": "^7.0.1",
+    "level-party": "^5.1.1",
     "winston": "^3.3.3",
     "winston-daily-rotate-file": "^4.5.5"
   },
@@ -42,11 +44,13 @@
     "@types/express": "^4.17.12",
     "@types/jest": "^27.0.1",
     "@types/js-yaml": "^4.0.2",
+    "@types/level": "^6.0.0",
     "@types/mathjs": "^9.4.2",
     "@types/node": "^15.12.4",
     "@types/supertest": "^2.0.11",
     "@typescript-eslint/eslint-plugin": "^4.26.1",
     "@typescript-eslint/parser": "^4.26.1",
+    "coverage-on-diff": "^0.0.3",
     "eslint": "^7.25.0",
     "eslint-config-prettier": "^8.3.0",
     "eslint-config-standard": "^16.0.3",

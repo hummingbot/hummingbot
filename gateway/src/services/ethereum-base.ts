@@ -21,9 +21,9 @@ export class EthereumBase {
   protected _tokenList: Token[] = [];
   private _tokenMap: Record<string, Token> = {};
   // there are async values set in the constructor
-  private _ready: boolean = false;
-  private _initializing: boolean = false;
-  private _initPromise: Promise<void> = Promise.resolve();
+  protected _ready: boolean = false;
+  protected _initializing: boolean = false;
+  protected _initPromise: Promise<void> = Promise.resolve();
 
   public chainId;
   public rpcUrl;
@@ -69,13 +69,9 @@ export class EthereumBase {
   async init(): Promise<void> {
     if (!this.ready() && !this._initializing) {
       this._initializing = true;
-      this._initPromise = this.loadTokens(
-        this.tokenListSource,
-        this.tokenListType
-      ).then(() => {
-        this._ready = true;
-        this._initializing = false;
-      });
+      await this.loadTokens(this.tokenListSource, this.tokenListType);
+      this._ready = true;
+      this._initializing = false;
     }
     return this._initPromise;
   }
