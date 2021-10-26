@@ -123,7 +123,7 @@ cdef class HedgeStrategy(StrategyBase):
     
             if isnan(order_age(o)):
                 continue
-            if order_age(o) > self._max_order_age:
+            if self._max_order_age>0 and order_age(o) > self._max_order_age:
                 self.log_with_clock(logging.INFO,
                                     f"{market_pair.trading_pair}: "
                                     f"order age of limit order ({order_age(o)}) is more than {self._max_order_age}. "
