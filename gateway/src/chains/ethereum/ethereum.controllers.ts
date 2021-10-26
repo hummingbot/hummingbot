@@ -72,7 +72,7 @@ const getSpender = (reqSpender: string): string => {
   return spender;
 };
 
-const getTokenSymbolsToTokens = (
+export const getTokenSymbolsToTokens = (
   tokenSymbols: Array<string>
 ): Record<string, Token> => {
   const tokens: Record<string, Token> = {};
@@ -99,7 +99,6 @@ export async function allowances(
   const wallet = ethereum.getWallet(req.privateKey);
 
   const tokens = getTokenSymbolsToTokens(req.tokenSymbols);
-
   const spender = getSpender(req.spender);
 
   const approvals: Record<string, string> = {};
