@@ -14,7 +14,6 @@ omit =
         hummingbot/connector/exchange/bitfinex*
         hummingbot/connector/exchange/blocktane*
         hummingbot/connector/exchange/coinbase_pro*
-        hummingbot/connector/exchange/crypto_com*
         hummingbot/connector/exchange/digifinex*
         hummingbot/connector/exchange/dydx*
         hummingbot/connector/exchange/ftx*
