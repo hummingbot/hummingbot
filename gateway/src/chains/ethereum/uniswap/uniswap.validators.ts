@@ -6,12 +6,7 @@ import {
   Validator,
 } from '../../../services/validators';
 
-import {
-  validateNonce,
-  validatePrivateKey,
-  validateMaxFeePerGas,
-  validateMaxPriorityFeePerGas,
-} from '../ethereum.validators';
+import { validateNonce, validatePrivateKey } from '../ethereum.validators';
 
 export const invalidQuoteError: string = 'The quote param is not a string.';
 
@@ -70,7 +65,5 @@ export const validateUniswapTradeRequest: RequestValidator = mkRequestValidator(
     validateSide,
     validateLimitPrice,
     validateNonce,
-    validateMaxFeePerGas,
-    validateMaxPriorityFeePerGas,
   ]
 );

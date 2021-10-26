@@ -95,21 +95,6 @@ const patchPriceSwapOut = () => {
   });
 };
 
-const patchPriceSwapIn = () => {
-  patch(UniswapRoutes.uniswap, 'priceSwapIn', () => {
-    return {
-      expectedAmount: {
-        toSignificant: () => 100,
-      },
-      trade: {
-        executionPrice: {
-          toSignificant: () => 100,
-        },
-      },
-    };
-  });
-};
-
 const patchConfig = () => {
   patch(ConfigManager.config, 'UNISWAP_GAS_LIMIT', 150688);
   patch(ConfigManager.config, 'ETHEREUM_CHAIN', 'kovan');
@@ -125,98 +110,8 @@ const patchExecuteTrade = () => {
   });
 };
 
-describe('POST /eth/uniswap/price', () => {
-  it('should return 200 for BUY', async () => {
-    patchGetWallet();
-    patchInit();
-    patchStoredTokenList();
-    patchGetTokenBySymbol();
-    patchGasPrice();
-    patchPriceSwapOut();
-    patchConfig();
-    patchGetNonce();
-    patchExecuteTrade();
-
-    await request(app)
-      .post(`/eth/uniswap/price`)
-      .send({
-        quote: 'DAI',
-        base: 'WETH',
-        amount: '10000',
-        side: 'BUY',
-      })
-      .set('Accept', 'application/json')
-      .expect(200)
-      .then((res: any) => {
-        expect(res.body.amount).toEqual('10000');
-      });
-  });
-
-  it('should return 200 for SELL', async () => {
-    patchGetWallet();
-    patchInit();
-    patchStoredTokenList();
-    patchGetTokenBySymbol();
-    patchGasPrice();
-    patchPriceSwapIn();
-    patchConfig();
-    patchGetNonce();
-    patchExecuteTrade();
-
-    await request(app)
-      .post(`/eth/uniswap/price`)
-      .send({
-        quote: 'DAI',
-        base: 'WETH',
-        amount: '10000',
-        side: 'SELL',
-      })
-      .set('Accept', 'application/json')
-      .expect(200)
-      .then((res: any) => {
-        expect(res.body.amount).toEqual('10000');
-      });
-  });
-
-  it('should return 500 for unrecognized quote symobl', async () => {
-    patchGetWallet();
-    patchInit();
-    patchStoredTokenList();
-    patchGetTokenBySymbol();
-
-    await request(app)
-      .post(`/eth/uniswap/price`)
-      .send({
-        quote: 'DOGE',
-        base: 'WETH',
-        amount: '10000',
-        side: 'SELL',
-      })
-      .set('Accept', 'application/json')
-      .expect(500);
-  });
-
-  it('should return 500 for unrecognized base symobl', async () => {
-    patchGetWallet();
-    patchInit();
-    patchStoredTokenList();
-    patchGetTokenBySymbol();
-
-    await request(app)
-      .post(`/eth/uniswap/price`)
-      .send({
-        quote: 'DAI',
-        base: 'SHIBA',
-        amount: '10000',
-        side: 'SELL',
-      })
-      .set('Accept', 'application/json')
-      .expect(500);
-  });
-});
-
 describe('POST /eth/uniswap/trade', () => {
-  it('should return 200 for BUY', async () => {
+  it('should return 200', async () => {
     patchGetWallet();
     patchInit();
     patchStoredTokenList();
@@ -236,35 +131,6 @@ describe('POST /eth/uniswap/trade', () => {
         privateKey:
           'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
         side: 'BUY',
-        nonce: 21,
-      })
-      .set('Accept', 'application/json')
-      .expect(200)
-      .then((res: any) => {
-        expect(res.body.nonce).toEqual(21);
-      });
-  });
-
-  it('should return 200 for SELL', async () => {
-    patchGetWallet();
-    patchInit();
-    patchStoredTokenList();
-    patchGetTokenBySymbol();
-    patchGasPrice();
-    patchPriceSwapIn();
-    patchConfig();
-    patchGetNonce();
-    patchExecuteTrade();
-
-    await request(app)
-      .post(`/eth/uniswap/trade`)
-      .send({
-        quote: 'DAI',
-        base: 'WETH',
-        amount: '10000',
-        privateKey:
-          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
-        side: 'SELL',
         nonce: 21,
       })
       .set('Accept', 'application/json')

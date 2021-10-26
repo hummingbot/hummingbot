@@ -166,9 +166,7 @@ export class Ethereum extends EthereumBase {
     spender: string,
     tokenAddress: string,
     amount: BigNumber,
-    nonce?: number,
-    maxFeePerGas?: BigNumber,
-    maxPriorityFeePerGas?: BigNumber
+    nonce?: number
   ): Promise<Transaction> {
     // instantiate a contract and pass in wallet, which act on behalf of that signer
     const contract = this.getContract(tokenAddress, wallet);
@@ -187,22 +185,11 @@ export class Ethereum extends EthereumBase {
     if (!nonce) {
       nonce = await this.nonceManager.getNonce(wallet.address);
     }
-    let response;
-    if (maxFeePerGas || maxPriorityFeePerGas) {
-      response = await contract.approve(spender, amount, {
-        gasLimit: 100000,
-        nonce: nonce,
-        maxFeePerGas,
-        maxPriorityFeePerGas,
-      });
-    } else {
-      response = await contract.approve(spender, amount, {
-        gasPrice: this._gasPrice * 1e9,
-        gasLimit: 100000,
-        nonce: nonce,
-      });
-    }
-
+    const response = await contract.approve(spender, amount, {
+      gasPrice: this._gasPrice * 1e9,
+      gasLimit: 100000,
+      nonce: nonce,
+    });
     logger.info(response);
 
     await this.nonceManager.commitNonce(wallet.address, nonce);
