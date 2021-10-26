@@ -77,7 +77,7 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 
 - [Website](https://hummingbot.io)
 - [Documentation](https://docs.hummingbot.io)
-- [FAQs](https://hummingbot.zendesk.com/hc/en-us/categories/900001272063-Hummingbot-FAQs)
+- [FAQs](https://docs.hummingbot.io/about/faq/)
 
 ### Install Hummingbot
 
