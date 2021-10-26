@@ -1,12 +1,12 @@
-#!/usr/bin/env python
-
-from setuptools import setup
-from setuptools.command.build_ext import build_ext
-from Cython.Build import cythonize
 import numpy as np
 import os
 import subprocess
 import sys
+
+from os import path
+from setuptools import setup
+from setuptools.command.build_ext import build_ext
+from Cython.Build import cythonize
 
 is_posix = (os.name == "posix")
 
@@ -159,6 +159,10 @@ def main():
         "language_level": 3,
     }
 
+    cython_sources = ["hummingbot/**/*.pyx"]
+    if path.exists('test'):
+        cython_sources.append("test/**/*.pyx")
+
     if os.environ.get('WITHOUT_CYTHON_OPTIMIZATIONS'):
         compiler_directives = {
             "optimize.use_switch": False,
@@ -190,7 +194,7 @@ def main():
           packages=packages,
           package_data=package_data,
           install_requires=install_requires,
-          ext_modules=cythonize(["**/*.pyx"], compiler_directives=compiler_directives, **cython_kwargs),
+          ext_modules=cythonize(cython_sources, compiler_directives=compiler_directives, **cython_kwargs),
           include_dirs=[
               np.get_include()
           ],
