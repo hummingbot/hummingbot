@@ -37,15 +37,18 @@ class TradingPairFetcher:
 
     async def fetch_all(self):
         for conn_setting in CONNECTOR_SETTINGS.values():
-            if conn_setting.base_name().endswith("_paper_trade"):
-                continue
-            module_name = f"{conn_setting.base_name()}_connector" if conn_setting.type is ConnectorType.Connector \
-                else f"{conn_setting.base_name()}_api_order_book_data_source"
+            if conn_setting.base_name().endswith("paper_trade"):
+                exchange_name = conn_setting.parent_name
+            else:
+                exchange_name = conn_setting.base_name()
+
+            module_name = f"{exchange_name}_connector" if conn_setting.type is ConnectorType.Connector \
+                else f"{exchange_name}_api_order_book_data_source"
             module_path = f"hummingbot.connector.{conn_setting.type.name.lower()}." \
-                          f"{conn_setting.base_name()}.{module_name}"
-            class_name = "".join([o.capitalize() for o in conn_setting.base_name().split("_")]) + \
+                          f"{exchange_name}.{module_name}"
+            class_name = "".join([o.capitalize() for o in exchange_name.split("_")]) + \
                          "APIOrderBookDataSource" if conn_setting.type is not ConnectorType.Connector \
-                         else "".join([o.capitalize() for o in conn_setting.base_name().split("_")]) + "Connector"
+                         else "".join([o.capitalize() for o in exchange_name.split("_")]) + "Connector"
             module = getattr(importlib.import_module(module_path), class_name)
             args = {}
             args = conn_setting.add_domain_parameter(args)
