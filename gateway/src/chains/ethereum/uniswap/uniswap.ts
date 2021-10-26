@@ -146,9 +146,7 @@ export class Uniswap {
     wallet: Wallet,
     trade: Trade,
     gasPrice: number,
-    nonce?: number,
-    maxFeePerGas?: BigNumber,
-    maxPriorityFeePerGas?: BigNumber
+    nonce?: number
   ): Promise<Transaction> {
     const result = Router.swapCallParameters(trade, {
       ttl: ConfigManager.config.UNISWAP_TTL,
@@ -162,23 +160,12 @@ export class Uniswap {
     if (!nonce) {
       nonce = await this.ethereum.nonceManager.getNonce(wallet.address);
     }
-    let tx;
-    if (maxFeePerGas || maxPriorityFeePerGas) {
-      tx = await contract[result.methodName](...result.args, {
-        gasLimit: ConfigManager.config.UNISWAP_GAS_LIMIT,
-        value: result.value,
-        nonce: nonce,
-        maxFeePerGas,
-        maxPriorityFeePerGas,
-      });
-    } else {
-      tx = await contract[result.methodName](...result.args, {
-        gasPrice: gasPrice * 1e9,
-        gasLimit: ConfigManager.config.UNISWAP_GAS_LIMIT,
-        value: result.value,
-        nonce: nonce,
-      });
-    }
+    const tx = await contract[result.methodName](...result.args, {
+      gasPrice: gasPrice * 1e9,
+      gasLimit: ConfigManager.config.UNISWAP_GAS_LIMIT,
+      value: result.value,
+      nonce: nonce,
+    });
 
     logger.info(tx);
     await this.ethereum.nonceManager.commitNonce(wallet.address, nonce);
