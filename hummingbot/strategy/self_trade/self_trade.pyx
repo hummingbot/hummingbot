@@ -11,11 +11,12 @@ from typing import (
 )
 from hummingbot.core.clock cimport Clock
 
+from hummingbot.connector.exchange.peatio.peatio_exchange import PeatioExchange
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle, RateOracleSource
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.network_iterator import NetworkStatus, safe_ensure_future
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.core.event.events import (
@@ -76,14 +77,14 @@ cdef class SelfTradeStrategy(StrategyBase):
         :param status_report_interval: how often to report network connection related warnings, if any
         :param trade_bands: list restrictions on the trading volume in the timestamp
         """
-
+        self.logger().info("start SelfTrade")
         if len(market_infos) < 1:
             raise ValueError(f"market_infos must not be empty.")
 
         super().__init__()
         self.rate_oracle: RateOracle = RateOracle.get_instance()
         self.rate_oracle.start()
-
+        self.logger().info("1 SelfTrade")
         self._market_infos = {
             (market_info.market, market_info.trading_pair): market_info
             for market_info in market_infos
@@ -280,7 +281,6 @@ cdef class SelfTradeStrategy(StrategyBase):
             self._last_trade_timestamp[key] = timestamp
 
         for key, value in self._time_delay.items():
-            # self._time_delay[key] = 30
             self.logger().info(f"Waiting for {value} to place {key} orders")
 
     cdef c_tick(self, double timestamp):
@@ -383,12 +383,14 @@ cdef class SelfTradeStrategy(StrategyBase):
 
         buy_price = maker_market.get_price(trading_pair=trading_pair, is_buy=False) or s_decimal_nan
         sell_price = maker_market.get_price(trading_pair=trading_pair, is_buy=True) or s_decimal_nan
-
-        self.logger().info(f"price_multiplier: {price_multiplier}")
-        self.logger().info(f"buy_price: {buy_price}")
-        self.logger().info(f"sell_price: {sell_price}")
-        self.logger().info(f"raw_oracle_price: {oracle_price}")
-        self.logger().info(f"oracle_price: {quantized_oracle_price}")
+        ob = maker_market.get_order_book(trading_pair=trading_pair)
+        self.logger().info(f"{trading_pair} ask_entries: {list(ob.ask_entries())}")
+        self.logger().info(f"{trading_pair} bid_entries: {list(ob.bid_entries())}")
+        self.logger().info(f"{trading_pair} price_multiplier: {price_multiplier}")
+        self.logger().info(f"{trading_pair} buy_price: {buy_price}")
+        self.logger().info(f"{trading_pair} sell_price: {sell_price}")
+        self.logger().info(f"{trading_pair} raw_oracle_price: {oracle_price}")
+        self.logger().info(f"{trading_pair} oracle_price: {quantized_oracle_price}")
 
         if self._use_only_oracle_price is True:
             quantized_price = quantized_oracle_price
@@ -426,6 +428,31 @@ cdef class SelfTradeStrategy(StrategyBase):
         self.logger().info(f"price for {trading_pair} pair = {quantized_price}")
         return quantized_price
 
+    def cancel_orders(self, market_info: MarketTradingPairTuple, first_order_id: str = None, second_order_id: str = None):
+        if isinstance(market_info.market, PeatioExchange):
+            safe_ensure_future(market_info.market.cancel_all(timeout_seconds=0.0, trading_pair=market_info.trading_pair, trade_type=None))
+        else:
+            if first_order_id is None:
+                self.c_cancel_order(market_info, first_order_id)
+            if second_order_id is None:
+                self.c_cancel_order(market_info, second_order_id)
+
+    def create_trade(self, market_info: MarketTradingPairTuple, price: Decimal, amount: Decimal):
+        is_buy = bool(random.randint(0, 1))
+        first_order_id = self.c_place_orders(market_info, is_buy=is_buy, order_price=price, order_amount=amount)
+        self.logger().info(f"place {'buy' if is_buy else 'sell'} order {first_order_id}")
+        if first_order_id is not None:
+            try:
+                second_order_id = self.c_place_orders(market_info, is_buy=not is_buy, order_price=price,
+                                                      order_amount=amount)
+            except Exception as e:
+                self.logger().error(e)
+                second_order_id = None
+            self.logger().info(f"place {'buy' if not is_buy else 'sell'} order {second_order_id}")
+        self._last_trade_timestamp[market_info.trading_pair] = self._current_timestamp
+
+        return first_order_id, second_order_id
+
     cdef c_process_market(self, object market_info):
         """
         Checks if enough time has elapsed to place orders and if so, calls c_place_orders() and cancels orders if they
@@ -439,9 +466,8 @@ cdef class SelfTradeStrategy(StrategyBase):
             str trading_pair = market_info.trading_pair
 
         if self._current_timestamp > self._last_trade_timestamp[trading_pair] + self._time_delay[trading_pair]:
-            self.logger().info(f"Current time: "
-                               f"{datetime.fromtimestamp(self._current_timestamp).strftime('%Y-%m-%d %H:%M:%S')} "
-                               f"- start trading {trading_pair}")
+            current_date_iso_format = datetime.fromtimestamp(self._current_timestamp).strftime('%Y-%m-%d %H:%M:%S')
+            self.logger().info(f"Current time: {current_date_iso_format} - start trading {trading_pair}")
             try:
                 quant = Decimal(10**27)
                 amount = random.randint(self._min_order_amount[trading_pair] * quant, self._max_order_amount[trading_pair] * quant) / quant
@@ -449,31 +475,21 @@ cdef class SelfTradeStrategy(StrategyBase):
 
                 if all(map(lambda x: x.check(amount=amount), self._trade_bands[trading_pair])):
                     price: Decimal = self.get_price(maker_market=maker_market, trading_pair=trading_pair)
-                    is_buy = bool(random.randint(0, 1))
-                    first_order_id = self.c_place_orders(market_info, is_buy=is_buy, order_price=price, order_amount=amount)
-                    if first_order_id is not None:
-                        self._time_to_cancel[first_order_id] = self._current_timestamp + self._cancel_order_wait_time
-                        self.logger().info(f"place {'buy' if is_buy else 'sell'} order {first_order_id} with time_to_cancel = {self._time_to_cancel[first_order_id]}")
-                        second_order_id = self.c_place_orders(market_info, is_buy=not is_buy, order_price=price, order_amount=amount)
-                        if second_order_id is not None:
-                            self._time_to_cancel[second_order_id] = self._current_timestamp + self._cancel_order_wait_time
-                            self.logger().info(f"place {'buy' if not is_buy else 'sell'} order {second_order_id} with time_to_cancel = {self._time_to_cancel[second_order_id]}")
-                        else:
-                            self._time_to_cancel[first_order_id] = self._current_timestamp
 
-                    self._last_trade_timestamp[trading_pair] = self._current_timestamp
+                    first_order_id, second_order_id = self.create_trade(market_info=market_info, price=price, amount=amount)
+
+                    self.cancel_orders(market_info=market_info, first_order_id=first_order_id, second_order_id=second_order_id)
                     list(map(lambda x: x.create_trade(amount=amount), self._trade_bands[trading_pair]))
                 else:
                     self.logger().info(f"Не проходит BAND")
             except Exception as e:
                 self.logger().error(e, exc_info=True)
 
-        active_orders = self.get_active_orders(market_info)
-        if len(active_orders) > 0:
-            for active_order in active_orders:
-                if self._current_timestamp >= self._time_to_cancel[active_order.client_order_id]:
-                    cancel_order_ids.add(active_order.client_order_id)
-
-        if len(cancel_order_ids) > 0:
-            for order in cancel_order_ids:
-                self.c_cancel_order(market_info, order)
+        # if isinstance(maker_market, PeatioExchange):
+        #     pass
+        #     # self.logger().info(f"maker_market: {maker_market}")
+        #     # safe_ensure_future(maker_market.cancel_all(timeout_seconds=0.0, trading_pair=trading_pair, trade_type=None))
+        # else:
+        #     for active_order in self.get_active_orders(market_info):
+        #         if self._current_timestamp >= self._time_to_cancel[active_order.client_order_id]:
+        #             self.c_cancel_order(market_info, active_order.client_order_id)

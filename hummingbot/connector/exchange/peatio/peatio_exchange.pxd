@@ -23,7 +23,6 @@ cdef class PeatioExchange(ExchangeBase):
         public object _user_stream_tracker_task
         TransactionTracker _tx_tracker
 
-    # cdef c_cancel_all_with_conditions(self, str trading_pair, object trade_type)
     cdef c_did_timeout_tx(self, str tracking_id)
     cdef c_start_tracking_order(self,
                                 str client_order_id,

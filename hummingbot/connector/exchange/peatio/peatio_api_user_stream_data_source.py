@@ -110,21 +110,20 @@ class PeatioAPIUserStreamDataSource(UserStreamTrackerDataSource):
     async def listen_for_user_stream(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
             try:
-                continue
                 # Initialize Websocket Connection
-                # async with (await self.get_ws_connection()) as ws:
-                #     self._websocket_connection = ws
+                async with (await self.get_ws_connection()) as ws:
+                    self._websocket_connection = ws
                 #
                 #     # Authentication
                 #     # await self._authenticate_client()
                 #
-                #     # Subscribe to Topic(s)
+                    # Subscribe to Topic(s)
                 #     # await self._subscribe_topic(PEATIO_ORDER_UPDATE_TOPIC)
                 #     # await self._subscribe_topic(PEATIO_ACCOUNT_UPDATE_TOPIC)
                 #
-                #     # Listen to WebSocket Connection
-                #     async for message in self._socket_user_stream():
-                #         output.put_nowait(message)
+                    # Listen to WebSocket Connection
+                    async for message in self._socket_user_stream():
+                        output.put_nowait(message)
 
             except asyncio.CancelledError:
                 raise

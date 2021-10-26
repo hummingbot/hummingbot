@@ -275,6 +275,7 @@ class PeatioAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                     "update_id": self.STATES[trading_pair].get("last_sequence", 0),
                                     "timestamp": datetime.datetime.utcnow().timestamp(),
                                 }
+                                self.logger().info(f"{trading_pair} ob: {data}")
                                 order_book_message: OrderBookMessage = PeatioOrderBook.diff_message_from_exchange(data, metadata={"trading_pair": trading_pair})
                                 output.put_nowait(order_book_message)
                         else:
