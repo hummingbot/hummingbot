@@ -26,12 +26,6 @@ export const invalidAmountError: string =
 export const invalidNonceError: string =
   'If nonce is included it must be a non-negative integer.';
 
-export const invalidMaxFeePerGasError: string =
-  'If maxFeePerGas is included it must be a string of a non-negative integer.';
-
-export const invalidMaxPriorityFeePerGasError: string =
-  'If maxPriorityFeePerGas is included it must be a string of a non-negative integer.';
-
 export const invalidTxHashError: string = 'The txHash param must be a string.';
 
 // test if a string matches the shape of an Ethereum public key
@@ -99,20 +93,6 @@ export const validateNonce: Validator = mkValidator(
   true
 );
 
-export const validateMaxFeePerGas: Validator = mkValidator(
-  'maxFeePerGas',
-  invalidMaxFeePerGasError,
-  (val) => typeof val === 'string' && isNaturalNumberString(val),
-  true
-);
-
-export const validateMaxPriorityFeePerGas: Validator = mkValidator(
-  'maxPriorityFeePerGas',
-  invalidMaxPriorityFeePerGasError,
-  (val) => typeof val === 'string' && isNaturalNumberString(val),
-  true
-);
-
 export const validateTxHash: Validator = mkValidator(
   'txHash',
   invalidTxHashError,
@@ -141,8 +121,6 @@ export const validateEthereumApproveRequest: RequestValidator =
     validateToken,
     validateAmount,
     validateNonce,
-    validateMaxFeePerGas,
-    validateMaxPriorityFeePerGas,
   ]);
 
 export const validateEthereumPollRequest: RequestValidator = mkRequestValidator(

@@ -27,40 +27,9 @@ export const asyncHandler =
     return Promise.resolve(fn(req, res, next)).catch(next);
   };
 
-export interface TransactionError {
-  errorCode: number;
-  message: string;
-}
-
-export const parseTransactionGasError = (
-  error: any
-): TransactionError | null => {
-  if ('code' in error && error.code === 'SERVER_ERROR') {
-    if ('body' in error) {
-      const innerError = JSON.parse(error['body']);
-
-      if (
-        'error' in innerError &&
-        'code' in innerError['error'] &&
-        innerError['error']['code'] === -32010 &&
-        'message' in innerError['error']
-      ) {
-        const transactionError: TransactionError = {
-          errorCode: TRANSACTION_GAS_PRICE_TOO_LOW,
-          message: innerError['error']['message'],
-        };
-
-        return transactionError;
-      }
-    }
-  }
-  return null;
-};
-
 export const NETWORK_ERROR_CODE = 1001;
 export const RATE_LIMIT_ERROR_CODE = 1002;
 export const OUT_OF_GAS_ERROR_CODE = 1003;
-export const TRANSACTION_GAS_PRICE_TOO_LOW = 1004;
 export const UNKNOWN_ERROR_ERROR_CODE = 1099;
 
 export const NETWORK_ERROR_MESSAGE =
