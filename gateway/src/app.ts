@@ -15,9 +15,7 @@ import {
   UNKNOWN_ERROR_ERROR_CODE,
   NETWORK_ERROR_MESSAGE,
   RATE_LIMIT_ERROR_MESSAGE,
-  TRANSACTION_GAS_PRICE_TOO_LOW,
   UNKNOWN_ERROR_MESSAGE,
-  parseTransactionGasError,
 } from './services/error-handler';
 
 export const app = express();
@@ -126,18 +124,11 @@ app.use(
         switch (typeof err.code) {
           case 'string':
             // error is from ethers library
-            if (['NETWORK_ERROR', 'TIMEOUT'].includes(err.code)) {
+            if (
+              ['NETWORK_ERROR', 'SERVER_ERROR', 'TIMEOUT'].includes(err.code)
+            ) {
               response.errorCode = NETWORK_ERROR_CODE;
               response.message = NETWORK_ERROR_MESSAGE;
-            } else if (err.code === 'SERVER_ERROR') {
-              const transactionError = parseTransactionGasError(err);
-              if (transactionError) {
-                response.errorCode = transactionError.errorCode;
-                response.message = transactionError.message;
-              } else {
-                response.errorCode = NETWORK_ERROR_CODE;
-                response.message = NETWORK_ERROR_MESSAGE;
-              }
             }
             break;
 
@@ -147,9 +138,6 @@ app.use(
               // we only handle rate-limit errors
               response.errorCode = RATE_LIMIT_ERROR_CODE;
               response.message = RATE_LIMIT_ERROR_MESSAGE;
-            } else if (err.code === -32010) {
-              response.errorCode = TRANSACTION_GAS_PRICE_TOO_LOW;
-              response.message = err.message;
             }
             break;
         }
