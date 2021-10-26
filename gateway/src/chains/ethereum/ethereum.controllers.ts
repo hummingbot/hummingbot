@@ -194,7 +194,14 @@ export async function approve(
   req: EthereumApproveRequest
 ): Promise<EthereumApproveResponse> {
   validateEthereumApproveRequest(req);
-  const { amount, nonce, privateKey, token } = req;
+  const {
+    amount,
+    nonce,
+    privateKey,
+    token,
+    maxFeePerGas,
+    maxPriorityFeePerGas,
+  } = req;
   const spender = getSpender(req.spender);
 
   if (!ethereum.ready()) await ethereum.init();
@@ -213,13 +220,24 @@ export async function approve(
     ? utils.parseUnits(amount, fullToken.decimals)
     : constants.MaxUint256;
 
+  let maxFeePerGasBigNumber;
+  if (maxFeePerGas) {
+    maxFeePerGasBigNumber = BigNumber.from(maxFeePerGas);
+  }
+  let maxPriorityFeePerGasBigNumber;
+  if (maxPriorityFeePerGas) {
+    maxPriorityFeePerGasBigNumber = BigNumber.from(maxPriorityFeePerGas);
+  }
+  // convert strings to BigNumber
   // call approve function
   const approval = await ethereum.approveERC20(
     wallet,
     spender,
     fullToken.address,
     amountBigNumber,
-    nonce
+    nonce,
+    maxFeePerGasBigNumber,
+    maxPriorityFeePerGasBigNumber
   );
 
   return {
