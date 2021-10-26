@@ -183,7 +183,7 @@ def _create_connector_settings() -> Dict[str, ConnectorSetting]:
                     default_fees=getattr(util_module, "DEFAULT_FEES", []),
                     config_keys=getattr(util_module, "KEYS", {}),
                     is_sub_domain=False,
-                    parent_name=None,
+                    parent_name=connector_dir.name,
                     domain_parameter=None,
                     use_eth_gas_lookup=getattr(util_module, "USE_ETH_GAS_LOOKUP", False)
                 )
