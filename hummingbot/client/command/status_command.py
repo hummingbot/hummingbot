@@ -70,7 +70,9 @@ class StatusCommand:
         return "\n".join(lines)
 
     async def strategy_status(self, live: bool = False):
-        paper_trade = "\n  Paper Trading ON: All orders are simulated, and no real orders are placed." if global_config_map.get("paper_trade_enabled").value \
+        active_paper_exchanges = [exchange for exchange in self.markets.keys() if exchange.endswith("paper_trade")]
+
+        paper_trade = "\n  Paper Trading Active: All orders are simulated, and no real orders are placed." if len(active_paper_exchanges) > 0 \
             else ""
         app_warning = self.application_warning()
         app_warning = "" if app_warning is None else app_warning
