@@ -81,7 +81,7 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 
 ### Install Hummingbot
 
-- [All installation options](https://docs.hummingbot.io/installation/overview/)
+- [All installation options](https://docs.hummingbot.io/installation)
 - [Installation scripts](./installation/)
 
 ### Get support
