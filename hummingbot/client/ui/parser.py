@@ -122,9 +122,6 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
                              default=False)
     exit_parser.set_defaults(func=hummingbot.exit)
 
-    paper_trade_parser = subparsers.add_parser("paper_trade", help="Toggle paper trade mode on and off")
-    paper_trade_parser.set_defaults(func=hummingbot.paper_trade)
-
     export_parser = subparsers.add_parser("export", help="Export secure information")
     export_parser.add_argument("option", nargs="?", choices=("keys", "trades"), help="Export choices")
     export_parser.set_defaults(func=hummingbot.export)

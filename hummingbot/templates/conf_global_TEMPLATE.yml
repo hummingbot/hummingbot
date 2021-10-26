@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 27
+template_version: 28
 
 # Exchange configs
 
@@ -143,7 +143,13 @@ kill_switch_rate: null
 autofill_import: null
 
 # Paper Trading
+# TODO: Remove all reference to `paper_trade_enabled` config
 paper_trade_enabled: false
+paper_trade_exchanges: 
+  - binance
+  - kucoin
+  - ascend_ex
+  - gate_io
 paper_trade_account_balance:
   BTC: 1
   USDT: 1000

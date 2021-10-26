@@ -5,7 +5,7 @@ from decimal import Decimal
 import os.path
 from hummingbot.client.config.config_var import ConfigVar
 import hummingbot.client.settings as settings
-from hummingbot.client.config.config_methods import paper_trade_disabled, using_exchange as using_exchange_pointer
+from hummingbot.client.config.config_methods import using_exchange as using_exchange_pointer
 from hummingbot.client.config.config_validators import (
     validate_bool,
     validate_decimal
@@ -114,6 +114,16 @@ main_config_map = {
                   default=False,
                   required_if=lambda: True,
                   validator=validate_bool),
+    "paper_trade_exchanges":
+        ConfigVar(key="paper_trade_exchanges",
+                  prompt=None,
+                  required_if=lambda: False,
+                  default=["binance",
+                           "kucoin",
+                           "ascend_ex",
+                           "gate_io",
+                           ],
+                  type_str="list"),
     "paper_trade_account_balance":
         ConfigVar(key="paper_trade_account_balance",
                   prompt="Enter paper trade balance settings (Input must be valid json: "
@@ -164,7 +174,7 @@ main_config_map = {
     "kill_switch_enabled":
         ConfigVar(key="kill_switch_enabled",
                   prompt="Would you like to enable the kill switch? (Yes/No) >>> ",
-                  required_if=paper_trade_disabled,
+                  required_if=lambda: False,
                   type_str="bool",
                   default=False,
                   validator=validate_bool),
