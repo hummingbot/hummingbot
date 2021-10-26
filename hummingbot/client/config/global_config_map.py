@@ -107,13 +107,6 @@ main_config_map = {
                   default=settings.DEFAULT_LOG_FILE_PATH),
 
     # Required by chosen CEXes or DEXes
-    "paper_trade_enabled":
-        ConfigVar(key="paper_trade_enabled",
-                  prompt="Enable paper trading mode (Yes/No) ? >>> ",
-                  type_str="bool",
-                  default=False,
-                  required_if=lambda: True,
-                  validator=validate_bool),
     "paper_trade_exchanges":
         ConfigVar(key="paper_trade_exchanges",
                   prompt=None,

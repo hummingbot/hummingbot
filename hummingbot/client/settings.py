@@ -114,6 +114,8 @@ def _create_connector_settings() -> Dict[str, ConnectorSetting]:
     Iterate over files in specific Python directories to create a dictionary of exchange names to ConnectorSetting.
     """
     connector_exceptions = ["paper_trade"]
+    # TODO: Determine a way to import this from global config map. Currently has a circular import issue.
+    paper_trade_connectors = ["binance", "kucoin", "ascend_ex", "gate_io"]
     connector_settings = {}
     package_dir = Path(__file__).resolve().parent.parent.parent
     type_dirs = [f for f in scandir(f'{str(package_dir)}/hummingbot/connector') if f.is_dir()]
@@ -149,6 +151,7 @@ def _create_connector_settings() -> Dict[str, ConnectorSetting]:
                 domain_parameter=None,
                 use_eth_gas_lookup=getattr(util_module, "USE_ETH_GAS_LOOKUP", False)
             )
+            # Adds other domains of connector
             other_domains = getattr(util_module, "OTHER_DOMAINS", [])
             for domain in other_domains:
                 parent = connector_settings[connector_dir.name]
@@ -166,6 +169,23 @@ def _create_connector_settings() -> Dict[str, ConnectorSetting]:
                     parent_name=parent.name,
                     domain_parameter=getattr(util_module, "OTHER_DOMAINS_PARAMETER")[domain],
                     use_eth_gas_lookup=parent.use_eth_gas_lookup
+                )
+            # Adds respective paper trade setting
+            if connector_dir.name in paper_trade_connectors:
+                connector_settings[f"{connector_dir.name}_paper_trade"] = ConnectorSetting(
+                    name=f"{connector_dir.name}_paper_trade",
+                    type=ConnectorType[type_dir.name.capitalize()],
+                    centralised=getattr(util_module, "CENTRALIZED", True),
+                    example_pair=getattr(util_module, "EXAMPLE_PAIR", ""),
+                    use_ethereum_wallet=getattr(util_module, "USE_ETHEREUM_WALLET", False),
+                    fee_type=fee_type,
+                    fee_token=getattr(util_module, "FEE_TOKEN", ""),
+                    default_fees=getattr(util_module, "DEFAULT_FEES", []),
+                    config_keys=getattr(util_module, "KEYS", {}),
+                    is_sub_domain=False,
+                    parent_name=None,
+                    domain_parameter=None,
+                    use_eth_gas_lookup=getattr(util_module, "USE_ETH_GAS_LOOKUP", False)
                 )
     return connector_settings
 

@@ -79,7 +79,7 @@ class UserBalances:
         if len(exchanges) == 0:
             exchanges = [cs.name for cs in CONNECTOR_SETTINGS.values()]
         exchanges = [cs.name for cs in CONNECTOR_SETTINGS.values() if not cs.use_ethereum_wallet
-                     and cs.name in exchanges]
+                     and cs.name in exchanges and not cs.name.endswith("paper_trade")]
         if reconnect:
             self._markets.clear()
         for exchange in exchanges:
