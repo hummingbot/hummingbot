@@ -87,9 +87,8 @@ class StartCommand:
         self._initialize_notifiers()
 
         self._notify(f"\nStatus check complete. Starting '{self.strategy_name}' strategy...")
-        # TODO: Show warning depending on the paper_trade exchange in use.
-        if global_config_map.get("paper_trade_enabled").value:
-            self._notify("\nPaper Trading ON: All orders are simulated, and no real orders are placed.")
+        if any([str(exchange).endswith("paper_trade") for exchange in settings.required_exchanges]):
+            self._notify("\nPaper Trading Active: All orders are simulated, and no real orders are placed.")
 
         for exchange in settings.required_exchanges:
             connector = str(exchange)

@@ -37,6 +37,8 @@ class TradingPairFetcher:
 
     async def fetch_all(self):
         for conn_setting in CONNECTOR_SETTINGS.values():
+            if conn_setting.base_name().endswith("_paper_trade"):
+                continue
             module_name = f"{conn_setting.base_name()}_connector" if conn_setting.type is ConnectorType.Connector \
                 else f"{conn_setting.base_name()}_api_order_book_data_source"
             module_path = f"hummingbot.connector.{conn_setting.type.name.lower()}." \

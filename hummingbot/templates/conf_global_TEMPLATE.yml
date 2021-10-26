@@ -143,8 +143,6 @@ kill_switch_rate: null
 autofill_import: null
 
 # Paper Trading
-# TODO: Remove all reference to `paper_trade_enabled` config
-paper_trade_enabled: false
 paper_trade_exchanges: 
   - binance
   - kucoin

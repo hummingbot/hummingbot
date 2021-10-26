@@ -48,8 +48,6 @@ class HistoryCommand:
         if self.strategy_file_name is None:
             self._notify("\n  Please first import a strategy config file of which to show historical performance.")
             return
-        if global_config_map.get("paper_trade_enabled").value:
-            self._notify("\n  Paper Trading ON: All orders are simulated, and no real orders are placed.")
         start_time = get_timestamp(days) if days > 0 else self.init_time
         trades: List[TradeFill] = self._get_trades_from_session(int(start_time * 1e3),
                                                                 config_file_path=self.strategy_file_name)
