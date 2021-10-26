@@ -225,7 +225,9 @@ class HummingbotApplication(*commands):
                 self.market_trading_pairs_map[market_name].append(hb_trading_pair)
 
         for connector_name, trading_pairs in self.market_trading_pairs_map.items():
+            # TODO: Modify paper trade exchange connector initialization logic.
             conn_setting = CONNECTOR_SETTINGS[connector_name]
+
             if global_config_map.get("paper_trade_enabled").value and conn_setting.type == ConnectorType.Exchange:
                 connector = create_paper_trade_market(connector_name, trading_pairs)
                 paper_trade_account_balance = global_config_map.get("paper_trade_account_balance").value
