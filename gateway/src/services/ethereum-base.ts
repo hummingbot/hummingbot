@@ -205,6 +205,11 @@ export class EthereumBase {
     );
   }
 
+  // returns the current block number
+  async getCurrentBlockNumber(): Promise<number> {
+    return this._provider.getBlockNumber();
+  }
+
   // cancel transaction
   async cancelTx(
     wallet: Wallet,
