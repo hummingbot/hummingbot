@@ -1,8 +1,8 @@
 import { ConfigManager } from '../../../services/config-manager';
 import { BigNumber, Contract, Transaction, Wallet } from 'ethers';
-import { EthereumConfig } from '../ethereum.config';
-import { Ethereum } from '../ethereum';
-import { UniswapConfig } from './uniswap.config';
+import { AvalancheConfig } from '../avalanche.config';
+import { Avalanche } from '../avalanche';
+import { PangolinConfig } from './pangolin.config';
 import {
   CurrencyAmount,
   Fetcher,
@@ -10,50 +10,51 @@ import {
   Token,
   TokenAmount,
   Trade,
-} from '@uniswap/sdk';
+} from '@pangolindex/sdk';
 import { logger } from '../../../services/logger';
-import routerAbi from './uniswap_v2_router_abi.json';
-
+import routerAbi from './IPangolinRouter.json';
 export interface ExpectedTrade {
   trade: Trade;
   expectedAmount: CurrencyAmount;
 }
 
-export class Uniswap {
-  private static instance: Uniswap;
-  private _uniswapRouter: string;
+export class Pangolin {
+  private static instance: Pangolin;
+  private _pangolinRouter: string;
   private chainId;
-  private ethereum = Ethereum.getInstance();
+  private avalanche = Avalanche.getInstance();
   private tokenList: Record<string, Token> = {};
   private _ready: boolean = false;
 
   private constructor() {
     let config;
-    if (ConfigManager.config.ETHEREUM_CHAIN === 'mainnet') {
-      config = UniswapConfig.config.mainnet;
-    } else {
-      config = UniswapConfig.config.kovan;
-    }
-
-    this._uniswapRouter = config.uniswapV2RouterAddress;
-    if (ConfigManager.config.ETHEREUM_CHAIN === 'mainnet') {
-      this.chainId = EthereumConfig.config.mainnet.chainId;
-    } else {
-      this.chainId = EthereumConfig.config.kovan.chainId;
+    switch (ConfigManager.config.AVALANCHE_CHAIN) {
+      case 'avalanche':
+        config = PangolinConfig.config.avalanche;
+        this._pangolinRouter = config.routerAddress;
+        this.chainId = AvalancheConfig.config.avalanche.chainId;
+        break;
+      case 'fuji':
+        config = PangolinConfig.config.fuji;
+        this._pangolinRouter = config.routerAddress;
+        this.chainId = AvalancheConfig.config.fuji.chainId;
+        break;
+      default:
+        throw new Error('ETHEREUM_CHAIN not valid');
     }
   }
 
-  public static getInstance(): Uniswap {
-    if (!Uniswap.instance) {
-      Uniswap.instance = new Uniswap();
+  public static getInstance(): Pangolin {
+    if (!Pangolin.instance) {
+      Pangolin.instance = new Pangolin();
     }
 
-    return Uniswap.instance;
+    return Pangolin.instance;
   }
 
   public async init() {
-    if (!this.ethereum.ready()) throw new Error('Eth is not available');
-    for (const token of this.ethereum.storedTokenList) {
+    if (!this.avalanche.ready()) throw new Error('Avalanche is not available');
+    for (const token of this.avalanche.storedTokenList) {
       this.tokenList[token.address] = new Token(
         this.chainId,
         token.address,
@@ -69,8 +70,8 @@ export class Uniswap {
     return this._ready;
   }
 
-  public get uniswapRouter(): string {
-    return this._uniswapRouter;
+  public get pangolinRouter(): string {
+    return this._pangolinRouter;
   }
 
   // get the expected amount of token out, for a given pair and a token amount in.
@@ -91,7 +92,11 @@ export class Uniswap {
     logger.info(
       `Fetching pair data for ${tokenIn.address}-${tokenOut.address}.`
     );
-    const pair = await Fetcher.fetchPairData(tokenIn, tokenOut);
+    const pair = await Fetcher.fetchPairData(
+      tokenIn,
+      tokenOut,
+      this.avalanche.provider
+    );
     const trades = Trade.bestTradeExactIn([pair], tokenInAmount_, tokenOut, {
       maxHops: 1,
     });
@@ -102,7 +107,7 @@ export class Uniswap {
     );
     const expectedAmount = trades[0].minimumAmountOut(
       ConfigManager.getSlippagePercentage(
-        ConfigManager.config.UNISWAP_ALLOWED_SLIPPAGE
+        ConfigManager.config.PANGOLIN_ALLOWED_SLIPPAGE
       )
     );
     return { trade: trades[0], expectedAmount };
@@ -127,7 +132,11 @@ export class Uniswap {
     logger.info(
       `Fetching pair data for ${tokenIn.address}-${tokenOut.address}.`
     );
-    const pair = await Fetcher.fetchPairData(tokenIn, tokenOut);
+    const pair = await Fetcher.fetchPairData(
+      tokenIn,
+      tokenOut,
+      this.avalanche.provider
+    );
     const trades = Trade.bestTradeExactOut([pair], tokenIn, tokenOutAmount_, {
       maxHops: 1,
     });
@@ -139,13 +148,13 @@ export class Uniswap {
 
     const expectedAmount = trades[0].maximumAmountIn(
       ConfigManager.getSlippagePercentage(
-        ConfigManager.config.UNISWAP_ALLOWED_SLIPPAGE
+        ConfigManager.config.PANGOLIN_ALLOWED_SLIPPAGE
       )
     );
     return { trade: trades[0], expectedAmount };
   }
 
-  // given a wallet and a Uniswap trade, try to execute it on the Ethereum block chain.
+  // given a wallet and a Uniswap trade, try to execute it on the Avalanche block chain.
   async executeTrade(
     wallet: Wallet,
     trade: Trade,
@@ -153,26 +162,25 @@ export class Uniswap {
     nonce?: number
   ): Promise<Transaction> {
     const result = Router.swapCallParameters(trade, {
-      ttl: ConfigManager.config.UNISWAP_TTL,
+      ttl: ConfigManager.config.PANGOLIN_TTL,
       recipient: wallet.address,
       allowedSlippage: ConfigManager.getSlippagePercentage(
-        ConfigManager.config.UNISWAP_ALLOWED_SLIPPAGE
+        ConfigManager.config.PANGOLIN_ALLOWED_SLIPPAGE
       ),
     });
-
-    const contract = new Contract(this._uniswapRouter, routerAbi.abi, wallet);
+    const contract = new Contract(this._pangolinRouter, routerAbi.abi, wallet);
     if (!nonce) {
-      nonce = await this.ethereum.nonceManager.getNonce(wallet.address);
+      nonce = await this.avalanche.nonceManager.getNonce(wallet.address);
     }
     const tx = await contract[result.methodName](...result.args, {
       gasPrice: gasPrice * 1e9,
-      gasLimit: ConfigManager.config.UNISWAP_GAS_LIMIT,
+      gasLimit: ConfigManager.config.PANGOLIN_GAS_LIMIT,
       value: result.value,
       nonce: nonce,
     });
 
     logger.info(tx);
-    await this.ethereum.nonceManager.commitNonce(wallet.address, nonce);
+    await this.avalanche.nonceManager.commitNonce(wallet.address, nonce);
     return tx;
   }
 }
