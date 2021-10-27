@@ -1,18 +1,12 @@
 import asyncio
-from enum import Enum
 import logging
 from typing import Optional
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.network_iterator import NetworkStatus
 
 NaN = float("nan")
 nb_logger = None
-
-
-class NetworkStatus(Enum):
-    STOPPED = 0
-    NOT_CONNECTED = 1
-    CONNECTED = 2
 
 
 class NetworkBase:
