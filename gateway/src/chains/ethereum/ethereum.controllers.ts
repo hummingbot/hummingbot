@@ -1,4 +1,3 @@
-import { Ethereum } from './ethereum';
 import ethers, {
   constants,
   Wallet,
@@ -13,7 +12,6 @@ import {
   OUT_OF_GAS_ERROR_CODE,
   OUT_OF_GAS_ERROR_MESSAGE,
 } from '../../services/error-handler';
-import { UniswapConfig } from './uniswap/uniswap.config';
 import { tokenValueToString } from '../../services/base';
 import { Token } from '../../services/ethereum-base';
 
@@ -42,10 +40,10 @@ import {
   validateEthereumPollRequest,
   validateEthereumCancelRequest,
 } from './ethereum.validators';
-
-export const ethereum = Ethereum.getInstance();
+import { Ethereumish } from './ethereum';
 
 export async function nonce(
+  ethereum: Ethereumish,
   req: EthereumNonceRequest
 ): Promise<EthereumNonceResponse> {
   validateEthereumNonceRequest(req);
@@ -57,22 +55,8 @@ export async function nonce(
   return { nonce };
 }
 
-const getSpender = (reqSpender: string): string => {
-  let spender: string;
-  if (reqSpender === 'uniswap') {
-    if (ConfigManager.config.ETHEREUM_CHAIN === 'mainnet') {
-      spender = UniswapConfig.config.mainnet.uniswapV2RouterAddress;
-    } else {
-      spender = UniswapConfig.config.kovan.uniswapV2RouterAddress;
-    }
-  } else {
-    spender = reqSpender;
-  }
-
-  return spender;
-};
-
 const getTokenSymbolsToTokens = (
+  ethereum: Ethereumish,
   tokenSymbols: Array<string>
 ): Record<string, Token> => {
   const tokens: Record<string, Token> = {};
@@ -91,22 +75,21 @@ const getTokenSymbolsToTokens = (
 };
 
 export async function allowances(
+  ethereumish: Ethereumish,
   req: EthereumAllowancesRequest
 ): Promise<EthereumAllowancesResponse | string> {
   validateEthereumAllowancesRequest(req);
 
   const initTime = Date.now();
-  const wallet = ethereum.getWallet(req.privateKey);
-
-  const tokens = getTokenSymbolsToTokens(req.tokenSymbols);
-
-  const spender = getSpender(req.spender);
+  const wallet = ethereumish.getWallet(req.privateKey);
+  const tokens = getTokenSymbolsToTokens(ethereumish, req.tokenSymbols);
+  const spender = ethereumish.getSpender(req.spender);
 
   const approvals: Record<string, string> = {};
   await Promise.all(
     Object.keys(tokens).map(async (symbol) => {
       approvals[symbol] = tokenValueToString(
-        await ethereum.getERC20Allowance(
+        await ethereumish.getERC20Allowance(
           wallet,
           spender,
           tokens[symbol].address,
@@ -126,6 +109,7 @@ export async function allowances(
 }
 
 export async function balances(
+  ethereum: Ethereumish,
   req: EthereumBalanceRequest
 ): Promise<EthereumBalanceResponse | string> {
   validateEthereumBalanceRequest(req);
@@ -138,9 +122,7 @@ export async function balances(
   } catch (err) {
     throw new HttpException(500, 'Error getting wallet ' + err);
   }
-
-  const tokens = getTokenSymbolsToTokens(req.tokenSymbols);
-
+  const tokens = getTokenSymbolsToTokens(ethereum, req.tokenSymbols);
   const balances: Record<string, string> = {};
   balances.ETH = tokenValueToString(await ethereum.getEthBalance(wallet));
   await Promise.all(
@@ -191,21 +173,20 @@ const toEthereumTransaction = (
 };
 
 export async function approve(
+  ethereumish: Ethereumish,
   req: EthereumApproveRequest
 ): Promise<EthereumApproveResponse> {
   validateEthereumApproveRequest(req);
   const { amount, nonce, privateKey, token } = req;
-  const spender = getSpender(req.spender);
-
-  if (!ethereum.ready()) await ethereum.init();
+  const spender = ethereumish.getSpender(req.spender);
   const initTime = Date.now();
   let wallet: Wallet;
   try {
-    wallet = ethereum.getWallet(privateKey);
+    wallet = ethereumish.getWallet(privateKey);
   } catch (err) {
     throw new Error(`Error getting wallet ${err}`);
   }
-  const fullToken = ethereum.getTokenBySymbol(token);
+  const fullToken = ethereumish.getTokenBySymbol(token);
   if (!fullToken) {
     throw new Error(`Token "${token}" is not supported`);
   }
@@ -214,7 +195,7 @@ export async function approve(
     : constants.MaxUint256;
 
   // call approve function
-  const approval = await ethereum.approveERC20(
+  const approval = await ethereumish.approveERC20(
     wallet,
     spender,
     fullToken.address,
@@ -276,13 +257,13 @@ const toEthereumTransactionResponse = (
 };
 
 export async function poll(
+  ethereumish: Ethereumish,
   req: EthereumPollRequest
 ): Promise<EthereumPollResponse> {
   validateEthereumPollRequest(req);
-
   const initTime = Date.now();
-  const currentBlock = await ethereum.getCurrentBlockNumber();
-  const txData = await ethereum.getTransaction(req.txHash);
+  const currentBlock = await ethereumish.getCurrentBlockNumber();
+  const txData = await ethereumish.getTransaction(req.txHash);
   let txBlock, txReceipt, txStatus;
   if (!txData) {
     // tx not found, didn't reach the mempool or it never existed
@@ -290,7 +271,7 @@ export async function poll(
     txReceipt = null;
     txStatus = -1;
   } else {
-    txReceipt = await ethereum.getTransactionReceipt(req.txHash);
+    txReceipt = await ethereumish.getTransactionReceipt(req.txHash);
     if (txReceipt === null) {
       // tx is in the mempool
       txBlock = -1;
@@ -326,21 +307,20 @@ export async function poll(
 }
 
 export async function cancel(
+  ethereumish: Ethereumish,
   req: EthereumCancelRequest
 ): Promise<EthereumCancelResponse> {
   validateEthereumCancelRequest(req);
-
-  if (!ethereum.ready()) await ethereum.init();
   const initTime = Date.now();
   let wallet: Wallet;
   try {
-    wallet = ethereum.getWallet(req.privateKey);
+    wallet = ethereumish.getWallet(req.privateKey);
   } catch (err) {
     throw new Error(`Error getting wallet ${err}`);
   }
 
   // call cancelTx function
-  const cancelTx = await ethereum.cancelTx(wallet, req.nonce);
+  const cancelTx = await ethereumish.cancelTx(wallet, req.nonce);
 
   return {
     network: ConfigManager.config.ETHEREUM_CHAIN,
