@@ -198,5 +198,4 @@ jobs:
           git fetch --all -q
           git checkout -b $GITHUB_SHA
           npm run test:cov --prefix ./gateway
-          git diff --output=$DIFF_FILE origin/$GITHUB_BASE_REF
-          $(npm bin --prefix ./gateway)/coverageOnDiff -d $DIFF_FILE -b 65 -s 67 -c "./gateway/coverage/coverage-final.json"
+          git diff --output=$DIFF_FILE origin/$GITHUB_BASE_REF | $(npm bin --prefix ./gateway)/diff-test-coverage -c ./gateway/coverage/lcov.info -t lcov -b 65 -l 67
