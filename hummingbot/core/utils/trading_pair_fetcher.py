@@ -38,6 +38,9 @@ class TradingPairFetcher:
     async def fetch_all(self):
         for conn_setting in CONNECTOR_SETTINGS.values():
             if conn_setting.base_name().endswith("paper_trade"):
+                if conn_setting.parent_name in self.trading_pairs:
+                    self.trading_pairs[conn_setting.base_name()] = self.trading_pairs[conn_setting.parent_name]
+                    continue
                 exchange_name = conn_setting.parent_name
             else:
                 exchange_name = conn_setting.base_name()
