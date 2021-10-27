@@ -32,7 +32,11 @@ export namespace ConfigManager {
 
   export function readPassphrase(): string {
     const mode = fs.lstatSync(passphraseFliePath).mode;
-    if (mode === 33152) {
+    // check and make sure the passphrase file is a regular file, and is only accessible by the user.
+    if (
+      mode ===
+      (fs.constants.S_IFREG | fs.constants.S_IWUSR | fs.constants.S_IRUSR)
+    ) {
       const x = yaml.load(
         fs.readFileSync(passphraseFliePath, 'utf8')
       ) as PassphraseConfig;
