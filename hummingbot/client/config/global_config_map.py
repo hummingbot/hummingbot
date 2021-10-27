@@ -4,12 +4,12 @@ from typing import Callable, Optional
 from decimal import Decimal
 import os.path
 from hummingbot.client.config.config_var import ConfigVar
-import hummingbot.client.settings as settings
 from hummingbot.client.config.config_methods import using_exchange as using_exchange_pointer
 from hummingbot.client.config.config_validators import (
     validate_bool,
     validate_decimal
 )
+from hummingbot.client.settings import DEFAULT_KEY_FILE_PATH, DEFAULT_LOG_FILE_PATH, EXCHANGES
 from hummingbot.core.rate_oracle.rate_oracle import RateOracleSource, RateOracle
 
 
@@ -23,6 +23,7 @@ def using_exchange(exchange: str) -> Callable:
 
 
 def validate_script_file_path(file_path: str) -> Optional[bool]:
+    import hummingbot.client.settings as settings
     path, name = os.path.split(file_path)
     if path == "":
         file_path = os.path.join(settings.SCRIPTS_PATH, file_path)
@@ -31,6 +32,8 @@ def validate_script_file_path(file_path: str) -> Optional[bool]:
 
 
 def connector_keys():
+    import hummingbot.client.settings as settings
+    # TODO: Refactor this to import retrieve connector KEYS from utils
     all_keys = {}
     for connector_setting in settings.CONNECTOR_SETTINGS.values():
         all_keys.update(connector_setting.config_keys)
@@ -60,8 +63,6 @@ def global_token_symbol_on_validated(value: str):
 
 
 # Main global config store
-key_config_map = connector_keys()
-
 main_config_map = {
     # The variables below are usually not prompted during setup process
     "instance_id":
@@ -97,33 +98,16 @@ main_config_map = {
     "key_file_path":
         ConfigVar(key="key_file_path",
                   prompt=f"Where would you like to save your private key file? "
-                         f"(default '{settings.DEFAULT_KEY_FILE_PATH}') >>> ",
+                         f"(default '{DEFAULT_KEY_FILE_PATH}') >>> ",
                   required_if=lambda: False,
-                  default=settings.DEFAULT_KEY_FILE_PATH),
+                  default=DEFAULT_KEY_FILE_PATH),
     "log_file_path":
         ConfigVar(key="log_file_path",
-                  prompt=f"Where would you like to save your logs? (default '{settings.DEFAULT_LOG_FILE_PATH}') >>> ",
+                  prompt=f"Where would you like to save your logs? (default '{DEFAULT_LOG_FILE_PATH}') >>> ",
                   required_if=lambda: False,
-                  default=settings.DEFAULT_LOG_FILE_PATH),
+                  default=DEFAULT_LOG_FILE_PATH),
 
     # Required by chosen CEXes or DEXes
-    "paper_trade_exchanges":
-        ConfigVar(key="paper_trade_exchanges",
-                  prompt=None,
-                  required_if=lambda: False,
-                  default=["binance",
-                           "kucoin",
-                           "ascend_ex",
-                           "gate_io",
-                           ],
-                  type_str="list"),
-    "paper_trade_account_balance":
-        ConfigVar(key="paper_trade_account_balance",
-                  prompt="Enter paper trade balance settings (Input must be valid json: "
-                         "e.g. [[\"ETH\", 10.0], [\"USDC\", 100]]) >>> ",
-                  required_if=lambda: False,
-                  type_str="json",
-                  ),
     "celo_address":
         ConfigVar(key="celo_address",
                   prompt="Enter your Celo account address >>> ",
@@ -261,7 +245,7 @@ main_config_map = {
                          "e.g. balance limit [EXCHANGE] [ASSET] [AMOUNT]",
                   required_if=lambda: False,
                   type_str="json",
-                  default={exchange: None for exchange in settings.EXCHANGES}),
+                  default={exchange: None for exchange in EXCHANGES}),
     "manual_gas_price":
         ConfigVar(key="manual_gas_price",
                   prompt="Enter fixed gas price (in Gwei) you want to use for Ethereum transactions >>> ",
@@ -357,6 +341,8 @@ main_config_map = {
                   default=Decimal("30")),
 }
 
+key_config_map = connector_keys()
+
 color_config_map = {
     # The variables below are usually not prompted during setup process
     "top-pane":
@@ -403,4 +389,24 @@ color_config_map = {
                   default="#00FFE5"),
 }
 
-global_config_map = {**key_config_map, **main_config_map, **color_config_map}
+paper_trade_config_map = {
+    "paper_trade_exchanges":
+        ConfigVar(key="paper_trade_exchanges",
+                  prompt=None,
+                  required_if=lambda: False,
+                  default=["binance",
+                           "kucoin",
+                           "ascend_ex",
+                           "gate_io",
+                           ],
+                  type_str="list"),
+    "paper_trade_account_balance":
+        ConfigVar(key="paper_trade_account_balance",
+                  prompt="Enter paper trade balance settings (Input must be valid json: "
+                         "e.g. [[\"ETH\", 10.0], [\"USDC\", 100]]) >>> ",
+                  required_if=lambda: False,
+                  type_str="json",
+                  ),
+}
+
+global_config_map = {**key_config_map, **main_config_map, **color_config_map, **paper_trade_config_map}
