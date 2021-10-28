@@ -15,6 +15,10 @@ import {
   invalidNonceError,
   validateTxHash,
   invalidTxHashError,
+  invalidMaxFeePerGasError,
+  validateMaxFeePerGas,
+  invalidMaxPriorityFeePerGasError,
+  validateMaxPriorityFeePerGas,
 } from '../../../src/chains/ethereum/ethereum.validators';
 
 import { missingParameter } from '../../../src/services/validators';
@@ -272,5 +276,69 @@ describe('validateTxHash', () => {
         txHash: 123,
       })
     ).toEqual([invalidTxHashError]);
+  });
+});
+
+describe('validateMaxFeePerGas', () => {
+  it('valid when req.quote is a string', () => {
+    expect(
+      validateMaxFeePerGas({
+        maxFeePerGas: '5000000000',
+      })
+    ).toEqual([]);
+
+    expect(
+      validateMaxFeePerGas({
+        maxFeePerGas: '1',
+      })
+    ).toEqual([]);
+  });
+
+  it('return no error when req.maxFeePerGas does not exist', () => {
+    expect(
+      validateMaxFeePerGas({
+        hello: 'world',
+      })
+    ).toEqual([]);
+  });
+
+  it('return error when req.maxFeePerGas is invalid', () => {
+    expect(
+      validateMaxFeePerGas({
+        maxFeePerGas: 123,
+      })
+    ).toEqual([invalidMaxFeePerGasError]);
+  });
+});
+
+describe('validateMaxPriorityFeePerGas', () => {
+  it('valid when req.quote is a string', () => {
+    expect(
+      validateMaxPriorityFeePerGas({
+        maxPriorityFeePerGasError: '5000000000',
+      })
+    ).toEqual([]);
+
+    expect(
+      validateMaxPriorityFeePerGas({
+        maxPriorityFeePerGasError: '1',
+      })
+    ).toEqual([]);
+  });
+
+  it('return no error when req.maxPriorityFeePerGas does not exist', () => {
+    expect(
+      validateMaxPriorityFeePerGas({
+        hello: 'world',
+      })
+    ).toEqual([]);
+  });
+
+  it('return error when req.maxPriorityFeePerGas is invalid', () => {
+    expect(
+      validateMaxPriorityFeePerGas({
+        maxPriorityFeePerGas: 123,
+      })
+    ).toEqual([invalidMaxPriorityFeePerGasError]);
   });
 });
