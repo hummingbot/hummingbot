@@ -11,7 +11,7 @@ from os.path import (
 )
 from enum import Enum
 from decimal import Decimal
-from typing import List, NamedTuple, Dict, Any
+from typing import List, NamedTuple, Dict, Any, Optional, Set
 from hummingbot import get_strategy_list
 from pathlib import Path
 from hummingbot.client.config.config_var import ConfigVar
@@ -51,9 +51,9 @@ class ConnectorType(Enum):
     """
     The types of exchanges that hummingbot client can communicate with.
     """
-    Connector = 1
-    Exchange = 2
-    Derivative = 3
+    Connector = "connector"
+    Exchange = "exchange"
+    Derivative = "derivative"
 
 
 class ConnectorSetting(NamedTuple):
@@ -107,6 +107,128 @@ class ConnectorSetting(NamedTuple):
             return self.parent_name
         else:
             return self.name
+
+
+class AllConnectorSettings:
+
+    all_connector_settings: Dict[str, ConnectorSetting] = {}
+
+    @classmethod
+    def create_connector_settings(cls):
+        """
+        Iterate over files in specific Python directories to create a dictionary of exchange names to ConnectorSetting.
+        """
+        connector_exceptions = ["paper_trade"]
+
+        package_dir = Path(__file__).resolve().parent.parent.parent
+        type_dirs = [f for f in scandir(f'{str(package_dir)}/hummingbot/connector') if f.is_dir()]
+        for type_dir in type_dirs:
+            connector_dirs = [f for f in scandir(type_dir.path) if f.is_dir()]
+            for connector_dir in connector_dirs:
+                if connector_dir.name.startswith("_") or \
+                        connector_dir.name in connector_exceptions:
+                    continue
+                if connector_dir.name in cls.all_connector_settings:
+                    raise Exception(f"Multiple connectors with the same {connector_dir.name} name.")
+                path = f"hummingbot.connector.{type_dir.name}.{connector_dir.name}.{connector_dir.name}_utils"
+                try:
+                    util_module = importlib.import_module(path)
+                except ModuleNotFoundError:
+                    continue
+                fee_type = TradeFeeType.Percent
+                fee_type_setting = getattr(util_module, "FEE_TYPE", None)
+                if fee_type_setting is not None:
+                    fee_type = TradeFeeType[fee_type_setting]
+                cls.all_connector_settings[connector_dir.name] = ConnectorSetting(
+                    name=connector_dir.name,
+                    type=ConnectorType[type_dir.name.capitalize()],
+                    centralised=getattr(util_module, "CENTRALIZED", True),
+                    example_pair=getattr(util_module, "EXAMPLE_PAIR", ""),
+                    use_ethereum_wallet=getattr(util_module, "USE_ETHEREUM_WALLET", False),
+                    fee_type=fee_type,
+                    fee_token=getattr(util_module, "FEE_TOKEN", ""),
+                    default_fees=getattr(util_module, "DEFAULT_FEES", []),
+                    config_keys=getattr(util_module, "KEYS", {}),
+                    is_sub_domain=False,
+                    parent_name=None,
+                    domain_parameter=None,
+                    use_eth_gas_lookup=getattr(util_module, "USE_ETH_GAS_LOOKUP", False)
+                )
+                # Adds other domains of connector
+                other_domains = getattr(util_module, "OTHER_DOMAINS", [])
+                for domain in other_domains:
+                    parent = cls.all_connector_settings[connector_dir.name]
+                    cls.all_connector_settings[domain] = ConnectorSetting(
+                        name=domain,
+                        type=parent.type,
+                        centralised=parent.centralised,
+                        example_pair=getattr(util_module, "OTHER_DOMAINS_EXAMPLE_PAIR")[domain],
+                        use_ethereum_wallet=parent.use_ethereum_wallet,
+                        fee_type=parent.fee_type,
+                        fee_token=parent.fee_token,
+                        default_fees=getattr(util_module, "OTHER_DOMAINS_DEFAULT_FEES")[domain],
+                        config_keys=getattr(util_module, "OTHER_DOMAINS_KEYS")[domain],
+                        is_sub_domain=True,
+                        parent_name=parent.name,
+                        domain_parameter=getattr(util_module, "OTHER_DOMAINS_PARAMETER")[domain],
+                        use_eth_gas_lookup=parent.use_eth_gas_lookup
+                    )
+
+        return cls.all_connector_settings
+
+    @classmethod
+    def initialize_paper_trade_settings(cls, paper_trade_exchanges: List[str]):
+        for e in paper_trade_exchanges:
+            base_connector_settings: Optional[ConnectorSetting] = cls.all_connector_settings.get(e, None)
+            if base_connector_settings:
+                paper_trade_settings = ConnectorSetting(
+                    name=f"{e}_paper_trade",
+                    type=base_connector_settings.type,
+                    centralised=base_connector_settings.centralised,
+                    example_pair=base_connector_settings.example_pair,
+                    use_ethereum_wallet=base_connector_settings.use_ethereum_wallet,
+                    fee_type=base_connector_settings.fee_type,
+                    fee_token=base_connector_settings.fee_token,
+                    default_fees=base_connector_settings.default_fees,
+                    config_keys=base_connector_settings.config_keys,
+                    is_sub_domain=False,
+                    parent_name=base_connector_settings.name,
+                    domain_parameter=None,
+                    use_eth_gas_lookup=base_connector_settings.use_eth_gas_lookup
+                )
+                cls.all_connector_settings.update({
+                    f"{e}_paper_trade": paper_trade_settings
+                })
+
+    @classmethod
+    def get_connector_settings(cls) -> Dict[str, ConnectorSetting]:
+        if len(cls.all_connector_settings) == 0:
+            cls.all_connector_settings = cls.create_connector_settings()
+        return cls.all_connector_settings
+
+    @classmethod
+    def get_exchange_names(cls) -> Set[str]:
+        return {cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.Exchange}
+
+    @classmethod
+    def get_derivative_names(cls) -> Set[str]:
+        return {cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.Derivative}
+
+    @classmethod
+    def get_other_connector_names(cls) -> Set[str]:
+        return {cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.Connector}
+
+    @classmethod
+    def get_eth_wallet_connector_names(cls) -> Set[str]:
+        return {cs.name for cs in cls.all_connector_settings.values() if cs.use_ethereum_wallet}
+
+    @classmethod
+    def get_all_connectors_map(cls) -> Dict[str, str]:
+        return {
+            ConnectorType.Exchange.value: cls.get_exchange_names(),
+            ConnectorType.Derivative.value: cls.get_derivative_names(),
+            ConnectorType.Connector.value: cls.get_other_connector_names(),
+        }
 
 
 def _create_connector_settings() -> Dict[str, ConnectorSetting]:
@@ -211,7 +333,7 @@ def ethereum_required_trading_pairs() -> List[str]:
     """
     ret_val = []
     for conn, t_pair in requried_connector_trading_pairs.items():
-        if CONNECTOR_SETTINGS[conn].use_ethereum_wallet:
+        if AllConnectorSettings.get_connector_settings()[conn].use_ethereum_wallet:
             ret_val += t_pair
     return ret_val
 
@@ -221,13 +343,13 @@ MAXIMUM_LOG_PANE_LINE_COUNT = 1000
 MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT = 100
 
 
-CONNECTOR_SETTINGS = _create_connector_settings()
-DERIVATIVES = {cs.name for cs in CONNECTOR_SETTINGS.values() if cs.type is ConnectorType.Derivative}
-EXCHANGES = {cs.name for cs in CONNECTOR_SETTINGS.values() if cs.type is ConnectorType.Exchange}
-OTHER_CONNECTORS = {cs.name for cs in CONNECTOR_SETTINGS.values() if cs.type is ConnectorType.Connector}
-ETH_WALLET_CONNECTORS = {cs.name for cs in CONNECTOR_SETTINGS.values() if cs.use_ethereum_wallet}
-ALL_CONNECTORS = {"exchange": EXCHANGES, "connector": OTHER_CONNECTORS, "derivative": DERIVATIVES}
-EXAMPLE_PAIRS = {name: cs.example_pair for name, cs in CONNECTOR_SETTINGS.items()}
-EXAMPLE_ASSETS = {name: cs.example_pair.split("-")[0] for name, cs in CONNECTOR_SETTINGS.items()}
+CONNECTOR_SETTINGS = AllConnectorSettings.get_connector_settings()
+DERIVATIVES = AllConnectorSettings.get_derivative_names()
+EXCHANGES = AllConnectorSettings.get_exchange_names()
+OTHER_CONNECTORS = AllConnectorSettings.get_other_connector_names()
+ETH_WALLET_CONNECTORS = AllConnectorSettings.get_eth_wallet_connector_names()
+ALL_CONNECTORS = AllConnectorSettings.get_all_connectors_map()
+EXAMPLE_PAIRS = {name: cs.example_pair for name, cs in AllConnectorSettings.get_connector_settings().items()}
+EXAMPLE_ASSETS = {name: cs.example_pair.split("-")[0] for name, cs in AllConnectorSettings.get_connector_settings().items()}
 
 STRATEGIES: List[str] = get_strategy_list()

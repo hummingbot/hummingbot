@@ -32,10 +32,9 @@ def validate_script_file_path(file_path: str) -> Optional[bool]:
 
 
 def connector_keys():
-    import hummingbot.client.settings as settings
-    # TODO: Refactor this to import retrieve connector KEYS from utils
+    from hummingbot.client.settings import AllConnectorSettings
     all_keys = {}
-    for connector_setting in settings.CONNECTOR_SETTINGS.values():
+    for connector_setting in AllConnectorSettings.get_connector_settings().values():
         all_keys.update(connector_setting.config_keys)
     return all_keys
 
