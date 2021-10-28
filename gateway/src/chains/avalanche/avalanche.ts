@@ -15,6 +15,7 @@ const MKR_ADDRESS = '0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2';
 export class Avalanche extends EthereumBase implements Ethereumish {
   private static _instance: Avalanche;
   private _gasPrice: number;
+  private _nativeTokenSymbol: string;
   // private _ethGasStationUrl: string;
   // private _gasPriceLastUpdated: Date | null;
 
@@ -38,7 +39,7 @@ export class Avalanche extends EthereumBase implements Ethereumish {
       config.tokenListType,
       ConfigManager.config.AVAX_MANUAL_GAS_PRICE
     );
-
+    this._nativeTokenSymbol = 'AVAX';
     this._gasPrice = ConfigManager.config.AVAX_MANUAL_GAS_PRICE;
     // this._ethGasStationUrl =
     //   'https://ethgasstation.info/api/ethgasAPI.json?api-key=' +
@@ -61,6 +62,10 @@ export class Avalanche extends EthereumBase implements Ethereumish {
 
   public get gasPrice(): number {
     return this._gasPrice;
+  }
+
+  public get nativeTokenSymbol(): string {
+    return this._nativeTokenSymbol;
   }
 
   // public get gasPriceLastDated(): Date | null {

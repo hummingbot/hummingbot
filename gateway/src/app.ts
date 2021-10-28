@@ -3,6 +3,8 @@ import { Server } from 'http';
 import { Request, Response, NextFunction } from 'express';
 import { EthereumRoutes } from './chains/ethereum/ethereum.routes';
 import { UniswapRoutes } from './chains/ethereum/uniswap/uniswap.routes';
+import { AvalancheRoutes } from './chains/avalanche/avalanche.routes';
+import { PangolinRoutes } from './chains/avalanche/pangolin/pangolin.routes';
 import { ConfigManager } from './services/config-manager';
 import { logger, updateLoggerToStdout } from './services/logger';
 import { addHttps } from './https';
@@ -18,6 +20,7 @@ import {
   UNKNOWN_ERROR_MESSAGE,
 } from './services/error-handler';
 
+
 export const app = express();
 let server: Server;
 
@@ -30,6 +33,10 @@ app.use(express.urlencoded({ extended: true }));
 // mount sub routers
 app.use('/eth', EthereumRoutes.router);
 app.use('/eth/uniswap', UniswapRoutes.router);
+
+// mount sub routers
+app.use('/avalanche', AvalancheRoutes.router);
+app.use('/avalanche/pangolin', PangolinRoutes.router);
 
 // a simple route to test that the server is running
 app.get('/', (_req: Request, res: Response) => {

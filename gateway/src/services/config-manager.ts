@@ -1,8 +1,8 @@
 import fs from 'fs';
 import yaml from 'js-yaml';
-import { Percent } from '@pangolindex/sdk';
 
 export namespace ConfigManager {
+  export const percentRegexp = new RegExp(/^(\d+)\/(\d+)$/);
   export interface Config {
     VERSION: number;
     APPNAME: string;
@@ -30,16 +30,6 @@ export namespace ConfigManager {
     PANGOLIN_TTL: number;
     LOG_TO_STDOUT?: boolean;
     UNSAFE_DEV_MODE_WITH_HTTP?: boolean;
-  }
-
-  const percentRegexp = new RegExp(/^(\d+)\/(\d+)$/);
-
-  export function getSlippagePercentage(allowedSlippage: string): Percent {
-    const nd = allowedSlippage.match(percentRegexp);
-    if (nd) return new Percent(nd[1], nd[2]);
-    throw new Error(
-      'Encountered a malformed percent string in the config for ALLOWED_SLIPPAGE.'
-    );
   }
 
   export function validateConfig(o: any): o is Config {

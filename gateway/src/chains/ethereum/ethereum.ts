@@ -15,6 +15,7 @@ const MKR_ADDRESS = '0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2';
 export interface Ethereumish extends EthereumBase {
   cancelTx(wallet: Wallet, nonce: number): Promise<Transaction>;
   getSpender(reqSpender: string): string;
+  nativeTokenSymbol: string;
 }
 
 export class Ethereum extends EthereumBase implements Ethereumish {
@@ -22,6 +23,7 @@ export class Ethereum extends EthereumBase implements Ethereumish {
   private _ethGasStationUrl: string;
   private _gasPrice: number;
   private _gasPriceLastUpdated: Date | null;
+  private _nativeTokenSymbol: string;
 
   private constructor() {
     let config;
@@ -43,7 +45,7 @@ export class Ethereum extends EthereumBase implements Ethereumish {
       config.tokenListType,
       ConfigManager.config.ETH_MANUAL_GAS_PRICE
     );
-
+    this._nativeTokenSymbol = 'ETH';
     this._ethGasStationUrl =
       'https://ethgasstation.info/api/ethgasAPI.json?api-key=' +
       ConfigManager.config.ETH_GAS_STATION_API_KEY;
@@ -70,6 +72,10 @@ export class Ethereum extends EthereumBase implements Ethereumish {
 
   public get gasPrice(): number {
     return this._gasPrice;
+  }
+
+  public get nativeTokenSymbol(): string {
+    return this._nativeTokenSymbol;
   }
 
   public get gasPriceLastDated(): Date | null {

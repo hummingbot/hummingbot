@@ -32,22 +32,12 @@ import {
   EthereumTransaction,
   EthereumTransactionResponse,
 } from './ethereum.requests';
-import {
-  validateEthereumAllowancesRequest,
-  validateEthereumApproveRequest,
-  validateEthereumBalanceRequest,
-  validateEthereumNonceRequest,
-  validateEthereumPollRequest,
-  validateEthereumCancelRequest,
-} from './ethereum.validators';
 import { Ethereumish } from './ethereum';
 
 export async function nonce(
   ethereum: Ethereumish,
   req: EthereumNonceRequest
 ): Promise<EthereumNonceResponse> {
-  validateEthereumNonceRequest(req);
-
   // get the address via the private key since we generally use the private
   // key to interact with gateway and the address is not part of the user config
   const wallet = ethereum.getWallet(req.privateKey);
@@ -78,8 +68,6 @@ export async function allowances(
   ethereumish: Ethereumish,
   req: EthereumAllowancesRequest
 ): Promise<EthereumAllowancesResponse | string> {
-  validateEthereumAllowancesRequest(req);
-
   const initTime = Date.now();
   const wallet = ethereumish.getWallet(req.privateKey);
   const tokens = getTokenSymbolsToTokens(ethereumish, req.tokenSymbols);
@@ -112,8 +100,6 @@ export async function balances(
   ethereum: Ethereumish,
   req: EthereumBalanceRequest
 ): Promise<EthereumBalanceResponse | string> {
-  validateEthereumBalanceRequest(req);
-
   const initTime = Date.now();
 
   let wallet: Wallet;
@@ -124,7 +110,9 @@ export async function balances(
   }
   const tokens = getTokenSymbolsToTokens(ethereum, req.tokenSymbols);
   const balances: Record<string, string> = {};
-  balances.ETH = tokenValueToString(await ethereum.getEthBalance(wallet));
+  balances[ethereum.nativeTokenSymbol] = tokenValueToString(
+    await ethereum.getEthBalance(wallet)
+  );
   await Promise.all(
     Object.keys(tokens).map(async (symbol) => {
       if (tokens[symbol] !== undefined) {
@@ -176,7 +164,6 @@ export async function approve(
   ethereumish: Ethereumish,
   req: EthereumApproveRequest
 ): Promise<EthereumApproveResponse> {
-  validateEthereumApproveRequest(req);
   const { amount, nonce, privateKey, token } = req;
   const spender = ethereumish.getSpender(req.spender);
   const initTime = Date.now();
@@ -260,7 +247,6 @@ export async function poll(
   ethereumish: Ethereumish,
   req: EthereumPollRequest
 ): Promise<EthereumPollResponse> {
-  validateEthereumPollRequest(req);
   const initTime = Date.now();
   const currentBlock = await ethereumish.getCurrentBlockNumber();
   const txData = await ethereumish.getTransaction(req.txHash);
@@ -310,7 +296,6 @@ export async function cancel(
   ethereumish: Ethereumish,
   req: EthereumCancelRequest
 ): Promise<EthereumCancelResponse> {
-  validateEthereumCancelRequest(req);
   const initTime = Date.now();
   let wallet: Wallet;
   try {

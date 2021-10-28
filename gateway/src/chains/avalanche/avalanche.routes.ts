@@ -26,6 +26,15 @@ import {
   nonce,
   poll,
 } from '../ethereum/ethereum.controllers';
+import {
+  validateEthereumBalanceRequest,
+  validateEthereumNonceRequest,
+  validateEthereumPollRequest,
+} from '../ethereum/ethereum.validators';
+import {
+  validateAvalancheAllowancesRequest,
+  validateAvalancheApproveRequest,
+} from './avalanche.validators';
 
 export namespace AvalancheRoutes {
   export const router = Router();
@@ -69,6 +78,7 @@ export namespace AvalancheRoutes {
         req: Request<{}, {}, EthereumNonceRequest>,
         res: Response<EthereumNonceResponse | string, {}>
       ) => {
+        validateEthereumNonceRequest(req.body);
         res.status(200).json(await nonce(avalanche, req.body));
       }
     )
@@ -81,6 +91,7 @@ export namespace AvalancheRoutes {
         req: Request<{}, {}, EthereumAllowancesRequest>,
         res: Response<EthereumAllowancesResponse | string, {}>
       ) => {
+        validateAvalancheAllowancesRequest(req.body);
         res.status(200).json(await allowances(avalanche, req.body));
       }
     )
@@ -94,6 +105,7 @@ export namespace AvalancheRoutes {
         res: Response<EthereumBalanceResponse | string, {}>,
         _next: NextFunction
       ) => {
+        validateEthereumBalanceRequest(req.body);
         res.status(200).json(await balances(avalanche, req.body));
       }
     )
@@ -106,6 +118,7 @@ export namespace AvalancheRoutes {
         req: Request<{}, {}, EthereumApproveRequest>,
         res: Response<EthereumApproveResponse | string, {}>
       ) => {
+        validateAvalancheApproveRequest(req.body);
         return res.status(200).json(await approve(avalanche, req.body));
       }
     )
@@ -118,6 +131,7 @@ export namespace AvalancheRoutes {
         req: Request<{}, {}, EthereumPollRequest>,
         res: Response<EthereumPollResponse, {}>
       ) => {
+        validateEthereumPollRequest(req.body);
         res.status(200).json(await poll(avalanche, req.body));
       }
     )
