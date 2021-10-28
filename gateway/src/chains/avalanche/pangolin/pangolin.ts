@@ -6,6 +6,7 @@ import { PangolinConfig } from './pangolin.config';
 import {
   CurrencyAmount,
   Fetcher,
+  Percent,
   Router,
   Token,
   TokenAmount,
@@ -50,6 +51,14 @@ export class Pangolin {
     }
 
     return Pangolin.instance;
+  }
+
+  getSlippagePercentage(allowedSlippage: string): Percent {
+    const nd = allowedSlippage.match(ConfigManager.percentRegexp);
+    if (nd) return new Percent(nd[1], nd[2]);
+    throw new Error(
+      'Encountered a malformed percent string in the config for ALLOWED_SLIPPAGE.'
+    );
   }
 
   public async init() {
@@ -106,9 +115,7 @@ export class Pangolin {
       `Best trade for ${tokenIn.address}-${tokenOut.address}: ${trades[0]}`
     );
     const expectedAmount = trades[0].minimumAmountOut(
-      ConfigManager.getSlippagePercentage(
-        ConfigManager.config.PANGOLIN_ALLOWED_SLIPPAGE
-      )
+      this.getSlippagePercentage(ConfigManager.config.PANGOLIN_ALLOWED_SLIPPAGE)
     );
     return { trade: trades[0], expectedAmount };
   }
@@ -147,9 +154,7 @@ export class Pangolin {
     );
 
     const expectedAmount = trades[0].maximumAmountIn(
-      ConfigManager.getSlippagePercentage(
-        ConfigManager.config.PANGOLIN_ALLOWED_SLIPPAGE
-      )
+      this.getSlippagePercentage(ConfigManager.config.PANGOLIN_ALLOWED_SLIPPAGE)
     );
     return { trade: trades[0], expectedAmount };
   }
@@ -164,7 +169,7 @@ export class Pangolin {
     const result = Router.swapCallParameters(trade, {
       ttl: ConfigManager.config.PANGOLIN_TTL,
       recipient: wallet.address,
-      allowedSlippage: ConfigManager.getSlippagePercentage(
+      allowedSlippage: this.getSlippagePercentage(
         ConfigManager.config.PANGOLIN_ALLOWED_SLIPPAGE
       ),
     });

@@ -27,6 +27,14 @@ import {
   EthereumCancelRequest,
   EthereumCancelResponse,
 } from './ethereum.requests';
+import {
+  validateEthereumAllowancesRequest,
+  validateEthereumApproveRequest,
+  validateEthereumBalanceRequest,
+  validateEthereumCancelRequest,
+  validateEthereumNonceRequest,
+  validateEthereumPollRequest,
+} from './ethereum.validators';
 
 export namespace EthereumRoutes {
   export const router = Router();
@@ -63,6 +71,7 @@ export namespace EthereumRoutes {
         req: Request<{}, {}, EthereumNonceRequest>,
         res: Response<EthereumNonceResponse | string, {}>
       ) => {
+        validateEthereumNonceRequest(req.body);
         res.status(200).json(await nonce(ethereum, req.body));
       }
     )
@@ -75,6 +84,7 @@ export namespace EthereumRoutes {
         req: Request<{}, {}, EthereumAllowancesRequest>,
         res: Response<EthereumAllowancesResponse | string, {}>
       ) => {
+        validateEthereumAllowancesRequest(req.body);
         res.status(200).json(await allowances(ethereum, req.body));
       }
     )
@@ -88,6 +98,7 @@ export namespace EthereumRoutes {
         res: Response<EthereumBalanceResponse | string, {}>,
         _next: NextFunction
       ) => {
+        validateEthereumBalanceRequest(req.body);
         res.status(200).json(await balances(ethereum, req.body));
       }
     )
@@ -100,6 +111,7 @@ export namespace EthereumRoutes {
         req: Request<{}, {}, EthereumApproveRequest>,
         res: Response<EthereumApproveResponse | string, {}>
       ) => {
+        validateEthereumApproveRequest(req.body);
         return res.status(200).json(await approve(ethereum, req.body));
       }
     )
@@ -112,6 +124,7 @@ export namespace EthereumRoutes {
         req: Request<{}, {}, EthereumPollRequest>,
         res: Response<EthereumPollResponse, {}>
       ) => {
+        validateEthereumPollRequest(req.body);
         res.status(200).json(await poll(ethereum, req.body));
       }
     )
@@ -124,6 +137,7 @@ export namespace EthereumRoutes {
         req: Request<{}, {}, EthereumCancelRequest>,
         res: Response<EthereumCancelResponse, {}>
       ) => {
+        validateEthereumCancelRequest(req.body);
         res.status(200).json(await cancel(ethereum, req.body));
       }
     )
