@@ -1,11 +1,9 @@
 import aiohttp
-from aiohttp.test_utils import TestClient
 import asyncio
 from decimal import Decimal
 from libc.stdint cimport int64_t
 import logging
 import time
-import pandas as pd
 from typing import (
     Any,
     AsyncIterable,
