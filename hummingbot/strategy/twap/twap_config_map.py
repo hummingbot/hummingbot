@@ -52,7 +52,7 @@ def set_order_delay_default(value: str = None):
     twap_config_map.get("order_delay_time").default = default
 
 
-def validate_order_step_size(value: Decimal = None):
+def validate_order_step_size(value: str = None):
     """
     Validates if order_step_size is less than the target_asset_amount value
     :param value: User input for order_step_size parameter
