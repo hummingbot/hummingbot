@@ -1,5 +1,5 @@
 ### **Client UI Improvements**
- Updated on version [0.45](/release-notes/0.45.0)**
+ Updated on version [0.45](/release-notes/0.45.0)
 
 Starting with version 0.45 we've made some exciting changes to the client user interface to allow users to be able to further customize Hummingbot to their liking. 
 
@@ -9,12 +9,12 @@ Starting with version 0.45 we've made some exciting changes to the client user i
 
 ![New Hummingbot UI](/assets/img/new-ui-1.png)
 
-1. Top pane 
-2. Output pane 
-3. Input pane 
-4. Bottom pane  
-5. Logs pane 
-6. Toggle for opening / closing the log pane or press `CTRL + T`  
+1. `top-pane` 
+2. `output-pane` 
+3. `input-pane` 
+4. `bottom-pane`  
+5. `logs-pane` 
+6. Toggle to open and close the log pane or press `CTRL + T`  
 
 
 ### Changing the panel colors
