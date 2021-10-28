@@ -1,9 +1,12 @@
-from unittest import TestCase
-from mock import patch, MagicMock
 import asyncio
+import unittest
+
+from mock import patch, MagicMock
+
+from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 
 
-class TestTradingPairFetcher(TestCase):
+class TestTradingPairFetcher(unittest.TestCase):
     @classmethod
     async def wait_until_trading_pair_fetcher_ready(cls, tpf):
         while True:
@@ -30,22 +33,20 @@ class TestTradingPairFetcher(TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         # Need to reset TradingPairFetcher module so next time it gets imported it works as expected
-        from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
         TradingPairFetcher._sf_shared_instance = None
 
     def test_trading_pair_fetcher_returns_same_instance_when_get_new_instance_once_initialized(self):
-        from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
         instance = TradingPairFetcher.get_instance()
         self.assertIs(instance, TradingPairFetcher.get_instance())
 
-    def test_fetched_connector_trading_pairs(self):
-        with patch('hummingbot.core.utils.trading_pair_fetcher.CONNECTOR_SETTINGS',
-                   {"mock_exchange_1": self.MockConnectorSetting()}) as _, \
-                patch('hummingbot.core.utils.trading_pair_fetcher.importlib.import_module',
-                      return_value=self.MockConnectorDataSourceModule()) as _, \
-                patch('hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher._sf_shared_instance', None):
-            from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
-            trading_pair_fetcher = TradingPairFetcher()
-            asyncio.get_event_loop().run_until_complete(self.wait_until_trading_pair_fetcher_ready(trading_pair_fetcher))
-            trading_pairs = trading_pair_fetcher.trading_pairs
-            self.assertEqual(trading_pairs, {'mockConnector': 'MOCK-HBOT'})
+    @patch("hummingbot.core.utils.trading_pair_fetcher.importlib.import_module")
+    @patch("hummingbot.client.settings.AllConnectorSettings.get_connector_settings")
+    @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher._sf_shared_instance")
+    def test_fetched_connector_trading_pairs(self, _, mock_connector_settings, mock_import_module, ):
+        mock_connector_settings.return_value = {"mock_exchange_1": self.MockConnectorSetting()}
+        mock_import_module.return_value = self.MockConnectorDataSourceModule()
+
+        trading_pair_fetcher = TradingPairFetcher()
+        asyncio.get_event_loop().run_until_complete(self.wait_until_trading_pair_fetcher_ready(trading_pair_fetcher))
+        trading_pairs = trading_pair_fetcher.trading_pairs
+        self.assertEqual(trading_pairs, {'mockConnector': 'MOCK-HBOT'})
