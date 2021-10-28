@@ -143,7 +143,7 @@ app.use(
         }
       }
     }
-    logger.error(response.message + '\n' + response.stack);
+    logger.error(err);
     return res.status(httpErrorCode).json(response);
   }
 );
