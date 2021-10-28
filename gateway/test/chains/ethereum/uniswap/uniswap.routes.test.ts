@@ -178,7 +178,7 @@ describe('POST /eth/uniswap/price', () => {
       });
   });
 
-  it('should return 500 for unrecognized quote symobl', async () => {
+  it('should return 500 for unrecognized quote symbol', async () => {
     patchGetWallet();
     patchInit();
     patchStoredTokenList();
@@ -196,7 +196,7 @@ describe('POST /eth/uniswap/price', () => {
       .expect(500);
   });
 
-  it('should return 500 for unrecognized base symobl', async () => {
+  it('should return 500 for unrecognized base symbol', async () => {
     patchGetWallet();
     patchInit();
     patchStoredTokenList();
@@ -216,7 +216,7 @@ describe('POST /eth/uniswap/price', () => {
 });
 
 describe('POST /eth/uniswap/trade', () => {
-  it('should return 200 for BUY', async () => {
+  const patchForBuy = () => {
     patchGetWallet();
     patchInit();
     patchStoredTokenList();
@@ -226,7 +226,9 @@ describe('POST /eth/uniswap/trade', () => {
     patchConfig();
     patchGetNonce();
     patchExecuteTrade();
-
+  };
+  it('should return 200 for BUY', async () => {
+    patchForBuy();
     await request(app)
       .post(`/eth/uniswap/trade`)
       .send({
@@ -245,7 +247,42 @@ describe('POST /eth/uniswap/trade', () => {
       });
   });
 
-  it('should return 200 for SELL', async () => {
+  it('should return 200 for BUY without nonce parameter', async () => {
+    patchForBuy();
+    await request(app)
+      .post(`/eth/uniswap/trade`)
+      .send({
+        quote: 'DAI',
+        base: 'WETH',
+        amount: '10000',
+        privateKey:
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        side: 'BUY',
+      })
+      .set('Accept', 'application/json')
+      .expect(200);
+  });
+
+  it('should return 200 for BUY with maxFeePerGas and maxPriorityFeePerGas', async () => {
+    patchForBuy();
+    await request(app)
+      .post(`/eth/uniswap/trade`)
+      .send({
+        quote: 'DAI',
+        base: 'WETH',
+        amount: '10000',
+        privateKey:
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        side: 'BUY',
+        nonce: 21,
+        maxFeePerGas: '5000000000',
+        maxPriorityFeePerGas: '5000000000',
+      })
+      .set('Accept', 'application/json')
+      .expect(200);
+  });
+
+  const patchForSell = () => {
     patchGetWallet();
     patchInit();
     patchStoredTokenList();
@@ -255,7 +292,9 @@ describe('POST /eth/uniswap/trade', () => {
     patchConfig();
     patchGetNonce();
     patchExecuteTrade();
-
+  };
+  it('should return 200 for SELL', async () => {
+    patchForSell();
     await request(app)
       .post(`/eth/uniswap/trade`)
       .send({
@@ -272,6 +311,25 @@ describe('POST /eth/uniswap/trade', () => {
       .then((res: any) => {
         expect(res.body.nonce).toEqual(21);
       });
+  });
+
+  it('should return 200 for SELL  with maxFeePerGas and maxPriorityFeePerGas', async () => {
+    patchForSell();
+    await request(app)
+      .post(`/eth/uniswap/trade`)
+      .send({
+        quote: 'DAI',
+        base: 'WETH',
+        amount: '10000',
+        privateKey:
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        side: 'SELL',
+        nonce: 21,
+        maxFeePerGas: '5000000000',
+        maxPriorityFeePerGas: '5000000000',
+      })
+      .set('Accept', 'application/json')
+      .expect(200);
   });
 
   it('should return 404 when parameters are incorrect', async () => {
