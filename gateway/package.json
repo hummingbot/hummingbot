@@ -8,6 +8,7 @@
   "scripts": {
     "prebuild": "rimraf dist && mkdir dist",
     "build": "tsc --project ./",
+    "config": "./setup/config.sh",
     "format": "prettier . --write",
     "lint": "eslint src test test-scripts --format table --fix",
     "dev": "nodemon src/index.ts",

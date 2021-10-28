@@ -171,7 +171,6 @@ jobs:
           LOG_PATH: './logs'
           GMT_OFFSET: +0800
           CERT_PATH: ''
-          CERT_PASSPHRASE: ''
           ETHEREUM_CHAIN: mainnet
           INFURA_KEY: '6f637da72af64d99870a68d09a7df3d7'
           ETH_GAS_STATION_ENABLE: true
@@ -183,6 +182,14 @@ jobs:
           UNISWAP_GAS_LIMIT: 150688
           UNISWAP_TTL: 300
           EOF
+
+      - name: Create yml passphrase file
+        shell: bash
+        run: |
+          cat << EOF >> ./gateway/conf/gateway-passphrase.yml
+          CERT_PASSPHRASE: ''
+          EOF
+          chmod 0600 ./gateway/conf/gateway-passphrase.yml
 
       - name: Build project
         run: npm run build --prefix ./gateway
