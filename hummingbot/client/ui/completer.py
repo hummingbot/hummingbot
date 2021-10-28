@@ -9,7 +9,7 @@ from prompt_toolkit.document import Document
 from os import listdir
 from os.path import isfile, join, exists
 from hummingbot.client.settings import (
-    CONNECTOR_SETTINGS,
+    AllConnectorSettings,
     EXCHANGES,
     DERIVATIVES,
     STRATEGIES,
@@ -30,8 +30,8 @@ def file_name_list(path, file_extension):
     return sorted([f for f in listdir(path) if isfile(join(path, f)) and f.endswith(file_extension)])
 
 
-SPOT_PROTOCOL_CONNECTOR = {x.name for x in CONNECTOR_SETTINGS.values() if x.type == ConnectorType.Connector}
-DERIVATIVE_PROTOCOL_CONNECTOR = {x.name for x in CONNECTOR_SETTINGS.values() if x.type == ConnectorType.Derivative and not x.centralised}
+SPOT_PROTOCOL_CONNECTOR = {x.name for x in AllConnectorSettings.get_connector_settings().values() if x.type == ConnectorType.Connector}
+DERIVATIVE_PROTOCOL_CONNECTOR = {x.name for x in AllConnectorSettings.get_connector_settings().values() if x.type == ConnectorType.Derivative and not x.centralised}
 
 
 class HummingbotCompleter(Completer):
@@ -40,7 +40,7 @@ class HummingbotCompleter(Completer):
         self.hummingbot_application = hummingbot_application
         self._path_completer = WordCompleter(file_name_list(CONF_FILE_PATH, "yml"))
         self._command_completer = WordCompleter(self.parser.commands, ignore_case=True)
-        self._exchange_completer = WordCompleter(sorted(CONNECTOR_SETTINGS.keys()), ignore_case=True)
+        self._exchange_completer = WordCompleter(sorted(AllConnectorSettings.get_connector_settings().keys()), ignore_case=True)
         self._spot_completer = WordCompleter(sorted(EXCHANGES.union(SPOT_PROTOCOL_CONNECTOR)), ignore_case=True)
         self._spot_exchange_completer = WordCompleter(sorted(EXCHANGES), ignore_case=True)
         self._derivative_completer = WordCompleter(DERIVATIVES, ignore_case=True)
@@ -70,7 +70,7 @@ class HummingbotCompleter(Completer):
     def _trading_pair_completer(self) -> Completer:
         trading_pair_fetcher = TradingPairFetcher.get_instance()
         market = ""
-        for exchange in sorted(list(CONNECTOR_SETTINGS.keys()), key=len, reverse=True):
+        for exchange in sorted(list(AllConnectorSettings.get_connector_settings().keys()), key=len, reverse=True):
             if exchange in self.prompt_text:
                 market = exchange
                 break

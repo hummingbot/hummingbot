@@ -14,7 +14,7 @@ from datetime import datetime
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.settings import (
     MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT,
-    CONNECTOR_SETTINGS,
+    AllConnectorSettings,
     ConnectorType,
     DERIVATIVES
 )
@@ -99,8 +99,8 @@ class HistoryCommand:
         elif "perpetual_finance" == market:
             return await UserBalances.xdai_balances()
         else:
-            gateway_eth_connectors = [cs.name for cs in CONNECTOR_SETTINGS.values() if cs.use_ethereum_wallet and
-                                      cs.type == ConnectorType.Connector]
+            gateway_eth_connectors = [cs.name for cs in AllConnectorSettings.get_connector_settings().values()
+                                      if cs.use_ethereum_wallet and cs.type == ConnectorType.Connector]
             if market in gateway_eth_connectors:
                 return await UserBalances.instance().eth_n_erc20_balances()
             else:
