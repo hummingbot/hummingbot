@@ -114,35 +114,34 @@ cdef class HedgeStrategy(StrategyBase):
                                                object market_pair,
                                                object hedge_amount):
         cdef:
-            object active_orders=self.market_info_to_active_orders.get(market_pair, None)
+            object active_orders=self.market_info_to_active_orders.get(market_pair, [])
             ExchangeBase market = market_pair.market
             object quantized_order_amount = market.c_quantize_order_amount(market_pair.trading_pair, Decimal(abs(hedge_amount)))
             object order_size_quantum = market.c_get_order_size_quantum(market_pair.trading_pair, quantized_order_amount)
-        if active_orders is None or len(active_orders)<1:
-            return
-        o = active_orders[0]
-        if isnan(order_age(o)):
-            return
-        if order_age(o) > self._max_order_age:
-            self.log_with_clock(logging.INFO,
-                                f"{market_pair.trading_pair}: "
-                                f"order age of limit order ({order_age(o)}) is more than {self._max_order_age}. "
-                                f"Cancelling Order")
-            for order in active_orders:
-                self.c_cancel_order(market_pair, order.client_order_id)
-            return
-        if isnan(o.quantity) or isnan(o.filled_quantity):
-            return
-        if abs(o.quantity-o.filled_quantity-quantized_order_amount)>order_size_quantum:
-            self.log_with_clock(logging.INFO,
-                                f"{market_pair.trading_pair}: "
-                                f"quantity: {o.quantity} filled_quantity: {o.filled_quantity}"
-                                f"{o.quantity - o.filled_quantity} is different than quantity required {quantized_order_amount}. "
-                                f"order quantum: {order_size_quantum} "
-                                f"Cancelling Order")
-            for order in active_orders:
-                self.c_cancel_order(market_pair, order.client_order_id)
-            return
+
+        for o in active_orders:
+    
+            if isnan(order_age(o)):
+                continue
+            if self._max_order_age>0 and order_age(o) > self._max_order_age:
+                self.log_with_clock(logging.INFO,
+                                    f"{market_pair.trading_pair}: "
+                                    f"order age of limit order ({order_age(o)}) is more than {self._max_order_age}. "
+                                    f"Cancelling Order")
+                self.c_cancel_order(market_pair, o.client_order_id)
+
+            if isnan(o.quantity) or isnan(o.filled_quantity):
+                continue
+            if abs(o.quantity-o.filled_quantity-quantized_order_amount)>order_size_quantum:
+                self.log_with_clock(logging.INFO,
+                                    f"{market_pair.trading_pair}: "
+                                    f"quantity: {o.quantity} filled_quantity: {o.filled_quantity}"
+                                    f"{o.quantity - o.filled_quantity} is different than quantity required {quantized_order_amount}. "
+                                    f"order quantum: {order_size_quantum} "
+                                    f"Cancelling Order")
+                self.c_cancel_order(market_pair, o.client_order_id)
+            
+
     cdef object check_and_hedge_asset(self,
                                       str maker_asset,
                                       object maker_balance,
@@ -256,18 +255,18 @@ cdef class HedgeStrategy(StrategyBase):
         active_orders = self.market_info_to_active_orders
         columns = ["Market", "Type", "Price", "Amount", "Age"]
         data = []
-        for active_order in active_orders:
-            # only 1 level should be present
-            order = active_orders[active_order][0]
-            market = order.trading_pair
-            age = order_age(order)
-            data.append([
-                market,
-                "buy" if order.is_buy else "sell",
-                float(order.price),
-                float(order.quantity),
-                age
-            ])
+        for market_info in active_orders:
+            orders = active_orders[market_info]
+            for order in orders:
+                market = order.trading_pair
+                age = order_age(order)
+                data.append([
+                    market,
+                    "buy" if order.is_buy else "sell",
+                    float(order.price),
+                    float(order.quantity),
+                    age
+                ])
         return pd.DataFrame(data=data, columns=columns)
 
     def format_status(self) -> str:
