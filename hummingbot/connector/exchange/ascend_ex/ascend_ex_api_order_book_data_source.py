@@ -161,8 +161,8 @@ class AscendExAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 }
                 for topic in [self.DIFF_TOPIC_ID, self.TRADE_TOPIC_ID]
             ]
-            ws = await aiohttp.ClientSession().ws_connect(url=CONSTANTS.WS_URL,
-                                                          heartbeat=self.HEARTBEAT_PING_INTERVAL)
+            ws = await self._shared_client.ws_connect(url=CONSTANTS.WS_URL,
+                                                      heartbeat=self.HEARTBEAT_PING_INTERVAL)
             for payload in subscription_payloads:
                 async with self._throttler.execute_task(CONSTANTS.SUB_ENDPOINT_NAME):
                     await ws.send_json(payload)

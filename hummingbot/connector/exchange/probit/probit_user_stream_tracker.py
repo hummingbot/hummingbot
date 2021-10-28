@@ -3,6 +3,8 @@
 import asyncio
 import logging
 
+import aiohttp
+
 import hummingbot.connector.exchange.probit.probit_constants as CONSTANTS
 
 from typing import (
@@ -33,12 +35,14 @@ class ProbitUserStreamTracker(UserStreamTracker):
 
     def __init__(self,
                  probit_auth: Optional[ProbitAuth] = None,
-                 trading_pairs: Optional[List[str]] = [],
-                 domain: str = "com"):
+                 trading_pairs: Optional[List[str]] = None,
+                 domain: str = "com",
+                 shared_client: Optional[aiohttp.ClientSession] = None):
         super().__init__()
+        self._shared_client = shared_client
         self._domain: str = domain
         self._probit_auth: ProbitAuth = probit_auth
-        self._trading_pairs: List[str] = trading_pairs
+        self._trading_pairs: List[str] = trading_pairs or []
         self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
         self._data_source: Optional[UserStreamTrackerDataSource] = None
         self._user_stream_tracking_task: Optional[asyncio.Task] = None
@@ -54,7 +58,8 @@ class ProbitUserStreamTracker(UserStreamTracker):
             self._data_source = ProbitAPIUserStreamDataSource(
                 probit_auth=self._probit_auth,
                 trading_pairs=self._trading_pairs,
-                domain=self._domain
+                domain=self._domain,
+                shared_client=self._shared_client,
             )
         return self._data_source
 
