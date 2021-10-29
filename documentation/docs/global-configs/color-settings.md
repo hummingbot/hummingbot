@@ -1,11 +1,6 @@
-### **Client UI Improvements**
- Updated on version [0.45](/release-notes/0.45.0)
+# Color Settings
 
-Starting with version 0.45 we've made some exciting changes to the client user interface to allow users to be able to further customize Hummingbot to their liking. 
-
-- Adjusted default panel colors to create a division between the input pane and log pane
-- Changed top panel text colors including paper trade mode indicator
-- Added global configuration parameters allowing users to specify and customize colors inside the client terminal (`top-pane`, `bottom-pane`, `output-pane`, `input-pane`, `logs-pane`, `terminal-primary`)
+Starting with version 0.45, we added new global configuration parameters that allows users to customize the client's background colors.
 
 ![New Hummingbot UI](/assets/img/new-ui-1.png)
 
@@ -13,18 +8,23 @@ Starting with version 0.45 we've made some exciting changes to the client user i
 2. `output-pane` 
 3. `input-pane` 
 4. `bottom-pane`  
-5. `logs-pane` 
-6. `Toggle to open and close the log pane or press CTRL + T`  
+5. `log-pane`
+6. `terminal-primary`
 
 
-### Changing the panel colors
-To make changes to the panel colors, edit the `config_global.yml` file to specify the colors for each of the panes.
+## Changing the panel colors
 
-!!! note
-    A hex color code is a 6-symbol code made of up to three 2-symbol elements. Each of the 2-symbol elements expresses a color value from 0 to 255. The code is written using a formula that turns each value into a unique 2-digit alphanumeric code. For example, the RGB code (224, 105, 16) is E06910 in hexadecimal code
+To make changes to the panel colors, run `config [parameter_name]` inside the Hummingbot client. For example, the command for changing the log pane color is `config log-pane` and enter the hex code of the desired color.
 
 !!! tip 
-    You can use a hexadecimal color picker like the one here to choose colors - https://www.w3schools.com/colors/colors_picker.asp   
+    You can use a hexadecimal color picker like the one here to choose colors: https://www.w3schools.com/colors/colors_picker.asp
+
+Alternatively, you can edit these values in the `conf_global.yml` file using a text editor.
+
+
+## Reset colors to default
+
+Press `CTRL + R` while inside Hummingbot to reset the style to use its default colors.
 
 ```
 # Background color of the top pane
@@ -44,9 +44,4 @@ logs-pane: '#151819'
 
 # Terminal primary color (text)
 terminal-primary: '#00FFE5'
-
 ```
-
-!!! tip
-     Press `CTRL + R` to reset the style to use default colors
-
