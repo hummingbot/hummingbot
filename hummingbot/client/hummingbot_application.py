@@ -4,8 +4,8 @@ import asyncio
 from collections import deque
 import logging
 import time
+import inspect
 from typing import List, Dict, Optional, Tuple, Deque
-
 from hummingbot.client.command import __all__ as commands
 from hummingbot.core.clock import Clock
 from hummingbot.exceptions import ArgumentParserError
@@ -35,6 +35,9 @@ from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.client.config.security import Security
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.client.settings import CONNECTOR_SETTINGS, ConnectorType
+from hummingbot.client.tab.data_types import CommandTab
+import hummingbot.client.tab as tab_package
+
 s_logger = None
 
 
@@ -62,9 +65,14 @@ class HummingbotApplication(*commands):
         # This is to start fetching trading pairs for auto-complete
         TradingPairFetcher.get_instance()
         self.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        self.parser: ThrowingArgumentParser = load_parser(self)
+        command_tabs = self.init_command_tabs()
+        self.parser: ThrowingArgumentParser = load_parser(self, command_tabs)
+
         self.app = HummingbotCLI(
-            input_handler=self._handle_command, bindings=load_key_bindings(self), completer=load_completer(self)
+            input_handler=self._handle_command,
+            bindings=load_key_bindings(self),
+            completer=load_completer(self),
+            command_tabs=command_tabs
         )
 
         self.markets: Dict[str, ExchangeBase] = {}
@@ -164,10 +172,11 @@ class HummingbotApplication(*commands):
                     args = self.parser.parse_args(args=command_split)
                     kwargs = vars(args)
                     if not hasattr(args, "func"):
-                        return
-                    f = args.func
-                    del kwargs["func"]
-                    f(**kwargs)
+                        self.app.handle_tab_command(self, command_split[0], kwargs)
+                    else:
+                        f = args.func
+                        del kwargs["func"]
+                        f(**kwargs)
         except ArgumentParserError as e:
             if not self.be_silly(raw_command):
                 self._notify(str(e))
@@ -268,3 +277,19 @@ class HummingbotApplication(*commands):
                 )
         for notifier in self.notifiers:
             notifier.start()
+
+    def init_command_tabs(self) -> Dict[str, CommandTab]:
+        command_tabs: Dict[str, CommandTab] = {}
+        for mod_name, module in tab_package.__dict__.items():
+            for x in dir(module):
+                tab = getattr(module, x)
+                if inspect.isclass(tab) and issubclass(tab, tab_package.tab_base.TabBase) \
+                        and tab is not tab_package.tab_base.TabBase:
+                    name = tab.get_command_name()
+                    command_tabs[name] = CommandTab(
+                        name,
+                        None,
+                        None,
+                        None,
+                        tab)
+        return command_tabs

@@ -104,6 +104,6 @@ def load_key_bindings(hb) -> KeyBindings:
 
     @bindings.add("c-t")
     def toggle_logs(event):
-        hb.app.toggle_logs()
+        hb.app.toggle_right_pane()
 
     return bindings

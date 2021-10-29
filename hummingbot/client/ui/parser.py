@@ -1,6 +1,7 @@
 import argparse
 from typing import (
     List,
+    Any
 )
 from hummingbot.exceptions import ArgumentParserError
 from hummingbot.client.command.connect_command import OPTIONS as CONNECT_OPTIONS
@@ -36,7 +37,7 @@ class ThrowingArgumentParser(argparse.ArgumentParser):
         return filtered
 
 
-def load_parser(hummingbot) -> ThrowingArgumentParser:
+def load_parser(hummingbot, command_tabs) -> [ThrowingArgumentParser, Any]:
     parser = ThrowingArgumentParser(prog="", add_help=False)
     subparsers = parser.add_subparsers()
 
@@ -164,5 +165,10 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
     rate_parser.add_argument("-t", "--token", default=None,
                              dest="token", help="The token you want to see its value.")
     rate_parser.set_defaults(func=hummingbot.rate)
+
+    for name, command_tab in command_tabs.items():
+        o_parser = subparsers.add_parser(name, help=command_tab.tab_class.get_command_help_message())
+        for args in command_tab.tab_class.get_command_arguments():
+            o_parser.add_argument(args[0], **args[1])
 
     return parser

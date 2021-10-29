@@ -53,4 +53,4 @@ class CLIMockingAssistant:
         self._log_calls.append(text)
 
     def toggle_logs(self):
-        self._app.toggle_logs()
+        self._app.toggle_right_pane()
