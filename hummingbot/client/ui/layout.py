@@ -2,15 +2,15 @@
 
 from os.path import join, realpath, dirname
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
-
+from typing import Dict
+from prompt_toolkit.layout import Dimension
 from prompt_toolkit.layout.containers import (
     VSplit,
     HSplit,
     Window,
     FloatContainer,
     Float,
-    WindowAlign,
-)
+    WindowAlign)
 from prompt_toolkit.layout.menus import CompletionsMenu
 from prompt_toolkit.layout.layout import Layout
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
@@ -23,6 +23,7 @@ from hummingbot.client.settings import (
     MAXIMUM_OUTPUT_PANE_LINE_COUNT,
     MAXIMUM_LOG_PANE_LINE_COUNT,
 )
+from hummingbot.client.tab.data_types import CommandTab
 
 
 HEADER = """
@@ -160,12 +161,33 @@ def create_log_field(search_field: SearchToolbar):
     )
 
 
+def create_live_field():
+    return TextArea(
+        style='class:output-field',
+        focus_on_click=False,
+        read_only=False,
+        scrollbar=True,
+        max_line_count=MAXIMUM_OUTPUT_PANE_LINE_COUNT,
+        initial_text="Live",
+    )
+
+
 def create_log_toggle(function):
     return Button(
         text='> log pane',
         width=13,
         handler=function,
         left_symbol='',
+        right_symbol='',
+    )
+
+
+def create_button(text, function, margin=3, left_symbol=''):
+    return Button(
+        text=text,
+        width=len(text) + margin,
+        handler=function,
+        left_symbol=left_symbol,
         right_symbol=''
     )
 
@@ -216,11 +238,15 @@ def generate_layout(input_field: TextArea,
                     output_field: TextArea,
                     log_field: TextArea,
                     log_toggle: Button,
+                    log_field_toggle: Button,
                     search_field: SearchToolbar,
                     timer: TextArea,
                     process_monitor: TextArea,
-                    trade_monitor: TextArea):
+                    trade_monitor: TextArea,
+                    command_tabs: Dict[str, CommandTab],
+                    ):
     components = {}
+
     components["item_top_version"] = Window(FormattedTextControl(get_version), style="class:header")
     components["item_top_paper"] = Window(FormattedTextControl(get_paper_trade_status), style="class:header")
     components["item_top_active"] = Window(FormattedTextControl(get_active_strategy), style="class:header")
@@ -237,9 +263,16 @@ def generate_layout(input_field: TextArea,
                                         process_monitor,
                                         timer], height=1)
     components["pane_left"] = HSplit([output_field,
-                                      input_field])
-    components["pane_right"] = HSplit([log_field,
-                                       search_field])
+                                      input_field], width=Dimension(weight=1))
+    tab_buttons = [[tab.button, tab.close_button] for tab in command_tabs.values() if tab.button is not None]
+    pane_right_field = log_field
+    focused_right_field = [tab.output_field for tab in command_tabs.values() if tab.is_focus]
+    if focused_right_field:
+        pane_right_field = focused_right_field[0]
+    components["pane_right_top"] = VSplit([log_field_toggle] + [b for couple in tab_buttons for b in couple], height=1)
+    components["pane_right"] = HSplit([components["pane_right_top"],
+                                       pane_right_field,
+                                       search_field], width=Dimension(weight=1))
     components["hint_menus"] = [Float(xcursor=True,
                                       ycursor=True,
                                       transparent=True,
