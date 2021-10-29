@@ -61,8 +61,7 @@ def ensure_key():
 
 async def start_management_console(local_vars: MutableMapping,
                                    host: str = "localhost",
-                                   port: int = 8212,
-                                   banner: str = "hummingbot"):
+                                   port: int = 8212):
     add_diagnosis_tools(local_vars)
 
     async def interact(_=None):
