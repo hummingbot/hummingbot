@@ -54,7 +54,18 @@ The CLI is divided into five panes:
 
 ![Bottom Navigation](/assets/img/bottom-nav.gif)
 
-# Keyboard shortcuts
+
+## Show and hide log pane
+
+The log pane on the right can be shown or hidden in two ways:
+
+1. Click the `log pane` button in the upper right hand corner
+2. Press `CTRL + T` shortcut on your keyboard
+
+![]()
+
+
+## Keyboard shortcuts
 
 | Keyboard Combo    | Command                    | Description                                  |
 | ----------------- | -------------------------- | -------------------------------------------- |
