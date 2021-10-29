@@ -12,7 +12,6 @@ export namespace ConfigManager {
     LOG_PATH: string;
     GMT_OFFSET: number;
     CERT_PATH: string;
-    CERT_PASSPHRASE: string;
     ETHEREUM_CHAIN: string;
     INFURA_KEY: string;
     ETH_GAS_STATION_ENABLE: boolean;
@@ -25,6 +24,35 @@ export namespace ConfigManager {
     UNISWAP_TTL: number;
     LOG_TO_STDOUT?: boolean;
     UNSAFE_DEV_MODE_WITH_HTTP?: boolean;
+  }
+
+  export interface PassphraseConfig {
+    CERT_PASSPHRASE: string;
+  }
+
+  export function readPassphrase(): string {
+    const mode = fs.lstatSync(passphraseFliePath).mode;
+    // check and make sure the passphrase file is a regular file, and is only accessible by the user.
+    if (
+      mode ===
+      (fs.constants.S_IFREG | fs.constants.S_IWUSR | fs.constants.S_IRUSR)
+    ) {
+      const x = yaml.load(
+        fs.readFileSync(passphraseFliePath, 'utf8')
+      ) as PassphraseConfig;
+      if ('CERT_PASSPHRASE' in x) {
+        return x.CERT_PASSPHRASE;
+      } else {
+        throw new Error(
+          passphraseFliePath + ' does not have CERT_PASSPHRASE set.'
+        );
+      }
+    } else {
+      throw new Error(
+        passphraseFliePath +
+          ' file does not strictly have mode set to user READ_WRITE only.'
+      );
+    }
   }
 
   const percentRegexp = new RegExp(/^(\d+)\/(\d+)$/);
@@ -49,7 +77,6 @@ export namespace ConfigManager {
       'LOG_TO_STDOUT' in o &&
       'GMT_OFFSET' in o &&
       'CERT_PATH' in o &&
-      'CERT_PASSPHRASE' in o &&
       'ETHEREUM_CHAIN' in o &&
       'INFURA_KEY' in o &&
       'ETH_GAS_STATION_ENABLE' in o &&
@@ -65,6 +92,7 @@ export namespace ConfigManager {
   }
 
   export const configFilePath: string = './conf/gateway-config.yml';
+  export const passphraseFliePath: string = './conf/gateway-passphrase.yml';
   export let config: Config;
   reloadConfig();
 
