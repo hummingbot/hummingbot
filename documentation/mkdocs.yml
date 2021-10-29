@@ -199,6 +199,7 @@ nav:
     - Global Configs:
       - Global Configs: global-configs/index.md
       - Balance Limit: global-configs/balance-limit.md
+      - Color Settings: global-configs/color-settings.md
       - External Database: global-configs/external-db.md
       - Kill Switch: global-configs/kill-switch.md
       - Override Fees: global-configs/override-fees.md
@@ -258,6 +259,7 @@ nav:
     - FAQ: about/faq.md
   - Release Notes:
     - Release Notes: release-notes/index.md
+    - 0.45.0: release-notes/0.45.0.md
     - 0.44.0: release-notes/0.44.0.md
     - 0.43.1: release-notes/0.43.1.md
     - 0.43.0: release-notes/0.43.0.md
