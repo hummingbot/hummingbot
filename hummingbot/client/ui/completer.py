@@ -10,8 +10,6 @@ from os import listdir
 from os.path import isfile, join, exists
 from hummingbot.client.settings import (
     AllConnectorSettings,
-    EXCHANGES,
-    DERIVATIVES,
     STRATEGIES,
     CONF_FILE_PATH,
     SCRIPTS_PATH,
@@ -41,10 +39,10 @@ class HummingbotCompleter(Completer):
         self._path_completer = WordCompleter(file_name_list(CONF_FILE_PATH, "yml"))
         self._command_completer = WordCompleter(self.parser.commands, ignore_case=True)
         self._exchange_completer = WordCompleter(sorted(AllConnectorSettings.get_connector_settings().keys()), ignore_case=True)
-        self._spot_completer = WordCompleter(sorted(EXCHANGES.union(SPOT_PROTOCOL_CONNECTOR)), ignore_case=True)
-        self._spot_exchange_completer = WordCompleter(sorted(EXCHANGES), ignore_case=True)
-        self._derivative_completer = WordCompleter(DERIVATIVES, ignore_case=True)
-        self._derivative_exchange_completer = WordCompleter(DERIVATIVES.difference(DERIVATIVE_PROTOCOL_CONNECTOR), ignore_case=True)
+        self._spot_completer = WordCompleter(sorted(AllConnectorSettings.get_exchange_names().union(SPOT_PROTOCOL_CONNECTOR)), ignore_case=True)
+        self._spot_exchange_completer = WordCompleter(sorted(AllConnectorSettings.get_exchange_names()), ignore_case=True)
+        self._derivative_completer = WordCompleter(AllConnectorSettings.get_derivative_names(), ignore_case=True)
+        self._derivative_exchange_completer = WordCompleter(AllConnectorSettings.get_derivative_names().difference(DERIVATIVE_PROTOCOL_CONNECTOR), ignore_case=True)
         self._connect_option_completer = WordCompleter(CONNECT_OPTIONS, ignore_case=True)
         self._export_completer = WordCompleter(["keys", "trades"], ignore_case=True)
         self._balance_completer = WordCompleter(["limit", "paper"], ignore_case=True)

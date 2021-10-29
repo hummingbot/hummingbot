@@ -9,7 +9,7 @@ from hummingbot.client.config.config_validators import (
     validate_bool,
     validate_decimal
 )
-from hummingbot.client.settings import DEFAULT_KEY_FILE_PATH, DEFAULT_LOG_FILE_PATH, EXCHANGES
+from hummingbot.client.settings import AllConnectorSettings, DEFAULT_KEY_FILE_PATH, DEFAULT_LOG_FILE_PATH
 from hummingbot.core.rate_oracle.rate_oracle import RateOracleSource, RateOracle
 
 
@@ -244,7 +244,7 @@ main_config_map = {
                          "e.g. balance limit [EXCHANGE] [ASSET] [AMOUNT]",
                   required_if=lambda: False,
                   type_str="json",
-                  default={exchange: None for exchange in EXCHANGES}),
+                  default={exchange: None for exchange in AllConnectorSettings.get_exchange_names()}),
     "manual_gas_price":
         ConfigVar(key="manual_gas_price",
                   prompt="Enter fixed gas price (in Gwei) you want to use for Ethereum transactions >>> ",

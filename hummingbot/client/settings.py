@@ -231,99 +231,18 @@ class AllConnectorSettings:
         }
 
 
-def _create_connector_settings() -> Dict[str, ConnectorSetting]:
-    """
-    Iterate over files in specific Python directories to create a dictionary of exchange names to ConnectorSetting.
-    """
-    connector_exceptions = ["paper_trade"]
-    # TODO: Determine a way to import this from global config map. Currently has a circular import issue.
-    paper_trade_connectors = ["binance", "kucoin", "ascend_ex", "gate_io"]
-    connector_settings = {}
-    package_dir = Path(__file__).resolve().parent.parent.parent
-    type_dirs = [f for f in scandir(f'{str(package_dir)}/hummingbot/connector') if f.is_dir()]
-    for type_dir in type_dirs:
-        connector_dirs = [f for f in scandir(type_dir.path) if f.is_dir()]
-        for connector_dir in connector_dirs:
-            if connector_dir.name.startswith("_") or \
-                    connector_dir.name in connector_exceptions:
-                continue
-            if connector_dir.name in connector_settings:
-                raise Exception(f"Multiple connectors with the same {connector_dir.name} name.")
-            path = f"hummingbot.connector.{type_dir.name}.{connector_dir.name}.{connector_dir.name}_utils"
-            try:
-                util_module = importlib.import_module(path)
-            except ModuleNotFoundError:
-                continue
-            fee_type = TradeFeeType.Percent
-            fee_type_setting = getattr(util_module, "FEE_TYPE", None)
-            if fee_type_setting is not None:
-                fee_type = TradeFeeType[fee_type_setting]
-            connector_settings[connector_dir.name] = ConnectorSetting(
-                name=connector_dir.name,
-                type=ConnectorType[type_dir.name.capitalize()],
-                centralised=getattr(util_module, "CENTRALIZED", True),
-                example_pair=getattr(util_module, "EXAMPLE_PAIR", ""),
-                use_ethereum_wallet=getattr(util_module, "USE_ETHEREUM_WALLET", False),
-                fee_type=fee_type,
-                fee_token=getattr(util_module, "FEE_TOKEN", ""),
-                default_fees=getattr(util_module, "DEFAULT_FEES", []),
-                config_keys=getattr(util_module, "KEYS", {}),
-                is_sub_domain=False,
-                parent_name=None,
-                domain_parameter=None,
-                use_eth_gas_lookup=getattr(util_module, "USE_ETH_GAS_LOOKUP", False)
-            )
-            # Adds other domains of connector
-            other_domains = getattr(util_module, "OTHER_DOMAINS", [])
-            for domain in other_domains:
-                parent = connector_settings[connector_dir.name]
-                connector_settings[domain] = ConnectorSetting(
-                    name=domain,
-                    type=parent.type,
-                    centralised=parent.centralised,
-                    example_pair=getattr(util_module, "OTHER_DOMAINS_EXAMPLE_PAIR")[domain],
-                    use_ethereum_wallet=parent.use_ethereum_wallet,
-                    fee_type=parent.fee_type,
-                    fee_token=parent.fee_token,
-                    default_fees=getattr(util_module, "OTHER_DOMAINS_DEFAULT_FEES")[domain],
-                    config_keys=getattr(util_module, "OTHER_DOMAINS_KEYS")[domain],
-                    is_sub_domain=True,
-                    parent_name=parent.name,
-                    domain_parameter=getattr(util_module, "OTHER_DOMAINS_PARAMETER")[domain],
-                    use_eth_gas_lookup=parent.use_eth_gas_lookup
-                )
-            # Adds respective paper trade setting
-            if connector_dir.name in paper_trade_connectors:
-                connector_settings[f"{connector_dir.name}_paper_trade"] = ConnectorSetting(
-                    name=f"{connector_dir.name}_paper_trade",
-                    type=ConnectorType[type_dir.name.capitalize()],
-                    centralised=getattr(util_module, "CENTRALIZED", True),
-                    example_pair=getattr(util_module, "EXAMPLE_PAIR", ""),
-                    use_ethereum_wallet=getattr(util_module, "USE_ETHEREUM_WALLET", False),
-                    fee_type=fee_type,
-                    fee_token=getattr(util_module, "FEE_TOKEN", ""),
-                    default_fees=getattr(util_module, "DEFAULT_FEES", []),
-                    config_keys=getattr(util_module, "KEYS", {}),
-                    is_sub_domain=False,
-                    parent_name=connector_dir.name,
-                    domain_parameter=None,
-                    use_eth_gas_lookup=getattr(util_module, "USE_ETH_GAS_LOOKUP", False)
-                )
-    return connector_settings
-
-
 def ethereum_wallet_required() -> bool:
     """
     Check if an Ethereum wallet is required for any of the exchanges the user's config uses.
     """
-    return any(e in ETH_WALLET_CONNECTORS for e in required_exchanges)
+    return any(e in AllConnectorSettings.get_eth_wallet_connector_names() for e in required_exchanges)
 
 
 def ethereum_gas_station_required() -> bool:
     """
     Check if the user's config needs to look up gas costs from an Ethereum gas station.
     """
-    return any(name for name, con_set in CONNECTOR_SETTINGS.items() if name in required_exchanges
+    return any(name for name, con_set in AllConnectorSettings.get_connector_settings().items() if name in required_exchanges
                and con_set.use_eth_gas_lookup)
 
 
@@ -343,12 +262,6 @@ MAXIMUM_LOG_PANE_LINE_COUNT = 1000
 MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT = 100
 
 
-CONNECTOR_SETTINGS = AllConnectorSettings.get_connector_settings()
-DERIVATIVES = AllConnectorSettings.get_derivative_names()
-EXCHANGES = AllConnectorSettings.get_exchange_names()
-OTHER_CONNECTORS = AllConnectorSettings.get_other_connector_names()
-ETH_WALLET_CONNECTORS = AllConnectorSettings.get_eth_wallet_connector_names()
-ALL_CONNECTORS = AllConnectorSettings.get_all_connectors_map()
 EXAMPLE_PAIRS = {name: cs.example_pair for name, cs in AllConnectorSettings.get_connector_settings().items()}
 EXAMPLE_ASSETS = {name: cs.example_pair.split("-")[0] for name, cs in AllConnectorSettings.get_connector_settings().items()}
 
