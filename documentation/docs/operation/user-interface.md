@@ -62,7 +62,7 @@ The log pane on the right can be shown or hidden in two ways:
 1. Click the `log pane` button in the upper right hand corner
 2. Press `CTRL + T` shortcut on your keyboard
 
-![]()
+![Hide Log Pane](/assets/img/hide-log-pane.gif)
 
 
 ## Keyboard shortcuts
