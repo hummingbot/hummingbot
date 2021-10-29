@@ -13,6 +13,10 @@ beforeAll(async () => {
   app.use('/eth/uniswap', UniswapRoutes.router);
 });
 
+afterAll(async () => {
+  await new Promise<void>((resolve) => setTimeout(() => resolve(), 500)); // avoid jest open handle error
+});
+
 afterEach(() => {
   unpatch();
 });

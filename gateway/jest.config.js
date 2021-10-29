@@ -18,4 +18,6 @@ module.exports = {
       tsConfigFile: 'tsconfig.json',
     },
   },
+  setupFilesAfterEnv: ['<rootDir>/test/setupTests.ts'],
+  testRunner: 'jest-circus/runner',
 };

@@ -5,14 +5,18 @@ import 'jest-extended';
 
 const exampleAddress = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';
 
-afterEach(() => {
-  unpatch();
-});
-
 describe('unitiated EVMNodeService', () => {
   let nonceManager: EVMNonceManager;
   beforeAll(() => {
     nonceManager = EVMNonceManager.getInstance();
+  });
+
+  afterEach(() => {
+    unpatch();
+  });
+
+  afterAll(async () => {
+    await new Promise<void>((resolve) => setTimeout(() => resolve(), 500)); // avoid jest open handle error
   });
 
   it('mergeNonceFromEVMNode throws error', async () => {
@@ -50,6 +54,14 @@ describe('EVMNodeService', () => {
       'https://ethereum.node.com'
     );
     await nonceManager.init(provider, 0, 43);
+  });
+
+  afterEach(() => {
+    unpatch();
+  });
+
+  afterAll(async () => {
+    await new Promise<void>((resolve) => setTimeout(() => resolve(), 500)); // avoid jest open handle error
   });
 
   const patchGetTransactionCount = () => {

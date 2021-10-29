@@ -25,6 +25,10 @@ beforeAll(async () => {
 
 afterEach(() => unpatch());
 
+afterAll(async () => {
+  await new Promise<void>((resolve) => setTimeout(() => resolve(), 500)); // avoid jest open handle error
+});
+
 describe('GET /eth', () => {
   it('should return 200', async () => {
     request(app)
