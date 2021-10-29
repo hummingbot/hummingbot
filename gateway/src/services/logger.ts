@@ -8,26 +8,14 @@ dayjs.extend(utc);
 
 const { LEVEL, MESSAGE } = require('triple-beam');
 
-const errorsWithoutStack = winston.format((erinfo) => {
-  if (erinfo instanceof Error) {
-    const info = Object.assign({}, erinfo, {
-      level: erinfo.level,
-      [LEVEL]: erinfo[LEVEL] || erinfo.level,
-      message: erinfo.message,
-      [MESSAGE]: erinfo[MESSAGE] || erinfo.message,
-    });
-    return info;
-  }
-  return erinfo;
-});
-
 const errorsWithStack = winston.format((einfo) => {
   if (einfo instanceof Error) {
     const info = Object.assign({}, einfo, {
       level: einfo.level,
       [LEVEL]: einfo[LEVEL] || einfo.level,
-      message: einfo.message + `\n\n${einfo.stack}`,
+      message: einfo.message,
       [MESSAGE]: einfo[MESSAGE] || einfo.message,
+      stack: `\n${einfo.stack}` || '',
     });
     return info;
   }
@@ -44,12 +32,11 @@ const logFileFormat = winston.format.combine(
   errorsWithStack(),
   winston.format.printf((info) => {
     const localDate = getLocalDate();
-    return `${localDate} | ${info.level} | ${info.message}`;
+    return `${localDate} | ${info.level} | ${info.message} | ${info.stack}`;
   })
 );
 
 const sdtoutFormat = winston.format.combine(
-  errorsWithoutStack(),
   winston.format.printf((info) => {
     const localDate = getLocalDate();
     return `${localDate} | ${info.level} | ${info.message}`;
