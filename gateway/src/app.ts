@@ -51,7 +51,6 @@ interface ConfigUpdateRequest {
   LOG_PATH?: string;
   GMT_OFFSET: number;
   CERT_PATH?: string;
-  CERT_PASSPHRASE?: string;
   ETHEREUM_CHAIN?: string;
   INFURA_KEY?: string;
   ETH_GAS_STATION_ENABLE?: boolean;
@@ -155,8 +154,8 @@ export const startGateway = async () => {
     logger.info('Running in UNSAFE HTTP! This could expose private keys.');
     server = await app.listen(port);
   } else {
-    logger.info('The server is secured behind HTTPS.');
     server = await addHttps(app).listen(port);
+    logger.info('The server is secured behind HTTPS.');
   }
 };
 
