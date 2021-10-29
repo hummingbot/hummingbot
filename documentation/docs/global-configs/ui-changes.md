@@ -14,7 +14,7 @@ Starting with version 0.45 we've made some exciting changes to the client user i
 3. `input-pane` 
 4. `bottom-pane`  
 5. `logs-pane` 
-6. Toggle to open and close the log pane or press `CTRL + T`  
+6. `Toggle to open and close the log pane or press `CTRL + T`  
 
 
 ### Changing the panel colors
