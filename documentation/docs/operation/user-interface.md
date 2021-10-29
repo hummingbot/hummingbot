@@ -77,7 +77,7 @@ The log pane on the right can be shown or hidden in two ways:
 | `CTRL + Z`        | Undo                       | \* Undo action                               |
 | `Single CTRL + C` | Copy                       | \* Copy text                                 |
 | `CTRL + V`        | Paste                      | \* Paste text                                |
-| `CTRL + R`        | Reset Style                | Set default style                            |
+| `CTRL + R`        | Reset Style                | Set default color style                            |
 | `CTRL + T`        | Toggle logs                | Hide / show the logs pane                    |
 
 _\* Used for text edit in input pane only._
