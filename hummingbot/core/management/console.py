@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
-import pathlib
-from collections.abc import MutableMapping as MutableMappingABC
+import builtins
 import json
 import logging
+import pathlib
+from collections.abc import MutableMapping as MutableMappingABC
 from typing import Iterator, MutableMapping, List, Dict
 
 import asyncssh
@@ -65,8 +66,14 @@ async def start_management_console(local_vars: MutableMapping,
     add_diagnosis_tools(local_vars)
 
     async def interact(_=None):
-        global_dict = {**globals(), "print": print_formatted_text}
-        await embed(return_asyncio_coroutine=True, locals=local_vars, globals=global_dict)
+        globals_dict = {
+            "__name__": "__main__",
+            "__doc__": None,
+            "__package__": "",
+            "__builtins__": builtins,
+            "print": print_formatted_text,
+        }
+        await embed(return_asyncio_coroutine=True, locals=local_vars, globals=globals_dict)
 
     ssh_server = PromptToolkitSSHServer(interact=interact)
     await asyncssh.create_server(
