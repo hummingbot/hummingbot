@@ -25,10 +25,10 @@ def trading_pair_prompt():
 
 
 def asset_prompt():
-    trading_pair = dev_0_hello_world_config_map.get("trading_pair").value
-    example = AllConnectorSettings.get_example_assets().get(trading_pair)
+    exchange = dev_0_hello_world_config_map.get("exchange").value
+    example = AllConnectorSettings.get_example_assets().get(exchange)
     return "Enter a single token to fetch its balance on %s%s >>> " \
-           % (trading_pair, f" (e.g. {example})" if example else "")
+           % (exchange, f" (e.g. {example})" if example else "")
 
 
 def validate_exchange_trading_pair(value: str) -> Optional[str]:

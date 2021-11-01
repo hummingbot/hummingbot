@@ -27,7 +27,7 @@ def market_prompt() -> str:
     connector = "uniswap_v3"
     example = AllConnectorSettings.get_example_pairs().get(connector)
     return "Enter the trading pair you would like to provide liquidity on {}>>> ".format(
-        f" (e.g. {example}) " if example else "")
+        f"(e.g. {example}) " if example else "")
 
 
 uniswap_v3_lp_config_map = {
