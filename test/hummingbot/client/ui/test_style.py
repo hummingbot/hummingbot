@@ -36,7 +36,10 @@ class StyleTest(unittest.TestCase):
                                  "search.current": "bg:#000000 #1CD085",
                                  "primary": "#FCFCFC",
                                  "warning": "#93C36D",
-                                 "error": "#F5634A"})
+                                 "error": "#F5634A",
+                                 "tab_button.focused": "bg:#000000 #1CD085",
+                                 "tab_button": "bg:#171E2B #AAAAAA",
+                                 })
 
         self.assertEqual(style.class_names_and_attrs, load_style(global_config_map).class_names_and_attrs)
 
@@ -61,7 +64,10 @@ class StyleTest(unittest.TestCase):
                                  "search.current": "#ansigray",
                                  "primary": "#ansigray",
                                  "warning": "#ansibrightyellow",
-                                 "error": "#ansired"})
+                                 "error": "#ansired",
+                                 "tab_button.focused": "#ansigreen",
+                                 "tab_button": "#ansiwhite"
+                                 })
 
         self.assertEqual(style.class_names_and_attrs, load_style(global_config_map).class_names_and_attrs)
 
@@ -83,7 +89,10 @@ class StyleTest(unittest.TestCase):
                                  "search.current": "bg:#000000 #1CD085",
                                  "primary": "#010101",
                                  "warning": "#93C36D",
-                                 "error": "#F5634A"})
+                                 "error": "#F5634A",
+                                 "tab_button.focused": "bg:#000000 #1CD085",
+                                 "tab_button": "bg:#171E2B #AAAAAA",
+                                 })
 
         self.assertEqual(style.class_names_and_attrs, reset_style(config_map=global_config_map, save=False).class_names_and_attrs)
 

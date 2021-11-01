@@ -13,3 +13,4 @@ class CommandTab:
     output_field: CustomTextArea
     tab_class: Type[TabBase]
     is_focus: bool = False
+    tab_index: int = 0
