@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-from urllib.parse import urlencode
 
 import aiohttp
 import aiohttp.client_ws
@@ -16,14 +15,12 @@ from typing import (
     List,
     Optional,
 )
-import websockets
 from websockets.exceptions import ConnectionClosed
 from hummingbot.connector.exchange.mexc import mexc_public
 from hummingbot.connector.exchange.mexc.mexc_public import (
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair
 )
-from hummingbot.connector.exchange.mexc import mexc_utils
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -44,7 +41,6 @@ class MexcAPIOrderBookDataSource(OrderBookTrackerDataSource):
     PING_TIMEOUT = 10.0
 
     _mexcaobds_logger: Optional[HummingbotLogger] = None
-
 
     @classmethod
     def logger(cls) -> HummingbotLogger:

@@ -2,10 +2,8 @@
 # -*- coding: UTF-8 -*-
 import math
 
-from enum import Enum
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
-import zlib
 
 
 def num_to_increment(num):

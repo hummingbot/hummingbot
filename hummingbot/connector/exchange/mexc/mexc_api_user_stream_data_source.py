@@ -1,20 +1,16 @@
 #!/usr/bin/env python
 import asyncio
-import json
 
 import logging
 
 from typing import (
     Optional,
-    AsyncIterator,
     List,
-    Dict,
-    Any
 )
 
-import websockets
-
-from hummingbot.connector.exchange.mexc import constants
+from hummingbot.connector.exchange.mexc.constants import (
+    MEXC_PING_URL,
+)
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.mexc.mexc_auth import MexcAuth
@@ -60,9 +56,5 @@ class MexcAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 await self._api_request(method="GET", path_url=MEXC_PING_URL)
                 self._last_recv_time = time.time()
                 await asyncio.sleep(3.0)
-            except asyncio.CancelledError:
-                raise
             except Exception as ex:
-                return NetworkStatus.NOT_CONNECTED
-            return NetworkStatus.CONNECTED
-
+                self.logger().error(f"Unexpected error occurred! {ex}", exc_info=True)

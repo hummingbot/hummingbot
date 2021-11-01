@@ -8,11 +8,10 @@ from typing import (
     Any,
     Dict, Optional
 )
-from collections import OrderedDict
+
 
 from hummingbot.connector.exchange.mexc import mexc_public
-from hummingbot.connector.exchange.mexc import mexc_utils
-from urllib.parse import urlencode, quote, unquote
+from urllib.parse import urlencode, unquote
 
 
 class MexcAuth:

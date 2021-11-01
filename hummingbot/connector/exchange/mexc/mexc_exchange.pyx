@@ -68,7 +68,6 @@ from hummingbot.connector.exchange.mexc.mexc_public import (
 
 from decimal import *
 
-
 hm_logger = None
 s_decimal_0 = Decimal(0)
 TRADING_PAIR_SPLITTER = "-"
@@ -320,7 +319,6 @@ cdef class MexcExchange(ExchangeBase):
                 self._account_balances[k] = Decimal(balance['frozen']) + Decimal(balance['available'])
                 self._account_available_balances[k] = Decimal(balance['available'])
 
-
     cdef object c_get_fee(self,
                           str base_currency,
                           str quote_currency,
@@ -484,7 +482,6 @@ cdef class MexcExchange(ExchangeBase):
                                                              tracked_order.client_order_id))
                     self.c_stop_tracking_order(tracked_order.client_order_id)
 
-
                 if tracked_order.is_open:
                     continue
 
@@ -525,8 +522,7 @@ cdef class MexcExchange(ExchangeBase):
                                              OrderCancelledEvent(self._current_timestamp,
                                                                  tracked_order.client_order_id))
             except Exception as ex:
-                self.logger().error("_update_order_status error ..." + repr(ex),exc_info=True)
-
+                self.logger().error("_update_order_status error ..." + repr(ex), exc_info=True)
 
     async def _status_polling_loop(self):
         while True:
@@ -550,7 +546,7 @@ cdef class MexcExchange(ExchangeBase):
     async def _trading_rules_polling_loop(self):
         while True:
             try:
-                await  self._update_trading_rules()
+                await self._update_trading_rules()
                 await asyncio.sleep(60 * 5)
             except asyncio.CancelledError:
                 raise
@@ -874,7 +870,8 @@ cdef class MexcExchange(ExchangeBase):
             params = {
                 "client_order_ids": client_order_id,
             }
-            response = await self._api_request("DELETE", path_url=MEXC_ORDER_CANCEL, params=params, is_auth_required=True)
+            response = await self._api_request("DELETE", path_url=MEXC_ORDER_CANCEL, params=params,
+                                               is_auth_required=True)
 
             if not response['code'] == 200:
                 raise MexcAPIError("Order could not be canceled")
@@ -925,12 +922,12 @@ cdef class MexcExchange(ExchangeBase):
                     is_auth_required=True
                 )
 
-                for order_result_client_order_id,order_result_value in cancel_all_results['data'].items():
+                for order_result_client_order_id, order_result_value in cancel_all_results['data'].items():
                     for o in orders_by_trading_pair[trading_pair]:
                         if o.client_order_id == order_result_client_order_id:
-                            result_bool = True if  order_result_value == "invalid order state" or order_result_value == "success" else False
+                            result_bool = True if order_result_value == "invalid order state" or order_result_value == "success" else False
                             cancellation_results.append(CancellationResult(o.exchange_order_id, result_bool))
-                            if result_bool == True:
+                            if result_bool:
                                 self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
                                                      OrderCancelledEvent(self._current_timestamp,
                                                                          None,
