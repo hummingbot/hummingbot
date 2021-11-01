@@ -1,11 +1,13 @@
 import unittest
 from copy import deepcopy
 
+from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.strategy.perpetual_market_making.perpetual_market_making_config_map import (
     perpetual_market_making_config_map as perpetual_mm_config_map,
     on_validate_price_source,
     validate_price_type,
     order_amount_prompt,
+    maker_trading_pair_prompt,
 )
 
 
@@ -13,6 +15,7 @@ class TestPMMConfigMap(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        cls.derivative = "binance_perpetual"
         cls.base_asset = "COINALPHA"
         cls.quote_asset = "HBOT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
@@ -90,5 +93,14 @@ class TestPMMConfigMap(unittest.TestCase):
         perpetual_mm_config_map["market"].value = self.trading_pair
         prompt = order_amount_prompt()
         expected = f"What is the amount of {self.base_asset} per order? >>> "
+
+        self.assertEqual(expected, prompt)
+
+    def test_maker_trading_prompt(self):
+        perpetual_mm_config_map["derivative"].value = self.derivative
+        example = AllConnectorSettings.get_example_pairs().get(self.derivative)
+
+        prompt = maker_trading_pair_prompt()
+        expected = f"Enter the token trading pair you would like to trade on {self.derivative} (e.g. {example}) >>> "
 
         self.assertEqual(expected, prompt)
