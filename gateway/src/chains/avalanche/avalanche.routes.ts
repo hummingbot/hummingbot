@@ -28,6 +28,7 @@ import {
 } from '../ethereum/ethereum.controllers';
 import {
   validateEthereumBalanceRequest,
+  validateEthereumCancelRequest,
   validateEthereumNonceRequest,
   validateEthereumPollRequest,
 } from '../ethereum/ethereum.validators';
@@ -144,6 +145,7 @@ export namespace AvalancheRoutes {
         req: Request<{}, {}, EthereumCancelRequest>,
         res: Response<EthereumCancelResponse, {}>
       ) => {
+        validateEthereumCancelRequest(req.body);
         res.status(200).json(await cancel(avalanche, req.body));
       }
     )
