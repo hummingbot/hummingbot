@@ -32,7 +32,7 @@ const patchInit = () => {
 };
 
 const patchStoredTokenList = () => {
-  patch(UniswapRoutes.ethereum, 'storedTokenList', () => {
+  patch(UniswapRoutes.ethereum, 'tokenList', () => {
     return [
       {
         chainId: 42,
