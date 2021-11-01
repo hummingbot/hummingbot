@@ -16,6 +16,7 @@ export class Avalanche extends EthereumBase implements Ethereumish {
   private static _instance: Avalanche;
   private _gasPrice: number;
   private _nativeTokenSymbol: string;
+  private _chain: string;
   // private _ethGasStationUrl: string;
   // private _gasPriceLastUpdated: Date | null;
 
@@ -39,6 +40,7 @@ export class Avalanche extends EthereumBase implements Ethereumish {
       config.tokenListType,
       ConfigManager.config.AVAX_MANUAL_GAS_PRICE
     );
+    this._chain = ConfigManager.config.AVALANCHE_CHAIN;
     this._nativeTokenSymbol = 'AVAX';
     this._gasPrice = ConfigManager.config.AVAX_MANUAL_GAS_PRICE;
     // this._ethGasStationUrl =
@@ -66,6 +68,10 @@ export class Avalanche extends EthereumBase implements Ethereumish {
 
   public get nativeTokenSymbol(): string {
     return this._nativeTokenSymbol;
+  }
+
+  public get chain(): string {
+    return this._chain;
   }
 
   // public get gasPriceLastDated(): Date | null {
