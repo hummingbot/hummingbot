@@ -43,7 +43,7 @@ class CampaignsAPIFunctionTests(TestCase):
                                         f" (returned response '{resp}')."))
 
     @aioresponses()
-    def test_active_campaigns_are_filetered_buy_token_pair(self, mock_api):
+    def test_active_campaigns_are_filetered_by_token_pair(self, mock_api):
         url = f"{parrot.PARROT_MINER_BASE_URL}campaigns"
         resp = [
             {
@@ -109,7 +109,7 @@ class CampaignsAPIFunctionTests(TestCase):
         self.assertEquals(Decimal("0.015"), campaign_summary.spread_max)
 
     @aioresponses()
-    def test_active_campaigns_are_filetered_buy_exchange_name(self, mock_api):
+    def test_active_campaigns_are_filetered_by_exchange_name(self, mock_api):
         url = f"{parrot.PARROT_MINER_BASE_URL}campaigns"
         resp = [
             {
@@ -119,7 +119,7 @@ class CampaignsAPIFunctionTests(TestCase):
                 "markets": [{
                     "id": 62,
                     "trading_pair": "XYM-BTC",
-                    "exchange_name": "kucoin",
+                    "exchange_name": "ascendex",
                     "base_asset": "XYM",
                     "base_asset_full_name": "symbol",
                     "quote_asset": "BTC",
@@ -146,6 +146,13 @@ class CampaignsAPIFunctionTests(TestCase):
 
         self.assertEqual(0, len(campaigns))
 
+        mock_api.get(url, body=json.dumps(resp))
+        campaigns = asyncio.get_event_loop().run_until_complete(
+            parrot.get_active_campaigns(
+                exchange="ascend_ex",
+                trading_pairs=["XYM-BTC"]))
+        self.assertEqual(1, len(campaigns))
+
     @aioresponses()
     def test_get_campaign_summary_logs_error_if_exception_happens(self, mock_api):
         url = f"{parrot.PARROT_MINER_BASE_URL}campaigns"
@@ -160,3 +167,9 @@ class CampaignsAPIFunctionTests(TestCase):
         self.assertEqual(0, len(campaigns))
         self.assertTrue(self._is_logged("ERROR",
                                         "Unexpected error while requesting data from Hummingbot API."))
+
+    def test_are_same_entity(self):
+        self.assertTrue(parrot.are_same_entity("ascend_ex", "ascendex"))
+        self.assertTrue(parrot.are_same_entity("ascend_ex", "ascend_ex"))
+        self.assertTrue(parrot.are_same_entity("gate_io", "gateio"))
+        self.assertFalse(parrot.are_same_entity("gate_io", "gateios"))

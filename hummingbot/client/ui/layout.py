@@ -1,12 +1,11 @@
-#!/usr/bin/env python
-
 from os.path import join, realpath, dirname
-import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 from typing import Dict
 from prompt_toolkit.layout import Dimension
 from prompt_toolkit.layout.containers import (
-    VSplit,
+    Float,
+    FloatContainer,
     HSplit,
+    VSplit,
     Window,
     FloatContainer,
     Float,
@@ -16,7 +15,7 @@ from prompt_toolkit.layout.layout import Layout
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import Completer
 from prompt_toolkit.layout.controls import FormattedTextControl
-from prompt_toolkit.widgets import SearchToolbar, Button
+from prompt_toolkit.widgets import Box, Button, SearchToolbar
 
 from hummingbot.client.ui.custom_widgets import CustomTextArea as TextArea
 from hummingbot.client.settings import (
@@ -259,8 +258,11 @@ def generate_layout(input_field: TextArea,
     components["pane_bottom"] = VSplit([trade_monitor,
                                         process_monitor,
                                         timer], height=1)
-    components["pane_left"] = HSplit([output_field,
-                                      input_field], width=Dimension(weight=1))
+    output_pane = Box(body=output_field, padding=0, padding_left=2, style="class:output-field")
+    input_pane = Box(body=input_field, padding=0, padding_left=2, padding_top=1, style="class:input-field")
+    components["pane_left"] = HSplit([output_pane,
+                                      input_pane], 
+                                      width=Dimension(weight=1))
     if all(not t.is_focus for t in command_tabs.values()):
         log_field_button.window.style = "class:tab_button.focused"
     else:
@@ -292,14 +294,9 @@ def generate_layout(input_field: TextArea,
 
     root_container = HSplit([
         components["pane_top"],
-        VSplit([
-            FloatContainer(
-                components["pane_left"],
-                components["hint_menus"]
-            ),
-            components["pane_right"],
-        ]),
+        VSplit(
+            [FloatContainer(components["pane_left"], components["hint_menus"]),
+             components["pane_right"]]),
         components["pane_bottom"],
-
     ])
     return Layout(root_container, focused_element=input_field), components

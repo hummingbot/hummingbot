@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
     validate_bool,
@@ -50,6 +52,17 @@ def set_order_delay_default(value: str = None):
     twap_config_map.get("order_delay_time").default = default
 
 
+def validate_order_step_size(value: str = None):
+    """
+    Validates if order_step_size is less than the target_asset_amount value
+    :param value: User input for order_step_size parameter
+    :return: Error message printed in output pane
+    """
+    target_asset_amount = twap_config_map.get("target_asset_amount").value
+    if Decimal(value) > target_asset_amount:
+        return "Order step size cannot be greater than the total trade amount."
+
+
 twap_config_map = {
     "strategy":
         ConfigVar(key="strategy",
@@ -85,6 +98,7 @@ twap_config_map = {
                          ">>> ",
                   default=1.0,
                   type_str="decimal",
+                  validator=validate_order_step_size,
                   prompt_on_new=True),
     "order_price":
         ConfigVar(key="order_price",

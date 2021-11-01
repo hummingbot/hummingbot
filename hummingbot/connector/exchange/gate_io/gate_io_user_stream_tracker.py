@@ -6,6 +6,9 @@ from typing import (
     Optional,
     List,
 )
+
+import aiohttp
+
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.user_stream_tracker import (
@@ -32,10 +35,12 @@ class GateIoUserStreamTracker(UserStreamTracker):
 
     def __init__(self,
                  gate_io_auth: Optional[GateIoAuth] = None,
-                 trading_pairs: Optional[List[str]] = []):
+                 trading_pairs: Optional[List[str]] = None,
+                 shared_client: Optional[aiohttp.ClientSession] = None):
         super().__init__()
+        self._shared_client = shared_client
         self._gate_io_auth: GateIoAuth = gate_io_auth
-        self._trading_pairs: List[str] = trading_pairs
+        self._trading_pairs: List[str] = trading_pairs or []
         self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
         self._data_source: Optional[UserStreamTrackerDataSource] = None
         self._user_stream_tracking_task: Optional[asyncio.Task] = None
@@ -50,7 +55,8 @@ class GateIoUserStreamTracker(UserStreamTracker):
         if not self._data_source:
             self._data_source = GateIoAPIUserStreamDataSource(
                 gate_io_auth=self._gate_io_auth,
-                trading_pairs=self._trading_pairs
+                trading_pairs=self._trading_pairs,
+                shared_client=self._shared_client,
             )
         return self._data_source
 
