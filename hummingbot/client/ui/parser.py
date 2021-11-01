@@ -130,13 +130,6 @@ def load_parser(hummingbot, command_tabs) -> [ThrowingArgumentParser, Any]:
     export_parser.add_argument("option", nargs="?", choices=("keys", "trades"), help="Export choices")
     export_parser.set_defaults(func=hummingbot.export)
 
-    order_book_parser = subparsers.add_parser("order_book", help="Display current order book")
-    order_book_parser.add_argument("--lines", type=int, default=5, dest="lines", help="Number of lines to display")
-    order_book_parser.add_argument("--exchange", type=str, dest="exchange", help="The exchange of the market")
-    order_book_parser.add_argument("--market", type=str, dest="market", help="The market (trading pair) of the order book")
-    order_book_parser.add_argument("--live", default=False, action="store_true", dest="live", help="Show order book updates")
-    order_book_parser.set_defaults(func=hummingbot.order_book)
-
     ticker_parser = subparsers.add_parser("ticker", help="Show market ticker of current order book")
     ticker_parser.add_argument("--live", default=False, action="store_true", dest="live", help="Show ticker updates")
     ticker_parser.add_argument("--exchange", type=str, dest="exchange", help="The exchange of the market")
@@ -170,5 +163,7 @@ def load_parser(hummingbot, command_tabs) -> [ThrowingArgumentParser, Any]:
         o_parser = subparsers.add_parser(name, help=command_tab.tab_class.get_command_help_message())
         for args in command_tab.tab_class.get_command_arguments():
             o_parser.add_argument(args[0], **args[1])
+        o_parser.add_argument("-c", "--close", default=False, action="store_true", dest="close",
+                              help=f"To close the {name} tab.")
 
     return parser

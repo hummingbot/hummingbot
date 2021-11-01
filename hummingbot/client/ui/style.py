@@ -120,6 +120,8 @@ default_ui_style = {
     "primary":                    "#1CD085",  # noqa: E241
     "warning":                    "#93C36D",  # noqa: E241
     "error":                      "#F5634A",  # noqa: E241
+    "tab_button.focused":         "bg:#000000 #1CD085",  # noqa: E241
+    "tab_button":                 "bg:#171E2B #AAAAAA",  # noqa: E241
 }
 
 
@@ -136,4 +138,6 @@ win32_code_style = {
     "primary":                    "#ansigreen",  # noqa: E241
     "warning":                    "#ansibrightyellow",  # noqa: E241
     "error":                      "#ansired",  # noqa: E241
+    "tab_button.focused":         "#ansigreen",  # noqa: E241
+    "tab_button":                 "#ansiwhite",  # noqa: E241
 }

@@ -150,7 +150,7 @@ def create_search_field() -> SearchToolbar:
 def create_log_field(search_field: SearchToolbar):
     return TextArea(
         style='class:log-field',
-        text="Running logs\n",
+        text="Running Logs\n",
         focus_on_click=False,
         read_only=False,
         scrollbar=True,
@@ -163,12 +163,11 @@ def create_log_field(search_field: SearchToolbar):
 
 def create_live_field():
     return TextArea(
-        style='class:output-field',
+        style='class:log-field',
         focus_on_click=False,
         read_only=False,
         scrollbar=True,
         max_line_count=MAXIMUM_OUTPUT_PANE_LINE_COUNT,
-        initial_text="Live",
     )
 
 
@@ -182,13 +181,13 @@ def create_log_toggle(function):
     )
 
 
-def create_button(text, function, margin=3, left_symbol=''):
+def create_tab_button(text, function, margin=3, left_symbol=' ', right_symbol=' '):
     return Button(
         text=text,
         width=len(text) + margin,
         handler=function,
-        left_symbol=left_symbol,
-        right_symbol=''
+        left_symbol='',
+        right_symbol=right_symbol
     )
 
 
@@ -237,8 +236,8 @@ def get_strategy_file():
 def generate_layout(input_field: TextArea,
                     output_field: TextArea,
                     log_field: TextArea,
-                    log_toggle: Button,
-                    log_field_toggle: Button,
+                    right_pane_toggle: Button,
+                    log_field_button: Button,
                     search_field: SearchToolbar,
                     timer: TextArea,
                     process_monitor: TextArea,
@@ -250,10 +249,8 @@ def generate_layout(input_field: TextArea,
     components["item_top_version"] = Window(FormattedTextControl(get_version), style="class:header")
     components["item_top_paper"] = Window(FormattedTextControl(get_paper_trade_status), style="class:header")
     components["item_top_active"] = Window(FormattedTextControl(get_active_strategy), style="class:header")
-    # Window(FormattedTextControl(get_active_markets), style="class:header"),
-    # Window(FormattedTextControl(get_script_file), style="class:header"),
     components["item_top_file"] = Window(FormattedTextControl(get_strategy_file), style="class:header")
-    components["item_top_toggle"] = log_toggle
+    components["item_top_toggle"] = right_pane_toggle
     components["pane_top"] = VSplit([components["item_top_version"],
                                      components["item_top_paper"],
                                      components["item_top_active"],
@@ -264,12 +261,26 @@ def generate_layout(input_field: TextArea,
                                         timer], height=1)
     components["pane_left"] = HSplit([output_field,
                                       input_field], width=Dimension(weight=1))
-    tab_buttons = [[tab.button, tab.close_button] for tab in command_tabs.values() if tab.button is not None]
+    if all(not t.is_focus for t in command_tabs.values()):
+        log_field_button.window.style = "class:tab_button.focused"
+    else:
+        log_field_button.window.style = "class:tab_button"
+    tab_buttons = [log_field_button]
+    for tab in command_tabs.values():
+        if tab.button is not None:
+            if tab.is_focus:
+                tab.button.window.style = "class:tab_button.focused"
+            else:
+                tab.button.window.style = "class:tab_button"
+            tab.close_button.window.style = tab.button.window.style
+            tab_buttons += [tab.button, tab.close_button]
     pane_right_field = log_field
     focused_right_field = [tab.output_field for tab in command_tabs.values() if tab.is_focus]
     if focused_right_field:
         pane_right_field = focused_right_field[0]
-    components["pane_right_top"] = VSplit([log_field_toggle] + [b for couple in tab_buttons for b in couple], height=1)
+    components["pane_right_top"] = VSplit(tab_buttons,
+                                          height=1,
+                                          )
     components["pane_right"] = HSplit([components["pane_right_top"],
                                        pane_right_field,
                                        search_field], width=Dimension(weight=1))
