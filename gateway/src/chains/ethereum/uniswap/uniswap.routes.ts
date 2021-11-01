@@ -14,6 +14,10 @@ import {
   UniswapTradeResponse,
   UniswapTradeErrorResponse,
 } from './uniswap.requests';
+import {
+  validateUniswapPriceRequest,
+  validateUniswapTradeRequest,
+} from './uniswap.validators';
 
 export namespace UniswapRoutes {
   export const router = Router();
@@ -41,6 +45,7 @@ export namespace UniswapRoutes {
         req: Request<unknown, unknown, UniswapPriceRequest>,
         res: Response<UniswapPriceResponse, any>
       ) => {
+        validateUniswapPriceRequest(req);
         res.status(200).json(await price(req.body));
       }
     )
@@ -53,6 +58,7 @@ export namespace UniswapRoutes {
         req: Request<unknown, unknown, UniswapTradeRequest>,
         res: Response<UniswapTradeResponse | UniswapTradeErrorResponse, any>
       ) => {
+        validateUniswapTradeRequest(req);
         res.status(200).json(await trade(req.body));
       }
     )

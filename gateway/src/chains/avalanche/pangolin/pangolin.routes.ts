@@ -13,6 +13,10 @@ import {
 } from '../../ethereum/uniswap/uniswap.requests';
 import { getAmountInBigNumber, getTrade } from './pangolin.controllers';
 import { PangolinPriceResponse } from './pangolin.requests';
+import {
+  validateUniswapPriceRequest,
+  validateUniswapTradeRequest,
+} from '../../ethereum/uniswap/uniswap.validators';
 
 export namespace PangolinRoutes {
   export const router = Router();
@@ -47,6 +51,7 @@ export namespace PangolinRoutes {
         req: Request<{}, {}, UniswapPriceRequest>,
         res: Response<PangolinPriceResponse, {}>
       ) => {
+        validateUniswapPriceRequest(req.body);
         const initTime = Date.now();
         let amount: BigNumber;
         try {
@@ -112,6 +117,7 @@ export namespace PangolinRoutes {
         req: Request<{}, {}, UniswapTradeRequest>,
         res: Response<UniswapTradeResponse | UniswapTradeErrorResponse, {}>
       ) => {
+        validateUniswapTradeRequest(req.body);
         const initTime = Date.now();
         const limitPrice = req.body.limitPrice;
 
