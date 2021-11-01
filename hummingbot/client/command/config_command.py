@@ -54,7 +54,9 @@ global_configs_to_display = ["0x_active_cancels",
                              "rate_oracle_source",
                              "global_token",
                              "global_token_symbol",
-                             "rate_limits_share_pct"]
+                             "rate_limits_share_pct",
+                             "create_command_timeout",
+                             "other_commands_timeout"]
 
 
 class ConfigCommand:

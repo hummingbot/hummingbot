@@ -1,5 +1,6 @@
 import asyncio
 from unittest import TestCase
+from decimal import Decimal
 
 import hummingbot.strategy.twap.twap_config_map as twap_config_map_module
 
@@ -61,3 +62,13 @@ class TwapConfigMapTests(TestCase):
 
         validate_result = asyncio.get_event_loop().run_until_complete(config_var.validate("sell"))
         self.assertIsNone(validate_result)
+
+    def test_order_delay_default(self):
+        twap_config_map_module.twap_config_map.get("start_datetime").value = "2021-10-01 00:00:00"
+        twap_config_map_module.twap_config_map.get("end_datetime").value = "2021-10-02 00:00:00"
+        twap_config_map_module.twap_config_map.get("target_asset_amount").value = Decimal("1.0")
+        twap_config_map_module.twap_config_map.get("order_step_size").value = Decimal("1.0")
+
+        twap_config_map_module.set_order_delay_default()
+
+        self.assertEqual(twap_config_map_module.twap_config_map.get("order_delay_time").default, 86400.0)

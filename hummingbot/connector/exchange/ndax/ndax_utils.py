@@ -6,12 +6,12 @@ from hummingbot.connector.exchange.ndax import ndax_constants as CONSTANTS
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 CENTRALIZED = True
-
 EXAMPLE_PAIR = "BTC-CAD"
+HUMMINGBOT_ID_PREFIX = 777
 
 # NDAX fees: https://ndax.io/fees
 # Fees have to be expressed as percent value
-DEFAULT_FEES = [2, 2]
+DEFAULT_FEES = [0.2, 0.2]
 
 
 # USE_ETHEREUM_WALLET not required because default value is false
@@ -25,7 +25,7 @@ def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
 
 def get_new_client_order_id(is_buy: bool, trading_pair: str) -> str:
     ts_micro_sec: int = get_tracking_nonce()
-    return f"{int(ts_micro_sec)}"
+    return f"{HUMMINGBOT_ID_PREFIX}{ts_micro_sec}"
 
 
 def rest_api_url(connector_variant_label: Optional[str]) -> str:
@@ -68,7 +68,7 @@ KEYS = {
 OTHER_DOMAINS = ["ndax_testnet"]
 OTHER_DOMAINS_PARAMETER = {"ndax_testnet": "ndax_testnet"}
 OTHER_DOMAINS_EXAMPLE_PAIR = {"ndax_testnet": "BTC-CAD"}
-OTHER_DOMAINS_DEFAULT_FEES = {"ndax_testnet": [2, 2]}
+OTHER_DOMAINS_DEFAULT_FEES = {"ndax_testnet": [0.2, 0.2]}
 OTHER_DOMAINS_KEYS = {
     "ndax_testnet": {
         "ndax_testnet_uid":

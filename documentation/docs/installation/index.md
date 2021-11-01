@@ -1,3 +1,42 @@
+Hummingbot is a local software client that helps you run trading strategies that automate the execution of orders and trades on various cryptocurrency exchanges and protocols.
+
+## Releases
+
+Hummingbot's code is publicly hosted at https://github.com/coinalpha/hummingbot, and the `development` branch is continually updated. 
+
+Approximately once a month, we publish an official release of Hummingbot onto the `master` branch. See [Releases](https://github.com/CoinAlpha/hummingbot/releases).
+
+## Installation options
+
+### 💻 Binary (Mac/Windows)
+
+Download and run the binary installer to install the latest release of Hummingbot:
+
+[Windows :fontawesome-brands-windows:](https://dist.hummingbot.io/hummingbot_v0.43.1_setup.exe){ .md-button } [MacOS :fontawesome-brands-apple:](https://dist.hummingbot.io/hummingbot_v0.43.1.dmg){ .md-button }
+
+Read the binary installation guide: [Install Hummingbot on MacOS/Windows](./binary)
+
+### 🐳 Docker
+
+The [Hummingbot DockerHub](https://hub.docker.com/r/coinalpha/hummingbot) publishes Docker images for the `master` (latest) and `development` builds of Hummingbot, as well as past versions. 
+
+We recommend this path for users who run Hummingbot on Linux, in the cloud, and/or multiple bots.
+
+Read the Docker installation guide: [Install Hummingbot on Docker](./docker)
+
+### 🛠️ Source
+
+Install Hummingbot from source, including all dependencies.
+
+We recommend this path for **developers** who want to customize Hummingbot's behavior or to build new connectors and strategies.
+
+Read the source installation guide: [Install Hummingbot from Source](./source)
+
+### 🍓 Raspberry Pi
+
+Hummingbot doesn't require much power, so some users have run successfully run multiple instances on a single Raspberry Pi. We maintain an **experimental** build that shows users how to do this.
+
+[Install on Raspberry Pi](./raspberry-pi)
 
 ## System requirements
 
@@ -12,43 +51,3 @@ Hummingbot has been successfully tested with the following specifications:
 | **Storage**          | **Install using Docker**: 5 GB per instance                                                                                  |
 |                      | **Install from source**: 3 GB per instance                                                                                   |
 | **Network**          | A reliable internet connection is critical to keeping Hummingbot connected to exchanges.                                     |
-
-## Supported-installation environments
-
-| Platform     |                  Binary                             |                  Docker                             |                  Source                             |
-| ------------ | :-------------------------------------------------: | :-------------------------------------------------: | :-------------------------------------------------: |
-| Windows      | <span style="color:green; font-size:25px">⬤</span> | <span style="color:green; font-size:25px">⬤</span> | <span style="color:green; font-size:25px">⬤</span> |
-| MacOS        | <span style="color:green; font-size:25px">⬤</span> | <span style="color:green; font-size:25px">⬤</span> | <span style="color:green; font-size:25px">⬤</span> |
-| Linux        |                     -                               | <span style="color:green; font-size:25px">⬤</span> | <span style="color:green; font-size:25px">⬤</span> |
-| Raspberry Pi |                     -                               | <span style="color:green; font-size:25px">⬤</span> | <span style="color:green; font-size:25px">⬤</span> |
-
-## For cloud
-
-For experienced and technical users, we recommend setting up a cloud instance and installing the Docker version or from source. This enables Hummingbot to run 24/7.
-
-Using Hummingbot as a long running service can be achieved with the help of cloud platforms such as Google Cloud Platform, Amazon Web Services, and Microsoft Azure. You may read our blog about running [Hummingbot on different cloud providers](https://www.hummingbot.io/blog/2019-06-cloud-providers/).
-
-As of **version 0.28.0** installing Docker takes up around 500 MB of storage space and 4 GB for Hummingbot Docker image. We tested to install and run Hummingbot on these free to lowest machine types.
-
-| Provider              | Instance Type   | Instance Details      |
-| --------------------- | --------------- | --------------------- |
-| Google Cloud Platform | g1-small        | 1 vCPU, 1.7 GB memory |
-| Amazon Web Services   | t2.small        | 1 vCPU, 2 GB memory   |
-| Microsoft Azure       | Standard_D2s_v3 | 2 vCPU, 8 GB memory   |
-
-These instances are pre-loaded with system files that takes up around 1.2 GB so we recommend having at least **8 GB of storage space** in your cloud server.
-
-!!! note
-    Exception for celo-arb strategy — Running a [Celo Arbitrage](https://docs.hummingbot.io/strategies/celo-arbitrage/) strategy requires a minimum of `t2.medium` AWS instance type for improved performance.
-
-Check with the relevant cloud provider for instructions on how to set up a new Virtual Machine Instance on each major cloud platform.
-
-## Update Hummingbot
-
-We publish a new release of Hummingbot approximately once every month.
-
-See this article for instructions on how to Restore or Update Hummingbot version:
-
-- [Update Version](./update-hummingbot)
-
-- [Restore Previous Version](./restore-previous-version)

@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 23
+template_version: 24
 
 # Exchange configs
 bamboo_relay_use_coordinator: false
@@ -70,6 +70,10 @@ kucoin_passphrase: null
 kraken_api_key: null
 kraken_secret_key: null
 
+bitmart_api_key: null
+bitmart_secret_key: null
+bitmart_memo: null
+
 crypto_com_api_key: null
 crypto_com_secret_key: null
 
@@ -117,6 +121,12 @@ ndax_testnet_uid: null
 ndax_testnet_account_name: null
 ndax_testnet_api_key: null
 ndax_testnet_secret_key: null
+
+bybit_perpetual_api_key: null
+bybit_perpetual_secret_key: null
+
+bybit_perpetual_testnet_api_key: null
+bybit_perpetual_testnet_secret_key: null
 
 # Ethereum wallet address: required for trading on a DEX
 ethereum_wallet: null
@@ -243,3 +253,9 @@ global_token_symbol:
 # Enter 50 to indicate 50%. E.g. if the API rate limit is 100 calls per second, and you allocate 50% to this setting,
 # the bot will have a maximum (limit) of 50 calls per second
 rate_limits_share_pct:
+
+# network timeout when fetching minimum order amount in the `create` command
+create_command_timeout: 10
+
+# network timeout for other commands (i.e. import, connect, balance, history)
+other_commands_timeout: 30

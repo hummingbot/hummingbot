@@ -3,7 +3,8 @@ from decimal import Decimal
 from typing import (
     Any,
     Dict,
-    Optional
+    List,
+    Optional,
 )
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.event.events import (
@@ -112,12 +113,8 @@ cdef class InFlightOrderBase:
         }
 
     @classmethod
-    def _basic_from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
-        """
-        :param data: json data from API
-        :return: formatted InFlightOrder
-        """
-        order = cls(
+    def _instance_creation_parameters_from_json(cls, data: Dict[str, Any]) -> List[Any]:
+        return [
             data["client_order_id"],
             data["exchange_order_id"],
             data["trading_pair"],
@@ -125,8 +122,16 @@ cdef class InFlightOrderBase:
             getattr(TradeType, data["trade_type"]),
             Decimal(data["price"]),
             Decimal(data["amount"]),
-            data["last_state"]
-        )
+            data["last_state"]]
+
+    @classmethod
+    def _basic_from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
+        """
+        :param data: json data from API
+        :return: formatted InFlightOrder
+        """
+        arguments = cls._instance_creation_parameters_from_json(data)
+        order = cls(*arguments)
         order.executed_amount_base = Decimal(data["executed_amount_base"])
         order.executed_amount_quote = Decimal(data["executed_amount_quote"])
         order.fee_asset = data["fee_asset"]

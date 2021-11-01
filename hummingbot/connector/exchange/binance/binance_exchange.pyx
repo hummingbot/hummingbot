@@ -26,7 +26,6 @@ from typing import (
 )
 
 import conf
-from hummingbot.core.utils.asyncio_throttle import Throttler
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.clock cimport Clock
@@ -68,6 +67,9 @@ from .binance_utils import (
     convert_to_exchange_trading_pair)
 from hummingbot.core.data_type.common import OpenOrder
 from hummingbot.core.data_type.trade import Trade
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+import hummingbot.connector.exchange.binance.binance_constants as CONSTANTS
+
 s_logger = None
 s_decimal_0 = Decimal(0)
 s_decimal_NaN = Decimal("nan")
@@ -134,9 +136,10 @@ cdef class BinanceExchange(ExchangeBase):
         self.monkey_patch_binance_time()
         super().__init__()
         self._trading_required = trading_required
-        self._order_book_tracker = BinanceOrderBookTracker(trading_pairs=trading_pairs, domain=domain)
+        self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        self._order_book_tracker = BinanceOrderBookTracker(trading_pairs=trading_pairs, domain=domain, throttler=self._throttler)
         self._binance_client = BinanceClient(binance_api_key, binance_api_secret, tld=domain)
-        self._user_stream_tracker = BinanceUserStreamTracker(binance_client=self._binance_client, domain=domain)
+        self._user_stream_tracker = BinanceUserStreamTracker(binance_client=self._binance_client, domain=domain, throttler=self._throttler)
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
@@ -151,7 +154,6 @@ cdef class BinanceExchange(ExchangeBase):
         self._trading_rules_polling_task = None
         self._async_scheduler = AsyncCallScheduler(call_interval=0.5)
         self._last_poll_timestamp = 0
-        self._throttler = Throttler((10.0, 1.0))
 
     @property
     def name(self) -> str:
@@ -226,7 +228,7 @@ cdef class BinanceExchange(ExchangeBase):
             app_warning_msg: str = "Binance API call failed. Check API key and network connection.",
             request_weight: int = 1,
             **kwargs) -> Dict[str, any]:
-        async with self._throttler.weighted_task(request_weight=request_weight):
+        async with self._throttler.execute_task(limit_id=func.__name__):
             try:
                 return await self._async_scheduler.call_async(partial(func, *args, **kwargs),
                                                               timeout_seconds=self.API_CALL_TIMEOUT,
@@ -241,7 +243,7 @@ cdef class BinanceExchange(ExchangeBase):
                 raise ex
 
     async def query_url(self, url, request_weight: int = 1) -> any:
-        async with self._throttler.weighted_task(request_weight=request_weight):
+        async with self._throttler.execute_task(limit_id=url):
             async with aiohttp.ClientSession() as client:
                 async with client.get(url, timeout=self.API_CALL_TIMEOUT) as response:
                     if response.status != 200:

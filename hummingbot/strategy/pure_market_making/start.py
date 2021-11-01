@@ -77,6 +77,8 @@ def start(self):
             inventory_cost_price_delegate = InventoryCostPriceDelegate(db, trading_pair)
         take_if_crossed = c_map.get("take_if_crossed").value
 
+        should_wait_order_cancel_confirmation = c_map.get("should_wait_order_cancel_confirmation")
+
         strategy_logging_options = PureMarketMakingStrategy.OPTION_LOG_ALL
         self.strategy = PureMarketMakingStrategy()
         self.strategy.init_params(
@@ -111,6 +113,7 @@ def start(self):
             minimum_spread=minimum_spread,
             hb_app_notification=True,
             order_override={} if order_override is None else order_override,
+            should_wait_order_cancel_confirmation=should_wait_order_cancel_confirmation,
         )
     except Exception as e:
         self._notify(str(e))
