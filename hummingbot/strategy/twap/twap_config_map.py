@@ -6,7 +6,7 @@ from hummingbot.client.config.config_validators import (
 )
 from hummingbot.client.settings import (
     required_exchanges,
-    EXAMPLE_PAIRS,
+    AllConnectorSettings,
 )
 from typing import Optional
 import math
@@ -15,7 +15,7 @@ from datetime import datetime
 
 def trading_pair_prompt():
     exchange = twap_config_map.get("connector").value
-    example = EXAMPLE_PAIRS.get(exchange)
+    example = AllConnectorSettings.get_example_pairs().get(exchange)
     return "Enter the token trading pair you would like to trade on %s%s >>> " \
            % (exchange, f" (e.g. {example})" if example else "")
 

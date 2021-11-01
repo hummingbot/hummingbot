@@ -5,14 +5,14 @@ from hummingbot.client.config.config_validators import (
 )
 from hummingbot.client.settings import (
     required_exchanges,
-    EXAMPLE_PAIRS,
+    AllConnectorSettings,
 )
 from typing import Optional
 
 
 def symbol_prompt():
     exchange = dev_5_vwap_config_map.get("exchange").value
-    example = EXAMPLE_PAIRS.get(exchange)
+    example = AllConnectorSettings.get_example_pairs().get(exchange)
     return "Enter the trading pair you would like to trade on %s%s >>> " \
            % (exchange, f" (e.g. {example})" if example else "")
 

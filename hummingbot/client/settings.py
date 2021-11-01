@@ -51,6 +51,7 @@ class ConnectorType(Enum):
     """
     The types of exchanges that hummingbot client can communicate with.
     """
+
     Connector = "connector"
     Exchange = "exchange"
     Derivative = "derivative"
@@ -77,11 +78,11 @@ class ConnectorSetting(NamedTuple):
 
     def module_name(self) -> str:
         # returns connector module name, e.g. binance_exchange
-        return f'{self.base_name()}_{self.type.name.lower()}'
+        return f"{self.base_name()}_{self.type.name.lower()}"
 
     def module_path(self) -> str:
         # return connector full path name, e.g. hummingbot.connector.exchange.binance.binance_exchange
-        return f'hummingbot.connector.{self.type.name.lower()}.{self.base_name()}.{self.module_name()}'
+        return f"hummingbot.connector.{self.type.name.lower()}.{self.base_name()}.{self.module_name()}"
 
     def class_name(self) -> str:
         # return connector class name, e.g. BinanceExchange
@@ -121,12 +122,11 @@ class AllConnectorSettings:
         connector_exceptions = ["paper_trade"]
 
         package_dir = Path(__file__).resolve().parent.parent.parent
-        type_dirs = [f for f in scandir(f'{str(package_dir)}/hummingbot/connector') if f.is_dir()]
+        type_dirs = [f for f in scandir(f"{str(package_dir)}/hummingbot/connector") if f.is_dir()]
         for type_dir in type_dirs:
             connector_dirs = [f for f in scandir(type_dir.path) if f.is_dir()]
             for connector_dir in connector_dirs:
-                if connector_dir.name.startswith("_") or \
-                        connector_dir.name in connector_exceptions:
+                if connector_dir.name.startswith("_") or connector_dir.name in connector_exceptions:
                     continue
                 if connector_dir.name in cls.all_connector_settings:
                     raise Exception(f"Multiple connectors with the same {connector_dir.name} name.")
@@ -152,7 +152,7 @@ class AllConnectorSettings:
                     is_sub_domain=False,
                     parent_name=None,
                     domain_parameter=None,
-                    use_eth_gas_lookup=getattr(util_module, "USE_ETH_GAS_LOOKUP", False)
+                    use_eth_gas_lookup=getattr(util_module, "USE_ETH_GAS_LOOKUP", False),
                 )
                 # Adds other domains of connector
                 other_domains = getattr(util_module, "OTHER_DOMAINS", [])
@@ -171,7 +171,7 @@ class AllConnectorSettings:
                         is_sub_domain=True,
                         parent_name=parent.name,
                         domain_parameter=getattr(util_module, "OTHER_DOMAINS_PARAMETER")[domain],
-                        use_eth_gas_lookup=parent.use_eth_gas_lookup
+                        use_eth_gas_lookup=parent.use_eth_gas_lookup,
                     )
 
         return cls.all_connector_settings
@@ -194,11 +194,9 @@ class AllConnectorSettings:
                     is_sub_domain=False,
                     parent_name=base_connector_settings.name,
                     domain_parameter=None,
-                    use_eth_gas_lookup=base_connector_settings.use_eth_gas_lookup
+                    use_eth_gas_lookup=base_connector_settings.use_eth_gas_lookup,
                 )
-                cls.all_connector_settings.update({
-                    f"{e}_paper_trade": paper_trade_settings
-                })
+                cls.all_connector_settings.update({f"{e}_paper_trade": paper_trade_settings})
 
     @classmethod
     def get_connector_settings(cls) -> Dict[str, ConnectorSetting]:
@@ -230,6 +228,14 @@ class AllConnectorSettings:
             ConnectorType.Connector.value: cls.get_other_connector_names(),
         }
 
+    @classmethod
+    def get_example_pairs(cls) -> Dict[str, str]:
+        return {name: cs.example_pair for name, cs in cls.get_connector_settings().items()}
+
+    @classmethod
+    def get_example_assets(cls) -> Dict[str, str]:
+        return {name: cs.example_pair.split("-")[0] for name, cs in cls.get_connector_settings().items()}
+
 
 def ethereum_wallet_required() -> bool:
     """
@@ -260,9 +266,5 @@ def ethereum_required_trading_pairs() -> List[str]:
 MAXIMUM_OUTPUT_PANE_LINE_COUNT = 1000
 MAXIMUM_LOG_PANE_LINE_COUNT = 1000
 MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT = 100
-
-
-EXAMPLE_PAIRS = {name: cs.example_pair for name, cs in AllConnectorSettings.get_connector_settings().items()}
-EXAMPLE_ASSETS = {name: cs.example_pair.split("-")[0] for name, cs in AllConnectorSettings.get_connector_settings().items()}
 
 STRATEGIES: List[str] = get_strategy_list()
