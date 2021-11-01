@@ -21,7 +21,7 @@ from hummingbot.client.ui.layout import (
     create_process_monitor,
     create_trade_monitor,
     create_live_field,
-    create_button,
+    create_tab_button,
 )
 from hummingbot.client.ui.interface_utils import start_timer, start_process_monitor, start_trade_monitor
 from hummingbot.client.ui.style import load_style
@@ -55,12 +55,12 @@ class HummingbotCLI:
         self.log_field = create_log_field(self.search_field)
         self.right_pane_toggle = create_log_toggle(self.toggle_right_pane)
         self.live_field = create_live_field()
-        self.log_field_toggle = create_button("Running Logs", self.log_button_clicked)
+        self.log_field_button = create_tab_button("Log-pane", self.log_button_clicked)
         self.timer = create_timer()
         self.process_usage = create_process_monitor()
         self.trade_monitor = create_trade_monitor()
         self.layout, self.layout_components = generate_layout(self.input_field, self.output_field, self.log_field,
-                                                              self.right_pane_toggle, self.log_field_toggle,
+                                                              self.right_pane_toggle, self.log_field_button,
                                                               self.search_field, self.timer,
                                                               self.process_usage, self.trade_monitor,
                                                               self.command_tabs)
@@ -185,7 +185,7 @@ class HummingbotCLI:
 
     def redraw_app(self):
         self.layout, self.layout_components = generate_layout(self.input_field, self.output_field, self.log_field,
-                                                              self.right_pane_toggle, self.log_field_toggle,
+                                                              self.right_pane_toggle, self.log_field_button,
                                                               self.search_field, self.timer,
                                                               self.process_usage, self.trade_monitor, self.command_tabs)
         self.app.layout = self.layout
@@ -196,14 +196,21 @@ class HummingbotCLI:
         self.command_tabs[command_name].close_button = None
         self.command_tabs[command_name].output_field = None
         self.command_tabs[command_name].is_focus = False
+        self.redraw_app()
 
     def handle_tab_command(self, hummingbot: "HummingbotApplication", command_name: str, kwargs: Dict[str, Any]):
         if command_name not in self.command_tabs:
             return
         cmd_tab = self.command_tabs[command_name]
+        if "close" in kwargs and kwargs["close"]:
+            if cmd_tab.close_button is not None:
+                self.close_buton_clicked(command_name)
+            return
+        if "close" in kwargs:
+            kwargs.pop("close")
         if cmd_tab.button is None:
-            cmd_tab.button = create_button(command_name, lambda: self.tab_button_clicked(command_name))
-            cmd_tab.close_button = create_button("x", lambda: self.tab_button_clicked(command_name))
+            cmd_tab.button = create_tab_button(command_name, lambda: self.tab_button_clicked(command_name))
+            cmd_tab.close_button = create_tab_button("x", lambda: self.close_buton_clicked(command_name), 0, '', '')
             cmd_tab.output_field = create_live_field()
         self.tab_button_clicked(command_name)
         self.display_tab_output(cmd_tab, hummingbot, kwargs)
