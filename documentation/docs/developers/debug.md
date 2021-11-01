@@ -14,7 +14,7 @@ When you start Hummingbot with debug console enabled, it will print out a "Start
 
 ![Started debug console logm essage](/assets/img/debug2.png)
 
-As shown on the above image, you can use `ssh` to access the debug console. The server accepts any user name (i.e. `ssh random@localhost -p 8211` works just as well).
+As specified in the message, you can use `ssh` to access the debug console and exit with `CTRL + D`. The server accepts any user name (i.e. `ssh random@localhost -p 8211` works just as well).
 
 ![Entering the debug console](/assets/img/debug3.png)
 

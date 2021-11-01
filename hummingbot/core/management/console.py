@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
 import builtins
+from collections.abc import MutableMapping as MutableMappingABC
 import json
 import logging
 import pathlib
-from collections.abc import MutableMapping as MutableMappingABC
-from typing import Iterator, MutableMapping, List, Dict
+from typing import Dict, Iterator, List, MutableMapping
 
 import asyncssh
 from prompt_toolkit import print_formatted_text
@@ -79,5 +79,5 @@ async def start_management_console(local_vars: MutableMapping,
         lambda: ssh_server, host, port, server_host_keys=[ensure_key()]
     )
     logging.getLogger(__name__).info(
-        f"Started SSH debug console. Connect by running `ssh user@{host} -p {port}`."
+        f"Started SSH debug console. Connect by running `ssh user@{host} -p {port}`. Exit with `CTRL + D`."
     )
