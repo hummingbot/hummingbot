@@ -30,7 +30,7 @@ const patchInit = () => {
 };
 
 const patchStoredTokenList = () => {
-  patch(PangolinRoutes.avalanche, 'storedTokenList', () => {
+  patch(PangolinRoutes.avalanche, 'tokenList', () => {
     return [
       {
         chainId: 43114,
