@@ -5,7 +5,6 @@ import ethers, {
   BigNumber,
   Transaction,
 } from 'ethers';
-import { ConfigManager } from '../../services/config-manager';
 import { latency, bigNumberWithDecimalToStr } from '../../services/base';
 import {
   HttpException,
@@ -88,7 +87,7 @@ export async function allowances(
   );
 
   return {
-    network: ConfigManager.config.ETHEREUM_CHAIN,
+    network: ethereumish.chain,
     timestamp: initTime,
     latency: latency(initTime, Date.now()),
     spender: spender,
@@ -97,28 +96,28 @@ export async function allowances(
 }
 
 export async function balances(
-  ethereum: Ethereumish,
+  ethereumish: Ethereumish,
   req: EthereumBalanceRequest
 ): Promise<EthereumBalanceResponse | string> {
   const initTime = Date.now();
 
   let wallet: Wallet;
   try {
-    wallet = ethereum.getWallet(req.privateKey);
+    wallet = ethereumish.getWallet(req.privateKey);
   } catch (err) {
     throw new HttpException(500, 'Error getting wallet ' + err);
   }
-  const tokens = getTokenSymbolsToTokens(ethereum, req.tokenSymbols);
+  const tokens = getTokenSymbolsToTokens(ethereumish, req.tokenSymbols);
   const balances: Record<string, string> = {};
-  balances[ethereum.nativeTokenSymbol] = tokenValueToString(
-    await ethereum.getEthBalance(wallet)
+  balances[ethereumish.nativeTokenSymbol] = tokenValueToString(
+    await ethereumish.getEthBalance(wallet)
   );
   await Promise.all(
     Object.keys(tokens).map(async (symbol) => {
       if (tokens[symbol] !== undefined) {
         const address = tokens[symbol].address;
         const decimals = tokens[symbol].decimals;
-        const balance = await ethereum.getERC20Balance(
+        const balance = await ethereumish.getERC20Balance(
           wallet,
           address,
           decimals
@@ -129,7 +128,7 @@ export async function balances(
   );
 
   return {
-    network: ConfigManager.config.ETHEREUM_CHAIN,
+    network: ethereumish.chain,
     timestamp: initTime,
     latency: latency(initTime, Date.now()),
     balances: balances,
@@ -191,7 +190,7 @@ export async function approve(
   );
 
   return {
-    network: ConfigManager.config.ETHEREUM_CHAIN,
+    network: ethereumish.chain,
     timestamp: initTime,
     latency: latency(initTime, Date.now()),
     tokenAddress: fullToken.address,
@@ -281,7 +280,7 @@ export async function poll(
     }
   }
   return {
-    network: ConfigManager.config.ETHEREUM_CHAIN,
+    network: ethereumish.chain,
     currentBlock,
     timestamp: initTime,
     txHash: req.txHash,
@@ -308,7 +307,7 @@ export async function cancel(
   const cancelTx = await ethereumish.cancelTx(wallet, req.nonce);
 
   return {
-    network: ConfigManager.config.ETHEREUM_CHAIN,
+    network: ethereumish.chain,
     timestamp: initTime,
     latency: latency(initTime, Date.now()),
     txHash: cancelTx.hash,

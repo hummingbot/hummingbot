@@ -16,6 +16,7 @@ export interface Ethereumish extends EthereumBase {
   cancelTx(wallet: Wallet, nonce: number): Promise<Transaction>;
   getSpender(reqSpender: string): string;
   nativeTokenSymbol: string;
+  chain: string;
 }
 
 export class Ethereum extends EthereumBase implements Ethereumish {
@@ -24,6 +25,7 @@ export class Ethereum extends EthereumBase implements Ethereumish {
   private _gasPrice: number;
   private _gasPriceLastUpdated: Date | null;
   private _nativeTokenSymbol: string;
+  private _chain: string;
 
   private constructor() {
     let config;
@@ -45,6 +47,7 @@ export class Ethereum extends EthereumBase implements Ethereumish {
       config.tokenListType,
       ConfigManager.config.ETH_MANUAL_GAS_PRICE
     );
+    this._chain = ConfigManager.config.ETHEREUM_CHAIN;
     this._nativeTokenSymbol = 'ETH';
     this._ethGasStationUrl =
       'https://ethgasstation.info/api/ethgasAPI.json?api-key=' +
@@ -72,6 +75,10 @@ export class Ethereum extends EthereumBase implements Ethereumish {
 
   public get gasPrice(): number {
     return this._gasPrice;
+  }
+
+  public get chain(): string {
+    return this._chain;
   }
 
   public get nativeTokenSymbol(): string {
