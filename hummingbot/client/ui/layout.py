@@ -266,7 +266,7 @@ def generate_layout(input_field: TextArea,
     else:
         log_field_button.window.style = "class:tab_button"
     tab_buttons = [log_field_button]
-    for tab in command_tabs.values():
+    for tab in sorted(command_tabs.values(), key=lambda x: x.tab_index):
         if tab.button is not None:
             if tab.is_focus:
                 tab.button.window.style = "class:tab_button.focused"

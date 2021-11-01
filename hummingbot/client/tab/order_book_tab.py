@@ -1,4 +1,3 @@
-from hummingbot.core.utils.async_utils import safe_ensure_future
 import pandas as pd
 import asyncio
 from typing import TYPE_CHECKING
@@ -25,12 +24,6 @@ class OrderBookTab(TabBase):
             ["--market", {'type': str, 'dest': "market", 'help': "The market (trading pair) of the order book"}],
             ["--live", {'default': False, 'action': "store_true", 'dest': "live", 'help': "Show order book updates"}]
         ]
-
-    @classmethod
-    def run(cls,
-            live,
-            output_field):
-        safe_ensure_future(cls.display(live, output_field))
 
     @classmethod
     async def display(cls,

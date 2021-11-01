@@ -163,20 +163,10 @@ class HummingbotCLI:
         for tab in self.command_tabs.values():
             tab.is_focus = False
         self.redraw_app()
-        # self.log_field.width.weight = 1
-        # self.live_field.width.weight = 0
-        # self.log_field.is_visible = True
-        # self.live_field.is_visible = False
 
     def tab_button_clicked(self, command_name: str):
-        # live_2 = create_live_field()
-        # self.layout_components["pane_right_middle"].children.append(live_2)
-        # self.log_field.width.weight = 0
-        # self.live_field.width.weight = 0
-        # live_2.width.weight = 1
-        # self.log_field.is_visible = False
-        # self.live_field.is_visible = True
-        # live_2.log("live live")
+        for tab in self.command_tabs.values():
+            tab.is_focus = False
         self.command_tabs[command_name].is_focus = True
         self.redraw_app()
 
@@ -196,6 +186,7 @@ class HummingbotCLI:
         self.command_tabs[command_name].close_button = None
         self.command_tabs[command_name].output_field = None
         self.command_tabs[command_name].is_focus = False
+        self.command_tabs[command_name].tab_index = 0
         self.redraw_app()
 
     def handle_tab_command(self, hummingbot: "HummingbotApplication", command_name: str, kwargs: Dict[str, Any]):
@@ -212,6 +203,7 @@ class HummingbotCLI:
             cmd_tab.button = create_tab_button(command_name, lambda: self.tab_button_clicked(command_name))
             cmd_tab.close_button = create_tab_button("x", lambda: self.close_buton_clicked(command_name), 0, '', '')
             cmd_tab.output_field = create_live_field()
+            cmd_tab.tab_index = max(t.tab_index for t in self.command_tabs.values()) + 1
         self.tab_button_clicked(command_name)
         self.display_tab_output(cmd_tab, hummingbot, kwargs)
 
