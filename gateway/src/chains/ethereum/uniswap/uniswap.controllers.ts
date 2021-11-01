@@ -7,7 +7,6 @@ import {
   gasCostInEthString,
   stringWithDecimalToBigNumber,
 } from '../../../services/base';
-import { validateUniswapPriceRequest } from './uniswap.validators';
 import {
   UniswapPriceRequest,
   UniswapPriceResponse,
@@ -16,7 +15,6 @@ import {
   UniswapTradeErrorResponse,
 } from './uniswap.requests';
 import { ConfigManager } from '../../../services/config-manager';
-import { validateUniswapTradeRequest } from './uniswap.validators';
 
 export const ethereum = Ethereum.getInstance();
 export const uniswap = Uniswap.getInstance();
@@ -24,7 +22,6 @@ export const uniswap = Uniswap.getInstance();
 export async function price(
   req: UniswapPriceRequest
 ): Promise<UniswapPriceResponse> {
-  validateUniswapPriceRequest(req);
   const initTime = Date.now();
 
   // the amount is passed in as a string. We must validate the value.
@@ -107,7 +104,6 @@ export async function price(
 export async function trade(
   req: UniswapTradeRequest
 ): Promise<UniswapTradeResponse | UniswapTradeErrorResponse> {
-  validateUniswapTradeRequest(req);
   const initTime = Date.now();
 
   const limitPrice = req.limitPrice;
