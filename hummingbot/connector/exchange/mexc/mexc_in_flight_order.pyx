@@ -35,15 +35,15 @@ cdef class MexcInFlightOrder(InFlightOrderBase):
 
     @property
     def is_done(self) -> bool:
-        return self.last_state in {"FILLED", "CANCELED","PARTIALLY_CANCELED"}
+        return self.last_state in {"FILLED", "CANCELED", "PARTIALLY_CANCELED"}
 
     @property
     def is_cancelled(self) -> bool:
-        return self.last_state in {"CANCELED","PARTIALLY_CANCELED"}
+        return self.last_state in {"CANCELED", "PARTIALLY_CANCELED"}
 
     @property
     def is_failure(self) -> bool:
-        return self.last_state in {"CANCELED","PARTIALLY_CANCELED"}
+        return self.last_state in {"CANCELED", "PARTIALLY_CANCELED"}
 
     @property
     def is_open(self) -> bool:

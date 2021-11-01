@@ -10,12 +10,7 @@ from typing import (
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
-from hummingbot.core.utils.async_utils import (
-    safe_ensure_future,
-    safe_gather,
-)
 
-from hummingbot.connector.exchange.mexc.mexc_api_order_book_data_source import MexcAPIOrderBookDataSource
 from hummingbot.connector.exchange.mexc.mexc_api_user_stream_data_source import MexcAPIUserStreamDataSource
 from hummingbot.connector.exchange.mexc.mexc_auth import MexcAuth
 
@@ -43,7 +38,8 @@ class MexcUserStreamTracker(UserStreamTracker):
     @property
     def data_source(self) -> UserStreamTrackerDataSource:
         if not self._data_source:
-            self._data_source = MexcAPIUserStreamDataSource(mexc_auth=self._mexc_auth, trading_pairs=self._trading_pairs)
+            self._data_source = MexcAPIUserStreamDataSource(mexc_auth=self._mexc_auth,
+                                                            trading_pairs=self._trading_pairs)
         return self._data_source
 
     @property

@@ -17,9 +17,8 @@ def microseconds():
 
 
 def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
-    return exchange_trading_pair.replace("_", "-");
+    return exchange_trading_pair.replace("_", "-")
 
 
 def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
-    return hb_trading_pair.replace("-", "_");
-
+    return hb_trading_pair.replace("-", "_")

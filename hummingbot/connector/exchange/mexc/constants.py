@@ -1,4 +1,3 @@
-from urllib.parse import urljoin
 
 # URLs
 
@@ -20,5 +19,3 @@ MEXC_BALANCE_URL = '/open/api/v2/account/info'
 
 # WS
 MEXC_WS_URI_PUBLIC = 'wss://wbs.mexc.com/raw/ws'
-
-

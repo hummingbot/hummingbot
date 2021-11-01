@@ -95,7 +95,7 @@ class MexcOrderBookTracker(OrderBookTracker):
 
         while True:
             try:
-                message: OrderBookMessage = await  message_queue.get()
+                message: OrderBookMessage = await message_queue.get()
                 if message.type is OrderBookMessageType.DIFF:
                     order_book.apply_diffs(message.bids, message.asks, message.update_id)
                     diff_messages_accepted += 1
