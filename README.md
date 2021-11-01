@@ -78,6 +78,7 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 - [Website](https://hummingbot.io)
 - [Documentation](https://docs.hummingbot.io)
 - [FAQs](https://docs.hummingbot.io/about/faq/)
+- [Github Chinese](https://github.com/CoinAlpha/hummingbot_chinese)
 
 ### Install Hummingbot
 
