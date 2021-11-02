@@ -26,5 +26,25 @@ echo "" >> $PASSPHRASE_FILE
 
 sudo chmod 0600 $PASSPHRASE_FILE  # set mod
 }
-
 update_passphrase_file
+
+prompt_to_allow_telemetry () {
+read -p "Do you want to enable telemetry?  [yes/no] (default = \"no\")>>> " TELEMETRY
+if [[ "$TELEMETRY" == "" || "$TELEMETRY" == "No" || "$TELEMETRY" == "no" ]]
+then
+  echo "Telemetry disabled."
+  TELEMETRY=false
+elif [[ "$TELEMETRY" == "Yes" || "$TELEMETRY" == "yes" ]]
+then
+  echo "Telemetry enabled."
+  TELEMETRY=true
+else
+  echo "Invalid input, try again."
+  prompt_to_allow_telemetry
+}
+prompt_to_allow_telemetry
+
+# update config file
+CONFIGURATION_FILE="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )/../conf/gateway-config.yml"
+echo "ENABLE_TELEMETRY: '$TELEMETRY'"  >> $CONFIGURATION_FILE
+echo "" >> $CONFIGURATION_FILE
