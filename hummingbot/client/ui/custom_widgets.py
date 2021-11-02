@@ -136,14 +136,6 @@ class CustomTextArea:
         self.log(initial_text)
 
     @property
-    def width(self):
-        return self.window.width
-
-    @width.setter
-    def width(self, value):
-        self.window.width = value
-
-    @property
     def text(self):
         """
         The `Buffer` text.
