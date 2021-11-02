@@ -159,13 +159,6 @@ class HummingbotCLI:
             self.layout_components["pane_right"].filter = lambda: True
             self.layout_components["item_top_toggle"].text = '> log pane'
 
-        # if self.layout_components["pane_right"].width.weight == 1:
-        #     self.layout_components["pane_right"].width.weight = 0
-        #     self.layout_components["item_top_toggle"].text = '< log pane'
-        # else:
-        #     self.layout_components["pane_right"].width.weight = 1
-        #     self.layout_components["item_top_toggle"].text = '> log pane'
-
     def log_button_clicked(self):
         for tab in self.command_tabs.values():
             tab.is_focus = False
