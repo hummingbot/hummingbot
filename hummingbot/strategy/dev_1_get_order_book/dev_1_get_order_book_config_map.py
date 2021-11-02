@@ -5,14 +5,14 @@ from hummingbot.client.config.config_validators import (
 )
 from hummingbot.client.settings import (
     required_exchanges,
-    EXAMPLE_PAIRS,
+    AllConnectorSettings,
 )
 from typing import Optional
 
 
 def trading_pair_prompt():
     market = dev_1_get_order_book_config_map.get("exchange").value
-    example = EXAMPLE_PAIRS.get(market)
+    example = AllConnectorSettings.get_example_pairs().get(market)
     return "Enter the token trading pair to fetch its order book on %s%s >>> " \
            % (market, f" (e.g. {example})" if example else "")
 
