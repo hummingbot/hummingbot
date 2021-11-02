@@ -48,7 +48,7 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 | <img src="assets/okex-logo.jpg" alt="OKEx" width="90" /> | okex | [OKEx](https://www.okex.com/) | 3 | [API](https://www.okex.com/docs/en/) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 | <img src="assets/probit-logo.jpg" alt="Probit Global" width="90" /> | probit | [Probit Global](https://www.probit.com/en-us/) | 1 | [API](https://docs-en.probit.com/docs) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 | <img src="assets/probit_kr-logo.jpg" alt="Probit Korea" width="90" /> | probit_kr | [Probit Korea](https://www.probit.kr/en-us/) | 1 | [API](https://docs-en.probit.com/docs) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
-| <img src="assets/wazirx-logo.png" alt="Wazirx" width="90" /> | wazirx | [Wazirx](https://wazirx.com/) | 1 | [API](https://docs.wazirx.com/#public-rest-api-for-wazirx) |![YELLOW](https://via.placeholder.com/15/008000/?text=+) |
+| <img src="assets/wazirx-logo.png" alt="Wazirx" width="90" /> | wazirx | [Wazirx](https://wazirx.com/) | 1 | [API](https://docs.wazirx.com/#public-rest-api-for-wazirx) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 
 
 
