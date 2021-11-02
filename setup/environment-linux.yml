@@ -192,6 +192,7 @@ dependencies:
     - setuptools==50.3.2
     - signalr-client-aio==0.0.1.6.2
     - simplejson==3.17.2
+    - sockets==1.0.0
     - stringcase==1.2.0
     - sympy==1.6
     - toml==0.10.0
