@@ -7,9 +7,9 @@ from prompt_toolkit.layout.containers import (
     HSplit,
     VSplit,
     Window,
-    FloatContainer,
-    Float,
-    WindowAlign)
+    WindowAlign,
+    ConditionalContainer,
+)
 from prompt_toolkit.layout.menus import CompletionsMenu
 from prompt_toolkit.layout.layout import Layout
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
@@ -180,12 +180,12 @@ def create_log_toggle(function):
     )
 
 
-def create_tab_button(text, function, margin=3, left_symbol=' ', right_symbol=' '):
+def create_tab_button(text, function, margin=2, left_symbol=' ', right_symbol=' '):
     return Button(
         text=text,
         width=len(text) + margin,
         handler=function,
-        left_symbol='',
+        left_symbol=left_symbol,
         right_symbol=right_symbol
     )
 
@@ -260,9 +260,7 @@ def generate_layout(input_field: TextArea,
                                         timer], height=1)
     output_pane = Box(body=output_field, padding=0, padding_left=2, style="class:output-field")
     input_pane = Box(body=input_field, padding=0, padding_left=2, padding_top=1, style="class:input-field")
-    components["pane_left"] = HSplit([output_pane,
-                                      input_pane], 
-                                      width=Dimension(weight=1))
+    components["pane_left"] = HSplit([output_pane, input_pane], width=Dimension(weight=1))
     if all(not t.is_focus for t in command_tabs.values()):
         log_field_button.window.style = "class:tab_button.focused"
     else:
@@ -275,17 +273,17 @@ def generate_layout(input_field: TextArea,
             else:
                 tab.button.window.style = "class:tab_button"
             tab.close_button.window.style = tab.button.window.style
-            tab_buttons += [tab.button, tab.close_button]
+            tab_buttons.append(VSplit([tab.button, tab.close_button]))
     pane_right_field = log_field
     focused_right_field = [tab.output_field for tab in command_tabs.values() if tab.is_focus]
     if focused_right_field:
         pane_right_field = focused_right_field[0]
-    components["pane_right_top"] = VSplit(tab_buttons,
-                                          height=1,
-                                          )
-    components["pane_right"] = HSplit([components["pane_right_top"],
-                                       pane_right_field,
-                                       search_field], width=Dimension(weight=1))
+    components["pane_right_top"] = VSplit(tab_buttons, height=1, style="class:log-field", padding_char=" ", padding=2)
+    components["pane_right"] = ConditionalContainer(
+        Box(body=HSplit([components["pane_right_top"], pane_right_field, search_field], width=Dimension(weight=1)),
+            padding=0, padding_left=2, style="class:log-field"),
+        filter=True
+    )
     components["hint_menus"] = [Float(xcursor=True,
                                       ycursor=True,
                                       transparent=True,

@@ -2,6 +2,7 @@
 source_pkgs = hummingbot
 omit =  
         hummingbot/client/command/*
+        hummingbot/client/tab/*
         hummingbot/connector/connector/balancer*
         hummingbot/connector/connector/terra*
         hummingbot/connector/connector/uniswap*
