@@ -14,7 +14,7 @@ from prompt_toolkit.completion import Completer
 from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.widgets import Box, Button, SearchToolbar
 
-from hummingbot.client.ui.custom_widgets import CustomTextArea as TextArea
+from hummingbot.client.ui.custom_widgets import CustomTextArea, FormattedCustomTextArea
 from hummingbot.client.settings import (
     MAXIMUM_OUTPUT_PANE_LINE_COUNT,
     MAXIMUM_LOG_PANE_LINE_COUNT,
@@ -80,7 +80,7 @@ with open(realpath(join(dirname(__file__), '../../VERSION'))) as version_file:
 
 
 def create_input_field(lexer=None, completer: Completer = None):
-    return TextArea(
+    return CustomTextArea(
         height=10,
         prompt='>>> ',
         style='class:input-field',
@@ -94,7 +94,7 @@ def create_input_field(lexer=None, completer: Completer = None):
 
 
 def create_output_field():
-    return TextArea(
+    return FormattedCustomTextArea(
         style='class:output-field',
         focus_on_click=False,
         read_only=False,
@@ -105,7 +105,7 @@ def create_output_field():
 
 
 def create_timer():
-    return TextArea(
+    return CustomTextArea(
         style='class:footer',
         focus_on_click=False,
         read_only=False,
@@ -116,7 +116,7 @@ def create_timer():
 
 
 def create_process_monitor():
-    return TextArea(
+    return CustomTextArea(
         style='class:footer',
         focus_on_click=False,
         read_only=False,
@@ -127,7 +127,7 @@ def create_process_monitor():
 
 
 def create_trade_monitor():
-    return TextArea(
+    return CustomTextArea(
         style='class:footer',
         focus_on_click=False,
         read_only=False,
@@ -143,7 +143,7 @@ def create_search_field() -> SearchToolbar:
 
 
 def create_log_field(search_field: SearchToolbar):
-    return TextArea(
+    return CustomTextArea(
         style='class:log-field',
         text="Running logs\n",
         focus_on_click=False,
@@ -208,14 +208,14 @@ def get_strategy_file():
     return [(style, f"Strategy File: {hb._strategy_file_name}")]
 
 
-def generate_layout(input_field: TextArea,
-                    output_field: TextArea,
-                    log_field: TextArea,
+def generate_layout(input_field: CustomTextArea,
+                    output_field: CustomTextArea,
+                    log_field: CustomTextArea,
                     log_toggle: Button,
                     search_field: SearchToolbar,
-                    timer: TextArea,
-                    process_monitor: TextArea,
-                    trade_monitor: TextArea):
+                    timer: CustomTextArea,
+                    process_monitor: CustomTextArea,
+                    trade_monitor: CustomTextArea):
     components = {}
     components["item_top_version"] = Window(FormattedTextControl(get_version), style="class:header")
     components["item_top_paper"] = Window(FormattedTextControl(get_paper_trade_status), style="class:header")

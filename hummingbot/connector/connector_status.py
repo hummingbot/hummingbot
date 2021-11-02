@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from prompt_toolkit.formatted_text import HTML
+
 connector_status = {
     'ascend_ex': 'yellow',
     'balancer': 'green',
@@ -57,5 +59,5 @@ def get_connector_status(connector_name: str) -> str:
     if connector_name not in connector_status.keys():
         status = "UNKNOWN"
     else:
-        return connector_status[connector_name].upper()
+        return HTML(f"<violet>{connector_status[connector_name].upper()}</violet>")
     return status
