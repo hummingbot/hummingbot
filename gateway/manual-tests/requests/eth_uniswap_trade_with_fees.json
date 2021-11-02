@@ -1,0 +1,9 @@
+{
+  "privateKey": "$ETH_PRIVATE_KEY",
+  "quote": "WETH",
+  "base": "DAI",
+  "amount": "100000000000000",
+  "side": "BUY",
+  "maxFeePerGas": "5000000000",
+  "maxPriorityFeePerGas": "5000000000"
+}
