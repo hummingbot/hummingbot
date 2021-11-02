@@ -30,7 +30,7 @@ from hummingbot.client.settings import (
     CONF_FILE_PATH,
     CONF_POSTFIX,
     CONF_PREFIX,
-    CONNECTOR_SETTINGS
+    AllConnectorSettings,
 )
 from hummingbot.client.config.security import Security
 from hummingbot import get_strategy_list
@@ -172,7 +172,7 @@ def _merge_dicts(*args: Dict[str, ConfigVar]) -> OrderedDict:
 
 
 def get_connector_class(connector_name: str) -> Callable:
-    conn_setting = CONNECTOR_SETTINGS[connector_name]
+    conn_setting = AllConnectorSettings.get_connector_settings()[connector_name]
     mod = __import__(conn_setting.module_path(),
                      fromlist=[conn_setting.class_name()])
     return getattr(mod, conn_setting.class_name())

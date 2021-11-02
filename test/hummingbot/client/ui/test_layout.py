@@ -3,8 +3,7 @@ from copy import deepcopy
 
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.hummingbot_application import HummingbotApplication
-from hummingbot.client.ui.layout import get_paper_trade_status, \
-    get_active_strategy, get_strategy_file
+from hummingbot.client.ui.layout import get_active_strategy, get_strategy_file
 
 
 class LayoutTest(unittest.TestCase):
@@ -19,22 +18,6 @@ class LayoutTest(unittest.TestCase):
     def reset_global_config(self):
         for key, value in self.global_config_backup.items():
             global_config_map[key] = value
-
-    def test_get_paper_trade_status_paper_trade_on(self):
-        global_config_map["paper_trade_enabled"].value = True
-        res = get_paper_trade_status()
-        style, text = res[0]
-
-        self.assertEqual("class:primary", style)
-        self.assertEqual("paper_trade_mode: ON", text)
-
-    def test_get_paper_trade_status_paper_trade_off(self):
-        global_config_map["paper_trade_enabled"].value = False
-        res = get_paper_trade_status()
-        style, text = res[0]
-
-        self.assertEqual("class:log-field", style)
-        self.assertEqual("paper_trade_mode: OFF", text)
 
     def test_get_active_strategy(self):
         hb = HummingbotApplication.main_application()
