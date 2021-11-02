@@ -32,12 +32,11 @@ from hummingbot.user.user_balances import UserBalances
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
-
+from hummingbot.client.ui.style import load_style
 
 no_restart_pmm_keys_in_percentage = ["bid_spread", "ask_spread", "order_level_spread", "inventory_target_base_pct"]
 no_restart_pmm_keys = ["order_amount", "order_levels", "filled_order_delay", "inventory_skew_enabled", "inventory_range_multiplier"]
-global_configs_to_display = ["0x_active_cancels",
-                             "autofill_import",
+global_configs_to_display = ["autofill_import",
                              "kill_switch_enabled",
                              "kill_switch_rate",
                              "telegram_enabled",
@@ -57,6 +56,12 @@ global_configs_to_display = ["0x_active_cancels",
                              "rate_limits_share_pct",
                              "create_command_timeout",
                              "other_commands_timeout"]
+color_settings_to_display = ["top-pane",
+                             "bottom-pane",
+                             "output-pane",
+                             "input-pane",
+                             "logs-pane",
+                             "terminal-primary"]
 
 
 class ConfigCommand:
@@ -80,6 +85,13 @@ class ConfigCommand:
                 if cv.key in global_configs_to_display and not cv.is_secure]
         df = map_df_to_str(pd.DataFrame(data=data, columns=columns))
         self._notify("\nGlobal Configurations:")
+        lines = ["    " + line for line in df.to_string(index=False, max_colwidth=50).split("\n")]
+        self._notify("\n".join(lines))
+
+        data = [[cv.key, cv.value] for cv in global_config_map.values()
+                if cv.key in color_settings_to_display and not cv.is_secure]
+        df = map_df_to_str(pd.DataFrame(data=data, columns=columns))
+        self._notify("\nColor Settings:")
         lines = ["    " + line for line in df.to_string(index=False, max_colwidth=50).split("\n")]
         self._notify("\n".join(lines))
 
@@ -160,6 +172,7 @@ class ConfigCommand:
             save_to_yml(file_path, config_map)
             self._notify("\nNew configuration saved:")
             self._notify(f"{key}: {str(config_var.value)}")
+            self.app.app.style = load_style()
             for config in missings:
                 self._notify(f"{config.key}: {str(config.value)}")
             if isinstance(self.strategy, PureMarketMakingStrategy) or \

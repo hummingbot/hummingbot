@@ -11,7 +11,7 @@ from hummingbot.client.config.config_helpers import (
     save_to_yml
 )
 from hummingbot.client.config.config_validators import validate_decimal, validate_exchange
-from hummingbot.market.celo.celo_cli import CeloCLI
+from hummingbot.connector.other.celo.celo_cli import CeloCLI
 from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 import pandas as pd

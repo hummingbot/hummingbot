@@ -783,20 +783,12 @@ class GateIoExchange(ExchangeBase):
             "text": "user_defined_text",
         }
         """
-        exchange_order_id = str(trade_msg["order_id"])
         client_order_id = str(trade_msg["text"])
-        tracked_orders = list(self._in_flight_orders.values())
-        track_order = [o for o in tracked_orders
-                       if exchange_order_id == o.exchange_order_id or client_order_id == o.client_order_id]
-        if not track_order:
-            return
-        tracked_order = track_order[0]
-
-        updated = tracked_order.update_with_trade_update(trade_msg)
-
-        if not updated:
-            return
-        safe_ensure_future(self._trigger_order_fill(tracked_order, trade_msg))
+        tracked_order = self.in_flight_orders.get(client_order_id, None)
+        if tracked_order:
+            updated = tracked_order.update_with_trade_update(trade_msg)
+            if updated:
+                safe_ensure_future(self._trigger_order_fill(tracked_order, trade_msg))
 
     async def _trigger_order_fill(self,
                                   tracked_order: GateIoInFlightOrder,

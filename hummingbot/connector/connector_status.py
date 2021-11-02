@@ -9,10 +9,10 @@ connector_status = {
     'binance_perpetual_testnet': 'yellow',
     'binance_us': 'green',
     'bitfinex': 'yellow',
-    'bitmart': 'yellow',
+    'bitmart': 'green',
     'bittrex': 'yellow',
     'blocktane': 'yellow',
-    'bybit_perpetual': 'yellow',
+    'bybit_perpetual': 'green',
     'bybit_perpetual_testnet': 'yellow',
     'celo': 'yellow',
     'coinbase_pro': 'yellow',
@@ -43,7 +43,6 @@ connector_status = {
 }
 
 warning_messages = {
-    'eterbase': 'Hack investigation and security audit is ongoing for Eterbase. Trading is currently disabled.'
 }
 
 

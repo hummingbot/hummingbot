@@ -38,6 +38,6 @@ You are now connected to bittrex.
 
 ## 🪙 Fees
 
-Hummingbot assumes 0.25% maker fees and 0.25% taker fees ([source](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/exchange/bittrex/bittrex_utils.py#L9)).
+Hummingbot assumes 0.75% maker fees and 0.75% taker fees ([source](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/exchange/bittrex/bittrex_utils.py#L9)).
 
 Users can override these assumptions with [Override Fees](/global-configs/override-fees/).

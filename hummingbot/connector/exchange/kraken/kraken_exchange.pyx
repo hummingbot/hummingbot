@@ -33,7 +33,9 @@ from hummingbot.connector.exchange.kraken.kraken_utils import (
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair,
     split_to_base_quote,
-    is_dark_pool)
+    is_dark_pool,
+    build_rate_limits_by_tier,
+)
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.event.events import (
     MarketEvent,
@@ -61,6 +63,7 @@ from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS
+from hummingbot.connector.exchange.kraken.kraken_constants import KrakenAPITier
 
 s_logger = None
 s_decimal_0 = Decimal(0)
@@ -107,11 +110,13 @@ cdef class KrakenExchange(ExchangeBase):
                  kraken_secret_key: str,
                  poll_interval: float = 30.0,
                  trading_pairs: Optional[List[str]] = None,
-                 trading_required: bool = True):
+                 trading_required: bool = True,
+                 kraken_api_tier: str = "starter"):
 
         super().__init__()
         self._trading_required = trading_required
-        self._throttler = self._build_async_throttler()
+        self._kraken_api_tier = KrakenAPITier(kraken_api_tier.upper())
+        self._throttler = self._build_async_throttler(api_tier=self._kraken_api_tier)
         self._order_book_tracker = KrakenOrderBookTracker(trading_pairs=trading_pairs, throttler=self._throttler)
         self._kraken_auth = KrakenAuth(kraken_api_key, kraken_secret_key)
         self._user_stream_tracker = KrakenUserStreamTracker(self._throttler, self._kraken_auth)
@@ -185,9 +190,6 @@ cdef class KrakenExchange(ExchangeBase):
             self._asset_pairs = {f"{details['base']}-{details['quote']}": details
                                  for _, details in asset_pairs.items() if not is_dark_pool(details)}
         return self._asset_pairs
-
-    async def get_active_exchange_markets(self) -> pd.DataFrame:
-        return await KrakenAPIOrderBookDataSource.get_active_exchange_markets()
 
     async def _update_balances(self):
         cdef:
@@ -480,71 +482,68 @@ cdef class KrakenExchange(ExchangeBase):
                             self.logger().debug(f"Order Event: {update}")
                             continue
 
-                        tracked_order.update_with_trade_update(trade)
+                        updated: bool = tracked_order.update_with_trade_update(trade)
+                        if updated:
+                            self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
+                                                 OrderFilledEvent(self._current_timestamp,
+                                                                  tracked_order.client_order_id,
+                                                                  tracked_order.trading_pair,
+                                                                  tracked_order.trade_type,
+                                                                  tracked_order.order_type,
+                                                                  Decimal(trade.get("price")),
+                                                                  Decimal(trade.get("vol")),
+                                                                  TradeFee(0.0, [(tracked_order.fee_asset, Decimal((trade.get("fee"))))]),
+                                                                  trade.get("trade_id")))
 
-                        self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
-                                             OrderFilledEvent(self._current_timestamp,
-                                                              tracked_order.client_order_id,
-                                                              tracked_order.trading_pair,
-                                                              tracked_order.trade_type,
-                                                              tracked_order.order_type,
-                                                              Decimal(trade.get("price")),
-                                                              Decimal(trade.get("vol")),
-                                                              TradeFee(0.0, [(tracked_order.fee_asset, Decimal((trade.get("fee"))))]),
-                                                              trade.get("trade_id")))
-
-                        if tracked_order.is_done:
-                            if not tracked_order.is_failure:
-                                if tracked_order.trade_type is TradeType.BUY:
-                                    self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
-                                                       f"according to user stream.")
-                                    self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
-                                                         BuyOrderCompletedEvent(self._current_timestamp,
-                                                                                tracked_order.client_order_id,
-                                                                                tracked_order.base_asset,
-                                                                                tracked_order.quote_asset,
-                                                                                (tracked_order.fee_asset
-                                                                                 or tracked_order.quote_asset),
-                                                                                tracked_order.executed_amount_base,
-                                                                                tracked_order.executed_amount_quote,
-                                                                                tracked_order.fee_paid,
-                                                                                tracked_order.order_type))
+                            if tracked_order.is_done:
+                                if not tracked_order.is_failure:
+                                    if tracked_order.trade_type is TradeType.BUY:
+                                        self.logger().info(f"The market buy order {tracked_order.client_order_id} has completed "
+                                                           f"according to user stream.")
+                                        self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
+                                                             BuyOrderCompletedEvent(self._current_timestamp,
+                                                                                    tracked_order.client_order_id,
+                                                                                    tracked_order.base_asset,
+                                                                                    tracked_order.quote_asset,
+                                                                                    (tracked_order.fee_asset
+                                                                                        or tracked_order.quote_asset),
+                                                                                    tracked_order.executed_amount_base,
+                                                                                    tracked_order.executed_amount_quote,
+                                                                                    tracked_order.fee_paid,
+                                                                                    tracked_order.order_type))
+                                    else:
+                                        self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
+                                                           f"according to user stream.")
+                                        self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
+                                                             SellOrderCompletedEvent(self._current_timestamp,
+                                                                                     tracked_order.client_order_id,
+                                                                                     tracked_order.base_asset,
+                                                                                     tracked_order.quote_asset,
+                                                                                     (tracked_order.fee_asset
+                                                                                      or tracked_order.quote_asset),
+                                                                                     tracked_order.executed_amount_base,
+                                                                                     tracked_order.executed_amount_quote,
+                                                                                     tracked_order.fee_paid,
+                                                                                     tracked_order.order_type))
                                 else:
-                                    self.logger().info(f"The market sell order {tracked_order.client_order_id} has completed "
-                                                       f"according to user stream.")
-                                    self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
-                                                         SellOrderCompletedEvent(self._current_timestamp,
-                                                                                 tracked_order.client_order_id,
-                                                                                 tracked_order.base_asset,
-                                                                                 tracked_order.quote_asset,
-                                                                                 (tracked_order.fee_asset
-                                                                                  or tracked_order.quote_asset),
-                                                                                 tracked_order.executed_amount_base,
-                                                                                 tracked_order.executed_amount_quote,
-                                                                                 tracked_order.fee_paid,
-                                                                                 tracked_order.order_type))
-                            else:
-                                # check if its a cancelled order
-                                # if its a cancelled order, check in flight orders
-                                # if present in in flight orders issue cancel and stop tracking order
-                                if tracked_order.is_cancelled:
-                                    if tracked_order.client_order_id in self._in_flight_orders:
-                                        self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
-                                        self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                                             OrderCancelledEvent(
-                                                                 self._current_timestamp,
-                                                                 tracked_order.client_order_id))
-                                else:
-                                    self.logger().info(f"The market order {tracked_order.client_order_id} has failed according to "
-                                                       f"order status API.")
-                                    self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
-                                                         MarketOrderFailureEvent(
-                                                             self._current_timestamp,
-                                                             tracked_order.client_order_id,
-                                                             tracked_order.order_type
-                                                         ))
+                                    # check if its a cancelled order
+                                    # if its a cancelled order, check in flight orders
+                                    # if present in in flight orders issue cancel and stop tracking order
+                                    if tracked_order.is_cancelled:
+                                        if tracked_order.client_order_id in self._in_flight_orders:
+                                            self.logger().info(f"Successfully cancelled order {tracked_order.client_order_id}.")
+                                            self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                                                 OrderCancelledEvent(self._current_timestamp,
+                                                                                     tracked_order.client_order_id))
+                                    else:
+                                        self.logger().info(f"The market order {tracked_order.client_order_id} has failed according to "
+                                                           f"order status API.")
+                                        self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
+                                                             MarketOrderFailureEvent(self._current_timestamp,
+                                                                                     tracked_order.client_order_id,
+                                                                                     tracked_order.order_type))
 
-                            self.c_stop_tracking_order(tracked_order.client_order_id)
+                                self.c_stop_tracking_order(tracked_order.client_order_id)
 
             except asyncio.CancelledError:
                 raise
@@ -1124,7 +1123,7 @@ cdef class KrakenExchange(ExchangeBase):
     def get_order_book(self, trading_pair: str) -> OrderBook:
         return self.c_get_order_book(trading_pair)
 
-    def _build_async_throttler(self) -> AsyncThrottler:
+    def _build_async_throttler(self, api_tier: KrakenAPITier) -> AsyncThrottler:
         limits_pct_conf: Optional[Decimal] = global_config_map["rate_limits_share_pct"].value
         limits_pct = Decimal("100") if limits_pct_conf is None else limits_pct_conf
         if limits_pct < Decimal("100"):
@@ -1132,5 +1131,5 @@ cdef class KrakenExchange(ExchangeBase):
                 f"The Kraken API does not allow enough bandwidth for a reduced rate-limit share percentage."
                 f" Current percentage: {limits_pct}."
             )
-        throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        throttler = AsyncThrottler(build_rate_limits_by_tier(api_tier))
         return throttler

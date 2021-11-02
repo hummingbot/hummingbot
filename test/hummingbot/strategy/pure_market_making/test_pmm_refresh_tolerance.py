@@ -4,11 +4,6 @@ from decimal import Decimal
 import logging; logging.basicConfig(level=logging.ERROR)
 import pandas as pd
 import unittest
-from hummingsim.backtest.backtest_market import BacktestMarket
-from hummingsim.backtest.market import (
-    QuantizationParams
-)
-from hummingsim.backtest.mock_order_book_loader import MockOrderBookLoader
 from hummingbot.core.clock import (
     Clock,
     ClockMode
@@ -21,6 +16,8 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.strategy.pure_market_making.pure_market_making import PureMarketMakingStrategy
+from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
+from test.mock.mock_paper_exchange import MockPaperExchange
 
 
 class PMMRefreshToleranceUnitTest(unittest.TestCase):
@@ -46,18 +43,17 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
     def setUp(self):
         self.clock_tick_size = 1
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
-        self.market: BacktestMarket = BacktestMarket()
-        self.book_data: MockOrderBookLoader = MockOrderBookLoader(self.trading_pair, self.base_asset, self.quote_asset)
+        self.market: MockPaperExchange = MockPaperExchange()
         self.mid_price = 100
         self.bid_spread = 0.01
         self.ask_spread = 0.01
         self.order_refresh_time = 30
-        self.book_data.set_balanced_order_book(mid_price=self.mid_price,
-                                               min_price=1,
-                                               max_price=200,
-                                               price_step_size=1,
-                                               volume_step_size=10)
-        self.market.add_data(self.book_data)
+        self.market.set_balanced_order_book(trading_pair=self.trading_pair,
+                                            mid_price=self.mid_price,
+                                            min_price=1,
+                                            max_price=200,
+                                            price_step_size=1,
+                                            volume_step_size=10)
         self.market.set_balance("HBOT", 500)
         self.market.set_balance("ETH", 5000)
         self.market.set_quantization_param(
@@ -125,7 +121,8 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
         self.assertEqual(1, len(strategy.active_sells))
         self.assertEqual(old_bid.client_order_id, strategy.active_buys[0].client_order_id)
         self.assertEqual(old_ask.client_order_id, strategy.active_sells[0].client_order_id)
-        self.book_data.order_book.apply_diffs([OrderBookRow(99.5, 30, 2)], [OrderBookRow(100.1, 30, 2)], 2)
+        self.market.order_books[self.trading_pair].apply_diffs([OrderBookRow(99.5, 30, 2)],
+                                                               [OrderBookRow(100.1, 30, 2)], 2)
         self.clock.backtest_til(self.start_timestamp + 6 * self.clock_tick_size)
         new_bid = strategy.active_buys[0]
         new_ask = strategy.active_sells[0]
@@ -165,7 +162,8 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
         self.assertEqual(5, len(strategy.active_sells))
         old_buys = strategy.active_buys
         old_sells = strategy.active_sells
-        self.book_data.order_book.apply_diffs([OrderBookRow(99.5, 30, 2)], [OrderBookRow(100.1, 30, 2)], 2)
+        self.market.order_books[self.trading_pair].apply_diffs([OrderBookRow(99.5, 30, 2)],
+                                                               [OrderBookRow(100.1, 30, 2)], 2)
         self.clock.backtest_til(self.start_timestamp + 6 * self.clock_tick_size)
         new_buys = strategy.active_buys
         new_sells = strategy.active_sells

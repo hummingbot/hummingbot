@@ -14,14 +14,14 @@ EXAMPLE_PAIR = "BTC-USD"
 # Fees have to be expressed as percent value
 DEFAULT_FEES = [-0.025, 0.075]
 
-
 # USE_ETHEREUM_WALLET not required because default value is false
 # FEE_TYPE not required because default value is Percentage
 # FEE_TOKEN not required because the fee is not flat
 
+
 def get_new_client_order_id(is_buy: bool, trading_pair: str) -> str:
     side = "B" if is_buy else "S"
-    return f"{side}-{trading_pair}-{get_tracking_nonce()}"
+    return f"{CONSTANTS.HBOT_BROKER_ID}-{side}-{trading_pair}-{get_tracking_nonce()}"
 
 
 def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:

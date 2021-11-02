@@ -12,7 +12,7 @@ Approximately once a month, we publish an official release of Hummingbot onto th
 
 Download and run the binary installer to install the latest release of Hummingbot:
 
-[Windows :fontawesome-brands-windows:](https://dist.hummingbot.io/hummingbot_v0.43.1_setup.exe){ .md-button } [MacOS :fontawesome-brands-apple:](https://dist.hummingbot.io/hummingbot_v0.43.1.dmg){ .md-button }
+[Windows :fontawesome-brands-windows:](https://dist.hummingbot.io/hummingbot_v0.44.0_setup.exe){ .md-button } [MacOS :fontawesome-brands-apple:](https://dist.hummingbot.io/hummingbot_v0.44.0.dmg){ .md-button }
 
 Read the binary installation guide: [Install Hummingbot on MacOS/Windows](./binary)
 

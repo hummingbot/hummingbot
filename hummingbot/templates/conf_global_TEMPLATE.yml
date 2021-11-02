@@ -3,11 +3,9 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 24
+template_version: 27
 
 # Exchange configs
-bamboo_relay_use_coordinator: false
-bamboo_relay_pre_emptive_soft_cancels: false
 
 beaxy_api_key: null
 beaxy_secret_key: null
@@ -69,6 +67,7 @@ kucoin_passphrase: null
 
 kraken_api_key: null
 kraken_secret_key: null
+kraken_api_tier: null
 
 bitmart_api_key: null
 bitmart_secret_key: null
@@ -143,9 +142,6 @@ kill_switch_rate: null
 # What to auto-fill in the prompt after each import command (start/config)
 autofill_import: null
 
-# DEX active order cancellation
-0x_active_cancels: false
-
 # Paper Trading
 paper_trade_enabled: false
 paper_trade_account_balance:
@@ -177,19 +173,6 @@ logger_override_whitelist:
   - conf
 key_file_path: conf/
 log_file_path: logs/
-on_chain_cancel_on_exit: false
-
-# Minimum default order amount (in quote currency), this is used for when prompting a new order_amount.
-min_quote_order_amount:
-  BTC: 0.0011
-  ETH: 0.05
-  USD: 11
-  BNB: 0.5
-  USDT: 11
-  USDC: 11
-  BUSD: 11
-  TUSD: 11
-  TRY: 11
 
 # Advanced database options, currently supports SQLAlchemy's included dialects
 # Reference: https://docs.sqlalchemy.org/en/13/dialects/
@@ -259,3 +242,22 @@ create_command_timeout: 10
 
 # network timeout for other commands (i.e. import, connect, balance, history)
 other_commands_timeout: 30
+
+# Background color of the top pane
+top-pane: "#000000"
+
+# Background color of the bottom pane
+bottom-pane: "#000000"
+
+# Background color of the output pane
+output-pane: "#262626"
+
+# Background color of the input pane
+input-pane: "#1C1C1C"
+
+# Background color of the logs pane
+logs-pane: "#121212"
+
+# Terminal primary color
+terminal-primary: "#5FFFD7"
+

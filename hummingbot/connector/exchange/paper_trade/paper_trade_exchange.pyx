@@ -67,13 +67,6 @@ s_decimal_0 = Decimal(0)
 
 
 cdef class QuantizationParams:
-    cdef:
-        str trading_pair
-        int price_precision
-        int price_decimals
-        int order_size_precision
-        int order_size_decimals
-
     def __init__(self,
                  str trading_pair,
                  int price_precision,
@@ -187,6 +180,10 @@ cdef class PaperTradeExchange(ExchangeBase):
         self._target_market = target_market
         self._market_order_filled_listener = OrderBookMarketOrderFillListener(self)
         self.c_add_listener(self.ORDER_FILLED_EVENT_TAG, self._market_order_filled_listener)
+
+    @property
+    def order_book_tracker(self) -> OrderBookTracker:
+        return self._order_book_tracker
 
     @classmethod
     def random_order_id(cls, order_side: str, trading_pair: str) -> str:
@@ -828,9 +825,6 @@ cdef class PaperTradeExchange(ExchangeBase):
     cdef object c_get_available_balance(self, str currency):
         return self.available_balances.get(currency.upper(), s_decimal_0)
 
-    async def get_active_exchange_markets(self) -> pd.DataFrame:
-        return await self._order_book_tracker.data_source.get_active_exchange_markets()
-
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         cdef:
             LimitOrders *limit_orders_map_ptr
@@ -956,7 +950,7 @@ cdef class PaperTradeExchange(ExchangeBase):
                                         object price=s_decimal_0):
         amount = Decimal('%.7g' % amount)  # hard code to round to 8 significant digits
         if amount <= 1e-7:
-            amount = 0
+            amount = Decimal("0")
         order_size_quantum = self.c_get_order_size_quantum(trading_pair, amount)
         return (amount // order_size_quantum) * order_size_quantum
 
@@ -1011,3 +1005,7 @@ cdef class PaperTradeExchange(ExchangeBase):
                                   event):
         await asyncio.sleep(0.01)
         self.c_trigger_event(event_tag, event)
+
+    @property
+    def config(self) -> MarketConfig:
+        return self._config

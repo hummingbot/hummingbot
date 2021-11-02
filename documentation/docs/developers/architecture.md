@@ -1,3 +1,5 @@
+*Originally published in the Hummingbot blog: [part 1](https://hummingbot.io/blog/2021-03-hummingbot-architecture), [part 2](https://hummingbot.io/blog/2021-05-hummingbot-architecture-part2)*
+
 ## Introduction
 
 Hummingbot is a modular framework for building highly reliable, and high performance trading bots. While the official Hummingbot package already allows you to run high frequency trading strategies on a number of cryptocurrency exchanges, the underlying framework is freely extensible for building custom strategies, custom market connectors, and more.
@@ -123,7 +125,7 @@ For example, here is how the `balancer/sell` API endpoint is implemented in Gate
 * https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/exchange/binance/binance_exchange.pyx
 * https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/exchange/binance/binance_api_order_book_data_source.py
 * https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/connector/balancer/balancer_connector.py
-* https://github.com/CoinAlpha/gateway-api/blob/master/src/routes/balancer.route.js
+* https://github.com/CoinAlpha/gateway-api/blob/master/src/routes/balancer.route.ts
 
 ## Strategies
 

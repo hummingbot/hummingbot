@@ -1,12 +1,11 @@
 #!/usr/bin/env python
-
 import unittest
 import asyncio
-from typing import Any
-from unittest.mock import patch, AsyncMock
+import json
+import re
+from aioresponses import aioresponses
 
 import hummingbot.connector.exchange.bitmart.bitmart_constants as CONSTANTS
-
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.connector.exchange.bitmart.bitmart_order_book import BitmartOrderBook
 from hummingbot.connector.exchange.bitmart.bitmart_order_book_message import BitmartOrderBookMessage
@@ -78,21 +77,9 @@ class BitmartOrderBookTrackerUnitTest(unittest.TestCase):
             }
         }
 
-    @staticmethod
-    def set_mock_response(mock_api, status: int, json_data: Any):
-        mock_api.return_value.__aenter__.return_value.status = status
-        mock_api.return_value.__aenter__.return_value.json = AsyncMock(return_value=json_data)
-
     def simulate_queue_order_book_messages(self, message: BitmartOrderBookMessage):
         message_queue = self.tracker._tracking_message_queues[self.trading_pair]
         message_queue.put_nowait(message)
-
-    def simulate_saving_order_book_diff_messages(self, message: BitmartOrderBookMessage):
-        message_queue = self.tracker._saved_message_queues[self.trading_pair]
-        message_queue.put_nowait(message)
-
-    def test_exchange_name(self):
-        self.assertEqual(self.tracker.exchange_name, CONSTANTS.EXCHANGE_NAME)
 
     def test_track_single_book_apply_snapshot(self):
         snapshot_data = self._example_snapshot()
@@ -113,11 +100,11 @@ class BitmartOrderBookTrackerUnitTest(unittest.TestCase):
 
         self.assertEqual(1527777538000, self.tracker.order_books[self.trading_pair].snapshot_uid)
 
-    @patch("aiohttp.ClientSession.get")
+    @aioresponses()
     def test_init_order_books(self, mock_api):
         mock_response = self._example_snapshot()
-        self.set_mock_response(mock_api, 200, mock_response)
-
+        regex_url = re.compile(f"{CONSTANTS.REST_URL}/{CONSTANTS.GET_ORDER_BOOK_PATH_URL}")
+        mock_api.get(regex_url, body=json.dumps(mock_response))
         self.tracker._order_books_initialized.clear()
         self.tracker._tracking_message_queues.clear()
         self.tracker._tracking_tasks.clear()
@@ -137,10 +124,11 @@ class BitmartOrderBookTrackerUnitTest(unittest.TestCase):
         self.assertIsInstance(self.tracker.order_books[self.trading_pair], OrderBook)
         self.assertTrue(self.tracker._order_books_initialized.is_set())
 
-    @patch("aiohttp.ClientSession.get")
+    @aioresponses()
     def test_can_get_price_after_order_book_init(self, mock_api):
         mock_response = self._example_snapshot()
-        self.set_mock_response(mock_api, 200, mock_response)
+        regex_url = re.compile(f"{CONSTANTS.REST_URL}/{CONSTANTS.GET_ORDER_BOOK_PATH_URL}")
+        mock_api.get(regex_url, body=json.dumps(mock_response))
 
         init_order_books_task = self.ev_loop.create_task(
             self.tracker._init_order_books()

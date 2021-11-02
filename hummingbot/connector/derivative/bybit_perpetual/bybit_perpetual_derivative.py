@@ -273,6 +273,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                            body: Optional[Dict[str, Any]] = None,
                            is_auth_required: bool = False,
                            limit_id: Optional[str] = None,
+                           referer_header_required: bool = False,
                            ):
         """
         Sends an aiohttp request and waits for a response.
@@ -301,7 +302,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 params = self._auth.extend_params_with_authentication_info(params=params)
             async with self._throttler.execute_task(limit_id):
                 response = await client.get(url=url,
-                                            headers=self._auth.get_headers(),
+                                            headers=self._auth.get_headers(referer_header_required),
                                             params=params,
                                             )
         elif method == "POST":
@@ -309,7 +310,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 params = self._auth.extend_params_with_authentication_info(params=body)
             async with self._throttler.execute_task(limit_id):
                 response = await client.post(url=url,
-                                             headers=self._auth.get_headers(),
+                                             headers=self._auth.get_headers(referer_header_required),
                                              data=ujson.dumps(params)
                                              )
         else:
@@ -459,6 +460,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 trading_pair=trading_pair,
                 body=params,
                 is_auth_required=True,
+                referer_header_required=True,
             )
 
             if send_order_results["ret_code"] != 0:
@@ -576,9 +578,16 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 is_auth_required=True,
             )
 
-            if response["ret_code"] != 0:
-                raise IOError(f"Bybit Perpetual encountered a problem cancelling the order"
-                              f" ({response['ret_code']} - {response['ret_msg']})")
+            response_code = response["ret_code"]
+            if response_code != 0:
+                if response_code == CONSTANTS.ORDER_NOT_EXISTS_ERROR_CODE:
+                    self.logger().warning(
+                        f"Failed to cancel order {order_id}:"
+                        f" order not found ({response_code} - {response['ret_msg']})")
+                    self.stop_tracking_order(order_id)
+                else:
+                    raise IOError(f"Bybit Perpetual encountered a problem cancelling the order"
+                                  f" ({response['ret_code']} - {response['ret_msg']})")
 
             return order_id
 
@@ -952,6 +961,11 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                        tracked_order.order_type
                                    ))
                 self.stop_tracking_order(client_order_id)
+            elif tracked_order.is_filled:
+                self.logger().info(f"The {tracked_order.trade_type.name} order "
+                                   f"{tracked_order.client_order_id} has been completed "
+                                   f"according to order status update")
+                self._mark_as_completed(tracked_order)
 
     def _process_trade_event_message(self, trade_msg: Dict[str, Any]):
         """
@@ -989,22 +1003,25 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
                     self.logger().info(f"The {tracked_order.trade_type.name} order "
                                        f"{tracked_order.client_order_id} has completed "
                                        f"according to order status API")
-                    event_tag = (MarketEvent.BuyOrderCompleted if tracked_order.trade_type is TradeType.BUY
-                                 else MarketEvent.SellOrderCompleted)
-                    event_class = (BuyOrderCompletedEvent if tracked_order.trade_type is TradeType.BUY
-                                   else SellOrderCompletedEvent)
-                    self.trigger_event(event_tag,
-                                       event_class(self.current_timestamp,
-                                                   tracked_order.client_order_id,
-                                                   tracked_order.base_asset,
-                                                   tracked_order.quote_asset,
-                                                   tracked_order.fee_asset,
-                                                   tracked_order.executed_amount_base,
-                                                   tracked_order.executed_amount_quote,
-                                                   tracked_order.fee_paid,
-                                                   tracked_order.order_type,
-                                                   tracked_order.exchange_order_id))
-                    self.stop_tracking_order(tracked_order.client_order_id)
+                    self._mark_as_completed(tracked_order)
+
+    def _mark_as_completed(self, tracked_order: BybitPerpetualInFlightOrder):
+        event_tag = (MarketEvent.BuyOrderCompleted if tracked_order.trade_type is TradeType.BUY
+                     else MarketEvent.SellOrderCompleted)
+        event_class = (BuyOrderCompletedEvent if tracked_order.trade_type is TradeType.BUY
+                       else SellOrderCompletedEvent)
+        self.trigger_event(event_tag,
+                           event_class(self.current_timestamp,
+                                       tracked_order.client_order_id,
+                                       tracked_order.base_asset,
+                                       tracked_order.quote_asset,
+                                       tracked_order.fee_asset,
+                                       tracked_order.executed_amount_base,
+                                       tracked_order.executed_amount_quote,
+                                       tracked_order.fee_paid,
+                                       tracked_order.order_type,
+                                       tracked_order.exchange_order_id))
+        self.stop_tracking_order(tracked_order.client_order_id)
 
     async def _fetch_funding_fee(self, trading_pair: str) -> bool:
         """

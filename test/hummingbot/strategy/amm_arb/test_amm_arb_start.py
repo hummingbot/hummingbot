@@ -12,7 +12,6 @@ class AMMArbStartTest(unittest.TestCase):
         super().setUp()
         self.strategy: AmmArbStrategy = None
         self.markets = {"binance": None, "balancer": None}
-        self.assets = set()
         self.notifications = []
         self.log_errors = []
         assign_config_default(amm_arb_config_map)
@@ -25,9 +24,6 @@ class AMMArbStartTest(unittest.TestCase):
         amm_arb_config_map.get("min_profitability").value = Decimal("10")
 
     def _initialize_market_assets(self, market, trading_pairs):
-        pass
-
-    def _initialize_wallet(self, token_trading_pairs):
         pass
 
     def _initialize_markets(self, market_names):

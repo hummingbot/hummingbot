@@ -26,6 +26,10 @@ class CampaignSummary:
     apy: Decimal = s_decimal_0
 
 
+def logger():
+    return logging.getLogger(__name__)
+
+
 async def get_campaign_summary(exchange: str, trading_pairs: List[str] = []) -> Dict[str, CampaignSummary]:
     results = {}
     try:
@@ -48,7 +52,7 @@ async def get_campaign_summary(exchange: str, trading_pairs: List[str] = []) -> 
     except asyncio.CancelledError:
         raise
     except Exception:
-        logging.getLogger(__name__).error("Unexpected error while requesting data from Hummingbot API.", exc_info=True)
+        logger().error("Unexpected error while requesting data from Hummingbot API.", exc_info=True)
     return results
 
 
@@ -66,29 +70,33 @@ async def get_active_campaigns(exchange: str, trading_pairs: List[str] = []) -> 
         url = f"{PARROT_MINER_BASE_URL}campaigns"
         resp = await client.get(url)
         resp_json = await resp.json()
-    for campaign_retval in resp_json:
-        for market in campaign_retval["markets"]:
-            if market["exchange_name"] != exchange:
-                continue
-            t_pair = market["trading_pair"]
-            # So far we have only 2 exchanges for mining Binance and Kucoin, Kucoin doesn't require conversion.
-            # In the future we should create a general approach for this, e.g. move all convert trading pair fn to
-            # utils.py and import the function dynamically in hummingbot/client/settings.py
-            if exchange == "binance":
-                t_pair = convert_from_exchange_trading_pair(t_pair)
-            if trading_pairs and t_pair not in trading_pairs:
-                continue
-            campaign = CampaignSummary()
-            campaign.market_id = int(market["id"])
-            campaign.trading_pair = t_pair
-            campaign.exchange_name = market["exchange_name"]
-            campaigns[campaign.market_id] = campaign
-        for bounty_period in campaign_retval["bounty_periods"]:
-            for payout in bounty_period["payout_parameters"]:
-                market_id = int(payout["market_id"])
-                if market_id in campaigns:
-                    campaigns[market_id].reward_per_wk = Decimal(str(payout["bid_budget"])) + \
-                        Decimal(str(payout["ask_budget"]))
-                    campaigns[market_id].spread_max = Decimal(str(payout["spread_max"])) / Decimal("100")
-                    campaigns[market_id].payout_asset = payout["payout_asset"]
+    if "error" in resp_json:
+        logger().warning("Could not get active campaigns from Hummingbot API"
+                         f" (returned response '{resp_json}').")
+    else:
+        for campaign_retval in resp_json:
+            for market in campaign_retval["markets"]:
+                if market["exchange_name"] != exchange:
+                    continue
+                t_pair = market["trading_pair"]
+                # So far we have only 2 exchanges for mining Binance and Kucoin, Kucoin doesn't require conversion.
+                # In the future we should create a general approach for this, e.g. move all convert trading pair fn to
+                # utils.py and import the function dynamically in hummingbot/client/settings.py
+                if exchange == "binance":
+                    t_pair = convert_from_exchange_trading_pair(t_pair)
+                if trading_pairs and t_pair not in trading_pairs:
+                    continue
+                campaign = CampaignSummary()
+                campaign.market_id = int(market["id"])
+                campaign.trading_pair = t_pair
+                campaign.exchange_name = market["exchange_name"]
+                campaigns[campaign.market_id] = campaign
+            for bounty_period in campaign_retval["bounty_periods"]:
+                for payout in bounty_period["payout_parameters"]:
+                    market_id = int(payout["market_id"])
+                    if market_id in campaigns:
+                        campaigns[market_id].reward_per_wk = Decimal(str(payout["bid_budget"])) + \
+                            Decimal(str(payout["ask_budget"]))
+                        campaigns[market_id].spread_max = Decimal(str(payout["spread_max"])) / Decimal("100")
+                        campaigns[market_id].payout_asset = payout["payout_asset"]
     return campaigns

@@ -1,4 +1,3 @@
-import aiohttp
 import asyncio
 from datetime import datetime
 import json
@@ -16,6 +15,7 @@ from typing import (
 from dateutil.parser import parse as dataparse
 
 from dydx3.errors import DydxApiError
+import aiohttp
 
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.core.clock import Clock
@@ -36,7 +36,6 @@ from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_order_book_tr
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_position import DydxPerpetualPosition
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_user_stream_tracker import \
     DydxPerpetualUserStreamTracker
-
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
 )
@@ -131,6 +130,9 @@ class DydxPerpetualDerivativeTransactionTracker(TransactionTracker):
 
 
 class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
+    SHORT_POLL_INTERVAL = 5.0
+    LONG_POLL_INTERVAL = 120.0
+
     @classmethod
     def logger(cls) -> HummingbotLogger:
         global s_logger
@@ -145,7 +147,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                  dydx_perpetual_account_number: int,
                  dydx_perpetual_ethereum_address: str,
                  dydx_perpetual_stark_private_key: str,
-                 poll_interval: float = 10.0,
+                 poll_interval: Optional[float] = None,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True):
 
@@ -176,10 +178,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                                                                   ethereum_address=dydx_perpetual_ethereum_address)
         # State
         self._dydx_auth = DydxPerpetualAuth(self.dydx_client)
-        self._user_stream_tracker = DydxPerpetualUserStreamTracker(
-            orderbook_tracker_data_source=self._order_book_tracker.data_source,
-            dydx_auth=self._dydx_auth
-        )
+        self._user_stream_tracker = DydxPerpetualUserStreamTracker(dydx_auth=self._dydx_auth)
         self._user_stream_event_listener_task = None
         self._user_stream_tracker_task = None
         self._lock = asyncio.Lock()
@@ -259,6 +258,9 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
         in_flight_order.update_exchange_order_id(exchange_order_id)
         self._in_flight_orders_by_exchange_id[exchange_order_id] = in_flight_order
 
+    def _claim_fills(self, in_flight_order, exchange_order_id):
+        updated_with_fills = False
+
         # Claim any fill reports for this order that came in while we awaited this exchange id
         if exchange_order_id in self._unclaimed_fills:
             for fill in self._unclaimed_fills[exchange_order_id]:
@@ -269,6 +271,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                               fill.price,
                                               fill.amount,
                                               self.get_balance('USD'))
+                    updated_with_fills = True
                 else:
                     self._account_positions[self.position_key(in_flight_order.trading_pair)] = DydxPerpetualPosition.from_dydx_fill(
                         in_flight_order,
@@ -283,6 +286,9 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
         if len(self._orders_pending_ack) == 0:
             # We are no longer waiting on any exchange order ids, so all uncalimed fills can be discarded
             self._unclaimed_fills.clear()
+
+        if updated_with_fills:
+            self._update_account_positions()
 
     async def place_order(self,
                           client_order_id: str,
@@ -388,6 +394,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
             in_flight_order = self._in_flight_orders.get(client_order_id)
             if in_flight_order is not None:
                 self._set_exchange_id(in_flight_order, dydx_order_id)
+                self._claim_fills(in_flight_order, dydx_order_id)
 
                 # Begin tracking order
                 self.logger().info(
@@ -723,25 +730,38 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                                            tracked_order.fee_paid,
                                                            tracked_order.order_type))
 
-    async def _get_funding_info(self, trading_pair):
+    async def _get_funding_info(self):
         markets_info = (await self.dydx_client.get_markets())['markets']
-        self._funding_info[trading_pair] = FundingInfo(
-            trading_pair,
-            Decimal(markets_info[trading_pair]['indexPrice']),
-            Decimal(markets_info[trading_pair]['oraclePrice']),
-            dataparse(markets_info[trading_pair]['nextFundingAt']).timestamp(),
-            Decimal(markets_info[trading_pair]['nextFundingRate'])
-        )
+        for trading_pair in self._trading_pairs:
+            self._funding_info[trading_pair] = FundingInfo(
+                trading_pair,
+                Decimal(markets_info[trading_pair]['indexPrice']),
+                Decimal(markets_info[trading_pair]['oraclePrice']),
+                dataparse(markets_info[trading_pair]['nextFundingAt']).timestamp(),
+                Decimal(markets_info[trading_pair]['nextFundingRate'])
+            )
 
     async def _update_funding_rates(self):
         try:
-            for trading_pair in self._trading_pairs:
-                await self._get_funding_info(trading_pair)
+            await self._get_funding_info()
+        except DydxApiError as e:
+            if e.status_code == 429:
+                self.logger().network(
+                    log_msg="Rate-limit error.",
+                    app_warning_msg="Could not fetch funding rates due to API rate limits.",
+                    exc_info=True,
+                )
+            else:
+                self.logger().network(
+                    log_msg="dYdX API error.",
+                    exc_info=True,
+                    app_warning_msg="Could not fetch funding rates. Check API key and network connection."
+                )
         except Exception:
             self.logger().network(
-                "Unknown error. Retrying after 1 seconds.",
+                log_msg="Unknown error.",
                 exc_info=True,
-                app_warning_msg=f"Could not fetch funding_rate for {trading_pair}. Check API key and network connection."
+                app_warning_msg="Could not fetch funding rates. Check API key and network connection."
             )
 
     def get_funding_info(self, trading_pair):
@@ -788,22 +808,10 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                     await self._set_balances(data['account'], is_snapshot=False)
                     if 'openPositions' in data['account']:
                         open_positions = data['account']['openPositions']
-                        for market in open_positions:
-                            position = open_positions[market]
+                        for market, position in open_positions.items():
                             position_key = self.position_key(market)
-                            if position_key not in self._account_positions:
-                                entry_price: Decimal = Decimal(position['entryPrice'])
-                                amount: Decimal = Decimal(position['size'])
-                                total_quote: Decimal = entry_price * amount
-                                leverage: Decimal = total_quote / self.get_balance('USD')
-                                self._account_positions[position_key] = DydxPerpetualPosition(
-                                    trading_pair=market,
-                                    position_side=PositionSide[position['side']],
-                                    unrealized_pnl=Decimal(position['unrealizedPnl']),
-                                    entry_price=entry_price,
-                                    amount=amount,
-                                    leverage=leverage
-                                )
+                            if position_key not in self._account_positions and market in self._trading_pairs:
+                                self._create_position_from_rest_pos_item(position)
 
                 if 'orders' in data:
                     for order in data['orders']:
@@ -837,6 +845,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                                           price,
                                                           amount,
                                                           self.get_available_balance('USD'))
+                                await self._update_account_positions()
                             else:
                                 self._account_positions[pos_key] = DydxPerpetualPosition.from_dydx_fill(
                                     tracked_order,
@@ -855,7 +864,13 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                     for position in positions:
                         pos_key = self.position_key(position['market'])
                         if pos_key in self._account_positions:
-                            self._account_positions[pos_key].update_position(position)
+                            self._account_positions[pos_key].update_position(
+                                position_side=PositionSide[position["side"]],
+                                unrealized_pnl=position.get("unrealizedPnl"),
+                                entry_price=position.get("entryPrice"),
+                                amount=position.get("size"),
+                                status=position.get("status"),
+                            )
                         if not self._account_positions[pos_key].is_open:
                             del self._account_positions[pos_key]
                 if 'fundingPayments' in data:
@@ -885,8 +900,9 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 self._poll_notifier = asyncio.Event()
                 await self._poll_notifier.wait()
 
+                await self._update_balances()  # needs to complete before updating positions
                 await asyncio.gather(
-                    self._update_balances(),
+                    self._update_account_positions(),
                     self._update_trading_rules(),
                     self._update_order_status(),
                     self._update_funding_rates(),
@@ -902,19 +918,44 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
         current_positions = account_info['account']
 
         for market, position in current_positions['openPositions'].items():
-            pos_key = self.position_key(position['market'])
+            market = position["market"]
+            pos_key = self.position_key(market)
             if pos_key in self._account_positions:
-                tracked_position = self._account_positions[pos_key]
-                tracked_position.update_position(position)
+                tracked_position: DydxPerpetualPosition = self._account_positions[pos_key]
+                tracked_position.update_position(
+                    position_side=PositionSide[position["side"]],
+                    unrealized_pnl=position.get("unrealizedPnl"),
+                    entry_price=position.get("entryPrice"),
+                    amount=position.get("size"),
+                    status=position.get("status"),
+                )
                 tracked_position.update_from_balance(Decimal(current_positions['equity']))
                 if not tracked_position.is_open:
                     del self._account_positions[pos_key]
+            elif market in self._trading_pairs:
+                self._create_position_from_rest_pos_item(position)
         positions_to_delete = []
         for position_str in self._account_positions:
             if position_str not in current_positions['openPositions']:
                 positions_to_delete.append(position_str)
         for account_position in positions_to_delete:
             del self._account_positions[account_position]
+
+    def _create_position_from_rest_pos_item(self, rest_pos_item: Dict[str, str]):
+        market = rest_pos_item["market"]
+        position_key = self.position_key(market)
+        entry_price: Decimal = Decimal(rest_pos_item["entryPrice"])
+        amount: Decimal = Decimal(rest_pos_item["size"])
+        total_quote: Decimal = entry_price * amount
+        leverage: Decimal = total_quote / self.get_balance("USD")
+        self._account_positions[position_key] = DydxPerpetualPosition(
+            trading_pair=market,
+            position_side=PositionSide[rest_pos_item["side"]],
+            unrealized_pnl=Decimal(rest_pos_item["unrealizedPnl"]),
+            entry_price=entry_price,
+            amount=amount,
+            leverage=leverage
+        )
 
     async def _update_balances(self):
         current_balances = await self.dydx_client.get_my_balances()
@@ -985,6 +1026,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
             except Exception as e:
                 self.logger().warning(f"Failed to update dydx order {tracked_order.exchange_order_id}")
                 self.logger().warning(e)
+                self.logger().exception("")
 
     async def _update_fills(self, tracked_order: DydxPerpetualInFlightOrder):
         try:
@@ -1079,12 +1121,24 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
         return quantized_amount
 
     def tick(self, timestamp: float):
-        last_tick = self._last_timestamp / self._poll_interval
-        current_tick = timestamp / self._poll_interval
+        poll_interval = self._get_poll_interval()
+        last_tick = int(self._last_timestamp / poll_interval)
+        current_tick = int(timestamp / poll_interval)
         if current_tick > last_tick:
             if not self._poll_notifier.is_set():
                 self._poll_notifier.set()
         self._last_timestamp = timestamp
+
+    def _get_poll_interval(self) -> float:
+        if self._poll_interval is not None:
+            poll_interval = self._poll_interval
+        else:
+            now = time.time()
+            if now - self._user_stream_tracker.last_recv_time > 60.0:
+                poll_interval = self.SHORT_POLL_INTERVAL
+            else:
+                poll_interval = self.LONG_POLL_INTERVAL
+        return poll_interval
 
     async def api_request(self,
                           http_method: str,
