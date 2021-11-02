@@ -161,13 +161,13 @@ class HummingbotCLI:
 
     def log_button_clicked(self):
         for tab in self.command_tabs.values():
-            tab.is_focus = False
+            tab.is_selected = False
         self.redraw_app()
 
     def tab_button_clicked(self, command_name: str):
         for tab in self.command_tabs.values():
-            tab.is_focus = False
-        self.command_tabs[command_name].is_focus = True
+            tab.is_selected = False
+        self.command_tabs[command_name].is_selected = True
         self.redraw_app()
 
     def exit(self):
@@ -185,7 +185,7 @@ class HummingbotCLI:
         self.command_tabs[command_name].button = None
         self.command_tabs[command_name].close_button = None
         self.command_tabs[command_name].output_field = None
-        self.command_tabs[command_name].is_focus = False
+        self.command_tabs[command_name].is_selected = False
         self.command_tabs[command_name].tab_index = 0
         if self.command_tabs[command_name].task is not None:
             self.command_tabs[command_name].task.cancel()

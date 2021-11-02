@@ -261,21 +261,21 @@ def generate_layout(input_field: TextArea,
     output_pane = Box(body=output_field, padding=0, padding_left=2, style="class:output-field")
     input_pane = Box(body=input_field, padding=0, padding_left=2, padding_top=1, style="class:input-field")
     components["pane_left"] = HSplit([output_pane, input_pane], width=Dimension(weight=1))
-    if all(not t.is_focus for t in command_tabs.values()):
+    if all(not t.is_selected for t in command_tabs.values()):
         log_field_button.window.style = "class:tab_button.focused"
     else:
         log_field_button.window.style = "class:tab_button"
     tab_buttons = [log_field_button]
     for tab in sorted(command_tabs.values(), key=lambda x: x.tab_index):
         if tab.button is not None:
-            if tab.is_focus:
+            if tab.is_selected:
                 tab.button.window.style = "class:tab_button.focused"
             else:
                 tab.button.window.style = "class:tab_button"
             tab.close_button.window.style = tab.button.window.style
             tab_buttons.append(VSplit([tab.button, tab.close_button]))
     pane_right_field = log_field
-    focused_right_field = [tab.output_field for tab in command_tabs.values() if tab.is_focus]
+    focused_right_field = [tab.output_field for tab in command_tabs.values() if tab.is_selected]
     if focused_right_field:
         pane_right_field = focused_right_field[0]
     components["pane_right_top"] = VSplit(tab_buttons, height=1, style="class:log-field", padding_char=" ", padding=2)
