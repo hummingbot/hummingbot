@@ -7,6 +7,9 @@ from typing import (
     List,
     Optional,
 )
+
+import aiohttp
+
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
@@ -28,7 +31,13 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, gate_io_auth: GateIoAuth, trading_pairs: Optional[List[str]] = None):
+    def __init__(
+        self,
+        gate_io_auth: GateIoAuth,
+        trading_pairs: Optional[List[str]] = None,
+        shared_client: Optional[aiohttp.ClientSession] = None,
+    ):
+        self._shared_client = shared_client
         self._gate_io_auth: GateIoAuth = gate_io_auth
         self._ws: Optional[GateIoWebsocket] = None
         self._trading_pairs = trading_pairs or []
@@ -49,7 +58,7 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
 
         try:
-            self._ws = GateIoWebsocket(self._gate_io_auth)
+            self._ws = GateIoWebsocket(self._gate_io_auth, self._shared_client)
 
             await self._ws.connect()
 
