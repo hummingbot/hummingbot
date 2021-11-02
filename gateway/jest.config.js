@@ -9,4 +9,5 @@ module.exports = {
     'src/chains/ethereum/ethereum.ts',
     'src/chains/ethereum/uniswap/uniswap.ts',
   ],
+  modulePathIgnorePatterns: ['<rootDir>/dist/'],
 };

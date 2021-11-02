@@ -29,6 +29,8 @@ export interface UniswapTradeRequest {
   side: Side;
   limitPrice?: string; // integer as string
   nonce?: number;
+  maxFeePerGas?: string;
+  maxPriorityFeePerGas?: string;
 }
 
 export interface UniswapTradeResponse {
