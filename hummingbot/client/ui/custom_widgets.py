@@ -132,20 +132,8 @@ class CustomTextArea:
             get_line_prefix=get_line_prefix,
             align=align)
 
-        # self.container = ConditionalContainer(self.window, Condition(lambda: self.is_visible))
-        # self.is_visible = True
-
         self.log_lines: Deque[str] = deque()
         self.log(initial_text)
-
-    # @Condition
-    # @property
-    # def visible(self):
-    #     return self.is_visible
-    #
-    # @visible.setter
-    # def visible(self, value):
-    #     self.is_visible = value
 
     @property
     def width(self):
