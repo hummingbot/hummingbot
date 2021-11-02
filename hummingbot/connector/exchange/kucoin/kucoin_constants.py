@@ -14,6 +14,14 @@ ACCOUNTS_PATH_URL = "/api/v1/accounts?type=trade"
 SERVER_TIME_PATH_URL = "/api/v1/timestamp"
 SYMBOLS_PATH_URL = "/api/v1/symbols"
 ORDERS_PATH_URL = "/api/v1/orders"
+FEE_PATH_URL = "/api/v1/trade-fees"
+
+TRADE_ORDERS_ENDPOINT_NAME = "/spotMarket/tradeOrders"
+BALANCE_ENDPOINT_NAME = "/account/balance"
+PRIVATE_ENDPOINT_NAMES = [
+    TRADE_ORDERS_ENDPOINT_NAME,
+    BALANCE_ENDPOINT_NAME,
+]
 
 WS_CONNECTION_LIMIT_ID = "WSConnection"
 WS_CONNECTION_LIMIT = 30
@@ -22,6 +30,8 @@ WS_REQUEST_LIMIT_ID = "WSRequest"
 GET_ORDER_LIMIT_ID = "GetOrders"
 POST_ORDER_LIMIT_ID = "PostOrder"
 DELETE_ORDER_LIMIT_ID = "DeleteOrder"
+FEE_LIMIT_ID = "Fee"
+WS_PING_HEARTBEAT = 10
 
 NO_LIMIT = sys.maxsize
 RATE_LIMITS = [
@@ -36,6 +46,7 @@ RATE_LIMITS = [
     RateLimit(limit_id=ACCOUNTS_PATH_URL, limit=NO_LIMIT, time_interval=1),
     RateLimit(limit_id=SERVER_TIME_PATH_URL, limit=NO_LIMIT, time_interval=1),
     RateLimit(limit_id=GET_ORDER_LIMIT_ID, limit=NO_LIMIT, time_interval=1),
+    RateLimit(limit_id=FEE_LIMIT_ID, limit=NO_LIMIT, time_interval=1),
     RateLimit(limit_id=POST_ORDER_LIMIT_ID, limit=45, time_interval=3),
     RateLimit(limit_id=DELETE_ORDER_LIMIT_ID, limit=60, time_interval=3),
 ]

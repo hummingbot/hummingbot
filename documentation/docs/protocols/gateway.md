@@ -1,9 +1,14 @@
+!!! note
+    Gateway is currently being refactored as part of the [Gateway V2 redesign](/developers/gateway). The current V1 version is working, but may have usability issues that will be addressed in the redesign.
+
 ## What is Hummingbot Gateway?
 
 Hummingbot Gateway is API middleware that allows Hummingbot to connect to decentralized exchanges on various blockchain protocols that are used in the [amm-arb strategy](/strategies/amm-arbitrage/) and other strategies. Essentially, Gateway is a light web server that enables Hummingbot client to send and receive data from different blockchain protocols and provides an easier entry point for external devs to build connectors to other protocols.
 
+Gateway V1 is currently in a separate Github repository (https://github.com/coinalpha/gateway-api), while Gateway V2 will be contained in a `gateway` directory in the Hummingbot repository.
+
 !!! note
-    To use Gateway, you need to install Hummingbot using Docker or from source.
+    To use Gateway, you need to install Hummingbot using Docker or from source. Gateway doesn't work with the binary installers.
 
 ## Create SSL certificates
 
@@ -45,7 +50,7 @@ It downloads the scripts from GitHub, sets their correct permission and runs the
 ![](/assets/img/gateway-2.gif)
 
 !!! note
-    When creating a Gateway instance for Ethereum protocol connectors such as [Balancer](/connectors/balancer), [Uniswap](/connectors/uniswap), and [Perpetual Finance](/connectors/perp-fi/) the script picks up the settings from your global config file (`conf_global.yml`). Make sure to connect them first from the Hummingbot client before installing Gateway.
+    When creating a Gateway instance for Ethereum protocol connectors such as [Balancer](/exchanges/balancer/), [Uniswap](/exchanges/uniswap/), and [Perpetual Finance](/exchanges/perp-fi/) the script picks up the settings from your global config file (`conf_global.yml`). Make sure to connect them first from the Hummingbot client before installing Gateway.
 
 By default, Gateway will install on port `5000` which Hummingbot will connect to. If the default port is not available, Gateway will find the next port number.
 

@@ -1,4 +1,5 @@
 import logging
+from enum import Enum
 from typing import (
     Dict,
     List,
@@ -53,18 +54,28 @@ AscendExOrder = namedtuple("AscendExOrder", "symbol price orderQty orderType avg
 AscendExBalance = namedtuple("AscendExBalance", "asset availableBalance totalBalance")
 
 
+class AscendExCommissionType(Enum):
+    BASE = 0
+    QUOTE = 1
+    RECEIVED = 2
+
+
 class AscendExTradingRule(TradingRule):
     def __init__(self,
                  trading_pair: str,
                  min_price_increment: Decimal,
                  min_base_amount_increment: Decimal,
                  min_notional_size: Decimal,
-                 max_notional_size: Decimal):
+                 max_notional_size: Decimal,
+                 commission_type: AscendExCommissionType,
+                 commission_reserve_rate: Decimal):
         super().__init__(trading_pair=trading_pair,
                          min_price_increment=min_price_increment,
                          min_base_amount_increment=min_base_amount_increment,
                          min_notional_size=min_notional_size)
         self.max_notional_size = max_notional_size
+        self.commission_type = commission_type
+        self.commission_reserve_rate = commission_reserve_rate
 
 
 class AscendExExchange(ExchangePyBase):
@@ -99,18 +110,18 @@ class AscendExExchange(ExchangePyBase):
         super().__init__()
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
+        self._shared_client = aiohttp.ClientSession()
         self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
-        self._order_book_tracker = AscendExOrderBookTracker(self._throttler, trading_pairs=trading_pairs)
+        self._order_book_tracker = AscendExOrderBookTracker(shared_client=self._shared_client, throttler=self._throttler, trading_pairs=self._trading_pairs)
         self._ascend_ex_auth = AscendExAuth(ascend_ex_api_key, ascend_ex_secret_key)
-        self._user_stream_tracker = AscendExUserStreamTracker(self._throttler, self._ascend_ex_auth, trading_pairs)
-        self._ev_loop = asyncio.get_event_loop()
-        self._shared_client = None
+        self._user_stream_tracker = AscendExUserStreamTracker(shared_client=self._shared_client, throttler=self._throttler, ascend_ex_auth=self._ascend_ex_auth, trading_pairs=self._trading_pairs)
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
         self._in_flight_orders = {}  # Dict[client_order_id:str, AscendExInFlightOrder]
         self._order_not_found_records = {}  # Dict[client_order_id:str, count:int]
         self._trading_rules = {}  # Dict[trading_pair:str, AscendExTradingRule]
         self._status_polling_task = None
+        self._user_stream_tracker_task = None
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
         self._last_poll_timestamp = 0
@@ -257,14 +268,6 @@ class AscendExExchange(ExchangePyBase):
             return NetworkStatus.NOT_CONNECTED
         return NetworkStatus.CONNECTED
 
-    async def _http_client(self) -> aiohttp.ClientSession:
-        """
-        :returns Shared client session instance
-        """
-        if self._shared_client is None:
-            self._shared_client = aiohttp.ClientSession()
-        return self._shared_client
-
     async def _trading_rules_polling_loop(self):
         """
         Periodically update trading rule.
@@ -326,7 +329,9 @@ class AscendExExchange(ExchangePyBase):
                     min_price_increment=Decimal(rule["tickSize"]),
                     min_base_amount_increment=Decimal(rule["lotSize"]),
                     min_notional_size=Decimal(rule["minNotional"]),
-                    max_notional_size=Decimal(rule["maxNotional"])
+                    max_notional_size=Decimal(rule["maxNotional"]),
+                    commission_type=AscendExCommissionType[rule["commissionType"].upper()],
+                    commission_reserve_rate=Decimal(rule["commissionReserveRate"]),
                 )
             except Exception:
                 self.logger().error(f"Error parsing the trading pair rule {rule}. Skipping.", exc_info=True)
@@ -338,7 +343,7 @@ class AscendExExchange(ExchangePyBase):
             **self._ascend_ex_auth.get_auth_headers("info"),
         }
         url = f"{CONSTANTS.REST_URL}/info"
-        response = await aiohttp.ClientSession().get(url, headers=headers)
+        response = await self._shared_client.get(url, headers=headers)
 
         try:
             parsed_response = json.loads(await response.text())
@@ -390,16 +395,15 @@ class AscendExExchange(ExchangePyBase):
             url = f"{CONSTANTS.REST_URL}/{path_url}"
             kwargs["headers"] = self._ascend_ex_auth.get_headers()
 
-        client = await self._http_client()
         if method == "get":
             async with self._throttler.execute_task(path_url):
-                response = await client.get(url, **kwargs)
+                response = await self._shared_client.get(url, **kwargs)
         elif method == "post":
             async with self._throttler.execute_task(path_url):
-                response = await client.post(url, **kwargs)
+                response = await self._shared_client.post(url, **kwargs)
         elif method == "delete":
             async with self._throttler.execute_task(path_url):
-                response = await client.delete(url, **kwargs)
+                response = await self._shared_client.delete(url, **kwargs)
         else:
             raise NotImplementedError
 
@@ -815,13 +819,16 @@ class AscendExExchange(ExchangePyBase):
                 order_side: TradeType,
                 amount: Decimal,
                 price: Decimal = s_decimal_NaN) -> TradeFee:
-        """
-        To get trading fee, this function is simplified by using fee override configuration. Most parameters to this
-        function are ignore except order_type. Use OrderType.LIMIT_MAKER to specify you want trading fee for
-        maker order.
-        """
-        is_maker = order_type is OrderType.LIMIT_MAKER
-        return TradeFee(percent=self.estimate_fee_pct(is_maker))
+        """For more information: https://ascendex.github.io/ascendex-pro-api/#place-order."""
+        trading_pair = f"{base_currency}-{quote_currency}"
+        trading_rule = self._trading_rules[trading_pair]
+        fee_percent = Decimal("0")
+        if order_side == TradeType.BUY:
+            if trading_rule.commission_type == AscendExCommissionType.QUOTE:
+                fee_percent = trading_rule.commission_reserve_rate
+        elif trading_rule.commission_type == AscendExCommissionType.BASE:
+            fee_percent = trading_rule.commission_reserve_rate
+        return TradeFee(percent=fee_percent)
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
         while True:

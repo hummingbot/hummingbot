@@ -6,11 +6,9 @@ from decimal import Decimal
 from typing import Awaitable, Dict
 
 from aioresponses import aioresponses
-from hummingbot.connector.exchange.bittrex.bittrex_exchange import \
-    BittrexExchange
-
+from hummingbot.connector.exchange.bittrex.bittrex_exchange import BittrexExchange
+from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import OrderType, TradeType, MarketEvent
-from test.mock.mock_listener import MockEventListener
 
 
 class BittrexExchangeTest(unittest.TestCase):
@@ -27,7 +25,7 @@ class BittrexExchangeTest(unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.ev_loop = asyncio.get_event_loop()
-        self.event_listener = MockEventListener()
+        self.event_listener = EventLogger()
 
         self.exchange = BittrexExchange(self.api_key, self.secret_key, trading_pairs=[self.trading_pair])
 
@@ -75,7 +73,11 @@ class BittrexExchangeTest(unittest.TestCase):
 
         self.async_run_with_timeout(coroutine=self.exchange.execute_cancel(self.trading_pair, order_id))
 
-        self.assertEqual(self.event_listener.events_count, 1)
+        self.assertEqual(1, len(self.event_listener.event_log))
+
+        event = self.event_listener.event_log[0]
+
+        self.assertEqual(order_id, event.order_id)
         self.assertTrue(order_id not in self.exchange.in_flight_orders)
 
     @aioresponses()
@@ -101,5 +103,9 @@ class BittrexExchangeTest(unittest.TestCase):
 
         self.async_run_with_timeout(coroutine=self.exchange.execute_cancel(self.trading_pair, order_id))
 
-        self.assertEqual(self.event_listener.events_count, 1)
+        self.assertEqual(1, len(self.event_listener.event_log))
+
+        event = self.event_listener.event_log[0]
+
+        self.assertEqual(order_id, event.order_id)
         self.assertTrue(order_id not in self.exchange.in_flight_orders)

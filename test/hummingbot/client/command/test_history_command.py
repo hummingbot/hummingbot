@@ -1,6 +1,7 @@
 import asyncio
 import time
 import unittest
+from copy import deepcopy
 from decimal import Decimal
 from typing import Awaitable, List
 from unittest.mock import patch, MagicMock, AsyncMock
@@ -18,12 +19,18 @@ class HistoryCommandTest(unittest.TestCase):
         super().setUp()
         self.app = HummingbotApplication()
         self.ev_loop = asyncio.get_event_loop()
-        self.cli_mock_assistant = CLIMockingAssistant()
+        self.cli_mock_assistant = CLIMockingAssistant(self.app.app)
         self.cli_mock_assistant.start()
+        self.global_config_backup = deepcopy(global_config_map)
 
     def tearDown(self) -> None:
         self.cli_mock_assistant.stop()
+        self.reset_global_config()
         super().tearDown()
+
+    def reset_global_config(self):
+        for key, value in self.global_config_backup.items():
+            global_config_map[key] = value
 
     @staticmethod
     def get_async_sleep_fn(delay: float):

@@ -121,21 +121,16 @@ sudo update-alternatives --install /usr/bin/python python /usr/bin/python3 1
 
 Logout and login again to enable `conda`, this will make the `conda` command available in shell / terminal.
 
-**Install pip dependencies**
+**Clone project and install dependencies**
 
 ```
-# Create a conda environment for Hummingbot
-conda create --name hummingbot
-
-# Activate your conda environment
-conda activate hummingbot
-
 # Clone the Hummingbot repo from Github
 git clone https://github.com/CoinAlpha/hummingbot.git
 
 # Install the pip dependencies
 cd hummingbot
-pip install -r setup/requirements-arm.txt
+./install
+conda activate hummingbot
 ```
 
 **Compile and run Hummingbot**

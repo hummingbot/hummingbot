@@ -1,5 +1,6 @@
 import asyncio
 import unittest
+from copy import deepcopy
 from typing import Awaitable
 from unittest.mock import patch, MagicMock, AsyncMock
 
@@ -14,12 +15,18 @@ class ConnectCommandTest(unittest.TestCase):
         super().setUp()
         self.ev_loop = asyncio.get_event_loop()
         self.app = HummingbotApplication()
-        self.cli_mock_assistant = CLIMockingAssistant()
+        self.cli_mock_assistant = CLIMockingAssistant(self.app.app)
         self.cli_mock_assistant.start()
+        self.global_config_backup = deepcopy(global_config_map)
 
     def tearDown(self) -> None:
         self.cli_mock_assistant.stop()
+        self.reset_global_config()
         super().tearDown()
+
+    def reset_global_config(self):
+        for key, value in self.global_config_backup.items():
+            global_config_map[key] = value
 
     @staticmethod
     def get_async_sleep_fn(delay: float):
@@ -116,6 +123,21 @@ class ConnectCommandTest(unittest.TestCase):
 
     @patch("hummingbot.user.user_balances.UserBalances.update_exchanges")
     def test_connection_df_handles_network_timeouts(self, update_exchanges_mock: AsyncMock):
+        update_exchanges_mock.side_effect = self.get_async_sleep_fn(delay=0.02)
+        global_config_map["other_commands_timeout"].value = 0.01
+
+        with self.assertRaises(asyncio.TimeoutError):
+            self.async_run_with_timeout_coroutine_must_raise_timeout(self.app.connection_df())
+        self.assertTrue(
+            self.cli_mock_assistant.check_log_called_with(
+                msg="\nA network error prevented the connection table to populate. See logs for more details."
+            )
+        )
+
+    @patch("hummingbot.user.user_balances.UserBalances.update_exchanges")
+    def test_connection_df_handles_network_timeouts_logs_hidden(self, update_exchanges_mock: AsyncMock):
+        self.cli_mock_assistant.toggle_logs()
+
         update_exchanges_mock.side_effect = self.get_async_sleep_fn(delay=0.02)
         global_config_map["other_commands_timeout"].value = 0.01
 

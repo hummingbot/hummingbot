@@ -206,9 +206,6 @@ cdef class BinanceExchange(ExchangeBase):
             for key, value in saved_states.items()
         })
 
-    async def get_active_exchange_markets(self) -> pd.DataFrame:
-        return await BinanceAPIOrderBookDataSource.get_active_exchange_markets()
-
     def monkey_patch_binance_time(self):
         if binance_client_module.time != BinanceTime.get_instance():
             binance_client_module.time = BinanceTime.get_instance()

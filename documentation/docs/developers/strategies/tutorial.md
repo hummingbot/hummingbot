@@ -36,7 +36,7 @@ Next, go into the folder and create the four files that we need for our strategy
 touch __init__.py limit_order_config_map.py limit_order.py start.py
 ```
 
-Each of these files has a specific purpose and naming convention. See the [Developer Tutorial](/developers/tutorial/) to learn more about the file structure and naming conventions for different strategies. 
+Each of these files has a specific purpose and naming convention. See the [Developer Tutorial](/developers/contributions/) to learn more about the file structure and naming conventions for different strategies. 
 
 Lastly, we also need to create a strategy configuration template, which defines the user-configurable parameters defined by the strategy. Like the strategy files and folders, the template file name also follows a convention. 
 
@@ -269,4 +269,4 @@ You can also run the `history` command to see the results of the trade:
 
 Congratulations - you have just created your first trading bot! This bot is very simple but should provide the foundation for you to experiment further. Can you prompt the user to change the order amount or trade type, or chain a series of trades?
 
-Before you know it, you will be creating complex trading strategies combining different exchanges with Hummingbot! To learn more about creating Hummingbot strategies, check out our [Developer Tutorial](/developers/tutorial/).
+Before you know it, you will be creating complex trading strategies combining different exchanges with Hummingbot! To learn more about creating Hummingbot strategies, check out our [Developer Tutorial](/developers/contributions/).

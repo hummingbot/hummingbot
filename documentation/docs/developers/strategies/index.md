@@ -11,7 +11,7 @@ The [tutorial](./tutorial) teaches you how to create a Hummingbot strategy that 
 ## Guides
 
 * [Key Concepts](./key-concepts): Basic overview and structure of what goes into a Hummingbot strategy
-* [Get Started](./create-strategy): Create a simple strategy that executes a limit order
+* [Get Started](https://docs.hummingbot.io/developers/strategies/tutorial/#create-a-strategy): Create a simple strategy that executes a limit order
 * [Define Configs](./config): Define configuration parameters
 * [Hanging Orders Tracker](./hanging-orders): Learn how to use the hanging order tracker in your strategy
 
