@@ -26,6 +26,7 @@ omit =
         hummingbot/connector/exchange/okex*
         hummingbot/connector/exchange/paper_trade*
         hummingbot/connector/exchange/probit*
+        hummingbot/connector/exchange/wazirx*
         hummingbot/strategy/aroon_oscillator*
         hummingbot/strategy/hedge*
 dynamic_context = test_function
