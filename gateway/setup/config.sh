@@ -41,6 +41,7 @@ then
 else
   echo "Invalid input, try again."
   prompt_to_allow_telemetry
+fi
 }
 prompt_to_allow_telemetry
 
