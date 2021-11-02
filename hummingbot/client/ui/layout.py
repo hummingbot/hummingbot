@@ -194,14 +194,6 @@ def get_version():
     return [("class:header", f"Version: {version}")]
 
 
-def get_paper_trade_status():
-    from hummingbot.client.config.global_config_map import global_config_map
-    enabled = global_config_map["paper_trade_enabled"].value is True
-    paper_trade_status = "ON" if enabled else "OFF"
-    style = "class:primary" if enabled else "class:log-field"
-    return [(style, f"paper_trade_mode: {paper_trade_status}")]
-
-
 def get_active_strategy():
     from hummingbot.client.hummingbot_application import HummingbotApplication
     hb = HummingbotApplication.main_application()
@@ -246,12 +238,10 @@ def generate_layout(input_field: TextArea,
     components = {}
 
     components["item_top_version"] = Window(FormattedTextControl(get_version), style="class:header")
-    components["item_top_paper"] = Window(FormattedTextControl(get_paper_trade_status), style="class:header")
     components["item_top_active"] = Window(FormattedTextControl(get_active_strategy), style="class:header")
     components["item_top_file"] = Window(FormattedTextControl(get_strategy_file), style="class:header")
     components["item_top_toggle"] = right_pane_toggle
     components["pane_top"] = VSplit([components["item_top_version"],
-                                     components["item_top_paper"],
                                      components["item_top_active"],
                                      components["item_top_file"],
                                      components["item_top_toggle"]], height=1)

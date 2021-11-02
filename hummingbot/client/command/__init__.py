@@ -2,7 +2,6 @@ from .config_command import ConfigCommand
 from .exit_command import ExitCommand
 from .help_command import HelpCommand
 from .history_command import HistoryCommand
-from .paper_trade_command import PaperTradeCommand
 from .start_command import StartCommand
 from .status_command import StatusCommand
 from .stop_command import StopCommand
@@ -27,7 +26,6 @@ __all__ = [
     ExitCommand,
     HelpCommand,
     HistoryCommand,
-    PaperTradeCommand,
     StartCommand,
     StatusCommand,
     StopCommand,

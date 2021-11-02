@@ -13,7 +13,7 @@ from typing import Optional
 
 def maker_trading_pair_prompt():
     maker_market = cross_exchange_market_making_config_map.get("maker_market").value
-    example = settings.EXAMPLE_PAIRS.get(maker_market)
+    example = settings.AllConnectorSettings.get_example_pairs().get(maker_market)
     return "Enter the token trading pair you would like to trade on maker market: %s%s >>> " % (
         maker_market,
         f" (e.g. {example})" if example else "",
@@ -22,7 +22,7 @@ def maker_trading_pair_prompt():
 
 def taker_trading_pair_prompt():
     taker_market = cross_exchange_market_making_config_map.get("taker_market").value
-    example = settings.EXAMPLE_PAIRS.get(taker_market)
+    example = settings.AllConnectorSettings.get_example_pairs().get(taker_market)
     return "Enter the token trading pair you would like to trade on taker market: %s%s >>> " % (
         taker_market,
         f" (e.g. {example})" if example else "",
