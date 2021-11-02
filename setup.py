@@ -158,6 +158,7 @@ def main():
         "ujson",
         "yarl",
         "aioresponses",
+        "socket",
     ]
 
     cython_kwargs = {
