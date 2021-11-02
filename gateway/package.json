@@ -25,6 +25,7 @@
     "@uniswap/v3-periphery": "^1.1.1",
     "@uniswap/v3-sdk": "3.2.1",
     "abi-decoder": "^2.4.0",
+    "ajv": "^8.6.3",
     "app-root-path": "^3.0.0",
     "axios": "^0.21.1",
     "body-parser": "^1.19.0",
