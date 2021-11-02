@@ -1,5 +1,6 @@
+import asyncio
 from dataclasses import dataclass
-from typing import Type
+from typing import Type, Optional
 from prompt_toolkit.widgets import Button
 from hummingbot.client.ui.custom_widgets import CustomTextArea
 from .tab_base import TabBase
@@ -14,3 +15,4 @@ class CommandTab:
     tab_class: Type[TabBase]
     is_focus: bool = False
     tab_index: int = 0
+    task: Optional[asyncio.Task] = None

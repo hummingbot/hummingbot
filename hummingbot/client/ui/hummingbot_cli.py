@@ -152,12 +152,19 @@ class HummingbotCLI:
         self.hide_input = not self.hide_input
 
     def toggle_right_pane(self):
-        if self.layout_components["pane_right"].width.weight == 1:
-            self.layout_components["pane_right"].width.weight = 0
+        if self.layout_components["pane_right"].filter():
+            self.layout_components["pane_right"].filter = lambda: False
             self.layout_components["item_top_toggle"].text = '< log pane'
         else:
-            self.layout_components["pane_right"].width.weight = 1
+            self.layout_components["pane_right"].filter = lambda: True
             self.layout_components["item_top_toggle"].text = '> log pane'
+
+        # if self.layout_components["pane_right"].width.weight == 1:
+        #     self.layout_components["pane_right"].width.weight = 0
+        #     self.layout_components["item_top_toggle"].text = '< log pane'
+        # else:
+        #     self.layout_components["pane_right"].width.weight = 1
+        #     self.layout_components["item_top_toggle"].text = '> log pane'
 
     def log_button_clicked(self):
         for tab in self.command_tabs.values():
@@ -187,6 +194,9 @@ class HummingbotCLI:
         self.command_tabs[command_name].output_field = None
         self.command_tabs[command_name].is_focus = False
         self.command_tabs[command_name].tab_index = 0
+        if self.command_tabs[command_name].task is not None:
+            self.command_tabs[command_name].task.cancel()
+            self.command_tabs[command_name].task = None
         self.redraw_app()
 
     def handle_tab_command(self, hummingbot: "HummingbotApplication", command_name: str, kwargs: Dict[str, Any]):
@@ -211,7 +221,10 @@ class HummingbotCLI:
                            command_tab: CommandTab,
                            hummingbot: "HummingbotApplication",
                            kwargs: Dict[Any, Any]):
+        if command_tab.task is not None and not command_tab.task.done():
+            return
         if threading.current_thread() != threading.main_thread():
             hummingbot.ev_loop.call_soon_threadsafe(self.display_tab_output, command_tab, hummingbot, kwargs)
             return
-        safe_ensure_future(command_tab.tab_class.display(command_tab.output_field, hummingbot, **kwargs))
+        command_tab.task = safe_ensure_future(command_tab.tab_class.display(command_tab.output_field, hummingbot,
+                                                                            **kwargs))
