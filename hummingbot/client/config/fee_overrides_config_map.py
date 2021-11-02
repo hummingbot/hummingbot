@@ -1,4 +1,4 @@
-from hummingbot.client.settings import CONNECTOR_SETTINGS
+from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.core.event.events import TradeFeeType
 from hummingbot.client.config.config_methods import new_fee_config_var
 
@@ -6,7 +6,7 @@ from hummingbot.client.config.config_methods import new_fee_config_var
 def fee_overrides_dict():
     all_dict = {}
     # all_connector_types = get_exchanges_and_derivatives()
-    for name, setting in CONNECTOR_SETTINGS.items():
+    for name, setting in AllConnectorSettings.get_connector_settings().items():
         key_suffix = None
         if setting.fee_type is TradeFeeType.Percent:
             key_suffix = "fee"
