@@ -6,11 +6,11 @@ from decimal import Decimal
 from typing import Awaitable, Dict, List
 from unittest.mock import patch, AsyncMock
 
-import aiohttp
 from aioresponses import aioresponses
 
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.connector.exchange.gate_io.gate_io_api_order_book_data_source import GateIoAPIOrderBookDataSource
+from hummingbot.core.api_delegate.api_factory import APIFactory
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook, OrderBookMessage
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
@@ -29,16 +29,15 @@ class TestGateIoAPIOrderBookDataSource(unittest.TestCase):
         super().setUp()
         self.mocking_assistant = NetworkMockingAssistant()
         self.throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
-        self.shared_client = aiohttp.ClientSession()
+        api_factory = APIFactory()
         self.data_source = GateIoAPIOrderBookDataSource(
-            self.throttler, trading_pairs=[self.trading_pair], shared_client=self.shared_client
+            self.throttler, trading_pairs=[self.trading_pair], api_factory=api_factory
         )
         self.async_tasks: List[asyncio.Task] = []
 
     def tearDown(self) -> None:
         for task in self.async_tasks:
             task.cancel()
-        self.shared_client.close()
         super().tearDown()
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
