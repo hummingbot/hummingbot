@@ -7,8 +7,11 @@ import time
 from collections import defaultdict, deque
 from typing import Optional, Dict, List, Deque
 
+import aiohttp
+
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.connector.exchange.gate_io.gate_io_order_book_message import GateIoOrderBookMessage
@@ -27,8 +30,13 @@ class GateIoOrderBookTracker(OrderBookTracker):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, throttler: Optional[AsyncThrottler] = None, trading_pairs: Optional[List[str]] = None,):
-        super().__init__(GateIoAPIOrderBookDataSource(throttler, trading_pairs), trading_pairs)
+    def __init__(
+        self,
+        throttler: Optional[AsyncThrottler] = None,
+        trading_pairs: Optional[List[str]] = None,
+        shared_client: Optional[aiohttp.ClientSession] = None,
+    ):
+        super().__init__(GateIoAPIOrderBookDataSource(throttler, trading_pairs, shared_client), trading_pairs)
 
         self._ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
@@ -42,6 +50,7 @@ class GateIoOrderBookTracker(OrderBookTracker):
         self._active_order_trackers: Dict[str, GateIoActiveOrderTracker] = defaultdict(GateIoActiveOrderTracker)
         self._order_book_stream_listener_task: Optional[asyncio.Task] = None
         self._order_book_trade_listener_task: Optional[asyncio.Task] = None
+        self._order_book_stream_listener_task: Optional[asyncio.Task] = None
 
     @property
     def exchange_name(self) -> str:
@@ -49,6 +58,16 @@ class GateIoOrderBookTracker(OrderBookTracker):
         Name of the current exchange
         """
         return CONSTANTS.EXCHANGE_NAME
+
+    def start(self):
+        super().start()
+        self._order_book_stream_listener_task = safe_ensure_future(
+            self._data_source.listen_for_subscriptions()
+        )
+
+    def stop(self):
+        self._order_book_stream_listener_task and self._order_book_stream_listener_task.cancel()
+        super().stop()
 
     async def _track_single_book(self, trading_pair: str):
         """
