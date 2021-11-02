@@ -45,7 +45,7 @@ export namespace UniswapRoutes {
         req: Request<unknown, unknown, UniswapPriceRequest>,
         res: Response<UniswapPriceResponse, any>
       ) => {
-        validateUniswapPriceRequest(req);
+        validateUniswapPriceRequest(req.body);
         res.status(200).json(await price(req.body));
       }
     )
@@ -58,7 +58,7 @@ export namespace UniswapRoutes {
         req: Request<unknown, unknown, UniswapTradeRequest>,
         res: Response<UniswapTradeResponse | UniswapTradeErrorResponse, any>
       ) => {
-        validateUniswapTradeRequest(req);
+        validateUniswapTradeRequest(req.body);
         res.status(200).json(await trade(req.body));
       }
     )
