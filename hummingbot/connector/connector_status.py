@@ -39,7 +39,8 @@ connector_status = {
     'probit_kr': 'yellow',
     'terra': 'green',
     'uniswap': 'yellow',
-    'uniswap_v3': 'yellow'
+    'uniswap_v3': 'yellow',
+    'wazirx': 'green'
 }
 
 warning_messages = {
