@@ -181,11 +181,37 @@ class HummingbotCLI:
         self.app.layout = self.layout
         self.app.invalidate()
 
+    def tab_navigate_left(self):
+        selected_tabs = [t for t in self.command_tabs.values() if t.is_selected]
+        if not selected_tabs:
+            return
+        selected_tab: CommandTab = selected_tabs[0]
+        if selected_tab.tab_index == 1:
+            self.log_button_clicked()
+        else:
+            left_tab = [t for t in self.command_tabs.values() if t.tab_index == selected_tab.tab_index - 1][0]
+            self.tab_button_clicked(left_tab.name)
+
+    def tab_navigate_right(self):
+        current_tabs = [t for t in self.command_tabs.values() if t.tab_index > 0]
+        if not current_tabs:
+            return
+        selected_tab = [t for t in current_tabs if t.is_selected]
+        if selected_tab:
+            right_tab = [t for t in current_tabs if t.tab_index == selected_tab[0].tab_index + 1]
+        else:
+            right_tab = [t for t in current_tabs if t.tab_index == 1]
+        if right_tab:
+            self.tab_button_clicked(right_tab[0].name)
+
     def close_buton_clicked(self, command_name: str):
         self.command_tabs[command_name].button = None
         self.command_tabs[command_name].close_button = None
         self.command_tabs[command_name].output_field = None
         self.command_tabs[command_name].is_selected = False
+        for tab in self.command_tabs.values():
+            if tab.tab_index > self.command_tabs[command_name].tab_index:
+                tab.tab_index -= 1
         self.command_tabs[command_name].tab_index = 0
         if self.command_tabs[command_name].task is not None:
             self.command_tabs[command_name].task.cancel()
