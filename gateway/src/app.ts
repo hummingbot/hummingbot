@@ -102,7 +102,7 @@ app.use(
     _next: NextFunction
   ) => {
     const response = gatewayErrorMiddleware(err);
-    logger.error(response.message + response.stack);
+    logger.error(err);
     return res.status(response.httpErrorCode).json(response);
   }
 );
