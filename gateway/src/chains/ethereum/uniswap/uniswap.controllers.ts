@@ -106,7 +106,16 @@ export async function trade(
 ): Promise<UniswapTradeResponse | UniswapTradeErrorResponse> {
   const initTime = Date.now();
 
-  const limitPrice = req.limitPrice;
+  const { limitPrice, maxFeePerGas, maxPriorityFeePerGas } = req;
+
+  let maxFeePerGasBigNumber;
+  if (maxFeePerGas) {
+    maxFeePerGasBigNumber = BigNumber.from(maxFeePerGas);
+  }
+  let maxPriorityFeePerGasBigNumber;
+  if (maxPriorityFeePerGas) {
+    maxPriorityFeePerGasBigNumber = BigNumber.from(maxPriorityFeePerGas);
+  }
 
   let wallet: Wallet;
   try {
@@ -175,7 +184,9 @@ export async function trade(
       wallet,
       result.trade,
       gasPrice,
-      req.nonce
+      req.nonce,
+      maxFeePerGasBigNumber,
+      maxPriorityFeePerGasBigNumber
     );
 
     return {
@@ -205,7 +216,9 @@ export async function trade(
       wallet,
       result.trade,
       gasPrice,
-      req.nonce
+      req.nonce,
+      maxFeePerGasBigNumber,
+      maxPriorityFeePerGasBigNumber
     );
     return {
       network: ConfigManager.config.ETHEREUM_CHAIN,

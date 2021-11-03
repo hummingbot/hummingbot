@@ -111,7 +111,26 @@ describe('POST /eth/nonce', () => {
 });
 
 describe('POST /eth/approve', () => {
-  it('should return 200', async () => {
+  it('approve without nonce parmeter should return 200', async () => {
+    patchGetWallet();
+    patch(eth.nonceManager, 'getNonce', () => 115);
+    patchGetTokenBySymbol();
+    patchApproveERC20();
+
+    await request(app)
+      .post(`/eth/approve`)
+      .send({
+        privateKey:
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        spender: 'uniswap',
+        token: 'WETH',
+      })
+      .set('Accept', 'application/json')
+      .expect('Content-Type', /json/)
+      .expect(200);
+  });
+
+  it('approve with nonce parameter should return 200', async () => {
     patchGetWallet();
     patch(eth.nonceManager, 'getNonce', () => 115);
     patchGetTokenBySymbol();
@@ -132,6 +151,28 @@ describe('POST /eth/approve', () => {
       .then((res: any) => {
         expect(res.body.nonce).toEqual(115);
       });
+  });
+
+  it('approve with maxFeePerGas and maxPriorityFeePerGas should return 200', async () => {
+    patchGetWallet();
+    patch(eth.nonceManager, 'getNonce', () => 115);
+    patchGetTokenBySymbol();
+    patchApproveERC20();
+
+    await request(app)
+      .post(`/eth/approve`)
+      .send({
+        privateKey:
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        spender: 'uniswap',
+        token: 'WETH',
+        nonce: 115,
+        maxFeePerGas: '5000000000',
+        maxPriorityFeePerGas: '5000000000',
+      })
+      .set('Accept', 'application/json')
+      .expect('Content-Type', /json/)
+      .expect(200);
   });
 
   it('should return 404 when parameters are invalid', async () => {
