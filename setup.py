@@ -39,6 +39,7 @@ def main():
         "hummingbot.client",
         "hummingbot.client.command",
         "hummingbot.client.config",
+        "hummingbot.client.tab",
         "hummingbot.client.ui",
         "hummingbot.core",
         "hummingbot.core.data_type",
