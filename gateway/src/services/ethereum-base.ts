@@ -213,18 +213,25 @@ export class EthereumBase {
     spender: string,
     tokenAddress: string,
     amount: BigNumber,
-    nonce?: number
+    nonce?: number,
+    maxFeePerGas?: BigNumber,
+    maxPriorityFeePerGas?: BigNumber
   ): Promise<Transaction> {
     // instantiate a contract and pass in wallet, which act on behalf of that signer
     const contract = new Contract(tokenAddress, abi.ERC20Abi, wallet);
     if (!nonce) {
       nonce = await this.nonceManager.getNonce(wallet.address);
     }
-    return contract.approve(spender, amount, {
+    const params: any = {
       gasPrice: this.gasPriceConstant * 1e9,
       gasLimit: 100000,
       nonce: nonce,
-    });
+    };
+    if (maxFeePerGas) params.maxFeePerGas = maxFeePerGas;
+    if (maxPriorityFeePerGas)
+      params.maxPriorityFeePerGas = maxPriorityFeePerGas;
+
+    return contract.approve(spender, amount, params);
   }
 
   public getTokenBySymbol(tokenSymbol: string): Token | undefined {
