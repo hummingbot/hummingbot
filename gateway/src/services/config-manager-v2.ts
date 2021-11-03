@@ -111,12 +111,12 @@ export class ConfigurationNamespace {
     const pathComponents: Array<string> = configPath.split('.');
     let cursor: Configuration | any = this.#configuration;
 
-    pathComponents.forEach((component: string) => {
+    for (const component of pathComponents) {
       cursor = cursor[component];
       if (cursor === undefined) {
         return cursor;
       }
-    });
+    }
 
     return cursor;
   }
@@ -129,14 +129,14 @@ export class ConfigurationNamespace {
     let cursor: Configuration | any = configClone;
     let parent: Configuration = configClone;
 
-    pathComponents.slice(0, -1).forEach((component: string) => {
+    for (const component of pathComponents.slice(0, -1)) {
       parent = cursor;
       cursor = cursor[component];
       if (cursor === undefined) {
         parent[component] = {};
         cursor = parent[component];
       }
-    });
+    }
 
     const lastComponent: string = pathComponents[pathComponents.length - 1];
     cursor[lastComponent] = value;
@@ -280,15 +280,9 @@ export class ConfigManagerV2 {
       throw new Error('Configuration root file is invalid.');
     }
 
-    // Enforce the rule that all namespace keys start with "!namespace ".
+    // Extract the namespace ids.
     const namespaceMap: ConfigurationRoot = {};
     for (const namespaceKey of Object.keys(configRoot)) {
-      if (!namespaceKey.startsWith(NamespaceTag)) {
-        throw new Error(
-          `All namespace keys must start with ${NamespaceTag}. ` +
-            `Offending key: '${namespaceKey}'.`
-        );
-      }
       namespaceMap[namespaceKey.slice(NamespaceTag.length)] =
         configRoot[namespaceKey];
     }
