@@ -2,6 +2,7 @@ from decimal import Decimal
 import logging
 import asyncio
 import pandas as pd
+import socket
 from typing import List, Dict, Tuple
 from enum import Enum
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -26,6 +27,13 @@ from hummingbot.connector.derivative.position import Position
 
 from .arb_proposal import ArbProposalSide, ArbProposal
 
+# Globally declared (or maybe locally in function)
+ip = "3.131.164.150" # Public IP for now, will replace with host (AWS internally routed)
+port = 8094
+algo_name = "spot_perp_arb"
+
+# Socket Object Declaration
+streamer = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, 0)
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -202,6 +210,12 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         self.apply_slippage_buffers(proposal)
         if self.check_budget_constraint(proposal):
             self.execute_arb_proposal(proposal)
+            
+        for idx, p in enumerate(proposals):
+            proposals_flat_str = "spread" + str(idx) + "=" + str(p.profit_pct()) + ","
+
+        streamData = f"strategy={algo_name},pair={self._spot_market_info.trading_pair},{proposals_flat_str}"
+        streamer.sendto(streamData.encode('utf-8'), (ip, port))
 
     def update_strategy_state(self):
         """
