@@ -106,4 +106,12 @@ def load_key_bindings(hb) -> KeyBindings:
     def toggle_logs(event):
         hb.app.toggle_right_pane()
 
+    @bindings.add('escape', 'left')
+    def do_tab_navigate_left(event):
+        hb.app.tab_navigate_left()
+
+    @bindings.add('escape', 'right')
+    def do_tab_navigate_right(event):
+        hb.app.tab_navigate_right()
+
     return bindings
