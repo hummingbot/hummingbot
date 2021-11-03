@@ -1,8 +1,8 @@
 from copy import deepcopy
 from typing import AsyncGenerator, List, Optional
 
-from hummingbot.core.api_delegate.connections.connections_base import WSConnectionBase
-from hummingbot.core.api_delegate.data_types import WSRequest, WSResponse
+from hummingbot.core.api_delegate.connections.ws_connection import WSConnection
+from hummingbot.core.api_delegate.connections.data_types import WSRequest, WSResponse
 from hummingbot.core.api_delegate.ws_post_processors import WSPostProcessorBase
 from hummingbot.core.api_delegate.ws_pre_processors import WSPreProcessorBase
 
@@ -10,7 +10,7 @@ from hummingbot.core.api_delegate.ws_pre_processors import WSPreProcessorBase
 class WSDelegate:
     def __init__(
         self,
-        connection: WSConnectionBase,
+        connection: WSConnection,
         ws_pre_processors: Optional[List[WSPreProcessorBase]] = None,
         ws_post_processors: Optional[List[WSPostProcessorBase]] = None,
     ):
@@ -43,15 +43,18 @@ class WSDelegate:
         request = await self._pre_process_request(request)
         await self._connection.send(request)
 
-    async def iter_messages(self) -> AsyncGenerator[WSResponse, None]:
+    async def iter_messages(self) -> AsyncGenerator[Optional[WSResponse], None]:
+        """Will yield None and stop if `WSDelegate.disconnect()` is called while waiting for a response."""
         while self._connection.connected:
             response = await self._connection.receive()
             response = await self._post_process_response(response)
             yield response
 
-    async def receive(self) -> WSResponse:
+    async def receive(self) -> Optional[WSResponse]:
+        """Will return None if `WSDelegate.disconnect()` is called while waiting for a response."""
         response = await self._connection.receive()
-        response = await self._post_process_response(response)
+        if response is not None:
+            response = await self._post_process_response(response)
         return response
 
     async def _pre_process_request(self, request: WSRequest) -> WSRequest:

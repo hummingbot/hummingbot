@@ -7,7 +7,7 @@ import aiohttp
 from aioresponses import aioresponses
 
 from hummingbot.core.api_delegate.connections.rest_connection import RESTConnection
-from hummingbot.core.api_delegate.data_types import (
+from hummingbot.core.api_delegate.connections.data_types import (
     RESTMethod, RESTRequest, RESTResponse
 )
 
@@ -37,4 +37,7 @@ class RESTConnectionTest(unittest.TestCase):
         self.assertIsInstance(ret, RESTResponse)
         self.assertEqual(url, ret.url)
         self.assertEqual(200, ret.status)
-        self.assertEqual(resp, ret.json())
+
+        j = self.async_run_with_timeout(ret.json())
+
+        self.assertEqual(resp, j)

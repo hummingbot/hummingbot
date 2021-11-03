@@ -1,14 +1,12 @@
 import asyncio
-import json
 import time
 from typing import Optional
 
 import aiohttp
-from hummingbot.core.api_delegate.connections.connections_base import WSConnectionBase
-from hummingbot.core.api_delegate.data_types import WSRequest, WSResponse
+from hummingbot.core.api_delegate.connections.data_types import WSRequest, WSResponse
 
 
-class WSConnection(WSConnectionBase):
+class WSConnection:
     def __init__(self, aiohttp_client_session: aiohttp.ClientSession):
         self._client_session = aiohttp_client_session
         self._connection: Optional[aiohttp.ClientWebSocketResponse] = None
@@ -56,7 +54,7 @@ class WSConnection(WSConnectionBase):
             msg = await self._read_message()
             msg = await self._process_message(msg)
             if msg is not None:
-                response = self._translate_aio_msg_to_ws_response(msg)
+                response = self._build_resp(msg)
                 break
         return response
 
@@ -103,9 +101,7 @@ class WSConnection(WSConnectionBase):
         self._last_recv_time = time.time()
 
     @staticmethod
-    def _translate_aio_msg_to_ws_response(msg: aiohttp.WSMessage) -> WSResponse:
-        data = msg.data
-        if isinstance(data, (str, bytes)):
-            data = json.loads(msg.data)
+    def _build_resp(msg: aiohttp.WSMessage) -> WSResponse:
+        data = msg.json()
         response = WSResponse(data)
         return response

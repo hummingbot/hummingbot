@@ -1,6 +1,6 @@
 import abc
 
-from hummingbot.core.api_delegate.data_types import RESTResponse
+from hummingbot.core.api_delegate.connections.data_types import RESTResponse
 
 
 class RESTPostProcessorBase(abc.ABC):

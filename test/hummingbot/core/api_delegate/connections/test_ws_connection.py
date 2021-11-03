@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, patch
 import aiohttp
 
 from hummingbot.core.api_delegate.connections.ws_connection import WSConnection
-from hummingbot.core.api_delegate.data_types import WSRequest, WSResponse
+from hummingbot.core.api_delegate.connections.data_types import WSRequest, WSResponse
 from test.hummingbot.connector.network_mocking_assistant import (
     NetworkMockingAssistant
 )

@@ -23,7 +23,7 @@ from hummingbot.connector.exchange.gate_io.gate_io_utils import (
 )
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.core.api_delegate.data_types import RESTMethod
+from hummingbot.core.api_delegate.connections.data_types import RESTMethod
 from hummingbot.core.api_delegate.rest_delegate import RESTDelegate
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.clock import Clock
