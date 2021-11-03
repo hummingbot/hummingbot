@@ -18,6 +18,8 @@ export class Ethereum extends EthereumBase {
   private _gasPrice: number;
   private _gasPriceLastUpdated: Date | null;
   private _nonceManager: EVMNonceManager;
+  private _requestCount: number;
+  private _metricsLogInterval: number;
 
   private constructor() {
     let config;
@@ -45,6 +47,9 @@ export class Ethereum extends EthereumBase {
     this.updateGasPrice();
 
     this._nonceManager = EVMNonceManager.getInstance();
+
+    this._requestCount = 0;
+    this._metricsLogInterval = 300000; // 5 minutes
   }
 
   public static getInstance(): Ethereum {
@@ -62,6 +67,8 @@ export class Ethereum extends EthereumBase {
       await this._nonceManager.init(this.provider, 60, this.chainId);
       this._ready = true;
       this._initializing = false;
+      this.onDebugMessage(this.requestCounter.bind(this));
+      setInterval(this.metricLogger.bind(this), this.metricsLogInterval);
     }
     return this._initPromise;
   }
@@ -69,6 +76,20 @@ export class Ethereum extends EthereumBase {
   public static reload(): Ethereum {
     Ethereum._instance = new Ethereum();
     return Ethereum._instance;
+  }
+
+  public requestCounter(msg: any): void {
+    if (msg.action === 'request') this._requestCount += 1;
+  }
+
+  public metricLogger(): void {
+    logger.info(
+      this.requestCount +
+        ' request(s) sent in last ' +
+        this.metricsLogInterval / 1000 +
+        ' seconds.'
+    );
+    this._requestCount = 0; // reset
   }
   // getters
 
@@ -82,6 +103,14 @@ export class Ethereum extends EthereumBase {
 
   public get gasPriceLastDated(): Date | null {
     return this._gasPriceLastUpdated;
+  }
+
+  public get requestCount(): number {
+    return this._requestCount;
+  }
+
+  public get metricsLogInterval(): number {
+    return this._metricsLogInterval;
   }
 
   // ethereum token lists are large. instead of reloading each time with
