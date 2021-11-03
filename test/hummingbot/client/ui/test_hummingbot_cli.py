@@ -63,3 +63,38 @@ class HummingbotCLITest(unittest.TestCase):
         self.app.handle_tab_command(self.mock_hb, self.command_name, {"close": False})
         self.assertTrue(tab.is_selected)
         self.assertTrue(tab.tab_class.display.call_count == 1)
+
+    @patch("hummingbot.client.ui.layout.Layout")
+    @patch("hummingbot.client.ui.layout.FloatContainer")
+    @patch("hummingbot.client.ui.layout.ConditionalContainer")
+    @patch("hummingbot.client.ui.layout.Box")
+    @patch("hummingbot.client.ui.layout.HSplit")
+    @patch("hummingbot.client.ui.layout.VSplit")
+    def test_tab_navigation(self, mock_vsplit, mock_hsplit, mock_box, moc_cc, moc_fc, mock_layout):
+        tab2 = CommandTab("command_2", None, None, None, MagicMock(), False)
+
+        self.app.command_tabs["command_2"] = tab2
+        tab1 = self.app.command_tabs[self.command_name]
+
+        self.app.handle_tab_command(self.mock_hb, self.command_name, {"close": False})
+        self.app.handle_tab_command(self.mock_hb, "command_2", {"close": False})
+        self.assertTrue(tab2.is_selected)
+
+        self.app.tab_navigate_left()
+        self.assertTrue(tab1.is_selected)
+        self.assertFalse(tab2.is_selected)
+        self.app.tab_navigate_left()
+        self.assertTrue(all(not t.is_selected for t in self.app.command_tabs.values()))
+        self.app.tab_navigate_left()
+        self.assertTrue(all(not t.is_selected for t in self.app.command_tabs.values()))
+
+        self.app.tab_navigate_right()
+        self.assertTrue(tab1.is_selected)
+
+        self.app.tab_navigate_right()
+        self.assertFalse(tab1.is_selected)
+        self.assertTrue(tab2.is_selected)
+
+        self.app.tab_navigate_right()
+        self.assertFalse(tab1.is_selected)
+        self.assertTrue(tab2.is_selected)
