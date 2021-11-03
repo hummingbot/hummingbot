@@ -26,7 +26,7 @@ export const addHttps = (app: Application) => {
       rejectUnauthorized: true,
       // use ca cert created with own key for self-signed
       ca: [caCert],
-      passphrase: ConfigManager.config.CERT_PASSPHRASE,
+      passphrase: ConfigManager.readPassphrase(),
     },
     app
   );

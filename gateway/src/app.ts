@@ -12,12 +12,7 @@ import {
   asyncHandler,
   HttpException,
   NodeError,
-  NETWORK_ERROR_CODE,
-  RATE_LIMIT_ERROR_CODE,
-  UNKNOWN_ERROR_ERROR_CODE,
-  NETWORK_ERROR_MESSAGE,
-  RATE_LIMIT_ERROR_MESSAGE,
-  UNKNOWN_ERROR_MESSAGE,
+  gatewayErrorMiddleware,
 } from './services/error-handler';
 
 
@@ -58,7 +53,6 @@ interface ConfigUpdateRequest {
   LOG_PATH?: string;
   GMT_OFFSET: number;
   CERT_PATH?: string;
-  CERT_PASSPHRASE?: string;
   ETHEREUM_CHAIN?: string;
   INFURA_KEY?: string;
   ETH_GAS_STATION_ENABLE?: boolean;
@@ -114,44 +108,9 @@ app.use(
     res: Response,
     _next: NextFunction
   ) => {
-    const response: any = {
-      message: err.message || UNKNOWN_ERROR_MESSAGE,
-    };
-    if (err.stack) response.stack = err.stack;
-    // the default http error code is 503 for an unknown error
-    let httpErrorCode = 503;
-    if (err instanceof HttpException) {
-      httpErrorCode = err.status;
-      response.errorCode = err.errorCode;
-    } else {
-      response.errorCode = UNKNOWN_ERROR_ERROR_CODE;
-      response.message = UNKNOWN_ERROR_MESSAGE;
-
-      if ('code' in err) {
-        switch (typeof err.code) {
-          case 'string':
-            // error is from ethers library
-            if (
-              ['NETWORK_ERROR', 'SERVER_ERROR', 'TIMEOUT'].includes(err.code)
-            ) {
-              response.errorCode = NETWORK_ERROR_CODE;
-              response.message = NETWORK_ERROR_MESSAGE;
-            }
-            break;
-
-          case 'number':
-            // errors from provider, this code comes from infura
-            if (err.code === -32005) {
-              // we only handle rate-limit errors
-              response.errorCode = RATE_LIMIT_ERROR_CODE;
-              response.message = RATE_LIMIT_ERROR_MESSAGE;
-            }
-            break;
-        }
-      }
-    }
+    const response = gatewayErrorMiddleware(err);
     logger.error(response.message + response.stack);
-    return res.status(httpErrorCode).json(response);
+    return res.status(response.httpErrorCode).json(response);
   }
 );
 
@@ -162,8 +121,8 @@ export const startGateway = async () => {
     logger.info('Running in UNSAFE HTTP! This could expose private keys.');
     server = await app.listen(port);
   } else {
-    logger.info('The server is secured behind HTTPS.');
     server = await addHttps(app).listen(port);
+    logger.info('The server is secured behind HTTPS.');
   }
 };
 
