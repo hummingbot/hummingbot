@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 import pandas as pd
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.core.api_delegate.api_factory import APIFactory
-from hummingbot.core.api_delegate.data_types import RESTMethod
+from hummingbot.core.api_delegate.connections.data_types import RESTMethod
 from hummingbot.core.api_delegate.rest_delegate import RESTDelegate
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook

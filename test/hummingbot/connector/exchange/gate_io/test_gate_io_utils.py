@@ -5,7 +5,7 @@ from hummingbot.connector.exchange.gate_io.gate_io_utils import (
     GateIORESTRequest
 )
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
-from hummingbot.core.api_delegate.data_types import RESTMethod
+from hummingbot.core.api_delegate.connections.data_types import RESTMethod
 
 
 class GateIORESTRequestTest(unittest.TestCase):

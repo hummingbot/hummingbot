@@ -1,8 +1,8 @@
 from copy import deepcopy
 from typing import List, Optional
 
-from hummingbot.core.api_delegate.connections.connections_base import RESTConnectionBase
-from hummingbot.core.api_delegate.data_types import RESTRequest, RESTResponse
+from hummingbot.core.api_delegate.connections.rest_connection import RESTConnection
+from hummingbot.core.api_delegate.connections.data_types import RESTRequest, RESTResponse
 from hummingbot.core.api_delegate.rest_post_processors import RESTPostProcessorBase
 from hummingbot.core.api_delegate.rest_pre_processors import RESTPreProcessorBase
 
@@ -10,7 +10,7 @@ from hummingbot.core.api_delegate.rest_pre_processors import RESTPreProcessorBas
 class RESTDelegate:
     def __init__(
         self,
-        connection: RESTConnectionBase,
+        connection: RESTConnection,
         rest_pre_processors: Optional[List[RESTPreProcessorBase]] = None,
         rest_post_processors: Optional[List[RESTPostProcessorBase]] = None,
     ):

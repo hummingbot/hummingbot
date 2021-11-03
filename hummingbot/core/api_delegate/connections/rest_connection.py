@@ -1,9 +1,8 @@
 import aiohttp
-from hummingbot.core.api_delegate.connections.connections_base import RESTConnectionBase
-from hummingbot.core.api_delegate.data_types import RESTMethod, RESTRequest, RESTResponse
+from hummingbot.core.api_delegate.connections.data_types import RESTRequest, RESTResponse
 
 
-class RESTConnection(RESTConnectionBase):
+class RESTConnection:
     def __init__(self, aiohttp_client_session: aiohttp.ClientSession):
         self._client_session = aiohttp_client_session
 
@@ -20,13 +19,5 @@ class RESTConnection(RESTConnectionBase):
 
     @staticmethod
     async def _build_resp(aiohttp_resp: aiohttp.ClientResponse) -> RESTResponse:
-        method = RESTMethod[aiohttp_resp.method.upper()]
-        body = await aiohttp_resp.read()
-        resp = RESTResponse(
-            url=str(aiohttp_resp.url),
-            method=method,
-            status=aiohttp_resp.status,
-            body=body,
-            headers=aiohttp_resp.headers,
-        )
+        resp = RESTResponse(aiohttp_resp)
         return resp

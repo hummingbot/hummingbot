@@ -4,10 +4,11 @@ import unittest
 from typing import Awaitable
 from unittest.mock import AsyncMock
 
-from hummingbot.core.api_delegate.connections.connections_base import (
-    RESTConnectionBase
+
+from hummingbot.core.api_delegate.connections.rest_connection import (
+    RESTConnection
 )
-from hummingbot.core.api_delegate.data_types import (
+from hummingbot.core.api_delegate.connections.data_types import (
     RESTMethod, RESTRequest, RESTResponse
 )
 from hummingbot.core.api_delegate.rest_delegate import RESTDelegate
@@ -30,7 +31,7 @@ class RESTDelegateTest(unittest.TestCase):
         return ret
 
     def test_rest_delegate_call_with_pre_and_post_processing(self):
-        connection_mock = AsyncMock(spec=RESTConnectionBase)
+        connection_mock = AsyncMock(spec=RESTConnection)
         url = "https://www.test.com/url"
         resp_body = {"one": 1}
         resp_mock = RESTResponse(

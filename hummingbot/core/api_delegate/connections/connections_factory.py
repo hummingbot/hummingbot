@@ -1,11 +1,9 @@
 import aiohttp
-from hummingbot.core.api_delegate.connections.connections_base import ConnectionsFactoryBase
 from hummingbot.core.api_delegate.connections.rest_connection import RESTConnection
 from hummingbot.core.api_delegate.connections.ws_connection import WSConnection
-from hummingbot.core.utils.singleton import Singleton
 
 
-class ConnectionsFactory(ConnectionsFactoryBase, metaclass=Singleton):
+class ConnectionsFactory:
     def __init__(self):
         self._shared_client = aiohttp.ClientSession()
 

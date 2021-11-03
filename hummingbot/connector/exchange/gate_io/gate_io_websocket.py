@@ -8,7 +8,7 @@ from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
 from hummingbot.connector.exchange.gate_io.gate_io_utils import GateIoAPIError, build_gate_io_api_factory
 from hummingbot.core.api_delegate.api_factory import APIFactory
-from hummingbot.core.api_delegate.data_types import WSRequest, WSResponse
+from hummingbot.core.api_delegate.connections.data_types import WSRequest, WSResponse
 from hummingbot.core.api_delegate.ws_delegate import WSDelegate
 from hummingbot.logger import HummingbotLogger
 

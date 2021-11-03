@@ -10,7 +10,7 @@ from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
 from hummingbot.core.api_delegate.api_factory import APIFactory
-from hummingbot.core.api_delegate.data_types import RESTMethod, RESTRequest, RESTResponse
+from hummingbot.core.api_delegate.connections.data_types import RESTMethod, RESTRequest, RESTResponse
 from hummingbot.core.api_delegate.rest_delegate import RESTDelegate
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
@@ -122,11 +122,11 @@ async def rest_response_with_errors(request_coroutine):
         response: RESTResponse = await request_coroutine
         http_status = response.status
         try:
-            parsed_response = response.json()
+            parsed_response = await response.json()
         except Exception:
             request_errors = True
             try:
-                parsed_response = response.text()
+                parsed_response = await response.text()
                 if len(parsed_response) > 100:
                     parsed_response = f"{parsed_response[:100]} ... (truncated)"
             except Exception:
