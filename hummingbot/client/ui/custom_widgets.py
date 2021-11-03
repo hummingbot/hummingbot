@@ -1,7 +1,9 @@
 from __future__ import unicode_literals
+import copy
 import six
 from collections import deque
 from typing import (
+    Any,
     List,
     Deque,
 )
@@ -10,7 +12,7 @@ from prompt_toolkit.auto_suggest import DynamicAutoSuggest
 from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.completion import DynamicCompleter
 from prompt_toolkit.document import Document
-from prompt_toolkit.formatted_text import fragment_list_to_text, to_formatted_text
+from prompt_toolkit.formatted_text import fragment_list_to_text, to_formatted_text, split_lines
 from prompt_toolkit.filters import (
     to_filter,
     Condition,
@@ -56,53 +58,33 @@ class FormatTextProcessor(Processor):
     """
 
     def apply_transformation(self, transformation_input):
-        all_lines = transformation_input.document.lines
-        if len(all_lines) > 0:
-            lineno = transformation_input.lineno
-            max_lineno = len(all_lines) - 1
-            if lineno > max_lineno:
-                lineno = max_lineno
-            line = all_lines[lineno]
-            return Transformation(to_formatted_text(line))
-        else:
-            return Transformation(transformation_input.fragments)
+        formatted_lines = transformation_input.buffer_control.formatted_lines
+        lineno = transformation_input.lineno
+        max_lineno = len(formatted_lines) - 1
+        if lineno > max_lineno:
+            # log.warning(
+            #     "Index error when parsing document. max_lineno=%s lineno=%s",
+            #     max_lineno,
+            #     lineno,
+            # )
+            lineno = max_lineno
+        line = formatted_lines[lineno]
+        return Transformation(to_formatted_text(line))
 
 
 class FormattedBufferControl(BufferControl):
+
+    """Control to support formatted_text and mouse events."""
+
     def __init__(self, formatted_text, **kwargs):
-        self.formatted_lines = self._parse_formatted_text(formatted_text)
+        self.formatted_lines = list(split_lines(formatted_text))
         super().__init__(**kwargs)
 
-    def _parse_formatted_text(self, formatted_text):
-        """
-        Transform a formatted text with newlines into a list.
-        This is to make it compatible with the processor.
-        Each element represents a line of text.
-        """
-        lines = []
-        line = []
-        for format in formatted_text:
-            style, text, *_ = format
-            word = []
-            for c in text:
-                if c != "\n":
-                    word.append(c)
-                    continue
+    def update_formatted_text(self, formatted_text):
+        self.formatted_lines = formatted_text
 
-                if word:
-                    line.append((style, "".join(word)))
-                    lines.append(line)
-                elif not word and line:
-                    lines.append(line)
-                else:
-                    lines.append([("", "")])
-                line = []
-                word = []
-            if word:
-                line.append((style, "".join(word)))
-        if line:
-            lines.append(line)
-        return lines
+    def another_update_formatted_text(self, formatted_text):
+        self.formatted_lines = list(split_lines(formatted_text))
 
 
 class FormattedCustomTextArea:
@@ -115,7 +97,7 @@ class FormattedCustomTextArea:
                  line_numbers=False, get_line_prefix=None, scrollbar=False,
                  style='', search_field=None, preview_search=True, prompt='',
                  input_processors=None, max_line_count=1000, initial_text="", align=WindowAlign.LEFT):
-        # assert isinstance(text, six.text_type)
+        assert isinstance(text, six.text_type)
         assert search_field is None or isinstance(search_field, SearchToolbar)
 
         if search_field is None:
@@ -201,26 +183,51 @@ class FormattedCustomTextArea:
         self.log(initial_text)
 
     @property
-    def text(self):
-        """
-        The `Buffer` text.
-        """
-        return self.buffer.text
-
-    @text.setter
-    def text(self, value):
-        self.buffer.set_document(Document(value, 0), bypass_readonly=True)
-
-    @property
     def document(self):
-        """
-        The `Buffer` document (text + cursor position).
-        """
         return self.buffer.document
 
     @document.setter
     def document(self, value):
-        self.buffer.document = value
+        self.buffer.set_document(value, bypass_readonly=True)
+
+    @property
+    def text(self):
+        return self.buffer.text
+
+    @text.setter
+    def text(self, text):
+
+        formatted_text = to_formatted_text(text)
+        self.control.another_update_formatted_text(formatted_text)
+        plain_text = fragment_list_to_text(formatted_text)
+        current_position = min(self.document.cursor_position, len(plain_text))
+
+        self.document = Document(plain_text, current_position)
+
+    def append_formatted_text(self, new_text):
+        # if not new_text.endswith("\n"):
+        #     new_text = new_text + "\n"
+        current_formatted_text: List[Any] = copy.deepcopy(self.control.formatted_lines)
+
+        new_formatted_text = to_formatted_text(new_text)[0]
+        current_formatted_text.extend(list(split_lines([new_formatted_text])))
+
+        new_lines = []
+        for style_text in current_formatted_text:
+            if len(style_text) == 0:
+                new_lines.append("")
+            else:
+                _, text = style_text[0]
+                new_lines.append(f"{text}")
+        new_plain_text = "\n".join(new_lines)
+
+        self.control.update_formatted_text(current_formatted_text)
+
+        current_position = len(new_plain_text)
+
+        d = Document(new_plain_text, cursor_position=current_position)
+
+        self.document = d
 
     @property
     def accept_handler(self):
@@ -266,7 +273,9 @@ class FormattedCustomTextArea:
         else:
             new_text: str = "\n".join(new_lines)
         if not silent:
-            self.buffer.document = Document(text=new_text, cursor_position=len(new_text))
+            # TODO: Format text
+            self.append_formatted_text(new_text=new_text)
+            # self.buffer.document = Document(text=new_text, cursor_position=len(new_text))
 
 
 class CustomTextArea:

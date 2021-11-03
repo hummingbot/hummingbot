@@ -96,7 +96,7 @@ class HummingbotCLI:
     def clear_input(self):
         self.pending_input = None
 
-    def log(self, text: str, save_log: bool = True):
+    def log(self, text: str, save_log: bool = False):
         if save_log:
             if self.live_updates:
                 self.output_field.log(text, silent=True)
