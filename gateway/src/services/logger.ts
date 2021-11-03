@@ -6,14 +6,37 @@ import utc from 'dayjs/plugin/utc';
 import appRoot from 'app-root-path';
 dayjs.extend(utc);
 
+const { LEVEL, MESSAGE } = require('triple-beam');
+
+const errorsWithStack = winston.format((einfo) => {
+  if (einfo instanceof Error) {
+    const info = Object.assign({}, einfo, {
+      level: einfo.level,
+      [LEVEL]: einfo[LEVEL] || einfo.level,
+      message: einfo.message,
+      [MESSAGE]: einfo[MESSAGE] || einfo.message,
+      stack: `\n${einfo.stack}` || '',
+    });
+    return info;
+  }
+  return einfo;
+});
+
 export const getLocalDate = () => {
   const gmtOffset = ConfigManager.config.GMT_OFFSET;
   return dayjs().utcOffset(gmtOffset, false).format('YYYY-MM-DD hh:mm:ss');
 };
 
-const logFormat = winston.format.combine(
-  winston.format.timestamp(),
+const logFileFormat = winston.format.combine(
   winston.format.align(),
+  errorsWithStack(),
+  winston.format.printf((info) => {
+    const localDate = getLocalDate();
+    return `${localDate} | ${info.level} | ${info.message} | ${info.stack}`;
+  })
+);
+
+const sdtoutFormat = winston.format.combine(
   winston.format.printf((info) => {
     const localDate = getLocalDate();
     return `${localDate} | ${info.level} | ${info.message}`;
@@ -36,13 +59,13 @@ const allLogsFileTransport = new DailyRotateFile({
 
 export const logger = winston.createLogger({
   level: 'info',
-  format: logFormat,
+  format: logFileFormat,
   exitOnError: false,
   transports: [allLogsFileTransport],
 });
 
 const toStdout = new winston.transports.Console({
-  format: winston.format.simple(),
+  format: sdtoutFormat,
 });
 
 export const updateLoggerToStdout = () => {

@@ -74,6 +74,7 @@ export namespace ConfigManager {
       'IP_WHITELIST' in o &&
       'HUMMINGBOT_INSTANCE_ID' in o &&
       'LOG_PATH' in o &&
+      'LOG_TO_STDOUT' in o &&
       'GMT_OFFSET' in o &&
       'CERT_PATH' in o &&
       'ETHEREUM_CHAIN' in o &&

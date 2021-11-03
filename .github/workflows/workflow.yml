@@ -169,6 +169,7 @@ jobs:
           IP_WHITELIST: []
           HUMMINGBOT_INSTANCE_ID: '67618e88c8b8f52342e61c6e46dc2571fa48543b'
           LOG_PATH: './logs'
+          LOG_TO_STDOUT: true
           GMT_OFFSET: +0800
           CERT_PATH: ''
           ETHEREUM_CHAIN: mainnet
