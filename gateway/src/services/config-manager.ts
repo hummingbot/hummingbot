@@ -24,6 +24,7 @@ export namespace ConfigManager {
     UNISWAP_TTL: number;
     LOG_TO_STDOUT?: boolean;
     UNSAFE_DEV_MODE_WITH_HTTP?: boolean;
+    ENABLE_TELEMETRY?: boolean;
   }
 
   export interface PassphraseConfig {
