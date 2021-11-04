@@ -40,16 +40,20 @@ class CustomBuffer(Buffer):
 
 class FormattedTextLexer(Lexer):
 
-    def __init__(self, default_style: str = "output-field") -> None:
+    def __init__(self, default_style: str = "output-field", text_style_map: Dict[str, str] = {}) -> None:
         super().__init__()
-        self.tag_css_style_map: Dict[str, str] = {style: css for style, css in load_style().style_rules}
+        self.html_tag_css_style_map: Dict[str, str] = {style: css for style, css in load_style().style_rules}
 
+        # self.text_style_map:  Dict[str, str] = text_style_map
         self.text_style_map: Dict[str, str] = {
             "GREEN": "primary-label",
             "YELLOW": "warning-label",
             "RED": "error-label",
         }
-        self.default_style = self.tag_css_style_map.get(default_style, "")
+        self.default_css_style = self.html_tag_css_style_map.get(default_style, "")
+
+    def get_css_style(self, tag: str) -> str:
+        return self.html_tag_css_style_map.get(tag, self.default_css_style)
 
     def lex_document(self, document: Document) -> Callable[[int], StyleAndTextTuples]:
         lines = document.lines
@@ -58,13 +62,21 @@ class FormattedTextLexer(Lexer):
             "Return the tokens for the given line."
             try:
                 current_line = lines[lineno]
-                line_fragments = [(self.default_style, c)
+                if len(current_line) == 0:
+                    return [(self.default_css_style, current_line)]
+
+                # Command prompt
+                if current_line.startswith(">>>"):
+                    return [(self.get_css_style("primary-label"), current_line)]
+
+                # Output
+                line_fragments = [(self.default_css_style, c)
                                   for c in current_line]
 
                 for special_word, style in self.text_style_map.items():
                     for match in re.finditer(special_word, current_line):
                         for i in range(match.start(), match.end()):
-                            line_fragments[i] = (self.tag_css_style_map.get(style, self.default_style), line_fragments[i][1])
+                            line_fragments[i] = (self.get_css_style(style), line_fragments[i][1])
                 return line_fragments
             except IndexError:
                 return []
