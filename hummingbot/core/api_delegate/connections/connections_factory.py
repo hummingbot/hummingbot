@@ -1,5 +1,3 @@
-import asyncio
-
 import aiohttp
 from hummingbot.core.api_delegate.connections.rest_connection import RESTConnection
 from hummingbot.core.api_delegate.connections.ws_connection import WSConnection
@@ -8,9 +6,6 @@ from hummingbot.core.api_delegate.connections.ws_connection import WSConnection
 class ConnectionsFactory:
     def __init__(self):
         self._shared_client = aiohttp.ClientSession()
-
-    def __del__(self):
-        asyncio.get_event_loop().create_task(self._shared_client.close())
 
     async def get_rest_connection(self) -> RESTConnection:
         connection = RESTConnection(aiohttp_client_session=self._shared_client)
