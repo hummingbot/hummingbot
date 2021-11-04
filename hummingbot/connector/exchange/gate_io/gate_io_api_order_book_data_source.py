@@ -63,7 +63,8 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @classmethod
     async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, Decimal]:
         throttler = cls._get_throttler_instance()
-        rest_delegate = await build_gate_io_api_factory().get_rest_delegate()
+        api_factory = build_gate_io_api_factory()
+        rest_delegate = await api_factory.get_rest_delegate()
         results = {}
         ticker_param = None
         if len(trading_pairs) == 1:
@@ -86,7 +87,8 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
     @classmethod
     async def fetch_trading_pairs(cls) -> List[str]:
         throttler = cls._get_throttler_instance()
-        rest_delegate = await build_gate_io_api_factory().get_rest_delegate()
+        api_factory = build_gate_io_api_factory()
+        rest_delegate = await api_factory.get_rest_delegate()
         try:
             async with throttler.execute_task(CONSTANTS.SYMBOL_PATH_URL):
                 endpoint = CONSTANTS.SYMBOL_PATH_URL
@@ -118,7 +120,8 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Get whole orderbook
         """
         throttler = throttler or cls._get_throttler_instance()
-        rest_delegate = rest_delegate or await build_gate_io_api_factory().get_rest_delegate()
+        api_factory = build_gate_io_api_factory()
+        rest_delegate = rest_delegate or await api_factory.get_rest_delegate()
         logger = logger or logging.getLogger()
         try:
             ex_pair = convert_to_exchange_trading_pair(trading_pair)
