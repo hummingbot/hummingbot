@@ -9,7 +9,7 @@ from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
 from hummingbot.connector.exchange.gate_io.gate_io_utils import GateIoAPIError, build_gate_io_api_factory
 from hummingbot.core.api_delegate.api_factory import APIFactory
 from hummingbot.core.api_delegate.connections.data_types import WSRequest, WSResponse
-from hummingbot.core.api_delegate.ws_delegate import WSDelegate
+from hummingbot.core.api_delegate.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 
 
@@ -28,7 +28,7 @@ class GateIoWebsocket:
         self._auth: Optional[GateIoAuth] = auth
         self._is_private = True if self._auth is not None else False
         self._api_factory = api_factory or build_gate_io_api_factory()
-        self._ws_delegate: Optional[WSDelegate] = None
+        self._ws_delegate: Optional[WSAssistant] = None
         self._closed = True
         self._last_recv_time = 0
 

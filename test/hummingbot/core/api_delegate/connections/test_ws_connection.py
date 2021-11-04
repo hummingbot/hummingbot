@@ -1,4 +1,5 @@
 import asyncio
+import json
 import unittest
 from typing import Awaitable, List
 from unittest.mock import AsyncMock, patch
@@ -111,7 +112,7 @@ class WSConnectionTest(unittest.TestCase):
         self.async_run_with_timeout(self.ws_connection.connect(self.ws_url))
         data = {"one": 1}
         self.mocking_assistant.add_websocket_aiohttp_message(
-            ws_connect_mock.return_value, message=data
+            ws_connect_mock.return_value, message=json.dumps(data)
         )
 
         self.assertEqual(0, self.ws_connection.last_recv_time)
@@ -165,7 +166,7 @@ class WSConnectionTest(unittest.TestCase):
         )
         data = {"one": 1}
         self.mocking_assistant.add_websocket_aiohttp_message(
-            ws_connect_mock.return_value, message=data
+            ws_connect_mock.return_value, message=json.dumps(data)
         )
 
         response = self.async_run_with_timeout(self.ws_connection.receive())

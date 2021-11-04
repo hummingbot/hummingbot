@@ -7,7 +7,7 @@ from hummingbot.core.api_delegate.rest_post_processors import RESTPostProcessorB
 from hummingbot.core.api_delegate.rest_pre_processors import RESTPreProcessorBase
 
 
-class RESTDelegate:
+class RESTAssistant:
     def __init__(
         self,
         connection: RESTConnection,

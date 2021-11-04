@@ -7,7 +7,7 @@ from hummingbot.core.api_delegate.ws_post_processors import WSPostProcessorBase
 from hummingbot.core.api_delegate.ws_pre_processors import WSPreProcessorBase
 
 
-class WSDelegate:
+class WSAssistant:
     def __init__(
         self,
         connection: WSConnection,

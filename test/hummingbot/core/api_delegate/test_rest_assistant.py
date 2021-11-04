@@ -2,8 +2,9 @@ import asyncio
 import json
 import unittest
 from typing import Awaitable
-from unittest.mock import AsyncMock
 
+import aiohttp
+from aioresponses import aioresponses
 
 from hummingbot.core.api_delegate.connections.rest_connection import (
     RESTConnection
@@ -11,7 +12,7 @@ from hummingbot.core.api_delegate.connections.rest_connection import (
 from hummingbot.core.api_delegate.connections.data_types import (
     RESTMethod, RESTRequest, RESTResponse
 )
-from hummingbot.core.api_delegate.rest_delegate import RESTDelegate
+from hummingbot.core.api_delegate.rest_assistant import RESTAssistant
 from hummingbot.core.api_delegate.rest_post_processors import (
     RESTPostProcessorBase
 )
@@ -20,7 +21,7 @@ from hummingbot.core.api_delegate.rest_pre_processors import (
 )
 
 
-class RESTDelegateTest(unittest.TestCase):
+class RESTAssistantTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
@@ -30,48 +31,35 @@ class RESTDelegateTest(unittest.TestCase):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
 
-    def test_rest_delegate_call_with_pre_and_post_processing(self):
-        connection_mock = AsyncMock(spec=RESTConnection)
+    @aioresponses()
+    def test_rest_delegate_call_with_pre_and_post_processing(self, mocked_api):
         url = "https://www.test.com/url"
-        resp_body = {"one": 1}
-        resp_mock = RESTResponse(
-            url=url,
-            method=RESTMethod.GET,
-            status=200,
-            body=json.dumps(resp_body).encode(),
-        )
-        requests = []
-
-        def mocked_call(r):
-            requests.append(r)
-            return resp_mock
-
-        connection_mock.call.side_effect = mocked_call
-        req_header = "reqHeader"
-        resp_header = "respHeader"
+        resp = {"one": 1}
+        pre_processor_ran = False
+        post_processor_ran = False
+        mocked_api.get(url, body=json.dumps(resp).encode())
 
         class PreProcessor(RESTPreProcessorBase):
             async def pre_process(self, request: RESTRequest) -> RESTRequest:
-                request.headers = req_header
+                nonlocal pre_processor_ran
+                pre_processor_ran = True
                 return request
 
         class PostProcessor(RESTPostProcessorBase):
             async def post_process(self, response: RESTResponse) -> RESTResponse:
-                response.headers = resp_header
+                nonlocal post_processor_ran
+                post_processor_ran = True
                 return response
 
         pre_processors = [PreProcessor()]
         post_processors = [PostProcessor()]
-        delegate = RESTDelegate(connection_mock, pre_processors, post_processors)
+        connection = RESTConnection(aiohttp.ClientSession())
+        delegate = RESTAssistant(connection, pre_processors, post_processors)
         req = RESTRequest(method=RESTMethod.GET, url=url)
 
         ret = self.async_run_with_timeout(delegate.call(req))
+        ret_json = self.async_run_with_timeout(ret.json())
 
-        self.assertIsNone(req.headers)  # original request not modified
-        self.assertEqual(1, len(requests))
-
-        req = requests[0]
-
-        self.assertEqual(req_header, req.headers)  # modified by pre-processor
-        self.assertEqual(resp_body, ret.json())
-        self.assertEqual(resp_header, ret.headers)  # modified by the post-processor
+        self.assertEqual(resp, ret_json)
+        self.assertTrue(pre_processor_ran)
+        self.assertTrue(post_processor_ran)
