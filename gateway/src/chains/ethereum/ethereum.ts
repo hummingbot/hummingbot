@@ -83,12 +83,13 @@ export class Ethereum extends EthereumBase {
   }
 
   public metricLogger(): void {
-    logger.info(
+    const metricFormat: string =
       this.requestCount +
-        ' request(s) sent in last ' +
-        this.metricsLogInterval / 1000 +
-        ' seconds.'
-    );
+      ' request(s) sent in last ' +
+      this.metricsLogInterval / 1000 +
+      ' seconds.';
+    logger.info(metricFormat);
+    logger.http(metricFormat);
     this._requestCount = 0; // reset
   }
   // getters
