@@ -1,36 +1,29 @@
 from __future__ import unicode_literals
-import six
-from collections import deque
-from typing import (
-    List,
-    Deque,
-)
 
+import re
+from collections import deque
+from typing import Callable, Deque, Dict, List
+
+import six
 from prompt_toolkit.auto_suggest import DynamicAutoSuggest
 from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.completion import DynamicCompleter
 from prompt_toolkit.document import Document
-from prompt_toolkit.widgets.toolbars import SearchToolbar
-from prompt_toolkit.filters import (
-    to_filter,
-    Condition,
-    is_true,
-    has_focus,
-    is_done,
-)
+from prompt_toolkit.filters import (Condition, has_focus, is_done, is_true,
+                                    to_filter)
+from prompt_toolkit.formatted_text.base import StyleAndTextTuples
 from prompt_toolkit.layout.containers import Window, WindowAlign
 from prompt_toolkit.layout.controls import BufferControl
-from prompt_toolkit.layout.margins import (
-    ScrollbarMargin,
-    NumberedMargin,
-)
-from prompt_toolkit.layout.processors import (
-    PasswordProcessor,
-    ConditionalProcessor,
-    BeforeInput,
-    AppendAutoSuggestion,
-)
+from prompt_toolkit.layout.margins import NumberedMargin, ScrollbarMargin
+from prompt_toolkit.layout.processors import (AppendAutoSuggestion,
+                                              BeforeInput,
+                                              ConditionalProcessor,
+                                              PasswordProcessor)
 from prompt_toolkit.lexers import DynamicLexer
+from prompt_toolkit.lexers.base import Lexer
+from prompt_toolkit.widgets.toolbars import SearchToolbar
+
+from hummingbot.client.ui.style import load_style
 
 
 class CustomBuffer(Buffer):
@@ -43,6 +36,40 @@ class CustomBuffer(Buffer):
                 keep_text = False
             if not keep_text:
                 self.reset()
+
+
+class FormattedTextLexer(Lexer):
+
+    def __init__(self, default_style: str = "output-field") -> None:
+        super().__init__()
+        self.tag_css_style_map: Dict[str, str] = {style: css for style, css in load_style().style_rules}
+
+        self.text_style_map: Dict[str, str] = {
+            "GREEN": "primary-label",
+            "YELLOW": "warning-label",
+            "RED": "error-label",
+        }
+        self.default_style = self.tag_css_style_map.get(default_style, "")
+
+    def lex_document(self, document: Document) -> Callable[[int], StyleAndTextTuples]:
+        lines = document.lines
+
+        def get_line(lineno: int) -> StyleAndTextTuples:
+            "Return the tokens for the given line."
+            try:
+                current_line = lines[lineno]
+                line_fragments = [(self.default_style, c)
+                                  for c in current_line]
+
+                for special_word, style in self.text_style_map.items():
+                    for match in re.finditer(special_word, current_line):
+                        for i in range(match.start(), match.end()):
+                            line_fragments[i] = (self.tag_css_style_map.get(style, self.default_style), line_fragments[i][1])
+                return line_fragments
+            except IndexError:
+                return []
+
+        return get_line
 
 
 class CustomTextArea:

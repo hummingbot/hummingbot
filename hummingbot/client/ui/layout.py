@@ -14,7 +14,7 @@ from prompt_toolkit.completion import Completer
 from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.widgets import Box, Button, SearchToolbar
 
-from hummingbot.client.ui.custom_widgets import CustomTextArea as TextArea
+from hummingbot.client.ui.custom_widgets import CustomTextArea as TextArea, FormattedTextLexer
 from hummingbot.client.settings import (
     MAXIMUM_OUTPUT_PANE_LINE_COUNT,
     MAXIMUM_LOG_PANE_LINE_COUNT,
@@ -101,6 +101,7 @@ def create_output_field():
         scrollbar=True,
         max_line_count=MAXIMUM_OUTPUT_PANE_LINE_COUNT,
         initial_text=HEADER,
+        lexer=FormattedTextLexer()
     )
 
 

@@ -18,6 +18,11 @@ def load_style(config_map=global_config_map):
     color_logs_pane = config_map.get("logs-pane").value
     color_terminal_primary = config_map.get("terminal-primary").value
 
+    color_success_label = config_map.get("success-label").value
+    color_warning_label = config_map.get("warning-label").value
+    color_info_label = config_map.get("info-label").value
+    color_error_label = config_map.get("error-label").value
+
     if is_windows():
         # Load default style
         style = win32_code_style
@@ -29,6 +34,11 @@ def load_style(config_map=global_config_map):
         color_input_pane = hex_to_ansi(color_input_pane)
         color_logs_pane = hex_to_ansi(color_logs_pane)
         color_terminal_primary = hex_to_ansi(color_terminal_primary)
+
+        color_success_label = hex_to_ansi(color_success_label)
+        color_warning_label = hex_to_ansi(color_warning_label)
+        color_info_label = hex_to_ansi(color_info_label)
+        color_error_label = hex_to_ansi(color_error_label)
 
         # Apply custom configuration
         style["output-field"] = "bg:" + color_output_pane + " " + color_terminal_primary
@@ -53,6 +63,12 @@ def load_style(config_map=global_config_map):
         style["header"] = "bg:" + color_top_pane + " " + style["header"].split(' ')[-1]
         style["footer"] = "bg:" + color_bottom_pane + " " + style["footer"].split(' ')[-1]
         style["primary"] = color_terminal_primary
+
+        style["primary-label"] = "bg:" + color_terminal_primary + " " + color_bottom_pane
+        style["success-label"] = "bg:" + color_success_label + " " + color_bottom_pane
+        style["warning-label"] = "bg:" + color_warning_label + " " + color_bottom_pane
+        style["info-label"] = "bg:" + color_info_label + " " + color_bottom_pane
+        style["error-label"] = "bg:" + color_error_label + " " + color_bottom_pane
 
         return Style.from_dict(style)
 

@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 28
+template_version: 29
 
 # Exchange configs
 
@@ -265,3 +265,17 @@ logs-pane: "#121212"
 # Terminal primary color
 terminal-primary: "#5FFFD7"
 
+# Primary label color
+primary-label: "#5FFFD7"
+
+# Success label color
+success-label: "#5FFFD7"
+
+# Warning label color
+warning-label: "#FFFF00"
+
+# Info label color
+info-label: "#5FD7FF"
+
+# Error label color
+error-label: "#FF0000"
