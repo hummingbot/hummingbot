@@ -11,7 +11,7 @@ from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
 from hummingbot.core.api_delegate.api_factory import APIFactory
 from hummingbot.core.api_delegate.connections.data_types import RESTMethod, RESTRequest, RESTResponse
-from hummingbot.core.api_delegate.rest_delegate import RESTDelegate
+from hummingbot.core.api_delegate.rest_assistant import RESTAssistant
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
@@ -144,7 +144,7 @@ async def rest_response_with_errors(request_coroutine):
 
 
 async def api_call_with_retries(request: GateIORESTRequest,
-                                rest_delegate: RESTDelegate,
+                                rest_delegate: RESTAssistant,
                                 throttler: AsyncThrottler,
                                 logger: logging.Logger,
                                 gate_io_auth: Optional[GateIoAuth] = None,

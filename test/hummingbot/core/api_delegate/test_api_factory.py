@@ -3,8 +3,8 @@ import unittest
 from typing import Awaitable
 
 from hummingbot.core.api_delegate.api_factory import APIFactory
-from hummingbot.core.api_delegate.rest_delegate import RESTDelegate
-from hummingbot.core.api_delegate.ws_delegate import WSDelegate
+from hummingbot.core.api_delegate.rest_assistant import RESTAssistant
+from hummingbot.core.api_delegate.ws_assistant import WSAssistant
 
 
 class APIFactoryTest(unittest.TestCase):
@@ -22,11 +22,11 @@ class APIFactoryTest(unittest.TestCase):
 
         rest_delegate = self.async_run_with_timeout(factory.get_rest_delegate())
 
-        self.assertIsInstance(rest_delegate, RESTDelegate)
+        self.assertIsInstance(rest_delegate, RESTAssistant)
 
     def test_get_ws_delegate(self):
         factory = APIFactory()
 
         ws_delegate = self.async_run_with_timeout(factory.get_ws_delegate())
 
-        self.assertIsInstance(ws_delegate, WSDelegate)
+        self.assertIsInstance(ws_delegate, WSAssistant)

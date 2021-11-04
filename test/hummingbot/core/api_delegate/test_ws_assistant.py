@@ -8,12 +8,12 @@ import aiohttp
 from hummingbot.core.api_delegate.connections.data_types import WSRequest, \
     WSResponse
 from hummingbot.core.api_delegate.connections.ws_connection import WSConnection
-from hummingbot.core.api_delegate.ws_delegate import WSDelegate
+from hummingbot.core.api_delegate.ws_assistant import WSAssistant
 from hummingbot.core.api_delegate.ws_post_processors import WSPostProcessorBase
 from hummingbot.core.api_delegate.ws_pre_processors import WSPreProcessorBase
 
 
-class WSDelegateTest(unittest.TestCase):
+class WSAssistantTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
@@ -23,7 +23,7 @@ class WSDelegateTest(unittest.TestCase):
         super().setUp()
         aiohttp_client_session = aiohttp.ClientSession()
         self.ws_connection = WSConnection(aiohttp_client_session)
-        self.ws_delegate = WSDelegate(self.ws_connection)
+        self.ws_delegate = WSAssistant(self.ws_connection)
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
@@ -70,7 +70,7 @@ class WSDelegateTest(unittest.TestCase):
                 request_.payload["two"] = 2
                 return request_
 
-        ws_delegate = WSDelegate(
+        ws_delegate = WSAssistant(
             connection=self.ws_connection, ws_pre_processors=[SomePreProcessor()]
         )
         sent_requests = []
@@ -118,7 +118,7 @@ class WSDelegateTest(unittest.TestCase):
                 response_.data["two"] = 2
                 return response_
 
-        ws_delegate = WSDelegate(
+        ws_delegate = WSAssistant(
             connection=self.ws_connection, ws_post_processors=[SomePostProcessor()]
         )
         data = {"one": 1}

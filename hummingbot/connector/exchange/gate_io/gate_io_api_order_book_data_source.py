@@ -10,7 +10,7 @@ import pandas as pd
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.core.api_delegate.api_factory import APIFactory
 from hummingbot.core.api_delegate.connections.data_types import RESTMethod
-from hummingbot.core.api_delegate.rest_delegate import RESTDelegate
+from hummingbot.core.api_delegate.rest_assistant import RESTAssistant
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
@@ -49,7 +49,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
     ):
         super().__init__(trading_pairs)
         self._api_factory = api_factory or build_gate_io_api_factory()
-        self._rest_delegate: Optional[RESTDelegate] = None
+        self._rest_delegate: Optional[RESTAssistant] = None
         self._throttler = throttler or self._get_throttler_instance()
         self._trading_pairs: List[str] = trading_pairs
 
@@ -111,7 +111,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
         cls,
         trading_pair: str,
         throttler: Optional[AsyncThrottler] = None,
-        rest_delegate: Optional[RESTDelegate] = None,
+        rest_delegate: Optional[RESTAssistant] = None,
         logger: Optional[logging.Logger] = None,
     ) -> Dict[str, any]:
         """
@@ -311,7 +311,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self.logger().error("Unexpected error.", exc_info=True)
                 await asyncio.sleep(5.0)
 
-    async def _get_rest_delegate(self) -> RESTDelegate:
+    async def _get_rest_delegate(self) -> RESTAssistant:
         if self._rest_delegate is None:
             self._rest_delegate = await self._api_factory.get_rest_delegate()
         return self._rest_delegate
