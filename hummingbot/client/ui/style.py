@@ -82,6 +82,11 @@ def reset_style(config_map=global_config_map, save=True):
     config_map.get("logs-pane").value = config_map.get("logs-pane").default
     config_map.get("terminal-primary").value = config_map.get("terminal-primary").default
 
+    config_map.get("success-label").value = config_map.get("success-label").default
+    config_map.get("warning-label").value = config_map.get("warning-label").default
+    config_map.get("info-label").value = config_map.get("info-label").default
+    config_map.get("error-label").value = config_map.get("error-labael").default
+
     # Save configuration
     if save:
         file_path = GLOBAL_CONFIG_PATH
