@@ -18,6 +18,7 @@ def load_style(config_map=global_config_map):
     color_logs_pane = config_map.get("logs-pane").value
     color_terminal_primary = config_map.get("terminal-primary").value
 
+    color_primary_label = config_map.get("primary-label").value
     color_success_label = config_map.get("success-label").value
     color_warning_label = config_map.get("warning-label").value
     color_info_label = config_map.get("info-label").value
@@ -35,6 +36,7 @@ def load_style(config_map=global_config_map):
         color_logs_pane = hex_to_ansi(color_logs_pane)
         color_terminal_primary = hex_to_ansi(color_terminal_primary)
 
+        color_primary_label = hex_to_ansi(color_primary_label)
         color_success_label = hex_to_ansi(color_success_label)
         color_warning_label = hex_to_ansi(color_warning_label)
         color_info_label = hex_to_ansi(color_info_label)
@@ -82,6 +84,7 @@ def reset_style(config_map=global_config_map, save=True):
     config_map.get("logs-pane").value = config_map.get("logs-pane").default
     config_map.get("terminal-primary").value = config_map.get("terminal-primary").default
 
+    config_map.get("primary-label").value = config_map.get("primary-label").default
     config_map.get("success-label").value = config_map.get("success-label").default
     config_map.get("warning-label").value = config_map.get("warning-label").default
     config_map.get("info-label").value = config_map.get("info-label").default
@@ -129,6 +132,12 @@ def hex_to_ansi(color_hex):
 
     return "#" + color_ansi
 
+
+text_ui_style = {
+    "GREEN": "success-label",
+    "YELLOW": "warning-label",
+    "RED": "error-label",
+}
 
 default_ui_style = {
     "output-field":               "bg:#171E2B #1CD085",  # noqa: E241

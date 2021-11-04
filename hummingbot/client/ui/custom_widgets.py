@@ -23,7 +23,7 @@ from prompt_toolkit.lexers import DynamicLexer
 from prompt_toolkit.lexers.base import Lexer
 from prompt_toolkit.widgets.toolbars import SearchToolbar
 
-from hummingbot.client.ui.style import load_style
+from hummingbot.client.ui.style import load_style, text_ui_style
 
 
 class CustomBuffer(Buffer):
@@ -40,20 +40,17 @@ class CustomBuffer(Buffer):
 
 class FormattedTextLexer(Lexer):
 
-    def __init__(self, default_style: str = "output-field", text_style_map: Dict[str, str] = {}) -> None:
+    PROMPT_TEXT = ">>> "
+
+    def __init__(self) -> None:
         super().__init__()
         self.html_tag_css_style_map: Dict[str, str] = {style: css for style, css in load_style().style_rules}
 
-        # self.text_style_map:  Dict[str, str] = text_style_map
-        self.text_style_map: Dict[str, str] = {
-            "GREEN": "primary-label",
-            "YELLOW": "warning-label",
-            "RED": "error-label",
-        }
-        self.default_css_style = self.html_tag_css_style_map.get(default_style, "")
+        # Maps specific text to its corresponding UI styles
+        self.text_style_tag_map: Dict[str, str] = text_ui_style
 
     def get_css_style(self, tag: str) -> str:
-        return self.html_tag_css_style_map.get(tag, self.default_css_style)
+        return self.html_tag_css_style_map.get(tag, "")
 
     def lex_document(self, document: Document) -> Callable[[int], StyleAndTextTuples]:
         lines = document.lines
@@ -63,17 +60,16 @@ class FormattedTextLexer(Lexer):
             try:
                 current_line = lines[lineno]
                 if len(current_line) == 0:
-                    return [(self.default_css_style, current_line)]
+                    return [("", current_line)]
 
                 # Command prompt
-                if current_line.startswith(">>>"):
-                    return [(self.get_css_style("primary-label"), current_line)]
+                if current_line.startswith(self.PROMPT_TEXT):
+                    return [(self.get_css_style("success-label"), current_line)]
 
                 # Output
-                line_fragments = [(self.default_css_style, c)
-                                  for c in current_line]
+                line_fragments = [("", c) for c in current_line]
 
-                for special_word, style in self.text_style_map.items():
+                for special_word, style in self.text_style_tag_map.items():
                     for match in re.finditer(special_word, current_line):
                         for i in range(match.start(), match.end()):
                             line_fragments[i] = (self.get_css_style(style), line_fragments[i][1])
