@@ -16,11 +16,11 @@
 6. Fix any changes requested by your reviewer, fix issues raised by a tester, and push your fixes as a single new commit.
 7. Once the pull request has been reviewed and accepted; it will be merged by a member of the Hummingbot development team.
 
-Tests are very important. Submit tests if your pull request contains new, testable behavior. See [Unit test coverage](#unit-test-coverage) for more information.
+**NOTE:** Tests are very important. Submit tests if your pull request contains new, testable behavior. See [Unit test coverage](#unit-test-coverage) for more information.
 
 ## Detailed workflow
 
-### 1. Fork the repo
+### 1. Fork the repository
 
 Use GitHub's interface to make a fork of the repo, add the Hummingbot repo as an upstream remote, and fetch upstream data:
 
