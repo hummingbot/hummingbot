@@ -17,8 +17,6 @@ export class Avalanche extends EthereumBase implements Ethereumish {
   private _gasPrice: number;
   private _nativeTokenSymbol: string;
   private _chain: string;
-  // private _ethGasStationUrl: string;
-  // private _gasPriceLastUpdated: Date | null;
 
   private constructor() {
     let config;
@@ -43,13 +41,6 @@ export class Avalanche extends EthereumBase implements Ethereumish {
     this._chain = ConfigManager.config.AVALANCHE_CHAIN;
     this._nativeTokenSymbol = 'AVAX';
     this._gasPrice = ConfigManager.config.AVAX_MANUAL_GAS_PRICE;
-    // this._ethGasStationUrl =
-    //   'https://ethgasstation.info/api/ethgasAPI.json?api-key=' +
-    //   ConfigManager.config.ETH_GAS_STATION_API_KEY;
-
-    // this._gasPriceLastUpdated = null;
-
-    // this.updateGasPrice();
   }
 
   public static getInstance(): Avalanche {
@@ -73,10 +64,6 @@ export class Avalanche extends EthereumBase implements Ethereumish {
   public get chain(): string {
     return this._chain;
   }
-
-  // public get gasPriceLastDated(): Date | null {
-  //   return this._gasPriceLastUpdated;
-  // }
 
   // override getERC20Balance definition to handle MKR edge case
   async getERC20Balance(
