@@ -1,32 +1,45 @@
 import abi from '../../services/ethereum.abi.json';
 import axios from 'axios';
 import { logger } from '../../services/logger';
-import { BigNumber, Contract, Transaction, Wallet, utils } from 'ethers';
-import { EthereumBase, Token } from '../../services/ethereum-base';
+import { BigNumber, Contract, Transaction, Wallet } from 'ethers';
+import { EthereumBase } from '../../services/ethereum-base';
 import { ConfigManager } from '../../services/config-manager';
 import { EthereumConfig } from './ethereum.config';
 import { TokenValue } from '../../services/base';
 import { Provider } from '@ethersproject/abstract-provider';
-import { EVMNonceManager } from './evm.nonce';
+import { UniswapConfig } from './uniswap/uniswap.config';
 
 // MKR does not match the ERC20 perfectly so we need to use a separate ABI.
 const MKR_ADDRESS = '0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2';
 
-export class Ethereum extends EthereumBase {
+export interface Ethereumish extends EthereumBase {
+  cancelTx(wallet: Wallet, nonce: number): Promise<Transaction>;
+  getSpender(reqSpender: string): string;
+  nativeTokenSymbol: string;
+  chain: string;
+}
+
+export class Ethereum extends EthereumBase implements Ethereumish {
   private static _instance: Ethereum;
   private _ethGasStationUrl: string;
   private _gasPrice: number;
   private _gasPriceLastUpdated: Date | null;
-  private _nonceManager: EVMNonceManager;
+  private _nativeTokenSymbol: string;
+  private _chain: string;
   private _requestCount: number;
   private _metricsLogInterval: number;
 
   private constructor() {
     let config;
-    if (ConfigManager.config.ETHEREUM_CHAIN === 'mainnet') {
-      config = EthereumConfig.config.mainnet;
-    } else {
-      config = EthereumConfig.config.kovan;
+    switch (ConfigManager.config.ETHEREUM_CHAIN) {
+      case 'mainnet':
+        config = EthereumConfig.config.mainnet;
+        break;
+      case 'kovan':
+        config = EthereumConfig.config.kovan;
+        break;
+      default:
+        throw new Error('ETHEREUM_CHAIN not valid');
     }
 
     super(
@@ -36,7 +49,8 @@ export class Ethereum extends EthereumBase {
       config.tokenListType,
       ConfigManager.config.ETH_MANUAL_GAS_PRICE
     );
-
+    this._chain = ConfigManager.config.ETHEREUM_CHAIN;
+    this._nativeTokenSymbol = 'ETH';
     this._ethGasStationUrl =
       'https://ethgasstation.info/api/ethgasAPI.json?api-key=' +
       ConfigManager.config.ETH_GAS_STATION_API_KEY;
@@ -46,10 +60,11 @@ export class Ethereum extends EthereumBase {
 
     this.updateGasPrice();
 
-    this._nonceManager = EVMNonceManager.getInstance();
-
     this._requestCount = 0;
     this._metricsLogInterval = 300000; // 5 minutes
+
+    this.onDebugMessage(this.requestCounter.bind(this));
+    setInterval(this.metricLogger.bind(this), this.metricsLogInterval);
   }
 
   public static getInstance(): Ethereum {
@@ -58,19 +73,6 @@ export class Ethereum extends EthereumBase {
     }
 
     return Ethereum._instance;
-  }
-
-  async init(): Promise<void> {
-    if (!this.ready() && !this._initializing) {
-      this._initializing = true;
-      await this.loadTokens(this.tokenListSource, this.tokenListType);
-      await this._nonceManager.init(this.provider, 60, this.chainId);
-      this._ready = true;
-      this._initializing = false;
-      this.onDebugMessage(this.requestCounter.bind(this));
-      setInterval(this.metricLogger.bind(this), this.metricsLogInterval);
-    }
-    return this._initPromise;
   }
 
   public static reload(): Ethereum {
@@ -92,14 +94,18 @@ export class Ethereum extends EthereumBase {
     logger.http(metricFormat);
     this._requestCount = 0; // reset
   }
+
   // getters
-
-  public get nonceManager() {
-    return this._nonceManager;
-  }
-
   public get gasPrice(): number {
     return this._gasPrice;
+  }
+
+  public get chain(): string {
+    return this._chain;
+  }
+
+  public get nativeTokenSymbol(): string {
+    return this._nativeTokenSymbol;
   }
 
   public get gasPriceLastDated(): Date | null {
@@ -112,13 +118,6 @@ export class Ethereum extends EthereumBase {
 
   public get metricsLogInterval(): number {
     return this._metricsLogInterval;
-  }
-
-  // ethereum token lists are large. instead of reloading each time with
-  // getTokenList, we can read the stored tokenList value from when the
-  // object was initiated.
-  public get storedTokenList(): Token[] {
-    return this._tokenList;
   }
 
   // If ConfigManager.config.ETH_GAS_STATION_ENABLE is true this will
@@ -190,6 +189,20 @@ export class Ethereum extends EthereumBase {
       : new Contract(tokenAddress, abi.ERC20Abi, signerOrProvider);
   }
 
+  getSpender(reqSpender: string): string {
+    let spender: string;
+    if (reqSpender === 'uniswap') {
+      if (ConfigManager.config.ETHEREUM_CHAIN === 'mainnet') {
+        spender = UniswapConfig.config.mainnet.uniswapV2RouterAddress;
+      } else {
+        spender = UniswapConfig.config.kovan.uniswapV2RouterAddress;
+      }
+    } else {
+      spender = reqSpender;
+    }
+    return spender;
+  }
+
   // override approveERC20
   async approveERC20(
     wallet: Wallet,
@@ -239,27 +252,11 @@ export class Ethereum extends EthereumBase {
     return response;
   }
 
-  getTokenBySymbol(tokenSymbol: string): Token | undefined {
-    return this._tokenList.find(
-      (token: Token) => token.symbol === tokenSymbol.toUpperCase()
-    );
-  }
-
   // cancel transaction
   async cancelTx(wallet: Wallet, nonce: number): Promise<Transaction> {
     logger.info(
       'Canceling any existing transaction(s) with nonce number ' + nonce + '.'
     );
-    const tx = {
-      from: wallet.address,
-      to: wallet.address,
-      value: utils.parseEther('0'),
-      nonce: nonce,
-      gasPrice: this._gasPrice * 1e9 * 2,
-    };
-    const response = await wallet.sendTransaction(tx);
-    logger.info(response);
-
-    return response;
+    return super.cancelTx(wallet, nonce, this._gasPrice);
   }
 }

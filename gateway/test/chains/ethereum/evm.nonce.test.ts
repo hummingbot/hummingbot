@@ -1,6 +1,6 @@
 import { patch, unpatch } from '../../services/patch';
 import { providers } from 'ethers';
-import { EVMNonceManager } from '../../../src/chains/ethereum/evm.nonce';
+import { EVMNonceManager } from '../../../src/services/evm.nonce';
 import 'jest-extended';
 
 const exampleAddress = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';

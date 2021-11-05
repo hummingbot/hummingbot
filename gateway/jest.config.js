@@ -8,6 +8,8 @@ module.exports = {
     'src/services/ethereum-base.ts',
     'src/chains/ethereum/ethereum.ts',
     'src/chains/ethereum/uniswap/uniswap.ts',
+    'src/chains/avalanche/avalanche.ts',
+    'src/chains/avalanche/pangolin/pangolin.ts',
   ],
   modulePathIgnorePatterns: ['<rootDir>/dist/'],
 };
