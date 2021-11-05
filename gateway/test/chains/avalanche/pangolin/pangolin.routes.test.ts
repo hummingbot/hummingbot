@@ -1,9 +1,6 @@
-// import express from 'express';
-// import { Express } from 'express-serve-static-core';
 import request from 'supertest';
 import { ConfigManager } from '../../../../src/services/config-manager';
 import { patch, unpatch } from '../../../services/patch';
-// import { Avalanche } from '../../../../src/chains/avalanche/avalanche';
 import { PangolinRoutes } from '../../../../src/chains/avalanche/pangolin/pangolin.routes';
 import { app } from '../../../../src/app';
 
@@ -16,12 +13,6 @@ const patchGetWallet = () => {
     return {
       address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
     };
-  });
-};
-
-const patchInit = () => {
-  patch(PangolinRoutes.pangolin, 'init', async () => {
-    return;
   });
 };
 
@@ -123,7 +114,6 @@ const patchExecuteTrade = () => {
 describe('POST /avalanche/pangolin/price', () => {
   it('should return 200 for BUY', async () => {
     patchGetWallet();
-    patchInit();
     patchStoredTokenList();
     patchGetTokenBySymbol();
     patchGasPrice();
@@ -149,7 +139,6 @@ describe('POST /avalanche/pangolin/price', () => {
 
   it('should return 200 for SELL', async () => {
     patchGetWallet();
-    patchInit();
     patchStoredTokenList();
     patchGetTokenBySymbol();
     patchGasPrice();
@@ -175,7 +164,6 @@ describe('POST /avalanche/pangolin/price', () => {
 
   it('should return 500 for unrecognized quote symbol', async () => {
     patchGetWallet();
-    patchInit();
     patchStoredTokenList();
     patchGetTokenBySymbol();
 
@@ -193,7 +181,6 @@ describe('POST /avalanche/pangolin/price', () => {
 
   it('should return 500 for unrecognized base symbol', async () => {
     patchGetWallet();
-    patchInit();
     patchStoredTokenList();
     patchGetTokenBySymbol();
 
@@ -213,7 +200,6 @@ describe('POST /avalanche/pangolin/price', () => {
 describe('POST /avalanche/pangolin/trade', () => {
   const patchForBuy = () => {
     patchGetWallet();
-    patchInit();
     patchStoredTokenList();
     patchGetTokenBySymbol();
     patchGasPrice();
@@ -279,7 +265,6 @@ describe('POST /avalanche/pangolin/trade', () => {
 
   const patchForSell = () => {
     patchGetWallet();
-    patchInit();
     patchStoredTokenList();
     patchGetTokenBySymbol();
     patchGasPrice();
@@ -328,7 +313,6 @@ describe('POST /avalanche/pangolin/trade', () => {
   });
 
   it('should return 404 when parameters are incorrect', async () => {
-    patchInit();
     await request(app)
       .post(`/avalanche/pangolin/trade`)
       .send({

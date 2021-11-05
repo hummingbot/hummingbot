@@ -1,11 +1,19 @@
 import { Ethereum } from '../../src/chains/ethereum/ethereum';
+import { patch, unpatch } from './patch';
 
 describe('Eth block listener test', () => {
   let eth: Ethereum;
   beforeAll(async () => {
     eth = Ethereum.getInstance();
+    patch(eth, 'loadTokens', async () => {
+      return;
+    });
     await eth.init();
     await eth.provider.ready;
+  });
+
+  afterAll(() => {
+    unpatch();
   });
 
   it('block event should be registered', (done) => {
