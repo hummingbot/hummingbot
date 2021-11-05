@@ -26,6 +26,8 @@ export class Ethereum extends EthereumBase implements Ethereumish {
   private _gasPriceLastUpdated: Date | null;
   private _nativeTokenSymbol: string;
   private _chain: string;
+  private _requestCount: number;
+  private _metricsLogInterval: number;
 
   private constructor() {
     let config;
@@ -57,6 +59,12 @@ export class Ethereum extends EthereumBase implements Ethereumish {
     this._gasPriceLastUpdated = null;
 
     this.updateGasPrice();
+
+    this._requestCount = 0;
+    this._metricsLogInterval = 300000; // 5 minutes
+
+    this.onDebugMessage(this.requestCounter.bind(this));
+    setInterval(this.metricLogger.bind(this), this.metricsLogInterval);
   }
 
   public static getInstance(): Ethereum {
@@ -71,8 +79,22 @@ export class Ethereum extends EthereumBase implements Ethereumish {
     Ethereum._instance = new Ethereum();
     return Ethereum._instance;
   }
-  // getters
 
+  public requestCounter(msg: any): void {
+    if (msg.action === 'request') this._requestCount += 1;
+  }
+
+  public metricLogger(): void {
+    logger.info(
+      this.requestCount +
+        ' request(s) sent in last ' +
+        this.metricsLogInterval / 1000 +
+        ' seconds.'
+    );
+    this._requestCount = 0; // reset
+  }
+
+  // getters
   public get gasPrice(): number {
     return this._gasPrice;
   }
@@ -87,6 +109,14 @@ export class Ethereum extends EthereumBase implements Ethereumish {
 
   public get gasPriceLastDated(): Date | null {
     return this._gasPriceLastUpdated;
+  }
+
+  public get requestCount(): number {
+    return this._requestCount;
+  }
+
+  public get metricsLogInterval(): number {
+    return this._metricsLogInterval;
   }
 
   // If ConfigManager.config.ETH_GAS_STATION_ENABLE is true this will

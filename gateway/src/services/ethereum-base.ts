@@ -24,6 +24,9 @@ export interface Token {
 }
 
 export type NewBlockHandler = (bn: number) => void;
+
+export type NewDebugMsgHandler = (msg: any) => void;
+
 export class EthereumBase {
   private _provider;
   protected tokenList: Token[] = [];
@@ -75,6 +78,10 @@ export class EthereumBase {
 
   public onNewBlock(func: NewBlockHandler) {
     this._provider.on('block', func);
+  }
+
+  public onDebugMessage(func: NewDebugMsgHandler) {
+    this._provider.on('debug', func);
   }
 
   async init(): Promise<void> {
