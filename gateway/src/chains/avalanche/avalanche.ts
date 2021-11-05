@@ -1,140 +1,68 @@
 import abi from '../../services/ethereum.abi.json';
-import axios from 'axios';
 import { logger } from '../../services/logger';
 import { BigNumber, Contract, Transaction, Wallet } from 'ethers';
 import { EthereumBase } from '../../services/ethereum-base';
 import { ConfigManager } from '../../services/config-manager';
-import { EthereumConfig } from './ethereum.config';
+import { AvalancheConfig } from './avalanche.config';
 import { TokenValue } from '../../services/base';
 import { Provider } from '@ethersproject/abstract-provider';
-import { UniswapConfig } from './uniswap/uniswap.config';
+import { Ethereumish } from '../ethereum/ethereum';
+import { PangolinConfig } from './pangolin/pangolin.config';
 
 // MKR does not match the ERC20 perfectly so we need to use a separate ABI.
 const MKR_ADDRESS = '0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2';
 
-export interface Ethereumish extends EthereumBase {
-  cancelTx(wallet: Wallet, nonce: number): Promise<Transaction>;
-  getSpender(reqSpender: string): string;
-  nativeTokenSymbol: string;
-  chain: string;
-}
-
-export class Ethereum extends EthereumBase implements Ethereumish {
-  private static _instance: Ethereum;
-  private _ethGasStationUrl: string;
+export class Avalanche extends EthereumBase implements Ethereumish {
+  private static _instance: Avalanche;
   private _gasPrice: number;
-  private _gasPriceLastUpdated: Date | null;
   private _nativeTokenSymbol: string;
   private _chain: string;
-  private _requestCount: number;
-  private _metricsLogInterval: number;
 
   private constructor() {
     let config;
-    switch (ConfigManager.config.ETHEREUM_CHAIN) {
-      case 'mainnet':
-        config = EthereumConfig.config.mainnet;
+    switch (ConfigManager.config.AVALANCHE_CHAIN) {
+      case 'fuji':
+        config = AvalancheConfig.config.fuji;
         break;
-      case 'kovan':
-        config = EthereumConfig.config.kovan;
+      case 'avalanche':
+        config = AvalancheConfig.config.avalanche;
         break;
       default:
-        throw new Error('ETHEREUM_CHAIN not valid');
+        throw new Error('AVALANCHE_CHAIN not valid');
     }
 
     super(
       config.chainId,
-      config.rpcUrl + ConfigManager.config.INFURA_KEY,
+      config.rpcUrl,
       config.tokenListSource,
       config.tokenListType,
-      ConfigManager.config.ETH_MANUAL_GAS_PRICE
+      ConfigManager.config.AVAX_MANUAL_GAS_PRICE
     );
-    this._chain = ConfigManager.config.ETHEREUM_CHAIN;
-    this._nativeTokenSymbol = 'ETH';
-    this._ethGasStationUrl =
-      'https://ethgasstation.info/api/ethgasAPI.json?api-key=' +
-      ConfigManager.config.ETH_GAS_STATION_API_KEY;
-
-    this._gasPrice = ConfigManager.config.ETH_MANUAL_GAS_PRICE;
-    this._gasPriceLastUpdated = null;
-
-    this.updateGasPrice();
-
-    this._requestCount = 0;
-    this._metricsLogInterval = 300000; // 5 minutes
-
-    this.onDebugMessage(this.requestCounter.bind(this));
-    setInterval(this.metricLogger.bind(this), this.metricsLogInterval);
+    this._chain = ConfigManager.config.AVALANCHE_CHAIN;
+    this._nativeTokenSymbol = 'AVAX';
+    this._gasPrice = ConfigManager.config.AVAX_MANUAL_GAS_PRICE;
   }
 
-  public static getInstance(): Ethereum {
-    if (!Ethereum._instance) {
-      Ethereum._instance = new Ethereum();
+  public static getInstance(): Avalanche {
+    if (!Avalanche._instance) {
+      Avalanche._instance = new Avalanche();
     }
 
-    return Ethereum._instance;
-  }
-
-  public static reload(): Ethereum {
-    Ethereum._instance = new Ethereum();
-    return Ethereum._instance;
-  }
-
-  public requestCounter(msg: any): void {
-    if (msg.action === 'request') this._requestCount += 1;
-  }
-
-  public metricLogger(): void {
-    logger.info(
-      this.requestCount +
-        ' request(s) sent in last ' +
-        this.metricsLogInterval / 1000 +
-        ' seconds.'
-    );
-    this._requestCount = 0; // reset
+    return Avalanche._instance;
   }
 
   // getters
+
   public get gasPrice(): number {
     return this._gasPrice;
-  }
-
-  public get chain(): string {
-    return this._chain;
   }
 
   public get nativeTokenSymbol(): string {
     return this._nativeTokenSymbol;
   }
 
-  public get gasPriceLastDated(): Date | null {
-    return this._gasPriceLastUpdated;
-  }
-
-  public get requestCount(): number {
-    return this._requestCount;
-  }
-
-  public get metricsLogInterval(): number {
-    return this._metricsLogInterval;
-  }
-
-  // If ConfigManager.config.ETH_GAS_STATION_ENABLE is true this will
-  // continually update the gas price.
-  async updateGasPrice(): Promise<void> {
-    if (ConfigManager.config.ETH_GAS_STATION_ENABLE) {
-      const { data } = await axios.get(this._ethGasStationUrl);
-
-      // divide by 10 to convert it to Gwei
-      this._gasPrice =
-        data[ConfigManager.config.ETH_GAS_STATION_GAS_LEVEL] / 10;
-      this._gasPriceLastUpdated = new Date();
-
-      setTimeout(
-        this.updateGasPrice.bind(this),
-        ConfigManager.config.ETH_GAS_STATION_REFRESH_TIME * 1000
-      );
-    }
+  public get chain(): string {
+    return this._chain;
   }
 
   // override getERC20Balance definition to handle MKR edge case
@@ -190,11 +118,11 @@ export class Ethereum extends EthereumBase implements Ethereumish {
 
   getSpender(reqSpender: string): string {
     let spender: string;
-    if (reqSpender === 'uniswap') {
-      if (ConfigManager.config.ETHEREUM_CHAIN === 'mainnet') {
-        spender = UniswapConfig.config.mainnet.uniswapV2RouterAddress;
+    if (reqSpender === 'pangolin') {
+      if (ConfigManager.config.ETHEREUM_CHAIN === 'avalanche') {
+        spender = PangolinConfig.config.avalanche.routerAddress;
       } else {
-        spender = UniswapConfig.config.kovan.uniswapV2RouterAddress;
+        spender = PangolinConfig.config.fuji.routerAddress;
       }
     } else {
       spender = reqSpender;
@@ -208,9 +136,7 @@ export class Ethereum extends EthereumBase implements Ethereumish {
     spender: string,
     tokenAddress: string,
     amount: BigNumber,
-    nonce?: number,
-    maxFeePerGas?: BigNumber,
-    maxPriorityFeePerGas?: BigNumber
+    nonce?: number
   ): Promise<Transaction> {
     // instantiate a contract and pass in wallet, which act on behalf of that signer
     const contract = this.getContract(tokenAddress, wallet);
@@ -229,22 +155,11 @@ export class Ethereum extends EthereumBase implements Ethereumish {
     if (!nonce) {
       nonce = await this.nonceManager.getNonce(wallet.address);
     }
-    let response;
-    if (maxFeePerGas || maxPriorityFeePerGas) {
-      response = await contract.approve(spender, amount, {
-        gasLimit: 100000,
-        nonce: nonce,
-        maxFeePerGas,
-        maxPriorityFeePerGas,
-      });
-    } else {
-      response = await contract.approve(spender, amount, {
-        gasPrice: this._gasPrice * 1e9,
-        gasLimit: 100000,
-        nonce: nonce,
-      });
-    }
-
+    const response = await contract.approve(spender, amount, {
+      gasPrice: this._gasPrice * 1e9,
+      gasLimit: 100000,
+      nonce: nonce,
+    });
     logger.info(response);
 
     await this.nonceManager.commitNonce(wallet.address, nonce);
