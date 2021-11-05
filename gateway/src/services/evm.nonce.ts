@@ -1,6 +1,6 @@
 import ethers from 'ethers';
-import { logger } from '../../services/logger';
-import { dbSaveNonce, dbGetChainNonces } from '../../services/local-storage';
+import { logger } from './logger';
+import { dbSaveNonce, dbGetChainNonces } from './local-storage';
 
 export class EVMNonceManager {
   private static _instance: EVMNonceManager;

@@ -1,8 +1,8 @@
 import fs from 'fs';
 import yaml from 'js-yaml';
-import { Percent } from '@uniswap/sdk';
 
 export namespace ConfigManager {
+  export const percentRegexp = new RegExp(/^(\d+)\/(\d+)$/);
   export interface Config {
     VERSION: number;
     APPNAME: string;
@@ -13,15 +13,20 @@ export namespace ConfigManager {
     GMT_OFFSET: number;
     CERT_PATH: string;
     ETHEREUM_CHAIN: string;
+    AVALANCHE_CHAIN: string;
     INFURA_KEY: string;
     ETH_GAS_STATION_ENABLE: boolean;
     ETH_GAS_STATION_API_KEY: string;
     ETH_GAS_STATION_GAS_LEVEL: string;
     ETH_GAS_STATION_REFRESH_TIME: number;
     ETH_MANUAL_GAS_PRICE: number;
+    AVAX_MANUAL_GAS_PRICE: number;
     UNISWAP_ALLOWED_SLIPPAGE: string;
     UNISWAP_GAS_LIMIT: number;
     UNISWAP_TTL: number;
+    PANGOLIN_ALLOWED_SLIPPAGE: string;
+    PANGOLIN_GAS_LIMIT: number;
+    PANGOLIN_TTL: number;
     LOG_TO_STDOUT?: boolean;
     UNSAFE_DEV_MODE_WITH_HTTP?: boolean;
     ENABLE_TELEMETRY?: boolean;
@@ -56,17 +61,6 @@ export namespace ConfigManager {
     }
   }
 
-  const percentRegexp = new RegExp(/^(\d+)\/(\d+)$/);
-
-  export function getUniswapAllowedSlippagePercentage(config: Config): Percent {
-    const slippageString = config['UNISWAP_ALLOWED_SLIPPAGE'];
-    const nd = slippageString.match(percentRegexp);
-    if (nd) return new Percent(nd[1], nd[2]);
-    throw new Error(
-      'Encountered a malformed percent string in the config for UNISWAP_ALLOWED_SLIPPAGE.'
-    );
-  }
-
   export function validateConfig(o: any): o is Config {
     return (
       'VERSION' in o &&
@@ -79,16 +73,22 @@ export namespace ConfigManager {
       'GMT_OFFSET' in o &&
       'CERT_PATH' in o &&
       'ETHEREUM_CHAIN' in o &&
+      'AVALANCHE_CHAIN' in o &&
       'INFURA_KEY' in o &&
       'ETH_GAS_STATION_ENABLE' in o &&
       'ETH_GAS_STATION_API_KEY' in o &&
       'ETH_GAS_STATION_GAS_LEVEL' in o &&
       'ETH_GAS_STATION_REFRESH_TIME' in o &&
       'ETH_MANUAL_GAS_PRICE' in o &&
+      'AVAX_MANUAL_GAS_PRICE' in o &&
       'UNISWAP_ALLOWED_SLIPPAGE' in o &&
       percentRegexp.test(o['UNISWAP_ALLOWED_SLIPPAGE']) &&
       'UNISWAP_GAS_LIMIT' in o &&
-      'UNISWAP_TTL' in o
+      'UNISWAP_TTL' in o &&
+      'PANGOLIN_ALLOWED_SLIPPAGE' in o &&
+      percentRegexp.test(o['PANGOLIN_ALLOWED_SLIPPAGE']) &&
+      'PANGOLIN_GAS_LIMIT' in o &&
+      'PANGOLIN_TTL' in o
     );
   }
 

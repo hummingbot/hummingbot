@@ -1,8 +1,17 @@
-import { BigNumber, Contract, providers, Transaction, Wallet } from 'ethers';
+import {
+  BigNumber,
+  Contract,
+  logger,
+  providers,
+  Transaction,
+  utils,
+  Wallet,
+} from 'ethers';
 import abi from './ethereum.abi.json';
 import axios from 'axios';
 import fs from 'fs/promises';
 import { TokenListType, TokenValue } from './base';
+import { EVMNonceManager } from './evm.nonce';
 import NodeCache from 'node-cache';
 
 // information about an Ethereum token
@@ -20,12 +29,12 @@ export type NewDebugMsgHandler = (msg: any) => void;
 
 export class EthereumBase {
   private _provider;
-  protected _tokenList: Token[] = [];
+  protected tokenList: Token[] = [];
   private _tokenMap: Record<string, Token> = {};
   // there are async values set in the constructor
-  protected _ready: boolean = false;
-  protected _initializing: boolean = false;
-  protected _initPromise: Promise<void> = Promise.resolve();
+  private _ready: boolean = false;
+  private _initializing: boolean = false;
+  private _initPromise: Promise<void> = Promise.resolve();
 
   public chainId;
   public rpcUrl;
@@ -33,6 +42,7 @@ export class EthereumBase {
   public tokenListSource: string;
   public tokenListType: TokenListType;
   public cache: NodeCache;
+  private _nonceManager: EVMNonceManager;
 
   constructor(
     chainId: number,
@@ -47,6 +57,8 @@ export class EthereumBase {
     this.gasPriceConstant = gasPriceConstant;
     this.tokenListSource = tokenListSource;
     this.tokenListType = tokenListType;
+    this._nonceManager = EVMNonceManager.getInstance();
+    this._nonceManager.init(this.provider, 60, chainId);
     this.cache = new NodeCache({ stdTTL: 3600 }); // set default cache ttl to 1hr
   }
 
@@ -75,9 +87,13 @@ export class EthereumBase {
   async init(): Promise<void> {
     if (!this.ready() && !this._initializing) {
       this._initializing = true;
-      await this.loadTokens(this.tokenListSource, this.tokenListType);
-      this._ready = true;
-      this._initializing = false;
+      this._initPromise = this.loadTokens(
+        this.tokenListSource,
+        this.tokenListType
+      ).then(() => {
+        this._ready = true;
+        this._initializing = false;
+      });
     }
     return this._initPromise;
   }
@@ -86,8 +102,8 @@ export class EthereumBase {
     tokenListSource: string,
     tokenListType: TokenListType
   ): Promise<void> {
-    this._tokenList = await this.getTokenList(tokenListSource, tokenListType);
-    this._tokenList.forEach(
+    this.tokenList = await this.getTokenList(tokenListSource, tokenListType);
+    this.tokenList.forEach(
       (token: Token) => (this._tokenMap[token.symbol] = token)
     );
   }
@@ -111,6 +127,17 @@ export class EthereumBase {
   // returns the gas price.
   public get gasPrice(): number {
     return this.gasPriceConstant;
+  }
+
+  public get nonceManager() {
+    return this._nonceManager;
+  }
+
+  // ethereum token lists are large. instead of reloading each time with
+  // getTokenList, we can read the stored tokenList value from when the
+  // object was initiated.
+  public get storedTokenList(): Token[] {
+    return this.tokenList;
   }
 
   // return the Token object for a symbol
@@ -154,11 +181,6 @@ export class EthereumBase {
     return { value: allowance, decimals: decimals };
   }
 
-  // returns the current block number
-  async getCurrentBlockNumber(): Promise<number> {
-    return this._provider.getBlockNumber();
-  }
-
   // returns an ethereum TransactionResponse for a txHash.
   async getTransaction(txHash: string): Promise<providers.TransactionResponse> {
     return this._provider.getTransaction(txHash);
@@ -197,13 +219,55 @@ export class EthereumBase {
     wallet: Wallet,
     spender: string,
     tokenAddress: string,
-    amount: BigNumber
+    amount: BigNumber,
+    nonce?: number,
+    maxFeePerGas?: BigNumber,
+    maxPriorityFeePerGas?: BigNumber
   ): Promise<Transaction> {
     // instantiate a contract and pass in wallet, which act on behalf of that signer
     const contract = new Contract(tokenAddress, abi.ERC20Abi, wallet);
-    return contract.approve(spender, amount, {
+    if (!nonce) {
+      nonce = await this.nonceManager.getNonce(wallet.address);
+    }
+    const params: any = {
       gasPrice: this.gasPriceConstant * 1e9,
       gasLimit: 100000,
-    });
+      nonce: nonce,
+    };
+    if (maxFeePerGas) params.maxFeePerGas = maxFeePerGas;
+    if (maxPriorityFeePerGas)
+      params.maxPriorityFeePerGas = maxPriorityFeePerGas;
+
+    return contract.approve(spender, amount, params);
+  }
+
+  public getTokenBySymbol(tokenSymbol: string): Token | undefined {
+    return this.tokenList.find(
+      (token: Token) => token.symbol.toUpperCase() === tokenSymbol.toUpperCase()
+    );
+  }
+
+  // returns the current block number
+  async getCurrentBlockNumber(): Promise<number> {
+    return this._provider.getBlockNumber();
+  }
+
+  // cancel transaction
+  async cancelTx(
+    wallet: Wallet,
+    nonce: number,
+    gasPrice: number
+  ): Promise<Transaction> {
+    const tx = {
+      from: wallet.address,
+      to: wallet.address,
+      value: utils.parseEther('0'),
+      nonce: nonce,
+      gasPrice: gasPrice * 1e9 * 2,
+    };
+    const response = await wallet.sendTransaction(tx);
+    logger.info(response);
+
+    return response;
   }
 }

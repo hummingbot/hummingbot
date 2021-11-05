@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@ethersproject/experimental": "^5.3.0",
+    "@pangolindex/sdk": "^1.1.0",
     "@uniswap/sdk": "^3.0.3",
     "@uniswap/sdk-core": "^3.0.0",
     "@uniswap/v3-core": "^1.0.0",
