@@ -173,6 +173,7 @@ jobs:
           GMT_OFFSET: +0800
           CERT_PATH: ''
           ETHEREUM_CHAIN: mainnet
+          AVALANCHE_CHAIN: avalanche
           INFURA_KEY: '6f637da72af64d99870a68d09a7df3d7'
           ETH_GAS_STATION_ENABLE: true
           ETH_GAS_STATION_API_KEY: '97bf1ac4acb940a30303f301208a59091760e5d26507241e9b700a3e8703'
