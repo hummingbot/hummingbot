@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 
 import asyncio
-from collections import deque
+import inspect
 import logging
 import time
-import inspect
+from collections import deque
 from typing import List, Dict, Optional, Tuple, Deque
+
+import hummingbot.client.tab as tab_package
 from hummingbot.client.command import __all__ as commands
 from hummingbot.core.clock import Clock
 from hummingbot.exceptions import ArgumentParserError
@@ -36,7 +38,6 @@ from hummingbot.client.config.security import Security
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.client.settings import AllConnectorSettings, ConnectorType
 from hummingbot.client.tab.data_types import CommandTab
-import hummingbot.client.tab as tab_package
 
 s_logger = None
 
@@ -282,15 +283,10 @@ class HummingbotApplication(*commands):
     def init_command_tabs(self) -> Dict[str, CommandTab]:
         command_tabs: Dict[str, CommandTab] = {}
         for mod_name, module in tab_package.__dict__.items():
-            for x in dir(module):
-                tab = getattr(module, x)
+            for mod_item in dir(module):
+                tab = getattr(module, mod_item)
                 if inspect.isclass(tab) and issubclass(tab, tab_package.tab_base.TabBase) \
                         and tab is not tab_package.tab_base.TabBase:
                     name = tab.get_command_name()
-                    command_tabs[name] = CommandTab(
-                        name,
-                        None,
-                        None,
-                        None,
-                        tab)
+                    command_tabs[name] = CommandTab(name, None, None, None, tab)
         return command_tabs

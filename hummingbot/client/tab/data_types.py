@@ -1,7 +1,9 @@
 import asyncio
+
 from dataclasses import dataclass
-from typing import Type, Optional
 from prompt_toolkit.widgets import Button
+from typing import Type, Optional
+
 from hummingbot.client.ui.custom_widgets import CustomTextArea
 from .tab_base import TabBase
 
