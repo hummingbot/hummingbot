@@ -37,8 +37,8 @@ class StyleTest(unittest.TestCase):
                                  "primary": "#FCFCFC",
                                  "warning": "#93C36D",
                                  "error": "#F5634A",
-                                 "tab_button.focused": "bg:#1CD085 #000000",
-                                 "tab_button": "bg:#FFFFFF #000000",
+                                 "tab_button.focused": "bg:#FCFCFC #FAFAFA",
+                                 "tab_button": "bg:#FFFFFF #FAFAFA",
                                  })
 
         self.assertEqual(style.class_names_and_attrs, load_style(global_config_map).class_names_and_attrs)
@@ -55,18 +55,18 @@ class StyleTest(unittest.TestCase):
         global_config_map["logs-pane"] = self.ConfigVar("#FAFAFA")
         global_config_map["terminal-primary"] = self.ConfigVar("#FCFCFC")
 
-        style = Style.from_dict({"output-field": "bg:#ansigray #ansigray",
-                                 "input-field": "bg:#ansigray #ansiwhite",
-                                 "log-field": "bg:#ansigray #ansiwhite",
-                                 "header": "bg:#ansigray #ansiwhite",
-                                 "footer": "bg:#ansigray #ansiwhite",
-                                 "search": "#ansigray",
-                                 "search.current": "#ansigray",
-                                 "primary": "#ansigray",
+        style = Style.from_dict({"output-field": "bg:#ansiwhite #ansiwhite",
+                                 "input-field": "bg:#ansiwhite #ansiwhite",
+                                 "log-field": "bg:#ansiwhite #ansiwhite",
+                                 "header": "bg:#ansiwhite #ansiwhite",
+                                 "footer": "bg:#ansiwhite #ansiwhite",
+                                 "search": "#ansiwhite",
+                                 "search.current": "#ansiwhite",
+                                 "primary": "#ansiwhite",
                                  "warning": "#ansibrightyellow",
                                  "error": "#ansired",
-                                 "tab_button.focused": "bg:#ansigreen #ansiblack",
-                                 "tab_button": "bg:#ansiwhite #ansiblack",
+                                 "tab_button.focused": "bg:#ansiwhite #ansiwhite",
+                                 "tab_button": "bg:#ansiwhite #ansiwhite",
                                  })
 
         self.assertEqual(style.class_names_and_attrs, load_style(global_config_map).class_names_and_attrs)
@@ -90,8 +90,8 @@ class StyleTest(unittest.TestCase):
                                  "primary": "#010101",
                                  "warning": "#93C36D",
                                  "error": "#F5634A",
-                                 "tab_button.focused": "bg:#1CD085 #000000",
-                                 "tab_button": "bg:#FFFFFF #000000",
+                                 "tab_button.focused": "bg:#010101 #333333",
+                                 "tab_button": "bg:#FFFFFF #333333",
                                  })
 
         self.assertEqual(style.class_names_and_attrs, reset_style(config_map=global_config_map, save=False).class_names_and_attrs)
