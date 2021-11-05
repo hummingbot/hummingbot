@@ -1,6 +1,6 @@
 import aiohttp
-from hummingbot.core.api_delegate.connections.rest_connection import RESTConnection
-from hummingbot.core.api_delegate.connections.ws_connection import WSConnection
+from hummingbot.core.web_assistant.connections.rest_connection import RESTConnection
+from hummingbot.core.web_assistant.connections.ws_connection import WSConnection
 
 
 class ConnectionsFactory:

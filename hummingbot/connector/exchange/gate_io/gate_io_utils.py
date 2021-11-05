@@ -9,9 +9,9 @@ from hummingbot.client.config.config_methods import using_exchange
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
-from hummingbot.core.api_delegate.api_factory import APIFactory
-from hummingbot.core.api_delegate.connections.data_types import RESTMethod, RESTRequest, RESTResponse
-from hummingbot.core.api_delegate.rest_assistant import RESTAssistant
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, RESTResponse
+from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
@@ -71,8 +71,8 @@ class GateIoAPIError(IOError):
             self.error_label = error_payload
 
 
-def build_gate_io_api_factory() -> APIFactory:
-    api_factory = APIFactory()
+def build_gate_io_api_factory() -> WebAssistantsFactory:
+    api_factory = WebAssistantsFactory()
     return api_factory
 
 
@@ -144,7 +144,7 @@ async def rest_response_with_errors(request_coroutine):
 
 
 async def api_call_with_retries(request: GateIORESTRequest,
-                                rest_delegate: RESTAssistant,
+                                rest_assistant: RESTAssistant,
                                 throttler: AsyncThrottler,
                                 logger: logging.Logger,
                                 gate_io_auth: Optional[GateIoAuth] = None,
@@ -162,7 +162,7 @@ async def api_call_with_retries(request: GateIORESTRequest,
             request.data = auth_params
             headers: dict = gate_io_auth.get_headers(str(request.method), request.auth_url, auth_params)
         request.headers = headers
-        response_coro = asyncio.wait_for(rest_delegate.call(request), CONSTANTS.API_CALL_TIMEOUT)
+        response_coro = asyncio.wait_for(rest_assistant.call(request), CONSTANTS.API_CALL_TIMEOUT)
         http_status, parsed_response, request_errors = await rest_response_with_errors(response_coro)
 
     if request_errors or parsed_response is None:
@@ -175,7 +175,7 @@ async def api_call_with_retries(request: GateIORESTRequest,
             )
             await asyncio.sleep(time_sleep)
             return await api_call_with_retries(
-                request, rest_delegate, throttler, logger, gate_io_auth, try_count
+                request, rest_assistant, throttler, logger, gate_io_auth, try_count
             )
         else:
             raise GateIoAPIError({"label": "HTTP_ERROR", "message": parsed_response, "status": http_status})

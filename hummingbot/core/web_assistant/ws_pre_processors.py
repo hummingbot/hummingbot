@@ -1,6 +1,6 @@
 import abc
 
-from hummingbot.core.api_delegate.connections.data_types import WSRequest
+from hummingbot.core.web_assistant.connections.data_types import WSRequest
 
 
 class WSPreProcessorBase(abc.ABC):

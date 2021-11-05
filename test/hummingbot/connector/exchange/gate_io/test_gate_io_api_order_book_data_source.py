@@ -10,7 +10,7 @@ from aioresponses import aioresponses
 
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.connector.exchange.gate_io.gate_io_api_order_book_data_source import GateIoAPIOrderBookDataSource
-from hummingbot.core.api_delegate.api_factory import APIFactory
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook, OrderBookMessage
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
@@ -29,7 +29,7 @@ class TestGateIoAPIOrderBookDataSource(unittest.TestCase):
         super().setUp()
         self.mocking_assistant = NetworkMockingAssistant()
         self.throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
-        api_factory = APIFactory()
+        api_factory = WebAssistantsFactory()
         self.data_source = GateIoAPIOrderBookDataSource(
             self.throttler, trading_pairs=[self.trading_pair], api_factory=api_factory
         )

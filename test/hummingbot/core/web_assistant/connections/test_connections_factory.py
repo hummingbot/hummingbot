@@ -2,13 +2,13 @@ import asyncio
 import unittest
 from typing import Awaitable
 
-from hummingbot.core.api_delegate.connections.connections_factory import (
+from hummingbot.core.web_assistant.connections.connections_factory import (
     ConnectionsFactory
 )
-from hummingbot.core.api_delegate.connections.rest_connection import (
+from hummingbot.core.web_assistant.connections.rest_connection import (
     RESTConnection
 )
-from hummingbot.core.api_delegate.connections.ws_connection import WSConnection
+from hummingbot.core.web_assistant.connections.ws_connection import WSConnection
 
 
 class ConnectionsFactoryTest(unittest.TestCase):

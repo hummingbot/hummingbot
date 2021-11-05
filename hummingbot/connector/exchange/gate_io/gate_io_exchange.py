@@ -23,8 +23,8 @@ from hummingbot.connector.exchange.gate_io.gate_io_utils import (
 )
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.core.api_delegate.connections.data_types import RESTMethod
-from hummingbot.core.api_delegate.rest_assistant import RESTAssistant
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod
+from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
@@ -85,7 +85,7 @@ class GateIoExchange(ExchangeBase):
         self._gate_io_auth = GateIoAuth(gate_io_api_key, gate_io_secret_key)
         self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         self._api_factory = build_gate_io_api_factory()
-        self._rest_delegate: Optional[RESTAssistant] = None
+        self._rest_assistant: Optional[RESTAssistant] = None
         self._order_book_tracker = GateIoOrderBookTracker(
             self._throttler, trading_pairs, self._api_factory
         )
@@ -162,10 +162,10 @@ class GateIoExchange(ExchangeBase):
             if not value.is_done
         }
 
-    async def _get_rest_delegate(self) -> RESTAssistant:
-        if self._rest_delegate is None:
-            self._rest_delegate = await self._api_factory.get_rest_delegate()
-        return self._rest_delegate
+    async def _get_rest_assistant(self) -> RESTAssistant:
+        if self._rest_assistant is None:
+            self._rest_assistant = await self._api_factory.get_rest_assistant()
+        return self._rest_assistant
 
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         """
@@ -329,9 +329,9 @@ class GateIoExchange(ExchangeBase):
         return result
 
     async def _api_request(self, request: GateIORESTRequest) -> Dict[str, Any]:
-        rest_delegate: RESTAssistant = await self._get_rest_delegate()
+        rest_assistant: RESTAssistant = await self._get_rest_assistant()
         response = await api_call_with_retries(
-            request, rest_delegate, self._throttler, self.logger(), self._gate_io_auth
+            request, rest_assistant, self._throttler, self.logger(), self._gate_io_auth
         )
         return response
 

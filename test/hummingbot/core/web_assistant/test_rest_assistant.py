@@ -6,17 +6,17 @@ from typing import Awaitable
 import aiohttp
 from aioresponses import aioresponses
 
-from hummingbot.core.api_delegate.connections.rest_connection import (
+from hummingbot.core.web_assistant.connections.rest_connection import (
     RESTConnection
 )
-from hummingbot.core.api_delegate.connections.data_types import (
+from hummingbot.core.web_assistant.connections.data_types import (
     RESTMethod, RESTRequest, RESTResponse
 )
-from hummingbot.core.api_delegate.rest_assistant import RESTAssistant
-from hummingbot.core.api_delegate.rest_post_processors import (
+from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
+from hummingbot.core.web_assistant.rest_post_processors import (
     RESTPostProcessorBase
 )
-from hummingbot.core.api_delegate.rest_pre_processors import (
+from hummingbot.core.web_assistant.rest_pre_processors import (
     RESTPreProcessorBase
 )
 
@@ -32,7 +32,7 @@ class RESTAssistantTest(unittest.TestCase):
         return ret
 
     @aioresponses()
-    def test_rest_delegate_call_with_pre_and_post_processing(self, mocked_api):
+    def test_rest_assistant_call_with_pre_and_post_processing(self, mocked_api):
         url = "https://www.test.com/url"
         resp = {"one": 1}
         pre_processor_ran = False
@@ -54,10 +54,10 @@ class RESTAssistantTest(unittest.TestCase):
         pre_processors = [PreProcessor()]
         post_processors = [PostProcessor()]
         connection = RESTConnection(aiohttp.ClientSession())
-        delegate = RESTAssistant(connection, pre_processors, post_processors)
+        assistant = RESTAssistant(connection, pre_processors, post_processors)
         req = RESTRequest(method=RESTMethod.GET, url=url)
 
-        ret = self.async_run_with_timeout(delegate.call(req))
+        ret = self.async_run_with_timeout(assistant.call(req))
         ret_json = self.async_run_with_timeout(ret.json())
 
         self.assertEqual(resp, ret_json)

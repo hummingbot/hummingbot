@@ -7,9 +7,9 @@ from typing import Any, AsyncIterable, Dict, List, Optional
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
 from hummingbot.connector.exchange.gate_io.gate_io_utils import GateIoAPIError, build_gate_io_api_factory
-from hummingbot.core.api_delegate.api_factory import APIFactory
-from hummingbot.core.api_delegate.connections.data_types import WSRequest, WSResponse
-from hummingbot.core.api_delegate.ws_assistant import WSAssistant
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.core.web_assistant.connections.data_types import WSRequest, WSResponse
+from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 
 
@@ -24,21 +24,21 @@ class GateIoWebsocket:
 
     def __init__(self,
                  auth: Optional[GateIoAuth] = None,
-                 api_factory: Optional[APIFactory] = None):
+                 api_factory: Optional[WebAssistantsFactory] = None):
         self._auth: Optional[GateIoAuth] = auth
         self._is_private = True if self._auth is not None else False
         self._api_factory = api_factory or build_gate_io_api_factory()
-        self._ws_delegate: Optional[WSAssistant] = None
+        self._ws_assistant: Optional[WSAssistant] = None
         self._closed = True
         self._last_recv_time = 0
 
     @property
     def last_recv_time(self) -> float:
-        return self._ws_delegate.last_recv_time
+        return self._ws_assistant.last_recv_time
 
     async def connect(self):
-        self._ws_delegate = await self._api_factory.get_ws_delegate()
-        await self._ws_delegate.connect(
+        self._ws_assistant = await self._api_factory.get_ws_assistant()
+        await self._ws_assistant.connect(
             ws_url=CONSTANTS.WS_URL,
             ping_timeout=CONSTANTS.PING_TIMEOUT,
             message_timeout=CONSTANTS.MESSAGE_TIMEOUT,
@@ -47,9 +47,9 @@ class GateIoWebsocket:
 
     async def disconnect(self):
         self._closed = True
-        if self._ws_delegate is not None:
-            await self._ws_delegate.disconnect()
-            self._ws_delegate = None
+        if self._ws_assistant is not None:
+            await self._ws_assistant.disconnect()
+            self._ws_assistant = None
 
     async def _messages(self) -> AsyncIterable[Any]:
         try:
@@ -79,11 +79,11 @@ class GateIoWebsocket:
 
     async def _get_message(self) -> WSResponse:
         try:
-            response = await self._ws_delegate.receive()
+            response = await self._ws_assistant.receive()
         except asyncio.TimeoutError:
             self.logger().debug("Message receive timed out. Sending ping.")
             await self.request(channel="spot.ping")
-            response = await self._ws_delegate.receive()
+            response = await self._ws_assistant.receive()
         return response
 
     async def _emit(self, channel: str, data: Optional[Dict[str, Any]] = None) -> int:
@@ -100,7 +100,7 @@ class GateIoWebsocket:
             payload["auth"] = self._auth.generate_auth_dict_ws(payload)
 
         request = WSRequest(payload)
-        await self._ws_delegate.send(request)
+        await self._ws_assistant.send(request)
 
         return payload["time"]
 

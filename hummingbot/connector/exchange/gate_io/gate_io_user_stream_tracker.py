@@ -7,7 +7,7 @@ from typing import List, Optional
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.connector.exchange.gate_io.gate_io_api_user_stream_data_source import GateIoAPIUserStreamDataSource
 from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
-from hummingbot.core.api_delegate.api_factory import APIFactory
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
@@ -26,7 +26,7 @@ class GateIoUserStreamTracker(UserStreamTracker):
     def __init__(self,
                  gate_io_auth: Optional[GateIoAuth] = None,
                  trading_pairs: Optional[List[str]] = None,
-                 api_factory: Optional[APIFactory] = None):
+                 api_factory: Optional[WebAssistantsFactory] = None):
         super().__init__()
         self._api_factory = api_factory
         self._gate_io_auth: GateIoAuth = gate_io_auth

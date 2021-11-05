@@ -3,7 +3,7 @@ import time
 from typing import Optional
 
 import aiohttp
-from hummingbot.core.api_delegate.connections.data_types import WSRequest, WSResponse
+from hummingbot.core.web_assistant.connections.data_types import WSRequest, WSResponse
 
 
 class WSConnection:
