@@ -1,5 +1,4 @@
 from os.path import join, realpath, dirname
-from typing import Dict
 from prompt_toolkit.layout import Dimension
 from prompt_toolkit.layout.containers import (
     Float,
@@ -16,13 +15,14 @@ from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import Completer
 from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.widgets import Box, Button, SearchToolbar
+from typing import Dict
 
 from hummingbot.client.ui.custom_widgets import CustomTextArea as TextArea
+from hummingbot.client.tab.data_types import CommandTab
 from hummingbot.client.settings import (
     MAXIMUM_OUTPUT_PANE_LINE_COUNT,
     MAXIMUM_LOG_PANE_LINE_COUNT,
 )
-from hummingbot.client.tab.data_types import CommandTab
 
 
 HEADER = """

@@ -1,9 +1,9 @@
 import unittest
+from prompt_toolkit.widgets import Button
 from unittest.mock import patch, MagicMock
 
-from hummingbot.client.ui.hummingbot_cli import HummingbotCLI
 from hummingbot.client.tab.data_types import CommandTab
-from prompt_toolkit.widgets import Button
+from hummingbot.client.ui.hummingbot_cli import HummingbotCLI
 from hummingbot.client.ui.custom_widgets import CustomTextArea
 
 
