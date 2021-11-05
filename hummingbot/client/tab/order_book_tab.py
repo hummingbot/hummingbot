@@ -1,8 +1,10 @@
-import pandas as pd
 import asyncio
+import pandas as pd
+
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
+
 from hummingbot.client.ui.custom_widgets import CustomTextArea
 from .tab_base import TabBase
 
