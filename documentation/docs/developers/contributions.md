@@ -18,6 +18,9 @@ All contributors should adhere to the code conventions used in the Hummingbot re
 6. Fix any changes requested by your reviewer, fix issues raised by a tester, and push your fixes as a single new commit.
 7. Once the pull request has been reviewed and accepted; it will be merged by a member of the Hummingbot development team.
 
+!!! note
+      Tests are very important. Submit tests if your pull request contains new, testable behavior. See [Unit test coverage](#unit-test-coverage) for more information.
+
 ## Detailed workflow
 
 ### 1. Fork the repository
@@ -88,9 +91,11 @@ If the development team requests changes, you should make more commits to your b
 
 Once you get back here, make a comment requesting a further review, and someone will look at your code again. If it addresses the requests, it will get merged. Else, repeat the process.
 
-## Testing
+## Unit test coverage
 
-Tests are very, very important. Submit tests if your pull request contains new, testable behavior.
+It is required to present a minimum 75% unit test coverage of all the changes included in a pull request. Some components are, however, excluded from this validation (for example all UI components).
+
+To calculate the diff-coverage locally on your computer, run `make development-diff-cover` after running all tests.
 
 ## Checklist
 
