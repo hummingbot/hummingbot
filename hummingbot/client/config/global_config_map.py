@@ -388,11 +388,18 @@ color_config_map = {
                   default="#00FFE5"),
     "primary-label":
         ConfigVar(key="primary-label",
-                  prompt="What is the background color for primary-label? ",
+                  prompt="What is the background color for primary label? ",
                   type_str="str",
                   required_if=lambda: False,
                   validator=validate_color,
                   default="#5FFFD7"),
+    "secondary-label":
+        ConfigVar(key="secondary-label",
+                  prompt="What is the background color for secondary label? ",
+                  type_str="str",
+                  required_if=lambda: False,
+                  validator=validate_color,
+                  default="#FFFFFF"),
     "success-label":
         ConfigVar(key="success-label",
                   prompt="What is the background color for success label? ",
@@ -415,8 +422,8 @@ color_config_map = {
                   validator=validate_color,
                   default="#5FD7FF"),
     "error-label":
-        ConfigVar(key="warning-label",
-                  prompt="What is the background color for warning label? ",
+        ConfigVar(key="error-label",
+                  prompt="What is the background color for error label? ",
                   type_str="str",
                   required_if=lambda: False,
                   validator=validate_color,

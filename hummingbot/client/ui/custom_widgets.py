@@ -24,6 +24,7 @@ from prompt_toolkit.lexers.base import Lexer
 from prompt_toolkit.widgets.toolbars import SearchToolbar
 
 from hummingbot.client.ui.style import load_style, text_ui_style
+from hummingbot.client.config.global_config_map import color_config_map
 
 
 class CustomBuffer(Buffer):
@@ -45,6 +46,11 @@ class FormattedTextLexer(Lexer):
     def __init__(self) -> None:
         super().__init__()
         self.html_tag_css_style_map: Dict[str, str] = {style: css for style, css in load_style().style_rules}
+        self.html_tag_css_style_map.update({
+            style: config.value
+            for style, config in color_config_map.items()
+            if style not in self.html_tag_css_style_map.keys()
+        })
 
         # Maps specific text to its corresponding UI styles
         self.text_style_tag_map: Dict[str, str] = text_ui_style
@@ -62,16 +68,20 @@ class FormattedTextLexer(Lexer):
                 if len(current_line) == 0:
                     return [("", current_line)]
 
-                # Command prompt
+                # Apply styling to command prompt
                 if current_line.startswith(self.PROMPT_TEXT):
                     return [(self.get_css_style("success-label"), current_line)]
 
-                # Output
+                # Apply styling to output field
                 line_fragments = [("", c) for c in current_line]
 
+                # TODO: Fragment by words instead
                 for special_word, style in self.text_style_tag_map.items():
                     for match in re.finditer(special_word, current_line):
-                        for i in range(match.start(), match.end()):
+                        for i in range(match.start(), match.start() + 2):
+                            line_fragments[i] = (self.get_css_style("output-pane"), line_fragments[i][1])
+                            # del line_fragments[i]
+                        for i in range(match.start() + 2, match.end()):
                             line_fragments[i] = (self.get_css_style(style), line_fragments[i][1])
                 return line_fragments
             except IndexError:
