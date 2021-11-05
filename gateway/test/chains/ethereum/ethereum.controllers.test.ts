@@ -28,7 +28,7 @@ describe('nonce', () => {
       };
     });
     patch(eth.nonceManager, 'getNonce', () => 2);
-    const n = await nonce({
+    const n = await nonce(eth, {
       privateKey: zeroAddress,
     });
     expect(n).toEqual({ nonce: 2 });
@@ -47,7 +47,7 @@ describe('getTokenSymbolsToTokens', () => {
     patch(eth, 'getTokenBySymbol', () => {
       return weth;
     });
-    expect(getTokenSymbolsToTokens(['WETH'])).toEqual({ WETH: weth });
+    expect(getTokenSymbolsToTokens(eth, ['WETH'])).toEqual({ WETH: weth });
   });
 });
 
@@ -76,7 +76,7 @@ describe('allowances', () => {
       };
     });
 
-    const result = await allowances({
+    const result = await allowances(eth, {
       privateKey: zeroAddress,
       spender: uniswap,
       tokenSymbols: ['WETH'],
@@ -112,7 +112,7 @@ describe('approve', () => {
       };
     });
 
-    const result = await approve({
+    const result = await approve(eth, {
       privateKey: zeroAddress,
       spender: uniswap,
       token: 'WETH',
