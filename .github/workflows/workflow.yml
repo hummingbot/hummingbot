@@ -179,9 +179,13 @@ jobs:
           ETH_GAS_STATION_GAS_LEVEL: fast
           ETH_GAS_STATION_REFRESH_TIME: 60
           ETH_MANUAL_GAS_PRICE: 100
+          AVAX_MANUAL_GAS_PRICE: 225          
           UNISWAP_ALLOWED_SLIPPAGE: '1/100'
           UNISWAP_GAS_LIMIT: 150688
           UNISWAP_TTL: 300
+          PANGOLIN_ALLOWED_SLIPPAGE: '1/100'
+          PANGOLIN_GAS_LIMIT: 23012
+          PANGOLIN_TTL: 300          
           EOF
 
       - name: Create yml passphrase file
