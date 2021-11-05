@@ -8,9 +8,9 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
-from hummingbot.core.api_delegate.api_factory import APIFactory
-from hummingbot.core.api_delegate.connections.data_types import RESTMethod
-from hummingbot.core.api_delegate.rest_assistant import RESTAssistant
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod
+from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
@@ -45,11 +45,11 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self,
         throttler: Optional[AsyncThrottler] = None,
         trading_pairs: List[str] = None,
-        api_factory: Optional[APIFactory] = None,
+        api_factory: Optional[WebAssistantsFactory] = None,
     ):
         super().__init__(trading_pairs)
         self._api_factory = api_factory or build_gate_io_api_factory()
-        self._rest_delegate: Optional[RESTAssistant] = None
+        self._rest_assistant: Optional[RESTAssistant] = None
         self._throttler = throttler or self._get_throttler_instance()
         self._trading_pairs: List[str] = trading_pairs
 
@@ -64,7 +64,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, Decimal]:
         throttler = cls._get_throttler_instance()
         api_factory = build_gate_io_api_factory()
-        rest_delegate = await api_factory.get_rest_delegate()
+        rest_assistant = await api_factory.get_rest_assistant()
         results = {}
         ticker_param = None
         if len(trading_pairs) == 1:
@@ -77,7 +77,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
             params=ticker_param,
             throttler_limit_id=endpoint,
         )
-        tickers = await api_call_with_retries(request, rest_delegate, throttler, logging.getLogger())
+        tickers = await api_call_with_retries(request, rest_assistant, throttler, logging.getLogger())
         for trading_pair in trading_pairs:
             ex_pair = convert_to_exchange_trading_pair(trading_pair)
             ticker = list([tic for tic in tickers if tic['currency_pair'] == ex_pair])[0]
@@ -88,7 +88,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def fetch_trading_pairs(cls) -> List[str]:
         throttler = cls._get_throttler_instance()
         api_factory = build_gate_io_api_factory()
-        rest_delegate = await api_factory.get_rest_delegate()
+        rest_assistant = await api_factory.get_rest_assistant()
         try:
             async with throttler.execute_task(CONSTANTS.SYMBOL_PATH_URL):
                 endpoint = CONSTANTS.SYMBOL_PATH_URL
@@ -98,7 +98,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     throttler_limit_id=endpoint,
                 )
                 symbols = await api_call_with_retries(
-                    request, rest_delegate, throttler, logging.getLogger()
+                    request, rest_assistant, throttler, logging.getLogger()
                 )
             trading_pairs = list([convert_from_exchange_trading_pair(sym["id"]) for sym in symbols])
             # Filter out unmatched pairs so nothing breaks
@@ -113,7 +113,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
         cls,
         trading_pair: str,
         throttler: Optional[AsyncThrottler] = None,
-        rest_delegate: Optional[RESTAssistant] = None,
+        rest_assistant: Optional[RESTAssistant] = None,
         logger: Optional[logging.Logger] = None,
     ) -> Dict[str, any]:
         """
@@ -121,7 +121,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         throttler = throttler or cls._get_throttler_instance()
         api_factory = build_gate_io_api_factory()
-        rest_delegate = rest_delegate or await api_factory.get_rest_delegate()
+        rest_assistant = rest_assistant or await api_factory.get_rest_assistant()
         logger = logger or logging.getLogger()
         try:
             ex_pair = convert_to_exchange_trading_pair(trading_pair)
@@ -134,7 +134,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 throttler_limit_id=endpoint,
             )
             orderbook_response = await api_call_with_retries(
-                request, rest_delegate, throttler, logger
+                request, rest_assistant, throttler, logger
             )
             return orderbook_response
         except GateIoAPIError as e:
@@ -143,9 +143,9 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 f"HTTP status is {e.http_status}. Error is {e.error_message}.")
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
-        rest_delegate = await self._get_rest_delegate()
+        rest_assistant = await self._get_rest_assistant()
         snapshot: Dict[str, Any] = await self.get_order_book_data(
-            trading_pair, self._throttler, rest_delegate, self.logger()
+            trading_pair, self._throttler, rest_assistant, self.logger()
         )
         snapshot_timestamp: float = time.time()
         snapshot_msg: OrderBookMessage = GateIoOrderBook.snapshot_message_from_exchange(
@@ -314,7 +314,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self.logger().error("Unexpected error.", exc_info=True)
                 await asyncio.sleep(5.0)
 
-    async def _get_rest_delegate(self) -> RESTAssistant:
-        if self._rest_delegate is None:
-            self._rest_delegate = await self._api_factory.get_rest_delegate()
-        return self._rest_delegate
+    async def _get_rest_assistant(self) -> RESTAssistant:
+        if self._rest_assistant is None:
+            self._rest_assistant = await self._api_factory.get_rest_assistant()
+        return self._rest_assistant

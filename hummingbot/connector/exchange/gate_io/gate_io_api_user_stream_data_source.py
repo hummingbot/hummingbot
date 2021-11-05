@@ -4,7 +4,7 @@ import logging
 from typing import Any, AsyncIterable, List, Optional
 
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
-from hummingbot.core.api_delegate.api_factory import APIFactory
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 
@@ -27,7 +27,7 @@ class GateIoAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self,
         gate_io_auth: GateIoAuth,
         trading_pairs: Optional[List[str]] = None,
-        api_factory: Optional[APIFactory] = None,
+        api_factory: Optional[WebAssistantsFactory] = None,
     ):
         self._api_factory = api_factory
         self._gate_io_auth: GateIoAuth = gate_io_auth

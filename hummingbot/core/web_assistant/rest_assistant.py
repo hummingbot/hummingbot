@@ -1,10 +1,10 @@
 from copy import deepcopy
 from typing import List, Optional
 
-from hummingbot.core.api_delegate.connections.rest_connection import RESTConnection
-from hummingbot.core.api_delegate.connections.data_types import RESTRequest, RESTResponse
-from hummingbot.core.api_delegate.rest_post_processors import RESTPostProcessorBase
-from hummingbot.core.api_delegate.rest_pre_processors import RESTPreProcessorBase
+from hummingbot.core.web_assistant.connections.rest_connection import RESTConnection
+from hummingbot.core.web_assistant.connections.data_types import RESTRequest, RESTResponse
+from hummingbot.core.web_assistant.rest_post_processors import RESTPostProcessorBase
+from hummingbot.core.web_assistant.rest_pre_processors import RESTPreProcessorBase
 
 
 class RESTAssistant:

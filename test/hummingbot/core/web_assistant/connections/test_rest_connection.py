@@ -6,8 +6,8 @@ from typing import Awaitable
 import aiohttp
 from aioresponses import aioresponses
 
-from hummingbot.core.api_delegate.connections.rest_connection import RESTConnection
-from hummingbot.core.api_delegate.connections.data_types import (
+from hummingbot.core.web_assistant.connections.rest_connection import RESTConnection
+from hummingbot.core.web_assistant.connections.data_types import (
     RESTMethod, RESTRequest, RESTResponse
 )
 

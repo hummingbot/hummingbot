@@ -11,7 +11,7 @@ from hummingbot.connector.exchange.gate_io.gate_io_active_order_tracker import G
 from hummingbot.connector.exchange.gate_io.gate_io_api_order_book_data_source import GateIoAPIOrderBookDataSource
 from hummingbot.connector.exchange.gate_io.gate_io_order_book import GateIoOrderBook
 from hummingbot.connector.exchange.gate_io.gate_io_order_book_message import GateIoOrderBookMessage
-from hummingbot.core.api_delegate.api_factory import APIFactory
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
@@ -32,7 +32,7 @@ class GateIoOrderBookTracker(OrderBookTracker):
         self,
         throttler: Optional[AsyncThrottler] = None,
         trading_pairs: Optional[List[str]] = None,
-        api_factory: Optional[APIFactory] = None,
+        api_factory: Optional[WebAssistantsFactory] = None,
     ):
         super().__init__(GateIoAPIOrderBookDataSource(throttler, trading_pairs, api_factory), trading_pairs)
 
