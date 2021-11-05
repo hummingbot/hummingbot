@@ -15,7 +15,6 @@ import {
   gatewayErrorMiddleware,
 } from './services/error-handler';
 
-
 export const app = express();
 let server: Server;
 
@@ -109,7 +108,7 @@ app.use(
     _next: NextFunction
   ) => {
     const response = gatewayErrorMiddleware(err);
-    logger.error(response.message + response.stack);
+    logger.error(err);
     return res.status(response.httpErrorCode).json(response);
   }
 );

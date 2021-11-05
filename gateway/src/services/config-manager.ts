@@ -29,6 +29,7 @@ export namespace ConfigManager {
     PANGOLIN_TTL: number;
     LOG_TO_STDOUT?: boolean;
     UNSAFE_DEV_MODE_WITH_HTTP?: boolean;
+    ENABLE_TELEMETRY?: boolean;
   }
 
   export interface PassphraseConfig {
@@ -68,6 +69,7 @@ export namespace ConfigManager {
       'IP_WHITELIST' in o &&
       'HUMMINGBOT_INSTANCE_ID' in o &&
       'LOG_PATH' in o &&
+      'LOG_TO_STDOUT' in o &&
       'GMT_OFFSET' in o &&
       'CERT_PATH' in o &&
       'ETHEREUM_CHAIN' in o &&
