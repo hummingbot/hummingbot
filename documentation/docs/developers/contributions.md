@@ -9,10 +9,10 @@ All contributors should adhere to the code conventions used in the Hummingbot re
 3. Make commits to your branch.
 4. When you have finished with your fix / feature / connector / documentation:
 
-   1. Rebase upstream changes into your branch
-   2. Create a pull request to the `development` branch
-   3. Include a description of your changes
-   4. Ensure to **Allow edits by maintainers** before submitting the pull request
+      1. Rebase upstream changes into your branch
+      1. Create a pull request to the `development` branch
+      1. Include a description of your changes
+      1. Ensure to **Allow edits by maintainers** before submitting the pull request
 
 5. Your code changes will be reviewed by Hummingbot's development team and tested by the QA team.
 6. Fix any changes requested by your reviewer, fix issues raised by a tester, and push your fixes as a single new commit.
