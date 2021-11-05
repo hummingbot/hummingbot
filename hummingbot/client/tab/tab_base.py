@@ -1,11 +1,12 @@
-from hummingbot.client.ui.custom_widgets import CustomTextArea
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from hummingbot.client.hummingbot_application import HummingbotApplication
 from abc import (
     ABCMeta,
     abstractmethod,
 )
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from hummingbot.client.hummingbot_application import HummingbotApplication
+
+from hummingbot.client.ui.custom_widgets import CustomTextArea
 
 
 class TabBase(metaclass=ABCMeta):
