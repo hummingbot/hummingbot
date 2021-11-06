@@ -2,6 +2,7 @@
 Advanced features allow you to further control and customize Hummingbot:
 
 - [Auto-start Bot from Command Line](./strategy-autostart)
+- [Color Settings](./color-settings)
 - [Kill Switch](./kill-switch)
 - [Override Exchange Fees](./override-fees)
 - [Paper Trading Mode](./paper-trade)

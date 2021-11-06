@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
     validate_bool,
@@ -6,7 +8,7 @@ from hummingbot.client.config.config_validators import (
 )
 from hummingbot.client.settings import (
     required_exchanges,
-    EXAMPLE_PAIRS,
+    AllConnectorSettings,
 )
 from typing import Optional
 import math
@@ -15,7 +17,7 @@ from datetime import datetime
 
 def trading_pair_prompt():
     exchange = twap_config_map.get("connector").value
-    example = EXAMPLE_PAIRS.get(exchange)
+    example = AllConnectorSettings.get_example_pairs().get(exchange)
     return "Enter the token trading pair you would like to trade on %s%s >>> " \
            % (exchange, f" (e.g. {example})" if example else "")
 
@@ -48,6 +50,17 @@ def set_order_delay_default(value: str = None):
 
     default = math.floor((end_datetime - start_datetime).total_seconds() / math.ceil(target_asset_amount / order_step_size))
     twap_config_map.get("order_delay_time").default = default
+
+
+def validate_order_step_size(value: str = None):
+    """
+    Validates if order_step_size is less than the target_asset_amount value
+    :param value: User input for order_step_size parameter
+    :return: Error message printed in output pane
+    """
+    target_asset_amount = twap_config_map.get("target_asset_amount").value
+    if Decimal(value) > target_asset_amount:
+        return "Order step size cannot be greater than the total trade amount."
 
 
 twap_config_map = {
@@ -85,6 +98,7 @@ twap_config_map = {
                          ">>> ",
                   default=1.0,
                   type_str="decimal",
+                  validator=validate_order_step_size,
                   prompt_on_new=True),
     "order_price":
         ConfigVar(key="order_price",

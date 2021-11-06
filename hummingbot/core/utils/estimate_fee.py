@@ -7,7 +7,7 @@ Estimate the fee of a transaction on any blockchain.
 from decimal import Decimal
 from hummingbot.core.event.events import TradeFee, TradeFeeType
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
-from hummingbot.client.settings import CONNECTOR_SETTINGS
+from hummingbot.client.settings import AllConnectorSettings
 
 
 def estimate_fee(exchange: str, is_maker: bool) -> TradeFee:
@@ -16,11 +16,11 @@ def estimate_fee(exchange: str, is_maker: bool) -> TradeFee:
     exchange is the name of the exchange to query.
     is_maker if true look at fee from maker side, otherwise from taker side.
     """
-    if exchange not in CONNECTOR_SETTINGS:
-        raise Exception(f"Invalid connector. {exchange} does not exist in CONNECTOR_SETTINGS")
-    fee_type = CONNECTOR_SETTINGS[exchange].fee_type
-    fee_token = CONNECTOR_SETTINGS[exchange].fee_token
-    default_fees = CONNECTOR_SETTINGS[exchange].default_fees
+    if exchange not in AllConnectorSettings.get_connector_settings():
+        raise Exception(f"Invalid connector. {exchange} does not exist in AllConnectorSettings")
+    fee_type = AllConnectorSettings.get_connector_settings()[exchange].fee_type
+    fee_token = AllConnectorSettings.get_connector_settings()[exchange].fee_token
+    default_fees = AllConnectorSettings.get_connector_settings()[exchange].default_fees
     fee_side = "maker" if is_maker else "taker"
     override_key = f"{exchange}_{fee_side}"
     if fee_type is TradeFeeType.FlatFee:

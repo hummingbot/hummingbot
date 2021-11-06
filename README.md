@@ -11,11 +11,11 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 
 ## Connector status
 
-![GREEN](https://via.placeholder.com/15/008000/?text=+) GREEN - Connector is working properly and safe to use
+![GREEN](https://via.placeholder.com/15/008000/?text=+) GREEN - Connector is working properly and safe to use.
 
-![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) YELLOW - Connector is either new or has one or more issues
+![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) YELLOW - Connector is either new or has one or more issues.
 
-![RED](https://via.placeholder.com/15/f03c15/?text=+) RED - Connector is broken and unusable
+![RED](https://via.placeholder.com/15/f03c15/?text=+) RED - Connector is broken and unusable.
 
 
 | logo | id | name | ver | doc | status |
@@ -27,9 +27,9 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 | <img src="assets/binance_futures-logo.jpg" alt="Binance Perpetual" width="90" /> | binance_perpetual | [Binance Futures](https://www.binance.com/) | 1 | [API](https://binance-docs.github.io/apidocs/futures/en/) |![GREEN](https://via.placeholder.com/15/008000/?text=+) |
 |<img src="assets/bittrex_global-logo.jpg" alt="Bittrex Global" width="90" height="30" />| bittrex | [Bittrex Global](https://global.bittrex.com/) | 3 | [API](https://bittrex.github.io/api/v3) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 | <img src="assets/bitfinex-logo.jpg" alt="Bitfinex" width="90" /> | bitfinex | [Bitfinex](https://www.bitfinex.com/) | 2 | [API](https://docs.bitfinex.com/docs/introduction) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+)  |
-| <img src="assets/bitmart-logo.jpg" alt="BitMart" width="90" /> | bitmart | [BitMart](https://www.bitmart.com/) | 1 | [API](https://developer-pro.bitmart.com/en/) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+)  |
+| <img src="assets/bitmart-logo.jpg" alt="BitMart" width="90" /> | bitmart | [BitMart](https://www.bitmart.com/) | 1 | [API](https://developer-pro.bitmart.com/en/) |![GREEN](https://via.placeholder.com/15/008000/?text=+)  |
 | <img src="assets/blocktane-logo.jpg" alt="Blocktane" width="90" /> | blocktane | [Blocktane](https://blocktane.io/) | 2 | [API](https://blocktane.io/api) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+)  |
-| <img src="assets/bybit-logo.jpg" alt="Bybit Perpetual" width="90" /> | bybit_perpetual | [Bybit Perpetual](https://www.bybit.com/en-US/) | 2 | [API](https://bybit-exchange.github.io/docs/linear/#t-introduction) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+)  |
+| <img src="assets/bybit-logo.jpg" alt="Bybit Perpetual" width="90" /> | bybit_perpetual | [Bybit Perpetual](https://www.bybit.com/en-US/) | 2 | [API](https://bybit-exchange.github.io/docs/linear/#t-introduction) |![GREEN](https://via.placeholder.com/15/008000/?text=+)  |
 | <img src="assets/coinbase_pro-logo.jpg" alt="Coinbase Pro" width="90" /> | coinbase_pro | [Coinbase Pro](https://pro.coinbase.com/) | * | [API](https://docs.pro.coinbase.com/) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 | <img src="assets/coinzoom-logo.jpg" alt="CoinZoom" width="90" /> | coinzoom | [CoinZoom](https://trade.coinzoom.com/landing) | * | [API](https://api-docs.coinzoom.com/) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 | <img src="assets/cryptocom-logo.jpg" alt="Crypto.com" width="90" /> | crypto_com | [Crypto.com](https://crypto.com/exchange) | 2 | [API](https://exchange-docs.crypto.com/#introduction) |![GREEN](https://via.placeholder.com/15/008000/?text=+) |
@@ -78,12 +78,12 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 
 - [Website](https://hummingbot.io)
 - [Documentation](https://docs.hummingbot.io)
-- [FAQs](https://hummingbot.zendesk.com/hc/en-us/categories/900001272063-Hummingbot-FAQs)
+- [FAQs](https://docs.hummingbot.io/about/faq/)
+- [Github Chinese](https://github.com/CoinAlpha/hummingbot_chinese)
 
 ### Install Hummingbot
 
-- [Quickstart guide](https://hummingbot.io/academy/quickstart/)
-- [All installation options](https://docs.hummingbot.io/installation/overview/)
+- [All installation options](https://docs.hummingbot.io/installation)
 - [Installation scripts](./installation/)
 
 ### Get support
@@ -97,8 +97,8 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 ## Contributions
 
 We welcome contributions from the community:
-- **Code and documentation contributions** via [pull requests](https://github.com/CoinAlpha/hummingbot/pulls)
-- **Bug reports and feature requests** through [Github issues](https://github.com/CoinAlpha/hummingbot/issues)
+- Code and documentation contributions via [pull requests](https://github.com/CoinAlpha/hummingbot/pulls)
+- Bug reports and feature requests through [Github issues](https://github.com/CoinAlpha/hummingbot/issues)
 - When contributing, please review the [contributing guidelines](CONTRIBUTING.md)
 
 ## About us

@@ -1,6 +1,7 @@
 [run]
 source_pkgs = hummingbot
-omit =  
+omit =
+        hummingbot/core/management/*
         hummingbot/client/command/*
         hummingbot/connector/connector/balancer*
         hummingbot/connector/connector/terra*
@@ -14,7 +15,6 @@ omit =
         hummingbot/connector/exchange/bitfinex*
         hummingbot/connector/exchange/blocktane*
         hummingbot/connector/exchange/coinbase_pro*
-        hummingbot/connector/exchange/crypto_com*
         hummingbot/connector/exchange/digifinex*
         hummingbot/connector/exchange/dydx*
         hummingbot/connector/exchange/ftx*

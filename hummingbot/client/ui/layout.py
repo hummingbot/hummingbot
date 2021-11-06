@@ -1,14 +1,10 @@
-#!/usr/bin/env python
-
-from os.path import join, realpath, dirname
-import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
-
+from os.path import dirname, join, realpath
 from prompt_toolkit.layout.containers import (
-    VSplit,
-    HSplit,
-    Window,
-    FloatContainer,
     Float,
+    FloatContainer,
+    HSplit,
+    VSplit,
+    Window,
     WindowAlign,
 )
 from prompt_toolkit.layout.menus import CompletionsMenu
@@ -16,7 +12,7 @@ from prompt_toolkit.layout.layout import Layout
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import Completer
 from prompt_toolkit.layout.controls import FormattedTextControl
-from prompt_toolkit.widgets import SearchToolbar, Button
+from prompt_toolkit.widgets import Box, Button, SearchToolbar
 
 from hummingbot.client.ui.custom_widgets import CustomTextArea as TextArea
 from hummingbot.client.settings import (
@@ -174,14 +170,6 @@ def get_version():
     return [("class:header", f"Version: {version}")]
 
 
-def get_paper_trade_status():
-    from hummingbot.client.config.global_config_map import global_config_map
-    enabled = global_config_map["paper_trade_enabled"].value is True
-    paper_trade_status = "ON" if enabled else "OFF"
-    style = "class:primary" if enabled else "class:log-field"
-    return [(style, f"paper_trade_mode: {paper_trade_status}")]
-
-
 def get_active_strategy():
     from hummingbot.client.hummingbot_application import HummingbotApplication
     hb = HummingbotApplication.main_application()
@@ -222,24 +210,24 @@ def generate_layout(input_field: TextArea,
                     trade_monitor: TextArea):
     components = {}
     components["item_top_version"] = Window(FormattedTextControl(get_version), style="class:header")
-    components["item_top_paper"] = Window(FormattedTextControl(get_paper_trade_status), style="class:header")
     components["item_top_active"] = Window(FormattedTextControl(get_active_strategy), style="class:header")
     # Window(FormattedTextControl(get_active_markets), style="class:header"),
     # Window(FormattedTextControl(get_script_file), style="class:header"),
     components["item_top_file"] = Window(FormattedTextControl(get_strategy_file), style="class:header")
     components["item_top_toggle"] = log_toggle
     components["pane_top"] = VSplit([components["item_top_version"],
-                                     components["item_top_paper"],
                                      components["item_top_active"],
                                      components["item_top_file"],
                                      components["item_top_toggle"]], height=1)
     components["pane_bottom"] = VSplit([trade_monitor,
                                         process_monitor,
                                         timer], height=1)
-    components["pane_left"] = HSplit([output_field,
-                                      input_field])
-    components["pane_right"] = HSplit([log_field,
-                                       search_field])
+    output_pane = Box(body=output_field, padding=0, padding_left=2, style="class:output-field")
+    input_pane = Box(body=input_field, padding=0, padding_left=2, padding_top=1, style="class:input-field")
+    components["pane_left"] = HSplit([output_pane,
+                                      input_pane])
+    right_pane = Box(body=HSplit([log_field, search_field]), padding=0, padding_left=2, style="class:log-field")
+    components["pane_right"] = HSplit([right_pane])
     components["hint_menus"] = [Float(xcursor=True,
                                       ycursor=True,
                                       transparent=True,
@@ -248,14 +236,9 @@ def generate_layout(input_field: TextArea,
 
     root_container = HSplit([
         components["pane_top"],
-        VSplit([
-            FloatContainer(
-                components["pane_left"],
-                components["hint_menus"]
-            ),
-            components["pane_right"],
-        ]),
+        VSplit(
+            [FloatContainer(components["pane_left"], components["hint_menus"]),
+             components["pane_right"]]),
         components["pane_bottom"],
-
     ])
     return Layout(root_container, focused_element=input_field), components
