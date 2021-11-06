@@ -6,6 +6,7 @@ from decimal import Decimal
 from typing import Awaitable, Dict, List
 from unittest.mock import patch, AsyncMock
 
+import aiohttp
 from aioresponses import aioresponses
 
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
@@ -28,7 +29,17 @@ class TestGateIoAPIOrderBookDataSource(unittest.TestCase):
         super().setUp()
         self.mocking_assistant = NetworkMockingAssistant()
         self.throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
-        self.data_source = GateIoAPIOrderBookDataSource(self.throttler, trading_pairs=[self.trading_pair])
+        self.shared_client = aiohttp.ClientSession()
+        self.data_source = GateIoAPIOrderBookDataSource(
+            self.throttler, trading_pairs=[self.trading_pair], shared_client=self.shared_client
+        )
+        self.async_tasks: List[asyncio.Task] = []
+
+    def tearDown(self) -> None:
+        for task in self.async_tasks:
+            task.cancel()
+        self.shared_client.close()
+        super().tearDown()
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
@@ -110,7 +121,7 @@ class TestGateIoAPIOrderBookDataSource(unittest.TestCase):
         }
         return ob_update
 
-    def get_order_book_snapshot_mock(self) -> Dict:
+    def get_order_book_snapshot_mock(self, asks: List[str], bids: List[str]) -> Dict:
         ob_snapshot = {
             "time": 1606295412,
             "channel": "spot.order_book",
@@ -119,18 +130,8 @@ class TestGateIoAPIOrderBookDataSource(unittest.TestCase):
                 "t": 1606295412123,
                 "lastUpdateId": 48791820,
                 "s": f"{self.base_asset}_{self.quote_asset}",
-                "bids": [
-                    [
-                        "19079.55",
-                        "0.0195"
-                    ],
-                ],
-                "asks": [
-                    [
-                        "19080.24",
-                        "0.1638"
-                    ],
-                ]
+                "bids": [bids],
+                "asks": [asks],
             }
         }
         return ob_snapshot
@@ -214,7 +215,10 @@ class TestGateIoAPIOrderBookDataSource(unittest.TestCase):
         )
         output_queue = asyncio.Queue()
 
-        self.ev_loop.create_task(self.data_source.listen_for_trades(self.ev_loop, output_queue))
+        t = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
+        self.async_tasks.append(t)
+        t = self.ev_loop.create_task(self.data_source.listen_for_trades(self.ev_loop, output_queue))
+        self.async_tasks.append(t)
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(websocket_mock=ws_connect_mock.return_value)
 
         self.assertTrue(not output_queue.empty())
@@ -235,7 +239,10 @@ class TestGateIoAPIOrderBookDataSource(unittest.TestCase):
         )
 
         output_queue = asyncio.Queue()
-        self.ev_loop.create_task(self.data_source.listen_for_trades(self.ev_loop, output_queue))
+        t = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
+        self.async_tasks.append(t)
+        t = self.ev_loop.create_task(self.data_source.listen_for_trades(self.ev_loop, output_queue))
+        self.async_tasks.append(t)
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         self.assertTrue(output_queue.empty())
@@ -249,7 +256,10 @@ class TestGateIoAPIOrderBookDataSource(unittest.TestCase):
         )
         output_queue = asyncio.Queue()
 
-        self.ev_loop.create_task(self.data_source.listen_for_order_book_diffs(self.ev_loop, output_queue))
+        t = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
+        self.async_tasks.append(t)
+        t = self.ev_loop.create_task(self.data_source.listen_for_order_book_diffs(self.ev_loop, output_queue))
+        self.async_tasks.append(t)
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(websocket_mock=ws_connect_mock.return_value)
 
         self.assertTrue(not output_queue.empty())
@@ -258,17 +268,25 @@ class TestGateIoAPIOrderBookDataSource(unittest.TestCase):
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_order_book_diffs_snapshot(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-        resp = self.get_order_book_snapshot_mock()
+        asks = ["19080.24", "0.1638"]
+        resp = self.get_order_book_snapshot_mock(asks=asks, bids=["19079.55", "0.0195"])
         self.mocking_assistant.add_websocket_aiohttp_message(
             ws_connect_mock.return_value, json.dumps(resp)
         )
         output_queue = asyncio.Queue()
 
-        self.ev_loop.create_task(self.data_source.listen_for_order_book_diffs(self.ev_loop, output_queue))
+        t = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
+        self.async_tasks.append(t)
+        t = self.ev_loop.create_task(self.data_source.listen_for_order_book_diffs(self.ev_loop, output_queue))
+        self.async_tasks.append(t)
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(websocket_mock=ws_connect_mock.return_value)
 
         self.assertTrue(not output_queue.empty())
-        self.assertTrue(isinstance(output_queue.get_nowait(), OrderBookMessage))
+
+        msg = output_queue.get_nowait()
+
+        self.assertTrue(isinstance(msg, OrderBookMessage))
+        self.assertEqual(asks, msg.content["asks"][0])
 
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_order_book_diffs_snapshot_skips_subscribe_unsubscribe_messages(self, ws_connect_mock):
@@ -285,7 +303,10 @@ class TestGateIoAPIOrderBookDataSource(unittest.TestCase):
         )
 
         output_queue = asyncio.Queue()
-        self.ev_loop.create_task(self.data_source.listen_for_order_book_diffs(self.ev_loop, output_queue))
+        t = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
+        self.async_tasks.append(t)
+        t = self.ev_loop.create_task(self.data_source.listen_for_order_book_diffs(self.ev_loop, output_queue))
+        self.async_tasks.append(t)
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         self.assertTrue(output_queue.empty())
@@ -298,7 +319,10 @@ class TestGateIoAPIOrderBookDataSource(unittest.TestCase):
         mock_api.get(regex_url, body=json.dumps(resp))
         output_queue = asyncio.Queue()
 
-        self.ev_loop.create_task(self.data_source.listen_for_order_book_snapshots(self.ev_loop, output_queue))
+        t = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
+        self.async_tasks.append(t)
+        t = self.ev_loop.create_task(self.data_source.listen_for_order_book_snapshots(self.ev_loop, output_queue))
+        self.async_tasks.append(t)
         ret = self.async_run_with_timeout(coroutine=output_queue.get())
 
         self.assertTrue(isinstance(ret, OrderBookMessage))

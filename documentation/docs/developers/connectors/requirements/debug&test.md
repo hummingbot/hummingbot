@@ -27,19 +27,22 @@ It is still required that certain actions(buy and cancelling orders) be performe
 
 Placing a single LIMIT-BUY order on Bittrex Exchange should return the following (some details are omitted):
 
-```Bash tab="Order Detail(s)"
+Order Details:
+
+```Bash
 Trading Pair: ZRX-ETH
 Order Type: LIMIT-BUY
-Amount: 100ZRX
+Amount: 100 ZRX
 Price: 0.00160699ETH
 ```
 
-```Bash tab="Action(s) Performed"
-1. Placed LIMIT BUY order.
-2. Cancel order.
-```
+Action(s) Performed:
 
-```Bash tab="Expected output"
+1. Placed `LIMIT BUY` order
+2. Cancelled order
+
+
+```Bash
 # Below is the outcome of the test. Determining if this is accurate would still be necessaru.
 
 <Queue maxsize=0 _queue=[

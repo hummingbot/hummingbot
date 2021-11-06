@@ -59,6 +59,10 @@ class BybitPerpetualInFlightOrder(InFlightOrderBase):
     def is_new(self) -> bool:
         return self.last_state == "New"
 
+    @property
+    def is_filled(self) -> bool:
+        return self.last_state == "Filled"
+
     def mark_as_filled(self):
         self.last_state = "Filled"
 

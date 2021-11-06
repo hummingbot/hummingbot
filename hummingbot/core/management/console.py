@@ -1,11 +1,16 @@
 #!/usr/bin/env python
 
-import asyncio
-import aioconsole
-from collections.abc import MutableMapping as MutableMappingABC
+import builtins
 import json
 import logging
-from typing import Iterator, MutableMapping, List, Dict
+import pathlib
+from collections.abc import MutableMapping as MutableMappingABC
+from typing import Dict, Iterator, List, MutableMapping
+
+import asyncssh
+from prompt_toolkit import print_formatted_text
+from prompt_toolkit.contrib.ssh import PromptToolkitSSHServer
+from ptpython.repl import embed
 
 
 class MergedNamespace(MutableMappingABC):
@@ -45,17 +50,34 @@ def add_diagnosis_tools(local_vars: MutableMapping):
     local_vars["active_tasks"] = active_tasks
 
 
+def ensure_key():
+    file_name = ".debug_console_ssh_host_key"
+    path = pathlib.Path(file_name)
+    if not path.exists():
+        rsa_key = asyncssh.generate_private_key("ssh-rsa")
+        path.write_bytes(rsa_key.export_private_key())
+    return str(path)
+
+
 async def start_management_console(local_vars: MutableMapping,
                                    host: str = "localhost",
-                                   port: int = 8211,
-                                   banner: str = "hummingbot") -> asyncio.base_events.Server:
+                                   port: int = 8212):
     add_diagnosis_tools(local_vars)
 
-    def factory_method(*args, **kwargs):
-        from aioconsole.code import AsynchronousConsole
-        return AsynchronousConsole(locals=local_vars, *args, **kwargs)
+    async def interact(_=None):
+        globals_dict = {
+            "__name__": "__main__",
+            "__doc__": None,
+            "__package__": "",
+            "__builtins__": builtins,
+            "print": print_formatted_text,
+        }
+        await embed(return_asyncio_coroutine=True, locals=local_vars, globals=globals_dict)
 
-    retval = await aioconsole.start_interactive_server(host=host, port=port, banner=banner,
-                                                       factory=factory_method)
-    logging.getLogger(__name__).info(f"Started debug console at {host}:{port}.")
-    return retval
+    ssh_server = PromptToolkitSSHServer(interact=interact)
+    await asyncssh.create_server(
+        lambda: ssh_server, host, port, server_host_keys=[ensure_key()]
+    )
+    logging.getLogger(__name__).info(
+        f"Started SSH debug console. Connect by running `ssh user@{host} -p {port}`. Exit with `CTRL + D`."
+    )

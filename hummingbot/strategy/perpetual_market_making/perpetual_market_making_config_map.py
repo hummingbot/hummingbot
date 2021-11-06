@@ -11,7 +11,7 @@ from hummingbot.client.config.config_validators import (
 )
 from hummingbot.client.settings import (
     required_exchanges,
-    EXAMPLE_PAIRS,
+    AllConnectorSettings,
 )
 
 from hummingbot.client.config.config_helpers import (
@@ -22,7 +22,7 @@ from typing import Optional
 
 def maker_trading_pair_prompt():
     derivative = perpetual_market_making_config_map.get("derivative").value
-    example = EXAMPLE_PAIRS.get(derivative)
+    example = AllConnectorSettings.get_example_pairs().get(derivative)
     return "Enter the token trading pair you would like to trade on %s%s >>> " \
            % (derivative, f" (e.g. {example})" if example else "")
 

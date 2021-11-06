@@ -8,7 +8,7 @@ from typing import (
     List
 )
 from hummingbot.logger import HummingbotLogger
-from hummingbot.client.settings import CONNECTOR_SETTINGS, ConnectorType
+from hummingbot.client.settings import AllConnectorSettings, ConnectorType
 import logging
 
 from .async_utils import safe_ensure_future
@@ -36,14 +36,22 @@ class TradingPairFetcher:
         safe_ensure_future(self.fetch_all())
 
     async def fetch_all(self):
-        for conn_setting in CONNECTOR_SETTINGS.values():
-            module_name = f"{conn_setting.base_name()}_connector" if conn_setting.type is ConnectorType.Connector \
-                else f"{conn_setting.base_name()}_api_order_book_data_source"
+        for conn_setting in AllConnectorSettings.get_connector_settings().values():
+            if conn_setting.base_name().endswith("paper_trade"):
+                if conn_setting.parent_name in self.trading_pairs:
+                    self.trading_pairs[conn_setting.base_name()] = self.trading_pairs[conn_setting.parent_name]
+                    continue
+                exchange_name = conn_setting.parent_name
+            else:
+                exchange_name = conn_setting.base_name()
+
+            module_name = f"{exchange_name}_connector" if conn_setting.type is ConnectorType.Connector \
+                else f"{exchange_name}_api_order_book_data_source"
             module_path = f"hummingbot.connector.{conn_setting.type.name.lower()}." \
-                          f"{conn_setting.base_name()}.{module_name}"
-            class_name = "".join([o.capitalize() for o in conn_setting.base_name().split("_")]) + \
+                          f"{exchange_name}.{module_name}"
+            class_name = "".join([o.capitalize() for o in exchange_name.split("_")]) + \
                          "APIOrderBookDataSource" if conn_setting.type is not ConnectorType.Connector \
-                         else "".join([o.capitalize() for o in conn_setting.base_name().split("_")]) + "Connector"
+                         else "".join([o.capitalize() for o in exchange_name.split("_")]) + "Connector"
             module = getattr(importlib.import_module(module_path), class_name)
             args = {}
             args = conn_setting.add_domain_parameter(args)
