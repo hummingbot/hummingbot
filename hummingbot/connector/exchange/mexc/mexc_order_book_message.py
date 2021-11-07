@@ -39,7 +39,7 @@ class MexcOrderBookMessage(OrderBookMessage):
         return int(self.timestamp * 1e3)
 
     @property
-    def trading_pair(self) -> (str):
+    def trading_pair(self) -> str:
         return self.content.get('trading_pair', None)
 
     @property

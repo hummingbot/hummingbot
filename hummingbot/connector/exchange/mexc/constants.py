@@ -3,7 +3,6 @@
 
 MEXC_BASE_URL = "https://www.mexc.com"
 
-
 MEXC_SYMBOL_URL = '/open/api/v2/market/symbols'
 MEXC_TICKERS_URL = '/open/api/v2/market/ticker'
 MEXC_DEPTH_URL = '/open/api/v2/market/depth?symbol={trading_pair}&depth=200'
@@ -16,6 +15,7 @@ MEXC_ORDER_DETAILS_URL = '/open/api/v2/order/query'
 MEXC_ORDER_CANCEL = '/open/api/v2/order/cancel'
 MEXC_BATCH_ORDER_CANCEL = '/open/api/v2/order/cancel'
 MEXC_BALANCE_URL = '/open/api/v2/account/info'
+MEXC_DEAL_DETAIL = '/open/api/v2/order/deal_detail'
 
 # WS
-MEXC_WS_URI_PUBLIC = 'wss://wbs.mexc.com/raw/ws'
+MEXC_WS_URL_PUBLIC = 'wss://wbs.mexc.com/raw/ws'

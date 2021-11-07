@@ -1,13 +1,10 @@
-from aiokafka import ConsumerRecord
-import bz2
+
 import logging
-from sqlalchemy.engine import RowProxy
 from typing import (
     Any,
     Optional,
     Dict
 )
-import ujson
 
 from hummingbot.connector.exchange.mexc.mexc_order_book_message import MexcOrderBookMessage
 from hummingbot.logger import HummingbotLogger
@@ -76,26 +73,6 @@ cdef class MexcOrderBook(OrderBook):
             "asks": data.get("asks", [])
         }
         return MexcOrderBookMessage(OrderBookMessageType.DIFF, content, timestamp or msg_ts)
-
-    @classmethod
-    def snapshot_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None) -> OrderBookMessage:
-        pass
-
-    @classmethod
-    def diff_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None) -> OrderBookMessage:
-        pass
-
-    @classmethod
-    def snapshot_message_from_kafka(cls, record: ConsumerRecord, metadata: Optional[Dict] = None) -> OrderBookMessage:
-        pass
-
-    @classmethod
-    def diff_message_from_kafka(cls, record: ConsumerRecord, metadata: Optional[Dict] = None) -> OrderBookMessage:
-        pass
-
-    @classmethod
-    def trade_message_from_db(cls, record: RowProxy, metadata: Optional[Dict] = None):
-        pass
 
     @classmethod
     def from_snapshot(cls, msg: OrderBookMessage) -> OrderBook:
