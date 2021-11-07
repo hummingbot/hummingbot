@@ -3,14 +3,12 @@
 import base64
 import hashlib
 import hmac
-import time
 from typing import (
     Any,
     Dict, Optional
 )
 
-
-from hummingbot.connector.exchange.mexc import mexc_public
+from hummingbot.connector.exchange.mexc import mexc_utils
 from urllib.parse import urlencode, unquote
 
 
@@ -20,10 +18,9 @@ class MexcAuth:
         self.secret_key: str = secret_key
 
     def _sig(self, method, path, original_params=None):
-
         params = {
             'api_key': self.api_key,
-            'req_time': mexc_public.seconds()
+            'req_time': mexc_utils.seconds()
         }
         if original_params is not None:
             params.update(original_params)
@@ -61,11 +58,11 @@ class MexcAuth:
         return signature
 
     def generate_ws_auth(self, operation: str):
-        timestamp = str(int(time.time()))
-
-        return {
-            "op": operation,
-            "api_key": self.api_key,
-            "sign": self.get_signature(operation, timestamp),
-            "req_time": timestamp
-        }
+        # timestamp = str(int(time.time()))
+        # return {
+        #     "op": operation,  # sub key
+        #     "api_key": self.api_key,  #
+        #     "sign": self.get_signature(operation, timestamp),  #
+        #     "req_time": timestamp  #
+        # }
+        pass

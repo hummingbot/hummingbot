@@ -41,11 +41,6 @@ class MexcOrderBookTracker(OrderBookTracker):
         return "mexc"
 
     async def _order_book_diff_router(self):
-        """
-        Route the real-time order book diff messages to the correct order book.
-
-        Each trading pair has their own _saved_message_queues, this would subsequently be used by _track_single_book to apply the messages onto the respective order book.
-        """
         last_message_timestamp: float = time.time()
         messages_queued: int = 0
         messages_accepted: int = 0
