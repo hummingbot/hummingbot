@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, Any
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.client.ui.custom_widgets import CustomTextArea
@@ -15,8 +15,8 @@ class TabExampleTab(TabBase):
         return "Display hello world"
 
     @classmethod
-    def get_command_arguments(cls):
-        return []
+    def get_command_arguments(cls) -> Dict[str, Dict[str, Any]]:
+        return {}
 
     @classmethod
     async def display(cls,

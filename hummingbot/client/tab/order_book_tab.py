@@ -1,7 +1,7 @@
 import asyncio
 import pandas as pd
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, Any
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
@@ -19,13 +19,13 @@ class OrderBookTab(TabBase):
         return "Display current order book"
 
     @classmethod
-    def get_command_arguments(cls):
-        return [
-            ["--lines", {'type': int, 'default': 5, 'dest': "lines", 'help': "Number of lines to display"}],
-            ["--exchange", {'type': str, 'dest': "exchange", 'help': "The exchange of the market"}],
-            ["--market", {'type': str, 'dest': "market", 'help': "The market (trading pair) of the order book"}],
-            ["--live", {'default': False, 'action': "store_true", 'dest': "live", 'help': "Show order book updates"}]
-        ]
+    def get_command_arguments(cls) -> Dict[str, Dict[str, Any]]:
+        return {
+            "--lines": {'type': int, 'default': 5, 'dest': "lines", 'help': "Number of lines to display"},
+            "--exchange": {'type': str, 'dest': "exchange", 'help': "The exchange of the market"},
+            "--market": {'type': str, 'dest': "market", 'help': "The market (trading pair) of the order book"},
+            "--live": {'default': False, 'action': "store_true", 'dest': "live", 'help': "Show order book updates"}
+        }
 
     @classmethod
     async def display(cls,
