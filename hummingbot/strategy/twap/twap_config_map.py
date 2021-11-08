@@ -54,10 +54,13 @@ def set_order_delay_default(value: str = None):
 
 def validate_order_step_size(value: str = None):
     """
-    Validates if order_step_size is less than the target_asset_amount value
+    Invalidates non-decimal input and checks if order_step_size is less than the target_asset_amount value
     :param value: User input for order_step_size parameter
     :return: Error message printed in output pane
     """
+    result = validate_decimal(value, min_value=Decimal("0"), inclusive=False)
+    if result is not None:
+        return result
     target_asset_amount = twap_config_map.get("target_asset_amount").value
     if Decimal(value) > target_asset_amount:
         return "Order step size cannot be greater than the total trade amount."
