@@ -65,12 +65,10 @@ class FormattedTextLexer(Lexer):
             "Return the tokens for the given line."
             try:
                 current_line = lines[lineno]
-                if len(current_line) == 0:
-                    return [("", current_line)]
 
                 # Apply styling to command prompt
                 if current_line.startswith(self.PROMPT_TEXT):
-                    return [(self.get_css_style("success-label"), current_line)]
+                    return [(self.get_css_style("primary-label"), current_line)]
 
                 matched_indexes: List[Tuple[int, int, str]] = [(match.start(), match.end(), style)
                                                                for special_word, style in self.text_style_tag_map.items()
@@ -88,8 +86,7 @@ class FormattedTextLexer(Lexer):
                         (self.get_css_style(style), current_line[start_idx + 2:end_idx])
                     ])
                     previous_idx = end_idx
-                if len(line_fragments) == 0:
-                    line_fragments = [("", current_line)]
+
                 return line_fragments
             except IndexError:
                 return []
