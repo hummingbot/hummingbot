@@ -30,13 +30,13 @@ class GateIoWebsocket:
         self._api_factory = api_factory or build_gate_io_api_factory()
         self._ws_assistant: Optional[WSAssistant] = None
         self._closed = True
-        self._last_recv_time = 0
 
     @property
     def last_recv_time(self) -> float:
+        last_recv_time = 0
         if self._ws_assistant is not None:
-            self._last_recv_time = self._ws_assistant.last_recv_time
-        return self._last_recv_time
+            last_recv_time = self._ws_assistant.last_recv_time
+        return last_recv_time
 
     async def connect(self):
         self._ws_assistant = await self._api_factory.get_ws_assistant()
