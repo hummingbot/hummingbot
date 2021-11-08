@@ -158,8 +158,8 @@ def load_parser(hummingbot, command_tabs) -> [ThrowingArgumentParser, Any]:
 
     for name, command_tab in command_tabs.items():
         o_parser = subparsers.add_parser(name, help=command_tab.tab_class.get_command_help_message())
-        for args in command_tab.tab_class.get_command_arguments():
-            o_parser.add_argument(args[0], **args[1])
+        for arg_name, arg_properties in command_tab.tab_class.get_command_arguments().items():
+            o_parser.add_argument(arg_name, **arg_properties)
         o_parser.add_argument("-c", "--close", default=False, action="store_true", dest="close",
                               help=f"To close the {name} tab.")
 

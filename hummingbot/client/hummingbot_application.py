@@ -1,14 +1,13 @@
 #!/usr/bin/env python
 
 import asyncio
-import inspect
 import logging
 import time
 from collections import deque
 from typing import List, Dict, Optional, Tuple, Deque
 
-import hummingbot.client.tab as tab_package
 from hummingbot.client.command import __all__ as commands
+from hummingbot.client.tab import __all__ as tab_classes
 from hummingbot.core.clock import Clock
 from hummingbot.exceptions import ArgumentParserError
 from hummingbot.logger import HummingbotLogger
@@ -281,12 +280,12 @@ class HummingbotApplication(*commands):
             notifier.start()
 
     def init_command_tabs(self) -> Dict[str, CommandTab]:
+        """
+        Initiates and returns a CommandTab dictionary with mostly defaults and None values, These values will be
+        populated later on by HummingbotCLI
+        """
         command_tabs: Dict[str, CommandTab] = {}
-        for mod_name, module in tab_package.__dict__.items():
-            for mod_item in dir(module):
-                tab = getattr(module, mod_item)
-                if inspect.isclass(tab) and issubclass(tab, tab_package.tab_base.TabBase) \
-                        and tab is not tab_package.tab_base.TabBase:
-                    name = tab.get_command_name()
-                    command_tabs[name] = CommandTab(name, None, None, None, tab)
+        for tab_class in tab_classes:
+            name = tab_class.get_command_name()
+            command_tabs[name] = CommandTab(name, None, None, None, tab_class)
         return command_tabs
