@@ -74,3 +74,6 @@ gateway.env
 /cover/
 /coverage_html_report/
 coverage.xml
+
+# Debug console
+.debug_console_ssh_host_key
