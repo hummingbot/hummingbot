@@ -1,0 +1,6 @@
+$namespace ssl:
+  configurationPath: ssl.yml
+  schemaPath: schema-ssl.json
+$namespace ethereum:
+  configurationPath: ethereum.yml
+  schemaPath: schema-ethereum.json
