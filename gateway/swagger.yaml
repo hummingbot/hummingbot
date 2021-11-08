@@ -1,0 +1,792 @@
+swagger: '2.0'
+
+info:
+  description: 'Gateway allows clients to interoperate with blockchains and DeFi protocols via a REST API. This allows for a language agnostic way to use official SDKs for blockchains.'
+  version: '1.0.0'
+  title: 'gateway'
+  contact:
+    email: 'dev@hummingbot.io'
+  license:
+    name: 'Apache 2.0'
+    url: 'http://www.apache.org/licenses/LICENSE-2.0.html'
+
+host: 'localhost:5000'
+
+tags:
+  - name: 'eth'
+    description: 'Ethereum'
+  - name: 'uniswap'
+    description: 'Uniswap'
+  - name: 'avalanche'
+    description: 'Avalanche'
+  - name: 'pangolin'
+    description: 'pangolin'
+
+schemes:
+  - 'http'
+
+paths:
+  /eth:
+    get:
+      tags:
+        - 'eth'
+      summary: 'View the Ethereum network and RPC URL that gateway is configured to use'
+      description: 'The user can change this by editing src/chains/ethereum/ethereum.config.ts'
+      operationId: 'root'
+      produces:
+        - 'application/json'
+      responses:
+        '200':
+          description: 'Ethereum config'
+          schema:
+            $ref: '#/definitions/EthereumConfigResponse'
+
+  /eth/nonce:
+    post:
+      tags:
+        - 'eth'
+      summary: 'Get the nonce for the provided Ethereum private key'
+      operationId: 'nonce'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/EthereumNonceRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/EthereumNonceResponse'
+
+  /eth/allowances:
+    post:
+      tags:
+        - 'eth'
+      summary: 'Get the ERC20 allowances for a spender on a given private key'
+      operationId: 'allowances'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/EthereumAllowancesRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/EthereumAllowancesResponse'
+
+  /eth/balances:
+    post:
+      tags:
+        - 'eth'
+      summary: 'Get the balances of an Ethereum private key'
+      operationId: 'balances'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/EthereumBalancesRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/EthereumBalancesResponse'
+
+  /eth/approve:
+    post:
+      tags:
+        - 'eth'
+      summary: 'Create an ERC20 approval for a spender on an Ethereum private key'
+      operationId: 'approve'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/EthereumApproveRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/EthereumApproveResponse'
+
+  /eth/poll:
+    post:
+      tags:
+        - 'eth'
+      summary: 'Poll the status of an Ethereum transaction'
+      operationId: 'poll'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/EthereumPollRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/EthereumPollResponse'
+
+  /eth/uniswap:
+    get:
+      tags:
+        - 'uniswap'
+      summary: 'View the Uniswap Router that gateway is configured to use'
+      description: 'The user can change this by editing src/chains/ethereum/uniswap/uniswap.config.ts'
+      operationId: 'root'
+      produces:
+        - 'application/json'
+      responses:
+        '200':
+          description: 'Uniswap config'
+          schema:
+            $ref: '#/definitions/UniswapConfigResponse'
+
+  /eth/uniswap/price:
+    post:
+      tags:
+        - 'uniswap'
+      summary: 'Get the Uniswap V2 price for a quote base pair'
+      operationId: 'poll'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/UniswapPriceRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/UniswapPriceResponse'
+
+  /eth/uniswap/trade:
+    post:
+      tags:
+        - 'uniswap'
+      summary: 'Perform a Uniswap V2 trade'
+      operationId: 'trade'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/UniswapTradeRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/UniswapTradeResponse'
+
+  /avalanche:
+    get:
+      tags:
+        - 'avalanche'
+      summary: 'View the Avalanche network and RPC URL that gateway is configured to use'
+      description: 'The user can change this by editing src/chains/avalanche/avalanche.config.ts'
+      operationId: 'root'
+      produces:
+        - 'application/json'
+      responses:
+        '200':
+          description: 'Avalanche config'
+          schema:
+            $ref: '#/definitions/EthereumConfigResponse'
+
+  /avalanche/nonce:
+    post:
+      tags:
+        - 'avalanche'
+      summary: 'Get the nonce for the provided Avalanche private key'
+      operationId: 'nonce'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/EthereumNonceRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/EthereumNonceResponse'
+
+  /avalanche/allowances:
+    post:
+      tags:
+        - 'avalanche'
+      summary: 'Get the ERC20 allowances for a spender on a given private key'
+      operationId: 'allowances'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/EthereumAllowancesRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/EthereumAllowancesResponse'
+
+  /avalanche/balances:
+    post:
+      tags:
+        - 'avalanche'
+      summary: 'Get the balances of an Avalanche private key'
+      operationId: 'balances'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/EthereumBalancesRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/EthereumBalancesResponse'
+
+  /avalanche/approve:
+    post:
+      tags:
+        - 'avalanche'
+      summary: 'Create an ERC20 approval for a spender on an Avalanche private key'
+      operationId: 'approve'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/EthereumApproveRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/EthereumApproveResponse'
+
+  /avalanche/poll:
+    post:
+      tags:
+        - 'avalanche'
+      summary: 'Poll the status of an Avalanche transaction'
+      operationId: 'poll'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/EthereumPollRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/EthereumPollResponse'
+
+  /avalanche/pangolin:
+    get:
+      tags:
+        - 'pangolin'
+      summary: 'View the Pangoling router that gateway is configured to use'
+      description: 'The user can change this by editing src/chains/avalanche/config/ethereum.config.ts'
+      operationId: 'root'
+      produces:
+        - 'application/json'
+      responses:
+        '200':
+          description: 'Pangolin config'
+          schema:
+            $ref: '#/definitions/UniswapConfigResponse'
+
+  /avalanche/pangolin/price:
+    post:
+      tags:
+        - 'pangolin'
+      summary: 'Get the Pangolin price for a quote base pair'
+      operationId: 'poll'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/UniswapPriceRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/UniswapPriceResponse'
+
+  /avalanche/pangolin/trade:
+    post:
+      tags:
+        - 'pangolin'
+      summary: 'Perform a Pangolin trade'
+      operationId: 'trade'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/UniswapTradeRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/UniswapTradeResponse'
+
+definitions:
+  EthereumConfigResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'rpcUrl'
+      - 'connection'
+      - 'timestamp'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      rpcUrl:
+        type: 'string'
+        example: 'https://mainnet.infura.io/v3/'
+      connection:
+        type: 'boolean'
+        example: true
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+
+  EthereumNonceRequest:
+    type: 'object'
+    required:
+      - 'privateKey'
+    properties:
+      privateKey:
+        type: 'string'
+        example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'
+
+  EthereumNonceResponse:
+    type: 'object'
+    required:
+      - 'nonce'
+    properties:
+      privateKey:
+        type: 'integer'
+        example: 123
+
+  EthereumAllowancesRequest:
+    type: 'object'
+    required:
+      - 'privateKey'
+      - 'spender'
+      - 'tokenSymbols'
+    properties:
+      privateKey:
+        type: 'string'
+        example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'
+      spender:
+        type: 'string'
+        example: 'uniswap'
+      tokenSymbols:
+        type: 'array'
+        items: 'string'
+        example: ['WETH', 'DAI']
+
+  EthereumAllowancesResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'latency'
+      - 'spender'
+      - 'approvals'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      latency:
+        type: 'number'
+        example: 0.5
+      spender:
+        type: 'string'
+        example: '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D'
+      approvals:
+        type: 'object'
+        properties:
+          id:
+            type: 'string'
+          name:
+            type: 'string'
+        example: '{"WETH": "100","DAI": "300"}'
+
+  EthereumBalancesRequest:
+    type: 'object'
+    required:
+      - 'privateKey'
+      - 'tokenSymbols'
+    properties:
+      privateKey:
+        type: 'string'
+        example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'
+      tokenSymbols:
+        type: 'array'
+        items: 'string'
+        example: ['WETH', 'DAI']
+
+  EthereumBalancesResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'latency'
+      - 'balances'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      latency:
+        type: 'number'
+        example: 0.5
+      balances:
+        type: 'object'
+        properties:
+          id:
+            type: 'string'
+          name:
+            type: 'string'
+        example: '{"ETH": "1.5", "WETH": "100","DAI": "300"}'
+
+  EthereumApproveRequest:
+    type: 'object'
+    required:
+      - 'privateKey'
+      - 'spender'
+      - 'token'
+    properties:
+      privateKey:
+        type: 'string'
+        example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'
+      spender:
+        type: 'string'
+        example: 'uniswap'
+      token:
+        type: 'string'
+        example: 'WETH'
+      amount:
+        type: 'string'
+        example: '0'
+      nonce:
+        type: 'number'
+        example: 123
+      maxFeePerGas:
+        type: 'string'
+        example: '5000000000'
+      maxPriorityFeePerGas:
+        type: 'string'
+        example: '5000000000'
+
+  EthereumApproveResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'latency'
+      - 'tokenAddress'
+      - 'spender'
+      - 'amount'
+      - 'nonce'
+      - 'approval'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      latency:
+        type: 'number'
+        example: 1.526
+      tokenAddress:
+        type: 'string'
+        example: '0xd0A1E359811322d97991E03f863a0C30C2cF029C'
+      spender:
+        type: 'string'
+        example: '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D'
+      amount:
+        type: 'string'
+        example: '100'
+      nonce:
+        type: 'number'
+        example: 124
+      approval:
+        type: 'object'
+        example: '{"type": 2,"chainId": 42,"nonce": 129,"maxPriorityFeePerGas": "94000000000","maxFeePerGas": "94000000000","gasPrice": null,"gasLimit": "100000","to": "0xd0A1E359811322d97991E03f863a0C30C2cF029C","value": "0","data": "0x095ea7b30000000000000000000000007a250d5630b4cf539739df2c5dacb4c659f2488dffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff","accessList": [],"hash": "0xa321bbe8888c3bc88ecb1ad4f03f22a71e6f5715dfcb19e0a2dca9036c981b6d","v": 1,"r": "0x47c517271885b7041d81bcd65cd050a5d6be3fbd67a8f1660ac8d7e68fc8221f","s": "0x7c62e114b2cb0eae6236b597fb4aacb01c51e56afd7f734e6039d83aa400ba82","from": "0xFaA12FD102FE8623C9299c72B03E45107F2772B5","confirmations": 0}'
+
+  EthereumPollRequest:
+    type: 'object'
+    required:
+      - 'txHash'
+    properties:
+      txHash:
+        type: 'string'
+        example: '0xa321bbe8888c3bc88ecb1ad4f03f22a71e6f5715dfcb19e0a2dca9036c981b6d'
+
+  EthereumPollResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'currentBlock'
+      - 'txHash'
+      - 'txStatus'
+      - 'txBlock'
+      - 'txData'
+      - 'txReceipt'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      currentBlock:
+        type: 'integer'
+        example: 28243911
+      txHash:
+        type: 'string'
+        example: '0xa321bbe8888c3bc88ecb1ad4f03f22a71e6f5715dfcb19e0a2dca9036c981b6d'
+      txStatus:
+        type: 'number'
+        example: 1
+      txBlock:
+        type: 'number'
+        example: 28243800
+      txData:
+        type: 'object'
+      txReceipt:
+        type: 'object'
+
+  UniswapConfigResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'uniswap_router'
+      - 'connection'
+      - 'timestamp'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      uniswap_router:
+        type: 'string'
+        example: '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D'
+      connection:
+        type: 'boolean'
+        example: true
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+
+  UniswapPriceRequest:
+    type: 'object'
+    required:
+      - 'quote'
+      - 'base'
+      - 'amount'
+      - 'side'
+    properties:
+      quote:
+        type: 'string'
+        example: 'WETH'
+      base:
+        type: 'string'
+        example: 'DAI'
+      amount:
+        type: 'string'
+        example: '10'
+      side:
+        type: 'string'
+        example: 'BUY'
+
+  UniswapPriceResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'latency'
+      - 'base'
+      - 'quote'
+      - 'amount'
+      - 'expectedAmount'
+      - 'price'
+      - 'gasPrice'
+      - 'gasLimit'
+      - 'gasCost'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      latency:
+        type: 'number'
+        example: 0.5
+      base:
+        type: 'string'
+        example: '0x4f96fe3b7a6cf9725f59d353f723c1bdb64ca6aa'
+      quote:
+        type: 'string'
+        example: '0xd0A1E359811322d97991E03f863a0C30C2cF029C'
+      amount:
+        type: 'string'
+        example: '10'
+      expectedAmount:
+        type: 'string'
+        example: '0.000000000000000001'
+      price:
+        type: 'string'
+      gasPrice:
+        type: 'number'
+        example: 96
+      gasLimit:
+        type: 'number'
+        example: 150688
+      gasCost:
+        type: 'string'
+        example: '0.014466048000000000'
+
+  UniswapTradeRequest:
+    type: 'object'
+    required:
+      - 'quote'
+      - 'base'
+      - 'amount'
+      - 'side'
+    properties:
+      quote:
+        type: 'string'
+        example: 'WETH'
+      base:
+        type: 'string'
+        example: 'DAI'
+      amount:
+        type: 'string'
+        example: '10'
+      side:
+        type: 'string'
+        example: 'BUY'
+      limitPrice:
+        type: 'string'
+      nonce:
+        type: number
+      maxFeePerGas:
+        type: number
+      maxPriorityFeePerGas:
+        type: number
+
+  UniswapTradeResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'latency'
+      - 'base'
+      - 'quote'
+      - 'amount'
+      - 'price'
+      - 'gasPrice'
+      - 'gasLimit'
+      - 'gasCost'
+      - 'nonce'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      latency:
+        type: 'number'
+        example: 0.5
+      base:
+        type: 'string'
+        example: '0x4f96fe3b7a6cf9725f59d353f723c1bdb64ca6aa'
+      quote:
+        type: 'string'
+        example: '0xd0A1E359811322d97991E03f863a0C30C2cF029C'
+      amount:
+        type: 'string'
+        example: '10'
+      expectedIn:
+        type: 'string'
+      expectedOut:
+        type: 'string'
+      price:
+        type: 'string'
+      gasPrice:
+        type: 'string'
+      gasLimit:
+        type: 'string'
+      gasCost:
+        type: 'string'
+      nonce:
+        type: 'string'
+      txHash:
+        type: 'string'
+
+externalDocs:
+  description: 'Find out more about gateway'
+  url: 'https://github.com/CoinAlpha/hummingbot'
