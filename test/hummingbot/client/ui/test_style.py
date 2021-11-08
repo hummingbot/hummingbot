@@ -1,9 +1,10 @@
 import asyncio
 import unittest
 
+from prompt_toolkit.styles import Style
 from typing import Awaitable
 from unittest.mock import patch
-from prompt_toolkit.styles import Style
+
 from hummingbot.client.config.config_helpers import read_system_configs_from_yml
 from hummingbot.client.ui.style import load_style, reset_style, hex_to_ansi
 
