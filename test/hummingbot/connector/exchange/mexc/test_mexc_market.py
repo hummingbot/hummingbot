@@ -2,7 +2,7 @@
 import logging
 from os.path import join, realpath
 
-from test.connector.exchange.mexc.fixture_mexc import FixtureMEXC
+from test.hummingbot.connector.exchange.mexc.fixture_mexc import FixtureMEXC
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 
 import asyncio
@@ -65,10 +65,10 @@ from hummingbot.connector.exchange.mexc.constants import (
 )
 import sys
 
-sys.path.insert(0, realpath(join(__file__, "../../../../../")))
+sys.path.insert(0, realpath(join(__file__, "../../../../../../")))
 
-MOCK_API_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
-# MOCK_API_ENABLED = True
+# MOCK_API_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
+MOCK_API_ENABLED = True
 
 API_KEY = "API_PASSPHRASE_MOCK" if MOCK_API_ENABLED else conf.mexc_api_key
 API_SECRET = "API_SECRET_MOCK" if MOCK_API_ENABLED else conf.mexc_secret_key
