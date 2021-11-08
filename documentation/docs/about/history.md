@@ -5,8 +5,8 @@ Below, we list some articles and blog posts about Hummingbot, CoinAlpha, and liq
 ## Hummingbot
 
 * [Hummingbot whitepaper](https://hummingbot.io/hummingbot.pdf)
-* [The Hummingbot origin story](https://hummingbot.io/en/blog/2019-03-from-hedge-fund-to-market-making-bot)
-* [7 common questions about Hummingbot](https://hummingbot.io/en/blog/2019-03-7-hummingbot-questions/)
+* [The Hummingbot origin story](https://hummingbot.io/blog/2019-03-from-hedge-fund-to-market-making-bot)
+* [7 common questions about Hummingbot](https://hummingbot.io/blog/2019-03-7-hummingbot-questions/)
 
 ## CoinAlpha
 
@@ -16,11 +16,11 @@ Below, we list some articles and blog posts about Hummingbot, CoinAlpha, and liq
 ## Liquidity mining
 
 * [Liquidity mining whitepaper](https://hummingbot.io/liquidity-mining.pdf)
-* [Introducing liquidity mining](https://hummingbot.io/en/blog/2019-11-liquidity-mining/)
-* [Demystifying liquidity mining rewards](https://hummingbot.io/en/blog/2019-12-liquidity-mining-rewards/)
-* [Comparing liquidity mining options in DeFi vs. Hummingbot](https://hummingbot.io/en/blog/2020-08-liquidity-mining-hummingbot-vs-defi/)
+* [Introducing liquidity mining](https://hummingbot.io/blog/2019-11-liquidity-mining)
+* [Demystifying liquidity mining rewards](https://hummingbot.io/blog/2019-12-liquidity-mining-rewards)
+* [Comparing liquidity mining options in DeFi vs. Hummingbot](https://hummingbot.io/blog/2020-08-liquidity-mining-hummingbot-vs-defi)
 
 ## Market making
 
-* [The thin crust of liquidity: Why crypto needs more market makers](https://hummingbot.io/en/blog/2019-01-thin-crust-of-liquidity)
+* [The thin crust of liquidity: Why crypto needs more market makers](https://hummingbot.io/blog/2019-01-thin-crust-of-liquidityy)
 * [Mapping the crypto market maker landscape](https://hummingbot.io/en/blog/2020-02-crypto-market-marker-list)
