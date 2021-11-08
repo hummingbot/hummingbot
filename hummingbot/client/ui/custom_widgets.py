@@ -2,7 +2,7 @@ from __future__ import unicode_literals
 
 import re
 from collections import deque
-from typing import Callable, Deque, Dict, List
+from typing import Callable, Deque, Dict, List, Tuple
 
 import six
 from prompt_toolkit.auto_suggest import DynamicAutoSuggest
@@ -72,17 +72,24 @@ class FormattedTextLexer(Lexer):
                 if current_line.startswith(self.PROMPT_TEXT):
                     return [(self.get_css_style("success-label"), current_line)]
 
-                # Apply styling to output field
-                line_fragments = [("", c) for c in current_line]
+                matched_indexes: List[Tuple[int, int, str]] = [(match.start(), match.end(), style)
+                                                               for special_word, style in self.text_style_tag_map.items()
+                                                               for match in list(re.finditer(special_word, current_line))
+                                                               ]
+                if len(matched_indexes) == 0:
+                    return [("", current_line)]
 
-                # TODO: Fragment by words instead
-                for special_word, style in self.text_style_tag_map.items():
-                    for match in re.finditer(special_word, current_line):
-                        for i in range(match.start(), match.start() + 2):
-                            line_fragments[i] = (self.get_css_style("output-pane"), line_fragments[i][1])
-                            # del line_fragments[i]
-                        for i in range(match.start() + 2, match.end()):
-                            line_fragments[i] = (self.get_css_style(style), line_fragments[i][1])
+                previous_idx = 0
+                line_fragments = []
+                for start_idx, end_idx, style in matched_indexes:
+                    line_fragments.extend([
+                        ("", current_line[previous_idx:start_idx]),
+                        (self.get_css_style("output-pane"), current_line[start_idx:start_idx + 2]),
+                        (self.get_css_style(style), current_line[start_idx + 2:end_idx])
+                    ])
+                    previous_idx = end_idx
+                if len(line_fragments) == 0:
+                    line_fragments = [("", current_line)]
                 return line_fragments
             except IndexError:
                 return []
