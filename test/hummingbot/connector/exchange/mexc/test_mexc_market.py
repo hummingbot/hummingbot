@@ -67,8 +67,8 @@ import sys
 
 sys.path.insert(0, realpath(join(__file__, "../../../../../../")))
 
-MOCK_API_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
-# MOCK_API_ENABLED = True
+# MOCK_API_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
+MOCK_API_ENABLED = True
 
 API_KEY = "API_PASSPHRASE_MOCK" if MOCK_API_ENABLED else conf.mexc_api_key
 API_SECRET = "API_SECRET_MOCK" if MOCK_API_ENABLED else conf.mexc_secret_key
