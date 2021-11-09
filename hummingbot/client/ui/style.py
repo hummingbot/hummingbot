@@ -18,8 +18,18 @@ def load_style(config_map=global_config_map):
     color_logs_pane = config_map.get("logs-pane").value
     color_terminal_primary = config_map.get("terminal-primary").value
 
+    color_primary_label = config_map.get("primary-label").value
+    color_secondary_label = config_map.get("secondary-label").value
+    color_success_label = config_map.get("success-label").value
+    color_warning_label = config_map.get("warning-label").value
+    color_info_label = config_map.get("info-label").value
+    color_error_label = config_map.get("error-label").value
+
+    # Load default style
+    style = default_ui_style
+
     if is_windows():
-        # Load default style
+        # Load default style for Windows
         style = win32_code_style
 
         # Translate HEX to ANSI
@@ -30,6 +40,13 @@ def load_style(config_map=global_config_map):
         color_logs_pane = hex_to_ansi(color_logs_pane)
         color_terminal_primary = hex_to_ansi(color_terminal_primary)
 
+        color_primary_label = hex_to_ansi(color_primary_label)
+        color_secondary_label = hex_to_ansi(color_secondary_label)
+        color_success_label = hex_to_ansi(color_success_label)
+        color_warning_label = hex_to_ansi(color_warning_label)
+        color_info_label = hex_to_ansi(color_info_label)
+        color_error_label = hex_to_ansi(color_error_label)
+
         # Apply custom configuration
         style["output-field"] = "bg:" + color_output_pane + " " + color_terminal_primary
         style["input-field"] = "bg:" + color_input_pane + " " + style["input-field"].split(' ')[-1]
@@ -39,6 +56,13 @@ def load_style(config_map=global_config_map):
         style["primary"] = color_terminal_primary
         style["search"] = color_terminal_primary
         style["search.current"] = color_terminal_primary
+
+        style["primary-label"] = "bg:" + color_primary_label + " " + color_output_pane
+        style["secondary-label"] = "bg:" + color_secondary_label + " " + color_output_pane
+        style["success-label"] = "bg:" + color_success_label + " " + color_output_pane
+        style["warning-label"] = "bg:" + color_warning_label + " " + color_output_pane
+        style["info-label"] = "bg:" + color_info_label + " " + color_output_pane
+        style["error-label"] = "bg:" + color_error_label + " " + color_output_pane
 
         return Style.from_dict(style)
 
@@ -54,6 +78,13 @@ def load_style(config_map=global_config_map):
         style["footer"] = "bg:" + color_bottom_pane + " " + style["footer"].split(' ')[-1]
         style["primary"] = color_terminal_primary
 
+        style["primary-label"] = "bg:" + color_primary_label + " " + color_output_pane
+        style["secondary-label"] = "bg:" + color_secondary_label + " " + color_output_pane
+        style["success-label"] = "bg:" + color_success_label + " " + color_output_pane
+        style["warning-label"] = "bg:" + color_warning_label + " " + color_output_pane
+        style["info-label"] = "bg:" + color_info_label + " " + color_output_pane
+        style["error-label"] = "bg:" + color_error_label + " " + color_output_pane
+
         return Style.from_dict(style)
 
 
@@ -65,6 +96,13 @@ def reset_style(config_map=global_config_map, save=True):
     config_map.get("input-pane").value = config_map.get("input-pane").default
     config_map.get("logs-pane").value = config_map.get("logs-pane").default
     config_map.get("terminal-primary").value = config_map.get("terminal-primary").default
+
+    config_map.get("primary-label").value = config_map.get("primary-label").default
+    config_map.get("secondary-label").value = config_map.get("secondary-label").default
+    config_map.get("success-label").value = config_map.get("success-label").default
+    config_map.get("warning-label").value = config_map.get("warning-label").default
+    config_map.get("info-label").value = config_map.get("info-label").default
+    config_map.get("error-label").value = config_map.get("error-label").default
 
     # Save configuration
     if save:
@@ -108,6 +146,12 @@ def hex_to_ansi(color_hex):
 
     return "#" + color_ansi
 
+
+text_ui_style = {
+    "&cGREEN": "success-label",
+    "&cYELLOW": "warning-label",
+    "&cRED": "error-label",
+}
 
 default_ui_style = {
     "output-field":               "bg:#171E2B #1CD085",  # noqa: E241
