@@ -4,7 +4,8 @@ import base64
 from collections import namedtuple
 from typing import (
     Dict,
-    Optional
+    Optional,
+    Tuple,
 )
 from zero_ex.order_utils import Order as ZeroExOrder
 
@@ -37,3 +38,8 @@ def json_to_zrx_order(data: Optional[Dict[str, any]]) -> Optional[ZeroExOrder]:
         else:
             intermediate[key] = value
     return ZeroExOrder(intermediate)
+
+
+def split_hb_trading_pair(trading_pair: str) -> Tuple[str, str]:
+    base, quote = trading_pair.split("-")
+    return base, quote

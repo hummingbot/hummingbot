@@ -649,13 +649,16 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                     step_size = Decimal(filt_dict.get("LOT_SIZE").get("stepSize"))
                     tick_size = Decimal(filt_dict.get("PRICE_FILTER").get("tickSize"))
                     min_notional = Decimal(filt_dict.get("MIN_NOTIONAL").get("notional"))
+                    collateral_token = rule["marginAsset"]
 
                     return_val.append(
                         TradingRule(trading_pair,
                                     min_order_size=min_order_size,
                                     min_price_increment=Decimal(tick_size),
                                     min_base_amount_increment=Decimal(step_size),
-                                    min_notional_size=Decimal(min_notional)
+                                    min_notional_size=Decimal(min_notional),
+                                    buy_order_collateral_token=collateral_token,
+                                    sell_order_collateral_token=collateral_token,
                                     )
                     )
             except Exception as e:
@@ -1039,6 +1042,14 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
 
     def supported_position_modes(self):
         return [PositionMode.ONEWAY, PositionMode.HEDGE]
+
+    async def get_buy_collateral_token(self, trading_pair: str) -> str:
+        trading_rule: TradingRule = self._trading_rules[trading_pair]
+        return trading_rule.buy_order_collateral_token
+
+    async def get_sell_collateral_token(self, trading_pair: str) -> str:
+        trading_rule: TradingRule = self._trading_rules[trading_pair]
+        return trading_rule.sell_order_collateral_token
 
     async def request(self,
                       path: str,

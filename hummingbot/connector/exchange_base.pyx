@@ -1,13 +1,11 @@
 from decimal import Decimal
-import pandas as pd
 from typing import (
     Dict,
     List,
     Tuple,
     Optional,
-    Iterator,
-    Any)
-from hummingbot.core.data_type.cancellation_result import CancellationResult
+    Iterator)
+
 from hummingbot.core.data_type.order_book_query_result import (
     OrderBookQueryResult,
     ClientOrderBookQueryResult
@@ -283,3 +281,43 @@ cdef class ExchangeBase(ConnectorBase):
         required volume.
         """
         return Decimal(str(self.get_price_for_volume(trading_pair, is_buy, amount).result_price))
+
+    async def get_required_collateral(
+        self,
+        trading_pair: str,
+        order_type: OrderType,
+        order_side: TradeType,
+        amount: Decimal, price: Decimal,
+        leverage: Decimal = Decimal("1"),
+    ) -> Tuple[Decimal, str]:
+        """
+        Returns the required collateral value and the collateral token for the given trade.
+
+        :param trading_pair: The market trading pair.
+        :param order_type: The order type.
+        :param order_side: Buy or sell.
+        :param amount: The desired order size.
+        :param price: The desired order price.
+        :param leverage: The leverage, in case of perpetual trading.
+        :return: A tuple of the collateral value and the collateral token.
+        """
+        base, quote = self.split_trading_pair(trading_pair)
+
+        if order_side == TradeType.BUY:
+            collateral_token = await self.get_buy_collateral_token(trading_pair)
+        else:
+            collateral_token = await self.get_sell_collateral_token(trading_pair)
+
+        fee = self.get_fee(base, quote, order_type, order_side, amount, price)
+        order_size = amount * price
+        required_collateral = (order_size / leverage) + (order_size * fee.percent)
+
+        return required_collateral, collateral_token
+
+    async def get_buy_collateral_token(self, trading_pair: str) -> str:
+        _, quote = self.split_trading_pair(trading_pair)
+        return quote
+
+    async def get_sell_collateral_token(self, trading_pair: str) -> str:
+        base, _ = self.split_trading_pair(trading_pair)
+        return base
