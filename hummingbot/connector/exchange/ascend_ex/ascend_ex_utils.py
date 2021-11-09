@@ -1,7 +1,7 @@
 import random
 import string
 from typing import Tuple
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce_low_res
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce_low_res, get_tracking_nonce
 
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_methods import using_exchange
@@ -50,6 +50,9 @@ def derive_order_id(user_uid: str, cl_order_id: str, ts: int) -> str:
     :param ts: order timestamp in milliseconds
     :return: order id of length 32
     """
+    # NOTE: The derived_order_id function details how AscendEx server generates the exchange_order_id
+    #       Currently, due to how the exchange constructs the exchange_order_id, there is a real possibility of
+    #       duplicate order ids
     return (HBOT_BROKER_ID + format(ts, 'x')[-11:] + user_uid[-11:] + cl_order_id[-5:])[:32]
 
 
@@ -74,7 +77,8 @@ def gen_exchange_order_id(userUid: str, client_order_id: str) -> Tuple[str, int]
 def gen_client_order_id(is_buy: bool, trading_pair: str) -> str:
     side = "B" if is_buy else "S"
     base, quote = trading_pair.split("-")
-    return f"{HBOT_BROKER_ID}-{side}{base[:3]}{quote[:3]}{uuid32()}"
+    # TODO: Determine a better way uniquely identify client order id.
+    return f"{HBOT_BROKER_ID}-{side}{base[:3]}{quote[:3]}{get_tracking_nonce()}"
 
 
 KEYS = {
