@@ -4,6 +4,7 @@ from copy import deepcopy
 from typing import Awaitable
 from unittest.mock import patch, MagicMock
 
+from hummingbot.client.config.config_helpers import read_system_configs_from_yml
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from test.mock.mock_cli import CLIMockingAssistant
@@ -14,6 +15,9 @@ class BalanceCommandTest(unittest.TestCase):
     def setUp(self, _: MagicMock) -> None:
         super().setUp()
         self.ev_loop = asyncio.get_event_loop()
+
+        self.async_run_with_timeout(read_system_configs_from_yml())
+
         self.app = HummingbotApplication()
         self.cli_mock_assistant = CLIMockingAssistant(self.app.app)
         self.cli_mock_assistant.start()
