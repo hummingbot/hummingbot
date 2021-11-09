@@ -966,6 +966,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
         for market_name in markets_info:
             market = markets_info[market_name]
             try:
+                collateral_token = market["quoteAsset"]  # all contracts settled in USDC
                 self._trading_rules[market_name] = TradingRule(
                     trading_pair=market_name,
                     min_order_size=Decimal(market['minOrderSize']),
@@ -973,7 +974,9 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                     min_base_amount_increment=Decimal(market['stepSize']),
                     min_notional_size=Decimal(market['minOrderSize']) * Decimal(market['tickSize']),
                     supports_limit_orders=True,
-                    supports_market_orders=True
+                    supports_market_orders=True,
+                    buy_order_collateral_token=collateral_token,
+                    sell_order_collateral_token=collateral_token,
                 )
                 self._margin_fractions[market_name] = {
                     "initial": Decimal(market['initialMarginFraction']),
@@ -1189,3 +1192,11 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
     # TODO: Implement
     async def close_position(self, trading_pair: str):
         pass
+
+    async def get_buy_collateral_token(self, trading_pair: str) -> str:
+        trading_rule: TradingRule = self._trading_rules[trading_pair]
+        return trading_rule.buy_order_collateral_token
+
+    async def get_sell_collateral_token(self, trading_pair: str) -> str:
+        trading_rule: TradingRule = self._trading_rules[trading_pair]
+        return trading_rule.sell_order_collateral_token

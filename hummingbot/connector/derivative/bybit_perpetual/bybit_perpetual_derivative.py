@@ -685,12 +685,15 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         for instrument in instrument_info:
             try:
                 trading_pair = f"{instrument['base_currency']}-{instrument['quote_currency']}"
+                collateral_token = instrument["quote_currency"]
                 trading_rules[trading_pair] = TradingRule(
                     trading_pair=trading_pair,
                     min_order_size=Decimal(str(instrument["lot_size_filter"]["min_trading_qty"])),
                     max_order_size=Decimal(str(instrument["lot_size_filter"]["max_trading_qty"])),
                     min_price_increment=Decimal(str(instrument["price_filter"]["tick_size"])),
                     min_base_amount_increment=Decimal(str(instrument["lot_size_filter"]["qty_step"])),
+                    buy_order_collateral_token=collateral_token,
+                    sell_order_collateral_token=collateral_token,
                 )
             except Exception:
                 self.logger().error(f"Error parsing the trading pair rule: {instrument}. Skipping...",
@@ -1202,6 +1205,14 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             self.logger().error(f"Funding Info for {trading_pair} not found. Proceeding to fetch using REST API.")
             safe_ensure_future(self._order_book_tracker.data_source.get_funding_info(trading_pair))
             return None
+
+    async def get_buy_collateral_token(self, trading_pair: str) -> str:
+        trading_rule: TradingRule = self._trading_rules[trading_pair]
+        return trading_rule.buy_order_collateral_token
+
+    async def get_sell_collateral_token(self, trading_pair: str) -> str:
+        trading_rule: TradingRule = self._trading_rules[trading_pair]
+        return trading_rule.sell_order_collateral_token
 
     def _get_throttler_instance(self) -> AsyncThrottler:
         if self._trading_pairs is not None:

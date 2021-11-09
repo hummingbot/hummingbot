@@ -627,3 +627,7 @@ class PerpetualFinanceDerivative(ExchangeBase, PerpetualTrading):
     @property
     def in_flight_orders(self) -> Dict[str, PerpetualFinanceInFlightOrder]:
         return self._in_flight_orders
+
+    async def get_sell_collateral_token(self, trading_pair: str) -> str:
+        _, quote = self.split_trading_pair(trading_pair)
+        return quote
