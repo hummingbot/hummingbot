@@ -176,7 +176,7 @@ class TestGateIoExchange(unittest.TestCase):
         ]
         return open_orders
 
-    @patch("hummingbot.connector.exchange.gate_io.gate_io_exchange.retry_sleep_time")
+    @patch("hummingbot.connector.exchange.gate_io.gate_io_utils.retry_sleep_time")
     @aioresponses()
     def test_check_network_not_connected(self, retry_sleep_time_mock, mock_api):
         retry_sleep_time_mock.side_effect = lambda *args, **kwargs: 0

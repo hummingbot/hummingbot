@@ -24,7 +24,6 @@ class NetworkMockingAssistant:
         self._all_incoming_websocket_aiohttp_delivered_event = defaultdict(asyncio.Event)
         self._sent_websocket_json_messages = defaultdict(list)
         self._sent_websocket_text_messages = defaultdict(list)
-        self._sent_websocket_aiohttp_messages = defaultdict(list)
 
         self._ev_loop = asyncio.get_event_loop()
 
@@ -126,9 +125,6 @@ class NetworkMockingAssistant:
 
     def text_messages_sent_through_websocket(self, websocket_mock):
         return self._sent_websocket_text_messages[websocket_mock]
-
-    def aiohttp_messages_sent_through_websocket(self, websocket_mock):
-        return self._sent_websocket_aiohttp_messages[websocket_mock]
 
     def run_until_all_text_messages_delivered(self, websocket_mock, timeout: int = 1):
         all_delivered = self._all_incoming_websocket_text_delivered_event[websocket_mock]

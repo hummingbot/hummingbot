@@ -95,7 +95,7 @@ class ConnectCommand:
 
     async def connection_df(self  # type: HummingbotApplication
                             ):
-        columns = ["Exchange", "  Keys Added", "  Keys Confirmed", "  Connector Status"]
+        columns = ["Exchange", "  Keys Added", "  Keys Confirmed", "  Status"]
         data = []
         failed_msgs = {}
         network_timeout = float(global_config_map["other_commands_timeout"].value)
