@@ -291,7 +291,7 @@ cdef class ExchangeBase(ConnectorBase):
         leverage: Decimal = Decimal("1"),
     ) -> Tuple[Decimal, str]:
         """
-        Returns the required collateral value and the collateral token for the given trade.
+        Returns the required collateral value and the collateral token for the given order.
 
         :param trading_pair: The market trading pair.
         :param order_type: The order type.
