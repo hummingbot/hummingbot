@@ -129,8 +129,6 @@ class AscendExExchange(ExchangePyBase):
         self._account_uid = None  # required in order to produce deterministic order ids
         self._throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
 
-        self._client_uuid_map: Dict[str, str] = {}
-
     @property
     def name(self) -> str:
         return CONSTANTS.EXCHANGE_NAME
