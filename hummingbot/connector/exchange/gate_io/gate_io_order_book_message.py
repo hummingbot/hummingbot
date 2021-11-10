@@ -1,20 +1,12 @@
 #!/usr/bin/env python
 
-from typing import (
-    Dict,
-    List,
-    Optional,
-)
+from typing import Dict, List, Optional
 
-from hummingbot.core.data_type.order_book_row import OrderBookRow
-from hummingbot.core.data_type.order_book_message import (
-    OrderBookMessage,
-    OrderBookMessageType,
-)
-from .gate_io_utils import (
-    convert_from_exchange_trading_pair,
-)
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+from hummingbot.core.data_type.order_book_row import OrderBookRow
+
+from .gate_io_utils import convert_from_exchange_trading_pair
 
 
 class GateIoOrderBookMessage(OrderBookMessage):

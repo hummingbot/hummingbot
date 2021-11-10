@@ -31,7 +31,7 @@ from hummingbot.core.management.console import start_management_console
 from bin.hummingbot import (
     detect_available_port,
 )
-from hummingbot.client.settings import CONF_FILE_PATH
+from hummingbot.client.settings import CONF_FILE_PATH, AllConnectorSettings
 from hummingbot.client.config.security import Security
 
 
@@ -79,6 +79,8 @@ async def quick_start(args):
     await create_yml_files()
     init_logging("hummingbot_logs.yml")
     await read_system_configs_from_yml()
+
+    AllConnectorSettings.initialize_paper_trade_settings(global_config_map.get("paper_trade_exchanges").value)
 
     hb = HummingbotApplication.main_application()
     # Todo: validate strategy and config_file_name before assinging
