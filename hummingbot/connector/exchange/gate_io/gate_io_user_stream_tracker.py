@@ -2,26 +2,16 @@
 
 import asyncio
 import logging
-from typing import (
-    Optional,
-    List,
-)
+from typing import List, Optional
 
-import aiohttp
-
-from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.user_stream_tracker import (
-    UserStreamTracker
-)
-from hummingbot.core.utils.async_utils import (
-    safe_ensure_future,
-    safe_gather,
-)
-from hummingbot.connector.exchange.gate_io.gate_io_api_user_stream_data_source import \
-    GateIoAPIUserStreamDataSource
-from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
+from hummingbot.connector.exchange.gate_io.gate_io_api_user_stream_data_source import GateIoAPIUserStreamDataSource
+from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
+from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.logger import HummingbotLogger
 
 
 class GateIoUserStreamTracker(UserStreamTracker):
@@ -36,9 +26,9 @@ class GateIoUserStreamTracker(UserStreamTracker):
     def __init__(self,
                  gate_io_auth: Optional[GateIoAuth] = None,
                  trading_pairs: Optional[List[str]] = None,
-                 shared_client: Optional[aiohttp.ClientSession] = None):
+                 api_factory: Optional[WebAssistantsFactory] = None):
         super().__init__()
-        self._shared_client = shared_client
+        self._api_factory = api_factory
         self._gate_io_auth: GateIoAuth = gate_io_auth
         self._trading_pairs: List[str] = trading_pairs or []
         self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
@@ -56,7 +46,7 @@ class GateIoUserStreamTracker(UserStreamTracker):
             self._data_source = GateIoAPIUserStreamDataSource(
                 gate_io_auth=self._gate_io_auth,
                 trading_pairs=self._trading_pairs,
-                shared_client=self._shared_client,
+                api_factory=self._api_factory,
             )
         return self._data_source
 

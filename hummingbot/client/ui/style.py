@@ -51,6 +51,8 @@ def load_style(config_map=global_config_map):
         style["output-field"] = "bg:" + color_output_pane + " " + color_terminal_primary
         style["input-field"] = "bg:" + color_input_pane + " " + style["input-field"].split(' ')[-1]
         style["log-field"] = "bg:" + color_logs_pane + " " + style["log-field"].split(' ')[-1]
+        style["tab_button.focused"] = "bg:" + color_terminal_primary + " " + color_logs_pane
+        style["tab_button"] = style["tab_button"].split(' ')[0] + " " + color_logs_pane
         style["header"] = "bg:" + color_top_pane + " " + style["header"].split(' ')[-1]
         style["footer"] = "bg:" + color_bottom_pane + " " + style["footer"].split(' ')[-1]
         style["primary"] = color_terminal_primary
@@ -77,6 +79,8 @@ def load_style(config_map=global_config_map):
         style["header"] = "bg:" + color_top_pane + " " + style["header"].split(' ')[-1]
         style["footer"] = "bg:" + color_bottom_pane + " " + style["footer"].split(' ')[-1]
         style["primary"] = color_terminal_primary
+        style["tab_button.focused"] = "bg:" + color_terminal_primary + " " + color_logs_pane
+        style["tab_button"] = style["tab_button"].split(' ')[0] + " " + color_logs_pane
 
         style["primary-label"] = "bg:" + color_primary_label + " " + color_output_pane
         style["secondary-label"] = "bg:" + color_secondary_label + " " + color_output_pane
@@ -121,7 +125,8 @@ def hex_to_ansi(color_hex):
                     "0000FF": "ansiblue",
                     "FF00FF": "ansimagenta",
                     "00FFFF": "ansicyan",
-                    "F0F0F0": "ansigray"}
+                    "F0F0F0": "ansigray",
+                    "FFFFFF": "ansiwhite"}
 
     # Sanitization
     color_hex = color_hex.replace('#', '')
@@ -164,6 +169,8 @@ default_ui_style = {
     "primary":                    "#1CD085",  # noqa: E241
     "warning":                    "#93C36D",  # noqa: E241
     "error":                      "#F5634A",  # noqa: E241
+    "tab_button.focused":         "bg:#1CD085 #171E2B",  # noqa: E241
+    "tab_button":                 "bg:#FFFFFF #000000",  # noqa: E241
 }
 
 
@@ -180,4 +187,6 @@ win32_code_style = {
     "primary":                    "#ansigreen",  # noqa: E241
     "warning":                    "#ansibrightyellow",  # noqa: E241
     "error":                      "#ansired",  # noqa: E241
+    "tab_button.focused":         "bg:#ansigreen #ansiblack",  # noqa: E241
+    "tab_button":                 "bg:#ansiwhite #ansiblack",  # noqa: E241
 }
