@@ -23,10 +23,12 @@ from hummingbot.core.clock cimport Clock
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.data_type.limit_order cimport LimitOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.event.events import OrderType
 
 from hummingbot.strategy.__utils__.trailing_indicators.instant_volatility import InstantVolatilityIndicator
+from hummingbot.strategy.__utils__.trailing_indicators.trading_intensity import TradingIntensityIndicator
 from hummingbot.strategy.data_types import (
     Proposal,
     PriceSize)
@@ -77,18 +79,14 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     logging_options: int = OPTION_LOG_ALL,
                     status_report_interval: float = 900,
                     hb_app_notification: bool = False,
-                    parameters_based_on_spread: bool = True,
-                    min_spread: Decimal = Decimal("0.15"),
-                    max_spread: Decimal = Decimal("2"),
-                    vol_to_spread_multiplier: Decimal = Decimal("1.3"),
-                    volatility_sensibility: Decimal = Decimal("0.2"),
-                    inventory_risk_aversion: Decimal = Decimal("0.5"),
-                    order_book_depth_factor: Decimal = Decimal("0.1"),
                     risk_factor: Decimal = Decimal("0.5"),
                     order_amount_shape_factor: Decimal = Decimal("0.005"),
                     closing_time: Decimal = Decimal("1"),
+                    min_spread: Decimal = Decimal("0"),
                     debug_csv_path: str = '',
-                    volatility_buffer_size: int = 30,
+                    volatility_buffer_size: int = 200,
+                    trading_intensity_buffer_size: int = 200,
+                    trading_intensity_price_levels: Tuple[float] = tuple(np.geomspace(1, 2, 10) - 1),
                     should_wait_order_cancel_confirmation = True,
                     is_debug: bool = False,
                     ):
@@ -121,20 +119,17 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._last_own_trade_price = Decimal('nan')
 
         self.c_add_markets([market_info.market])
-        self._ticks_to_be_ready = volatility_buffer_size
-        self._parameters_based_on_spread = parameters_based_on_spread
-        self._min_spread = min_spread
-        self._max_spread = max_spread
-        self._vol_to_spread_multiplier = vol_to_spread_multiplier
-        self._volatility_sensibility = volatility_sensibility
-        self._inventory_risk_aversion = inventory_risk_aversion
-        self._avg_vol = InstantVolatilityIndicator(volatility_buffer_size, 1)
+        self._ticks_to_be_ready = max(volatility_buffer_size, trading_intensity_buffer_size)
+        self._avg_vol = InstantVolatilityIndicator()
+        self._trading_intensity = TradingIntensityIndicator(trading_intensity_buffer_size, order_amount, trading_intensity_price_levels)
         self._last_sampling_timestamp = 0
-        self._kappa = order_book_depth_factor
+        self._alpha = None
+        self._kappa = None
         self._gamma = risk_factor
         self._eta = order_amount_shape_factor
         self._time_left = closing_time
         self._closing_time = closing_time
+        self._min_spread = min_spread
         self._latest_parameter_calculation_vol = s_decimal_zero
         self._reserved_price = s_decimal_zero
         self._optimal_spread = s_decimal_zero
@@ -153,14 +148,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         return all([market.ready for market in self._sb_markets])
 
     @property
-    def volatility_sensibility(self) -> Decimal:
-        return self._volatility_sensibility
-
-    @property
-    def inventory_risk_aversion(self) -> Decimal:
-        return self._inventory_risk_aversion
-
-    @property
     def latest_parameter_calculation_vol(self):
         return self._latest_parameter_calculation_vol
 
@@ -175,6 +162,14 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     @avg_vol.setter
     def avg_vol(self, indicator: InstantVolatilityIndicator):
         self._avg_vol = indicator
+
+    @property
+    def trading_intensity(self):
+        return self._trading_intensity
+
+    @trading_intensity.setter
+    def trading_intensity(self, indicator: TradingIntensityIndicator):
+        self._trading_intensity = indicator
 
     @property
     def market_info(self) -> MarketTradingPairTuple:
@@ -229,30 +224,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._filled_order_delay = value
 
     @property
-    def vol_to_spread_multiplier(self) -> Decimal:
-        return self._vol_to_spread_multiplier
-
-    @vol_to_spread_multiplier.setter
-    def vol_to_spread_multiplier(self, value):
-        self._vol_to_spread_multiplier = value
-
-    @property
-    def min_spread(self) -> Decimal:
-        return self._min_spread
-
-    @min_spread.setter
-    def min_spread(self, value):
-        self._min_spread = value
-
-    @property
-    def max_spread(self) -> Decimal:
-        return self._max_spread
-
-    @max_spread.setter
-    def max_spread(self, value):
-        self._max_spread = value
-
-    @property
     def order_override(self) -> Dict[str, any]:
         return self._order_override
 
@@ -303,6 +274,14 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     @gamma.setter
     def gamma(self, value):
         self._gamma = value
+
+    @property
+    def alpha(self):
+        return self._alpha
+
+    @alpha.setter
+    def alpha(self, value):
+        self._alpha = value
 
     @property
     def kappa(self):
@@ -375,6 +354,12 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
     cdef object c_get_mid_price(self):
         return self._market_info.get_mid_price()
+
+    def get_order_book_snapshot(self) -> float:
+        return self.c_get_order_book_snapshot()
+
+    cdef object c_get_order_book_snapshot(self):
+        return self._market_info.order_book.snapshot
 
     @property
     def market_info_to_active_orders(self) -> Dict[MarketTradingPairTuple, List[LimitOrder]]:
@@ -479,6 +464,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         markets_data = []
         markets_columns = ["Exchange", "Market", "Best Bid", "Best Ask", f"MidPrice"]
         markets_columns.append('Reserved Price')
+        markets_columns.append('Optimal Spread')
         market_books = [(self._market_info.market, self._market_info.trading_pair)]
         for market, trading_pair in market_books:
             bid_price = market.get_price(trading_pair, False)
@@ -491,6 +477,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 float(ask_price),
                 float(ref_price),
                 round(self._reserved_price, 5),
+                round(self._optimal_spread, 5),
             ])
         return pd.DataFrame(data=markets_data, columns=markets_columns).replace(np.nan, '', regex=True)
 
@@ -519,9 +506,10 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             lines.extend(["", "  No active maker orders."])
 
         volatility_pct = self._avg_vol.current_value / float(self.get_price()) * 100.0
-        if all((self._gamma, self._kappa, not isnan(volatility_pct))):
+        if all((self._gamma, self._alpha, self._kappa, not isnan(volatility_pct))):
             lines.extend(["", f"  Strategy parameters:",
                           f"    risk_factor(\u03B3)= {self._gamma:.5E}",
+                          f"    order_book_intensity_factor(\u0391)= {self._alpha:.5E}",
                           f"    order_book_depth_factor(\u03BA)= {self._kappa:.5E}",
                           f"    volatility= {volatility_pct:.3f}%",
                           f"    time until end of trading cycle= {str(datetime.timedelta(seconds=float(self._time_left)//1e3))}"])
@@ -590,23 +578,17 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             if self.c_is_algorithm_ready():
                 proposal = None
                 if self._create_timestamp <= self._current_timestamp:
-                    # If gamma or kappa are -1 then it's the first time they are calculated.
-                    # Also, if volatility goes beyond the threshold specified, we consider volatility regime has changed
-                    # so parameters need to be recalculated.
-                    if (self._gamma is None) or (self._kappa is None) or \
-                            (self._parameters_based_on_spread and
-                             self.volatility_diff_from_last_parameter_calculation(self.get_volatility()) >
-                             self._volatility_sensibility):
-                        self.c_recalculate_parameters()
+                    # 1. Measure order book liquidity
+                    self.c_measure_order_book_liquidity()
+                    # 2. Calculate reserved price and optimal spread from gamma, alpha, kappa and volatility
                     self.c_calculate_reserved_price_and_optimal_spread()
-
-                    # 1. Create base order proposals
+                    # 3. Create base order proposals
                     proposal = self.c_create_base_proposal()
-                    # 2. Apply functions that modify orders amount
+                    # 4. Apply functions that modify orders amount
                     self.c_apply_order_amount_eta_transformation(proposal)
-                    # 3. Apply functions that modify orders price
+                    # 5. Apply functions that modify orders price
                     self.c_apply_order_price_modifiers(proposal)
-                    # 4. Apply budget constraint, i.e. can't buy/sell more than what you have.
+                    # 6. Apply budget constraint, i.e. can't buy/sell more than what you have.
                     self.c_apply_budget_constraint(proposal)
 
                 self._hanging_orders_tracker.process_tick()
@@ -619,18 +601,25 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 if self._is_debug:
                     self.dump_debug_variables()
             else:
-                self._ticks_to_be_ready -= 1
-                if self._ticks_to_be_ready % 5 == 0:
-                    self.logger().info(f"Calculating volatility... {self._ticks_to_be_ready} seconds to start trading")
+                # Only if snapshots are different - for trading intensity - a market order happened
+                if self.c_is_algorithm_changed():
+                    self._ticks_to_be_ready -= 1
+                    if self._ticks_to_be_ready % 5 == 0:
+                        self.logger().info(f"Calculating volatility, estimating order book liquidity ... {self._ticks_to_be_ready} ticks to start trading")
+                else:
+                    self.logger().info(f"Calculating volatility, estimating order book liquidity ... no change tick")
         finally:
             self._last_timestamp = timestamp
 
     cdef c_collect_market_variables(self, double timestamp):
         market, trading_pair, base_asset, quote_asset = self._market_info
         self._last_sampling_timestamp = timestamp
+
         self._time_left = max(self._time_left - Decimal(timestamp - self._last_timestamp) * 1000, 0)
         price = self.get_price()
+        snapshot = self.get_order_book_snapshot()
         self._avg_vol.add_sample(price)
+        self._trading_intensity.add_sample(timestamp, snapshot)
         # Calculate adjustment factor to have 0.01% of inventory resolution
         base_balance = market.get_balance(base_asset)
         quote_balance = market.get_balance(quote_asset)
@@ -639,17 +628,10 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         if self._time_left == 0:
             # Re-cycle algorithm
             self._time_left = self._closing_time
-            if self._parameters_based_on_spread:
-                self.c_recalculate_parameters()
             self.logger().info("Recycling algorithm time left and parameters if needed.")
 
     def collect_market_variables(self, timestamp: float):
         self.c_collect_market_variables(timestamp)
-
-    def volatility_diff_from_last_parameter_calculation(self, current_vol) -> Decimal:
-        if self._latest_parameter_calculation_vol == 0:
-            return s_decimal_zero
-        return abs(self._latest_parameter_calculation_vol - Decimal(str(current_vol))) / self._latest_parameter_calculation_vol
 
     cdef double c_get_spread(self):
         cdef:
@@ -671,6 +653,17 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 vol = Decimal(str(self.c_get_spread() / 2))
         return vol
 
+    cdef c_measure_order_book_liquidity(self):
+
+        self._alpha, self._kappa = self._trading_intensity.current_value
+
+        self._alpha = Decimal(self._alpha)
+        self._kappa = Decimal(self._kappa)
+
+        if self._is_debug:
+            self.logger().info(f"alpha={self._alpha:.4f} | "
+                               f"kappa={self._kappa:.4f}")
+
     cdef c_calculate_reserved_price_and_optimal_spread(self):
         cdef:
             ExchangeBase market = self._market_info.market
@@ -678,40 +671,40 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         time_left_fraction = Decimal(str(self._time_left / self._closing_time))
 
         price = self.get_price()
-        q = (market.get_balance(self.base_asset) - Decimal(str(self.c_calculate_target_inventory()))) * self._q_adjustment_factor
+
+        # The amount of stocks owned - q - has to be in relative units, not absolute, because changing the portfolio size shouldn't change the reserved price
+        # The reserved price should concern itself only with the strategy performance, i.e. amount of stocks relative to the target
+        q_target = Decimal(str(self.c_calculate_target_inventory()))
+        q = (market.get_balance(self.base_asset) - q_target) / (q_target)
+        # Volatility has to be in absolute values (prices) because in calculation of reserved price it's not multiplied by the current price, therefore
+        # it can't be a percentage. The result of the multiplication has to be an absolute price value because it's being subtracted from the current price
         vol = self.get_volatility()
         mid_price_variance = vol ** 2
 
-        if all((q, self._gamma, self._kappa)):
+        # order book liquidity - kappa and alpha have to represent absolute values because the second member of the optimal spread equation has to be an absolute price
+        # and from the reserved price calculation we know that gamma's unit is not absolute price
+        if all((self._gamma, self._kappa)):
             self._reserved_price = price - (q * self._gamma * mid_price_variance * time_left_fraction)
-            self._optimal_spread = self._gamma * mid_price_variance * time_left_fraction + 2 * Decimal(
-                1 + self._gamma / self._kappa).ln() / self._gamma
 
-            if self._parameters_based_on_spread:
-                spread_inflation_due_to_volatility = max(self._vol_to_spread_multiplier * vol,
-                                                         price * self._min_spread) / (price * self._min_spread)
-                min_limit_bid = price * (1 - self._max_spread * spread_inflation_due_to_volatility)
-                max_limit_bid = price * (1 - self._min_spread * spread_inflation_due_to_volatility)
-                min_limit_ask = price * (1 + self._min_spread * spread_inflation_due_to_volatility)
-                max_limit_ask = price * (1 + self._max_spread * spread_inflation_due_to_volatility)
-            else:
-                min_limit_bid = s_decimal_zero
-                max_limit_bid = min_limit_ask = price
-                max_limit_ask = Decimal("Inf")
+            self._optimal_spread = self._gamma * mid_price_variance * time_left_fraction
+            self._optimal_spread += 2 * Decimal(1 + self._gamma / self._kappa).ln() / self._gamma
 
-            self._optimal_ask = min(max(self._reserved_price + self._optimal_spread / 2,
-                                        min_limit_ask),
-                                    max_limit_ask)
-            self._optimal_bid = min(max(self._reserved_price - self._optimal_spread / 2,
-                                        min_limit_bid),
-                                    max_limit_bid)
+            max_limit_bid = price - Decimal(str(self._min_spread / 2))
+            min_limit_ask = price + Decimal(str(self._min_spread / 2))
+
+            self._optimal_ask = max(self._reserved_price + self._optimal_spread / 2, min_limit_ask)
+            self._optimal_bid = min(self._reserved_price - self._optimal_spread / 2, max_limit_bid)
+
             # This is not what the algorithm will use as proposed bid and ask. This is just the raw output.
             # Optimal bid and optimal ask prices will be used
             if self._is_debug:
-                self.logger().info(f"bid={(price-(self._reserved_price - self._optimal_spread / 2)) / price * 100:.4f}% | "
-                                   f"ask={((self._reserved_price + self._optimal_spread / 2) - price) / price * 100:.4f}% | "
-                                   f"q={q/self._q_adjustment_factor:.4f} | "
-                                   f"vol={vol:.4f}")
+                self.logger().info(f"q={q:.4f} | "
+                                   f"vol={vol:.10f}")
+                self.logger().info(f"mid_price={price:.10f} | "
+                                   f"reserved_price={self._reserved_price:.10f} | "
+                                   f"optimal_spread={self._optimal_spread:.10f}")
+                self.logger().info(f"optimal_bid={(price-(self._reserved_price - self._optimal_spread / 2)) / price * 100:.4f}% | "
+                                   f"optimal_ask={((self._reserved_price + self._optimal_spread / 2) - price) / price * 100:.4f}%")
 
     def calculate_reserved_price_and_optimal_spread(self):
         return self.c_calculate_reserved_price_and_optimal_spread()
@@ -730,78 +723,42 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         price = self.get_price()
         base_asset_amount = market.get_balance(base_asset)
         quote_asset_amount = market.get_balance(quote_asset)
+        # Base asset value in quote asset prices
         base_value = base_asset_amount * price
+        # Total inventory value in quote asset prices
         inventory_value = base_value + quote_asset_amount
+        # Target base asset value in quote asset prices
         target_inventory_value = inventory_value * self._inventory_target_base_pct
-        return market.c_quantize_order_amount(trading_pair, Decimal(str(target_inventory_value / price)))
+        # Target base asset amount
+        target_inventory_amount = target_inventory_value / price
+        return market.c_quantize_order_amount(trading_pair, Decimal(str(target_inventory_amount)))
 
     def calculate_target_inventory(self) -> Decimal:
         return self.c_calculate_target_inventory()
 
-    def _get_min_and_max_spread(self):
-        vol = self.get_volatility()
-        price = self.get_price()
-        # min_spread will be the expected, unless volatility times the multiplier exceeds it
-        min_spread = max(self._min_spread * price, self._vol_to_spread_multiplier * vol)
-        # If min_spread got inflated due to the multiplier, we apply the same inflation to max_spread
-        max_spread = (self._max_spread * price) * (min_spread / (self._min_spread * price))
-        return min_spread, max_spread
-
-    cdef c_recalculate_parameters(self):
-        cdef:
-            ExchangeBase market = self._market_info.market
-
-        q = (market.get_balance(self.base_asset) - self.c_calculate_target_inventory()) * self._q_adjustment_factor
-        vol = self.get_volatility()
-
-        if q != 0:
-            min_spread, max_spread = self._get_min_and_max_spread()
-
-            # GAMMA
-            # If q or vol are close to 0, gamma will -> Inf. Is this desirable?
-            max_possible_gamma = min(
-                                    (max_spread - min_spread) / (2 * abs(q) * (vol ** 2)),
-                                    (max_spread * (2 - self._inventory_risk_aversion) /
-                                     self._inventory_risk_aversion + min_spread) / (vol ** 2))
-            self._gamma = self._inventory_risk_aversion * max_possible_gamma
-
-            # KAPPA
-            # Want the maximum possible spread but with restrictions to avoid negative kappa or division by 0
-            max_spread_around_reserved_price = max_spread * (2 - self._inventory_risk_aversion) + min_spread * self._inventory_risk_aversion
-            if (max_spread_around_reserved_price * self._gamma - (vol * self._gamma) ** 2) <= s_decimal_zero:
-                self._kappa = Decimal('1e100')  # Cap to kappa -> Infinity
-            else:
-                self._kappa = self._gamma / (Decimal.exp((max_spread_around_reserved_price * self._gamma - (vol * self._gamma) ** 2) / 2) - 1)
-
-            # ETA
-            # Want order_amount to be 10% of the original number if q is in the opposite extreme from target inventory
-            q_where_to_decay_order_amount = self.c_calculate_target_inventory() / (self._inventory_risk_aversion * Decimal.ln(Decimal("10")))
-            self._eta = s_decimal_one
-            if q_where_to_decay_order_amount != s_decimal_zero:
-                self._eta = self._eta / q_where_to_decay_order_amount
-
-            self._latest_parameter_calculation_vol = vol
-
-    def recalculate_parameters(self):
-        return self.c_recalculate_parameters()
-
     cdef bint c_is_algorithm_ready(self):
-        return self._avg_vol.is_sampling_buffer_full
+        return self._avg_vol.is_sampling_buffer_full and self._trading_intensity.is_sampling_buffer_full
+
+    cdef bint c_is_algorithm_changed(self):
+        return self._trading_intensity.is_sampling_buffer_changed
 
     def is_algorithm_ready(self) -> bool:
         return self.c_is_algorithm_ready()
 
-    def _get_logspaced_level_spreads(self, ):
-        reference_price = self.get_price()
-        _, max_spread = self._get_min_and_max_spread()
-        optimal_ask_spread = self._optimal_ask - reference_price
-        optimal_bid_spread = reference_price - self._optimal_bid
-        bid_level_spreads = np.logspace(0, np.log(float(max_spread - optimal_bid_spread) + 1), base=np.e,
-                                        num=self._order_levels) - 1
-        ask_level_spreads = np.logspace(0, np.log(float(max_spread - optimal_ask_spread) + 1), base=np.e,
-                                        num=self._order_levels) - 1
+    def is_algorithm_changed(self) -> bool:
+        return self.c_is_algorithm_changed()
 
-        return bid_level_spreads, ask_level_spreads
+    # def _get_logspaced_level_spreads(self, ):
+    #     reference_price = self.get_price()
+    #     _, max_spread = self._get_min_and_max_spread()
+    #     optimal_ask_spread = self._optimal_ask - reference_price
+    #     optimal_bid_spread = reference_price - self._optimal_bid
+    #     bid_level_spreads = np.logspace(0, np.log(float(max_spread - optimal_bid_spread) + 1), base=np.e,
+    #                                     num=self._order_levels) - 1
+    #     ask_level_spreads = np.logspace(0, np.log(float(max_spread - optimal_ask_spread) + 1), base=np.e,
+    #                                     num=self._order_levels) - 1
+
+    #     return bid_level_spreads, ask_level_spreads
 
     cdef _create_proposal_based_on_order_override(self):
         cdef:
@@ -825,27 +782,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
     def create_proposal_based_on_order_override(self) -> Tuple[List[Proposal], List[Proposal]]:
         return self._create_proposal_based_on_order_override()
-
-    cdef _create_proposal_based_on_order_levels(self):
-        cdef:
-            ExchangeBase market = self._market_info.market
-            list buys = []
-            list sells = []
-        bid_level_spreads, ask_level_spreads = self._get_logspaced_level_spreads()
-        size = market.c_quantize_order_amount(self.trading_pair, self._order_amount)
-        if size > 0:
-            for level in range(self._order_levels):
-                bid_price = market.c_quantize_order_price(self.trading_pair,
-                                                          self._optimal_bid - Decimal(str(bid_level_spreads[level])))
-                ask_price = market.c_quantize_order_price(self.trading_pair,
-                                                          self._optimal_ask + Decimal(str(ask_level_spreads[level])))
-
-                buys.append(PriceSize(bid_price, size))
-                sells.append(PriceSize(ask_price, size))
-        return buys, sells
-
-    def create_proposal_based_on_order_levels(self):
-        return self._create_proposal_based_on_order_levels()
 
     cdef _create_basic_proposal(self):
         cdef:
@@ -875,9 +811,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         if self._order_override is not None and len(self._order_override) > 0:
             # If order_override is set, it will override order_levels
             buys, sells = self._create_proposal_based_on_order_override()
-        elif self._order_levels > 0 and self._parameters_based_on_spread:
-            # Simple order levels will only be available for automated parameters calculation setup
-            buys, sells = self._create_proposal_based_on_order_levels()
         else:
             # No order levels nor order_overrides. Just 1 bid and 1 ask order
             buys, sells = self._create_basic_proposal()
@@ -1290,9 +1223,14 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         new_ask = self._reserved_price + self._optimal_spread / 2
         best_bid = mid_price - spread / 2
         new_bid = self._reserved_price - self._optimal_spread / 2
+
+        vol = self.get_volatility()
+        mid_price_variance = vol ** 2
+
         if not os.path.exists(self._debug_csv_path):
             df_header = pd.DataFrame([('mid_price',
-                                       'spread',
+                                       'best_bid',
+                                       'best_ask',
                                        'reserved_price',
                                        'optimal_spread',
                                        'optimal_bid',
@@ -1304,16 +1242,16 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                                        'time_left_fraction',
                                        'mid_price std_dev',
                                        'gamma',
+                                       'alpha',
                                        'kappa',
                                        'eta',
-                                       'current_vol_to_calculation_vol',
-                                       'inventory_target_pct',
-                                       'min_spread',
-                                       'max_spread',
-                                       'vol_to_spread_multiplier')])
+                                       'volatility',
+                                       'mid_price_variance',
+                                       'inventory_target_pct')])
             df_header.to_csv(self._debug_csv_path, mode='a', header=False, index=False)
         df = pd.DataFrame([(mid_price,
-                            spread,
+                            best_bid,
+                            best_ask,
                             self._reserved_price,
                             self._optimal_spread,
                             self._optimal_bid,
@@ -1325,11 +1263,10 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                             self._time_left / self._closing_time,
                             self._avg_vol.current_value,
                             self._gamma,
+                            self._alpha,
                             self._kappa,
                             self._eta,
-                            self.volatility_diff_from_last_parameter_calculation(self.get_volatility()),
-                            self.inventory_target_base_pct,
-                            self._min_spread,
-                            self._max_spread,
-                            self._vol_to_spread_multiplier)])
+                            vol,
+                            mid_price_variance,
+                            self.inventory_target_base_pct)])
         df.to_csv(self._debug_csv_path, mode='a', header=False, index=False)
