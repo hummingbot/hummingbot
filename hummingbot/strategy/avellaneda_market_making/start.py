@@ -42,20 +42,11 @@ def start(self):
         self.market_trading_pair_tuples = [MarketTradingPairTuple(*maker_data)]
 
         strategy_logging_options = AvellanedaMarketMakingStrategy.OPTION_LOG_ALL
-        parameters_based_on_spread = c_map.get("parameters_based_on_spread").value
-        if parameters_based_on_spread:
-            risk_factor = order_book_depth_factor = order_amount_shape_factor = None
-            min_spread = c_map.get("min_spread").value / Decimal(100)
-            max_spread = c_map.get("max_spread").value / Decimal(100)
-            vol_to_spread_multiplier = c_map.get("vol_to_spread_multiplier").value
-            volatility_sensibility = c_map.get("volatility_sensibility").value / Decimal('100')
-            inventory_risk_aversion = c_map.get("inventory_risk_aversion").value
-        else:
-            min_spread = max_spread = vol_to_spread_multiplier = inventory_risk_aversion = volatility_sensibility = None
-            order_book_depth_factor = c_map.get("order_book_depth_factor").value
-            risk_factor = c_map.get("risk_factor").value
-            order_amount_shape_factor = c_map.get("order_amount_shape_factor").value
+        risk_factor = c_map.get("risk_factor").value
+        order_amount_shape_factor = c_map.get("order_amount_shape_factor").value
+
         closing_time = c_map.get("closing_time").value * Decimal(3600 * 24 * 1e3)
+        min_spread = c_map.get("min_spread").value
         volatility_buffer_size = c_map.get("volatility_buffer_size").value
         should_wait_order_cancel_confirmation = c_map.get("should_wait_order_cancel_confirmation")
         debug_csv_path = os.path.join(data_path(),
@@ -79,16 +70,10 @@ def start(self):
             add_transaction_costs_to_orders=add_transaction_costs_to_orders,
             logging_options=strategy_logging_options,
             hb_app_notification=True,
-            parameters_based_on_spread=parameters_based_on_spread,
-            min_spread=min_spread,
-            max_spread=max_spread,
-            vol_to_spread_multiplier=vol_to_spread_multiplier,
-            volatility_sensibility=volatility_sensibility,
-            inventory_risk_aversion=inventory_risk_aversion,
-            order_book_depth_factor=order_book_depth_factor,
             risk_factor=risk_factor,
             order_amount_shape_factor=order_amount_shape_factor,
             closing_time=closing_time,
+            min_spread=min_spread,
             debug_csv_path=debug_csv_path,
             volatility_buffer_size=volatility_buffer_size,
             should_wait_order_cancel_confirmation=should_wait_order_cancel_confirmation,

@@ -85,6 +85,7 @@ def main():
         "requests",
         "rsa",
         "ruamel-yaml",
+        "scipy",
         "signalr-client-aio",
         "simplejson",
         "six",
