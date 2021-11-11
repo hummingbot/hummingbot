@@ -1,0 +1,13 @@
+# need more details...
+caCertificatePath: /home/user/hummingbot/gateway/conf/ca_cert.pem
+
+# need more details...
+certificatePath: /home/user/hummingbot/gateway/conf/server_cert.pem
+
+# need more details...
+keyPath: /home/user/hummingbot/gateway/conf/server_key.pem
+
+# File where the gateway passphrase is stored. This passphrase is used to sign
+# https responses and encrypt/decrypt private keys stored on gateway. The file
+# must use 0600 permissions for security purposes.
+passPhrasePath: /home/user/hummingbot/gateway/conf/gateway-passphrase.yml
