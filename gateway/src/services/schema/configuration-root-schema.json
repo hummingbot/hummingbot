@@ -4,7 +4,7 @@
   "patternProperties": {
     "^\\$namespace ": {
       "type": "object",
-      "properties" : {
+      "properties": {
         "configurationPath": {
           "type": "string"
         },

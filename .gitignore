@@ -79,8 +79,9 @@ coverage.xml
 # Gateway-V2 repo
 # configuration files
 /gateway/conf/*
-# except the example files in /gateway/conf/ directory
+# except the example files in /gateway/conf/ and /gateway/conf/samples
 !/gateway/conf/*-example.yml
+!/gateway/conf/samples
 /gateway/gateway.level
 
 # node installs
