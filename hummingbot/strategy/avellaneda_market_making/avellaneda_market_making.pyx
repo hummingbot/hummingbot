@@ -71,6 +71,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     order_optimization_enabled = True,
                     filled_order_delay: float = 60.0,
                     order_levels: int = 0,
+                    level_distances: Decimal = Decimal("0.0"),
                     order_override: Dict[str, List[str]] = {},
                     hanging_orders_enabled: bool = False,
                     hanging_orders_cancel_pct: Decimal = Decimal("0.1"),
@@ -80,7 +81,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     status_report_interval: float = 900,
                     hb_app_notification: bool = False,
                     risk_factor: Decimal = Decimal("0.5"),
-                    order_amount_shape_factor: Decimal = Decimal("0.005"),
+                    order_amount_shape_factor: Decimal = Decimal("0.0"),
                     closing_time: Decimal = Decimal("1"),
                     min_spread: Decimal = Decimal("0"),
                     debug_csv_path: str = '',
@@ -99,6 +100,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._order_refresh_tolerance_pct = order_refresh_tolerance_pct
         self._filled_order_delay = filled_order_delay
         self._order_levels = order_levels
+        self._level_distances = level_distances
         self._order_override = order_override
         self._inventory_target_base_pct = inventory_target_base_pct
         self._add_transaction_costs_to_orders = add_transaction_costs_to_orders
@@ -121,7 +123,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self.c_add_markets([market_info.market])
         self._ticks_to_be_ready = max(volatility_buffer_size, trading_intensity_buffer_size)
         self._avg_vol = InstantVolatilityIndicator()
-        self._trading_intensity = TradingIntensityIndicator(trading_intensity_buffer_size, order_amount, trading_intensity_price_levels)
+        self._trading_intensity = TradingIntensityIndicator(trading_intensity_buffer_size)
         self._last_sampling_timestamp = 0
         self._alpha = None
         self._kappa = None
@@ -238,6 +240,14 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     @order_levels.setter
     def order_levels(self, value):
         self._order_levels = value
+
+    @property
+    def level_distances(self) -> int:
+        return self._level_distances
+
+    @level_distances.setter
+    def level_distances(self, value):
+        self._level_distances = value
 
     @property
     def max_order_age(self):
@@ -748,17 +758,13 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     def is_algorithm_changed(self) -> bool:
         return self.c_is_algorithm_changed()
 
-    # def _get_logspaced_level_spreads(self, ):
-    #     reference_price = self.get_price()
-    #     _, max_spread = self._get_min_and_max_spread()
-    #     optimal_ask_spread = self._optimal_ask - reference_price
-    #     optimal_bid_spread = reference_price - self._optimal_bid
-    #     bid_level_spreads = np.logspace(0, np.log(float(max_spread - optimal_bid_spread) + 1), base=np.e,
-    #                                     num=self._order_levels) - 1
-    #     ask_level_spreads = np.logspace(0, np.log(float(max_spread - optimal_ask_spread) + 1), base=np.e,
-    #                                     num=self._order_levels) - 1
+    def _get_level_spreads(self, ):
+        level_step = ((self._optimal_spread / 2) / 100) * self._level_distances
 
-    #     return bid_level_spreads, ask_level_spreads
+        bid_level_spreads = [i * level_step for i in range(self._order_levels)]
+        ask_level_spreads = [i * level_step for i in range(self._order_levels)]
+
+        return bid_level_spreads, ask_level_spreads
 
     cdef _create_proposal_based_on_order_override(self):
         cdef:
@@ -782,6 +788,27 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
     def create_proposal_based_on_order_override(self) -> Tuple[List[Proposal], List[Proposal]]:
         return self._create_proposal_based_on_order_override()
+
+    cdef _create_proposal_based_on_order_levels(self):
+        cdef:
+            ExchangeBase market = self._market_info.market
+            list buys = []
+            list sells = []
+        bid_level_spreads, ask_level_spreads = self._get_level_spreads()
+        size = market.c_quantize_order_amount(self.trading_pair, self._order_amount)
+        if size > 0:
+            for level in range(self._order_levels):
+                bid_price = market.c_quantize_order_price(self.trading_pair,
+                                                          self._optimal_bid - Decimal(str(bid_level_spreads[level])))
+                ask_price = market.c_quantize_order_price(self.trading_pair,
+                                                          self._optimal_ask + Decimal(str(ask_level_spreads[level])))
+
+                buys.append(PriceSize(bid_price, size))
+                sells.append(PriceSize(ask_price, size))
+        return buys, sells
+
+    def create_proposal_based_on_order_levels(self):
+        return self._create_proposal_based_on_order_levels()
 
     cdef _create_basic_proposal(self):
         cdef:
@@ -811,6 +838,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         if self._order_override is not None and len(self._order_override) > 0:
             # If order_override is set, it will override order_levels
             buys, sells = self._create_proposal_based_on_order_override()
+        elif self._order_levels > 0:
+            # Simple order levels
+            buys, sells = self._create_proposal_based_on_order_levels()
         else:
             # No order levels nor order_overrides. Just 1 bid and 1 ask order
             buys, sells = self._create_basic_proposal()

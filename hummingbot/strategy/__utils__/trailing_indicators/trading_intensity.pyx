@@ -14,13 +14,12 @@ from typing import (
 
 cdef class TradingIntensityIndicator():
 
-    def __init__(self, sampling_length: int = 30, order_amount: float = 1, price_levels: Tuple[float] = (0)):
+    def __init__(self, sampling_length: int = 30):
         self._alpha = 0
         self._kappa = 0
         self._trades = []
         self._bids_df = None
         self._asks_df = None
-        self._order_amount = order_amount
         self._sampling_length = sampling_length
         self._samples_length = 0
 

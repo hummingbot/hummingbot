@@ -14,6 +14,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         object _order_refresh_tolerance_pct
         double _filled_order_delay
         int _order_levels
+        object _level_distances
         object _order_override
         bint _hanging_orders_enabled
         object _hanging_orders_tracker
@@ -58,6 +59,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
     cdef object c_get_mid_price(self)
     cdef object c_get_order_book_snapshot(self)
+    cdef _create_proposal_based_on_order_levels(self)
     cdef _create_proposal_based_on_order_override(self)
     cdef _create_basic_proposal(self)
     cdef object c_create_base_proposal(self)

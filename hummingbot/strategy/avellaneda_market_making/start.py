@@ -28,6 +28,7 @@ def start(self):
         filled_order_delay = c_map.get("filled_order_delay").value
         order_refresh_tolerance_pct = c_map.get("order_refresh_tolerance_pct").value / Decimal('100')
         order_levels = c_map.get("order_levels").value
+        level_distances = c_map.get("level_distances").value
         order_override = c_map.get("order_override").value
         hanging_orders_enabled = c_map.get("hanging_orders_enabled").value
 
@@ -64,6 +65,7 @@ def start(self):
             order_refresh_tolerance_pct=order_refresh_tolerance_pct,
             filled_order_delay=filled_order_delay,
             order_levels=order_levels,
+            level_distances=level_distances,
             order_override=order_override,
             hanging_orders_enabled=hanging_orders_enabled,
             hanging_orders_cancel_pct=hanging_orders_cancel_pct,
