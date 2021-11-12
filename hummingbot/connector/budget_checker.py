@@ -28,11 +28,13 @@ class BudgetChecker:
         Provides utilities for strategies to check if the required assets for trades are available.
 
         Used to determine if sufficient balance is available to place a set of strategy-proposed orders.
-        The strategy can call `check_and_lock_available_collateral` for each one of the orders it intends to
-        place. On each call, the `BudgetChecker` locks in the collateral amount needed for that order
-        and makes it unavailable for the following hypothetical orders. Once the orders are sent to
-        the exchange, the strategy must call `reset_locked_collateral` to free the hypothetically locked
-        assets for the next set of checks.
+        The strategy can size a list of proposed order candidates by calling the `adjust_candidates` method.
+
+        For a more fine-grained control, the strategy can call `adjust_candidate_and_lock_available_collateral`
+        for each one of the orders it intends to place. On each call, the `BudgetChecker` locks in the collateral
+        amount needed for that order and makes it unavailable for the following hypothetical orders.
+        Once the orders are sent to the exchange, the strategy must call `reset_locked_collateral` to
+        free the hypothetically locked assets for the next set of checks.
 
         :param exchange: The exchange against which available collateral assets will be checked.
         """
@@ -45,9 +47,20 @@ class BudgetChecker:
         """
         self._locked_collateral.clear()
 
-    def adjust_candidates_and_lock_available_collateral(
+    def adjust_candidates(
         self, order_candidates: List[OrderCandidate], all_or_none: bool = True
     ) -> List[OrderCandidate]:
+        """
+        Fills in the collateral token and collateral amount fields for the order candidates.
+        If there is insufficient assets to cover the collateral, the order amount is adjusted.
+
+        See the doc string for `adjust_candidate` to learn more about how the adjusted order
+        amount is derived.
+
+        :param order_candidates: A list of candidate orders to check and adjust.
+        :param all_or_none: Should the order amount be set to zero on insufficient balance.
+        :return: The list of adjusted order candidates.
+        """
         self.reset_locked_collateral()
         adjusted_candidates = [
             self.adjust_candidate_and_lock_available_collateral(order_candidate, all_or_none)
