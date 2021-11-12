@@ -34,6 +34,7 @@ class DydxPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         self._shared_client: Optional[aiohttp.ClientSession] = shared_client
         self._last_recv_time: float = 0
         super().__init__()
+        self._ws = None
 
     @property
     def order_book_class(self):
@@ -110,4 +111,4 @@ class DydxPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 # Make sure no background tasks is leaked
                 self._ws and await self._ws.close()
                 self._last_recv_time = -1
-                await asyncio.sleep(30.0)
+                await self._sleep(30.0)
