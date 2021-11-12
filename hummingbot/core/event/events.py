@@ -8,6 +8,8 @@ from typing import (
     NamedTuple,
     Optional)
 from dataclasses import dataclass
+
+from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 
 
@@ -183,13 +185,25 @@ class TradeFee(NamedTuple):
         fee_amount = Decimal("0")
         if self.percent > 0:
             fee_amount = (price * order_amount) * self.percent
-        base, quote = trading_pair.split("-")
+        base, quote = split_hb_trading_pair(trading_pair)
         for flat_fee in self.flat_fees:
             if interchangeable(flat_fee[0], base):
                 fee_amount += (flat_fee[1] * price)
             elif interchangeable(flat_fee[0], quote):
                 fee_amount += flat_fee[1]
         return fee_amount
+
+    def order_amount_from_quote_with_fee(self, trading_pair: str, price: Decimal, order_size: Decimal):
+        order_amount = order_size
+        base, quote = split_hb_trading_pair(trading_pair)
+        for flat_fee in self.flat_fees:
+            if interchangeable(flat_fee[0], base):
+                order_amount -= (flat_fee[1] * price)
+            elif interchangeable(flat_fee[0], quote):
+                order_amount -= flat_fee[1]
+        if self.percent > 0:
+            order_amount /= self.percent * self.percent
+        return order_amount
 
 
 class OrderBookTradeEvent(NamedTuple):

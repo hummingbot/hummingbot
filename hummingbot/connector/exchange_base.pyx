@@ -2,10 +2,10 @@ from decimal import Decimal
 from typing import (
     Dict,
     List,
-    Tuple,
     Optional,
     Iterator)
 
+from hummingbot.connector.budget_checker import BudgetChecker
 from hummingbot.core.data_type.order_book_query_result import (
     OrderBookQueryResult,
     ClientOrderBookQueryResult
@@ -37,6 +37,7 @@ cdef class ExchangeBase(ConnectorBase):
     def __init__(self):
         super().__init__()
         self._order_book_tracker = None
+        self._budget_checker = BudgetChecker(exchange=self)
 
     @staticmethod
     def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
@@ -53,6 +54,10 @@ cdef class ExchangeBase(ConnectorBase):
     @property
     def limit_orders(self) -> List[LimitOrder]:
         raise NotImplementedError
+
+    @property
+    def budget_checker(self) -> BudgetChecker:
+        return self._budget_checker
 
     def get_mid_price(self, trading_pair: str) -> Decimal:
         return (self.get_price(trading_pair, True) + self.get_price(trading_pair, False)) / Decimal("2")
@@ -281,43 +286,3 @@ cdef class ExchangeBase(ConnectorBase):
         required volume.
         """
         return Decimal(str(self.get_price_for_volume(trading_pair, is_buy, amount).result_price))
-
-    async def get_required_collateral(
-        self,
-        trading_pair: str,
-        order_type: OrderType,
-        order_side: TradeType,
-        amount: Decimal, price: Decimal,
-        leverage: Decimal = Decimal("1"),
-    ) -> Tuple[Decimal, str]:
-        """
-        Returns the required collateral value and the collateral token for the given trade.
-
-        :param trading_pair: The market trading pair.
-        :param order_type: The order type.
-        :param order_side: Buy or sell.
-        :param amount: The desired order size.
-        :param price: The desired order price.
-        :param leverage: The leverage, in case of perpetual trading.
-        :return: A tuple of the collateral value and the collateral token.
-        """
-        base, quote = self.split_trading_pair(trading_pair)
-
-        if order_side == TradeType.BUY:
-            collateral_token = await self.get_buy_collateral_token(trading_pair)
-        else:
-            collateral_token = await self.get_sell_collateral_token(trading_pair)
-
-        fee = self.get_fee(base, quote, order_type, order_side, amount, price)
-        order_size = amount * price
-        required_collateral = (order_size / leverage) + (order_size * fee.percent)
-
-        return required_collateral, collateral_token
-
-    async def get_buy_collateral_token(self, trading_pair: str) -> str:
-        _, quote = self.split_trading_pair(trading_pair)
-        return quote
-
-    async def get_sell_collateral_token(self, trading_pair: str) -> str:
-        base, _ = self.split_trading_pair(trading_pair)
-        return base
