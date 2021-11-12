@@ -1,5 +1,4 @@
 import asyncio
-from datetime import datetime
 import json
 import time
 import logging
@@ -12,7 +11,7 @@ from typing import (
     Optional,
     AsyncIterable
 )
-from dateutil.parser import parse as dataparse
+from dateutil.parser import parse as dateparse
 
 from dydx3.errors import DydxApiError
 import hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_constants as CONSTANTS
@@ -741,7 +740,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                     trading_pair,
                     Decimal(markets_info[trading_pair]['indexPrice']),
                     Decimal(markets_info[trading_pair]['oraclePrice']),
-                    dataparse(markets_info[trading_pair]['nextFundingAt']).timestamp(),
+                    dateparse(markets_info[trading_pair]['nextFundingAt']).timestamp(),
                     Decimal(markets_info[trading_pair]['nextFundingRate'])
                 )
         except DydxApiError as e:
@@ -876,7 +875,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 if 'fundingPayments' in data:
                     if event['type'] != "subscribed":
                         for funding_payment in data['fundingPayments']:
-                            ts = datetime.strptime(funding_payment['effectiveAt'], '%Y-%m-%dT%H:%M:%S.%fZ').timestamp()
+                            ts = dateparse(funding_payment['effectiveAt']).timestamp()
                             self.trigger_event(MARKET_FUNDING_PAYMENT_COMPLETED_EVENT_TAG,
                                                FundingPaymentCompletedEvent(timestamp=ts,
                                                                             market=self.name,
