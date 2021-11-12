@@ -102,7 +102,7 @@ cdef class MexcExchange(ExchangeBase):
     API_CALL_TIMEOUT = 10.0
     UPDATE_ORDERS_INTERVAL = 10.0
     SHORT_POLL_INTERVAL = 5.0
-    MORE_SHORT_POLL_INTERVAL = 2.0
+    MORE_SHORT_POLL_INTERVAL = 1.0
     LONG_POLL_INTERVAL = 120.0
 
     @classmethod
@@ -548,6 +548,9 @@ cdef class MexcExchange(ExchangeBase):
 
                     if tracked_order is None:
                         continue
+
+                    # Update balance in time
+                    await self._update_balances()
 
                     if order_status in {"FILLED", "PARTIALLY_FILLED"}:
                         new_execute_amount_diff = s_decimal_0
