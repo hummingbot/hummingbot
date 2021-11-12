@@ -146,7 +146,6 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                  dydx_perpetual_account_number: int,
                  dydx_perpetual_ethereum_address: str,
                  dydx_perpetual_stark_private_key: str,
-                 poll_interval: Optional[float] = None,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True):
 
@@ -162,8 +161,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._trading_required = trading_required
         self._ev_loop = asyncio.get_event_loop()
         self._poll_notifier = asyncio.Event()
-        self._last_timestamp = 0
-        self._poll_interval = poll_interval
+        self._last_poll_timestamp = 0
         self._polling_update_task = None
 
         self.dydx_client: DydxPerpetualClientWrapper = DydxPerpetualClientWrapper(api_key=dydx_perpetual_api_key,
@@ -564,6 +562,9 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
             self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
 
     def _stop_network(self):
+        self._last_poll_timestamp = 0
+        self._poll_notifier.clear()
+
         self._order_book_tracker.stop()
         if self._polling_update_task is not None:
             self._polling_update_task.cancel()
@@ -1128,12 +1129,12 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
         poll_interval = (self.SHORT_POLL_INTERVAL
                          if now - self._user_stream_tracker.last_recv_time > 60.0
                          else self.LONG_POLL_INTERVAL)
-        last_tick = int(self._last_timestamp / poll_interval)
+        last_tick = int(self._last_poll_timestamp / poll_interval)
         current_tick = int(timestamp / poll_interval)
         if current_tick > last_tick:
             if not self._poll_notifier.is_set():
                 self._poll_notifier.set()
-        self._last_timestamp = timestamp
+        self._last_poll_timestamp = timestamp
 
     async def api_request(self,
                           http_method: str,
