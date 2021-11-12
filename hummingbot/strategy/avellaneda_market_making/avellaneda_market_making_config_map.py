@@ -85,8 +85,7 @@ avellaneda_market_making_config_map = {
                   prompt="Enter order amount shape factor (\u03B7) >>> ",
                   type_str="decimal",
                   default=Decimal("0"),
-                  validator=lambda v: validate_decimal(v, 0, 1, inclusive=True),
-                  prompt_on_new=True),
+                  validator=lambda v: validate_decimal(v, 0, 1, inclusive=True)),
     "closing_time":
         ConfigVar(key="closing_time",
                   prompt="Enter operational closing time (T). (How long will each trading cycle last "
@@ -159,6 +158,12 @@ avellaneda_market_making_config_map = {
                   type_str="int",
                   validator=lambda v: validate_int(v, min_value=-1, inclusive=False),
                   default=1),
+    "level_distances":
+        ConfigVar(key="level_distances",
+                  prompt="How far apart in % of optimal spread should orders on one side be? >>> ",
+                  type_str="decimal",
+                  validator=lambda v: validate_decimal(v, min_value=0, inclusive=True),
+                  default=0),
     "order_override":
         ConfigVar(key="order_override",
                   prompt=None,
