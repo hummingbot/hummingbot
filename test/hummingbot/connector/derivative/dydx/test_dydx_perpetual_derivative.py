@@ -1,5 +1,6 @@
 import asyncio
 from datetime import datetime
+import time
 import unittest
 from collections import Awaitable
 from decimal import Decimal
@@ -267,7 +268,6 @@ class DydxPerpetualDerivativeTest(unittest.TestCase):
         self.check_is_logged(log_level="NETWORK", message="Unknown error.")
 
     def test_tick_manual_poll_interval(self):
-        poll_interval = 10
         exchange = DydxPerpetualDerivative(
             dydx_perpetual_api_key="someAPIKey",
             dydx_perpetual_api_secret="someAPISecret",
@@ -276,17 +276,23 @@ class DydxPerpetualDerivativeTest(unittest.TestCase):
             dydx_perpetual_ethereum_address="someETHAddress",
             dydx_perpetual_stark_private_key="1234",
             trading_pairs=[self.trading_pair],
-            poll_interval=poll_interval,
         )
 
-        initial_timestamp = 0
-        exchange._last_timestamp = initial_timestamp
-        exchange.tick(timestamp=initial_timestamp + poll_interval - 1)
+        # Initial first tick will always set the _poll_notifier
+        initial_timestamp = int(time.time())
+        exchange.tick(timestamp=initial_timestamp)
 
+        self.assertTrue(exchange._poll_notifier.is_set())
+
+        # Simulate Status Poll successful
+        exchange._poll_notifier.clear()
+
+        # Test timestamp < poll interval
+        exchange.tick(timestamp=initial_timestamp + 1)
         self.assertFalse(exchange._poll_notifier.is_set())
 
-        exchange.tick(timestamp=initial_timestamp + poll_interval)
-
+        # Test timestamp > poll interval
+        exchange.tick(timestamp=initial_timestamp + exchange.LONG_POLL_INTERVAL + 1)
         self.assertTrue(exchange._poll_notifier.is_set())
 
     @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_derivative.time.time")
