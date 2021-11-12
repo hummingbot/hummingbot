@@ -43,3 +43,8 @@ def json_to_zrx_order(data: Optional[Dict[str, any]]) -> Optional[ZeroExOrder]:
 def split_hb_trading_pair(trading_pair: str) -> Tuple[str, str]:
     base, quote = trading_pair.split("-")
     return base, quote
+
+
+def combine_to_hb_trading_pair(base: str, quote: str) -> str:
+    trading_pair = f"{base}-{quote}"
+    return trading_pair

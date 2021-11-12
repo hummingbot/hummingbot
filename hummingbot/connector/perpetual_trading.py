@@ -1,6 +1,8 @@
 from collections import defaultdict
 from decimal import Decimal
 from typing import Dict, List, Optional
+
+from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.event.events import PositionMode, FundingInfo, PositionSide
 from hummingbot.connector.derivative.position import Position
 
@@ -102,3 +104,11 @@ class PerpetualTrading:
         :return: funding info
         """
         return self._funding_info[trading_pair]
+
+    async def get_buy_collateral_token(self, trading_pair: str) -> str:
+        _, quote = split_hb_trading_pair(trading_pair)
+        return quote
+
+    async def get_sell_collateral_token(self, trading_pair: str) -> str:
+        _, quote = split_hb_trading_pair(trading_pair)
+        return quote
