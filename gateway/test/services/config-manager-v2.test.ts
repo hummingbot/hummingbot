@@ -146,3 +146,11 @@ describe('Configuration manager v2 tests', () => {
     done();
   });
 });
+
+describe('Sample configurations', () => {
+  it('Read sample schemas', (done) => {
+    const sampleConfigManager = new ConfigManagerV2('./conf/samples/root.yml');
+    expect(sampleConfigManager.get('ssl.caCertificatePath')).toBeDefined();
+    done();
+  });
+});
