@@ -156,7 +156,7 @@ class PerpetualMarketMakingTests(TestCase):
             OrderType.LIMIT
         ))
 
-    def test_c_apply_budget_constraint(self):
+    def test_apply_budget_constraint(self):
         self.market.set_balance(self.base_asset, Decimal("2"))
         self.market.set_balance(self.quote_asset, Decimal("10"))
 
