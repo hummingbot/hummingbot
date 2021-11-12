@@ -59,27 +59,32 @@ const patchGetTokenBySymbol = () => {
   });
 };
 
-const patchApproveERC20 = () => {
+const patchApproveERC20 = (tx_type?: string) => {
+  const default_tx = {
+    type: 2,
+    chainId: 42,
+    nonce: 115,
+    maxPriorityFeePerGas: { toString: () => '106000000000' },
+    maxFeePerGas: { toString: () => '106000000000' },
+    gasPrice: { toString: () => null },
+    gasLimit: { toString: () => '100000' },
+    to: '0x4F96Fe3b7A6Cf9725f59d353F723c1bDb64CA6Aa',
+    value: { toString: () => '0' },
+    data: '0x095ea7b30000000000000000000000007a250d5630b4cf539739df2c5dacb4c659f2488dffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+    accessList: [],
+    hash: '0x75f98675a8f64dcf14927ccde9a1d59b67fa09b72cc2642ad055dae4074853d9',
+    v: 0,
+    r: '0xbeb9aa40028d79b9fdab108fcef5de635457a05f3a254410414c095b02c64643',
+    s: '0x5a1506fa4b7f8b4f3826d8648f27ebaa9c0ee4bd67f569414b8cd8884c073100',
+    from: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+    confirmations: 0,
+  };
+  if (tx_type === 'overwritten_tx') {
+    default_tx.hash =
+      '0x5a1ed682d0d7a58fbd7828bbf5994cd024feb8895d4da82c741ec4a191b9e849';
+  }
   patch(eth, 'approveERC20', () => {
-    return {
-      type: 2,
-      chainId: 42,
-      nonce: 115,
-      maxPriorityFeePerGas: { toString: () => '106000000000' },
-      maxFeePerGas: { toString: () => '106000000000' },
-      gasPrice: { toString: () => null },
-      gasLimit: { toString: () => '100000' },
-      to: '0x4F96Fe3b7A6Cf9725f59d353F723c1bDb64CA6Aa',
-      value: { toString: () => '0' },
-      data: '0x095ea7b30000000000000000000000007a250d5630b4cf539739df2c5dacb4c659f2488dffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
-      accessList: [],
-      hash: '0x75f98675a8f64dcf14927ccde9a1d59b67fa09b72cc2642ad055dae4074853d9',
-      v: 0,
-      r: '0xbeb9aa40028d79b9fdab108fcef5de635457a05f3a254410414c095b02c64643',
-      s: '0x5a1506fa4b7f8b4f3826d8648f27ebaa9c0ee4bd67f569414b8cd8884c073100',
-      from: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
-      confirmations: 0,
-    };
+    return default_tx;
   });
 };
 
@@ -349,5 +354,61 @@ describe('POST /eth/poll', () => {
     expect(res.statusCode).toEqual(503);
     expect(res.body.errorCode).toEqual(UNKNOWN_ERROR_ERROR_CODE);
     expect(res.body.message).toEqual(UNKNOWN_ERROR_MESSAGE);
+  });
+});
+
+describe('overwrite existing transaction', () => {
+  it('overwritten transaction is dropped', async () => {
+    patchGetWallet();
+    patch(eth.nonceManager, 'getNonce', () => 115);
+    patchGetTokenBySymbol();
+
+    const requestParam = {
+      privateKey:
+        'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+      spender: 'uniswap',
+      token: 'WETH',
+      nonce: 115,
+      maxFeePerGas: '5000000000',
+      maxPriorityFeePerGas: '5000000000',
+    };
+
+    patchApproveERC20('overwritten_tx');
+    const tx_1 = await request(app)
+      .post(`/eth/approve`)
+      .send(requestParam)
+      .set('Accept', 'application/json')
+      .expect('Content-Type', /json/)
+      .expect(200);
+
+    patchApproveERC20(); // patch to return different tx_hash
+    requestParam.maxPriorityFeePerGas = '8000000000'; // we only increase maxPriorityFeePerGas
+    const tx_2 = await request(app)
+      .post(`/eth/approve`)
+      .send(requestParam)
+      .set('Accept', 'application/json')
+      .expect('Content-Type', /json/)
+      .expect(200);
+
+    // once tx_2 is confirmed, tx_1 will be dropped
+    patch(eth, 'getCurrentBlockNumber', () => 1);
+    patch(eth, 'getTransaction', () => null);
+    patch(eth, 'getTransactionReceipt', () => null);
+    const res_1 = await request(app).post('/eth/poll').send({
+      txHash: tx_1.body.approval.hash,
+    });
+    expect(res_1.statusCode).toEqual(200);
+    expect(res_1.body.txReceipt).toEqual(null);
+    expect(res_1.body.txData).toEqual(null);
+
+    patch(eth, 'getCurrentBlockNumber', () => 1);
+    patch(eth, 'getTransaction', () => transactionSuccesful);
+    patch(eth, 'getTransactionReceipt', () => transactionSuccesfulReceipt);
+    const res_2 = await request(app).post('/eth/poll').send({
+      txHash: tx_2.body.approval.hash,
+    });
+    expect(res_2.statusCode).toEqual(200);
+    expect(res_2.body.txReceipt).toBeDefined();
+    expect(res_2.body.txData).toBeDefined();
   });
 });
