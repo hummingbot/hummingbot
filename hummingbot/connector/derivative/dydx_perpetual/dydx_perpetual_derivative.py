@@ -15,6 +15,8 @@ from typing import (
 from dateutil.parser import parse as dataparse
 
 from dydx3.errors import DydxApiError
+import hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_constants as CONSTANTS
+
 import aiohttp
 
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
@@ -38,6 +40,7 @@ from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_user_stream_t
     DydxPerpetualUserStreamTracker
 from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
+    safe_gather,
 )
 from hummingbot.core.event.events import (
     MarketEvent,
@@ -84,10 +87,6 @@ SELL_ORDER_CREATED_EVENT = MarketEvent.SellOrderCreated
 API_CALL_TIMEOUT = 10.0
 
 # ==========================================================
-
-MAINNET_API_REST_ENDPOINT = "https://api.dydx.exchange/"
-MAINNET_WS_ENDPOINT = "wss://api.dydx.exchange/v1/ws"
-MARKETS_INFO_ROUTE = "v3/markets"
 UNRECOGNIZED_ORDER_DEBOUCE = 60  # seconds
 
 
@@ -154,12 +153,10 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
         ExchangeBase.__init__(self)
         PerpetualTrading.__init__(self)
         self._real_time_balance_update = True
-        self.API_REST_ENDPOINT = MAINNET_API_REST_ENDPOINT
-        self.WS_ENDPOINT = MAINNET_WS_ENDPOINT
+        self._shared_client = aiohttp.ClientSession()
         self._order_book_tracker = DydxPerpetualOrderBookTracker(
             trading_pairs=trading_pairs,
-            rest_api_url=self.API_REST_ENDPOINT,
-            websocket_url=self.WS_ENDPOINT,
+            shared_client=self._shared_client,
         )
         self._tx_tracker = DydxPerpetualDerivativeTransactionTracker(self)
         self._trading_required = trading_required
@@ -167,7 +164,6 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
         self._poll_interval = poll_interval
-        self._shared_client = None
         self._polling_update_task = None
 
         self.dydx_client: DydxPerpetualClientWrapper = DydxPerpetualClientWrapper(api_key=dydx_perpetual_api_key,
@@ -209,6 +205,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
             "account_balances": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0 if self._trading_required else True,
             "funding_info_available": len(self._funding_info) > 0 if self._trading_required else True,
+            "user_stream_tracker_ready": self._user_stream_tracker.data_source.last_recv_time > 0 if self._trading_required else True,
         }
 
     # ----------------------------------------
@@ -493,6 +490,10 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 else:
                     raise Exception(
                         f"order {client_order_id} does not yet exist on the exchange and could not be cancelled.")
+            elif "is already cancelled" in str(e):
+                self.stop_tracking_order(in_flight_order.client_order_id)
+                self.trigger_event(ORDER_CANCELLED_EVENT, cancellation_event)
+                return False
             else:
                 self.logger().warning(f"Unable to cancel order {exchange_order_id}: {str(e)}")
                 return False
@@ -558,7 +559,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
         await self.stop_network()
         self._order_book_tracker.start()
         if self._trading_required:
-            self._polling_update_task = safe_ensure_future(self._polling_update())
+            self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
             self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
 
@@ -579,7 +580,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
     async def check_network(self) -> NetworkStatus:
         try:
-            await self.api_request("GET", MARKETS_INFO_ROUTE)
+            await self.api_request("GET", CONSTANTS.MARKETS_URL)
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -730,20 +731,18 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                                            tracked_order.fee_paid,
                                                            tracked_order.order_type))
 
-    async def _get_funding_info(self):
-        markets_info = (await self.dydx_client.get_markets())['markets']
-        for trading_pair in self._trading_pairs:
-            self._funding_info[trading_pair] = FundingInfo(
-                trading_pair,
-                Decimal(markets_info[trading_pair]['indexPrice']),
-                Decimal(markets_info[trading_pair]['oraclePrice']),
-                dataparse(markets_info[trading_pair]['nextFundingAt']).timestamp(),
-                Decimal(markets_info[trading_pair]['nextFundingRate'])
-            )
-
     async def _update_funding_rates(self):
         try:
-            await self._get_funding_info()
+            response = await self.dydx_client.get_markets()
+            markets_info = response["markets"]
+            for trading_pair in self._trading_pairs:
+                self._funding_info[trading_pair] = FundingInfo(
+                    trading_pair,
+                    Decimal(markets_info[trading_pair]['indexPrice']),
+                    Decimal(markets_info[trading_pair]['oraclePrice']),
+                    dataparse(markets_info[trading_pair]['nextFundingAt']).timestamp(),
+                    Decimal(markets_info[trading_pair]['nextFundingRate'])
+                )
         except DydxApiError as e:
             if e.status_code == 429:
                 self.logger().network(
@@ -894,14 +893,14 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
     # ----------------------------------------
     # Polling Updates
 
-    async def _polling_update(self):
+    async def _status_polling_loop(self):
         while True:
             try:
                 self._poll_notifier = asyncio.Event()
                 await self._poll_notifier.wait()
 
                 await self._update_balances()  # needs to complete before updating positions
-                await asyncio.gather(
+                await safe_gather(
                     self._update_account_positions(),
                     self._update_trading_rules(),
                     self._update_order_status(),
@@ -1121,24 +1120,20 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
         return quantized_amount
 
     def tick(self, timestamp: float):
-        poll_interval = self._get_poll_interval()
+        """
+        Is called automatically by the clock for each clock's tick (1 second by default).
+        It checks if status polling task is due for execution.
+        """
+        now = time.time()
+        poll_interval = (self.SHORT_POLL_INTERVAL
+                         if now - self._user_stream_tracker.last_recv_time > 60.0
+                         else self.LONG_POLL_INTERVAL)
         last_tick = int(self._last_timestamp / poll_interval)
         current_tick = int(timestamp / poll_interval)
         if current_tick > last_tick:
             if not self._poll_notifier.is_set():
                 self._poll_notifier.set()
         self._last_timestamp = timestamp
-
-    def _get_poll_interval(self) -> float:
-        if self._poll_interval is not None:
-            poll_interval = self._poll_interval
-        else:
-            now = time.time()
-            if now - self._user_stream_tracker.last_recv_time > 60.0:
-                poll_interval = self.SHORT_POLL_INTERVAL
-            else:
-                poll_interval = self.LONG_POLL_INTERVAL
-        return poll_interval
 
     async def api_request(self,
                           http_method: str,
@@ -1155,7 +1150,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
             data = json.dumps(data).encode('utf8')
             headers = {"Content-Type": "application/json"}
 
-        full_url = f"{self.API_REST_ENDPOINT}{url}"
+        full_url = f"{CONSTANTS.DYDX_REST_URL}{url}"
 
         async with self._shared_client.request(http_method, url=full_url,
                                                timeout=API_CALL_TIMEOUT,
