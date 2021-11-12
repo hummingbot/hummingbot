@@ -1,15 +1,13 @@
-from math import floor, ceil
 from decimal import Decimal
+from math import floor, ceil
 import numpy as np
 import pandas as pd
 from scipy.optimize import curve_fit
 from scipy.optimize import OptimizeWarning
-import csv
-import warnings
-
 from typing import (
     Tuple,
 )
+import warnings
 
 
 cdef class TradingIntensityIndicator():
@@ -86,15 +84,11 @@ cdef class TradingIntensityIndicator():
 
         price_levels = sorted(price_levels, reverse=True)
 
-        with open('/Users/matejhorvath/github/hummingbot/logs/intensity.csv', 'w', newline='') as csvfile:
-            writer = csv.writer(csvfile)
-
-            for price_level in price_levels:
-                if len(lambdas) == 0:
-                    lambdas += [trades_consolidated[price_level]]
-                else:
-                    lambdas += [trades_consolidated[price_level]]
-                writer.writerow([price_level, lambdas[-1]])
+        for price_level in price_levels:
+            if len(lambdas) == 0:
+                lambdas += [trades_consolidated[price_level]]
+            else:
+                lambdas += [trades_consolidated[price_level]]
 
         # Adjust to be able to calculate log
         lambdas_adj = [10**-10 if x==0 else x for x in lambdas]

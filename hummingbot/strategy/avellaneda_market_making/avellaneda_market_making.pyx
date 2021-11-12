@@ -1,20 +1,20 @@
+import datetime
 from decimal import Decimal
 import logging
-import pandas as pd
-import numpy as np
-from typing import (
-    List,
-    Dict,
-    Tuple,
-)
 from math import (
     floor,
     ceil,
     isnan
 )
-import time
-import datetime
+import numpy as np
 import os
+import pandas as pd
+import time
+from typing import (
+    List,
+    Dict,
+    Tuple,
+)
 
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.connector.exchange_base import ExchangeBase

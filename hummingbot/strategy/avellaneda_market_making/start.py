@@ -1,3 +1,5 @@
+from decimal import Decimal
+import pandas as pd
 from typing import (
     List,
     Tuple,
@@ -11,8 +13,6 @@ from hummingbot.strategy.avellaneda_market_making import (
     AvellanedaMarketMakingStrategy,
 )
 from hummingbot.strategy.avellaneda_market_making.avellaneda_market_making_config_map import avellaneda_market_making_config_map as c_map
-from decimal import Decimal
-import pandas as pd
 
 
 def start(self):
