@@ -1,43 +1,35 @@
 #!/usr/bin/env python
 
-import asyncio
-from decimal import Decimal
-
 import aiohttp
-import logging
-# import pandas as pd
-# import math
-
-import requests
+import asyncio
 import cachetools.func
-
-from typing import AsyncIterable, Dict, List, Optional, Any
-
+import logging
+import requests
 import time
-import ujson
-import websockets
-from websockets.exceptions import ConnectionClosed
+
+import hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_constants as CONSTANTS
+
+from collections import defaultdict
+from decimal import Decimal
+from typing import AsyncIterable, Dict, List, Optional, Any
 
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_order_book import DydxPerpetualOrderBook
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_row import ClientOrderBookRow
-
-
-MARKETS_URL = "/markets"
-TICKER_URL = "/stats"
-SNAPSHOT_URL = "/orderbook/"
-
-WS_URL = "wss://api.dydx.exchange/v3/ws"
-DYDX_V3_API_URL = "https://api.dydx.exchange/v3"
+from hummingbot.logger import HummingbotLogger
 
 
 class DydxPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     MESSAGE_TIMEOUT = 30.0
     PING_TIMEOUT = 10.0
+
+    TRADE_CHANNEL = "v3_trades"
+    ORDERBOOK_CHANNEL = "v3_orderbook"
+
+    HEARTBEAT_INTERVAL = 30.0  # seconds
 
     __daobds__logger: Optional[HummingbotLogger] = None
 
@@ -47,19 +39,21 @@ class DydxPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls.__daobds__logger = logging.getLogger(__name__)
         return cls.__daobds__logger
 
-    def __init__(self, trading_pairs: List[str] = None, rest_api_url="", websocket_url="", token_configuration=None):
+    def __init__(self, trading_pairs: List[str] = None, shared_client: Optional[aiohttp.ClientSession] = None):
         super().__init__(trading_pairs)
-        self.REST_URL = rest_api_url
-        self.WS_URL = websocket_url
-        self._get_tracking_pair_done_event: asyncio.Event = asyncio.Event()
         self.order_book_create_function = lambda: OrderBook()
+
+        self._get_tracking_pair_done_event: asyncio.Event = asyncio.Event()
+
+        self._shared_client = shared_client
+        self._message_queue: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
 
     @classmethod
     async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
         async with aiohttp.ClientSession() as client:
             retval = {}
             for pair in trading_pairs:
-                resp = await client.get(f"{DYDX_V3_API_URL}{TICKER_URL}/{pair}")
+                resp = await client.get(f"{CONSTANTS.DYDX_REST_URL}{CONSTANTS.TICKER_URL}/{pair}")
                 resp_json = await resp.json()
                 retval[pair] = float(resp_json["markets"][pair]["close"])
             return retval
@@ -72,8 +66,13 @@ class DydxPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def trading_pairs(self) -> List[str]:
         return self._trading_pairs
 
-    async def get_snapshot(self, client: aiohttp.ClientSession, trading_pair: str, level: int = 0) -> Dict[str, any]:
-        async with client.get(f"{DYDX_V3_API_URL}{SNAPSHOT_URL}/{trading_pair}") as response:
+    def _get_shared_client(self) -> aiohttp.ClientSession:
+        if self._shared_client is None:
+            self._shared_client = aiohttp.ClientSession()
+        return self._shared_client
+
+    async def get_snapshot(self, trading_pair: str) -> Dict[str, any]:
+        async with self._get_shared_client().get(f"{CONSTANTS.DYDX_REST_URL}{CONSTANTS.SNAPSHOT_URL}/{trading_pair}") as response:
             response: aiohttp.ClientResponse = response
             if response.status != 200:
                 raise IOError(
@@ -84,42 +83,23 @@ class DydxPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
             return data
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
-        async with aiohttp.ClientSession() as client:
-            snapshot: Dict[str, Any] = await self.get_snapshot(client, trading_pair, 1000)
-            snapshot_timestamp: float = time.time()
-            snapshot_msg: OrderBookMessage = DydxPerpetualOrderBook.snapshot_message_from_exchange(
-                snapshot,
-                snapshot_timestamp,
-                metadata={"id": trading_pair, "rest": True}
-            )
-            order_book: OrderBook = self.order_book_create_function()
-            bids = [ClientOrderBookRow(Decimal(bid["price"]), Decimal(bid["amount"]), snapshot_msg.update_id) for bid in snapshot_msg.bids]
-            asks = [ClientOrderBookRow(Decimal(ask["price"]), Decimal(ask["amount"]), snapshot_msg.update_id) for ask in snapshot_msg.asks]
-            order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
-            return order_book
-
-    async def _inner_messages(self, ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
-        # Terminate the recv() loop as soon as the next message timed out, so the outer loop can reconnect.
-        try:
-            while True:
-                try:
-                    msg: str = await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)
-                    yield msg
-                except asyncio.TimeoutError:
-                    pong_waiter = await ws.ping()
-                    await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
-        except asyncio.TimeoutError:
-            self.logger().warning("WebSocket ping timed out. Going to reconnect...")
-            return
-        except ConnectionClosed:
-            return
-        finally:
-            await ws.close()
+        snapshot: Dict[str, Any] = await self.get_snapshot(trading_pair)
+        snapshot_timestamp: float = time.time()
+        snapshot_msg: OrderBookMessage = DydxPerpetualOrderBook.snapshot_message_from_exchange(
+            snapshot,
+            snapshot_timestamp,
+            metadata={"id": trading_pair, "rest": True}
+        )
+        order_book: OrderBook = self.order_book_create_function()
+        bids = [ClientOrderBookRow(Decimal(bid["price"]), Decimal(bid["amount"]), snapshot_msg.update_id) for bid in snapshot_msg.bids]
+        asks = [ClientOrderBookRow(Decimal(ask["price"]), Decimal(ask["amount"]), snapshot_msg.update_id) for ask in snapshot_msg.asks]
+        order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
+        return order_book
 
     @staticmethod
     @cachetools.func.ttl_cache(ttl=10)
     def get_mid_price(trading_pair: str) -> Optional[Decimal]:
-        resp = requests.get(url=f"{DYDX_V3_API_URL}{TICKER_URL}/{trading_pair}")
+        resp = requests.get(url=f"{CONSTANTS.DYDX_REST_URL}{CONSTANTS.TICKER_URL}/{trading_pair}")
         record = resp.json()
         data = record["markets"][trading_pair]
         mid_price = (Decimal(data['high']) + Decimal(data['low'])) / 2
@@ -130,7 +110,7 @@ class DydxPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def fetch_trading_pairs() -> List[str]:
         try:
             async with aiohttp.ClientSession() as client:
-                async with client.get(f"{DYDX_V3_API_URL}{MARKETS_URL}", timeout=5) as response:
+                async with client.get(f"{CONSTANTS.DYDX_REST_URL}{CONSTANTS.MARKETS_URL}", timeout=5) as response:
                     if response.status == 200:
                         all_trading_pairs: Dict[str, Any] = await response.json()
                         valid_trading_pairs: list = []
@@ -144,65 +124,129 @@ class DydxPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         return []
 
-    async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+    async def _create_websocket_connection(self) -> aiohttp.ClientWebSocketResponse:
+        """
+        Initialize sets up the websocket connection with a CryptoComWebsocket object.
+        """
+        try:
+            ws = await self._get_shared_client().ws_connect(url=CONSTANTS.DYDX_WS_URL,
+                                                            heartbeat=self.HEARTBEAT_INTERVAL,
+                                                            autoping=False)
+            return ws
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self.logger().network(f"Unexpected error occured connecting to {CONSTANTS.EXCHANGE_NAME} WebSocket API. "
+                                  f"({e})")
+            raise
+
+    async def _subscribe_channels(self, ws: aiohttp.ClientWebSocketResponse):
+        try:
+            for pair in self._trading_pairs:
+                subscribe_orderbook_request: Dict[str, Any] = {
+                    "type": "subscribe",
+                    "channel": self.ORDERBOOK_CHANNEL,
+                    "id": pair
+                }
+                subscribe_trade_request: Dict[str, Any] = {
+                    "type": "subscribe",
+                    "channel": self.TRADE_CHANNEL,
+                    "id": pair
+                }
+                await ws.send_json(subscribe_orderbook_request)
+                await ws.send_json(subscribe_trade_request)
+            self.logger().info("Subscribed to public orderbook and trade channels...")
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().error(
+                "Unexpected error occurred subscribing to order book trading and delta streams...", exc_info=True
+            )
+            raise
+
+    async def _iter_messages(self, ws: aiohttp.ClientWebSocketResponse) -> AsyncIterable[aiohttp.WSMessage]:
+        try:
+            while True:
+                msg: aiohttp.WSMessage = await ws.receive()
+                yield msg
+        except Exception as e:
+            self.logger().network(f"Unexpected error occurred when parsing websocket payload. "
+                                  f"Error: {e}")
+            raise
+        finally:
+            await ws.close()
+
+    async def listen_for_subscriptions(self):
+        ws = None
         while True:
             try:
-                async with websockets.connect(f"{WS_URL}") as ws:
-                    ws: websockets.WebSocketClientProtocol = ws
-                    for pair in self._trading_pairs:
-                        subscribe_request: Dict[str, Any] = {
-                            "type": "subscribe",
-                            "channel": "v3_trades",
-                            "id": pair
-                        }
-                        await ws.send(ujson.dumps(subscribe_request))
-                    async for raw_msg in self._inner_messages(ws):
-                        msg = ujson.loads(raw_msg)
-                        if "contents" in msg:
-                            if "trades" in msg["contents"]:
-                                if msg["type"] == "channel_data":
-                                    for datum in msg["contents"]["trades"]:
-                                        msg["ts"] = time.time()
-                                        trade_msg: OrderBookMessage = DydxPerpetualOrderBook.trade_message_from_exchange(datum, msg)
-                                        output.put_nowait(trade_msg)
+                ws: aiohttp.ClientWebSocketResponse = await self._create_websocket_connection()
+                await self._subscribe_channels(ws)
+
+                async for raw_msg in self._iter_messages(ws):
+                    if raw_msg.type == aiohttp.WSMsgType.PING:
+                        self.logger().debug("Received PING frame. Sending PONG frame...")
+                        await ws.pong()
+                        continue
+                    if raw_msg.type == aiohttp.WSMsgType.PONG:
+                        self.logger().debug("Received PONG frame.")
+                        continue
+                    msg = raw_msg.json()
+                    channel = msg.get("channel", "")
+                    if channel in [self.ORDERBOOK_CHANNEL, self.TRADE_CHANNEL]:
+                        self._message_queue[channel].put_nowait(msg)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().error(
+                    "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds...",
+                    exc_info=True,
+                )
+                await self._sleep(5.0)
+            finally:
+                ws and await ws.close()
+
+    async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        msg_queue = self._message_queue[self.TRADE_CHANNEL]
+        while True:
+            try:
+                msg = await msg_queue.get()
+                if "contents" in msg:
+                    if "trades" in msg["contents"]:
+                        if msg["type"] == "channel_data":
+                            for data in msg["contents"]["trades"]:
+                                msg["ts"] = time.time()
+                                trade_msg: OrderBookMessage = DydxPerpetualOrderBook.trade_message_from_exchange(data, msg)
+                                output.put_nowait(trade_msg)
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
                                     exc_info=True)
-                await asyncio.sleep(30.0)
+                await self._sleep(30.0)
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        msg_queue = self._message_queue[self.ORDERBOOK_CHANNEL]
         while True:
             try:
-                async with websockets.connect(f"{WS_URL}") as ws:
-                    ws: websockets.WebSocketClientProtocol = ws
-                    for pair in self._trading_pairs:
-                        subscribe_request: Dict[str, Any] = {
-                            "type": "subscribe",
-                            "channel": "v3_orderbook",
-                            "id": pair
-                        }
-                        await ws.send(ujson.dumps(subscribe_request))
-                    async for raw_msg in self._inner_messages(ws):
-                        msg = ujson.loads(raw_msg)
-                        if "contents" in msg:
-                            msg["trading_pair"] = msg["id"]
-                            if msg["type"] == "channel_data":
-                                ts = time.time()
-                                order_msg: OrderBookMessage = DydxPerpetualOrderBook.diff_message_from_exchange(msg["contents"], ts, msg)
-                                output.put_nowait(order_msg)
-                            elif msg["type"] == "subscribed":
-                                msg["rest"] = False
-                                ts = time.time()
-                                order_msg: OrderBookMessage = DydxPerpetualOrderBook.snapshot_message_from_exchange(msg["contents"], ts, msg)
-                                output.put_nowait(order_msg)
+                msg = await msg_queue.get()
+                if "contents" in msg:
+                    msg["trading_pair"] = msg["id"]
+                    if msg["type"] == "channel_data":
+                        ts = time.time()
+                        order_msg: OrderBookMessage = DydxPerpetualOrderBook.diff_message_from_exchange(msg["contents"], ts, msg)
+                        output.put_nowait(order_msg)
+                    elif msg["type"] == "subscribed":
+                        msg["rest"] = False
+                        ts = time.time()
+                        order_msg: OrderBookMessage = DydxPerpetualOrderBook.snapshot_message_from_exchange(msg["contents"], ts, msg)
+                        output.put_nowait(order_msg)
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
                                     exc_info=True)
-                await asyncio.sleep(30.0)
+                await self._sleep(30.0)
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         pass
