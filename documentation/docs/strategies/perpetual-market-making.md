@@ -29,7 +29,7 @@ Similar to the `pure_market_making_strategy`, it keeps placing limit buy and sel
 
 | Parameter                    | Type        | Default     | Prompt New? | Prompt                                                 |
 |------------------------------|-------------|-------------|-------------|--------------------------------------------------------|
-| `exchange`                   | string      |             | True        | Enter your maker spot connector |
+| `derivative`                   | string      |             | True        | Enter your maker spot connector |
 | `market`                     | string      |             | True        | Enter the trading pair you would like to provide liquidity on [exchange] |
 | `leverage`                   | int         |             | True        | How much leverage do you want to use? |
 | `position_mode`              | string      | One-way     | True        | Which position mode do you want to use? (One-way/Hedge) |
