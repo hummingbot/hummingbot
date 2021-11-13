@@ -41,7 +41,7 @@ Open
 | `min_closing_arbitrage_pct` | decimal | 0.1 | True | What is the minimum spread between the spot and derivative market price before closing an existing arbitrage? |
 | `maximize_funding_rate` | bool | False | True | Would you like to take advantage of the funding rate on the derivative exchange, even if min convergence is reached during funding time? |
 | `spot_market_slippage_buffer` | decimal | 0.05 | True | How much buffer do you want to add to the price to account for slippage for orders on the spot market |
-| `derivative_market_slippage_buffer` | decimal | 0.05 | True | How much buffer do you want to add to the price to account for slippage for orders on the derivative market |
+| `perpetual_market_slippage_buffer` | decimal | 0.05 | True | How much buffer do you want to add to the price to account for slippage for orders on the derivative market |
 | `next_arbitrage_cycle_delay` | float | 120 | False | How long do you want the strategy to wait to cool off from an arbitrage cycle (in seconds) |
 
 ## 📓 Description
