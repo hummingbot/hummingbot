@@ -172,6 +172,7 @@ send_error_logs: null
 instance_id: null
 log_level: INFO
 debug_console: false
+debug_console_host: localhost
 strategy_report_interval: 900.0
 logger_override_whitelist:
   - hummingbot.strategy.arbitrage

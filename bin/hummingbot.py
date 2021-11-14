@@ -68,7 +68,8 @@ async def main():
 
             from hummingbot.core.management.console import start_management_console
             management_port: int = detect_available_port(8211)
-            tasks.append(start_management_console(locals(), host="localhost", port=management_port))
+            host: str = global_config_map.get("debug_console_host").value
+            tasks.append(start_management_console(locals(), host=host, port=management_port))
         await safe_gather(*tasks)
 
 

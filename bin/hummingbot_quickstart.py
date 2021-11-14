@@ -117,7 +117,8 @@ async def quick_start(args):
         tasks: List[Coroutine] = [hb.run()]
         if global_config_map.get("debug_console").value:
             management_port: int = detect_available_port(8211)
-            tasks.append(start_management_console(locals(), host="localhost", port=management_port))
+            host: str = global_config_map.get("debug_console_host").value
+            tasks.append(start_management_console(locals(), host=host, port=management_port))
         await safe_gather(*tasks)
 
 

@@ -80,6 +80,12 @@ main_config_map = {
                   type_str="bool",
                   required_if=lambda: False,
                   default=False),
+    "debug_console_host":
+        ConfigVar(key="debug_console_host",
+                  prompt=None,
+                  type_str="str",
+                  required_if=lambda: False,
+                  default="localhost"),
     "strategy_report_interval":
         ConfigVar(key="strategy_report_interval",
                   prompt=None,
