@@ -298,8 +298,8 @@ class TestGateIoExchange(unittest.TestCase):
         self.assertEqual(0, len(self.event_listener.event_log))
         self.assertNotIn(order_id, self.exchange.in_flight_orders)
         self.assertTrue(self._is_logged(
-            "WARNING",
-            "Buy order amount 0.000 is lower than the minimum order size 0.001."
+            "ERROR",
+            "Error submitting BUY LIMIT order to gate_io for 0.000 COINALPHA-HBOT 5.100000 - Buy order amount 0.000 is lower than the minimum order size 0.001.."
         ))
 
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication")
