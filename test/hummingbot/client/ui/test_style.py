@@ -1,24 +1,12 @@
-import asyncio
 import unittest
 
 from prompt_toolkit.styles import Style
-from typing import Awaitable
 from unittest.mock import patch
 
-from hummingbot.client.config.config_helpers import read_system_configs_from_yml
 from hummingbot.client.ui.style import load_style, reset_style, hex_to_ansi
 
 
 class StyleTest(unittest.TestCase):
-    def setUp(self) -> None:
-        super().setUpClass()
-
-        self.ev_loop = asyncio.get_event_loop()
-        self.async_run_with_timeout(read_system_configs_from_yml())
-
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
-        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
 
     class ConfigVar:
         value = None
@@ -59,6 +47,8 @@ class StyleTest(unittest.TestCase):
                 "primary": "#FCFCFC",
                 "warning": "#93C36D",
                 "error": "#F5634A",
+                "tab_button.focused": "bg:#FCFCFC #FAFAFA",
+                "tab_button": "bg:#FFFFFF #FAFAFA",
                 # Label bg and font color
                 "primary-label": "bg:#5FFFD7 #FAFAFA",
                 "secondary-label": "bg:#FFFFFF #FAFAFA",
@@ -92,23 +82,26 @@ class StyleTest(unittest.TestCase):
 
         style = Style.from_dict(
             {
-                "output-field": "bg:#ansigray #ansigray",
-                "input-field": "bg:#ansigray #ansiwhite",
-                "log-field": "bg:#ansigray #ansiwhite",
-                "header": "bg:#ansigray #ansiwhite",
-                "footer": "bg:#ansigray #ansiwhite",
-                "search": "#ansigray",
-                "search.current": "#ansigray",
-                "primary": "#ansigray",
+                "output-field": "bg:#ansiwhite #ansiwhite",
+                "input-field": "bg:#ansiwhite #ansiwhite",
+                "log-field": "bg:#ansiwhite #ansiwhite",
+                "header": "bg:#ansiwhite #ansiwhite",
+                "footer": "bg:#ansiwhite #ansiwhite",
+                "search": "#ansiwhite",
+                "search.current": "#ansiwhite",
+                "primary": "#ansiwhite",
                 "warning": "#ansibrightyellow",
                 "error": "#ansired",
+                "tab_button.focused": "bg:#ansiwhite #ansiwhite",
+                "tab_button": "bg:#ansiwhite #ansiwhite",
                 # Label bg and font color
-                "primary-label": "bg:#ansicyan #ansigray",
-                "secondary-label": "bg:#ansigray #ansigray",
-                "success-label": "bg:#ansicyan #ansigray",
-                "warning-label": "bg:#ansiyellow #ansigray",
-                "info-label": "bg:#ansicyan #ansigray",
-                "error-label": "bg:#ansired #ansigray",
+                "primary-label": "bg:#ansicyan #ansiwhite",
+                "secondary-label": "bg:#ansiwhite #ansiwhite",
+                "success-label": "bg:#ansicyan #ansiwhite",
+                "warning-label": "bg:#ansiyellow #ansiwhite",
+                "info-label": "bg:#ansicyan #ansiwhite",
+                "error-label": "bg:#ansired #ansiwhite",
+
             }
         )
 
@@ -142,6 +135,8 @@ class StyleTest(unittest.TestCase):
                 "primary": "#010101",
                 "warning": "#93C36D",
                 "error": "#F5634A",
+                "tab_button.focused": "bg:#010101 #333333",
+                "tab_button": "bg:#FFFFFF #333333",
                 # Label bg and font color
                 "primary-label": "bg:#5FFFD7 #333333",
                 "secondary-label": "bg:#FFFFFF #333333",
@@ -149,6 +144,7 @@ class StyleTest(unittest.TestCase):
                 "warning-label": "bg:#FFFF00 #333333",
                 "info-label": "bg:#5FD7FF #333333",
                 "error-label": "bg:#FF0000 #333333",
+
             }
         )
 
