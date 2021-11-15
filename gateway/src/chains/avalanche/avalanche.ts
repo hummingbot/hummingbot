@@ -1,10 +1,9 @@
 import abi from '../../services/ethereum.abi.json';
 import { logger } from '../../services/logger';
-import { BigNumber, Contract, Transaction, Wallet } from 'ethers';
+import { Contract, Transaction, Wallet } from 'ethers';
 import { EthereumBase } from '../../services/ethereum-base';
 import { ConfigManager } from '../../services/config-manager';
 import { AvalancheConfig } from './avalanche.config';
-import { TokenValue } from '../../services/base';
 import { Provider } from '@ethersproject/abstract-provider';
 import { Ethereumish } from '../ethereum/ethereum';
 import { PangolinConfig } from './pangolin/pangolin.config';
@@ -65,50 +64,9 @@ export class Avalanche extends EthereumBase implements Ethereumish {
     return this._chain;
   }
 
-  // override getERC20Balance definition to handle MKR edge case
-  async getERC20Balance(
-    wallet: Wallet,
-    tokenAddress: string,
-    decimals: number
-  ): Promise<TokenValue> {
-    // instantiate a contract and pass in provider for read-only access
-    const contract = this.getContract(tokenAddress, this.provider);
-
-    logger.info(
-      'Requesting balance for owner ' +
-        wallet.address +
-        ' for token ' +
-        tokenAddress +
-        '.'
-    );
-    const balance = await contract.balanceOf(wallet.address);
-    logger.info(balance);
-    return { value: balance, decimals: decimals };
-  }
-
-  // override getERC20Allowance
-  async getERC20Allowance(
-    wallet: Wallet,
-    spender: string,
-    tokenAddress: string,
-    decimals: number
-  ): Promise<TokenValue> {
-    // instantiate a contract and pass in provider for read-only access
-    const contract = this.getContract(tokenAddress, this.provider);
-
-    logger.info(
-      'Requesting spender ' +
-        spender +
-        ' allowance for owner ' +
-        wallet.address +
-        ' for token ' +
-        tokenAddress +
-        '.'
-    );
-    const allowance = await contract.allowance(wallet.address, spender);
-    logger.info(allowance);
-    return { value: allowance, decimals: decimals };
-  }
+  // public get gasPriceLastDated(): Date | null {
+  //   return this._gasPriceLastUpdated;
+  // }
 
   getContract(tokenAddress: string, signerOrProvider?: Wallet | Provider) {
     return tokenAddress === MKR_ADDRESS
@@ -128,42 +86,6 @@ export class Avalanche extends EthereumBase implements Ethereumish {
       spender = reqSpender;
     }
     return spender;
-  }
-
-  // override approveERC20
-  async approveERC20(
-    wallet: Wallet,
-    spender: string,
-    tokenAddress: string,
-    amount: BigNumber,
-    nonce?: number
-  ): Promise<Transaction> {
-    // instantiate a contract and pass in wallet, which act on behalf of that signer
-    const contract = this.getContract(tokenAddress, wallet);
-
-    logger.info(
-      'Calling approve method called for spender ' +
-        spender +
-        ' requesting allowance ' +
-        amount.toString() +
-        ' from owner ' +
-        wallet.address +
-        ' on token ' +
-        tokenAddress +
-        '.'
-    );
-    if (!nonce) {
-      nonce = await this.nonceManager.getNonce(wallet.address);
-    }
-    const response = await contract.approve(spender, amount, {
-      gasPrice: this._gasPrice * 1e9,
-      gasLimit: 100000,
-      nonce: nonce,
-    });
-    logger.info(response);
-
-    await this.nonceManager.commitNonce(wallet.address, nonce);
-    return response;
   }
 
   // cancel transaction
