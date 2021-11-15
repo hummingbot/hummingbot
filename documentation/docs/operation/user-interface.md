@@ -22,10 +22,6 @@ The CLI is divided into five panes:
 
      - Reference of Version Release (Currently at 0.39)
 
-   - **paper_trade_mode:**
-
-     - A Hummingbot feature that allows users to simulate trading strategies without risking any assets. Learn more about [Paper Trade Mode](/operation/paper-trade/)
-
    - **Strategy:**
      - Hummingbot has 9 strategy configurations that can be used for trading or liquidity mining. Hummingbot strategy guide can be found [here](/strategies/).
    - **Strategy_file:**
@@ -33,7 +29,7 @@ The CLI is divided into five panes:
 
 ![Top Navigation](/assets/img/top-nav.gif)
 
-5. **Bottom navigation bar**: Displays the information of the following items
+1. **Bottom navigation bar**: Displays the information of the following items
 
    - Trades
      - Number of trades done by the bot
@@ -54,7 +50,18 @@ The CLI is divided into five panes:
 
 ![Bottom Navigation](/assets/img/bottom-nav.gif)
 
-# Keyboard shortcuts
+
+## Show and hide log pane
+
+The log pane on the right can be shown or hidden in two ways:
+
+1. Click the `log pane` button in the upper right hand corner
+2. Press `CTRL + T` shortcut on your keyboard
+
+![Hide Log Pane](/assets/img/hide-log-pane.gif)
+
+
+## Keyboard shortcuts
 
 | Keyboard Combo    | Command                    | Description                                  |
 | ----------------- | -------------------------- | -------------------------------------------- |
@@ -66,6 +73,8 @@ The CLI is divided into five panes:
 | `CTRL + Z`        | Undo                       | \* Undo action                               |
 | `Single CTRL + C` | Copy                       | \* Copy text                                 |
 | `CTRL + V`        | Paste                      | \* Paste text                                |
+| `CTRL + R`        | Reset Style                | Set default color style                            |
+| `CTRL + T`        | Toggle logs                | Hide / show the logs pane                    |
 
 _\* Used for text edit in input pane only._
 

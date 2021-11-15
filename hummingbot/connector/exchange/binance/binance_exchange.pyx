@@ -26,7 +26,6 @@ from typing import (
 )
 
 import conf
-from hummingbot.core.utils.asyncio_throttle import Throttler
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.clock cimport Clock
@@ -206,9 +205,6 @@ cdef class BinanceExchange(ExchangeBase):
             key: BinanceInFlightOrder.from_json(value)
             for key, value in saved_states.items()
         })
-
-    async def get_active_exchange_markets(self) -> pd.DataFrame:
-        return await BinanceAPIOrderBookDataSource.get_active_exchange_markets()
 
     def monkey_patch_binance_time(self):
         if binance_client_module.time != BinanceTime.get_instance():

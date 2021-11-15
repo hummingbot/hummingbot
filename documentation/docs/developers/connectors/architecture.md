@@ -135,7 +135,7 @@ Stores all details pertaining to the current state of an order.
 !!! note
     It is important to keep a consistent and accurate state of all active orders placed by the user. This ensures that the strategies are given the correct information and are able to perform their tasks accordingly.
 
-For more details on how to begin implementing the components, please refer to the [Connector Tutorial](/developers/connectors/tutorial/)
+For more details on how to begin implementing the components, please refer to the [Connector Tutorial](/developers/contributions/)
 
 ## Protocol Connector Components Overview\ [TBD\]
 

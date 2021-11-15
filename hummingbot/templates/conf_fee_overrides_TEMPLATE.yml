@@ -3,7 +3,7 @@
 ########################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 7
+template_version: 9
 
 # Exchange trading fees, the values are in percentage value, e.g. 0.1 for 0.1%.
 # If the value is left blank, the default value (from corresponding market connector) will be used.
@@ -35,6 +35,9 @@ bittrex_taker_fee:
 kucoin_maker_fee:
 kucoin_taker_fee:
 
+bitmart_maker_fee:
+bitmart_taker_fee:
+
 crypto_com_maker_fee:
 crypto_com_taker_fee:
 
@@ -44,10 +47,6 @@ bitfinex_taker_fee:
 kraken_maker_fee:
 kraken_taker_fee:
 
-dolomite_maker_fee_amount:
-dolomite_taker_fee_amount:
-
-
 hitbtc_maker_fee:
 hitbtc_taker_fee:
 
@@ -56,12 +55,6 @@ gate_io_taker_fee:
 
 loopring_maker_fee:
 loopring_taker_fee:
-
-radar_relay_maker_fee_amount:
-radar_relay_taker_fee_amount:
-
-bamboo_relay_maker_fee_amount:
-bamboo_relay_taker_fee_amount:
 
 binance_us_maker_fee:
 binance_us_taker_fee:
@@ -95,3 +88,9 @@ ndax_taker_fee:
 
 ndax_testnet_maker_fee:
 ndax_testnet_taker_fee:
+
+bybit_perpetual_maker_fee:
+bybit_perpetual_taker_fee:
+
+bybit_perpetual_testnet_maker_fee:
+bybit_perpetual_testnet_taker_fee:

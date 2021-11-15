@@ -53,9 +53,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     OPTION_LOG_STATUS_REPORT = 1 << 5
     OPTION_LOG_ALL = 0x7fffffffffffffff
 
-    # These are exchanges where you're expected to expire orders instead of actively cancelling them.
-    RADAR_RELAY_TYPE_EXCHANGES = {"radar_relay", "bamboo_relay"}
-
     @classmethod
     def logger(cls):
         global pmm_logger
@@ -92,6 +89,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     closing_time: Decimal = Decimal("1"),
                     debug_csv_path: str = '',
                     volatility_buffer_size: int = 30,
+                    should_wait_order_cancel_confirmation = True,
                     is_debug: bool = False,
                     ):
         self._sb_order_tracker = OrderTracker()
@@ -142,6 +140,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._optimal_spread = s_decimal_zero
         self._optimal_ask = s_decimal_zero
         self._optimal_bid = s_decimal_zero
+        self._should_wait_order_cancel_confirmation = should_wait_order_cancel_confirmation
         self._debug_csv_path = debug_csv_path
         self._is_debug = is_debug
         try:
@@ -546,12 +545,15 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
         self._hanging_orders_tracker.register_events(self.active_markets)
 
-        # start tracking any restored limit order
-        restored_order_ids = self.c_track_restored_orders(self.market_info)
-        for order_id in restored_order_ids:
-            order = next(o for o in self.market_info.market.limit_orders if o.client_order_id == order_id)
-            if order:
-                self._hanging_orders_tracker.add_order(order)
+        if self._hanging_orders_enabled:
+            # start tracking any restored limit order
+            restored_order_ids = self.c_track_restored_orders(self.market_info)
+            for order_id in restored_order_ids:
+                order = next(o for o in self.market_info.market.limit_orders if o.client_order_id == order_id)
+                if order:
+                    self._hanging_orders_tracker.add_order(order)
+                    self._hanging_orders_tracker.update_strategy_orders_with_equivalent_orders()
+
         self._time_left = self._closing_time
 
     def start(self, clock: Clock, timestamp: float):
@@ -604,15 +606,14 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     self.c_apply_order_amount_eta_transformation(proposal)
                     # 3. Apply functions that modify orders price
                     self.c_apply_order_price_modifiers(proposal)
+                    # 4. Apply budget constraint, i.e. can't buy/sell more than what you have.
+                    self.c_apply_budget_constraint(proposal)
 
                 self._hanging_orders_tracker.process_tick()
                 self.c_cancel_active_orders_on_max_age_limit()
                 self.c_cancel_active_orders(proposal)
 
                 if self.c_to_create_orders(proposal):
-                    # 4. Apply budget constraint (after hanging orders were created), i.e. can't buy/sell
-                    # more than what you have.
-                    self.c_apply_budget_constraint(proposal)
                     self.c_execute_orders_proposal(proposal)
 
                 if self._is_debug:
@@ -921,7 +922,14 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         return self.c_apply_budget_constraint(proposal)
 
     def adjusted_available_balance_for_orders_budget_constrain(self):
-        return self.c_get_adjusted_available_balance(self.active_non_hanging_orders)
+        candidate_hanging_orders = self.hanging_orders_tracker.candidate_hanging_orders_from_pairs()
+        non_hanging = []
+        if self.market_info in self._sb_order_tracker.get_limit_orders():
+            all_orders = self._sb_order_tracker.get_limit_orders()[self.market_info].values()
+            non_hanging = [order for order in all_orders
+                           if not self._hanging_orders_tracker.is_order_id_in_hanging_orders(order.client_order_id)]
+        all_non_hanging_orders = list(set(non_hanging) - set(candidate_hanging_orders))
+        return self.c_get_adjusted_available_balance(all_non_hanging_orders)
 
     cdef c_apply_budget_constraint(self, object proposal):
         cdef:
@@ -1158,10 +1166,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
     cdef c_cancel_active_orders(self, object proposal):
         if self._cancel_timestamp > self._current_timestamp:
             return
-        if not global_config_map.get("0x_active_cancels").value:
-            if ((self._market_info.market.name in self.RADAR_RELAY_TYPE_EXCHANGES) or
-                    (self._market_info.market.name == "bamboo_relay" and not self._market_info.market.use_coordinator)):
-                return
+
         cdef:
             list active_buy_prices = []
             list active_sells = []
@@ -1194,19 +1199,18 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         non_hanging_orders_non_cancelled = [o for o in self.active_non_hanging_orders if not
                                             self._hanging_orders_tracker.is_potential_hanging_order(o)]
 
-        return self._create_timestamp < self._current_timestamp and \
-            proposal is not None and len(non_hanging_orders_non_cancelled) == 0
+        return (self._create_timestamp < self._current_timestamp
+                and (not self._should_wait_order_cancel_confirmation or
+                     len(self._sb_order_tracker.in_flight_cancels) == 0)
+                and proposal is not None
+                and len(non_hanging_orders_non_cancelled) == 0)
 
     def to_create_orders(self, proposal: Proposal) -> bool:
         return self.c_to_create_orders(proposal)
 
     cdef c_execute_orders_proposal(self, object proposal):
         cdef:
-            double expiration_seconds = (self._order_refresh_time
-                                         if ((self._market_info.market.name in self.RADAR_RELAY_TYPE_EXCHANGES) or
-                                             (self._market_info.market.name == "bamboo_relay" and
-                                              not self._market_info.market.use_coordinator))
-                                         else NaN)
+            double expiration_seconds = NaN
             str bid_order_id, ask_order_id
             bint orders_created = False
         # Number of pair of orders to track for hanging orders

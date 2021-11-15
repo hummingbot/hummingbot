@@ -4,7 +4,7 @@
 
 Users can run multiple bots of Hummingbot installed via binary by simply running a new instance to open a new window.
 
-![](/assets/img/multiple_bots1.gif)
+![](/assets/img/multiplebotsbinary.gif)
 
 ## Multiple bots via Docker
 

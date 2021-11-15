@@ -63,6 +63,8 @@ km_logger = None
 s_decimal_0 = Decimal(0)
 s_decimal_NaN = Decimal("nan")
 KUCOIN_ROOT_API = "https://api.kucoin.com"
+MINUTE = 60
+TWELVE_HOURS = MINUTE * 60 * 12
 
 
 class KucoinAPIError(IOError):
@@ -122,6 +124,7 @@ cdef class KucoinExchange(ExchangeBase):
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
         self._throttler = self._build_async_throttler()
+        self._trading_pairs = trading_pairs
         self._order_book_tracker = KucoinOrderBookTracker(self._throttler, trading_pairs, self._kucoin_auth)
         self._poll_notifier = asyncio.Event()
         self._shared_client = None
@@ -129,6 +132,8 @@ cdef class KucoinExchange(ExchangeBase):
         self._trading_required = trading_required
         self._trading_rules = {}
         self._trading_rules_polling_task = None
+        self._trading_fees = {}
+        self._trading_fees_polling_task = None
         self._tx_tracker = KucoinExchangeTransactionTracker(self)
         self._user_stream_tracker = KucoinUserStreamTracker(self._throttler, self._kucoin_auth)
 
@@ -189,6 +194,7 @@ cdef class KucoinExchange(ExchangeBase):
         self._stop_network()
         self._order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
+        self._trading_fees_polling_task = safe_ensure_future(self._trading_fees_polling_loop())
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
@@ -208,6 +214,9 @@ cdef class KucoinExchange(ExchangeBase):
         if self._trading_rules_polling_task is not None:
             self._trading_rules_polling_task.cancel()
             self._trading_rules_polling_task = None
+        if self._trading_fees_polling_task is not None:
+            self._trading_fees_polling_task.cancel()
+            self._trading_fees_polling_task = None
         if self._user_stream_tracker_task is not None:
             self._user_stream_tracker_task.cancel()
             self._user_stream_tracker_task = None
@@ -404,7 +413,7 @@ cdef class KucoinExchange(ExchangeBase):
 
         if response:
             if response.status != 200:
-                raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}. Error is { await response.text()}")
+                raise IOError(f"Error fetching data from {response.url}. HTTP status is {response.status}. Error is { await response.text()}")
             try:
                 parsed_response = json.loads(await response.text())
             except Exception:
@@ -438,17 +447,16 @@ cdef class KucoinExchange(ExchangeBase):
                           object order_side,
                           object amount,
                           object price):
-        # There is no API for checking user's fee tier
-        # Fee info from https://www.kucoin.com/vip/fee
-        """
-        if order_type is OrderType.LIMIT and fee_overrides_config_map["kucoin_maker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["kucoin_maker_fee"].value / Decimal("100"))
-        if order_type is OrderType.MARKET and fee_overrides_config_map["kucoin_taker_fee"].value is not None:
-            return TradeFee(percent=fee_overrides_config_map["kucoin_taker_fee"].value / Decimal("100"))
-        return TradeFee(percent=Decimal("0.001"))
-        """
         is_maker = order_type is OrderType.LIMIT_MAKER
-        return estimate_fee("kucoin", is_maker)
+        trading_pair = f"{base_currency}-{quote_currency}"
+        if trading_pair in self._trading_fees:
+            fees_data = self._trading_fees[trading_pair]
+            fee_value = Decimal(fees_data["makerFeeRate"]) if is_maker else Decimal(fees_data["takerFeeRate"])
+            fee = TradeFee(percent=fee_value)
+        else:
+            safe_ensure_future(self._update_trading_fee(trading_pair))
+            fee = estimate_fee("kucoin", is_maker)
+        return fee
 
     async def _update_trading_rules(self):
         cdef:
@@ -461,6 +469,21 @@ cdef class KucoinExchange(ExchangeBase):
             self._trading_rules.clear()
             for trading_rule in trading_rules_list:
                 self._trading_rules[trading_rule.trading_pair] = trading_rule
+
+    async def _update_trading_fees(self):
+        for trading_pair in self._trading_pairs:
+            await self._update_trading_fee(trading_pair)
+
+    async def _update_trading_fee(self, trading_pair: str):
+        params = {"symbols": trading_pair}
+        resp = await self._api_request(
+            "get",
+            path_url=f"{CONSTANTS.FEE_PATH_URL}?symbols={trading_pair}",
+            limit_id=CONSTANTS.FEE_LIMIT_ID,
+            is_auth_required=True,
+        )
+        fees_data = resp["data"][0]
+        self._trading_fees[trading_pair] = fees_data
 
     def _format_trading_rules(self, raw_trading_pair_info: List[Dict[str, Any]]) -> List[TradingRule]:
         cdef:
@@ -498,6 +521,8 @@ cdef class KucoinExchange(ExchangeBase):
             for tracked_order in tracked_orders:
                 exchange_order_id = await tracked_order.get_exchange_order_id()
                 order_update = await self.get_order_status(exchange_order_id)
+                if tracked_order.client_order_id not in self.in_flight_orders:
+                    continue  # asynchronously removed in _user_stream_event_listener
                 if order_update is None:
                     self.logger().network(
                         f"Error fetching status update for the order {tracked_order.client_order_id}: "
@@ -615,7 +640,7 @@ cdef class KucoinExchange(ExchangeBase):
         while True:
             try:
                 await self._update_trading_rules()
-                await asyncio.sleep(60)
+                await asyncio.sleep(MINUTE)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -625,12 +650,28 @@ cdef class KucoinExchange(ExchangeBase):
                                                       "Check network connection.")
                 await asyncio.sleep(0.5)
 
+    async def _trading_fees_polling_loop(self):
+        while True:
+            try:
+                await self._update_trading_fees()
+                await asyncio.sleep(TWELVE_HOURS)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().network("Unexpected error while fetching trading fees.",
+                                      exc_info=True,
+                                      app_warning_msg="Could not fetch new trading fees from Kucoin. "
+                                                      "Check network connection.")
+                await asyncio.sleep(0.5)
+
     @property
     def status_dict(self) -> Dict[str, bool]:
         return {
             "order_books_initialized": self._order_book_tracker.ready,
             "account_balance": self._account_balances if self._trading_required else True,
-            "trading_rule_initialized": len(self._trading_rules) > 0
+            "trading_rule_initialized": len(self._trading_rules) > 0,
+            "user_stream_initialized":
+                self._user_stream_tracker.data_source.last_recv_time > 0 if self._trading_required else True,
         }
 
     @property
@@ -998,3 +1039,6 @@ cdef class KucoinExchange(ExchangeBase):
             )
         throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         return throttler
+
+    def stop_tracking_order(self, order_id: str):
+        self.c_stop_tracking_order(order_id)

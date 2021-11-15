@@ -4,8 +4,6 @@ import hashlib
 import hmac
 import logging
 import time
-import ujson
-import websockets
 
 import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
 import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils as utils
@@ -16,7 +14,6 @@ from decimal import Decimal
 from enum import Enum
 from urllib.parse import urlencode
 from typing import Optional, List, Dict, Any, AsyncIterable
-from websockets.exceptions import ConnectionClosed
 
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_in_flight_order import BinancePerpetualsInFlightOrder
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_order_book_tracker import BinancePerpetualOrderBookTracker
@@ -80,6 +77,8 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
     LONG_POLL_INTERVAL = 120.0
     ORDER_NOT_EXIST_CONFIRMATION_COUNT = 3
+    HEARTBEAT_TIME_INTERVAL = 30.0
+    ONE_HOUR_INTERVAL = 3600.0
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -146,7 +145,9 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             "order_books_initialized": self._order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0,
-            "funding_info": len(self._funding_info) > 0
+            "funding_info": len(self._funding_info) > 0,
+            "position_mode": self.position_mode,
+            "user_stream_initializied": self._user_stream_tracker.data_source.last_recv_time > 0
         }
 
     @property
@@ -165,6 +166,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
         self._funding_info_polling_task = safe_ensure_future(self._funding_info_polling_loop())
         if self._trading_required:
+            await self._get_position_mode()
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
             self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
@@ -308,7 +310,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             price: object = s_decimal_NaN, **kwargs) -> str:
 
         t_pair: str = trading_pair
-        order_id: str = utils.get_client_order_id("sell", t_pair)
+        order_id: str = utils.get_client_order_id("buy", t_pair)
         safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, kwargs["position_action"], price))
         return order_id
 
@@ -467,7 +469,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                     exc_info=True,
                     app_warning_msg="Could not fetch user events from Binance. Check API key and network connection."
                 )
-                await asyncio.sleep(1.0)
+                await self._sleep(1.0)
 
     async def _user_stream_event_listener(self):
         async for event_message in self._iter_user_event_queue():
@@ -593,7 +595,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 raise
             except Exception as e:
                 self.logger().error(f"Unexpected error in user stream listener loop: {e}", exc_info=True)
-                await asyncio.sleep(5.0)
+                await self._sleep(5.0)
 
     def tick(self, timestamp: float):
         """
@@ -667,45 +669,49 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 await safe_gather(
                     self._update_trading_rules()
                 )
-                await asyncio.sleep(3600)
+                await self._sleep(3600)
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().network("Unexpected error while fetching trading rules.", exc_info=True,
                                       app_warning_msg="Could not fetch new trading rules from Binance Perpetuals. "
                                                       "Check network connection.")
-                await asyncio.sleep(0.5)
+                await self._sleep(0.5)
 
     async def _funding_info_polling_loop(self):
         while True:
             try:
-                ws_subscription_path: str = "/".join([f"{utils.convert_to_exchange_trading_pair(trading_pair).lower()}@markPrice"
-                                                      for trading_pair in self._trading_pairs])
-                stream_url: str = utils.wss_url(CONSTANTS.PUBLIC_WS_ENDPOINT, self._domain) + f"?streams={ws_subscription_path}"
-                async with websockets.connect(stream_url) as ws:
-                    ws: websockets.WebSocketClientProtocol = ws
+                stream_url: str = utils.wss_url(CONSTANTS.PUBLIC_WS_ENDPOINT, self._domain)
+
+                async with aiohttp.ClientSession().ws_connect(url=stream_url,
+                                                              heartbeat=self.HEARTBEAT_TIME_INTERVAL) as ws:
+                    payload = {
+                        "method": "SUBSCRIBE",
+                        "params": [
+                            f"{utils.convert_to_exchange_trading_pair(trading_pair).lower()}@markPrice"
+                            for trading_pair in self._trading_pairs
+                        ]
+                    }
+                    await ws.send_json(payload)
                     while True:
-                        try:
-                            raw_msg: str = await asyncio.wait_for(ws.recv(), timeout=10.0)
-                            msg = ujson.loads(raw_msg)
-                            trading_pair = utils.convert_from_exchange_trading_pair(msg["data"]["s"])
-                            self._funding_info[trading_pair] = FundingInfo(
-                                trading_pair,
-                                Decimal(str(msg["data"]["i"])),
-                                Decimal(str(msg["data"]["p"])),
-                                int(msg["data"]["T"]),
-                                Decimal(str(msg["data"]["r"]))
-                            )
-                        except asyncio.TimeoutError:
-                            await ws.pong(data=b'')
-                        except ConnectionClosed:
-                            raise
+                        msg: Dict[str, Any] = await ws.receive_json()
+                        if "result" in msg:
+                            continue
+                        trading_pair = utils.convert_from_exchange_trading_pair(msg["data"]["s"])
+                        self._funding_info[trading_pair] = FundingInfo(
+                            trading_pair,
+                            Decimal(str(msg["data"]["i"])),
+                            Decimal(str(msg["data"]["p"])),
+                            int(msg["data"]["T"]),
+                            Decimal(str(msg["data"]["r"]))
+                        )
+
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().error("Unexpected error updating funding info. Retrying after 10 seconds... ",
                                     exc_info=True)
-                await asyncio.sleep(10.0)
+                await self._sleep(10.0)
 
     def get_next_funding_timestamp(self):
         # On Binance Futures, Funding occurs every 8 hours at 00:00 UTC; 08:00 UTC and 16:00
@@ -731,9 +737,10 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 except Exception:
                     self.logger().error("Unexpected error whilst retrieving funding payments. Retrying after 10 seconds... ",
                                         exc_info=True)
-                    await asyncio.sleep(10.0)
+                    await self._sleep(10.0)
+                    continue
 
-            await asyncio.sleep(10)
+            await self._sleep(self.ONE_HOUR_INTERVAL)
 
     async def _status_polling_loop(self):
         while True:
@@ -752,7 +759,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                 self.logger().network("Unexpected error while fetching account updates.", exc_info=True,
                                       app_warning_msg="Could not fetch account updates from Binance Perpetuals. "
                                                       "Check API key and network connection.")
-                await asyncio.sleep(0.5)
+                await self._sleep(0.5)
             finally:
                 self._poll_notifier = asyncio.Event()
 
@@ -992,32 +999,38 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             params = {
                 "dualSidePosition": position_mode.value
             }
-            mode = await self.request(
+            response = await self.request(
                 method=MethodType.POST,
                 path=CONSTANTS.CHANGE_POSITION_MODE_URL,
                 params=params,
                 add_timestamp=True,
                 is_signed=True,
-                limit_id=CONSTANTS.POST_POSITION_MODE_LIMIT_ID
+                limit_id=CONSTANTS.POST_POSITION_MODE_LIMIT_ID,
+                return_err=True
             )
-            if mode["msg"] == "success" and mode["code"] == 200:
+            if response["msg"] == "success" and response["code"] == 200:
                 self.logger().info(f"Using {position_mode.name} position mode.")
+                self._position_mode = position_mode
             else:
                 self.logger().error(f"Unable to set postion mode to {position_mode.name}.")
+                self.logger().info(f"Using {initial_mode.name} position mode.")
+                self._position_mode = initial_mode
         else:
             self.logger().info(f"Using {position_mode.name} position mode.")
+            self._position_mode = position_mode
 
-    async def _get_position_mode(self):
+    async def _get_position_mode(self) -> Optional[PositionMode]:
         # To-do: ensure there's no active order or contract before changing position mode
         if self._position_mode is None:
-            mode = await self.request(
+            response = await self.request(
                 method=MethodType.GET,
                 path=CONSTANTS.CHANGE_POSITION_MODE_URL,
                 add_timestamp=True,
                 is_signed=True,
-                limit_id=CONSTANTS.GET_POSITION_MODE_LIMIT_ID
+                limit_id=CONSTANTS.GET_POSITION_MODE_LIMIT_ID,
+                return_err=True
             )
-            self._position_mode = PositionMode.HEDGE if mode["dualSidePosition"] else PositionMode.ONEWAY
+            self._position_mode = PositionMode.HEDGE if response["dualSidePosition"] else PositionMode.ONEWAY
 
         return self._position_mode
 
@@ -1059,8 +1072,8 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                         if return_err:
                             return error_response
                         else:
-                            raise IOError(f"Error fetching data from {path}. HTTP status is {response.status}. "
-                                          f"Request Error: {error_response}")
+                            raise IOError(f"Error executing request {method.name} {path}. HTTP status is {response.status}. "
+                                          f"Error: {response}")
                     return await response.json()
             except Exception as e:
                 if "Timestamp for this request" in str(e):
@@ -1073,3 +1086,6 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
                     self.logger().error(f"Error fetching {path}", exc_info=True)
                     self.logger().warning(f"{e}")
                 raise e
+
+    async def _sleep(self, delay: float):
+        await asyncio.sleep(delay)

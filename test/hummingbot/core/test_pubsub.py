@@ -3,16 +3,16 @@ import gc
 import weakref
 
 from hummingbot.core.pubsub import PubSub
+from hummingbot.core.event.event_logger import EventLogger
 
 from test.mock.mock_events import MockEventType, MockEvent
-from test.mock.mock_listener import MockEventListener
 
 
 class PubSubTest(unittest.TestCase):
     def setUp(self) -> None:
         self.pubsub = PubSub()
-        self.listener_zero = MockEventListener()
-        self.listener_one = MockEventListener()
+        self.listener_zero = EventLogger()
+        self.listener_one = EventLogger()
         self.event_tag_zero = MockEventType.EVENT_ZERO
         self.event_tag_one = MockEventType.EVENT_ONE
         self.event = MockEvent(payload=1)
@@ -64,9 +64,9 @@ class PubSubTest(unittest.TestCase):
         self.pubsub.add_listener(self.event_tag_zero, self.listener_zero)
         self.pubsub.add_listener(self.event_tag_one, self.listener_one)
         self.pubsub.trigger_event(self.event_tag_zero, self.event)
-        self.assertEqual(1, self.listener_zero.events_count)
-        self.assertEqual(self.event, self.listener_zero.last_event)
-        self.assertEqual(0, self.listener_one.events_count)
+        self.assertEqual(1, len(self.listener_zero.event_log))
+        self.assertEqual(self.event, self.listener_zero.event_log[0])
+        self.assertEqual(0, len(self.listener_one.event_log))
 
     def test_lapsed_listener_remove_on_get_listeners(self):
         self.pubsub.add_listener(self.event_tag_zero, self.listener_zero)
