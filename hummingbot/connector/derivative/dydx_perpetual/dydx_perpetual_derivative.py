@@ -876,14 +876,18 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                     if event['type'] != "subscribed":
                         for funding_payment in data['fundingPayments']:
                             ts = dateparse(funding_payment['effectiveAt']).timestamp()
+                            funding_rate: Decimal = Decimal(funding_payment["rate"])
+                            trading_pair: str = funding_payment["market"]
+                            payment: Decimal = Decimal(funding_payment["payment"])
+                            action: str = "paid" if payment < s_decimal_0 else "received"
+
+                            self.logger().info(f"Funding payment of {payment} {action} on {trading_pair} market")
                             self.trigger_event(MARKET_FUNDING_PAYMENT_COMPLETED_EVENT_TAG,
                                                FundingPaymentCompletedEvent(timestamp=ts,
                                                                             market=self.name,
-                                                                            funding_rate=Decimal(
-                                                                                funding_payment['rate']),
-                                                                            trading_pair=funding_payment['market'],
-                                                                            amount=Decimal(
-                                                                                funding_payment['positionSize'])))
+                                                                            funding_rate=funding_rate,
+                                                                            trading_pair=trading_pair,
+                                                                            amount=payment))
             except asyncio.CancelledError:
                 raise
             except Exception:
