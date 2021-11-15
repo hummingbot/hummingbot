@@ -1,13 +1,15 @@
+import typing
 from collections import defaultdict
+from copy import copy
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Dict, List, Optional
-from copy import copy
 
-from hummingbot.connector import exchange_base
-from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.connector.utils import split_hb_trading_pair
-from hummingbot.core.event.events import OrderType, TradeType
+from hummingbot.core.event.events import OrderType, TradeType, TradeFee
+
+if typing.TYPE_CHECKING:  # avoid circular import problems
+    from hummingbot.connector.exchange_base import ExchangeBase
 
 
 @dataclass
@@ -23,7 +25,7 @@ class OrderCandidate:
 
 
 class BudgetChecker:
-    def __init__(self, exchange: exchange_base.ExchangeBase):
+    def __init__(self, exchange: "ExchangeBase"):
         """
         Provides utilities for strategies to check if the required assets for trades are available.
 
@@ -35,6 +37,10 @@ class BudgetChecker:
         amount needed for that order and makes it unavailable for the following hypothetical orders.
         Once the orders are sent to the exchange, the strategy must call `reset_locked_collateral` to
         free the hypothetically locked assets for the next set of checks.
+
+        The default implementation covers the general case, with the exception of `_get_collateral_token`
+        and `_get_fee` (and perhaps `_get_collateral_adjustment_for_fees`) methods which are spot-specific
+        and may need to be overridden for the specific exchange configuration.
 
         :param exchange: The exchange against which available collateral assets will be checked.
         """
@@ -79,13 +85,15 @@ class BudgetChecker:
         See the doc string for `adjust_candidate` to learn more about how the adjusted order
         amount is derived.
 
+        This method also locks in the collateral amount for the given collateral token and makes
+        it unavailable on subsequent calls to this method until the `reset_locked_collateral`
+        method is called.
+
         :param order_candidate: The candidate order to check and adjust.
         :param all_or_none: Should the order amount be set to zero on insufficient balance.
         :return: The adjusted order candidate.
         """
-        adjusted_candidate = self.adjust_candidate(
-            order_candidate, all_or_none
-        )
+        adjusted_candidate = self.adjust_candidate(order_candidate, all_or_none)
         self._lock_available_collateral(adjusted_candidate)
         return adjusted_candidate
 
@@ -106,12 +114,17 @@ class BudgetChecker:
         """
         adjusted_candidate = self.populate_collateral_fields(order_candidate)
         available_collateral = self._exchange.get_available_balance(adjusted_candidate.collateral_token)
-        if adjusted_candidate.collateral_amount < available_collateral:
+        locked_collateral = self._locked_collateral[adjusted_candidate.collateral_token]
+        available_collateral -= locked_collateral
+        required_collateral_amount = adjusted_candidate.collateral_amount
+
+        if available_collateral < required_collateral_amount:
             if all_or_none:
                 adjusted_candidate.amount = Decimal("0")
                 adjusted_candidate.collateral_amount = Decimal("0")
             else:
-                adjusted_candidate = self._adjust_amounts(adjusted_candidate, available_collateral)
+                adjusted_candidate = self._reduce_order_and_collateral_amounts(adjusted_candidate, available_collateral)
+
         return adjusted_candidate
 
     def populate_collateral_fields(self, order_candidate: OrderCandidate) -> OrderCandidate:
@@ -119,35 +132,123 @@ class BudgetChecker:
         Populates the required collateral amount and the collateral token fields for the given order.
 
         This implementation assumes a spot-specific configuration for collaterals (i.e. the quote
-        token for buy orders and base for sell). It can be overridden to provide other
-        configurations such as in the case of perpetual connectors.
+        token for buy orders, and base token for sell). It can be overridden to provide other
+        configurations.
 
         :param order_candidate: The candidate order to check and adjust.
         :return: The adjusted order candidate.
         """
-        trading_pair = order_candidate.trading_pair
+        populated_candidate = copy(order_candidate)
 
-        base, quote = split_hb_trading_pair(trading_pair)
-        collateral_token = quote if TradeType.BUY else base
+        populated_candidate.collateral_token = self._get_collateral_token(populated_candidate)
+        order_size, size_token = self._get_order_size_and_size_token(populated_candidate)
+        size_collateral_price = self._get_size_collateral_price(populated_candidate)
 
-        required_collateral = order_candidate.amount * order_candidate.price
-        adjustment = self._get_collateral_adjustment_for_fees(order_candidate)
+        required_collateral = order_size * size_collateral_price
+        adjustment = self._get_collateral_adjustment_for_fees(populated_candidate)
         required_collateral += adjustment
 
+        populated_candidate.collateral_amount = required_collateral
+
+        return populated_candidate
+
+    def _get_collateral_token(self, order_candidate: OrderCandidate) -> str:
+        trading_pair = order_candidate.trading_pair
+        base, quote = split_hb_trading_pair(trading_pair)
+        if order_candidate.order_side == TradeType.BUY:
+            collateral_token = quote
+        else:
+            collateral_token = base
+        return collateral_token
+
+    def _reduce_order_and_collateral_amounts(
+        self, order_candidate: OrderCandidate, available_collateral: Decimal
+    ) -> OrderCandidate:
+        adjusted_amount = self._get_adjusted_amount(order_candidate, available_collateral)
+        adjusted_amount = self._quantize_adjusted_amount(order_candidate, adjusted_amount)
+
         adjusted_candidate = copy(order_candidate)
-        adjusted_candidate.collateral_amount = required_collateral
-        adjusted_candidate.collateral_token = collateral_token
+        adjusted_candidate.amount = adjusted_amount
+        adjusted_candidate.collateral_amount = available_collateral
 
         return adjusted_candidate
 
+    def _get_adjusted_amount(self, order_candidate: OrderCandidate, target_collateral: Decimal) -> Decimal:
+        order_size, size_token = self._get_order_size_and_size_token(order_candidate)
+        size_collateral_price = self._get_size_collateral_price(order_candidate)
+        target_size = target_collateral / size_collateral_price
+
+        base, _ = split_hb_trading_pair(order_candidate.trading_pair)
+        if size_token == base:
+            adjusted_quote_size = target_size * order_candidate.price
+        else:
+            adjusted_quote_size = target_size
+
+        fee = self._get_fee(order_candidate)
+        adjusted_amount = fee.order_amount_from_quote_with_fee(
+            order_candidate.trading_pair, order_candidate.price, adjusted_quote_size
+        )
+
+        return adjusted_amount
+
+    def _quantize_adjusted_amount(self, order_candidate: OrderCandidate, adjusted_amount: Decimal) -> Decimal:
+        _, size_token = self._get_order_size_and_size_token(order_candidate)
+        trading_pair = order_candidate.trading_pair
+        base, quote = split_hb_trading_pair(order_candidate.trading_pair)
+
+        if size_token == base:
+            adjusted_amount = self._exchange.quantize_order_amount(trading_pair, adjusted_amount)
+        else:  # size_token == quote
+            adjusted_amount = self._exchange.quantize_order_price(trading_pair, adjusted_amount)
+
+        return adjusted_amount
+
+    def _get_size_collateral_price(self, order_candidate: OrderCandidate) -> Decimal:
+        _, size_token = self._get_order_size_and_size_token(order_candidate)
+        collateral_token = order_candidate.collateral_token
+        base, quote = split_hb_trading_pair(order_candidate.trading_pair)
+
+        if collateral_token == size_token:
+            price = Decimal("1")
+        elif collateral_token == base:  # size_token == quote
+            price = Decimal("1") / order_candidate.price
+        elif collateral_token == quote:  # size_token == base
+            price = order_candidate.price
+        else:
+            # # todo: verify soundness (i.e. this price target will move)
+            # size_collateral_pair = f"{size_token}-{collateral_token}"
+            # price = self._exchange.get_price(size_collateral_pair, is_buy=True)
+            raise NotImplementedError(
+                f"Third-token collaterals not yet supported."
+                f" Base token = {base}, quote token = {quote}, collateral token = {collateral_token}."
+            )
+
+        return price
+
+    @staticmethod
+    def _get_order_size_and_size_token(order_candidate: OrderCandidate) -> typing.Tuple[Decimal, str]:
+        trading_pair = order_candidate.trading_pair
+        base, quote = split_hb_trading_pair(trading_pair)
+        if order_candidate.order_side == TradeType.BUY:
+            order_size = order_candidate.amount * order_candidate.price
+            size_token = quote
+        else:
+            order_size = order_candidate.amount
+            size_token = base
+        return order_size, size_token
+
     def _get_collateral_adjustment_for_fees(self, order_candidate: OrderCandidate) -> Decimal:
+        trading_pair = order_candidate.trading_pair
+        amount = order_candidate.amount
+        price = order_candidate.price
+        fee = self._get_fee(order_candidate)
+
+        fee_adjustment = fee.fee_amount_in_quote(trading_pair, price, amount)
+
+        return fee_adjustment
+
+    def _get_fee(self, order_candidate: OrderCandidate) -> TradeFee:
         """
-        Returns the adjustment term for the required collateral amount due to fees.
-        The return value (adjustment term) is intended to be added to the base collateral amount.
-
-        Exchange-specific implementations of this class can override this method to model
-        the exchange's exact fee structure.
-
         The default implementation assumes that, for buy orders, the trading fee is
         charged on top of the order quoted amount; and it assumes that, for sell orders,
         the fee is deducted from the returns after the sell has completed.
@@ -168,24 +269,6 @@ class BudgetChecker:
         if order_candidate.order_side == TradeType.BUY:
             trading_pair = order_candidate.trading_pair
             price = order_candidate.price
-            amount = order_candidate.amount
-            base, quote = split_hb_trading_pair(trading_pair)
-            fee = self._exchange.get_fee(
-                base, quote, order_candidate.order_type, order_candidate.order_side, amount, price
-            )
-            fee_adjustment = fee.fee_amount_in_quote(trading_pair, price, amount)
-        else:
-            fee_adjustment = Decimal("0")
-        return fee_adjustment
-
-    def _lock_available_collateral(self, order_candidate: OrderCandidate):
-        self._locked_collateral[order_candidate.collateral_token] += order_candidate.collateral_amount
-
-    def _adjust_amounts(
-        self, order_candidate: OrderCandidate, available_collateral: Decimal
-    ) -> OrderCandidate:
-        if order_candidate.order_side == TradeType.BUY:
-            trading_pair = order_candidate.trading_pair
             base, quote = split_hb_trading_pair(trading_pair)
             fee = self._exchange.get_fee(
                 base,
@@ -193,98 +276,12 @@ class BudgetChecker:
                 order_candidate.order_type,
                 order_candidate.order_side,
                 order_candidate.amount,
-                order_candidate.price,
+                price,
             )
-            adjusted_amount = fee.order_amount_from_quote_with_fee(
-                trading_pair, order_candidate.price, available_collateral
-            )
-            adjusted_amount = self._exchange.quantize_order_amount(trading_pair, adjusted_amount)
         else:
-            adjusted_amount = available_collateral / order_candidate.price
+            fee = TradeFee(percent=Decimal("0"))
 
-        adjusted_candidate = copy(order_candidate)
-        adjusted_candidate.amount = adjusted_amount
-        adjusted_candidate.collateral_amount = available_collateral
+        return fee
 
-        return adjusted_candidate
-
-
-class PerpetualBudgetChecker(BudgetChecker):
-    def __init__(self, exchange: exchange_base.ExchangeBase):
-        """
-        In the case of derived instruments, the collateral can be any token.
-        To get this information, this class uses the `get_buy_collateral_token`
-        and `get_sell_collateral_token` methods provided by the `PerpetualTrading` interface.
-        """
-        super().__init__(exchange)
-        self._validate_perpetual_connector()
-
-    def populate_collateral_fields(self, order_candidate: OrderCandidate) -> OrderCandidate:
-        trading_pair = order_candidate.trading_pair
-
-        if order_candidate.order_side == TradeType.BUY:
-            collateral_token = await self._exchange.get_buy_collateral_token(trading_pair)
-        else:
-            collateral_token = await self._exchange.get_sell_collateral_token(trading_pair)
-
-        order_size = order_candidate.amount * order_candidate.price
-        required_collateral = order_size / order_candidate.leverage
-        adjustment = self._get_collateral_adjustment_for_fees(order_candidate)
-        required_collateral += adjustment
-
-        adjusted_candidate = copy(order_candidate)
-        adjusted_candidate.collateral_amount = required_collateral
-        adjusted_candidate.collateral_token = collateral_token
-
-        return adjusted_candidate
-
-    def _validate_perpetual_connector(self):
-        if not isinstance(self._exchange, PerpetualTrading):
-            raise TypeError(
-                f"{self.__class__} must be passed an exchange implementing the {PerpetualTrading} interface."
-            )
-
-    def _get_collateral_adjustment_for_fees(self, order_candidate: OrderCandidate) -> Decimal:
-        trading_pair = order_candidate.trading_pair
-        amount = order_candidate.amount
-        price = order_candidate.price
-
-        base, quote = split_hb_trading_pair(trading_pair)
-        fee = self._exchange.get_fee(
-            base, quote, order_candidate.order_type, order_candidate.order_side, amount, price
-        )
-        fee_adjustment = fee.fee_amount_in_quote(trading_pair, price, amount)
-
-        return fee_adjustment
-
-    def _adjust_amounts(
-        self, order_candidate: OrderCandidate, available_collateral: Decimal
-    ) -> OrderCandidate:
-        trading_pair = order_candidate.trading_pair
-        price = order_candidate.price
-
-        base, quote = split_hb_trading_pair(trading_pair)
-        if order_candidate.collateral_token not in [base, quote]:
-            raise NotImplementedError(
-                f"Cannot adjust the order amount if the collateral is neither of the order's"
-                f" base or quote tokens. Base = {base}, quote = {quote}, collateral token ="
-                f" {order_candidate.collateral_token}."
-            )
-        fee = self._exchange.get_fee(
-            base,
-            quote,
-            order_candidate.order_type,
-            order_candidate.order_side,
-            order_candidate.amount,
-            price,
-        )
-        adjusted_amount = fee.order_amount_from_quote_with_fee(
-            trading_pair, price, available_collateral
-        )
-        adjusted_amount = self._exchange.quantize_order_amount(trading_pair, adjusted_amount)
-
-        adjusted_candidate = copy(order_candidate)
-        adjusted_candidate.amount = adjusted_amount
-        adjusted_candidate.collateral_amount = available_collateral
-
-        return adjusted_candidate
+    def _lock_available_collateral(self, order_candidate: OrderCandidate):
+        self._locked_collateral[order_candidate.collateral_token] += order_candidate.collateral_amount

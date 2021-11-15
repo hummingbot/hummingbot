@@ -7,6 +7,8 @@ import json
 import time
 import ssl
 import copy
+
+from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.core.event.events import TradeFee
 from hummingbot.core.utils import async_ttl_cache
@@ -91,6 +93,7 @@ class PerpetualFinanceDerivative(ExchangeBase, PerpetualTrading):
         self._poll_notifier = None
         self._funding_payment_span = [120, 120]
         self._fundingPayment = {}
+        self._budget_checker = PerpetualBudgetChecker(self)
 
     @property
     def name(self):
@@ -102,6 +105,10 @@ class PerpetualFinanceDerivative(ExchangeBase, PerpetualTrading):
             in_flight_order.to_limit_order()
             for in_flight_order in self._in_flight_orders.values()
         ]
+
+    @property
+    def budget_checker(self) -> PerpetualBudgetChecker:
+        return self._budget_checker
 
     async def load_metadata(self):
         status = await self._api_request("get", "perpfi/")
@@ -628,6 +635,20 @@ class PerpetualFinanceDerivative(ExchangeBase, PerpetualTrading):
     def in_flight_orders(self) -> Dict[str, PerpetualFinanceInFlightOrder]:
         return self._in_flight_orders
 
-    async def get_sell_collateral_token(self, trading_pair: str) -> str:
+    def get_fee(self,
+                base_currency: str,
+                quote_currency: str,
+                order_type: OrderType,
+                order_side: TradeType,
+                amount: Decimal,
+                price: Decimal = s_decimal_0) -> TradeFee:
+        fee = estimate_fee("perpetual_finance", False)
+        return fee
+
+    def get_buy_collateral_token(self, trading_pair: str) -> str:
+        _, quote = self.split_trading_pair(trading_pair)
+        return quote
+
+    def get_sell_collateral_token(self, trading_pair: str) -> str:
         _, quote = self.split_trading_pair(trading_pair)
         return quote
