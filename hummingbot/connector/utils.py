@@ -2,13 +2,9 @@
 
 import base64
 from collections import namedtuple
-from typing import (
-    Dict,
-    Optional,
-    Tuple,
-)
-from zero_ex.order_utils import Order as ZeroExOrder
+from typing import Dict, Optional, Tuple
 
+from zero_ex.order_utils import Order as ZeroExOrder
 
 TradeFillOrderDetails = namedtuple("TradeFillOrderDetails", "market exchange_trade_id symbol")
 

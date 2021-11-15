@@ -5,7 +5,7 @@ from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import Quant
 from hummingbot.strategy.data_types import Proposal, PriceSize
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.perpetual_market_making import PerpetualMarketMakingStrategy
-from test.mock.mock_paper_exchange import MockPaperExchange
+from test.mock.mock_perp_connector import MockPerpConnector
 
 
 class PerpetualMarketMakingTest(unittest.TestCase):
@@ -15,7 +15,7 @@ class PerpetualMarketMakingTest(unittest.TestCase):
         self.quote_asset = "COINALPHA"
         self.trading_pair = f"{self.base_asset}-{self.quote_asset}"
         self.fee_percent = Decimal("1")
-        self.market: MockPaperExchange = MockPaperExchange(self.fee_percent)
+        self.market: MockPerpConnector = MockPerpConnector(self.fee_percent)
         self.market.set_quantization_param(
             QuantizationParams(
                 self.trading_pair,
@@ -65,8 +65,8 @@ class PerpetualMarketMakingTest(unittest.TestCase):
         new_buys = proposal.buys
         new_sells = proposal.sells
 
-        self.assertEqual(1, len(new_buys))
+        self.assertEqual(2, len(new_buys))  # cumulative 11 for leverage of 20
         self.assertEqual(buys[0], new_buys[0])
-        self.assertEqual(2, len(new_sells))
+        self.assertEqual(buys[1], new_buys[1])
+        self.assertEqual(1, len(new_sells))  # cumulative 18 for leverage of 20
         self.assertEqual(sells[0], new_sells[0])
-        self.assertEqual(sells[1], new_sells[1])

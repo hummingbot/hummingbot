@@ -1,50 +1,54 @@
-import aiohttp
 import asyncio
 import hashlib
 import hmac
 import logging
 import time
-
-import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
-import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils as utils
-
-from async_timeout import timeout
 from collections import defaultdict
 from decimal import Decimal
 from enum import Enum
+from typing import Any, AsyncIterable, Dict, List, Optional
 from urllib.parse import urlencode
-from typing import Optional, List, Dict, Any, AsyncIterable
 
-from hummingbot.connector.derivative.perpetual_budget_checker import \
-    PerpetualBudgetChecker
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_in_flight_order import BinancePerpetualsInFlightOrder
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_order_book_tracker import BinancePerpetualOrderBookTracker
-from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_user_stream_tracker import BinancePerpetualUserStreamTracker
+import aiohttp
+from async_timeout import timeout
+
+import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils as utils
+import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_in_flight_order import (
+    BinancePerpetualsInFlightOrder
+)
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_order_book_tracker import (
+    BinancePerpetualOrderBookTracker
+)
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_user_stream_tracker import (
+    BinancePerpetualUserStreamTracker
+)
+from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
 from hummingbot.connector.derivative.position import Position
-from hummingbot.connector.exchange_base import ExchangeBase, s_decimal_NaN
 from hummingbot.connector.exchange.binance.binance_time import BinanceTime
-from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.connector.exchange_base import ExchangeBase, s_decimal_NaN
 from hummingbot.connector.perpetual_trading import PerpetualTrading
+from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.event.events import (
-    FundingInfo,
-    OrderType,
-    TradeType,
-    MarketOrderFailureEvent,
-    MarketEvent,
-    OrderCancelledEvent,
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
+    FundingInfo,
     FundingPaymentCompletedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
+    OrderCancelledEvent,
     OrderFilledEvent,
-    SellOrderCompletedEvent,
-    PositionSide,
-    PositionMode,
+    OrderType,
     PositionAction,
+    PositionMode,
+    PositionSide,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+    TradeType
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather

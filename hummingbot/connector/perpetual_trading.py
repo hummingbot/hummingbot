@@ -2,10 +2,9 @@ from collections import defaultdict
 from decimal import Decimal
 from typing import Dict, List, Optional
 
-from hummingbot.connector.utils import split_hb_trading_pair
-from hummingbot.core.event.events import PositionMode, FundingInfo, PositionSide
 from hummingbot.connector.derivative.position import Position
-
+from hummingbot.connector.utils import split_hb_trading_pair
+from hummingbot.core.event.events import FundingInfo, PositionMode, PositionSide
 
 NaN = float("nan")
 s_decimal_NaN = Decimal("nan")

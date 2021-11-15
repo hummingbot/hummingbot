@@ -1,44 +1,41 @@
-import aiohttp
 import asyncio
 import copy
 import logging
 import math
-import pandas as pd
 import time
+from decimal import Decimal
+from typing import Any, AsyncIterable, Dict, List, Optional
+
+import aiohttp
+import pandas as pd
 import ujson
 
-import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils as bybit_utils
 import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_constants as CONSTANTS
-
-from decimal import Decimal
-from typing import (
-    Any,
-    AsyncIterable,
-    Dict,
-    List,
-    Optional,
-)
-
-from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
-from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_auth import BybitPerpetualAuth
+import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils as bybit_utils
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source import \
     BybitPerpetualAPIOrderBookDataSource as OrderBookDataSource
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_auth import BybitPerpetualAuth
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_in_flight_order import BybitPerpetualInFlightOrder
-from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_order_book_tracker import \
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_order_book_tracker import (
     BybitPerpetualOrderBookTracker
-from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_user_stream_tracker import \
+)
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_user_stream_tracker import (
     BybitPerpetualUserStreamTracker
-from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_websocket_adaptor import BybitPerpetualWebSocketAdaptor
+)
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_websocket_adaptor import (
+    BybitPerpetualWebSocketAdaptor
+)
+from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
@@ -54,7 +51,7 @@ from hummingbot.core.event.events import (
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
     TradeFee,
-    TradeType,
+    TradeType
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather

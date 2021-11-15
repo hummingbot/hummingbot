@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import Dict, List, Optional
 
 from hummingbot.connector.utils import split_hb_trading_pair
-from hummingbot.core.event.events import OrderType, TradeType, TradeFee
+from hummingbot.core.event.events import OrderType, TradeFee, TradeType
 
 if typing.TYPE_CHECKING:  # avoid circular import problems
     from hummingbot.connector.exchange_base import ExchangeBase
@@ -21,7 +21,6 @@ class OrderCandidate:
     price: Decimal
     collateral_amount: Optional[Decimal] = None
     collateral_token: Optional[str] = None
-    leverage: Decimal = Decimal("1")
 
 
 class BudgetChecker:
@@ -141,10 +140,7 @@ class BudgetChecker:
         populated_candidate = copy(order_candidate)
 
         populated_candidate.collateral_token = self._get_collateral_token(populated_candidate)
-        order_size, size_token = self._get_order_size_and_size_token(populated_candidate)
-        size_collateral_price = self._get_size_collateral_price(populated_candidate)
-
-        required_collateral = order_size * size_collateral_price
+        required_collateral = self._get_base_required_collateral(populated_candidate)
         adjustment = self._get_collateral_adjustment_for_fees(populated_candidate)
         required_collateral += adjustment
 
@@ -160,6 +156,12 @@ class BudgetChecker:
         else:
             collateral_token = base
         return collateral_token
+
+    def _get_base_required_collateral(self, order_candidate: OrderCandidate) -> Decimal:
+        order_size, size_token = self._get_order_size_and_size_token(order_candidate)
+        size_collateral_price = self._get_size_collateral_price(order_candidate)
+        required_collateral = order_size * size_collateral_price
+        return required_collateral
 
     def _reduce_order_and_collateral_amounts(
         self, order_candidate: OrderCandidate, available_collateral: Decimal

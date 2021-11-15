@@ -36,7 +36,7 @@ from hummingbot.strategy.asset_price_delegate cimport AssetPriceDelegate
 from hummingbot.strategy.asset_price_delegate import AssetPriceDelegate
 from hummingbot.strategy.order_book_asset_price_delegate cimport OrderBookAssetPriceDelegate
 from hummingbot.core.utils import map_df_to_str
-from hummingbot.connector.budget_checker import OrderCandidate
+from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualOrderCandidate
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -900,13 +900,27 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
 
         order_candidates.extend(
             [
-                OrderCandidate(self.trading_pair, OrderType.LIMIT, TradeType.BUY, buy.size, buy.price)
+                PerpetualOrderCandidate(
+                    self.trading_pair,
+                    OrderType.LIMIT,
+                    TradeType.BUY,
+                    buy.size,
+                    buy.price,
+                    leverage=Decimal(self._leverage),
+                )
                 for buy in proposal.buys
             ]
         )
         order_candidates.extend(
             [
-                OrderCandidate(self.trading_pair, OrderType.LIMIT, TradeType.SELL, sell.size, sell.price)
+                PerpetualOrderCandidate(
+                    self.trading_pair,
+                    OrderType.LIMIT,
+                    TradeType.SELL,
+                    sell.size,
+                    sell.price,
+                    leverage=Decimal(self._leverage),
+                )
                 for sell in proposal.sells
             ]
         )
