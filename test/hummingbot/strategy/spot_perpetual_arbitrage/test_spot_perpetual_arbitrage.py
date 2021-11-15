@@ -53,8 +53,7 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         self.order_fill_logger: EventLogger = EventLogger()
         self.cancel_order_logger: EventLogger = EventLogger()
         self.clock: Clock = Clock(ClockMode.BACKTEST, 1, self.start_timestamp, self.end_timestamp)
-        self.fee_percent = Decimal("1")
-        self.spot_connector: MockPaperExchange = MockPaperExchange(self.fee_percent)
+        self.spot_connector: MockPaperExchange = MockPaperExchange()
         self.spot_connector.set_balanced_order_book(trading_pair=trading_pair,
                                                     mid_price=100,
                                                     min_price=1,
@@ -71,7 +70,7 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         self.spot_market_info = MarketTradingPairTuple(self.spot_connector, trading_pair,
                                                        base_asset, quote_asset)
 
-        self.perp_connector: MockPerpConnector = MockPerpConnector(self.fee_percent)
+        self.perp_connector: MockPerpConnector = MockPerpConnector()
         self.perp_connector.set_leverage(trading_pair, 5)
         self.perp_connector.set_balanced_order_book(trading_pair=trading_pair,
                                                     mid_price=110,
@@ -255,7 +254,7 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         self.spot_connector.set_balance(base_asset, 0.5)
         self.spot_connector.set_balance(quote_asset, 0)
         self.perp_connector.set_balance(base_asset, 0)
-        self.perp_connector.set_balance(quote_asset, 20)
+        self.perp_connector.set_balance(quote_asset, 21)
         # Since spot has 0.5 HBOT, not enough to sell on 1 order amount
         self.assertFalse(self.strategy.check_budget_constraint(proposal))
 

@@ -1,22 +1,10 @@
 import unittest
 from decimal import Decimal
 
-from hummingbot.connector.budget_checker import OrderCandidate
-from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
+from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualOrderCandidate
 from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
-from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.core.event.events import OrderType, TradeType
-from test.mock.mock_paper_exchange import MockPaperExchange
-
-
-class MockPerpetualExchange(MockPaperExchange, PerpetualTrading):
-    def __init__(self, fee_percent: Decimal = Decimal("0")):
-        super().__init__(fee_percent)
-        self._budget_checker = PerpetualBudgetChecker(exchange=self)
-
-    @property
-    def budget_checker(self) -> PerpetualBudgetChecker:
-        return self._budget_checker
+from test.mock.mock_perp_connector import MockPerpConnector
 
 
 class PerpetualBudgetCheckerTest(unittest.TestCase):
@@ -28,11 +16,11 @@ class PerpetualBudgetCheckerTest(unittest.TestCase):
         self.trading_pair = f"{self.base_asset}-{self.quote_asset}"
 
         self.fee_percent = Decimal("1")
-        self.exchange = MockPerpetualExchange(self.fee_percent)
+        self.exchange = MockPerpConnector(self.fee_percent)
         self.budget_checker = self.exchange.budget_checker
 
     def test_populate_collateral_fields_buy_order(self):
-        order_candidate = OrderCandidate(
+        order_candidate = PerpetualOrderCandidate(
             trading_pair=self.trading_pair,
             order_type=OrderType.LIMIT,
             order_side=TradeType.BUY,
@@ -44,8 +32,22 @@ class PerpetualBudgetCheckerTest(unittest.TestCase):
         self.assertEqual(self.quote_asset, populated_candidate.collateral_token)
         self.assertEqual(Decimal("20.2"), populated_candidate.collateral_amount)
 
+    def test_populate_collateral_fields_buy_order_with_leverage(self):
+        order_candidate = PerpetualOrderCandidate(
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            order_side=TradeType.BUY,
+            amount=Decimal("10"),
+            price=Decimal("2"),
+            leverage=Decimal("2")
+        )
+        populated_candidate = self.budget_checker.populate_collateral_fields(order_candidate)
+
+        self.assertEqual(self.quote_asset, populated_candidate.collateral_token)
+        self.assertEqual(Decimal("10.2"), populated_candidate.collateral_amount)
+
     def test_populate_collateral_fields_sell_order(self):
-        order_candidate = OrderCandidate(
+        order_candidate = PerpetualOrderCandidate(
             trading_pair=self.trading_pair,
             order_type=OrderType.LIMIT,
             order_side=TradeType.SELL,
@@ -57,10 +59,24 @@ class PerpetualBudgetCheckerTest(unittest.TestCase):
         self.assertEqual(self.quote_asset, populated_candidate.collateral_token)
         self.assertEqual(Decimal("20.2"), populated_candidate.collateral_amount)
 
+    def test_populate_collateral_fields_sell_order_with_leverage(self):
+        order_candidate = PerpetualOrderCandidate(
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            order_side=TradeType.SELL,
+            amount=Decimal("10"),
+            price=Decimal("2"),
+            leverage=Decimal("2"),
+        )
+        populated_candidate = self.budget_checker.populate_collateral_fields(order_candidate)
+
+        self.assertEqual(self.quote_asset, populated_candidate.collateral_token)
+        self.assertEqual(Decimal("10.2"), populated_candidate.collateral_amount)
+
     def test_adjust_candidate_sufficient_funds(self):
         self.exchange.set_balance(self.quote_asset, Decimal("100"))
 
-        order_candidate = OrderCandidate(
+        order_candidate = PerpetualOrderCandidate(
             trading_pair=self.trading_pair,
             order_type=OrderType.LIMIT,
             order_side=TradeType.BUY,
@@ -84,7 +100,7 @@ class PerpetualBudgetCheckerTest(unittest.TestCase):
         self.exchange.set_quantization_param(q_params)
         self.exchange.set_balance(self.quote_asset, Decimal("10"))
 
-        order_candidate = OrderCandidate(
+        order_candidate = PerpetualOrderCandidate(
             trading_pair=self.trading_pair,
             order_type=OrderType.LIMIT,
             order_side=TradeType.BUY,
@@ -108,7 +124,7 @@ class PerpetualBudgetCheckerTest(unittest.TestCase):
         self.exchange.set_quantization_param(q_params)
         self.exchange.set_balance(self.quote_asset, Decimal("10"))
 
-        order_candidate = OrderCandidate(
+        order_candidate = PerpetualOrderCandidate(
             trading_pair=self.trading_pair,
             order_type=OrderType.LIMIT,
             order_side=TradeType.SELL,

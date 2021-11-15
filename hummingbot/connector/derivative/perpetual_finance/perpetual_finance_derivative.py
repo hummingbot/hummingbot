@@ -1,47 +1,49 @@
-import logging
-from decimal import Decimal
 import asyncio
-import aiohttp
-from typing import Dict, Any, List, Optional
-import json
-import time
-import ssl
 import copy
+import json
+import logging
+import ssl
+import time
+from decimal import Decimal
+from typing import Any, Dict, List, Optional
 
+import aiohttp
+
+from hummingbot.client.config.global_config_map import global_config_map
+from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
 from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
-from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
-from hummingbot.core.event.events import TradeFee
-from hummingbot.core.utils import async_ttl_cache
-from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-from hummingbot.core.utils.estimate_fee import estimate_fee
-from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.event.events import (
-    MarketEvent,
-    BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
-    BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
-    MarketOrderFailureEvent,
-    FundingPaymentCompletedEvent,
-    OrderFilledEvent,
-    OrderType,
-    TradeType,
-    PositionSide,
-    PositionAction,
-    FundingInfo
+from hummingbot.connector.derivative.perpetual_finance.perpetual_finance_in_flight_order import (
+    PerpetualFinanceInFlightOrder
 )
+from hummingbot.connector.derivative.perpetual_finance.perpetual_finance_utils import convert_to_exchange_trading_pair
+from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.perpetual_trading import PerpetualTrading
-from hummingbot.connector.derivative.perpetual_finance.perpetual_finance_in_flight_order import PerpetualFinanceInFlightOrder
-from hummingbot.connector.derivative.perpetual_finance.perpetual_finance_utils import convert_to_exchange_trading_pair
-from hummingbot.client.settings import GATEAWAY_CA_CERT_PATH, GATEAWAY_CLIENT_CERT_PATH, GATEAWAY_CLIENT_KEY_PATH
-from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.connector.derivative.position import Position
-
+from hummingbot.core.data_type.cancellation_result import CancellationResult
+from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    FundingInfo,
+    FundingPaymentCompletedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
+    OrderFilledEvent,
+    OrderType,
+    PositionAction,
+    PositionSide,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+    TradeFee,
+    TradeType
+)
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils import async_ttl_cache
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.core.utils.estimate_fee import estimate_fee
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.logger import HummingbotLogger
+from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 
 s_logger = None
 s_decimal_0 = Decimal("0")
