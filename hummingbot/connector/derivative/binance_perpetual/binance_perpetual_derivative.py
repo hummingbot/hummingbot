@@ -15,6 +15,8 @@ from enum import Enum
 from urllib.parse import urlencode
 from typing import Optional, List, Dict, Any, AsyncIterable
 
+from hummingbot.connector.derivative.perpetual_budget_checker import \
+    PerpetualBudgetChecker
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_in_flight_order import BinancePerpetualsInFlightOrder
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_order_book_tracker import BinancePerpetualOrderBookTracker
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_user_stream_tracker import BinancePerpetualUserStreamTracker
@@ -121,6 +123,7 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._funding_fee_polling_task = None
         self._last_poll_timestamp = 0
         self._funding_payment_span = [0, 30]
+        self._budget_checker = PerpetualBudgetChecker(self)
 
     @property
     def name(self) -> str:
@@ -153,6 +156,10 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
     @property
     def limit_orders(self):
         return [in_flight_order.to_limit_order() for in_flight_order in self._in_flight_orders.values()]
+
+    @property
+    def budget_checker(self) -> PerpetualBudgetChecker:
+        return self._budget_checker
 
     def start(self, clock: Clock, timestamp: float):
         super().start(clock, timestamp)
@@ -1043,11 +1050,11 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
     def supported_position_modes(self):
         return [PositionMode.ONEWAY, PositionMode.HEDGE]
 
-    async def get_buy_collateral_token(self, trading_pair: str) -> str:
+    def get_buy_collateral_token(self, trading_pair: str) -> str:
         trading_rule: TradingRule = self._trading_rules[trading_pair]
         return trading_rule.buy_order_collateral_token
 
-    async def get_sell_collateral_token(self, trading_pair: str) -> str:
+    def get_sell_collateral_token(self, trading_pair: str) -> str:
         trading_rule: TradingRule = self._trading_rules[trading_pair]
         return trading_rule.sell_order_collateral_token
 

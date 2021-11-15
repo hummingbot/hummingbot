@@ -19,6 +19,7 @@ from typing import (
     Optional,
 )
 
+from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_auth import BybitPerpetualAuth
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source import \
     BybitPerpetualAPIOrderBookDataSource as OrderBookDataSource
@@ -29,9 +30,11 @@ from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_user_stream
     BybitPerpetualUserStreamTracker
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_websocket_adaptor import BybitPerpetualWebSocketAdaptor
 from hummingbot.connector.derivative.position import Position
-from hummingbot.connector.exchange_base import CancellationResult, ExchangeBase
+from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.connector.utils import combine_to_hb_trading_pair
+from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
@@ -108,6 +111,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             trading_pairs=trading_pairs,
             domain=domain)
         self._user_stream_tracker = BybitPerpetualUserStreamTracker(self._auth, domain=domain)
+        self._budget_checker = PerpetualBudgetChecker(self)
 
         # Set Position Mode depending on the Perpetual Market
         if not self._domain:
@@ -176,6 +180,10 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             for client_oid, order in self._in_flight_orders.items()
             if not order.is_done
         }
+
+    @property
+    def budget_checker(self) -> PerpetualBudgetChecker:
+        return self._budget_checker
 
     def restore_tracking_states(self, saved_states: Dict[str, Any]):
         """
@@ -684,8 +692,9 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         trading_rules = {}
         for instrument in instrument_info:
             try:
-                trading_pair = f"{instrument['base_currency']}-{instrument['quote_currency']}"
-                collateral_token = instrument["quote_currency"]
+                trading_pair = combine_to_hb_trading_pair(instrument['base_currency'], instrument['quote_currency'])
+                is_linear = bybit_utils.is_linear_perpetual(trading_pair)
+                collateral_token = instrument["quote_currency"] if is_linear else instrument["base_currency"]
                 trading_rules[trading_pair] = TradingRule(
                     trading_pair=trading_pair,
                     min_order_size=Decimal(str(instrument["lot_size_filter"]["min_trading_qty"])),
@@ -1206,11 +1215,11 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             safe_ensure_future(self._order_book_tracker.data_source.get_funding_info(trading_pair))
             return None
 
-    async def get_buy_collateral_token(self, trading_pair: str) -> str:
+    def get_buy_collateral_token(self, trading_pair: str) -> str:
         trading_rule: TradingRule = self._trading_rules[trading_pair]
         return trading_rule.buy_order_collateral_token
 
-    async def get_sell_collateral_token(self, trading_pair: str) -> str:
+    def get_sell_collateral_token(self, trading_pair: str) -> str:
         trading_rule: TradingRule = self._trading_rules[trading_pair]
         return trading_rule.sell_order_collateral_token
 

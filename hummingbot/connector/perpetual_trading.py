@@ -105,10 +105,10 @@ class PerpetualTrading:
         """
         return self._funding_info[trading_pair]
 
-    async def get_buy_collateral_token(self, trading_pair: str) -> str:
+    def get_buy_collateral_token(self, trading_pair: str) -> str:
         _, quote = split_hb_trading_pair(trading_pair)
         return quote
 
-    async def get_sell_collateral_token(self, trading_pair: str) -> str:
+    def get_sell_collateral_token(self, trading_pair: str) -> str:
         _, quote = split_hb_trading_pair(trading_pair)
         return quote

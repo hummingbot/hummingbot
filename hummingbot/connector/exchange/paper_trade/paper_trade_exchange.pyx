@@ -168,7 +168,7 @@ cdef class PaperTradeExchange(ExchangeBase):
     def __init__(self, order_book_tracker: OrderBookTracker, config: MarketConfig, target_market: type):
         order_book_tracker.data_source.order_book_create_function = lambda: CompositeOrderBook()
         self._order_book_tracker = order_book_tracker
-        super(ExchangeBase, self).__init__()
+        super().__init__()  # super(ExchangeBase, self).__init__() does not work
         self._account_balances = {}
         self._account_available_balances = {}
         self._paper_trade_market_initialized = False

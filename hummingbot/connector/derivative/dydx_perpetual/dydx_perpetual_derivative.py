@@ -18,6 +18,7 @@ from dydx3.errors import DydxApiError
 import aiohttp
 
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
+from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -169,6 +170,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._poll_interval = poll_interval
         self._shared_client = None
         self._polling_update_task = None
+        self._budget_checker = PerpetualBudgetChecker(self)
 
         self.dydx_client: DydxPerpetualClientWrapper = DydxPerpetualClientWrapper(api_key=dydx_perpetual_api_key,
                                                                                   api_secret=dydx_perpetual_api_secret,
@@ -233,6 +235,10 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
             if dydx_flight_order.order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]:
                 retval.append(dydx_flight_order.to_limit_order())
         return retval
+
+    @property
+    def budget_checker(self) -> PerpetualBudgetChecker:
+        return self._budget_checker
 
     # ----------------------------------------
     # Account Balances
@@ -540,7 +546,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal):
+                price: Decimal = s_decimal_0):
         is_maker = order_type is OrderType.LIMIT
         return estimate_fee("dydx_perpetual", is_maker)
 
@@ -1193,10 +1199,10 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
     async def close_position(self, trading_pair: str):
         pass
 
-    async def get_buy_collateral_token(self, trading_pair: str) -> str:
+    def get_buy_collateral_token(self, trading_pair: str) -> str:
         trading_rule: TradingRule = self._trading_rules[trading_pair]
         return trading_rule.buy_order_collateral_token
 
-    async def get_sell_collateral_token(self, trading_pair: str) -> str:
+    def get_sell_collateral_token(self, trading_pair: str) -> str:
         trading_rule: TradingRule = self._trading_rules[trading_pair]
         return trading_rule.sell_order_collateral_token
