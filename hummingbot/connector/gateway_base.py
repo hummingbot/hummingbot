@@ -88,7 +88,10 @@ class GatewayBase(ConnectorBase):
 
     @property
     def name(self):
-        raise NotImplementedError
+        """
+        This should be overwritten with to return the appropriate name of new connector when inherited.
+        """
+        return "GatewayServer"
 
     @property
     def base_path(self):
