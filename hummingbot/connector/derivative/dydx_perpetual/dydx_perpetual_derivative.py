@@ -861,6 +861,8 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                     # this is hit when a position is closed
                     positions = data['positions']
                     for position in positions:
+                        if position["market"] not in self._trading_pairs:
+                            continue
                         pos_key = self.position_key(position['market'])
                         if pos_key in self._account_positions:
                             self._account_positions[pos_key].update_position(
@@ -870,11 +872,13 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                 amount=position.get("size"),
                                 status=position.get("status"),
                             )
-                        if not self._account_positions[pos_key].is_open:
-                            del self._account_positions[pos_key]
+                            if not self._account_positions[pos_key].is_open:
+                                del self._account_positions[pos_key]
                 if 'fundingPayments' in data:
-                    if event['type'] != "subscribed":
+                    if event['type'] != "subscribed":  # Only subsequent funding payments
                         for funding_payment in data['fundingPayments']:
+                            if funding_payment["market"] not in self._trading_pairs:
+                                continue
                             ts = dateparse(funding_payment['effectiveAt']).timestamp()
                             funding_rate: Decimal = Decimal(funding_payment["rate"])
                             trading_pair: str = funding_payment["market"]
