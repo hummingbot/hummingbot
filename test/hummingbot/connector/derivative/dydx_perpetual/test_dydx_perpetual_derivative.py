@@ -1,14 +1,16 @@
 import asyncio
-from datetime import datetime
 import time
+import pandas as pd
 import unittest
+
 from collections import Awaitable
+from datetime import datetime
 from decimal import Decimal
+from dydx3 import DydxApiError
 from typing import Dict, Optional
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, patch
 from requests import Response
 
-from dydx3 import DydxApiError
 
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_derivative import DydxPerpetualDerivative
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_position import DydxPerpetualPosition
@@ -16,7 +18,10 @@ from hummingbot.core.event.events import PositionSide, FundingInfo
 
 
 class DydxPerpetualDerivativeTest(unittest.TestCase):
+    # the level is required to receive logs from the data source logger
     level = 0
+
+    start_timestamp: float = pd.Timestamp("2021-01-01", tz="UTC").timestamp()
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -68,6 +73,12 @@ class DydxPerpetualDerivativeTest(unittest.TestCase):
                 self.base_asset: Decimal("20"),
             }
         self.exchange._account_balances = account_balances
+
+    def _simulate_reset_poll_notifier(self):
+        self.exchange._poll_notifier.clear()
+
+    def _simulate_ws_message_received(self, timestamp: float):
+        self.exchange._user_stream_tracker._data_source._last_recv_time = timestamp
 
     async def return_queued_values_and_unlock_with_event(self):
         val = await self.return_values_queue.get()
@@ -267,60 +278,84 @@ class DydxPerpetualDerivativeTest(unittest.TestCase):
 
         self.check_is_logged(log_level="NETWORK", message="Unknown error.")
 
-    def test_tick_manual_poll_interval(self):
-        exchange = DydxPerpetualDerivative(
-            dydx_perpetual_api_key="someAPIKey",
-            dydx_perpetual_api_secret="someAPISecret",
-            dydx_perpetual_passphrase="somePassPhrase",
-            dydx_perpetual_account_number=1234,
-            dydx_perpetual_ethereum_address="someETHAddress",
-            dydx_perpetual_stark_private_key="1234",
-            trading_pairs=[self.trading_pair],
-        )
+    def test_tick_initial_tick_successful(self):
+        start_ts: float = time.time() * 1e3
 
-        # Initial first tick will always set the _poll_notifier
-        initial_timestamp = int(time.time())
-        exchange.tick(timestamp=initial_timestamp)
-
-        self.assertTrue(exchange._poll_notifier.is_set())
-
-        # Simulate Status Poll successful
-        exchange._poll_notifier.clear()
-
-        # Test timestamp < poll interval
-        exchange.tick(timestamp=initial_timestamp + 1)
-        self.assertFalse(exchange._poll_notifier.is_set())
-
-        # Test timestamp > poll interval
-        exchange.tick(timestamp=initial_timestamp + exchange.LONG_POLL_INTERVAL + 1)
-        self.assertTrue(exchange._poll_notifier.is_set())
-
-    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_derivative.time.time")
-    def test_tick_short_interval(self, time_patch: MagicMock):
-        initial_timestamp = 0
-        self.exchange._last_timestamp = initial_timestamp
-        self.exchange._user_stream_tracker._last_recv_time = 0
-        time_patch.return_value = 61
-
-        self.exchange.tick(timestamp=initial_timestamp + self.exchange.SHORT_POLL_INTERVAL - 1)
-
-        self.assertFalse(self.exchange._poll_notifier.is_set())
-
-        self.exchange.tick(timestamp=initial_timestamp + self.exchange.SHORT_POLL_INTERVAL)
-
+        self.exchange.tick(start_ts)
+        self.assertEqual(start_ts, self.exchange._last_poll_timestamp)
         self.assertTrue(self.exchange._poll_notifier.is_set())
 
-    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_derivative.time.time")
-    def test_tick_long_interval(self, time_patch: MagicMock):
-        initial_time_stamp = 0
-        self.exchange._last_timestamp = initial_time_stamp
-        self.exchange._user_stream_tracker._last_recv_time = 0
-        time_patch.return_value = 5
+    @patch("time.time")
+    def test_tick_subsequent_tick_within_short_poll_interval(self, mock_ts):
+        # Assumes user stream tracker has NOT been receiving messages, Hence SHORT_POLL_INTERVAL in use
+        start_ts: float = self.start_timestamp
+        next_tick: float = start_ts + (self.exchange.SHORT_POLL_INTERVAL - 1)
 
-        self.exchange.tick(timestamp=initial_time_stamp + self.exchange.LONG_POLL_INTERVAL - 1)
+        mock_ts.return_value = start_ts
+        self.exchange.tick(start_ts)
+        self.assertEqual(start_ts, self.exchange._last_poll_timestamp)
+        self.assertTrue(self.exchange._poll_notifier.is_set())
 
+        self._simulate_reset_poll_notifier()
+
+        mock_ts.return_value = next_tick
+        self.exchange.tick(next_tick)
+        self.assertEqual(next_tick, self.exchange._last_poll_timestamp)
         self.assertFalse(self.exchange._poll_notifier.is_set())
 
-        self.exchange.tick(timestamp=initial_time_stamp + self.exchange.LONG_POLL_INTERVAL)
+    @patch("time.time")
+    def test_tick_subsequent_tick_exceed_short_poll_interval(self, mock_ts):
+        # Assumes user stream tracker has NOT been receiving messages, Hence SHORT_POLL_INTERVAL in use
+        start_ts: float = self.start_timestamp
+        next_tick: float = start_ts + (self.exchange.SHORT_POLL_INTERVAL + 1)
 
+        mock_ts.return_value = start_ts
+        self.exchange.tick(start_ts)
+        self.assertEqual(start_ts, self.exchange._last_poll_timestamp)
+        self.assertTrue(self.exchange._poll_notifier.is_set())
+
+        self._simulate_reset_poll_notifier()
+
+        mock_ts.return_value = next_tick
+        self.exchange.tick(next_tick)
+        self.assertEqual(next_tick, self.exchange._last_poll_timestamp)
+        self.assertTrue(self.exchange._poll_notifier.is_set())
+
+    @patch("time.time")
+    def test_tick_subsequent_tick_within_long_poll_interval(self, mock_time):
+
+        start_ts: float = self.start_timestamp
+        next_tick: float = start_ts + (self.exchange.LONG_POLL_INTERVAL - 1)
+
+        mock_time.return_value = start_ts
+        self.exchange.tick(start_ts)
+        self.assertEqual(start_ts, self.exchange._last_poll_timestamp)
+        self.assertTrue(self.exchange._poll_notifier.is_set())
+
+        # Simulate last message received 1 sec ago
+        self._simulate_ws_message_received(next_tick - 1)
+        self._simulate_reset_poll_notifier()
+
+        mock_time.return_value = next_tick
+        self.exchange.tick(next_tick)
+        self.assertEqual(next_tick, self.exchange._last_poll_timestamp)
+        self.assertFalse(self.exchange._poll_notifier.is_set())
+
+    @patch("time.time")
+    def test_tick_subsequent_tick_exceed_long_poll_interval(self, mock_time):
+        # Assumes user stream tracker has been receiving messages, Hence LONG_POLL_INTERVAL in use
+        start_ts: float = self.start_timestamp
+        next_tick: float = start_ts + (self.exchange.LONG_POLL_INTERVAL - 1)
+
+        mock_time.return_value = start_ts
+        self.exchange.tick(start_ts)
+        self.assertEqual(start_ts, self.exchange._last_poll_timestamp)
+        self.assertTrue(self.exchange._poll_notifier.is_set())
+
+        self._simulate_ws_message_received(start_ts)
+        self._simulate_reset_poll_notifier()
+
+        mock_time.return_value = next_tick
+        self.exchange.tick(next_tick)
+        self.assertEqual(next_tick, self.exchange._last_poll_timestamp)
         self.assertTrue(self.exchange._poll_notifier.is_set())
