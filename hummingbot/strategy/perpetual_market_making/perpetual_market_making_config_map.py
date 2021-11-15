@@ -180,7 +180,6 @@ perpetual_market_making_config_map = {
     "long_profit_taking_spread":
         ConfigVar(key="long_profit_taking_spread",
                   prompt="At what spread from the entry price do you want to place a short order to reduce position? (Enter 1 for 1%) >>> ",
-                  required_if=lambda: perpetual_market_making_config_map.get("position_management").value == "Profit_taking",
                   type_str="decimal",
                   default=Decimal("0"),
                   validator=lambda v: validate_decimal(v, 0, 100, True),
@@ -188,7 +187,6 @@ perpetual_market_making_config_map = {
     "short_profit_taking_spread":
         ConfigVar(key="short_profit_taking_spread",
                   prompt="At what spread from the position entry price do you want to place a long order to reduce position? (Enter 1 for 1%) >>> ",
-                  required_if=lambda: perpetual_market_making_config_map.get("position_management").value == "Profit_taking",
                   type_str="decimal",
                   default=Decimal("0"),
                   validator=lambda v: validate_decimal(v, 0, 100, True),
