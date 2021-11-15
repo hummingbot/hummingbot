@@ -89,7 +89,7 @@ class GatewayBase(ConnectorBase):
     @property
     def name(self):
         """
-        This should be overwritten with to return the appropriate name of new connector when inherited.
+        This should be overwritten to return the appropriate name of new connector when inherited.
         """
         return "GatewayServer"
 
