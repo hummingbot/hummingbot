@@ -55,9 +55,6 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
     OPTION_LOG_STATUS_REPORT = 1 << 5
     OPTION_LOG_ALL = 0x7fffffffffffffff
 
-    # These are exchanges where you're expected to expire orders instead of actively cancelling them.
-    RADAR_RELAY_TYPE_EXCHANGES = {"radar_relay", "bamboo_relay"}
-
     @classmethod
     def logger(cls):
         global pmm_logger
@@ -655,10 +652,10 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
                     else position.entry_price * (Decimal("1") - profit_spread)
                 price = market.c_quantize_order_price(self.trading_pair, take_profit_price)
                 size = market.c_quantize_order_amount(self.trading_pair, position.amount)
-                old_exit_orders =[
+                old_exit_orders = [
                     o for o in active_orders
                     if (
-                        (o.price != price or o.quantity != size)
+                        (o.price != price or o.quantity != abs(size))
                         and o.client_order_id in self._exit_orders
                         and ((position.amount < 0 and o.is_buy) or (position.amount > 0 and not o.is_buy))
                     )

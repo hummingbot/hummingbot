@@ -52,6 +52,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         double _status_report_interval
         int64_t _logging_options
         object _last_own_trade_price
+        bint _should_wait_order_cancel_confirmation
 
     cdef object c_get_mid_price(self)
     cdef object c_create_base_proposal(self)

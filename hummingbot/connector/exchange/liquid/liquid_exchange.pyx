@@ -203,14 +203,6 @@ cdef class LiquidExchange(ExchangeBase):
             for key, value in saved_states.items()
         })
 
-    async def get_active_exchange_markets(self) -> pd.DataFrame:
-        """
-        *required
-        Used by the discovery strategy to read order books of all actively trading markets,
-        and find opportunities to profit
-        """
-        return await LiquidAPIOrderBookDataSource.get_active_exchange_markets()
-
     cdef c_start(self, Clock clock, double timestamp):
         """
         *required
@@ -503,10 +495,11 @@ cdef class LiquidExchange(ExchangeBase):
                 # Find the corresponding rule based on currency
                 rule = trading_rules.get(currency)
 
+                min_base_increment = math.pow(10, -rule.get("assets_precision", Constants.DEFAULT_ASSETS_PRECISION))
+
                 min_order_size = rule.get("minimum_order_quantity")
                 if not min_order_size:
-                    min_order_size = math.pow(10, -rule.get(
-                        "assets_precision", Constants.DEFAULT_ASSETS_PRECISION))
+                    min_order_size = min_base_increment
 
                 min_price_increment = product.get("tick_size")
                 if not min_price_increment or min_price_increment == "0.0":
@@ -514,12 +507,13 @@ cdef class LiquidExchange(ExchangeBase):
                         "quoting_precision", Constants.DEFAULT_QUOTING_PRECISION))
 
                 retval.append(TradingRule(trading_pair,
-                                          min_price_increment=Decimal(min_price_increment),
-                                          min_order_size=Decimal(min_order_size),
-                                          max_order_size=Decimal(sys.maxsize),  # Liquid doesn't specify max order size
+                                          min_price_increment=Decimal(str(min_price_increment)),
+                                          min_base_amount_increment=Decimal(str(min_base_increment)),
+                                          min_order_size=Decimal(str(min_order_size)),
+                                          max_order_size=Decimal(str(sys.maxsize)),  # Liquid doesn't specify max order size
                                           supports_market_orders=None))  # Not sure if Liquid has equivalent info
             except Exception:
-                self.logger().error(f"Error parsing the trading_pair rule {rule}. Skipping.", exc_info=True)
+                self.logger().error(f"Error parsing the trading_pair rule {trading_pair}. Skipping.", exc_info=True)
         return retval
 
     async def _update_order_status(self):
@@ -1232,10 +1226,7 @@ cdef class LiquidExchange(ExchangeBase):
         """
         cdef:
             TradingRule trading_rule = self._trading_rules[trading_pair]
-
-        # Liquid is using the min_order_size as max_precision
-        # Order size must be a multiple of the min_order_size
-        return trading_rule.min_order_size
+        return Decimal(trading_rule.min_base_amount_increment)
 
     cdef object c_quantize_order_amount(self, str trading_pair, object amount, object price=s_decimal_0):
         """

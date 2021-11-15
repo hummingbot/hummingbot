@@ -1,8 +1,10 @@
 import asyncio
 import unittest.mock
-import websockets
-from hummingbot.core.mock_api.mock_web_socket_server import MockWebSocketServerFactory
 import json
+
+import aiohttp
+
+from hummingbot.core.mock_api.mock_web_socket_server import MockWebSocketServerFactory
 
 
 class MockWebSocketServerFactoryTest(unittest.TestCase):
@@ -10,7 +12,7 @@ class MockWebSocketServerFactoryTest(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         cls.ws_server = MockWebSocketServerFactory.start_new_server("wss://www.google.com/ws/")
-        cls._patcher = unittest.mock.patch("websockets.connect", autospec=True)
+        cls._patcher = unittest.mock.patch("aiohttp.client.ClientSession.ws_connect", autospec=True)
         cls._mock = cls._patcher.start()
         cls._mock.side_effect = MockWebSocketServerFactory.reroute_ws_connect
         # need to wait a bit for the server to be available
@@ -25,22 +27,25 @@ class MockWebSocketServerFactoryTest(unittest.TestCase):
         uri = "wss://www.google.com/ws/"
 
         # Retry up to 3 times if there is any error connecting to the mock server address and port
-        for retry_attempt in range(1, 4):
+        client = aiohttp.ClientSession()
+        for retry_attempt in range(3):
             try:
-                async with websockets.connect(uri) as websocket:
+                async with client.ws_connect(uri) as websocket:
                     await MockWebSocketServerFactory.send_str(uri, "aaa")
-                    answer = await websocket.recv()
+                    answer = await websocket.receive_str()
                     self.assertEqual("aaa", answer)
 
                     await MockWebSocketServerFactory.send_json(uri, data={"foo": "bar"})
-                    answer = await websocket.recv()
+                    answer = await websocket.receive_str()
                     answer = json.loads(answer)
                     self.assertEqual(answer["foo"], "bar")
 
-                    await self.ws_server.websocket.send("xxx")
-                    answer = await websocket.recv()
+                    await self.ws_server.websocket.send_str("xxx")
+                    answer = await websocket.receive_str()
                     self.assertEqual("xxx", answer)
             except OSError:
+                if retry_attempt == 2:
+                    raise
                 # Continue retrying
                 continue
 

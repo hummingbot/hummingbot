@@ -1,6 +1,7 @@
 import argparse
 from typing import (
     List,
+    Any
 )
 from hummingbot.exceptions import ArgumentParserError
 from hummingbot.client.command.connect_command import OPTIONS as CONNECT_OPTIONS
@@ -36,7 +37,7 @@ class ThrowingArgumentParser(argparse.ArgumentParser):
         return filtered
 
 
-def load_parser(hummingbot) -> ThrowingArgumentParser:
+def load_parser(hummingbot, command_tabs) -> [ThrowingArgumentParser, Any]:
     parser = ThrowingArgumentParser(prog="", add_help=False)
     subparsers = parser.add_subparsers()
 
@@ -122,19 +123,9 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
                              default=False)
     exit_parser.set_defaults(func=hummingbot.exit)
 
-    paper_trade_parser = subparsers.add_parser("paper_trade", help="Toggle paper trade mode on and off")
-    paper_trade_parser.set_defaults(func=hummingbot.paper_trade)
-
     export_parser = subparsers.add_parser("export", help="Export secure information")
     export_parser.add_argument("option", nargs="?", choices=("keys", "trades"), help="Export choices")
     export_parser.set_defaults(func=hummingbot.export)
-
-    order_book_parser = subparsers.add_parser("order_book", help="Display current order book")
-    order_book_parser.add_argument("--lines", type=int, default=5, dest="lines", help="Number of lines to display")
-    order_book_parser.add_argument("--exchange", type=str, dest="exchange", help="The exchange of the market")
-    order_book_parser.add_argument("--market", type=str, dest="market", help="The market (trading pair) of the order book")
-    order_book_parser.add_argument("--live", default=False, action="store_true", dest="live", help="Show order book updates")
-    order_book_parser.set_defaults(func=hummingbot.order_book)
 
     ticker_parser = subparsers.add_parser("ticker", help="Show market ticker of current order book")
     ticker_parser.add_argument("--live", default=False, action="store_true", dest="live", help="Show ticker updates")
@@ -164,5 +155,12 @@ def load_parser(hummingbot) -> ThrowingArgumentParser:
     rate_parser.add_argument("-t", "--token", default=None,
                              dest="token", help="The token you want to see its value.")
     rate_parser.set_defaults(func=hummingbot.rate)
+
+    for name, command_tab in command_tabs.items():
+        o_parser = subparsers.add_parser(name, help=command_tab.tab_class.get_command_help_message())
+        for arg_name, arg_properties in command_tab.tab_class.get_command_arguments().items():
+            o_parser.add_argument(arg_name, **arg_properties)
+        o_parser.add_argument("-c", "--close", default=False, action="store_true", dest="close",
+                              help=f"To close the {name} tab.")
 
     return parser

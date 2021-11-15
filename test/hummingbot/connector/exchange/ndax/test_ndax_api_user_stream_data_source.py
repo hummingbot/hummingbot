@@ -75,7 +75,7 @@ class NdaxAPIUserStreamDataSourceTests(TestCase):
     def _raise_exception(self, exception_class):
         raise exception_class
 
-    @patch('websockets.connect', new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listening_process_authenticates_and_subscribes_to_events(self, ws_connect_mock):
         messages = asyncio.Queue()
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
@@ -85,11 +85,11 @@ class NdaxAPIUserStreamDataSourceTests(TestCase):
             self.data_source.listen_for_user_stream(asyncio.get_event_loop(),
                                                     messages))
         # Add the authentication response for the websocket
-        self.mocking_assistant.add_websocket_text_message(
+        self.mocking_assistant.add_websocket_aiohttp_message(
             ws_connect_mock.return_value,
             self._authentication_response(True))
         # Add a dummy message for the websocket to read and include in the "messages" queue
-        self.mocking_assistant.add_websocket_text_message(ws_connect_mock.return_value, json.dumps('dummyMessage'))
+        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps('dummyMessage'))
 
         first_received_message = asyncio.get_event_loop().run_until_complete(messages.get())
 
@@ -99,22 +99,22 @@ class NdaxAPIUserStreamDataSourceTests(TestCase):
         self.assertTrue(self._is_logged('INFO', "Successfully authenticated to User Stream."))
         self.assertTrue(self._is_logged('INFO', "Successfully subscribed to user events."))
 
-        sent_messages = self.mocking_assistant.text_messages_sent_through_websocket(ws_connect_mock.return_value)
+        sent_messages = self.mocking_assistant.json_messages_sent_through_websocket(ws_connect_mock.return_value)
         self.assertEqual(2, len(sent_messages))
         authentication_request = sent_messages[0]
         subscription_request = sent_messages[1]
         self.assertEqual(CONSTANTS.AUTHENTICATE_USER_ENDPOINT_NAME,
-                         NdaxWebSocketAdaptor.endpoint_from_raw_message(authentication_request))
+                         NdaxWebSocketAdaptor.endpoint_from_raw_message(json.dumps(authentication_request)))
         self.assertEqual(CONSTANTS.SUBSCRIBE_ACCOUNT_EVENTS_ENDPOINT_NAME,
-                         NdaxWebSocketAdaptor.endpoint_from_raw_message(subscription_request))
-        subscription_payload = NdaxWebSocketAdaptor.payload_from_raw_message(subscription_request)
+                         NdaxWebSocketAdaptor.endpoint_from_raw_message(json.dumps(subscription_request)))
+        subscription_payload = NdaxWebSocketAdaptor.payload_from_raw_message(json.dumps(subscription_request))
         expected_payload = {"AccountId": self.account_id,
                             "OMSId": self.oms_id}
         self.assertEqual(expected_payload, subscription_payload)
 
         self.assertGreater(self.data_source.last_recv_time, initial_last_recv_time)
 
-    @patch('websockets.connect', new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listening_process_fails_when_authentication_fails(self, ws_connect_mock):
         messages = asyncio.Queue()
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
@@ -125,7 +125,7 @@ class NdaxAPIUserStreamDataSourceTests(TestCase):
             self.data_source.listen_for_user_stream(asyncio.get_event_loop(),
                                                     messages))
         # Add the authentication response for the websocket
-        self.mocking_assistant.add_websocket_text_message(
+        self.mocking_assistant.add_websocket_aiohttp_message(
             ws_connect_mock.return_value,
             self._authentication_response(False))
 
@@ -140,7 +140,7 @@ class NdaxAPIUserStreamDataSourceTests(TestCase):
                                         "Unexpected error with NDAX WebSocket connection. Retrying in 30 seconds. "
                                         "(Could not authenticate websocket connection with NDAX)"))
 
-    @patch('websockets.connect', new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listening_process_canceled_when_cancel_exception_during_initialization(self, ws_connect_mock):
         messages = asyncio.Queue()
         ws_connect_mock.side_effect = asyncio.CancelledError
@@ -151,14 +151,14 @@ class NdaxAPIUserStreamDataSourceTests(TestCase):
                                                         messages))
             asyncio.get_event_loop().run_until_complete(self.listening_task)
 
-    @patch('websockets.connect', new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listening_process_canceled_when_cancel_exception_during_authentication(self, ws_connect_mock):
         messages = asyncio.Queue()
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-        ws_connect_mock.return_value.send.side_effect = lambda sent_message: (
+        ws_connect_mock.return_value.send_json.side_effect = lambda sent_message: (
             self._raise_exception(asyncio.CancelledError)
-            if CONSTANTS.AUTHENTICATE_USER_ENDPOINT_NAME in sent_message
-            else self.mocking_assistant._sent_websocket_text_messages[ws_connect_mock.return_value].append(sent_message))
+            if CONSTANTS.AUTHENTICATE_USER_ENDPOINT_NAME in sent_message['n']
+            else self.mocking_assistant._sent_websocket_json_messages[ws_connect_mock.return_value].append(sent_message))
 
         with self.assertRaises(asyncio.CancelledError):
             self.listening_task = asyncio.get_event_loop().create_task(
@@ -166,26 +166,26 @@ class NdaxAPIUserStreamDataSourceTests(TestCase):
                                                         messages))
             asyncio.get_event_loop().run_until_complete(self.listening_task)
 
-    @patch('websockets.connect', new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listening_process_canceled_when_cancel_exception_during_events_subscription(self, ws_connect_mock):
         messages = asyncio.Queue()
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-        ws_connect_mock.return_value.send.side_effect = lambda sent_message: (
+        ws_connect_mock.return_value.send_json.side_effect = lambda sent_message: (
             self._raise_exception(asyncio.CancelledError)
-            if CONSTANTS.SUBSCRIBE_ACCOUNT_EVENTS_ENDPOINT_NAME in sent_message
-            else self.mocking_assistant._sent_websocket_text_messages[ws_connect_mock.return_value].append(sent_message))
+            if CONSTANTS.SUBSCRIBE_ACCOUNT_EVENTS_ENDPOINT_NAME in sent_message['n']
+            else self.mocking_assistant._sent_websocket_json_messages[ws_connect_mock.return_value].append(sent_message))
 
         with self.assertRaises(asyncio.CancelledError):
             self.listening_task = asyncio.get_event_loop().create_task(
                 self.data_source.listen_for_user_stream(asyncio.get_event_loop(),
                                                         messages))
             # Add the authentication response for the websocket
-            self.mocking_assistant.add_websocket_text_message(
+            self.mocking_assistant.add_websocket_aiohttp_message(
                 ws_connect_mock.return_value,
                 self._authentication_response(True))
             asyncio.get_event_loop().run_until_complete(self.listening_task)
 
-    @patch('websockets.connect', new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listening_process_logs_exception_details_during_initialization(self, ws_connect_mock):
         ws_connect_mock.side_effect = Exception
 
@@ -194,14 +194,14 @@ class NdaxAPIUserStreamDataSourceTests(TestCase):
             asyncio.get_event_loop().run_until_complete(self.listening_task)
         self.assertTrue(self._is_logged("NETWORK", "Unexpected error occurred during ndax WebSocket Connection ()"))
 
-    @patch('websockets.connect', new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listening_process_logs_exception_details_during_authentication(self, ws_connect_mock):
         messages = asyncio.Queue()
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-        ws_connect_mock.return_value.send.side_effect = lambda sent_message: (
+        ws_connect_mock.return_value.send_json.side_effect = lambda sent_message: (
             self._raise_exception(Exception)
-            if CONSTANTS.AUTHENTICATE_USER_ENDPOINT_NAME in sent_message
-            else self.mocking_assistant._sent_websocket_text_messages[ws_connect_mock.return_value].append(sent_message))
+            if CONSTANTS.AUTHENTICATE_USER_ENDPOINT_NAME in sent_message['n']
+            else self.mocking_assistant._sent_websocket_json_messages[ws_connect_mock.return_value].append(sent_message))
         # Make the close function raise an exception to finish the execution
         ws_connect_mock.return_value.close.side_effect = lambda: self._raise_exception(Exception)
 
@@ -217,12 +217,12 @@ class NdaxAPIUserStreamDataSourceTests(TestCase):
         self.assertTrue(self._is_logged("ERROR",
                                         "Unexpected error with NDAX WebSocket connection. Retrying in 30 seconds. ()"))
 
-    @patch('websockets.connect', new_callable=AsyncMock)
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listening_process_logs_exception_during_events_subscription(self, ws_connect_mock):
         messages = asyncio.Queue()
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-        ws_connect_mock.return_value.send.side_effect = lambda sent_message: (
-            CONSTANTS.SUBSCRIBE_ACCOUNT_EVENTS_ENDPOINT_NAME in sent_message and self._raise_exception(Exception))
+        ws_connect_mock.return_value.send_json.side_effect = lambda sent_message: (
+            CONSTANTS.SUBSCRIBE_ACCOUNT_EVENTS_ENDPOINT_NAME in sent_message['n'] and self._raise_exception(Exception))
         # Make the close function raise an exception to finish the execution
         ws_connect_mock.return_value.close.side_effect = lambda: self._raise_exception(Exception)
 
@@ -231,7 +231,7 @@ class NdaxAPIUserStreamDataSourceTests(TestCase):
                 self.data_source.listen_for_user_stream(asyncio.get_event_loop(),
                                                         messages))
             # Add the authentication response for the websocket
-            self.mocking_assistant.add_websocket_text_message(
+            self.mocking_assistant.add_websocket_aiohttp_message(
                 ws_connect_mock.return_value,
                 self._authentication_response(True))
             asyncio.get_event_loop().run_until_complete(self.listening_task)

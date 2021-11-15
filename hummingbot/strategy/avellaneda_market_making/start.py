@@ -37,9 +37,7 @@ def start(self):
         trading_pair: str = raw_trading_pair
         maker_assets: Tuple[str, str] = self._initialize_market_assets(exchange, [trading_pair])[0]
         market_names: List[Tuple[str, List[str]]] = [(exchange, [trading_pair])]
-        self._initialize_wallet(token_trading_pairs=list(set(maker_assets)))
         self._initialize_markets(market_names)
-        self.assets = set(maker_assets)
         maker_data = [self.markets[exchange], trading_pair] + list(maker_assets)
         self.market_trading_pair_tuples = [MarketTradingPairTuple(*maker_data)]
 
@@ -59,6 +57,7 @@ def start(self):
             order_amount_shape_factor = c_map.get("order_amount_shape_factor").value
         closing_time = c_map.get("closing_time").value * Decimal(3600 * 24 * 1e3)
         volatility_buffer_size = c_map.get("volatility_buffer_size").value
+        should_wait_order_cancel_confirmation = c_map.get("should_wait_order_cancel_confirmation")
         debug_csv_path = os.path.join(data_path(),
                                       HummingbotApplication.main_application().strategy_file_name.rsplit('.', 1)[0] +
                                       f"_{pd.Timestamp.now().strftime('%Y-%m-%d_%H-%M-%S')}.csv")
@@ -92,6 +91,7 @@ def start(self):
             closing_time=closing_time,
             debug_csv_path=debug_csv_path,
             volatility_buffer_size=volatility_buffer_size,
+            should_wait_order_cancel_confirmation=should_wait_order_cancel_confirmation,
             is_debug=False
         )
     except Exception as e:

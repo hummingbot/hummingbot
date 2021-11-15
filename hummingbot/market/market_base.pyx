@@ -189,13 +189,6 @@ cdef class MarketBase(NetworkIterator):
         exchange_limits = all_ex_limit.get(market, {})
         return exchange_limits if exchange_limits is not None else {}
 
-    async def get_active_exchange_markets(self) -> pd.DataFrame:
-        """
-        :return: data frame with trading_pair as index, and at least the following columns --
-                 ["baseAsset", "quoteAsset", "volume", "USDVolume"]
-        """
-        raise NotImplementedError
-
     async def get_deposit_info(self, asset: str) -> DepositInfo:
         raise NotImplementedError
 

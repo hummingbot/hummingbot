@@ -3,13 +3,8 @@ import pandas as pd
 
 from decimal import Decimal
 from typing import List
-from hummingsim.backtest.backtest_market import BacktestMarket
-from hummingsim.backtest.market import (
-    AssetType,
-    Market,
-    MarketConfig,
-    QuantizationParams
-)
+from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
+from hummingbot.connector.exchange.paper_trade.market_config import MarketConfig, AssetType
 from hummingbot.core.clock import (
     Clock,
     ClockMode
@@ -29,7 +24,7 @@ from hummingbot.core.event.events import (
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.strategy.dev_2_perform_trade import PerformTradeStrategy
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingsim.backtest.mock_order_book_loader import MockOrderBookLoader
+from test.mock.mock_paper_exchange import MockPaperExchange
 
 
 class Dev2PerformTradeUnitTest(unittest.TestCase):
@@ -45,18 +40,15 @@ class Dev2PerformTradeUnitTest(unittest.TestCase):
 
     def setUp(self):
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
-        self.market: BacktestMarket = BacktestMarket()
-        self.maker_data: MockOrderBookLoader = MockOrderBookLoader(
-            trading_pair=self.trading_pair,
-            base_currency=self.base_asset,
-            quote_currency=self.quote_asset,
-        )
         self.mid_price = 100
         self.time_delay = 15
         self.cancel_order_wait_time = 45
-        self.maker_data.set_balanced_order_book(mid_price=self.mid_price, min_price=1,
-                                                max_price=200, price_step_size=1, volume_step_size=10)
-        self.market.add_data(self.maker_data)
+
+        self.market: MockPaperExchange = MockPaperExchange()
+        self.market.set_balanced_order_book(trading_pair=self.trading_pair,
+                                            mid_price=self.mid_price, min_price=1,
+                                            max_price=200, price_step_size=1, volume_step_size=10)
+
         self.market.set_balance("COINALPHA", 500)
         self.market.set_balance("WETH", 5000)
         self.market.set_quantization_param(
@@ -136,7 +128,7 @@ class Dev2PerformTradeUnitTest(unittest.TestCase):
         self.market.add_listener(MarketEvent.OrderCancelled, self.cancel_order_logger)
 
     @staticmethod
-    def simulate_limit_order_fill(market: Market, limit_order: LimitOrder, timestamp: float):
+    def simulate_limit_order_fill(market: MockPaperExchange, limit_order: LimitOrder, timestamp: float):
         quote_currency_traded: Decimal = limit_order.price * limit_order.quantity
         base_currency_traded: Decimal = limit_order.quantity
         quote_currency: str = limit_order.quote_currency
@@ -344,15 +336,16 @@ class Dev2PerformTradeUnitTest(unittest.TestCase):
         # Simulate mid price update
         expected_mid_price: Decimal = Decimal("105")
         expected_new_price: Decimal = expected_mid_price * (Decimal('1') - (self.spread / Decimal("100")))
-        self.maker_data.set_balanced_order_book(mid_price=expected_mid_price, min_price=1,
-                                                max_price=200, price_step_size=1, volume_step_size=10)
-        self.market.add_data(self.maker_data)
+        self.market.set_balanced_order_book(trading_pair=self.trading_pair,
+                                            mid_price=expected_mid_price, min_price=1,
+                                            max_price=200, price_step_size=1, volume_step_size=10)
 
         new_price: Decimal = self.buy_mid_price_strategy._recalculate_price_parameter()
         self.assertEqual(new_price, expected_new_price)
 
     def test_last_price_order_update(self):
         self.clock.add_iterator(self.buy_last_price_strategy)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size + self.time_delay)
 
         # Simulate last traded price update
         expected_last_price: Decimal = Decimal("101.0")
@@ -371,6 +364,7 @@ class Dev2PerformTradeUnitTest(unittest.TestCase):
 
     def test_last_own_trade_price_order_update(self):
         self.clock.add_iterator(self.buy_last_own_trade_price_strategy)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size + self.time_delay)
 
         # Simulate own order filled
         last_own_traded_price: Decimal = Decimal("102.0")

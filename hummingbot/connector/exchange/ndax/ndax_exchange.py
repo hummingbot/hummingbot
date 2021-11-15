@@ -51,6 +51,8 @@ from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 s_decimal_NaN = Decimal("nan")
 s_decimal_0 = Decimal(0)
 
+RESOURCE_NOT_FOUND_ERR = "Resource Not Found"
+
 
 class NdaxExchange(ExchangeBase):
     """
@@ -61,6 +63,7 @@ class NdaxExchange(ExchangeBase):
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
     UPDATE_TRADING_RULES_INTERVAL = 60.0
     LONG_POLL_INTERVAL = 120.0
+    ORDER_EXCEED_NOT_FOUND_COUNT = 2
 
     _logger = None
 
@@ -95,19 +98,19 @@ class NdaxExchange(ExchangeBase):
                               secret_key=ndax_secret_key,
                               account_name=ndax_account_name)
         self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        self._shared_client = aiohttp.ClientSession()
         self._order_book_tracker = NdaxOrderBookTracker(
-            throttler=self._throttler, trading_pairs=trading_pairs, domain=domain
+            throttler=self._throttler, shared_client=self._shared_client, trading_pairs=trading_pairs, domain=domain
         )
         self._user_stream_tracker = NdaxUserStreamTracker(
-            throttler=self._throttler, auth_assistant=self._auth, domain=domain
+            throttler=self._throttler, shared_client=self._shared_client, auth_assistant=self._auth, domain=domain
         )
         self._domain = domain
         self._ev_loop = asyncio.get_event_loop()
-        self._shared_client = None
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
         self._in_flight_orders = {}
-        # self._order_not_found_records = {}  # Dict[client_order_id:str, count:int]
+        self._order_not_found_records = {}  # Dict[client_order_id:str, count:int]
         self._trading_rules = {}  # Dict[trading_pair:str, TradingRule]
         self._last_poll_timestamp = 0
 
@@ -201,14 +204,6 @@ class NdaxExchange(ExchangeBase):
         Note that Market order type is no longer required and will not be used.
         """
         return [OrderType.MARKET, OrderType.LIMIT, OrderType.LIMIT_MAKER]
-
-    async def _http_client(self) -> aiohttp.ClientSession:
-        """
-        :returns Shared client session instance
-        """
-        if self._shared_client is None:
-            self._shared_client = aiohttp.ClientSession()
-        return self._shared_client
 
     async def _get_account_id(self) -> int:
         """
@@ -320,7 +315,6 @@ class NdaxExchange(ExchangeBase):
         :returns A response in json format.
         """
         url = ndax_utils.rest_api_url(self._domain) + path_url
-        client = await self._http_client()
 
         try:
             if is_auth_required:
@@ -331,10 +325,10 @@ class NdaxExchange(ExchangeBase):
             limit_id = limit_id or path_url
             if method == "GET":
                 async with self._throttler.execute_task(limit_id):
-                    response = await client.get(url, headers=headers, params=params)
+                    response = await self._shared_client.get(url, headers=headers, params=params)
             elif method == "POST":
                 async with self._throttler.execute_task(limit_id):
-                    response = await client.post(url, headers=headers, data=ujson.dumps(data))
+                    response = await self._shared_client.post(url, headers=headers, data=ujson.dumps(data))
             else:
                 raise NotImplementedError(f"{method} HTTP Method not implemented. ")
 
@@ -558,6 +552,7 @@ class NdaxExchange(ExchangeBase):
             )
 
             return order_id
+
         except asyncio.CancelledError:
             raise
         except NdaxInFlightOrderNotCreated:
@@ -570,6 +565,13 @@ class NdaxExchange(ExchangeBase):
                 app_warning_msg=f"Failed to cancel order {order_id} on NDAX. "
                                 f"Check API key and network connection."
             )
+            if RESOURCE_NOT_FOUND_ERR in str(e):
+                self._order_not_found_records[order_id] = self._order_not_found_records.get(order_id, 0) + 1
+                if self._order_not_found_records[order_id] >= self.ORDER_EXCEED_NOT_FOUND_COUNT:
+                    self.logger().warning(f"Order {order_id} does not seem to be active, will stop tracking order...")
+                    self.stop_tracking_order(order_id)
+                    self.trigger_event(MarketEvent.OrderCancelled,
+                                       OrderCancelledEvent(self.current_timestamp, order_id))
 
     def cancel(self, trading_pair: str, order_id: str):
         """
@@ -764,9 +766,19 @@ class NdaxExchange(ExchangeBase):
 
         tasks = []
         for active_order in active_orders:
-            ex_order_id = await active_order.get_exchange_order_id()
-            if not ex_order_id:
-                self.logger().debug(f"Tracker order {active_order.client_order_id} does not have an exchange id. Attempting fetch in next polling interval")
+            ex_order_id: Optional[str] = None
+            try:
+                ex_order_id = await active_order.get_exchange_order_id()
+            except asyncio.TimeoutError:
+                # We assume that tracked orders without an exchange order id is an order that failed to be created.
+                self._order_not_found_records[active_order.client_order_id] = self._order_not_found_records.get(active_order.client_order_id, 0) + 1
+                self.logger().debug(f"Tracker order {active_order.client_order_id} does not have an exchange id."
+                                    f"Attempting fetch in next polling interval")
+                if self._order_not_found_records[active_order.client_order_id] >= self.ORDER_EXCEED_NOT_FOUND_COUNT:
+                    self.logger().info(f"Order {active_order.client_order_id} does not seem to be active, will stop tracking order...")
+                    self.stop_tracking_order(active_order.client_order_id)
+                    self.trigger_event(MarketEvent.OrderCancelled,
+                                       OrderCancelledEvent(self.current_timestamp, active_order.client_order_id))
                 continue
 
             query_params = {

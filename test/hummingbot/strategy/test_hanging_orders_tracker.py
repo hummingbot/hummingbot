@@ -1,10 +1,17 @@
-from datetime import datetime
-import unittest
 from decimal import Decimal
+from datetime import datetime
 from mock import MagicMock, PropertyMock
+import unittest
 
-from hummingbot.core.event.events import MarketEvent, OrderCancelledEvent, BuyOrderCompletedEvent
-from hummingbot.strategy.hanging_orders_tracker import HangingOrdersTracker
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    MarketEvent,
+    OrderCancelledEvent,
+)
+from hummingbot.strategy.hanging_orders_tracker import (
+    CreatedPairOfOrders,
+    HangingOrdersTracker,
+)
 from hummingbot.strategy.data_types import OrderType
 from hummingbot.core.data_type.limit_order import LimitOrder
 
@@ -396,3 +403,77 @@ class TestHangingOrdersTracker(unittest.TestCase):
         self.assertFalse(self.tracker.is_potential_hanging_order(buy_order_2))
         self.assertIn(hanging_order_1, self.tracker.strategy_current_hanging_orders)
         self.assertTrue(self.tracker.is_potential_hanging_order(buy_order_1))
+
+    def test_add_orders_from_partially_executed_pairs(self):
+        active_orders = []
+        type(self.strategy).active_orders = PropertyMock(return_value=active_orders)
+
+        buy_order_1 = LimitOrder("Order-1234569960000000",
+                                 "BTC-USDT",
+                                 True,
+                                 "BTC",
+                                 "USDT",
+                                 Decimal(101),
+                                 Decimal(1))
+        buy_order_2 = LimitOrder("Order-1234569961000000",
+                                 "BTC-USDT",
+                                 True,
+                                 "BTC",
+                                 "USDT",
+                                 Decimal(102),
+                                 Decimal(2))
+        buy_order_3 = LimitOrder("Order-1234569962000000",
+                                 "BTC-USDT",
+                                 True,
+                                 "BTC",
+                                 "USDT",
+                                 Decimal(103),
+                                 Decimal(3))
+        sell_order_1 = LimitOrder("Order-1234569980000000",
+                                  "BTC-USDT",
+                                  False,
+                                  "BTC",
+                                  "USDT",
+                                  Decimal(120),
+                                  Decimal(1))
+        sell_order_2 = LimitOrder("Order-1234569981000000",
+                                  "BTC-USDT",
+                                  False,
+                                  "BTC",
+                                  "USDT",
+                                  Decimal(122),
+                                  Decimal(2))
+        sell_order_3 = LimitOrder("Order-1234569982000000",
+                                  "BTC-USDT",
+                                  False,
+                                  "BTC",
+                                  "USDT",
+                                  Decimal(123),
+                                  Decimal(3))
+
+        non_executed_pair = CreatedPairOfOrders(buy_order_1, sell_order_1)
+        partially_executed_pair = CreatedPairOfOrders(buy_order_2, sell_order_2)
+        partially_executed_pair.filled_buy = True
+        executed_pair = CreatedPairOfOrders(buy_order_3, sell_order_3)
+        executed_pair.filled_buy = True
+        executed_pair.filled_sell = True
+
+        active_orders.append(buy_order_1)
+        active_orders.append(buy_order_2)
+        active_orders.append(buy_order_3)
+        active_orders.append(sell_order_1)
+        active_orders.append(sell_order_2)
+        active_orders.append(sell_order_3)
+
+        self.tracker.add_current_pairs_of_proposal_orders_executed_by_strategy(non_executed_pair)
+        self.tracker.add_current_pairs_of_proposal_orders_executed_by_strategy(partially_executed_pair)
+        self.tracker.add_current_pairs_of_proposal_orders_executed_by_strategy(executed_pair)
+
+        self.tracker._add_hanging_orders_based_on_partially_executed_pairs()
+
+        self.assertNotIn(buy_order_1, self.tracker.original_orders)
+        self.assertNotIn(buy_order_2, self.tracker.original_orders)
+        self.assertNotIn(buy_order_3, self.tracker.original_orders)
+        self.assertNotIn(sell_order_1, self.tracker.original_orders)
+        self.assertIn(sell_order_2, self.tracker.original_orders)
+        self.assertNotIn(sell_order_3, self.tracker.original_orders)
