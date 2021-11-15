@@ -487,7 +487,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 else:
                     raise Exception(
                         f"order {client_order_id} does not yet exist on the exchange and could not be cancelled.")
-            elif "is already cancelled" in str(e):
+            elif "is already canceled" in str(e):
                 self.stop_tracking_order(in_flight_order.client_order_id)
                 self.trigger_event(ORDER_CANCELLED_EVENT, cancellation_event)
                 return False
