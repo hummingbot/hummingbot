@@ -116,8 +116,11 @@ describe('POST /eth/nonce', () => {
 });
 
 describe('POST /eth/approve', () => {
-  it('approve without nonce parmeter should return 200', async () => {
+  it('approve without nonce parameter should return 200', async () => {
     patchGetWallet();
+    eth.getContract = jest.fn().mockReturnValue({
+      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+    });
     patch(eth.nonceManager, 'getNonce', () => 115);
     patchGetTokenBySymbol();
     patchApproveERC20();
