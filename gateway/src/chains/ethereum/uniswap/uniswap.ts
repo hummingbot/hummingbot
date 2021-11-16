@@ -1,4 +1,9 @@
 import { ConfigManager } from '../../../services/config-manager';
+import {
+  InitializationError,
+  SERVICE_UNITIALIZED_ERROR_CODE,
+  SERVICE_UNITIALIZED_ERROR_MESSAGE,
+} from '../../../services/error-handler';
 import { BigNumber, Contract, Transaction, Wallet } from 'ethers';
 import { EthereumConfig } from '../ethereum.config';
 import { Ethereum } from '../ethereum';
@@ -52,7 +57,11 @@ export class Uniswap {
   }
 
   public async init() {
-    if (!this.ethereum.ready()) throw new Error('Eth is not available');
+    if (!this.ethereum.ready())
+      throw new InitializationError(
+        SERVICE_UNITIALIZED_ERROR_MESSAGE('ETH'),
+        SERVICE_UNITIALIZED_ERROR_CODE
+      );
     for (const token of this.ethereum.storedTokenList) {
       this.tokenList[token.address] = new Token(
         this.chainId,
