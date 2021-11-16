@@ -83,6 +83,8 @@ class WazirxExchange(ExchangeBase):
         super().__init__()
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
+        self._account_available_balances = {}
+        self._account_balances = {}
         self._wazirx_auth = WazirxAuth(wazirx_api_key, wazirx_secret_key)
         self._order_book_tracker = WazirxOrderBookTracker(trading_pairs=trading_pairs)
         self._user_stream_tracker = WazirxUserStreamTracker(self._wazirx_auth, trading_pairs)
@@ -124,6 +126,8 @@ class WazirxExchange(ExchangeBase):
             "order_books_initialized": self._order_book_tracker.ready,
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0,
+            "user_stream_initialized":
+                self._user_stream_tracker.data_source.ready > 0 if self._trading_required else True,
         }
 
     @property
@@ -190,6 +194,7 @@ class WazirxExchange(ExchangeBase):
         """
         self._order_book_tracker.start()
         self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
+
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
@@ -437,13 +442,17 @@ class WazirxExchange(ExchangeBase):
         amount = self.quantize_order_amount(trading_pair, amount)
         price = self.quantize_order_price(trading_pair, price)
         if amount < trading_rule.min_order_size:
+            self.trigger_event(MarketEvent.OrderFailure,
+                               MarketOrderFailureEvent(self.current_timestamp, order_id, order_type))
             raise ValueError(f"Buy order amount {amount} is lower than the minimum order size "
                              f"{trading_rule.min_order_size}.")
 
         order_value: Decimal = amount * price
         if order_value < trading_rule.min_order_value:
+            self.trigger_event(MarketEvent.OrderFailure,
+                               MarketOrderFailureEvent(self.current_timestamp, order_id, order_type))
             raise ValueError(f"{trade_type.name} order value {order_value} is lower than the minimum order value "
-                             f"{trading_rule.min_order_value}")
+                             f"{trading_rule.min_order_value}.")
 
         api_params = {
             "symbol": wazirx_utils.convert_to_exchange_trading_pair(trading_pair),
@@ -453,7 +462,6 @@ class WazirxExchange(ExchangeBase):
             "quantity": f"{amount:f}",
             # "client_oid": f"{order_id}"
         }
-
         self.start_tracking_order(order_id,
                                   None,
                                   trading_pair,
@@ -550,13 +558,32 @@ class WazirxExchange(ExchangeBase):
                 api_params,
                 True
             )
-
+            
             if result["status"] == "wait":
                 await wait_til(lambda: tracked_order.is_cancelled)
                 return order_id
-            elif result["status"] == "cancel":
-                self._process_order_message(result)
-                return order_id
+            else:
+                tracked_order.last_state = result["status"]
+                if tracked_order.is_cancelled:
+                    self._process_order_message(result)
+                    return order_id
+                elif tracked_order.is_done:
+                    api_params = {
+                        "limit": 100,
+                        "symbol": wazirx_utils.convert_to_exchange_trading_pair(trading_pair),
+                        "orderId": ex_order_id,
+                    }
+                    order_trades = await self._api_request("get", CONSTANTS.MY_TRADES_PATH_URL, api_params, True)
+                    for order_trade in order_trades:
+                        trade_msg = {
+                            "order_id": ex_order_id,
+                            "trade_id": order_trade["id"],
+                            "traded_price": order_trade["price"],
+                            "traded_quantity": order_trade["qty"],
+                            "quote_quantity": order_trade["quoteQty"],
+                        }
+                        await self._process_trade_message(trade_msg)
+                    return order_id
 
         except asyncio.CancelledError:
             raise
@@ -632,10 +659,26 @@ class WazirxExchange(ExchangeBase):
             for response in responses:
                 if isinstance(response, Exception):
                     raise response
-                if "status" not in response:
+                elif "status" not in response:
                     self.logger().info(f"_update_order_status result not in resp: {response}")
                     continue
-                self._process_order_message(response)
+                else:
+                    api_params = {
+                        "limit": 100,
+                        "symbol": response["symbol"],
+                        "orderId": response["id"],
+                    }
+                    order_trades = await self._api_request("get", CONSTANTS.MY_TRADES_PATH_URL, api_params, True)
+                    for order_trade in order_trades:
+                        trade_msg = {
+                            "order_id": response["id"],
+                            "trade_id": order_trade["id"],
+                            "traded_price": order_trade["price"],
+                            "traded_quantity": order_trade["qty"],
+                            "quote_quantity": order_trade["quoteQty"],
+                        }
+                        await self._process_trade_message(trade_msg)
+                    self._process_order_message(response)
 
     def _process_order_message(self, order_msg: Dict[str, Any]):
         """
@@ -653,50 +696,28 @@ class WazirxExchange(ExchangeBase):
                 tracked_order = self._in_flight_orders[client_order_id]
                 tracked_order.last_state = order_msg["status"]
 
-                if tracked_order.is_done:
-                    if not tracked_order.is_failure:
-                        event_tag = MarketEvent.BuyOrderCompleted if tracked_order.trade_type is TradeType.BUY \
-                            else MarketEvent.SellOrderCompleted
-                        event_class = BuyOrderCompletedEvent if tracked_order.trade_type is TradeType.BUY \
-                            else SellOrderCompletedEvent
-                        self.trigger_event(
-                            event_tag,
-                            event_class(
-                                self.current_timestamp,
-                                tracked_order.client_order_id,
-                                tracked_order.base_asset,
-                                tracked_order.quote_asset,
-                                tracked_order.fee_asset,
-                                tracked_order.executed_amount_base,
-                                tracked_order.executed_amount_quote,
-                                tracked_order.fee_paid,
-                                tracked_order.order_type
-                            )
+                if tracked_order.is_cancelled:
+                    self.logger().info(f"Successfully cancelled order {client_order_id}.")
+                    self.trigger_event(
+                        MarketEvent.OrderCancelled,
+                        OrderCancelledEvent(
+                            self.current_timestamp,
+                            client_order_id
                         )
-                        self.stop_tracking_order(tracked_order.client_order_id)
-                    else:
-                        if tracked_order.is_cancelled:
-                            self.logger().info(f"Successfully cancelled order {client_order_id}.")
-                            self.trigger_event(
-                                MarketEvent.OrderCancelled,
-                                OrderCancelledEvent(
-                                    self.current_timestamp,
-                                    client_order_id
-                                )
-                            )
-                            tracked_order.cancelled_event.set()
-                            self.stop_tracking_order(client_order_id)
-                        elif tracked_order.is_failure:
-                            self.logger().info(f"The market order {client_order_id} has failed according to order status API. ")
-                            self.trigger_event(
-                                MarketEvent.OrderFailure,
-                                MarketOrderFailureEvent(
-                                    self.current_timestamp,
-                                    client_order_id,
-                                    tracked_order.order_type
-                                )
-                            )
-                            self.stop_tracking_order(client_order_id)
+                    )
+                    tracked_order.cancelled_event.set()
+                    self.stop_tracking_order(client_order_id)
+                elif tracked_order.is_failure:
+                    self.logger().info(f"The market order {client_order_id} has failed according to order status API. ")
+                    self.trigger_event(
+                        MarketEvent.OrderFailure,
+                        MarketOrderFailureEvent(
+                            self.current_timestamp,
+                            client_order_id,
+                            tracked_order.order_type
+                        )
+                    )
+                    self.stop_tracking_order(client_order_id)
 
     async def _process_trade_message(self, trade_msg: Dict[str, Any]):
         """
@@ -709,9 +730,18 @@ class WazirxExchange(ExchangeBase):
         if not track_order:
             return
         tracked_order = track_order[0]
+        if "fee" not in trade_msg:
+            """
+            Note : This is a temporary workaround till wazirx http api gets updated with fee.
+            """
+            trade_msg["fee"] = Decimal(trade_msg["quote_quantity"]) * Decimal("0.02")
+            trade_msg["fee_currency"] = tracked_order.quote_asset
+
         updated = tracked_order.update_with_trade_update(trade_msg)
         if not updated:
             return
+        self.logger().info("_process_trade_message")
+        self.logger().info(trade_msg)
         self.trigger_event(
             MarketEvent.OrderFilled,
             OrderFilledEvent(

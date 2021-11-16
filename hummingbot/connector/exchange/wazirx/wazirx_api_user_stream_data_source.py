@@ -34,6 +34,11 @@ class WazirxAPIUserStreamDataSource(UserStreamTrackerDataSource):
         super().__init__()
         self._wazirx_auth: WazirxAuth = wazirx_auth
         self._last_recv_time: float = 0
+        self._auth_successful_event = asyncio.Event()
+
+    @property
+    def ready(self) -> bool:
+        return self.last_recv_time > 0 and self._auth_successful_event.is_set()
 
     @property
     def last_recv_time(self) -> float:
@@ -48,6 +53,7 @@ class WazirxAPIUserStreamDataSource(UserStreamTrackerDataSource):
             headers = self._wazirx_auth.get_headers()
             response = await client.post(url, headers=headers, data=params)
             parsed_response = json.loads(await response.text())
+            self._auth_successful_event.set()
             return parsed_response["auth_key"]
 
     async def _inner_messages(self, ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
