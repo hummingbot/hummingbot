@@ -9,7 +9,12 @@ export namespace ConfigManagerCertPassphrase {
     CERT_PASSPHRASE: string;
   }
 
-  export function readPassphrase(): string {
+  // this adds a level of indirection so we can test the code
+  export const bindings = {
+    _exit: process.exit,
+  };
+
+  export function readPassphrase(): string | undefined {
     if (fs.existsSync(passphraseFliePath)) {
       const mode = fs.lstatSync(passphraseFliePath).mode;
       // check and make sure the passphrase file is a regular file, and is only accessible by the user.
@@ -26,21 +31,24 @@ export namespace ConfigManagerCertPassphrase {
           logger.error(
             passphraseFliePath + ' does not have CERT_PASSPHRASE set.'
           );
-          process.exit(1);
+          bindings._exit(1);
         }
       } else {
         logger.error(
           passphraseFliePath +
             ' file does not strictly have mode set to user READ_WRITE only.'
         );
-        process.exit(1);
+        bindings._exit(1);
       }
     } else {
       logger.error(
         passphraseFliePath +
           ' does not exist. It should contain a password and have mode set to user READ_WRITE only.'
       );
-      process.exit(1);
+      bindings._exit(1);
     }
+    // the compiler does not know that bindings._exit(1) will end the function
+    // so we need a return to satisfy the compiler checks
+    return;
   }
 }
