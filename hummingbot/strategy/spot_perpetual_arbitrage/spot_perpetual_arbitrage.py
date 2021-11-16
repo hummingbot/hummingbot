@@ -293,10 +293,7 @@ class SpotPerpetualArbitrageStrategy(StrategyPyBase):
         :param proposal: An arbitrage proposal
         :return: True if user has available balance enough for both orders submission.
         """
-        possible = True
-        possible = possible and self.check_spot_budget_constraint(proposal)
-        possible = possible and self.check_perpetual_budget_constraint(proposal)
-        return possible
+        return (self.check_spot_budget_constraint(proposal) and self.check_perpetual_budget_constraint(proposal))
 
     def check_spot_budget_constraint(self, proposal: ArbProposal) -> bool:
         """
