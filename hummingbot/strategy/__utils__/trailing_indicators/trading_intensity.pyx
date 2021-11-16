@@ -23,7 +23,7 @@ cdef class TradingIntensityIndicator():
 
         warnings.simplefilter("ignore", OptimizeWarning)
 
-    def _simulate_execution(self, timestamp, bids_df, asks_df):
+    def _simulate_execution(self, bids_df, asks_df):
         # Estimate market orders that happened
         # Assume every movement in the BBO is caused by a market order and its size is the volume differential
 
@@ -102,7 +102,7 @@ cdef class TradingIntensityIndicator():
         except (RuntimeError, ValueError) as e:
             pass
 
-    def add_sample(self, timestamp: float, value: Tuple[pd.DataFrame, pd.DataFrame]):
+    def add_sample(self, value: Tuple[pd.DataFrame, pd.DataFrame]):
         bids_df = value[0]
         asks_df = value[1]
 
@@ -118,7 +118,7 @@ cdef class TradingIntensityIndicator():
 
         if self._bids_df is not None and self._asks_df is not None:
             # Retrieve previous order book, evaluate execution
-            self._simulate_execution(timestamp, bids_df, asks_df)
+            self._simulate_execution(bids_df, asks_df)
 
             # Estimate alpha and kappa
             self._estimate_intensity()
@@ -140,3 +140,7 @@ cdef class TradingIntensityIndicator():
         is_changed = self._samples_length != len(self._trades)
         self._samples_length = len(self._trades)
         return is_changed
+
+    @property
+    def sampling_length(self) -> int:
+        return self._sampling_length
