@@ -61,6 +61,10 @@ export const NETWORK_ERROR_CODE = 1001;
 export const RATE_LIMIT_ERROR_CODE = 1002;
 export const OUT_OF_GAS_ERROR_CODE = 1003;
 export const TRANSACTION_GAS_PRICE_TOO_LOW = 1004;
+export const LOAD_WALLET_ERROR_CODE = 1005;
+export const TOKEN_NOT_SUPPORTED_ERROR_CODE = 1006;
+export const TRADE_FAILED_ERROR_CODE = 1007;
+export const SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_CODE = 1008;
 export const UNKNOWN_ERROR_ERROR_CODE = 1099;
 
 export const NETWORK_ERROR_MESSAGE =
@@ -68,6 +72,14 @@ export const NETWORK_ERROR_MESSAGE =
 export const RATE_LIMIT_ERROR_MESSAGE =
   'Blockchain node API rate limit exceeded.';
 export const OUT_OF_GAS_ERROR_MESSAGE = 'Transaction out of gas.';
+export const LOAD_WALLET_ERROR_MESSAGE = 'Failed to load wallet: ';
+export const TOKEN_NOT_SUPPORTED_ERROR_MESSAGE = 'Token not supported: ';
+export const TRADE_FAILED_ERROR_MESSAGE = 'Trade query failed: ';
+export const SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE = (
+  price: any,
+  limitPrice: any
+) => `Swap price ${price} exceeds limitPrice ${limitPrice}`;
+
 export const UNKNOWN_ERROR_MESSAGE = 'Unknown error.';
 
 export interface ErrorResponse {

@@ -10,6 +10,10 @@ import {
   HttpException,
   OUT_OF_GAS_ERROR_CODE,
   OUT_OF_GAS_ERROR_MESSAGE,
+  LOAD_WALLET_ERROR_CODE,
+  LOAD_WALLET_ERROR_MESSAGE,
+  TOKEN_NOT_SUPPORTED_ERROR_CODE,
+  TOKEN_NOT_SUPPORTED_ERROR_MESSAGE,
 } from '../../services/error-handler';
 import { tokenValueToString } from '../../services/base';
 import { Token } from '../../services/ethereum-base';
@@ -105,7 +109,11 @@ export async function balances(
   try {
     wallet = ethereumish.getWallet(req.privateKey);
   } catch (err) {
-    throw new HttpException(500, 'Error getting wallet ' + err);
+    throw new HttpException(
+      500,
+      LOAD_WALLET_ERROR_MESSAGE + err,
+      LOAD_WALLET_ERROR_CODE
+    );
   }
   const tokens = getTokenSymbolsToTokens(ethereumish, req.tokenSymbols);
   const balances: Record<string, string> = {};
@@ -177,11 +185,19 @@ export async function approve(
   try {
     wallet = ethereumish.getWallet(privateKey);
   } catch (err) {
-    throw new Error(`Error getting wallet ${err}`);
+    throw new HttpException(
+      500,
+      LOAD_WALLET_ERROR_MESSAGE + err,
+      LOAD_WALLET_ERROR_CODE
+    );
   }
   const fullToken = ethereumish.getTokenBySymbol(token);
   if (!fullToken) {
-    throw new Error(`Token "${token}" is not supported`);
+    throw new HttpException(
+      500,
+      TOKEN_NOT_SUPPORTED_ERROR_MESSAGE + token,
+      TOKEN_NOT_SUPPORTED_ERROR_CODE
+    );
   }
   const amountBigNumber = amount
     ? utils.parseUnits(amount, fullToken.decimals)
@@ -318,7 +334,11 @@ export async function cancel(
   try {
     wallet = ethereumish.getWallet(req.privateKey);
   } catch (err) {
-    throw new Error(`Error getting wallet ${err}`);
+    throw new HttpException(
+      500,
+      LOAD_WALLET_ERROR_MESSAGE + err,
+      LOAD_WALLET_ERROR_CODE
+    );
   }
 
   // call cancelTx function
