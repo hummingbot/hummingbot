@@ -1,8 +1,16 @@
+/* eslint-disable @typescript-eslint/ban-types */
 import { Router, Request, Response, NextFunction } from 'express';
 import { Avalanche } from '../avalanche';
 import { Pangolin } from './pangolin';
 import { ConfigManager } from '../../../services/config-manager';
-import { HttpException, asyncHandler } from '../../../services/error-handler';
+import {
+  HttpException,
+  asyncHandler,
+  LOAD_WALLET_ERROR_CODE,
+  LOAD_WALLET_ERROR_MESSAGE,
+  TOKEN_NOT_SUPPORTED_ERROR_CODE,
+  TOKEN_NOT_SUPPORTED_ERROR_MESSAGE,
+} from '../../../services/error-handler';
 import { BigNumber, Wallet } from 'ethers';
 import { latency, gasCostInEthString } from '../../../services/base';
 import {
@@ -72,9 +80,10 @@ export namespace PangolinRoutes {
         if (!baseToken || !quoteToken)
           throw new HttpException(
             500,
-            'Unrecognized base token symbol: ' + baseToken
+            TOKEN_NOT_SUPPORTED_ERROR_MESSAGE + baseToken
               ? req.body.quote
-              : req.body.base
+              : req.body.base,
+            TOKEN_NOT_SUPPORTED_ERROR_CODE
           );
         let trade;
         try {
@@ -125,7 +134,11 @@ export namespace PangolinRoutes {
         try {
           wallet = avalanche.getWallet(req.body.privateKey);
         } catch (err) {
-          throw new Error(`Error getting wallet ${err}`);
+          throw new HttpException(
+            500,
+            LOAD_WALLET_ERROR_MESSAGE + err,
+            LOAD_WALLET_ERROR_CODE
+          );
         }
 
         const baseToken = avalanche.getTokenBySymbol(req.body.base);
@@ -133,9 +146,10 @@ export namespace PangolinRoutes {
         if (!baseToken || !quoteToken)
           throw new HttpException(
             500,
-            'Unrecognized base token symbol: ' + baseToken
+            TOKEN_NOT_SUPPORTED_ERROR_MESSAGE + baseToken
               ? req.body.quote
-              : req.body.base
+              : req.body.base,
+            TOKEN_NOT_SUPPORTED_ERROR_CODE
           );
 
         let amount: BigNumber;
