@@ -173,7 +173,8 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                                                                   ethereum_address=dydx_perpetual_ethereum_address)
         # State
         self._dydx_auth = DydxPerpetualAuth(self.dydx_client)
-        self._user_stream_tracker = DydxPerpetualUserStreamTracker(dydx_auth=self._dydx_auth)
+        self._user_stream_tracker = DydxPerpetualUserStreamTracker(dydx_auth=self._dydx_auth,
+                                                                   api_factory=self._api_factory)
         self._user_stream_event_listener_task = None
         self._user_stream_tracker_task = None
         self._lock = asyncio.Lock()
