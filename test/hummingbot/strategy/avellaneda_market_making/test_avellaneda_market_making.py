@@ -199,14 +199,6 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         # Update the trading intensity indicator
         strategy.trading_intensity = trading_intensity_indicator
 
-        # # Simulates change in mid price to reflect last sample added
-        # strategy.market_info.market.set_balanced_order_book(trading_pair=strategy.trading_pair,
-        #                                                     mid_price=samples[-1],
-        #                                                     min_price=1,
-        #                                                     max_price=200,
-        #                                                     price_step_size=1,
-        #                                                     volume_step_size=10)
-
     @staticmethod
     def simulate_high_liquidity(strategy: AvellanedaMarketMakingStrategy, volatility):
         N_SAMPLES = 1000
@@ -233,14 +225,6 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         # Update the trading intensity indicator
         strategy.trading_intensity = trading_intensity_indicator
-
-        # # Simulates change in mid price to reflect last sample added
-        # strategy.market_info.market.set_balanced_order_book(trading_pair=strategy.trading_pair,
-        #                                                     mid_price=samples[-1],
-        #                                                     min_price=1,
-        #                                                     max_price=200,
-        #                                                     price_step_size=1,
-        #                                                     volume_step_size=10)
 
     @staticmethod
     def make_order_books(original_price_mid, original_spread, original_amount, volatility, spread_stdev, amount_stdev, samples):
