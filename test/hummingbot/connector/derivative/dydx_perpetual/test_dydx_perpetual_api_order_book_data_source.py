@@ -1,4 +1,3 @@
-import aiohttp
 import asyncio
 import re
 import ujson
@@ -62,14 +61,87 @@ class DydxPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
 
-    def test_get_shared_client_not_shared_client_provided(self):
-        self.assertIsNone(self.data_source._shared_client)
-        self.assertIsInstance(self.data_source._get_shared_client(), aiohttp.ClientSession)
+    @aioresponses()
+    def test_get_last_trade_prices(self, mock_api):
+        url = CONSTANTS.DYDX_REST_URL + CONSTANTS.TICKER_URL + "/" + self.trading_pair
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-    def test_get_shared_client_shared_client_provided(self):
-        aiohttp_client = aiohttp.ClientSession()
-        self.data_source._shared_client = aiohttp_client
-        self.assertEqual(self.data_source._get_shared_client(), aiohttp_client)
+        mock_response = {
+            "markets": {
+                self.trading_pair: {
+                    "market": self.trading_pair,
+                    "open": "65603",
+                    "high": "66350",
+                    "low": "60342",
+                    "close": "60711",
+                    "baseVolume": "27933.3033",
+                    "quoteVolume": "1758807943.4273",
+                    "type": "PERPETUAL",
+                    "fees": "1057036.553334",
+                }
+            }
+        }
+
+        mock_api.get(regex_url, body=ujson.dumps(mock_response))
+
+        result = self.async_run_with_timeout(self.data_source.get_last_traded_prices([self.trading_pair]))
+
+        self.assertEqual(1, len(result))
+        self.assertEqual(float("60711"), result[self.trading_pair])
+
+    @aioresponses()
+    def test_fetch_trading_pairs_failed(self, mock_api):
+        url = f"{CONSTANTS.DYDX_REST_URL}{CONSTANTS.MARKETS_URL}"
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_api.get(regex_url, status=400, body=ujson.dumps({}))
+
+        result = self.async_run_with_timeout(self.data_source.fetch_trading_pairs())
+
+        self.assertEqual(0, len(result))
+        self.assertNotIn(self.trading_pair, result)
+
+    @aioresponses()
+    def test_fetch_trading_pairs_successful(self, mock_api):
+        url = f"{CONSTANTS.DYDX_REST_URL}{CONSTANTS.MARKETS_URL}"
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_response = {
+            "markets": {
+                self.trading_pair: {
+                    "market": self.trading_pair,
+                    "status": "ONLINE",
+                    "baseAsset": "BTC",
+                    "quoteAsset": "USD",
+                    "stepSize": "0.0001",
+                    "tickSize": "1",
+                    "indexPrice": "61001.4995",
+                    "oraclePrice": "60971.6290",
+                    "priceChange24H": "-4559.950500",
+                    "nextFundingRate": "0.0000046999",
+                    "nextFundingAt": "2021-11-16T09:00:00.000Z",
+                    "minOrderSize": "0.001",
+                    "type": "PERPETUAL",
+                    "initialMarginFraction": "0.04",
+                    "maintenanceMarginFraction": "0.03",
+                    "volume24H": "1799563001.940300",
+                    "trades24H": "142324",
+                    "openInterest": "6108.6751",
+                    "incrementalInitialMarginFraction": "0.01",
+                    "incrementalPositionSize": "1.5",
+                    "maxPositionSize": "170",
+                    "baselinePositionSize": "9",
+                    "assetResolution": "10000000000",
+                },
+            }
+        }
+
+        mock_api.get(regex_url, body=ujson.dumps(mock_response))
+
+        result = self.async_run_with_timeout(self.data_source.fetch_trading_pairs())
+
+        self.assertEqual(1, len(result))
+        self.assertIn(self.trading_pair, result)
 
     @aioresponses()
     def test_get_snapshot_raise_io_error(self, mock_api):
@@ -123,25 +195,9 @@ class DydxPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(float(mock_response["asks"][0]["size"]), list(result.ask_entries())[0].amount)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_create_websocket_connection_raised_cancelled(self, ws_connect_mock):
-        ws_connect_mock.side_effect = asyncio.CancelledError
-
-        with self.assertRaises(asyncio.CancelledError):
-            self.async_run_with_timeout(self.data_source._create_websocket_connection())
-
-    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_create_websocket_connection_logs_exception(self, ws_connect_mock):
-        ws_connect_mock.side_effect = Exception("TEST ERROR")
-
-        with self.assertRaisesRegex(Exception, "TEST ERROR"):
-            self.async_run_with_timeout(self.data_source._create_websocket_connection())
-
-        self.assertTrue(self._is_logged(
-            "NETWORK", "Unexpected error occured connecting to dydx_perpetual WebSocket API. (TEST ERROR)"
-        ))
-
-    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_user_stream_data_source.DydxPerpetualUserStreamDataSource._sleep")
+    @patch(
+        "hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_api_order_book_data_source.DydxPerpetualAPIOrderBookDataSource._sleep"
+    )
     def test_listen_for_subcriptions_raises_cancelled_exception(self, _, ws_connect_mock):
         ws_connect_mock.side_effect = asyncio.CancelledError
 
@@ -149,15 +205,13 @@ class DydxPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             self.async_run_with_timeout(self.data_source.listen_for_subscriptions())
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_auth.DydxPerpetualAuth.get_ws_auth_params")
-    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_user_stream_data_source.DydxPerpetualUserStreamDataSource._sleep")
-    def test_listen_for_user_stream_raises_logs_exception(self, mock_sleep, mock_auth, ws_connect_mock):
-        mock_sleep.side_effect = lambda: (
-            self.ev_loop.run_until_complete(asyncio.sleep(0.5))
-        )
-        mock_auth.return_value = {}
+    @patch(
+        "hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_api_order_book_data_source.DydxPerpetualAPIOrderBookDataSource._sleep"
+    )
+    def test_listen_for_subcriptions_raises_logs_exception(self, mock_sleep, ws_connect_mock):
+        mock_sleep.side_effect = lambda: (self.ev_loop.run_until_complete(asyncio.sleep(0.5)))
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-        ws_connect_mock.return_value.receive.side_effect = lambda: self._create_exception_and_unlock_test_with_event(
+        ws_connect_mock.return_value.receive.side_effect = lambda *_: self._create_exception_and_unlock_test_with_event(
             Exception("TEST ERROR")
         )
         self.async_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
@@ -169,3 +223,30 @@ class DydxPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                 "ERROR", "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."
             )
         )
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch(
+        "hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_api_order_book_data_source.DydxPerpetualAPIOrderBookDataSource._sleep"
+    )
+    def test_listen_for_subcriptions_successful(self, mock_sleep, ws_connect_mock):
+        mock_sleep.side_effect = lambda: (self.ev_loop.run_until_complete(asyncio.sleep(0.5)))
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+
+        mock_response = {
+            "type": "channel_data",
+            "connection_id": "d600a0d2-8039-4cd9-a010-2d6f5c336473",
+            "message_id": 2,
+            "id": "LINK-USD",
+            "channel": "v3_orderbook",
+            "contents": {"offset": "3218381978", "bids": [], "asks": [["36.152", "304.8"]]},
+        }
+
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            ws_connect_mock.return_value, message=ujson.dumps(mock_response)
+        )
+
+        self.async_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
+
+        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+
+        self.assertEqual(1, self.data_source._message_queue[self.data_source.ORDERBOOK_CHANNEL].qsize())
