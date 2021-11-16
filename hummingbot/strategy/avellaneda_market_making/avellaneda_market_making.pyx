@@ -158,6 +158,14 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._latest_parameter_calculation_vol = value
 
     @property
+    def min_spread(self):
+        return self._min_spread
+
+    @min_spread.setter
+    def min_spread(self, value):
+        self._min_spread = value
+
+    @property
     def avg_vol(self):
         return self._avg_vol
 
