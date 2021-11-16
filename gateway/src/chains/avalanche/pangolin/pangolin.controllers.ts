@@ -2,6 +2,13 @@ import { BigNumber } from 'ethers';
 import { stringWithDecimalToBigNumber } from '../../../services/base';
 import { EthereumBase } from '../../../services/ethereum-base';
 import { Pangolin } from './pangolin';
+import {
+  HttpException,
+  TOKEN_NOT_SUPPORTED_ERROR_CODE,
+  TOKEN_NOT_SUPPORTED_ERROR_MESSAGE,
+  TRADE_FAILED_ERROR_CODE,
+  TRADE_FAILED_ERROR_MESSAGE,
+} from '../../../services/error-handler';
 
 // the amount is passed in as a string. We must validate the value.
 // If it is a strictly an integer string, we can pass it interpet it as a BigNumber.
@@ -25,7 +32,11 @@ export function getAmountInBigNumber(
     if (token) {
       amountInBigNumber = stringWithDecimalToBigNumber(amount, token.decimals);
     } else {
-      throw new Error('Unrecognized token symbol for amount.');
+      throw new HttpException(
+        500,
+        TOKEN_NOT_SUPPORTED_ERROR_MESSAGE + token,
+        TOKEN_NOT_SUPPORTED_ERROR_CODE
+      );
     }
   } else {
     amountInBigNumber = BigNumber.from(amount);
@@ -54,7 +65,11 @@ export async function getTrade(
         );
 
   if (typeof result === 'string')
-    throw new Error('Uniswap trade query failed: ' + result);
+    throw new HttpException(
+      500,
+      TRADE_FAILED_ERROR_MESSAGE + result,
+      TRADE_FAILED_ERROR_CODE
+    );
 
   return {
     trade: result.trade,

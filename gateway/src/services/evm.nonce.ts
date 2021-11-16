@@ -1,6 +1,11 @@
 import ethers from 'ethers';
 import { logger } from './logger';
 import { dbSaveNonce, dbGetChainNonces } from './local-storage';
+import {
+  InitializationError,
+  SERVICE_UNITIALIZED_ERROR_CODE,
+  SERVICE_UNITIALIZED_ERROR_MESSAGE,
+} from './error-handler';
 
 export class EVMNonceManager {
   private static _instance: EVMNonceManager;
@@ -46,9 +51,11 @@ export class EVMNonceManager {
     }
 
     if (delay < 0) {
-      throw new Error(
-        'EVMNonceManager.init delay must be greater than or equal to zero.'
+      throw new InitializationError(
+        SERVICE_UNITIALIZED_ERROR_MESSAGE(''),
+        SERVICE_UNITIALIZED_ERROR_CODE
       );
+      // 'EVMNonceManager.init delay must be greater than or equal to zero.'
     }
   }
 
@@ -72,8 +79,11 @@ export class EVMNonceManager {
       logger.error(
         'EVMNonceManager.mergeNonceFromEVMNode called before initiated'
       );
-      throw new Error(
-        'EVMNonceManager.mergeNonceFromEVMNode called before initiated'
+      throw new InitializationError(
+        SERVICE_UNITIALIZED_ERROR_MESSAGE(
+          'EVMNonceManager.mergeNonceFromEVMNode'
+        ),
+        SERVICE_UNITIALIZED_ERROR_CODE
       );
     }
   }
@@ -100,7 +110,10 @@ export class EVMNonceManager {
       }
     } else {
       logger.error('EVMNonceManager.getNonce called before initiated');
-      throw new Error('EVMNonceManager.getNonce called before initiated');
+      throw new InitializationError(
+        SERVICE_UNITIALIZED_ERROR_MESSAGE('EVMNonceManager.getNonce'),
+        SERVICE_UNITIALIZED_ERROR_CODE
+      );
     }
   }
 
@@ -119,7 +132,10 @@ export class EVMNonceManager {
       await dbSaveNonce('eth', this._chainId, ethAddress, newNonce);
     } else {
       logger.error('EVMNonceManager.commitNonce called before initiated');
-      throw new Error('EVMNonceManager.commitNonce called before initiated');
+      throw new InitializationError(
+        SERVICE_UNITIALIZED_ERROR_MESSAGE('EVMNonceManager.commitNonce'),
+        SERVICE_UNITIALIZED_ERROR_CODE
+      );
     }
   }
 }
