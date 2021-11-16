@@ -8,7 +8,10 @@ from typing import List, Dict, Optional, Tuple, Deque
 
 from hummingbot.client.command import __all__ as commands
 from hummingbot.client.tab import __all__ as tab_classes
-from hummingbot.core.clock import Clock
+from hummingbot.core.clock import (
+    Clock,
+    ClockMode
+)
 from hummingbot.exceptions import ArgumentParserError
 from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.application_warning import ApplicationWarning
@@ -28,6 +31,7 @@ from hummingbot.strategy.strategy_base import StrategyBase
 from hummingbot.strategy.cross_exchange_market_making import CrossExchangeMarketPair
 from hummingbot.core.utils.kill_switch import KillSwitch
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.data_feed.data_feed_base import DataFeedBase
 from hummingbot.notifier.notifier_base import NotifierBase
 from hummingbot.notifier.telegram_notifier import TelegramNotifier
@@ -35,6 +39,7 @@ from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.client.config.security import Security
 from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.gateway_base import GatewayBase
 from hummingbot.client.settings import AllConnectorSettings, ConnectorType
 from hummingbot.client.tab.data_types import CommandTab
 
@@ -103,8 +108,12 @@ class HummingbotApplication(*commands):
         self._script_iterator = None
         self._binance_connector = None
 
-        # gateway variables
+        # gateway variables and monitor
         self._shared_client = None
+        self._gateway_monitor: Optional[GatewayBase] = None
+        self._gateway_monitor_clock: Optional[Clock] = None
+        self._init_gateway_monitor()
+        self._gateway_monitor_task: asyncio.Task = safe_ensure_future(self._run_gateway_monitor_clock(), loop=self.ev_loop)
 
     @property
     def strategy_file_name(self) -> str:
@@ -124,6 +133,18 @@ class HummingbotApplication(*commands):
         if self.strategy_name is not None:
             return get_strategy_config_map(self.strategy_name)
         return None
+
+    def _init_gateway_monitor(self):
+        self._gateway_monitor = GatewayBase(trading_pairs = [],
+                                            wallet_private_key = "",
+                                            trading_required = False
+                                            )
+        self._gateway_monitor_clock = Clock(ClockMode.REALTIME)
+        self._gateway_monitor_clock.add_iterator(self._gateway_monitor)
+
+    async def _run_gateway_monitor_clock(self):
+        with self._gateway_monitor_clock as clock:
+            await clock.run()
 
     def _notify(self, msg: str):
         self.app.log(msg)
