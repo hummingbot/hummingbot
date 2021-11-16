@@ -349,7 +349,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 f"Order notional value({str(amount * price)}) is less than the minimum allowable notional value for an order ({str(trading_rule.min_notional_size)})")
 
         try:
-            created_at: int = int(time.time())
+            created_at: int = int(self.time_now_s())
             self.start_tracking_order(order_side, client_order_id, order_type, created_at, None, trading_pair, price,
                                       amount, self._leverage[trading_pair], position_action.name)
             expiration = created_at + 600
@@ -470,7 +470,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
             if exchange_order_id is None:
                 # Note, we have no way of canceling an order or querying for information about the order
                 # without an exchange_order_id
-                if in_flight_order.created_at < (int(time.time()) - UNRECOGNIZED_ORDER_DEBOUCE):
+                if in_flight_order.created_at < (int(self.time_now_s()) - UNRECOGNIZED_ORDER_DEBOUCE):
                     # We'll just have to assume that this order doesn't exist
                     self.stop_tracking_order(in_flight_order.client_order_id)
                     self.trigger_event(ORDER_CANCELLED_EVENT, cancellation_event)
@@ -482,7 +482,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
         except DydxApiError as e:
             if f"Order with specified id: {exchange_order_id} could not be found" in str(e):
-                if in_flight_order.created_at < (int(time.time()) - UNRECOGNIZED_ORDER_DEBOUCE):
+                if in_flight_order.created_at < (int(self.time_now_s()) - UNRECOGNIZED_ORDER_DEBOUCE):
                     # Order didn't exist on exchange, mark this as canceled
                     self.stop_tracking_order(in_flight_order.client_order_id)
                     self.trigger_event(ORDER_CANCELLED_EVENT, cancellation_event)
@@ -999,7 +999,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
             dydx_order_id = tracked_order.exchange_order_id
             if dydx_order_id is None:
                 # This order is still pending acknowledgement from the exchange
-                if tracked_order.created_at < (int(time.time()) - UNRECOGNIZED_ORDER_DEBOUCE):
+                if tracked_order.created_at < (int(self.time_now_s()) - UNRECOGNIZED_ORDER_DEBOUCE):
                     # this order should have a dydx_order_id at this point. If it doesn't, we should cancel it
                     # as we won't be able to poll for updates
                     try:
@@ -1020,7 +1020,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 # check if this error is because the api cliams to be unaware of this order. If so, and this order
                 # is reasonably old, mark the orde as cancelled
                 if "could not be found" in str(dydx_order_request['msg']):
-                    if tracked_order.created_at < (int(time.time()) - UNRECOGNIZED_ORDER_DEBOUCE):
+                    if tracked_order.created_at < (int(self.time_now_s()) - UNRECOGNIZED_ORDER_DEBOUCE):
                         try:
                             self.cancel_order(client_order_id)
                         except Exception:
@@ -1130,12 +1130,15 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
         return quantized_amount
 
+    def time_now_s(self) -> float:
+        return time.time()
+
     def tick(self, timestamp: float):
         """
         Is called automatically by the clock for each clock's tick (1 second by default).
         It checks if status polling task is due for execution.
         """
-        now = time.time()
+        now = self.time_now_s()
         poll_interval = (self.SHORT_POLL_INTERVAL
                          if now - self._user_stream_tracker.last_recv_time > 60.0
                          else self.LONG_POLL_INTERVAL)
