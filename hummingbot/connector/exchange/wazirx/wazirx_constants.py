@@ -8,6 +8,7 @@ WAZIRX_API_BASE = "https://api.wazirx.com/sapi/v1"
 CHECK_NETWORK_PATH_URL = "ping"
 GET_TRADING_RULES_PATH_URL = "exchangeInfo"
 ORDER_PATH_URL = "order"
+MY_TRADES_PATH_URL = "myTrades"
 FUND_DETAILS_PATH_URL = "funds"
 GET_RECENT_TRADES = "trades"
 GET_OPEN_ORDERS_PATH_URL = "openOrders"
@@ -21,6 +22,7 @@ RATE_LIMITS = [
     RateLimit(limit_id=CHECK_NETWORK_PATH_URL, limit=6000, time_interval=300),
     RateLimit(limit_id=GET_TRADING_RULES_PATH_URL, limit=6000, time_interval=300),
     RateLimit(limit_id=ORDER_PATH_URL, limit=6000, time_interval=300),
+    RateLimit(limit_id=MY_TRADES_PATH_URL, limit=6000, time_interval=300),
     RateLimit(limit_id=FUND_DETAILS_PATH_URL, limit=6000, time_interval=300),
     RateLimit(limit_id=GET_RECENT_TRADES, limit=6000, time_interval=300),
     RateLimit(limit_id=GET_OPEN_ORDERS_PATH_URL, limit=6000, time_interval=300),
