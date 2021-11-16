@@ -3,9 +3,10 @@ import os
 import subprocess
 import sys
 
-from Cython.Build import cythonize
 from setuptools import find_packages, setup
 from setuptools.command.build_ext import build_ext
+
+from Cython.Build import cythonize
 
 is_posix = (os.name == "posix")
 
