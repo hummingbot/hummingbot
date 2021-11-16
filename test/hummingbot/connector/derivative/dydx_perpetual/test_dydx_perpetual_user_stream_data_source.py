@@ -1,4 +1,3 @@
-import aiohttp
 import asyncio
 import unittest
 
@@ -70,33 +69,6 @@ class DydxPerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
 
-    def test_get_shared_client_not_shared_client_provided(self):
-        self.assertIsNone(self.data_source._shared_client)
-        self.assertIsInstance(self.data_source._get_shared_client(), aiohttp.ClientSession)
-
-    def test_get_shared_client_shared_client_provided(self):
-        aiohttp_client = aiohttp.ClientSession()
-        self.data_source._shared_client = aiohttp_client
-        self.assertEqual(self.data_source._get_shared_client(), aiohttp_client)
-
-    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_create_websocket_connection_raised_cancelled(self, ws_connect_mock):
-        ws_connect_mock.side_effect = asyncio.CancelledError
-
-        with self.assertRaises(asyncio.CancelledError):
-            self.async_run_with_timeout(self.data_source._create_websocket_connection())
-
-    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_create_websocket_connection_logs_exception(self, ws_connect_mock):
-        ws_connect_mock.side_effect = Exception("TEST ERROR")
-
-        with self.assertRaisesRegex(Exception, "TEST ERROR"):
-            self.async_run_with_timeout(self.data_source._create_websocket_connection())
-
-        self.assertTrue(self._is_logged(
-            "NETWORK", "Unexpected error occured when connecting to WebSocket server. Error: TEST ERROR"
-        ))
-
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_user_stream_data_source.DydxPerpetualUserStreamDataSource._sleep")
     def test_listen_for_user_stream_raises_cancelled_exception(self, _, ws_connect_mock):
@@ -114,7 +86,7 @@ class DydxPerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
         )
         mock_auth.return_value = {}
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-        ws_connect_mock.return_value.receive.side_effect = lambda: self._create_exception_and_unlock_test_with_event(
+        ws_connect_mock.return_value.receive.side_effect = lambda *_: self._create_exception_and_unlock_test_with_event(
             Exception("TEST ERROR")
         )
         self.async_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(self.ev_loop, asyncio.Queue()))
