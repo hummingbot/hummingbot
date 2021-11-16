@@ -8,7 +8,7 @@ from datetime import datetime
 from decimal import Decimal
 from dydx3 import DydxApiError
 from typing import Dict, Optional
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, PropertyMock, patch
 from requests import Response
 
 
@@ -78,7 +78,7 @@ class DydxPerpetualDerivativeTest(unittest.TestCase):
         self.exchange._poll_notifier.clear()
 
     def _simulate_ws_message_received(self, timestamp: float):
-        self.exchange._user_stream_tracker._data_source._last_recv_time = timestamp
+        self.exchange._user_stream_tracker._data_source._ws_assistant._connection._last_recv_time = timestamp
 
     async def return_queued_values_and_unlock_with_event(self):
         val = await self.return_values_queue.get()
@@ -286,17 +286,23 @@ class DydxPerpetualDerivativeTest(unittest.TestCase):
         self.assertTrue(self.exchange._poll_notifier.is_set())
 
     @patch("time.time")
-    def test_tick_subsequent_tick_within_short_poll_interval(self, mock_ts):
+    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_user_stream_data_source.DydxPerpetualUserStreamDataSource.last_recv_time", new_callable=PropertyMock)
+    def test_tick_subsequent_tick_within_short_poll_interval(self, mock_last_recv_time, mock_ts):
         # Assumes user stream tracker has NOT been receiving messages, Hence SHORT_POLL_INTERVAL in use
         start_ts: float = self.start_timestamp
         next_tick: float = start_ts + (self.exchange.SHORT_POLL_INTERVAL - 1)
 
         mock_ts.return_value = start_ts
+        mock_last_recv_time.return_value = -1
+
         self.exchange.tick(start_ts)
         self.assertEqual(start_ts, self.exchange._last_poll_timestamp)
         self.assertTrue(self.exchange._poll_notifier.is_set())
 
         self._simulate_reset_poll_notifier()
+
+        # Simulate last message received 1 sec ago
+        mock_last_recv_time.return_value = next_tick - 1
 
         mock_ts.return_value = next_tick
         self.exchange.tick(next_tick)
@@ -304,12 +310,15 @@ class DydxPerpetualDerivativeTest(unittest.TestCase):
         self.assertFalse(self.exchange._poll_notifier.is_set())
 
     @patch("time.time")
-    def test_tick_subsequent_tick_exceed_short_poll_interval(self, mock_ts):
+    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_user_stream_data_source.DydxPerpetualUserStreamDataSource.last_recv_time", new_callable=PropertyMock)
+    def test_tick_subsequent_tick_exceed_short_poll_interval(self, mock_last_recv_time, mock_ts):
         # Assumes user stream tracker has NOT been receiving messages, Hence SHORT_POLL_INTERVAL in use
         start_ts: float = self.start_timestamp
         next_tick: float = start_ts + (self.exchange.SHORT_POLL_INTERVAL + 1)
 
         mock_ts.return_value = start_ts
+        mock_last_recv_time.return_value = -1
+
         self.exchange.tick(start_ts)
         self.assertEqual(start_ts, self.exchange._last_poll_timestamp)
         self.assertTrue(self.exchange._poll_notifier.is_set())
@@ -322,18 +331,21 @@ class DydxPerpetualDerivativeTest(unittest.TestCase):
         self.assertTrue(self.exchange._poll_notifier.is_set())
 
     @patch("time.time")
-    def test_tick_subsequent_tick_within_long_poll_interval(self, mock_time):
+    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_user_stream_data_source.DydxPerpetualUserStreamDataSource.last_recv_time", new_callable=PropertyMock)
+    def test_tick_subsequent_tick_within_long_poll_interval(self, mock_last_recv_time, mock_time):
 
         start_ts: float = self.start_timestamp
         next_tick: float = start_ts + (self.exchange.LONG_POLL_INTERVAL - 1)
 
         mock_time.return_value = start_ts
+        mock_last_recv_time.return_value = -1
+
         self.exchange.tick(start_ts)
         self.assertEqual(start_ts, self.exchange._last_poll_timestamp)
         self.assertTrue(self.exchange._poll_notifier.is_set())
 
         # Simulate last message received 1 sec ago
-        self._simulate_ws_message_received(next_tick - 1)
+        mock_last_recv_time.return_value = next_tick - 1
         self._simulate_reset_poll_notifier()
 
         mock_time.return_value = next_tick
@@ -342,17 +354,19 @@ class DydxPerpetualDerivativeTest(unittest.TestCase):
         self.assertFalse(self.exchange._poll_notifier.is_set())
 
     @patch("time.time")
-    def test_tick_subsequent_tick_exceed_long_poll_interval(self, mock_time):
+    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_user_stream_data_source.DydxPerpetualUserStreamDataSource.last_recv_time", new_callable=PropertyMock)
+    def test_tick_subsequent_tick_exceed_long_poll_interval(self, mock_last_recv_time, mock_time):
         # Assumes user stream tracker has been receiving messages, Hence LONG_POLL_INTERVAL in use
         start_ts: float = self.start_timestamp
         next_tick: float = start_ts + (self.exchange.LONG_POLL_INTERVAL - 1)
 
+        mock_last_recv_time.return_value = -1
         mock_time.return_value = start_ts
         self.exchange.tick(start_ts)
         self.assertEqual(start_ts, self.exchange._last_poll_timestamp)
         self.assertTrue(self.exchange._poll_notifier.is_set())
 
-        self._simulate_ws_message_received(start_ts)
+        mock_last_recv_time.return_value = start_ts
         self._simulate_reset_poll_notifier()
 
         mock_time.return_value = next_tick
