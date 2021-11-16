@@ -92,6 +92,9 @@ describe('approve', () => {
     patch(eth, 'getSpender', () => {
       return uniswap;
     });
+    eth.getContract = jest.fn().mockReturnValue({
+      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+    });
 
     patch(eth, 'ready', () => true);
 
