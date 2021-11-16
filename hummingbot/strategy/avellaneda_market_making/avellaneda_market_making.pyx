@@ -338,20 +338,20 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._optimal_bid = value
 
     @property
-    def q_adjustment_factor(self):
-        return self._q_adjustment_factor
-
-    @q_adjustment_factor.setter
-    def q_adjustment_factor(self, value):
-        self._q_adjustment_factor = value
-
-    @property
     def time_left(self):
         return self._time_left
+
+    @time_left.setter
+    def time_left(self, value):
+        self._time_left = value
 
     @property
     def closing_time(self):
         return self._closing_time
+
+    @closing_time.setter
+    def closing_time(self, value):
+        self._closing_time = value
 
     def get_price(self) -> float:
         return self.get_mid_price()
@@ -629,12 +629,11 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         price = self.get_price()
         snapshot = self.get_order_book_snapshot()
         self._avg_vol.add_sample(price)
-        self._trading_intensity.add_sample(timestamp, snapshot)
+        self._trading_intensity.add_sample(snapshot)
         # Calculate adjustment factor to have 0.01% of inventory resolution
         base_balance = market.get_balance(base_asset)
         quote_balance = market.get_balance(quote_asset)
         inventory_in_base = quote_balance / price + base_balance
-        self._q_adjustment_factor = (Decimal("1e5") / inventory_in_base) if inventory_in_base else Decimal("1e5")
         if self._time_left == 0:
             # Re-cycle algorithm
             self._time_left = self._closing_time
@@ -673,6 +672,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         if self._is_debug:
             self.logger().info(f"alpha={self._alpha:.4f} | "
                                f"kappa={self._kappa:.4f}")
+
+    def measure_order_book_liquidity(self):
+        return self.c_measure_order_book_liquidity()
 
     cdef c_calculate_reserved_price_and_optimal_spread(self):
         cdef:
