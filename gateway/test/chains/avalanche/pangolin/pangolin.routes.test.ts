@@ -111,6 +111,16 @@ const patchExecuteTrade = () => {
   });
 };
 
+describe('GET /avalanche/pangolin/', () => {
+  it('should get 200 OK', async () => {
+    await request(app)
+      .get(`/avalanche/pangolin`)
+      .set('Accept', 'application/json')
+      .expect('Content-Type', /json/)
+      .expect(200);
+  });
+});
+
 describe('POST /avalanche/pangolin/price', () => {
   it('should return 200 for BUY', async () => {
     patchGetWallet();
