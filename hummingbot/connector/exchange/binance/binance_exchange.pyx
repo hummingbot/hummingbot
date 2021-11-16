@@ -360,7 +360,7 @@ cdef class BinanceExchange(ExchangeBase):
             list retval = []
         for rule in trading_pair_rules:
             try:
-                trading_pair = rule.get("symbol")
+                trading_pair = convert_from_exchange_trading_pair(rule.get("symbol"))
                 filters = rule.get("filters")
                 price_filter = [f for f in filters if f.get("filterType") == "PRICE_FILTER"][0]
                 lot_size_filter = [f for f in filters if f.get("filterType") == "LOT_SIZE"][0]
