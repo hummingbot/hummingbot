@@ -19,6 +19,7 @@ import hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_constants a
 import aiohttp
 
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
+from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_utils import build_api_factory
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -152,9 +153,10 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
         PerpetualTrading.__init__(self)
         self._real_time_balance_update = True
         self._shared_client = aiohttp.ClientSession()
+        self._api_factory = build_api_factory()
         self._order_book_tracker = DydxPerpetualOrderBookTracker(
             trading_pairs=trading_pairs,
-            shared_client=self._shared_client,
+            api_factory=self._api_factory,
         )
         self._tx_tracker = DydxPerpetualDerivativeTransactionTracker(self)
         self._trading_required = trading_required

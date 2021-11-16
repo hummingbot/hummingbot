@@ -1,4 +1,3 @@
-import aiohttp
 import asyncio
 import logging
 
@@ -21,6 +20,7 @@ from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 from hummingbot.core.data_type.order_book_row import ClientOrderBookRow
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.logger import HummingbotLogger
 
 
@@ -36,12 +36,12 @@ class DydxPerpetualOrderBookTracker(OrderBookTracker):
     def __init__(
         self,
         trading_pairs: Optional[List[str]] = None,
-        shared_client: Optional[aiohttp.ClientSession] = None
+        api_factory: Optional[WebAssistantsFactory] = None
     ):
         super().__init__(
             DydxPerpetualAPIOrderBookDataSource(
                 trading_pairs=trading_pairs,
-                shared_client=shared_client,
+                api_factory=api_factory
             ),
             trading_pairs)
 
