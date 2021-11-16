@@ -18,6 +18,8 @@ WORKDIR /usr/src/app
 COPY package*.json ./
 COPY yarn.lock ./
 
+EXPOSE 5000
+
 RUN yarn
 
 # copy pwd file to container
