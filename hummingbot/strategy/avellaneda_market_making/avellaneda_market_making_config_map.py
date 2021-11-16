@@ -150,7 +150,7 @@ avellaneda_market_making_config_map = {
         ConfigVar(key="trading_intensity_buffer_size",
                   prompt="Enter amount of ticks that will be stored to estimate order book liquidity >>> ",
                   type_str="int",
-                  validator=lambda v: validate_decimal(v, 1, 10000),
+                  validator=lambda v: validate_int(v, 1, 10000),
                   default=200),
     "order_levels":
         ConfigVar(key="order_levels",
