@@ -10,6 +10,8 @@ import {
   TRADE_FAILED_ERROR_MESSAGE,
   SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_CODE,
   SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE,
+  SWAP_PRICE_LESS_THAN_LIMIT_PRICE_ERROR_CODE,
+  SWAP_PRICE_LESS_THAN_LIMIT_PRICE_ERROR_MESSAGE,
 } from '../../../services/error-handler';
 import { Uniswap, ExpectedTrade } from './uniswap';
 import {
@@ -250,8 +252,8 @@ export async function trade(
     if (limitPrice && price.toFixed(8) >= limitPrice.toString())
       throw new HttpException(
         500,
-        SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE(price, limitPrice),
-        SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_CODE
+        SWAP_PRICE_LESS_THAN_LIMIT_PRICE_ERROR_MESSAGE(price, limitPrice),
+        SWAP_PRICE_LESS_THAN_LIMIT_PRICE_ERROR_CODE
       );
 
     const tx = await uniswap.executeTrade(

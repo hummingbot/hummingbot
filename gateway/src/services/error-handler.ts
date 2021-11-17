@@ -75,7 +75,8 @@ export const LOAD_WALLET_ERROR_CODE = 1005;
 export const TOKEN_NOT_SUPPORTED_ERROR_CODE = 1006;
 export const TRADE_FAILED_ERROR_CODE = 1007;
 export const SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_CODE = 1008;
-export const SERVICE_UNITIALIZED_ERROR_CODE = 1009;
+export const SWAP_PRICE_LOWER_THAN_LIMIT_PRICE_ERROR_CODE = 1009;
+export const SERVICE_UNITIALIZED_ERROR_CODE = 1010;
 export const UNKNOWN_ERROR_ERROR_CODE = 1099;
 
 export const NETWORK_ERROR_MESSAGE =
@@ -90,8 +91,15 @@ export const SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE = (
   price: any,
   limitPrice: any
 ) => `Swap price ${price} exceeds limitPrice ${limitPrice}`;
+
+export const SWAP_PRICE_LOWER_THAN_LIMIT_PRICE_ERROR_MESSAGE = (
+  price: any,
+  limitPrice: any
+) => `Swap price ${price} lower than limitPrice ${limitPrice}`;
+
 export const SERVICE_UNITIALIZED_ERROR_MESSAGE = (service: any) =>
   `${service} was called before being initialized.`;
+
 export const UNKNOWN_ERROR_MESSAGE = 'Unknown error.';
 
 export interface ErrorResponse {
