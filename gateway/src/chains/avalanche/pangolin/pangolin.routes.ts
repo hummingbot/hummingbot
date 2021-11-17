@@ -10,6 +10,10 @@ import {
   LOAD_WALLET_ERROR_MESSAGE,
   TOKEN_NOT_SUPPORTED_ERROR_CODE,
   TOKEN_NOT_SUPPORTED_ERROR_MESSAGE,
+  SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_CODE,
+  SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE,
+  SWAP_PRICE_LOWER_THAN_LIMIT_PRICE_ERROR_CODE,
+  SWAP_PRICE_LOWER_THAN_LIMIT_PRICE_ERROR_MESSAGE,
 } from '../../../services/error-handler';
 import { BigNumber, Wallet } from 'ethers';
 import { latency, gasCostInEthString } from '../../../services/base';
@@ -180,13 +184,21 @@ export namespace PangolinRoutes {
 
         const gasPrice = avalanche.gasPrice;
         const gasLimit = ConfigManager.config.UNISWAP_GAS_LIMIT;
-
-        if (limitPrice && trade.tradePrice.toFixed(8) >= limitPrice.toString())
+        if (limitPrice && trade.tradePrice.toFixed(8) >= limitPrice)
           throw new HttpException(
             500,
             req.body.side === 'BUY'
-              ? `Swap price ${trade.tradePrice} exceeds limitPrice ${limitPrice}`
-              : `Swap price ${trade.tradePrice} lower than limitPrice ${limitPrice}`
+              ? SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE(
+                  trade.tradePrice.toFixed(8),
+                  limitPrice
+                )
+              : SWAP_PRICE_LOWER_THAN_LIMIT_PRICE_ERROR_MESSAGE(
+                  trade.tradePrice.toFixed(8),
+                  limitPrice
+                ),
+            req.body.side === 'BUY'
+              ? SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_CODE
+              : SWAP_PRICE_LOWER_THAN_LIMIT_PRICE_ERROR_CODE
           );
 
         const tx = await pangolin.executeTrade(
