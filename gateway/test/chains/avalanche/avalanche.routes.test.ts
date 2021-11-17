@@ -108,6 +108,9 @@ describe('POST /avalanche/nonce', () => {
 describe('POST /avalanche/approve', () => {
   it('should return 200', async () => {
     patchGetWallet();
+    avalanche.getContract = jest.fn().mockReturnValue({
+      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+    });
     patch(avalanche.nonceManager, 'getNonce', () => 115);
     patchGetTokenBySymbol();
     patchApproveERC20();

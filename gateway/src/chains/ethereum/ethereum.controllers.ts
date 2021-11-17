@@ -75,11 +75,16 @@ export async function allowances(
   const approvals: Record<string, string> = {};
   await Promise.all(
     Object.keys(tokens).map(async (symbol) => {
+      // instantiate a contract and pass in provider for read-only access
+      const contract = ethereumish.getContract(
+        tokens[symbol].address,
+        ethereumish.provider
+      );
       approvals[symbol] = tokenValueToString(
         await ethereumish.getERC20Allowance(
+          contract,
           wallet,
           spender,
-          tokens[symbol].address,
           tokens[symbol].decimals
         )
       );
@@ -117,9 +122,11 @@ export async function balances(
       if (tokens[symbol] !== undefined) {
         const address = tokens[symbol].address;
         const decimals = tokens[symbol].decimals;
+        // instantiate a contract and pass in provider for read-only access
+        const contract = ethereumish.getContract(address, ethereumish.provider);
         const balance = await ethereumish.getERC20Balance(
+          contract,
           wallet,
-          address,
           decimals
         );
         balances[symbol] = tokenValueToString(balance);
@@ -195,16 +202,20 @@ export async function approve(
   if (maxPriorityFeePerGas) {
     maxPriorityFeePerGasBigNumber = BigNumber.from(maxPriorityFeePerGas);
   }
+  // instantiate a contract and pass in wallet, which act on behalf of that signer
+  const contract = ethereumish.getContract(fullToken.address, wallet);
+
   // convert strings to BigNumber
   // call approve function
   const approval = await ethereumish.approveERC20(
+    contract,
     wallet,
     spender,
-    fullToken.address,
     amountBigNumber,
     nonce,
     maxFeePerGasBigNumber,
-    maxPriorityFeePerGasBigNumber
+    maxPriorityFeePerGasBigNumber,
+    ethereumish.gasPrice
   );
 
   return {
