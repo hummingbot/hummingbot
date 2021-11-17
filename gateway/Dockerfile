@@ -16,14 +16,14 @@ WORKDIR /usr/src/app
 
 # install dependancies
 COPY package*.json ./
-COPY yarn.lock ./
-
-EXPOSE 5000
+# COPY yarn.lock ./
 
 RUN yarn
 
 # copy pwd file to container
 COPY . .
+
+EXPOSE 5000
 
 RUN yarn build
 
