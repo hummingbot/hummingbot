@@ -76,6 +76,9 @@ const patchPriceSwapOut = () => {
             toSignificant: () => 100,
           }),
         },
+        tradePrice: {
+          toFixed: () => '100',
+        },
       },
     };
   });
@@ -90,6 +93,9 @@ const patchPriceSwapIn = () => {
       trade: {
         executionPrice: {
           toSignificant: () => 100,
+        },
+        tradePrice: {
+          toFixed: () => '100',
         },
       },
     };
@@ -325,4 +331,89 @@ describe('POST /avalanche/pangolin/trade', () => {
       .set('Accept', 'application/json')
       .expect(404);
   });
+
+  it('should return 500 when base token is unknown', async () => {
+    patchForSell();
+    patch(PangolinRoutes.avalanche, 'getTokenBySymbol', (symbol: string) => {
+      if (symbol === 'WETH') {
+        return {
+          chainId: 43114,
+          name: 'WETH',
+          symbol: 'WETH',
+          address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
+          decimals: 18,
+        };
+      } else {
+        return null;
+      }
+    });
+
+    await request(app)
+      .post(`/avalanche/pangolin/trade`)
+      .send({
+        quote: 'WETH',
+        base: 'BITCOIN',
+        amount: '10000',
+        privateKey:
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        side: 'BUY',
+        nonce: 21,
+        maxFeePerGas: '5000000000',
+        maxPriorityFeePerGas: '5000000000',
+      })
+      .set('Accept', 'application/json')
+      .expect(500);
+  });
+
+  it('should return 500 when quote token is unknown', async () => {
+    patchForSell();
+    patch(PangolinRoutes.avalanche, 'getTokenBySymbol', (symbol: string) => {
+      if (symbol === 'WETH') {
+        return {
+          chainId: 43114,
+          name: 'WETH',
+          symbol: 'WETH',
+          address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
+          decimals: 18,
+        };
+      } else {
+        return null;
+      }
+    });
+
+    await request(app)
+      .post(`/avalanche/pangolin/trade`)
+      .send({
+        quote: 'BITCOIN',
+        base: 'WETH',
+        amount: '10000',
+        privateKey:
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        side: 'BUY',
+        nonce: 21,
+        maxFeePerGas: '5000000000',
+        maxPriorityFeePerGas: '5000000000',
+      })
+      .set('Accept', 'application/json')
+      .expect(500);
+  });
+
+  // it('should return 500 when limit price is exceeded ', async () => {
+  //   patchForSell();
+
+  //   await request(app)
+  //     .post(`/avalanche/pangolin/trade`)
+  //     .send({
+  //       quote: 'WAVAX',
+  //       base: 'WETH',
+  //       amount: '10000',
+  //       privateKey:
+  //         'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+  //       side: 'SELL',
+  //       nonce: 21,
+  //       limitPrice: '99',
+  //     })
+  //     .set('Accept', 'application/json')
+  //     .expect(500);
+  // });
 });
