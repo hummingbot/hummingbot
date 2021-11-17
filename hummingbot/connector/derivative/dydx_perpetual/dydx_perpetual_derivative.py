@@ -189,6 +189,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._orders_pending_ack = set()
         self._position_mode = PositionMode.ONEWAY
         self._margin_fractions = {}
+        self._trading_pair_last_funding_payment_ts: Dict[str, float] = {}
 
     @property
     def name(self) -> str:
@@ -570,6 +571,11 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
             self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
             self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
 
+            self._trading_pair_last_funding_payment_ts.update({
+                trading_pair: self.time_now_s()
+                for trading_pair in self._trading_pairs
+            })
+
     def _stop_network(self):
         self._last_poll_timestamp = 0
         self._poll_notifier.clear()
@@ -902,6 +908,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                                                                             funding_rate=funding_rate,
                                                                             trading_pair=trading_pair,
                                                                             amount=payment))
+                            self._trading_pair_last_funding_payment_ts[trading_pair] = ts
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -923,6 +930,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                     self._update_trading_rules(),
                     self._update_order_status(),
                     self._update_funding_rates(),
+                    self._update_funding_payments()
                 )
             except asyncio.CancelledError:
                 raise
@@ -1078,6 +1086,33 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
         except KeyError:
             self.logger().warning(f"Unable to poll for fills for order {tracked_order.client_order_id}"
                                   f"(tracked_order.exchange_order_id): unexpected response data {data}")
+
+    async def _update_funding_payments(self):
+        for trading_pair in self._trading_pairs:
+            try:
+
+                response = await self.dydx_client.get_funding_payments(market=trading_pair,
+                                                                       before_ts=self.time_now_s())
+                funding_payments = response["fundingPayments"]
+                for funding_payment in funding_payments:
+                    ts = dateparse(funding_payment['effectiveAt']).timestamp()
+                    if ts < self._trading_pair_last_funding_payment_ts[trading_pair]:
+                        break  # Any subsequent funding payments would have a ts < last_funding_payment_ts
+                    funding_rate: Decimal = Decimal(funding_payment["rate"])
+                    trading_pair: str = funding_payment["market"]
+                    payment: Decimal = Decimal(funding_payment["payment"])
+                    action: str = "paid" if payment < s_decimal_0 else "received"
+
+                    self.logger().info(f"Funding payment of {payment} {action} on {trading_pair} market")
+                    self.trigger_event(MARKET_FUNDING_PAYMENT_COMPLETED_EVENT_TAG,
+                                       FundingPaymentCompletedEvent(timestamp=ts,
+                                                                    market=self.name,
+                                                                    funding_rate=funding_rate,
+                                                                    trading_pair=trading_pair,
+                                                                    amount=payment))
+                    self._trading_pair_last_funding_payment_ts[trading_pair] = ts
+            except DydxApiError as e:
+                self.logger().warning(f"Unable to poll for funding payments {trading_pair}. ({e})")
 
     def set_leverage(self, trading_pair: str, leverage: int = 1):
         safe_ensure_future(self._set_leverage(trading_pair, leverage))
