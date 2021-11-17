@@ -494,6 +494,13 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 self.stop_tracking_order(in_flight_order.client_order_id)
                 self.trigger_event(ORDER_CANCELLED_EVENT, cancellation_event)
                 return False
+            elif "is already filled" in str(e):
+                response = await self.dydx_client.get_order(exchange_order_id)
+                order_status = response["order"]
+                in_flight_order.update(order_status)
+                self._issue_order_events(in_flight_order)
+                self.stop_tracking_order(in_flight_order.client_order_id)
+                return False
             else:
                 self.logger().warning(f"Unable to cancel order {exchange_order_id}: {str(e)}")
                 return False
