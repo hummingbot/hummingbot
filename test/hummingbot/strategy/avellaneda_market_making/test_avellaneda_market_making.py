@@ -701,8 +701,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.strategy.measure_order_book_liquidity()
         self.strategy.calculate_reserved_price_and_optimal_spread()
 
-        expected_bid_spreads = [Decimal('0E-28'), Decimal('0.3004893648473526161284873639'), Decimal('0.6009787296947052322569747278'), Decimal('0.9014680945420578483854620917')]
-        expected_ask_spreads = [Decimal('0E-28'), Decimal('0.3004893648473526161284873639'), Decimal('0.6009787296947052322569747278'), Decimal('0.9014680945420578483854620917')]
+        expected_bid_spreads = [Decimal('0E-28'), Decimal('0.3004893648473526161284873639'), Decimal('0.5347170474218074567988620706'), Decimal('0.8020755711327111851982931059')]
+        expected_ask_spreads = [Decimal('0E-28'), Decimal('0.3004893648473526161284873639'), Decimal('0.5347170474218074567988620706'), Decimal('0.8020755711327111851982931059')]
 
         bid_level_spreads, ask_level_spreads = self.strategy._get_level_spreads()
 
