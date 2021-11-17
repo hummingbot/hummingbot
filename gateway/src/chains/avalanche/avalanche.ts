@@ -7,10 +7,6 @@ import { AvalancheConfig } from './avalanche.config';
 import { Provider } from '@ethersproject/abstract-provider';
 import { Ethereumish } from '../ethereum/ethereum';
 import { PangolinConfig } from './pangolin/pangolin.config';
-
-// MKR does not match the ERC20 perfectly so we need to use a separate ABI.
-const MKR_ADDRESS = '0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2';
-
 export class Avalanche extends EthereumBase implements Ethereumish {
   private static _instance: Avalanche;
   private _gasPrice: number;
@@ -69,9 +65,7 @@ export class Avalanche extends EthereumBase implements Ethereumish {
   // }
 
   getContract(tokenAddress: string, signerOrProvider?: Wallet | Provider) {
-    return tokenAddress === MKR_ADDRESS
-      ? new Contract(tokenAddress, abi.MKRAbi, signerOrProvider)
-      : new Contract(tokenAddress, abi.ERC20Abi, signerOrProvider);
+    return new Contract(tokenAddress, abi.ERC20Abi, signerOrProvider);
   }
 
   getSpender(reqSpender: string): string {
