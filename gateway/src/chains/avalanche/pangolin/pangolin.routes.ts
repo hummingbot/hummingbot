@@ -184,7 +184,12 @@ export namespace PangolinRoutes {
 
         const gasPrice = avalanche.gasPrice;
         const gasLimit = ConfigManager.config.UNISWAP_GAS_LIMIT;
-        if (limitPrice && trade.tradePrice.toFixed(8) >= limitPrice)
+        if (
+          limitPrice &&
+          BigNumber.from(trade.tradePrice.toFixed(8)).gte(
+            BigNumber.from(limitPrice)
+          )
+        )
           throw new HttpException(
             500,
             req.body.side === 'BUY'

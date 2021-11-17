@@ -74,10 +74,8 @@ const patchPriceSwapOut = () => {
         executionPrice: {
           invert: jest.fn().mockReturnValue({
             toSignificant: () => 100,
+            toFixed: () => '100',
           }),
-        },
-        tradePrice: {
-          toFixed: () => '100',
         },
       },
     };
@@ -93,8 +91,6 @@ const patchPriceSwapIn = () => {
       trade: {
         executionPrice: {
           toSignificant: () => 100,
-        },
-        tradePrice: {
           toFixed: () => '100',
         },
       },
@@ -398,22 +394,75 @@ describe('POST /avalanche/pangolin/trade', () => {
       .expect(500);
   });
 
-  // it('should return 500 when limit price is exceeded ', async () => {
-  //   patchForSell();
+  it('should return 200 for SELL with limitPrice', async () => {
+    patchForSell();
+    await request(app)
+      .post(`/avalanche/pangolin/trade`)
+      .send({
+        quote: 'WAVAX',
+        base: 'WETH',
+        amount: '10000',
+        privateKey:
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        side: 'SELL',
+        nonce: 21,
+        limitPrice: '999999999999999999999',
+      })
+      .set('Accept', 'application/json')
+      .expect(200);
+  });
 
-  //   await request(app)
-  //     .post(`/avalanche/pangolin/trade`)
-  //     .send({
-  //       quote: 'WAVAX',
-  //       base: 'WETH',
-  //       amount: '10000',
-  //       privateKey:
-  //         'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
-  //       side: 'SELL',
-  //       nonce: 21,
-  //       limitPrice: '99',
-  //     })
-  //     .set('Accept', 'application/json')
-  //     .expect(500);
-  // });
+  it('should return 200 for BUY with limitPrice', async () => {
+    patchForBuy();
+    await request(app)
+      .post(`/avalanche/pangolin/trade`)
+      .send({
+        quote: 'WAVAX',
+        base: 'WETH',
+        amount: '10000',
+        privateKey:
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        side: 'BUY',
+        nonce: 21,
+        limitPrice: '999999999999999999999',
+      })
+      .set('Accept', 'application/json')
+      .expect(200);
+  });
+
+  it('should return 200 for SELL with price less than limitPrice', async () => {
+    patchForSell();
+    await request(app)
+      .post(`/avalanche/pangolin/trade`)
+      .send({
+        quote: 'WAVAX',
+        base: 'WETH',
+        amount: '10000',
+        privateKey:
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        side: 'SELL',
+        nonce: 21,
+        limitPrice: '9',
+      })
+      .set('Accept', 'application/json')
+      .expect(500);
+  });
+
+  it('should return 200 for BUY with price less than limitPrice', async () => {
+    patchForBuy();
+    await request(app)
+      .post(`/avalanche/pangolin/trade`)
+      .send({
+        quote: 'WAVAX',
+        base: 'WETH',
+        amount: '10000',
+        privateKey:
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        side: 'BUY',
+        nonce: 21,
+        limitPrice: '9',
+      })
+      .set('Accept', 'application/json')
+      .expect(500);
+  });
 });

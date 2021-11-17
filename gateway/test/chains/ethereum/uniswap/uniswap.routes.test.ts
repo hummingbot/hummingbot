@@ -389,7 +389,7 @@ describe('POST /eth/uniswap/trade', () => {
   });
 
   it('should return 500 for SELL with price smaller than limitPrice', async () => {
-    patchForBuy();
+    patchForSell();
     await request(app)
       .post(`/eth/uniswap/trade`)
       .send({
