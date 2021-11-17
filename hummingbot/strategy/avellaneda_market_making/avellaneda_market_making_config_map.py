@@ -95,7 +95,7 @@ avellaneda_market_making_config_map = {
                   default=Decimal("0.041666667")),
     "min_spread":
         ConfigVar(key="min_spread",
-                  prompt="Enter minimum spread limit >>> ",
+                  prompt="Enter minimum spread limit (as % of mid price) >>> ",
                   type_str="decimal",
                   validator=lambda v: validate_decimal(v, 0, inclusive=True),
                   default=Decimal("0")),
