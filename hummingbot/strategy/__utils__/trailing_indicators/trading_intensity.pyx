@@ -24,6 +24,23 @@ cdef class TradingIntensityIndicator():
         warnings.simplefilter("ignore", OptimizeWarning)
 
     def _simulate_execution(self, bids_df, asks_df):
+        self.c_simulate_execution(bids_df, asks_df)
+
+    cdef c_simulate_execution(self, new_bids_df, new_asks_df):
+        cdef:
+            object _bids_df = self._bids_df
+            object _asks_df = self._asks_df
+            object bids_df = new_bids_df
+            object asks_df = new_asks_df
+            int _sampling_length = self._sampling_length
+            object bid
+            object ask
+            object price
+            object bid_prev
+            object ask_prev
+            object price_prev
+            list trades
+
         # Estimate market orders that happened
         # Assume every movement in the BBO is caused by a market order and its size is the volume differential
 
@@ -31,15 +48,15 @@ cdef class TradingIntensityIndicator():
         ask = asks_df["price"].iloc[0]
         price = (bid + ask) / 2
 
-        bid_prev = self._bids_df["price"].iloc[0]
-        ask_prev = self._asks_df["price"].iloc[0]
+        bid_prev = _bids_df["price"].iloc[0]
+        ask_prev = _asks_df["price"].iloc[0]
         price_prev = (bid_prev + ask_prev) / 2
 
         trades = []
 
         # Higher bids were filled - someone matched them - a determined seller
         # Equal bids - if amount lower - partially filled
-        for index, row in self._bids_df[self._bids_df['price'] >= bid].iterrows():
+        for index, row in _bids_df[_bids_df['price'] >= bid].iterrows():
             if row['price'] == bid:
                 if bids_df["amount"].iloc[0] < row['amount']:
                     amount = row['amount'] - bids_df["amount"].iloc[0]
@@ -52,7 +69,7 @@ cdef class TradingIntensityIndicator():
 
         # Lower asks were filled - someone matched them - a determined buyer
         # Equal asks - if amount lower - partially filled
-        for index, row in self._asks_df[self._asks_df['price'] <= ask].iterrows():
+        for index, row in _asks_df[_asks_df['price'] <= ask].iterrows():
             if row['price'] == ask:
                 if asks_df["amount"].iloc[0] < row['amount']:
                     amount = row['amount'] - asks_df["amount"].iloc[0]
@@ -65,10 +82,18 @@ cdef class TradingIntensityIndicator():
 
         # Add trades
         self._trades += [trades]
-        if len(self._trades) > self._sampling_length:
+        if len(self._trades) > _sampling_length:
             self._trades = self._trades[1:]
 
     def _estimate_intensity(self):
+        self.c_estimate_intensity()
+
+    cdef c_estimate_intensity(self):
+        cdef:
+            dict trades_consolidated
+            list lambdas
+            list price_levels
+
         # Calculate lambdas / trading intensities
         lambdas = []
 
