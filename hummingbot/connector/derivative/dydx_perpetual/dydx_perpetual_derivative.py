@@ -1096,7 +1096,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 funding_payments = response["fundingPayments"]
                 for funding_payment in funding_payments:
                     ts = dateparse(funding_payment['effectiveAt']).timestamp()
-                    if ts < self._trading_pair_last_funding_payment_ts[trading_pair]:
+                    if ts <= self._trading_pair_last_funding_payment_ts[trading_pair]:
                         break  # Any subsequent funding payments would have a ts < last_funding_payment_ts
                     funding_rate: Decimal = Decimal(funding_payment["rate"])
                     trading_pair: str = funding_payment["market"]
