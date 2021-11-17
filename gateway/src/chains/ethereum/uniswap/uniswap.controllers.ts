@@ -215,8 +215,10 @@ export async function trade(
 
   if (req.side === 'BUY') {
     const price = result.trade.executionPrice.invert();
-
-    if (limitPrice && price.toFixed(8) >= limitPrice.toString())
+    if (
+      limitPrice &&
+      BigNumber.from(price.toFixed(8)).gte(BigNumber.from(limitPrice))
+    )
       throw new HttpException(
         500,
         SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE(price, limitPrice),
@@ -249,7 +251,10 @@ export async function trade(
     };
   } else {
     const price = result.trade.executionPrice;
-    if (limitPrice && price.toFixed(8) >= limitPrice.toString())
+    if (
+      limitPrice &&
+      BigNumber.from(price.toFixed(8)).gte(BigNumber.from(limitPrice))
+    )
       throw new HttpException(
         500,
         SWAP_PRICE_LOWER_THAN_LIMIT_PRICE_ERROR_MESSAGE(price, limitPrice),
