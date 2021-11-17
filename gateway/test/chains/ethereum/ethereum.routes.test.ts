@@ -25,16 +25,6 @@ beforeAll(async () => {
 
 afterEach(() => unpatch());
 
-describe('GET /eth', () => {
-  it('should return 200', async () => {
-    request(app)
-      .get(`/eth`)
-      .expect('Content-Type', /json/)
-      .expect(200)
-      .expect((res) => expect(res.body.connection).toBe(true));
-  });
-});
-
 const patchGetWallet = () => {
   patch(eth, 'getWallet', () => {
     return {
@@ -47,15 +37,38 @@ const patchGetNonce = () => {
   patch(eth.nonceManager, 'getNonce', () => 2);
 };
 
+const patchGetERC20Balance = () => {
+  patch(eth, 'getERC20Balance', () => ({ value: 1, decimals: 3 }));
+};
+
+const patchGetEthBalance = () => {
+  patch(eth, 'getEthBalance', () => ({ value: 1, decimals: 3 }));
+};
+
 const patchGetTokenBySymbol = () => {
-  patch(eth, 'getTokenBySymbol', () => {
-    return {
-      chainId: 42,
-      name: 'WETH',
-      symbol: 'WETH',
-      address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
-      decimals: 18,
-    };
+  patch(eth, 'getTokenBySymbol', (symbol: string) => {
+    let result;
+    switch (symbol) {
+      case 'WETH':
+        result = {
+          chainId: 42,
+          name: 'WETH',
+          symbol: 'WETH',
+          address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
+          decimals: 18,
+        };
+        break;
+      case 'DAI':
+        result = {
+          chainId: 42,
+          name: 'DAI',
+          symbol: 'DAI',
+          address: '0xd0A1E359811322d97991E03f863a0C30C2cFFFFF',
+          decimals: 18,
+        };
+        break;
+    }
+    return result;
   });
 };
 
@@ -88,6 +101,50 @@ const patchApproveERC20 = (tx_type?: string) => {
   });
 };
 
+describe('GET /eth', () => {
+  it('should return 200', async () => {
+    request(app)
+      .get(`/eth`)
+      .expect('Content-Type', /json/)
+      .expect(200)
+      .expect((res) => expect(res.body.connection).toBe(true));
+  });
+});
+
+describe('POST /eth/balances', () => {
+  it('should return 200', async () => {
+    patchGetWallet();
+    patchGetTokenBySymbol();
+    patchGetEthBalance();
+    patchGetERC20Balance();
+    eth.getContract = jest.fn().mockReturnValue({
+      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+    });
+
+    await request(app)
+      .post(`/eth/balances`)
+      .send({
+        privateKey:
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        tokenSymbols: ['ETH', 'WETH', 'DAI'],
+      })
+      .set('Accept', 'application/json')
+      .expect('Content-Type', /json/)
+      .expect(200)
+      .expect((res) => expect(res.body.balances.ETH).toBeDefined())
+      .expect((res) => expect(res.body.balances.WETH).toBeDefined())
+      .expect((res) => expect(res.body.balances.DAI).toBeDefined());
+  });
+  it('should return 404 when parameters are invalid', async () => {
+    await request(app)
+      .post(`/eth/balances`)
+      .send({
+        privateKey: 'da857cbda0ba96757fed842617a4',
+      })
+      .expect(404);
+  });
+});
+
 describe('POST /eth/nonce', () => {
   it('should return 200', async () => {
     patchGetWallet();
@@ -116,8 +173,11 @@ describe('POST /eth/nonce', () => {
 });
 
 describe('POST /eth/approve', () => {
-  it('approve without nonce parmeter should return 200', async () => {
+  it('approve without nonce parameter should return 200', async () => {
     patchGetWallet();
+    eth.getContract = jest.fn().mockReturnValue({
+      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+    });
     patch(eth.nonceManager, 'getNonce', () => 115);
     patchGetTokenBySymbol();
     patchApproveERC20();
