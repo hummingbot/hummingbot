@@ -83,6 +83,12 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     risk_factor: Decimal = Decimal("0.5"),
                     order_amount_shape_factor: Decimal = Decimal("0.0"),
                     closing_time: Decimal = Decimal("1"),
+                    is_fixed_datespan_execution: bool = False,
+                    is_fixed_timespan_execution: bool = False,
+                    start_date_time: str = None,
+                    end_date_time: str = None,
+                    start_time: str = None,
+                    end_time: str = None,
                     min_spread: Decimal = Decimal("0"),
                     debug_csv_path: str = '',
                     volatility_buffer_size: int = 200,
@@ -129,8 +135,13 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._kappa = None
         self._gamma = risk_factor
         self._eta = order_amount_shape_factor
-        self._time_left = closing_time
-        self._closing_time = closing_time
+        self._is_fixed_datespan_execution = _is_fixed_datespan_execution
+        self._is_fixed_timespan_execution = _is_fixed_timespan_execution
+        self._start_date_time = _start_date_time
+        self._end_date_time = _end_date_time
+        self._start_time = _start_time
+        self._end_time = _end_time
+        self._time_left = None
         self._min_spread = min_spread
         self._latest_parameter_calculation_vol = s_decimal_zero
         self._reserved_price = s_decimal_zero
@@ -354,12 +365,52 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._time_left = value
 
     @property
-    def closing_time(self):
-        return self._closing_time
+    def is_fixed_datespan_execution(self):
+        return self._is_fixed_datespan_execution
 
     @closing_time.setter
-    def closing_time(self, value):
-        self._closing_time = value
+    def is_fixed_datespan_execution(self, value):
+        self._is_fixed_datespan_execution = value
+
+    @property
+    def is_fixed_timespan_execution(self):
+        return self._is_fixed_timespan_execution
+
+    @closing_time.setter
+    def is_fixed_timespan_execution(self, value):
+        self._is_fixed_timespan_execution = value
+
+    @property
+    def start_date_time(self):
+        return self._start_date_time
+
+    @closing_time.setter
+    def start_date_time(self, value):
+        self._start_date_time = value
+
+    @property
+    def end_date_time(self):
+        return self._end_date_time
+
+    @closing_time.setter
+    def end_date_time(self, value):
+        self._end_date_time = value
+
+    @property
+    def start_time(self):
+        return self._start_time
+
+    @closing_time.setter
+    def start_time(self, value):
+        self._start_time = value
+
+    @property
+    def end_time(self):
+        return self._end_time
+
+    @closing_time.setter
+    def end_time(self, value):
+        self._end_time = value
 
     def get_price(self) -> float:
         return self.get_mid_price()

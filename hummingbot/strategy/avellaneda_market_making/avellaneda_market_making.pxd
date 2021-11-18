@@ -43,6 +43,12 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         object _gamma
         object _eta
         object _closing_time
+        bint _is_fixed_datespan_execution
+        bint _is_fixed_timespan_execution
+        str _start_date_time
+        str _end_date_time
+        str _start_time
+        str _end_time
         double _min_spread
         object _time_left
         object _q_adjustment_factor
