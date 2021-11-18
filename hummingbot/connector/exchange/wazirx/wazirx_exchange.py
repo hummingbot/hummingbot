@@ -895,33 +895,3 @@ class WazirxExchange(ExchangeBase):
             except Exception:
                 self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
                 await asyncio.sleep(5.0)
-
-    async def get_open_orders(self) -> List[OpenOrder]:
-        tracked_orders = {}
-        for order in list(self._in_flight_orders.values()):
-            tracked_orders[await order.get_exchange_order_id()] = order.client_order_id
-
-        result = await self._api_request(
-            "get",
-            CONSTANTS.GET_OPEN_ORDERS_PATH_URL,
-            {},
-            True
-        )
-        ret_val = []
-        for order in result["result"]:
-            if order["id"] in tracked_orders:
-                ret_val.append(
-                    OpenOrder(
-                        client_order_id=tracked_orders[order["id"]],
-                        trading_pair=wazirx_utils.convert_from_exchange_trading_pair(order["symbol"]),
-                        price=Decimal(str(order["price"])),
-                        amount=Decimal(str(order["origQty"])),
-                        executed_amount=Decimal(str(order["executedQty"])),
-                        status=order["status"],
-                        order_type=OrderType.LIMIT,
-                        is_buy=True if order["side"].lower() == "buy" else False,
-                        time=int(order["createdTime"]),
-                        exchange_order_id=order["id"]
-                    )
-                )
-        return ret_val
