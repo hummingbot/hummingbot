@@ -49,9 +49,11 @@ from hummingbot.connector.exchange.huobi.huobi_auth import HuobiAuth
 from hummingbot.connector.exchange.huobi.huobi_in_flight_order import HuobiInFlightOrder
 from hummingbot.connector.exchange.huobi.huobi_order_book_tracker import HuobiOrderBookTracker
 from hummingbot.connector.exchange.huobi.huobi_utils import (
+    build_api_factory,
     convert_to_exchange_trading_pair,
     convert_from_exchange_trading_pair,
-    get_new_client_order_id)
+    get_new_client_order_id,
+)
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange.huobi.huobi_user_stream_tracker import HuobiUserStreamTracker
@@ -118,8 +120,10 @@ cdef class HuobiExchange(ExchangeBase):
         self._in_flight_orders = {}
         self._last_poll_timestamp = 0
         self._last_timestamp = 0
+        self._api_factory = build_api_factory()
         self._order_book_tracker = HuobiOrderBookTracker(
-            trading_pairs=trading_pairs
+            trading_pairs=trading_pairs,
+            api_factory=self._api_factory,
         )
         self._poll_notifier = asyncio.Event()
         self._shared_client = None

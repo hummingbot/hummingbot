@@ -8,6 +8,8 @@ from typing import (
 )
 from zero_ex.order_utils import Order as ZeroExOrder
 
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+
 
 TradeFillOrderDetails = namedtuple("TradeFillOrderDetails", "market exchange_trade_id symbol")
 
@@ -37,3 +39,8 @@ def json_to_zrx_order(data: Optional[Dict[str, any]]) -> Optional[ZeroExOrder]:
         else:
             intermediate[key] = value
     return ZeroExOrder(intermediate)
+
+
+def build_api_factory() -> WebAssistantsFactory:
+    api_factory = WebAssistantsFactory()
+    return api_factory
