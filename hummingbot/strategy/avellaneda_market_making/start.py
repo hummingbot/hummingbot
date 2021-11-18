@@ -46,7 +46,14 @@ def start(self):
         risk_factor = c_map.get("risk_factor").value
         order_amount_shape_factor = c_map.get("order_amount_shape_factor").value
 
-        closing_time = c_map.get("closing_time").value * Decimal(3600 * 24 * 1e3)
+        is_fixed_datespan_execution = c_map.get("is_fixed_datespan_execution").value
+        is_fixed_timespan_execution = c_map.get("is_fixed_timespan_execution").value
+
+        start_date_time = c_map.get("start_date_time").value
+        end_date_time = c_map.get("end_date_time").value
+        start_time = c_map.get("start_time").value
+        end_time = c_map.get("end_time").value
+
         min_spread = c_map.get("min_spread").value
         volatility_buffer_size = c_map.get("volatility_buffer_size").value
         should_wait_order_cancel_confirmation = c_map.get("should_wait_order_cancel_confirmation")
@@ -74,7 +81,12 @@ def start(self):
             hb_app_notification=True,
             risk_factor=risk_factor,
             order_amount_shape_factor=order_amount_shape_factor,
-            closing_time=closing_time,
+            is_fixed_datespan_execution=is_fixed_datespan_execution,
+            is_fixed_timespan_execution=is_fixed_timespan_execution,
+            start_date_time=start_date_time,
+            end_date_time=end_date_time,
+            start_time=start_time,
+            end_time=end_time,
             min_spread=min_spread,
             debug_csv_path=debug_csv_path,
             volatility_buffer_size=volatility_buffer_size,

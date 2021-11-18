@@ -7,6 +7,8 @@ from hummingbot.client.config.config_validators import (
     validate_int,
     validate_bool,
     validate_decimal,
+    validate_datetime_iso_string,
+    validate_time_iso_string,
 )
 from hummingbot.client.settings import (
     required_exchanges,
@@ -59,6 +61,53 @@ avellaneda_market_making_config_map = {
                   prompt=maker_trading_pair_prompt,
                   validator=validate_exchange_trading_pair,
                   prompt_on_new=True),
+    "is_fixed_datespan_execution":
+        ConfigVar(key="is_fixed_datespan_execution",
+                  prompt="Do you want the strategy to run only between specific dates? (Yes/No) >>> ",
+                  type_str="bool",
+                  default=False,
+                  validator=validate_bool,
+                  prompt_on_new=True),
+    "is_fixed_timespan_execution":
+        ConfigVar(key="is_fixed_timespan_execution",
+                  prompt="Do you want the strategy to run only between specific times in a day? (Yes/No) >>> ",
+                  type_str="bool",
+                  default=False,
+                  validator=validate_bool,
+                  required_if=lambda: not avellaneda_market_making_config_map.get("is_fixed_datespan_execution").value,
+                  prompt_on_new=True),
+    "start_date_time":
+        ConfigVar(key="start_date_time",
+                  prompt="Please enter the start date and time"
+                         " (YYYY-MM-DD HH:MM:SS) >>> ",
+                  type_str="str",
+                  validator=validate_datetime_iso_string,
+                  required_if=lambda: avellaneda_market_making_config_map.get("is_fixed_datespan_execution").value,
+                  prompt_on_new=True),
+    "end_date_time":
+        ConfigVar(key="start_date_time",
+                  prompt="Please enter the end date and time"
+                         " (YYYY-MM-DD HH:MM:SS) >>> ",
+                  type_str="str",
+                  validator=validate_datetime_iso_string,
+                  required_if=lambda: avellaneda_market_making_config_map.get("is_fixed_datespan_execution").value,
+                  prompt_on_new=True),
+    "start_time":
+        ConfigVar(key="start_time",
+                  prompt="Please enter the start time"
+                         " (HH:MM:SS) >>> ",
+                  type_str="str",
+                  validator=validate_time_iso_string,
+                  required_if=lambda: avellaneda_market_making_config_map.get("is_fixed_timespan_execution").value,
+                  prompt_on_new=True),
+    "end_time":
+        ConfigVar(key="end_time",
+                  prompt="Please enter the end time"
+                         " (HH:MM:SS) >>> ",
+                  type_str="str",
+                  validator=validate_time_iso_string,
+                  required_if=lambda: avellaneda_market_making_config_map.get("is_fixed_timespan_execution").value,
+                  prompt_on_new=True),
     "order_amount":
         ConfigVar(key="order_amount",
                   prompt=order_amount_prompt,
@@ -86,13 +135,6 @@ avellaneda_market_making_config_map = {
                   type_str="decimal",
                   default=Decimal("0"),
                   validator=lambda v: validate_decimal(v, 0, 1, inclusive=True)),
-    "closing_time":
-        ConfigVar(key="closing_time",
-                  prompt="Enter operational closing time (T). (How long will each trading cycle last "
-                         "in days or fractions of day) >>> ",
-                  type_str="decimal",
-                  validator=lambda v: validate_decimal(v, 0, 10, inclusive=False),
-                  default=Decimal("0.041666667")),
     "min_spread":
         ConfigVar(key="min_spread",
                   prompt="Enter minimum spread limit (as % of mid price) >>> ",
