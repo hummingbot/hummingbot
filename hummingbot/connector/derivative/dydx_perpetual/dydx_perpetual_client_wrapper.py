@@ -104,6 +104,10 @@ class DydxPerpetualClientWrapper:
                                                      ))
         return await f
 
+    async def get_server_time(self):
+        f = self._loop.run_in_executor(None, self.client.public.get_time)
+        return await f
+
     def sign(self, request_path, method, timestamp, data):
         sign = self.client.private.sign(request_path=request_path,
                                         method=method,

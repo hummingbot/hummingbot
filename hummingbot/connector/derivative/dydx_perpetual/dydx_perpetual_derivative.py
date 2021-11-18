@@ -596,7 +596,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
     async def check_network(self) -> NetworkStatus:
         try:
-            await self.api_request("GET", CONSTANTS.MARKETS_URL)
+            await self.dydx_client.get_server_time()
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -827,7 +827,10 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                             position_key = self.position_key(market)
                             if position_key not in self._account_positions and market in self._trading_pairs:
                                 self._create_position_from_rest_pos_item(position)
-
+                if 'accounts' in data:
+                    for account in data['accounts']:
+                        quote = 'USD'
+                        self._account_available_balances[quote] = Decimal(account['quoteBalance'])
                 if 'orders' in data:
                     for order in data['orders']:
                         exchange_order_id: str = order['id']
