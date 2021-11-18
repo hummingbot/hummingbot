@@ -558,7 +558,7 @@ class WazirxExchange(ExchangeBase):
                 api_params,
                 True
             )
-            
+
             if result["status"] == "wait":
                 await wait_til(lambda: tracked_order.is_cancelled)
                 return order_id
