@@ -50,7 +50,7 @@ cdef class EventLogger(EventListener):
         self.c_call(event_object)
 
     cdef c_call(self, object event_object):
-        self._logged_events.get(type(event_object), default=self._generic_logged_events).append(event_object)
+        self._logged_events.get(type(event_object), self._generic_logged_events).append(event_object)
         event_object_type = type(event_object)
 
         should_notify = []
