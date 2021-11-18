@@ -3,7 +3,6 @@ import asyncio
 import logging
 import time
 import aiohttp
-import websockets
 import simplejson
 import ujson
 
@@ -100,64 +99,73 @@ class WazirxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
         order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
         return order_book
+    
+    async def _create_websocket_connection(self) -> aiohttp.ClientWebSocketResponse:
+        """
+        Initialize WebSocket client for APIOrderBookDataSource
+        """
+        try:
+            return await aiohttp.ClientSession().ws_connect(url=CONSTANTS.WSS_URL)
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self.logger().network(f"Unexpected error occured when connecting to WebSocket server. "
+                                  f"Error: {e}")
+            raise
 
-    async def _inner_messages(self, ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
-        # Terminate the recv() loop as soon as the next message timed out, so the outer loop can reconnect.
+    async def _iter_messages(self,
+                             ws: aiohttp.ClientWebSocketResponse) -> AsyncIterable[Any]:
         try:
             while True:
-                try:
-                    msg: str = await asyncio.wait_for(ws.recv(), timeout=self.MESSAGE_TIMEOUT)
-                    yield msg
-                except asyncio.TimeoutError:
-                    pong_waiter = await ws.ping()
-                    await asyncio.wait_for(pong_waiter, timeout=self.PING_TIMEOUT)
-        except asyncio.TimeoutError:
-            self.logger().warning("WebSocket ping timed out. Going to reconnect...")
-            return
-        except ConnectionClosed:
-            return
+                yield await ws.receive_json()
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self.logger().network(f"Unexpected error occured when parsing websocket payload. "
+                                  f"Error: {e}")
+            raise
         finally:
             await ws.close()
-
+    
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
-        """
-        Listen for trades using websocket trade channel
-        """
+        ws = None
         while True:
             try:
-                async with websockets.connect(CONSTANTS.WSS_URL) as ws:
-                    ws: websockets.WebSocketClientProtocol = ws
-                    streams = [wazirx_utils.convert_to_exchange_trading_pair(pair) + "@trades" for pair in self._trading_pairs]
-                    subscribe_request: Dict[str, Any] = {
-                        "event": "subscribe",
-                        "streams": streams
-                    }
-                    await ws.send(ujson.dumps(subscribe_request))
+                ws = await self._create_websocket_connection()
+                streams = [wazirx_utils.convert_to_exchange_trading_pair(pair) + "@trades" for pair in self._trading_pairs]
+                subscribe_request: Dict[str, Any] = {
+                    "event": "subscribe",
+                    "streams": streams
+                }
 
-                    async for raw_msg in self._inner_messages(ws):
-                        msg = simplejson.loads(raw_msg, parse_float=Decimal)
-                        if "stream" in msg:
-                            if "@trades" in msg["stream"]:
-                                for trade in msg["data"]["trades"]:
-                                    trade: Dict[Any] = trade
-                                    trade_timestamp: int = ms_timestamp_to_s(trade["E"])
-                                    trade_msg: OrderBookMessage = WazirxOrderBook.trade_message_from_exchange(
-                                        trade,
-                                        trade_timestamp,
-                                        metadata={"trading_pair": wazirx_utils.convert_from_exchange_trading_pair(trade["s"])}
-                                    )
-                                    output.put_nowait(trade_msg)
+                await ws.send_json(subscribe_request)
+
+                async for json_msg in self._iter_messages(ws):
+                    if "stream" in json_msg:
+                        if "@trades" in json_msg["stream"]:
+                            for trade in json_msg["data"]["trades"]:
+                                trade: Dict[Any] = trade
+                                trade_timestamp: int = ms_timestamp_to_s(trade["E"])
+                                trade_msg: OrderBookMessage = WazirxOrderBook.trade_message_from_exchange(
+                                    trade,
+                                    trade_timestamp,
+                                    metadata={"trading_pair": wazirx_utils.convert_from_exchange_trading_pair(trade["s"])}
+                                )
+                                output.put_nowait(trade_msg)
             except asyncio.CancelledError:
                 raise
-            except asyncio.TimeoutError:
-                self.logger().warning("WebSocket ping timed out. Reconnecting after 5 seconds...")
             except Exception:
-                self.logger().error("Unexpected error while maintaining the user event listen key. Retrying after "
-                                    "5 seconds...", exc_info=True)
+                self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
+                                    exc_info=True)
             finally:
-                await asyncio.sleep(5)
+                ws and await ws.close()
+                await self._sleep(30.0)
+
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
+        """
+        WazirX doesn't provide order book diff update at this moment.
+        """
         while True:
             await asyncio.sleep(30.0)
 
@@ -165,35 +173,38 @@ class WazirxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         Listen for orderbook snapshots by fetching orderbook
         """
+        ws = None
         while True:
             try:
-                async with websockets.connect(CONSTANTS.WSS_URL) as ws:
-                    ws: websockets.WebSocketClientProtocol = ws
-                    streams = [wazirx_utils.convert_to_exchange_trading_pair(pair) + "@depth" for pair in self._trading_pairs]
-                    subscribe_request: Dict[str, Any] = {
-                        "event": "subscribe",
-                        "streams": streams
-                    }
-                    await ws.send(ujson.dumps(subscribe_request))
+                ws = await self._create_websocket_connection()
+                streams = [wazirx_utils.convert_to_exchange_trading_pair(pair) + "@depth" for pair in self._trading_pairs]
+                subscribe_request: Dict[str, Any] = {
+                    "event": "subscribe",
+                    "streams": streams
+                }
 
-                    async for raw_msg in self._inner_messages(ws):
-                        msg = simplejson.loads(raw_msg, parse_float=Decimal)
-                        if "stream" in msg:
-                            if "@depth" in msg["stream"]:
-                                data = msg["data"]
-                                snapshot_timestamp: int = ms_timestamp_to_s(data["E"])
-                                _msg = {
-                                    'asks': [list(map(float, item)) for item in data['a']],
-                                    'bids': [list(map(float, item)) for item in data['b']],
-                                }
-                                snapshot_msg: OrderBookMessage = WazirxOrderBook.snapshot_message_from_exchange(
-                                    _msg,
-                                    snapshot_timestamp,
-                                    {"trading_pair": wazirx_utils.convert_from_exchange_trading_pair(data["s"])}
-                                )
-                                output.put_nowait(snapshot_msg)
+                await ws.send_json(subscribe_request)
+
+                async for json_msg in self._iter_messages(ws):
+                    if "stream" in json_msg:
+                        if "@depth" in json_msg["stream"]:
+                            data = json_msg["data"]
+                            snapshot_timestamp: int = ms_timestamp_to_s(data["E"])
+                            _msg = {
+                                'asks': [list(map(float, item)) for item in data['a']],
+                                'bids': [list(map(float, item)) for item in data['b']],
+                            }
+                            snapshot_msg: OrderBookMessage = WazirxOrderBook.snapshot_message_from_exchange(
+                                _msg,
+                                snapshot_timestamp,
+                                {"trading_pair": wazirx_utils.convert_from_exchange_trading_pair(data["s"])}
+                            )
+                            output.put_nowait(snapshot_msg)
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unexpected error.", exc_info=True)
-                await asyncio.sleep(30.0)
+                self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
+                                    exc_info=True)
+            finally:
+                ws and await ws.close()
+                await self._sleep(30.0)
