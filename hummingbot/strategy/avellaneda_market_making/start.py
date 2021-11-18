@@ -49,6 +49,7 @@ def start(self):
         closing_time = c_map.get("closing_time").value * Decimal(3600 * 24 * 1e3)
         min_spread = c_map.get("min_spread").value
         volatility_buffer_size = c_map.get("volatility_buffer_size").value
+        trading_intensity_buffer_size = c_map.get("trading_intensity_buffer_size").value
         should_wait_order_cancel_confirmation = c_map.get("should_wait_order_cancel_confirmation")
         debug_csv_path = os.path.join(data_path(),
                                       HummingbotApplication.main_application().strategy_file_name.rsplit('.', 1)[0] +
@@ -78,6 +79,7 @@ def start(self):
             min_spread=min_spread,
             debug_csv_path=debug_csv_path,
             volatility_buffer_size=volatility_buffer_size,
+            trading_intensity_buffer_size=trading_intensity_buffer_size,
             should_wait_order_cancel_confirmation=should_wait_order_cancel_confirmation,
             is_debug=False
         )
