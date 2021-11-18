@@ -1,67 +1,62 @@
 import asyncio
-from datetime import datetime
 import json
-import time
 import logging
+import time
 from collections import defaultdict
+from datetime import datetime
 from decimal import Decimal
-from typing import (
-    Any,
-    Dict,
-    List,
-    Optional,
-    AsyncIterable
-)
-from dateutil.parser import parse as dataparse
+from typing import Any, AsyncIterable, Dict, List, Optional
 
-from dydx3.errors import DydxApiError
 import aiohttp
+from dateutil.parser import parse as dataparse
+from dydx3.errors import DydxApiError
 
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
+from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_auth import DydxPerpetualAuth
+from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_client_wrapper import DydxPerpetualClientWrapper
+from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_fill_report import DydxPerpetualFillReport
+from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_in_flight_order import DydxPerpetualInFlightOrder
+from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_order_book_tracker import (
+    DydxPerpetualOrderBookTracker
+)
+from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_position import DydxPerpetualPosition
+from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_user_stream_tracker import (
+    DydxPerpetualUserStreamTracker
+)
+from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
+from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.perpetual_trading import PerpetualTrading
+from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.transaction_tracker import TransactionTracker
 from hummingbot.core.event.event_listener import EventListener
-from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.connector.perpetual_trading import PerpetualTrading
-from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_auth import DydxPerpetualAuth
-from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_client_wrapper import DydxPerpetualClientWrapper
-from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_fill_report import DydxPerpetualFillReport
-from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_in_flight_order import DydxPerpetualInFlightOrder
-from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_order_book_tracker import \
-    DydxPerpetualOrderBookTracker
-from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_position import DydxPerpetualPosition
-from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_user_stream_tracker import \
-    DydxPerpetualUserStreamTracker
-from hummingbot.core.utils.async_utils import (
-    safe_ensure_future,
-)
 from hummingbot.core.event.events import (
-    MarketEvent,
     BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    FundingInfo,
+    FundingPaymentCompletedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
     OrderCancelledEvent,
     OrderExpiredEvent,
     OrderFilledEvent,
-    MarketOrderFailureEvent,
-    BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
-    FundingPaymentCompletedEvent,
-    TradeType,
     OrderType,
-    TradeFee,
     PositionAction,
-    PositionSide,
     PositionMode,
-    FundingInfo
+    PositionSide,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+    TradeFee,
+    TradeType
 )
-from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.logger import HummingbotLogger
 
 s_logger = None
 s_decimal_0 = Decimal(0)
@@ -169,6 +164,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._poll_interval = poll_interval
         self._shared_client = None
         self._polling_update_task = None
+        self._budget_checker = PerpetualBudgetChecker(self)
 
         self.dydx_client: DydxPerpetualClientWrapper = DydxPerpetualClientWrapper(api_key=dydx_perpetual_api_key,
                                                                                   api_secret=dydx_perpetual_api_secret,
@@ -233,6 +229,10 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
             if dydx_flight_order.order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]:
                 retval.append(dydx_flight_order.to_limit_order())
         return retval
+
+    @property
+    def budget_checker(self) -> PerpetualBudgetChecker:
+        return self._budget_checker
 
     # ----------------------------------------
     # Account Balances
@@ -540,7 +540,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 order_type: OrderType,
                 order_side: TradeType,
                 amount: Decimal,
-                price: Decimal):
+                price: Decimal = s_decimal_0):
         is_maker = order_type is OrderType.LIMIT
         return estimate_fee("dydx_perpetual", is_maker)
 
@@ -966,6 +966,7 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
         for market_name in markets_info:
             market = markets_info[market_name]
             try:
+                collateral_token = market["quoteAsset"]  # all contracts settled in USDC
                 self._trading_rules[market_name] = TradingRule(
                     trading_pair=market_name,
                     min_order_size=Decimal(market['minOrderSize']),
@@ -973,7 +974,9 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                     min_base_amount_increment=Decimal(market['stepSize']),
                     min_notional_size=Decimal(market['minOrderSize']) * Decimal(market['tickSize']),
                     supports_limit_orders=True,
-                    supports_market_orders=True
+                    supports_market_orders=True,
+                    buy_order_collateral_token=collateral_token,
+                    sell_order_collateral_token=collateral_token,
                 )
                 self._margin_fractions[market_name] = {
                     "initial": Decimal(market['initialMarginFraction']),
@@ -1189,3 +1192,11 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
     # TODO: Implement
     async def close_position(self, trading_pair: str):
         pass
+
+    def get_buy_collateral_token(self, trading_pair: str) -> str:
+        trading_rule: TradingRule = self._trading_rules[trading_pair]
+        return trading_rule.buy_order_collateral_token
+
+    def get_sell_collateral_token(self, trading_pair: str) -> str:
+        trading_rule: TradingRule = self._trading_rules[trading_pair]
+        return trading_rule.sell_order_collateral_token
