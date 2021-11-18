@@ -581,6 +581,8 @@ class WazirxExchange(ExchangeBase):
                             "traded_price": order_trade["price"],
                             "traded_quantity": order_trade["qty"],
                             "quote_quantity": order_trade["quoteQty"],
+                            "fee": order_trade["fee"],
+                            "fee_currency": order_trade["feeCurrency"],
                         }
                         await self._process_trade_message(trade_msg)
                     return order_id
@@ -730,12 +732,6 @@ class WazirxExchange(ExchangeBase):
         if not track_order:
             return
         tracked_order = track_order[0]
-        if "fee" not in trade_msg:
-            """
-            Note : This is a temporary workaround till wazirx http api gets updated with fee.
-            """
-            trade_msg["fee"] = Decimal(trade_msg["quote_quantity"]) * Decimal("0.02")
-            trade_msg["fee_currency"] = tracked_order.quote_asset
 
         updated = tracked_order.update_with_trade_update(trade_msg)
         if not updated:
