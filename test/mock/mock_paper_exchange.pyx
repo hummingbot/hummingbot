@@ -8,6 +8,7 @@ from hummingbot.connector.exchange.paper_trade.trading_pair import TradingPair
 from hummingbot.core.data_type.order_book import OrderBookRow
 from hummingbot.core.data_type.composite_order_book cimport CompositeOrderBook
 from hummingbot.core.clock cimport Clock
+from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.connector.exchange.paper_trade.market_config import MarketConfig
 from hummingbot.client.settings import AllConnectorSettings, ConnectorSetting, ConnectorType, TradeFeeType

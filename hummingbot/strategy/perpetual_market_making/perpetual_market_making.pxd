@@ -74,6 +74,8 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
     cdef c_apply_ping_pong(self, object proposal)
     cdef c_apply_order_price_modifiers(self, object proposal)
     cdef c_apply_budget_constraint(self, object proposal)
+    cdef list c_create_order_candidates_for_budget_check(self, object proposal)
+    cdef c_apply_adjusted_order_candidates_to_proposal(self, list adjusted_candidates, object proposal)
     cdef c_filter_out_takers(self, object proposal)
     cdef c_apply_order_optimization(self, object proposal)
     cdef c_apply_add_transaction_costs(self, object proposal)

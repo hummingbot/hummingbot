@@ -10,6 +10,7 @@ from hummingbot.core.data_type.order_book_query_result cimport(
 cdef class ExchangeBase(ConnectorBase):
     cdef:
         object _order_book_tracker
+        object _budget_checker
 
     cdef str c_buy(self, str trading_pair, object amount, object order_type=*, object price=*, dict kwargs=*)
     cdef str c_sell(self, str trading_pair, object amount, object order_type=*, object price=*, dict kwargs=*)
