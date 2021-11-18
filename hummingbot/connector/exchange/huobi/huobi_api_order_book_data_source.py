@@ -98,18 +98,10 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
             response: RESTResponse = await rest_assistant.call(request=request)
 
             if response.status == 200:
-                all_trading_pairs: Dict[str, Any] = await response.json()
-                valid_trading_pairs: list = []
-                for item in all_trading_pairs["data"]:
-                    if item["state"] == "online":
-                        valid_trading_pairs.append(item["symbol"])
-                trading_pair_list: List[str] = []
-                for raw_trading_pair in valid_trading_pairs:
-                    converted_trading_pair: Optional[str] = \
-                        convert_from_exchange_trading_pair(raw_trading_pair)
-                    if converted_trading_pair is not None:
-                        trading_pair_list.append(converted_trading_pair)
-                return trading_pair_list
+                all_symbol_infos: Dict[str, Any] = await response.json()
+                return [f"{symbol_info['base-currency']}-{symbol_info['quote-currency']}".upper()
+                        for symbol_info in all_symbol_infos["data"]
+                        if symbol_info["state"] == "online"]
 
         except Exception:
             # Do nothing if the request fails -- there will be no autocomplete for huobi trading pairs
@@ -135,9 +127,11 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         snapshot: Dict[str, Any] = await self.get_snapshot(trading_pair)
+        timestamp = snapshot["tick"]["ts"]
         snapshot_msg: OrderBookMessage = HuobiOrderBook.snapshot_message_from_exchange(
-            snapshot,
-            metadata={"trading_pair": trading_pair}
+            msg=snapshot,
+            timestamp=timestamp,
+            metadata={"trading_pair": trading_pair},
         )
         order_book: OrderBook = self.order_book_create_function()
         order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
@@ -145,7 +139,6 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _subscribe_channels(self, ws: WSAssistant):
         try:
-
             for trading_pair in self._trading_pairs:
                 subscribe_orderbook_request: WSRequest = WSRequest({
                     "sub": f"market.{convert_to_exchange_trading_pair(trading_pair)}.depth.step0",
@@ -205,9 +198,12 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
             try:
                 msg: Dict[str, Any] = await message_queue.get()
                 trading_pair = msg["ch"].split(".")[1]
+                timestamp = msg["tick"]["ts"]
                 for data in msg["tick"]["data"]:
                     trade_message: OrderBookMessage = HuobiOrderBook.trade_message_from_exchange(
-                        data, metadata={"trading_pair": convert_from_exchange_trading_pair(trading_pair)}
+                        msg=data,
+                        timestamp=timestamp,
+                        metadata={"trading_pair": convert_from_exchange_trading_pair(trading_pair)}
                     )
                     output.put_nowait(trade_message)
             except asyncio.CancelledError:
@@ -222,7 +218,11 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 msg: Dict[str, Any] = await message_queue.get()
-                order_book_message: OrderBookMessage = HuobiOrderBook.diff_message_from_exchange(msg)
+                timestamp = msg["tick"]["ts"]
+                order_book_message: OrderBookMessage = HuobiOrderBook.diff_message_from_exchange(
+                    msg=msg,
+                    timestamp=timestamp
+                )
                 output.put_nowait(order_book_message)
             except asyncio.CancelledError:
                 raise
@@ -240,7 +240,8 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         snapshot: Dict[str, Any] = await self.get_snapshot(trading_pair)
                         snapshot_message: OrderBookMessage = HuobiOrderBook.snapshot_message_from_exchange(
                             snapshot,
-                            metadata={"trading_pair": trading_pair}
+                            timestamp=snapshot["tick"]["ts"],
+                            metadata={"trading_pair": trading_pair},
                         )
                         output.put_nowait(snapshot_message)
                         self.logger().debug(f"Saved order book snapshot for {trading_pair}")
