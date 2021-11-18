@@ -12,4 +12,5 @@ module.exports = {
     'src/chains/avalanche/pangolin/pangolin.ts',
   ],
   modulePathIgnorePatterns: ['<rootDir>/dist/'],
+  setupFilesAfterEnv: ['<rootDir>/test/setupTests.js'],
 };
