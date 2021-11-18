@@ -1,6 +1,12 @@
 import { patch, unpatch } from '../../services/patch';
 import { providers } from 'ethers';
 import { EVMNonceManager } from '../../../src/services/evm.nonce';
+import {
+  InitializationError,
+  SERVICE_UNITIALIZED_ERROR_CODE,
+  SERVICE_UNITIALIZED_ERROR_MESSAGE,
+} from '../../../src/services/error-handler';
+
 import 'jest-extended';
 
 const exampleAddress = '0xFaA12FD102FE8623C9299c72B03E45107F2772B5';
@@ -19,25 +25,39 @@ describe('unitiated EVMNodeService', () => {
     await expect(
       nonceManager.mergeNonceFromEVMNode(exampleAddress)
     ).rejects.toThrow(
-      'EVMNonceManager.mergeNonceFromEVMNode called before initiated'
+      new InitializationError(
+        SERVICE_UNITIALIZED_ERROR_MESSAGE(
+          'EVMNonceManager.mergeNonceFromEVMNode'
+        ),
+        SERVICE_UNITIALIZED_ERROR_CODE
+      )
     );
   });
 
   it('getNonce throws error', async () => {
     await expect(nonceManager.getNonce(exampleAddress)).rejects.toThrow(
-      'EVMNonceManager.getNonce called before initiated'
+      new InitializationError(
+        SERVICE_UNITIALIZED_ERROR_MESSAGE('EVMNonceManager.getNonce'),
+        SERVICE_UNITIALIZED_ERROR_CODE
+      )
     );
   });
 
   it('commitNonce (txNonce null) throws error', async () => {
     await expect(nonceManager.commitNonce(exampleAddress)).rejects.toThrow(
-      'EVMNonceManager.commitNonce called before initiated'
+      new InitializationError(
+        SERVICE_UNITIALIZED_ERROR_MESSAGE('EVMNonceManager.commitNonce'),
+        SERVICE_UNITIALIZED_ERROR_CODE
+      )
     );
   });
 
   it('commitNonce (txNonce not null) throws error', async () => {
     await expect(nonceManager.commitNonce(exampleAddress, 87)).rejects.toThrow(
-      'EVMNonceManager.commitNonce called before initiated'
+      new InitializationError(
+        SERVICE_UNITIALIZED_ERROR_MESSAGE('EVMNonceManager.commitNonce'),
+        SERVICE_UNITIALIZED_ERROR_CODE
+      )
     );
   });
 });
