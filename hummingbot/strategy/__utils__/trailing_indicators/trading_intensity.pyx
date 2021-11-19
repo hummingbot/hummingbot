@@ -145,8 +145,9 @@ cdef class TradingIntensityIndicator():
             # Retrieve previous order book, evaluate execution
             self._simulate_execution(bids_df, asks_df)
 
-            # Estimate alpha and kappa
-            self._estimate_intensity()
+            if self.is_sampling_buffer_full:
+                # Estimate alpha and kappa
+                self._estimate_intensity()
 
         # Store the orderbook
         self._bids_df = bids_df
