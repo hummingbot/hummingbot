@@ -81,5 +81,5 @@ class TradingIntensityTest(unittest.TestCase):
             snapshot = (bid_df, ask_df)
             self.indicator.add_sample(snapshot)
 
-        self.assertAlmostEqual(self.indicator.current_value[0], 1.0003827732841395, 4)
-        self.assertAlmostEqual(self.indicator.current_value[1], 3.2490000322096546e-05, 4)
+        self.assertAlmostEqual(self.indicator.current_value[0], 1.0006118838992204, 4)
+        self.assertAlmostEqual(self.indicator.current_value[1], 0.00016076949224819458, 4)
