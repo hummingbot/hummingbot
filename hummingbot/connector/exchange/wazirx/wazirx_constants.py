@@ -25,6 +25,8 @@ RATE_LIMITS = [
     RateLimit(limit_id=GET_RECENT_TRADES, limit=6000, time_interval=300),
     RateLimit(limit_id=GET_TICKER_24H, limit=6000, time_interval=300),
     RateLimit(limit_id=CREATE_WSS_AUTH_TOKEN, limit=6000, time_interval=300),
+    RateLimit(limit_id=GET_EXCHANGE_INFO, limit=6000, time_interval=300),
+    RateLimit(limit_id=GET_ORDERBOOK, limit=6000, time_interval=300),
 ]
 
 API_FAIL_REASONS = {

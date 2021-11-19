@@ -9,6 +9,7 @@ from typing import Optional, List, Dict, AsyncIterable, Any
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
 from . import wazirx_utils
@@ -29,58 +30,85 @@ class WazirxAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, trading_pairs: List[str] = None):
+    def __init__(
+        self,
+        trading_pairs: List[str] = None,
+        throttler: Optional[AsyncThrottler] = None,
+        shared_client: Optional[aiohttp.ClientSession] = None,
+    ):
         super().__init__(trading_pairs)
         self._trading_pairs: List[str] = trading_pairs
         self._snapshot_msg: Dict[str, any] = {}
+        self._shared_client = shared_client or self._get_session_instance()
+        self._throttler = throttler or self._get_throttler_instance()
 
     @classmethod
-    async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, float]:
+    def _get_session_instance(cls) -> aiohttp.ClientSession:
+        session = aiohttp.ClientSession()
+        return session
+
+    @classmethod
+    def _get_throttler_instance(cls) -> AsyncThrottler:
+        throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        return throttler
+
+    @classmethod
+    async def get_last_traded_prices(
+        cls,
+        trading_pairs: List[str],
+        throttler: Optional[AsyncThrottler] = None,
+        shared_client: Optional[aiohttp.ClientSession] = None
+    ) -> Dict[str, float]:
+
+        shared_client = shared_client or cls._get_session_instance()
+
         result = {}
-        async with aiohttp.ClientSession() as client:
-            resp = await client.get(f"{CONSTANTS.WAZIRX_API_BASE}/{CONSTANTS.GET_TICKER_24H}")
-            resp_json = await resp.json()
-            for t_pair in trading_pairs:
-                last_trade = [float(o["lastPrice"]) for o in resp_json if o["symbol"] == wazirx_utils.convert_to_exchange_trading_pair(t_pair)]
-                if last_trade and last_trade[0] is not None:
-                    result[t_pair] = last_trade[0]
-        return result
+
+        throttler = throttler or cls._get_throttler_instance()
+        async with throttler.execute_task(CONSTANTS.GET_TICKER_24H):
+            async with shared_client.get(f"{CONSTANTS.WAZIRX_API_BASE}/{CONSTANTS.GET_TICKER_24H}") as resp:
+                resp_json = await resp.json()
+                for t_pair in trading_pairs:
+                    last_trade = [float(o["lastPrice"]) for o in resp_json if o["symbol"] == wazirx_utils.convert_to_exchange_trading_pair(t_pair)]
+                    if last_trade and last_trade[0] is not None:
+                        result[t_pair] = last_trade[0]
+                return result
 
     @staticmethod
-    async def fetch_trading_pairs() -> List[str]:
+    async def fetch_trading_pairs(throttler: Optional[AsyncThrottler] = None) -> List[str]:
         async with aiohttp.ClientSession() as client:
-            async with client.get(f"{CONSTANTS.WAZIRX_API_BASE}/{CONSTANTS.GET_EXCHANGE_INFO}", timeout=10) as response:
-                if response.status == 200:
-                    try:
-                        data: Dict[str, Any] = await response.json()
-                        return [str(item["baseAsset"]).upper() + '-' + str(item["quoteAsset"]).upper()
-                                for item in data["symbols"]
-                                if item["isSpotTradingAllowed"] is True]
-                    except Exception:
-                        pass
-                        # Do nothing if the request fails -- there will be no autocomplete for kucoin trading pairs
-                return []
+            throttler = throttler or WazirxAPIOrderBookDataSource._get_throttler_instance()
+            async with throttler.execute_task(CONSTANTS.GET_EXCHANGE_INFO):
+                async with client.get(f"{CONSTANTS.WAZIRX_API_BASE}/{CONSTANTS.GET_EXCHANGE_INFO}", timeout=10) as response:
+                    if response.status == 200:
+                        try:
+                            data: Dict[str, Any] = await response.json()
+                            return [str(item["baseAsset"]).upper() + '-' + str(item["quoteAsset"]).upper()
+                                    for item in data["symbols"]
+                                    if item["isSpotTradingAllowed"] is True]
+                        except Exception:
+                            pass
+                            # Do nothing if the request fails -- there will be no autocomplete for kucoin trading pairs
+                    return []
 
-    @staticmethod
-    async def get_order_book_data(trading_pair: str) -> Dict[str, any]:
+    async def get_order_book_data(self, trading_pair: str, throttler: Optional[AsyncThrottler] = None) -> Dict[str, any]:
         """
         Get whole orderbook
         """
-        async with aiohttp.ClientSession() as client:
-            orderbook_response = await client.get(
+        throttler = throttler or self._get_throttler_instance()
+        async with throttler.execute_task(CONSTANTS.GET_ORDERBOOK):
+            async with self._shared_client.get(
                 f"{CONSTANTS.WAZIRX_API_BASE}/{CONSTANTS.GET_ORDERBOOK}?limit=100&symbol="
                 f"{wazirx_utils.convert_to_exchange_trading_pair(trading_pair)}"
-            )
+            ) as orderbook_response:
+                if orderbook_response.status != 200:
+                    raise IOError(
+                        f"Error fetching OrderBook for {trading_pair} at {CONSTANTS.EXCHANGE_NAME}. "
+                        f"HTTP status is {orderbook_response.status}."
+                    )
 
-            if orderbook_response.status != 200:
-                raise IOError(
-                    f"Error fetching OrderBook for {trading_pair} at {CONSTANTS.EXCHANGE_NAME}. "
-                    f"HTTP status is {orderbook_response.status}."
-                )
-
-            orderbook_data: List[Dict[str, Any]] = await safe_gather(orderbook_response.json())
-
-        return orderbook_data[0]
+                orderbook_data: List[Dict[str, Any]] = await safe_gather(orderbook_response.json())
+                return orderbook_data[0]
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
         snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair)
