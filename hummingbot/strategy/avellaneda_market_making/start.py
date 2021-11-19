@@ -1,5 +1,6 @@
-from decimal import Decimal
+import datetime
 import pandas as pd
+from decimal import Decimal
 from typing import (
     List,
     Tuple,
@@ -46,16 +47,21 @@ def start(self):
         risk_factor = c_map.get("risk_factor").value
         order_amount_shape_factor = c_map.get("order_amount_shape_factor").value
 
-        is_fixed_datespan_execution = c_map.get("is_fixed_datespan_execution").value
-        is_fixed_timespan_execution = c_map.get("is_fixed_timespan_execution").value
+        execution_timeframe = c_map.get("execution_timeframe").value
 
-        start_date_time = c_map.get("start_date_time").value
-        end_date_time = c_map.get("end_date_time").value
         start_time = c_map.get("start_time").value
         end_time = c_map.get("end_time").value
 
+        if execution_timeframe == "from_date_to_date":
+            start_time = datetime.datetime.fromisoformat(start_time)
+            end_time = datetime.datetime.fromisoformat(end_time)
+        if execution_timeframe == "daily_between_times":
+            start_time = datetime.datetime.strptime(start_time, '%H:%M:%S').time()
+            end_time = datetime.datetime.strptime(end_time, '%H:%M:%S').time()
+
         min_spread = c_map.get("min_spread").value
         volatility_buffer_size = c_map.get("volatility_buffer_size").value
+        trading_intensity_buffer_size = c_map.get("trading_intensity_buffer_size").value
         should_wait_order_cancel_confirmation = c_map.get("should_wait_order_cancel_confirmation")
         debug_csv_path = os.path.join(data_path(),
                                       HummingbotApplication.main_application().strategy_file_name.rsplit('.', 1)[0] +
@@ -81,15 +87,13 @@ def start(self):
             hb_app_notification=True,
             risk_factor=risk_factor,
             order_amount_shape_factor=order_amount_shape_factor,
-            is_fixed_datespan_execution=is_fixed_datespan_execution,
-            is_fixed_timespan_execution=is_fixed_timespan_execution,
-            start_date_time=start_date_time,
-            end_date_time=end_date_time,
+            execution_timeframe=execution_timeframe,
             start_time=start_time,
             end_time=end_time,
             min_spread=min_spread,
             debug_csv_path=debug_csv_path,
             volatility_buffer_size=volatility_buffer_size,
+            trading_intensity_buffer_size=trading_intensity_buffer_size,
             should_wait_order_cancel_confirmation=should_wait_order_cancel_confirmation,
             is_debug=False
         )

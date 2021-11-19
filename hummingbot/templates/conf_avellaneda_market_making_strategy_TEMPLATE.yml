@@ -11,22 +11,13 @@ exchange: null
 # Token trading pair for the exchange, e.g. BTC-USDT
 market: null
 
-# Run nonstop only between specified dates
-is_fixed_datespan_execution: False
+# Type of execution timeframe
+execution_timeframe: null
 
-# Run nonstop only between specified times of a day
-is_fixed_timespan_execution: False
-
-# Start date and time for running nonstop between specified dates
-start_date_time: null
-
-# End date and time for running nonstop between specified dates
-end_date_time: null
-
-# Start  time for running between specified times of a day
+# Start time for running between specified times of a day or between specified dates
 start_time: null
 
-# End  time for running between specified times of a day
+# End time for running between specified times of a day or between specified dates
 end_time: null
 
 # Time in seconds before cancelling and placing new orders.

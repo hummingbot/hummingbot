@@ -82,13 +82,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     hb_app_notification: bool = False,
                     risk_factor: Decimal = Decimal("0.5"),
                     order_amount_shape_factor: Decimal = Decimal("0.0"),
-                    closing_time: Decimal = Decimal("1"),
-                    is_fixed_datespan_execution: bool = False,
-                    is_fixed_timespan_execution: bool = False,
-                    start_date_time: str = None,
-                    end_date_time: str = None,
-                    start_time: str = None,
-                    end_time: str = None,
+                    execution_timeframe: str = "infinite",
+                    start_time: datetime.datetime = None,
+                    end_time: datetime.datetime = None,
                     min_spread: Decimal = Decimal("0"),
                     debug_csv_path: str = '',
                     volatility_buffer_size: int = 200,
@@ -135,12 +131,10 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._kappa = None
         self._gamma = risk_factor
         self._eta = order_amount_shape_factor
-        self._is_fixed_datespan_execution = _is_fixed_datespan_execution
-        self._is_fixed_timespan_execution = _is_fixed_timespan_execution
-        self._start_date_time = _start_date_time
-        self._end_date_time = _end_date_time
-        self._start_time = _start_time
-        self._end_time = _end_time
+        self._execution_timeframe = execution_timeframe
+        self._start_time = start_time
+        self._end_time = end_time
+        self._closing_time = None
         self._time_left = None
         self._min_spread = min_spread
         self._latest_parameter_calculation_vol = s_decimal_zero
@@ -365,50 +359,26 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._time_left = value
 
     @property
-    def is_fixed_datespan_execution(self):
-        return self._is_fixed_datespan_execution
+    def execution_timeframe(self):
+        return self._execution_timeframe
 
-    @closing_time.setter
-    def is_fixed_datespan_execution(self, value):
-        self._is_fixed_datespan_execution = value
-
-    @property
-    def is_fixed_timespan_execution(self):
-        return self._is_fixed_timespan_execution
-
-    @closing_time.setter
-    def is_fixed_timespan_execution(self, value):
-        self._is_fixed_timespan_execution = value
+    @execution_timeframe.setter
+    def execution_timeframe(self, value):
+        self._execution_timeframe = value
 
     @property
-    def start_date_time(self):
-        return self._start_date_time
-
-    @closing_time.setter
-    def start_date_time(self, value):
-        self._start_date_time = value
-
-    @property
-    def end_date_time(self):
-        return self._end_date_time
-
-    @closing_time.setter
-    def end_date_time(self, value):
-        self._end_date_time = value
-
-    @property
-    def start_time(self):
+    def start_time(self) -> time:
         return self._start_time
 
-    @closing_time.setter
+    @start_time.setter
     def start_time(self, value):
         self._start_time = value
 
     @property
-    def end_time(self):
+    def end_time(self) -> time:
         return self._end_time
 
-    @closing_time.setter
+    @end_time.setter
     def end_time(self, value):
         self._end_time = value
 
@@ -580,8 +550,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                           f"    risk_factor(\u03B3)= {self._gamma:.5E}",
                           f"    order_book_intensity_factor(\u0391)= {self._alpha:.5E}",
                           f"    order_book_depth_factor(\u03BA)= {self._kappa:.5E}",
-                          f"    volatility= {volatility_pct:.3f}%",
-                          f"    time until end of trading cycle= {str(datetime.timedelta(seconds=float(self._time_left)//1e3))}"])
+                          f"    volatility= {volatility_pct:.3f}%"])
+            if self._time_left is not None:
+                lines.extend([f"    time until end of trading cycle= {str(datetime.timedelta(seconds=float(self._time_left)//1e3))}"])
 
         warning_lines.extend(self.balance_warning([self._market_info]))
 
@@ -649,16 +620,20 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 if self._create_timestamp <= self._current_timestamp:
                     # 1. Measure order book liquidity
                     self.c_measure_order_book_liquidity()
-                    # 2. Calculate reserved price and optimal spread from gamma, alpha, kappa and volatility
-                    self.c_calculate_reserved_price_and_optimal_spread()
-                    # 3. Create base order proposals
-                    proposal = self.c_create_base_proposal()
-                    # 4. Apply functions that modify orders amount
-                    self.c_apply_order_amount_eta_transformation(proposal)
-                    # 5. Apply functions that modify orders price
-                    self.c_apply_order_price_modifiers(proposal)
-                    # 6. Apply budget constraint, i.e. can't buy/sell more than what you have.
-                    self.c_apply_budget_constraint(proposal)
+                    # 2. Check if trading is allowed at this time
+                    if self.c_is_trading_allowed():
+                        # 3. Determine closing time and time left if applicable
+                        self.c_determine_times(timestamp)
+                        # 4. Calculate reserved price and optimal spread from gamma, alpha, kappa and volatility
+                        self.c_calculate_reserved_price_and_optimal_spread()
+                        # 5. Create base order proposals
+                        proposal = self.c_create_base_proposal()
+                        # 6. Apply functions that modify orders amount
+                        self.c_apply_order_amount_eta_transformation(proposal)
+                        # 7. Apply functions that modify orders price
+                        self.c_apply_order_price_modifiers(proposal)
+                        # 8. Apply budget constraint, i.e. can't buy/sell more than what you have.
+                        self.c_apply_budget_constraint(proposal)
 
                 self._hanging_orders_tracker.process_tick()
                 self.c_cancel_active_orders_on_max_age_limit()
@@ -674,7 +649,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 if self.c_is_algorithm_changed():
                     self._ticks_to_be_ready -= 1
                     if self._ticks_to_be_ready % 5 == 0:
-                        self.logger().info(f"Calculating volatility, estimating order book liquidity ... {self._ticks_to_be_ready} ticks to start trading")
+                        self.logger().info(f"Calculating volatility, estimating order book liquidity ... {self._ticks_to_be_ready} ticks to fill buffers")
                 else:
                     self.logger().info(f"Calculating volatility, estimating order book liquidity ... no change tick")
         finally:
@@ -684,7 +659,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         market, trading_pair, base_asset, quote_asset = self._market_info
         self._last_sampling_timestamp = timestamp
 
-        self._time_left = max(self._time_left - Decimal(timestamp - self._last_timestamp) * 1000, 0)
         price = self.get_price()
         snapshot = self.get_order_book_snapshot()
         self._avg_vol.add_sample(price)
@@ -693,10 +667,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         base_balance = market.get_balance(base_asset)
         quote_balance = market.get_balance(quote_asset)
         inventory_in_base = quote_balance / price + base_balance
-        if self._time_left == 0:
-            # Re-cycle algorithm
-            self._time_left = self._closing_time
-            self.logger().info("Recycling algorithm time left and parameters if needed.")
 
     def collect_market_variables(self, timestamp: float):
         self.c_collect_market_variables(timestamp)
@@ -739,8 +709,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         cdef:
             ExchangeBase market = self._market_info.market
 
-        time_left_fraction = Decimal(str(self._time_left / self._closing_time))
-
+        # Current mid price
         price = self.get_price()
 
         # The amount of stocks owned - q - has to be in relative units, not absolute, because changing the portfolio size shouldn't change the reserved price
@@ -754,11 +723,26 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
         # order book liquidity - kappa and alpha have to represent absolute values because the second member of the optimal spread equation has to be an absolute price
         # and from the reserved price calculation we know that gamma's unit is not absolute price
-        if all((self._gamma, self._kappa)):
-            self._reserved_price = price - (q * self._gamma * mid_price_variance * time_left_fraction)
+        if all((self._gamma, self._kappa)) and self._alpha != 0 and self._kappa > 0:
+            if self._time_left is not None and self._closing_time is not None:
+                # Avellaneda-Stoikov for a fixed timespan
+                time_left_fraction = Decimal(str(self._time_left / self._closing_time))
 
-            self._optimal_spread = self._gamma * mid_price_variance * time_left_fraction
-            self._optimal_spread += 2 * Decimal(1 + self._gamma / self._kappa).ln() / self._gamma
+                self._reserved_price = price - (q * self._gamma * mid_price_variance * time_left_fraction)
+
+                self._optimal_spread = self._gamma * mid_price_variance * time_left_fraction
+
+                print(self._gamma)
+                print(self._kappa)
+
+                self._optimal_spread += 2 * Decimal(1 + self._gamma / self._kappa).ln() / self._gamma
+            else:
+                # Avellaneda-Stoikov for an infinite timespan
+                omega = Decimal(1 / 2) * (self._gamma ** 2) * (vol ** 2) * Decimal((1 + 1) ** 2)
+                reserved_price_ask = price + Decimal(1 / self._gamma) * Decimal(1 - ((2 * q - 1) * (self._gamma ** 2) * (vol ** 2)) / (2 * omega - (self._gamma ** 2) * (q ** 2) * (vol ** 2))).ln()
+                reserved_price_bid = price + Decimal(1 / self._gamma) * Decimal(1 - ((2 * q + 1) * (self._gamma ** 2) * (vol ** 2)) / (2 * omega - (self._gamma ** 2) * (q ** 2) * (vol ** 2))).ln()
+                self._reserved_price = (reserved_price_bid + reserved_price_ask) / 2
+                self._optimal_spread = reserved_price_ask - reserved_price_bid
 
             min_spread = price / 100 * Decimal(str(self._min_spread))
 
@@ -1300,6 +1284,41 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         if self._cancel_timestamp <= self._current_timestamp:
             self._cancel_timestamp = min(self._create_timestamp, next_cycle)
 
+    cdef bint c_is_trading_allowed(self):
+        if self._execution_timeframe == "from_date_to_date":
+            # Only within specific dates
+            return self._start_time.timestamp() <= self._current_timestamp <= self._end_time.timestamp()
+        elif self._execution_timeframe == "daily_between_times":
+            # Only within specific times of a day
+            current_time = datetime.datetime.fromtimestamp(self._current_timestamp).time()
+            return self._start_time <= current_time <= self._end_time
+        elif self._execution_timeframe == "infinite":
+            # Infinite - always allowed
+            return True
+        else:
+            # Invalid timeframe value - error
+            raise Exception("Invalid timeframe")
+
+    cdef c_determine_times(self, double timestamp):
+        # Trading is allowed
+        # Determine closing time and time left
+        if self._execution_timeframe == "from_date_to_date":
+            # Timespan between specific dates
+            self._closing_time = (self._end_time.timestamp() - self._start_time.timestamp()) * 1000
+            self._time_left = max((self._end_time.timestamp() - timestamp) * 1000, 0)
+        elif self._execution_timeframe == "daily_between_times":
+            # Timespan between specific times of a day
+            current_time = datetime.datetime.fromtimestamp(timestamp).time()
+            self._closing_time = (datetime.datetime.combine(datetime.datetime.today(), self._end_time) - datetime.datetime.combine(datetime.datetime.today(), self._start_time)).total_seconds() * 1000
+            self._time_left = max((datetime.datetime.combine(datetime.datetime.today(), self._end_time) - datetime.datetime.combine(datetime.datetime.today(), current_time)).total_seconds() * 1000, 0)
+        elif self._execution_timeframe == "infinite":
+            # No timespan restriction
+            self._closing_time = None
+            self._time_left = None
+        else:
+            # Invalid timeframe value - error
+            raise Exception("Invalid timeframe")
+
     def set_timers(self):
         self.c_set_timers()
 
@@ -1342,6 +1361,12 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                                        'mid_price_variance',
                                        'inventory_target_pct')])
             df_header.to_csv(self._debug_csv_path, mode='a', header=False, index=False)
+
+        if self._time_left is not None and self._closing_time is not None:
+            time_left_fraction = self._time_left / self._closing_time
+        else:
+            time_left_fraction = None
+
         df = pd.DataFrame([(mid_price,
                             best_bid,
                             best_ask,
@@ -1353,7 +1378,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                             ((self._reserved_price + self._optimal_spread / 2) - mid_price) / mid_price,
                             market.get_balance(self.base_asset),
                             self.c_calculate_target_inventory(),
-                            self._time_left / self._closing_time,
+                            time_left_fraction,
                             self._avg_vol.current_value,
                             self._gamma,
                             self._alpha,
