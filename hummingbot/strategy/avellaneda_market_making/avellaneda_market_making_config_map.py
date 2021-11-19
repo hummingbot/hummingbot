@@ -30,6 +30,40 @@ def validate_exchange_trading_pair(value: str) -> Optional[str]:
     return validate_market_trading_pair(exchange, value)
 
 
+def validate_execution_timeframe(value: str) -> Optional[str]:
+    timeframes = ["infinite", "from_date_to_date", "daily_between_times"]
+    if value not in timeframes:
+        return f"Invalid timeframe, please choose value from {timeframes}"
+
+
+def validate_execution_time(value: str) -> Optional[str]:
+    if avellaneda_market_making_config_map.get("execution_timeframe").value == "from_date_to_date":
+        ret = validate_datetime_iso_string(value)
+    if avellaneda_market_making_config_map.get("execution_timeframe").value == "daily_between_times":
+        ret = validate_time_iso_string(value)
+    if ret is not None:
+        return ret
+
+
+def execution_time_start_prompt() -> str:
+    if avellaneda_market_making_config_map.get("execution_timeframe").value == "from_date_to_date":
+        return "Please enter the start date and time (YYYY-MM-DD HH:MM:SS) >>> "
+    if avellaneda_market_making_config_map.get("execution_timeframe").value == "daily_between_times":
+        return "Please enter the start time (HH:MM:SS) >>> "
+
+
+def execution_time_end_prompt() -> str:
+    if avellaneda_market_making_config_map.get("execution_timeframe").value == "from_date_to_date":
+        return "Please enter the end date and time (YYYY-MM-DD HH:MM:SS) >>> "
+    if avellaneda_market_making_config_map.get("execution_timeframe").value == "daily_between_times":
+        return "Please enter the end time (HH:MM:SS) >>> "
+
+
+def on_validated_execution_timeframe(value: str):
+    avellaneda_market_making_config_map["start_time"].value = None
+    avellaneda_market_making_config_map["end_time"].value = None
+
+
 def order_amount_prompt() -> str:
     trading_pair = avellaneda_market_making_config_map["market"].value
     base_asset, quote_asset = trading_pair.split("-")
@@ -61,52 +95,25 @@ avellaneda_market_making_config_map = {
                   prompt=maker_trading_pair_prompt,
                   validator=validate_exchange_trading_pair,
                   prompt_on_new=True),
-    "is_fixed_datespan_execution":
-        ConfigVar(key="is_fixed_datespan_execution",
-                  prompt="Do you want the strategy to run only between specific dates? (Yes/No) >>> ",
-                  type_str="bool",
-                  default=False,
-                  validator=validate_bool,
-                  prompt_on_new=True),
-    "is_fixed_timespan_execution":
-        ConfigVar(key="is_fixed_timespan_execution",
-                  prompt="Do you want the strategy to run only between specific times in a day? (Yes/No) >>> ",
-                  type_str="bool",
-                  default=False,
-                  validator=validate_bool,
-                  required_if=lambda: not avellaneda_market_making_config_map.get("is_fixed_datespan_execution").value,
-                  prompt_on_new=True),
-    "start_date_time":
-        ConfigVar(key="start_date_time",
-                  prompt="Please enter the start date and time"
-                         " (YYYY-MM-DD HH:MM:SS) >>> ",
-                  type_str="str",
-                  validator=validate_datetime_iso_string,
-                  required_if=lambda: avellaneda_market_making_config_map.get("is_fixed_datespan_execution").value,
-                  prompt_on_new=True),
-    "end_date_time":
-        ConfigVar(key="start_date_time",
-                  prompt="Please enter the end date and time"
-                         " (YYYY-MM-DD HH:MM:SS) >>> ",
-                  type_str="str",
-                  validator=validate_datetime_iso_string,
-                  required_if=lambda: avellaneda_market_making_config_map.get("is_fixed_datespan_execution").value,
+    "execution_timeframe":
+        ConfigVar(key="execution_timeframe",
+                  prompt="Choose execution timeframe >>> ",
+                  validator=validate_execution_timeframe,
+                  on_validated=on_validated_execution_timeframe,
                   prompt_on_new=True),
     "start_time":
         ConfigVar(key="start_time",
-                  prompt="Please enter the start time"
-                         " (HH:MM:SS) >>> ",
+                  prompt=execution_time_start_prompt,
                   type_str="str",
-                  validator=validate_time_iso_string,
-                  required_if=lambda: avellaneda_market_making_config_map.get("is_fixed_timespan_execution").value,
+                  validator=validate_execution_time,
+                  required_if=lambda: avellaneda_market_making_config_map.get("execution_timeframe").value != "infinite",
                   prompt_on_new=True),
     "end_time":
         ConfigVar(key="end_time",
-                  prompt="Please enter the end time"
-                         " (HH:MM:SS) >>> ",
+                  prompt=execution_time_end_prompt,
                   type_str="str",
-                  validator=validate_time_iso_string,
-                  required_if=lambda: avellaneda_market_making_config_map.get("is_fixed_timespan_execution").value,
+                  validator=validate_execution_time,
+                  required_if=lambda: avellaneda_market_making_config_map.get("execution_timeframe").value != "infinite",
                   prompt_on_new=True),
     "order_amount":
         ConfigVar(key="order_amount",
