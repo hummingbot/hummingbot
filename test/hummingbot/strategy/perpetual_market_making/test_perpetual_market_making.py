@@ -157,6 +157,21 @@ class PerpetualMarketMakingTests(TestCase):
         ))
 
     def test_apply_budget_constraint(self):
+        self.strategy = PerpetualMarketMakingStrategy()
+        self.strategy.init_params(
+            market_info=self.market_info,
+            leverage=2,
+            position_mode=PositionMode.HEDGE.name.title(),
+            bid_spread=Decimal("1"),
+            ask_spread=Decimal("1"),
+            order_amount=Decimal("2"),
+            long_profit_taking_spread=Decimal("1"),
+            short_profit_taking_spread=Decimal("1"),
+            stop_loss_spread=Decimal("1"),
+            time_between_stop_loss_orders=10.0,
+            stop_loss_slippage_buffer=self.stop_loss_slippage_buffer,
+        )
+
         self.market.set_balance(self.base_asset, Decimal("2"))
         self.market.set_balance(self.quote_asset, Decimal("10"))
 
@@ -603,13 +618,11 @@ class PerpetualMarketMakingTests(TestCase):
         self.assertTrue(
             self._is_logged(
                 "INFO",
-                "Insufficient balance: Buy order (price: 50.000000000000000, size: 20000.000000000000000) is omitted, "
-                "HBOT available balance: 50000."))
+                "Insufficient balance: BUY order (price: 50.00, size: 20000.0) is omitted."))
         self.assertTrue(
             self._is_logged(
                 "INFO",
-                "Insufficient balance: Sell order (price: 140.000000000000000, size: 20000.000000000000000) is omitted, "
-                "HBOT available balance: 50000."))
+                "Insufficient balance: SELL order (price: 140.00, size: 20000.0) is omitted."))
         self.assertTrue(
             self._is_logged(
                 "WARNING",
@@ -724,8 +737,8 @@ class PerpetualMarketMakingTests(TestCase):
                            "\n    Available Balance 50000"
                            "\n\n  No active maker orders."
                            "\n\n  Positions:"
-                           "\n            Symbol Type         Entry Price Amount Leverage Unrealized PnL"
-                           "\n    COINALPHA-HBOT LONG 100.500000000000000      1       10          0E-15")
+                           "\n            Symbol Type Entry Price Amount Leverage Unrealized PnL"
+                           "\n    COINALPHA-HBOT LONG      100.50      1       10           0.00")
         status = self.strategy.format_status()
 
         self.assertEqual(expected_status, status)
