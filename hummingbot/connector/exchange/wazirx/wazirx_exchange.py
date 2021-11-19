@@ -41,7 +41,6 @@ from hummingbot.connector.exchange.wazirx.wazirx_auth import WazirxAuth
 from hummingbot.connector.exchange.wazirx.wazirx_in_flight_order import WazirxInFlightOrder
 from hummingbot.connector.exchange.wazirx import wazirx_utils
 from hummingbot.connector.exchange.wazirx import wazirx_constants as CONSTANTS
-from hummingbot.core.data_type.common import OpenOrder
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from async_timeout import timeout
 from hummingbot.core.utils.async_utils import wait_til

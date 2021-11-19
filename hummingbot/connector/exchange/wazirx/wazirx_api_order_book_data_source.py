@@ -3,12 +3,8 @@ import asyncio
 import logging
 import time
 import aiohttp
-import simplejson
-import ujson
 
-from websockets.exceptions import ConnectionClosed
 from hummingbot.connector.exchange.wazirx import wazirx_constants as CONSTANTS
-from decimal import Decimal
 from typing import Optional, List, Dict, AsyncIterable, Any
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
@@ -99,7 +95,7 @@ class WazirxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         bids, asks = active_order_tracker.convert_snapshot_message_to_order_book_row(snapshot_msg)
         order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
         return order_book
-    
+
     async def _create_websocket_connection(self) -> aiohttp.ClientWebSocketResponse:
         """
         Initialize WebSocket client for APIOrderBookDataSource
@@ -126,7 +122,7 @@ class WazirxAPIOrderBookDataSource(OrderBookTrackerDataSource):
             raise
         finally:
             await ws.close()
-    
+
     async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         ws = None
         while True:
@@ -160,7 +156,6 @@ class WazirxAPIOrderBookDataSource(OrderBookTrackerDataSource):
             finally:
                 ws and await ws.close()
                 await self._sleep(30.0)
-
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """

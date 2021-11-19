@@ -4,13 +4,9 @@ import time
 import asyncio
 import logging
 import aiohttp
-import simplejson
-import ujson
 import json
 
-from websockets.exceptions import ConnectionClosed
 from hummingbot.connector.exchange.wazirx import wazirx_constants as CONSTANTS
-from decimal import Decimal
 from typing import Optional, Dict, AsyncIterable, Any
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
@@ -123,4 +119,3 @@ class WazirxAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 self.logger().info("Closing")
                 await ws.close()
                 await asyncio.sleep(5)
-
