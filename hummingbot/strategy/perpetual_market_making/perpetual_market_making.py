@@ -1,6 +1,4 @@
 import logging
-import numpy as np
-import pandas as pd
 import time
 
 from decimal import Decimal
@@ -13,6 +11,11 @@ from typing import (
     List,
 )
 
+import numpy as np
+import pandas as pd
+from itertools import chain
+
+from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualOrderCandidate
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.clock import Clock
@@ -691,35 +694,57 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
             self.apply_order_optimization(proposal)
 
     def apply_budget_constraint(self, proposal: Proposal):
-        market: ExchangeBase = self._market_info.market
-        quote_size_total = Decimal("0")
+        checker = self._market_info.market.budget_checker
 
-        quote_balance = market.get_available_balance(self.quote_asset)
-        trading_fees = market.get_fee(self.base_asset, self.quote_asset, OrderType.LIMIT, TradeType.BUY,
-                                      s_decimal_zero, s_decimal_zero)
+        order_candidates = self.create_order_candidates_for_budget_check(proposal)
+        adjusted_candidates = checker.adjust_candidates(order_candidates, all_or_none=True)
+        self.apply_adjusted_order_candidates_to_proposal(adjusted_candidates, proposal)
 
-        for buy in proposal.buys:
-            order_size = buy.size * buy.price
-            quote_size = (order_size / self._leverage) + (order_size * trading_fees.percent)
-            if quote_balance < quote_size_total + quote_size:
+    def create_order_candidates_for_budget_check(self, proposal: Proposal):
+        order_candidates = []
+
+        order_candidates.extend(
+            [
+                PerpetualOrderCandidate(
+                    self.trading_pair,
+                    OrderType.LIMIT,
+                    TradeType.BUY,
+                    buy.size,
+                    buy.price,
+                    leverage=Decimal(self._leverage),
+                )
+                for buy in proposal.buys
+            ]
+        )
+        order_candidates.extend(
+            [
+                PerpetualOrderCandidate(
+                    self.trading_pair,
+                    OrderType.LIMIT,
+                    TradeType.SELL,
+                    sell.size,
+                    sell.price,
+                    leverage=Decimal(self._leverage),
+                )
+                for sell in proposal.sells
+            ]
+        )
+        return order_candidates
+
+    def apply_adjusted_order_candidates_to_proposal(self,
+                                                    adjusted_candidates: List[PerpetualOrderCandidate],
+                                                    proposal: Proposal):
+        for order in chain(proposal.buys, proposal.sells):
+            adjusted_candidate = adjusted_candidates.pop(0)
+            if adjusted_candidate.amount == s_decimal_zero:
                 self.logger().info(
-                    f"Insufficient balance: Buy order (price: {buy.price}, size: {buy.size}) is omitted, {self.quote_asset} available balance: {quote_balance - quote_size_total}.")
+                    f"Insufficient balance: {adjusted_candidate.order_side.name} order (price: {order.price},"
+                    f" size: {order.size}) is omitted."
+                )
                 self.logger().warning(
                     "You are also at a possible risk of being liquidated if there happens to be an open loss.")
-                quote_size = s_decimal_zero
-                buy.size = s_decimal_zero
-            quote_size_total += quote_size
+                order.size = s_decimal_zero
         proposal.buys = [o for o in proposal.buys if o.size > 0]
-        for sell in proposal.sells:
-            order_size = sell.size * sell.price
-            quote_size = (order_size / self._leverage) + (order_size * trading_fees.percent)
-            if quote_balance < quote_size_total + quote_size:
-                self.logger().info(
-                    f"Insufficient balance: Sell order (price: {sell.price}, size: {sell.size}) is omitted, {self.quote_asset} available balance: {quote_balance - quote_size_total}.")
-                self.logger().warning(
-                    "You are also at a possible risk of being liquidated if there happens to be an open loss.")
-                sell.size = s_decimal_zero
-            quote_size_total += quote_size
         proposal.sells = [o for o in proposal.sells if o.size > 0]
 
     def filter_out_takers(self, proposal: Proposal):
