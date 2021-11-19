@@ -19,11 +19,12 @@ from hummingbot.connector.exchange.ndax.ndax_order_book import NdaxOrderBook
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
+    MarketEvent,
     MarketOrderFailureEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
     OrderType,
-    TradeType, MarketEvent,
+    TradeType,
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
