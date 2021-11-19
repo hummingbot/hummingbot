@@ -123,6 +123,47 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         }
         return account_update
 
+    def _get_exchange_info_mock_response(
+        self,
+        margin_asset: str = "HBOT",
+        min_order_size: float = 1,
+        min_price_increment: float = 2,
+        min_base_amount_increment: float = 3,
+        min_notional_size: float = 4,
+    ) -> Dict[str, Any]:
+        mocked_exchange_info = {  # irrelevant fields removed
+            "symbols": [
+                {
+                    "symbol": self.symbol,
+                    "pair": self.symbol,
+                    "contractType": "PERPETUAL",
+                    "baseAsset": self.base_asset,
+                    "quoteAsset": self.quote_asset,
+                    "marginAsset": margin_asset,
+                    "filters": [
+                        {
+                            "filterType": "PRICE_FILTER",
+                            "maxPrice": "300",
+                            "minPrice": "0.0001",
+                            "tickSize": str(min_price_increment),
+                        },
+                        {
+                            "filterType": "LOT_SIZE",
+                            "maxQty": "10000000",
+                            "minQty": str(min_order_size),
+                            "stepSize": str(min_base_amount_increment),
+                        },
+                        {
+                            "filterType": "MIN_NOTIONAL",
+                            "notional": str(min_notional_size),
+                        },
+                    ],
+                }
+            ],
+        }
+
+        return mocked_exchange_info
+
     @aioresponses()
     def test_existing_account_position_detected_on_positions_update(self, req_mock):
         url = utils.rest_url(
@@ -398,3 +439,35 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         self.assertTrue(self._is_logged("ERROR",
                                         "Unexpected error updating funding info. Retrying after 10 seconds... "))
+
+    def test_format_trading_rules(self):
+        margin_asset = self.quote_asset
+        min_order_size = 1
+        min_price_increment = 2
+        min_base_amount_increment = 3
+        min_notional_size = 4
+        mocked_response = self._get_exchange_info_mock_response(
+            margin_asset, min_order_size, min_price_increment, min_base_amount_increment, min_notional_size
+        )
+
+        trading_rules = self.exchange._format_trading_rules(mocked_response)
+
+        self.assertEqual(1, len(trading_rules))
+
+        trading_rule = trading_rules[0]
+
+        self.assertEqual(min_order_size, trading_rule.min_order_size)
+        self.assertEqual(min_price_increment, trading_rule.min_price_increment)
+        self.assertEqual(min_base_amount_increment, trading_rule.min_base_amount_increment)
+        self.assertEqual(min_notional_size, trading_rule.min_notional_size)
+        self.assertEqual(margin_asset, trading_rule.buy_order_collateral_token)
+        self.assertEqual(margin_asset, trading_rule.sell_order_collateral_token)
+
+    def test_get_collateral_token(self):
+        margin_asset = self.quote_asset
+        mocked_response = self._get_exchange_info_mock_response(margin_asset)
+        trading_rules = self.exchange._format_trading_rules(mocked_response)
+        self.exchange._trading_rules[self.trading_pair] = trading_rules[0]
+
+        self.assertEqual(margin_asset, self.exchange.get_buy_collateral_token(self.trading_pair))
+        self.assertEqual(margin_asset, self.exchange.get_sell_collateral_token(self.trading_pair))

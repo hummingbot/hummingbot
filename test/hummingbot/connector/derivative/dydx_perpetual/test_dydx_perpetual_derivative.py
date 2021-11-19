@@ -14,6 +14,7 @@ from requests import Response
 
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_derivative import DydxPerpetualDerivative
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_position import DydxPerpetualPosition
+from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.event.events import PositionSide, FundingInfo
 
 
@@ -114,14 +115,26 @@ class DydxPerpetualDerivativeTest(unittest.TestCase):
         }
         return account_message_mock
 
-    def get_markets_message_mock(self, index_price: float) -> Dict:
-        markets_message_mock = {
+    def get_markets_message_mock(
+        self,
+        index_price: float = 1,
+        min_order_size: float = 2,
+        min_price_increment: float = 3,
+        min_base_amount_increment: float = 4,
+    ) -> Dict:
+        markets_message_mock = {  # irrelevant fields removed
             "markets": {
                 self.trading_pair: {
+                    "quoteAsset": self.quote_asset,
+                    "minOrderSize": str(min_order_size),
+                    "tickSize": str(min_price_increment),
+                    "stepSize": str(min_base_amount_increment),
                     "indexPrice": str(index_price),
                     "oraclePrice": "10.1",
                     "nextFundingAt": str(datetime.now()),
                     "nextFundingRate": "0.1",
+                    "initialMarginFraction": "0.1",
+                    "maintenanceMarginFraction": "0.2",
                 }
             }
         }
@@ -373,3 +386,41 @@ class DydxPerpetualDerivativeTest(unittest.TestCase):
         self.exchange.tick(next_tick)
         self.assertEqual(next_tick, self.exchange._last_poll_timestamp)
         self.assertTrue(self.exchange._poll_notifier.is_set())
+
+    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_client_wrapper"
+           ".DydxPerpetualClientWrapper.get_markets")
+    def test_update_trading_rules(self, get_markets_mock: AsyncMock):
+        min_order_size = 1
+        min_price_increment = 2
+        min_base_amount_increment = 3
+        min_notional_size = min_order_size * min_price_increment
+        markets_message_mock = self.get_markets_message_mock(
+            min_order_size=min_order_size,
+            min_price_increment=min_price_increment,
+            min_base_amount_increment=min_base_amount_increment,
+        )
+        get_markets_mock.return_value = markets_message_mock
+
+        self.async_run_with_timeout(self.exchange._update_trading_rules())
+
+        trading_rule: TradingRule = self.exchange._trading_rules[self.trading_pair]
+
+        self.assertEqual(min_order_size, trading_rule.min_order_size)
+        self.assertEqual(min_price_increment, trading_rule.min_price_increment)
+        self.assertEqual(min_base_amount_increment, trading_rule.min_base_amount_increment)
+        self.assertEqual(min_notional_size, trading_rule.min_notional_size)
+        self.assertEqual(self.quote_asset, trading_rule.buy_order_collateral_token)
+        self.assertEqual(self.quote_asset, trading_rule.sell_order_collateral_token)
+
+    @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_client_wrapper"
+           ".DydxPerpetualClientWrapper.get_markets")
+    def test_get_buy_and_sell_collateral_token(self, get_markets_mock: AsyncMock):
+        markets_message_mock = self.get_markets_message_mock()
+        get_markets_mock.return_value = markets_message_mock
+
+        self.async_run_with_timeout(self.exchange._update_trading_rules())
+        buy_collateral_token = self.exchange.get_buy_collateral_token(self.trading_pair)
+        sell_collateral_token = self.exchange.get_sell_collateral_token(self.trading_pair)
+
+        self.assertEqual(self.quote_asset, buy_collateral_token)
+        self.assertEqual(self.quote_asset, sell_collateral_token)
