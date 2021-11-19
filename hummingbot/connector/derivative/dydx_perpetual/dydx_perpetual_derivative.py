@@ -6,10 +6,8 @@ from collections import defaultdict
 from decimal import Decimal
 from typing import Any, AsyncIterable, Dict, List, Optional
 
-import aiohttp
 from dateutil.parser import parse as dateparse
 
-import hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_constants as CONSTANTS
 from dydx3.errors import DydxApiError
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 from hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_auth import DydxPerpetualAuth
@@ -130,7 +128,6 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
         ExchangeBase.__init__(self)
         PerpetualTrading.__init__(self)
         self._real_time_balance_update = True
-        self._shared_client = aiohttp.ClientSession()
         self._api_factory = build_api_factory()
         self._order_book_tracker = DydxPerpetualOrderBookTracker(
             trading_pairs=trading_pairs,
@@ -1234,45 +1231,6 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 self._poll_notifier.set()
         self._last_poll_timestamp = timestamp
 
-    async def api_request(
-        self,
-        http_method: str,
-        url: str,
-        data: Optional[Dict[str, Any]] = None,
-        params: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = {},
-        secure: bool = False,
-    ) -> Dict[str, Any]:
-
-        if self._shared_client is None:
-            self._shared_client = aiohttp.ClientSession()
-
-        if data is not None and http_method == "POST":
-            data = json.dumps(data).encode("utf8")
-            headers = {"Content-Type": "application/json"}
-
-        full_url = f"{CONSTANTS.DYDX_REST_URL}{url}"
-
-        async with self._shared_client.request(
-            http_method, url=full_url, timeout=API_CALL_TIMEOUT, data=data, params=params, headers=headers
-        ) as response:
-            if response.status > 299:
-                self.logger().info(f"Issue with dydx API {http_method} to {url}, response: ")
-                self.logger().info(await response.text())
-                raise IOError(f"Error fetching data from {full_url}. HTTP status is {response.status}.")
-            data = await response.json()
-            return data
-
-    def buy(
-        self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET, price: Decimal = s_decimal_NaN, **kwargs
-    ) -> str:
-        tracking_nonce = get_tracking_nonce()
-        client_order_id: str = str(f"buy-{trading_pair}-{tracking_nonce}")
-        safe_ensure_future(
-            self.execute_buy(client_order_id, trading_pair, amount, order_type, kwargs["position_action"], price)
-        )
-        return client_order_id
-
     def sell(
         self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET, price: Decimal = s_decimal_NaN, **kwargs
     ) -> str:
@@ -1285,10 +1243,6 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
 
     def cancel(self, trading_pair: str, client_order_id: str):
         return safe_ensure_future(self.cancel_order(client_order_id))
-
-    # TODO: Implement
-    async def close_position(self, trading_pair: str):
-        pass
 
     def get_buy_collateral_token(self, trading_pair: str) -> str:
         trading_rule: TradingRule = self._trading_rules[trading_pair]
