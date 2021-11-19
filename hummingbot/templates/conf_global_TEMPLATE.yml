@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 29
+template_version: 30
 
 # Exchange configs
 
@@ -129,6 +129,8 @@ bybit_perpetual_testnet_secret_key: null
 
 wazirx_api_key: null
 wazirx_secret_key: null
+mexc_api_key: null
+mexc_secret_key: null
 
 # Ethereum wallet address: required for trading on a DEX
 ethereum_wallet: null
@@ -268,3 +270,20 @@ logs-pane: "#121212"
 # Terminal primary color
 terminal-primary: "#5FFFD7"
 
+# Primary label color
+primary-label: "#5FFFD7"
+
+# Secondary label color
+secondary-label: "#FFFFFF"
+
+# Success label color
+success-label: "#5FFFD7"
+
+# Warning label color
+warning-label: "#FFFF00"
+
+# Info label color
+info-label: "#5FD7FF"
+
+# Error label color
+error-label: "#FF0000"

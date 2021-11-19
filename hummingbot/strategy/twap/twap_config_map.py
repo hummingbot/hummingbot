@@ -4,7 +4,7 @@ from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
     validate_bool,
     validate_exchange,
-    validate_market_trading_pair, validate_timestamp_iso_string,
+    validate_market_trading_pair, validate_timestamp_iso_string, validate_decimal,
 )
 from hummingbot.client.settings import (
     required_exchanges,
@@ -54,10 +54,13 @@ def set_order_delay_default(value: str = None):
 
 def validate_order_step_size(value: str = None):
     """
-    Validates if order_step_size is less than the target_asset_amount value
+    Invalidates non-decimal input and checks if order_step_size is less than the target_asset_amount value
     :param value: User input for order_step_size parameter
     :return: Error message printed in output pane
     """
+    result = validate_decimal(value, min_value=Decimal("0"), inclusive=False)
+    if result is not None:
+        return result
     target_asset_amount = twap_config_map.get("target_asset_amount").value
     if Decimal(value) > target_asset_amount:
         return "Order step size cannot be greater than the total trade amount."
@@ -91,6 +94,7 @@ twap_config_map = {
                   prompt=target_asset_amount_prompt,
                   default=1.0,
                   type_str="decimal",
+                  validator=lambda v: validate_decimal(v, min_value=Decimal("0"), inclusive=False),
                   prompt_on_new=True),
     "order_step_size":
         ConfigVar(key="order_step_size",
@@ -104,6 +108,7 @@ twap_config_map = {
         ConfigVar(key="order_price",
                   prompt="What is the price for the limit orders? >>> ",
                   type_str="decimal",
+                  validator=lambda v: validate_decimal(v, min_value=Decimal("0"), inclusive=False),
                   prompt_on_new=True),
     "is_delayed_start_execution":
         ConfigVar(key="is_delayed_start_execution",
@@ -142,6 +147,7 @@ twap_config_map = {
                          " (Enter 10 to indicate 10 seconds)? >>> ",
                   type_str="float",
                   default=10,
+                  validator=lambda v: validate_decimal(v, 0, inclusive=False),
                   required_if=lambda: twap_config_map.get("is_time_span_execution").value or twap_config_map.get("is_delayed_start_execution").value,
                   prompt_on_new=True),
     "cancel_order_wait_time":
@@ -150,5 +156,6 @@ twap_config_map = {
                          "(Default is 60 seconds) ? >>> ",
                   type_str="float",
                   default=60,
+                  validator=lambda v: validate_decimal(v, 0, inclusive=False),
                   prompt_on_new=True)
 }
