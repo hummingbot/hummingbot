@@ -2,22 +2,18 @@ from decimal import Decimal
 import logging
 import pandas as pd
 import numpy as np
-from typing import (
-    List,
-    Dict,
-    Optional
-)
+from typing import List, Dict
 from math import (
     floor,
     ceil
 )
 import time
+from itertools import chain
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.event.events import (
     TradeType,
     PriceType,
     PositionAction,
-    PositionSide,
     PositionMode
 )
 from hummingbot.core.data_type.limit_order cimport LimitOrder
@@ -29,7 +25,6 @@ from hummingbot.core.event.events import OrderType
 
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base import StrategyBase
-from hummingbot.client.config.global_config_map import global_config_map
 
 from .data_types import (
     Proposal,
@@ -41,7 +36,7 @@ from hummingbot.strategy.asset_price_delegate cimport AssetPriceDelegate
 from hummingbot.strategy.asset_price_delegate import AssetPriceDelegate
 from hummingbot.strategy.order_book_asset_price_delegate cimport OrderBookAssetPriceDelegate
 from hummingbot.core.utils import map_df_to_str
-
+from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualOrderCandidate
 
 NaN = float("nan")
 s_decimal_zero = Decimal(0)
@@ -886,37 +881,62 @@ cdef class PerpetualMarketMakingStrategy(StrategyBase):
         if self._add_transaction_costs_to_orders:
             self.c_apply_add_transaction_costs(proposal)
 
+    def apply_budget_constraint(self, proposal: Proposal):
+        self.c_apply_budget_constraint(proposal)
+
     cdef c_apply_budget_constraint(self, object proposal):
         cdef:
-            ExchangeBase market = self._market_info.market
-            object quote_size
-            object base_size
-            object quote_size_total = Decimal("0")
-            object base_size_total = Decimal("0")
+            object checker = self._market_info.market.budget_checker
+            list order_candidates
+            list adjusted_candidates
 
-        quote_balance = market.c_get_available_balance(self.quote_asset)
-        trading_fees = market.c_get_fee(self.base_asset, self.quote_asset, OrderType.LIMIT, TradeType.BUY,
-                                        s_decimal_zero, s_decimal_zero)
+        order_candidates = self.c_create_order_candidates_for_budget_check(proposal)
+        adjusted_candidates = checker.adjust_candidates(order_candidates, all_or_none=True)
+        self.c_apply_adjusted_order_candidates_to_proposal(adjusted_candidates, proposal)
 
-        for buy in proposal.buys:
-            order_size = buy.size * buy.price
-            quote_size = (order_size / self._leverage) + (order_size * trading_fees.percent)
-            if quote_balance < quote_size_total + quote_size:
-                self.logger().info(f"Insufficient balance: Buy order (price: {buy.price}, size: {buy.size}) is omitted, {self.quote_asset} available balance: {quote_balance - quote_size_total}.")
+    cdef list c_create_order_candidates_for_budget_check(self, object proposal):
+        cdef:
+            list order_candidates = []
+
+        order_candidates.extend(
+            [
+                PerpetualOrderCandidate(
+                    self.trading_pair,
+                    OrderType.LIMIT,
+                    TradeType.BUY,
+                    buy.size,
+                    buy.price,
+                    leverage=Decimal(self._leverage),
+                )
+                for buy in proposal.buys
+            ]
+        )
+        order_candidates.extend(
+            [
+                PerpetualOrderCandidate(
+                    self.trading_pair,
+                    OrderType.LIMIT,
+                    TradeType.SELL,
+                    sell.size,
+                    sell.price,
+                    leverage=Decimal(self._leverage),
+                )
+                for sell in proposal.sells
+            ]
+        )
+        return order_candidates
+
+    cdef c_apply_adjusted_order_candidates_to_proposal(self, list adjusted_candidates, object proposal):
+        for order in chain(proposal.buys, proposal.sells):
+            adjusted_candidate = adjusted_candidates.pop(0)
+            if adjusted_candidate.amount == s_decimal_zero:
+                self.logger().info(
+                    f"Insufficient balance: {adjusted_candidate.order_side.name} order (price: {order.price},"
+                    f" size: {order.size}) is omitted."
+                )
                 self.logger().warning("You are also at a possible risk of being liquidated if there happens to be an open loss.")
-                quote_size = s_decimal_zero
-                buy.size = s_decimal_zero
-            quote_size_total += quote_size
+                order.size = s_decimal_zero
         proposal.buys = [o for o in proposal.buys if o.size > 0]
-        for sell in proposal.sells:
-            order_size = sell.size * sell.price
-            quote_size = (order_size / self._leverage) + (order_size * trading_fees.percent)
-            if quote_balance < quote_size_total + quote_size:
-                self.logger().info(f"Insufficient balance: Sell order (price: {sell.price}, size: {sell.size}) is omitted, {self.quote_asset} available balance: {quote_balance - quote_size_total}.")
-                self.logger().warning("You are also at a possible risk of being liquidated if there happens to be an open loss.")
-                base_size = s_decimal_zero
-                sell.size = s_decimal_zero
-            quote_size_total += quote_size
         proposal.sells = [o for o in proposal.sells if o.size > 0]
 
     cdef c_filter_out_takers(self, object proposal):

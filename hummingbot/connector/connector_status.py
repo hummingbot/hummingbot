@@ -58,5 +58,5 @@ def get_connector_status(connector_name: str) -> str:
     if connector_name not in connector_status.keys():
         status = "UNKNOWN"
     else:
-        return connector_status[connector_name].upper()
+        return f"&c{connector_status[connector_name].upper()}"
     return status

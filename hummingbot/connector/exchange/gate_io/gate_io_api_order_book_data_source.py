@@ -3,27 +3,31 @@ import asyncio
 import logging
 import time
 from collections import defaultdict
-from typing import Optional, List, Dict, Any
 from decimal import Decimal
+from typing import Any, Dict, List, Optional
 
-import aiohttp
 import pandas as pd
-
-from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod
+from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.logger import HummingbotLogger
+
 from .gate_io_active_order_tracker import GateIoActiveOrderTracker
 from .gate_io_order_book import GateIoOrderBook
-from .gate_io_websocket import GateIoWebsocket
 from .gate_io_utils import (
-    convert_to_exchange_trading_pair,
-    convert_from_exchange_trading_pair,
-    api_call_with_retries,
     GateIoAPIError,
+    GateIORESTRequest,
+    api_call_with_retries,
+    build_gate_io_api_factory,
+    convert_from_exchange_trading_pair,
+    convert_to_exchange_trading_pair
 )
-from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
+from .gate_io_websocket import GateIoWebsocket
 
 
 class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
@@ -41,10 +45,11 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
         self,
         throttler: Optional[AsyncThrottler] = None,
         trading_pairs: List[str] = None,
-        shared_client: Optional[aiohttp.ClientSession] = None,
+        api_factory: Optional[WebAssistantsFactory] = None,
     ):
         super().__init__(trading_pairs)
-        self._shared_client = shared_client
+        self._api_factory = api_factory or build_gate_io_api_factory()
+        self._rest_assistant: Optional[RESTAssistant] = None
         self._throttler = throttler or self._get_throttler_instance()
         self._trading_pairs: List[str] = trading_pairs
 
@@ -56,17 +61,23 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return throttler
 
     @classmethod
-    async def get_last_traded_prices(
-        cls, trading_pairs: List[str], throttler: Optional[AsyncThrottler] = None
-    ) -> Dict[str, Decimal]:
-        throttler = throttler or cls._get_throttler_instance()
+    async def get_last_traded_prices(cls, trading_pairs: List[str]) -> Dict[str, Decimal]:
+        throttler = cls._get_throttler_instance()
+        api_factory = build_gate_io_api_factory()
+        rest_assistant = await api_factory.get_rest_assistant()
         results = {}
         ticker_param = None
         if len(trading_pairs) == 1:
             ticker_param = {'currency_pair': convert_to_exchange_trading_pair(trading_pairs[0])}
 
-        async with throttler.execute_task(CONSTANTS.TICKER_PATH_URL):
-            tickers = await api_call_with_retries("GET", CONSTANTS.TICKER_PATH_URL, ticker_param)
+        endpoint = CONSTANTS.TICKER_PATH_URL
+        request = GateIORESTRequest(
+            method=RESTMethod.GET,
+            endpoint=endpoint,
+            params=ticker_param,
+            throttler_limit_id=endpoint,
+        )
+        tickers = await api_call_with_retries(request, rest_assistant, throttler, logging.getLogger())
         for trading_pair in trading_pairs:
             ex_pair = convert_to_exchange_trading_pair(trading_pair)
             ticker = list([tic for tic in tickers if tic['currency_pair'] == ex_pair])[0]
@@ -74,11 +85,21 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return results
 
     @classmethod
-    async def fetch_trading_pairs(cls, throttler: Optional[AsyncThrottler] = None) -> List[str]:
-        throttler = throttler or cls._get_throttler_instance()
+    async def fetch_trading_pairs(cls) -> List[str]:
+        throttler = cls._get_throttler_instance()
+        api_factory = build_gate_io_api_factory()
+        rest_assistant = await api_factory.get_rest_assistant()
         try:
             async with throttler.execute_task(CONSTANTS.SYMBOL_PATH_URL):
-                symbols = await api_call_with_retries("GET", CONSTANTS.SYMBOL_PATH_URL)
+                endpoint = CONSTANTS.SYMBOL_PATH_URL
+                request = GateIORESTRequest(
+                    method=RESTMethod.GET,
+                    endpoint=endpoint,
+                    throttler_limit_id=endpoint,
+                )
+                symbols = await api_call_with_retries(
+                    request, rest_assistant, throttler, logging.getLogger()
+                )
             trading_pairs = list([convert_from_exchange_trading_pair(sym["id"]) for sym in symbols])
             # Filter out unmatched pairs so nothing breaks
             return [sym for sym in trading_pairs if sym is not None]
@@ -88,17 +109,33 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return []
 
     @classmethod
-    async def get_order_book_data(cls, trading_pair: str, throttler: Optional[AsyncThrottler] = None) -> Dict[str, any]:
+    async def get_order_book_data(
+        cls,
+        trading_pair: str,
+        throttler: Optional[AsyncThrottler] = None,
+        rest_assistant: Optional[RESTAssistant] = None,
+        logger: Optional[logging.Logger] = None,
+    ) -> Dict[str, any]:
         """
         Get whole orderbook
         """
         throttler = throttler or cls._get_throttler_instance()
+        api_factory = build_gate_io_api_factory()
+        rest_assistant = rest_assistant or await api_factory.get_rest_assistant()
+        logger = logger or logging.getLogger()
         try:
             ex_pair = convert_to_exchange_trading_pair(trading_pair)
-            async with throttler.execute_task(CONSTANTS.ORDER_BOOK_PATH_URL):
-                orderbook_response = await api_call_with_retries(
-                    "GET", CONSTANTS.ORDER_BOOK_PATH_URL, params={"currency_pair": ex_pair, "with_id": 1}
-                )
+            params = {"currency_pair": ex_pair, "with_id": 1}
+            endpoint = CONSTANTS.ORDER_BOOK_PATH_URL
+            request = GateIORESTRequest(
+                method=RESTMethod.GET,
+                endpoint=endpoint,
+                params=params,
+                throttler_limit_id=endpoint,
+            )
+            orderbook_response = await api_call_with_retries(
+                request, rest_assistant, throttler, logger
+            )
             return orderbook_response
         except GateIoAPIError as e:
             raise IOError(
@@ -106,7 +143,10 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 f"HTTP status is {e.http_status}. Error is {e.error_message}.")
 
     async def get_new_order_book(self, trading_pair: str) -> OrderBook:
-        snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair, self._throttler)
+        rest_assistant = await self._get_rest_assistant()
+        snapshot: Dict[str, Any] = await self.get_order_book_data(
+            trading_pair, self._throttler, rest_assistant, self.logger()
+        )
         snapshot_timestamp: float = time.time()
         snapshot_msg: OrderBookMessage = GateIoOrderBook.snapshot_message_from_exchange(
             snapshot,
@@ -153,7 +193,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _subscribe_to_order_book_streams(self) -> GateIoWebsocket:
         try:
-            ws = GateIoWebsocket(shared_client=self._shared_client)
+            ws = GateIoWebsocket(api_factory=self._api_factory)
             await ws.connect()
             await ws.subscribe(
                 CONSTANTS.TRADES_ENDPOINT_NAME,
@@ -273,3 +313,8 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except Exception:
                 self.logger().error("Unexpected error.", exc_info=True)
                 await asyncio.sleep(5.0)
+
+    async def _get_rest_assistant(self) -> RESTAssistant:
+        if self._rest_assistant is None:
+            self._rest_assistant = await self._api_factory.get_rest_assistant()
+        return self._rest_assistant

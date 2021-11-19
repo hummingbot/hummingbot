@@ -176,7 +176,7 @@ class TestGateIoExchange(unittest.TestCase):
         ]
         return open_orders
 
-    @patch("hummingbot.connector.exchange.gate_io.gate_io_exchange.retry_sleep_time")
+    @patch("hummingbot.connector.exchange.gate_io.gate_io_utils.retry_sleep_time")
     @aioresponses()
     def test_check_network_not_connected(self, retry_sleep_time_mock, mock_api):
         retry_sleep_time_mock.side_effect = lambda *args, **kwargs: 0
@@ -298,8 +298,8 @@ class TestGateIoExchange(unittest.TestCase):
         self.assertEqual(0, len(self.event_listener.event_log))
         self.assertNotIn(order_id, self.exchange.in_flight_orders)
         self.assertTrue(self._is_logged(
-            "WARNING",
-            "Buy order amount 0.000 is lower than the minimum order size 0.001."
+            "ERROR",
+            "Error submitting BUY LIMIT order to gate_io for 0.000 COINALPHA-HBOT 5.100000 - Buy order amount 0.000 is lower than the minimum order size 0.001.."
         ))
 
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication")
