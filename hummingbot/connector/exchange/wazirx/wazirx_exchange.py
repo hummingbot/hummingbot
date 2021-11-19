@@ -82,8 +82,6 @@ class WazirxExchange(ExchangeBase):
         super().__init__()
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
-        self._account_available_balances = {}
-        self._account_balances = {}
         self._wazirx_auth = WazirxAuth(wazirx_api_key, wazirx_secret_key)
         self._order_book_tracker = WazirxOrderBookTracker(trading_pairs=trading_pairs)
         self._user_stream_tracker = WazirxUserStreamTracker(self._wazirx_auth, trading_pairs)

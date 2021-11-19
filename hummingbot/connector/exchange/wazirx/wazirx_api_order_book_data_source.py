@@ -189,8 +189,7 @@ class WazirxAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         WazirX doesn't provide order book diff update at this moment.
         """
-        while True:
-            await asyncio.sleep(30.0)
+        pass
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         """
