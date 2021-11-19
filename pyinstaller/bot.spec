@@ -6,6 +6,10 @@ from PyInstaller.building.build_main import (
     EXE,
     COLLECT,
 )
+from PyInstaller.utils.hooks import (
+    collect_submodules,
+    collect_data_files
+)
 import os
 import platform
 import re
@@ -63,6 +67,7 @@ if "SPEC" in globals():
         "aiokafka",
         "pkg_resources.py2_warn",
     ])
+    hidden_imports.extend(collect_submodules('scipy'))
 
     import _strptime
 
@@ -72,6 +77,7 @@ if "SPEC" in globals():
     ))
     datas.extend([(_strptime.__file__, ".")])
     datas.extend([(os.path.join(project_path(), "bin/path_util.py"), ".")])
+    datas.extend(collect_data_files('scipy'))
 
     binaries: List[Tuple[str, str]] = []
     if system_type == "Windows":
@@ -98,7 +104,7 @@ if "SPEC" in globals():
     exe = EXE(pyz,
               a.scripts,
               [],
-	      exclude_binaries=True,
+          exclude_binaries=True,
               name='bot',
               icon="hummingbot.ico",
               debug=False,
