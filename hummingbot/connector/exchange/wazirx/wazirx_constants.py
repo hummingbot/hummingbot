@@ -11,8 +11,6 @@ ORDER_PATH_URL = "order"
 MY_TRADES_PATH_URL = "myTrades"
 FUND_DETAILS_PATH_URL = "funds"
 GET_RECENT_TRADES = "trades"
-GET_OPEN_ORDERS_PATH_URL = "openOrders"
-GET_ORDER_BOOK_PATH_URL = "depth"
 CREATE_WSS_AUTH_TOKEN = "create_auth_token"
 GET_EXCHANGE_INFO = "exchangeInfo"
 GET_ORDERBOOK = "depth"
@@ -25,8 +23,6 @@ RATE_LIMITS = [
     RateLimit(limit_id=MY_TRADES_PATH_URL, limit=6000, time_interval=300),
     RateLimit(limit_id=FUND_DETAILS_PATH_URL, limit=6000, time_interval=300),
     RateLimit(limit_id=GET_RECENT_TRADES, limit=6000, time_interval=300),
-    RateLimit(limit_id=GET_OPEN_ORDERS_PATH_URL, limit=6000, time_interval=300),
-    RateLimit(limit_id=GET_ORDER_BOOK_PATH_URL, limit=6000, time_interval=300),
     RateLimit(limit_id=GET_TICKER_24H, limit=6000, time_interval=300),
     RateLimit(limit_id=CREATE_WSS_AUTH_TOKEN, limit=6000, time_interval=300),
 ]
