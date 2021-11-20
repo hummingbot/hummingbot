@@ -120,17 +120,20 @@ class TestGateIoAPIOrderBookDataSource(unittest.TestCase):
         }
         return ob_update
 
-    def get_order_book_snapshot_mock(self, asks: List[str], bids: List[str]) -> Dict:
+    def get_order_book_diff_mock(self, asks: List[str], bids: List[str]) -> Dict:
         ob_snapshot = {
             "time": 1606295412,
-            "channel": "spot.order_book",
+            "channel": "spot.order_book_update",
             "event": "update",
             "result": {
                 "t": 1606295412123,
-                "lastUpdateId": 48791820,
+                "e": "depthUpdate",
+                "E": 1606295412,
                 "s": f"{self.base_asset}_{self.quote_asset}",
-                "bids": [bids],
-                "asks": [asks],
+                "U": 48791820,
+                "u": 48791830,
+                "b": [bids],
+                "a": [asks],
             }
         }
         return ob_snapshot
@@ -268,7 +271,7 @@ class TestGateIoAPIOrderBookDataSource(unittest.TestCase):
     def test_listen_for_order_book_diffs_snapshot(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         asks = ["19080.24", "0.1638"]
-        resp = self.get_order_book_snapshot_mock(asks=asks, bids=["19079.55", "0.0195"])
+        resp = self.get_order_book_diff_mock(asks=asks, bids=["19079.55", "0.0195"])
         self.mocking_assistant.add_websocket_aiohttp_message(
             ws_connect_mock.return_value, json.dumps(resp)
         )
@@ -285,7 +288,7 @@ class TestGateIoAPIOrderBookDataSource(unittest.TestCase):
         msg = output_queue.get_nowait()
 
         self.assertTrue(isinstance(msg, OrderBookMessage))
-        self.assertEqual(asks, msg.content["asks"][0])
+        self.assertEqual(asks, msg.content["a"][0])
 
     @patch("aiohttp.client.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_order_book_diffs_snapshot_skips_subscribe_unsubscribe_messages(self, ws_connect_mock):
