@@ -2,8 +2,7 @@
 
 import asyncio
 import logging
-import pandas as pd
-import time
+
 
 import hummingbot.connector.exchange.huobi.huobi_constants as CONSTANTS
 
@@ -37,6 +36,7 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
     MESSAGE_TIMEOUT = 30.0
     PING_TIMEOUT = 10.0
     HEARTBEAT_INTERVAL = 30.0  # seconds
+    ORDER_BOOK_SNAPSHOT_DELAY = 60 * 60  # expressed in seconds
 
     TRADE_CHANNEL_SUFFIX = "trade.detail"
     ORDERBOOK_CHANNEL_SUFFIX = "depth.step0"
@@ -211,7 +211,7 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except Exception:
                 self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
                                     exc_info=True)
-                await asyncio.sleep(30.0)
+                await self._sleep(30.0)
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         message_queue = self._message_queue[self.ORDERBOOK_CHANNEL_SUFFIX]
@@ -229,34 +229,23 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except Exception:
                 self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
                                     exc_info=True)
-                await asyncio.sleep(30.0)
+                await self._sleep(30.0)
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
         while True:
+            await self._sleep(self.ORDER_BOOK_SNAPSHOT_DELAY)
             try:
-                trading_pairs: List[str] = self._trading_pairs
-                for trading_pair in trading_pairs:
-                    try:
-                        snapshot: Dict[str, Any] = await self.get_snapshot(trading_pair)
-                        snapshot_message: OrderBookMessage = HuobiOrderBook.snapshot_message_from_exchange(
-                            snapshot,
-                            timestamp=snapshot["tick"]["ts"],
-                            metadata={"trading_pair": trading_pair},
-                        )
-                        output.put_nowait(snapshot_message)
-                        self.logger().debug(f"Saved order book snapshot for {trading_pair}")
-                        await asyncio.sleep(5.0)
-                    except asyncio.CancelledError:
-                        raise
-                    except Exception:
-                        self.logger().error("Unexpected error.", exc_info=True)
-                        await asyncio.sleep(5.0)
-                this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
-                next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)
-                delta: float = next_hour.timestamp() - time.time()
-                await asyncio.sleep(delta)
+                for trading_pair in self._trading_pairs:
+                    snapshot: Dict[str, Any] = await self.get_snapshot(trading_pair)
+                    snapshot_message: OrderBookMessage = HuobiOrderBook.snapshot_message_from_exchange(
+                        snapshot,
+                        timestamp=snapshot["tick"]["ts"],
+                        metadata={"trading_pair": trading_pair},
+                    )
+                    output.put_nowait(snapshot_message)
+                    self.logger().debug(f"Saved order book snapshot for {trading_pair}")
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().error("Unexpected error.", exc_info=True)
-                await asyncio.sleep(5.0)
+                self.logger().error("Unexpected error listening for orderbook snapshots. Retrying in 5 secs...", exc_info=True)
+                await self._sleep(5.0)
