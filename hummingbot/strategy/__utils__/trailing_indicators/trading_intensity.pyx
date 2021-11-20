@@ -143,11 +143,11 @@ cdef class TradingIntensityIndicator():
 
         if self._bids_df is not None and self._asks_df is not None:
             # Retrieve previous order book, evaluate execution
-            self._simulate_execution(bids_df, asks_df)
+            self.c_simulate_execution(bids_df, asks_df)
 
             if self.is_sampling_buffer_full:
                 # Estimate alpha and kappa
-                self._estimate_intensity()
+                self.c_estimate_intensity()
 
         # Store the orderbook
         self._bids_df = bids_df
