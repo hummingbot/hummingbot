@@ -1231,6 +1231,16 @@ class DydxPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 self._poll_notifier.set()
         self._last_poll_timestamp = timestamp
 
+    def buy(
+        self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET, price: Decimal = s_decimal_NaN, **kwargs
+    ) -> str:
+        tracking_nonce = get_tracking_nonce()
+        client_order_id: str = str(f"buy-{trading_pair}-{tracking_nonce}")
+        safe_ensure_future(
+            self.execute_buy(client_order_id, trading_pair, amount, order_type, kwargs["position_action"], price)
+        )
+        return client_order_id
+
     def sell(
         self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET, price: Decimal = s_decimal_NaN, **kwargs
     ) -> str:
