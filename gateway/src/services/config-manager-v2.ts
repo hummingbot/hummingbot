@@ -3,9 +3,14 @@ import { ValidateFunction } from 'ajv';
 import fs from 'fs';
 import path from 'path';
 import yaml from 'js-yaml';
+import * as migrations from '../../conf/migration/migrations';
 
 type Configuration = { [key: string]: any };
 type ConfigurationDefaults = { [namespaceId: string]: Configuration };
+type Migration = () => void;
+interface MigrationFunctions {
+  [key: string]: Migration;
+}
 interface _ConfigurationNamespaceDefinition {
   configurationPath: string;
   schemaPath: string;
@@ -13,13 +18,21 @@ interface _ConfigurationNamespaceDefinition {
 type ConfigurationNamespaceDefinition = _ConfigurationNamespaceDefinition & {
   [key: string]: string;
 };
-type ConfigurationRoot = {
+type configurationPattern = {
   [namespaceId: string]: ConfigurationNamespaceDefinition;
+};
+type ConfigurationRoot = {
+  version: number;
+  configurations: configurationPattern;
 };
 const NamespaceTag: string = '$namespace ';
 const ConfigRootSchemaPath: string = path.join(
   __dirname,
   'schema/configuration-root-schema.json'
+);
+const ConfigTemplatesDir: string = path.join(
+  __dirname,
+  '../../conf/templates/'
 );
 interface UnpackedConfigNamespace {
   namespace: ConfigurationNamespace;
@@ -76,9 +89,14 @@ export class ConfigurationNamespace {
       JSON.parse(fs.readFileSync(schemaPath).toString())
     );
 
-    if (fs.existsSync(configurationPath)) {
-      this.loadConfig();
+    if (!fs.existsSync(configurationPath)) {
+      // copy from template
+      fs.copyFileSync(
+        path.join(ConfigTemplatesDir, path.basename(configurationPath)),
+        configurationPath
+      );
     }
+    this.loadConfig();
   }
 
   get id(): string {
@@ -98,7 +116,26 @@ export class ConfigurationNamespace {
       fs.readFileSync(this.#configurationPath, 'utf8')
     ) as Configuration;
     if (!this.#validator(configCandidate)) {
-      throw new Error(`Invalid configuration for namespace ${this.id}.`);
+      // merge with template file and try validating again
+      const configTemplateCandidate: Configuration = yaml.load(
+        fs.readFileSync(
+          path.join(ConfigTemplatesDir, path.basename(this.#configurationPath)),
+          'utf8'
+        )
+      ) as Configuration;
+      if (
+        !this.#validator(
+          Object.assign(configTemplateCandidate, configCandidate)
+        )
+      ) {
+        throw new Error(
+          `Configuration for namespace ${this.id} seems to be outdated/broken. Kindly fix manually.`
+        );
+      } else {
+        this.#configuration = configTemplateCandidate;
+        this.saveConfig();
+        return;
+      }
     }
     this.#configuration = configCandidate;
   }
@@ -267,10 +304,35 @@ export class ConfigManagerV2 {
   loadConfigRoot(configRootPath: string) {
     // Load the config root file.
     const configRootFullPath: string = fs.realpathSync(configRootPath);
+    const configRootTemplateFullPath: string = path.join(
+      ConfigTemplatesDir,
+      'root.yml'
+    );
     const configRootDir: string = path.dirname(configRootFullPath);
     const configRoot: ConfigurationRoot = yaml.load(
       fs.readFileSync(configRootFullPath, 'utf8')
     ) as ConfigurationRoot;
+    const configRootTemplate: ConfigurationRoot = yaml.load(
+      fs.readFileSync(configRootTemplateFullPath, 'utf8')
+    ) as ConfigurationRoot;
+
+    // version control to only handle upgrades
+    if (configRootTemplate.version > configRoot.version) {
+      // latest root config missing, copying from template
+      fs.copyFileSync(configRootTemplateFullPath, configRootFullPath);
+      Object.assign(configRoot, configRootTemplate);
+
+      // run migration in order if available
+      for (
+        let num = configRoot.version + 1;
+        num <= configRootTemplate.version;
+        num++
+      ) {
+        if ((migrations as MigrationFunctions)[`version_${num}`]) {
+          (migrations as MigrationFunctions)[`version_${num}`]();
+        }
+      }
+    }
 
     // Validate the config root file.
     const validator: ValidateFunction = ajv.compile(
@@ -281,10 +343,10 @@ export class ConfigManagerV2 {
     }
 
     // Extract the namespace ids.
-    const namespaceMap: ConfigurationRoot = {};
-    for (const namespaceKey of Object.keys(configRoot)) {
+    const namespaceMap: configurationPattern = {};
+    for (const namespaceKey of Object.keys(configRoot.configurations)) {
       namespaceMap[namespaceKey.slice(NamespaceTag.length)] =
-        configRoot[namespaceKey];
+        configRoot.configurations[namespaceKey];
     }
 
     // Rebase the file paths in config root if they're relative paths.
