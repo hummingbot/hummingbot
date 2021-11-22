@@ -579,7 +579,7 @@ class WazirxExchange(ExchangeBase):
                             "traded_quantity": order_trade["qty"],
                             "quote_quantity": order_trade["quoteQty"],
                             "fee": order_trade["fee"],
-                            "fee_currency": order_trade["feeCurrency"],
+                            "fee_currency": order_trade["feeCurrency"].upper(),
                         }
                         await self._process_trade_message(trade_msg)
                     return order_id
@@ -864,7 +864,7 @@ class WazirxExchange(ExchangeBase):
                         "order_id": trade_evt["o"],
                         "traded_price": trade_evt["p"],
                         "traded_quantity": trade_evt["q"],
-                        "fee_currency": trade_evt["U"],
+                        "fee_currency": trade_evt["U"].upper(),
                         "fee": trade_evt["f"]
                     }
                     await self._process_trade_message(trade_msg)
