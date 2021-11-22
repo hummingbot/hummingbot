@@ -143,6 +143,13 @@ async def rest_response_with_errors(request_coroutine):
     return http_status, parsed_response, request_errors
 
 
+async def _sleep(delay):
+    """
+    Function added only to facilitate patching the sleep in unit tests without affecting the asyncio module
+    """
+    await asyncio.sleep(delay)
+
+
 async def api_call_with_retries(request: GateIORESTRequest,
                                 rest_assistant: RESTAssistant,
                                 throttler: AsyncThrottler,
@@ -173,7 +180,7 @@ async def api_call_with_retries(request: GateIORESTRequest,
                 f"Error fetching data from {request.url}. HTTP status is {http_status}."
                 f" Retrying in {time_sleep:.0f}s."
             )
-            await asyncio.sleep(time_sleep)
+            await _sleep(time_sleep)
             return await api_call_with_retries(
                 request, rest_assistant, throttler, logger, gate_io_auth, try_count
             )

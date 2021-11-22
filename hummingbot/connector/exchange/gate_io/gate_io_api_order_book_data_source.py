@@ -274,8 +274,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         )
                         output.put_nowait(snapshot_msg)
                         self.logger().debug(f"Saved order book snapshot for {trading_pair}")
-                        # Be careful not to go above API rate limits.
-                        await self._sleep(5.0)
+
                     except asyncio.CancelledError:
                         raise
                     except Exception:
