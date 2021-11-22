@@ -236,7 +236,7 @@ class HuobiAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.exchange.huobi.huobi_api_order_book_data_source.HuobiAPIOrderBookDataSource._sleep")
-    def test_listen_for_user_stream_raises_logs_exception(self, sleep_mock, ws_connect_mock):
+    def test_listen_for_subscriptions_raises_logs_exception(self, sleep_mock, ws_connect_mock):
         sleep_mock.side_effect = lambda *_: (
             # Allows listen_for_subscriptions to yield control over thread
             self.ev_loop.run_until_complete(asyncio.sleep(0.0))
@@ -256,7 +256,7 @@ class HuobiAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         )
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_user_stream_successful_subbed(self, ws_connect_mock):
+    def test_listen_for_subscriptions_successful_subbed(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         subbed_message = {
@@ -278,7 +278,7 @@ class HuobiAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(0, self.data_source._message_queue[self.data_source.ORDERBOOK_CHANNEL_SUFFIX].qsize())
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_user_stream_handle_ping_successful(self, ws_connect_mock):
+    def test_listen_for_subscriptions_handle_ping_successful(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         ping_message = {"ping": 1637333569837}
