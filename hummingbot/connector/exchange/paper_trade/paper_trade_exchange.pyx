@@ -62,6 +62,8 @@ from .market_config import (
     MarketConfig,
     AssetType
 )
+from ...budget_checker import BudgetChecker
+
 ptm_logger = None
 s_decimal_0 = Decimal(0)
 
@@ -168,6 +170,7 @@ cdef class PaperTradeExchange(ExchangeBase):
     def __init__(self, order_book_tracker: OrderBookTracker, config: MarketConfig, target_market: type):
         order_book_tracker.data_source.order_book_create_function = lambda: CompositeOrderBook()
         self._order_book_tracker = order_book_tracker
+        self._budget_checker = BudgetChecker(exchange=self)
         super(ExchangeBase, self).__init__()
         self._account_balances = {}
         self._account_available_balances = {}
@@ -184,6 +187,10 @@ cdef class PaperTradeExchange(ExchangeBase):
     @property
     def order_book_tracker(self) -> OrderBookTracker:
         return self._order_book_tracker
+
+    @property
+    def budget_checker(self) -> BudgetChecker:
+        return self._budget_checker
 
     @classmethod
     def random_order_id(cls, order_side: str, trading_pair: str) -> str:
