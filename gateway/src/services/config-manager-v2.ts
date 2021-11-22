@@ -318,9 +318,6 @@ export class ConfigManagerV2 {
 
     // version control to only handle upgrades
     if (configRootTemplate.version > configRoot.version) {
-      // latest root config missing, copying from template
-      fs.copyFileSync(configRootTemplateFullPath, configRootFullPath);
-      Object.assign(configRoot, configRootTemplate);
 
       // run migration in order if available
       for (
