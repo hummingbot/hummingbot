@@ -13,6 +13,8 @@ from typing import (
 )
 import ujson
 
+import hummingbot.connector.exchange.huobi.huobi_constants as CONSTANTS
+
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -40,11 +42,6 @@ from hummingbot.core.utils.async_utils import (
 )
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.huobi.huobi_api_order_book_data_source import HuobiAPIOrderBookDataSource
-from hummingbot.connector.exchange.huobi.huobi_api_user_stream_data_source import (
-    HUOBI_SUBSCRIBE_TOPICS,
-    HUOBI_ACCOUNT_UPDATE_TOPIC,
-    HUOBI_ORDER_UPDATE_TOPIC
-)
 from hummingbot.connector.exchange.huobi.huobi_auth import HuobiAuth
 from hummingbot.connector.exchange.huobi.huobi_in_flight_order import HuobiInFlightOrder
 from hummingbot.connector.exchange.huobi.huobi_order_book_tracker import HuobiOrderBookTracker
@@ -135,7 +132,7 @@ cdef class HuobiExchange(ExchangeBase):
 
         self._user_stream_event_listener_task = None
         self._user_stream_tracker = HuobiUserStreamTracker(huobi_auth=self._huobi_auth,
-                                                           trading_pairs=trading_pairs)
+                                                           api_factory=self._api_factory)
 
     @property
     def name(self) -> str:
@@ -579,7 +576,7 @@ cdef class HuobiExchange(ExchangeBase):
         async for stream_message in self._iter_user_stream_queue():
             try:
                 channel = stream_message.get("ch", None)
-                if channel not in HUOBI_SUBSCRIBE_TOPICS:
+                if channel not in CONSTANTS.HUOBI_SUBSCRIBE_TOPICS:
                     continue
 
                 data = stream_message["data"]
@@ -588,7 +585,7 @@ cdef class HuobiExchange(ExchangeBase):
                     self.logger().info(f"Successfully subscribed to {channel}")
                     continue
 
-                if channel == HUOBI_ACCOUNT_UPDATE_TOPIC:
+                if channel == CONSTANTS.HUOBI_ACCOUNT_UPDATE_TOPIC:
                     asset_name = data["currency"].upper()
                     balance = data["balance"]
                     available_balance = data["available"]
@@ -597,7 +594,7 @@ cdef class HuobiExchange(ExchangeBase):
                     self._account_available_balances.update({asset_name: Decimal(available_balance)})
                     continue
 
-                elif channel == HUOBI_ORDER_UPDATE_TOPIC:
+                elif channel == CONSTANTS.HUOBI_ORDER_UPDATE_TOPIC:
                     order_id = data["orderId"]
                     client_order_id = data["clientOrderId"]
                     trading_pair = data["symbol"]

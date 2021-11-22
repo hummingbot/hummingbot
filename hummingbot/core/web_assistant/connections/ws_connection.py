@@ -84,7 +84,7 @@ class WSConnection:
         return msg
 
     async def _check_msg_closed_type(self, msg: Optional[aiohttp.WSMessage]) -> Optional[aiohttp.WSMessage]:
-        if msg is not None and msg.type == aiohttp.WSMsgType.CLOSED:
+        if msg is not None and msg.type in [aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.CLOSE]:
             msg = None
             if self._connected:
                 await self.disconnect()
