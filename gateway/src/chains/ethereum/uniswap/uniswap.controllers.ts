@@ -36,93 +36,54 @@ export async function price(
 ): Promise<UniswapPriceResponse> {
   const initTime = Date.now();
 
-  // the amount is passed in as a string. We must validate the value.
-  // If it is a strictly an integer string, we can pass it interpet it as a BigNumber.
-  // If is a float string, we need to know how many decimal places it has then we can
-  // convert it to a BigNumber.
-  let amount: BigNumber;
-  if (req.amount.indexOf('.') > -1) {
-    let token;
-    if (req.side === 'BUY') {
-      token = ethereum.getTokenBySymbol(req.quote);
-    } else {
-      token = ethereum.getTokenBySymbol(req.base);
-    }
-    if (token) {
-      amount = stringWithDecimalToBigNumber(req.amount, token.decimals);
-    } else {
-      throw new HttpException(
-        500,
-        TOKEN_NOT_SUPPORTED_ERROR_MESSAGE + token,
-        TOKEN_NOT_SUPPORTED_ERROR_CODE
-      );
-    }
-  } else {
-    amount = BigNumber.from(req.amount);
-  }
+  const amount = getAmount(req.amount, req.side, req.quote, req.base);
+  const baseToken = getFullTokenFromSymbol(req.base);
+  const quoteToken = getFullTokenFromSymbol(req.quote);
+  const slippagePercentage = uniswap.getSlippagePercentage();
 
-  const baseToken = ethereum.getTokenBySymbol(req.base);
-
-  if (baseToken) {
-    const quoteToken = ethereum.getTokenBySymbol(req.quote);
-    if (quoteToken) {
-      const result: ExpectedTrade | string =
-        req.side === 'BUY'
-          ? await uniswap.priceSwapOut(
-              quoteToken.address, // tokenIn is quote asset
-              baseToken.address, // tokenOut is base asset
-              amount
-            )
-          : await uniswap.priceSwapIn(
-              baseToken.address, // tokenIn is base asset
-              quoteToken.address, // tokenOut is quote asset
-              amount
-            );
-
-      if (typeof result === 'string') {
-        throw new HttpException(
-          500,
-          TRADE_FAILED_ERROR_MESSAGE + result,
-          TRADE_FAILED_ERROR_CODE
+  const result: ExpectedTrade | string =
+    req.side === 'BUY'
+      ? await uniswap.priceSwapOut(
+          quoteToken, // tokenIn is quote asset
+          baseToken, // tokenOut is base asset
+          amount,
+          slippagePercentage
+        )
+      : await uniswap.priceSwapIn(
+          baseToken, // tokenIn is base asset
+          quoteToken, // tokenOut is quote asset
+          amount,
+          slippagePercentage
         );
-      } else {
-        const trade = result.trade;
-        const expectedAmount = result.expectedAmount;
 
-        const tradePrice =
-          req.side === 'BUY'
-            ? trade.executionPrice.invert()
-            : trade.executionPrice;
-
-        const gasLimit = ConfigManager.config.UNISWAP_GAS_LIMIT;
-        const gasPrice = ethereum.gasPrice;
-        return {
-          network: ConfigManager.config.ETHEREUM_CHAIN,
-          timestamp: initTime,
-          latency: latency(initTime, Date.now()),
-          base: baseToken.address,
-          quote: quoteToken.address,
-          amount: amount.toString(),
-          expectedAmount: expectedAmount.toSignificant(8),
-          price: tradePrice.toSignificant(8),
-          gasPrice: gasPrice,
-          gasLimit: gasLimit,
-          gasCost: gasCostInEthString(gasPrice, gasLimit),
-        };
-      }
-    } else {
-      throw new HttpException(
-        500,
-        TOKEN_NOT_SUPPORTED_ERROR_MESSAGE + req.quote,
-        TOKEN_NOT_SUPPORTED_ERROR_CODE
-      );
-    }
-  } else {
+  if (typeof result === 'string') {
     throw new HttpException(
       500,
-      TOKEN_NOT_SUPPORTED_ERROR_MESSAGE + req.base,
-      TOKEN_NOT_SUPPORTED_ERROR_CODE
+      TRADE_FAILED_ERROR_MESSAGE + result,
+      TRADE_FAILED_ERROR_CODE
     );
+  } else {
+    const trade = result.trade;
+    const expectedAmount = result.expectedAmount;
+
+    const tradePrice =
+      req.side === 'BUY' ? trade.executionPrice.invert() : trade.executionPrice;
+
+    const gasLimit = ConfigManager.config.UNISWAP_GAS_LIMIT;
+    const gasPrice = ethereum.gasPrice;
+    return {
+      network: ConfigManager.config.ETHEREUM_CHAIN,
+      timestamp: initTime,
+      latency: latency(initTime, Date.now()),
+      base: baseToken.address,
+      quote: quoteToken.address,
+      amount: amount.toString(),
+      expectedAmount: expectedAmount.toSignificant(8),
+      price: tradePrice.toSignificant(8),
+      gasPrice: gasPrice,
+      gasLimit: gasLimit,
+      gasCost: gasCostInEthString(gasPrice, gasLimit),
+    };
   }
 }
 
@@ -152,55 +113,24 @@ export async function trade(
       LOAD_WALLET_ERROR_CODE
     );
   }
-
-  const baseToken = ethereum.getTokenBySymbol(req.base);
-  if (!baseToken)
-    throw new HttpException(
-      500,
-      TOKEN_NOT_SUPPORTED_ERROR_MESSAGE + req.base,
-      TOKEN_NOT_SUPPORTED_ERROR_CODE
-    );
-
-  const quoteToken = ethereum.getTokenBySymbol(req.quote);
-  if (!quoteToken)
-    throw new HttpException(
-      500,
-      TOKEN_NOT_SUPPORTED_ERROR_MESSAGE + req.quote,
-      TOKEN_NOT_SUPPORTED_ERROR_CODE
-    );
-
-  let amount: BigNumber;
-  if (req.amount.indexOf('.') > -1) {
-    let token;
-    if (req.side === 'BUY') {
-      token = ethereum.getTokenBySymbol(req.quote);
-    } else {
-      token = ethereum.getTokenBySymbol(req.base);
-    }
-    if (token) {
-      amount = stringWithDecimalToBigNumber(req.amount, token.decimals);
-    } else {
-      throw new HttpException(
-        500,
-        TOKEN_NOT_SUPPORTED_ERROR_MESSAGE + token,
-        TOKEN_NOT_SUPPORTED_ERROR_CODE
-      );
-    }
-  } else {
-    amount = BigNumber.from(req.amount);
-  }
+  const amount = getAmount(req.amount, req.side, req.quote, req.base);
+  const baseToken = getFullTokenFromSymbol(req.base);
+  const quoteToken = getFullTokenFromSymbol(req.quote);
+  const slippagePercentage = uniswap.getSlippagePercentage();
 
   const result: ExpectedTrade | string =
     req.side === 'BUY'
       ? await uniswap.priceSwapOut(
-          quoteToken.address, // tokenIn is quote asset
-          baseToken.address, // tokenOut is base asset
-          amount
+          quoteToken, // tokenIn is quote asset
+          baseToken, // tokenOut is base asset
+          amount,
+          slippagePercentage
         )
       : await uniswap.priceSwapIn(
-          baseToken.address, // tokenIn is base asset
-          quoteToken.address, // tokenOut is quote asset
-          amount
+          baseToken, // tokenIn is base asset
+          quoteToken, // tokenOut is quote asset
+          amount,
+          slippagePercentage
         );
 
   if (typeof result === 'string')
@@ -229,6 +159,11 @@ export async function trade(
       wallet,
       result.trade,
       gasPrice,
+      slippagePercentage,
+      uniswap.uniswapRouter,
+      uniswap.ttl,
+      uniswap.routerAbi,
+      uniswap.gasLimit,
       req.nonce,
       maxFeePerGasBigNumber,
       maxPriorityFeePerGasBigNumber
@@ -265,6 +200,11 @@ export async function trade(
       wallet,
       result.trade,
       gasPrice,
+      slippagePercentage,
+      uniswap.uniswapRouter,
+      uniswap.ttl,
+      uniswap.routerAbi,
+      uniswap.gasLimit,
       req.nonce,
       maxFeePerGasBigNumber,
       maxPriorityFeePerGasBigNumber
@@ -285,4 +225,52 @@ export async function trade(
       txHash: tx.hash,
     };
   }
+}
+
+function getFullTokenFromSymbol(tokenSymbol: string) {
+  const token = ethereum.getTokenBySymbol(tokenSymbol);
+  let fullToken;
+  if (token) {
+    fullToken = uniswap.getTokenByAddress(token.address);
+  }
+  if (!fullToken)
+    throw new HttpException(
+      500,
+      TOKEN_NOT_SUPPORTED_ERROR_MESSAGE + tokenSymbol,
+      TOKEN_NOT_SUPPORTED_ERROR_CODE
+    );
+  return fullToken;
+}
+
+function getAmount(
+  amountAsString: string,
+  side: string,
+  quote: string,
+  base: string
+) {
+  // the amount is passed in as a string. We must validate the value.
+  // If it is a strictly an integer string, we can pass it interpet it as a BigNumber.
+  // If is a float string, we need to know how many decimal places it has then we can
+  // convert it to a BigNumber.
+  let amount: BigNumber;
+  if (amountAsString.indexOf('.') > -1) {
+    let token;
+    if (side === 'BUY') {
+      token = ethereum.getTokenBySymbol(quote);
+    } else {
+      token = ethereum.getTokenBySymbol(base);
+    }
+    if (token) {
+      amount = stringWithDecimalToBigNumber(amountAsString, token.decimals);
+    } else {
+      throw new HttpException(
+        500,
+        TOKEN_NOT_SUPPORTED_ERROR_MESSAGE + token,
+        TOKEN_NOT_SUPPORTED_ERROR_CODE
+      );
+    }
+  } else {
+    amount = BigNumber.from(amountAsString);
+  }
+  return amount;
 }
