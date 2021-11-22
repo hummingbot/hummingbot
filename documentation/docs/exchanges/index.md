@@ -56,7 +56,7 @@ Exchanges and other institutions can visit the [official Hummingbot website](htt
 | [Kraken](/exchanges/kraken)                     | [kraken.com](https://kraken.com)             |                                  | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span> |
 | [KuCoin](/exchanges/kucoin)                     | [kucoin.com](https://kucoin.com)             |                                  | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span> |
 | [Liquid](/exchanges/liquid)                     | [liquid.com](https://liquid.com)             |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
-| [MEXC Global](/exchanges/mexc)                  | [mexc.com](https://www.mexc.com/)            |                                  | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span> |
+| [MEXC Global](/exchanges/mexc)                  | [mexc.com](https://www.mexc.com/)            |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
 | [NDAX](/exchanges/ndax)                         | [ndax.io](https://ndax.io/)                  |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
 | [OKEx](/exchanges/okex)                         | [okex.com](https://www.okex.com/)            |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
 | [ProBit Global](/exchanges/probit)              | [probit.com](https://www.probit.com/)        |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
