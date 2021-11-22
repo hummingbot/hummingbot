@@ -56,12 +56,15 @@ Exchanges and other institutions can visit the [official Hummingbot website](htt
 | [Kraken](/exchanges/kraken)                     | [kraken.com](https://kraken.com)             |                                  | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span> |
 | [KuCoin](/exchanges/kucoin)                     | [kucoin.com](https://kucoin.com)             |                                  | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span> |
 | [Liquid](/exchanges/liquid)                     | [liquid.com](https://liquid.com)             |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
+| [MEXC Global](/exchanges/mexc)                  | [mexc.com](https://www.mexc.com/)            |                                  | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span> |
 | [NDAX](/exchanges/ndax)                         | [ndax.io](https://ndax.io/)                  |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
 | [OKEx](/exchanges/okex)                         | [okex.com](https://www.okex.com/)            |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
 | [ProBit Global](/exchanges/probit)              | [probit.com](https://www.probit.com/)        |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
 | [ProBit Korea](/exchanges/probit-korea/)        | [probit.kr](https://www.probit.kr/en-us/)    |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
 | [dYdX](/exchanges/dydx)                         | [dydx.exchange](https://dydx.exchange/)      | [ethereum](/protocols/ethereum)  | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span> |
 | [Loopring](/exchanges/loopring)                 | [loopring.org](https://loopring.org)         | [ethereum](/protocols/ethereum)  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
+| [WazirX](/exchanges/wazirx)                     | [wazirx.com](https://wazirx.com/)        |                                      | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span> |
+
 
 ### `perp`
 

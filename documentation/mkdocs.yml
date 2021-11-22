@@ -183,6 +183,7 @@ nav:
       - Kraken: exchanges/kraken.md
       - Liquid: exchanges/liquid.md
       - Loopring: exchanges/loopring.md
+      - MEXC: exchanges/mexc.md 
       - NDAX: exchanges/ndax.md
       - OKEx: exchanges/okex.md
       - Perpetual Protocol: exchanges/perp-fi.md
@@ -190,6 +191,7 @@ nav:
       - ProBit Korea: exchanges/probit-korea.md
       - Uniswap: exchanges/uniswap.md
       - Uniswap V3: exchanges/uniswap-v3.md
+      - WazirX: exchanges/wazirx.md
     - Protocol Connectors:
       - Protocol Connectors: protocols/index.md
       - Gateway: protocols/gateway.md
