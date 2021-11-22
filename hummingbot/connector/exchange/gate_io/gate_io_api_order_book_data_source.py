@@ -239,7 +239,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 msg = await msg_queue.get()
                 order_book_data: str = msg.get("result", None)
 
-                timestamp: int = order_book_data["t"]
+                timestamp: float = (order_book_data["t"]) * 1e-3
                 pair: str = convert_from_exchange_trading_pair(order_book_data["s"])
 
                 orderbook_msg: OrderBookMessage = GateIoOrderBook.diff_message_from_exchange(
