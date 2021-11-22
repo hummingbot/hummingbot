@@ -1,6 +1,18 @@
 import { BigNumber, Wallet } from 'ethers';
 import { Ethereum } from '../ethereum';
-import { HttpException } from '../../../services/error-handler';
+import {
+  HttpException,
+  LOAD_WALLET_ERROR_CODE,
+  LOAD_WALLET_ERROR_MESSAGE,
+  TOKEN_NOT_SUPPORTED_ERROR_CODE,
+  TOKEN_NOT_SUPPORTED_ERROR_MESSAGE,
+  TRADE_FAILED_ERROR_CODE,
+  TRADE_FAILED_ERROR_MESSAGE,
+  SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_CODE,
+  SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE,
+  SWAP_PRICE_LOWER_THAN_LIMIT_PRICE_ERROR_CODE,
+  SWAP_PRICE_LOWER_THAN_LIMIT_PRICE_ERROR_MESSAGE,
+} from '../../../services/error-handler';
 import { Uniswap, ExpectedTrade } from './uniswap';
 import {
   latency,
@@ -39,7 +51,11 @@ export async function price(
     if (token) {
       amount = stringWithDecimalToBigNumber(req.amount, token.decimals);
     } else {
-      throw new HttpException(500, 'Unrecognized token symbol for amount.');
+      throw new HttpException(
+        500,
+        TOKEN_NOT_SUPPORTED_ERROR_MESSAGE + token,
+        TOKEN_NOT_SUPPORTED_ERROR_CODE
+      );
     }
   } else {
     amount = BigNumber.from(req.amount);
@@ -64,7 +80,11 @@ export async function price(
             );
 
       if (typeof result === 'string') {
-        throw new HttpException(500, 'Uniswap trade query failed: ' + result);
+        throw new HttpException(
+          500,
+          TRADE_FAILED_ERROR_MESSAGE + result,
+          TRADE_FAILED_ERROR_CODE
+        );
       } else {
         const trade = result.trade;
         const expectedAmount = result.expectedAmount;
@@ -93,11 +113,16 @@ export async function price(
     } else {
       throw new HttpException(
         500,
-        'Unrecognized quote token symbol: ' + req.quote
+        TOKEN_NOT_SUPPORTED_ERROR_MESSAGE + req.quote,
+        TOKEN_NOT_SUPPORTED_ERROR_CODE
       );
     }
   } else {
-    throw new HttpException(500, 'Unrecognized base token symbol: ' + req.base);
+    throw new HttpException(
+      500,
+      TOKEN_NOT_SUPPORTED_ERROR_MESSAGE + req.base,
+      TOKEN_NOT_SUPPORTED_ERROR_CODE
+    );
   }
 }
 
@@ -121,18 +146,27 @@ export async function trade(
   try {
     wallet = ethereum.getWallet(req.privateKey);
   } catch (err) {
-    throw new Error(`Error getting wallet ${err}`);
+    throw new HttpException(
+      500,
+      LOAD_WALLET_ERROR_MESSAGE + err,
+      LOAD_WALLET_ERROR_CODE
+    );
   }
 
   const baseToken = ethereum.getTokenBySymbol(req.base);
   if (!baseToken)
-    throw new HttpException(500, 'Unrecognized base token symbol: ' + req.base);
+    throw new HttpException(
+      500,
+      TOKEN_NOT_SUPPORTED_ERROR_MESSAGE + req.base,
+      TOKEN_NOT_SUPPORTED_ERROR_CODE
+    );
 
   const quoteToken = ethereum.getTokenBySymbol(req.quote);
   if (!quoteToken)
     throw new HttpException(
       500,
-      'Unrecognized quote token symbol: ' + req.quote
+      TOKEN_NOT_SUPPORTED_ERROR_MESSAGE + req.quote,
+      TOKEN_NOT_SUPPORTED_ERROR_CODE
     );
 
   let amount: BigNumber;
@@ -146,7 +180,11 @@ export async function trade(
     if (token) {
       amount = stringWithDecimalToBigNumber(req.amount, token.decimals);
     } else {
-      throw new HttpException(500, 'Unrecognized quote token symbol.');
+      throw new HttpException(
+        500,
+        TOKEN_NOT_SUPPORTED_ERROR_MESSAGE + token,
+        TOKEN_NOT_SUPPORTED_ERROR_CODE
+      );
     }
   } else {
     amount = BigNumber.from(req.amount);
@@ -166,18 +204,25 @@ export async function trade(
         );
 
   if (typeof result === 'string')
-    throw new HttpException(500, 'Uniswap trade query failed: ' + result);
+    throw new HttpException(
+      500,
+      TRADE_FAILED_ERROR_MESSAGE + result,
+      TRADE_FAILED_ERROR_CODE
+    );
 
   const gasPrice = ethereum.gasPrice;
   const gasLimit = ConfigManager.config.UNISWAP_GAS_LIMIT;
 
   if (req.side === 'BUY') {
     const price = result.trade.executionPrice.invert();
-
-    if (limitPrice && price.toFixed(8) >= limitPrice.toString())
+    if (
+      limitPrice &&
+      BigNumber.from(price.toFixed(8)).gte(BigNumber.from(limitPrice))
+    )
       throw new HttpException(
         500,
-        `Swap price ${price} exceeds limitPrice ${limitPrice}`
+        SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE(price, limitPrice),
+        SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_CODE
       );
 
     const tx = await uniswap.executeTrade(
@@ -206,10 +251,14 @@ export async function trade(
     };
   } else {
     const price = result.trade.executionPrice;
-    if (limitPrice && price.toFixed(8) >= limitPrice.toString())
+    if (
+      limitPrice &&
+      BigNumber.from(price.toFixed(8)).gte(BigNumber.from(limitPrice))
+    )
       throw new HttpException(
         500,
-        `Swap price ${price} lower than limitPrice ${limitPrice}`
+        SWAP_PRICE_LOWER_THAN_LIMIT_PRICE_ERROR_MESSAGE(price, limitPrice),
+        SWAP_PRICE_LOWER_THAN_LIMIT_PRICE_ERROR_CODE
       );
 
     const tx = await uniswap.executeTrade(

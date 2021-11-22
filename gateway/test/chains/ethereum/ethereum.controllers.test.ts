@@ -7,7 +7,16 @@ import {
   getTokenSymbolsToTokens,
   allowances,
   approve,
+  balances,
+  cancel,
 } from '../../../src/chains/ethereum/ethereum.controllers';
+import {
+  HttpException,
+  LOAD_WALLET_ERROR_CODE,
+  LOAD_WALLET_ERROR_MESSAGE,
+  TOKEN_NOT_SUPPORTED_ERROR_MESSAGE,
+  TOKEN_NOT_SUPPORTED_ERROR_CODE,
+} from '../../../src/services/error-handler';
 
 let eth: Ethereum;
 beforeAll(async () => {
@@ -121,5 +130,98 @@ describe('approve', () => {
       token: 'WETH',
     });
     expect((result as any).spender).toEqual(uniswap);
+  });
+
+  it('fail if wallet not found', async () => {
+    patch(eth, 'getSpender', () => {
+      return uniswap;
+    });
+
+    const err = 'wallet does not exist';
+    patch(eth, 'getWallet', () => {
+      throw new Error(err);
+    });
+
+    await expect(
+      approve(eth, {
+        privateKey: zeroAddress,
+        spender: uniswap,
+        token: 'WETH',
+      })
+    ).rejects.toThrow(
+      new HttpException(
+        500,
+        LOAD_WALLET_ERROR_MESSAGE + 'Error: ' + err,
+        LOAD_WALLET_ERROR_CODE
+      )
+    );
+  });
+
+  it('fail if token not found', async () => {
+    patch(eth, 'getSpender', () => {
+      return uniswap;
+    });
+
+    patch(eth, 'getWallet', () => {
+      return {
+        address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+      };
+    });
+
+    patch(eth, 'getTokenBySymbol', () => {
+      return null;
+    });
+
+    await expect(
+      approve(eth, {
+        privateKey: zeroAddress,
+        spender: uniswap,
+        token: 'WETH',
+      })
+    ).rejects.toThrow(
+      new HttpException(
+        500,
+        TOKEN_NOT_SUPPORTED_ERROR_MESSAGE + 'WETH',
+        TOKEN_NOT_SUPPORTED_ERROR_CODE
+      )
+    );
+  });
+});
+
+describe('balances', () => {
+  it('fail if wallet not found', async () => {
+    const err = 'wallet does not exist';
+    patch(eth, 'getWallet', () => {
+      throw new Error(err);
+    });
+
+    await expect(
+      balances(eth, { privateKey: zeroAddress, tokenSymbols: ['WETH', 'DAI'] })
+    ).rejects.toThrow(
+      new HttpException(
+        500,
+        LOAD_WALLET_ERROR_MESSAGE + 'Error: ' + err,
+        LOAD_WALLET_ERROR_CODE
+      )
+    );
+  });
+});
+
+describe('cancel', () => {
+  it('fail if wallet not found', async () => {
+    const err = 'wallet does not exist';
+    patch(eth, 'getWallet', () => {
+      throw new Error(err);
+    });
+
+    await expect(
+      cancel(eth, { nonce: 123, privateKey: zeroAddress })
+    ).rejects.toThrow(
+      new HttpException(
+        500,
+        LOAD_WALLET_ERROR_MESSAGE + 'Error: ' + err,
+        LOAD_WALLET_ERROR_CODE
+      )
+    );
   });
 });
