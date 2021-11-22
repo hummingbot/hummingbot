@@ -10,6 +10,7 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.southxchange.southxchange_auth import SouthXchangeAuth
 from hummingbot.connector.exchange.southxchange.southxchange_constants import PRIVATE_WS_URL, PONG_PAYLOAD
 from hummingbot.connector.exchange.southxchange.southxchange_utils import get_market_id
+from hummingbot.connector.exchange.southxchange.southxchange_utils import SouthXchangeAPIRequest
 
 
 class SouthxchangeAPIUserStreamDataSource(UserStreamTrackerDataSource):
@@ -25,7 +26,7 @@ class SouthxchangeAPIUserStreamDataSource(UserStreamTrackerDataSource):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, southxchange_auth: SouthXchangeAuth, trading_pairs: Optional[List[str]] = []):
+    def __init__(self, southxchange_auth: SouthXchangeAuth, southxchange_api_request: SouthXchangeAPIRequest, trading_pairs: Optional[List[str]] = []):
         self._southxchange__auth: SouthXchangeAuth = southxchange_auth
         self._trading_pairs = trading_pairs
         self._current_listen_key = None
@@ -33,6 +34,7 @@ class SouthxchangeAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._last_recv_time: float = 0
         self._ws_client: websockets.WebSocketClientProtocol = None
         self._idMarket = get_market_id(trading_pairs=trading_pairs)
+        self._southxchange_api_request: SouthXchangeAPIRequest = southxchange_api_request
         super().__init__()
 
     @property
@@ -47,13 +49,17 @@ class SouthxchangeAPIUserStreamDataSource(UserStreamTrackerDataSource):
         :param output: an async queue where the incoming messages are stored
         """
         while True:
-            tokenWS = self._southxchange__auth.get_websoxket_token()
+            # _southxchange_api_request = SouthXchangeAPIRequest(self._southxchange__auth.api_key, self._southxchange__auth.secret_key)
+            # loop = asyncio.get_event_loop()
+            tokenWS = await self._southxchange_api_request.get_websoxket_token()
+            # loop.close()
+            # tokenWS = self._southxchange__auth.get_websoxket_token()
             try:
                 payload = {
                     "k": "subscribe",
                     "v": self._idMarket
                 }
-                async with websockets.connect(F"{PRIVATE_WS_URL}{tokenWS}") as ws:
+                async with websockets.connect(PRIVATE_WS_URL.format(access_token=tokenWS)) as ws:
                     try:
                         ws: websockets.WebSocketClientProtocol = ws
                         await ws.send(ujson.dumps(payload))

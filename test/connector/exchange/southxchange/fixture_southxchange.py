@@ -19,7 +19,8 @@ class Fixturesouthxchange:
         ]
     }
 
-    ORDERS_BOOK = {"BuyOrders": [{"Index": 0, "Amount": 0.011, "Price": 93.6}, {"Index": 1, "Amount": 1.0, "Price": 92.0}], "SellOrders": [{"Index": 0, "Amount": 0.99, "Price": 93.6}, {"Index": 1, "Amount": 9.9, "Price": 101.0}]}
+    # ORDERS_BOOK = {"BuyOrders": [{"Index": 0, "Amount": 0.011, "Price": 93.6}, {"Index": 1, "Amount": 1.0, "Price": 92.0}], "SellOrders": [{"Index": 0, "Amount": 0.99, "Price": 93.6}, {"Index": 1, "Amount": 9.9, "Price": 101.0}]}
+    ORDERS_BOOK = {"BuyOrders": [{"Index": '0', "Amount": '0.011', "Price": '93.6'}, {"Index": '1', "Amount": '1.0', "Price": '92.0'}], "SellOrders": [{"Index": '0', "Amount": '0.99', "Price": '93.6'}, {"Index": '1', "Amount": '9.9', "Price": '101.0'}]}
 
     BALANCES = [
         {"Currency": "LTC2", "Deposited": 118.19343, "Available": 118.19343, "Unconfirmed": 0.0},
@@ -30,9 +31,9 @@ class Fixturesouthxchange:
 
     ORDER_PLACE = "30001"
 
-    GET_ORDER_RESPONSE_BUY_CREATE = {'Type': 'buy', 'Amount': 1.0, 'LimitPrice': 86.24, 'ListingCurrency': 'LTC2', 'ReferenceCurrency': 'USD2', 'Status': 'pending', 'DateAdded': '2021-10-02T14: 23: 17.2'}
+    GET_ORDER_RESPONSE_BUY_CREATE = {'Type': 'buy', 'Amount': '1.0', 'LimitPrice': '86.24', 'ListingCurrency': 'LTC2', 'ReferenceCurrency': 'USD2', 'Status': 'pending', 'DateAdded': '2021-10-02T14: 23: 17.2'}
 
-    GET_ORDER_RESPONSE_BUY_EXECUTED = {"Type": "buy", "Amount": 1.0, "LimitPrice": 86.24, "ListingCurrency": "LTC2", "ReferenceCurrency": "USD2", "Status": "executed", "DateAdded": "2021-10-10T12: 32: 29.167"}
+    GET_ORDER_RESPONSE_BUY_EXECUTED = {"Type": "buy", "Amount": '1.0', "LimitPrice": '86.24', "ListingCurrency": "LTC2", "ReferenceCurrency": "USD2", "Status": "executed", "DateAdded": "2021-10-10T12: 32: 29.167"}
 
     GET_ORDER_RESPONSE_BUY_CANCEL = {"Type": "buy", "Amount": 1.0, "LimitPrice": 86.24, "ListingCurrency": "LTC2", "ReferenceCurrency": "USD2", "Status": "cancelednotexecuted", "DateAdded": "2021-10-10T12: 32: 29.167"}
 
@@ -51,7 +52,7 @@ class Fixturesouthxchange:
     WS_AFTER_BUY = {
         "k": "order",
         "v": [
-            {"m": 0, "d": "0001-01-01T00: 00: 00", "get": None, "giv": None, "a": 0.0, "oa": 0.0, "p": 0.0, "b": True}
+            {"m": '0', "d": "0001-01-01T00: 00: 00", "get": None, "giv": None, "a": '0.0', "oa": '0.0', "p": '0.0', "b": True}
         ]
     }
 
@@ -65,7 +66,7 @@ class Fixturesouthxchange:
     WS_AFTER_SELL = {
         "k": "order",
         "v": [
-            {"m": 0, "d": "0001-01-01T00: 00: 00", "get": None, "giv": None, "a": 0.0, "oa": 0.0, "p": 0.0, "b": False}
+            {"m": '0', "d": "0001-01-01T00: 00: 00", "get": None, "giv": None, "a": '0.0', "oa": '0.0', "p": '0.0', "b": False}
         ]
     }
 

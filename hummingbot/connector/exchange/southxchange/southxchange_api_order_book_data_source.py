@@ -16,8 +16,9 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.southxchange.southxchange_active_order_tracker import SouthXchangeActiveOrderTracker
 from hummingbot.connector.exchange.southxchange.southxchange_order_book import SouthXchangeOrderBook
 from hummingbot.connector.exchange.southxchange.southxchange_utils import convert_to_exchange_trading_pair
-from hummingbot.connector.exchange.southxchange.southxchange_constants import EXCHANGE_NAME, REST_URL, WS_URL, PONG_PAYLOAD
-from hummingbot.connector.exchange.southxchange.southxchange_utils import get_ms_timestamp, time_to_num, convert_bookWebSocket_to_bookApi, get_market_id
+from hummingbot.connector.exchange.southxchange.southxchange_constants import EXCHANGE_NAME, PUBLIC_WS_URL, REST_URL, PONG_PAYLOAD
+from hummingbot.connector.exchange.southxchange.southxchange_utils import time_to_num, convert_bookWebSocket_to_bookApi, get_market_id
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 
 class SouthxchangeAPIOrderBookDataSource(OrderBookTrackerDataSource):
@@ -109,7 +110,7 @@ class SouthxchangeAPIOrderBookDataSource(OrderBookTrackerDataSource):
         snapshot: Dict[str, Any] = await self.get_order_book_data(trading_pair)
         snapshot_msg: OrderBookMessage = SouthXchangeOrderBook.snapshot_message_from_exchange(
             snapshot,
-            get_ms_timestamp(),
+            get_tracking_nonce(),
             metadata={"trading_pair": trading_pair}
         )
         order_book = self.order_book_create_function()
@@ -128,7 +129,7 @@ class SouthxchangeAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     "k": "subscribe",
                     "v": self._idMarket
                 }
-                async with websockets.connect(WS_URL) as ws:
+                async with websockets.connect(PUBLIC_WS_URL) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     await ws.send(ujson.dumps(payload))
 
@@ -172,7 +173,7 @@ class SouthxchangeAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     "k": "subscribe",
                     "v": self._idMarket
                 }
-                async with websockets.connect(WS_URL) as ws:
+                async with websockets.connect(PUBLIC_WS_URL) as ws:
                     ws: websockets.WebSocketClientProtocol = ws
                     await ws.send(ujson.dumps(payload))
 
@@ -182,7 +183,7 @@ class SouthxchangeAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             if msg is None:
                                 continue
                             if (msg.get("k") == "bookdelta") or (msg.get("k") == "book"):
-                                msg_timestamp: int = get_ms_timestamp()
+                                msg_timestamp: int = get_tracking_nonce()
                                 list_itemsBook = convert_bookWebSocket_to_bookApi(msg.get("v"))
                                 order_book_message: OrderBookMessage = SouthXchangeOrderBook.diff_message_from_exchange(
                                     list_itemsBook,
@@ -225,7 +226,7 @@ class SouthxchangeAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         snapshot: Dict[str, any] = await self.get_order_book_data(trading_pair)
                         snapshot_msg: OrderBookMessage = SouthXchangeOrderBook.snapshot_message_from_exchange(
                             snapshot,
-                            get_ms_timestamp(),
+                            get_tracking_nonce(),
                             metadata={"trading_pair": trading_pair}
                         )
                         output.put_nowait(snapshot_msg)

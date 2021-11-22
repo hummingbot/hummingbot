@@ -1,7 +1,4 @@
 # #!/usr/bin/env python
-# import conf
-# import sys
-# import asyncio
 import unittest
 import requests
 from decimal import Decimal
@@ -16,8 +13,6 @@ import os
 import time
 import conf
 import logging
-# from unittest.case import TestCase
-# from os.path import join, realpath
 from typing import Dict, Any
 from os.path import join, realpath
 import sys; sys.path.insert(0, realpath(join(__file__, "../../../../../")))
@@ -56,7 +51,7 @@ from hummingbot.model.trade_fill import TradeFill
 from hummingbot.core.mock_api.mock_web_server import MockWebServer
 from test.connector.exchange.southXchange.fixture_southxchange import Fixturesouthxchange
 from unittest import mock
-from hummingbot.core.mock_api.mock_web_socket_server import MockWebSocketServerFactory
+from test.connector.exchange.southXchange.mock_web_socket_server import MockWebSocketServerFactory
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 logging.basicConfig(level=METRICS_LOG_LEVEL)
 API_MOCK_ENABLED = conf.mock_api_enabled is not None and conf.mock_api_enabled.lower() in ['true', 'yes', '1']
@@ -106,6 +101,7 @@ class TestSouthXchangeExchange(unittest.TestCase):
             cls.web_app.update_response("post", API_BASE_URL, "/api/v4/cancelOrder", None)
             cls.web_app.update_response("post", API_BASE_URL, "/api/v4/listBalances", Fixturesouthxchange.BALANCES)
             cls.web_app.update_response("post", API_BASE_URL, "/api/v4/GetWebSocketToken", "tokenTest")
+
             ws_base_url = "wss://www.southxchange.com/api/v4/connect?token=tokenTest"
             cls._ws_user_url = f"{ws_base_url}"
             MockWebSocketServerFactory.start_new_server(cls._ws_user_url)
@@ -114,7 +110,7 @@ class TestSouthXchangeExchange(unittest.TestCase):
             cls._ws_mock = cls._ws_patcher.start()
             cls._ws_mock.side_effect = MockWebSocketServerFactory.reroute_ws_connect
 
-            cls._t_nonce_patcher = unittest.mock.patch("hummingbot.connector.exchange.southxchange.southxchange_utils.get_ms_timestamp")
+            cls._t_nonce_patcher = unittest.mock.patch("hummingbot.core.utils.tracking_nonce.get_tracking_nonce")
             cls._t_nonce_mock = cls._t_nonce_patcher.start()
             cls._exch_order_id = 20001
         cls.clock: Clock = Clock(ClockMode.REALTIME)
@@ -460,7 +456,7 @@ class TestSouthXchangeExchange(unittest.TestCase):
         try:
             # Try to buy 0.01 ETH from the exchange, and watch for completion event.
             price: Decimal = self.market.get_price(trading_pair, True)
-            amount: Decimal = Decimal(0.01)
+            amount: Decimal = Decimal('0.01')
             order_id, exchange_order_code = self.place_order(True, trading_pair, amount, OrderType.LIMIT, price)
 
             fixture_ws = Fixturesouthxchange.WS_AFTER_BUY.get("v").copy()
@@ -481,7 +477,7 @@ class TestSouthXchangeExchange(unittest.TestCase):
 
             # Try to sell back the same amount of ETH to the exchange, and watch for completion event.
             price: Decimal = self.market.get_price(trading_pair, False)
-            amount: Decimal = Decimal(buy_order_completed_event.base_asset_amount)
+            amount: Decimal = Decimal(str(buy_order_completed_event.base_asset_amount))
             order_id, exchange_order_code = self.place_order(False, trading_pair, amount, OrderType.LIMIT, price)
 
             fixture_ws = Fixturesouthxchange.WS_AFTER_SELL.get("v").copy()

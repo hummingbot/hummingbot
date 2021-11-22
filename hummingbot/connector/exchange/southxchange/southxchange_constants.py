@@ -3,5 +3,6 @@
 EXCHANGE_NAME = "southxchange"
 REST_URL = "https://www.southxchange.com/api/v4/"
 WS_URL = "wss://www.southxchange.com/api/v4/connect"
-PRIVATE_WS_URL = "wss://www.southxchange.com/api/v4/connect?token="
+PUBLIC_WS_URL = WS_URL
+PRIVATE_WS_URL = WS_URL + '?token={access_token}'
 PONG_PAYLOAD = {"op": "pong"}

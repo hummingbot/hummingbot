@@ -10,6 +10,7 @@ from typing import (
 from hummingbot.connector.exchange.southxchange.southxchange_api_user_stream_data_source import \
     SouthxchangeAPIUserStreamDataSource
 from hummingbot.connector.exchange.southxchange.southxchange_auth import SouthXchangeAuth
+from hummingbot.connector.exchange.southxchange.southxchange_utils import SouthXchangeAPIRequest
 from hummingbot.connector.exchange.southxchange.southxchange_constants import EXCHANGE_NAME
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.data_type.user_stream_tracker import (
@@ -34,9 +35,11 @@ class SouthxchangeUserStreamTracker(UserStreamTracker):
 
     def __init__(self,
                  southxchange_auth: Optional[SouthXchangeAuth] = None,
+                 southxchange_api_request: Optional[SouthXchangeAPIRequest] = None,
                  trading_pairs: Optional[List[str]] = []):
         super().__init__()
         self._southxchange_auth: SouthXchangeAuth = southxchange_auth
+        self._southxchange_api_request: SouthXchangeAPIRequest = southxchange_api_request
         self._trading_pairs: List[str] = trading_pairs
         self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
         self._data_source: Optional[UserStreamTrackerDataSource] = None
@@ -52,6 +55,7 @@ class SouthxchangeUserStreamTracker(UserStreamTracker):
         if not self._data_source:
             self._data_source = SouthxchangeAPIUserStreamDataSource(
                 southxchange_auth=self._southxchange_auth,
+                southxchange_api_request=self._southxchange_api_request,
                 trading_pairs=self._trading_pairs
             )
         return self._data_source

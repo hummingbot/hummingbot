@@ -1,10 +1,9 @@
+import asyncio
 import hmac
 import hashlib
 import json
-import requests
 from typing import Dict, Any
-from hummingbot.connector.exchange.southxchange.southxchange_utils import get_ms_timestamp
-from hummingbot.connector.exchange.southxchange.southxchange_constants import REST_URL
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 
 class SouthXchangeAuth():
@@ -15,17 +14,16 @@ class SouthXchangeAuth():
     def __init__(self, api_key: str, secret_key: str):
         self.api_key = api_key
         self.secret_key = secret_key
+        self._shared_client = None
+        self._lock = asyncio.Lock()
 
-    def get_auth_headers(
-        self,
-        path_url: str = "",
-        data: Dict[str, Any] = {}
-    ):
+    def get_auth_headers(self,
+                         path_url: str = "",
+                         data: Dict[str, Any] = {}):
         """
         Modify - SouthXchange
         """
-        nonce_time = get_ms_timestamp()
-        data['nonce'] = nonce_time
+        data['nonce'] = get_tracking_nonce()
         data['key'] = self.api_key
         userSignature = hmac.new(
             self.secret_key.encode('utf-8'),
@@ -49,15 +47,3 @@ class SouthXchangeAuth():
         return {
             'Content-Type': 'application/json',
         }
-
-    def get_websoxket_token(self) -> str:
-        url = f"{REST_URL}GetWebSocketToken"
-        headers = self.get_auth_headers()
-        resp = requests.post(url, headers= headers["header"], data=json.dumps(headers["data"]))
-        if resp.status_code == 200:
-            resp_text = json.loads(resp.text)
-        try:
-            return resp_text
-        except Exception:
-            return ""
-        return ""

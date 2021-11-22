@@ -14,7 +14,6 @@ import aiohttp
 import time
 from collections import namedtuple
 import requests
-
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.clock import Clock
@@ -43,8 +42,10 @@ from hummingbot.connector.exchange.southxchange.southxchange_user_stream_tracker
 from hummingbot.connector.exchange.southxchange.southxchange_auth import SouthXchangeAuth
 from hummingbot.connector.exchange.southxchange.southxchange_in_flight_order import SouthXchangeInFlightOrder
 from hummingbot.connector.exchange.southxchange import southxchange_utils
+from hummingbot.connector.exchange.southxchange.southxchange_utils import SouthXchangeAPIRequest
 from hummingbot.connector.exchange.southxchange.southxchange_constants import EXCHANGE_NAME, REST_URL
 from hummingbot.core.data_type.common import OpenOrder
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 ctce_logger = None
 s_decimal_NaN = Decimal("nan")
 s_decimal_0 = Decimal("0")
@@ -91,8 +92,9 @@ class SouthxchangeExchange(ExchangePyBase):
         self._trading_pairs = trading_pairs
         # self._markets_enabled = southxchange_utils.get_market_id(trading_pairs=trading_pairs)
         self._southxchange_auth = SouthXchangeAuth(southxchange_api_key, southxchange_secret_key)
+        self._southxchange_api_request = SouthXchangeAPIRequest(southxchange_api_key, southxchange_secret_key)
         self._order_book_tracker = SouthxchangeOrderBookTracker(trading_pairs=trading_pairs)
-        self._user_stream_tracker = SouthxchangeUserStreamTracker(self._southxchange_auth, trading_pairs)
+        self._user_stream_tracker = SouthxchangeUserStreamTracker(self._southxchange_auth, self._southxchange_api_request, trading_pairs)
         self._ev_loop = asyncio.get_event_loop()
         self._shared_client = None
         self._poll_notifier = asyncio.Event()
@@ -236,10 +238,8 @@ class SouthxchangeExchange(ExchangePyBase):
         """
         try:
             # since there is no ping endpoint, the lowest rate call is to get BTC-USDT ticker
-            await self._api_request(
-                method="get",
-                path_url="markets"
-            )
+            url = f"{REST_URL}markets"
+            requests.get(url)
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -325,45 +325,9 @@ class SouthxchangeExchange(ExchangePyBase):
                            path_url: str,
                            params: Dict[str, Any] = {},
                            is_auth_required: bool = False,
-                           force_auth_path_url: Optional[str] = None
-                           ) -> Dict[str, Any]:
-        """
-        Modify - SouthXchange
-        """
-        url = None
-        headers = None
-
-        if is_auth_required:
-            url = f"{REST_URL}{path_url}"
-            # headers = self._southxchange_auth.get_auth_headers()
-            headers = self._southxchange_auth.get_auth_headers(url, params)
-        else:
-            url = f"{REST_URL}{path_url}"
-            headers = self._southxchange_auth.get_headers()
-
-        client = await self._http_client()
-        if method == "get":
-            response = await client.get(url)
-        elif method == "post":
-            response = await client.post(
-                url,
-                headers= headers["header"],
-                data=json.dumps(headers["data"])
-            )
-        else:
-            raise NotImplementedError
-        try:
-            result = await response.text()
-            if result is not None and result != "":
-                parsed_response = json.loads(await response.text())
-            else:
-                parsed_response = "ok"
-        except Exception as e:
-            raise IOError(f"Error parsing data from {url}. Error: {str(e)}")
-        if response.status != 200 and response.status != 204:
-            raise IOError(f"Error fetching data from {url} or API call failed. HTTP status is {response.status}. "
-                          f"Message: {parsed_response}")
-        return parsed_response
+                           force_auth_path_url: Optional[str] = None) -> Dict[str, Any]:
+        result = await self._southxchange_api_request._create_api_request(method, path_url, params, is_auth_required)
+        return result
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal):
         """
@@ -396,7 +360,7 @@ class SouthxchangeExchange(ExchangePyBase):
         :returns A new internal order id
         """
         client_order_id = southxchange_utils.gen_client_order_id(True, trading_pair)
-        safe_ensure_future(self._create_order(TradeType.BUY, client_order_id, trading_pair, amount, order_type, price))
+        self._southxchange_api_request.safe_ensure_future_sx(self._create_order(TradeType.BUY, client_order_id, trading_pair, amount, order_type, price))
         return client_order_id
 
     def sell(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
@@ -411,7 +375,7 @@ class SouthxchangeExchange(ExchangePyBase):
         :returns A new internal order id
         """
         client_order_id = southxchange_utils.gen_client_order_id(False, trading_pair)
-        safe_ensure_future(self._create_order(TradeType.SELL, client_order_id, trading_pair, amount, order_type, price))
+        self._southxchange_api_request.safe_ensure_future_sx(self._create_order(TradeType.SELL, client_order_id, trading_pair, amount, order_type, price))
         return client_order_id
 
     def cancel(self, trading_pair: str, order_id: str):
@@ -446,28 +410,25 @@ class SouthxchangeExchange(ExchangePyBase):
         price = self.quantize_order_price(trading_pair, price)
         if amount <= s_decimal_0:
             raise ValueError("Order amount must be greater than zero.")
+        # TODO: check balance
+        pair_currencies = trading_pair.split("-")
+        api_params = {
+            "listingCurrency": pair_currencies[0],
+            "referenceCurrency": pair_currencies[1],
+            "amount": f"{amount:f}",
+            "limitPrice": f"{price:f}",
+            "type": trade_type.name
+        }
+        self.start_tracking_order(
+            order_id,
+            "",
+            trading_pair,
+            trade_type,
+            price,
+            amount,
+            order_type
+        )
         try:
-            # TODO: check balance
-            # [exchange_order_id, timestamp] = southxchange_utils.gen_exchange_order_id(order_id)
-            pair_currencies = trading_pair.split("-")
-            api_params = {
-                "listingCurrency": pair_currencies[0],
-                "referenceCurrency": pair_currencies[1],
-                "amount": f"{amount:f}",
-                "limitPrice": f"{price:f}",
-                "nonce": southxchange_utils.get_ms_timestamp(),
-                "key": self._southxchange_auth.get_api_key(),
-                "type": trade_type.name
-            }
-            self.start_tracking_order(
-                order_id,
-                "",
-                trading_pair,
-                trade_type,
-                price,
-                amount,
-                order_type
-            )
             order_result = await self._api_request(
                 method="post",
                 path_url="placeOrder",
@@ -545,6 +506,7 @@ class SouthxchangeExchange(ExchangePyBase):
         :param order_id: The internal order id
         order.last_state to change to CANCELED
         """
+        order_was_cancelled = False
         try:
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is None:
@@ -564,13 +526,27 @@ class SouthxchangeExchange(ExchangePyBase):
                 force_auth_path_url="order"
             )
 
-            return order_id
+            order_was_cancelled = True
         except asyncio.CancelledError:
             raise
         except Exception as e:
             if str(e).find("Order not found") != -1:
                 self.stop_tracking_order(order_id)
                 return
+        if order_was_cancelled:
+            self.logger().info(f"Successfully cancelled order {order_id}.")
+            self.stop_tracking_order(order_id)
+            self.trigger_event(MarketEvent.OrderCancelled,
+                               OrderCancelledEvent(self.current_timestamp, order_id, ex_order_id))
+            tracked_order.cancelled_event.set()
+            return CancellationResult(order_id, True)
+        else:
+            if not tracked_order.is_local:
+                self.logger().network(
+                    "Failed to cancel all orders.",
+                    exc_info=True,
+                    app_warning_msg="Failed to cancel all orders on SouthxchangeExchange. Check API key and network connection.")
+            return CancellationResult(order_id, False)
 
     async def _status_polling_loop(self):
         """
@@ -666,36 +642,18 @@ class SouthxchangeExchange(ExchangePyBase):
         :param timeout_seconds: The timeout at which the operation will be canceled.
         :returns List of CancellationResult which indicates whether each order is successfully cancelled.
         """
+        open_orders = [o for o in self._in_flight_orders.values() if not o.is_done]
+        if len(open_orders) == 0:
+            return []
+        tasks = [self._execute_cancel(o.trading_pair, o.client_order_id) for o in open_orders]
         cancellation_results = []
         try:
-            tracked_orders: Dict[str, SouthXchangeInFlightOrder] = self._in_flight_orders.copy()
-            for order in tracked_orders.values():
-                api_params = {
-                    "orderCode": order.exchange_order_id,
-                    "nonce": southxchange_utils.get_ms_timestamp(),
-                    "key": self._southxchange_auth.get_api_key(),
-                }
-                await self._api_request(
-                    method="post",
-                    path_url="cancelOrder",
-                    params=api_params,
-                    is_auth_required=True,
-                )
-            open_orders = await self.get_open_orders()
-            for cl_order_id, tracked_order in tracked_orders.items():
-                open_order = [o for o in open_orders if o.client_order_id == cl_order_id]
-                if not open_order:
-                    cancellation_results.append(CancellationResult(cl_order_id, True))
-                    self.trigger_event(MarketEvent.OrderCancelled,
-                                       OrderCancelledEvent(self.current_timestamp, cl_order_id))
-                    self.stop_tracking_order(cl_order_id)
-                else:
-                    cancellation_results.append(CancellationResult(cl_order_id, False))
+            cancellation_results = await safe_gather(*tasks, return_exceptions=False)
         except Exception:
             self.logger().network(
-                "Failed to cancel all orders.",
+                "Unexpected error cancelling orders.",
                 exc_info=True,
-                app_warning_msg="Failed to cancel all orders on SouthxchangeExchange. Check API key and network connection."
+                app_warning_msg = "Failed to cancel all orders on SouthXchange. Check API key and network connection."
             )
         return cancellation_results
 
@@ -754,17 +712,14 @@ class SouthxchangeExchange(ExchangePyBase):
                 if event_message.get("k") == "order":
                     list_orders_to_process = event_message.get("v")
                     for order_data in list_orders_to_process:
-                        try:
-                            params = {
-                                "code": order_data["c"],
-                            }
-                            url = f"{REST_URL}getOrder"
-                            headers = self._southxchange_auth.get_auth_headers(url, params)
-                            resp = requests.post(url, headers= headers["header"], data=json.dumps(params))
-                            if resp.status_code == 200:
-                                order = json.loads(resp.text)
-                        except Exception:
-                            return
+                        params = {
+                            "code": order_data["c"],
+                        }
+                        order = await self._api_request(
+                            method="post",
+                            path_url="getOrder",
+                            params=params,
+                            is_auth_required=True)
                         if(order_data["b"] is True):
                             orderType = "buy"
                         else:
@@ -819,7 +774,7 @@ class SouthxchangeExchange(ExchangePyBase):
                     status="Pending",
                     order_type=OrderType.LIMIT,
                     is_buy=True if order["Type"].lower() == "buy" else False,
-                    time=southxchange_utils.get_ms_timestamp(),
+                    time=get_tracking_nonce(),
                     exchange_order_id=exchange_order_id
                 )
             )
