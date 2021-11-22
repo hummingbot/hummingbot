@@ -92,7 +92,7 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
             api_factory = build_api_factory()
             rest_assistant = await api_factory.get_rest_assistant()
 
-            url = CONSTANTS.REST_URL + CONSTANTS.SYMBOLS_URL
+            url = CONSTANTS.REST_URL + CONSTANTS.API_VERSION + CONSTANTS.SYMBOLS_URL
             request = RESTRequest(method=RESTMethod.GET,
                                   url=url)
             response: RESTResponse = await rest_assistant.call(request=request)

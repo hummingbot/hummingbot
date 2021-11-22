@@ -13,7 +13,7 @@ from hummingbot.core.event.events import (
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 
-RE_4_LETTERS_QUOTE = re.compile(r"^(\w+)(usdt|husd)$")
+RE_4_LETTERS_QUOTE = re.compile(r"^(\w+)(usdt|husd|usdc)$")
 RE_3_LETTERS_QUOTE = re.compile(r"^(\w+)(btc|eth|trx)$")
 RE_2_LETTERS_QUOTE = re.compile(r"^(\w+)(ht)$")
 

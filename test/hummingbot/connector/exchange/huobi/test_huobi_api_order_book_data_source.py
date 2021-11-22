@@ -103,7 +103,7 @@ class HuobiAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_fetch_trading_pairs_failed(self, mock_api):
-        url = CONSTANTS.REST_URL + CONSTANTS.SYMBOLS_URL
+        url = CONSTANTS.REST_URL + CONSTANTS.API_VERSION + CONSTANTS.SYMBOLS_URL
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, status=400, body=ujson.dumps({}))
@@ -114,7 +114,7 @@ class HuobiAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_fetch_trading_pairs_successful(self, mock_api):
-        url = CONSTANTS.REST_URL + CONSTANTS.SYMBOLS_URL
+        url = CONSTANTS.REST_URL + CONSTANTS.API_VERSION + CONSTANTS.SYMBOLS_URL
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_response = {
