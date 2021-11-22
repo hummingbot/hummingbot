@@ -1,4 +1,3 @@
-import aiohttp
 import asyncio
 from decimal import Decimal
 from libc.stdint cimport int64_t
@@ -40,6 +39,8 @@ from hummingbot.core.utils.async_utils import (
     safe_ensure_future,
     safe_gather,
 )
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
+from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.logger import HummingbotLogger
 from hummingbot.connector.exchange.huobi.huobi_api_order_book_data_source import HuobiAPIOrderBookDataSource
 from hummingbot.connector.exchange.huobi.huobi_auth import HuobiAuth
@@ -48,7 +49,6 @@ from hummingbot.connector.exchange.huobi.huobi_order_book_tracker import HuobiOr
 from hummingbot.connector.exchange.huobi.huobi_utils import (
     build_api_factory,
     convert_to_exchange_trading_pair,
-    convert_from_exchange_trading_pair,
     get_new_client_order_id,
 )
 from hummingbot.connector.trading_rule cimport TradingRule
@@ -123,7 +123,7 @@ cdef class HuobiExchange(ExchangeBase):
             api_factory=self._api_factory,
         )
         self._poll_notifier = asyncio.Event()
-        self._shared_client = None
+        self._rest_assistant = None
         self._status_polling_task = None
         self._trading_required = trading_required
         self._trading_rules = {}
@@ -175,12 +175,12 @@ cdef class HuobiExchange(ExchangeBase):
         })
 
     @property
-    def shared_client(self) -> str:
-        return self._shared_client
+    def rest_assistant(self) -> str:
+        return self._rest_assistant
 
-    @shared_client.setter
-    def shared_client(self, client: aiohttp.ClientSession):
-        self._shared_client = client
+    @rest_assistant.setter
+    def rest_assistant(self, rest_assistant: RESTAssistant):
+        self._rest_assistant = rest_assistant
 
     cdef c_start(self, Clock clock, double timestamp):
         self._tx_tracker.c_start(clock, timestamp)
@@ -220,7 +220,7 @@ cdef class HuobiExchange(ExchangeBase):
 
     async def check_network(self) -> NetworkStatus:
         try:
-            await self._api_request(method="get", path_url="/common/timestamp")
+            await self._api_request(method="get", path_url=CONSTANTS.SERVER_TIME_URL)
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -242,10 +242,10 @@ cdef class HuobiExchange(ExchangeBase):
                 self._poll_notifier.set()
         self._last_timestamp = timestamp
 
-    async def _http_client(self) -> aiohttp.ClientSession:
-        if self._shared_client is None:
-            self._shared_client = aiohttp.ClientSession()
-        return self._shared_client
+    async def _get_rest_assistant(self) -> RESTAssistant:
+        if self.rest_assistant is None:
+            self.rest_assistant = await self._api_factory.get_rest_assistant()
+        return self.rest_assistant
 
     async def _api_request(self,
                            method,
@@ -255,28 +255,21 @@ cdef class HuobiExchange(ExchangeBase):
                            is_auth_required: bool = False) -> Dict[str, Any]:
         content_type = "application/json" if method == "post" else "application/x-www-form-urlencoded"
         headers = {"Content-Type": content_type}
-        url = HUOBI_ROOT_API + path_url
-        client = await self._http_client()
+        url = CONSTANTS.REST_URL + CONSTANTS.API_VERSION + path_url
+        client = await self._get_rest_assistant()
+
         if is_auth_required:
             params = self._huobi_auth.add_auth_to_params(method, path_url, params)
 
-        if not data:
-            response = await client.request(
-                method=method.upper(),
-                url=url,
-                headers=headers,
-                params=params,
-                timeout=self.API_CALL_TIMEOUT
-            )
-        else:
-            response = await client.request(
-                method=method.upper(),
-                url=url,
-                headers=headers,
-                params=params,
-                data=ujson.dumps(data),
-                timeout=self.API_CALL_TIMEOUT
-            )
+        request = RESTRequest(method=RESTMethod[method.upper()],
+                              url=url,
+                              data=ujson.dumps(data) if data else "",
+                              params=params,
+                              headers=headers,
+                              is_auth_required=is_auth_required,
+                              )
+
+        response = await client.call(request)
 
         if response.status != 200:
             raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
@@ -292,7 +285,7 @@ cdef class HuobiExchange(ExchangeBase):
         return data
 
     async def _update_account_id(self) -> str:
-        accounts = await self._api_request("get", path_url="/account/accounts", is_auth_required=True)
+        accounts = await self._api_request("get", path_url=CONSTANTS.ACCOUNT_ID_URL, is_auth_required=True)
         try:
             for account in accounts:
                 if account["state"] == "working" and account["type"] == "spot":
@@ -311,7 +304,9 @@ cdef class HuobiExchange(ExchangeBase):
 
         if not self._account_id:
             await self._update_account_id()
-        data = await self._api_request("get", path_url=f"/account/accounts/{self._account_id}/balance", is_auth_required=True)
+        data = await self._api_request("get",
+                                       path_url=CONSTANTS.ACCOUNT_BALANCE_URL.format(self._account_id),
+                                       is_auth_required=True)
         balances = data.get("list", [])
         if len(balances) > 0:
             for balance_entry in balances:
@@ -358,7 +353,7 @@ cdef class HuobiExchange(ExchangeBase):
             int64_t last_tick = <int64_t>(self._last_timestamp / 60.0)
             int64_t current_tick = <int64_t>(self._current_timestamp / 60.0)
         if current_tick > last_tick or len(self._trading_rules) < 1:
-            exchange_info = await self._api_request("get", path_url="/common/symbols")
+            exchange_info = await self._api_request("get", path_url=CONSTANTS.SYMBOLS_URL)
             trading_rules_list = self._format_trading_rules(exchange_info)
             self._trading_rules.clear()
             for trading_rule in trading_rules_list:
@@ -370,8 +365,10 @@ cdef class HuobiExchange(ExchangeBase):
 
         for info in raw_trading_pair_info:
             try:
+                base_asset = info["base-currency"]
+                quote_asset = info["quote-currency"]
                 trading_rules.append(
-                    TradingRule(trading_pair=convert_from_exchange_trading_pair(info["symbol"]),
+                    TradingRule(trading_pair=f"{base_asset}-{quote_asset}".upper(),
                                 min_order_size=Decimal(info["min-order-amt"]),
                                 max_order_size=Decimal(info["max-order-amt"]),
                                 min_price_increment=Decimal(f"1e-{info['price-precision']}"),
@@ -406,7 +403,7 @@ cdef class HuobiExchange(ExchangeBase):
             "batch": ""
         }
         """
-        path_url = f"/order/orders/{exchange_order_id}"
+        path_url = CONSTANTS.ORDER_DETAIL_URL.format(exchange_order_id)
         params = {
             "order_id": exchange_order_id
         }
@@ -720,7 +717,7 @@ cdef class HuobiExchange(ExchangeBase):
                           is_buy: bool,
                           order_type: OrderType,
                           price: Decimal) -> str:
-        path_url = "/order/orders/place"
+        path_url =CONSTANTS.PLACE_ORDER_URL
         side = "buy" if is_buy else "sell"
         order_type_str = "limit" if order_type is OrderType.LIMIT else "limit-maker"
 
@@ -886,7 +883,7 @@ cdef class HuobiExchange(ExchangeBase):
             tracked_order = self._in_flight_orders.get(order_id)
             if tracked_order is None:
                 raise ValueError(f"Failed to cancel order - {order_id}. Order not found.")
-            path_url = f"/order/orders/{tracked_order.exchange_order_id}/submitcancel"
+            path_url = CONSTANTS.CANCEL_ORDER_URL.format(tracked_order.exchange_order_id)
             response = await self._api_request("post", path_url=path_url, is_auth_required=True)
 
         except HuobiAPIError as e:
@@ -925,7 +922,7 @@ cdef class HuobiExchange(ExchangeBase):
             return []
         cancel_order_ids = [o.exchange_order_id for o in open_orders]
         self.logger().debug(f"cancel_order_ids {cancel_order_ids} {open_orders}")
-        path_url = "/order/orders/batchcancel"
+        path_url = CONSTANTS.BATCH_CANCEL_URL
         params = {"order-ids": ujson.dumps(cancel_order_ids)}
         data = {"order-ids": cancel_order_ids}
         cancellation_results = []
