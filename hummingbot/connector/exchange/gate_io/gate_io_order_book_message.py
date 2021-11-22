@@ -28,13 +28,6 @@ class GateIoOrderBookMessage(OrderBookMessage):
         )
 
     @property
-    def update_id(self) -> int:
-        if self.type in [OrderBookMessageType.DIFF, OrderBookMessageType.SNAPSHOT]:
-            return int(self.timestamp * 1e3)
-        else:
-            return -1
-
-    @property
     def trade_id(self) -> int:
         if self.type is OrderBookMessageType.TRADE:
             return int(self.timestamp * 1e3)
