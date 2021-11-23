@@ -56,7 +56,7 @@ export class EthereumBase {
     this.gasPriceConstant = gasPriceConstant;
     this.tokenListSource = tokenListSource;
     this.tokenListType = tokenListType;
-    this._nonceManager = EVMNonceManager.getInstance();
+    this._nonceManager = new EVMNonceManager();
     this._nonceManager.init(this.provider, 60, chainId);
     this.cache = new NodeCache({ stdTTL: 3600 }); // set default cache ttl to 1hr
   }
