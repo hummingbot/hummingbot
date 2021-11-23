@@ -1,0 +1,14 @@
+version: 0
+configurations:
+  $namespace ssl:
+    configurationPath: ssl.yml
+    schemaPath: schema-ssl.json
+  $namespace ethereum:
+    configurationPath: ethereum.yml
+    schemaPath: schema-ethereum.json
+  $namespace logging:
+    configurationPath: logging.yml
+    schemaPath: logging-schema.json
+  $namespace telemetry:
+    configurationPath: telemetry.yml
+    schemaPath: telemetry-schema.json
