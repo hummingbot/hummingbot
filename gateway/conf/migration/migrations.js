@@ -4,7 +4,7 @@
  */
 
 module.exports = {
-  version_1() {
+  updateToVersion1() {
     return;
   },
 };
