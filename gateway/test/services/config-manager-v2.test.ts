@@ -153,6 +153,13 @@ describe('Configuration manager v2 tests', () => {
     expect(configManager.get('telemetry.enabled')).toEqual(false);
   });
 
+  it('Dummy test to attempt migration', () => {
+    const configManager2 = new ConfigManagerV2(
+      path.join(tempDirPath, 'test1/root2.yml')
+    );
+    expect(configManager2.get('ssl.caCertificatePath')).toBeDefined();
+  });
+
   it('Test deep copy', (done) => {
     const templateObj: any = { a: 1, b: { c: { f: 5, g: 6 }, d: 3 }, e: 4 };
     const configObj: any = {
