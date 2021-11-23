@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 30
+template_version: 31
 
 # Exchange configs
 
@@ -35,9 +35,6 @@ coinbase_pro_passphrase: null
 coinzoom_api_key: null
 coinzoom_secret_key: null
 coinzoom_username: null
-
-dydx_eth_private_key: null
-dydx_node_address: null
 
 dydx_perpetual_api_key: null
 dydx_perpetual_api_secret: null
