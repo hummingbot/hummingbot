@@ -5,11 +5,11 @@ tags:
 
 # `MEXC Global`
 
-## 📁 [Connector folder](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/connector/exchange/)
+## 📁 [Connector folder](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/connector/exchange/mexc)
 
 ## ℹ️ Exchange Info
 
-**Mexc Global**
+**MEXC Global**
 [Website](https://www.mexc.com/) | [CoinMarketCap](https://coinmarketcap.com/exchanges/mxc/) | [CoinGecko](https://www.coingecko.com/en/exchanges/mexcglobal)
 
 * API docs: https://mxcdevelop.github.io/APIDoc/
@@ -20,7 +20,7 @@ tags:
 ## 👷 Maintenance
 
 * Release added: [0.46.0](/release-notes/0.46.0/) by CoinAlpha
-* Maintainer: CoinAlpha
+* Maintainer: 
 
 ## 🔑 Connection
 
