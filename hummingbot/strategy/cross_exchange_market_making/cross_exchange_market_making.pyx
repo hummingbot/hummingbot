@@ -79,6 +79,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                     use_oracle_conversion_rate: bool = False,
                     taker_to_maker_base_conversion_rate: Decimal = Decimal("1"),
                     taker_to_maker_quote_conversion_rate: Decimal = Decimal("1"),
+                    slippage_buffer: Decimal = Decimal("0.05"),
                     hb_app_notification: bool = False
                     ):
         """
@@ -101,6 +102,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         :param anti_hysteresis_duration: the minimum amount of time interval between adjusting limit order prices
         :param logging_options: bit field for what types of logging to enable in this strategy object
         :param status_report_interval: what is the time interval between outputting new network warnings
+        :param slippage_buffer: Buffer added to the price to account for slippage for taker orders
         """
         if len(market_pairs) < 0:
             raise ValueError(f"market_pairs must not be empty.")
@@ -138,6 +140,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         self._use_oracle_conversion_rate = use_oracle_conversion_rate
         self._taker_to_maker_base_conversion_rate = taker_to_maker_base_conversion_rate
         self._taker_to_maker_quote_conversion_rate = taker_to_maker_quote_conversion_rate
+        self._slippage_buffer = slippage_buffer
         self._last_conv_rates_logged = 0
         self._hb_app_notification = hb_app_notification
 
@@ -682,6 +685,11 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             order_price = taker_market.get_price_for_volume(taker_trading_pair, False,
                                                             quantized_hedge_amount).result_price
 
+            self.log_with_clock(logging.INFO, f"Calculated by HB order_price: {order_price}")
+            order_price *= Decimal("1") - self._slippage_buffer
+            order_price = taker_market.quantize_order_price(taker_trading_pair, order_price)
+            self.log_with_clock(logging.INFO, f"Slippage buffer adjusted order_price: {order_price}")
+
             if quantized_hedge_amount > s_decimal_zero:
                 self.c_place_order(market_pair, False, False, quantized_hedge_amount, order_price)
 
@@ -714,6 +722,11 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
                               sum([r.amount for _, r in sell_fill_records]))
             order_price = taker_market.get_price_for_volume(taker_trading_pair, True,
                                                             quantized_hedge_amount).result_price
+
+            self.log_with_clock(logging.INFO, f"Calculated by HB order_price: {order_price}")
+            order_price *= Decimal("1") + self._slippage_buffer
+            order_price = taker_market.quantize_order_price(taker_trading_pair, order_price)
+            self.log_with_clock(logging.INFO, f"Slippage buffer adjusted order_price: {order_price}")
 
             if quantized_hedge_amount > s_decimal_zero:
                 self.c_place_order(market_pair, True, False, quantized_hedge_amount, order_price)

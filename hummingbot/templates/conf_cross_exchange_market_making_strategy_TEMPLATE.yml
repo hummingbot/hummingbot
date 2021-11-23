@@ -74,5 +74,11 @@ taker_to_maker_base_conversion_rate: null
 # the conversion rate is 0.8 (1 / 1.25)
 taker_to_maker_quote_conversion_rate: null
 
+# A buffer for which to adjust order price for higher chance of the order getting filled.
+# Since we hedge on markets a slippage is acceptable rather than having the transaction get rejected.
+# The submitted order price will be adjusted higher (by percentage value) for buy orders
+# and lower for sell orders. (Enter 1 for 1%)
+slippage_buffer: null
+
 # For more detailed information, see:
 # https://docs.hummingbot.io/strategies/cross-exchange-market-making/#configuration-parameters
