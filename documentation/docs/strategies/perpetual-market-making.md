@@ -42,8 +42,8 @@ Similar to the `pure_market_making_strategy`, it keeps placing limit buy and sel
 | `long_profit_taking_spread`  | decimal     | 0           | True        | At what spread from the entry price do you want to place a short order to reduce position? |
 | `short_profit_taking_spread` | string      | 0           | True        | At what spread from the position entry price do you want to place a long order to reduce position? |
 | `stop_loss_spread`           | string      | 0           | True        | At what spread from position entry price do you want to place stop_loss order? |
-| `time_between_stop_loss_orders` | decimal     | 60       | True       | How much time should pass before refreshing a stop loss order that has not been executed? |
-| `stop_loss_slippage_buffer`  | decimal     | 0.5         | True       | How much buffer should be added in stop loss orders' price to account for slippage (Enter 1 for 1%)? |
+| `time_between_stop_loss_orders` | decimal    | 60        | True        | How much time should pass before refreshing a stop loss order that has not been executed? |
+| `stop_loss_slippage_buffer`  | decimal     | 0.5         | True        | How much buffer should be added in stop loss orders' price to account for slippage (Enter 1 for 1%)? |
 | `price_ceiling`              | decimal     | -1          | False       | Enter the price point above which only sell orders will be placed |
 | `price_floor`                | decimal     | -1          | False       | Enter the price below which only buy orders will be placed |
 
