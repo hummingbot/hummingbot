@@ -3,7 +3,7 @@
 #################################
 
 # For more detailed information: https://docs.hummingbot.io
-template_version: 29
+template_version: 30
 
 # Exchange configs
 
@@ -127,6 +127,8 @@ bybit_perpetual_secret_key: null
 bybit_perpetual_testnet_api_key: null
 bybit_perpetual_testnet_secret_key: null
 
+wazirx_api_key: null
+wazirx_secret_key: null
 mexc_api_key: null
 mexc_secret_key: null
 

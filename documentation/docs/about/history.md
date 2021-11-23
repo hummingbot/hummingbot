@@ -22,5 +22,5 @@ Below, we list some articles and blog posts about Hummingbot, CoinAlpha, and liq
 
 ## Market making
 
-* [The thin crust of liquidity: Why crypto needs more market makers](https://hummingbot.io/blog/2019-01-thin-crust-of-liquidityy)
-* [Mapping the crypto market maker landscape](https://hummingbot.io/en/blog/2020-02-crypto-market-marker-list)
+* [The thin crust of liquidity: Why crypto needs more market makers](https://hummingbot.io/blog/2019-01-thin-crust-of-liquidity)
+* [Mapping the crypto market maker landscape](https://hummingbot.io/blog/2020-02-crypto-market-marker-list)
