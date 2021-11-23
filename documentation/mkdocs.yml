@@ -191,6 +191,7 @@ nav:
       - ProBit Korea: exchanges/probit-korea.md
       - Uniswap: exchanges/uniswap.md
       - Uniswap V3: exchanges/uniswap-v3.md
+      - WazirX: exchanges/wazirx.md
     - Protocol Connectors:
       - Protocol Connectors: protocols/index.md
       - Gateway: protocols/gateway.md

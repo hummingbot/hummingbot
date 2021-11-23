@@ -5,7 +5,7 @@ tags:
 
 # `WazirX`
 
-## 📁 [Connector folder](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/connector/exchange/)
+## 📁 [Connector folder](https://github.com/CoinAlpha/hummingbot/tree/master/hummingbot/connector/exchange/wazirx)
 
 ## ℹ️ Exchange Info
 
@@ -20,7 +20,7 @@ tags:
 ## 👷 Maintenance
 
 * Release added: [0.46.0](/release-notes/0.46.0/) by CoinAlpha
-* Maintainer: CoinAlpha
+* Maintainer:
 
 ## 🔑 Connection
 
