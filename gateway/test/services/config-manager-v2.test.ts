@@ -3,6 +3,7 @@ import fse from 'fs-extra';
 import os from 'os';
 import path from 'path';
 import {
+  deepCopy,
   ConfigManagerV2,
   ConfigurationNamespace,
 } from '../../src/services/config-manager-v2';
@@ -143,6 +144,31 @@ describe('Configuration manager v2 tests', () => {
     expect(sslNamespace.configurationPath).toEqual(
       path.join(tempDirPath, 'test1/ssl.yml')
     );
+    done();
+  });
+
+  it('Test upgradability', () => {
+    expect(configManager.get('logging.logPath')).toEqual('./logs');
+    expect(configManager.get('telemetry.allowed')).toEqual(false);
+    expect(configManager.get('telemetry.enabled')).toEqual(false);
+  });
+
+  it('Test deep copy', (done) => {
+    const templateObj: any = { a: 1, b: { c: { f: 5, g: 6 }, d: 3 }, e: 4 };
+    const configObj: any = {
+      a: 9,
+      b: { c: 8, d: 7 },
+      e: 6,
+      f: '5',
+      g: { h: 4 },
+    };
+    deepCopy(configObj, templateObj);
+    expect(templateObj.a).toEqual(9);
+    expect(templateObj.b.d).toEqual(7);
+    expect(templateObj.b.c).toEqual({ f: 5, g: 6 });
+    expect(templateObj.e).toEqual(6);
+    expect(templateObj.f).toEqual('5');
+    expect(templateObj.g).toEqual({ h: 4 });
     done();
   });
 });
