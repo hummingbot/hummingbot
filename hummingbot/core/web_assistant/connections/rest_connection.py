@@ -7,22 +7,14 @@ class RESTConnection:
         self._client_session = aiohttp_client_session
 
     async def call(self, request: RESTRequest) -> RESTResponse:
-        if request.data:
-            aiohttp_resp = await self._client_session.request(
-                method=request.method.value,
-                url=request.url,
-                params=request.params,
-                data=request.data,
-                headers=request.headers,
-            )
-        else:
-            # Remove data field since it might affect how the signature is validated on the server
-            aiohttp_resp = await self._client_session.request(
-                method=request.method.value,
-                url=request.url,
-                params=request.params,
-                headers=request.headers,
-            )
+        aiohttp_resp = await self._client_session.request(
+            method=request.method.value,
+            url=request.url,
+            params=request.params,
+            data=request.data,
+            headers=request.headers,
+        )
+
         resp = await self._build_resp(aiohttp_resp)
         return resp
 

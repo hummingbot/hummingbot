@@ -174,14 +174,6 @@ cdef class HuobiExchange(ExchangeBase):
             for key, value in saved_states.items()
         })
 
-    @property
-    def rest_assistant(self) -> str:
-        return self._rest_assistant
-
-    @rest_assistant.setter
-    def rest_assistant(self, rest_assistant: RESTAssistant):
-        self._rest_assistant = rest_assistant
-
     cdef c_start(self, Clock clock, double timestamp):
         self._tx_tracker.c_start(clock, timestamp)
         ExchangeBase.c_start(self, clock, timestamp)
@@ -243,9 +235,9 @@ cdef class HuobiExchange(ExchangeBase):
         self._last_timestamp = timestamp
 
     async def _get_rest_assistant(self) -> RESTAssistant:
-        if self.rest_assistant is None:
-            self.rest_assistant = await self._api_factory.get_rest_assistant()
-        return self.rest_assistant
+        if self._rest_assistant is None:
+            self._rest_assistant = await self._api_factory.get_rest_assistant()
+        return self._rest_assistant
 
     async def _api_request(self,
                            method,
@@ -263,7 +255,7 @@ cdef class HuobiExchange(ExchangeBase):
 
         request = RESTRequest(method=RESTMethod[method.upper()],
                               url=url,
-                              data=ujson.dumps(data) if data else "",
+                              data=ujson.dumps(data) if data else None,
                               params=params,
                               headers=headers,
                               is_auth_required=is_auth_required,
@@ -717,7 +709,7 @@ cdef class HuobiExchange(ExchangeBase):
                           is_buy: bool,
                           order_type: OrderType,
                           price: Decimal) -> str:
-        path_url =CONSTANTS.PLACE_ORDER_URL
+        path_url = CONSTANTS.PLACE_ORDER_URL
         side = "buy" if is_buy else "sell"
         order_type_str = "limit" if order_type is OrderType.LIMIT else "limit-maker"
 

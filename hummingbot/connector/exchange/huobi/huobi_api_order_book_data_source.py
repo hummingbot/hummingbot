@@ -177,9 +177,9 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
                         })
                         await ws.send(request=ping_request)
                     channel = data.get("ch", "")
-                    if self.TRADE_CHANNEL_SUFFIX in channel:
+                    if channel.endswith(self.TRADE_CHANNEL_SUFFIX):
                         self._message_queue[self.TRADE_CHANNEL_SUFFIX].put_nowait(data)
-                    if self.ORDERBOOK_CHANNEL_SUFFIX in channel:
+                    if channel.endswith(self.ORDERBOOK_CHANNEL_SUFFIX):
                         self._message_queue[self.ORDERBOOK_CHANNEL_SUFFIX].put_nowait(data)
             except asyncio.CancelledError:
                 raise
