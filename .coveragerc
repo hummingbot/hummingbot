@@ -8,7 +8,6 @@ omit =
         hummingbot/connector/connector/terra*
         hummingbot/connector/connector/uniswap*
         hummingbot/connector/connector/uniswap_v3*
-        hummingbot/connector/derivative/dydx_perpetual*
         hummingbot/connector/derivative/perpetual_finance*
         hummingbot/connector/derivative/position.py*
         hummingbot/connector/exchange/ascend_ex*
@@ -17,7 +16,6 @@ omit =
         hummingbot/connector/exchange/blocktane*
         hummingbot/connector/exchange/coinbase_pro*
         hummingbot/connector/exchange/digifinex*
-        hummingbot/connector/exchange/dydx*
         hummingbot/connector/exchange/ftx*
         hummingbot/connector/exchange/hitbtc*
         hummingbot/connector/exchange/huobi*
