@@ -204,7 +204,7 @@ nav:
       - External Database: global-configs/external-db.md
       - Kill Switch: global-configs/kill-switch.md
       - Override Fees: global-configs/override-fees.md
-      - Paper Trading Mode: global-configs/paper-trade.md
+      - Paper Trade: global-configs/paper-trade.md
       - Rate Limits Share Pct: global-configs/rate-limits-share-pct.md
       - Telegram Integration: global-configs/telegram.md
       - Strategy Autostart: global-configs/strategy-autostart.md

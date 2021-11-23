@@ -81,6 +81,7 @@ class WSConnection:
     async def _check_msg_types(self, msg: aiohttp.WSMessage) -> Optional[aiohttp.WSMessage]:
         msg = await self._check_msg_closed_type(msg)
         msg = await self._check_msg_ping_type(msg)
+        msg = await self._check_msg_pong_type(msg)
         return msg
 
     async def _check_msg_closed_type(self, msg: Optional[aiohttp.WSMessage]) -> Optional[aiohttp.WSMessage]:
@@ -94,6 +95,11 @@ class WSConnection:
     async def _check_msg_ping_type(self, msg: Optional[aiohttp.WSMessage]) -> Optional[aiohttp.WSMessage]:
         if msg is not None and msg.type == aiohttp.WSMsgType.PING:
             await self._connection.pong()
+            msg = None
+        return msg
+
+    async def _check_msg_pong_type(self, msg: Optional[aiohttp.WSMessage]) -> Optional[aiohttp.WSMessage]:
+        if msg is not None and msg.type == aiohttp.WSMsgType.PONG:
             msg = None
         return msg
 
