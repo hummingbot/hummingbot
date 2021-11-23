@@ -1,5 +1,4 @@
 import { BigNumber, Wallet } from 'ethers';
-import { Ethereum } from '../ethereum';
 import {
   HttpException,
   LOAD_WALLET_ERROR_CODE,
@@ -13,7 +12,6 @@ import {
   SWAP_PRICE_LOWER_THAN_LIMIT_PRICE_ERROR_CODE,
   SWAP_PRICE_LOWER_THAN_LIMIT_PRICE_ERROR_MESSAGE,
 } from '../../../services/error-handler';
-import { Uniswap, ExpectedTrade } from './uniswap';
 import {
   latency,
   gasCostInEthString,
@@ -27,33 +25,40 @@ import {
   UniswapTradeErrorResponse,
 } from './uniswap.requests';
 import { ConfigManager } from '../../../services/config-manager';
-
-export const ethereum = Ethereum.getInstance();
-export const uniswap = Uniswap.getInstance();
+import { Ethereumish } from '../../../services/ethereumish.interface';
+import {
+  ExpectedTrade,
+  Uniswapish,
+} from '../../../services/uniswapish.interface';
 
 export async function price(
+  ethereumish: Ethereumish,
+  uniswapish: Uniswapish,
   req: UniswapPriceRequest
 ): Promise<UniswapPriceResponse> {
   const initTime = Date.now();
 
-  const amount = getAmount(req.amount, req.side, req.quote, req.base);
-  const baseToken = getFullTokenFromSymbol(req.base);
-  const quoteToken = getFullTokenFromSymbol(req.quote);
-  const slippagePercentage = uniswap.getSlippagePercentage();
+  const amount = getAmount(
+    ethereumish,
+    req.amount,
+    req.side,
+    req.quote,
+    req.base
+  );
+  const baseToken = getFullTokenFromSymbol(ethereumish, uniswapish, req.base);
+  const quoteToken = getFullTokenFromSymbol(ethereumish, uniswapish, req.quote);
 
   const result: ExpectedTrade | string =
     req.side === 'BUY'
-      ? await uniswap.priceSwapOut(
+      ? await uniswapish.priceSwapOut(
           quoteToken, // tokenIn is quote asset
           baseToken, // tokenOut is base asset
-          amount,
-          slippagePercentage
+          amount
         )
-      : await uniswap.priceSwapIn(
+      : await uniswapish.priceSwapIn(
           baseToken, // tokenIn is base asset
           quoteToken, // tokenOut is quote asset
-          amount,
-          slippagePercentage
+          amount
         );
 
   if (typeof result === 'string') {
@@ -70,7 +75,7 @@ export async function price(
       req.side === 'BUY' ? trade.executionPrice.invert() : trade.executionPrice;
 
     const gasLimit = ConfigManager.config.UNISWAP_GAS_LIMIT;
-    const gasPrice = ethereum.gasPrice;
+    const gasPrice = ethereumish.gasPrice;
     return {
       network: ConfigManager.config.ETHEREUM_CHAIN,
       timestamp: initTime,
@@ -88,6 +93,8 @@ export async function price(
 }
 
 export async function trade(
+  ethereumish: Ethereumish,
+  uniswapish: Uniswapish,
   req: UniswapTradeRequest
 ): Promise<UniswapTradeResponse | UniswapTradeErrorResponse> {
   const initTime = Date.now();
@@ -105,7 +112,7 @@ export async function trade(
 
   let wallet: Wallet;
   try {
-    wallet = ethereum.getWallet(req.privateKey);
+    wallet = ethereumish.getWallet(req.privateKey);
   } catch (err) {
     throw new HttpException(
       500,
@@ -113,24 +120,27 @@ export async function trade(
       LOAD_WALLET_ERROR_CODE
     );
   }
-  const amount = getAmount(req.amount, req.side, req.quote, req.base);
-  const baseToken = getFullTokenFromSymbol(req.base);
-  const quoteToken = getFullTokenFromSymbol(req.quote);
-  const slippagePercentage = uniswap.getSlippagePercentage();
+  const amount = getAmount(
+    ethereumish,
+    req.amount,
+    req.side,
+    req.quote,
+    req.base
+  );
+  const baseToken = getFullTokenFromSymbol(ethereumish, uniswapish, req.base);
+  const quoteToken = getFullTokenFromSymbol(ethereumish, uniswapish, req.quote);
 
   const result: ExpectedTrade | string =
     req.side === 'BUY'
-      ? await uniswap.priceSwapOut(
+      ? await uniswapish.priceSwapOut(
           quoteToken, // tokenIn is quote asset
           baseToken, // tokenOut is base asset
-          amount,
-          slippagePercentage
+          amount
         )
-      : await uniswap.priceSwapIn(
+      : await uniswapish.priceSwapIn(
           baseToken, // tokenIn is base asset
           quoteToken, // tokenOut is quote asset
-          amount,
-          slippagePercentage
+          amount
         );
 
   if (typeof result === 'string')
@@ -140,7 +150,7 @@ export async function trade(
       TRADE_FAILED_ERROR_CODE
     );
 
-  const gasPrice = ethereum.gasPrice;
+  const gasPrice = ethereumish.gasPrice;
   const gasLimit = ConfigManager.config.UNISWAP_GAS_LIMIT;
 
   if (req.side === 'BUY') {
@@ -155,15 +165,14 @@ export async function trade(
         SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_CODE
       );
 
-    const tx = await uniswap.executeTrade(
+    const tx = await uniswapish.executeTrade(
       wallet,
       result.trade,
       gasPrice,
-      slippagePercentage,
-      uniswap.uniswapRouter,
-      uniswap.ttl,
-      uniswap.routerAbi,
-      uniswap.gasLimit,
+      uniswapish.router,
+      uniswapish.ttl,
+      uniswapish.routerAbi,
+      uniswapish.gasLimit,
       req.nonce,
       maxFeePerGasBigNumber,
       maxPriorityFeePerGasBigNumber
@@ -196,15 +205,14 @@ export async function trade(
         SWAP_PRICE_LOWER_THAN_LIMIT_PRICE_ERROR_CODE
       );
 
-    const tx = await uniswap.executeTrade(
+    const tx = await uniswapish.executeTrade(
       wallet,
       result.trade,
       gasPrice,
-      slippagePercentage,
-      uniswap.uniswapRouter,
-      uniswap.ttl,
-      uniswap.routerAbi,
-      uniswap.gasLimit,
+      uniswapish.router,
+      uniswapish.ttl,
+      uniswapish.routerAbi,
+      uniswapish.gasLimit,
       req.nonce,
       maxFeePerGasBigNumber,
       maxPriorityFeePerGasBigNumber
@@ -227,11 +235,15 @@ export async function trade(
   }
 }
 
-function getFullTokenFromSymbol(tokenSymbol: string) {
-  const token = ethereum.getTokenBySymbol(tokenSymbol);
+function getFullTokenFromSymbol(
+  ethereumish: Ethereumish,
+  uniswapish: Uniswapish,
+  tokenSymbol: string
+) {
+  const token = ethereumish.getTokenBySymbol(tokenSymbol);
   let fullToken;
   if (token) {
-    fullToken = uniswap.getTokenByAddress(token.address);
+    fullToken = uniswapish.getTokenByAddress(token.address);
   }
   if (!fullToken)
     throw new HttpException(
@@ -243,6 +255,7 @@ function getFullTokenFromSymbol(tokenSymbol: string) {
 }
 
 function getAmount(
+  ethereumish: Ethereumish,
   amountAsString: string,
   side: string,
   quote: string,
@@ -256,9 +269,9 @@ function getAmount(
   if (amountAsString.indexOf('.') > -1) {
     let token;
     if (side === 'BUY') {
-      token = ethereum.getTokenBySymbol(quote);
+      token = ethereumish.getTokenBySymbol(quote);
     } else {
-      token = ethereum.getTokenBySymbol(base);
+      token = ethereumish.getTokenBySymbol(base);
     }
     if (token) {
       amount = stringWithDecimalToBigNumber(amountAsString, token.decimals);
