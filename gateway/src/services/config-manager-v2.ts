@@ -367,7 +367,7 @@ export class ConfigManagerV2 {
     // Rebase the file paths in config & template roots if they're relative paths.
     for (const namespaceDefinition of Object.values(namespaceMap)) {
       for (const [key, filePath] of Object.entries(namespaceDefinition)) {
-        if (filePath.charAt(0) !== '/') {
+        if (!path.isAbsolute(filePath)) {
           namespaceDefinition[key] = path.join(configRootDir, filePath);
           if (key === 'configurationPath') {
             namespaceDefinition['templatePath'] = path.join(
