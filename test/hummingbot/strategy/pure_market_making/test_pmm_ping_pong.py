@@ -4,11 +4,6 @@ from decimal import Decimal
 import logging; logging.basicConfig(level=logging.ERROR)
 import pandas as pd
 import unittest
-from hummingsim.backtest.backtest_market import BacktestMarket
-from hummingsim.backtest.market import (
-    QuantizationParams
-)
-from hummingsim.backtest.mock_order_book_loader import MockOrderBookLoader
 from hummingbot.core.clock import (
     Clock,
     ClockMode
@@ -20,6 +15,8 @@ from hummingbot.core.event.events import (
     TradeType
 )
 from hummingbot.strategy.pure_market_making.pure_market_making import PureMarketMakingStrategy
+from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
+from test.mock.mock_paper_exchange import MockPaperExchange
 
 
 class PMMRefreshToleranceUnitTest(unittest.TestCase):
@@ -45,18 +42,17 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
     def setUp(self):
         self.clock_tick_size = 1
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
-        self.market: BacktestMarket = BacktestMarket()
-        self.book_data: MockOrderBookLoader = MockOrderBookLoader(self.trading_pair, self.base_asset, self.quote_asset)
+        self.market: MockPaperExchange = MockPaperExchange()
         self.mid_price = 100
         self.bid_spread = 0.01
         self.ask_spread = 0.01
         self.order_refresh_time = 30
-        self.book_data.set_balanced_order_book(mid_price=self.mid_price,
-                                               min_price=1,
-                                               max_price=200,
-                                               price_step_size=1,
-                                               volume_step_size=10)
-        self.market.add_data(self.book_data)
+        self.market.set_balanced_order_book(trading_pair=self.trading_pair,
+                                            mid_price=self.mid_price,
+                                            min_price=1,
+                                            max_price=200,
+                                            price_step_size=1,
+                                            volume_step_size=10)
         self.market.set_balance("HBOT", 500)
         self.market.set_balance("ETH", 5000)
         self.market.set_quantization_param(
@@ -73,7 +69,8 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
         self.market.add_listener(MarketEvent.OrderCancelled, self.cancel_order_logger)
 
     def test_strategy_ping_pong_on_ask_fill(self):
-        self.strategy = PureMarketMakingStrategy(
+        self.strategy = PureMarketMakingStrategy()
+        self.strategy.init_params(
             self.market_info,
             bid_spread=Decimal("0.01"),
             ask_spread=Decimal("0.01"),
@@ -115,7 +112,8 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
         self.assertEqual(1, len(self.strategy.active_sells))
 
     def test_strategy_ping_pong_on_bid_fill(self):
-        self.strategy = PureMarketMakingStrategy(
+        self.strategy = PureMarketMakingStrategy()
+        self.strategy.init_params(
             self.market_info,
             bid_spread=Decimal("0.01"),
             ask_spread=Decimal("0.01"),
@@ -158,7 +156,8 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
         self.assertEqual(1, len(self.strategy.active_sells))
 
     def test_multiple_orders_ping_pong(self):
-        self.strategy = PureMarketMakingStrategy(
+        self.strategy = PureMarketMakingStrategy()
+        self.strategy.init_params(
             self.market_info,
             bid_spread=Decimal("0.01"),
             ask_spread=Decimal("0.01"),

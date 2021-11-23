@@ -182,9 +182,6 @@ cdef class BlocktaneExchange(ExchangeBase):
             for key, value in saved_states.items()
         })
 
-    async def get_active_exchange_markets(self) -> pd.DataFrame:
-        return await BlocktaneAPIOrderBookDataSource.get_active_exchange_markets()
-
     cdef c_start(self, Clock clock, double timestamp):
         self._tx_tracker.c_start(clock, timestamp)
         ExchangeBase.c_start(self, clock, timestamp)
@@ -208,7 +205,7 @@ cdef class BlocktaneExchange(ExchangeBase):
                           object order_side,
                           object amount,
                           object price):
-        # Fee info from https://trade.bolsacripto.com/api/v2/xt/public/trading_fees
+        # Fee info from https://trade.blocktane.io/api/v2/xt/public/trading_fees
         cdef:
             object maker_fee = Decimal(0.002)
             object taker_fee = Decimal(0.002)
@@ -975,13 +972,10 @@ cdef class BlocktaneExchange(ExchangeBase):
                            http_method: str,
                            path_url: str = None,
                            params: Dict[str, any] = None,
-                           body: Dict[str, any] = None,
-                           subaccount_id: str = '') -> Dict[str, Any]:
+                           body: Dict[str, any] = None) -> Dict[str, Any]:
         assert path_url is not None
         url = f"{self.BLOCKTANE_API_ENDPOINT}{path_url}"
 
-        content_type = "application/json" if http_method == "post" else "application/x-www-form-urlencoded"
-        headers = {"Content-Type": content_type}
         headers = self.blocktane_auth.generate_auth_dict()
 
         client = await self._http_client()

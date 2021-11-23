@@ -23,7 +23,6 @@ def start(self):
     self._initialize_markets([(connector_1, [market_1]), (connector_2, [market_2])])
     base_1, quote_1 = market_1.split("-")
     base_2, quote_2 = market_2.split("-")
-    self.assets = set([base_1, quote_1, base_2, quote_2])
 
     market_info_1 = MarketTradingPairTuple(self.markets[connector_1], market_1, base_1, quote_1)
     market_info_2 = MarketTradingPairTuple(self.markets[connector_2], market_2, base_2, quote_2)
@@ -35,11 +34,12 @@ def start(self):
         rate_source = FixedRateSource()
         rate_source.add_rate(f"{quote_2}-{quote_1}", secondary_to_primary_quote_conversion_rate)
 
-    self.strategy = AmmArbStrategy(market_info_1=market_info_1,
-                                   market_info_2=market_info_2,
-                                   min_profitability=min_profitability,
-                                   order_amount=order_amount,
-                                   market_1_slippage_buffer=market_1_slippage_buffer,
-                                   market_2_slippage_buffer=market_2_slippage_buffer,
-                                   concurrent_orders_submission=concurrent_orders_submission,
-                                   rate_source=rate_source)
+    self.strategy = AmmArbStrategy()
+    self.strategy.init_params(market_info_1=market_info_1,
+                              market_info_2=market_info_2,
+                              min_profitability=min_profitability,
+                              order_amount=order_amount,
+                              market_1_slippage_buffer=market_1_slippage_buffer,
+                              market_2_slippage_buffer=market_2_slippage_buffer,
+                              concurrent_orders_submission=concurrent_orders_submission,
+                              rate_source=rate_source)

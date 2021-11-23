@@ -1,3 +1,4 @@
+import asyncio
 from decimal import Decimal
 import pandas as pd
 import threading
@@ -7,15 +8,14 @@ from typing import (
     Tuple,
     TYPE_CHECKING,
     List,
-    Optional
+    Optional,
 )
 from datetime import datetime
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.client.settings import (
     MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT,
-    CONNECTOR_SETTINGS,
+    AllConnectorSettings,
     ConnectorType,
-    DERIVATIVES
 )
 from hummingbot.model.trade_fill import TradeFill
 from hummingbot.user.user_balances import UserBalances
@@ -41,14 +41,12 @@ class HistoryCommand:
                 precision: Optional[int] = None
                 ):
         if threading.current_thread() != threading.main_thread():
-            self.ev_loop.call_soon_threadsafe(self.history)
+            self.ev_loop.call_soon_threadsafe(self.history, days, verbose, precision)
             return
 
         if self.strategy_file_name is None:
             self._notify("\n  Please first import a strategy config file of which to show historical performance.")
             return
-        if global_config_map.get("paper_trade_enabled").value:
-            self._notify("\n  Paper Trading ON: All orders are simulated, and no real orders are placed.")
         start_time = get_timestamp(days) if days > 0 else self.init_time
         trades: List[TradeFill] = self._get_trades_from_session(int(start_time * 1e3),
                                                                 config_file_path=self.strategy_file_name)
@@ -71,7 +69,14 @@ class HistoryCommand:
         return_pcts = []
         for market, symbol in market_info:
             cur_trades = [t for t in trades if t.market == market and t.symbol == symbol]
-            cur_balances = await self.get_current_balances(market)
+            network_timeout = float(global_config_map["other_commands_timeout"].value)
+            try:
+                cur_balances = await asyncio.wait_for(self.get_current_balances(market), network_timeout)
+            except asyncio.TimeoutError:
+                self._notify(
+                    "\nA network error prevented the balances retrieval to complete. See logs for more details."
+                )
+                raise
             perf = await PerformanceMetrics.create(market, symbol, cur_trades, cur_balances)
             if display_report:
                 self.report_performance_by_market(market, symbol, perf, precision)
@@ -93,8 +98,8 @@ class HistoryCommand:
         elif "perpetual_finance" == market:
             return await UserBalances.xdai_balances()
         else:
-            gateway_eth_connectors = [cs.name for cs in CONNECTOR_SETTINGS.values() if cs.use_ethereum_wallet and
-                                      cs.type == ConnectorType.Connector]
+            gateway_eth_connectors = [cs.name for cs in AllConnectorSettings.get_connector_settings().values()
+                                      if cs.use_ethereum_wallet and cs.type == ConnectorType.Connector]
             if market in gateway_eth_connectors:
                 return await UserBalances.instance().eth_n_erc20_balances()
             else:
@@ -144,7 +149,7 @@ class HistoryCommand:
 
         assets_columns = ["", "start", "current", "change"]
         assets_data = [
-            [f"{base:<17}", "-", "-", "-"] if market in DERIVATIVES else  # No base asset for derivatives because they are margined
+            [f"{base:<17}", "-", "-", "-"] if market in AllConnectorSettings.get_derivative_names() else  # No base asset for derivatives because they are margined
             [f"{base:<17}",
              PerformanceMetrics.smart_round(perf.start_base_bal, precision),
              PerformanceMetrics.smart_round(perf.cur_base_bal, precision),
@@ -157,7 +162,7 @@ class HistoryCommand:
              PerformanceMetrics.smart_round(perf.start_price),
              PerformanceMetrics.smart_round(perf.cur_price),
              PerformanceMetrics.smart_round(perf.cur_price - perf.start_price)],
-            [f"{'Base asset %':<17}", "-", "-", "-"] if market in DERIVATIVES else  # No base asset for derivatives because they are margined
+            [f"{'Base asset %':<17}", "-", "-", "-"] if market in AllConnectorSettings.get_derivative_names() else  # No base asset for derivatives because they are margined
             [f"{'Base asset %':<17}",
              f"{perf.start_base_ratio_pct:.2%}",
              f"{perf.cur_base_ratio_pct:.2%}",

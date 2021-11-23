@@ -28,7 +28,6 @@ from hummingbot.connector.exchange.bittrex.bittrex_auth import BittrexAuth
 from hummingbot.connector.exchange.bittrex.bittrex_in_flight_order import BittrexInFlightOrder
 from hummingbot.connector.exchange.bittrex.bittrex_order_book_tracker import BittrexOrderBookTracker
 from hummingbot.connector.exchange.bittrex.bittrex_user_stream_tracker import BittrexUserStreamTracker
-from hummingbot.market.market_base import NaN
 from hummingbot.connector.trading_rule cimport TradingRule
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.core.utils.estimate_fee import estimate_fee
@@ -37,6 +36,7 @@ from hummingbot.connector.exchange_base import ExchangeBase
 bm_logger = None
 s_decimal_0 = Decimal(0)
 s_decimal_NaN = Decimal("NaN")
+NaN = float("nan")
 
 
 cdef class BittrexExchangeTransactionTracker(TransactionTracker):
@@ -153,9 +153,6 @@ cdef class BittrexExchange(ExchangeBase):
             key: BittrexInFlightOrder.from_json(value)
             for key, value in saved_states.items()
         })
-
-    async def get_active_exchange_markets(self) -> pd.DataFrame:
-        return await BittrexAPIOrderBookDataSource.get_active_exchange_markets()
 
     cdef c_start(self, Clock clock, double timestamp):
         self._tx_tracker.c_start(clock, timestamp)
@@ -347,7 +344,19 @@ cdef class BittrexExchange(ExchangeBase):
             open_orders = dict((entry["id"], entry) for entry in open_orders)
 
             for tracked_order in tracked_orders:
-                exchange_order_id = await tracked_order.get_exchange_order_id()
+                try:
+                    exchange_order_id = await tracked_order.get_exchange_order_id()
+                except asyncio.TimeoutError:
+                    if tracked_order.last_state == "FAILURE":
+                        self.c_stop_tracking_order(client_order_id)
+                        self.logger().warning(
+                            f"No exchange ID found for {client_order_id} on order status update."
+                            f" Order no longer tracked. This is most likely due to a POST_ONLY_NOT_MET error."
+                        )
+                        continue
+                    else:
+                        self.logger().error(f"Exchange order ID never updated for {tracked_order.client_order_id}")
+                        raise
                 client_order_id = tracked_order.client_order_id
                 order = open_orders.get(exchange_order_id)
 
@@ -416,46 +425,52 @@ cdef class BittrexExchange(ExchangeBase):
                                          ))
 
                 if order_state == "CLOSED":
-                    if order["quantity"] == order["fillQuantity"]:  # Order COMPLETED
-                        tracked_order.last_state = "CLOSED"
-                        self.logger().info(f"The {order_type}-{trade_type} "
-                                           f"{client_order_id} has completed according to Bittrex order status API.")
+                    self._process_api_closed(order, tracked_order)
 
-                        if tracked_order.trade_type is TradeType.BUY:
-                            self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
-                                                 BuyOrderCompletedEvent(
-                                                     self._current_timestamp,
-                                                     tracked_order.client_order_id,
-                                                     tracked_order.base_asset,
-                                                     tracked_order.quote_asset,
-                                                     tracked_order.fee_asset or tracked_order.base_asset,
-                                                     tracked_order.executed_amount_base,
-                                                     tracked_order.executed_amount_quote,
-                                                     tracked_order.fee_paid,
-                                                     tracked_order.order_type))
-                        elif tracked_order.trade_type is TradeType.SELL:
-                            self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
-                                                 SellOrderCompletedEvent(
-                                                     self._current_timestamp,
-                                                     tracked_order.client_order_id,
-                                                     tracked_order.base_asset,
-                                                     tracked_order.quote_asset,
-                                                     tracked_order.fee_asset or tracked_order.base_asset,
-                                                     tracked_order.executed_amount_base,
-                                                     tracked_order.executed_amount_quote,
-                                                     tracked_order.fee_paid,
-                                                     tracked_order.order_type))
-                    else:  # Order PARTIAL-CANCEL or CANCEL
-                        tracked_order.last_state = "CANCELLED"
-                        self.logger().info(f"The {tracked_order.order_type}-{tracked_order.trade_type} "
-                                           f"{client_order_id} has been cancelled according to Bittrex order status API.")
-                        self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                             OrderCancelledEvent(
-                                                 self._current_timestamp,
-                                                 client_order_id
-                                             ))
+    def _process_api_closed(self, order: Dict, tracked_order: BittrexInFlightOrder):
+        order_type = tracked_order.order_type
+        trade_type = tracked_order.trade_type
+        client_order_id = tracked_order.client_order_id
+        if order["quantity"] == order["fillQuantity"]:  # Order COMPLETED
+            tracked_order.last_state = "CLOSED"
+            self.logger().info(f"The {order_type}-{trade_type} "
+                               f"{client_order_id} has completed according to Bittrex order status API.")
 
-                    self.c_stop_tracking_order(client_order_id)
+            if tracked_order.trade_type is TradeType.BUY:
+                self.c_trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
+                                     BuyOrderCompletedEvent(
+                                         self._current_timestamp,
+                                         tracked_order.client_order_id,
+                                         tracked_order.base_asset,
+                                         tracked_order.quote_asset,
+                                         tracked_order.fee_asset or tracked_order.base_asset,
+                                         tracked_order.executed_amount_base,
+                                         tracked_order.executed_amount_quote,
+                                         tracked_order.fee_paid,
+                                         tracked_order.order_type))
+            elif tracked_order.trade_type is TradeType.SELL:
+                self.c_trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
+                                     SellOrderCompletedEvent(
+                                         self._current_timestamp,
+                                         tracked_order.client_order_id,
+                                         tracked_order.base_asset,
+                                         tracked_order.quote_asset,
+                                         tracked_order.fee_asset or tracked_order.base_asset,
+                                         tracked_order.executed_amount_base,
+                                         tracked_order.executed_amount_quote,
+                                         tracked_order.fee_paid,
+                                         tracked_order.order_type))
+        else:  # Order PARTIAL-CANCEL or CANCEL
+            tracked_order.last_state = "CANCELLED"
+            self.logger().info(f"The {tracked_order.order_type}-{tracked_order.trade_type} "
+                               f"{client_order_id} has been cancelled according to Bittrex order status API.")
+            self.c_trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                 OrderCancelledEvent(
+                                     self._current_timestamp,
+                                     client_order_id
+                                 ))
+
+        self.c_stop_tracking_order(client_order_id)
 
     async def _iter_user_stream_queue(self) -> AsyncIterable[Dict[str, Any]]:
         while True:
@@ -508,7 +523,7 @@ cdef class BittrexExchange(ExchangeBase):
 
                     if executed_amount_diff > s_decimal_0:
                         self.logger().info(f"Filled {executed_amount_diff} out of {tracked_order.amount} of the "
-                                           f"{order_type_description} order {tracked_order.client_order_id}.")
+                                           f"{order_type_description} order {tracked_order.client_order_id}. - ws")
                         self.c_trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
                                              OrderFilledEvent(
                                                  self._current_timestamp,
@@ -623,6 +638,17 @@ cdef class BittrexExchange(ExchangeBase):
         if trading_pair not in order_books:
             raise ValueError(f"No order book exists for '{trading_pair}'.")
         return order_books[trading_pair]
+
+    def start_tracking_order(self,
+                             order_id: str,
+                             exchange_order_id: str,
+                             trading_pair: str,
+                             order_type: OrderType,
+                             trade_type: TradeType,
+                             price: Decimal,
+                             amount: Decimal):
+        """Helper method for testing."""
+        self.c_start_tracking_order(order_id, exchange_order_id, trading_pair, order_type, trade_type, price, amount)
 
     cdef c_start_tracking_order(self,
                                 str order_id,
@@ -784,7 +810,7 @@ cdef class BittrexExchange(ExchangeBase):
             self.logger().network(
                 f"Error submitting buy {order_type_str} order to Bittrex for "
                 f"{decimal_amount} {trading_pair} "
-                f"{decimal_price}.",
+                f"{decimal_price if order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER] else ''}.",
                 exc_info=True,
                 app_warning_msg=f"Failed to submit buy order to Bittrex. Check API key and network connection."
             )
@@ -880,7 +906,7 @@ cdef class BittrexExchange(ExchangeBase):
             self.logger().network(
                 f"Error submitting sell {order_type_str} order to Bittrex for "
                 f"{decimal_amount} {trading_pair} "
-                f"{decimal_price if order_type is OrderType.LIMIT else ''}.",
+                f"{decimal_price if order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER] else ''}.",
                 exc_info=True,
                 app_warning_msg=f"Failed to submit sell order to Bittrex. Check API key and network connection."
             )
@@ -929,9 +955,13 @@ cdef class BittrexExchange(ExchangeBase):
                 return order_id
 
             if "ORDER_NOT_OPEN" in str(err):
-                path_url = f"/orders/{order_id}"
                 state_result = await self._api_request("GET", path_url=path_url)
-                self.logger().info(f"{state_result}")
+                self.logger().error(  # this indicates a potential error
+                    f"Tried to cancel order {order_id} which is already closed. Order details: {state_result}."
+                )
+                if state_result["status"] == "CLOSED":
+                    self._process_api_closed(state_result, tracked_order)
+                return order_id
 
             self.logger().network(
                 f"Failed to cancel order {order_id}: {str(err)}.",

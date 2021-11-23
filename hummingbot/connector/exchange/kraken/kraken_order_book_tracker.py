@@ -11,14 +11,15 @@ from typing import (
     Optional
 )
 
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.logger import HummingbotLogger
 from hummingbot.core.data_type.order_book_tracker import (
     OrderBookTracker
 )
-from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.connector.exchange.kraken.kraken_api_order_book_data_source import KrakenAPIOrderBookDataSource
-from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_message import OrderBookMessage
+from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.utils.async_utils import wait_til
 
 
@@ -31,8 +32,11 @@ class KrakenOrderBookTracker(OrderBookTracker):
             cls._krobt_logger = logging.getLogger(__name__)
         return cls._krobt_logger
 
-    def __init__(self, trading_pairs: List[str]):
-        super().__init__(KrakenAPIOrderBookDataSource(trading_pairs), trading_pairs)
+    def __init__(self,
+                 trading_pairs: List[str],
+                 throttler: Optional[AsyncThrottler] = None,
+                 ):
+        super().__init__(KrakenAPIOrderBookDataSource(throttler, trading_pairs), trading_pairs)
         self._order_book_diff_stream: asyncio.Queue = asyncio.Queue()
         self._order_book_snapshot_stream: asyncio.Queue = asyncio.Queue()
         self._ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()

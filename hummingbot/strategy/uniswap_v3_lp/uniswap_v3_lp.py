@@ -32,8 +32,8 @@ class UniswapV3LpStrategy(StrategyPyBase):
                  use_volatility: bool,
                  volatility_period: int,
                  volatility_factor: Decimal,
-                 buy_position_price_spread: Decimal,
-                 sell_position_price_spread: Decimal,
+                 buy_spread: Decimal,
+                 sell_spread: Decimal,
                  base_token_amount: Decimal,
                  quote_token_amount: Decimal,
                  min_profitability: Decimal,
@@ -44,8 +44,8 @@ class UniswapV3LpStrategy(StrategyPyBase):
         self._use_volatility = use_volatility
         self._volatility_period = volatility_period
         self._volatility_factor = volatility_factor
-        self._buy_position_price_spread = buy_position_price_spread
-        self._sell_position_price_spread = sell_position_price_spread
+        self._buy_spread = buy_spread
+        self._sell_spread = sell_spread
         self._base_token_amount = base_token_amount
         self._quote_token_amount = quote_token_amount
         self._min_profitability = min_profitability
@@ -107,10 +107,10 @@ class UniswapV3LpStrategy(StrategyPyBase):
                     position.token_id,
                     position.trading_pair,
                     position.fee_tier,
-                    f"{PerformanceMetrics.smart_round(Decimal(str(position.lower_price)), 8)} - "
-                    f"{PerformanceMetrics.smart_round(Decimal(str(position.upper_price)), 8)}",
-                    PerformanceMetrics.smart_round(Decimal(str(position.current_base_amount)), 8),
-                    PerformanceMetrics.smart_round(Decimal(str(position.current_quote_amount)), 8),
+                    f"{PerformanceMetrics.smart_round(position.lower_price, 8)} - "
+                    f"{PerformanceMetrics.smart_round(position.upper_price, 8)}",
+                    PerformanceMetrics.smart_round(position.current_base_amount, 8),
+                    PerformanceMetrics.smart_round(position.current_quote_amount, 8),
                     "[In range]" if self._last_price >= position.lower_price and self._last_price <= position.upper_price else "[Out of range]"
                 ])
         return pd.DataFrame(data=data, columns=columns)
@@ -119,10 +119,10 @@ class UniswapV3LpStrategy(StrategyPyBase):
         """
         This function returns the current volatility.
         """
-        return (self._volatility_factor * Decimal(str(np.sqrt(self._volatility_period * Decimal("3600")))) *
-                Decimal(str(self._volatility.current_value)))
+        current_volatility = Decimal(str(self._volatility.current_value)) if self._volatility.current_value else s_decimal_0
+        return (self._volatility_factor * Decimal(str(np.sqrt(self._volatility_period * Decimal("3600")))) * current_volatility)
 
-    def calculate_profitability(self, position: UniswapV3InFlightPosition):
+    async def calculate_profitability(self, position: UniswapV3InFlightPosition):
         """
         Does simple computation and returns a dictionary containing data required by other functions.
         :param position: an instance of UniswapV3InFlightPosition
@@ -130,20 +130,24 @@ class UniswapV3LpStrategy(StrategyPyBase):
                     "tx_fee", "profitability".
         """
         base_tkn, quote_tkn = position.trading_pair.split("-")
-        init_base = Decimal(str(position.base_amount))
-        init_quote = Decimal(str(position.quote_amount))
-        base_change = Decimal(str(position.current_base_amount)) - Decimal(str(position.base_amount))
-        quote_change = Decimal(str(position.current_quote_amount)) - Decimal(str(position.quote_amount))
-        base_fee = Decimal(str(position.unclaimed_base_amount))
-        quote_fee = Decimal(str(position.unclaimed_quote_amount))
-        if base_tkn != "WETH":
+        init_base = position.base_amount
+        init_quote = position.quote_amount
+        base_change = position.current_base_amount - position.base_amount
+        quote_change = position.current_quote_amount - position.quote_amount
+        base_fee = position.unclaimed_base_amount
+        quote_fee = position.unclaimed_quote_amount
+        if len(position.tx_fees) < 2 or position.tx_fees[-1] == s_decimal_0:
+            remove_lp_fee = await self._market_info.market._remove_position(position.hb_id, position.token_id, Decimal("100.0"), True)
+            remove_lp_fee = remove_lp_fee if remove_lp_fee is not None else s_decimal_0
+            position.tx_fees.append(remove_lp_fee)
+        if quote_tkn != "WETH":
             fee_rate = RateOracle.get_instance().rate(f"ETH-{quote_tkn}")
             if fee_rate:
-                tx_fee = Decimal(str(position.gas_price)) * 2 * fee_rate
+                tx_fee = sum(position.tx_fees) * fee_rate
             else:  # cases like this would be rare
-                tx_fee = Decimal(str(position.gas_price)) * 2
+                tx_fee = sum(position.tx_fees)
         else:
-            tx_fee = Decimal(str(position.gas_price)) * 2
+            tx_fee = sum(position.tx_fees)
         init_value = (init_base * self._last_price) + init_quote
         profitability = s_decimal_0 if init_value == s_decimal_0 else \
             ((((base_change + base_fee) * self._last_price) + quote_change + quote_fee - tx_fee) / init_value)
@@ -155,12 +159,12 @@ class UniswapV3LpStrategy(StrategyPyBase):
                 "profitability": profitability
                 }
 
-    def profitability_df(self):
+    async def profitability_df(self):
         data = []
         columns = ["Id", f"{self.base_asset} Change", f"{self.quote_asset} Change",
                    f"Unclaimed {self.base_asset}", f"Unclaimed {self.quote_asset}", "Total Profit/loss (%)"]
         for position in self.active_positions:
-            profit_data = self.calculate_profitability(position)
+            profit_data = await self.calculate_profitability(position)
             data.append([position.token_id,
                         PerformanceMetrics.smart_round(profit_data['base_change'], 8),
                         PerformanceMetrics.smart_round(profit_data['quote_change'], 8),
@@ -194,7 +198,7 @@ class UniswapV3LpStrategy(StrategyPyBase):
             pos_info_df = self.active_positions_df()
             lines.extend(["", "  Positions:"] + ["    " + line for line in pos_info_df.to_string(index=False).split("\n")])
 
-            pos_profitability_df = self.profitability_df()
+            pos_profitability_df = await self.profitability_df()
             lines.extend(["", "  Positions Performance:"] + ["    " + line for line in pos_profitability_df.to_string(index=False).split("\n")])
         else:
             lines.extend(["", "  No active positions."])
@@ -243,11 +247,8 @@ class UniswapV3LpStrategy(StrategyPyBase):
 
     async def main(self):
         pending_positions = [position.last_status.is_pending() for position in self.active_positions]
-        if not any(pending_positions) and len(self.active_orders) == 0 and len(self.active_positions) < 2:
-            # Firstly, we remove inactive positions that have attained minimum profitability.
-            # Also, we ensure there is a maximum of 2 positions per time
-            self.range_position_remover()
-            # Then we proceed with creating new position if necessary3
+        if not any(pending_positions) and len(self.active_orders) == 0:
+            # Then we proceed with creating new position if necessary
             proposal = await self.propose_position_creation()
             if len(proposal) > 0:
                 self.execute_proposal(proposal)
@@ -258,24 +259,32 @@ class UniswapV3LpStrategy(StrategyPyBase):
         :param is_buy: True is position range goes below current price, else False
         :return: [lower_price, upper_price]
         """
+        volatility = self.calculate_volatility() if self._use_volatility else s_decimal_0
         if is_buy:
-            buy_spread = self.calculate_volatility() if self._use_volatility else self._buy_position_price_spread
+            buy_spread = volatility if volatility != s_decimal_0 else self._buy_spread
             upper_price = self._last_price
             lower_price = max(s_decimal_0, (Decimal("1") - buy_spread) * self._last_price)
         else:
-            sell_spread = self.calculate_volatility() if self._use_volatility else self._sell_position_price_spread
+            sell_spread = volatility if volatility != s_decimal_0 else self._sell_spread
             lower_price = self._last_price
             upper_price = (Decimal("1") + sell_spread) * self._last_price
         return [lower_price, upper_price]
 
-    def in_range_sell(self):
+    def total_position_range(self):
         """
-        We use this to know if there is any sell position that is in range.
+        We use this to know the overall range all active lp orders cover.
+        :return: lower_bound, upper_bound
         """
-        for sell in self.active_sells:
-            if sell.upper_price > self._last_price and sell.lower_price < self._last_price:
-                return True
-        return False
+        lower_bound = s_decimal_0
+        upper_bound = s_decimal_0
+
+        for position in self.active_positions:
+            if lower_bound == s_decimal_0 or position.lower_price < lower_bound:
+                lower_bound = position.lower_price
+            if position.upper_price > upper_bound:
+                upper_bound = position.upper_price
+
+        return lower_bound, upper_bound
 
     async def propose_position_creation(self):
         """
@@ -286,24 +295,23 @@ class UniswapV3LpStrategy(StrategyPyBase):
 
         current_price = await self.get_current_price()
 
+        current_strategy_range = self.total_position_range()
+
         while not self._volatility.is_sampling_buffer_full and self._use_volatility:
             await self.get_current_price(True)
 
-        if self._last_price != current_price or len(self.active_buys) == 0 or len(self.active_sells) == 0:
-            if current_price != s_decimal_0:
-                self._last_price = current_price
+        if self._last_price != current_price and current_price != s_decimal_0:
+            self._last_price = current_price
 
-            if (not self.in_range_sell() and len(self.active_buys) == 0) or \
-               (self.in_range_sell() and len(self.active_sells) == 1 and len(self.active_buys) == 0):
+            if current_strategy_range[0] == s_decimal_0 or self._last_price < current_strategy_range[0]:
                 buy_prices = self.generate_proposal(True)
 
-            if len(self.active_sells) == 0:
+            if current_strategy_range[1] == s_decimal_0 or self._last_price > current_strategy_range[1]:
                 sell_prices = self.generate_proposal(False)
 
             if self._use_volatility and self.calculate_volatility() == s_decimal_0:
                 self.logger().info("Unable to use price volatility to set spreads because volatility in last hour is zero."
-                                   " Kindly disable volatility and set spreads manually.")
-                return [[], []]
+                                   " Using set spreads.")
 
         return [buy_prices, sell_prices]
 
@@ -317,51 +325,29 @@ class UniswapV3LpStrategy(StrategyPyBase):
         if len(proposal[0]) > 0:
             if quote_balance < self._quote_token_amount:
                 self.log_with_clock(logging.INFO,
-                                    f"Executing sell order for {self._quote_token_amount} {self._market_info.quote_asset} "
-                                    f"at {self._last_price} price so as to have enough balance to place buy position.")
-                self.sell_with_specific_market(self._market_info,
-                                               self._quote_token_amount,
-                                               self._market_info.market.get_taker_order_type(),
-                                               self._last_price,
-                                               )
-            self.log_with_clock(logging.INFO, f"Creating new buy position over {proposal[0][0]} to {proposal[0][1]} price range.")
-            self._market_info.market.add_position(self.trading_pair,
-                                                  self._fee_tier,
-                                                  self._base_token_amount,
-                                                  self._quote_token_amount,
-                                                  proposal[0][0],
-                                                  proposal[0][1])
+                                    f"Insufficient {self.quote_asset}  asset to create new range position."
+                                    f"Required: {self._quote_token_amount} {self.quote_asset}, Available: {quote_balance} {self.quote_asset}. ")
+            else:
+                self.log_with_clock(logging.INFO, f"Creating new buy position over {proposal[0][0]} to {proposal[0][1]} price range.")
+                self._market_info.market.add_position(self.trading_pair,
+                                                      self._fee_tier,
+                                                      self._base_token_amount,
+                                                      self._quote_token_amount,
+                                                      proposal[0][0],
+                                                      proposal[0][1])
         if len(proposal[1]) > 0:
             if base_balance < (self._base_token_amount):
                 self.log_with_clock(logging.INFO,
-                                    f"Executing buy order for {self._base_token_amount} {self._market_info.base_asset} "
-                                    f"at {self._last_price} price so as to have enough balance to place sell position.")
-                self.buy_with_specific_market(self._market_info,
-                                              self._base_token_amount,
-                                              self._market_info.market.get_taker_order_type(),
-                                              self._last_price,
-                                              )
-            self.log_with_clock(logging.INFO, f"Creating new sell position over {proposal[1][0]} to {proposal[1][1]} price range.")
-            self._market_info.market.add_position(self.trading_pair,
-                                                  self._fee_tier,
-                                                  self._base_token_amount,
-                                                  self._quote_token_amount,
-                                                  proposal[1][0],
-                                                  proposal[1][1])
-
-    def range_position_remover(self):
-        """
-        This function removes  positions that are out of range and have attained min profitability.
-        """
-        for position in self.active_positions:
-            if position.upper_price < self._last_price or position.lower_price > self._last_price:
-                profitability = self.calculate_profitability(position)
-                if profitability["profitability"] >= self._min_profitability:
-                    self.log_with_clock(logging.INFO,
-                                        f"Removing position with ID - {position.token_id} because"
-                                        f"{profitability['profitability']:%} is greater than {self._min_profitability:%} "
-                                        "minimum profitability.")
-                    self._market_info.market.remove_position(position.hb_id, position.token_id)
+                                    f"Insufficient {self.base_asset} asset to create new range position."
+                                    f"Required: {self._base_token_amount} {self.base_asset}, Available: {base_balance} {self.base_asset}. ")
+            else:
+                self.log_with_clock(logging.INFO, f"Creating new sell position over {proposal[1][0]} to {proposal[1][1]} price range.")
+                self._market_info.market.add_position(self.trading_pair,
+                                                      self._fee_tier,
+                                                      self._base_token_amount,
+                                                      self._quote_token_amount,
+                                                      proposal[1][0],
+                                                      proposal[1][1])
 
     def stop(self, clock: Clock):
         if self._main_task is not None:

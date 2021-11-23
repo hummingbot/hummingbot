@@ -31,18 +31,17 @@ def start(self):
 
     market_names: List[Tuple[str, List[str]]] = [(primary_market, [primary_trading_pair]),
                                                  (secondary_market, [secondary_trading_pair])]
-    self._initialize_wallet(token_trading_pairs=list(set(primary_assets + secondary_assets)))
     self._initialize_markets(market_names)
-    self.assets = set(primary_assets + secondary_assets)
 
     primary_data = [self.markets[primary_market], primary_trading_pair] + list(primary_assets)
     secondary_data = [self.markets[secondary_market], secondary_trading_pair] + list(secondary_assets)
     self.market_trading_pair_tuples = [MarketTradingPairTuple(*primary_data), MarketTradingPairTuple(*secondary_data)]
     self.market_pair = ArbitrageMarketPair(*self.market_trading_pair_tuples)
-    self.strategy = ArbitrageStrategy(market_pairs=[self.market_pair],
-                                      min_profitability=min_profitability,
-                                      logging_options=ArbitrageStrategy.OPTION_LOG_ALL,
-                                      use_oracle_conversion_rate=use_oracle_conversion_rate,
-                                      secondary_to_primary_base_conversion_rate=secondary_to_primary_base_conversion_rate,
-                                      secondary_to_primary_quote_conversion_rate=secondary_to_primary_quote_conversion_rate,
-                                      hb_app_notification=True)
+    self.strategy = ArbitrageStrategy()
+    self.strategy.init_params(market_pairs=[self.market_pair],
+                              min_profitability=min_profitability,
+                              logging_options=ArbitrageStrategy.OPTION_LOG_ALL,
+                              use_oracle_conversion_rate=use_oracle_conversion_rate,
+                              secondary_to_primary_base_conversion_rate=secondary_to_primary_base_conversion_rate,
+                              secondary_to_primary_quote_conversion_rate=secondary_to_primary_quote_conversion_rate,
+                              hb_app_notification=True)

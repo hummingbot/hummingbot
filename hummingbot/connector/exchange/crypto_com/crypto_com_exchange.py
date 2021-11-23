@@ -42,7 +42,7 @@ from hummingbot.connector.exchange.crypto_com.crypto_com_in_flight_order import 
 from hummingbot.connector.exchange.crypto_com import crypto_com_utils
 from hummingbot.connector.exchange.crypto_com import crypto_com_constants as CONSTANTS
 from hummingbot.core.data_type.common import OpenOrder
-from hummingbot.core.api_throttler.varied_rate_api_throttler import VariedRateThrottler
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 ctce_logger = None
 s_decimal_NaN = Decimal("nan")
@@ -81,10 +81,17 @@ class CryptoComExchange(ExchangeBase):
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._crypto_com_auth = CryptoComAuth(crypto_com_api_key, crypto_com_secret_key)
-        self._order_book_tracker = CryptoComOrderBookTracker(trading_pairs=trading_pairs)
-        self._user_stream_tracker = CryptoComUserStreamTracker(self._crypto_com_auth, trading_pairs)
+        self._shared_client = aiohttp.ClientSession()
+        self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+
+        self._order_book_tracker = CryptoComOrderBookTracker(shared_client=self._shared_client,
+                                                             throttler=self._throttler,
+                                                             trading_pairs=trading_pairs,
+                                                             )
+        self._user_stream_tracker = CryptoComUserStreamTracker(crypto_com_auth=self._crypto_com_auth,
+                                                               shared_client=self._shared_client,
+                                                               )
         self._ev_loop = asyncio.get_event_loop()
-        self._shared_client = None
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
         self._in_flight_orders = {}  # Dict[client_order_id:str, CryptoComInFlightOrder]
@@ -94,9 +101,6 @@ class CryptoComExchange(ExchangeBase):
         self._user_stream_event_listener_task = None
         self._trading_rules_polling_task = None
         self._last_poll_timestamp = 0
-        self._throttler = VariedRateThrottler(
-            rate_limit_list=CONSTANTS.RATE_LIMITS,
-        )
 
     @property
     def name(self) -> str:
@@ -124,7 +128,7 @@ class CryptoComExchange(ExchangeBase):
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
             "trading_rule_initialized": len(self._trading_rules) > 0,
             "user_stream_initialized":
-                self._user_stream_tracker.data_source.last_recv_time > 0 if self._trading_required else True,
+                self._user_stream_tracker.data_source.ready > 0 if self._trading_required else True,
         }
 
     @property
@@ -224,7 +228,7 @@ class CryptoComExchange(ExchangeBase):
         """
         try:
             # since there is no ping endpoint, the lowest rate call is to get BTC-USDT ticker
-            await self._api_request("get", CONSTANTS.CHECK_NETWORK_PATH_URL)
+            await self._api_request("get", CONSTANTS.GET_TICKER_PATH_URL)
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -321,7 +325,7 @@ class CryptoComExchange(ExchangeBase):
         :returns A response in json format.
         """
         async with self._throttler.execute_task(path_url):
-            url = f"{CONSTANTS.REST_URL}/{path_url}"
+            url = crypto_com_utils.get_rest_url(path_url)
             client = await self._http_client()
             if is_auth_required:
                 request_id = crypto_com_utils.RequestId.generate_request_id()
@@ -349,8 +353,6 @@ class CryptoComExchange(ExchangeBase):
                               f"Message: {parsed_response}")
             if parsed_response["code"] != 0:
                 raise IOError(f"{url} API call failed, response: {parsed_response}")
-            # print(f"REQUEST: {method} {path_url} {params}")
-            # print(f"RESPONSE: {parsed_response}")
             return parsed_response
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal):

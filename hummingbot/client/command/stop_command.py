@@ -12,7 +12,7 @@ class StopCommand:
     def stop(self,  # type: HummingbotApplication
              skip_order_cancellation: bool = False):
         if threading.current_thread() != threading.main_thread():
-            self.ev_loop.call_soon_threadsafe(self.stop)
+            self.ev_loop.call_soon_threadsafe(self.stop, skip_order_cancellation)
             return
         safe_ensure_future(self.stop_loop(skip_order_cancellation), loop=self.ev_loop)
 
@@ -54,7 +54,6 @@ class StopCommand:
         if self.kill_switch is not None:
             self.kill_switch.stop()
 
-        self.wallet = None
         self.strategy_task = None
         self.strategy = None
         self.market_pair = None

@@ -130,6 +130,14 @@ cdef class StrategyBase(TimeIterator):
 
         self._sb_order_tracker = OrderTracker()
 
+    def init_params(self, *args, **kwargs):
+        """
+        Assigns strategy parameters, this function must be called directly after init.
+        The reason for this is to make the parameters discoverable through introspect (this is not possible on init of
+        a Cython class).
+        """
+        raise NotImplementedError
+
     @property
     def active_markets(self) -> List[ConnectorBase]:
         return list(self._sb_markets)
@@ -338,9 +346,19 @@ cdef class StrategyBase(TimeIterator):
     # <editor-fold desc="+ Market event interfaces">
     # ----------------------------------------------------------------------------------------------------------
     cdef c_did_create_buy_order(self, object order_created_event):
+        """
+        In the case of asynchronous order creation on the exchange's server, this event is NOT triggered
+        upon submission of the order request to the server - it is only triggered once the server has sent
+        the acknowledgment that the order is successfully created.
+        """
         pass
 
     cdef c_did_create_sell_order(self, object order_created_event):
+        """
+        In the case of asynchronous order creation on the exchange's server, this event is NOT triggered
+        upon submission of the order request to the server - it is only triggered once the server has sent
+        the acknowledgment that the order is successfully created.
+        """
         pass
 
     cdef c_did_fill_order(self, object order_filled_event):

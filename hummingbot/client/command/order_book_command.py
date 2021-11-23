@@ -3,6 +3,7 @@ import pandas as pd
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
+import threading
 
 
 class OrderBookCommand:
@@ -11,6 +12,9 @@ class OrderBookCommand:
                    exchange: str = None,
                    market: str = None,
                    live: bool = False):
+        if threading.current_thread() != threading.main_thread():
+            self.ev_loop.call_soon_threadsafe(self.order_book, lines, exchange, market, live)
+            return
         safe_ensure_future(self.show_order_book(lines, exchange, market, live))
 
     async def show_order_book(self,  # type: HummingbotApplication

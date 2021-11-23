@@ -20,17 +20,16 @@ from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base import StrategyBase
-from hummingbot.market.celo.celo_cli import (
+from hummingbot.connector.other.celo.celo_cli import (
     CeloCLI,
     CELO_BASE,
     CELO_QUOTE,
 )
-from hummingbot.market.celo.celo_data_types import (
+from hummingbot.connector.other.celo.celo_data_types import (
     CeloOrder,
     CeloArbTradeProfit
 )
 from hummingbot.core.event.events import (
-    TradeType,
     OrderType,
     TradeFee
 )
@@ -91,16 +90,15 @@ cdef class CeloArbStrategy(StrategyBase):
             ds_logger = logging.getLogger(__name__)
         return ds_logger
 
-    def __init__(self,
-                 market_info: MarketTradingPairTuple,
-                 min_profitability: Decimal,
-                 order_amount: Decimal,
-                 celo_slippage_buffer: Decimal = Decimal("0.0001"),
-                 logging_options: int = OPTION_LOG_ALL,
-                 status_report_interval: float = 900,
-                 hb_app_notification: bool = True,
-                 mock_celo_cli_mode: bool = False):
-        super().__init__()
+    def init_params(self,
+                    market_info: MarketTradingPairTuple,
+                    min_profitability: Decimal,
+                    order_amount: Decimal,
+                    celo_slippage_buffer: Decimal = Decimal("0.0001"),
+                    logging_options: int = OPTION_LOG_ALL,
+                    status_report_interval: float = 900,
+                    hb_app_notification: bool = True,
+                    mock_celo_cli_mode: bool = False):
         self._market_info = market_info
         self._exchange = market_info.market.name
         self._min_profitability = min_profitability
@@ -123,6 +121,10 @@ cdef class CeloArbStrategy(StrategyBase):
         self._status_report_interval = status_report_interval
         self._hb_app_notification = hb_app_notification
         self.c_add_markets([market_info.market])
+
+    @property
+    def celo_slippage_buffer(self):
+        return self._celo_slippage_buffer
 
     @property
     def min_profitability(self) -> Decimal:

@@ -1,3 +1,5 @@
+import math
+
 from decimal import Decimal
 from typing import (
     Any,
@@ -13,6 +15,10 @@ from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 s_decimal_0 = Decimal(0)
 
 
+class KrakenInFlightOrderNotCreated(Exception):
+    pass
+
+
 cdef class KrakenInFlightOrder(InFlightOrderBase):
     def __init__(self,
                  client_order_id: str,
@@ -23,7 +29,7 @@ cdef class KrakenInFlightOrder(InFlightOrderBase):
                  price: Decimal,
                  amount: Decimal,
                  userref: int,
-                 initial_state: str = "NEW"):
+                 initial_state: str = "local"):
         super().__init__(
             client_order_id,
             exchange_order_id,
@@ -38,6 +44,10 @@ cdef class KrakenInFlightOrder(InFlightOrderBase):
         self.userref = userref
 
     @property
+    def is_local(self) -> bool:
+        return self.last_state in {"local"}
+
+    @property
     def is_done(self) -> bool:
         return self.last_state in {"closed", "canceled", "expired"}
 
@@ -47,7 +57,7 @@ cdef class KrakenInFlightOrder(InFlightOrderBase):
 
     @property
     def is_cancelled(self) -> bool:
-        return self.last_state in {"CANCELED"}
+        return self.last_state in {"canceled"}
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> InFlightOrderBase:
@@ -86,34 +96,32 @@ cdef class KrakenInFlightOrder(InFlightOrderBase):
             "userref": self.userref
         }
 
-    def update_with_execution_report(self, execution_report: Dict[str, Any]):
-        trade_id = execution_report["t"]
-        if trade_id in self.trade_id_set:
-            # trade already recorded
-            return
-        self.trade_id_set.add(trade_id)
-        last_executed_quantity = Decimal(execution_report["l"])
-        last_commission_amount = Decimal(execution_report["n"])
-        last_commission_asset = execution_report["N"]
-        last_order_state = execution_report["X"]
-        last_executed_price = Decimal(execution_report["L"])
-        executed_amount_quote = last_executed_price * last_executed_quantity
-        self.executed_amount_base += last_executed_quantity
-        self.executed_amount_quote += executed_amount_quote
-        if last_commission_asset is not None:
-            self.fee_asset = last_commission_asset
-        self.fee_paid += last_commission_amount
-        self.last_state = last_order_state
+    def update_exchange_order_id(self, exchange_id: str):
+        super().update_exchange_order_id(exchange_id)
+        self.last_state = "new"
 
-    def update_with_trade_update(self, trade_update: Dict[str, Any]):
+    def _mark_as_filled(self):
+        """
+        Updates the status of the InFlightOrder as filled.
+        Note: Should only be called when order is completely filled.
+        """
+        self.last_state = "closed"
+
+    def update_with_trade_update(self, trade_update: Dict[str, Any]) -> bool:
+        """
+        Updartes the InFlightOrder with the trade update (from WebSocket API ownTrades stream)
+        :return: True if the order gets updated otherwise False
+        """
         trade_id = trade_update["trade_id"]
         if str(trade_update["ordertxid"]) != self.exchange_order_id or trade_id in self.trade_id_set:
             # trade already recorded
-            return
+            return False
         self.trade_id_set.add(trade_id)
         self.executed_amount_base += Decimal(trade_update["vol"])
         self.fee_paid += Decimal(trade_update["fee"])
         self.executed_amount_quote += Decimal(trade_update["vol"]) * Decimal(trade_update["price"])
         if not self.fee_asset:
             self.fee_asset = self.quote_asset
-        return trade_update
+        if (math.isclose(self.executed_amount_base, self.amount) or self.executed_amount_base >= self.amount):
+            self._mark_as_filled()
+        return True

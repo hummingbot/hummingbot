@@ -10,23 +10,14 @@ from hummingbot.client.config.config_validators import (
 )
 from hummingbot.client.settings import (
     required_exchanges,
-    EXAMPLE_PAIRS,
-)
-from hummingbot.client.config.global_config_map import (
-    using_bamboo_coordinator_mode,
-    using_exchange
-)
-from hummingbot.client.config.config_helpers import (
-    minimum_order_amount,
+    AllConnectorSettings,
 )
 from typing import Optional
-
-# from hummingbot.strategy.hanging_orders_tracker import HangingOrdersAggregationType
 
 
 def maker_trading_pair_prompt():
     exchange = avellaneda_market_making_config_map.get("exchange").value
-    example = EXAMPLE_PAIRS.get(exchange)
+    example = AllConnectorSettings.get_example_pairs().get(exchange)
     return "Enter the token trading pair you would like to trade on %s%s >>> " \
            % (exchange, f" (e.g. {example})" if example else "")
 
@@ -53,23 +44,10 @@ def onvalidated_min_spread(value: str):
     avellaneda_market_making_config_map["max_spread"].value = None
 
 
-async def order_amount_prompt() -> str:
-    exchange = avellaneda_market_making_config_map["exchange"].value
+def order_amount_prompt() -> str:
     trading_pair = avellaneda_market_making_config_map["market"].value
     base_asset, quote_asset = trading_pair.split("-")
-    min_amount = await minimum_order_amount(exchange, trading_pair)
-    return f"What is the amount of {base_asset} per order? (minimum {min_amount}) >>> "
-
-
-async def validate_order_amount(value: str) -> Optional[str]:
-    try:
-        exchange = avellaneda_market_making_config_map["exchange"].value
-        trading_pair = avellaneda_market_making_config_map["market"].value
-        min_amount = await minimum_order_amount(exchange, trading_pair)
-        if Decimal(value) < min_amount:
-            return f"Order amount must be at least {min_amount}."
-    except Exception:
-        return "Invalid order amount."
+    return f"What is the amount of {base_asset} per order? >>> "
 
 
 def on_validated_price_source_exchange(value: str):
@@ -113,7 +91,7 @@ avellaneda_market_making_config_map = {
         ConfigVar(key="order_amount",
                   prompt=order_amount_prompt,
                   type_str="decimal",
-                  validator=validate_order_amount,
+                  validator=lambda v: validate_decimal(v, min_value=Decimal("0"), inclusive=False),
                   prompt_on_new=True),
     "order_optimization_enabled":
         ConfigVar(key="order_optimization_enabled",
@@ -205,8 +183,6 @@ avellaneda_market_making_config_map = {
         ConfigVar(key="order_refresh_time",
                   prompt="How often do you want to cancel and replace bids and asks "
                          "(in seconds)? >>> ",
-                  required_if=lambda: not (using_exchange("radar_relay")() or
-                                           (using_exchange("bamboo_relay")() and not using_bamboo_coordinator_mode())),
                   type_str="float",
                   validator=lambda v: validate_decimal(v, 0, inclusive=False),
                   prompt_on_new=True),
@@ -214,8 +190,6 @@ avellaneda_market_making_config_map = {
         ConfigVar(key="max_order_age",
                   prompt="How long do you want to cancel and replace bids and asks "
                          "with the same price (in seconds)? >>> ",
-                  required_if=lambda: not (using_exchange("radar_relay")() or
-                                           (using_exchange("bamboo_relay")() and not using_bamboo_coordinator_mode())),
                   type_str="float",
                   default=1800,
                   validator=lambda v: validate_decimal(v, 0, inclusive=False)),
@@ -270,13 +244,6 @@ avellaneda_market_making_config_map = {
                   type_str="bool",
                   default=False,
                   validator=validate_bool),
-    # "hanging_orders_aggregation_type":
-    #     ConfigVar(key="hanging_orders_aggregation_type",
-    #               prompt="What kind of aggregation for the hanging orders? (no_aggregation/volume_weighted/volume_time_weighted/volume_distance_weighted) >>> ",
-    #               type_str="str",
-    #               default="no_aggregation",
-    #               validator=lambda v: "Invalid option" if v.upper() not in [s.name for s in HangingOrdersAggregationType] else None,
-    #               required_if=lambda: avellaneda_market_making_config_map.get("hanging_orders_enabled").value),
     "hanging_orders_cancel_pct":
         ConfigVar(key="hanging_orders_cancel_pct",
                   prompt="At what spread percentage (from mid price) will hanging orders be canceled? "
@@ -285,4 +252,12 @@ avellaneda_market_making_config_map = {
                   type_str="decimal",
                   default=Decimal("10"),
                   validator=lambda v: validate_decimal(v, 0, 100, inclusive=False)),
+    "should_wait_order_cancel_confirmation":
+        ConfigVar(key="should_wait_order_cancel_confirmation",
+                  prompt="Should the strategy wait to receive a confirmation for orders cancellation "
+                         "before creating a new set of orders? "
+                         "(Not waiting requires enough available balance) (Yes/No) >>> ",
+                  type_str="bool",
+                  default=True,
+                  validator=validate_bool),
 }

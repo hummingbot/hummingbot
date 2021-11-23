@@ -3,7 +3,7 @@ import logging
 import asyncio
 import pandas as pd
 from typing import List, Dict, Tuple, Optional, Any
-from hummingbot.client.settings import ETH_WALLET_CONNECTORS
+from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.connector.uniswap.uniswap_connector import UniswapConnector
@@ -36,17 +36,20 @@ class AmmArbStrategy(StrategyPyBase):
             amm_logger = logging.getLogger(__name__)
         return amm_logger
 
-    def __init__(self,
-                 market_info_1: MarketTradingPairTuple,
-                 market_info_2: MarketTradingPairTuple,
-                 min_profitability: Decimal,
-                 order_amount: Decimal,
-                 market_1_slippage_buffer: Decimal = Decimal("0"),
-                 market_2_slippage_buffer: Decimal = Decimal("0"),
-                 concurrent_orders_submission: bool = True,
-                 status_report_interval: float = 900,
-                 rate_source: Any = FixedRateSource()):
+    def init_params(self,
+                    market_info_1: MarketTradingPairTuple,
+                    market_info_2: MarketTradingPairTuple,
+                    min_profitability: Decimal,
+                    order_amount: Decimal,
+                    market_1_slippage_buffer: Decimal = Decimal("0"),
+                    market_2_slippage_buffer: Decimal = Decimal("0"),
+                    concurrent_orders_submission: bool = True,
+                    status_report_interval: float = 900,
+                    rate_source: Any = FixedRateSource()):
         """
+        Assigns strategy parameters, this function must be called directly after init.
+        The reason for this is to make the parameters discoverable on introspect (it is not possible on init of
+        a Cython class).
         :param market_info_1: The first market
         :param market_info_2: The second market
         :param min_profitability: The minimum profitability for execute trades (e.g. 0.0003 for 0.3%)
@@ -61,7 +64,6 @@ class AmmArbStrategy(StrategyPyBase):
         :param status_report_interval: Amount of seconds to wait to refresh the status report
         :param rate_source: Provider of conversion rates between tokens
         """
-        super().__init__()
         self._market_info_1 = market_info_1
         self._market_info_2 = market_info_2
         self._min_profitability = min_profitability
@@ -333,8 +335,8 @@ class AmmArbStrategy(StrategyPyBase):
         return self._sb_order_tracker.tracked_market_orders
 
     def start(self, clock: Clock, timestamp: float):
-        if self._market_info_1.market.name in ETH_WALLET_CONNECTORS or \
-                self._market_info_2.market.name in ETH_WALLET_CONNECTORS:
+        if self._market_info_1.market.name in AllConnectorSettings.get_eth_wallet_connector_names() or \
+                self._market_info_2.market.name in AllConnectorSettings.get_eth_wallet_connector_names():
             self._quote_eth_rate_fetch_loop_task = safe_ensure_future(self.quote_in_eth_rate_fetch_loop())
 
     def stop(self, clock: Clock):
@@ -348,13 +350,13 @@ class AmmArbStrategy(StrategyPyBase):
     async def quote_in_eth_rate_fetch_loop(self):
         while True:
             try:
-                if self._market_info_1.market.name in ETH_WALLET_CONNECTORS and \
+                if self._market_info_1.market.name in AllConnectorSettings.get_eth_wallet_connector_names() and \
                         "WETH" not in self._market_info_1.trading_pair.split("-"):
                     self._market_1_quote_eth_rate = await self.request_rate_in_eth(self._market_info_1.quote_asset)
                     self.logger().warning(f"Estimate conversion rate - "
                                           f"{self._market_info_1.quote_asset}:ETH = {self._market_1_quote_eth_rate} ")
 
-                if self._market_info_2.market.name in ETH_WALLET_CONNECTORS and \
+                if self._market_info_2.market.name in AllConnectorSettings.get_eth_wallet_connector_names() and \
                         "WETH" not in self._market_info_2.trading_pair.split("-"):
                     self._market_2_quote_eth_rate = await self.request_rate_in_eth(self._market_info_2.quote_asset)
                     self.logger().warning(f"Estimate conversion rate - "

@@ -51,9 +51,7 @@ def start(self):
         (taker_market, [taker_trading_pair]),
     ]
 
-    self._initialize_wallet(token_trading_pairs=list(set(maker_assets + taker_assets)))
     self._initialize_markets(market_names)
-    self.assets = set(maker_assets + taker_assets)
     maker_data = [self.markets[maker_market], maker_trading_pair] + list(maker_assets)
     taker_data = [self.markets[taker_market], taker_trading_pair] + list(taker_assets)
     maker_market_trading_pair_tuple = MarketTradingPairTuple(*maker_data)
@@ -69,7 +67,8 @@ def start(self):
         | CrossExchangeMarketMakingStrategy.OPTION_LOG_STATUS_REPORT
         | CrossExchangeMarketMakingStrategy.OPTION_LOG_MAKER_ORDER_HEDGED
     )
-    self.strategy = CrossExchangeMarketMakingStrategy(
+    self.strategy = CrossExchangeMarketMakingStrategy()
+    self.strategy.init_params(
         market_pairs=[self.market_pair],
         min_profitability=min_profitability,
         status_report_interval=strategy_report_interval,

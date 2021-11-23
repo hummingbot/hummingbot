@@ -21,7 +21,6 @@ from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book cimport OrderBook
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.wallet.ethereum.web3_wallet import Web3Wallet
 from hummingbot.core.event.event_listener cimport EventListener
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange.loopring.loopring_auth import LoopringAuth
@@ -241,9 +240,6 @@ cdef class LoopringExchange(ExchangeBase):
                 retval.append(loopring_flight_order.to_limit_order())
         return retval
 
-    async def get_active_exchange_markets(self) -> pd.DataFrame:
-        return await LoopringAPIOrderBookDataSource.get_active_exchange_markets()
-
     # ----------------------------------------
     # Account Balances
 
@@ -266,9 +262,9 @@ cdef class LoopringExchange(ExchangeBase):
             next_id = self._next_order_id
             if force_sync or self._next_order_id.get(token) is None:
                 try:
-                    response = await self.api_request("GET", NEXT_ORDER_ID, params={"accountId": self._loopring_accountid, "sellTokenId": token})
+                    response = await self.api_request("GET", NEXT_ORDER_ID, params={"accountId": self._loopring_accountid, "sellTokenId": token, "maxNext": "true"})
                     next_id = response["orderId"]
-                    self._next_order_id[token] = next_id
+                    self._next_order_id[token] = next_id + 2  # api returns used count rather than next available
                 except Exception as e:
                     self.logger().info(str(e))
                     self.logger().info("Error getting the next order id from Loopring")

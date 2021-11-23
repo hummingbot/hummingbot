@@ -5,10 +5,10 @@ from typing import (
 
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+from hummingbot.strategy.order_book_asset_price_delegate import OrderBookAssetPriceDelegate
+from hummingbot.strategy.api_asset_price_delegate import APIAssetPriceDelegate
 from hummingbot.strategy.pure_market_making import (
     PureMarketMakingStrategy,
-    OrderBookAssetPriceDelegate,
-    APIAssetPriceDelegate,
     InventoryCostPriceDelegate,
 )
 from hummingbot.strategy.pure_market_making.pure_market_making_config_map import pure_market_making_config_map as c_map
@@ -49,17 +49,17 @@ def start(self):
         price_source_exchange = c_map.get("price_source_exchange").value
         price_source_market = c_map.get("price_source_market").value
         price_source_custom_api = c_map.get("price_source_custom_api").value
+        custom_api_update_interval = c_map.get("custom_api_update_interval").value
         order_refresh_tolerance_pct = c_map.get("order_refresh_tolerance_pct").value / Decimal('100')
         order_override = c_map.get("order_override").value
 
         trading_pair: str = raw_trading_pair
         maker_assets: Tuple[str, str] = self._initialize_market_assets(exchange, [trading_pair])[0]
         market_names: List[Tuple[str, List[str]]] = [(exchange, [trading_pair])]
-        self._initialize_wallet(token_trading_pairs=list(set(maker_assets)))
         self._initialize_markets(market_names)
-        self.assets = set(maker_assets)
         maker_data = [self.markets[exchange], trading_pair] + list(maker_assets)
         self.market_trading_pair_tuples = [MarketTradingPairTuple(*maker_data)]
+
         asset_price_delegate = None
         if price_source == "external_market":
             asset_trading_pair: str = price_source_market
@@ -67,16 +67,20 @@ def start(self):
             self.markets[price_source_exchange]: ExchangeBase = ext_market
             asset_price_delegate = OrderBookAssetPriceDelegate(ext_market, asset_trading_pair)
         elif price_source == "custom_api":
-            asset_price_delegate = APIAssetPriceDelegate(price_source_custom_api)
+            ext_market = create_paper_trade_market(exchange, [raw_trading_pair])
+            asset_price_delegate = APIAssetPriceDelegate(ext_market, price_source_custom_api,
+                                                         custom_api_update_interval)
         inventory_cost_price_delegate = None
         if price_type == "inventory_cost":
             db = HummingbotApplication.main_application().trade_fill_db
             inventory_cost_price_delegate = InventoryCostPriceDelegate(db, trading_pair)
         take_if_crossed = c_map.get("take_if_crossed").value
 
-        strategy_logging_options = PureMarketMakingStrategy.OPTION_LOG_ALL
+        should_wait_order_cancel_confirmation = c_map.get("should_wait_order_cancel_confirmation")
 
-        self.strategy = PureMarketMakingStrategy(
+        strategy_logging_options = PureMarketMakingStrategy.OPTION_LOG_ALL
+        self.strategy = PureMarketMakingStrategy()
+        self.strategy.init_params(
             market_info=MarketTradingPairTuple(*maker_data),
             bid_spread=bid_spread,
             ask_spread=ask_spread,
@@ -90,7 +94,7 @@ def start(self):
             filled_order_delay=filled_order_delay,
             hanging_orders_enabled=hanging_orders_enabled,
             order_refresh_time=order_refresh_time,
-            max_order_age = max_order_age,
+            max_order_age=max_order_age,
             order_optimization_enabled=order_optimization_enabled,
             ask_order_optimization_depth=ask_order_optimization_depth,
             bid_order_optimization_depth=bid_order_optimization_depth,
@@ -108,6 +112,7 @@ def start(self):
             minimum_spread=minimum_spread,
             hb_app_notification=True,
             order_override={} if order_override is None else order_override,
+            should_wait_order_cancel_confirmation=should_wait_order_cancel_confirmation,
         )
     except Exception as e:
         self._notify(str(e))

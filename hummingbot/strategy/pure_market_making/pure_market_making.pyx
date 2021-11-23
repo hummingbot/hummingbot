@@ -20,6 +20,7 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.exchange_base cimport ExchangeBase
 from hummingbot.core.event.events import OrderType
+from hummingbot.core.utils import map_df_to_str
 
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base import StrategyBase
@@ -31,11 +32,15 @@ from .data_types import (
 )
 from .pure_market_making_order_tracker import PureMarketMakingOrderTracker
 
-from .asset_price_delegate cimport AssetPriceDelegate
-from .asset_price_delegate import AssetPriceDelegate
+from hummingbot.strategy.hanging_orders_tracker import (
+    CreatedPairOfOrders,
+    HangingOrdersTracker)
+
+from hummingbot.strategy.asset_price_delegate cimport AssetPriceDelegate
+from hummingbot.strategy.asset_price_delegate import AssetPriceDelegate
 from .inventory_skew_calculator cimport c_calculate_bid_ask_ratios_from_base_asset_ratio
 from .inventory_skew_calculator import calculate_total_order_size
-from .order_book_asset_price_delegate cimport OrderBookAssetPriceDelegate
+from hummingbot.strategy.order_book_asset_price_delegate cimport OrderBookAssetPriceDelegate
 from .inventory_cost_price_delegate import InventoryCostPriceDelegate
 
 
@@ -51,9 +56,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     OPTION_LOG_STATUS_REPORT = 1 << 5
     OPTION_LOG_ALL = 0x7fffffffffffffff
 
-    # These are exchanges where you're expected to expire orders instead of actively cancelling them.
-    RADAR_RELAY_TYPE_EXCHANGES = {"radar_relay", "bamboo_relay"}
-
     @classmethod
     def logger(cls):
         global pmm_logger
@@ -61,45 +63,43 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             pmm_logger = logging.getLogger(__name__)
         return pmm_logger
 
-    def __init__(self,
-                 market_info: MarketTradingPairTuple,
-                 bid_spread: Decimal,
-                 ask_spread: Decimal,
-                 order_amount: Decimal,
-                 order_levels: int = 1,
-                 order_level_spread: Decimal = s_decimal_zero,
-                 order_level_amount: Decimal = s_decimal_zero,
-                 order_refresh_time: float = 30.0,
-                 max_order_age = 1800.0,
-                 order_refresh_tolerance_pct: Decimal = s_decimal_neg_one,
-                 filled_order_delay: float = 60.0,
-                 inventory_skew_enabled: bool = False,
-                 inventory_target_base_pct: Decimal = s_decimal_zero,
-                 inventory_range_multiplier: Decimal = s_decimal_zero,
-                 hanging_orders_enabled: bool = False,
-                 hanging_orders_cancel_pct: Decimal = Decimal("0.1"),
-                 order_optimization_enabled: bool = False,
-                 ask_order_optimization_depth: Decimal = s_decimal_zero,
-                 bid_order_optimization_depth: Decimal = s_decimal_zero,
-                 add_transaction_costs_to_orders: bool = False,
-                 asset_price_delegate: AssetPriceDelegate = None,
-                 inventory_cost_price_delegate: InventoryCostPriceDelegate = None,
-                 price_type: str = "mid_price",
-                 take_if_crossed: bool = False,
-                 price_ceiling: Decimal = s_decimal_neg_one,
-                 price_floor: Decimal = s_decimal_neg_one,
-                 ping_pong_enabled: bool = False,
-                 logging_options: int = OPTION_LOG_ALL,
-                 status_report_interval: float = 900,
-                 minimum_spread: Decimal = Decimal(0),
-                 hb_app_notification: bool = False,
-                 order_override: Dict[str, List[str]] = {},
-                 ):
-
+    def init_params(self,
+                    market_info: MarketTradingPairTuple,
+                    bid_spread: Decimal,
+                    ask_spread: Decimal,
+                    order_amount: Decimal,
+                    order_levels: int = 1,
+                    order_level_spread: Decimal = s_decimal_zero,
+                    order_level_amount: Decimal = s_decimal_zero,
+                    order_refresh_time: float = 30.0,
+                    max_order_age: float = 1800.0,
+                    order_refresh_tolerance_pct: Decimal = s_decimal_neg_one,
+                    filled_order_delay: float = 60.0,
+                    inventory_skew_enabled: bool = False,
+                    inventory_target_base_pct: Decimal = s_decimal_zero,
+                    inventory_range_multiplier: Decimal = s_decimal_zero,
+                    hanging_orders_enabled: bool = False,
+                    hanging_orders_cancel_pct: Decimal = Decimal("0.1"),
+                    order_optimization_enabled: bool = False,
+                    ask_order_optimization_depth: Decimal = s_decimal_zero,
+                    bid_order_optimization_depth: Decimal = s_decimal_zero,
+                    add_transaction_costs_to_orders: bool = False,
+                    asset_price_delegate: AssetPriceDelegate = None,
+                    inventory_cost_price_delegate: InventoryCostPriceDelegate = None,
+                    price_type: str = "mid_price",
+                    take_if_crossed: bool = False,
+                    price_ceiling: Decimal = s_decimal_neg_one,
+                    price_floor: Decimal = s_decimal_neg_one,
+                    ping_pong_enabled: bool = False,
+                    logging_options: int = OPTION_LOG_ALL,
+                    status_report_interval: float = 900,
+                    minimum_spread: Decimal = Decimal(0),
+                    hb_app_notification: bool = False,
+                    order_override: Dict[str, List[str]] = {},
+                    should_wait_order_cancel_confirmation = True,
+                    ):
         if price_ceiling != s_decimal_neg_one and price_ceiling < price_floor:
             raise ValueError("Parameter price_ceiling cannot be lower than price_floor.")
-
-        super().__init__()
         self._sb_order_tracker = PureMarketMakingOrderTracker()
         self._market_info = market_info
         self._bid_spread = bid_spread
@@ -119,7 +119,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._inventory_target_base_pct = inventory_target_base_pct
         self._inventory_range_multiplier = inventory_range_multiplier
         self._hanging_orders_enabled = hanging_orders_enabled
-        self._hanging_orders_cancel_pct = hanging_orders_cancel_pct
+        self._hanging_orders_tracker = HangingOrdersTracker(self, hanging_orders_cancel_pct)
         self._order_optimization_enabled = order_optimization_enabled
         self._ask_order_optimization_depth = ask_order_optimization_depth
         self._bid_order_optimization_depth = bid_order_optimization_depth
@@ -137,18 +137,17 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
         self._cancel_timestamp = 0
         self._create_timestamp = 0
-        self._hanging_orders_to_recreate = []
         self._limit_order_type = self._market_info.market.get_maker_order_type()
         if take_if_crossed:
             self._limit_order_type = OrderType.LIMIT
         self._all_markets_ready = False
         self._filled_buys_balance = 0
         self._filled_sells_balance = 0
-        self._hanging_order_ids = []
         self._logging_options = logging_options
         self._last_timestamp = 0
         self._status_report_interval = status_report_interval
         self._last_own_trade_price = Decimal('nan')
+        self._should_wait_order_cancel_confirmation = should_wait_order_cancel_confirmation
 
         self.c_add_markets([market_info.market])
 
@@ -158,6 +157,30 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     @property
     def market_info(self) -> MarketTradingPairTuple:
         return self._market_info
+
+    @property
+    def max_order_age(self) -> float:
+        return self._max_order_age
+
+    @property
+    def minimum_spread(self) -> Decimal:
+        return self._minimum_spread
+
+    @property
+    def ping_pong_enabled(self) -> bool:
+        return self._ping_pong_enabled
+
+    @property
+    def ask_order_optimization_depth(self) -> Decimal:
+        return self._ask_order_optimization_depth
+
+    @property
+    def bid_order_optimization_depth(self) -> Decimal:
+        return self._bid_order_optimization_depth
+
+    @property
+    def price_type(self) -> PriceType:
+        return self._price_type
 
     @property
     def order_refresh_tolerance_pct(self) -> Decimal:
@@ -251,11 +274,11 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
     @property
     def hanging_orders_cancel_pct(self) -> Decimal:
-        return self._hanging_orders_cancel_pct
+        return self._hanging_orders_tracker._hanging_orders_cancel_pct
 
     @hanging_orders_cancel_pct.setter
     def hanging_orders_cancel_pct(self, value: Decimal):
-        self._hanging_orders_cancel_pct = value
+        self._hanging_orders_tracker._hanging_orders_cancel_pct = value
 
     @property
     def bid_spread(self) -> Decimal:
@@ -349,7 +372,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     def order_override(self, value: Dict[str, List[str]]):
         self._order_override = value
 
-    def get_price(self) -> float:
+    def get_price(self) -> Decimal:
         price_provider = self._asset_price_delegate or self._market_info
         if self._price_type is PriceType.LastOwnTrade:
             price = self._last_own_trade_price
@@ -363,10 +386,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
         return price
 
-    def get_last_price(self) -> float:
-        return self._market_info.get_last_price()
-
-    def get_mid_price(self) -> float:
+    def get_mid_price(self) -> Decimal:
         return self.c_get_mid_price()
 
     cdef object c_get_mid_price(self):
@@ -381,7 +401,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
     @property
     def hanging_order_ids(self) -> List[str]:
-        return self._hanging_order_ids
+        return [o.order_id for o in self._hanging_orders_tracker.strategy_current_hanging_orders]
 
     @property
     def market_info_to_active_orders(self) -> Dict[MarketTradingPairTuple, List[LimitOrder]]:
@@ -403,7 +423,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
     @property
     def active_non_hanging_orders(self) -> List[LimitOrder]:
-        orders = [o for o in self.active_orders if o.client_order_id not in self._hanging_order_ids]
+        orders = [o for o in self.active_orders if not self._hanging_orders_tracker.is_order_id_in_hanging_orders(o.client_order_id)]
         return orders
 
     @property
@@ -413,6 +433,10 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     @logging_options.setter
     def logging_options(self, int64_t logging_options):
         self._logging_options = logging_options
+
+    @property
+    def hanging_orders_tracker(self):
+        return self._hanging_orders_tracker
 
     @property
     def asset_price_delegate(self) -> AssetPriceDelegate:
@@ -510,17 +534,19 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         return df
 
     def active_orders_df(self) -> pd.DataFrame:
+        market, trading_pair, base_asset, quote_asset = self._market_info
         price = self.get_price()
         active_orders = self.active_orders
-        no_sells = len([o for o in active_orders if not o.is_buy and o.client_order_id not in self._hanging_order_ids])
+        no_sells = len([o for o in active_orders if not o.is_buy and o.client_order_id and
+                        not self._hanging_orders_tracker.is_order_id_in_hanging_orders(o.client_order_id)])
         active_orders.sort(key=lambda x: x.price, reverse=True)
         columns = ["Level", "Type", "Price", "Spread", "Amount (Orig)", "Amount (Adj)", "Age"]
         data = []
         lvl_buy, lvl_sell = 0, 0
         for idx in range(0, len(active_orders)):
             order = active_orders[idx]
-            level = None
-            if order.client_order_id not in self._hanging_order_ids:
+            is_hanging_order = self._hanging_orders_tracker.is_order_id_in_hanging_orders(order.client_order_id)
+            if not is_hanging_order:
                 if order.is_buy:
                     level = lvl_buy + 1
                     lvl_buy += 1
@@ -533,9 +559,16 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             if "//" not in order.client_order_id:
                 age = pd.Timestamp(int(time.time()) - int(order.client_order_id[-16:])/1e6,
                                    unit='s').strftime('%H:%M:%S')
-            amount_orig = "" if level is None else self._order_amount + ((level - 1) * self._order_level_amount)
+
+            if is_hanging_order:
+                level_for_calculation = lvl_buy if order.is_buy else lvl_sell
+                amount_orig = self._order_amount + ((level_for_calculation - 1) * self._order_level_amount)
+                level = "hang"
+            else:
+                amount_orig = ""
+
             data.append([
-                "hang" if order.client_order_id in self._hanging_order_ids else level,
+                level,
                 "buy" if order.is_buy else "sell",
                 float(order.price),
                 f"{spread:.2%}",
@@ -589,13 +622,13 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         warning_lines.extend(self._ping_pong_warning_lines)
         warning_lines.extend(self.network_warning([self._market_info]))
 
-        markets_df = self.market_status_data_frame([self._market_info])
+        markets_df = map_df_to_str(self.market_status_data_frame([self._market_info]))
         lines.extend(["", "  Markets:"] + ["    " + line for line in markets_df.to_string(index=False).split("\n")])
 
-        assets_df = self.pure_mm_assets_df(not self._inventory_skew_enabled)
+        assets_df = map_df_to_str(self.pure_mm_assets_df(not self._inventory_skew_enabled))
         # append inventory skew stats.
         if self._inventory_skew_enabled:
-            inventory_skew_df = self.inventory_skew_stats_data_frame()
+            inventory_skew_df = map_df_to_str(self.inventory_skew_stats_data_frame())
             assets_df = assets_df.append(inventory_skew_df)
 
         first_col_length = max(*assets_df[0].apply(len))
@@ -605,7 +638,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
         # See if there're any open orders.
         if len(self.active_orders) > 0:
-            df = self.active_orders_df()
+            df = map_df_to_str(self.active_orders_df())
             lines.extend(["", "  Orders:"] + ["    " + line for line in df.to_string(index=False).split("\n")])
         else:
             lines.extend(["", "  No active maker orders."])
@@ -630,14 +663,26 @@ cdef class PureMarketMakingStrategy(StrategyBase):
     cdef c_start(self, Clock clock, double timestamp):
         StrategyBase.c_start(self, clock, timestamp)
         self._last_timestamp = timestamp
-        # start tracking any restored limit order
-        restored_order_ids = self.c_track_restored_orders(self.market_info)
-        # make restored order hanging orders
-        for order_id in restored_order_ids:
-            self._hanging_order_ids.append(order_id)
+
+        self._hanging_orders_tracker.register_events(self.active_markets)
+
+        if self._hanging_orders_enabled:
+            # start tracking any restored limit order
+            restored_order_ids = self.c_track_restored_orders(self.market_info)
+            # make restored order hanging orders
+            for order_id in restored_order_ids:
+                order = next(o for o in self.market_info.market.limit_orders if o.client_order_id == order_id)
+                if order:
+                    self._hanging_orders_tracker.add_order(order)
+                    self._hanging_orders_tracker.update_strategy_orders_with_equivalent_orders()
+
+    cdef c_stop(self, Clock clock):
+        self._hanging_orders_tracker.unregister_events(self.active_markets)
+        StrategyBase.c_stop(self, clock)
 
     cdef c_tick(self, double timestamp):
         StrategyBase.c_tick(self, timestamp)
+
         cdef:
             int64_t current_tick = <int64_t>(timestamp // self._status_report_interval)
             int64_t last_tick = <int64_t>(self._last_timestamp // self._status_report_interval)
@@ -661,8 +706,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                                           f"making may be dangerous when markets or networks are unstable.")
 
             proposal = None
-            asset_mid_price = Decimal("0")
-            # asset_mid_price = self.c_set_mid_price(market_info)
             if self._create_timestamp <= self._current_timestamp:
                 # 1. Create base order proposals
                 proposal = self.c_create_base_proposal()
@@ -677,9 +720,11 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
                 if not self._take_if_crossed:
                     self.c_filter_out_takers(proposal)
+
+            self._hanging_orders_tracker.process_tick()
+
             self.c_cancel_active_orders_on_max_age_limit()
             self.c_cancel_active_orders(proposal)
-            self.c_cancel_hanging_orders()
             self.c_cancel_orders_below_min_spread()
             if self.c_to_create_orders(proposal):
                 self.c_execute_orders_proposal(proposal)
@@ -710,14 +755,14 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         if order_override is not None and len(order_override) > 0:
             for key, value in order_override.items():
                 if str(value[0]) in ["buy", "sell"]:
-                    if str(value[0]) == "buy":
+                    if str(value[0]) == "buy" and not buy_reference_price.is_nan():
                         price = buy_reference_price * (Decimal("1") - Decimal(str(value[1])) / Decimal("100"))
                         price = market.c_quantize_order_price(self.trading_pair, price)
                         size = Decimal(str(value[2]))
                         size = market.c_quantize_order_amount(self.trading_pair, size)
                         if size > 0 and price > 0:
                             buys.append(PriceSize(price, size))
-                    elif str(value[0]) == "sell":
+                    elif str(value[0]) == "sell" and not sell_reference_price.is_nan():
                         price = sell_reference_price * (Decimal("1") + Decimal(str(value[1])) / Decimal("100"))
                         price = market.c_quantize_order_price(self.trading_pair, price)
                         size = Decimal(str(value[2]))
@@ -725,20 +770,22 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                         if size > 0 and price > 0:
                             sells.append(PriceSize(price, size))
         else:
-            for level in range(0, self._buy_levels):
-                price = buy_reference_price * (Decimal("1") - self._bid_spread - (level * self._order_level_spread))
-                price = market.c_quantize_order_price(self.trading_pair, price)
-                size = self._order_amount + (self._order_level_amount * level)
-                size = market.c_quantize_order_amount(self.trading_pair, size)
-                if size > 0:
-                    buys.append(PriceSize(price, size))
-            for level in range(0, self._sell_levels):
-                price = sell_reference_price * (Decimal("1") + self._ask_spread + (level * self._order_level_spread))
-                price = market.c_quantize_order_price(self.trading_pair, price)
-                size = self._order_amount + (self._order_level_amount * level)
-                size = market.c_quantize_order_amount(self.trading_pair, size)
-                if size > 0:
-                    sells.append(PriceSize(price, size))
+            if not buy_reference_price.is_nan():
+                for level in range(0, self._buy_levels):
+                    price = buy_reference_price * (Decimal("1") - self._bid_spread - (level * self._order_level_spread))
+                    price = market.c_quantize_order_price(self.trading_pair, price)
+                    size = self._order_amount + (self._order_level_amount * level)
+                    size = market.c_quantize_order_amount(self.trading_pair, size)
+                    if size > 0:
+                        buys.append(PriceSize(price, size))
+            if not sell_reference_price.is_nan():
+                for level in range(0, self._sell_levels):
+                    price = sell_reference_price * (Decimal("1") + self._ask_spread + (level * self._order_level_spread))
+                    price = market.c_quantize_order_price(self.trading_pair, price)
+                    size = self._order_amount + (self._order_level_amount * level)
+                    size = market.c_quantize_order_amount(self.trading_pair, size)
+                    if size > 0:
+                        sells.append(PriceSize(price, size))
 
         return Proposal(buys, sells)
 
@@ -827,6 +874,16 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             size = market.c_quantize_order_amount(self.trading_pair, size, sell.price)
             sell.size = size
 
+    def adjusted_available_balance_for_orders_budget_constrain(self):
+        candidate_hanging_orders = self.hanging_orders_tracker.candidate_hanging_orders_from_pairs()
+        non_hanging = []
+        if self.market_info in self._sb_order_tracker.get_limit_orders():
+            all_orders = self._sb_order_tracker.get_limit_orders()[self.market_info].values()
+            non_hanging = [order for order in all_orders
+                           if not self._hanging_orders_tracker.is_order_id_in_hanging_orders(order.client_order_id)]
+        all_non_hanging_orders = list(set(non_hanging) - set(candidate_hanging_orders))
+        return self.c_get_adjusted_available_balance(all_non_hanging_orders)
+
     cdef c_apply_budget_constraint(self, object proposal):
         cdef:
             ExchangeBase market = self._market_info.market
@@ -834,7 +891,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             object base_size
             object adjusted_amount
 
-        base_balance, quote_balance = self.c_get_adjusted_available_balance(self.active_non_hanging_orders)
+        base_balance, quote_balance = self.adjusted_available_balance_for_orders_budget_constrain()
 
         for buy in proposal.buys:
             buy_fee = market.c_get_fee(self.base_asset, self.quote_asset, OrderType.LIMIT, TradeType.BUY,
@@ -982,7 +1039,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
 
         if self._hanging_orders_enabled:
             # If the filled order is a hanging order, do nothing
-            if order_id in self._hanging_order_ids:
+            if order_id in self.hanging_order_ids:
                 self.log_with_clock(
                     logging.INFO,
                     f"({self.trading_pair}) Hanging maker buy order {order_id} "
@@ -998,10 +1055,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         # delay order creation by filled_order_dalay (in seconds)
         self._create_timestamp = self._current_timestamp + self._filled_order_delay
         self._cancel_timestamp = min(self._cancel_timestamp, self._create_timestamp)
-
-        if self._hanging_orders_enabled:
-            for other_order_id in active_sell_ids:
-                self._hanging_order_ids.append(other_order_id)
 
         self._filled_buys_balance += 1
         self._last_own_trade_price = limit_order_record.price
@@ -1026,7 +1079,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         active_buy_ids = [x.client_order_id for x in self.active_orders if x.is_buy]
         if self._hanging_orders_enabled:
             # If the filled order is a hanging order, do nothing
-            if order_id in self._hanging_order_ids:
+            if order_id in self.hanging_order_ids:
                 self.log_with_clock(
                     logging.INFO,
                     f"({self.trading_pair}) Hanging maker sell order {order_id} "
@@ -1042,10 +1095,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         # delay order creation by filled_order_dalay (in seconds)
         self._create_timestamp = self._current_timestamp + self._filled_order_delay
         self._cancel_timestamp = min(self._cancel_timestamp, self._create_timestamp)
-
-        if self._hanging_orders_enabled:
-            for other_order_id in active_buy_ids:
-                self._hanging_order_ids.append(other_order_id)
 
         self._filled_sells_balance += 1
         self._last_own_trade_price = limit_order_record.price
@@ -1078,6 +1127,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         """
         cdef:
             list active_orders = self.active_non_hanging_orders
+
         if active_orders and any(order_age(o) > self._max_order_age for o in active_orders):
             for order in active_orders:
                 self.c_cancel_order(self._market_info, order.client_order_id)
@@ -1088,10 +1138,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         """
         if self._cancel_timestamp > self._current_timestamp:
             return
-        if not global_config_map.get("0x_active_cancels").value:
-            if ((self._market_info.market.name in self.RADAR_RELAY_TYPE_EXCHANGES) or
-                    (self._market_info.market.name == "bamboo_relay" and not self._market_info.market.use_coordinator)):
-                return
 
         cdef:
             list active_orders = self.active_non_hanging_orders
@@ -1100,82 +1146,26 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             bint to_defer_canceling = False
         if len(active_orders) == 0:
             return
-        if proposal is not None and self._order_refresh_tolerance_pct >= 0:
+        if proposal is not None and \
+                self._order_refresh_tolerance_pct >= 0:
 
             active_buy_prices = [Decimal(str(o.price)) for o in active_orders if o.is_buy]
             active_sell_prices = [Decimal(str(o.price)) for o in active_orders if not o.is_buy]
             proposal_buys = [buy.price for buy in proposal.buys]
             proposal_sells = [sell.price for sell in proposal.sells]
+
             if self.c_is_within_tolerance(active_buy_prices, proposal_buys) and \
                     self.c_is_within_tolerance(active_sell_prices, proposal_sells):
                 to_defer_canceling = True
 
         if not to_defer_canceling:
-            for order in active_orders:
-                self.c_cancel_order(self._market_info, order.client_order_id)
+            self._hanging_orders_tracker.update_strategy_orders_with_equivalent_orders()
+            for order in self.active_non_hanging_orders:
+                # If is about to be added to hanging_orders then don't cancel
+                if not self._hanging_orders_tracker.is_potential_hanging_order(order):
+                    self.c_cancel_order(self._market_info, order.client_order_id)
         # else:
         #     self.set_timers()
-
-    cdef c_cancel_hanging_orders(self):
-        if not global_config_map.get("0x_active_cancels").value:
-            if ((self._market_info.market.name in self.RADAR_RELAY_TYPE_EXCHANGES) or
-                    (self._market_info.market.name == "bamboo_relay" and not self._market_info.market.use_coordinator)):
-                return
-
-        cdef:
-            object price = self.get_price()
-            list active_orders = self.active_orders
-            list orders
-            LimitOrder order
-        for h_order_id in self._hanging_order_ids:
-            orders = [o for o in active_orders if o.client_order_id == h_order_id]
-            if orders and price > 0:
-                order = orders[0]
-                if abs(order.price - price)/price >= self._hanging_orders_cancel_pct:
-                    self.c_cancel_order(self._market_info, order.client_order_id)
-                # hanging orders older than max age are canceled and marked to be recreated.
-                elif order_age(order) > self._max_order_age:
-                    self.c_cancel_order(self._market_info, order.client_order_id)
-                    self._hanging_order_ids.remove(order.client_order_id)
-                    self._hanging_orders_to_recreate.append(order)
-
-    cdef c_did_cancel_order(self, object cancelled_event):
-        cdef:
-            list orders = [o for o in self._hanging_orders_to_recreate if o.client_order_id == cancelled_event.order_id]
-        if orders:
-            self.c_recreate_hanging_order(orders[0])
-
-    @property
-    def hanging_orders_to_recreate(self) -> List[LimitOrder]:
-        return self._hanging_orders_to_recreate
-
-    cdef c_recreate_hanging_order(self, object order):
-        """
-        To recreate hanging orders which are older than max order age limit
-        :param order: The hanging order to be recreated.
-        """
-        cdef:
-            str order_id
-            LimitOrder hanging_order = order
-        if self._logging_options:
-            self.logger().info(f"Recreating hanging order: {hanging_order.client_order_id} ")
-        if order.is_buy:
-            order_id = self.c_buy_with_specific_market(
-                self._market_info,
-                hanging_order.quantity,
-                order_type=self._limit_order_type,
-                price=hanging_order.price
-            )
-        else:
-            order_id = self.c_sell_with_specific_market(
-                self._market_info,
-                hanging_order.quantity,
-                order_type=self._limit_order_type,
-                price=hanging_order.price
-            )
-        self.logger().info(f"New hanging order: {order_id} ")
-        self._hanging_orders_to_recreate.remove(order)
-        self._hanging_order_ids.append(order_id)
 
     # Cancel Non-Hanging, Active Orders if Spreads are below minimum_spread
     cdef c_cancel_orders_below_min_spread(self):
@@ -1183,7 +1173,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             list active_orders = self.market_info_to_active_orders.get(self._market_info, [])
             object price = self.get_price()
         active_orders = [order for order in active_orders
-                         if order.client_order_id not in self._hanging_order_ids]
+                         if order.client_order_id not in self.hanging_order_ids]
         for order in active_orders:
             negation = -1 if order.is_buy else 1
             if (negation * (order.price - price) / price) < self._minimum_spread:
@@ -1193,19 +1183,21 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                 self.c_cancel_order(self._market_info, order.client_order_id)
 
     cdef bint c_to_create_orders(self, object proposal):
-        return self._create_timestamp < self._current_timestamp and \
-            proposal is not None and \
-            len(self.active_non_hanging_orders) == 0
+        non_hanging_orders_non_cancelled = [o for o in self.active_non_hanging_orders if not
+                                            self._hanging_orders_tracker.is_potential_hanging_order(o)]
+        return (self._create_timestamp < self._current_timestamp
+                and (not self._should_wait_order_cancel_confirmation or
+                     len(self._sb_order_tracker.in_flight_cancels) == 0)
+                and proposal is not None
+                and len(non_hanging_orders_non_cancelled) == 0)
 
     cdef c_execute_orders_proposal(self, object proposal):
         cdef:
-            double expiration_seconds = (self._order_refresh_time
-                                         if ((self._market_info.market.name in self.RADAR_RELAY_TYPE_EXCHANGES) or
-                                             (self._market_info.market.name == "bamboo_relay" and
-                                              not self._market_info.market.use_coordinator))
-                                         else NaN)
+            double expiration_seconds = NaN
             str bid_order_id, ask_order_id
             bint orders_created = False
+        # Number of pair of orders to track for hanging orders
+        number_of_pairs = min((len(proposal.buys), len(proposal.sells))) if self._hanging_orders_enabled else 0
 
         if len(proposal.buys) > 0:
             if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
@@ -1216,7 +1208,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     f"({self.trading_pair}) Creating {len(proposal.buys)} bid orders "
                     f"at (Size, Price): {price_quote_str}"
                 )
-            for buy in proposal.buys:
+            for idx, buy in enumerate(proposal.buys):
                 bid_order_id = self.c_buy_with_specific_market(
                     self._market_info,
                     buy.size,
@@ -1225,6 +1217,11 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     expiration_seconds=expiration_seconds
                 )
                 orders_created = True
+                if idx < number_of_pairs:
+                    order = next((o for o in self.active_orders if o.client_order_id == bid_order_id))
+                    if order:
+                        self._hanging_orders_tracker.add_current_pairs_of_proposal_orders_executed_by_strategy(
+                            CreatedPairOfOrders(order, None))
         if len(proposal.sells) > 0:
             if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
                 price_quote_str = [f"{sell.size.normalize()} {self.base_asset}, "
@@ -1234,7 +1231,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     f"({self.trading_pair}) Creating {len(proposal.sells)} ask "
                     f"orders at (Size, Price): {price_quote_str}"
                 )
-            for sell in proposal.sells:
+            for idx, sell in enumerate(proposal.sells):
                 ask_order_id = self.c_sell_with_specific_market(
                     self._market_info,
                     sell.size,
@@ -1243,6 +1240,10 @@ cdef class PureMarketMakingStrategy(StrategyBase):
                     expiration_seconds=expiration_seconds
                 )
                 orders_created = True
+                if idx < number_of_pairs:
+                    order = next((o for o in self.active_orders if o.client_order_id == ask_order_id))
+                    if order:
+                        self._hanging_orders_tracker.current_created_pairs_of_orders[idx].sell_order = order
         if orders_created:
             self.set_timers()
 
@@ -1270,5 +1271,7 @@ cdef class PureMarketMakingStrategy(StrategyBase):
             return PriceType.LastOwnTrade
         elif price_type_str == 'inventory_cost':
             return PriceType.InventoryCost
+        elif price_type_str == "custom":
+            return PriceType.Custom
         else:
             raise ValueError(f"Unrecognized price type string {price_type_str}.")

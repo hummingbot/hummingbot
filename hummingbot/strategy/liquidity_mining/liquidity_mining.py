@@ -36,25 +36,24 @@ class LiquidityMiningStrategy(StrategyPyBase):
             lms_logger = logging.getLogger(__name__)
         return lms_logger
 
-    def __init__(self,
-                 exchange: ExchangeBase,
-                 market_infos: Dict[str, MarketTradingPairTuple],
-                 token: str,
-                 order_amount: Decimal,
-                 spread: Decimal,
-                 inventory_skew_enabled: bool,
-                 target_base_pct: Decimal,
-                 order_refresh_time: float,
-                 order_refresh_tolerance_pct: Decimal,
-                 inventory_range_multiplier: Decimal = Decimal("1"),
-                 volatility_interval: int = 60 * 5,
-                 avg_volatility_period: int = 10,
-                 volatility_to_spread_multiplier: Decimal = Decimal("1"),
-                 max_spread: Decimal = Decimal("-1"),
-                 max_order_age: float = 60. * 60.,
-                 status_report_interval: float = 900,
-                 hb_app_notification: bool = False):
-        super().__init__()
+    def init_params(self,
+                    exchange: ExchangeBase,
+                    market_infos: Dict[str, MarketTradingPairTuple],
+                    token: str,
+                    order_amount: Decimal,
+                    spread: Decimal,
+                    inventory_skew_enabled: bool,
+                    target_base_pct: Decimal,
+                    order_refresh_time: float,
+                    order_refresh_tolerance_pct: Decimal,
+                    inventory_range_multiplier: Decimal = Decimal("1"),
+                    volatility_interval: int = 60 * 5,
+                    avg_volatility_period: int = 10,
+                    volatility_to_spread_multiplier: Decimal = Decimal("1"),
+                    max_spread: Decimal = Decimal("-1"),
+                    max_order_age: float = 60. * 60.,
+                    status_report_interval: float = 900,
+                    hb_app_notification: bool = False):
         self._exchange = exchange
         self._market_infos = market_infos
         self._token = token
@@ -390,6 +389,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
         Update the refresh timestamp.
         """
         for proposal in proposals:
+            maker_order_type: OrderType = self._exchange.get_maker_order_type()
             cur_orders = [o for o in self.active_orders if o.trading_pair == proposal.market]
             if cur_orders or self._refresh_times[proposal.market] > self.current_timestamp:
                 continue
@@ -403,7 +403,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
                 self.buy_with_specific_market(
                     self._market_infos[proposal.market],
                     proposal.buy.size,
-                    order_type=OrderType.LIMIT_MAKER,
+                    order_type=maker_order_type,
                     price=proposal.buy.price
                 )
             if proposal.sell.size > 0:
@@ -414,7 +414,7 @@ class LiquidityMiningStrategy(StrategyPyBase):
                 self.sell_with_specific_market(
                     self._market_infos[proposal.market],
                     proposal.sell.size,
-                    order_type=OrderType.LIMIT_MAKER,
+                    order_type=maker_order_type,
                     price=proposal.sell.price
                 )
             if proposal.buy.size > 0 or proposal.sell.size > 0:

@@ -9,11 +9,6 @@ def new_fee_config_var(key):
                      type_str="decimal")
 
 
-def paper_trade_disabled():
-    from hummingbot.client.config.global_config_map import global_config_map
-    return global_config_map.get("paper_trade_enabled").value is False
-
-
 def using_exchange(exchange: str) -> Callable:
     from hummingbot.client.settings import required_exchanges
-    return lambda: paper_trade_disabled() and exchange in required_exchanges
+    return lambda: exchange in required_exchanges

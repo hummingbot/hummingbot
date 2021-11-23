@@ -3,26 +3,19 @@ import asyncio
 import bisect
 import logging
 import time
-from collections import (
-    defaultdict,
-    deque,
-)
-from typing import (
-    Optional,
-    Dict,
-    List,
-    Set,
-    Deque,
-)
 
-from hummingbot.core.data_type.order_book_message import OrderBookMessageType
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
+from collections import defaultdict, deque
+from typing import Deque, Dict, List, Optional, Set
+
 from hummingbot.connector.exchange.bittrex.bittrex_active_order_tracker import BittrexActiveOrderTracker
 from hummingbot.connector.exchange.bittrex.bittrex_api_order_book_data_source import BittrexAPIOrderBookDataSource
 from hummingbot.connector.exchange.bittrex.bittrex_order_book import BittrexOrderBook
 from hummingbot.connector.exchange.bittrex.bittrex_order_book_message import BittrexOrderBookMessage
 from hummingbot.connector.exchange.bittrex.bittrex_order_book_tracker_entry import BittrexOrderBookTrackerEntry
+from hummingbot.core.data_type.order_book_message import OrderBookMessageType
+from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
+from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.logger import HummingbotLogger
 
 
 class BittrexOrderBookTracker(OrderBookTracker):
@@ -44,11 +37,22 @@ class BittrexOrderBookTracker(OrderBookTracker):
         self._order_books: Dict[str, BittrexOrderBook] = {}
         self._saved_message_queues: Dict[str, Deque[BittrexOrderBookMessage]] = defaultdict(lambda: deque(maxlen=1000))
         self._active_order_trackers: Dict[str, BittrexActiveOrderTracker] = defaultdict(BittrexActiveOrderTracker)
-        self._order_book_stream_listener_task: Optional[asyncio.Task] = None
+
+        self._order_book_event_listener_task: Optional[asyncio.Task] = None
 
     @property
     def exchange_name(self) -> str:
         return "bittrex"
+
+    def start(self):
+        super().start()
+        self._order_book_event_listener_task = safe_ensure_future(self._data_source.listen_for_subscriptions())
+
+    def stop(self):
+        super().stop()
+        if self._order_book_event_listener_task is not None:
+            self._order_book_event_listener_task.cancel()
+            self._order_book_event_listener_task = None
 
     async def _refresh_tracking_tasks(self):
         """
@@ -67,7 +71,7 @@ class BittrexOrderBookTracker(OrderBookTracker):
             self._active_order_trackers[trading_pair] = order_book_tracker_entry.active_order_tracker
             self._order_books[trading_pair] = order_book_tracker_entry.order_book
             self._tracking_message_queues[trading_pair] = asyncio.Queue()
-            self._tracking_tasks[trading_pair] = asyncio.ensure_future(self._track_single_book(trading_pair))
+            self._tracking_tasks[trading_pair] = safe_ensure_future(self._track_single_book(trading_pair))
             self.logger().info(f"Started order book tracking for {trading_pair}.")
 
         for trading_pair in deleted_trading_pair:

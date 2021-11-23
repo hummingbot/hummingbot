@@ -1,19 +1,14 @@
 #!/usr/bin/env python
 
 import logging
-from hummingbot.connector.exchange.gate_io.gate_io_constants import Constants
+from typing import Any, Dict, List, Optional
 
-from sqlalchemy.engine import RowProxy
-from typing import (
-    Optional,
-    Dict,
-    List, Any)
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_message import (
-    OrderBookMessage, OrderBookMessageType
-)
+from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.connector.exchange.gate_io.gate_io_order_book_message import GateIoOrderBookMessage
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+from hummingbot.logger import HummingbotLogger
+from sqlalchemy.engine import RowProxy
 
 _logger = None
 
@@ -139,8 +134,8 @@ class GateIoOrderBook(OrderBook):
 
     @classmethod
     def from_snapshot(cls, snapshot: OrderBookMessage):
-        raise NotImplementedError(Constants.EXCHANGE_NAME + " order book needs to retain individual order data.")
+        raise NotImplementedError(CONSTANTS.EXCHANGE_NAME + " order book needs to retain individual order data.")
 
     @classmethod
     def restore_from_snapshot_and_diffs(self, snapshot: OrderBookMessage, diffs: List[OrderBookMessage]):
-        raise NotImplementedError(Constants.EXCHANGE_NAME + " order book needs to retain individual order data.")
+        raise NotImplementedError(CONSTANTS.EXCHANGE_NAME + " order book needs to retain individual order data.")

@@ -1,20 +1,12 @@
 #!/usr/bin/env python
 
-from typing import (
-    Dict,
-    List,
-    Optional,
-)
+from typing import Dict, List, Optional
 
+from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.order_book_row import OrderBookRow
-from hummingbot.core.data_type.order_book_message import (
-    OrderBookMessage,
-    OrderBookMessageType,
-)
-from .gate_io_constants import Constants
-from .gate_io_utils import (
-    convert_from_exchange_trading_pair,
-)
+
+from .gate_io_utils import convert_from_exchange_trading_pair
 
 
 class GateIoOrderBookMessage(OrderBookMessage):
@@ -62,11 +54,11 @@ class GateIoOrderBookMessage(OrderBookMessage):
     #     MockAPIOrderBookDataSource.get_tracking_pairs
     @property
     def asks(self) -> List[OrderBookRow]:
-        raise NotImplementedError(Constants.EXCHANGE_NAME + " order book uses active_order_tracker.")
+        raise NotImplementedError(CONSTANTS.EXCHANGE_NAME + " order book uses active_order_tracker.")
 
     @property
     def bids(self) -> List[OrderBookRow]:
-        raise NotImplementedError(Constants.EXCHANGE_NAME + " order book uses active_order_tracker.")
+        raise NotImplementedError(CONSTANTS.EXCHANGE_NAME + " order book uses active_order_tracker.")
 
     def __eq__(self, other) -> bool:
         return self.type == other.type and self.timestamp == other.timestamp

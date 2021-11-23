@@ -7,9 +7,11 @@ import time
 import sys
 import traceback
 from typing import Optional
+import pandas as pd
 
 from .application_warning import ApplicationWarning
 
+TESTING_TOOLS = ["nose", "unittest", "pytest"]
 
 #  --- Copied from logging module ---
 if hasattr(sys, '_getframe'):
@@ -29,13 +31,26 @@ class HummingbotLogger(PythonLogger):
     def __init__(self, name: str):
         super().__init__(name)
 
+    @staticmethod
+    def is_testing_mode() -> bool:
+        return any(tools in arg
+                   for tools in TESTING_TOOLS
+                   for arg in sys.argv)
+
+    def notify(self, msg: str):
+        from . import INFO
+        self.log(INFO, msg)
+        if not HummingbotLogger.is_testing_mode():
+            from hummingbot.client.hummingbot_application import HummingbotApplication
+            hummingbot_app: HummingbotApplication = HummingbotApplication.main_application()
+            hummingbot_app._notify(f"({pd.Timestamp.fromtimestamp(int(time.time()))}) {msg}")
+
     def network(self, log_msg: str, app_warning_msg: Optional[str] = None, *args, **kwargs):
         from hummingbot.client.hummingbot_application import HummingbotApplication
         from . import NETWORK
-        from os import getcwd
 
         self.log(NETWORK, log_msg, *args, **kwargs)
-        if app_warning_msg is not None and "test" not in getcwd():
+        if app_warning_msg is not None and not HummingbotLogger.is_testing_mode():
             app_warning: ApplicationWarning = ApplicationWarning(
                 time.time(),
                 self.name,

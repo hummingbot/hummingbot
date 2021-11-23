@@ -4,11 +4,6 @@ from decimal import Decimal
 import logging; logging.basicConfig(level=logging.ERROR)
 import pandas as pd
 import unittest
-from hummingsim.backtest.backtest_market import BacktestMarket
-from hummingsim.backtest.market import (
-    QuantizationParams
-)
-from hummingsim.backtest.mock_order_book_loader import MockOrderBookLoader
 from hummingbot.core.clock import (
     Clock,
     ClockMode
@@ -21,6 +16,8 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.strategy.pure_market_making.pure_market_making import PureMarketMakingStrategy
+from hummingbot.connector.exchange.paper_trade.paper_trade_exchange import QuantizationParams
+from test.mock.mock_paper_exchange import MockPaperExchange
 
 
 class PMMRefreshToleranceUnitTest(unittest.TestCase):
@@ -46,18 +43,17 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
     def setUp(self):
         self.clock_tick_size = 1
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
-        self.market: BacktestMarket = BacktestMarket()
-        self.book_data: MockOrderBookLoader = MockOrderBookLoader(self.trading_pair, self.base_asset, self.quote_asset)
+        self.market: MockPaperExchange = MockPaperExchange()
         self.mid_price = 100
         self.bid_spread = 0.01
         self.ask_spread = 0.01
         self.order_refresh_time = 30
-        self.book_data.set_balanced_order_book(mid_price=self.mid_price,
-                                               min_price=1,
-                                               max_price=200,
-                                               price_step_size=1,
-                                               volume_step_size=10)
-        self.market.add_data(self.book_data)
+        self.market.set_balanced_order_book(trading_pair=self.trading_pair,
+                                            mid_price=self.mid_price,
+                                            min_price=1,
+                                            max_price=200,
+                                            price_step_size=1,
+                                            volume_step_size=10)
         self.market.set_balance("HBOT", 500)
         self.market.set_balance("ETH", 5000)
         self.market.set_quantization_param(
@@ -73,7 +69,8 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
         self.market.add_listener(MarketEvent.OrderFilled, self.maker_order_fill_logger)
         self.market.add_listener(MarketEvent.OrderCancelled, self.cancel_order_logger)
 
-        self.one_level_strategy: PureMarketMakingStrategy = PureMarketMakingStrategy(
+        self.one_level_strategy: PureMarketMakingStrategy = PureMarketMakingStrategy()
+        self.one_level_strategy.init_params(
             self.market_info,
             bid_spread=Decimal("0.01"),
             ask_spread=Decimal("0.01"),
@@ -84,7 +81,8 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
             hanging_orders_cancel_pct=0.05,
             order_refresh_tolerance_pct=0
         )
-        self.multi_levels_strategy: PureMarketMakingStrategy = PureMarketMakingStrategy(
+        self.multi_levels_strategy: PureMarketMakingStrategy = PureMarketMakingStrategy()
+        self.multi_levels_strategy.init_params(
             self.market_info,
             bid_spread=Decimal("0.01"),
             ask_spread=Decimal("0.01"),
@@ -95,7 +93,8 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
             filled_order_delay=8,
             order_refresh_tolerance_pct=0
         )
-        self.hanging_order_multiple_strategy = PureMarketMakingStrategy(
+        self.hanging_order_multiple_strategy = PureMarketMakingStrategy()
+        self.hanging_order_multiple_strategy.init_params(
             self.market_info,
             bid_spread=Decimal("0.01"),
             ask_spread=Decimal("0.01"),
@@ -122,7 +121,8 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
         self.assertEqual(1, len(strategy.active_sells))
         self.assertEqual(old_bid.client_order_id, strategy.active_buys[0].client_order_id)
         self.assertEqual(old_ask.client_order_id, strategy.active_sells[0].client_order_id)
-        self.book_data.order_book.apply_diffs([OrderBookRow(99.5, 30, 2)], [OrderBookRow(100.1, 30, 2)], 2)
+        self.market.order_books[self.trading_pair].apply_diffs([OrderBookRow(99.5, 30, 2)],
+                                                               [OrderBookRow(100.1, 30, 2)], 2)
         self.clock.backtest_til(self.start_timestamp + 6 * self.clock_tick_size)
         new_bid = strategy.active_buys[0]
         new_ask = strategy.active_sells[0]
@@ -162,7 +162,8 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
         self.assertEqual(5, len(strategy.active_sells))
         old_buys = strategy.active_buys
         old_sells = strategy.active_sells
-        self.book_data.order_book.apply_diffs([OrderBookRow(99.5, 30, 2)], [OrderBookRow(100.1, 30, 2)], 2)
+        self.market.order_books[self.trading_pair].apply_diffs([OrderBookRow(99.5, 30, 2)],
+                                                               [OrderBookRow(100.1, 30, 2)], 2)
         self.clock.backtest_til(self.start_timestamp + 6 * self.clock_tick_size)
         new_buys = strategy.active_buys
         new_sells = strategy.active_sells
@@ -203,23 +204,26 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
 
         self.simulate_maker_market_trade(True, Decimal("100"), Decimal("101.1"))
 
-        # Ask is filled and due to delay is not replenished immediately
-        # Bid orders are now hanging and active
-        self.clock.backtest_til(self.start_timestamp + 2 * self.clock_tick_size)
+        # Before refresh_time hanging orders are not yet created
+        self.clock.backtest_til(self.start_timestamp + strategy.order_refresh_time / 2)
         self.assertEqual(1, len(self.maker_order_fill_logger.event_log))
         self.assertEqual(5, len(strategy.active_buys))
         self.assertEqual(4, len(strategy.active_sells))
-        self.assertEqual(5, len(strategy.hanging_order_ids))
+        self.assertEqual(0, len(strategy.hanging_order_ids))
 
-        # At order_refresh_time (4 seconds), hanging order remains, asks all got canceled
-        self.clock.backtest_til(self.start_timestamp + 5 * self.clock_tick_size)
-        self.assertEqual(5, len(strategy.active_buys))
+        # At order_refresh_time (4 seconds), hanging order are created
+        # Ask is filled and due to delay is not replenished immediately
+        # Bid orders are now hanging and active
+        self.clock.backtest_til(self.start_timestamp + strategy.order_refresh_time + 1)
+        self.assertEqual(1, len(strategy.active_buys))
         self.assertEqual(0, len(strategy.active_sells))
+        self.assertEqual(1, len(strategy.hanging_order_ids))
 
         # At filled_order_delay (8 seconds), new sets of bid and ask orders are created
-        self.clock.backtest_til(self.start_timestamp + 10 * self.clock_tick_size)
-        self.assertEqual(10, len(strategy.active_buys))
+        self.clock.backtest_til(self.start_timestamp + strategy.order_refresh_time + strategy.filled_order_delay + 1)
+        self.assertEqual(6, len(strategy.active_buys))
         self.assertEqual(5, len(strategy.active_sells))
+        self.assertEqual(1, len(strategy.hanging_order_ids))
 
         # Check all hanging order ids are indeed in active bids list
         self.assertTrue(all(h in [order.client_order_id for order in strategy.active_buys]
@@ -228,8 +232,8 @@ class PMMRefreshToleranceUnitTest(unittest.TestCase):
         old_buys = [o for o in strategy.active_buys if o.client_order_id not in strategy.hanging_order_ids]
         old_sells = [o for o in strategy.active_sells if o.client_order_id not in strategy.hanging_order_ids]
 
-        self.clock.backtest_til(self.start_timestamp + 15 * self.clock_tick_size)
-        self.assertEqual(10, len(strategy.active_buys))
+        self.clock.backtest_til(self.start_timestamp + strategy.order_refresh_time + strategy.filled_order_delay + 1)
+        self.assertEqual(6, len(strategy.active_buys))
         self.assertEqual(5, len(strategy.active_sells))
 
         new_buys = [o for o in strategy.active_buys if o.client_order_id not in strategy.hanging_order_ids]

@@ -2,7 +2,7 @@
 ###       Avellaneda market making strategy config    ###
 ########################################################
 
-template_version: 4
+template_version: 6
 strategy: null
 
 # Exchange and token parameters.
@@ -44,9 +44,6 @@ add_transaction_costs: null
 # when one side is filled (hanging orders feature) (true/false).
 hanging_orders_enabled: null
 
-## Select way of aggregating hanging orders. Whether if leaving them as they are or calculating a resulting hanging order
-#hanging_orders_aggregation_type: null
-
 # Spread (from mid price, in percentage) hanging orders will be canceled (Enter 1 to indicate 1%)
 hanging_orders_cancel_pct: null
 
@@ -76,3 +73,6 @@ closing_time: null
 
 # Buffer size used to store historic samples and calculate volatility
 volatility_buffer_size: 60
+
+# If the strategy should wait to receive cancellations confirmation before creating new orders during refresh time
+should_wait_order_cancel_confirmation: True
