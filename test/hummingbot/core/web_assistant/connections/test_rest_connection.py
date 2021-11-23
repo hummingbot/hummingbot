@@ -39,26 +39,3 @@ class RESTConnectionTest(unittest.TestCase):
         j = self.async_run_with_timeout(ret.json())
 
         self.assertEqual(resp, j)
-
-    @aioresponses()
-    def test_rest_connection_call_with_data(self, mocked_api):
-        url = "https://www.test.com/url"
-        data = {"data": "someData"}
-        resp = {"one": 1}
-        resp.update(data)
-
-        mocked_api.get(url, body=json.dumps(resp).encode())
-
-        client_session = aiohttp.ClientSession()
-        connection = RESTConnection(client_session)
-        request = RESTRequest(method=RESTMethod.GET, url=url, data=data)
-
-        ret = self.async_run_with_timeout(connection.call(request))
-
-        self.assertIsInstance(ret, RESTResponse)
-        self.assertEqual(url, ret.url)
-        self.assertEqual(200, ret.status)
-
-        j = self.async_run_with_timeout(ret.json())
-
-        self.assertEqual(resp, j)
