@@ -89,7 +89,7 @@ def main():
         "simplejson",
         "six",
         "sqlalchemy",
-        "txlocal",
+        "tzlocal",
         "ujson",
         "web3",
         "websockets",
