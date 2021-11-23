@@ -9,7 +9,6 @@ import {
 } from './error-handler';
 
 export class EVMNonceManager {
-  private static _instance: EVMNonceManager;
   private _addressToNonce: Record<string, [number, Date]> = {};
   private _delay: number | null = null;
   private _initialized: boolean = false;
@@ -17,14 +16,6 @@ export class EVMNonceManager {
 
   // this should be private but then we cannot mock it
   public _provider: ethers.providers.Provider | null = null;
-
-  public static getInstance(): EVMNonceManager {
-    if (!EVMNonceManager._instance) {
-      EVMNonceManager._instance = new EVMNonceManager();
-    }
-
-    return EVMNonceManager._instance;
-  }
 
   // init can be called many times and generally should always be called
   // getInstance, but it only applies the values the first time it is called
