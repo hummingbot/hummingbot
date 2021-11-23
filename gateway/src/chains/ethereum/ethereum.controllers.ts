@@ -35,7 +35,7 @@ import {
   EthereumTransaction,
   EthereumTransactionResponse,
 } from './ethereum.requests';
-import { Ethereumish } from './ethereum';
+import { Ethereumish } from '../../services/ethereumish.interface';
 
 export async function nonce(
   ethereum: Ethereumish,
