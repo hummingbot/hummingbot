@@ -33,6 +33,7 @@ omit =
         hummingbot/connector/exchange/probit*
         hummingbot/connector/exchange/wazirx*
         hummingbot/connector/gateway*
+        hummingbot/connector/exchange/southxchange*
         hummingbot/core/utils/gateway_config_utils.py
         hummingbot/core/utils/kill_switch.py
         hummingbot/core/utils/wallet_setup.py
