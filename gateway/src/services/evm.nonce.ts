@@ -5,7 +5,6 @@ import {
   InitializationError,
   SERVICE_UNITIALIZED_ERROR_CODE,
   SERVICE_UNITIALIZED_ERROR_MESSAGE,
-  UNKNOWN_ERROR_ERROR_CODE,
 } from './error-handler';
 
 export class EVMNonceManager {
@@ -49,8 +48,10 @@ export class EVMNonceManager {
 
     if (this._delay < 0) {
       throw new InitializationError(
-        'EVMNonceManager.init delay must be greater than or equal to zero.',
-        UNKNOWN_ERROR_ERROR_CODE
+        SERVICE_UNITIALIZED_ERROR_MESSAGE(
+          'EVMNonceManager.init delay must be greater than or equal to zero.'
+        ),
+        SERVICE_UNITIALIZED_ERROR_CODE
       );
     }
   }

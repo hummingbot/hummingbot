@@ -60,6 +60,23 @@ describe('unitiated EVMNodeService', () => {
       )
     );
   });
+
+  it('delay value too low', async () => {
+    const provider = new providers.StaticJsonRpcProvider(
+      'https://ethereum.node.com'
+    );
+
+    const nonceManager2 = new EVMNonceManager('ethereum', 43, -5);
+
+    await expect(nonceManager2.init(provider)).rejects.toThrow(
+      new InitializationError(
+        SERVICE_UNITIALIZED_ERROR_MESSAGE(
+          'EVMNonceManager.init delay must be greater than or equal to zero.'
+        ),
+        SERVICE_UNITIALIZED_ERROR_CODE
+      )
+    );
+  });
 });
 
 describe('EVMNodeService', () => {
