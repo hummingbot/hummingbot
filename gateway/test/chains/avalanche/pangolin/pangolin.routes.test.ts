@@ -60,6 +60,18 @@ const patchGetTokenBySymbol = () => {
   });
 };
 
+const patchGetTokenByAddress = () => {
+  patch(PangolinRoutes.pangolin, 'getTokenByAddress', () => {
+    return {
+      chainId: 43114,
+      name: 'WETH',
+      symbol: 'WETH',
+      address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
+      decimals: 18,
+    };
+  });
+};
+
 const patchGasPrice = () => {
   patch(PangolinRoutes.avalanche, 'gasPrice', () => 100);
 };
@@ -128,6 +140,7 @@ describe('POST /avalanche/pangolin/price', () => {
     patchGetWallet();
     patchStoredTokenList();
     patchGetTokenBySymbol();
+    patchGetTokenByAddress();
     patchGasPrice();
     patchPriceSwapOut();
     patchConfig();
@@ -153,6 +166,7 @@ describe('POST /avalanche/pangolin/price', () => {
     patchGetWallet();
     patchStoredTokenList();
     patchGetTokenBySymbol();
+    patchGetTokenByAddress();
     patchGasPrice();
     patchPriceSwapIn();
     patchConfig();
@@ -214,6 +228,7 @@ describe('POST /avalanche/pangolin/trade', () => {
     patchGetWallet();
     patchStoredTokenList();
     patchGetTokenBySymbol();
+    patchGetTokenByAddress();
     patchGasPrice();
     patchPriceSwapOut();
     patchConfig();
@@ -279,6 +294,7 @@ describe('POST /avalanche/pangolin/trade', () => {
     patchGetWallet();
     patchStoredTokenList();
     patchGetTokenBySymbol();
+    patchGetTokenByAddress();
     patchGasPrice();
     patchPriceSwapIn();
     patchConfig();
