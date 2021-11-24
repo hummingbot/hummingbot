@@ -223,8 +223,8 @@ class SouthXchangeAPIRequest():
             with await self._lock2:
                 loop = asyncio.get_running_loop()
                 task = loop.create_task(c)
-                result_taks = asyncio.run(task)
-            return result_taks
+                result_taks = loop.run_until_complete(task)
+                return result_taks
         except asyncio.CancelledError:
             raise
         except Exception as e:
