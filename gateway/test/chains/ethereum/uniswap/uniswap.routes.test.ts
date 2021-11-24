@@ -74,6 +74,18 @@ const patchGetTokenBySymbol = () => {
   });
 };
 
+const patchGetTokenByAddress = () => {
+  patch(UniswapRoutes.uniswap, 'getTokenByAddress', () => {
+    return {
+      chainId: 42,
+      name: 'WETH',
+      symbol: 'WETH',
+      address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
+      decimals: 18,
+    };
+  });
+};
+
 const patchGasPrice = () => {
   patch(UniswapRoutes.ethereum, 'gasPrice', () => 100);
 };
@@ -133,6 +145,7 @@ describe('POST /eth/uniswap/price', () => {
     patchInit();
     patchStoredTokenList();
     patchGetTokenBySymbol();
+    patchGetTokenByAddress();
     patchGasPrice();
     patchPriceSwapOut();
     patchConfig();
@@ -159,6 +172,7 @@ describe('POST /eth/uniswap/price', () => {
     patchInit();
     patchStoredTokenList();
     patchGetTokenBySymbol();
+    patchGetTokenByAddress();
     patchGasPrice();
     patchPriceSwapIn();
     patchConfig();
@@ -203,6 +217,7 @@ describe('POST /eth/uniswap/price', () => {
     patchInit();
     patchStoredTokenList();
     patchGetTokenBySymbol();
+    patchGetTokenByAddress();
 
     await request(app)
       .post(`/eth/uniswap/price`)
@@ -223,6 +238,7 @@ describe('POST /eth/uniswap/trade', () => {
     patchInit();
     patchStoredTokenList();
     patchGetTokenBySymbol();
+    patchGetTokenByAddress();
     patchGasPrice();
     patchPriceSwapOut();
     patchConfig();
@@ -289,6 +305,7 @@ describe('POST /eth/uniswap/trade', () => {
     patchInit();
     patchStoredTokenList();
     patchGetTokenBySymbol();
+    patchGetTokenByAddress();
     patchGasPrice();
     patchPriceSwapIn();
     patchConfig();
