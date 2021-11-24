@@ -231,6 +231,44 @@ describe('POST /eth/uniswap/price', () => {
       .expect(500);
   });
 
+  it('should return 500 for unrecognized base symbol with decimals in the amount and SELL', async () => {
+    patchGetWallet();
+    patchInit();
+    patchStoredTokenList();
+    patchGetTokenBySymbol();
+    patchGetTokenByAddress();
+
+    await request(app)
+      .post(`/eth/uniswap/price`)
+      .send({
+        quote: 'DAI',
+        base: 'SHIBA',
+        amount: '10.000',
+        side: 'SELL',
+      })
+      .set('Accept', 'application/json')
+      .expect(500);
+  });
+
+  it('should return 500 for unrecognized base symbol with decimals in the amount and BUY', async () => {
+    patchGetWallet();
+    patchInit();
+    patchStoredTokenList();
+    patchGetTokenBySymbol();
+    patchGetTokenByAddress();
+
+    await request(app)
+      .post(`/eth/uniswap/price`)
+      .send({
+        quote: 'DAI',
+        base: 'SHIBA',
+        amount: '10.000',
+        side: 'BUY',
+      })
+      .set('Accept', 'application/json')
+      .expect(500);
+  });
+
   it('should return 500 when the priceSwapIn operation fails', async () => {
     patchGetWallet();
     patchInit();
