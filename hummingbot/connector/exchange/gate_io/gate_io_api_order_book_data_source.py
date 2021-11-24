@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import time
 from collections import defaultdict
@@ -123,7 +124,7 @@ class GateIoAPIOrderBookDataSource(OrderBookTrackerDataSource):
         logger = logger or logging.getLogger()
         try:
             ex_pair = convert_to_exchange_trading_pair(trading_pair)
-            params = {"currency_pair": ex_pair, "with_id": 1}
+            params = {"currency_pair": ex_pair, "with_id": json.dumps(True)}
             endpoint = CONSTANTS.ORDER_BOOK_PATH_URL
             request = GateIORESTRequest(
                 method=RESTMethod.GET,
