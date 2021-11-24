@@ -8,7 +8,7 @@
         "configurationPath": {
           "type": "string"
         },
-        "schemaPath": {
+        "schemaFileName": {
           "type": "string"
         }
       },

@@ -8,7 +8,7 @@ type Configuration = { [key: string]: any };
 type ConfigurationDefaults = { [namespaceId: string]: Configuration };
 interface _ConfigurationNamespaceDefinition {
   configurationPath: string;
-  schemaPath: string;
+  schemaFileName: string;
 }
 type ConfigurationNamespaceDefinition = _ConfigurationNamespaceDefinition & {
   [key: string]: string;
@@ -290,8 +290,15 @@ export class ConfigManagerV2 {
     // Rebase the file paths in config root if they're relative paths.
     for (const namespaceDefinition of Object.values(namespaceMap)) {
       for (const [key, filePath] of Object.entries(namespaceDefinition)) {
-        if (filePath.charAt(0) !== '/') {
+        if (key === 'configurationPath' && !path.isAbsolute(filePath)) {
           namespaceDefinition[key] = path.join(configRootDir, filePath);
+        } else {
+          // create schemaPath and del schemaFileName
+          namespaceDefinition['schemaPath'] = path.join(
+            path.dirname(ConfigRootSchemaPath),
+            filePath
+          );
+          delete namespaceDefinition[key];
         }
       }
     }
