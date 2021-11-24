@@ -7,7 +7,10 @@ import * as migrations from '../../conf/migration/migrations';
 
 type Configuration = { [key: string]: any };
 type ConfigurationDefaults = { [namespaceId: string]: Configuration };
-type Migration = () => void;
+type Migration = (
+  configRootFullPath: string,
+  configRootTemplateFullPath: string
+) => void;
 type MigrationFunctions = {
   [key: string]: Migration;
 };
@@ -18,13 +21,13 @@ interface _ConfigurationNamespaceDefinition {
 type ConfigurationNamespaceDefinition = _ConfigurationNamespaceDefinition & {
   [key: string]: string;
 };
-type ConfigurationPattern = {
+type ConfigurationNamespaceDefinitions = {
   [namespaceId: string]: ConfigurationNamespaceDefinition;
 };
-type ConfigurationRoot = {
+interface ConfigurationRoot {
   version: number;
-  configurations: ConfigurationPattern;
-};
+  configurations: ConfigurationNamespaceDefinitions;
+}
 const NamespaceTag: string = '$namespace ';
 const ConfigRootSchemaPath: string = path.join(
   __dirname,
@@ -44,10 +47,17 @@ export function deepCopy(srcObject: any, dstObject: any): any {
     if (typeof srcObject[key] !== 'object') {
       if (typeof dstObject[key] !== 'object') dstObject[key] = srcObject[key];
     } else {
-      if (!dstObject[key]) dstObject[key] = {};
+      if (!dstObject[key]) {
+        if (srcObject[key] instanceof Array) dstObject[key] = [];
+        else dstObject[key] = {};
+      }
       deepCopy(srcObject[key], dstObject[key]);
     }
   }
+}
+
+export function initiateWithTemplate(templateFile: string, configFile: string) {
+  fs.copyFileSync(templateFile, configFile);
 }
 
 const ajv: Ajv = new Ajv();
@@ -109,7 +119,7 @@ export class ConfigurationNamespace {
 
     if (!fs.existsSync(configurationPath)) {
       // copy from template
-      this.initiateWithTemplate();
+      initiateWithTemplate(this.templatePath, this.configurationPath);
     }
     this.loadConfig();
   }
@@ -130,10 +140,6 @@ export class ConfigurationNamespace {
     return this.#templatePath;
   }
 
-  initiateWithTemplate() {
-    fs.copyFileSync(this.templatePath, this.configurationPath);
-  }
-
   loadConfig() {
     const configCandidate: Configuration = yaml.load(
       fs.readFileSync(this.#configurationPath, 'utf8')
@@ -148,11 +154,10 @@ export class ConfigurationNamespace {
         throw new Error(
           `Configuration for namespace ${this.id} seems to be outdated/broken. Kindly fix manually.`
         );
-      } else {
-        this.#configuration = configTemplateCandidate;
-        this.saveConfig();
-        return;
       }
+      this.#configuration = configTemplateCandidate;
+      this.saveConfig();
+      return;
     }
     this.#configuration = configCandidate;
   }
@@ -344,7 +349,10 @@ export class ConfigManagerV2 {
         num++
       ) {
         if ((migrations as MigrationFunctions)[`updateToVersion${num}`]) {
-          (migrations as MigrationFunctions)[`updateToVersion${num}`]();
+          (migrations as MigrationFunctions)[`updateToVersion${num}`](
+            configRootFullPath,
+            configRootTemplateFullPath
+          );
         }
       }
     }
@@ -358,7 +366,7 @@ export class ConfigManagerV2 {
     }
 
     // Extract the namespace ids.
-    const namespaceMap: ConfigurationPattern = {};
+    const namespaceMap: ConfigurationNamespaceDefinitions = {};
     for (const namespaceKey of Object.keys(configRoot.configurations)) {
       namespaceMap[namespaceKey.slice(NamespaceTag.length)] =
         configRoot.configurations[namespaceKey];
@@ -376,13 +384,7 @@ export class ConfigManagerV2 {
             );
           }
         } else {
-          //assumption is made that config file is relative to root config file
-          if (key === 'configurationPath') {
-            namespaceDefinition['templatePath'] = path.join(
-              ConfigTemplatesDir,
-              path.relative(configRootDir, filePath)
-            );
-          }
+          throw new Error('Absolute path not allowed.');
         }
       }
     }
