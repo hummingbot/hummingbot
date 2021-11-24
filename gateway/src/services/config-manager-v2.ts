@@ -290,8 +290,10 @@ export class ConfigManagerV2 {
     // Rebase the file paths in config root if they're relative paths.
     for (const namespaceDefinition of Object.values(namespaceMap)) {
       for (const [key, filePath] of Object.entries(namespaceDefinition)) {
-        if (key === 'configurationPath' && !path.isAbsolute(filePath)) {
-          namespaceDefinition[key] = path.join(configRootDir, filePath);
+        if (key === 'configurationPath') {
+          if (!path.isAbsolute(filePath)) {
+            namespaceDefinition[key] = path.join(configRootDir, filePath);
+          }
         } else {
           // create schemaPath and del schemaFileName
           namespaceDefinition['schemaPath'] = path.join(
