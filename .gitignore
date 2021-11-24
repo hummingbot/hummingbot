@@ -83,7 +83,6 @@ coverage.xml
 /gateway/conf/*
 # except the examples, template and migration files in /gateway/conf/
 !/gateway/conf/*-example.yml
-!/gateway/conf/templates
 !/gateway/conf/migration
 /gateway/gateway.level
 
