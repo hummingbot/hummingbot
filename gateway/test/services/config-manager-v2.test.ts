@@ -168,6 +168,7 @@ describe('Configuration manager v2 tests', () => {
       e: 6,
       f: '5',
       g: { h: 4 },
+      h: ['1', '2'],
     };
     deepCopy(configObj, templateObj);
     expect(templateObj.a).toEqual(9);
@@ -176,6 +177,7 @@ describe('Configuration manager v2 tests', () => {
     expect(templateObj.e).toEqual(6);
     expect(templateObj.f).toEqual('5');
     expect(templateObj.g).toEqual({ h: 4 });
+    expect(templateObj.h).toEqual(['1', '2']);
     done();
   });
 });
