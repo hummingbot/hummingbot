@@ -28,7 +28,6 @@ const patchStoredTokenList = () => {
       },
       {
         chainId: 43114,
-
         name: 'Wrapped AVAX',
         symbol: 'WAVAX',
         address: '0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7',
@@ -61,14 +60,16 @@ const patchGetTokenBySymbol = () => {
 };
 
 const patchGetTokenByAddress = () => {
-  patch(PangolinRoutes.pangolin, 'getTokenByAddress', () => {
-    return {
-      chainId: 43114,
-      name: 'WETH',
-      symbol: 'WETH',
-      address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
-      decimals: 18,
-    };
+  patch(PangolinRoutes.pangolin, 'getTokenByAddress', (address: string) => {
+    return address
+      ? {
+          chainId: 43114,
+          name: 'WETH',
+          symbol: 'WETH',
+          address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
+          decimals: 18,
+        }
+      : undefined;
   });
 };
 
@@ -191,7 +192,20 @@ describe('POST /avalanche/pangolin/price', () => {
   it('should return 500 for unrecognized quote symbol', async () => {
     patchGetWallet();
     patchStoredTokenList();
-    patchGetTokenBySymbol();
+    patch(PangolinRoutes.avalanche, 'getTokenBySymbol', (symbol: string) => {
+      if (symbol === 'WETH') {
+        return {
+          chainId: 43114,
+          name: 'WETH',
+          symbol: 'WETH',
+          address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
+          decimals: 18,
+        };
+      } else {
+        return null;
+      }
+    });
+    patchGetTokenByAddress();
 
     await request(app)
       .post(`/avalanche/pangolin/price`)
@@ -208,7 +222,20 @@ describe('POST /avalanche/pangolin/price', () => {
   it('should return 500 for unrecognized base symbol', async () => {
     patchGetWallet();
     patchStoredTokenList();
-    patchGetTokenBySymbol();
+    patch(PangolinRoutes.avalanche, 'getTokenBySymbol', (symbol: string) => {
+      if (symbol === 'WETH') {
+        return {
+          chainId: 43114,
+          name: 'WETH',
+          symbol: 'WETH',
+          address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
+          decimals: 18,
+        };
+      } else {
+        return null;
+      }
+    });
+    patchGetTokenByAddress();
 
     await request(app)
       .post(`/avalanche/pangolin/price`)
