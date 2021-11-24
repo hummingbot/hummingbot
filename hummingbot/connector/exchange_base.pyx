@@ -98,7 +98,7 @@ cdef class ExchangeBase(ConnectorBase):
         try:
             top_price = Decimal(order_book.c_get_price(is_buy))
         except EnvironmentError as e:
-            self.logger().warning(f"{'Ask' if is_buy else 'Buy'} orderbook for {trading_pair} is empty.")
+            self.logger().warning(f"{'Ask' if is_buy else 'Bid'} orderbook for {trading_pair} is empty.")
             return s_decimal_NaN
 
         return self.c_quantize_order_price(trading_pair, top_price)
