@@ -3,9 +3,9 @@ import os
 import subprocess
 import sys
 
-from os import path
 from setuptools import find_packages, setup
 from setuptools.command.build_ext import build_ext
+
 from Cython.Build import cythonize
 
 is_posix = (os.name == "posix")
@@ -85,6 +85,7 @@ def main():
         "requests",
         "rsa",
         "ruamel-yaml",
+        "scipy",
         "signalr-client-aio",
         "simplejson",
         "six",
@@ -102,7 +103,7 @@ def main():
     }
 
     cython_sources = ["hummingbot/**/*.pyx"]
-    if path.exists('test'):
+    if os.path.exists('test'):
         cython_sources.append("test/**/*.pyx")
 
     if os.environ.get('WITHOUT_CYTHON_OPTIMIZATIONS'):
