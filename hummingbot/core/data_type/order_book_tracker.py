@@ -260,8 +260,6 @@ class OrderBookTracker(ABC):
                 if message.type is OrderBookMessageType.DIFF:
                     order_book.apply_diffs(message.bids, message.asks, message.update_id)
                     past_diffs_window.append(message)
-                    while len(past_diffs_window) > self.PAST_DIFF_WINDOW_SIZE:
-                        past_diffs_window.popleft()
                     diff_messages_accepted += 1
 
                     # Output some statistics periodically.
