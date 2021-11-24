@@ -18,7 +18,7 @@ afterEach(() => {
 describe('unitiated EVMNodeService', () => {
   let nonceManager: EVMNonceManager;
   beforeAll(() => {
-    nonceManager = new EVMNonceManager();
+    nonceManager = new EVMNonceManager('ethereum', 43, 0);
   });
 
   it('mergeNonceFromEVMNode throws error', async () => {
@@ -65,11 +65,11 @@ describe('unitiated EVMNodeService', () => {
 describe('EVMNodeService', () => {
   let nonceManager: EVMNonceManager;
   beforeAll(async () => {
-    nonceManager = new EVMNonceManager();
+    nonceManager = new EVMNonceManager('ethereum', 43, 0);
     const provider = new providers.StaticJsonRpcProvider(
       'https://ethereum.node.com'
     );
-    await nonceManager.init(provider, 0, 43);
+    await nonceManager.init(provider);
   });
 
   const patchGetTransactionCount = () => {
@@ -109,17 +109,17 @@ describe("EVMNodeService was previously a singleton. Let's prove that it no long
   let nonceManager1: EVMNonceManager;
   let nonceManager2: EVMNonceManager;
   beforeAll(async () => {
-    nonceManager1 = new EVMNonceManager();
+    nonceManager1 = new EVMNonceManager('ethereum', 43, 0);
     const provider1 = new providers.StaticJsonRpcProvider(
       'https://ethereum.node.com'
     );
-    await nonceManager1.init(provider1, 0, 43);
+    await nonceManager1.init(provider1);
 
-    nonceManager2 = new EVMNonceManager();
+    nonceManager2 = new EVMNonceManager('avalanche', 56, 0);
     const provider2 = new providers.StaticJsonRpcProvider(
       'https://avalanche.node.com'
     );
-    await nonceManager2.init(provider2, 0, 600);
+    await nonceManager2.init(provider2);
   });
 
   it('commitNonce with a provided txNonce should increase the nonce by 1', async () => {
@@ -137,5 +137,9 @@ describe("EVMNodeService was previously a singleton. Let's prove that it no long
     await nonceManager2.commitNonce(exampleAddress, 23);
     const nonce2 = await nonceManager2.getNonce(exampleAddress);
     await expect(nonce2).toEqual(24);
+
+    await nonceManager1.commitNonce(exampleAddress, 11);
+    const nonce3 = await nonceManager1.getNonce(exampleAddress);
+    await expect(nonce3).toEqual(12);
   });
 });
