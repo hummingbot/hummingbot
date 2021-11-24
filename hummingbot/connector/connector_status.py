@@ -19,7 +19,6 @@ connector_status = {
     'coinzoom': 'yellow',
     'crypto_com': 'green',
     'digifinex': "yellow",
-    'dydx': 'green',
     'dydx_perpetual': 'yellow',
     'ethereum': 'red',
     'ftx': 'green',
