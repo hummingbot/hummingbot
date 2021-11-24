@@ -7,7 +7,7 @@ import * as migrations from '../../conf/migration/migrations';
 
 type Configuration = { [key: string]: any };
 type ConfigurationDefaults = { [namespaceId: string]: Configuration };
-type Migration = (
+export type Migration = (
   configRootFullPath: string,
   configRootTemplateFullPath: string
 ) => void;
