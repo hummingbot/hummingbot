@@ -137,9 +137,7 @@ describe('Configuration manager v2 tests', () => {
     const sslNamespace: ConfigurationNamespace = configManager.getNamespace(
       'ssl'
     ) as ConfigurationNamespace;
-    expect(sslNamespace.schemaPath).toEqual(
-      path.join(tempDirPath, 'test1/schema-ssl.json')
-    );
+    expect(path.basename(sslNamespace.schemaPath)).toEqual('ssl-schema.json');
     expect(sslNamespace.configurationPath).toEqual(
       path.join(tempDirPath, 'test1/ssl.yml')
     );
