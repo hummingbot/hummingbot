@@ -33,10 +33,7 @@ const ConfigRootSchemaPath: string = path.join(
   __dirname,
   'schema/configuration-root-schema.json'
 );
-const ConfigTemplatesDir: string = path.join(
-  __dirname,
-  '../../conf/templates/'
-);
+const ConfigTemplatesDir: string = path.join(__dirname, '../templates/');
 interface UnpackedConfigNamespace {
   namespace: ConfigurationNamespace;
   configPath: string;
