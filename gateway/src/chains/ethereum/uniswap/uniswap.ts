@@ -119,7 +119,11 @@ export class Uniswap implements Uniswapish {
     logger.info(
       `Fetching pair data for ${tokenIn.address}-${tokenOut.address}.`
     );
-    const pair = await Fetcher.fetchPairData(tokenIn, tokenOut);
+    const pair = await Fetcher.fetchPairData(
+      tokenIn,
+      tokenOut,
+      this.ethereum.provider
+    );
     const trades = Trade.bestTradeExactIn([pair], tokenInAmount_, tokenOut, {
       maxHops: 1,
     });
@@ -146,7 +150,11 @@ export class Uniswap implements Uniswapish {
     logger.info(
       `Fetching pair data for ${tokenIn.address}-${tokenOut.address}.`
     );
-    const pair = await Fetcher.fetchPairData(tokenIn, tokenOut);
+    const pair = await Fetcher.fetchPairData(
+      tokenIn,
+      tokenOut,
+      this.ethereum.provider
+    );
     const trades = Trade.bestTradeExactOut([pair], tokenIn, tokenOutAmount_, {
       maxHops: 1,
     });

@@ -101,7 +101,7 @@ export class Pangolin implements Uniswapish {
   }
 
   getSlippagePercentage(): Percent {
-    const allowedSlippage = ConfigManager.config.UNISWAP_ALLOWED_SLIPPAGE;
+    const allowedSlippage = ConfigManager.config.PANGOLIN_ALLOWED_SLIPPAGE;
     const nd = allowedSlippage.match(ConfigManager.percentRegexp);
     if (nd) return new Percent(nd[1], nd[2]);
     throw new Error(
@@ -120,7 +120,11 @@ export class Pangolin implements Uniswapish {
     logger.info(
       `Fetching pair data for ${tokenIn.address}-${tokenOut.address}.`
     );
-    const pair = await Fetcher.fetchPairData(tokenIn, tokenOut);
+    const pair = await Fetcher.fetchPairData(
+      tokenIn,
+      tokenOut,
+      this.avalanche.provider
+    );
     const trades = Trade.bestTradeExactIn([pair], tokenInAmount_, tokenOut, {
       maxHops: 1,
     });
@@ -147,7 +151,11 @@ export class Pangolin implements Uniswapish {
     logger.info(
       `Fetching pair data for ${tokenIn.address}-${tokenOut.address}.`
     );
-    const pair = await Fetcher.fetchPairData(tokenIn, tokenOut);
+    const pair = await Fetcher.fetchPairData(
+      tokenIn,
+      tokenOut,
+      this.avalanche.provider
+    );
     const trades = Trade.bestTradeExactOut([pair], tokenIn, tokenOutAmount_, {
       maxHops: 1,
     });
@@ -163,12 +171,12 @@ export class Pangolin implements Uniswapish {
     return { trade: trades[0], expectedAmount };
   }
 
-  // given a wallet and a Uniswap trade, try to execute it on the Ethereum block chain.
+  // given a wallet and a Uniswap trade, try to execute it on the Avalanche block chain.
   async executeTrade(
     wallet: Wallet,
     trade: Trade,
     gasPrice: number,
-    uniswapRouter: string,
+    pangolinRouter: string,
     ttl: number,
     abi: ContractInterface,
     gasLimit: number,
@@ -182,7 +190,7 @@ export class Pangolin implements Uniswapish {
       allowedSlippage: this.getSlippagePercentage(),
     });
 
-    const contract = new Contract(uniswapRouter, abi, wallet);
+    const contract = new Contract(pangolinRouter, abi, wallet);
     if (!nonce) {
       nonce = await this.avalanche.nonceManager.getNonce(wallet.address);
     }
