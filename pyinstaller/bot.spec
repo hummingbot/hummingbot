@@ -6,10 +6,6 @@ from PyInstaller.building.build_main import (
     EXE,
     COLLECT,
 )
-from PyInstaller.utils.hooks import (
-    collect_submodules,
-    collect_data_files
-)
 import os
 import platform
 import re
@@ -66,8 +62,8 @@ if "SPEC" in globals():
     hidden_imports.extend([
         "aiokafka",
         "pkg_resources.py2_warn",
+        "scipy.spatial.transform._rotation_groups",
     ])
-    hidden_imports.extend(collect_submodules('scipy'))
 
     import _strptime
 
@@ -77,13 +73,14 @@ if "SPEC" in globals():
     ))
     datas.extend([(_strptime.__file__, ".")])
     datas.extend([(os.path.join(project_path(), "bin/path_util.py"), ".")])
-    datas.extend(collect_data_files('scipy'))
 
     binaries: List[Tuple[str, str]] = []
     if system_type == "Windows":
        import coincurve
+       conda_env_path = os.environ['CONDA_PREFIX']
        binaries.extend([(os.path.realpath(os.path.join(coincurve.__file__, "../libsecp256k1.dll")), "coincurve")])
        datas.extend([(os.path.realpath(os.path.join(project_path(), "redist/VC_redist.x64.exe")), "redist")])
+       datas.extend([(os.path.realpath(os.path.join(conda_env_path, "Library", "bin", "libiomp5md.dll")), ".")])
 
 
     a = Analysis([os.path.join(project_path(), "bin/bot")],
@@ -104,7 +101,7 @@ if "SPEC" in globals():
     exe = EXE(pyz,
               a.scripts,
               [],
-          exclude_binaries=True,
+              exclude_binaries=True,
               name='bot',
               icon="hummingbot.ico",
               debug=False,
