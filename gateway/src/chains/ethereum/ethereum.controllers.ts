@@ -57,11 +57,7 @@ export const getTokenSymbolsToTokens = (
   for (let i = 0; i < tokenSymbols.length; i++) {
     const symbol = tokenSymbols[i];
     const token = ethereum.getTokenBySymbol(symbol);
-    if (!token) {
-      continue;
-    }
-
-    tokens[symbol] = token;
+    if (token) tokens[symbol] = token;
   }
 
   return tokens;
@@ -122,9 +118,11 @@ export async function balances(
   }
   const tokens = getTokenSymbolsToTokens(ethereumish, req.tokenSymbols);
   const balances: Record<string, string> = {};
-  balances[ethereumish.nativeTokenSymbol] = tokenValueToString(
-    await ethereumish.getEthBalance(wallet)
-  );
+  if (req.tokenSymbols.includes(ethereumish.nativeTokenSymbol)) {
+    balances[ethereumish.nativeTokenSymbol] = tokenValueToString(
+      await ethereumish.getNativeBalance(wallet)
+    );
+  }
   await Promise.all(
     Object.keys(tokens).map(async (symbol) => {
       if (tokens[symbol] !== undefined) {
@@ -141,6 +139,14 @@ export async function balances(
       }
     })
   );
+
+  if (!Object.keys(balances).length) {
+    throw new HttpException(
+      500,
+      TOKEN_NOT_SUPPORTED_ERROR_MESSAGE,
+      TOKEN_NOT_SUPPORTED_ERROR_CODE
+    );
+  }
 
   return {
     network: ethereumish.chain,
