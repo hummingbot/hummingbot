@@ -77,6 +77,3 @@ coverage.xml
 
 # Debug console
 .debug_console_ssh_host_key
-activate.sh
-hummingbot/strategy/avellaneda_market_making/tmp.pxd
-hummingbot/strategy/avellaneda_market_making/tmp.pyx
