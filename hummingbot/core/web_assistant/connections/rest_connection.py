@@ -14,6 +14,7 @@ class RESTConnection:
             data=request.data,
             headers=request.headers,
         )
+
         resp = await self._build_resp(aiohttp_resp)
         return resp
 

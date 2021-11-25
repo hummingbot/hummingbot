@@ -81,10 +81,11 @@ class WSConnection:
     async def _check_msg_types(self, msg: aiohttp.WSMessage) -> Optional[aiohttp.WSMessage]:
         msg = await self._check_msg_closed_type(msg)
         msg = await self._check_msg_ping_type(msg)
+        msg = await self._check_msg_pong_type(msg)
         return msg
 
     async def _check_msg_closed_type(self, msg: Optional[aiohttp.WSMessage]) -> Optional[aiohttp.WSMessage]:
-        if msg is not None and msg.type == aiohttp.WSMsgType.CLOSED:
+        if msg is not None and msg.type in [aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.CLOSE]:
             msg = None
             if self._connected:
                 await self.disconnect()
@@ -97,11 +98,19 @@ class WSConnection:
             msg = None
         return msg
 
+    async def _check_msg_pong_type(self, msg: Optional[aiohttp.WSMessage]) -> Optional[aiohttp.WSMessage]:
+        if msg is not None and msg.type == aiohttp.WSMsgType.PONG:
+            msg = None
+        return msg
+
     def _update_last_recv_time(self, _: aiohttp.WSMessage):
         self._last_recv_time = time.time()
 
     @staticmethod
     def _build_resp(msg: aiohttp.WSMessage) -> WSResponse:
-        data = msg.json()
+        if msg.type == aiohttp.WSMsgType.BINARY:
+            data = msg.data
+        else:
+            data = msg.json()
         response = WSResponse(data)
         return response

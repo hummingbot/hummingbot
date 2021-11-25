@@ -410,16 +410,17 @@ class GateIoExchange(ExchangeBase):
         :param order_type: The order type
         :param price: The order price
         """
-        if not order_type.is_limit_type():
-            raise Exception(f"Unsupported order type: {order_type}")
-        trading_rule = self._trading_rules[trading_pair]
+        try:
+            if not order_type.is_limit_type():
+                raise Exception(f"Unsupported order type: {order_type}")
+            trading_rule = self._trading_rules[trading_pair]
 
-        amount = self.quantize_order_amount(trading_pair, amount)
-        price = self.quantize_order_price(trading_pair, price)
-        if amount < trading_rule.min_order_size:
-            self.logger().warning(f"{trade_type.name.title()} order amount {amount} is lower than the minimum order size "
-                                  f"{trading_rule.min_order_size}.")
-        else:
+            amount = self.quantize_order_amount(trading_pair, amount)
+            price = self.quantize_order_price(trading_pair, price)
+            if amount < trading_rule.min_order_size:
+                raise ValueError(f"{trade_type.name.title()} order amount {amount} is lower than the minimum order size "
+                                 f"{trading_rule.min_order_size}.")
+
             order_type_str = order_type.name.lower().split("_")[0]
             api_params = {"text": order_id,
                           "currency_pair": convert_to_exchange_trading_pair(trading_pair),
@@ -429,52 +430,51 @@ class GateIoExchange(ExchangeBase):
                           "amount": f"{amount:f}",
                           }
             self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, order_type)
-            try:
-                endpoint = CONSTANTS.ORDER_CREATE_PATH_URL
-                request = GateIORESTRequest(
-                    method=RESTMethod.POST,
-                    endpoint=endpoint,
-                    data=api_params,
-                    is_auth_required=True,
-                    throttler_limit_id=endpoint,
-                )
-                order_result = await self._api_request(request)
-                if order_result.get('status') in {"cancelled", "expired", "failed"}:
-                    raise GateIoAPIError({'label': 'ORDER_REJECTED', 'message': 'Order rejected.'})
-                else:
-                    exchange_order_id = str(order_result["id"])
-                    tracked_order = self._in_flight_orders.get(order_id)
-                    if tracked_order is not None:
-                        self.logger().info(f"Created {order_type.name} {trade_type.name} order {order_id} for "
-                                           f"{amount} {trading_pair}.")
-                        tracked_order.update_exchange_order_id(exchange_order_id)
-                        if trade_type is TradeType.BUY:
-                            event_tag = MarketEvent.BuyOrderCreated
-                            event_cls = BuyOrderCreatedEvent
-                        else:
-                            event_tag = MarketEvent.SellOrderCreated
-                            event_cls = SellOrderCreatedEvent
-                        self.trigger_event(event_tag,
-                                           event_cls(self.current_timestamp,
-                                                     order_type,
-                                                     trading_pair,
-                                                     amount,
-                                                     price,
-                                                     order_id,
-                                                     exchange_order_id))
-            except asyncio.CancelledError:
-                raise
-            except GateIoAPIError as e:
-                error_reason = e.error_message
-                self.stop_tracking_order(order_id)
-                self.logger().network(
-                    f"Error submitting {trade_type.name} {order_type.name} order to {CONSTANTS.EXCHANGE_NAME} for "
-                    f"{amount} {trading_pair} {price} - {error_reason}.",
-                    exc_info=True,
-                    app_warning_msg=(f"Error submitting order to {CONSTANTS.EXCHANGE_NAME} - {error_reason}.")
-                )
-                self.trigger_event(MarketEvent.OrderFailure,
-                                   MarketOrderFailureEvent(self.current_timestamp, order_id, order_type))
+
+            endpoint = CONSTANTS.ORDER_CREATE_PATH_URL
+            request = GateIORESTRequest(
+                method=RESTMethod.POST,
+                endpoint=endpoint,
+                data=api_params,
+                is_auth_required=True,
+                throttler_limit_id=endpoint,
+            )
+            order_result = await self._api_request(request)
+            if order_result.get('status') in {"cancelled", "expired", "failed"}:
+                raise GateIoAPIError({'label': 'ORDER_REJECTED', 'message': 'Order rejected.'})
+            else:
+                exchange_order_id = str(order_result["id"])
+                tracked_order = self._in_flight_orders.get(order_id)
+                if tracked_order is not None:
+                    self.logger().info(f"Created {order_type.name} {trade_type.name} order {order_id} for "
+                                       f"{amount} {trading_pair}.")
+                    tracked_order.update_exchange_order_id(exchange_order_id)
+                    if trade_type is TradeType.BUY:
+                        event_tag = MarketEvent.BuyOrderCreated
+                        event_cls = BuyOrderCreatedEvent
+                    else:
+                        event_tag = MarketEvent.SellOrderCreated
+                        event_cls = SellOrderCreatedEvent
+                    self.trigger_event(event_tag,
+                                       event_cls(self.current_timestamp,
+                                                 order_type,
+                                                 trading_pair,
+                                                 amount,
+                                                 price,
+                                                 order_id,
+                                                 exchange_order_id))
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            error_reason = e.error_message if isinstance(e, GateIoAPIError) else str(e)
+            self.stop_tracking_order(order_id)
+            self.logger().error(
+                f"Error submitting {trade_type.name} {order_type.name} order to {CONSTANTS.EXCHANGE_NAME} for "
+                f"{amount} {trading_pair} {price} - {error_reason}.",
+                exc_info=True,
+            )
+            self.trigger_event(MarketEvent.OrderFailure,
+                               MarketOrderFailureEvent(self.current_timestamp, order_id, order_type))
 
     def start_tracking_order(self,
                              order_id: str,

@@ -34,7 +34,6 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 | <img src="assets/coinzoom-logo.jpg" alt="CoinZoom" width="90" /> | coinzoom | [CoinZoom](https://trade.coinzoom.com/landing) | * | [API](https://api-docs.coinzoom.com/) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 | <img src="assets/cryptocom-logo.jpg" alt="Crypto.com" width="90" /> | crypto_com | [Crypto.com](https://crypto.com/exchange) | 2 | [API](https://exchange-docs.crypto.com/#introduction) |![GREEN](https://via.placeholder.com/15/008000/?text=+) |
 | <img src="assets/digifinex-logo.jpg" alt="Digifinex" width="90" /> | digifinex | [Digifinex](https://www.digifinex.com/en-ww) | 3 | [API](https://docs.digifinex.com/en-ww/v3/#introduction) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
-| <img src="assets/dydx-logo.jpg" alt="dYdX" width="90" /> | dydx | [dYdX](https://dydx.exchange/) | 1 | [API](https://legacy-docs.dydx.exchange/#introduction) |![GREEN](https://via.placeholder.com/15/008000/?text=+) |
 | <img src="assets/dydx-logo.jpg" alt="dYdX Perpetual" width="90" /> | dydx_perpetual | [dYdX Perpetual](https://dydx.exchange/) | 3 | [API](https://docs.dydx.exchange/#general) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 | <img src="assets/ftx-logo.jpg" alt="FTX" width="90" /> | ftx | [FTX](https://ftx.com/en) | 1 | [API](https://docs.ftx.com/#overview) |![GREEN](https://via.placeholder.com/15/008000/?text=+) |
 | <img src="assets/himalaya_exchange-logo.jpg" alt="Himalaya Exchange" width="90" /> | himalaya | [Himalaya Exchange](https://himalaya.exchange/) | * | [API]() |![RED](https://via.placeholder.com/15/f03c15/?text=+) |
@@ -48,6 +47,7 @@ We created hummingbot to promote **decentralized market-making**: enabling membe
 | <img src="assets/okex-logo.jpg" alt="OKEx" width="90" /> | okex | [OKEx](https://www.okex.com/) | 3 | [API](https://www.okex.com/docs/en/) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 | <img src="assets/probit-logo.jpg" alt="Probit Global" width="90" /> | probit | [Probit Global](https://www.probit.com/en-us/) | 1 | [API](https://docs-en.probit.com/docs) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 | <img src="assets/probit_kr-logo.jpg" alt="Probit Korea" width="90" /> | probit_kr | [Probit Korea](https://www.probit.kr/en-us/) | 1 | [API](https://docs-en.probit.com/docs) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
+| <img src="assets/wazirx-logo.png" alt="Wazirx" width="90" /> | wazirx | [Wazirx](https://wazirx.com/) | 1 | [API](https://docs.wazirx.com/#public-rest-api-for-wazirx) |![YELLOW](https://via.placeholder.com/15/ffff00/?text=+) |
 
 
 
