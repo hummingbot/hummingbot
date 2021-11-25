@@ -4,13 +4,13 @@ import re
 import time
 import unittest
 from decimal import Decimal
-from typing import Awaitable, List, Dict
+from typing import Any, Awaitable, List, Dict
 from unittest.mock import patch
 
 from aioresponses import aioresponses
 
-from hummingbot.connector.exchange.gate_io.gate_io_exchange import GateIoExchange
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
+from hummingbot.connector.exchange.gate_io.gate_io_exchange import GateIoExchange
 from hummingbot.core.network_iterator import NetworkStatus
 
 from hummingbot.connector.exchange.gate_io.gate_io_in_flight_order import GateIoInFlightOrder
@@ -30,6 +30,7 @@ class TestGateIoExchange(unittest.TestCase):
         cls.base_asset = "COINALPHA"
         cls.quote_asset = "HBOT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
+        cls.ex_trading_pair = f"{cls.base_asset}_{cls.quote_asset}"
         cls.api_key = "someKey"
         cls.api_secret = "someSecret"
 
@@ -175,6 +176,29 @@ class TestGateIoExchange(unittest.TestCase):
             }
         ]
         return open_orders
+
+    def get_order_trade_response(self, order: GateIoInFlightOrder, is_completely_filled: bool = False) -> Dict[str, Any]:
+        order_amount = order.amount
+        if not is_completely_filled:
+            order_amount = float(Decimal("0.5") * order_amount)
+        base_asset, quote_asset = order.trading_pair.split("-")[0], order.trading_pair.split("-")[1]
+        return [{
+            "id": 5736713,
+            "user_id": 1000001,
+            "order_id": order.exchange_order_id,
+            "currency_pair": order.trading_pair,
+            "create_time": 1605176741,
+            "create_time_ms": "1605176741123.456",
+            "side": "buy" if order.trade_type == TradeType.BUY else "sell",
+            "amount": str(order_amount),
+            "role": "maker",
+            "price": str(order.price),
+            "fee": "0.00200000000000",
+            "fee_currency": base_asset if order.trade_type == TradeType.BUY else quote_asset,
+            "point_fee": "0",
+            "gt_fee": "0",
+            "text": order.client_order_id
+        }]
 
     @patch("hummingbot.connector.exchange.gate_io.gate_io_utils.retry_sleep_time")
     @aioresponses()
@@ -369,9 +393,10 @@ class TestGateIoExchange(unittest.TestCase):
             f"Failed to cancel order {client_order_id}. Order not found in inflight orders."))
         self.assertFalse(result.success)
 
-    @patch("hummingbot.connector.exchange.gate_io.gate_io_exchange.GateIoExchange.current_timestamp")
     @aioresponses()
-    def test_status_polling_loop(self, current_ts_mock, mock_api):
+    @patch("hummingbot.connector.exchange.gate_io.gate_io_exchange.GateIoExchange.current_timestamp")
+    def test_status_polling_loop(self, mock_api, current_ts_mock):
+        # Order Balance Updates
         balances_url = f"{CONSTANTS.REST_URL}/{CONSTANTS.USER_BALANCES_PATH_URL}"
         balances_resp = self.get_user_balances_mock()
         balances_called_event = asyncio.Event()
@@ -383,9 +408,21 @@ class TestGateIoExchange(unittest.TestCase):
         exchange_order_id = "someExchId"
         self.exchange._in_flight_orders[client_order_id] = self.get_in_flight_order(client_order_id, exchange_order_id)
 
+        # Order Trade Updates
+        order_trade_updates_url = f"{CONSTANTS.REST_URL}/{CONSTANTS.MY_TRADES_PATH_URL}"
+        regex_order_trade_updates_url = re.compile(f"^{order_trade_updates_url}")
+        order_trade_updates_resp = self.get_order_trade_response(order=self.exchange._in_flight_orders[client_order_id])
+        order_trade_updates_called_event = asyncio.Event()
+        mock_api.get(
+            regex_order_trade_updates_url,
+            body=json.dumps(order_trade_updates_resp),
+            callback=lambda *args, **kwargs: order_trade_updates_called_event.set(),
+        )
+
+        # Order Status Updates
         order_status_url = f"{CONSTANTS.REST_URL}/{CONSTANTS.ORDER_STATUS_PATH_URL}"
         regex_order_status_url = re.compile(f"^{order_status_url[:-4]}".replace(".", r"\.").replace("?", r"\?"))
-        order_status_resp = self.get_order_create_response_mock(cancelled=True, exchange_order_id=exchange_order_id)
+        order_status_resp = self.get_order_create_response_mock(cancelled=False, exchange_order_id=exchange_order_id)
         order_status_called_event = asyncio.Event()
         mock_api.get(
             regex_order_status_url,
@@ -398,10 +435,14 @@ class TestGateIoExchange(unittest.TestCase):
         self.ev_loop.create_task(self.exchange._status_polling_loop())
         self.exchange._poll_notifier.set()
         self.async_run_with_timeout(balances_called_event.wait())
+        self.async_run_with_timeout(order_trade_updates_called_event.wait())
         self.async_run_with_timeout(order_status_called_event.wait())
 
         self.assertEqual(self.exchange.available_balances[self.base_asset], Decimal("968.8"))
-        self.assertTrue(client_order_id not in self.exchange.in_flight_orders)
+        self.assertTrue(client_order_id in self.exchange.in_flight_orders)
+
+        partially_filled_order = self.exchange.in_flight_orders[client_order_id]
+        self.assertEqual(Decimal("0.5"), partially_filled_order.executed_amount_base)
 
     @aioresponses()
     def test_get_open_orders(self, mock_api):
@@ -416,8 +457,8 @@ class TestGateIoExchange(unittest.TestCase):
 
     def test_process_trade_message_matching_order_by_internal_order_id(self):
         self.exchange.start_tracking_order(
-            order_id='OID-1',
-            exchange_order_id=None,
+            order_id="OID-1",
+            exchange_order_id="5736713",
             trading_pair=self.trading_pair,
             trade_type=TradeType.BUY,
             price=Decimal(10000),
@@ -428,23 +469,26 @@ class TestGateIoExchange(unittest.TestCase):
             "id": 5736713,
             "user_id": 1000001,
             "order_id": "EOID-1",
-            "currency_pair": "BTC_USDT",
+            "currency_pair": self.ex_trading_pair,
             "create_time": 1605176741,
             "create_time_ms": "1605176741123.456",
             "side": "buy",
-            "amount": "1.00000000",
+            "amount": "0.50000000",
             "role": "maker",
             "price": "10000.00000000",
             "fee": "0.00200000000000",
+            "fee_currency": self.quote_asset,
             "point_fee": "0",
             "gt_fee": "0",
             "text": "OID-1"
         }
 
-        asyncio.get_event_loop().run_until_complete(self.exchange._process_trade_message(trade_message))
+        self.exchange._process_trade_message(trade_message)
+
         order = self.exchange.in_flight_orders["OID-1"]
 
         self.assertIn(str(trade_message["id"]), order.trade_update_id_set)
-        self.assertEqual(Decimal(1), order.executed_amount_base)
-        self.assertEqual(Decimal(10000), order.executed_amount_quote)
+        self.assertEqual(Decimal(0.5), order.executed_amount_base)
+        self.assertEqual(Decimal(5000), order.executed_amount_quote)
         self.assertEqual(Decimal("0.002"), order.fee_paid)
+        self.assertEqual(self.quote_asset, order.fee_asset)
