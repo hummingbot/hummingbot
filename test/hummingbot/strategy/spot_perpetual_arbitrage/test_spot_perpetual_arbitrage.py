@@ -254,7 +254,7 @@ class TestSpotPerpetualArbitrage(unittest.TestCase):
         self.spot_connector.set_balance(base_asset, 0.5)
         self.spot_connector.set_balance(quote_asset, 0)
         self.perp_connector.set_balance(base_asset, 0)
-        self.perp_connector.set_balance(quote_asset, 20)
+        self.perp_connector.set_balance(quote_asset, 21)
         # Since spot has 0.5 HBOT, not enough to sell on 1 order amount
         self.assertFalse(self.strategy.check_budget_constraint(proposal))
 

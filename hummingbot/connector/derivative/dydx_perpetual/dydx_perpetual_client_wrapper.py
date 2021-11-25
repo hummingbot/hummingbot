@@ -1,4 +1,6 @@
 import asyncio
+import datetime
+
 from functools import partial
 
 from dydx3 import Client
@@ -91,6 +93,19 @@ class DydxPerpetualClientWrapper:
     async def get_account(self):
         f = self._loop.run_in_executor(None, partial(self.client.private.get_account,
                                                      ethereum_address=self._ethereum_address))
+        return await f
+
+    async def get_funding_payments(self, market: str, before_ts: float):
+        iso_ts = datetime.datetime.utcfromtimestamp(before_ts).isoformat()
+        f = self._loop.run_in_executor(None, partial(self.client.private.get_funding_payments,
+                                                     market=market,
+                                                     limit=100,
+                                                     effective_before_or_at=iso_ts
+                                                     ))
+        return await f
+
+    async def get_server_time(self):
+        f = self._loop.run_in_executor(None, self.client.public.get_time)
         return await f
 
     def sign(self, request_path, method, timestamp, data):

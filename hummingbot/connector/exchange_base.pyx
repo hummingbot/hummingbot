@@ -1,13 +1,11 @@
 from decimal import Decimal
-import pandas as pd
 from typing import (
     Dict,
     List,
-    Tuple,
     Optional,
-    Iterator,
-    Any)
-from hummingbot.core.data_type.cancellation_result import CancellationResult
+    Iterator)
+
+from hummingbot.connector.budget_checker import BudgetChecker
 from hummingbot.core.data_type.order_book_query_result import (
     OrderBookQueryResult,
     ClientOrderBookQueryResult
@@ -39,6 +37,7 @@ cdef class ExchangeBase(ConnectorBase):
     def __init__(self):
         super().__init__()
         self._order_book_tracker = None
+        self._budget_checker = BudgetChecker(exchange=self)
 
     @staticmethod
     def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
@@ -55,6 +54,10 @@ cdef class ExchangeBase(ConnectorBase):
     @property
     def limit_orders(self) -> List[LimitOrder]:
         raise NotImplementedError
+
+    @property
+    def budget_checker(self) -> BudgetChecker:
+        return self._budget_checker
 
     def get_mid_price(self, trading_pair: str) -> Decimal:
         return (self.get_price(trading_pair, True) + self.get_price(trading_pair, False)) / Decimal("2")
