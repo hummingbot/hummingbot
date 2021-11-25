@@ -109,9 +109,8 @@ class TestPMMConfigMap(unittest.TestCase):
         expected = f"Enter the token trading pair you would like to trade on {self.exchange} (e.g. {example}) >>> "
 
         self.assertEqual(expected, prompt)
-    
+
     def test_validate_price_source_exchange(self):
         pmm_config_map["exchange"].value = self.exchange
-        self.assertIsNone(validate_price_source_exchange('binance'))
-        self.assertIsNone(validate_price_source_exchange('binance_perpetual'))
-
+        self.assertIsNone(validate_price_source_exchange(value='binance'))
+        self.assertIsNone(validate_price_source_exchange(value='binance_perpetual'))
