@@ -3,6 +3,7 @@ from decimal import Decimal
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.config_validators import (
     validate_exchange,
+    validate_connector,
     validate_market_trading_pair,
     validate_bool,
     validate_decimal,
@@ -58,7 +59,7 @@ def price_source_market_prompt() -> str:
 def validate_price_source_exchange(value: str) -> Optional[str]:
     if value == pure_market_making_config_map.get("exchange").value:
         return "Price source exchange cannot be the same as maker exchange."
-    return validate_exchange(value)
+    return validate_connector(value)
 
 
 def on_validated_price_source_exchange(value: str):
