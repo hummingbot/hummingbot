@@ -71,7 +71,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         cls.order_amount: Decimal = Decimal("10")
         cls.inventory_target_base_pct: Decimal = Decimal("0.5")     # Indicates 50%
         cls.min_spread: Decimal = Decimal("0.0")                   # Default strategy value
-        cls.risk_factor: Decimal = Decimal("0.8")
+        cls.risk_factor_finite: Decimal = Decimal("0.8")
+        cls.risk_factor_infinite: Decimal = Decimal("1")
 
     def setUp(self):
         super().setUp()
@@ -99,7 +100,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
             order_amount=self.order_amount,
             min_spread=self.min_spread,
             inventory_target_base_pct=self.inventory_target_base_pct,
-            risk_factor=self.risk_factor
+            risk_factor=self.risk_factor_finite
         )
 
         self.avg_vol_indicator: InstantVolatilityIndicator = InstantVolatilityIndicator(sampling_length=100,
@@ -624,13 +625,14 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         # Check reserved_price, optimal_ask and optimal_bid
         self.assertAlmostEqual(Decimal("100.3347891686000886900827995"), self.strategy.reserved_price, 2)
-        self.assertAlmostEqual(Decimal("8.313214392769973876793377433"), self.strategy.optimal_spread, 2)
-        self.assertAlmostEqual(Decimal("104.4913963649850756284794882"), self.strategy.optimal_ask, 2)
-        self.assertAlmostEqual(Decimal("96.17818197221510175168611078"), self.strategy.optimal_bid, 2)
+        self.assertAlmostEqual(Decimal("8.737199005798442733467075192"), self.strategy.optimal_spread, 2)
+        self.assertAlmostEqual(Decimal("104.7033886714993100568163371"), self.strategy.optimal_ask, 2)
+        self.assertAlmostEqual(Decimal("95.96618966570086732334926190"), self.strategy.optimal_bid, 2)
 
     def test_calculate_reserved_price_and_optimal_spread_timeframe_infinite(self):
         # Init params
         self.strategy.execution_timeframe = "infinite"
+        self.strategy.gamma = self.risk_factor_infinite
 
         # Simulate low volatility
         self.simulate_low_volatility(self.strategy)
@@ -643,10 +645,10 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.strategy.calculate_reserved_price_and_optimal_spread()
 
         # Check reserved_price, optimal_ask and optimal_bid
-        self.assertAlmostEqual(Decimal("100.3347891686000886900827995"), self.strategy.reserved_price, 2)
-        self.assertAlmostEqual(Decimal("8.313214392769973876793377433"), self.strategy.optimal_spread, 2)
-        self.assertAlmostEqual(Decimal("104.4913963649850756284794882"), self.strategy.optimal_ask, 2)
-        self.assertAlmostEqual(Decimal("96.17818197221510175168611078"), self.strategy.optimal_bid, 2)
+        self.assertAlmostEqual(Decimal("100.2605049863820023520662396"), self.strategy.reserved_price, 2)
+        self.assertAlmostEqual(Decimal("7.420817203171525348183077089"), self.strategy.optimal_spread, 2)
+        self.assertAlmostEqual(Decimal("103.9709135879677650261577781"), self.strategy.optimal_ask, 2)
+        self.assertAlmostEqual(Decimal("96.55009638479623967797470106"), self.strategy.optimal_bid, 2)
 
     def test_create_proposal_based_on_order_override(self):
         # Initial check for empty order_override
@@ -684,6 +686,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
             order_amount=self.order_amount,
             order_levels=4,
             level_distances=1,
+            risk_factor=self.risk_factor_infinite,
             execution_timeframe="infinite",
             inventory_target_base_pct=self.inventory_target_base_pct,
         )
@@ -700,8 +703,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.strategy.measure_order_book_liquidity()
         self.strategy.calculate_reserved_price_and_optimal_spread()
 
-        expected_bid_spreads = [Decimal('0E-28'), Decimal('0.0569023303190912787844465104'), Decimal('0.1138046606381825575688930208'), Decimal('0.1707069909572738363533395312')]
-        expected_ask_spreads = [Decimal('0E-28'), Decimal('0.0569023303190912787844465104'), Decimal('0.1138046606381825575688930208'), Decimal('0.1707069909572738363533395312')]
+        expected_bid_spreads = [Decimal('0E-28'), Decimal('0.03710408601585762674091538545'), Decimal('0.07420817203171525348183077090'), Decimal('0.1113122580475728802227461564')]
+        expected_ask_spreads = [Decimal('0E-28'), Decimal('0.03710408601585762674091538545'), Decimal('0.07420817203171525348183077090'), Decimal('0.1113122580475728802227461564')]
 
         bid_level_spreads, ask_level_spreads = self.strategy._get_level_spreads()
 
@@ -722,8 +725,8 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.strategy.measure_order_book_liquidity()
         self.strategy.calculate_reserved_price_and_optimal_spread()
 
-        expected_bid_spreads = [Decimal('0E-28'), Decimal('0.0041435778038891150364222203'), Decimal('0.0082871556077782300728444406'), Decimal('0.0124307334116673451092666609')]
-        expected_ask_spreads = [Decimal('0E-28'), Decimal('0.0041435778038891150364222203'), Decimal('0.0082871556077782300728444406'), Decimal('0.0124307334116673451092666609')]
+        expected_bid_spreads = [Decimal('0E-28'), Decimal('0.08959064919181206598124149685'), Decimal('0.1791812983836241319624829937'), Decimal('0.2687719476906450244239016419')]
+        expected_ask_spreads = [Decimal('0E-28'), Decimal('0.08959064919181206598124149685'), Decimal('0.1791812983836241319624829937'), Decimal('0.2687719476906450244239016419')]
 
         bid_level_spreads, ask_level_spreads = self.strategy._get_level_spreads()
 
@@ -1270,7 +1273,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
             order_amount=self.order_amount,
             min_spread=self.min_spread,
             inventory_target_base_pct=self.inventory_target_base_pct,
-            risk_factor=self.risk_factor,
+            risk_factor=self.risk_factor_finite,
             hanging_orders_enabled=True,
             hanging_orders_cancel_pct=Decimal(1),
             filled_order_delay=30
@@ -1336,7 +1339,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
             order_amount=self.order_amount,
             min_spread=self.min_spread,
             inventory_target_base_pct=self.inventory_target_base_pct,
-            risk_factor=self.risk_factor,
+            risk_factor=self.risk_factor_finite,
             hanging_orders_enabled=True,
             hanging_orders_cancel_pct=Decimal(1),
             order_refresh_time=refresh_time,

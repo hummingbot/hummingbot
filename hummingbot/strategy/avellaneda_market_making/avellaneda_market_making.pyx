@@ -726,7 +726,6 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         if all((self._gamma, self._kappa)) and self._alpha != 0 and self._kappa > 0:
             if self._time_left is not None and self._closing_time is not None:
                 # Avellaneda-Stoikov for a fixed timespan
-                # High-frequency trading in a limit order book - Avellaneda, Stoikov
                 time_left_fraction = Decimal(str(self._time_left / self._closing_time))
 
                 self._reserved_price = price - (q * self._gamma * mid_price_variance * time_left_fraction)
@@ -735,15 +734,17 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 self._optimal_spread += 2 * Decimal(1 + self._gamma / self._kappa).ln() / self._gamma
             else:
                 # Avellaneda-Stoikov for an infinite timespan
-                # High-frequency trading in a limit order book - Avellaneda, Stoikov
                 q_max = 1
                 omega = Decimal(1 / 2) * (self._gamma ** 2) * (vol ** 2) * Decimal((q_max + 1) ** 2)
-                reserved_price_ask = price + Decimal(1 / self._gamma) * Decimal(1 + ((1 - 2 * q) * (self._gamma ** 2) * (vol ** 2)) / (2 * omega - ((self._gamma ** 2) * (q ** 2) * (vol ** 2)))).ln()
-                reserved_price_bid = price + Decimal(1 / self._gamma) * Decimal(1 + ((-1 - 2 * q) * (self._gamma ** 2) * (vol ** 2)) / (2 * omega - ((self._gamma ** 2) * (q ** 2) * (vol ** 2)))).ln()
-                self._reserved_price = (reserved_price_bid + reserved_price_ask) / 2
+                offset_ask = Decimal(1 / self._gamma) * Decimal(1 + ((1 - 2 * q) * (self._gamma ** 2) * (vol ** 2)) / (2 * omega - ((self._gamma ** 2) * (q ** 2) * (vol ** 2)))).ln()
+                offset_bid = Decimal(1 / self._gamma) * Decimal(1 + ((-1 - 2 * q) * (self._gamma ** 2) * (vol ** 2)) / (2 * omega - ((self._gamma ** 2) * (q ** 2) * (vol ** 2)))).ln()
+                reserved_price_ask = price + offset_ask
+                reserved_price_bid = price + offset_bid
+                self._reserved_price = (reserved_price_ask + reserved_price_bid) / 2
 
-                # Dealing with the Inventory Risk - Gueant, Lehalle, Fernandez-Tapia
-                self._optimal_spread = Decimal(2 / self._gamma) * Decimal(1 + self._gamma / self._kappa).ln() + Decimal((((vol ** 2) * self._gamma) / (2 * self._kappa * self._alpha)) * ((1 + self._gamma / self._kappa) ** (1 + self._kappa / self._gamma))).sqrt()
+                # Derived from the asymptotic expansion in q for finite timeframe
+                self._optimal_spread = -(offset_ask + offset_bid) / (2 * q)
+                self._optimal_spread += 2 * Decimal(1 + self._gamma / self._kappa).ln() / self._gamma
 
             min_spread = price / 100 * Decimal(str(self._min_spread))
 
