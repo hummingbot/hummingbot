@@ -651,70 +651,67 @@ class GateIoExchange(ExchangeBase):
         """
         Calls REST API to get status update for each in-flight order.
         """
-        last_tick = int(self._last_poll_timestamp / CONSTANTS.UPDATE_ORDER_STATUS_INTERVAL)
-        current_tick = (0 if math.isnan(self.current_timestamp)
-                        else int(self.current_timestamp / CONSTANTS.UPDATE_ORDER_STATUS_INTERVAL))
 
-        if current_tick > last_tick and len(self._in_flight_orders) > 0:
-            tracked_orders: List[GateIoInFlightOrder] = list(self._in_flight_orders.values())
+        tracked_orders: List[GateIoInFlightOrder] = list(self._in_flight_orders.values())
 
-            order_status_tasks = []
-            order_trade_tasks = []
+        order_status_tasks = []
+        order_trade_tasks = []
 
-            for tracked_order in tracked_orders:
-                try:
-                    exchange_order_id = await tracked_order.get_exchange_order_id()
-                except asyncio.TimeoutError:
-                    self.logger().network(f"Skipped order status update for {tracked_order.client_order_id} "
-                                          "- waiting for exchange order id.")
-                    continue
-                trading_pair = convert_to_exchange_trading_pair(tracked_order.trading_pair)
+        for tracked_order in tracked_orders:
+            try:
+                exchange_order_id = await tracked_order.get_exchange_order_id()
+            except asyncio.TimeoutError:
+                self.logger().network(f"Skipped order status update for {tracked_order.client_order_id} "
+                                      "- waiting for exchange order id.")
+                continue
+            trading_pair = convert_to_exchange_trading_pair(tracked_order.trading_pair)
 
-                params = {"currency_pair": trading_pair}
-                order_status_request = GateIORESTRequest(
-                    method=RESTMethod.GET,
-                    endpoint=CONSTANTS.ORDER_STATUS_PATH_URL.format(id=exchange_order_id),
-                    params=params,
-                    is_auth_required=True,
-                    throttler_limit_id=CONSTANTS.ORDER_STATUS_LIMIT_ID,
-                )
-                params = {
-                    "currency_pair": trading_pair,
-                    "order_id": exchange_order_id
-                }
-                order_trade_request = GateIORESTRequest(
-                    method=RESTMethod.GET,
-                    endpoint=CONSTANTS.MY_TRADES_PATH_URL,
-                    params=params,
-                    is_auth_required=True,
-                    throttler_limit_id=CONSTANTS.MY_TRADES_PATH_URL,
-                )
-                order_status_tasks.append(self._api_request(order_status_request))
-                order_trade_tasks.append(self._api_request(order_trade_request))
-            self.logger().debug(f"Polling for order status updates of {len(order_status_tasks)} orders.")
+            params = {
+                "currency_pair": trading_pair,
+                "order_id": exchange_order_id
+            }
+            order_trade_request = GateIORESTRequest(
+                method=RESTMethod.GET,
+                endpoint=CONSTANTS.MY_TRADES_PATH_URL,
+                params=params,
+                is_auth_required=True,
+                throttler_limit_id=CONSTANTS.MY_TRADES_PATH_URL,
+            )
+            params = {"currency_pair": trading_pair}
+            order_status_request = GateIORESTRequest(
+                method=RESTMethod.GET,
+                endpoint=CONSTANTS.ORDER_STATUS_PATH_URL.format(id=exchange_order_id),
+                params=params,
+                is_auth_required=True,
+                throttler_limit_id=CONSTANTS.ORDER_STATUS_LIMIT_ID,
+            )
 
-            trade_responses = await safe_gather(*order_trade_tasks, return_exceptions=True)
+            order_status_tasks.append(asyncio.create_task(self._api_request(order_status_request)))
+            order_trade_tasks.append(asyncio.create_task(self._api_request(order_trade_request)))
+        self.logger().debug(f"Polling for order updates of {len(tracked_orders)} orders.")
 
-            for response, tracked_order in zip(trade_responses, tracked_orders):
-                if not isinstance(response, GateIoAPIError):
-                    if len(response) > 0:
-                        for trade_fills in response:
-                            self._process_trade_message(trade_fills)
-                else:
-                    self.logger().warning(f"Failed to fetch trade updates for order {tracked_order.client_order_id}. "
-                                          f"Response: {response}")
-                    if response.error_label == 'ORDER_NOT_FOUND':
-                        self.stop_tracking_order_exceed_not_found_limit(tracked_order=tracked_order)
+        # Process order trades first before processing order statuses
+        trade_responses = await safe_gather(*order_trade_tasks, return_exceptions=True)
+        for response, tracked_order in zip(trade_responses, tracked_orders):
+            if not isinstance(response, GateIoAPIError):
+                if len(response) > 0:
+                    for trade_fills in response:
+                        self._process_trade_message(trade_fills, tracked_order.client_order_id)
+            else:
+                self.logger().warning(f"Failed to fetch trade updates for order {tracked_order.client_order_id}. "
+                                      f"Response: {response}")
+                if response.error_label == 'ORDER_NOT_FOUND':
+                    self.stop_tracking_order_exceed_not_found_limit(tracked_order=tracked_order)
 
-            status_responses = await safe_gather(*order_status_tasks, return_exceptions=True)
-            for response, tracked_order in zip(status_responses, tracked_orders):
-                if not isinstance(response, GateIoAPIError):
-                    self._process_order_message(response)
-                else:
-                    self.logger().warning(f"Failed to fetch order status updates for order {tracked_order.client_order_id}. "
-                                          f"Response: {response}")
-                    if response.error_label == 'ORDER_NOT_FOUND':
-                        self.stop_tracking_order_exceed_not_found_limit(tracked_order=tracked_order)
+        status_responses = await safe_gather(*order_status_tasks, return_exceptions=True)
+        for response, tracked_order in zip(status_responses, tracked_orders):
+            if not isinstance(response, GateIoAPIError):
+                self._process_order_message(response)
+            else:
+                self.logger().warning(f"Failed to fetch order status updates for order {tracked_order.client_order_id}. "
+                                      f"Response: {response}")
+                if response.error_label == 'ORDER_NOT_FOUND':
+                    self.stop_tracking_order_exceed_not_found_limit(tracked_order=tracked_order)
 
     def _process_order_message(self, order_msg: Dict[str, Any]):
         """
@@ -772,29 +769,30 @@ class GateIoExchange(ExchangeBase):
                                        self.current_timestamp, tracked_order.client_order_id, tracked_order.order_type))
                 self.stop_tracking_order(tracked_order.client_order_id)
 
-    def _process_trade_message(self, trade_msg: Dict[str, Any]):
+    def _process_trade_message(self, trade_msg: Dict[str, Any], client_order_id: Optional[str] = None):
         """
         Updates in-flight order and trigger order filled event for trade message received. Triggers order completed
         event if the total executed amount equals to the specified order amount.
         Example Trade:
         {
-            "id": 5736713,
-            "user_id": 1000001,
-            "order_id": "30784428",
-            "currency_pair": "BTC_USDT",
-            "create_time": 1605176741,
-            "create_time_ms": "1605176741123.456",
-            "side": "sell",
-            "amount": "1.00000000",
-            "role": "taker",
-            "price": "10000.00000000",
-            "fee": "0.00200000000000",
+            "id": 1234567890,
+            "user_id": 1234567,
+            "order_id": "96780687179",
+            "currency_pair": "ETH_USDT",
+            "create_time": 1637764970,
+            "create_time_ms": "1637764970928.48",
+            "side": "buy",
+            "amount": "0.005",
+            "role": "maker",
+            "price": "4191.1",
+            "fee": "0.000009",
+            "fee_currency": "ETH",
             "point_fee": "0",
             "gt_fee": "0",
-            "text": "user_defined_text",
+            "text": "t-HBOT-B-EHUT1637764969004024",
         }
         """
-        client_order_id = str(trade_msg["text"])
+        client_order_id = client_order_id or str(trade_msg["text"])
         tracked_order = self.in_flight_orders.get(client_order_id, None)
         if tracked_order:
             updated = tracked_order.update_with_trade_update(trade_msg)
