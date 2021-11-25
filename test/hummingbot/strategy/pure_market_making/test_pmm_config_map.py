@@ -8,6 +8,7 @@ from hummingbot.strategy.pure_market_making.pure_market_making_config_map import
     validate_price_type,
     order_amount_prompt,
     maker_trading_pair_prompt,
+    validate_price_source_exchange
 )
 
 
@@ -108,3 +109,9 @@ class TestPMMConfigMap(unittest.TestCase):
         expected = f"Enter the token trading pair you would like to trade on {self.exchange} (e.g. {example}) >>> "
 
         self.assertEqual(expected, prompt)
+    
+    def test_validate_price_source_exchange(self):
+        pmm_config_map["exchange"].value = self.exchange
+        self.assertIsNone(validate_price_source_exchange('binance'))
+        self.assertIsNone(validate_price_source_exchange('binance_perpetual'))
+
