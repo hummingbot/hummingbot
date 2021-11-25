@@ -1,11 +1,9 @@
 import aiohttp
-from aiohttp.test_utils import TestClient
 import asyncio
 from decimal import Decimal
 from libc.stdint cimport int64_t
 import logging
 import time
-import pandas as pd
 from typing import (
     Any,
     AsyncIterable,
@@ -363,7 +361,7 @@ cdef class HuobiExchange(ExchangeBase):
             trading_rules_list = self._format_trading_rules(exchange_info)
             self._trading_rules.clear()
             for trading_rule in trading_rules_list:
-                self._trading_rules[convert_from_exchange_trading_pair(trading_rule.trading_pair)] = trading_rule
+                self._trading_rules[trading_rule.trading_pair] = trading_rule
 
     def _format_trading_rules(self, raw_trading_pair_info: List[Dict[str, Any]]) -> List[TradingRule]:
         cdef:
@@ -372,7 +370,7 @@ cdef class HuobiExchange(ExchangeBase):
         for info in raw_trading_pair_info:
             try:
                 trading_rules.append(
-                    TradingRule(trading_pair=info["symbol"],
+                    TradingRule(trading_pair=convert_from_exchange_trading_pair(info["symbol"]),
                                 min_order_size=Decimal(info["min-order-amt"]),
                                 max_order_size=Decimal(info["max-order-amt"]),
                                 min_price_increment=Decimal(f"1e-{info['price-precision']}"),

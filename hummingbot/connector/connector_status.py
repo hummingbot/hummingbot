@@ -9,17 +9,16 @@ connector_status = {
     'binance_perpetual_testnet': 'yellow',
     'binance_us': 'green',
     'bitfinex': 'yellow',
-    'bitmart': 'yellow',
+    'bitmart': 'green',
     'bittrex': 'yellow',
     'blocktane': 'yellow',
-    'bybit_perpetual': 'yellow',
+    'bybit_perpetual': 'green',
     'bybit_perpetual_testnet': 'yellow',
     'celo': 'yellow',
     'coinbase_pro': 'yellow',
     'coinzoom': 'yellow',
     'crypto_com': 'green',
     'digifinex': "yellow",
-    'dydx': 'green',
     'dydx_perpetual': 'yellow',
     'ethereum': 'red',
     'ftx': 'green',
@@ -39,7 +38,8 @@ connector_status = {
     'probit_kr': 'yellow',
     'terra': 'green',
     'uniswap': 'yellow',
-    'uniswap_v3': 'yellow'
+    'uniswap_v3': 'yellow',
+    'wazirx': 'yellow'
 }
 
 warning_messages = {
@@ -57,5 +57,5 @@ def get_connector_status(connector_name: str) -> str:
     if connector_name not in connector_status.keys():
         status = "UNKNOWN"
     else:
-        return connector_status[connector_name].upper()
+        return f"&c{connector_status[connector_name].upper()}"
     return status

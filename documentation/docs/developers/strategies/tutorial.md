@@ -246,15 +246,6 @@ Follow the steps below to use the strategy we have created.
 4. For "Enter the token trading pair on binance >>> ", enter `ETH-USDT`
 4. Save the configuration file
 
-### Apply paper trading mode
-
-Run the `paper_trade` command to enter paper trading mode. Paper trading mode lets you simulate placing orders and trades using live exchange data and mock asset balances. In addition, you don't need to add API keys to use it. 
-
-![](/assets/img/paper_trade.gif)
-
-!!! tip
-    Check the top Hummingbot navbar for `paper_trading: ON` to verify that you are in paper trading mode.
-
 ### Run the strategy
 
 Run `start` to run your bot in paper trading mode. You should see the following log messages:

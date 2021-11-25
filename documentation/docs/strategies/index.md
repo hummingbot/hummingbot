@@ -31,7 +31,7 @@ Market making strategies help you provide liquidity to an exchange while mitigat
   | Name                                                          | Valid Exchanges     | Maintainer    | Description                                                                       |
 |-----------------------------------------------------------------|---------------------|---------------|-----------------------------------------------------------------------------------|
 | [`avellaneda_market_making`](./avellaneda-market-making)        | `spot`              | CoinAlpha     | Single-pair market making strategy based on the classic Avellaneda-Stoikov paper  |
-| [`aroon_oscillator`](./aroon_oscillator)                        | `spot`              |               | Modified version of Pure Market Making that uses Aroon technical indicator (Open DeFi hackathon winner) |
+| [`aroon_oscillator`](./aroon-oscillator)                        | `spot`              |               | Modified version of Pure Market Making that uses Aroon technical indicator (Open DeFi hackathon winner) |
 | [`cross_exchange_market_making`](./cross-exchange-market-making)| `spot`              | CoinAlpha     | Provide liquidity while hedging filled orders on another exchange                |
 | [`liquidity_mining`](./liquidity-mining)                        | `spot`              | CoinAlpha     | Provide liquidity on multiple pairs using a single base or quote token            |
 | [`perpetual_market_making`](./perpetual-market-making)          | `perp`              | CoinAlpha     | Market-making strategy for perpetual swap markets                                 |

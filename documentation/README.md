@@ -18,7 +18,7 @@ For internal Hummingbot staff, see below for how to deploy the site in your loca
 ➜ conda activate
 
 # install mkdocs-material-insiders and dependencies
-(base) ➜ pip install git+ssh://git@github.com/CoinAlpha/mkdocs-material-insiders
+(base) ➜ pip install git+https://github.com/CoinAlpha/mkdocs-material-insiders.git
 
 # install revision date plugin
 (base) ➜ pip install mkdocs-git-revision-date-plugin

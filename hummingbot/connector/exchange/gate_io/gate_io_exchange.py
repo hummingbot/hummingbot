@@ -1,58 +1,53 @@
-import logging
-from typing import (
-    Dict,
-    List,
-    Optional,
-    Any,
-    AsyncIterable,
-)
-from decimal import Decimal
 import asyncio
-import aiohttp
 import copy
+import logging
 import math
 import time
-import ujson
+from decimal import Decimal
+from typing import Any, AsyncIterable, Dict, List, Optional
+
 from async_timeout import timeout
-
-from hummingbot.core.network_iterator import NetworkStatus
-
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.clock import Clock
-from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.event.events import (
-    MarketEvent,
-    BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
-    OrderFilledEvent,
-    OrderCancelledEvent,
-    BuyOrderCreatedEvent,
-    SellOrderCreatedEvent,
-    MarketOrderFailureEvent,
-    OrderType,
-    TradeType,
-    TradeFee
-)
-from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.connector.exchange.gate_io.gate_io_order_book_tracker import GateIoOrderBookTracker
-from hummingbot.connector.exchange.gate_io.gate_io_user_stream_tracker import GateIoUserStreamTracker
+from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
 from hummingbot.connector.exchange.gate_io.gate_io_in_flight_order import GateIoInFlightOrder
+from hummingbot.connector.exchange.gate_io.gate_io_order_book_tracker import GateIoOrderBookTracker
+from hummingbot.connector.exchange.gate_io.gate_io_user_stream_tracker import GateIoUserStreamTracker
 from hummingbot.connector.exchange.gate_io.gate_io_utils import (
+    GateIoAPIError,
+    GateIORESTRequest,
+    api_call_with_retries,
+    build_gate_io_api_factory,
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair,
-    get_new_client_order_id,
-    aiohttp_response_with_errors,
-    retry_sleep_time,
-    GateIoAPIError,
+    get_new_client_order_id
 )
-from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
+from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod
+from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.clock import Clock
+from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OpenOrder
+from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
+    OrderCancelledEvent,
+    OrderFilledEvent,
+    OrderType,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+    TradeFee,
+    TradeType
+)
+from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.logger import HummingbotLogger
+
 ctce_logger = None
 s_decimal_NaN = Decimal("nan")
 
@@ -89,10 +84,15 @@ class GateIoExchange(ExchangeBase):
         self._trading_pairs = trading_pairs
         self._gate_io_auth = GateIoAuth(gate_io_api_key, gate_io_secret_key)
         self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
-        self._order_book_tracker = GateIoOrderBookTracker(self._throttler, trading_pairs=trading_pairs)
-        self._user_stream_tracker = GateIoUserStreamTracker(self._gate_io_auth, trading_pairs)
+        self._api_factory = build_gate_io_api_factory()
+        self._rest_assistant: Optional[RESTAssistant] = None
+        self._order_book_tracker = GateIoOrderBookTracker(
+            self._throttler, trading_pairs, self._api_factory
+        )
+        self._user_stream_tracker = GateIoUserStreamTracker(
+            self._gate_io_auth, trading_pairs, self._api_factory
+        )
         self._ev_loop = asyncio.get_event_loop()
-        self._shared_client = None
         self._poll_notifier = asyncio.Event()
         self._last_timestamp = 0
         self._in_flight_orders = {}  # Dict[client_order_id:str, GateIoInFlightOrder]
@@ -161,6 +161,11 @@ class GateIoExchange(ExchangeBase):
             for key, value in self._in_flight_orders.items()
             if not value.is_done
         }
+
+    async def _get_rest_assistant(self) -> RESTAssistant:
+        if self._rest_assistant is None:
+            self._rest_assistant = await self._api_factory.get_rest_assistant()
+        return self._rest_assistant
 
     def restore_tracking_states(self, saved_states: Dict[str, any]):
         """
@@ -245,21 +250,16 @@ class GateIoExchange(ExchangeBase):
         """
         try:
             # since there is no ping endpoint, the lowest rate call is to get BTC-USD symbol
-            await self._api_request("GET",
-                                    CONSTANTS.NETWORK_CHECK_PATH_URL)
+            endpoint = CONSTANTS.NETWORK_CHECK_PATH_URL
+            request = GateIORESTRequest(
+                method=RESTMethod.GET, endpoint=endpoint, throttler_limit_id=endpoint
+            )
+            await self._api_request(request)
         except asyncio.CancelledError:
             raise
         except Exception:
             return NetworkStatus.NOT_CONNECTED
         return NetworkStatus.CONNECTED
-
-    async def _http_client(self) -> aiohttp.ClientSession:
-        """
-        :returns Shared client session instance
-        """
-        if self._shared_client is None:
-            self._shared_client = aiohttp.ClientSession()
-        return self._shared_client
 
     async def _trading_rules_polling_loop(self):
         """
@@ -279,7 +279,11 @@ class GateIoExchange(ExchangeBase):
                 await asyncio.sleep(0.5)
 
     async def _update_trading_rules(self):
-        symbols_info = await self._api_request("GET", endpoint=CONSTANTS.SYMBOL_PATH_URL)
+        endpoint = CONSTANTS.SYMBOL_PATH_URL
+        request = GateIORESTRequest(
+            method=RESTMethod.GET, endpoint=endpoint, throttler_limit_id=endpoint
+        )
+        symbols_info = await self._api_request(request)
         self._trading_rules.clear()
         self._trading_rules = self._format_trading_rules(symbols_info)
 
@@ -324,57 +328,12 @@ class GateIoExchange(ExchangeBase):
                 self.logger().error(f"Error parsing the trading pair rule {rule}. Skipping.", exc_info=True)
         return result
 
-    async def _api_request(self,
-                           method: str,
-                           endpoint: str,
-                           params: Optional[Dict[str, Any]] = None,
-                           is_auth_required: bool = False,
-                           try_count: int = 0,
-                           limit_id: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Sends an aiohttp request and waits for a response.
-        :param method: The HTTP method, e.g. get or post
-        :param endpoint: The path url or the API end point
-        :param params: Additional get/post parameters
-        :param is_auth_required: Whether an authentication is required, when True the function will add encrypted
-        signature to the request.
-        :returns A response in json format.
-        """
-        url = f"{CONSTANTS.REST_URL}/{endpoint}"
-        limit_id = limit_id or endpoint
-        shared_client = await self._http_client()
-        # Turn `params` into either GET params or POST body data
-        qs_params: dict = params if method.upper() != "POST" else None
-        req_params = ujson.dumps(params) if method.upper() == "POST" and params is not None else None
-        # Generate auth headers if needed.
-        headers: dict = {"Content-Type": "application/json"}
-        async with self._throttler.execute_task(limit_id=limit_id):
-            if is_auth_required:
-                headers: dict = self._gate_io_auth.get_headers(method, f"{CONSTANTS.REST_URL_AUTH}/{endpoint}",
-                                                               req_params if req_params is not None else params)
-            # Build request coro
-            response_coro = shared_client.request(method=method.upper(), url=url, headers=headers,
-                                                  params=qs_params, data=req_params,
-                                                  timeout=CONSTANTS.API_CALL_TIMEOUT)
-            http_status, parsed_response, request_errors = await aiohttp_response_with_errors(response_coro)
-        if request_errors or parsed_response is None:
-            if try_count < CONSTANTS.API_MAX_RETRIES:
-                try_count += 1
-                time_sleep = retry_sleep_time(try_count)
-                self.logger().info(f"Error fetching data from {url}. HTTP status is {http_status}. "
-                                   f"Retrying in {time_sleep:.0f}s.")
-                await asyncio.sleep(time_sleep)
-                return await self._api_request(method=method,
-                                               endpoint=endpoint,
-                                               params=params,
-                                               is_auth_required=is_auth_required,
-                                               try_count=try_count,
-                                               limit_id=limit_id)
-            else:
-                raise GateIoAPIError({"label": "HTTP_ERROR", "message": parsed_response, "status": http_status})
-        if "message" in parsed_response:
-            raise GateIoAPIError(parsed_response)
-        return parsed_response
+    async def _api_request(self, request: GateIORESTRequest) -> Dict[str, Any]:
+        rest_assistant: RESTAssistant = await self._get_rest_assistant()
+        response = await api_call_with_retries(
+            request, rest_assistant, self._throttler, self.logger(), self._gate_io_auth
+        )
+        return response
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal):
         """
@@ -451,16 +410,17 @@ class GateIoExchange(ExchangeBase):
         :param order_type: The order type
         :param price: The order price
         """
-        if not order_type.is_limit_type():
-            raise Exception(f"Unsupported order type: {order_type}")
-        trading_rule = self._trading_rules[trading_pair]
+        try:
+            if not order_type.is_limit_type():
+                raise Exception(f"Unsupported order type: {order_type}")
+            trading_rule = self._trading_rules[trading_pair]
 
-        amount = self.quantize_order_amount(trading_pair, amount)
-        price = self.quantize_order_price(trading_pair, price)
-        if amount < trading_rule.min_order_size:
-            self.logger().warning(f"{trade_type.name.title()} order amount {amount} is lower than the minimum order size "
-                                  f"{trading_rule.min_order_size}.")
-        else:
+            amount = self.quantize_order_amount(trading_pair, amount)
+            price = self.quantize_order_price(trading_pair, price)
+            if amount < trading_rule.min_order_size:
+                raise ValueError(f"{trade_type.name.title()} order amount {amount} is lower than the minimum order size "
+                                 f"{trading_rule.min_order_size}.")
+
             order_type_str = order_type.name.lower().split("_")[0]
             api_params = {"text": order_id,
                           "currency_pair": convert_to_exchange_trading_pair(trading_pair),
@@ -470,44 +430,51 @@ class GateIoExchange(ExchangeBase):
                           "amount": f"{amount:f}",
                           }
             self.start_tracking_order(order_id, None, trading_pair, trade_type, price, amount, order_type)
-            try:
-                order_result = await self._api_request("POST", CONSTANTS.ORDER_CREATE_PATH_URL, api_params, True)
-                if order_result.get('status') in {"cancelled", "expired", "failed"}:
-                    raise GateIoAPIError({'label': 'ORDER_REJECTED', 'message': 'Order rejected.'})
-                else:
-                    exchange_order_id = str(order_result["id"])
-                    tracked_order = self._in_flight_orders.get(order_id)
-                    if tracked_order is not None:
-                        self.logger().info(f"Created {order_type.name} {trade_type.name} order {order_id} for "
-                                           f"{amount} {trading_pair}.")
-                        tracked_order.update_exchange_order_id(exchange_order_id)
-                        if trade_type is TradeType.BUY:
-                            event_tag = MarketEvent.BuyOrderCreated
-                            event_cls = BuyOrderCreatedEvent
-                        else:
-                            event_tag = MarketEvent.SellOrderCreated
-                            event_cls = SellOrderCreatedEvent
-                        self.trigger_event(event_tag,
-                                           event_cls(self.current_timestamp,
-                                                     order_type,
-                                                     trading_pair,
-                                                     amount,
-                                                     price,
-                                                     order_id,
-                                                     exchange_order_id))
-            except asyncio.CancelledError:
-                raise
-            except GateIoAPIError as e:
-                error_reason = e.error_message
-                self.stop_tracking_order(order_id)
-                self.logger().network(
-                    f"Error submitting {trade_type.name} {order_type.name} order to {CONSTANTS.EXCHANGE_NAME} for "
-                    f"{amount} {trading_pair} {price} - {error_reason}.",
-                    exc_info=True,
-                    app_warning_msg=(f"Error submitting order to {CONSTANTS.EXCHANGE_NAME} - {error_reason}.")
-                )
-                self.trigger_event(MarketEvent.OrderFailure,
-                                   MarketOrderFailureEvent(self.current_timestamp, order_id, order_type))
+
+            endpoint = CONSTANTS.ORDER_CREATE_PATH_URL
+            request = GateIORESTRequest(
+                method=RESTMethod.POST,
+                endpoint=endpoint,
+                data=api_params,
+                is_auth_required=True,
+                throttler_limit_id=endpoint,
+            )
+            order_result = await self._api_request(request)
+            if order_result.get('status') in {"cancelled", "expired", "failed"}:
+                raise GateIoAPIError({'label': 'ORDER_REJECTED', 'message': 'Order rejected.'})
+            else:
+                exchange_order_id = str(order_result["id"])
+                tracked_order = self._in_flight_orders.get(order_id)
+                if tracked_order is not None:
+                    self.logger().info(f"Created {order_type.name} {trade_type.name} order {order_id} for "
+                                       f"{amount} {trading_pair}.")
+                    tracked_order.update_exchange_order_id(exchange_order_id)
+                    if trade_type is TradeType.BUY:
+                        event_tag = MarketEvent.BuyOrderCreated
+                        event_cls = BuyOrderCreatedEvent
+                    else:
+                        event_tag = MarketEvent.SellOrderCreated
+                        event_cls = SellOrderCreatedEvent
+                    self.trigger_event(event_tag,
+                                       event_cls(self.current_timestamp,
+                                                 order_type,
+                                                 trading_pair,
+                                                 amount,
+                                                 price,
+                                                 order_id,
+                                                 exchange_order_id))
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            error_reason = e.error_message if isinstance(e, GateIoAPIError) else str(e)
+            self.stop_tracking_order(order_id)
+            self.logger().error(
+                f"Error submitting {trade_type.name} {order_type.name} order to {CONSTANTS.EXCHANGE_NAME} for "
+                f"{amount} {trading_pair} {price} - {error_reason}.",
+                exc_info=True,
+            )
+            self.trigger_event(MarketEvent.OrderFailure,
+                               MarketOrderFailureEvent(self.current_timestamp, order_id, order_type))
 
     def start_tracking_order(self,
                              order_id: str,
@@ -557,11 +524,16 @@ class GateIoExchange(ExchangeBase):
                 if tracked_order.exchange_order_id is None:
                     await tracked_order.get_exchange_order_id()
                 ex_order_id = tracked_order.exchange_order_id
-                await self._api_request("DELETE",
-                                        CONSTANTS.ORDER_DELETE_PATH_URL.format(id=ex_order_id),
-                                        params={'currency_pair': convert_to_exchange_trading_pair(trading_pair)},
-                                        is_auth_required=True,
-                                        limit_id=CONSTANTS.ORDER_DELETE_LIMIT_ID)
+                endpoint = CONSTANTS.ORDER_DELETE_PATH_URL.format(id=ex_order_id)
+                params = {'currency_pair': convert_to_exchange_trading_pair(trading_pair)}
+                request = GateIORESTRequest(
+                    method=RESTMethod.DELETE,
+                    endpoint=endpoint,
+                    params=params,
+                    is_auth_required=True,
+                    throttler_limit_id=CONSTANTS.ORDER_DELETE_LIMIT_ID,
+                )
+                await self._api_request(request)
                 order_was_cancelled = True
         except asyncio.CancelledError:
             raise
@@ -634,7 +606,14 @@ class GateIoExchange(ExchangeBase):
                 else:
                     return
             self._update_balances_fetching = True
-            account_info = await self._api_request("GET", CONSTANTS.USER_BALANCES_PATH_URL, is_auth_required=True)
+            endpoint = CONSTANTS.USER_BALANCES_PATH_URL
+            request = GateIORESTRequest(
+                method=RESTMethod.GET,
+                endpoint=endpoint,
+                is_auth_required=True,
+                throttler_limit_id=endpoint,
+            )
+            account_info = await self._api_request(request)
             self._process_balance_message(account_info)
             self._update_balances_fetching = False
             # Set balance update finished event if there's one waiting.
@@ -672,11 +651,16 @@ class GateIoExchange(ExchangeBase):
                                           "- waiting for exchange order id.")
                     continue
                 trading_pair = convert_to_exchange_trading_pair(tracked_order.trading_pair)
-                tasks.append(self._api_request("GET",
-                                               CONSTANTS.ORDER_STATUS_PATH_URL.format(id=exchange_order_id),
-                                               params={'currency_pair': trading_pair},
-                                               is_auth_required=True,
-                                               limit_id=CONSTANTS.ORDER_STATUS_LIMIT_ID))
+                endpoint = CONSTANTS.ORDER_STATUS_PATH_URL.format(id=exchange_order_id)
+                params = {'currency_pair': trading_pair}
+                request = GateIORESTRequest(
+                    method=RESTMethod.GET,
+                    endpoint=endpoint,
+                    params=params,
+                    is_auth_required=True,
+                    throttler_limit_id=CONSTANTS.ORDER_STATUS_LIMIT_ID,
+                )
+                tasks.append(self._api_request(request))
             self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
             responses = await safe_gather(*tasks, return_exceptions=True)
             for response, tracked_order in zip(responses, tracked_orders):
@@ -964,7 +948,14 @@ class GateIoExchange(ExchangeBase):
 
     # This is currently unused, but looks like a future addition.
     async def get_open_orders(self) -> List[OpenOrder]:
-        result = await self._api_request("GET", CONSTANTS.USER_ORDERS_PATH_URL, is_auth_required=True)
+        endpoint = CONSTANTS.USER_ORDERS_PATH_URL
+        request = GateIORESTRequest(
+            method=RESTMethod.GET,
+            endpoint=endpoint,
+            is_auth_required=True,
+            throttler_limit_id=endpoint,
+        )
+        result = await self._api_request(request)
         ret_val = []
         for pair_orders in result:
             for order in pair_orders["orders"]:

@@ -251,7 +251,8 @@ class ConfigCommand:
             exchange = config_map["exchange"].value
             market = config_map["market"].value
             base_asset, quote_asset = market.split("-")
-            if global_config_map["paper_trade_enabled"].value:
+
+            if exchange.endswith("paper_trade"):
                 balances = global_config_map["paper_trade_account_balance"].value
             else:
                 balances = await UserBalances.instance().balances(

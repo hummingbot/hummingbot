@@ -1,24 +1,61 @@
-import aiohttp
 import asyncio
+import logging
 import random
-from typing import (
-    Any,
-    Dict,
-    Optional,
-    Tuple,
-)
+from dataclasses import dataclass
+from typing import Any, Dict, Optional, Tuple
 
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-from hummingbot.client.config.config_var import ConfigVar
+import ujson
 from hummingbot.client.config.config_methods import using_exchange
+from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
-
+from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, RESTResponse
+from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 
 CENTRALIZED = True
 
 EXAMPLE_PAIR = "BTC-USDT"
 
 DEFAULT_FEES = [0.2, 0.2]
+
+
+@dataclass
+class GateIORESTRequest(RESTRequest):
+    endpoint: Optional[str] = None
+
+    def __post_init__(self):
+        self._ensure_url()
+        self._ensure_params()
+        self._ensure_data()
+
+    @property
+    def auth_url(self) -> str:
+        if self.endpoint is None:
+            raise ValueError("No endpoint specified. Cannot build auth url.")
+        auth_url = f"{CONSTANTS.REST_URL_AUTH}/{self.endpoint}"
+        return auth_url
+
+    def _ensure_url(self):
+        if self.url is None and self.endpoint is None:
+            raise ValueError("Either the full url or the endpoint must be specified.")
+        self.url = self.url or f"{CONSTANTS.REST_URL}/{self.endpoint}"
+
+    def _ensure_params(self):
+        if self.method == RESTMethod.POST:
+            if self.params is not None:
+                raise ValueError("POST requests should not use `params`. Use `data` instead.")
+
+    def _ensure_data(self):
+        if self.method == RESTMethod.POST:
+            if self.data is not None:
+                self.data = ujson.dumps(self.data)
+        elif self.data is not None:
+            raise ValueError(
+                "The `data` field should be used only for POST requests. Use `params` instead."
+            )
 
 
 class GateIoAPIError(IOError):
@@ -34,16 +71,9 @@ class GateIoAPIError(IOError):
             self.error_label = error_payload
 
 
-# Request ID class
-class RequestId:
-    """
-    Generate request ids
-    """
-    _request_id: int = 0
-
-    @classmethod
-    def generate_request_id(cls) -> int:
-        return get_tracking_nonce()
+def build_gate_io_api_factory() -> WebAssistantsFactory:
+    api_factory = WebAssistantsFactory()
+    return api_factory
 
 
 def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
@@ -86,56 +116,73 @@ def retry_sleep_time(try_count: int) -> float:
     return float(2 + float(randSleep * (1 + (try_count ** try_count))))
 
 
-async def aiohttp_response_with_errors(request_coroutine):
+async def rest_response_with_errors(request_coroutine):
     http_status, parsed_response, request_errors = None, None, False
     try:
-        async with request_coroutine as response:
-            http_status = response.status
+        response: RESTResponse = await request_coroutine
+        http_status = response.status
+        try:
+            parsed_response = await response.json()
+        except Exception:
+            request_errors = True
             try:
-                parsed_response = await response.json()
+                parsed_response = await response.text()
+                if len(parsed_response) > 100:
+                    parsed_response = f"{parsed_response[:100]} ... (truncated)"
             except Exception:
-                request_errors = True
-                try:
-                    parsed_response = str(await response.read())
-                    if len(parsed_response) > 100:
-                        parsed_response = f"{parsed_response[:100]} ... (truncated)"
-                except Exception:
-                    pass
-            TempFailure = (parsed_response is None or
-                           (response.status not in [200, 201, 204] and "message" not in parsed_response))
-            if TempFailure:
-                parsed_response = response.reason if parsed_response is None else parsed_response
-                request_errors = True
+                pass
+        TempFailure = (parsed_response is None or
+                       (response.status not in [200, 201, 204] and "message" not in parsed_response))
+        if TempFailure:
+            parsed_response = (
+                f"Failed with status code {response.status}" if parsed_response is None else parsed_response
+            )
+            request_errors = True
     except Exception:
         request_errors = True
     return http_status, parsed_response, request_errors
 
 
-async def api_call_with_retries(method,
-                                endpoint,
-                                params: Optional[Dict[str, Any]] = None,
-                                shared_client=None,
+async def api_call_with_retries(request: GateIORESTRequest,
+                                rest_assistant: RESTAssistant,
+                                throttler: AsyncThrottler,
+                                logger: logging.Logger,
+                                gate_io_auth: Optional[GateIoAuth] = None,
                                 try_count: int = 0) -> Dict[str, Any]:
-    url = f"{CONSTANTS.REST_URL}/{endpoint}"
     headers = {"Content-Type": "application/json"}
-    http_client = shared_client if shared_client is not None else aiohttp.ClientSession()
-    # Build request coro
-    response_coro = http_client.request(method=method.upper(), url=url, headers=headers,
-                                        params=params, timeout=CONSTANTS.API_CALL_TIMEOUT)
-    http_status, parsed_response, request_errors = await aiohttp_response_with_errors(response_coro)
-    if shared_client is None:
-        await http_client.close()
+
+    async with throttler.execute_task(limit_id=request.throttler_limit_id):
+        if request.is_auth_required:
+            if gate_io_auth is None:
+                raise RuntimeError(
+                    f"Authentication required for request, but no GateIoAuth object supplied."
+                    f" Request: {request}."
+                )
+            auth_params = request.data if request.method == RESTMethod.POST else request.params
+            request.data = auth_params
+            headers: dict = gate_io_auth.get_headers(str(request.method), request.auth_url, auth_params)
+        request.headers = headers
+        response_coro = asyncio.wait_for(rest_assistant.call(request), CONSTANTS.API_CALL_TIMEOUT)
+        http_status, parsed_response, request_errors = await rest_response_with_errors(response_coro)
+
     if request_errors or parsed_response is None:
         if try_count < CONSTANTS.API_MAX_RETRIES:
             try_count += 1
             time_sleep = retry_sleep_time(try_count)
-            print(f"Error fetching data from {url}. HTTP status is {http_status}. "
-                  f"Retrying in {time_sleep:.0f}s.")
+            logger.info(
+                f"Error fetching data from {request.url}. HTTP status is {http_status}."
+                f" Retrying in {time_sleep:.0f}s."
+            )
             await asyncio.sleep(time_sleep)
-            return await api_call_with_retries(method=method, endpoint=endpoint, params=params,
-                                               shared_client=shared_client, try_count=try_count)
+            return await api_call_with_retries(
+                request, rest_assistant, throttler, logger, gate_io_auth, try_count
+            )
         else:
             raise GateIoAPIError({"label": "HTTP_ERROR", "message": parsed_response, "status": http_status})
+
+    if "message" in parsed_response:
+        raise GateIoAPIError(parsed_response)
+
     return parsed_response
 
 

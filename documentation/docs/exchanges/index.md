@@ -42,7 +42,7 @@ Exchanges and other institutions can visit the [official Hummingbot website](htt
 | [Binance](/exchanges/binance)                   | [binance.com](https://binance.com)           |                                  | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span> |
 | [Binance US](/exchanges/binance-us)             | [binance.us](https://www.binance.us)         |                                  | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span> |
 | [Bitfinex](/exchanges/bitfinex)                 | [bitfinex.com](https://bitfinex.com)         |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
-| [BitMart](/exchanges/bitmart)                   | [bitmart.com](https://www.bitmart.com/)      |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
+| [BitMart](/exchanges/bitmart)                   | [bitmart.com](https://www.bitmart.com/)      |                                  | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span> |
 | [Bittrex Global](/exchanges/bittrex)            | [bittrex.com](https://bittrex.com)           |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
 | [Blocktane](/exchanges/blocktane)               | [blocktane.io](https://blocktane.io/)        |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
 | [Coinbase Pro](/exchanges/coinbase)             | [pro.coinbase.com](https://pro.coinbase.com) |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
@@ -60,7 +60,6 @@ Exchanges and other institutions can visit the [official Hummingbot website](htt
 | [OKEx](/exchanges/okex)                         | [okex.com](https://www.okex.com/)            |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
 | [ProBit Global](/exchanges/probit)              | [probit.com](https://www.probit.com/)        |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
 | [ProBit Korea](/exchanges/probit-korea/)        | [probit.kr](https://www.probit.kr/en-us/)    |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
-| [dYdX](/exchanges/dydx)                         | [dydx.exchange](https://dydx.exchange/)      | [ethereum](/protocols/ethereum)  | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span> |
 | [Loopring](/exchanges/loopring)                 | [loopring.org](https://loopring.org)         | [ethereum](/protocols/ethereum)  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
 
 ### `perp`
@@ -68,7 +67,7 @@ Exchanges and other institutions can visit the [official Hummingbot website](htt
 | Exchange                                         | Website                                      | Protocol                          | Maintainer | Status                                               |
 | ------------------------------------------------ | -------------------------------------------- | --------------------------------- | -----------| ---------------------------------------------------- |
 | [Binance Futures](/exchanges/binance-perpetual)  | [binance.com](https://binance.com)           |                                   | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span> |
-| [Bybit](/exchanges/bybit-perpetual)               | [bybit.com](https://www.bybit.com/en-US/)   |                                   | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
+| [Bybit](/exchanges/bybit-perpetual)              | [bybit.com](https://www.bybit.com/en-US/)    |                                   | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span> |
 | [dYdX Perpetual](/exchanges/dydx-perpetual)      | [dydx.exchange](https://dydx.exchange/)      | [ethereum](/protocols/ethereum)   | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
 
 ### `amm`

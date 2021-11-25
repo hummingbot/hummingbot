@@ -9,7 +9,7 @@ import os
 from os.path import join, realpath
 from typing import Dict, Any
 from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
-from hummingbot.connector.exchange.gate_io.gate_io_utils import aiohttp_response_with_errors
+from hummingbot.connector.exchange.gate_io.gate_io_utils import rest_response_with_errors
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
 
@@ -32,7 +32,7 @@ class TestAuth(unittest.TestCase):
         params = {'currency_pair': self.trading_pair}
         http_client = aiohttp.ClientSession()
         headers = self.auth.get_headers("GET", f"{CONSTANTS.REST_URL_AUTH}/{endpoint}", params)
-        http_status, response, request_errors = await aiohttp_response_with_errors(
+        http_status, response, request_errors = await rest_response_with_errors(
             http_client.request(method='GET', url=f"{CONSTANTS.REST_URL}/{endpoint}", headers=headers, params=params)
         )
         await http_client.close()
