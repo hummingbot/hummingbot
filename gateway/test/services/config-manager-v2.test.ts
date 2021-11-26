@@ -50,6 +50,9 @@ describe('Configuration manager v2 tests', () => {
     expect(() => {
       new ConfigManagerV2(path.join(tempDirPath, 'test1/invalid-root-3.yml'));
     }).toThrow();
+    expect(() => {
+      new ConfigManagerV2(path.join(tempDirPath, 'test1/invalid-root-4.yml'));
+    }).toThrow();
     done();
   });
 
