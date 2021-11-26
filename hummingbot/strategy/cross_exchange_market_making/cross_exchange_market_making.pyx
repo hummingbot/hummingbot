@@ -1144,7 +1144,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
         cdef:
             bint is_buy = active_order.is_buy
             object order_price = active_order.price
-            object order_amount = active_order.quantity
+            object user_order = self.c_get_adjusted_limit_order_size(market_pair)
             ExchangeBase maker_market = market_pair.maker.market
             ExchangeBase taker_market = market_pair.taker.market
             object order_size_limit
@@ -1161,7 +1161,7 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             base_asset_amount = maker_market.c_get_balance(market_pair.maker.base_asset)
             quote_asset_amount = taker_market.c_get_balance(market_pair.taker.quote_asset) * quote_rate
             taker_slippage_adjustment_factor = Decimal("1") + self._slippage_buffer
-            taker_price = taker_market.c_get_vwap_for_volume(taker_trading_pair, True, order_amount).result_price
+            taker_price = taker_market.c_get_vwap_for_volume(taker_trading_pair, True, user_order).result_price
             adjusted_taker_price = taker_price * taker_slippage_adjustment_factor
             order_size_limit = min(base_asset_amount, quote_asset_amount / adjusted_taker_price)
 
