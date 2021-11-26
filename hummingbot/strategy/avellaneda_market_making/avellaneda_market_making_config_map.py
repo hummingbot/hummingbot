@@ -97,7 +97,7 @@ avellaneda_market_making_config_map = {
                   prompt_on_new=True),
     "execution_timeframe":
         ConfigVar(key="execution_timeframe",
-                  prompt="Choose execution timeframe >>> ",
+                  prompt="Choose execution timeframe ( infinite / from_date_to_date / daily_between_times ) >>> ",
                   validator=validate_execution_timeframe,
                   on_validated=on_validated_execution_timeframe,
                   prompt_on_new=True),
