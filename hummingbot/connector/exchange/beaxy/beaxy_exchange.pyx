@@ -1,42 +1,50 @@
-# -*- coding: utf-8 -*-
-
 import asyncio
-import logging
 import json
-
-from typing import Any, Dict, List, AsyncIterable, Optional, Tuple
-from datetime import datetime, timedelta
+import logging
 from async_timeout import timeout
+from datetime import datetime, timedelta
 from decimal import Decimal
 from libc.stdint cimport int64_t
+from typing import Any, AsyncIterable, Dict, List, Optional
 
 import aiohttp
-import pandas as pd
 
 from aiohttp.client_exceptions import ContentTypeError
 
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.data_type.order_book cimport OrderBook
+from hummingbot.connector.exchange_base cimport ExchangeBase
+from hummingbot.connector.trading_rule cimport TradingRule
+from hummingbot.core.clock cimport Clock
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.clock cimport Clock
+from hummingbot.core.data_type.order_book cimport OrderBook
+from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.core.utils.estimate_fee import estimate_fee
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.connector.exchange_base cimport ExchangeBase
-from hummingbot.connector.trading_rule cimport TradingRule
-from hummingbot.core.event.events import MarketEvent, BuyOrderCompletedEvent, SellOrderCompletedEvent, \
-    OrderFilledEvent, OrderCancelledEvent, BuyOrderCreatedEvent, OrderExpiredEvent, SellOrderCreatedEvent, \
-    MarketTransactionFailureEvent, MarketOrderFailureEvent, OrderType, TradeType, TradeFee
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketEvent,
+    MarketOrderFailureEvent,
+    MarketTransactionFailureEvent,
+    OrderCancelledEvent,
+    OrderExpiredEvent,
+    OrderFilledEvent,
+    OrderType,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+    TradeFee,
+    TradeType,
+)
 
 from hummingbot.connector.exchange.beaxy.beaxy_api_order_book_data_source import BeaxyAPIOrderBookDataSource
-from hummingbot.connector.exchange.beaxy.beaxy_constants import BeaxyConstants
 from hummingbot.connector.exchange.beaxy.beaxy_auth import BeaxyAuth
-from hummingbot.connector.exchange.beaxy.beaxy_order_book_tracker import BeaxyOrderBookTracker
+from hummingbot.connector.exchange.beaxy.beaxy_constants import BeaxyConstants
 from hummingbot.connector.exchange.beaxy.beaxy_in_flight_order import BeaxyInFlightOrder
+from hummingbot.connector.exchange.beaxy.beaxy_misc import BeaxyIOError
+from hummingbot.connector.exchange.beaxy.beaxy_order_book_tracker import BeaxyOrderBookTracker
 from hummingbot.connector.exchange.beaxy.beaxy_user_stream_tracker import BeaxyUserStreamTracker
-from hummingbot.connector.exchange.beaxy.beaxy_misc import split_trading_pair, trading_pair_to_symbol, BeaxyIOError
+from hummingbot.logger import HummingbotLogger
 
 s_logger = None
 s_decimal_0 = Decimal('0.0')
@@ -109,19 +117,13 @@ cdef class BeaxyExchange(ExchangeBase):
         self._taker_fee_percentage = {}
 
     @staticmethod
-    def split_trading_pair(trading_pair: str) -> Optional[Tuple[str, str]]:
-        return split_trading_pair(trading_pair)
+    async def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
+        trading_pair = await BeaxyAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(exchange_trading_pair)
+        return trading_pair
 
     @staticmethod
-    def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> Optional[str]:
-        if BeaxyExchange.split_trading_pair(exchange_trading_pair) is None:
-            return None
-        base_asset, quote_asset = BeaxyExchange.split_trading_pair(exchange_trading_pair)
-        return f'{base_asset}-{quote_asset}'
-
-    @staticmethod
-    def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
-        return hb_trading_pair
+    async def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
+        return await BeaxyAPIOrderBookDataSource.exchange_symbol_associated_to_pair(hb_trading_pair)
 
     @property
     def name(self) -> str:
@@ -470,7 +472,7 @@ cdef class BeaxyExchange(ExchangeBase):
         :returns: json response from the API
         """
         path_url = BeaxyConstants.TradingApi.CREATE_ORDER_ENDPOINT
-        trading_pair = trading_pair_to_symbol(trading_pair)  # at Beaxy all pairs listed without splitter
+        trading_pair = await self.convert_to_exchange_trading_pair(trading_pair)
         is_limit_type = order_type.is_limit_type()
 
         data = {
@@ -739,9 +741,9 @@ cdef class BeaxyExchange(ExchangeBase):
         try:
             res = await self._api_request('get', BeaxyConstants.TradingApi.TRADE_SETTINGS_ENDPOINT)
             for symbol_data in res['symbols']:
-                symbol = self.convert_from_exchange_trading_pair(symbol_data['name'])
-                self._maker_fee_percentage[symbol] = Decimal(str(symbol_data['maker_fee']))
-                self._taker_fee_percentage[symbol] = Decimal(str(symbol_data['taker_fee']))
+                trading_pair = f"{symbol_data['base']}-{symbol_data['term']}"
+                self._maker_fee_percentage[trading_pair] = Decimal(str(symbol_data['maker_fee']))
+                self._taker_fee_percentage[trading_pair] = Decimal(str(symbol_data['taker_fee']))
 
             self._last_fee_percentage_update_timestamp = current_timestamp
         except asyncio.CancelledError:
@@ -788,7 +790,7 @@ cdef class BeaxyExchange(ExchangeBase):
         try:
             if current_tick > last_tick or len(self._trading_rules) <= 0:
                 product_info = await self._api_request(http_method='get', url=BeaxyConstants.PublicApi.SYMBOLS_URL, is_auth_required=False)
-                trading_rules_list = self._format_trading_rules(product_info)
+                trading_rules_list = await self._format_trading_rules(product_info)
                 self._trading_rules.clear()
                 for trading_rule in trading_rules_list:
 
@@ -799,7 +801,7 @@ cdef class BeaxyExchange(ExchangeBase):
         except Exception:
             self.logger().warning('Got exception while updating trading rules.', exc_info=True)
 
-    def _format_trading_rules(self, market_dict: Dict[str, Any]) -> List[TradingRule]:
+    async def _format_trading_rules(self, market_dict: Dict[str, Any]) -> List[TradingRule]:
         """
         Turns json data from API into TradingRule instances
         :returns: List of TradingRule
@@ -809,7 +811,7 @@ cdef class BeaxyExchange(ExchangeBase):
 
         for rule in market_dict:
             try:
-                trading_pair = rule.get('symbol')
+                trading_pair = await self.convert_from_exchange_trading_pair(rule.get('symbol'))
                 # Parsing from string doesn't mess up the precision
                 retval.append(TradingRule(trading_pair,
                                           min_price_increment=Decimal(str(rule.get('tickSize'))),
