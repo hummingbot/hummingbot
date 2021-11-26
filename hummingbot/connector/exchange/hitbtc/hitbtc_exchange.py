@@ -265,9 +265,9 @@ class HitbtcExchange(ExchangeBase):
     async def _update_trading_rules(self):
         symbols_info = await self._api_request("GET", endpoint=Constants.ENDPOINT['SYMBOL'])
         self._trading_rules.clear()
-        self._trading_rules = self._format_trading_rules(symbols_info)
+        self._trading_rules = await self._format_trading_rules(symbols_info)
 
-    def _format_trading_rules(self, symbols_info: Dict[str, Any]) -> Dict[str, TradingRule]:
+    async def _format_trading_rules(self, symbols_info: Dict[str, Any]) -> Dict[str, TradingRule]:
         """
         Converts json API response into a dictionary of trading rules.
         :param symbols_info: The json API response
