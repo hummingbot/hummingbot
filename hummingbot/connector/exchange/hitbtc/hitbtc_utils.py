@@ -72,18 +72,6 @@ def translate_asset(asset_name: str) -> str:
     return asset_name
 
 
-def translate_assets(hb_trading_pair: str) -> str:
-    skip_pairs = [
-        'USDT-GUSD'
-    ]
-    if hb_trading_pair in skip_pairs:
-        return hb_trading_pair
-    assets = hb_trading_pair.split('-')
-    for x in range(len(assets)):
-        assets[x] = translate_asset(assets[x])
-    return '-'.join(assets)
-
-
 def get_new_client_order_id(is_buy: bool, trading_pair: str) -> str:
     side = "B" if is_buy else "S"
     symbols = trading_pair.split("-")
