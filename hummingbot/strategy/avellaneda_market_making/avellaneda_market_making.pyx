@@ -29,6 +29,10 @@ from hummingbot.core.event.events import OrderType
 
 from hummingbot.strategy.__utils__.trailing_indicators.instant_volatility import InstantVolatilityIndicator
 from hummingbot.strategy.__utils__.trailing_indicators.trading_intensity import TradingIntensityIndicator
+from hummingbot.strategy.conditional_execution_state import (
+    RunAlwaysExecutionState,
+    RunInTimeConditionalExecutionState
+)
 from hummingbot.strategy.data_types import (
     Proposal,
     PriceSize)
@@ -83,6 +87,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     risk_factor: Decimal = Decimal("0.5"),
                     order_amount_shape_factor: Decimal = Decimal("0.0"),
                     execution_timeframe: str = "infinite",
+                    execution_state: ConditionalExecutionState = RunAlwaysExecutionState(),
                     start_time: datetime.datetime = None,
                     end_time: datetime.datetime = None,
                     min_spread: Decimal = Decimal("0"),
@@ -132,6 +137,7 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         self._gamma = risk_factor
         self._eta = order_amount_shape_factor
         self._execution_timeframe = execution_timeframe
+        self._execution_state = execution_state
         self._start_time = start_time
         self._end_time = end_time
         self._closing_time = None
@@ -618,32 +624,14 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
             if self.c_is_algorithm_ready():
                 proposal = None
                 if self._create_timestamp <= self._current_timestamp:
-                    # 1. Measure order book liquidity
+                    # Measure order book liquidity
                     self.c_measure_order_book_liquidity()
-                    # 2. Check if trading is allowed at this time
-                    if self.c_is_trading_allowed():
-                        # 3. Determine closing time and time left if applicable
-                        self.c_determine_times(timestamp)
-                        # 4. Calculate reserved price and optimal spread from gamma, alpha, kappa and volatility
-                        self.c_calculate_reserved_price_and_optimal_spread()
-                        # 5. Create base order proposals
-                        proposal = self.c_create_base_proposal()
-                        # 6. Apply functions that modify orders amount
-                        self.c_apply_order_amount_eta_transformation(proposal)
-                        # 7. Apply functions that modify orders price
-                        self.c_apply_order_price_modifiers(proposal)
-                        # 8. Apply budget constraint, i.e. can't buy/sell more than what you have.
-                        self.c_apply_budget_constraint(proposal)
 
                 self._hanging_orders_tracker.process_tick()
                 self.c_cancel_active_orders_on_max_age_limit()
                 self.c_cancel_active_orders(proposal)
 
-                if self.c_to_create_orders(proposal):
-                    self.c_execute_orders_proposal(proposal)
-
-                if self._is_debug:
-                    self.dump_debug_variables()
+                self._execution_state.process_tick(timestamp, self)
             else:
                 # Only if snapshots are different - for trading intensity - a market order happened
                 if self.c_is_algorithm_changed():
@@ -654,6 +642,30 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                     self.logger().info(f"Calculating volatility, estimating order book liquidity ... no change tick")
         finally:
             self._last_timestamp = timestamp
+
+    def process_tick(self, timestamp: float):
+        proposal = None
+        if self._create_timestamp <= self._current_timestamp:
+            # 1. Determine closing time and time left if applicable
+            self.c_determine_times(timestamp)
+            # 2. Calculate reserved price and optimal spread from gamma, alpha, kappa and volatility
+            self.c_calculate_reserved_price_and_optimal_spread()
+            # 3. Create base order proposals
+            proposal = self.c_create_base_proposal()
+            # 4. Apply functions that modify orders amount
+            self.c_apply_order_amount_eta_transformation(proposal)
+            # 5. Apply functions that modify orders price
+            self.c_apply_order_price_modifiers(proposal)
+            # 6. Apply budget constraint, i.e. can't buy/sell more than what you have.
+            self.c_apply_budget_constraint(proposal)
+
+            self.c_cancel_active_orders(proposal)
+
+        if self.c_to_create_orders(proposal):
+            self.c_execute_orders_proposal(proposal)
+
+        if self._is_debug:
+            self.dump_debug_variables()
 
     cdef c_collect_market_variables(self, double timestamp):
         market, trading_pair, base_asset, quote_asset = self._market_info
