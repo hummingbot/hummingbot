@@ -46,6 +46,7 @@ export class Ethereum extends EthereumBase implements Ethereumish {
     }
 
     super(
+      'ethereum',
       config.chainID,
       config.nodeURL + EthereumConfig.config.nodeAPIKey,
       config.tokenListSource,

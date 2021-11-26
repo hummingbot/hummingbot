@@ -35,6 +35,7 @@ export class EthereumBase {
   private _initializing: boolean = false;
   private _initPromise: Promise<void> = Promise.resolve();
 
+  public chainName;
   public chainId;
   public rpcUrl;
   public gasPriceConstant;
@@ -44,6 +45,7 @@ export class EthereumBase {
   private _nonceManager: EVMNonceManager;
 
   constructor(
+    chainName: string,
     chainId: number,
     rpcUrl: string,
     tokenListSource: string,
@@ -51,13 +53,14 @@ export class EthereumBase {
     gasPriceConstant: number
   ) {
     this._provider = new providers.StaticJsonRpcProvider(rpcUrl);
+    this.chainName = chainName;
     this.chainId = chainId;
     this.rpcUrl = rpcUrl;
     this.gasPriceConstant = gasPriceConstant;
     this.tokenListSource = tokenListSource;
     this.tokenListType = tokenListType;
-    this._nonceManager = EVMNonceManager.getInstance();
-    this._nonceManager.init(this.provider, 60, chainId);
+    this._nonceManager = new EVMNonceManager(chainName, chainId, 60);
+    this._nonceManager.init(this.provider);
     this.cache = new NodeCache({ stdTTL: 3600 }); // set default cache ttl to 1hr
   }
 
