@@ -27,6 +27,7 @@ export class Avalanche extends EthereumBase implements Ethereumish {
     }
 
     super(
+      'avalanche',
       config.chainId,
       config.rpcUrl,
       config.tokenListSource,
