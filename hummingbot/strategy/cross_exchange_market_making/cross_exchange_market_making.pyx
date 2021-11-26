@@ -842,7 +842,9 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             user_order = self.c_get_adjusted_limit_order_size(market_pair)
 
             try:
-                taker_price = taker_market.c_get_vwap_for_volume(taker_trading_pair, True, user_order).result_price
+                taker_price = taker_market.c_get_price_for_quote_volume(
+                    taker_trading_pair, True, taker_balance_in_quote
+                ).result_price
             except ZeroDivisionError:
                 assert user_order == s_decimal_zero
                 return s_decimal_zero
@@ -1161,7 +1163,9 @@ cdef class CrossExchangeMarketMakingStrategy(StrategyBase):
             base_asset_amount = maker_market.c_get_balance(market_pair.maker.base_asset)
             quote_asset_amount = taker_market.c_get_balance(market_pair.taker.quote_asset) * quote_rate
             taker_slippage_adjustment_factor = Decimal("1") + self._slippage_buffer
-            taker_price = taker_market.c_get_vwap_for_volume(taker_trading_pair, True, user_order).result_price
+            taker_price = taker_market.c_get_price_for_quote_volume(
+                taker_trading_pair, True, quote_asset_amount
+            ).result_price
             adjusted_taker_price = taker_price * taker_slippage_adjustment_factor
             order_size_limit = min(base_asset_amount, quote_asset_amount / adjusted_taker_price)
 
