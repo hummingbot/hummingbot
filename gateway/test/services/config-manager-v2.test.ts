@@ -19,6 +19,7 @@ describe('Configuration manager v2 tests', () => {
     tempDirPath = await fsp.mkdtemp(
       path.join(os.tmpdir(), 'config-manager-v2-unit-test')
     );
+    tempDirPath = fse.realpathSync(tempDirPath);
 
     // Copy the test data into a temp dir.
     await fse.copy(testDataSourcePath, tempDirPath);

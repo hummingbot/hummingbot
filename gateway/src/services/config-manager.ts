@@ -43,14 +43,14 @@ export namespace ConfigManager {
       'LOG_TO_STDOUT' in o &&
       'GMT_OFFSET' in o &&
       'CERT_PATH' in o &&
-      'ETHEREUM_CHAIN' in o &&
+      // 'ETHEREUM_CHAIN' in o &&
       'AVALANCHE_CHAIN' in o &&
-      'INFURA_KEY' in o &&
-      'ETH_GAS_STATION_ENABLE' in o &&
-      'ETH_GAS_STATION_API_KEY' in o &&
-      'ETH_GAS_STATION_GAS_LEVEL' in o &&
-      'ETH_GAS_STATION_REFRESH_TIME' in o &&
-      'ETH_MANUAL_GAS_PRICE' in o &&
+      // 'INFURA_KEY' in o &&
+      // 'ETH_GAS_STATION_ENABLE' in o &&
+      // 'ETH_GAS_STATION_API_KEY' in o &&
+      // 'ETH_GAS_STATION_GAS_LEVEL' in o &&
+      // 'ETH_GAS_STATION_REFRESH_TIME' in o &&
+      // 'ETH_MANUAL_GAS_PRICE' in o &&
       'AVAX_MANUAL_GAS_PRICE' in o &&
       'UNISWAP_ALLOWED_SLIPPAGE' in o &&
       percentRegexp.test(o['UNISWAP_ALLOWED_SLIPPAGE']) &&

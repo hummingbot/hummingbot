@@ -33,12 +33,12 @@ export class Pangolin {
       case 'avalanche':
         config = PangolinConfig.config.avalanche;
         this._pangolinRouter = config.routerAddress;
-        this.chainId = AvalancheConfig.config.avalanche.chainId;
+        this.chainId = AvalancheConfig.config.avalanche.chainID;
         break;
       case 'fuji':
         config = PangolinConfig.config.fuji;
         this._pangolinRouter = config.routerAddress;
-        this.chainId = AvalancheConfig.config.fuji.chainId;
+        this.chainId = AvalancheConfig.config.fuji.chainID;
         break;
       default:
         throw new Error('ETHEREUM_CHAIN not valid');

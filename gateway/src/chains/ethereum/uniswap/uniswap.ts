@@ -39,12 +39,11 @@ export class Uniswap {
     } else {
       config = UniswapConfig.config.kovan;
     }
-
     this._uniswapRouter = config.uniswapV2RouterAddress;
     if (ConfigManager.config.ETHEREUM_CHAIN === 'mainnet') {
-      this.chainId = EthereumConfig.config.mainnet.chainId;
+      this.chainId = EthereumConfig.config.mainnet.chainID;
     } else {
-      this.chainId = EthereumConfig.config.kovan.chainId;
+      this.chainId = EthereumConfig.config.kovan.chainID;
     }
   }
 
