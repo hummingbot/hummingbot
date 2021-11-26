@@ -5,8 +5,8 @@ import { EthereumBase } from '../../services/ethereum-base';
 import { ConfigManager } from '../../services/config-manager';
 import { AvalancheConfig } from './avalanche.config';
 import { Provider } from '@ethersproject/abstract-provider';
-import { Ethereumish } from '../ethereum/ethereum';
 import { PangolinConfig } from './pangolin/pangolin.config';
+import { Ethereumish } from '../../services/ethereumish.interface';
 export class Avalanche extends EthereumBase implements Ethereumish {
   private static _instance: Avalanche;
   private _gasPrice: number;
@@ -27,6 +27,7 @@ export class Avalanche extends EthereumBase implements Ethereumish {
     }
 
     super(
+      'avalanche',
       config.chainId,
       config.rpcUrl,
       config.tokenListSource,
