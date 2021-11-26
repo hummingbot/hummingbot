@@ -1,35 +1,35 @@
 $namespace avalanche:
   configurationPath: avalanche.yml
-  schemaFileName: ethereum-schema.json
+  schemaPath: ../../src/services/schema/ethereum-schema.json
 
 $namespace ethereum:
   configurationPath: ethereum.yml
-  schemaFileName: ethereum-schema.json
+  schemaPath: ../../src/services/schema/ethereum-schema.json
 
 $namespace ethereumGasStation:
   configurationPath: ethereum-gas-station.yml
-  schemaFileName: ethereum-gas-station-schema.json
+  schemaPath: ../../src/services/schema/ethereum-gas-station-schema.json
 
 $namespace logging:
   configurationPath: logging.yml
-  schemaFileName: logging-schema.json
+  schemaPath: ../../src/services/schema/logging-schema.json
 
 $namespace ssl:
   configurationPath: ssl.yml
-  schemaFileName: ssl-schema.json
+  schemaPath: ../../src/services/schema/ssl-schema.json
 
 $namespace pangolin:
   configurationPath: pangolin.yml
-  schemaFileName: uniswap-schema.json
+  schemaPath: ../../src/services/schema/uniswap-schema.json
 
 $namespace server:
   configurationPath: server.yml
-  schemaFileName: server-schema.json
+  schemaPath: ../../src/services/schema/server-schema.json
 
 $namespace telemetry:
   configurationPath: telemetry.yml
-  schemaFileName: telemetry-schema.json
+  schemaPath: ../../src/services/schema/telemetry-schema.json
 
 $namespace uniswap:
   configurationPath: uniswap.yml
-  schemaFileName: uniswap-schema.json
+  schemaPath: ../../src/services/schema/uniswap-schema.json
