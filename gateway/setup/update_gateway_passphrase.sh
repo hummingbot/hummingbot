@@ -7,7 +7,7 @@
 
 echo
 echo
-echo "===============  UPDATE GATEWAY CONFIGURATION FILE(S) ==============="
+echo "===============  UPDATE GATEWAY PASSPHRASE FILE ==============="
 echo
 echo
 
