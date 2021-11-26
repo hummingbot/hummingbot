@@ -34,7 +34,8 @@ class TestAuth(unittest.TestCase):
         pairs = [i['id'] for i in result]
         unmatched_pairs = []
         for pair in pairs:
-            matched_pair = await HitbtcAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(pair)
+            matched_pair = asyncio.get_event_loop().run_until_complete(
+                HitbtcAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(pair))
             if matched_pair is None:
                 matched_pair_split = None
                 print(f"\nUnmatched pair: {pair}\n")
