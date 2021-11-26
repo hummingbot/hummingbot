@@ -47,16 +47,27 @@ fi
 }
 prompt_to_allow_telemetry
 
-# copy the following files
-cp ./conf/samples/avalanche.yml ./conf/avalanche.yml
-cp ./conf/samples/ethereum-gas-station.yml ./conf/ethereum-gas-station.yml
-cp ./conf/samples/ethereum.yml ./conf/ethereum.yml
-cp ./conf/samples/logging.yml ./conf/logging.yml
-cp ./conf/samples/pangolin.yml ./conf/pangolin.yml
-cp ./conf/samples/root.yml ./conf/root.yml
-cp ./conf/samples/server.yml ./conf/server.yml
-cp ./conf/samples/ssl.yml ./conf/ssl.yml
-cp ./conf/samples/telemetry.yml ./conf/telemetry.yml
-cp ./conf/samples/uniswap.yml ./conf/uniswap.yml
+CONFIG_PATH="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )/../conf"
 
-# generate the following files
+# generate the telemetry file
+echo "enabled: $TELEMETRY" > "$CONFIG_PATH/telemetry.yml"
+
+# generate ssl file
+echo "caCertificatePath: $CERT_PATH/ca_cert.pem"   > "$CONFIG_PATH/ssl.yml"
+echo "certificatePath: $CERT_PATH/server_cert.pem" >> "$CONFIG_PATH/ssl.yml"
+echo "keyPath: $CERT_PATH/server_key.pem"          >> "$CONFIG_PATH/ssl.yml"
+echo "passPhrasePath: $CONFIG_PATH/gateway-passphrase.yml" >> "$CONFIG_PATH/ssl.yml"
+
+# update apiKey in the ethereum file
+sed -i '/apiKey: .*/d;/^ *$/d' "$CONFIG_PATH/ethereum-gas-station.yml"
+echo "apiKey: '$ETH_GAS_STATION_KEY'" >> "$CONFIG_PATH/ethereum-gas-station.yml"
+
+# copy the following files
+
+cp "$CONFIG_PATH/samples/avalanche.yml" "$CONFIG_PATH/avalanche.yml"
+cp "$CONFIG_PATH/samples/ethereum.yml" "$CONFIG_PATH/ethereum.yml"
+cp "$CONFIG_PATH/samples/logging.yml" "$CONFIG_PATH/logging.yml"
+cp "$CONFIG_PATH/samples/pangolin.yml" "$CONFIG_PATH/pangolin.yml"
+cp "$CONFIG_PATH/samples/root.yml" "$CONFIG_PATH/root.yml"
+cp "$CONFIG_PATH/samples/server.yml" "$CONFIG_PATH/server.yml"
+cp "$CONFIG_PATH/samples/uniswap.yml" "$CONFIG_PATH/uniswap.yml"
