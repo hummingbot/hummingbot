@@ -1,6 +1,5 @@
 import fsp from 'fs/promises';
 import fse from 'fs-extra';
-import os from 'os';
 import path from 'path';
 import {
   ConfigManagerV2,
@@ -15,9 +14,9 @@ describe('Configuration manager v2 tests', () => {
   let configManager: ConfigManagerV2;
 
   beforeEach(async () => {
-    // Create a temp dir.
+    // Create a temp dir in project
     tempDirPath = await fsp.mkdtemp(
-      path.join(os.tmpdir(), 'config-manager-v2-unit-test')
+      path.join(__dirname, '../../config-manager-v2-unit-test')
     );
 
     // Copy the test data into a temp dir.
