@@ -1,6 +1,6 @@
 $namespace ssl:
   configurationPath: invalid-ssl.yml
-  schemaFileName: ssl-schema.json
+  schemaPath: ../../src/services/schema/ssl-schema.json
 $namespace ethereum:
   configurationPath: ethereum.yml
-  schemaFileName: ethereum-schema.json
+  schemaPath: ../../src/services/schema/ethereum-schema.json
