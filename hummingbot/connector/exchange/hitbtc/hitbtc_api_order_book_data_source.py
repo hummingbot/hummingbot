@@ -18,6 +18,7 @@ from .hitbtc_utils import (
     api_call_with_retries,
     HitbtcAPIError,
     str_date_to_ts,
+    translate_asset,
 )
 from .hitbtc_websocket import HitbtcWebsocket
 
@@ -47,9 +48,9 @@ class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
             Constants.ENDPOINT["SYMBOL"],
             shared_client=shared_session)
         cls._trading_pair_symbol_map = {
-            symbol_data["id"]: f"{symbol_data['baseCurrency']}-{symbol_data['quoteCurrency']}"
+            symbol_data["id"]: (f"{translate_asset(symbol_data['baseCurrency'])}-"
+                                f"{translate_asset(symbol_data['quoteCurrency'])}")
             for symbol_data in symbols
-            if "marginTrading" not in symbol_data
         }
 
     @classmethod
@@ -65,7 +66,7 @@ class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
         if len(trading_pairs) > 1:
             tickers: List[Dict[Any]] = await api_call_with_retries("GET", Constants.ENDPOINT["TICKER"])
         for trading_pair in trading_pairs:
-            ex_pair: str = await HitbtcAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(trading_pair)
+            ex_pair: str = await HitbtcAPIOrderBookDataSource.exchange_symbol_associated_to_pair(trading_pair)
             if len(trading_pairs) > 1:
                 ticker: Dict[Any] = list([tic for tic in tickers if tic['symbol'] == ex_pair])[0]
             else:
@@ -102,7 +103,7 @@ class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Get whole orderbook
         """
         try:
-            ex_pair = await HitbtcAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(trading_pair)
+            ex_pair = await HitbtcAPIOrderBookDataSource.exchange_symbol_associated_to_pair(trading_pair)
             orderbook_response: Dict[Any] = await api_call_with_retries("GET", Constants.ENDPOINT["ORDER_BOOK"],
                                                                         params={"limit": 150, "symbols": ex_pair})
             return orderbook_response[ex_pair]
@@ -135,7 +136,7 @@ class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 await ws.connect()
 
                 for pair in self._trading_pairs:
-                    symbol = await HitbtcAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(pair)
+                    symbol = await HitbtcAPIOrderBookDataSource.exchange_symbol_associated_to_pair(pair)
                     await ws.subscribe(Constants.WS_SUB["TRADES"], symbol)
 
                 async for response in ws.on_message():
@@ -145,7 +146,7 @@ class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     if trades_data is None or method != Constants.WS_METHODS['TRADES_UPDATE']:
                         continue
 
-                    pair: str = await self.self.trading_pair_associated_to_exchange_symbol(response["params"]["symbol"])
+                    pair: str = await self.trading_pair_associated_to_exchange_symbol(response["params"]["symbol"])
 
                     for trade in trades_data["data"]:
                         trade: Dict[Any] = trade
@@ -179,7 +180,7 @@ class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 ]
 
                 for pair in self._trading_pairs:
-                    symbol = await HitbtcAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(pair)
+                    symbol = await HitbtcAPIOrderBookDataSource.exchange_symbol_associated_to_pair(pair)
                     await ws.subscribe(Constants.WS_SUB["ORDERS"], symbol)
 
                 async for response in ws.on_message():

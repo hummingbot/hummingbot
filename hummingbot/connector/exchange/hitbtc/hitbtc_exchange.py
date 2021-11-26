@@ -432,7 +432,7 @@ class HitbtcExchange(ExchangeBase):
             raise ValueError(f"Buy order amount {amount} is lower than the minimum order size "
                              f"{trading_rule.min_order_size}.")
         order_type_str = order_type.name.lower().split("_")[0]
-        symbol = await HitbtcAPIOrderBookDataSource.trading_pair_associated_to_exchange_symbol(trading_pair)
+        symbol = await HitbtcAPIOrderBookDataSource.exchange_symbol_associated_to_pair(trading_pair)
         api_params = {"symbol": symbol,
                       "side": trade_type.name.lower(),
                       "type": order_type_str,

@@ -25,9 +25,9 @@ class HitbtcAPIOrderBookDataSourceTests(TestCase):
         url = f"{CONSTANTS.REST_URL}/{CONSTANTS.ENDPOINT['SYMBOL']}"
         resp = [
             {
-                "id": "BTCUSDT",
+                "id": "BTCUSD",
                 "baseCurrency": "BTC",
-                "quoteCurrency": "USDT",
+                "quoteCurrency": "USD",
                 "quantityIncrement": "0.001",
                 "tickSize": "0.000001",
                 "takeLiquidityRate": "0.001",
@@ -51,9 +51,10 @@ class HitbtcAPIOrderBookDataSourceTests(TestCase):
 
         map = self.async_run_with_timeout(HitbtcAPIOrderBookDataSource.trading_pair_symbol_map())
 
-        self.assertIn("BTCUSDT", map)
-        self.assertEqual("BTC-USDT", map["BTCUSDT"])
-        self.assertNotIn("ETHBTC", map)
+        self.assertIn("BTCUSD", map)
+        self.assertEqual("BTC-USDT", map["BTCUSD"])
+        self.assertIn("ETHBTC", map)
+        self.assertEqual("ETH-BTC", map["ETHBTC"])
 
     def test_fetch_trading_pairs(self):
         HitbtcAPIOrderBookDataSource._trading_pair_symbol_map = {"BTCUSDT": "BTC-USDT", "ETHUSDT": "ETH-USDT"}
