@@ -74,6 +74,12 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         cls.risk_factor_finite: Decimal = Decimal("0.8")
         cls.risk_factor_infinite: Decimal = Decimal("1")
 
+        cls.volatility_indicator_low_vol = None
+        cls.volatility_indicator_high_vol = None
+
+        cls.trading_intensity_indicator_low_liq = None
+        cls.trading_intensity_indicator_high_liq = None
+
     def setUp(self):
         super().setUp()
         self.market: MockPaperExchange = MockPaperExchange(fee_percent=Decimal("25"))
@@ -122,23 +128,25 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.strategy.stop(self.clock)
         super().tearDown()
 
-    @staticmethod
-    def simulate_low_volatility(strategy: AvellanedaMarketMakingStrategy):
-        N_SAMPLES = 1000
-        INITIAL_RANDOM_SEED = 3141592653
-        original_price = 100
-        volatility = AvellanedaMarketMakingUnitTests.low_vol / Decimal("100")  # Assuming 0.5% volatility
-        np.random.seed(INITIAL_RANDOM_SEED)     # Using this hardcoded random seed we guarantee random samples generated are always the same
-        samples = np.random.normal(original_price, volatility * original_price, N_SAMPLES)
+    def simulate_low_volatility(self, strategy: AvellanedaMarketMakingStrategy):
+        if self.volatility_indicator_low_vol is None:
+            N_SAMPLES = 1000
+            INITIAL_RANDOM_SEED = 3141592653
+            original_price = 100
+            volatility = AvellanedaMarketMakingUnitTests.low_vol / Decimal("100")  # Assuming 0.5% volatility
+            np.random.seed(INITIAL_RANDOM_SEED)     # Using this hardcoded random seed we guarantee random samples generated are always the same
+            samples = np.random.normal(original_price, volatility * original_price, N_SAMPLES)
 
-        # This replicates the same indicator Avellaneda uses if volatility_buffer_samples = 30
-        volatility_indicator = strategy.avg_vol
+            # This replicates the same indicator Avellaneda uses if volatility_buffer_samples = 30
+            volatility_indicator = strategy.avg_vol
 
-        for sample in samples:
-            volatility_indicator.add_sample(sample)
+            for sample in samples:
+                volatility_indicator.add_sample(sample)
+
+            self.volatility_indicator_low_vol = volatility_indicator
 
         # Note: Current Value of volatility is ~0.5%
-        strategy.avg_vol = volatility_indicator
+        strategy.avg_vol = self.volatility_indicator_low_vol
 
         # Simulates change in mid price to reflect last sample added
         strategy.market_info.market.set_balanced_order_book(trading_pair=strategy.trading_pair,
@@ -148,23 +156,25 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
                                                             price_step_size=1,
                                                             volume_step_size=10)
 
-    @staticmethod
-    def simulate_high_volatility(strategy: AvellanedaMarketMakingStrategy):
-        N_SAMPLES = 1000
-        INITIAL_RANDOM_SEED = 3141592653
-        original_price = 100
-        volatility = AvellanedaMarketMakingUnitTests.high_vol / Decimal("100")  # Assuming 10% volatility
-        np.random.seed(INITIAL_RANDOM_SEED)     # Using this hardcoded random seed we guarantee random samples generated are always the same
-        samples = np.random.normal(original_price, volatility * original_price, N_SAMPLES)
+    def simulate_high_volatility(self, strategy: AvellanedaMarketMakingStrategy):
+        if self.volatility_indicator_high_vol is None:
+            N_SAMPLES = 1000
+            INITIAL_RANDOM_SEED = 3141592653
+            original_price = 100
+            volatility = AvellanedaMarketMakingUnitTests.high_vol / Decimal("100")  # Assuming 10% volatility
+            np.random.seed(INITIAL_RANDOM_SEED)     # Using this hardcoded random seed we guarantee random samples generated are always the same
+            samples = np.random.normal(original_price, volatility * original_price, N_SAMPLES)
 
-        # This replicates the same indicator Avellaneda uses if volatility_buffer_samples = 30
-        volatility_indicator = strategy.avg_vol
+            # This replicates the same indicator Avellaneda uses if volatility_buffer_samples = 30
+            volatility_indicator = strategy.avg_vol
 
-        for sample in samples:
-            volatility_indicator.add_sample(sample)
+            for sample in samples:
+                volatility_indicator.add_sample(sample)
+
+            self.volatility_indicator_high_vol = volatility_indicator
 
         # Note: Current Value of volatility is ~5%
-        strategy.avg_vol = volatility_indicator
+        strategy.avg_vol = self.volatility_indicator_high_vol
 
         # Simulates change in mid price to reflect last sample added
         strategy.market_info.market.set_balanced_order_book(trading_pair=strategy.trading_pair,
@@ -174,59 +184,65 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
                                                             price_step_size=1,
                                                             volume_step_size=10)
 
-    @staticmethod
-    def simulate_low_liquidity(strategy: AvellanedaMarketMakingStrategy, volatility):
-        N_SAMPLES = 1000
-        INITIAL_RANDOM_SEED = 3141592653
-        original_price_mid = 100
-        original_spread = AvellanedaMarketMakingUnitTests.low_liq_spread
-        volatility = volatility / Decimal("100")
-        original_amount = AvellanedaMarketMakingUnitTests.low_liq_amount
+    def simulate_low_liquidity(self, strategy: AvellanedaMarketMakingStrategy):
+        if self.trading_intensity_indicator_low_liq is None:
+            N_SAMPLES = 1000
+            INITIAL_RANDOM_SEED = 3141592653
+            volatility = self.high_vol
+            original_price_mid = 100
+            original_spread = AvellanedaMarketMakingUnitTests.low_liq_spread
+            volatility = volatility / Decimal("100")
+            original_amount = AvellanedaMarketMakingUnitTests.low_liq_amount
 
-        spread_stdev = original_spread * Decimal("0.01")
-        amount_stdev = original_amount * Decimal("0.01")
+            spread_stdev = original_spread * Decimal("0.01")
+            amount_stdev = original_amount * Decimal("0.01")
 
-        np.random.seed(INITIAL_RANDOM_SEED)     # Using this hardcoded random seed we guarantee random samples generated are always the same
+            np.random.seed(INITIAL_RANDOM_SEED)     # Using this hardcoded random seed we guarantee random samples generated are always the same
 
-        # Generate orderbooks for all ticks
-        bids_df, asks_df = AvellanedaMarketMakingUnitTests.make_order_books(original_price_mid, original_spread, original_amount, volatility, spread_stdev, amount_stdev, N_SAMPLES)
+            # Generate orderbooks for all ticks
+            bids_df, asks_df = AvellanedaMarketMakingUnitTests.make_order_books(original_price_mid, original_spread, original_amount, volatility, spread_stdev, amount_stdev, N_SAMPLES)
 
-        # This replicates the same indicator Avellaneda uses for trading intensity estimation
-        trading_intensity_indicator = strategy.trading_intensity
+            # This replicates the same indicator Avellaneda uses for trading intensity estimation
+            trading_intensity_indicator = strategy.trading_intensity
 
-        for bid_df, ask_df in zip(bids_df, asks_df):
-            snapshot = (bid_df, ask_df)
-            trading_intensity_indicator.add_sample(snapshot)
+            for bid_df, ask_df in zip(bids_df, asks_df):
+                snapshot = (bid_df, ask_df)
+                trading_intensity_indicator.add_sample(snapshot)
 
-        # Update the trading intensity indicator
-        strategy.trading_intensity = trading_intensity_indicator
-
-    @staticmethod
-    def simulate_high_liquidity(strategy: AvellanedaMarketMakingStrategy, volatility):
-        N_SAMPLES = 1000
-        INITIAL_RANDOM_SEED = 3141592653
-        original_price_mid = 100
-        original_spread = AvellanedaMarketMakingUnitTests.high_liq_spread
-        volatility = volatility / Decimal("100")
-        original_amount = AvellanedaMarketMakingUnitTests.high_liq_amount
-
-        spread_stdev = original_spread * Decimal("0.01")
-        amount_stdev = original_amount * Decimal("0.01")
-
-        np.random.seed(INITIAL_RANDOM_SEED)     # Using this hardcoded random seed we guarantee random samples generated are always the same
-
-        # Generate orderbooks for all ticks
-        bids_df, asks_df = AvellanedaMarketMakingUnitTests.make_order_books(original_price_mid, original_spread, original_amount, volatility, spread_stdev, amount_stdev, N_SAMPLES)
-
-        # This replicates the same indicator Avellaneda uses for trading intensity estimation
-        trading_intensity_indicator = strategy.trading_intensity
-
-        for bid_df, ask_df in zip(bids_df, asks_df):
-            snapshot = (bid_df, ask_df)
-            trading_intensity_indicator.add_sample(snapshot)
+            self.trading_intensity_indicator_low_liq = trading_intensity_indicator
 
         # Update the trading intensity indicator
-        strategy.trading_intensity = trading_intensity_indicator
+        strategy.trading_intensity = self.trading_intensity_indicator_low_liq
+
+    def simulate_high_liquidity(self, strategy: AvellanedaMarketMakingStrategy):
+        if self.trading_intensity_indicator_high_liq is None:
+            N_SAMPLES = 1000
+            INITIAL_RANDOM_SEED = 3141592653
+            volatility = self.low_vol
+            original_price_mid = 100
+            original_spread = AvellanedaMarketMakingUnitTests.high_liq_spread
+            volatility = volatility / Decimal("100")
+            original_amount = AvellanedaMarketMakingUnitTests.high_liq_amount
+
+            spread_stdev = original_spread * Decimal("0.01")
+            amount_stdev = original_amount * Decimal("0.01")
+
+            np.random.seed(INITIAL_RANDOM_SEED)     # Using this hardcoded random seed we guarantee random samples generated are always the same
+
+            # Generate orderbooks for all ticks
+            bids_df, asks_df = AvellanedaMarketMakingUnitTests.make_order_books(original_price_mid, original_spread, original_amount, volatility, spread_stdev, amount_stdev, N_SAMPLES)
+
+            # This replicates the same indicator Avellaneda uses for trading intensity estimation
+            trading_intensity_indicator = strategy.trading_intensity
+
+            for bid_df, ask_df in zip(bids_df, asks_df):
+                snapshot = (bid_df, ask_df)
+                trading_intensity_indicator.add_sample(snapshot)
+
+            self.trading_intensity_indicator_high_liq = trading_intensity_indicator
+
+        # Update the trading intensity indicator
+        strategy.trading_intensity = self.trading_intensity_indicator_high_liq
 
     @staticmethod
     def make_order_books(original_price_mid, original_spread, original_amount, volatility, spread_stdev, amount_stdev, samples):
@@ -555,7 +571,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.assertFalse(self.strategy.is_algorithm_ready())
 
         self.simulate_high_volatility(self.strategy)
-        self.simulate_low_liquidity(self.strategy, self.high_vol)
+        self.simulate_low_liquidity(self.strategy)
 
         self.assertTrue(self.strategy.is_algorithm_ready())
 
@@ -592,7 +608,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
     def test_liquidity_estimation(self):
 
         # Simulate high liquidity
-        self.simulate_high_liquidity(self.strategy, self.low_vol)
+        self.simulate_high_liquidity(self.strategy)
 
         alpha, kappa = self.strategy.trading_intensity.current_value
 
@@ -600,7 +616,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.assertAlmostEqual(0.03153874736059721, kappa, 5)
 
         # Simulate high liquidity
-        self.simulate_low_liquidity(self.strategy, self.high_vol)
+        self.simulate_low_liquidity(self.strategy)
 
         alpha, kappa = self.strategy.trading_intensity.current_value
 
@@ -617,7 +633,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.simulate_low_volatility(self.strategy)
 
         # Simulate high liquidity
-        self.simulate_high_liquidity(self.strategy, self.low_vol)
+        self.simulate_high_liquidity(self.strategy)
 
         # Execute measurements and calculations
         self.strategy.measure_order_book_liquidity()
@@ -638,7 +654,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.simulate_low_volatility(self.strategy)
 
         # Simulate high liquidity
-        self.simulate_high_liquidity(self.strategy, self.low_vol)
+        self.simulate_high_liquidity(self.strategy)
 
         # Execute measurements and calculations
         self.strategy.measure_order_book_liquidity()
@@ -697,7 +713,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.simulate_low_volatility(self.strategy)
 
         # Simulate high liquidity
-        self.simulate_high_liquidity(self.strategy, self.low_vol)
+        self.simulate_high_liquidity(self.strategy)
 
         # Execute measurements and calculations
         self.strategy.measure_order_book_liquidity()
@@ -719,7 +735,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.simulate_high_volatility(self.strategy)
 
         # Simulate high liquidity
-        self.simulate_low_liquidity(self.strategy, self.high_vol)
+        self.simulate_low_liquidity(self.strategy)
 
         # Execute measurements and calculations
         self.strategy.measure_order_book_liquidity()
@@ -741,7 +757,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.simulate_low_volatility(self.strategy)
 
         # Simulate high liquidity
-        self.simulate_high_liquidity(self.strategy, self.low_vol)
+        self.simulate_high_liquidity(self.strategy)
 
         # Prepare market variables and parameters for calculation
         self.strategy.measure_order_book_liquidity()
@@ -778,7 +794,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.simulate_low_volatility(self.strategy)
 
         # Simulate high liquidity
-        self.simulate_high_liquidity(self.strategy, self.low_vol)
+        self.simulate_high_liquidity(self.strategy)
 
         # Prepare market variables and parameters for calculation
         self.strategy.measure_order_book_liquidity()
@@ -802,7 +818,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.simulate_low_volatility(self.strategy)
 
         # Simulate high liquidity
-        self.simulate_high_liquidity(self.strategy, self.low_vol)
+        self.simulate_high_liquidity(self.strategy)
 
         # Prepare market variables and parameters for calculation
         self.strategy.measure_order_book_liquidity()
@@ -895,7 +911,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.simulate_low_volatility(self.strategy)
 
         # Simulate high liquidity
-        self.simulate_high_liquidity(self.strategy, self.low_vol)
+        self.simulate_high_liquidity(self.strategy)
 
         # Prepare market variables and parameters for calculation
         self.strategy.measure_order_book_liquidity()
@@ -923,7 +939,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.simulate_low_volatility(self.strategy)
 
         # Simulate high liquidity
-        self.simulate_high_liquidity(self.strategy, self.low_vol)
+        self.simulate_high_liquidity(self.strategy)
 
         # Prepare market variables and parameters for calculation
         self.strategy.measure_order_book_liquidity()
@@ -952,7 +968,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.simulate_low_volatility(self.strategy)
 
         # Simulate high liquidity
-        self.simulate_high_liquidity(self.strategy, self.low_vol)
+        self.simulate_high_liquidity(self.strategy)
 
         # Prepare market variables and parameters for calculation
         self.strategy.measure_order_book_liquidity()
@@ -1005,7 +1021,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.simulate_low_volatility(self.strategy)
 
         # Simulate high liquidity
-        self.simulate_high_liquidity(self.strategy, self.low_vol)
+        self.simulate_high_liquidity(self.strategy)
 
         # Prepare market variables and parameters for calculation
         self.strategy.measure_order_book_liquidity()
@@ -1063,7 +1079,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.simulate_low_volatility(self.strategy)
 
         # Simulate high liquidity
-        self.simulate_high_liquidity(self.strategy, self.low_vol)
+        self.simulate_high_liquidity(self.strategy)
 
         # Prepare market variables and parameters for calculation
         self.strategy.measure_order_book_liquidity()
@@ -1291,7 +1307,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.simulate_low_volatility(self.strategy)
 
         # Simulate high liquidity
-        self.simulate_high_liquidity(self.strategy, self.low_vol)
+        self.simulate_high_liquidity(self.strategy)
 
         # Prepare market variables and parameters for calculation
         self.strategy.measure_order_book_liquidity()
@@ -1357,7 +1373,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.simulate_low_volatility(self.strategy)
 
         # Simulate high liquidity
-        self.simulate_high_liquidity(self.strategy, self.low_vol)
+        self.simulate_high_liquidity(self.strategy)
 
         # Prepare market variables and parameters for calculation
         self.strategy.measure_order_book_liquidity()
@@ -1407,7 +1423,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.simulate_low_volatility(self.strategy)
 
         # Simulate high liquidity
-        self.simulate_high_liquidity(self.strategy, self.low_vol)
+        self.simulate_high_liquidity(self.strategy)
 
         # Prepare market variables and parameters for calculation
         self.strategy.measure_order_book_liquidity()
