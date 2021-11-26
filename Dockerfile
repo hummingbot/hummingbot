@@ -103,8 +103,11 @@ COPY --chown=hummingbot:hummingbot scripts/ scripts/
 
 # Install packages required in runtime
 RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y sudo libusb-1.0 && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y sudo libusb-1.0 curl tmux && \
     rm -rf /var/lib/apt/lists/*
+
+RUN curl -L https://github.com/tsl0922/ttyd/releases/download/1.6.3/ttyd.x86_64 -o /usr/local/bin/ttyd && chmod a+x /usr/local/bin/ttyd
+EXPOSE 7681
 
 # Switch to hummingbot user
 USER hummingbot:hummingbot
