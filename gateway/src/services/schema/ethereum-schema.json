@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "networks": {
+      "type": "object",
+      "patternProperties": {
+        "^\\w+$": {
+          "type": "object",
+          "properties": {
+            "chainID": { "type": "integer" },
+            "nodeURL": { "type": "string" },
+            "tokenListType": { "type": "string" },
+            "tokenListSource": { "type": "string" }
+          },
+          "required": ["chainID", "infuraNodeURL", "tokenListType", "tokenListSource"],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "nodeAPIKey": { "type": "string" },
+    "nativeCurrencySymbol": { "type": "string" },
+    "network": { "type": "string" }
+  },
+  "additionalProperties": false
+}
