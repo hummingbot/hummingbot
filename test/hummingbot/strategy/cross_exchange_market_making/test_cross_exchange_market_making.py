@@ -678,8 +678,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             self.taker_trading_pairs[0], active_ask.quantity
         )
 
-        self.taker_market.set_balance("COINALPHA", Decimal(str(active_bid.quantity - bids_quantum)))
-        self.taker_market.set_balance("ETH", Decimal(str(active_ask.quantity - asks_quantum)))
+        self.taker_market.set_balance("COINALPHA", Decimal("4") - bids_quantum)
+        self.taker_market.set_balance("ETH", Decimal("3") - asks_quantum * 1)
 
         self.clock.backtest_til(self.start_timestamp + 3)
         active_bids = strategy_with_slippage_buffer.active_bids
@@ -687,6 +687,20 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
 
         self.assertEqual(0, len(active_bids))  # cancelled
         self.assertEqual(0, len(active_asks))  # cancelled
+
+        self.clock.backtest_til(self.start_timestamp + 4)
+
+        new_active_bids = strategy_with_slippage_buffer.active_bids
+        new_active_asks = strategy_with_slippage_buffer.active_asks
+
+        self.assertEqual(1, len(new_active_bids))
+        self.assertEqual(1, len(new_active_asks))
+
+        new_active_bid = new_active_bids[0][1]
+        new_active_ask = new_active_asks[0][1]
+
+        self.assertEqual(Decimal(str(active_bid.quantity - bids_quantum)), new_active_bid.quantity)
+        self.assertEqual(Decimal(str(active_ask.quantity - asks_quantum)), new_active_ask.quantity)
 
     def test_empty_maker_orderbook(self):
         self.clock.remove_iterator(self.strategy)
