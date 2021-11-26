@@ -5,56 +5,53 @@ import {
   InitializationError,
   SERVICE_UNITIALIZED_ERROR_CODE,
   SERVICE_UNITIALIZED_ERROR_MESSAGE,
-  UNKNOWN_ERROR_ERROR_CODE,
 } from './error-handler';
 
 export class EVMNonceManager {
-  private static _instance: EVMNonceManager;
   private _addressToNonce: Record<string, [number, Date]> = {};
-  private _delay: number | null = null;
+
   private _initialized: boolean = false;
-  private _chainId: number = 0;
+  private _chainId: number;
+  private _chainName: string;
+  private _delay: number;
 
   // this should be private but then we cannot mock it
   public _provider: ethers.providers.Provider | null = null;
 
-  public static getInstance(): EVMNonceManager {
-    if (!EVMNonceManager._instance) {
-      EVMNonceManager._instance = new EVMNonceManager();
-    }
-
-    return EVMNonceManager._instance;
+  constructor(chainName: string, chainId: number, delay: number) {
+    this._chainName = chainName;
+    this._chainId = chainId;
+    this._delay = delay;
   }
 
   // init can be called many times and generally should always be called
   // getInstance, but it only applies the values the first time it is called
-  public async init(
-    provider: ethers.providers.Provider,
-    delay: number,
-    chainId: number
-  ): Promise<void> {
+  public async init(provider: ethers.providers.Provider): Promise<void> {
     logger.info('initialize nonce');
-    if (!this._provider || !this._delay) {
+    if (!this._provider) {
       this._provider = provider;
-      this._delay = delay;
     }
 
     if (!this._initialized) {
-      const addressToNonce = await dbGetChainNonces('eth', chainId);
+      const addressToNonce = await dbGetChainNonces(
+        this._chainName,
+        this._chainId
+      );
       logger.info('eth stored nonces');
 
       for (const [key, value] of Object.entries(addressToNonce)) {
         logger.info(key + ':' + String(value));
         this._addressToNonce[key] = [value, new Date()];
       }
-      this._chainId = chainId;
       this._initialized = true;
     }
 
-    if (delay < 0) {
+    if (this._delay < 0) {
       throw new InitializationError(
-        'EVMNonceManager.init delay must be greater than or equal to zero.',
-        UNKNOWN_ERROR_ERROR_CODE
+        SERVICE_UNITIALIZED_ERROR_MESSAGE(
+          'EVMNonceManager.init delay must be greater than or equal to zero.'
+        ),
+        SERVICE_UNITIALIZED_ERROR_CODE
       );
     }
   }
@@ -74,7 +71,7 @@ export class EVMNonceManager {
 
       const newNonce = Math.max(internalNonce, externalNonce);
       this._addressToNonce[ethAddress] = [newNonce, new Date()];
-      await dbSaveNonce('eth', this._chainId, ethAddress, newNonce);
+      await dbSaveNonce(this._chainName, this._chainId, ethAddress, newNonce);
     } else {
       logger.error(
         'EVMNonceManager.mergeNonceFromEVMNode called before initiated'
@@ -105,7 +102,7 @@ export class EVMNonceManager {
           ethAddress
         );
         this._addressToNonce[ethAddress] = [nonce, new Date()];
-        await dbSaveNonce('eth', this._chainId, ethAddress, nonce);
+        await dbSaveNonce(this._chainName, this._chainId, ethAddress, nonce);
         return nonce;
       }
     } else {
@@ -129,7 +126,7 @@ export class EVMNonceManager {
         newNonce = (await this.getNonce(ethAddress)) + 1;
       }
       this._addressToNonce[ethAddress] = [newNonce, new Date()];
-      await dbSaveNonce('eth', this._chainId, ethAddress, newNonce);
+      await dbSaveNonce(this._chainName, this._chainId, ethAddress, newNonce);
     } else {
       logger.error('EVMNonceManager.commitNonce called before initiated');
       throw new InitializationError(
