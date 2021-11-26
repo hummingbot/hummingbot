@@ -41,8 +41,8 @@ const patchGetERC20Balance = () => {
   patch(eth, 'getERC20Balance', () => ({ value: 1, decimals: 3 }));
 };
 
-const patchGetEthBalance = () => {
-  patch(eth, 'getEthBalance', () => ({ value: 1, decimals: 3 }));
+const patchGetNativeBalance = () => {
+  patch(eth, 'getNativeBalance', () => ({ value: 1, decimals: 3 }));
 };
 
 const patchGetTokenBySymbol = () => {
@@ -112,10 +112,10 @@ describe('GET /eth', () => {
 });
 
 describe('POST /eth/balances', () => {
-  it('should return 200', async () => {
+  it('should return 200 asking for supported tokens', async () => {
     patchGetWallet();
     patchGetTokenBySymbol();
-    patchGetEthBalance();
+    patchGetNativeBalance();
     patchGetERC20Balance();
     eth.getContract = jest.fn().mockReturnValue({
       address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
@@ -126,15 +126,59 @@ describe('POST /eth/balances', () => {
       .send({
         privateKey:
           'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
-        tokenSymbols: ['ETH', 'WETH', 'DAI'],
+        tokenSymbols: ['WETH', 'DAI'],
+      })
+      .set('Accept', 'application/json')
+      .expect('Content-Type', /json/)
+      .expect(200)
+      .expect((res) => expect(res.body.balances.WETH).toBeDefined())
+      .expect((res) => expect(res.body.balances.DAI).toBeDefined());
+  });
+
+  it('should return 200 asking for native token', async () => {
+    patchGetWallet();
+    patchGetTokenBySymbol();
+    patchGetNativeBalance();
+    patchGetERC20Balance();
+    eth.getContract = jest.fn().mockReturnValue({
+      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+    });
+
+    await request(app)
+      .post(`/eth/balances`)
+      .send({
+        privateKey:
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        tokenSymbols: ['ETH'],
       })
       .set('Accept', 'application/json')
       .expect('Content-Type', /json/)
       .expect(200)
       .expect((res) => expect(res.body.balances.ETH).toBeDefined())
-      .expect((res) => expect(res.body.balances.WETH).toBeDefined())
-      .expect((res) => expect(res.body.balances.DAI).toBeDefined());
+      .expect((res) => console.log(res.body));
   });
+
+  it('should return 500 for unsupported tokens', async () => {
+    patchGetWallet();
+    patchGetTokenBySymbol();
+    patchGetNativeBalance();
+    patchGetERC20Balance();
+    eth.getContract = jest.fn().mockReturnValue({
+      address: '0xFaA12FD102FE8623C9299c72B03E45107F2772B5',
+    });
+
+    await request(app)
+      .post(`/eth/balances`)
+      .send({
+        privateKey:
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        tokenSymbols: ['XXX', 'YYY'],
+      })
+      .set('Accept', 'application/json')
+      .expect('Content-Type', /json/)
+      .expect(500);
+  });
+
   it('should return 404 when parameters are invalid', async () => {
     await request(app)
       .post(`/eth/balances`)
