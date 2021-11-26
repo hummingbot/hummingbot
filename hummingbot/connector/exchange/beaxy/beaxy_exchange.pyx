@@ -809,7 +809,9 @@ cdef class BeaxyExchange(ExchangeBase):
 
         for rule in market_dict:
             try:
-                trading_pair = rule.get('symbol')
+                trading_pair = split_trading_pair(rule.get('symbol'))
+                if trading_pair is None:
+                    raise ValueError
                 # Parsing from string doesn't mess up the precision
                 retval.append(TradingRule(trading_pair,
                                           min_price_increment=Decimal(str(rule.get('tickSize'))),

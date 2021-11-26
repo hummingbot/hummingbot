@@ -55,7 +55,11 @@ class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def fetch_trading_pairs() -> List[str]:
         try:
             symbols: List[Dict[str, Any]] = await api_call_with_retries("GET", Constants.ENDPOINT["SYMBOL"])
-            trading_pairs: List[str] = list([convert_from_exchange_trading_pair(sym["id"]) for sym in symbols])
+            trading_pairs = []
+            for sym in symbols:
+                trading_pair = convert_from_exchange_trading_pair(sym["id"])
+                if trading_pair is not None:
+                    trading_pairs.append(trading_pair)
             # Filter out unmatched pairs so nothing breaks
             return [sym for sym in trading_pairs if sym is not None]
         except Exception:

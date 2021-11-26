@@ -290,6 +290,8 @@ class HitbtcExchange(ExchangeBase):
         for rule in symbols_info:
             try:
                 trading_pair = convert_from_exchange_trading_pair(rule["id"])
+                if trading_pair is None:
+                    raise ValueError
                 price_step = Decimal(str(rule["tickSize"]))
                 size_step = Decimal(str(rule["quantityIncrement"]))
                 result[trading_pair] = TradingRule(trading_pair,
