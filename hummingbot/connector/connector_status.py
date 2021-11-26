@@ -19,7 +19,6 @@ connector_status = {
     'coinzoom': 'yellow',
     'crypto_com': 'green',
     'digifinex': "yellow",
-    'dydx': 'green',
     'dydx_perpetual': 'yellow',
     'ethereum': 'red',
     'ftx': 'green',
@@ -39,7 +38,8 @@ connector_status = {
     'probit_kr': 'yellow',
     'terra': 'green',
     'uniswap': 'yellow',
-    'uniswap_v3': 'yellow'
+    'uniswap_v3': 'yellow',
+    'wazirx': 'yellow'
 }
 
 warning_messages = {
