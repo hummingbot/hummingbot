@@ -18,7 +18,7 @@ afterEach(() => {
 describe('unitiated EVMNodeService', () => {
   let nonceManager: EVMNonceManager;
   beforeAll(() => {
-    nonceManager = EVMNonceManager.getInstance();
+    nonceManager = new EVMNonceManager('ethereum', 43, 0);
   });
 
   it('mergeNonceFromEVMNode throws error', async () => {
@@ -60,16 +60,33 @@ describe('unitiated EVMNodeService', () => {
       )
     );
   });
+
+  it('delay value too low', async () => {
+    const provider = new providers.StaticJsonRpcProvider(
+      'https://ethereum.node.com'
+    );
+
+    const nonceManager2 = new EVMNonceManager('ethereum', 43, -5);
+
+    await expect(nonceManager2.init(provider)).rejects.toThrow(
+      new InitializationError(
+        SERVICE_UNITIALIZED_ERROR_MESSAGE(
+          'EVMNonceManager.init delay must be greater than or equal to zero.'
+        ),
+        SERVICE_UNITIALIZED_ERROR_CODE
+      )
+    );
+  });
 });
 
 describe('EVMNodeService', () => {
   let nonceManager: EVMNonceManager;
   beforeAll(async () => {
-    nonceManager = EVMNonceManager.getInstance();
+    nonceManager = new EVMNonceManager('ethereum', 43, 0);
     const provider = new providers.StaticJsonRpcProvider(
       'https://ethereum.node.com'
     );
-    await nonceManager.init(provider, 0, 43);
+    await nonceManager.init(provider);
   });
 
   const patchGetTransactionCount = () => {
@@ -102,5 +119,44 @@ describe('EVMNodeService', () => {
     await nonceManager.mergeNonceFromEVMNode(exampleAddress);
     const nonce = await nonceManager.getNonce(exampleAddress);
     await expect(nonce).toEqual(21);
+  });
+});
+
+describe("EVMNodeService was previously a singleton. Let's prove that it no longer is.", () => {
+  let nonceManager1: EVMNonceManager;
+  let nonceManager2: EVMNonceManager;
+  beforeAll(async () => {
+    nonceManager1 = new EVMNonceManager('ethereum', 43, 0);
+    const provider1 = new providers.StaticJsonRpcProvider(
+      'https://ethereum.node.com'
+    );
+    await nonceManager1.init(provider1);
+
+    nonceManager2 = new EVMNonceManager('avalanche', 56, 0);
+    const provider2 = new providers.StaticJsonRpcProvider(
+      'https://avalanche.node.com'
+    );
+    await nonceManager2.init(provider2);
+  });
+
+  it('commitNonce with a provided txNonce should increase the nonce by 1', async () => {
+    if (nonceManager1._provider) {
+      patch(nonceManager1._provider, 'getTransactionCount', () => 1);
+    }
+    if (nonceManager2._provider) {
+      patch(nonceManager2._provider, 'getTransactionCount', () => 13);
+    }
+
+    await nonceManager1.commitNonce(exampleAddress, 10);
+    const nonce1 = await nonceManager1.getNonce(exampleAddress);
+    await expect(nonce1).toEqual(11);
+
+    await nonceManager2.commitNonce(exampleAddress, 23);
+    const nonce2 = await nonceManager2.getNonce(exampleAddress);
+    await expect(nonce2).toEqual(24);
+
+    await nonceManager1.commitNonce(exampleAddress, 11);
+    const nonce3 = await nonceManager1.getNonce(exampleAddress);
+    await expect(nonce3).toEqual(12);
   });
 });
