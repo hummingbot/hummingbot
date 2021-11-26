@@ -58,9 +58,9 @@ export namespace AvalancheRoutes {
     asyncHandler(async (_req: Request, res: Response) => {
       let rpcUrl;
       if (ConfigManager.config.AVALANCHE_CHAIN === 'avalanche') {
-        rpcUrl = AvalancheConfig.config.avalanche.rpcUrl;
+        rpcUrl = AvalancheConfig.config.avalanche.nodeURL;
       } else {
-        rpcUrl = AvalancheConfig.config.fuji.rpcUrl;
+        rpcUrl = AvalancheConfig.config.fuji.nodeURL;
       }
 
       res.status(200).json({

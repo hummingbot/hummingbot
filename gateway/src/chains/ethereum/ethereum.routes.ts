@@ -50,9 +50,9 @@ export namespace EthereumRoutes {
     asyncHandler(async (_req: Request, res: Response) => {
       let rpcUrl;
       if (ConfigManager.config.ETHEREUM_CHAIN === 'mainnet') {
-        rpcUrl = EthereumConfig.config.mainnet.rpcUrl;
+        rpcUrl = EthereumConfig.config.mainnet.nodeURL;
       } else {
-        rpcUrl = EthereumConfig.config.kovan.rpcUrl;
+        rpcUrl = EthereumConfig.config.kovan.nodeURL;
       }
 
       res.status(200).json({

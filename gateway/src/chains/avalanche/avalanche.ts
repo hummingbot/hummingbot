@@ -27,8 +27,8 @@ export class Avalanche extends EthereumBase implements Ethereumish {
     }
 
     super(
-      config.chainId,
-      config.rpcUrl,
+      config.chainID,
+      config.nodeURL,
       config.tokenListSource,
       config.tokenListType,
       ConfigManager.config.AVAX_MANUAL_GAS_PRICE

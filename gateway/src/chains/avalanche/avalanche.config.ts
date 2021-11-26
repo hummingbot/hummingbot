@@ -1,3 +1,4 @@
+import { ConfigManagerV2 } from '../../services/config-manager-v2';
 import { NetworkConfig } from '../ethereum/ethereum.config';
 
 export interface AVConfig {
@@ -5,17 +6,39 @@ export interface AVConfig {
   avalanche: NetworkConfig;
 }
 
-export namespace AvalancheConfig {
-  export const config: AVConfig = {
+ConfigManagerV2.setDefaults('avalanche', {
+  networks: {
     fuji: {
-      chainId: 43113,
-      rpcUrl: 'https://api.avax-test.network/ext/bc/C/rpc',
+      chainID: 43113,
+      nodeURL: 'https://api.avax-test.network/ext/bc/C/rpc',
       tokenListType: 'FILE',
       tokenListSource: 'src/chains/avalanche/avalanche_tokens_fuji.json',
     },
     avalanche: {
-      chainId: 43114,
-      rpcUrl:
+      chainID: 43114,
+      nodeURL:
+        //'https://speedy-nodes-nyc.moralis.io/ac8325b518a591fe9d7f1820/avalanche/mainnet',
+        'https://api.avax.network/ext/bc/C/rpc',
+      tokenListType: 'URL',
+      tokenListSource:
+        'https://raw.githubusercontent.com/pangolindex/tokenlists/main/top15.tokenlist.json',
+    },
+  },
+  nativeCurrencySymbol: 'AVAX',
+  network: 'avalanche',
+});
+
+export namespace AvalancheConfig {
+  export const config: AVConfig = {
+    fuji: {
+      chainID: 43113,
+      nodeURL: 'https://api.avax-test.network/ext/bc/C/rpc',
+      tokenListType: 'FILE',
+      tokenListSource: 'src/chains/avalanche/avalanche_tokens_fuji.json',
+    },
+    avalanche: {
+      chainID: 43114,
+      nodeURL:
         //'https://speedy-nodes-nyc.moralis.io/ac8325b518a591fe9d7f1820/avalanche/mainnet',
         'https://api.avax.network/ext/bc/C/rpc',
       tokenListType: 'URL',
