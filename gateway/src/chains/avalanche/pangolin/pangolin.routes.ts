@@ -1,39 +1,26 @@
-/* eslint-disable @typescript-eslint/ban-types */
 import { Router, Request, Response, NextFunction } from 'express';
-import { Avalanche } from '../avalanche';
-import { Pangolin } from './pangolin';
 import { ConfigManager } from '../../../services/config-manager';
-import {
-  HttpException,
-  asyncHandler,
-  LOAD_WALLET_ERROR_CODE,
-  LOAD_WALLET_ERROR_MESSAGE,
-  TOKEN_NOT_SUPPORTED_ERROR_CODE,
-  TOKEN_NOT_SUPPORTED_ERROR_MESSAGE,
-  SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_CODE,
-  SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE,
-  SWAP_PRICE_LOWER_THAN_LIMIT_PRICE_ERROR_CODE,
-  SWAP_PRICE_LOWER_THAN_LIMIT_PRICE_ERROR_MESSAGE,
-} from '../../../services/error-handler';
-import { BigNumber, Wallet } from 'ethers';
-import { latency, gasCostInEthString } from '../../../services/base';
+import { asyncHandler } from '../../../services/error-handler';
+import { price, trade } from '../../ethereum/uniswap/uniswap.controllers';
+
 import {
   UniswapPriceRequest,
-  UniswapTradeErrorResponse,
+  UniswapPriceResponse,
   UniswapTradeRequest,
   UniswapTradeResponse,
+  UniswapTradeErrorResponse,
 } from '../../ethereum/uniswap/uniswap.requests';
-import { getAmountInBigNumber, getTrade } from './pangolin.controllers';
-import { PangolinPriceResponse } from './pangolin.requests';
 import {
   validateUniswapPriceRequest,
   validateUniswapTradeRequest,
 } from '../../ethereum/uniswap/uniswap.validators';
+import { Avalanche } from '../avalanche';
+import { Pangolin } from './pangolin';
 
 export namespace PangolinRoutes {
   export const router = Router();
-  export const pangolin = Pangolin.getInstance();
   export const avalanche = Avalanche.getInstance();
+  export const pangolin = Pangolin.getInstance();
 
   router.use(
     asyncHandler(async (_req: Request, _res: Response, next: NextFunction) => {
@@ -50,7 +37,7 @@ export namespace PangolinRoutes {
   router.get('/', async (_req: Request, res: Response) => {
     res.status(200).json({
       network: ConfigManager.config.AVALANCHE_CHAIN,
-      pangolin_router: pangolin.pangolinRouter,
+      uniswap_router: pangolin.router,
       connection: true,
       timestamp: Date.now(),
     });
@@ -60,65 +47,11 @@ export namespace PangolinRoutes {
     '/price',
     asyncHandler(
       async (
-        req: Request<{}, {}, UniswapPriceRequest>,
-        res: Response<PangolinPriceResponse, {}>
+        req: Request<unknown, unknown, UniswapPriceRequest>,
+        res: Response<UniswapPriceResponse, any>
       ) => {
         validateUniswapPriceRequest(req.body);
-        const initTime = Date.now();
-        let amount: BigNumber;
-        try {
-          amount = getAmountInBigNumber(
-            avalanche,
-            req.body.amount,
-            req.body.side,
-            req.body.quote,
-            req.body.base
-          );
-        } catch (error: any) {
-          throw new HttpException(500, error.message);
-        }
-
-        const baseToken = avalanche.getTokenBySymbol(req.body.base);
-        const quoteToken = avalanche.getTokenBySymbol(req.body.quote);
-
-        if (!baseToken || !quoteToken)
-          throw new HttpException(
-            500,
-            TOKEN_NOT_SUPPORTED_ERROR_MESSAGE + baseToken
-              ? req.body.quote
-              : req.body.base,
-            TOKEN_NOT_SUPPORTED_ERROR_CODE
-          );
-        let trade;
-        try {
-          trade = await getTrade(
-            pangolin,
-            req.body.side,
-            quoteToken.address,
-            baseToken.address,
-            amount
-          );
-        } catch (error: any) {
-          throw new HttpException(500, error.message);
-        }
-
-        res.status(200).json({
-          network: ConfigManager.config.AVALANCHE_CHAIN,
-          timestamp: initTime,
-          latency: latency(initTime, Date.now()),
-          base: baseToken.address,
-          quote: quoteToken.address,
-          amount: amount.toString(),
-          expectedAmount: trade.expectedAmount.toSignificant(8),
-          price: trade.tradePrice.toSignificant(8),
-          gasPrice: avalanche.gasPrice,
-          gasLimit: ConfigManager.config.UNISWAP_GAS_LIMIT,
-          gasCost: gasCostInEthString(
-            avalanche.gasPrice,
-            ConfigManager.config.UNISWAP_GAS_LIMIT
-          ),
-          trade: trade.trade,
-        });
+        res.status(200).json(await price(avalanche, pangolin, req.body));
       }
     )
   );
@@ -127,111 +60,11 @@ export namespace PangolinRoutes {
     '/trade',
     asyncHandler(
       async (
-        req: Request<{}, {}, UniswapTradeRequest>,
-        res: Response<UniswapTradeResponse | UniswapTradeErrorResponse, {}>
+        req: Request<unknown, unknown, UniswapTradeRequest>,
+        res: Response<UniswapTradeResponse | UniswapTradeErrorResponse, any>
       ) => {
         validateUniswapTradeRequest(req.body);
-        const initTime = Date.now();
-        const limitPrice = req.body.limitPrice;
-
-        let wallet: Wallet;
-        try {
-          wallet = avalanche.getWallet(req.body.privateKey);
-        } catch (err) {
-          throw new HttpException(
-            500,
-            LOAD_WALLET_ERROR_MESSAGE + err,
-            LOAD_WALLET_ERROR_CODE
-          );
-        }
-
-        const baseToken = avalanche.getTokenBySymbol(req.body.base);
-        const quoteToken = avalanche.getTokenBySymbol(req.body.quote);
-        if (!baseToken || !quoteToken)
-          throw new HttpException(
-            500,
-            TOKEN_NOT_SUPPORTED_ERROR_MESSAGE + baseToken
-              ? req.body.quote
-              : req.body.base,
-            TOKEN_NOT_SUPPORTED_ERROR_CODE
-          );
-
-        let amount: BigNumber;
-        try {
-          amount = getAmountInBigNumber(
-            avalanche,
-            req.body.amount,
-            req.body.side,
-            req.body.quote,
-            req.body.base
-          );
-        } catch (error: any) {
-          throw new HttpException(500, error.message);
-        }
-
-        let trade;
-        try {
-          trade = await getTrade(
-            pangolin,
-            req.body.side,
-            quoteToken.address,
-            baseToken.address,
-            amount
-          );
-        } catch (error: any) {
-          throw new HttpException(500, error.message);
-        }
-
-        const gasPrice = avalanche.gasPrice;
-        const gasLimit = ConfigManager.config.UNISWAP_GAS_LIMIT;
-        if (
-          limitPrice &&
-          BigNumber.from(trade.tradePrice.toFixed(8)).gte(
-            BigNumber.from(limitPrice)
-          )
-        )
-          throw new HttpException(
-            500,
-            req.body.side === 'BUY'
-              ? SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE(
-                  trade.tradePrice.toFixed(8),
-                  limitPrice
-                )
-              : SWAP_PRICE_LOWER_THAN_LIMIT_PRICE_ERROR_MESSAGE(
-                  trade.tradePrice.toFixed(8),
-                  limitPrice
-                ),
-            req.body.side === 'BUY'
-              ? SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_CODE
-              : SWAP_PRICE_LOWER_THAN_LIMIT_PRICE_ERROR_CODE
-          );
-
-        const tx = await pangolin.executeTrade(
-          wallet,
-          trade.trade,
-          gasPrice,
-          req.body.nonce
-        );
-
-        const response: UniswapTradeResponse = {
-          network: ConfigManager.config.AVALANCHE_CHAIN,
-          timestamp: initTime,
-          latency: latency(initTime, Date.now()),
-          base: baseToken.address,
-          quote: quoteToken.address,
-          amount: amount.toString(),
-          price: trade.tradePrice.toSignificant(8),
-          gasPrice: gasPrice,
-          gasLimit: gasLimit,
-          gasCost: gasCostInEthString(gasPrice, gasLimit),
-          nonce: tx.nonce,
-          txHash: tx.hash,
-        };
-        const expectedKey =
-          req.body.side === 'BUY' ? 'expectedIn' : 'expectedOut';
-
-        response[expectedKey] = trade.expectedAmount.toSignificant(8);
-        return res.status(200).json(response);
+        res.status(200).json(await trade(avalanche, pangolin, req.body));
       }
     )
   );
