@@ -1,6 +1,6 @@
 # $namespace avalanche:
 #   configurationPath: avalanche.yml
-  schemaPath: ethereum-schema.json
+#   schemaPath: ethereum-schema.json
 
 $namespace ethereum:
   configurationPath: ethereum.yml
@@ -30,6 +30,6 @@ $namespace telemetry:
   configurationPath: telemetry.yml
   schemaPath: telemetry-schema.json
   
-$namespace uniswap:
-  configurationPath: uniswap.yml
-  schemaPath: uniswap-schema.json
+# $namespace uniswap:
+#   configurationPath: uniswap.yml
+#   schemaPath: uniswap-schema.json

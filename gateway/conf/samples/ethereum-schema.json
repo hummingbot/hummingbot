@@ -10,15 +10,18 @@
           "properties": {
             "chainID": { "type": "integer" },
             "nodeURL": { "type": "string" },
-            "nodeApiKey": { "type": "string" },
-            "nativeCurrencySymbol": { "type": "string" }
+            "tokenListType": { "type": "string" },
+            "tokenListSource": { "type": "string" }
           },
-          "required": ["chainID", "nodeURL"],
+          "required": ["chainID", "infuraNodeURL", "tokenListType", "tokenListSource"],
           "additionalProperties": false
         }
       },
       "additionalProperties": false
-    }
+    },
+    "nodeAPIKey": { "type": "string" },
+    "nativeCurrencySymbol": { "type": "string" },
+    "network": { "type": "string" }
   },
   "additionalProperties": false
 }

@@ -187,7 +187,9 @@ export class ConfigManagerV2 {
 
   public static getInstance(): ConfigManagerV2 {
     if (!ConfigManagerV2._instance) {
-      ConfigManagerV2._instance = new ConfigManagerV2('./conf/root.yml');
+      ConfigManagerV2._instance = new ConfigManagerV2(
+        './conf/samples/root.yml'
+      );
     }
 
     return ConfigManagerV2._instance;
