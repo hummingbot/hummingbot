@@ -115,6 +115,18 @@ cdef class ExchangeBase(ConnectorBase):
                                           result_price,
                                           result_volume)
 
+    cdef ClientOrderBookQueryResult c_get_price_for_quote_volume(self, str trading_pair, bint is_buy, double volume):
+        cdef:
+            OrderBook order_book = self.c_get_order_book(trading_pair)
+            OrderBookQueryResult result = order_book.c_get_price_for_quote_volume(is_buy, float(volume))
+            object query_volume = self.c_quantize_order_amount(trading_pair, Decimal(result.query_volume))
+            object result_price = self.c_quantize_order_price(trading_pair, Decimal(result.result_price))
+            object result_volume = self.c_quantize_order_amount(trading_pair, Decimal(result.result_volume))
+        return ClientOrderBookQueryResult(s_decimal_NaN,
+                                          query_volume,
+                                          result_price,
+                                          result_volume)
+
     cdef ClientOrderBookQueryResult c_get_price_for_volume(self, str trading_pair, bint is_buy, object volume):
         cdef:
             OrderBook order_book = self.c_get_order_book(trading_pair)
