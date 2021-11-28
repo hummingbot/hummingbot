@@ -3,41 +3,43 @@
 import asyncio
 import logging
 
-from typing import List, Optional
+from typing import Optional
 
 from hummingbot.connector.exchange.huobi.huobi_api_user_stream_data_source import HuobiAPIUserStreamDataSource
 from hummingbot.connector.exchange.huobi.huobi_auth import HuobiAuth
 from hummingbot.core.data_type.user_stream_tracker import UserStreamTracker
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.logger import HummingbotLogger
 
 
 class HuobiUserStreamTracker(UserStreamTracker):
-    _btust_logger: Optional[HummingbotLogger] = None
+    _hust_logger: Optional[HummingbotLogger] = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        if cls._btust_logger is None:
-            cls._btust_logger = logging.getLogger(__name__)
-        return cls._btust_logger
+        if cls._hust_logger is None:
+            cls._hust_logger = logging.getLogger(__name__)
+        return cls._hust_logger
 
     def __init__(
         self,
         huobi_auth: Optional[HuobiAuth] = None,
-        trading_pairs: Optional[List[str]] = [],
+        api_factory: Optional[WebAssistantsFactory] = None,
     ):
         super().__init__()
         self._huobi_auth: HuobiAuth = huobi_auth
-        self._trading_pairs: List[str] = trading_pairs
         self._ev_loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop()
         self._data_source: Optional[UserStreamTrackerDataSource] = None
         self._user_stream_tracking_task: Optional[asyncio.Task] = None
+        self._api_factory = api_factory
 
     @property
     def data_source(self) -> UserStreamTrackerDataSource:
         if not self._data_source:
-            self._data_source = HuobiAPIUserStreamDataSource(huobi_auth=self._huobi_auth)
+            self._data_source = HuobiAPIUserStreamDataSource(huobi_auth=self._huobi_auth,
+                                                             api_factory=self._api_factory)
         return self._data_source
 
     @property
