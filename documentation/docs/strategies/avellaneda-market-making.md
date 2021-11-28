@@ -41,7 +41,6 @@ This strategy implements the market making strategy described in the classic pap
 | `order_refresh_tolerance_pct`| decimal     |  0          | False       | Enter the percent change in price needed to refresh orders at each cycle |
 | `filled_order_delay`         | decimal     |  60         | False       | How long do you want to wait before placing the next order if your order gets filled (in seconds)? |
 | `inventory_target_base_pct`  | decimal     |  50         | True        | What is the inventory target for the base asset? |
-| `vol_to_spread_multiplier`   | decimal     |             | True        | Enter the Volatility threshold multiplier: (If market volatility multiplied by this value is above the minimum spread, it will increase the minimum and maximum spread value)|
 | `add_transaction_costs`      | decimal     |  False      | False       | Do you want to add transaction costs automatically to order prices? (Yes/No) |
 | `volatility_buffer_size`     | decimal     |  1800       | False       | Enter amount of ticks that will be stored to calculate volatility |
 | `trading_intensity_buffer_size` |          |  200        | False       | Enter amount of tikcs that will be stored to estimate order book liquidity? |
@@ -50,7 +49,7 @@ This strategy implements the market making strategy described in the classic pap
 | `order_override`             | json        |             | False       |  |
 | `hanging_orders_enabled`     | bool        |  False      | False       | Do you want to enable hanging orders? (Yes/No) |
 | `hanging_orders_cancel_pct`  | decimal     |  10         | False       | At what spread percentage (from mid price) will hanging orders be canceled? |
-| `should_wait_order_cancel_confirmation` |  |  True       | False       | Should the strategy wait to receive a confirmation for orders cancellation before creating a new set of orders? (Not waiting requires enough available balance) (Yes/No) |
+| `should_wait_order_cancel_confirmation` |  bool |  True       | False       | Should the strategy wait to receive a confirmation for orders cancellation before creating a new set of orders? (Not waiting requires enough available balance) (Yes/No) |
 
 ## 📓 Description
 
