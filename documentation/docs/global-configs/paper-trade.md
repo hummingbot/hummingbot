@@ -5,21 +5,18 @@ This feature allows users to test Hummingbot and simulate trading strategies wit
 
 ## Enabling and Disabling
 
-Paper trading can be enabled by creating a strategy and choosing the exchange [exchange_name_paper_trade] when prompted.
+Paper trading can be enabled when creating a strategy and choosing an exchange when prompted `Enter your maker spot connector` during the creation of the strategy.
 
 ![papertrade1](/assets/img/binance_papertrade.png)
 
-Alternatively, you can change the exchange by inputting `config exchange` then choose the exchange that supports paper trade. 
+Alternatively, you can enable paper trading by inputting `config exchange` then choose the exchange that supports paper trade. 
 
 ![papertrade2](/assets/img/config_exchange.png)
 
-
-To choose a different connector, choose the exchange name without the `paper_trade` suffix.
+To choose a different connector and go live, simply choose the exchange name without the `paper_trade` suffix then do the command `stop` and `start` so the changes will reflect on your configuration.
 
 ![papertrade3](/assets/img/papertrade_binance.png)
 
-!!! tip
-In the event that the bot is running on paper trade and you disable it, you need to `stop` and `start` the bot to apply the changes. Make sure your Exchange APIs are connected as well when going live.
 
 ## Adding Paper Trade Balance
 
