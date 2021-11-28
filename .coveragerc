@@ -8,19 +8,15 @@ omit =
         hummingbot/connector/connector/terra*
         hummingbot/connector/connector/uniswap*
         hummingbot/connector/connector/uniswap_v3*
-        hummingbot/connector/derivative/dydx_perpetual*
         hummingbot/connector/derivative/perpetual_finance*
-        hummingbot/connector/derivative/position.py*
-        hummingbot/connector/exchange/ascend_ex*
+        hummingbot/connector/derivative/position.py
         hummingbot/connector/exchange/beaxy*
         hummingbot/connector/exchange/bitfinex*
         hummingbot/connector/exchange/blocktane*
         hummingbot/connector/exchange/coinbase_pro*
         hummingbot/connector/exchange/digifinex*
-        hummingbot/connector/exchange/dydx*
         hummingbot/connector/exchange/ftx*
         hummingbot/connector/exchange/hitbtc*
-        hummingbot/connector/exchange/huobi*
         hummingbot/connector/exchange/k2*
         hummingbot/connector/exchange/liquid*
         hummingbot/connector/exchange/loopring*
@@ -34,7 +30,7 @@ dynamic_context = test_function
 branch = true
 
 [report]
-fail_under = 55
+fail_under = 65
 precision = 2
 skip_empty = true
 
