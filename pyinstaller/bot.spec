@@ -62,6 +62,7 @@ if "SPEC" in globals():
     hidden_imports.extend([
         "aiokafka",
         "pkg_resources.py2_warn",
+        "scipy.spatial.transform._rotation_groups",
     ])
 
     import _strptime
@@ -76,8 +77,10 @@ if "SPEC" in globals():
     binaries: List[Tuple[str, str]] = []
     if system_type == "Windows":
        import coincurve
+       conda_env_path = os.environ['CONDA_PREFIX']
        binaries.extend([(os.path.realpath(os.path.join(coincurve.__file__, "../libsecp256k1.dll")), "coincurve")])
        datas.extend([(os.path.realpath(os.path.join(project_path(), "redist/VC_redist.x64.exe")), "redist")])
+       datas.extend([(os.path.realpath(os.path.join(conda_env_path, "Library", "bin", "libiomp5md.dll")), ".")])
 
 
     a = Analysis([os.path.join(project_path(), "bin/bot")],
@@ -98,7 +101,7 @@ if "SPEC" in globals():
     exe = EXE(pyz,
               a.scripts,
               [],
-	      exclude_binaries=True,
+              exclude_binaries=True,
               name='bot',
               icon="hummingbot.ico",
               debug=False,

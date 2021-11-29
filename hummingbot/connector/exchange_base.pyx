@@ -98,7 +98,7 @@ cdef class ExchangeBase(ConnectorBase):
         try:
             top_price = Decimal(order_book.c_get_price(is_buy))
         except EnvironmentError as e:
-            self.logger().warning(f"{'Ask' if is_buy else 'Buy'} orderbook for {trading_pair} is empty.")
+            self.logger().warning(f"{'Ask' if is_buy else 'Bid'} orderbook for {trading_pair} is empty.")
             return s_decimal_NaN
 
         return self.c_quantize_order_price(trading_pair, top_price)
@@ -107,6 +107,18 @@ cdef class ExchangeBase(ConnectorBase):
         cdef:
             OrderBook order_book = self.c_get_order_book(trading_pair)
             OrderBookQueryResult result = order_book.c_get_vwap_for_volume(is_buy, float(volume))
+            object query_volume = self.c_quantize_order_amount(trading_pair, Decimal(result.query_volume))
+            object result_price = self.c_quantize_order_price(trading_pair, Decimal(result.result_price))
+            object result_volume = self.c_quantize_order_amount(trading_pair, Decimal(result.result_volume))
+        return ClientOrderBookQueryResult(s_decimal_NaN,
+                                          query_volume,
+                                          result_price,
+                                          result_volume)
+
+    cdef ClientOrderBookQueryResult c_get_price_for_quote_volume(self, str trading_pair, bint is_buy, double volume):
+        cdef:
+            OrderBook order_book = self.c_get_order_book(trading_pair)
+            OrderBookQueryResult result = order_book.c_get_price_for_quote_volume(is_buy, float(volume))
             object query_volume = self.c_quantize_order_amount(trading_pair, Decimal(result.query_volume))
             object result_price = self.c_quantize_order_price(trading_pair, Decimal(result.result_price))
             object result_volume = self.c_quantize_order_amount(trading_pair, Decimal(result.result_volume))
