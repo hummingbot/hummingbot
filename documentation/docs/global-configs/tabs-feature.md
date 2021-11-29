@@ -6,7 +6,7 @@ Users can now open another tab in the left pane of Hummingbot where the log pane
 !!! note
     Currently, the feature only works with the `order_book` parameter.
 
-## How to use the Tabs
+## Opening and Closing
 
 ### Opening a tab
 
