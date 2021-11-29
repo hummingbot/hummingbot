@@ -1,12 +1,8 @@
-# -*- coding: utf-8 -*-
-
 import time
 from typing import Dict, List, Optional
 
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
-
-from hummingbot.connector.exchange.beaxy.beaxy_misc import symbol_to_trading_pair
 
 
 class BeaxyOrderBookMessage(OrderBookMessage):
@@ -33,10 +29,6 @@ class BeaxyOrderBookMessage(OrderBookMessage):
     @property
     def trade_id(self) -> int:
         return int(self.timestamp * 1e3)
-
-    @property
-    def trading_pair(self) -> str:
-        return symbol_to_trading_pair(str(self.content.get('security')))
 
     def _entries(self, side):
         return [
