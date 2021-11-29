@@ -130,7 +130,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
     def simulate_low_volatility(self, strategy: AvellanedaMarketMakingStrategy):
         if self.volatility_indicator_low_vol is None:
-            N_SAMPLES = 1000
+            N_SAMPLES = 350
             INITIAL_RANDOM_SEED = 3141592653
             original_price = 100
             volatility = AvellanedaMarketMakingUnitTests.low_vol / Decimal("100")  # Assuming 0.5% volatility
@@ -158,7 +158,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
     def simulate_high_volatility(self, strategy: AvellanedaMarketMakingStrategy):
         if self.volatility_indicator_high_vol is None:
-            N_SAMPLES = 1000
+            N_SAMPLES = 350
             INITIAL_RANDOM_SEED = 3141592653
             original_price = 100
             volatility = AvellanedaMarketMakingUnitTests.high_vol / Decimal("100")  # Assuming 10% volatility
@@ -186,7 +186,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
     def simulate_low_liquidity(self, strategy: AvellanedaMarketMakingStrategy):
         if self.trading_intensity_indicator_low_liq is None:
-            N_SAMPLES = 1000
+            N_SAMPLES = 350
             INITIAL_RANDOM_SEED = 3141592653
             volatility = self.high_vol
             original_price_mid = 100
@@ -216,7 +216,7 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
     def simulate_high_liquidity(self, strategy: AvellanedaMarketMakingStrategy):
         if self.trading_intensity_indicator_high_liq is None:
-            N_SAMPLES = 1000
+            N_SAMPLES = 350
             INITIAL_RANDOM_SEED = 3141592653
             volatility = self.low_vol
             original_price_mid = 100
@@ -612,16 +612,16 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
 
         alpha, kappa = self.strategy.trading_intensity.current_value
 
-        self.assertAlmostEqual(100.58688318883304, alpha, 5)
-        self.assertAlmostEqual(0.03153874736059721, kappa, 5)
+        self.assertAlmostEqual(100.21531031989907, alpha, 5)
+        self.assertAlmostEqual(0.03337631497363119, kappa, 5)
 
         # Simulate high liquidity
         self.simulate_low_liquidity(self.strategy)
 
         alpha, kappa = self.strategy.trading_intensity.current_value
 
-        self.assertAlmostEqual(1.000611883897753, alpha, 5)
-        self.assertAlmostEqual(0.00016076949233667087, kappa, 5)
+        self.assertAlmostEqual(1.0028041271598158, alpha, 5)
+        self.assertAlmostEqual(0.00038015903945779595, kappa, 5)
 
     def test_calculate_reserved_price_and_optimal_spread_timeframe_constrained(self):
         # Init params
@@ -640,10 +640,10 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.strategy.calculate_reserved_price_and_optimal_spread()
 
         # Check reserved_price, optimal_ask and optimal_bid
-        self.assertAlmostEqual(Decimal("100.3347891686000886900827995"), self.strategy.reserved_price, 2)
-        self.assertAlmostEqual(Decimal("8.737199005798442733467075192"), self.strategy.optimal_spread, 2)
-        self.assertAlmostEqual(Decimal("104.7033886714993100568163371"), self.strategy.optimal_ask, 2)
-        self.assertAlmostEqual(Decimal("95.96618966570086732334926190"), self.strategy.optimal_bid, 2)
+        self.assertAlmostEqual(Decimal("100.3058407365743754509755344"), self.strategy.reserved_price, 2)
+        self.assertAlmostEqual(Decimal("8.601154126885237515837470188"), self.strategy.optimal_spread, 2)
+        self.assertAlmostEqual(Decimal("104.6064178000169942088942695"), self.strategy.optimal_ask, 2)
+        self.assertAlmostEqual(Decimal("96.00526367313175669305679931"), self.strategy.optimal_bid, 2)
 
     def test_calculate_reserved_price_and_optimal_spread_timeframe_infinite(self):
         # Init params
@@ -661,10 +661,10 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.strategy.calculate_reserved_price_and_optimal_spread()
 
         # Check reserved_price, optimal_ask and optimal_bid
-        self.assertAlmostEqual(Decimal("100.2605049863820023520662396"), self.strategy.reserved_price, 2)
-        self.assertAlmostEqual(Decimal("7.420817203171525348183077089"), self.strategy.optimal_spread, 2)
-        self.assertAlmostEqual(Decimal("103.9709135879677650261577781"), self.strategy.optimal_ask, 2)
-        self.assertAlmostEqual(Decimal("96.55009638479623967797470106"), self.strategy.optimal_bid, 2)
+        self.assertAlmostEqual(Decimal("100.2315461334466651607804274"), self.strategy.reserved_price, 2)
+        self.assertAlmostEqual(Decimal("7.311126096006998394928010816"), self.strategy.optimal_spread, 2)
+        self.assertAlmostEqual(Decimal("103.8871091814501643582444328"), self.strategy.optimal_ask, 2)
+        self.assertAlmostEqual(Decimal("96.57598308544316596331642199"), self.strategy.optimal_bid, 2)
 
     def test_create_proposal_based_on_order_override(self):
         # Initial check for empty order_override
