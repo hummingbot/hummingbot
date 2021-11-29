@@ -71,7 +71,7 @@ Exchanges and other institutions can visit the [official Hummingbot website](htt
 | ------------------------------------------------ | -------------------------------------------- | --------------------------------- | -----------| ---------------------------------------------------- |
 | [Binance Futures](/exchanges/binance-perpetual)  | [binance.com](https://binance.com)           |                                   | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |  
 | [Bybit](/exchanges/bybit-perpetual)              | [bybit.com](https://www.bybit.com/en-US/)    |                                   | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
-| [dYdX Perpetual](/exchanges/dydx-perpetual)      | [dydx.exchange](https://dydx.exchange/)      | [ethereum](/protocols/ethereum)   | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
+| [dYdX Perpetual](/exchanges/dydx-perpetual)      | [dydx.exchange](https://dydx.exchange/)      | [ethereum](/protocols/ethereum)   | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span> |
 
 ### `amm`
 
