@@ -22,8 +22,6 @@ Upon using the `order_book` command and any suffix it will open a tab automatica
 
 Simply click on the `x` at the top right corner or inputting `parameter_name --close`
 
-In this case I want to close the tab I opened with the `order_book --live` feature
-
 One option to close the tab is by clicking on the `x` next to `order_book`
 
 ![closing tabs](/assets/img/closing-tabs.png)
