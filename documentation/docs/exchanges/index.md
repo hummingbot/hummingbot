@@ -38,7 +38,7 @@ Exchanges and other institutions can visit the [official Hummingbot website](htt
 | Exchange                                        | Website                                      | Protocol                         | Maintainer | Status                                               |
 | ----------------------------------------------- | -------------------------------------------- | -------------------------------- | ---------- | ---------------------------------------------------- |
 | [AscendEx](/exchanges/ascend-ex)                | [ascendex.com](https://ascendex.com/)        |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
-| [Beaxy](/exchanges/beaxy)                       | [beaxy.com](https://beaxy.com/)              |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
+| [Beaxy](/exchanges/beaxy)                       | [beaxy.com](https://beaxy.com/)              |                                  | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span> |
 | [Binance](/exchanges/binance)                   | [binance.com](https://binance.com)           |                                  | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span> |
 | [Binance US](/exchanges/binance-us)             | [binance.us](https://www.binance.us)         |                                  | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span> |
 | [Bitfinex](/exchanges/bitfinex)                 | [bitfinex.com](https://bitfinex.com)         |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
@@ -51,7 +51,7 @@ Exchanges and other institutions can visit the [official Hummingbot website](htt
 | [Digifinex](/exchanges/digifinex)               | [digifinex.com](https://www.digifinex.com/)  |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
 | [FTX](/exchanges/ftx)                           | [ftx.com](https://ftx.com/foundation)        |                                  | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span> |
 | [Gate.io](/exchanges/gate-io)                   | [gate.io](https://www.gate.io/)              |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
-| [HitBTC](/exchanges/hitbtc)                     | [hitbtc.com](https://hitbtc.com/)            |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
+| [HitBTC](/exchanges/hitbtc)                     | [hitbtc.com](https://hitbtc.com/)            |                                  | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span> |
 | [Huobi Global](/exchanges/huobi)                | [huobi.com](https://huobi.com)               |                                  | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span> |
 | [Kraken](/exchanges/kraken)                     | [kraken.com](https://kraken.com)             |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
 | [KuCoin](/exchanges/kucoin)                     | [kucoin.com](https://kucoin.com)             |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
