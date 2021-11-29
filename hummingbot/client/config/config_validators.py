@@ -125,7 +125,7 @@ def validate_int(value: str, min_value: int = None, max_value: int = None, inclu
 
 def validate_datetime_iso_string(value: str) -> Optional[str]:
     try:
-        datetime.fromisoformat(value)
+        datetime.strptime(value, '%Y-%m-%d %H:%M:%S')
     except ValueError:
         return "Incorrect date time format (expected is YYYY-MM-DD HH:MM:SS)"
 
