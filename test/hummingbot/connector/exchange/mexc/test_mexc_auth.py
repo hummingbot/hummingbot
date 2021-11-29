@@ -13,7 +13,7 @@ class TestAuth(unittest.TestCase):
 
         self.auth = MexcAuth(mexc_api_key, mexc_secret_key)
 
-    @mock.patch('time.time', mock.MagicMock(return_value=1635249347))
+    @mock.patch('hummingbot.connector.exchange.mexc.mexc_utils.seconds', mock.MagicMock(return_value=1635249347))
     def test_auth_without_params(self):
         headers = self.auth.add_auth_to_params('GET', "/open/api/v2/market/coin/list",
                                                {'api_key': "MEXC_API_KEY_mock"}, True)
