@@ -24,7 +24,6 @@ import {
   UniswapTradeResponse,
   UniswapTradeErrorResponse,
 } from './uniswap.requests';
-import { ConfigManager } from '../../../services/config-manager';
 import { Ethereumish } from '../../../services/ethereumish.interface';
 import {
   ExpectedTrade,
