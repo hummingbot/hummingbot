@@ -209,6 +209,7 @@ nav:
       - Telegram Integration: global-configs/telegram.md
       - Strategy Autostart: global-configs/strategy-autostart.md
       - Connect External Database: global-configs/external-db.md
+      - Tabs: global-configs/tabs-feature.md
     - Strategy Configs:
       - Strategy Configs: strategy-configs/index.md
       - Add Transaction Costs: strategy-configs/add-transaction-costs.md
