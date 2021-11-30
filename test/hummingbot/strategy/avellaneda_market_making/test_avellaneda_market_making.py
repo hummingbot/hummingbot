@@ -640,10 +640,10 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.strategy.calculate_reserved_price_and_optimal_spread()
 
         # Check reserved_price, optimal_ask and optimal_bid
-        self.assertAlmostEqual(Decimal("100.3058407365743754509755344"), self.strategy.reserved_price, 2)
-        self.assertAlmostEqual(Decimal("8.601154126885237515837470188"), self.strategy.optimal_spread, 2)
-        self.assertAlmostEqual(Decimal("104.6064178000169942088942695"), self.strategy.optimal_ask, 2)
-        self.assertAlmostEqual(Decimal("96.00526367313175669305679931"), self.strategy.optimal_bid, 2)
+        self.assertAlmostEqual(Decimal("100.0412277645493864745650970"), self.strategy.reserved_price, 2)
+        self.assertAlmostEqual(Decimal("8.364589434178470691479022122"), self.strategy.optimal_spread, 2)
+        self.assertAlmostEqual(Decimal("104.2235224816386218203046081"), self.strategy.optimal_ask, 2)
+        self.assertAlmostEqual(Decimal("95.85893304746015112882558594"), self.strategy.optimal_bid, 2)
 
     def test_calculate_reserved_price_and_optimal_spread_timeframe_infinite(self):
         # Init params
@@ -661,10 +661,10 @@ class AvellanedaMarketMakingUnitTests(unittest.TestCase):
         self.strategy.calculate_reserved_price_and_optimal_spread()
 
         # Check reserved_price, optimal_ask and optimal_bid
-        self.assertAlmostEqual(Decimal("100.2315461334466651607804274"), self.strategy.reserved_price, 2)
-        self.assertAlmostEqual(Decimal("7.311126096006998394928010816"), self.strategy.optimal_spread, 2)
-        self.assertAlmostEqual(Decimal("103.8871091814501643582444328"), self.strategy.optimal_ask, 2)
-        self.assertAlmostEqual(Decimal("96.57598308544316596331642199"), self.strategy.optimal_bid, 2)
+        self.assertAlmostEqual(Decimal("100.0679427754527770932063714"), self.strategy.reserved_price, 2)
+        self.assertAlmostEqual(Decimal("7.266095956433297082007557171"), self.strategy.optimal_spread, 2)
+        self.assertAlmostEqual(Decimal("103.7009907536694256342101500"), self.strategy.optimal_ask, 2)
+        self.assertAlmostEqual(Decimal("96.43489479723612855220259281"), self.strategy.optimal_bid, 2)
 
     def test_create_proposal_based_on_order_override(self):
         # Initial check for empty order_override

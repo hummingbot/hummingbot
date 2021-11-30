@@ -133,7 +133,7 @@ avellaneda_market_making_config_map = {
                   prompt="Enter risk factor (\u03B3) >>> ",
                   type_str="decimal",
                   default=Decimal("1"),
-                  validator=lambda v: validate_decimal(v, 0, inclusive=True),
+                  validator=lambda v: validate_decimal(v, 0, inclusive=False),
                   prompt_on_new=True),
     "order_amount_shape_factor":
         ConfigVar(key="order_amount_shape_factor",
