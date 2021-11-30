@@ -161,7 +161,13 @@ describe('Configuration manager v2 tests', () => {
   });
 
   it('Test deep copy', (done) => {
-    const templateObj: any = { a: 1, b: { c: { f: 5, g: 6 }, d: 3 }, e: 4 };
+    const templateObj: any = {
+      a: 1,
+      b: { c: { f: 5, g: 6 }, d: 3 },
+      e: 4,
+      j: [{ i: '0' }, { k: '1' }],
+      l: { m: [1, 2, 3], n: [9, 7, 8] },
+    };
     const configObj: any = {
       a: 9,
       b: { c: 8, d: 7 },
@@ -169,6 +175,8 @@ describe('Configuration manager v2 tests', () => {
       f: '5',
       g: { h: 4 },
       h: ['1', '2'],
+      j: [{ i: '3' }, { k: '4' }],
+      l: { m: [9, 7, 8], n: [1, 2, 3] },
     };
     deepCopy(configObj, templateObj);
     expect(templateObj.a).toEqual(9);
@@ -178,6 +186,9 @@ describe('Configuration manager v2 tests', () => {
     expect(templateObj.f).toEqual('5');
     expect(templateObj.g).toEqual({ h: 4 });
     expect(templateObj.h).toEqual(['1', '2']);
+    expect(templateObj.j).toEqual([{ i: '3' }, { k: '4' }]);
+    expect(templateObj.l.m).toEqual([9, 7, 8]);
+    expect(templateObj.l.n).toEqual([1, 2, 3]);
     done();
   });
 });
