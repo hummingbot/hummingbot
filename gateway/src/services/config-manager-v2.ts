@@ -40,15 +40,18 @@ interface UnpackedConfigNamespace {
 }
 
 export function deepCopy(srcObject: any, dstObject: any): any {
-  for (const key in srcObject) {
-    if (typeof srcObject[key] !== 'object') {
-      if (typeof dstObject[key] !== 'object') dstObject[key] = srcObject[key];
-    } else {
-      if (!dstObject[key]) {
-        if (srcObject[key] instanceof Array) dstObject[key] = [];
-        else dstObject[key] = {};
-      }
+  for (const [key, value] of Object.entries(srcObject)) {
+    if (srcObject[key] instanceof Array) {
+      if (!dstObject[key]) dstObject[key] = [];
       deepCopy(srcObject[key], dstObject[key]);
+    } else if (srcObject[key] instanceof Object) {
+      if (!dstObject[key]) dstObject[key] = {};
+      deepCopy(srcObject[key], dstObject[key]);
+    } else if (
+      typeof srcObject[key] === typeof dstObject[key] ||
+      !dstObject[key]
+    ) {
+      dstObject[key] = value;
     }
   }
 }
