@@ -37,12 +37,18 @@ export class EVMNonceManager {
         this._chainName,
         this._chainId
       );
-      logger.info('eth stored nonces');
 
       for (const [key, value] of Object.entries(addressToNonce)) {
         logger.info(key + ':' + String(value));
         this._addressToNonce[key] = [value, new Date()];
       }
+
+      await Promise.all(
+        Object.keys(this._addressToNonce).map(async (address) => {
+          await this.mergeNonceFromEVMNode(address);
+        })
+      );
+
       this._initialized = true;
     }
 
@@ -57,7 +63,7 @@ export class EVMNonceManager {
   }
 
   async mergeNonceFromEVMNode(ethAddress: string): Promise<void> {
-    if (this._provider !== null && this._delay !== null) {
+    if (this._provider !== null) {
       let internalNonce: number;
       if (this._addressToNonce[ethAddress]) {
         internalNonce = this._addressToNonce[ethAddress][0];
@@ -86,12 +92,11 @@ export class EVMNonceManager {
   }
 
   async getNonce(ethAddress: string): Promise<number> {
-    if (this._provider !== null && this._delay !== null) {
+    if (this._provider !== null) {
       if (this._addressToNonce[ethAddress]) {
         const timestamp = this._addressToNonce[ethAddress][1];
         const now = new Date();
         const diffInSeconds = (now.getTime() - timestamp.getTime()) / 1000;
-
         if (diffInSeconds > this._delay) {
           await this.mergeNonceFromEVMNode(ethAddress);
         }
@@ -101,6 +106,7 @@ export class EVMNonceManager {
         const nonce: number = await this._provider.getTransactionCount(
           ethAddress
         );
+
         this._addressToNonce[ethAddress] = [nonce, new Date()];
         await dbSaveNonce(this._chainName, this._chainId, ethAddress, nonce);
         return nonce;
@@ -118,7 +124,7 @@ export class EVMNonceManager {
     ethAddress: string,
     txNonce: number | null = null
   ): Promise<void> {
-    if (this._provider !== null && this._delay !== null) {
+    if (this._provider !== null) {
       let newNonce;
       if (txNonce) {
         newNonce = txNonce + 1;
