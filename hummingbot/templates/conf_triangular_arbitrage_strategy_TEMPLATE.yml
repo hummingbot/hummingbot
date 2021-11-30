@@ -1,0 +1,29 @@
+################################################
+###   Triangular Arbitrage strategy config   ###
+################################################
+
+template_version: 1
+strategy: null
+
+# The following configuations are only required for the
+# triangular arbitrage strategy
+
+# Exchange and token parameters for basic one-exchange setup
+exchange: null
+target_currency: null
+first_aux_currency: null
+second_aux_currency: null
+
+replacement_source_currency_on_left_edge: null
+replacement_target_currency_on_left_edge: null
+replacement_source_currency_on_bottom_edge: null
+replacement_target_currency_on_bottom_edge: null
+replacement_source_currency_on_right_edge: null
+replacement_target_currency_on_right_edge: null
+
+# Minimum profitability target required to place an order
+# Expressed in percentage value, e.g. 1 = 1% target profit
+min_profitability: null
+
+# the fee to be used across all exchanges for all trading pairs
+fee_override: null
