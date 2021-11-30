@@ -291,7 +291,14 @@ export class ConfigManagerV2 {
     for (const namespaceDefinition of Object.values(namespaceMap)) {
       for (const [key, filePath] of Object.entries(namespaceDefinition)) {
         if (!path.isAbsolute(filePath)) {
-          namespaceDefinition[key] = path.join(configRootDir, filePath);
+          if (key === 'configurationPath') {
+            namespaceDefinition[key] = path.join(configRootDir, filePath);
+          } else if (key === 'schemaPath') {
+            namespaceDefinition[key] = path.join(
+              path.dirname(ConfigRootSchemaPath),
+              filePath
+            );
+          }
         } else {
           throw new Error(`Absolute path not allowed for ${key}.`);
         }

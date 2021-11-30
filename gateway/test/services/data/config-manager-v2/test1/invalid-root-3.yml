@@ -1,6 +1,6 @@
 $namespace ssl:
   configurationPath: ssl.yml
-  schemaPath: ../../src/services/schema/ssl-schema.json
+  schemaPath: ssl-schema.json
 $namespace ethereum:
   configurationPath: ethereum.yml
-  schemaPath: ../../src/services/schema/schema-nonexist.json
+  schemaPath: schema-nonexist.json
