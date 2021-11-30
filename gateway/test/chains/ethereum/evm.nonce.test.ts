@@ -100,6 +100,14 @@ describe('EVMNodeService', () => {
     }
   };
 
+  it('commitNonce without will increment the network value by one', async () => {
+    patch(nonceManager._provider, 'getTransactionCount', () => 111);
+    await nonceManager.commitNonce(exampleAddress);
+    const nonce = await nonceManager.getNonce(exampleAddress);
+
+    await expect(nonce).toEqual(112);
+  });
+
   it('commitNonce with a provided txNonce should increase the nonce by 1', async () => {
     patchGetTransactionCount();
     await nonceManager.commitNonce(exampleAddress, 10);
