@@ -1,3 +1,4 @@
+import aiohttp
 import asyncio
 from decimal import Decimal
 from libc.stdint cimport int64_t
