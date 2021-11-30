@@ -1,4 +1,4 @@
-import * as utils from '../../src/services/config-manager-v2';
+import * as utils from '../config-manager-v2';
 
 /*
  * This file defines migration functions for each version.

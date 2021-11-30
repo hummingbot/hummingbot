@@ -3,7 +3,7 @@ import { ValidateFunction } from 'ajv';
 import fs from 'fs';
 import path from 'path';
 import yaml from 'js-yaml';
-import * as migrations from '../../conf/migration/migrations';
+import * as migrations from './config-migration/migrations';
 
 type Configuration = { [key: string]: any };
 type ConfigurationDefaults = { [namespaceId: string]: Configuration };
