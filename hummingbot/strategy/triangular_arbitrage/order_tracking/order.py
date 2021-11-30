@@ -75,7 +75,7 @@ class Order:
             self.state = OrderState.PENDING_PARTIAL_TO_FULL
         else:
             self.state = OrderState.ACTIVE
-        self._time_activated = now 
+        self._time_activated = now
 
     def __repr__(self):
         return f"(id={self.id}, price={self.price}, amount_remaining={self.amount_remaining}, state={self.state}, side={self.side})"
