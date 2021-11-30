@@ -4,6 +4,7 @@ import path from 'path';
 import {
   ConfigManagerV2,
   ConfigurationNamespace,
+  ConfigRootSchemaPath,
 } from '../../src/services/config-manager-v2';
 
 describe('Configuration manager v2 tests', () => {
@@ -140,6 +141,9 @@ describe('Configuration manager v2 tests', () => {
       'ssl'
     ) as ConfigurationNamespace;
     expect(path.basename(sslNamespace.schemaPath)).toEqual('ssl-schema.json');
+    expect(path.dirname(sslNamespace.schemaPath)).toEqual(
+      path.dirname(ConfigRootSchemaPath)
+    );
     expect(sslNamespace.configurationPath).toEqual(
       path.join(tempDirPath, 'test1/ssl.yml')
     );
