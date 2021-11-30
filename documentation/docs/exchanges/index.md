@@ -37,7 +37,7 @@ Exchanges and other institutions can visit the [official Hummingbot website](htt
 
 | Exchange                                        | Website                                      | Protocol                         | Maintainer | Status                                               |
 | ----------------------------------------------- | -------------------------------------------- | -------------------------------- | ---------- | ---------------------------------------------------- |
-| [AscendEx](/exchanges/ascend-ex)                | [ascendex.com](https://ascendex.com/)        |                                  | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span> |
+| [AscendEx](/exchanges/ascend-ex)                | [ascendex.com](https://ascendex.com/)        |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
 | [Beaxy](/exchanges/beaxy)                       | [beaxy.com](https://beaxy.com/)              |                                  | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span> |
 | [Binance](/exchanges/binance)                   | [binance.com](https://binance.com)           |                                  | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span> |
 | [Binance US](/exchanges/binance-us)             | [binance.us](https://www.binance.us)         |                                  | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span> |
@@ -53,23 +53,25 @@ Exchanges and other institutions can visit the [official Hummingbot website](htt
 | [Gate.io](/exchanges/gate-io)                   | [gate.io](https://www.gate.io/)              |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
 | [HitBTC](/exchanges/hitbtc)                     | [hitbtc.com](https://hitbtc.com/)            |                                  | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span> |
 | [Huobi Global](/exchanges/huobi)                | [huobi.com](https://huobi.com)               |                                  | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span> |
-| [Kraken](/exchanges/kraken)                     | [kraken.com](https://kraken.com)             |                                  | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span> |
-| [KuCoin](/exchanges/kucoin)                     | [kucoin.com](https://kucoin.com)             |                                  | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span> |
+| [Kraken](/exchanges/kraken)                     | [kraken.com](https://kraken.com)             |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
+| [KuCoin](/exchanges/kucoin)                     | [kucoin.com](https://kucoin.com)             |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
 | [Liquid](/exchanges/liquid)                     | [liquid.com](https://liquid.com)             |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
+| [MEXC Global](/exchanges/mexc)                  | [mexc.com](https://www.mexc.com/)            |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
 | [NDAX](/exchanges/ndax)                         | [ndax.io](https://ndax.io/)                  |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
 | [OKEx](/exchanges/okex)                         | [okex.com](https://www.okex.com/)            |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
 | [ProBit Global](/exchanges/probit)              | [probit.com](https://www.probit.com/)        |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
 | [ProBit Korea](/exchanges/probit-korea/)        | [probit.kr](https://www.probit.kr/en-us/)    |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
-| [dYdX](/exchanges/dydx)                         | [dydx.exchange](https://dydx.exchange/)      | [ethereum](/protocols/ethereum)  | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span> |
 | [Loopring](/exchanges/loopring)                 | [loopring.org](https://loopring.org)         | [ethereum](/protocols/ethereum)  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
+| [WazirX](/exchanges/wazirx)                     | [wazirx.com](https://wazirx.com/)            |                                  | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
+
 
 ### `perp`
 
 | Exchange                                         | Website                                      | Protocol                          | Maintainer | Status                                               |
 | ------------------------------------------------ | -------------------------------------------- | --------------------------------- | -----------| ---------------------------------------------------- |
-| [Binance Futures](/exchanges/binance-perpetual)  | [binance.com](https://binance.com)           |                                   | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span> |
-| [Bybit](/exchanges/bybit-perpetual)              | [bybit.com](https://www.bybit.com/en-US/)    |                                   | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span> |
-| [dYdX Perpetual](/exchanges/dydx-perpetual)      | [dydx.exchange](https://dydx.exchange/)      | [ethereum](/protocols/ethereum)   | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
+| [Binance Futures](/exchanges/binance-perpetual)  | [binance.com](https://binance.com)           |                                   | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |  
+| [Bybit](/exchanges/bybit-perpetual)              | [bybit.com](https://www.bybit.com/en-US/)    |                                   | CoinAlpha  | <span style="color:yellow; font-size:25px">⬤</span> |
+| [dYdX Perpetual](/exchanges/dydx-perpetual)      | [dydx.exchange](https://dydx.exchange/)      | [ethereum](/protocols/ethereum)   | CoinAlpha  | <span style="color:green; font-size:25px">⬤</span> |
 
 ### `amm`
 

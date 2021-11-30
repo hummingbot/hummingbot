@@ -12,7 +12,7 @@ from hummingbot.core.utils.wallet_setup import (
     import_and_save_wallet
 )
 from hummingbot.client.config.global_config_map import global_config_map
-from hummingbot.client.settings import CONNECTOR_SETTINGS
+from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 import asyncio
@@ -138,6 +138,6 @@ class Security:
     async def api_keys(cls, exchange):
         await cls.wait_til_decryption_done()
         exchange_configs = [c for c in global_config_map.values()
-                            if c.key in CONNECTOR_SETTINGS[exchange].config_keys and
-                            c.key in cls._secure_configs]
+                            if c.key in AllConnectorSettings.get_connector_settings()[exchange].config_keys
+                            and c.key in cls._secure_configs]
         return {c.key: cls.decrypted_value(c.key) for c in exchange_configs}

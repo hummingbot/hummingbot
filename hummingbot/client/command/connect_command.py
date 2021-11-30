@@ -1,19 +1,20 @@
 import asyncio
+import pandas as pd
+
+from typing import TYPE_CHECKING, Optional
+from hummingbot.client.settings import AllConnectorSettings, GLOBAL_CONFIG_PATH
 
 from hummingbot.client.config.security import Security
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.user.user_balances import UserBalances
 from hummingbot.client.config.config_helpers import save_to_yml
-import hummingbot.client.settings as settings
 from hummingbot.connector.other.celo.celo_cli import CeloCLI
 from hummingbot.connector.connector_status import get_connector_status
-import pandas as pd
-from typing import TYPE_CHECKING, Optional
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
 
-OPTIONS = {cs.name for cs in settings.CONNECTOR_SETTINGS.values()
+OPTIONS = {cs.name for cs in AllConnectorSettings.get_connector_settings().values()
            if not cs.use_ethereum_wallet}.union({"ethereum", "celo"})
 
 
@@ -37,7 +38,7 @@ class ConnectCommand:
         if exchange == "kraken":
             self._notify("Reminder: Please ensure your Kraken API Key Nonce Window is at least 10.")
         exchange_configs = [c for c in global_config_map.values()
-                            if c.key in settings.CONNECTOR_SETTINGS[exchange].config_keys and c.is_connect_key]
+                            if c.key in AllConnectorSettings.get_connector_settings()[exchange].config_keys and c.is_connect_key]
         to_connect = True
         if Security.encrypted_file_exists(exchange_configs[0].key):
             await Security.wait_til_decryption_done()
@@ -94,7 +95,7 @@ class ConnectCommand:
 
     async def connection_df(self  # type: HummingbotApplication
                             ):
-        columns = ["Exchange", "  Keys Added", "  Keys Confirmed", "  Connector Status"]
+        columns = ["Exchange", "  Keys Added", "  Keys Confirmed", "  Status"]
         data = []
         failed_msgs = {}
         network_timeout = float(global_config_map["other_commands_timeout"].value)
@@ -164,7 +165,7 @@ class ConnectCommand:
             if self.app.to_stop_config:
                 self.app.to_stop_config = False
                 return
-            save_to_yml(settings.GLOBAL_CONFIG_PATH, global_config_map)
+            save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
             err_msg = UserBalances.validate_ethereum_wallet()
             if err_msg is None:
                 self._notify(f"Wallet {public_address} connected to hummingbot.")
@@ -188,7 +189,7 @@ class ConnectCommand:
         if to_connect:
             await self.prompt_a_config(global_config_map["celo_address"])
             await self.prompt_a_config(global_config_map["celo_password"])
-            save_to_yml(settings.GLOBAL_CONFIG_PATH, global_config_map)
+            save_to_yml(GLOBAL_CONFIG_PATH, global_config_map)
 
             err_msg = await self.validate_n_connect_celo(True,
                                                          global_config_map["celo_address"].value,

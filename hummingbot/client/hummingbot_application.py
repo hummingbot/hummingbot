@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 
 import asyncio
-from collections import deque
 import logging
 import time
+from collections import deque
 from typing import List, Dict, Optional, Tuple, Deque
 
 from hummingbot.client.command import __all__ as commands
+from hummingbot.client.tab import __all__ as tab_classes
 from hummingbot.core.clock import Clock
 from hummingbot.exceptions import ArgumentParserError
 from hummingbot.logger import HummingbotLogger
@@ -34,7 +35,9 @@ from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.client.config.security import Security
 from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.client.settings import CONNECTOR_SETTINGS, ConnectorType
+from hummingbot.client.settings import AllConnectorSettings, ConnectorType
+from hummingbot.client.tab.data_types import CommandTab
+
 s_logger = None
 
 
@@ -62,9 +65,14 @@ class HummingbotApplication(*commands):
         # This is to start fetching trading pairs for auto-complete
         TradingPairFetcher.get_instance()
         self.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
-        self.parser: ThrowingArgumentParser = load_parser(self)
+        command_tabs = self.init_command_tabs()
+        self.parser: ThrowingArgumentParser = load_parser(self, command_tabs)
+
         self.app = HummingbotCLI(
-            input_handler=self._handle_command, bindings=load_key_bindings(self), completer=load_completer(self)
+            input_handler=self._handle_command,
+            bindings=load_key_bindings(self),
+            completer=load_completer(self),
+            command_tabs=command_tabs
         )
 
         self.markets: Dict[str, ExchangeBase] = {}
@@ -164,10 +172,11 @@ class HummingbotApplication(*commands):
                     args = self.parser.parse_args(args=command_split)
                     kwargs = vars(args)
                     if not hasattr(args, "func"):
-                        return
-                    f = args.func
-                    del kwargs["func"]
-                    f(**kwargs)
+                        self.app.handle_tab_command(self, command_split[0], kwargs)
+                    else:
+                        f = args.func
+                        del kwargs["func"]
+                        f(**kwargs)
         except ArgumentParserError as e:
             if not self.be_silly(raw_command):
                 self._notify(str(e))
@@ -225,9 +234,10 @@ class HummingbotApplication(*commands):
                 self.market_trading_pairs_map[market_name].append(hb_trading_pair)
 
         for connector_name, trading_pairs in self.market_trading_pairs_map.items():
-            conn_setting = CONNECTOR_SETTINGS[connector_name]
-            if global_config_map.get("paper_trade_enabled").value and conn_setting.type == ConnectorType.Exchange:
-                connector = create_paper_trade_market(connector_name, trading_pairs)
+            conn_setting = AllConnectorSettings.get_connector_settings()[connector_name]
+
+            if connector_name.endswith("paper_trade") and conn_setting.type == ConnectorType.Exchange:
+                connector = create_paper_trade_market(conn_setting.parent_name, trading_pairs)
                 paper_trade_account_balance = global_config_map.get("paper_trade_account_balance").value
                 for asset, balance in paper_trade_account_balance.items():
                     connector.set_balance(asset, balance)
@@ -268,3 +278,14 @@ class HummingbotApplication(*commands):
                 )
         for notifier in self.notifiers:
             notifier.start()
+
+    def init_command_tabs(self) -> Dict[str, CommandTab]:
+        """
+        Initiates and returns a CommandTab dictionary with mostly defaults and None values, These values will be
+        populated later on by HummingbotCLI
+        """
+        command_tabs: Dict[str, CommandTab] = {}
+        for tab_class in tab_classes:
+            name = tab_class.get_command_name()
+            command_tabs[name] = CommandTab(name, None, None, None, tab_class)
+        return command_tabs

@@ -72,6 +72,7 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             order_size_portfolio_ratio_limit=Decimal("0.3"),
             min_profitability=Decimal(self.min_profitbality),
             logging_options=logging_options,
+            slippage_buffer=Decimal("0"),
         )
         self.strategy_with_top_depth_tolerance: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy()
         self.strategy_with_top_depth_tolerance.init_params(
@@ -79,7 +80,8 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             order_size_portfolio_ratio_limit=Decimal("0.3"),
             min_profitability=Decimal(self.min_profitbality),
             logging_options=logging_options,
-            top_depth_tolerance=1
+            top_depth_tolerance=1,
+            slippage_buffer=Decimal("0"),
         )
         self.logging_options = logging_options
         self.clock.add_iterator(self.maker_market)
@@ -213,6 +215,22 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
                     OrderType.LIMIT,
                 ),
             )
+
+    @staticmethod
+    def emit_order_created_event(market: MockPaperExchange, order: LimitOrder):
+        event_cls = BuyOrderCreatedEvent if order.is_buy else SellOrderCreatedEvent
+        event_tag = MarketEvent.BuyOrderCreated if order.is_buy else MarketEvent.SellOrderCreated
+        market.trigger_event(
+            event_tag,
+            message=event_cls(
+                order.creation_timestamp,
+                OrderType.LIMIT,
+                order.trading_pair,
+                order.quantity,
+                order.price,
+                order.client_order_id,
+            )
+        )
 
     def test_both_sides_profitable(self):
         self.clock.backtest_til(self.start_timestamp + 5)
@@ -549,6 +567,140 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         ask_price = self.strategy.get_market_making_price(self.market_pair, False, ask_size)
         self.assertEqual((Decimal("0.99451"), Decimal("3")), (bid_price, bid_size))
         self.assertEqual((Decimal("1.0055"), Decimal("3")), (ask_price, ask_size))
+
+    def test_price_and_size_limit_calculation_with_slippage_buffer(self):
+        self.taker_market.set_balance("ETH", 3)
+        self.taker_market.set_balanced_order_book(
+            self.taker_trading_pairs[0],
+            mid_price=Decimal("1.0"),
+            min_price=Decimal("0.5"),
+            max_price=Decimal("1.5"),
+            price_step_size=Decimal("0.1"),
+            volume_step_size=Decimal("100"),
+        )
+        self.strategy: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy()
+        self.strategy.init_params(
+            [self.market_pair],
+            order_size_taker_volume_factor=Decimal("1"),
+            order_size_taker_balance_factor=Decimal("1"),
+            order_size_portfolio_ratio_limit=Decimal("1"),
+            min_profitability=Decimal("0.25"),
+            logging_options=self.logging_options,
+            slippage_buffer=Decimal("0"),
+            order_amount=Decimal("4"),
+        )
+        strategy_with_slippage_buffer: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy()
+        strategy_with_slippage_buffer.init_params(
+            [self.market_pair],
+            order_size_taker_volume_factor=Decimal("1"),
+            order_size_taker_balance_factor=Decimal("1"),
+            order_size_portfolio_ratio_limit=Decimal("1"),
+            min_profitability=Decimal("0.25"),
+            logging_options=self.logging_options,
+            slippage_buffer=Decimal("0.25"),
+            order_amount=Decimal("4"),
+        )
+
+        bid_size = self.strategy.get_market_making_size(self.market_pair, True)
+        bid_price = self.strategy.get_market_making_price(self.market_pair, True, bid_size)
+        ask_size = self.strategy.get_market_making_size(self.market_pair, False)
+        ask_price = self.strategy.get_market_making_price(self.market_pair, False, ask_size)
+        slippage_bid_size = strategy_with_slippage_buffer.get_market_making_size(self.market_pair, True)
+        slippage_bid_price = strategy_with_slippage_buffer.get_market_making_price(
+            self.market_pair, True, slippage_bid_size
+        )
+        slippage_ask_size = strategy_with_slippage_buffer.get_market_making_size(self.market_pair, False)
+        slippage_ask_price = strategy_with_slippage_buffer.get_market_making_price(
+            self.market_pair, False, slippage_ask_size
+        )
+
+        self.assertEqual(Decimal("4"), bid_size)  # the user size
+        self.assertEqual(Decimal("0.75999"), bid_price)  # price = bid_VWAP(4) / profitability = 0.95 / 1.25
+        self.assertEqual(Decimal("2.8571"), ask_size)  # size = balance / (ask_VWAP(3) * slippage) = 3 / (1.05 * 1)
+        self.assertEqual(Decimal("1.3125"), ask_price)  # price = ask_VWAP(2.8571) * profitability = 1.05 * 1.25
+        self.assertEqual(Decimal("4"), slippage_bid_size)  # the user size
+        self.assertEqual(Decimal("0.75999"), slippage_bid_price)  # price = bid_VWAP(4) / profitability = 0.9 / 1.25
+        self.assertEqual(Decimal("2.2857"), slippage_ask_size)  # size = balance / (ask_VWAP(3) * slippage) = 3 / (1.05 * 1.25)
+        self.assertEqual(Decimal("1.3125"), slippage_ask_price)  # price = ask_VWAP(2.2857) * profitability = 1.05 * 1.25
+
+    def test_check_if_sufficient_balance_adjusts_including_slippage(self):
+        self.taker_market.set_balance("COINALPHA", 4)
+        self.taker_market.set_balance("ETH", 3)
+        self.taker_market.set_balanced_order_book(
+            self.taker_trading_pairs[0],
+            mid_price=Decimal("1.0"),
+            min_price=Decimal("0.5"),
+            max_price=Decimal("1.5"),
+            price_step_size=Decimal("0.1"),
+            volume_step_size=Decimal("1"),
+        )
+        strategy_with_slippage_buffer: CrossExchangeMarketMakingStrategy = CrossExchangeMarketMakingStrategy()
+        strategy_with_slippage_buffer.init_params(
+            [self.market_pair],
+            order_size_taker_volume_factor=Decimal("1"),
+            order_size_taker_balance_factor=Decimal("1"),
+            order_size_portfolio_ratio_limit=Decimal("1"),
+            min_profitability=Decimal("0.25"),
+            logging_options=self.logging_options,
+            slippage_buffer=Decimal("0.25"),
+            order_amount=Decimal("4"),
+        )
+        self.clock.remove_iterator(self.strategy)
+        self.clock.add_iterator(strategy_with_slippage_buffer)
+        self.clock.backtest_til(self.start_timestamp + 1)
+
+        active_bids = strategy_with_slippage_buffer.active_bids
+        active_asks = strategy_with_slippage_buffer.active_asks
+
+        self.assertEqual(1, len(active_bids))
+        self.assertEqual(1, len(active_asks))
+
+        active_bid = active_bids[0][1]
+        active_ask = active_asks[0][1]
+
+        self.emit_order_created_event(self.maker_market, active_bid)
+        self.emit_order_created_event(self.maker_market, active_ask)
+
+        self.clock.backtest_til(self.start_timestamp + 2)
+
+        active_bids = strategy_with_slippage_buffer.active_bids
+        active_asks = strategy_with_slippage_buffer.active_asks
+
+        self.assertEqual(1, len(active_bids))
+        self.assertEqual(1, len(active_asks))
+
+        active_bid = active_bids[0][1]
+        active_ask = active_asks[0][1]
+        bids_quantum = self.taker_market.get_order_size_quantum(
+            self.taker_trading_pairs[0], active_bid.quantity
+        )
+        asks_quantum = self.taker_market.get_order_size_quantum(
+            self.taker_trading_pairs[0], active_ask.quantity
+        )
+
+        self.taker_market.set_balance("COINALPHA", Decimal("4") - bids_quantum)
+        self.taker_market.set_balance("ETH", Decimal("3") - asks_quantum * 1)
+
+        self.clock.backtest_til(self.start_timestamp + 3)
+        active_bids = strategy_with_slippage_buffer.active_bids
+        active_asks = strategy_with_slippage_buffer.active_asks
+
+        self.assertEqual(0, len(active_bids))  # cancelled
+        self.assertEqual(0, len(active_asks))  # cancelled
+
+        self.clock.backtest_til(self.start_timestamp + 4)
+
+        new_active_bids = strategy_with_slippage_buffer.active_bids
+        new_active_asks = strategy_with_slippage_buffer.active_asks
+
+        self.assertEqual(1, len(new_active_bids))
+        self.assertEqual(1, len(new_active_asks))
+
+        new_active_bid = new_active_bids[0][1]
+        new_active_ask = new_active_asks[0][1]
+
+        self.assertEqual(Decimal(str(active_bid.quantity - bids_quantum)), new_active_bid.quantity)
+        self.assertEqual(Decimal(str(active_ask.quantity - asks_quantum)), new_active_ask.quantity)
 
     def test_empty_maker_orderbook(self):
         self.clock.remove_iterator(self.strategy)

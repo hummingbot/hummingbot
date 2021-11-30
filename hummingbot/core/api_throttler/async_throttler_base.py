@@ -12,7 +12,6 @@ from typing import (
     Tuple,
 )
 
-from hummingbot.client.config.global_config_map import global_config_map
 from hummingbot.core.api_throttler.async_request_context_base import AsyncRequestContextBase
 from hummingbot.core.api_throttler.data_types import (
     RateLimit,
@@ -45,6 +44,7 @@ class AsyncThrottlerBase(ABC):
         :param retry_interval: Time between every capacity check.
         :param safety_margin: Percentage of limit to be added as a safety margin when calculating capacity to ensure calls are within the limit.
         """
+        from hummingbot.client.config.global_config_map import global_config_map  # avoids chance of circular import
 
         # Rate Limit Definitions
         self._rate_limits: List[RateLimit] = copy.deepcopy(rate_limits)

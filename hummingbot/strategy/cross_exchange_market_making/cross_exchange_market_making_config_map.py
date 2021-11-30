@@ -13,7 +13,7 @@ from typing import Optional
 
 def maker_trading_pair_prompt():
     maker_market = cross_exchange_market_making_config_map.get("maker_market").value
-    example = settings.EXAMPLE_PAIRS.get(maker_market)
+    example = settings.AllConnectorSettings.get_example_pairs().get(maker_market)
     return "Enter the token trading pair you would like to trade on maker market: %s%s >>> " % (
         maker_market,
         f" (e.g. {example})" if example else "",
@@ -22,7 +22,7 @@ def maker_trading_pair_prompt():
 
 def taker_trading_pair_prompt():
     taker_market = cross_exchange_market_making_config_map.get("taker_market").value
-    example = settings.EXAMPLE_PAIRS.get(taker_market)
+    example = settings.AllConnectorSettings.get_example_pairs().get(taker_market)
     return "Enter the token trading pair you would like to trade on taker market: %s%s >>> " % (
         taker_market,
         f" (e.g. {example})" if example else "",
@@ -226,4 +226,13 @@ cross_exchange_market_making_config_map = {
         validator=lambda v: validate_decimal(v, Decimal(0), inclusive=False),
         type_str="decimal"
     ),
+    "slippage_buffer": ConfigVar(
+        key="slippage_buffer",
+        prompt="How much buffer do you want to add to the price to account for slippage for taker orders "
+               "Enter 1 to indicate 1% >>> ",
+        prompt_on_new=True,
+        default=Decimal("5"),
+        type_str="decimal",
+        validator=lambda v: validate_decimal(v, Decimal(0), Decimal(100), inclusive=True)
+    )
 }

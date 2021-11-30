@@ -33,15 +33,15 @@ Open
 |------------------------------|-------------|-------------|-------------|--------------------------------------------------------|
 | `spot_connector` | string | | True | Enter a spot connector (Exchange/AMM) |
 | `spot_market` | string | | True | Enter the token trading pair you would like to trade on [spot_connector] |
-| `derivative_connector` | string | | True | Enter a derivative name (Exchange/AMM) |
-| `derivative_market` | string | | True | Enter the token trading pair you would like to trade on [derivative_connector] |
+| `perpetual_connector` | string | | True | Enter a derivative name (Exchange/AMM) |
+| `perpetual_market` | string | | True | Enter the token trading pair you would like to trade on [derivative_connector] |
 | `order_amount` | decimal | | True | What is the amount of [base_asset] per order? |
-| `derivative_leverage` | int | 1 | True | How much leverage would you like to use on the derivative exchange? |
-| `min_divergence` | decimal | 1 | True | What is the minimum spread between the spot and derivative market price before starting an arbitrage? |
-| `min_convergence` | decimal | 0.1 | True | What is the minimum spread between the spot and derivative market price before closing an existing arbitrage? |
+| `perpetual_leverage` | int | 1 | True | How much leverage would you like to use on the derivative exchange? |
+| `min_opening_arbitrage_pct` | decimal | 1 | True | What is the minimum spread between the spot and derivative market price before starting an arbitrage? |
+| `min_closing_arbitrage_pct` | decimal | 0.1 | True | What is the minimum spread between the spot and derivative market price before closing an existing arbitrage? |
 | `maximize_funding_rate` | bool | False | True | Would you like to take advantage of the funding rate on the derivative exchange, even if min convergence is reached during funding time? |
 | `spot_market_slippage_buffer` | decimal | 0.05 | True | How much buffer do you want to add to the price to account for slippage for orders on the spot market |
-| `derivative_market_slippage_buffer` | decimal | 0.05 | True | How much buffer do you want to add to the price to account for slippage for orders on the derivative market |
+| `perpetual_market_slippage_buffer` | decimal | 0.05 | True | How much buffer do you want to add to the price to account for slippage for orders on the derivative market |
 | `next_arbitrage_cycle_delay` | float | 120 | False | How long do you want the strategy to wait to cool off from an arbitrage cycle (in seconds) |
 
 ## 📓 Description
