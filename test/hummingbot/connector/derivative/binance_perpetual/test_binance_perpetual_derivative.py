@@ -1,5 +1,7 @@
 import asyncio
 import json
+from decimal import Decimal
+
 import pandas as pd
 import re
 import unittest
@@ -11,7 +13,9 @@ from aioresponses.core import aioresponses
 from typing import Any, Awaitable, List, Dict, Optional
 from unittest.mock import patch, AsyncMock
 
-from hummingbot.core.event.events import PositionMode
+from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.event.events import PositionMode, OrderType, TradeType, PositionAction, MarketEvent, \
+    OrderFilledEvent, BuyOrderCompletedEvent
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative import BinancePerpetualDerivative
 from test.hummingbot.connector.network_mocking_assistant import NetworkMockingAssistant
 
@@ -57,9 +61,24 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.test_task: Optional[asyncio.Task] = None
         self.resume_test_event = asyncio.Event()
 
+        self._initialize_event_loggers()
+
     def tearDown(self) -> None:
         self.test_task and self.test_task.cancel()
         super().tearDown()
+
+    def _initialize_event_loggers(self):
+        self.buy_order_completed_logger = EventLogger()
+        self.sell_order_completed_logger = EventLogger()
+        self.order_filled_logger = EventLogger()
+
+        events_and_loggers = [
+            (MarketEvent.BuyOrderCompleted, self.buy_order_completed_logger),
+            (MarketEvent.SellOrderCompleted, self.sell_order_completed_logger),
+            (MarketEvent.OrderFilled, self.order_filled_logger)]
+
+        for event, logger in events_and_loggers:
+            self.exchange.add_listener(event, logger)
 
     def handle(self, record):
         self.log_records.append(record)
@@ -124,12 +143,12 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         return account_update
 
     def _get_exchange_info_mock_response(
-        self,
-        margin_asset: str = "HBOT",
-        min_order_size: float = 1,
-        min_price_increment: float = 2,
-        min_base_amount_increment: float = 3,
-        min_notional_size: float = 4,
+            self,
+            margin_asset: str = "HBOT",
+            min_order_size: float = 1,
+            min_price_increment: float = 2,
+            min_base_amount_increment: float = 3,
+            min_notional_size: float = 4,
     ) -> Dict[str, Any]:
         mocked_exchange_info = {  # irrelevant fields removed
             "symbols": [
@@ -421,7 +440,8 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
             self.async_run_with_timeout(self.exchange._funding_info_polling_loop())
 
     @patch("aiohttp.ClientSession.ws_connect")
-    @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative.BinancePerpetualDerivative._sleep")
+    @patch(
+        "hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative.BinancePerpetualDerivative._sleep")
     def test_funding_info_polling_loop_log_exception(self, mock_sleep, ws_connect_mock):
         mock_sleep.side_effect = lambda: (
             # Allows _funding_info_polling_loop task to yield control over thread
@@ -471,3 +491,187 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         self.assertEqual(margin_asset, self.exchange.get_buy_collateral_token(self.trading_pair))
         self.assertEqual(margin_asset, self.exchange.get_sell_collateral_token(self.trading_pair))
+
+    def test_order_fill_event_takes_fee_from_update_event(self):
+        self.exchange.start_tracking_order(
+            order_id="OID1",
+            exchange_order_id="8886774",
+            trading_pair=self.trading_pair,
+            trading_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+            leverage=1,
+            position=PositionAction.OPEN.name,
+        )
+
+        order = self.exchange.in_flight_orders.get("OID1")
+
+        partial_fill = {
+            "e": "ORDER_TRADE_UPDATE",
+            "E": 1568879465651,
+            "T": 1568879465650,
+            "o": {
+                "s": self.trading_pair,
+                "c": order.client_order_id,
+                "S": "BUY",
+                "o": "TRAILING_STOP_MARKET",
+                "f": "GTC",
+                "q": "1",
+                "p": "10000",
+                "ap": "0",
+                "sp": "7103.04",
+                "x": "TRADE",
+                "X": "PARTIALLY_FILLED",
+                "i": 8886774,
+                "l": "0.1",
+                "z": "0.1",
+                "L": "10000",
+                "N": "USDT",
+                "n": "20",
+                "T": 1568879465651,
+                "t": 1,
+                "b": "0",
+                "a": "9.91",
+                "m": False,
+                "R": False,
+                "wt": "CONTRACT_PRICE",
+                "ot": "TRAILING_STOP_MARKET",
+                "ps": "LONG",
+                "cp": False,
+                "AP": "7476.89",
+                "cr": "5.0",
+                "rp": "0"
+            }
+
+        }
+
+        task = self.ev_loop.create_task(self.exchange._process_user_stream_event(event_message=partial_fill))
+        self.async_run_with_timeout(task)
+
+        self.assertEqual(partial_fill["o"]["N"], order.fee_asset)
+        self.assertEqual(Decimal(partial_fill["o"]["n"]), order.fee_paid)
+        self.assertEqual(1, len(self.order_filled_logger.event_log))
+        fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
+        self.assertEqual(Decimal(0), fill_event.trade_fee.percent)
+        self.assertEqual([(partial_fill["o"]["N"], Decimal(partial_fill["o"]["n"]))], fill_event.trade_fee.flat_fees)
+
+        complete_fill = {
+            "e": "ORDER_TRADE_UPDATE",
+            "E": 1568879465651,
+            "T": 1568879465650,
+            "o": {
+                "s": self.trading_pair,
+                "c": order.client_order_id,
+                "S": "BUY",
+                "o": "TRAILING_STOP_MARKET",
+                "f": "GTC",
+                "q": "1",
+                "p": "10000",
+                "ap": "0",
+                "sp": "7103.04",
+                "x": "TRADE",
+                "X": "FILLED",
+                "i": 8886774,
+                "l": "0.9",
+                "z": "1",
+                "L": "10000",
+                "N": "USDT",
+                "n": "30",
+                "T": 1568879465651,
+                "t": 2,
+                "b": "0",
+                "a": "9.91",
+                "m": False,
+                "R": False,
+                "wt": "CONTRACT_PRICE",
+                "ot": "TRAILING_STOP_MARKET",
+                "ps": "LONG",
+                "cp": False,
+                "AP": "7476.89",
+                "cr": "5.0",
+                "rp": "0"
+            }
+
+        }
+
+        task = self.ev_loop.create_task(self.exchange._process_user_stream_event(event_message=complete_fill))
+        self.async_run_with_timeout(task)
+
+        self.assertEqual(complete_fill["o"]["N"], order.fee_asset)
+        self.assertEqual(Decimal(50), order.fee_paid)
+
+        self.assertEqual(2, len(self.order_filled_logger.event_log))
+        fill_event: OrderFilledEvent = self.order_filled_logger.event_log[1]
+        self.assertEqual(Decimal(0), fill_event.trade_fee.percent)
+        self.assertEqual([(complete_fill["o"]["N"], Decimal(complete_fill["o"]["n"]))],
+                         fill_event.trade_fee.flat_fees)
+
+        self.assertEqual(1, len(self.buy_order_completed_logger.event_log))
+        buy_complete_event: BuyOrderCompletedEvent = self.buy_order_completed_logger.event_log[0]
+        self.assertEqual(Decimal(50), buy_complete_event.fee_amount)
+        self.assertEqual(partial_fill["o"]["N"], buy_complete_event.fee_asset)
+
+    def test_fee_is_cero_when_not_included_in_fill_event(self):
+        self.exchange.start_tracking_order(
+            order_id="OID1",
+            exchange_order_id="8886774",
+            trading_pair=self.trading_pair,
+            trading_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+            order_type=OrderType.LIMIT,
+            leverage=1,
+            position=PositionAction.OPEN.name,
+        )
+
+        order = self.exchange.in_flight_orders.get("OID1")
+
+        partial_fill = {
+            "e": "ORDER_TRADE_UPDATE",
+            "E": 1568879465651,
+            "T": 1568879465650,
+            "o": {
+                "s": self.trading_pair,
+                "c": order.client_order_id,
+                "S": "BUY",
+                "o": "TRAILING_STOP_MARKET",
+                "f": "GTC",
+                "q": "1",
+                "p": "10000",
+                "ap": "0",
+                "sp": "7103.04",
+                "x": "TRADE",
+                "X": "PARTIALLY_FILLED",
+                "i": 8886774,
+                "l": "0.1",
+                "z": "0.1",
+                "L": "10000",
+                # "N": "USDT", //Do not include fee asset
+                # "n": "20", //Do not include fee amount
+                "T": 1568879465651,
+                "t": 1,
+                "b": "0",
+                "a": "9.91",
+                "m": False,
+                "R": False,
+                "wt": "CONTRACT_PRICE",
+                "ot": "TRAILING_STOP_MARKET",
+                "ps": "LONG",
+                "cp": False,
+                "AP": "7476.89",
+                "cr": "5.0",
+                "rp": "0"
+            }
+
+        }
+
+        task = self.ev_loop.create_task(self.exchange._process_user_stream_event(event_message=partial_fill))
+        self.async_run_with_timeout(task)
+
+        self.assertIsNone(order.fee_asset)
+        self.assertEqual(Decimal(0), order.fee_paid)
+        self.assertEqual(1, len(self.order_filled_logger.event_log))
+        fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
+        self.assertEqual(Decimal(0), fill_event.trade_fee.percent)
+        self.assertEqual([], fill_event.trade_fee.flat_fees)
