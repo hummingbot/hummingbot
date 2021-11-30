@@ -17,7 +17,7 @@ type ConfigurationRoot = {
   [namespaceId: string]: ConfigurationNamespaceDefinition;
 };
 const NamespaceTag: string = '$namespace ';
-const ConfigRootSchemaPath: string = path.join(
+export const ConfigRootSchemaPath: string = path.join(
   __dirname,
   'schema/configuration-root-schema.json'
 );
