@@ -729,55 +729,56 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
         # The amount of stocks owned - q - has to be in relative units, not absolute, because changing the portfolio size shouldn't change the reserved price
         # The reserved price should concern itself only with the strategy performance, i.e. amount of stocks relative to the target
         q_target = Decimal(str(self.c_calculate_target_inventory()))
-        q = (market.get_balance(self.base_asset) - q_target) / (q_target)
-        # Volatility has to be in absolute values (prices) because in calculation of reserved price it's not multiplied by the current price, therefore
-        # it can't be a percentage. The result of the multiplication has to be an absolute price value because it's being subtracted from the current price
-        vol = self.get_volatility()
-        mid_price_variance = vol ** 2
+        if q_target != 0:
+            q = (market.get_balance(self.base_asset) - q_target) / (q_target)
+            # Volatility has to be in absolute values (prices) because in calculation of reserved price it's not multiplied by the current price, therefore
+            # it can't be a percentage. The result of the multiplication has to be an absolute price value because it's being subtracted from the current price
+            vol = self.get_volatility()
+            mid_price_variance = vol ** 2
 
-        # order book liquidity - kappa and alpha have to represent absolute values because the second member of the optimal spread equation has to be an absolute price
-        # and from the reserved price calculation we know that gamma's unit is not absolute price
-        if all((self._gamma, self._kappa)) and self._alpha != 0 and self._kappa > 0:
-            if self._time_left is not None and self._closing_time is not None:
-                # Avellaneda-Stoikov for a fixed timespan
-                time_left_fraction = Decimal(str(self._time_left / self._closing_time))
+            # order book liquidity - kappa and alpha have to represent absolute values because the second member of the optimal spread equation has to be an absolute price
+            # and from the reserved price calculation we know that gamma's unit is not absolute price
+            if all((self._gamma, self._kappa)) and self._alpha != 0 and self._kappa > 0:
+                if self._time_left is not None and self._closing_time is not None:
+                    # Avellaneda-Stoikov for a fixed timespan
+                    time_left_fraction = Decimal(str(self._time_left / self._closing_time))
 
-                self._reserved_price = price - (q * self._gamma * mid_price_variance * time_left_fraction)
+                    self._reserved_price = price - (q * self._gamma * mid_price_variance * time_left_fraction)
 
-                self._optimal_spread = self._gamma * mid_price_variance * time_left_fraction
-                self._optimal_spread += 2 * Decimal(1 + self._gamma / self._kappa).ln() / self._gamma
-            else:
-                # Avellaneda-Stoikov for an infinite timespan
-                q_max = 1
-                omega = Decimal(1 / 2) * (self._gamma ** 2) * (vol ** 2) * Decimal((q_max + 1) ** 2)
-                offset_ask = Decimal(1 / self._gamma) * Decimal(1 + ((1 - 2 * q) * (self._gamma ** 2) * (vol ** 2)) / (2 * omega - ((self._gamma ** 2) * (q ** 2) * (vol ** 2)))).ln()
-                offset_bid = Decimal(1 / self._gamma) * Decimal(1 + ((-1 - 2 * q) * (self._gamma ** 2) * (vol ** 2)) / (2 * omega - ((self._gamma ** 2) * (q ** 2) * (vol ** 2)))).ln()
-                reserved_price_ask = price + offset_ask
-                reserved_price_bid = price + offset_bid
-                self._reserved_price = (reserved_price_ask + reserved_price_bid) / 2
+                    self._optimal_spread = self._gamma * mid_price_variance * time_left_fraction
+                    self._optimal_spread += 2 * Decimal(1 + self._gamma / self._kappa).ln() / self._gamma
+                else:
+                    # Avellaneda-Stoikov for an infinite timespan
+                    q_max = 1
+                    omega = Decimal(1 / 2) * (self._gamma ** 2) * (vol ** 2) * Decimal((q_max + 1) ** 2)
+                    offset_ask = Decimal(1 / self._gamma) * Decimal(1 + ((1 - 2 * q) * (self._gamma ** 2) * (vol ** 2)) / (2 * omega - ((self._gamma ** 2) * (q ** 2) * (vol ** 2)))).ln()
+                    offset_bid = Decimal(1 / self._gamma) * Decimal(1 + ((-1 - 2 * q) * (self._gamma ** 2) * (vol ** 2)) / (2 * omega - ((self._gamma ** 2) * (q ** 2) * (vol ** 2)))).ln()
+                    reserved_price_ask = price + offset_ask
+                    reserved_price_bid = price + offset_bid
+                    self._reserved_price = (reserved_price_ask + reserved_price_bid) / 2
 
-                # Derived from the asymptotic expansion in q for finite timeframe
-                self._optimal_spread = -(offset_ask + offset_bid) / (2 * q)
-                self._optimal_spread += 2 * Decimal(1 + self._gamma / self._kappa).ln() / self._gamma
+                    # Derived from the asymptotic expansion in q for finite timeframe
+                    self._optimal_spread = -(offset_ask + offset_bid) / (2 * q)
+                    self._optimal_spread += 2 * Decimal(1 + self._gamma / self._kappa).ln() / self._gamma
 
-            min_spread = price / 100 * Decimal(str(self._min_spread))
+                min_spread = price / 100 * Decimal(str(self._min_spread))
 
-            max_limit_bid = price - min_spread / 2
-            min_limit_ask = price + min_spread / 2
+                max_limit_bid = price - min_spread / 2
+                min_limit_ask = price + min_spread / 2
 
-            self._optimal_ask = max(self._reserved_price + self._optimal_spread / 2, min_limit_ask)
-            self._optimal_bid = min(self._reserved_price - self._optimal_spread / 2, max_limit_bid)
+                self._optimal_ask = max(self._reserved_price + self._optimal_spread / 2, min_limit_ask)
+                self._optimal_bid = min(self._reserved_price - self._optimal_spread / 2, max_limit_bid)
 
-            # This is not what the algorithm will use as proposed bid and ask. This is just the raw output.
-            # Optimal bid and optimal ask prices will be used
-            if self._is_debug:
-                self.logger().info(f"q={q:.4f} | "
-                                   f"vol={vol:.10f}")
-                self.logger().info(f"mid_price={price:.10f} | "
-                                   f"reserved_price={self._reserved_price:.10f} | "
-                                   f"optimal_spread={self._optimal_spread:.10f}")
-                self.logger().info(f"optimal_bid={(price-(self._reserved_price - self._optimal_spread / 2)) / price * 100:.4f}% | "
-                                   f"optimal_ask={((self._reserved_price + self._optimal_spread / 2) - price) / price * 100:.4f}%")
+                # This is not what the algorithm will use as proposed bid and ask. This is just the raw output.
+                # Optimal bid and optimal ask prices will be used
+                if self._is_debug:
+                    self.logger().info(f"q={q:.4f} | "
+                                       f"vol={vol:.10f}")
+                    self.logger().info(f"mid_price={price:.10f} | "
+                                       f"reserved_price={self._reserved_price:.10f} | "
+                                       f"optimal_spread={self._optimal_spread:.10f}")
+                    self.logger().info(f"optimal_bid={(price-(self._reserved_price - self._optimal_spread / 2)) / price * 100:.4f}% | "
+                                       f"optimal_ask={((self._reserved_price + self._optimal_spread / 2) - price) / price * 100:.4f}%")
 
     def calculate_reserved_price_and_optimal_spread(self):
         return self.c_calculate_reserved_price_and_optimal_spread()
