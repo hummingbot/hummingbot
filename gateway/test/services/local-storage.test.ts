@@ -8,7 +8,9 @@ describe('Test local-storage', () => {
     const testAddress = 'testaddress';
     const testValue = 541;
 
-    const db = new LocalStorage('/tmp/local-storage.test.level');
+    const dbPath = '/tmp/local-storage.test.level';
+
+    const db = new LocalStorage(dbPath);
 
     // clean up any previous db runs
     await db.deleteNonce(testChain, testChainId, testAddress);
@@ -21,5 +23,7 @@ describe('Test local-storage', () => {
     expect(results).toEqual({
       [testAddress]: testValue,
     });
+
+    expect(db.dbPath).toEqual(dbPath);
   });
 });
