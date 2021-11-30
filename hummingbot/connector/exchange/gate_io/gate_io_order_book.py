@@ -1,20 +1,14 @@
 #!/usr/bin/env python
 
 import logging
+from typing import Any, Dict, List, Optional
 
-from sqlalchemy.engine import RowProxy
-from typing import (
-    Optional,
-    Dict,
-    List, Any)
-from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_message import (
-    OrderBookMessage, OrderBookMessageType
-)
-
-from hummingbot.connector.exchange.gate_io.gate_io_order_book_message import GateIoOrderBookMessage
 from hummingbot.connector.exchange.gate_io import gate_io_constants as CONSTANTS
+from hummingbot.connector.exchange.gate_io.gate_io_order_book_message import GateIoOrderBookMessage
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+from hummingbot.logger import HummingbotLogger
+from sqlalchemy.engine import RowProxy
 
 _logger = None
 
@@ -38,9 +32,9 @@ class GateIoOrderBook(OrderBook):
         :param timestamp: timestamp attached to incoming data
         :return: GateIoOrderBookMessage
         """
-
-        if metadata:
-            msg.update(metadata)
+        extra_data = metadata or {}
+        extra_data["update_id"] = msg["id"]
+        msg.update(extra_data)
 
         return GateIoOrderBookMessage(
             message_type=OrderBookMessageType.SNAPSHOT,
@@ -74,8 +68,9 @@ class GateIoOrderBook(OrderBook):
         :return: GateIoOrderBookMessage
         """
 
-        if metadata:
-            msg.update(metadata)
+        extra_data = metadata or {}
+        extra_data["update_id"] = msg["u"]
+        msg.update(extra_data)
 
         return GateIoOrderBookMessage(
             message_type=OrderBookMessageType.DIFF,

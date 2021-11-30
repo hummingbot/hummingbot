@@ -30,7 +30,7 @@ from hummingbot.client.settings import (
     CONF_FILE_PATH,
     CONF_POSTFIX,
     CONF_PREFIX,
-    CONNECTOR_SETTINGS
+    AllConnectorSettings,
 )
 from hummingbot.client.config.security import Security
 from hummingbot import get_strategy_list
@@ -172,7 +172,7 @@ def _merge_dicts(*args: Dict[str, ConfigVar]) -> OrderedDict:
 
 
 def get_connector_class(connector_name: str) -> Callable:
-    conn_setting = CONNECTOR_SETTINGS[connector_name]
+    conn_setting = AllConnectorSettings.get_connector_settings()[connector_name]
     mod = __import__(conn_setting.module_path(),
                      fromlist=[conn_setting.class_name()])
     return getattr(mod, conn_setting.class_name())
@@ -241,9 +241,12 @@ async def update_strategy_config_map_from_file(yml_path: str) -> str:
 
 async def load_yml_into_cm(yml_path: str, template_file_path: str, cm: Dict[str, ConfigVar]):
     try:
-        with open(yml_path) as stream:
-            data = yaml_parser.load(stream) or {}
-            conf_version = data.get("template_version", 0)
+        data = {}
+        conf_version = -1
+        if isfile(yml_path):
+            with open(yml_path) as stream:
+                data = yaml_parser.load(stream) or {}
+                conf_version = data.get("template_version", 0)
 
         with open(template_file_path, "r") as template_fd:
             template_data = yaml_parser.load(template_fd)
@@ -263,7 +266,7 @@ async def load_yml_into_cm(yml_path: str, template_file_path: str, cm: Dict[str,
                 cvar.value = Security.decrypted_value(key)
                 continue
 
-            val_in_file = data.get(key)
+            val_in_file = data.get(key, None)
             if (val_in_file is None or val_in_file == "") and cvar.default is not None:
                 cvar.value = cvar.default
                 continue

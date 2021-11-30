@@ -1,41 +1,41 @@
-import aiohttp
 import asyncio
 import copy
 import logging
 import math
-import pandas as pd
 import time
+from decimal import Decimal
+from typing import Any, AsyncIterable, Dict, List, Optional
+
+import aiohttp
+import pandas as pd
 import ujson
 
-import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils as bybit_utils
 import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_constants as CONSTANTS
-
-from decimal import Decimal
-from typing import (
-    Any,
-    AsyncIterable,
-    Dict,
-    List,
-    Optional,
-)
-
-from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_auth import BybitPerpetualAuth
+import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_utils as bybit_utils
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_api_order_book_data_source import \
     BybitPerpetualAPIOrderBookDataSource as OrderBookDataSource
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_auth import BybitPerpetualAuth
 from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_in_flight_order import BybitPerpetualInFlightOrder
-from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_order_book_tracker import \
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_order_book_tracker import (
     BybitPerpetualOrderBookTracker
-from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_user_stream_tracker import \
+)
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_user_stream_tracker import (
     BybitPerpetualUserStreamTracker
-from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_websocket_adaptor import BybitPerpetualWebSocketAdaptor
+)
+from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_websocket_adaptor import (
+    BybitPerpetualWebSocketAdaptor
+)
+from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
 from hummingbot.connector.derivative.position import Position
-from hummingbot.connector.exchange_base import CancellationResult, ExchangeBase
+from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.connector.utils import combine_to_hb_trading_pair
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
@@ -51,7 +51,7 @@ from hummingbot.core.event.events import (
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
     TradeFee,
-    TradeType,
+    TradeType
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
@@ -108,6 +108,7 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             trading_pairs=trading_pairs,
             domain=domain)
         self._user_stream_tracker = BybitPerpetualUserStreamTracker(self._auth, domain=domain)
+        self._budget_checker = PerpetualBudgetChecker(self)
 
         # Set Position Mode depending on the Perpetual Market
         if not self._domain:
@@ -176,6 +177,10 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             for client_oid, order in self._in_flight_orders.items()
             if not order.is_done
         }
+
+    @property
+    def budget_checker(self) -> PerpetualBudgetChecker:
+        return self._budget_checker
 
     def restore_tracking_states(self, saved_states: Dict[str, Any]):
         """
@@ -684,13 +689,17 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
         trading_rules = {}
         for instrument in instrument_info:
             try:
-                trading_pair = f"{instrument['base_currency']}-{instrument['quote_currency']}"
+                trading_pair = combine_to_hb_trading_pair(instrument['base_currency'], instrument['quote_currency'])
+                is_linear = bybit_utils.is_linear_perpetual(trading_pair)
+                collateral_token = instrument["quote_currency"] if is_linear else instrument["base_currency"]
                 trading_rules[trading_pair] = TradingRule(
                     trading_pair=trading_pair,
                     min_order_size=Decimal(str(instrument["lot_size_filter"]["min_trading_qty"])),
                     max_order_size=Decimal(str(instrument["lot_size_filter"]["max_trading_qty"])),
                     min_price_increment=Decimal(str(instrument["price_filter"]["tick_size"])),
                     min_base_amount_increment=Decimal(str(instrument["lot_size_filter"]["qty_step"])),
+                    buy_order_collateral_token=collateral_token,
+                    sell_order_collateral_token=collateral_token,
                 )
             except Exception:
                 self.logger().error(f"Error parsing the trading pair rule: {instrument}. Skipping...",
@@ -1202,6 +1211,14 @@ class BybitPerpetualDerivative(ExchangeBase, PerpetualTrading):
             self.logger().error(f"Funding Info for {trading_pair} not found. Proceeding to fetch using REST API.")
             safe_ensure_future(self._order_book_tracker.data_source.get_funding_info(trading_pair))
             return None
+
+    def get_buy_collateral_token(self, trading_pair: str) -> str:
+        trading_rule: TradingRule = self._trading_rules[trading_pair]
+        return trading_rule.buy_order_collateral_token
+
+    def get_sell_collateral_token(self, trading_pair: str) -> str:
+        trading_rule: TradingRule = self._trading_rules[trading_pair]
+        return trading_rule.sell_order_collateral_token
 
     def _get_throttler_instance(self) -> AsyncThrottler:
         if self._trading_pairs is not None:

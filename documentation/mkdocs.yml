@@ -172,7 +172,6 @@ nav:
       - CoinZoom: exchanges/coinzoom.md
       - Crypto.com : exchanges/crypto-com.md
       - Digifinex: exchanges/digifinex.md
-      - dYdX: exchanges/dydx.md
       - dYdX Perpetual: exchanges/dydx-perpetual.md
       - FTX: exchanges/ftx.md
       - Gate.io: exchanges/gate-io.md
@@ -183,6 +182,7 @@ nav:
       - Kraken: exchanges/kraken.md
       - Liquid: exchanges/liquid.md
       - Loopring: exchanges/loopring.md
+      - MEXC: exchanges/mexc.md 
       - NDAX: exchanges/ndax.md
       - OKEx: exchanges/okex.md
       - Perpetual Protocol: exchanges/perp-fi.md
@@ -190,6 +190,7 @@ nav:
       - ProBit Korea: exchanges/probit-korea.md
       - Uniswap: exchanges/uniswap.md
       - Uniswap V3: exchanges/uniswap-v3.md
+      - WazirX: exchanges/wazirx.md
     - Protocol Connectors:
       - Protocol Connectors: protocols/index.md
       - Gateway: protocols/gateway.md
@@ -203,7 +204,7 @@ nav:
       - External Database: global-configs/external-db.md
       - Kill Switch: global-configs/kill-switch.md
       - Override Fees: global-configs/override-fees.md
-      - Paper Trading Mode: global-configs/paper-trade.md
+      - Paper Trade: global-configs/paper-trade.md
       - Rate Limits Share Pct: global-configs/rate-limits-share-pct.md
       - Telegram Integration: global-configs/telegram.md
       - Strategy Autostart: global-configs/strategy-autostart.md
@@ -259,6 +260,7 @@ nav:
     - FAQ: about/faq.md
   - Release Notes:
     - Release Notes: release-notes/index.md
+    - 0.46.0: release-notes/0.46.0.md
     - 0.45.0: release-notes/0.45.0.md
     - 0.44.0: release-notes/0.44.0.md
     - 0.43.1: release-notes/0.43.1.md
