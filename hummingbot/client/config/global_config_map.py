@@ -158,7 +158,7 @@ main_config_map = {
                   prompt="What is your preferred ethereum chain name (MAIN_NET, KOVAN)? >>> ",
                   type_str="str",
                   required_if=lambda: False,
-                  validator=lambda s: None if s in {"MAIN_NET", "KOVAN"} else "Invalid chain name.",
+                  validator=lambda s: None if s in {"MAIN_NET", "KOVAN", "BSC"} else "Invalid chain name.",
                   default="MAIN_NET"),
     "ethereum_token_list_url":
         ConfigVar(key="ethereum_token_list_url",
@@ -166,6 +166,35 @@ main_config_map = {
                   type_str="str",
                   required_if=lambda: global_config_map["ethereum_wallet"].value is not None,
                   default="https://defi.cmc.eth.link/"),
+
+    # "bsc_wallet":
+    #     ConfigVar(key="bsc_wallet",
+    #               prompt="Enter your wallet private key >>> ",
+    #               type_str="str",
+    #               required_if=lambda: False,
+    #               is_connect_key=True),
+    # "bsc_rpc_url":
+    #     ConfigVar(key="bsc_rpc_url",
+    #               prompt="Which bsc node would you like your client to connect to? >>> ",
+    #               required_if=lambda: global_config_map["bsc_wallet"].value is not None),
+    # "bsc_rpc_ws_url":
+    #     ConfigVar(key="bsc_rpc_ws_url",
+    #               prompt="Enter the Websocket Address of your bsc Node >>> ",
+    #               required_if=lambda: global_config_map["bsc_rpc_url"].value is not None),
+    # "bsc_chain_name":
+    #     ConfigVar(key="bsc_chain_name",
+    #               prompt="What is your preferred bsc chain name (BSC))? >>> ",
+    #               type_str="str",
+    #               required_if=lambda: False,
+    #               validator=lambda s: None if s in {"BSC"} else "Invalid chain name.",
+    #               default="BSC"),
+    "bsc_token_list_url":
+        ConfigVar(key="bsc_token_list_url",
+                  prompt="Specify token list url of a list available on https://tokenlists.org/ >>> ",
+                  type_str="str",
+                  required_if=lambda: global_config_map["bsc_wallet"].value is not None,
+                  default="https://dex.binance.org/api/v1/tokens"),
+
     # Whether or not to invoke cancel_all on exit if marketing making on a open order book DEX (e.g. Radar Relay)
     "on_chain_cancel_on_exit":
         ConfigVar(key="on_chain_cancel_on_exit",
