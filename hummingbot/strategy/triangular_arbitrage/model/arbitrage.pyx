@@ -10,7 +10,11 @@ cdef str trade_direction_to_str(TradeDirection direction):
 
 cdef class Node():
     def __init__(self, asset: str):
-        self.asset = asset
+        self._asset = asset
+
+    @property
+    def asset(self):
+        return self._asset
 
     def __str__(self):
         return f"{self.asset}"
@@ -75,9 +79,9 @@ cdef class TriangularArbitrage():
                  right_edge: Edge = None,
                  direction: TradeDirection = TradeDirection.CClockwise
                  ):
-        self.top = top
-        self.left = left
-        self.right = right
+        self._top = top
+        self._left = left
+        self._right = right
         self._left_edge = left_edge
         self._cross_edge = cross_edge
         self._right_edge = right_edge
@@ -100,6 +104,18 @@ cdef class TriangularArbitrage():
     @property
     def left_edge(self):
         return self._left_edge
+
+    @property
+    def top(self):
+        return self._top
+
+    @property
+    def left(self):
+        return self._left
+
+    @property
+    def right(self):
+        return self._right
 
     def __str__(self):
         return "".join([f"trade direction: {trade_direction_to_str(self.direction)} ",

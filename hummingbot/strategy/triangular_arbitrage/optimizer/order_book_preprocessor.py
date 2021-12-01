@@ -77,14 +77,14 @@ class OrderBookPreprocessor():
         if arb_triangle.right_edge.market_id == arb_triangle.cross_edge.market_id and first_target == second_origin:
             proceeds_1 = self.compute_proceeds_of_buy if first_is_buy else self.compute_proceeds_of_sell
         else:
-            def proceeds_1():
-                return lambda x, y: Decimal('0')
+            def proceeds_1(x, y):
+                return Decimal('0')
 
         if arb_triangle.cross_edge.market_id == arb_triangle.left_edge.market_id and second_target == third_origin:
             proceeds_2 = self.compute_proceeds_of_buy if second_is_buy else self.compute_proceeds_of_sell
         else:
-            def proceeds_2():
-                return lambda x, y: Decimal('0')
+            def proceeds_2(x, y):
+                return Decimal('0')
 
         return PreprocessSequence(f, g, h, proceeds_1, proceeds_2)
 
@@ -125,14 +125,14 @@ class OrderBookPreprocessor():
         if arb_triangle.left_edge.market_id == arb_triangle.cross_edge.market_id and first_target == second_origin:
             proceeds_1 = self.compute_proceeds_of_buy if first_is_buy else self.compute_proceeds_of_sell
         else:
-            def proceeds_1():
-                return lambda x, y: Decimal('0')
+            def proceeds_1(x, y):
+                return Decimal('0')
 
         if arb_triangle.cross_edge.market_id == arb_triangle.right_edge.market_id and second_target == third_origin:
             proceeds_2 = self.compute_proceeds_of_buy if second_is_buy else self.compute_proceeds_of_sell
         else:
-            def proceeds_2():
-                return lambda x, y: Decimal('0')
+            def proceeds_2(x, y):
+                return Decimal('0')
 
         return PreprocessSequence(f, g, h, proceeds_1, proceeds_2)
 

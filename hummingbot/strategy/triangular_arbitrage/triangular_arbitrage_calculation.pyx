@@ -88,6 +88,18 @@ cdef class TriangularArbitrageCalculator():
         self._preprocessor: OrderBookPreprocessor = preprocessor
         self._fees = fee_override
 
+    @property
+    def min_profitability(self):
+        return self._min_profitability
+
+    @property
+    def ccw_arb(self):
+        return self._ccw_arb
+
+    @property
+    def cw_arb(self):
+        return self._cw_arb
+
     cdef object c_check_profit(self, TriangularArbitrage arb, list market_pairs):
         start_val = self._TEST_TARGET_CURRENCY_AMOUNT
         final_val = s_decimal_0

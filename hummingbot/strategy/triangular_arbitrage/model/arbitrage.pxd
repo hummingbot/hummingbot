@@ -14,7 +14,7 @@ cdef str trade_direction_to_str(TradeDirection direction)
 
 cdef class Node():
     cdef:
-        str asset
+        str _asset
 
 
 cdef class Edge():
@@ -29,9 +29,9 @@ cdef class Edge():
 
 cdef class TriangularArbitrage():
     cdef:
-        Node top
-        Node left
-        Node right
+        Node _top
+        Node _left
+        Node _right
         Edge _left_edge
         Edge _cross_edge
         Edge _right_edge

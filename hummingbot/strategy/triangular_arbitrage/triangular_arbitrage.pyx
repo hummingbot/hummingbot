@@ -101,6 +101,10 @@ cdef class TriangularArbitrageStrategy(StrategyBase):
     def tracked_market_orders_data_frame(self) -> List[pd.DataFrame]:
         return self._sb_order_tracker.tracked_market_orders_data_frame
 
+    @property
+    def triangular_arbitrage_module(self):
+        return self._triangular_arbitrage_module
+
     cdef c_tick(self, double timestamp):
         """
         Clock tick entry point.
