@@ -14,14 +14,11 @@ ENV BUILD_DATE=${DATE}
 # app directory
 WORKDIR /usr/src/app
 
-# install dependancies
-COPY package*.json ./
-# COPY yarn.lock ./
-
-RUN yarn
-
 # copy pwd file to container
 COPY . .
+
+# install dependencies
+RUN yarn
 
 EXPOSE 5000
 
