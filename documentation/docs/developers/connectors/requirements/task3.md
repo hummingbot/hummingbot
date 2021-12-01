@@ -109,6 +109,7 @@ This function is responsible for executing the API request to place the order on
 - Verifies that the order satisfies exchange trading rules.
 - Quantize the order amount to ensure that the precision is as required by the exchange.
 - Create a `params` dictionary with the necessary parameters for the desired order.
+- For `Derivative` connectors, it is important to consider the necessary parameters required to create a `PositionAction.CLOSE` order. For an example, see [BybitPerpetualDerivative._create_order](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/derivative/bybit_perpetual/bybit_perpetual_derivative.py#L435-L439).
 - Pass the `params` to an `Auth` object to generate the request signature.
 - Begin tracking the order by calling [`start_tracking_order(...)`](#start_tracking_order).
 - Places the order by calling the [`_api_request()`](#async-_api_request) method with the relevant order parameters.
