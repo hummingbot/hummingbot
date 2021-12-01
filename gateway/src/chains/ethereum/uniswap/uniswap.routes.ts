@@ -21,8 +21,8 @@ import {
 
 export namespace UniswapRoutes {
   export const router = Router();
-  export const uniswap = Uniswap.getInstance();
   export const ethereum = Ethereum.getInstance();
+  export const uniswap = Uniswap.getInstance();
 
   router.use(
     asyncHandler(verifyEthereumIsAvailable),
@@ -32,7 +32,7 @@ export namespace UniswapRoutes {
   router.get('/', async (_req: Request, res: Response) => {
     res.status(200).json({
       network: ConfigManager.config.ETHEREUM_CHAIN,
-      uniswap_router: uniswap.uniswapRouter,
+      uniswap_router: uniswap.router,
       connection: true,
       timestamp: Date.now(),
     });
@@ -46,7 +46,7 @@ export namespace UniswapRoutes {
         res: Response<UniswapPriceResponse, any>
       ) => {
         validateUniswapPriceRequest(req.body);
-        res.status(200).json(await price(req.body));
+        res.status(200).json(await price(ethereum, uniswap, req.body));
       }
     )
   );
@@ -59,7 +59,7 @@ export namespace UniswapRoutes {
         res: Response<UniswapTradeResponse | UniswapTradeErrorResponse, any>
       ) => {
         validateUniswapTradeRequest(req.body);
-        res.status(200).json(await trade(req.body));
+        res.status(200).json(await trade(ethereum, uniswap, req.body));
       }
     )
   );
