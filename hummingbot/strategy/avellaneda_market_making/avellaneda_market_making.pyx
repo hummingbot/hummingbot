@@ -631,7 +631,11 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 self.c_cancel_active_orders_on_max_age_limit()
                 self.c_cancel_active_orders(proposal)
 
-                self._execution_state.process_tick(timestamp, self)
+                is_processed = self._execution_state.process_tick(timestamp, self)
+
+                # Finalize time left if no trading is allowed anymore
+                if not is_processed:
+                    self._time_left = 0
             else:
                 # Only if snapshots are different - for trading intensity - a market order happened
                 if self.c_is_algorithm_changed():
