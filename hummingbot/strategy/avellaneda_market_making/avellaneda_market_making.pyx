@@ -558,10 +558,9 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                           f"    order_book_depth_factor(\u03BA)= {self._kappa:.5E}",
                           f"    volatility= {volatility_pct:.3f}%"])
             if self._time_left is not None:
-                if self._execution_timeframe == "infinite":
-                    lines.extend([f"    time until end of trading cycle= N/A"])
-                else:
-                    lines.extend([f"    time until end of trading cycle= {str(datetime.timedelta(seconds=float(self._time_left)//1e3))}"])
+                lines.extend([f"    time until end of trading cycle = {str(datetime.timedelta(seconds=float(self._time_left)//1e3))}"])
+            else:
+                lines.extend([f"    time until end of trading cycle = N/A"])
 
         warning_lines.extend(self.balance_warning([self._market_info]))
 
@@ -633,12 +632,8 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                 self._hanging_orders_tracker.process_tick()
                 self.c_cancel_active_orders_on_max_age_limit()
                 self.c_cancel_active_orders(proposal)
+                self._execution_state.process_tick(timestamp, self)
 
-                is_processed = self._execution_state.process_tick(timestamp, self)
-
-                # Finalize time left if no trading is allowed anymore
-                if not is_processed:
-                    self._time_left = 0
             else:
                 # Only if snapshots are different - for trading intensity - a market order happened
                 if self.c_is_algorithm_changed():
