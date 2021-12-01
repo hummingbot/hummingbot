@@ -501,69 +501,69 @@ class BinancePerpetualDerivative(ExchangeBase, PerpetualTrading):
             # If the order has not already been cancelled
             if client_order_id in self._in_flight_orders:
                 tracked_order = self._in_flight_orders.get(client_order_id)
-                tracked_order.update_with_execution_report(event_message)
+                updated = tracked_order.update_with_execution_report(event_message)
+                if updated:
+                    # Execution Type: Trade => Filled
+                    trade_type = TradeType.BUY if order_message.get("S") == "BUY" else TradeType.SELL
+                    if order_message.get("X") in ["PARTIALLY_FILLED", "FILLED"]:
+                        flat_fees = ([(tracked_order.fee_asset, Decimal(order_message.get("n", "0")))]
+                                     if tracked_order.fee_asset
+                                     else [])
+                        order_filled_event = OrderFilledEvent(
+                            timestamp=event_message.get("E") * 1e-3,
+                            order_id=client_order_id,
+                            trading_pair=utils.convert_from_exchange_trading_pair(order_message.get("s")),
+                            trade_type=trade_type,
+                            order_type=OrderType.LIMIT if order_message.get("o") == "LIMIT" else OrderType.MARKET,
+                            price=Decimal(order_message.get("L")),
+                            amount=Decimal(order_message.get("l")),
+                            leverage=self._leverage[utils.convert_from_exchange_trading_pair(order_message.get("s"))],
+                            trade_fee=TradeFee(0.0, flat_fees),
+                            exchange_trade_id=order_message.get("t"),
+                            position=tracked_order.position
+                        )
+                        self.trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
 
-                # Execution Type: Trade => Filled
-                trade_type = TradeType.BUY if order_message.get("S") == "BUY" else TradeType.SELL
-                if order_message.get("X") in ["PARTIALLY_FILLED", "FILLED"]:
-                    flat_fees = ([(tracked_order.fee_asset, Decimal(order_message.get("n", "0")))]
-                                 if tracked_order.fee_asset
-                                 else [])
-                    order_filled_event = OrderFilledEvent(
-                        timestamp=event_message.get("E") * 1e-3,
-                        order_id=client_order_id,
-                        trading_pair=utils.convert_from_exchange_trading_pair(order_message.get("s")),
-                        trade_type=trade_type,
-                        order_type=OrderType.LIMIT if order_message.get("o") == "LIMIT" else OrderType.MARKET,
-                        price=Decimal(order_message.get("L")),
-                        amount=Decimal(order_message.get("l")),
-                        leverage=self._leverage[utils.convert_from_exchange_trading_pair(order_message.get("s"))],
-                        trade_fee=TradeFee(0.0, flat_fees),
-                        exchange_trade_id=order_message.get("t"),
-                        position=tracked_order.position
-                    )
-                    self.trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
-
-                if tracked_order.is_done:
-                    if not tracked_order.is_failure:
-                        event_tag = None
-                        event_class = None
-                        if trade_type is TradeType.BUY:
-                            event_tag = self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG
-                            event_class = BuyOrderCompletedEvent
-                        else:
-                            event_tag = self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG
-                            event_class = SellOrderCompletedEvent
-                        self.logger().info(
-                            f"The {tracked_order.order_type.name.lower()} {trade_type} order {client_order_id} has completed "
-                            f"according to websocket delta.")
-                        self.trigger_event(event_tag,
-                                           event_class(self.current_timestamp,
-                                                       client_order_id,
-                                                       tracked_order.base_asset,
-                                                       tracked_order.quote_asset,
-                                                       (tracked_order.fee_asset or tracked_order.quote_asset),
-                                                       tracked_order.executed_amount_base,
-                                                       tracked_order.executed_amount_quote,
-                                                       tracked_order.fee_paid,
-                                                       tracked_order.order_type))
-                    else:
-                        if tracked_order.is_cancelled:
-                            if tracked_order.client_order_id in self._in_flight_orders:
-                                self.logger().info(
-                                    f"Successfully cancelled order {tracked_order.client_order_id} according to websocket delta.")
-                                self.trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
-                                                   OrderCancelledEvent(self.current_timestamp,
-                                                                       tracked_order.client_order_id))
+                    if tracked_order.is_done:
+                        if not tracked_order.is_failure:
+                            event_tag = None
+                            event_class = None
+                            if trade_type is TradeType.BUY:
+                                event_tag = self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG
+                                event_class = BuyOrderCompletedEvent
                             else:
-                                self.logger().info(
-                                    f"The {tracked_order.order_type.name.lower()} order {tracked_order.client_order_id} has failed "
-                                    f"according to websocket delta.")
-                                self.trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
-                                                   MarketOrderFailureEvent(self.current_timestamp,
-                                                                           tracked_order.client_order_id,
-                                                                           tracked_order.order_type))
-                    self.stop_tracking_order(tracked_order.client_order_id)
+                                event_tag = self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG
+                                event_class = SellOrderCompletedEvent
+                            self.logger().info(
+                                f"The {tracked_order.order_type.name.lower()} {trade_type} order {client_order_id} has completed "
+                                f"according to websocket delta.")
+                            self.trigger_event(event_tag,
+                                               event_class(self.current_timestamp,
+                                                           client_order_id,
+                                                           tracked_order.base_asset,
+                                                           tracked_order.quote_asset,
+                                                           (tracked_order.fee_asset or tracked_order.quote_asset),
+                                                           tracked_order.executed_amount_base,
+                                                           tracked_order.executed_amount_quote,
+                                                           tracked_order.fee_paid,
+                                                           tracked_order.order_type))
+                        else:
+                            if tracked_order.is_cancelled:
+                                if tracked_order.client_order_id in self._in_flight_orders:
+                                    self.logger().info(
+                                        f"Successfully cancelled order {tracked_order.client_order_id} according to websocket delta.")
+                                    self.trigger_event(self.MARKET_ORDER_CANCELLED_EVENT_TAG,
+                                                       OrderCancelledEvent(self.current_timestamp,
+                                                                           tracked_order.client_order_id))
+                                else:
+                                    self.logger().info(
+                                        f"The {tracked_order.order_type.name.lower()} order {tracked_order.client_order_id} has failed "
+                                        f"according to websocket delta.")
+                                    self.trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
+                                                       MarketOrderFailureEvent(self.current_timestamp,
+                                                                               tracked_order.client_order_id,
+                                                                               tracked_order.order_type))
+                        self.stop_tracking_order(tracked_order.client_order_id)
         elif event_type == "ACCOUNT_UPDATE":
             update_data = event_message.get("a", {})
             # update balances

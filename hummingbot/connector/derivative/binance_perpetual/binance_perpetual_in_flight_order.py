@@ -73,7 +73,7 @@ class BinancePerpetualsInFlightOrder(InFlightOrderBase):
         if execution_type == "TRADE":
             trade_id = order_report.get("t")
             if trade_id in self.trade_id_set:
-                return
+                return False
             self.trade_id_set.add(trade_id)
             last_executed_quantity = Decimal(order_report.get("l"))
             last_commission_amount = Decimal(order_report.get("n", "0"))
@@ -87,6 +87,7 @@ class BinancePerpetualsInFlightOrder(InFlightOrderBase):
                 self.fee_asset = last_commission_asset
             self.fee_paid += last_commission_amount
             self.last_state = last_order_state
+            return True
 
     def update_with_trade_updates(self, trade_update: Dict[str, Any]):
         trade_id = trade_update.get("id")
