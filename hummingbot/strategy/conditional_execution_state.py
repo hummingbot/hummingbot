@@ -62,23 +62,29 @@ class RunInTimeConditionalExecutionState(ConditionalExecutionState):
             if self._end_timestamp is not None:
                 if self._start_timestamp.timestamp() <= timestamp < self._end_timestamp.timestamp():
                     strategy.process_tick(timestamp)
+                    return True
                 else:
                     strategy.logger().debug("Time span execution: tick will not be processed "
                                             f"(executing between {self._start_timestamp.isoformat(sep=' ')} "
                                             f"and {self._end_timestamp.isoformat(sep=' ')})")
+                    return False
             else:
                 if self._start_timestamp.timestamp() <= timestamp:
                     strategy.process_tick(timestamp)
+                    return True
                 else:
                     strategy.logger().debug("Delayed start execution: tick will not be processed "
                                             f"(executing from {self._start_timestamp.isoformat(sep=' ')})")
+                    return False
         if isinstance(self._start_timestamp, time):
             # Daily between times
             if self._end_timestamp is not None:
                 current_time = datetime.fromtimestamp(timestamp).time()
                 if self._start_timestamp <= current_time < self._end_timestamp:
                     strategy.process_tick(timestamp)
+                    return True
                 else:
                     strategy.logger().debug("Time span execution: tick will not be processed "
                                             f"(executing between {self._start_timestamp} "
                                             f"and {self._end_timestamp})")
+                    return False
