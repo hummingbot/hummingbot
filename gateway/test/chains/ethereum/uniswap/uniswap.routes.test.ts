@@ -74,6 +74,18 @@ const patchGetTokenBySymbol = () => {
   });
 };
 
+const patchGetTokenByAddress = () => {
+  patch(UniswapRoutes.uniswap, 'getTokenByAddress', () => {
+    return {
+      chainId: 42,
+      name: 'WETH',
+      symbol: 'WETH',
+      address: '0xd0A1E359811322d97991E03f863a0C30C2cF029C',
+      decimals: 18,
+    };
+  });
+};
+
 const patchGasPrice = () => {
   patch(UniswapRoutes.ethereum, 'gasPrice', () => 100);
 };
@@ -133,6 +145,7 @@ describe('POST /eth/uniswap/price', () => {
     patchInit();
     patchStoredTokenList();
     patchGetTokenBySymbol();
+    patchGetTokenByAddress();
     patchGasPrice();
     patchPriceSwapOut();
     patchConfig();
@@ -159,6 +172,7 @@ describe('POST /eth/uniswap/price', () => {
     patchInit();
     patchStoredTokenList();
     patchGetTokenBySymbol();
+    patchGetTokenByAddress();
     patchGasPrice();
     patchPriceSwapIn();
     patchConfig();
@@ -203,6 +217,7 @@ describe('POST /eth/uniswap/price', () => {
     patchInit();
     patchStoredTokenList();
     patchGetTokenBySymbol();
+    patchGetTokenByAddress();
 
     await request(app)
       .post(`/eth/uniswap/price`)
@@ -215,6 +230,88 @@ describe('POST /eth/uniswap/price', () => {
       .set('Accept', 'application/json')
       .expect(500);
   });
+
+  it('should return 500 for unrecognized base symbol with decimals in the amount and SELL', async () => {
+    patchGetWallet();
+    patchInit();
+    patchStoredTokenList();
+    patchGetTokenBySymbol();
+    patchGetTokenByAddress();
+
+    await request(app)
+      .post(`/eth/uniswap/price`)
+      .send({
+        quote: 'DAI',
+        base: 'SHIBA',
+        amount: '10.000',
+        side: 'SELL',
+      })
+      .set('Accept', 'application/json')
+      .expect(500);
+  });
+
+  it('should return 500 for unrecognized base symbol with decimals in the amount and BUY', async () => {
+    patchGetWallet();
+    patchInit();
+    patchStoredTokenList();
+    patchGetTokenBySymbol();
+    patchGetTokenByAddress();
+
+    await request(app)
+      .post(`/eth/uniswap/price`)
+      .send({
+        quote: 'DAI',
+        base: 'SHIBA',
+        amount: '10.000',
+        side: 'BUY',
+      })
+      .set('Accept', 'application/json')
+      .expect(500);
+  });
+
+  it('should return 500 when the priceSwapIn operation fails', async () => {
+    patchGetWallet();
+    patchInit();
+    patchStoredTokenList();
+    patchGetTokenBySymbol();
+    patchGetTokenByAddress();
+    patch(UniswapRoutes.uniswap, 'priceSwapIn', () => {
+      return 'error';
+    });
+
+    await request(app)
+      .post(`/eth/uniswap/price`)
+      .send({
+        quote: 'DOGE',
+        base: 'WETH',
+        amount: '10000',
+        side: 'SELL',
+      })
+      .set('Accept', 'application/json')
+      .expect(500);
+  });
+
+  it('should return 500 when the priceSwapOut operation fails', async () => {
+    patchGetWallet();
+    patchInit();
+    patchStoredTokenList();
+    patchGetTokenBySymbol();
+    patchGetTokenByAddress();
+    patch(UniswapRoutes.uniswap, 'priceSwapOut', () => {
+      return 'error';
+    });
+
+    await request(app)
+      .post(`/eth/uniswap/price`)
+      .send({
+        quote: 'DOGE',
+        base: 'WETH',
+        amount: '10000',
+        side: 'BUY',
+      })
+      .set('Accept', 'application/json')
+      .expect(500);
+  });
 });
 
 describe('POST /eth/uniswap/trade', () => {
@@ -223,6 +320,7 @@ describe('POST /eth/uniswap/trade', () => {
     patchInit();
     patchStoredTokenList();
     patchGetTokenBySymbol();
+    patchGetTokenByAddress();
     patchGasPrice();
     patchPriceSwapOut();
     patchConfig();
@@ -289,6 +387,7 @@ describe('POST /eth/uniswap/trade', () => {
     patchInit();
     patchStoredTokenList();
     patchGetTokenBySymbol();
+    patchGetTokenByAddress();
     patchGasPrice();
     patchPriceSwapIn();
     patchConfig();
@@ -419,5 +518,58 @@ describe('POST /eth/uniswap/trade', () => {
       })
       .set('Accept', 'application/json')
       .expect(404);
+  });
+  it('should return 500 when the priceSwapIn operation fails', async () => {
+    patchGetWallet();
+    patchInit();
+    patchStoredTokenList();
+    patchGetTokenBySymbol();
+    patchGetTokenByAddress();
+    patch(UniswapRoutes.uniswap, 'priceSwapIn', () => {
+      return 'error';
+    });
+
+    await request(app)
+      .post(`/eth/uniswap/trade`)
+      .send({
+        quote: 'DAI',
+        base: 'WETH',
+        amount: '10000',
+        privateKey:
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        side: 'SELL',
+        nonce: 21,
+        maxFeePerGas: '5000000000',
+        maxPriorityFeePerGas: '5000000000',
+      })
+      .set('Accept', 'application/json')
+      .expect(500);
+  });
+
+  it('should return 500 when the priceSwapOut operation fails', async () => {
+    patchGetWallet();
+    patchInit();
+    patchStoredTokenList();
+    patchGetTokenBySymbol();
+    patchGetTokenByAddress();
+    patch(UniswapRoutes.uniswap, 'priceSwapOut', () => {
+      return 'error';
+    });
+
+    await request(app)
+      .post(`/eth/uniswap/trade`)
+      .send({
+        quote: 'DAI',
+        base: 'WETH',
+        amount: '10000',
+        privateKey:
+          'da857cbda0ba96757fed842617a40693d06d00001e55aa972955039ae747bac4',
+        side: 'BUY',
+        nonce: 21,
+        maxFeePerGas: '5000000000',
+        maxPriorityFeePerGas: '5000000000',
+      })
+      .set('Accept', 'application/json')
+      .expect(500);
   });
 });

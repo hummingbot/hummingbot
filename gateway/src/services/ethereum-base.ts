@@ -147,8 +147,8 @@ export class EthereumBase {
     return new Wallet(privateKey, this._provider);
   }
 
-  // returns the ETH balance, convert BigNumber to string
-  async getEthBalance(wallet: Wallet): Promise<TokenValue> {
+  // returns the Native balance, convert BigNumber to string
+  async getNativeBalance(wallet: Wallet): Promise<TokenValue> {
     const balance = await wallet.getBalance();
     return { value: balance, decimals: 18 };
   }
