@@ -558,7 +558,10 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
                           f"    order_book_depth_factor(\u03BA)= {self._kappa:.5E}",
                           f"    volatility= {volatility_pct:.3f}%"])
             if self._time_left is not None:
-                lines.extend([f"    time until end of trading cycle= {str(datetime.timedelta(seconds=float(self._time_left)//1e3))}"])
+                if self._execution_timeframe == "infinite":
+                    lines.extend([f"    time until end of trading cycle= N/A"])
+                else:
+                    lines.extend([f"    time until end of trading cycle= {str(datetime.timedelta(seconds=float(self._time_left)//1e3))}"])
 
         warning_lines.extend(self.balance_warning([self._market_info]))
 
