@@ -1,6 +1,6 @@
 import unittest
-from decimal import Decimal
 from hummingbot.strategy.triangular_arbitrage.order_tracking.order_state import OrderState
+
 
 class TriangularArbitrageOrderStateTest(unittest.TestCase):
     def setUp(self) -> None:
@@ -13,4 +13,3 @@ class TriangularArbitrageOrderStateTest(unittest.TestCase):
         reverse_complete = OrderState.REVERSE_COMPLETE
         self.assertTrue(reverse_complete > OrderState.REVERSE_ACTIVE)
         self.assertTrue(reverse_complete < OrderState.REVERSE_FAILED)
-
