@@ -229,7 +229,7 @@ Below are some examples of such functions:
 !!! note
     The `convert_from/to_exchange_trading_pair()` functions are only required if the exchange does not provide trading pairs in `Base-Quote` format.
 
-For exmaples, you can refer to [Ndax](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/exchange/ndax/ndax_utils.py) or [Crypto.com](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/exchange/crypto_com/crypto_com_utils.py).
+For examples, you can refer to [Ndax](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/exchange/ndax/ndax_utils.py) or [Crypto.com](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/exchange/crypto_com/crypto_com_utils.py).
 
 ## Exchange Constants
 
@@ -244,7 +244,7 @@ Below are some examples of such variables
 | `WS_PRIVATE_CHANNELS` | `List[str]` | List of all the WebSocket channels that an exchange provides. |
 | `ORDER_STATUSES`      | `List[str]` | List of all the order statuses as defined by the exchange.    |
 
-For exmaples, you can refer to [Ndax](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/exchange/ndax/ndax_constants.py) or [Crypto.com](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/exchange/crypto_com/crypto_com_constants.py).
+For examples, you can refer to [Ndax](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/exchange/ndax/ndax_constants.py) or [Crypto.com](https://github.com/CoinAlpha/hummingbot/blob/master/hummingbot/connector/exchange/crypto_com/crypto_com_constants.py).
 
 ## Debugging & Testing
 
