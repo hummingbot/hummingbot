@@ -21,11 +21,11 @@ describe('Test local-storage', () => {
     });
 
     // returns with an address as key, the chain/id is known by the parameters you provide
-    expect(results).toEqual({
+    expect(results).toStrictEqual({
       [testKey]: testValue,
     });
 
-    expect(db.dbPath).toEqual(dbPath);
+    expect(db.dbPath).toStrictEqual(dbPath);
 
     // delete the recentley added key/value pair
     await db.del(testKey);
@@ -35,6 +35,6 @@ describe('Test local-storage', () => {
     });
 
     // the key has been deleted, expect an empty object
-    expect(results2).toEqual({});
+    expect(results2).toStrictEqual({});
   });
 });
