@@ -16,27 +16,28 @@ describe('Test local-storage', () => {
 
     // clean up any previous db runs
     await db.deleteTx(testChain1, testChain1Id, testChain1Tx1);
+    await db.deleteTx(testChain1, testChain1Id, testChain1Tx2);
 
     // saves a key with a value
-    const testTimestamp1 = new Date().getTime();
-    await db.saveTx(testChain1, testChain1Id, testChain1Tx1, testTimestamp1);
+    const testTime1 = new Date();
+    await db.saveTx(testChain1, testChain1Id, testChain1Tx1, testTime1);
 
     const results = await db.getTxs(testChain1, testChain1Id);
 
     // returns with an address as key, the chain/id is known by the parameters you provide
     expect(results).toStrictEqual({
-      [testChain1Tx1]: testTimestamp1,
+      [testChain1Tx1]: testTime1,
     });
 
     // store and retrieve a second value for the same chain/chainId
-    const testTimestamp2 = new Date().getTime();
-    await db.saveTx(testChain1, testChain1Id, testChain1Tx2, testTimestamp2);
+    const testTime2 = new Date();
+    await db.saveTx(testChain1, testChain1Id, testChain1Tx2, testTime2);
     const results2 = await db.getTxs(testChain1, testChain1Id);
 
     // returns with an address as key, the chain/id is known by the parameters you provide
     expect(results2).toStrictEqual({
-      [testChain1Tx1]: testTimestamp1,
-      [testChain1Tx2]: testTimestamp2,
+      [testChain1Tx1]: testTime1,
+      [testChain1Tx2]: testTime2,
     });
 
     // store and retrieve a third value for the a different chain/chainId
@@ -44,11 +45,18 @@ describe('Test local-storage', () => {
     const testChain2Id = 10;
     const testChain2Tx1 =
       '0xadaef9c4540192e45c991ffe6f12cc86be9c07b80b43487fffffffffffffffff';
-    const testTimestamp3 = new Date().getTime();
-    await db.saveTx(testChain2, testChain2Id, testChain2Tx1, testTimestamp3);
+    const testTime3 = new Date();
+
+    // cleanup from previous test runs
+    await db.deleteTx(testChain2, testChain2Id, testChain2Tx1);
+
+    // store data
+    await db.saveTx(testChain2, testChain2Id, testChain2Tx1, testTime3);
+
+    // retrieve and test
     const results3 = await db.getTxs(testChain2, testChain2Id);
     expect(results3).toStrictEqual({
-      [testChain2Tx1]: testTimestamp3,
+      [testChain2Tx1]: testTime3,
     });
 
     // test db path is as exected place

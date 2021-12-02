@@ -1,13 +1,17 @@
 import { LocalStorage } from '../../services/local-storage';
 
+// store the timestamp for when a transaction was initiated
+// this will be used to calculate a heuristic of the likelihood
+// a mempool transaction will be included in a future block
 export class EthTxStorage extends LocalStorage {
+  // pass in a date, then store it as a POSIX timestamp
   public async saveTx(
     chain: string,
     chainId: number,
     tx: string,
-    timestamp: number
+    date: Date
   ): Promise<void> {
-    return this.save(chain + '/' + String(chainId) + '/' + tx, timestamp);
+    return this.save(chain + '/' + String(chainId) + '/' + tx, date.getTime());
   }
 
   public async deleteTx(
@@ -18,10 +22,11 @@ export class EthTxStorage extends LocalStorage {
     return this.del(chain + '/' + String(chainId) + '/' + tx);
   }
 
+  // retrieve POSIX timestamps and convert them back into JavaScript Date types
   public async getTxs(
     chain: string,
     chainId: number
-  ): Promise<Record<string, number>> {
+  ): Promise<Record<string, Date>> {
     return this.get((key: string, value: any) => {
       const splitKey = key.split('/');
       if (
@@ -29,13 +34,9 @@ export class EthTxStorage extends LocalStorage {
         splitKey[0] === chain &&
         splitKey[1] === String(chainId)
       ) {
-        return [splitKey[2], parseInt(value)];
+        return [splitKey[2], new Date(parseInt(value))];
       }
       return;
     });
   }
 }
-
-// get posix
-// 0xadaef9c4540192e45c991ffe6f12cc86be9c07b80b43487e5778d95c964405c7
-// new Date().getTime()
