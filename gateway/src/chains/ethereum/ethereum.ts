@@ -8,7 +8,6 @@ import { EthereumConfig } from './ethereum.config';
 import { Provider } from '@ethersproject/abstract-provider';
 import { UniswapConfig } from './uniswap/uniswap.config';
 import { Ethereumish } from '../../services/ethereumish.interface';
-import { EvmTxStorage } from '../../services/evm.tx-storage';
 
 // MKR does not match the ERC20 perfectly so we need to use a separate ABI.
 const MKR_ADDRESS = '0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2';
@@ -22,7 +21,6 @@ export class Ethereum extends EthereumBase implements Ethereumish {
   private _chain: string;
   private _requestCount: number;
   private _metricsLogInterval: number;
-  private _txStorage: EvmTxStorage;
 
   private constructor() {
     let config;
@@ -61,8 +59,6 @@ export class Ethereum extends EthereumBase implements Ethereumish {
 
     this.onDebugMessage(this.requestCounter.bind(this));
     setInterval(this.metricLogger.bind(this), this.metricsLogInterval);
-
-    this._txStorage = new EvmTxStorage('ethereum-txs.level');
   }
 
   public static getInstance(): Ethereum {
@@ -115,10 +111,6 @@ export class Ethereum extends EthereumBase implements Ethereumish {
 
   public get metricsLogInterval(): number {
     return this._metricsLogInterval;
-  }
-
-  public get txStorage(): EvmTxStorage {
-    return this._txStorage;
   }
 
   // If ConfigManager.config.ETH_GAS_STATION_ENABLE is true this will

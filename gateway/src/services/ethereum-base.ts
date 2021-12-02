@@ -12,6 +12,7 @@ import fs from 'fs/promises';
 import { TokenListType, TokenValue } from './base';
 import { EVMNonceManager } from './evm.nonce';
 import NodeCache from 'node-cache';
+import { EvmTxStorage } from './evm.tx-storage';
 
 // information about an Ethereum token
 export interface Token {
@@ -43,6 +44,7 @@ export class EthereumBase {
   public tokenListType: TokenListType;
   public cache: NodeCache;
   private _nonceManager: EVMNonceManager;
+  private _txStorage: EvmTxStorage;
 
   constructor(
     chainName: string,
@@ -62,6 +64,7 @@ export class EthereumBase {
     this._nonceManager = new EVMNonceManager(chainName, chainId, 60);
     this._nonceManager.init(this.provider);
     this.cache = new NodeCache({ stdTTL: 3600 }); // set default cache ttl to 1hr
+    this._txStorage = new EvmTxStorage('transactions.level');
   }
 
   ready(): boolean {
@@ -128,6 +131,10 @@ export class EthereumBase {
 
   public get nonceManager() {
     return this._nonceManager;
+  }
+
+  public get txStorage(): EvmTxStorage {
+    return this._txStorage;
   }
 
   // ethereum token lists are large. instead of reloading each time with
