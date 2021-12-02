@@ -48,7 +48,8 @@ from hummingbot.core.event.events import (
     PositionSide,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
-    TradeType, TradeFee
+    TradeFee,
+    TradeType,
 )
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
