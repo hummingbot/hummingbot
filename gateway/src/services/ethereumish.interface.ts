@@ -1,5 +1,6 @@
 import { Contract, Transaction, Wallet } from 'ethers';
 import { EthereumBase } from './ethereum-base';
+import { EvmTxStorage } from './evm.tx-storage';
 import { Provider } from '@ethersproject/abstract-provider';
 
 export interface Ethereumish extends EthereumBase {
@@ -12,4 +13,5 @@ export interface Ethereumish extends EthereumBase {
   gasPrice: number;
   nativeTokenSymbol: string;
   chain: string;
+  txStorage: EvmTxStorage;
 }
