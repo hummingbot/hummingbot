@@ -7,11 +7,14 @@ import { AvalancheConfig } from './avalanche.config';
 import { Provider } from '@ethersproject/abstract-provider';
 import { PangolinConfig } from './pangolin/pangolin.config';
 import { Ethereumish } from '../../services/ethereumish.interface';
+import { EvmTxStorage } from '../../services/evm.tx-storage';
+
 export class Avalanche extends EthereumBase implements Ethereumish {
   private static _instance: Avalanche;
   private _gasPrice: number;
   private _nativeTokenSymbol: string;
   private _chain: string;
+  private _txStorage: EvmTxStorage;
 
   private constructor() {
     let config;
@@ -37,6 +40,7 @@ export class Avalanche extends EthereumBase implements Ethereumish {
     this._chain = ConfigManager.config.AVALANCHE_CHAIN;
     this._nativeTokenSymbol = 'AVAX';
     this._gasPrice = ConfigManager.config.AVAX_MANUAL_GAS_PRICE;
+    this._txStorage = new EvmTxStorage('transactions.level');
   }
 
   public static getInstance(): Avalanche {
@@ -61,6 +65,9 @@ export class Avalanche extends EthereumBase implements Ethereumish {
     return this._chain;
   }
 
+  public get txStorage(): EvmTxStorage {
+    return this._txStorage;
+  }
   // public get gasPriceLastDated(): Date | null {
   //   return this._gasPriceLastUpdated;
   // }
