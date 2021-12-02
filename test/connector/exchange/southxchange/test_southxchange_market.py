@@ -50,7 +50,7 @@ from hummingbot.model.sql_connection_manager import (
 from hummingbot.model.trade_fill import TradeFill
 from hummingbot.core.mock_api.mock_web_server import MockWebServer
 from unittest import mock
-from test.connector.exchange.southxchange.mock_web_socket_server import MockWebSocketServerFactory
+from test.connector.exchange.southxchange.mock_server_web_socket import MockWebSocketServerFactory
 from test.connector.exchange.southxchange.fixture_southxchange import Fixturesouthxchange
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map
 logging.basicConfig(level=METRICS_LOG_LEVEL)
