@@ -1,9 +1,9 @@
-import { LocalStorage } from '../../services/local-storage';
+import { LocalStorage } from './local-storage';
 
 // store the timestamp for when a transaction was initiated
 // this will be used to calculate a heuristic of the likelihood
 // a mempool transaction will be included in a future block
-export class EthTxStorage extends LocalStorage {
+export class EvmTxStorage extends LocalStorage {
   // pass in a date, then store it as a POSIX timestamp
   public async saveTx(
     chain: string,
