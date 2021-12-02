@@ -183,7 +183,8 @@ export async function trade(
         ethereumish.chain,
         ethereumish.chainId,
         tx.hash,
-        new Date()
+        new Date(),
+        ethereumish.gasPrice
       );
     }
 
