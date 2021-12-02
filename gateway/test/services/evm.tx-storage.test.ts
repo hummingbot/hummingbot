@@ -1,4 +1,4 @@
-import { EthTxStorage } from '../../../src/chains/ethereum/ethereum.tx-storage';
+import { EvmTxStorage } from '../../src/services/evm.tx-storage';
 import 'jest-extended';
 
 describe('Test local-storage', () => {
@@ -12,7 +12,7 @@ describe('Test local-storage', () => {
 
     const dbPath = '/tmp/ethereum.tx-storage.test.level';
 
-    const db = new EthTxStorage(dbPath);
+    const db = new EvmTxStorage(dbPath);
 
     // clean up any previous db runs
     await db.deleteTx(testChain1, testChain1Id, testChain1Tx1);
