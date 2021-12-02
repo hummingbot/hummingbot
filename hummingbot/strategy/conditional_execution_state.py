@@ -83,10 +83,10 @@ class RunInTimeConditionalExecutionState(ConditionalExecutionState):
             # From datetime to datetime
             if self._end_timestamp is not None:
 
-                self._closing_time = (self._end_time.timestamp() - self._start_time.timestamp()) * 1000
+                self._closing_time = (self._end_timestamp.timestamp() - self._end_timestamp.timestamp()) * 1000
 
                 if self._start_timestamp.timestamp() <= timestamp < self._end_timestamp.timestamp():
-                    self._time_left = max((self._end_time.timestamp() - timestamp) * 1000, 0)
+                    self._time_left = max((self._end_timestamp.timestamp() - timestamp) * 1000, 0)
                     strategy.process_tick(timestamp)
                 else:
                     self._time_left = 0
