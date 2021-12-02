@@ -293,6 +293,28 @@ const toEthereumTransactionResponse = (
   return null;
 };
 
+//     tx_duration: seconds elapsed since tx was sent
+//     tx_duration_limit: when it's likely tx is unconfirmed
+//     tx_gas_price: gas price sent in tx
+//     current_gas_price: current gas price at the selected EthGastStation gas level
+//     current_gas_price_mutliplier: amount to increase the gas price as a percentage of current_gas_price
+
+// If tx_duration > tx_duration_limit AND current_gas_price > tx_gas_price, assume the transaction will not be included. set txStatus = -1. The client can resend transaction with tx_gas_price == current_gas_price * current_gas_price_mutliplier.
+
+// export function calculateMempoolFuture(txDuration)
+
+// local storage
+// chain, chain id, txHash,
+// {hash, timestamp, gasPrice}
+// txHash
+
+// txStatus
+// -1 the transaction does not exist or it failed
+// 0 the transaction is in the mempool
+// 1 the transaction was succesful
+// txFuture
+// 0 already resolved (either failed or successful)
+//
 export async function poll(
   ethereumish: Ethereumish,
   req: EthereumPollRequest
@@ -312,7 +334,7 @@ export async function poll(
       // tx is in the mempool
       txBlock = -1;
       txReceipt = null;
-      txStatus = -1;
+      txStatus = 0;
     } else {
       // tx has been processed
       txBlock = txReceipt.blockNumber;

@@ -2,28 +2,39 @@ import { LocalStorage } from '../../src/services/local-storage';
 import 'jest-extended';
 
 describe('Test local-storage', () => {
-  it('store with saveNonce and retrieve with getChainNonces', async () => {
-    const testChain = 'testchain';
-    const testChainId = 123;
-    const testAddress = 'testaddress';
-    const testValue = 541;
+  it('save, get and delete a key value pair in the local db', async () => {
+    const testKey = 'abc';
+    const testValue = 123;
 
     const dbPath = '/tmp/local-storage.test.level';
 
     const db = new LocalStorage(dbPath);
 
     // clean up any previous db runs
-    await db.deleteNonce(testChain, testChainId, testAddress);
+    await db.del(testKey);
 
-    // saves with a combination of chain/id/address
-    await db.saveNonce(testChain, testChainId, testAddress, testValue);
+    // saves a key with a value
+    await db.save(testKey, testValue);
 
-    const results = await db.getChainNonces(testChain, testChainId);
+    const results: Record<string, any> = await db.get((k: string, v: any) => {
+      return [k, parseInt(v)];
+    });
+
     // returns with an address as key, the chain/id is known by the parameters you provide
     expect(results).toEqual({
-      [testAddress]: testValue,
+      [testKey]: testValue,
     });
 
     expect(db.dbPath).toEqual(dbPath);
+
+    // delete the recentley added key/value pair
+    await db.del(testKey);
+
+    const results2: Record<string, any> = await db.get((k: string, v: any) => {
+      return [k, parseInt(v)];
+    });
+
+    // the key has been deleted, expect an empty object
+    expect(results2).toEqual({});
   });
 });

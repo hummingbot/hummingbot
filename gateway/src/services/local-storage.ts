@@ -14,50 +14,34 @@ export class LocalStorage {
     return this.#dbPath;
   }
 
-  async saveNonce(
-    chain: string,
-    chainId: number,
-    address: string,
-    nonce: number
-  ): Promise<void> {
-    return this.#db.put(chain + '/' + String(chainId) + '/' + address, nonce);
+  public async save(key: string, value: any): Promise<void> {
+    return this.#db.put(key, value);
   }
 
-  async deleteNonce(
-    chain: string,
-    chainId: number,
-    address: string
-  ): Promise<void> {
-    return this.#db.del(chain + '/' + String(chainId) + '/' + address);
+  public async del(key: string): Promise<void> {
+    return this.#db.del(key);
   }
 
-  async getChainNonces(
-    chain: string,
-    chainId: number
-  ): Promise<Record<string, number>> {
+  public async get(
+    readFunc: (key: string, string: any) => [string, any] | undefined
+  ): Promise<Record<string, any>> {
     const stream = this.#db.createReadStream();
-    const result = await new Promise<Record<string, number>>(
-      (resolve, reject) => {
-        const results: Record<string, number> = {};
-        stream
-          .on('data', ({ key, value }) => {
-            const splitKey = key.split('/');
-            if (
-              splitKey.length === 3 &&
-              splitKey[0] === chain &&
-              splitKey[1] === String(chainId)
-            ) {
-              results[splitKey[2]] = parseInt(value);
-            }
-          })
-          .on('error', (err) => {
-            reject(err);
-          })
-          .on('end', () => {
-            resolve(results);
-          });
-      }
-    );
+    const result = await new Promise<Record<string, any>>((resolve, reject) => {
+      const results: Record<string, any> = {};
+      stream
+        .on('data', ({ key, value }) => {
+          const data = readFunc(key, value);
+          if (data) {
+            results[data[0]] = data[1];
+          }
+        })
+        .on('error', (err) => {
+          reject(err);
+        })
+        .on('end', () => {
+          resolve(results);
+        });
+    });
 
     return result;
   }
