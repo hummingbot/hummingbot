@@ -1,4 +1,5 @@
 import asyncio
+import functools
 import json
 from decimal import Decimal
 
@@ -10,7 +11,7 @@ import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
 import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_utils as utils
 
 from aioresponses.core import aioresponses
-from typing import Any, Awaitable, List, Dict, Optional
+from typing import Any, Awaitable, List, Dict, Optional, Callable
 from unittest.mock import patch, AsyncMock
 
 from hummingbot.core.event.event_logger import EventLogger
@@ -95,6 +96,12 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
+
+    def _return_calculation_and_set_done_event(self, calculation: Callable, *args, **kwargs):
+        if self.resume_test_event.is_set():
+            raise asyncio.CancelledError
+        self.resume_test_event.set()
+        return calculation(*args, **kwargs)
 
     def _get_position_risk_api_endpoint_single_position_list(self) -> List[Dict[str, Any]]:
         positions = [
@@ -548,8 +555,14 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         }
 
-        task = self.ev_loop.create_task(self.exchange._process_user_stream_event(event_message=partial_fill))
-        self.async_run_with_timeout(task)
+        mock_user_stream = AsyncMock()
+        mock_user_stream.get.side_effect = functools.partial(self._return_calculation_and_set_done_event,
+                                                             lambda: partial_fill)
+
+        self.exchange._user_stream_tracker._user_stream = mock_user_stream
+
+        self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
+        self.async_run_with_timeout(self.resume_test_event.wait())
 
         self.assertEqual(partial_fill["o"]["N"], order.fee_asset)
         self.assertEqual(Decimal(partial_fill["o"]["n"]), order.fee_paid)
@@ -597,8 +610,12 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         }
 
-        task = self.ev_loop.create_task(self.exchange._process_user_stream_event(event_message=complete_fill))
-        self.async_run_with_timeout(task)
+        self.resume_test_event = asyncio.Event()
+        mock_user_stream.get.side_effect = functools.partial(self._return_calculation_and_set_done_event,
+                                                             lambda: complete_fill)
+
+        self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
+        self.async_run_with_timeout(self.resume_test_event.wait())
 
         self.assertEqual(complete_fill["o"]["N"], order.fee_asset)
         self.assertEqual(Decimal(50), order.fee_paid)
@@ -668,8 +685,14 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         }
 
-        task = self.ev_loop.create_task(self.exchange._process_user_stream_event(event_message=partial_fill))
-        self.async_run_with_timeout(task)
+        mock_user_stream = AsyncMock()
+        mock_user_stream.get.side_effect = functools.partial(self._return_calculation_and_set_done_event,
+                                                             lambda: partial_fill)
+
+        self.exchange._user_stream_tracker._user_stream = mock_user_stream
+
+        self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
+        self.async_run_with_timeout(self.resume_test_event.wait())
 
         self.assertEqual(partial_fill["o"]["N"], order.fee_asset)
         self.assertEqual(Decimal(partial_fill["o"]["n"]), order.fee_paid)
@@ -717,8 +740,12 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         }
 
-        task = self.ev_loop.create_task(self.exchange._process_user_stream_event(event_message=complete_fill))
-        self.async_run_with_timeout(task)
+        self.resume_test_event = asyncio.Event()
+        mock_user_stream.get.side_effect = functools.partial(self._return_calculation_and_set_done_event,
+                                                             lambda: complete_fill)
+
+        self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
+        self.async_run_with_timeout(self.resume_test_event.wait())
 
         self.assertEqual(complete_fill["o"]["N"], order.fee_asset)
         self.assertEqual(Decimal(50), order.fee_paid)
@@ -788,8 +815,14 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         }
 
-        task = self.ev_loop.create_task(self.exchange._process_user_stream_event(event_message=partial_fill))
-        self.async_run_with_timeout(task)
+        mock_user_stream = AsyncMock()
+        mock_user_stream.get.side_effect = functools.partial(self._return_calculation_and_set_done_event,
+                                                             lambda: partial_fill)
+
+        self.exchange._user_stream_tracker._user_stream = mock_user_stream
+
+        self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
+        self.async_run_with_timeout(self.resume_test_event.wait())
 
         self.assertEqual(partial_fill["o"]["N"], order.fee_asset)
         self.assertEqual(Decimal(partial_fill["o"]["n"]), order.fee_paid)
@@ -837,8 +870,12 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         }
 
-        task = self.ev_loop.create_task(self.exchange._process_user_stream_event(event_message=complete_fill))
-        self.async_run_with_timeout(task)
+        self.resume_test_event = asyncio.Event()
+        mock_user_stream.get.side_effect = functools.partial(self._return_calculation_and_set_done_event,
+                                                             lambda: complete_fill)
+
+        self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
+        self.async_run_with_timeout(self.resume_test_event.wait())
 
         self.assertEqual(partial_fill["o"]["N"], order.fee_asset)
         self.assertEqual(Decimal(partial_fill["o"]["n"]), order.fee_paid)
@@ -964,8 +1001,14 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         }
 
-        task = self.ev_loop.create_task(self.exchange._process_user_stream_event(event_message=partial_fill))
-        self.async_run_with_timeout(task)
+        mock_user_stream = AsyncMock()
+        mock_user_stream.get.side_effect = functools.partial(self._return_calculation_and_set_done_event,
+                                                             lambda: partial_fill)
+
+        self.exchange._user_stream_tracker._user_stream = mock_user_stream
+
+        self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
+        self.async_run_with_timeout(self.resume_test_event.wait())
 
         self.assertEqual(1, len(self.order_cancelled_logger.event_log))
         self.assertTrue(self._is_logged(
